@@ -373,3 +373,15 @@ clean: ## Remove build caches, generated binaries, and temp files
 	rm -rf .turbo apps/*/.turbo packages/*/.turbo
 	rm -rf apps/*/*.tsbuildinfo packages/*/*.tsbuildinfo
 	@echo "✓ Clean complete."
+
+# ---------- Fork: local desktop build ----------
+##@ Desktop
+
+.PHONY: desktop-app
+desktop-app: ## Build the macOS desktop app from this checkout (unsigned, no publish) and install it in /Applications
+	pnpm install --frozen-lockfile
+	CSC_IDENTITY_AUTO_DISCOVERY=false pnpm -C apps/desktop package -- --mac --publish never
+	@osascript -e 'quit app "Multica"' 2>/dev/null || true
+	rm -rf /Applications/Multica.app
+	ditto apps/desktop/dist/mac-$(shell uname -m)/Multica.app /Applications/Multica.app
+	@echo "✓ Installed /Applications/Multica.app"
