@@ -36,7 +36,7 @@ else
   if ! git merge --no-ff --no-commit "$tag"; then
     git rev-parse -q --verify MERGE_HEAD > /dev/null || exit 1
   fi
-  git rm -r -q --ignore-unmatch -- "${FORK_REMOVED_PATHS[@]}"
+  git rm -r -q -f --ignore-unmatch -- "${FORK_REMOVED_PATHS[@]}"
   conflicts="$(git diff --name-only --diff-filter=U)"
   if [ -n "$conflicts" ]; then
     echo "Merge conflicts:" >&2
