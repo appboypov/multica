@@ -2,6 +2,16 @@
 
 Multica is a task management platform where people and agents collaborate on issues. These instructions apply to all coding agents working in this repository.
 
+## Fork
+
+This checkout is `appboypov/multica`, a fork of `multica-ai/multica` that is developed for own use and released only on this Mac. Where the rest of this file differs, these rules apply.
+
+- `origin` is the fork and takes every commit and push. `upstream` is `multica-ai/multica` and is fetch-only.
+- `make upstream-sync` merges `upstream/main` into `main`, then runs the install, typecheck, unit tests and Go build. When it stops on a merge conflict or a failing step, fix the cause, keep the fork's own changes, commit, and run it again until it passes.
+- `make local-release` is the release: it builds the CLI into `server/bin` (linked from `~/.local/bin/multica`), builds and starts the self-hosted stack from this checkout, and installs the unsigned desktop app in `/Applications`. Version tags, GitHub releases, `.github/RELEASING.md`, GoReleaser and Vercel belong to upstream.
+- GitHub Actions is disabled on the fork. Every check and build runs locally.
+- The main checkout's `.env` runs the local production stack (backend on 8080, web on 3000). Development, `make up` and `make check` run in a worktree with its own `.env.worktree`, so they use their own database and ports.
+
 ## Scope and Reading Order
 
 - Before changing `apps/mobile/`, also read [apps/mobile/AGENTS.md](apps/mobile/AGENTS.md), even if your tool does not load nested instructions automatically. Platform-specific sections below apply only to the named platform.
