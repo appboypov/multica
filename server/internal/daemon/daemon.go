@@ -5014,7 +5014,7 @@ func (d *Daemon) handleUpdate(ctx context.Context, runtimeID string, update *Pen
 		d.logger.Info("refusing CLI self-update: daemon is managed by Desktop", "runtime_id", runtimeID, "update_id", update.ID)
 		d.reportUpdateResult(ctx, runtimeID, update.ID, map[string]any{
 			"status": "failed",
-			"error":  "CLI is managed by Multica Desktop — update the Desktop app to upgrade the CLI",
+			"error":  cli.LocalReleaseUpdateMessage,
 		})
 		return
 	}
@@ -5123,27 +5123,13 @@ func (d *Daemon) tryBeginServerUpdate(ctx context.Context) serverUpdateAcquireRe
 	}
 }
 
-// runUpdate executes the brew-or-download upgrade against targetVersion and
-// returns the human-readable output (always populated, even on failure when
-// brew gives us a useful diagnostic). The caller is responsible for the
-// `updating` CAS guard and for reporting status back to the server / triggering
-// the restart — extracted so the server-triggered path (handleUpdate) and the
-// auto-update poller (autoUpdateLoop) share the exact same execution body.
-func (d *Daemon) runUpdate(targetVersion string) (string, error) {
-	if cli.IsBrewInstall() {
-		d.logger.Info("updating CLI via Homebrew...")
-		out, err := cli.UpdateViaBrew()
-		if err != nil {
-			return out, fmt.Errorf("brew upgrade failed: %w", err)
-		}
-		return out, nil
-	}
-	d.logger.Info("updating CLI via direct download...", "target_version", targetVersion)
-	out, err := cli.UpdateViaDownload(targetVersion)
-	if err != nil {
-		return out, fmt.Errorf("download update failed: %w", err)
-	}
-	return out, nil
+// runUpdate answers an update request with where this fork's updates come
+// from: it is released from its own checkout and never installs an upstream
+// build. The caller is responsible for the `updating` CAS guard and for
+// reporting status back to the server — shared by the server-triggered path
+// (handleUpdate) and the auto-update poller (autoUpdateLoop).
+func (d *Daemon) runUpdate(_ string) (string, error) {
+	return "", errors.New(cli.LocalReleaseUpdateMessage)
 }
 
 // updateReportBackoffs defines the retry schedule for delivering CLI update

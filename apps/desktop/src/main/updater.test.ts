@@ -175,15 +175,15 @@ describe("setupAutoUpdater", () => {
     rmSync(ctx.userDataPath, { recursive: true, force: true });
   });
 
-  it("enables automatic background updates by default", async () => {
+  it("never contacts the update feed, even with automatic updates on", async () => {
     setupAutoUpdater(() => null);
 
     await expect(invokeIpc("updater:get-preferences")).resolves.toEqual({
       automaticUpdates: true,
     });
 
-    await vi.advanceTimersByTimeAsync(5_000);
-    expect(ctx.checkForUpdates).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(60 * 60 * 1000 + 5_000);
+    expect(ctx.checkForUpdates).not.toHaveBeenCalled();
   });
 
   it("skips startup and periodic checks when automatic updates are disabled", async () => {
@@ -220,18 +220,14 @@ describe("setupAutoUpdater", () => {
     expect(ctx.checkForUpdates).not.toHaveBeenCalled();
   });
 
-  it("still allows an explicit manual check when automatic updates are disabled", async () => {
-    writeFileSync(
-      updaterPreferencesPath(ctx.userDataPath),
-      JSON.stringify({ automaticUpdates: false }),
-    );
+  it("answers a manual check without contacting the update feed", async () => {
     setupAutoUpdater(() => null);
 
     await expect(invokeIpc("updater:check")).resolves.toMatchObject({
-      ok: true,
+      ok: false,
     });
 
-    expect(ctx.checkForUpdates).toHaveBeenCalledTimes(1);
+    expect(ctx.checkForUpdates).not.toHaveBeenCalled();
   });
 
   it("forwards update progress to a live renderer", () => {

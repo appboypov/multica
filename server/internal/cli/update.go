@@ -30,6 +30,10 @@ import (
 // than inlined so a future rename changes one place.
 const ChecksumManifestName = "checksums.txt"
 
+// LocalReleaseUpdateMessage answers every update request. This fork is built
+// and released from its own checkout, so it never installs an upstream build.
+const LocalReleaseUpdateMessage = "This multica is a local build of the appboypov/multica fork. Update it from the fork checkout with `make upstream-sync` and `make local-release`."
+
 const defaultReleaseAPIBaseURL = "https://api.github.com"
 
 // MULTICA_RELEASE_API_BASE_URL points at a GitHub Releases API-compatible

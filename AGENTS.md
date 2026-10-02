@@ -9,6 +9,7 @@ This checkout is `appboypov/multica`, a fork of `multica-ai/multica` that is dev
 - `origin` is the fork and takes every commit and push. `upstream` is `multica-ai/multica` and is fetch-only.
 - `main` is built on upstream releases only, never on upstream's `main`. `make upstream-sync` merges the latest `multica-ai/multica` GitHub release tag into `main`, deletes the upstream pipeline files the merge brings back, then runs the install, typecheck, unit tests and Go build. When it stops on a merge conflict or a failing step, fix the cause, keep the fork's own changes, commit, and run it again until it passes.
 - `make local-release` is the release: it builds the CLI into `server/bin` (linked from `~/.local/bin/multica`), builds and starts the self-hosted stack from this checkout, and installs the unsigned desktop app in `/Applications`.
+- No build from upstream is ever installed: `multica update`, the daemon's update paths and the desktop app's update check answer with these two make targets. Keep that behaviour when a sync touches them.
 - The fork has no remote pipelines: GitHub Actions is disabled and the workflow, GoReleaser and Vercel files are removed. Every check and build runs locally.
 - The main checkout's `.env` runs the local production stack (Docker Compose project `multica`: backend on 8080, web on 3000, its own Postgres). Development, `make up` and `make check` run in a worktree with its own `.env.worktree` and the separate `multica-dev` Postgres container, so they never touch production data or ports.
 

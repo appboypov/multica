@@ -80,34 +80,11 @@ function sendToLiveRenderer(
   }
 }
 
-// Single-flight guard around checkForUpdates(). With autoDownload=true the
-// startup, periodic, and manual triggers can all kick off downloads, and
-// overlapping calls have caused duplicate download warnings in the past
-// (see electronjs.org/docs/latest/api/auto-updater). Coalesce concurrent
-// callers onto the same in-flight promise.
-let inFlightCheck: Promise<unknown> | null = null;
-function checkForUpdatesOnce(): Promise<unknown> {
-  if (inFlightCheck) return inFlightCheck;
-  const p = autoUpdater
-    .checkForUpdates()
-    .then((result) => {
-      // checkForUpdates resolves as soon as metadata is fetched; the actual
-      // download (when autoDownload=true) is exposed on result.downloadPromise.
-      // Without a handler a download failure becomes an unhandled rejection
-      // in the main process — Node may terminate it on future versions.
-      void (result as { downloadPromise?: Promise<unknown> } | null)?.downloadPromise?.catch(
-        (err) => {
-          console.error("Failed to download update:", err);
-        },
-      );
-      return result;
-    })
-    .finally(() => {
-      if (inFlightCheck === p) inFlightCheck = null;
-    });
-  inFlightCheck = p;
-  return p;
-}
+// This fork is released from its own checkout, so the app never contacts the
+// upstream update feed: every check, automatic or manual, reports where
+// updates come from instead.
+export const LOCAL_RELEASE_UPDATE_MESSAGE =
+  "This app is a local build of the appboypov/multica fork. Update it from the fork checkout with `make upstream-sync` and `make local-release`.";
 
 export function setupAutoUpdater(getMainWindow: () => BrowserWindow | null): void {
   const preferencesFilePath = updaterPreferencesPath(app.getPath("userData"));
@@ -127,7 +104,7 @@ export function setupAutoUpdater(getMainWindow: () => BrowserWindow | null): voi
     void preferencesReady
       .then(() => {
         if (!automaticUpdatesEnabled) return;
-        return checkForUpdatesOnce();
+        throw new Error(LOCAL_RELEASE_UPDATE_MESSAGE);
       })
       .catch((err) => {
         console.error(errorMessage, err);
@@ -241,31 +218,13 @@ export function setupAutoUpdater(getMainWindow: () => BrowserWindow | null): voi
     },
   );
 
-  ipcMain.handle("updater:check", async (): Promise<ManualUpdateCheckResult> => {
-    try {
-      const result = (await checkForUpdatesOnce()) as
-        | { updateInfo: { version: string }; isUpdateAvailable?: boolean }
-        | null;
-      const currentVersion = app.getVersion();
-      // Trust electron-updater's own decision rather than re-deriving it from
-      // a version-string compare. The two diverge for pre-release channels,
-      // staged rollouts, downgrades, and minimum-system-version gates — in
-      // those cases updateInfo.version differs from app.getVersion() but no
-      // `update-available` event fires, so showing "available" here would
-      // promise a download prompt that never appears.
-      return {
-        ok: true,
-        currentVersion,
-        latestVersion: result?.updateInfo.version ?? currentVersion,
-        available: result?.isUpdateAvailable ?? false,
-      };
-    } catch (err) {
-      return {
-        ok: false,
-        error: err instanceof Error ? err.message : String(err),
-      };
-    }
-  });
+  ipcMain.handle(
+    "updater:check",
+    async (): Promise<ManualUpdateCheckResult> => ({
+      ok: false,
+      error: LOCAL_RELEASE_UPDATE_MESSAGE,
+    }),
+  );
 
   // Initial check shortly after startup so we don't block boot, plus a
   // background poll for long-running sessions. Both are torn down when the
