@@ -25,10 +25,9 @@ import (
 	"github.com/multica-ai/multica/server/internal/selfexec"
 )
 
-// ChecksumManifestName is the asset name GoReleaser publishes for the
-// checksum manifest (`checksum.name_template: "checksums.txt"` in
-// .goreleaser.yml). Kept as a constant rather than inlined so a future rename
-// changes one place.
+// ChecksumManifestName is the asset name of the checksum manifest GoReleaser
+// publishes with each multica-ai/multica release. Kept as a constant rather
+// than inlined so a future rename changes one place.
 const ChecksumManifestName = "checksums.txt"
 
 const defaultReleaseAPIBaseURL = "https://api.github.com"

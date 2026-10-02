@@ -378,16 +378,8 @@ clean: ## Remove build caches, generated binaries, and temp files
 ##@ Fork
 
 .PHONY: upstream-sync local-release desktop-app
-upstream-sync: ## Merge multica-ai/multica main into this fork's main, then typecheck, unit-test and build
-	@test "$$(git branch --show-current)" = main || { echo "upstream-sync runs on main"; exit 1; }
-	@test -z "$$(git status --porcelain)" || { echo "Commit or finish the open work before syncing"; exit 1; }
-	git fetch upstream
-	git merge --no-edit upstream/main
-	pnpm install --frozen-lockfile
-	pnpm typecheck
-	pnpm test
-	cd server && go build ./...
-	@echo "✓ main is synced with upstream/main and passes its checks"
+upstream-sync: ## Merge the latest multica-ai/multica release into this fork's main, then typecheck, unit-test and build
+	@bash scripts/upstream-sync.sh
 
 local-release: build selfhost-build desktop-app ## Release this checkout locally: CLI in server/bin, self-hosted stack, desktop app
 

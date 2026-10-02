@@ -7,10 +7,10 @@ Multica is a task management platform where people and agents collaborate on iss
 This checkout is `appboypov/multica`, a fork of `multica-ai/multica` that is developed for own use and released only on this Mac. Where the rest of this file differs, these rules apply.
 
 - `origin` is the fork and takes every commit and push. `upstream` is `multica-ai/multica` and is fetch-only.
-- `make upstream-sync` merges `upstream/main` into `main`, then runs the install, typecheck, unit tests and Go build. When it stops on a merge conflict or a failing step, fix the cause, keep the fork's own changes, commit, and run it again until it passes.
-- `make local-release` is the release: it builds the CLI into `server/bin` (linked from `~/.local/bin/multica`), builds and starts the self-hosted stack from this checkout, and installs the unsigned desktop app in `/Applications`. Version tags, GitHub releases, `.github/RELEASING.md`, GoReleaser and Vercel belong to upstream.
-- GitHub Actions is disabled on the fork. Every check and build runs locally.
-- The main checkout's `.env` runs the local production stack (backend on 8080, web on 3000). Development, `make up` and `make check` run in a worktree with its own `.env.worktree`, so they use their own database and ports.
+- `main` is built on upstream releases only, never on upstream's `main`. `make upstream-sync` merges the latest `multica-ai/multica` GitHub release tag into `main`, deletes the upstream pipeline files the merge brings back, then runs the install, typecheck, unit tests and Go build. When it stops on a merge conflict or a failing step, fix the cause, keep the fork's own changes, commit, and run it again until it passes.
+- `make local-release` is the release: it builds the CLI into `server/bin` (linked from `~/.local/bin/multica`), builds and starts the self-hosted stack from this checkout, and installs the unsigned desktop app in `/Applications`.
+- The fork has no remote pipelines: GitHub Actions is disabled and the workflow, GoReleaser and Vercel files are removed. Every check and build runs locally.
+- The main checkout's `.env` runs the local production stack (Docker Compose project `multica`: backend on 8080, web on 3000, its own Postgres). Development, `make up` and `make check` run in a worktree with its own `.env.worktree` and the separate `multica-dev` Postgres container, so they never touch production data or ports.
 
 ## Scope and Reading Order
 
@@ -134,4 +134,4 @@ Workspace-scoped queries filter by `workspace_id`; membership gates access and `
 - Keep changes scoped; reuse existing patterns. Code comments are English.
 - Do not add internal compatibility shims, dual writes, fallback paths, or legacy adapters unless requested. This does not relax API response compatibility above.
 - New global pre-workspace routes use a single word or `/{noun}/{verb}`, not hyphenated root names. Update `server/internal/handler/reserved_slugs.json`, run `pnpm generate:reserved-slugs`, and commit `packages/core/paths/reserved-slugs.ts` when changing reserved slugs.
-- Use atomic conventional commits and the repository PR template. For releases, follow [.github/RELEASING.md](.github/RELEASING.md); default to a patch bump unless specified otherwise.
+- Use atomic conventional commits and the repository PR template.
