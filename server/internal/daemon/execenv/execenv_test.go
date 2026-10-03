@@ -794,9 +794,7 @@ func TestPrepareWithRepoContext(t *testing.T) {
 	}
 	s := string(content)
 	for _, want := range []string{
-		"multica repo checkout",
 		"https://github.com/org/backend",
-		"[--ref <branch-or-sha>]",
 		"https://github.com/org/frontend",
 	} {
 		if !strings.Contains(s, want) {
@@ -1422,7 +1420,6 @@ func TestInjectRuntimeConfigAvailableCommandsCoreOnly(t *testing.T) {
 		"multica issue assign <id>",
 		"--description-file <path>",
 		"--parent \"\"",
-		"multica repo checkout <url>",
 		"multica issue status <id> <status>",
 		"multica issue comment add <issue-id>",
 		"multica issue comment add --help",
@@ -2257,7 +2254,6 @@ func TestPrepareWithRepoContextOpencode(t *testing.T) {
 	}
 	s := string(content)
 	for _, want := range []string{
-		"multica repo checkout",
 		"https://github.com/org/backend",
 	} {
 		if !strings.Contains(s, want) {

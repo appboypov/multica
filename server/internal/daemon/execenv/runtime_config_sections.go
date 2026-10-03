@@ -268,8 +268,8 @@ func writeAvailableCommands(b *strings.Builder, ctx TaskContextForEnv) {
 	b.WriteString("- `multica issue wakeup <create|list|get|update|disable|trigger|delete|runs|events>` — persist an event, condition or time wakeup on this issue, then finish the current run. When the platform can check the fact itself, use a condition (`--until-status`, `--until-pr checks`, `--until-children-done`, `--until-issue`) so no run starts before it holds. Use `--event comment.created --filter-actor-type member --filter-actor-id USER_ID` to wait for a specific member to comment. See `multica issue wakeup --help` and the multica-platform issues reference.\n")
 	b.WriteString("- `multica issue children <id> [--output json]` — list a parent's sub-issues grouped by stage.\n")
 	b.WriteString("- `multica issue comment add <issue-id> [--content \"...\" | --content-file <path> | --content-stdin] [--parent <comment-id>] [--attachment <path>]` — post a comment. Agent-authored bodies MUST use `--content-file`; see `## Comment Formatting` for why. `multica issue comment add --help` for full flags.\n")
-	b.WriteString("- `multica repo checkout <url> [--ref <branch-or-sha>] [--fresh]` — repository checkout on a dedicated branch. Re-running it keeps an existing checkout that has uncommitted or unpushed work, or is already on this task's branch, and only fetches. `--fresh` discards uncommitted and untracked files and starts a new branch; commits stay on the old branch, but push any you still need first.\n\n")
-	b.WriteString("Git commits use the user's configured identity. Preserve it unless the user requests another identity. In a managed checkout, use `git config --worktree user.name` / `user.email` for an intentional task-local override; plain `git config` or `--local` can write into a shared cache and affect other tasks. Never change global Git identity for a task.\n\n")
+	b.WriteString("\n" + worktreeRule)
+	b.WriteString("Git commits use the user's configured identity. Preserve it unless the user requests another identity. In a worktree, an intentional task-local override takes `git config extensions.worktreeConfig true` once, then `git config --worktree user.name` / `user.email`; plain `git config` or `--local` writes into the repository's shared config and affects every worktree. Never change global Git identity for a task.\n\n")
 	// Squad maintenance is squad-leader surface: an agent that leads no squad
 	// has no squad to change roles in, so this shipped to every run as dead
 	// weight (MUL-5442). IsSquadLeader is a PER-TASK role (the daemon derives
@@ -282,6 +282,12 @@ func writeAvailableCommands(b *strings.Builder, ctx TaskContextForEnv) {
 		b.WriteString("- `multica squad member set-role <squad-id> --member-id <id> --member-type <agent|member> --role <role> [--output json]` — change role in place (use this instead of remove+add).\n\n")
 	}
 }
+
+// worktreeRule is the fork's rule for code work: the agent creates its own
+// worktree under the ~/Worktrees convention, on the branch of the Linear
+// issue the task links to, as the madspec-git skill defines. Multica ids
+// never name the branch.
+const worktreeRule = "Code changes happen in a git worktree you create yourself, in the folder and on the branch the `madspec-git` skill (`~/.agents/skills/madspec-git/SKILL.md`) sets. The issue that skill means is the Linear issue this task links to, so the branch is that Linear issue's branch name; a task that links to no Linear issue follows that skill's rule for work without an issue. Never name a branch after a Multica issue, task or agent. The repository's main checkout is the clone under `~/Repos` whose `origin` points at the repository, in SSH or HTTPS form; when no such clone exists, ask the user where to clone it and wait for the answer.\n\n"
 
 // duplicateOfCommandLine teaches the duplicate mark (MUL-7821). Without it
 // agents cancel duplicates with a plain status change plus a comment, which
@@ -418,18 +424,17 @@ func writeRepositories(b *strings.Builder, ctx TaskContextForEnv) {
 		return
 	}
 	b.WriteString("## Repositories\n\n")
-	b.WriteString("Available in this workspace — `multica repo checkout <url> [--ref <branch-or-sha>]` to fetch (creates a repository checkout on a dedicated branch).\n\n")
+	b.WriteString("Available in this workspace:\n\n")
 	pinned := false
 	for _, repo := range ctx.Repos {
 		line := "- " + repo.URL
 		if repo.Description != "" {
 			line += " — " + repo.Description
 		}
-		// The ref is already applied by the daemon on checkout. It is printed
-		// here so the agent knows which line of work it is on without running
-		// `git branch` first, and — more importantly — so it can target the
-		// same branch when it delivers. Without this the repo reads as if it
-		// were on the default branch.
+		// The ref is the starting point the agent cuts its worktree from. It
+		// is printed here so the agent knows which line of work it is on and
+		// can target the same branch when it delivers. Without this the repo
+		// reads as if it were on the default branch.
 		if ref := strings.TrimSpace(repo.Ref); ref != "" {
 			pinned = true
 			line += fmt.Sprintf(" (starts from `%s`)", ref)
@@ -450,36 +455,27 @@ func writeRepositories(b *strings.Builder, ctx TaskContextForEnv) {
 		// tell the three apart without asking the remote, which the product
 		// deliberately does not do, so the agent resolves it at the point it
 		// already has the repository in hand.
-		b.WriteString("\nA repository that starts from a branch is already checked out there — do not pass `--ref` to get back to it. ")
+		b.WriteString("\nCut the worktree of a repository that starts from a branch from that branch. ")
 		b.WriteString("Deliver to the same line: open pull requests with `gh pr create --base <that-branch>`. ")
 		b.WriteString("If what it starts from is a tag or a commit rather than a branch, treat it as a starting point only and confirm the target branch before opening a pull request.\n")
 	}
 	// Stated for ANY repo, pinned or not, because it protects work that began
 	// under a setting this brief can no longer see. A project cleared back to
 	// its default branch renders no starting point at all, yet a task resumed
-	// afterwards still holds a checkout cut from the old one — so gating this
+	// afterwards still holds a worktree cut from the old one — so gating this
 	// on `pinned` would drop the warning exactly where the mismatch is
-	// invisible.
-	//
-	// What it must NOT do is name a source for the original target. A kept
-	// checkout reports the branch the worktree is ON, which is the task's own
-	// `agent/...` branch — the HEAD of a pull request, never its base. Nothing
-	// in the checkout result carries the ref that branch was cut from. Telling
-	// the agent to read the target "from the checkout" produces a base equal
-	// to the head; the honest instruction is to keep the target the work
-	// already had, and to ask when nothing states it.
-	if len(ctx.Repos) > 0 {
-		b.WriteString("\nIf `multica repo checkout` reports that it KEPT an existing checkout, you are continuing work that began earlier — possibly before this project was last reconfigured. ")
-		b.WriteString("The branch it names is the branch your work sits ON: the head of a pull request, never its base. It does not record where that work was meant to land. ")
-		b.WriteString("Keep delivering where this work was already going — the base of its existing pull request, or the target the task states — and ask if neither settles it.")
-		if pinned {
-			// Only meaningful when something IS listed above. With the
-			// starting point cleared there is nothing to be retargeted to,
-			// and the sentence would point at a line that is not there.
-			b.WriteString(" Do not retarget it to a starting point listed above: that is the project's current setting, which may have changed since this work began.")
-		}
-		b.WriteString("\n")
+	// invisible. The worktree's own branch is the head of a pull request,
+	// never its base, so the target comes from the existing pull request or
+	// the task.
+	b.WriteString("\nIf this task's worktree or pull request already exists, you are continuing work that began earlier — possibly before this project was last reconfigured. ")
+	b.WriteString("Keep delivering where this work was already going — the base of its existing pull request, or the target the task states — and ask if neither settles it.")
+	if pinned {
+		// Only meaningful when something IS listed above. With the
+		// starting point cleared there is nothing to be retargeted to,
+		// and the sentence would point at a line that is not there.
+		b.WriteString(" Do not retarget it to a starting point listed above: that is the project's current setting, which may have changed since this work began.")
 	}
+	b.WriteString("\n")
 	b.WriteString("\n")
 }
 
@@ -506,8 +502,7 @@ func writeProjectContext(b *strings.Builder, ctx TaskContextForEnv) {
 			fmt.Fprintf(b, "- %s\n", formatProjectResource(r))
 		}
 		b.WriteString("\nResources are pointers — open them only when relevant to the task. ")
-		b.WriteString("For `github_repo` resources, use `multica repo checkout <url>` to fetch the code. ")
-		b.WriteString("A resource listing a starting point is checked out there automatically — pass `--ref <branch-or-sha>` only to override it, when a task or handoff names a different revision.\n\n")
+		b.WriteString("Cut the worktree of a `github_repo` resource from the starting point it lists, if any, unless the task or a handoff names a different revision.\n\n")
 	} else {
 		b.WriteString("This project has no resources attached yet.\n\n")
 	}
@@ -612,7 +607,7 @@ func writeWorkflowChat(b *strings.Builder) {
 	b.WriteString("- If asked about issues, use `multica issue list --output json` or `multica issue get <id> --output json`\n")
 	b.WriteString("- If asked about the workspace, use `multica workspace get --output json`\n")
 	b.WriteString("- If asked to perform actions (create issues, update status, etc.), use the appropriate CLI commands\n")
-	b.WriteString("- If the task requires code changes, use `multica repo checkout <url>` to get the code first. Use `--ref <branch-or-sha>` when you need an exact revision\n")
+	b.WriteString("- If the task requires code changes, work in a git worktree as `## Available Commands` says\n")
 	b.WriteString("- Keep responses concise and direct\n\n")
 }
 
