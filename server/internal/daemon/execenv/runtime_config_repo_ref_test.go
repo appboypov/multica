@@ -75,3 +75,61 @@ func TestDeliveryRuleDoesNotAssumeThePinIsABranch(t *testing.T) {
 		t.Errorf("brief should tell the agent to confirm rather than guess a base; got:\n%s", out)
 	}
 }
+
+// The resume warning protects work that began under a starting point the brief
+// can no longer show, so it rides on every repo, pinned or not. The retarget
+// sentence points at the listed starting point, so it appears only when one is
+// listed. Without repos the section is skipped whole.
+func TestResumeWarningGating(t *testing.T) {
+	t.Parallel()
+	const warning = "If this task's worktree or pull request already exists"
+	const retarget = "Do not retarget it to a starting point listed above"
+	for _, tc := range []struct {
+		name                      string
+		repos                     []RepoContextForEnv
+		wantWarning, wantRetarget bool
+	}{
+		{"pinned", []RepoContextForEnv{{URL: "https://github.com/o/r", Ref: "release/b"}}, true, true},
+		{"starting point cleared", []RepoContextForEnv{{URL: "https://github.com/o/r"}}, true, false},
+		{"no repos", nil, false, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			out := buildMetaSkillContent("claude", TaskContextForEnv{
+				IssueID: "i-1", AgentName: "Eve", AgentID: "eve-1", Repos: tc.repos,
+			})
+			if got := strings.Contains(out, warning); got != tc.wantWarning {
+				t.Errorf("resume warning present = %v, want %v; got:\n%s", got, tc.wantWarning, out)
+			}
+			if got := strings.Contains(out, retarget); got != tc.wantRetarget {
+				t.Errorf("retarget sentence present = %v, want %v; got:\n%s", got, tc.wantRetarget, out)
+			}
+		})
+	}
+}
+
+// Every task kind that can change code gets the worktree rule, and no brief
+// still sends the agent to `multica repo checkout`, whose branches carry
+// Multica ids. Quick-create only files issues, so it gets neither.
+func TestWorktreeRuleReachesEveryCodeTaskKind(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name string
+		ctx  TaskContextForEnv
+		want bool
+	}{
+		{"issue", TaskContextForEnv{IssueID: "i-1", AgentName: "Eve", AgentID: "eve-1"}, true},
+		{"autopilot run-only", TaskContextForEnv{AutopilotRunID: "r-1", AgentName: "Eve", AgentID: "eve-1"}, true},
+		{"chat", TaskContextForEnv{ChatSessionID: "c-1", AgentName: "Eve", AgentID: "eve-1"}, true},
+		{"quick-create", TaskContextForEnv{QuickCreatePrompt: "p", AgentName: "Eve", AgentID: "eve-1"}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			out := buildMetaSkillContent("claude", tc.ctx)
+			if got := strings.Contains(out, worktreeRule); got != tc.want {
+				t.Errorf("worktree rule present = %v, want %v; got:\n%s", got, tc.want, out)
+			}
+			if strings.Contains(out, "multica repo checkout") {
+				t.Errorf("brief must not send the agent to `multica repo checkout`; got:\n%s", out)
+			}
+		})
+	}
+}
