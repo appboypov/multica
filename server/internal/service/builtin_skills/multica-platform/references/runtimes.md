@@ -61,6 +61,10 @@ clears the agent's runtime binding; an unbound agent cannot run until it is
 bound again (`multica agent update <id> --runtime-id <runtime-id>`), and every
 trigger path refuses it with `agent_runtime_required`.
 
+In this fork, agents do not use `repo checkout` for code work: the task brief
+has them create their own git worktree, as the `madspec-git` skill says. What
+follows describes the command itself.
+
 `repo checkout` creates a dedicated branch in the task working directory. Most
 runtimes use a linked worktree; Linux and Windows Codex use task-local Git
 metadata so a task can stage and commit without making the shared repository
