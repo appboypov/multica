@@ -23,3 +23,4 @@ Our Multica fork connects to Linear. Several kinds of syncs and views bring Line
 ## 🔗 Material
 
 - PRD: [prd.md](prd.md)
+- Research: [research-linear-integration.md](research-linear-integration.md)
