@@ -287,7 +287,7 @@ func writeAvailableCommands(b *strings.Builder, ctx TaskContextForEnv) {
 // worktree under the ~/Worktrees convention, on the branch of the Linear
 // issue the task links to, as the madspec-git skill defines. Multica ids
 // never name the branch.
-const worktreeRule = "Code changes happen in a git worktree you create yourself, in the folder and on the branch the `madspec-git` skill (`~/.agents/skills/madspec-git/SKILL.md`) sets. The issue that skill means is the Linear issue this task links to, so the branch is that Linear issue's branch name. The repository's main checkout is the clone under `~/Repos` whose `origin` is the repository's URL; when no such clone exists, ask the user where to clone it and wait for the answer.\n\n"
+const worktreeRule = "Code changes happen in a git worktree you create yourself, in the folder and on the branch the `madspec-git` skill (`~/.agents/skills/madspec-git/SKILL.md`) sets. The issue that skill means is the Linear issue this task links to, so the branch is that Linear issue's branch name; a task that links to no Linear issue follows that skill's rule for work without an issue. Never name a branch after a Multica issue, task or agent. The repository's main checkout is the clone under `~/Repos` whose `origin` points at the repository, in SSH or HTTPS form; when no such clone exists, ask the user where to clone it and wait for the answer.\n\n"
 
 // duplicateOfCommandLine teaches the duplicate mark (MUL-7821). Without it
 // agents cancel duplicates with a plain status change plus a comment, which
@@ -502,7 +502,7 @@ func writeProjectContext(b *strings.Builder, ctx TaskContextForEnv) {
 			fmt.Fprintf(b, "- %s\n", formatProjectResource(r))
 		}
 		b.WriteString("\nResources are pointers — open them only when relevant to the task. ")
-		b.WriteString("Cut the worktree of a `github_repo` resource from its listed starting point, unless the task or a handoff names a different revision.\n\n")
+		b.WriteString("Cut the worktree of a `github_repo` resource from the starting point it lists, if any, unless the task or a handoff names a different revision.\n\n")
 	} else {
 		b.WriteString("This project has no resources attached yet.\n\n")
 	}
