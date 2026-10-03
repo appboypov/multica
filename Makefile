@@ -9,7 +9,7 @@ ENV_FILE ?= $(if $(wildcard $(MAIN_ENV_FILE)),$(MAIN_ENV_FILE),$(if $(wildcard $
 # read ENV_FILE itself and keep them.
 ifneq ($(wildcard $(ENV_FILE)),)
 ENV_MAKE_FILE := $(ENV_FILE).make
-$(shell umask 077; awk 'skip { if (index($$0, "\"")) skip = 0; next } /^[A-Za-z_][A-Za-z0-9_]*="/ { if (!index(substr($$0, index($$0, "=\"") + 2), "\"")) { skip = 1; next } } { print }' '$(ENV_FILE)' > '$(ENV_MAKE_FILE)')
+$(shell umask 077; tmp='$(ENV_MAKE_FILE).'$$$$; awk 'skip { if (index($$0, "\"")) skip = 0; next } /^[A-Za-z_][A-Za-z0-9_]*="/ { if (!index(substr($$0, index($$0, "=\"") + 2), "\"")) { skip = 1; next } } { print }' '$(ENV_FILE)' > "$$tmp" && mv -f "$$tmp" '$(ENV_MAKE_FILE)' || rm -f "$$tmp")
 include $(ENV_MAKE_FILE)
 endif
 
