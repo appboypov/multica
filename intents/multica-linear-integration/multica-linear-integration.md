@@ -26,6 +26,10 @@ Our Multica fork connects to Linear. Several kinds of syncs and views bring Line
 - [x] Where a sub-team issue's worktree goes inside the main team's folder: in the `{subteam}` folder level `madspec-git` sets.
 - [x] How the agent knows the Linear issue before the integration exists: the task brief tells it to create its worktree as `madspec-git` says, on the branch of the Linear issue the task links to (branch `agents-create-own-worktrees`).
 
+## 🚦 Gates
+
+- Merge: https://github.com/appboypov/multica/pull/1, passed by Brian, 2026-10-03
+
 ## 🔗 Material
 
 - PRD: [prd.md](prd.md)
