@@ -30,3 +30,4 @@ Our Multica fork connects to Linear. Several kinds of syncs and views bring Line
 
 - PRD: [prd.md](prd.md)
 - Research: [research-linear-integration.md](research-linear-integration.md)
+- Worktree rule in the task brief: https://github.com/appboypov/multica/pull/1
