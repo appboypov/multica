@@ -16,15 +16,15 @@ type: intent
 
 ## 🎯 End goal
 
-Our Multica fork connects to Linear. Several kinds of syncs and views bring Linear work in, and from them Multica issues are created that link back to their Linear issue. Proven Linear integration work from Skuddy is reused where it fits. An agent that works on such an issue creates its own worktree under `~/Worktrees/{team-key}/`, where the team key is the Linear issue's top-level team key and never a sub-team key, on the Linear issue's branch name. It never uses a Multica id as the branch name.
+Our Multica fork connects to Linear. Several kinds of syncs and views bring Linear work in, and from them Multica issues are created that link back to their Linear issue. Proven Linear integration work from Skuddy is reused where it fits. An agent that works on such an issue creates its own worktree in the folder `madspec-git` sets, under `~/Worktrees/{team-key}/` with the Linear issue's top-level team key, on the Linear issue's branch name. It never uses a Multica id as the branch name.
 
 ## ❔ Open points
 
 - [ ] What "the same Linear app" is: Skuddy connects with a personal API key and holds no Linear OAuth app.
 - [ ] Which kinds of syncs and views are wanted.
 - [ ] Sync direction: into Multica only, or also back to Linear.
-- [ ] Where a sub-team issue's worktree goes inside the main team's folder: `madspec-git` now adds a `{subteam}` folder level.
-- [ ] How the agent knows the Linear issue before the integration exists: Multica's task instructions tell it to use `multica repo checkout`, which makes `agent/<agent>/<task>` branches under `~/multica_workspaces_<profile>` (`server/internal/daemon/execenv/runtime_config_sections.go:615`).
+- [x] Where a sub-team issue's worktree goes inside the main team's folder: in the `{subteam}` folder level `madspec-git` sets.
+- [x] How the agent knows the Linear issue before the integration exists: the task brief tells it to create its worktree as `madspec-git` says, on the branch of the Linear issue the task links to (branch `agents-create-own-worktrees`).
 
 ## 🔗 Material
 
