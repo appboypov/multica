@@ -269,7 +269,7 @@ func writeAvailableCommands(b *strings.Builder, ctx TaskContextForEnv) {
 	b.WriteString("- `multica issue children <id> [--output json]` — list a parent's sub-issues grouped by stage.\n")
 	b.WriteString("- `multica issue comment add <issue-id> [--content \"...\" | --content-file <path> | --content-stdin] [--parent <comment-id>] [--attachment <path>]` — post a comment. Agent-authored bodies MUST use `--content-file`; see `## Comment Formatting` for why. `multica issue comment add --help` for full flags.\n")
 	b.WriteString("\n" + worktreeRule)
-	b.WriteString("Git commits use the user's configured identity. Preserve it unless the user requests another identity. In a worktree, use `git config --worktree user.name` / `user.email` for an intentional task-local override; plain `git config` or `--local` writes into the repository's shared config and affects every worktree. Never change global Git identity for a task.\n\n")
+	b.WriteString("Git commits use the user's configured identity. Preserve it unless the user requests another identity. In a worktree, an intentional task-local override takes `git config extensions.worktreeConfig true` once, then `git config --worktree user.name` / `user.email`; plain `git config` or `--local` writes into the repository's shared config and affects every worktree. Never change global Git identity for a task.\n\n")
 	// Squad maintenance is squad-leader surface: an agent that leads no squad
 	// has no squad to change roles in, so this shipped to every run as dead
 	// weight (MUL-5442). IsSquadLeader is a PER-TASK role (the daemon derives
@@ -459,6 +459,23 @@ func writeRepositories(b *strings.Builder, ctx TaskContextForEnv) {
 		b.WriteString("Deliver to the same line: open pull requests with `gh pr create --base <that-branch>`. ")
 		b.WriteString("If what it starts from is a tag or a commit rather than a branch, treat it as a starting point only and confirm the target branch before opening a pull request.\n")
 	}
+	// Stated for ANY repo, pinned or not, because it protects work that began
+	// under a setting this brief can no longer see. A project cleared back to
+	// its default branch renders no starting point at all, yet a task resumed
+	// afterwards still holds a worktree cut from the old one — so gating this
+	// on `pinned` would drop the warning exactly where the mismatch is
+	// invisible. The worktree's own branch is the head of a pull request,
+	// never its base, so the target comes from the existing pull request or
+	// the task.
+	b.WriteString("\nIf this task's worktree or pull request already exists, you are continuing work that began earlier — possibly before this project was last reconfigured. ")
+	b.WriteString("Keep delivering where this work was already going — the base of its existing pull request, or the target the task states — and ask if neither settles it.")
+	if pinned {
+		// Only meaningful when something IS listed above. With the
+		// starting point cleared there is nothing to be retargeted to,
+		// and the sentence would point at a line that is not there.
+		b.WriteString(" Do not retarget it to a starting point listed above: that is the project's current setting, which may have changed since this work began.")
+	}
+	b.WriteString("\n")
 	b.WriteString("\n")
 }
 
