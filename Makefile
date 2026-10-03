@@ -4,8 +4,13 @@ MAIN_ENV_FILE ?= .env
 WORKTREE_ENV_FILE ?= .env.worktree
 ENV_FILE ?= $(if $(wildcard $(MAIN_ENV_FILE)),$(MAIN_ENV_FILE),$(if $(wildcard $(WORKTREE_ENV_FILE)),$(WORKTREE_ENV_FILE),$(MAIN_ENV_FILE)))
 
+# make cannot parse a value that spans lines, such as a quoted PEM key, so it
+# reads a copy of ENV_FILE without those values. Scripts and Docker Compose
+# read ENV_FILE itself and keep them.
 ifneq ($(wildcard $(ENV_FILE)),)
-include $(ENV_FILE)
+ENV_MAKE_FILE := $(ENV_FILE).make
+$(shell umask 077; awk 'skip { if (index($$0, "\"")) skip = 0; next } /^[A-Za-z_][A-Za-z0-9_]*="/ { if (!index(substr($$0, index($$0, "=\"") + 2), "\"")) { skip = 1; next } } { print }' '$(ENV_FILE)' > '$(ENV_MAKE_FILE)')
+include $(ENV_MAKE_FILE)
 endif
 
 POSTGRES_DB ?= multica
