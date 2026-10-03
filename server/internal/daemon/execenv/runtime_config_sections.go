@@ -287,7 +287,7 @@ func writeAvailableCommands(b *strings.Builder, ctx TaskContextForEnv) {
 // worktree under the ~/Worktrees convention, on the branch of the Linear
 // issue the task links to, as the madspec-git skill defines. Multica ids
 // never name the branch.
-const worktreeRule = "Code changes happen in a git worktree you create yourself, in the folder and on the branch the `madspec-git` skill (`~/.agents/skills/madspec-git/SKILL.md`) sets. The issue that skill means is the Linear issue this task links to, so the branch is that Linear issue's branch name.\n\n"
+const worktreeRule = "Code changes happen in a git worktree you create yourself, in the folder and on the branch the `madspec-git` skill (`~/.agents/skills/madspec-git/SKILL.md`) sets. The issue that skill means is the Linear issue this task links to, so the branch is that Linear issue's branch name. The repository's main checkout is the clone under `~/Repos` whose `origin` is the repository's URL; when no such clone exists, ask the user where to clone it and wait for the answer.\n\n"
 
 // duplicateOfCommandLine teaches the duplicate mark (MUL-7821). Without it
 // agents cancel duplicates with a plain status change plus a comment, which
