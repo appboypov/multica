@@ -125,7 +125,7 @@ const squadParentStatusOwned = `6. **Own the parent issue status.** This issue i
 // an @squad mention on an issue owned by someone else (MUL-3724), and
 // quick-create, where no issue exists yet on this turn. Granting status
 // ownership there would let a squad that was merely pulled in to answer a
-// question push another assignee's in-flight issue to in_review.
+// question complete another assignee's in-flight issue.
 const squadParentStatusNotOwned = `6. **Do NOT change this issue's status.** This issue is not assigned to your
    squad — you were pulled in by an @mention (or this is a quick-create turn,
    where the issue does not exist yet). Its status belongs to its own

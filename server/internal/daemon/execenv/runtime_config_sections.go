@@ -750,7 +750,7 @@ func writeWorkflowAutopilot(b *strings.Builder) {
 // mid-flight, so its end-of-turn fact is in_progress, and completion waits for
 // the re-trigger (member update / stage barrier) that confirms the overall
 // goal is met. Flipping the parent on the dispatch turn would mark unfinished
-// multi-stage work as ready for review; see the Squad Operating Protocol and
+// multi-stage work as complete; see the Squad Operating Protocol and
 // the sub-issue wakeup (service/issue_wakeup_system.go).
 //
 // ctx.IsSquadLeader is a PER-TASK role, not agent configuration: branching on

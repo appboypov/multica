@@ -77,7 +77,6 @@ func TestSquadAssignedLeaderCanWrapUpOnCommentTurn(t *testing.T) {
 			t.Errorf("leader runtime brief missing %q\n--- brief ---\n%s", want, brief)
 		}
 	}
-
 }
 
 // TestGuestLeaderCannotChangeStatusOnCommentTurn is the other half of the

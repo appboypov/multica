@@ -252,9 +252,10 @@ These actions can trigger agent work or mutate durable state:
 - `role` is roster context, not automatic scheduling.
 - Backlog assignment does not immediately start work.
 - First leader dispatch is not parent completion — parent stays `in_progress`
-  until the leader later confirms the overall goal and moves it to `in_review`.
+  until the leader later confirms the overall goal and applies the issue
+  completion rule.
 - The server does not auto-flip parent status when child issues finish; it only
-  wakes the leader with an explicit ask (including `in_review` when wrapping up).
+  wakes the leader with an explicit ask (including completion when wrapping up).
 - Getting the leader briefing does NOT imply status authority. A squad
   `@`-mentioned into an issue assigned to someone else is a guest: roster and
   delegation rules yes, `multica issue status` no.
