@@ -173,8 +173,8 @@ Current behavior:
   new assignee path;
 - parent issue status is agent-managed (same model as direct agent assignment):
   the leader's first assignment turn should move the parent to `in_progress`
-  and keep it there while members work; the leader moves the parent to
-  `in_review` only when a later re-trigger confirms the overall goal is met.
+  and keep it there while members work. A later re-trigger that confirms the
+  overall goal is met applies the [issue completion rule](issues.md#status-changes-have-server-side-effects).
   Completing a leader task (including the first dispatch) does not itself
   change issue status;
 - that status authority is granted only when the issue's `assignee_type` /
