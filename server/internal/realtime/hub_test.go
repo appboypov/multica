@@ -615,3 +615,36 @@ func TestReadPump_AcceptsFrameUnderReadLimit(t *testing.T) {
 		t.Fatalf("got %s, want a pong frame", raw)
 	}
 }
+
+// A native client carries the session cookie on the upgrade and still sends
+// its token frame; it treats the socket as live only once auth_ack arrives.
+func TestReadPump_AcksAuthFrameOnCookieSession(t *testing.T) {
+	_, server := newTestHub(t)
+	defer server.Close()
+
+	wsURL := "ws" + strings.TrimPrefix(server.URL, "http") + "/ws?workspace_id=" + testWorkspaceID
+	header := http.Header{}
+	header.Set("Cookie", auth.AuthCookieName+"="+makeTestToken(t))
+	conn, _, err := websocket.DefaultDialer.Dial(wsURL, header)
+	if err != nil {
+		t.Fatalf("failed to connect WebSocket: %v", err)
+	}
+	defer conn.Close()
+
+	authMsg, _ := json.Marshal(map[string]any{
+		"type":    "auth",
+		"payload": map[string]string{"token": makeTestToken(t)},
+	})
+	if err := conn.WriteMessage(websocket.TextMessage, authMsg); err != nil {
+		t.Fatalf("write auth: %v", err)
+	}
+
+	conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+	_, raw, err := conn.ReadMessage()
+	if err != nil {
+		t.Fatalf("read auth_ack: %v", err)
+	}
+	if !strings.Contains(string(raw), "auth_ack") {
+		t.Fatalf("got %s, want an auth_ack frame", raw)
+	}
+}

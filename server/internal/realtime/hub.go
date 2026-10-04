@@ -954,6 +954,10 @@ func (c *Client) handleFrame(raw []byte) {
 		} else {
 			c.handleUnsubscribe(p.Scope, p.ID)
 		}
+	case "auth":
+		// The connection is already authenticated (session cookie on the
+		// upgrade). Clients that also send their token wait for this ack.
+		c.sendJSON(map[string]string{"type": "auth_ack"})
 	case "ping":
 		c.sendJSON(map[string]string{"type": "pong"})
 	default:
