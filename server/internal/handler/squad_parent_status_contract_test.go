@@ -68,7 +68,7 @@ func TestSquadAssignedLeaderCanWrapUpOnCommentTurn(t *testing.T) {
 	for _, want := range []string{
 		// MUL-6417: the brief's status rule is a fact judgment, and the
 		// leader bullet must point the same way as the briefing's grant —
-		// in_review is reached on the confirming turn, not on dispatch.
+		// completion is reached on the confirming turn, not on dispatch.
 		"dispatching members is not delivery",
 		"a dispatch turn leaves the parent `in_progress`",
 		"where you confirm the overall goal is met",
@@ -76,12 +76,6 @@ func TestSquadAssignedLeaderCanWrapUpOnCommentTurn(t *testing.T) {
 		if !strings.Contains(brief, want) {
 			t.Errorf("leader runtime brief missing %q\n--- brief ---\n%s", want, brief)
 		}
-	}
-
-	// End to end: both halves must agree that in_review is reachable here.
-	combined := briefing + "\n" + brief
-	if !strings.Contains(combined, "multica issue status <issue-id> in_review") {
-		t.Error("combined instructions never tell the owning leader how to wrap up")
 	}
 }
 

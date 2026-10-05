@@ -214,7 +214,7 @@ archived statuses remain readable via an explicit status filter.
 - **`backlog`** parks an agent-assigned issue: the assignee is set but no task
   fires. Moving `backlog → todo` (or any non-done/non-cancelled status) enqueues
   the assigned agent then.
-- **`in_progress` / `in_review`** are agent-managed CLI mutations, not automatic
+- **`in_progress` / `in_review` / `done`** are agent-managed CLI mutations, not automatic
   side effects of a task starting or finishing. The runtime brief asks agents to
   write the state the issue is in whenever their work changes it — not from
   the trigger type or the run's lifecycle, and not gated on being the
@@ -222,7 +222,8 @@ archived statuses remain readable via an explicit status filter.
   turn that advances the issue's own ask sets `in_progress` as soon as that
   is known, so the board shows the work while it runs; a blocker is recorded
   when it is hit; and the turn must not exit with a stale value — delivered
-  the issue's own ask → `in_review`; work continues beyond the turn
+  the issue's own ask and awaiting acceptance → `in_review`; finished and
+  awaiting nobody → an agent may set `done`; work continues beyond the turn
   (dispatched sub-issues, partial delivery) → `in_progress`; stuck →
   `blocked`. A turn that produces none of the issue's own deliverable —
   answering a question, consulting on work owned elsewhere — writes nothing
@@ -231,8 +232,8 @@ archived statuses remain readable via an explicit status filter.
   issue asks for (a review-the-PR issue is being worked the moment reviewing
   starts). Questions, discussion, or acknowledgements never move the status.
   Squad leaders: dispatching members is not delivery — a dispatch turn
-  leaves the parent `in_progress`, and it moves to `in_review` only when a
-  later re-trigger confirms the overall goal is met.
+  leaves the parent `in_progress`. A later re-trigger that confirms the
+  overall goal is met applies the same completion rule.
 - **`in_review`** is an accepted issue status. Some workflows use it while a PR
   is open and awaiting review; moving to it is an explicit mutation.
 - **`done`** on a child issue can wake its parent's assignee (see Stages).

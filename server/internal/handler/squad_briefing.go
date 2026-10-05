@@ -106,7 +106,7 @@ Your responsibilities, in order:
 // layer (Instruction Precedence puts it above the workflow). The owning
 // leader needs the standing wrap-up instruction below — the @mention-dispatch
 // shape (no child issues, so no sub-issue wakeup) never produces a
-// trigger that asks for in_review, so without it the parent would sit in
+// trigger that asks for completion, so without it the parent would sit in
 // in_progress forever; the guest leader gets the prohibition instead
 // (squadParentStatusNotOwned). Both compositions are pinned by
 // handler/squad_parent_status_contract_test.go.
@@ -115,17 +115,17 @@ const squadParentStatusOwned = `6. **Own the parent issue status.** This issue i
    changes). On the first assignment turn, move the parent to
    ` + "`" + `in_progress` + "`" + ` and keep it there while members work — a successful
    dispatch is not completion. On later turns, do not flip status for
-   routine progress updates. When you confirm the overall goal is met, run
-   ` + "`" + `multica issue status <issue-id> in_review` + "`" + ` — this responsibility is
-   itself the standing instruction that authorizes that change, so do it even
-   when no comment asked you to. Leave ` + "`" + `done` + "`" + ` to a human reviewer or
-   existing integrations (for example a PR with close intent that merges).`
+   routine progress updates. When you confirm the overall goal is met, apply
+   the runtime brief's issue completion rule: use ` + "`" + `in_review` + "`" + ` while awaiting
+   someone's acceptance; you may use ` + "`" + `done` + "`" + ` when finished and awaiting nobody.
+   This responsibility authorizes the completion status change even when
+   no comment asked you to.`
 
 // squadParentStatusNotOwned is responsibility 6 for every other leader path:
 // an @squad mention on an issue owned by someone else (MUL-3724), and
 // quick-create, where no issue exists yet on this turn. Granting status
 // ownership there would let a squad that was merely pulled in to answer a
-// question push another assignee's in-flight issue to in_review.
+// question complete another assignee's in-flight issue.
 const squadParentStatusNotOwned = `6. **Do NOT change this issue's status.** This issue is not assigned to your
    squad — you were pulled in by an @mention (or this is a quick-create turn,
    where the issue does not exist yet). Its status belongs to its own

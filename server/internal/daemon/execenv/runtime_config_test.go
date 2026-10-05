@@ -207,12 +207,6 @@ func TestStatusRuleIsFactJudgmentAtBothMoments(t *testing.T) {
 		"the board should show the issue being worked while you work, not only after",
 		// No assignee gate: the judgment applies to whoever is running.
 		"whoever the assignee is",
-		// Delivery lands in in_review and the ceiling keeps `done` human.
-		"`done` stays human",
-		// Assigned deliverables must not be misread as status-neutral
-		// research: stage barriers and parent notifications key off the
-		// delivery write.
-		"stage barriers and parent notifications depend on that signal",
 		// Invariant 1: conversation does not move the board. Ancillary is
 		// defined by OUTPUT (no part of the issue's own deliverable), not by
 		// activity words like "research" that also describe real work.
@@ -537,10 +531,9 @@ func TestIssueWorkflowHonorsAgentIdentity(t *testing.T) {
 }
 
 // A squad leader's dispatch turn must not read as completion: the end-of-turn
-// fact is in_progress, and in_review waits for the re-trigger that confirms
-// the overall goal is met. Without this bullet the general rule's "delivered →
-// in_review" reading would let a leader close out the parent on the very turn
-// it hands work to members.
+// fact is in_progress, and completion waits for the re-trigger that confirms
+// the overall goal is met. The leader must not close out the parent on the
+// very turn it hands work to members.
 func TestSquadLeaderIssueWorkflowKeepsParentInProgress(t *testing.T) {
 	t.Parallel()
 	const issueID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
