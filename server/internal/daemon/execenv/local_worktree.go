@@ -609,6 +609,15 @@ func (w *LocalWorktree) Finalize(logger *slog.Logger) (LocalWorktreeOutcome, err
 		outcome.AutoCommitted = committed
 	}
 
+	// The fork's brief has the agent work on the branch `madspec-git` names, and
+	// agents check that branch out in this worktree. Its work then lives on that
+	// branch, which this conversation does not own: deliver it as it is.
+	if ref, refErr := runGitTrimmed(w.Path, "symbolic-ref", "--quiet", "HEAD"); refErr == nil && strings.HasPrefix(ref, "refs/heads/") {
+		if own := strings.TrimPrefix(ref, "refs/heads/"); own != w.Branch {
+			return w.finalizeOnAgentBranch(outcome, own, logger)
+		}
+	}
+
 	// A branch still sitting exactly on its base commit means the task changed
 	// nothing — the read-only case. Delete it so the user's branch list only
 	// ever grows for tasks that actually produced work. Only ever the branch
@@ -699,6 +708,36 @@ func (w *LocalWorktree) Finalize(logger *slog.Logger) (LocalWorktreeOutcome, err
 			"auto_committed", outcome.AutoCommitted,
 			"produced_work", producedWork,
 			"continued", w.Continued,
+		)
+	}
+	return outcome, nil
+}
+
+// finalizeOnAgentBranch completes a run whose worktree ended on a branch of the
+// agent's own choosing. Nothing is recorded: the record proves a branch belongs
+// to this conversation, and the agent's branch does not. The task branch is
+// dropped when this prepare created it and it still holds only its baseline,
+// so no branch named after Multica outlives the run; a continued task branch
+// carries earlier turns and stays.
+func (w *LocalWorktree) finalizeOnAgentBranch(outcome LocalWorktreeOutcome, branch string, logger *slog.Logger) (LocalWorktreeOutcome, error) {
+	outcome.Branch = branch
+	if removeErr := removeLocalWorktreeDir(w.GitRoot, w.Path, logger); removeErr != nil {
+		outcome.PreservedPath = w.Path
+		return outcome, fmt.Errorf(
+			"could not remove finalized worktree for branch %s: %w; the task worktree remains at %s",
+			branch, removeErr, w.Path)
+	}
+	if w.createdBranch {
+		if taskTip, err := runGitTrimmed(w.GitRoot, "rev-parse", "--verify", "--quiet", "refs/heads/"+w.Branch); err == nil && taskTip == w.BaseCommit {
+			dropBranch(w.GitRoot, w.Branch, logger)
+		}
+	}
+	if logger != nil {
+		logger.Info("execenv: local worktree finalized on the agent's own branch",
+			"git_root", w.GitRoot,
+			"branch", branch,
+			"task_branch", w.Branch,
+			"auto_committed", outcome.AutoCommitted,
 		)
 	}
 	return outcome, nil

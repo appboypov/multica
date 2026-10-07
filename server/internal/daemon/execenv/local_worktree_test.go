@@ -1600,9 +1600,9 @@ func TestFinalizeRefusesToRecordADeliveryThatResetPastItsBaseline(t *testing.T) 
 }
 
 // The same guard from the other side: whatever the worktree delivered has to BE
-// the task's branch. A run that ended somewhere else — a detached checkout, a
-// different branch — delivered a commit this record has no business describing,
-// and the branch it names would not carry it.
+// the task's branch. A run that ended on a detached checkout delivered a commit
+// this record has no business describing, and the branch it names would not
+// carry it.
 func TestFinalizeRefusesToRecordADeliveryFromOffTheBranch(t *testing.T) {
 	t.Parallel()
 	repo := newTestRepo(t)
@@ -1642,6 +1642,130 @@ func TestFinalizeRefusesToRecordADeliveryFromOffTheBranch(t *testing.T) {
 		t.Error("the stray HEAD was recorded as this branch's checkpoint")
 	}
 	_ = removeLocalWorktreeDir(repo, wt.Path, worktreeTestLogger())
+}
+
+// The fork's brief has the agent work on the branch `madspec-git` names, and
+// agents check that branch out in this worktree. Its work is then delivered on
+// that branch: Finalize completes, names it, keeps everything the agent left,
+// and drops the task branch it no longer needs.
+func TestFinalizeDeliversOnTheBranchTheAgentCheckedOut(t *testing.T) {
+	t.Parallel()
+	repo := newTestRepo(t)
+
+	wt := prepareTurn(t, repo, "MUL-6881", turnOneTask)
+	gitRun(t, wt.Path, "checkout", "--quiet", "-b", "titles-are-labels")
+	writeFile(t, filepath.Join(wt.WorkDir, "agent.txt"), "committed work\n")
+	gitRun(t, wt.Path, "add", "-A")
+	gitRun(t, wt.Path, "commit", "-m", "the agent's commit")
+	writeFile(t, filepath.Join(wt.WorkDir, "leftover.txt"), "uncommitted work\n")
+
+	outcome := finalizeOK(t, wt)
+	if outcome.Branch != "titles-are-labels" {
+		t.Errorf("Branch = %q, want the branch the agent worked on", outcome.Branch)
+	}
+	if !outcome.AutoCommitted {
+		t.Error("AutoCommitted = false, but the agent left a file uncommitted")
+	}
+	for file, want := range map[string]string{"agent.txt": "committed work", "leftover.txt": "uncommitted work"} {
+		if got := gitRun(t, repo, "show", "titles-are-labels:"+file); got != want {
+			t.Errorf("titles-are-labels:%s = %q, want %q", file, got, want)
+		}
+	}
+	if _, err := os.Stat(wt.Path); !os.IsNotExist(err) {
+		t.Errorf("worktree directory still present after Finalize: %v", err)
+	}
+	if _, err := gitTry(t, repo, "rev-parse", "--verify", "agent/j/mul-6881"); err == nil {
+		t.Error("the task branch the agent left behind is still there")
+	}
+	if ref, _ := readUserStateRef(repo, "agent/j/mul-6881"); ref != "" {
+		t.Error("a record was left for the dropped task branch")
+	}
+}
+
+// A task branch this prepare created holds work once the agent commits on it,
+// so moving to another branch afterwards leaves it as it is.
+func TestFinalizeOnTheAgentsBranchKeepsANewTaskBranchWithCommits(t *testing.T) {
+	t.Parallel()
+	repo := newTestRepo(t)
+
+	wt := prepareTurn(t, repo, "MUL-6881", turnOneTask)
+	writeFile(t, filepath.Join(wt.WorkDir, "on-task-branch.txt"), "work on the task branch\n")
+	gitRun(t, wt.Path, "add", "-A")
+	gitRun(t, wt.Path, "commit", "-m", "work on the task branch")
+	committed := gitRun(t, wt.Path, "rev-parse", "HEAD")
+	gitRun(t, wt.Path, "checkout", "--quiet", "-b", "madspec-next", wt.BaseCommit)
+	writeFile(t, filepath.Join(wt.WorkDir, "agent.txt"), "work\n")
+
+	if outcome := finalizeOK(t, wt); outcome.Branch != "madspec-next" {
+		t.Errorf("Branch = %q, want madspec-next", outcome.Branch)
+	}
+	if got, err := gitTry(t, repo, "rev-parse", "agent/j/mul-6881"); err != nil || got != committed {
+		t.Errorf("task branch = %q (err %v), want it kept at %s", got, err, committed)
+	}
+}
+
+// An agent that renames the task branch to its own name delivers on that name.
+// The task branch is gone then, which used to fail the run with "Needed a
+// single revision".
+func TestFinalizeDeliversOnTheTaskBranchTheAgentRenamed(t *testing.T) {
+	t.Parallel()
+	repo := newTestRepo(t)
+
+	wt := prepareTurn(t, repo, "MUL-6881", turnOneTask)
+	gitRun(t, wt.Path, "branch", "-m", "next-stage-waits-in-backlog")
+	writeFile(t, filepath.Join(wt.WorkDir, "agent.txt"), "work\n")
+
+	outcome := finalizeOK(t, wt)
+	if outcome.Branch != "next-stage-waits-in-backlog" {
+		t.Errorf("Branch = %q, want the renamed branch", outcome.Branch)
+	}
+	if got := gitRun(t, repo, "show", "next-stage-waits-in-backlog:agent.txt"); got != "work" {
+		t.Errorf("renamed branch does not carry the agent's work, got %q", got)
+	}
+}
+
+// A continued task branch carries every earlier turn of the conversation, so a
+// turn that moves to its own branch leaves it exactly as it was.
+func TestFinalizeOnTheAgentsBranchKeepsAContinuedTaskBranch(t *testing.T) {
+	t.Parallel()
+	repo := newTestRepo(t)
+
+	first := prepareTurn(t, repo, "MUL-6881", turnOneTask)
+	writeFile(t, filepath.Join(first.WorkDir, "turn-one.txt"), "work from turn one\n")
+	finalizeOK(t, first)
+	delivered := gitRun(t, repo, "rev-parse", "agent/j/mul-6881")
+
+	second := prepareTurn(t, repo, "MUL-6881", turnTwoTask)
+	if !second.Continued {
+		t.Fatal("second turn did not continue the conversation's branch")
+	}
+	gitRun(t, second.Path, "checkout", "--quiet", "-b", "madspec-next")
+	writeFile(t, filepath.Join(second.WorkDir, "turn-two.txt"), "work from turn two\n")
+
+	if outcome := finalizeOK(t, second); outcome.Branch != "madspec-next" {
+		t.Errorf("Branch = %q, want madspec-next", outcome.Branch)
+	}
+	if got, err := gitTry(t, repo, "rev-parse", "agent/j/mul-6881"); err != nil || got != delivered {
+		t.Errorf("continued task branch = %q (err %v), want it kept at %s", got, err, delivered)
+	}
+}
+
+// A tag that shares the task branch's name makes git abbreviate the branch as
+// heads/<name>. The run still stayed on its task branch and delivers there.
+func TestFinalizeStaysOnTheTaskBranchWhenATagSharesItsName(t *testing.T) {
+	t.Parallel()
+	repo := newTestRepo(t)
+
+	wt := prepareTurn(t, repo, "MUL-6881", turnOneTask)
+	gitRun(t, repo, "tag", "agent/j/mul-6881")
+	writeFile(t, filepath.Join(wt.WorkDir, "agent.txt"), "work\n")
+
+	if outcome := finalizeOK(t, wt); outcome.Branch != "agent/j/mul-6881" {
+		t.Errorf("Branch = %q, want the task branch", outcome.Branch)
+	}
+	if ref, _ := readUserStateRef(repo, "agent/j/mul-6881"); ref == "" {
+		t.Error("the task branch's delivery was not recorded")
+	}
 }
 
 // A branch created by this prepare always gets a commit of its own, even when
