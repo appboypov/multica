@@ -612,8 +612,10 @@ func (w *LocalWorktree) Finalize(logger *slog.Logger) (LocalWorktreeOutcome, err
 	// The fork's brief has the agent work on the branch `madspec-git` names, and
 	// agents check that branch out in this worktree. Its work then lives on that
 	// branch, which this conversation does not own: deliver it as it is.
-	if own, ownErr := runGitTrimmed(w.Path, "symbolic-ref", "--quiet", "--short", "HEAD"); ownErr == nil && own != w.Branch {
-		return w.finalizeOnAgentBranch(outcome, own, logger)
+	if ref, refErr := runGitTrimmed(w.Path, "symbolic-ref", "--quiet", "HEAD"); refErr == nil && strings.HasPrefix(ref, "refs/heads/") {
+		if own := strings.TrimPrefix(ref, "refs/heads/"); own != w.Branch {
+			return w.finalizeOnAgentBranch(outcome, own, logger)
+		}
 	}
 
 	// A branch still sitting exactly on its base commit means the task changed

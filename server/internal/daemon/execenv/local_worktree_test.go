@@ -1728,6 +1728,24 @@ func TestFinalizeOnTheAgentsBranchKeepsAContinuedTaskBranch(t *testing.T) {
 	}
 }
 
+// A tag that shares the task branch's name makes git abbreviate the branch as
+// heads/<name>. The run still stayed on its task branch and delivers there.
+func TestFinalizeStaysOnTheTaskBranchWhenATagSharesItsName(t *testing.T) {
+	t.Parallel()
+	repo := newTestRepo(t)
+
+	wt := prepareTurn(t, repo, "MUL-6881", turnOneTask)
+	gitRun(t, repo, "tag", "agent/j/mul-6881")
+	writeFile(t, filepath.Join(wt.WorkDir, "agent.txt"), "work\n")
+
+	if outcome := finalizeOK(t, wt); outcome.Branch != "agent/j/mul-6881" {
+		t.Errorf("Branch = %q, want the task branch", outcome.Branch)
+	}
+	if ref, _ := readUserStateRef(repo, "agent/j/mul-6881"); ref == "" {
+		t.Error("the task branch's delivery was not recorded")
+	}
+}
+
 // A branch created by this prepare always gets a commit of its own, even when
 // the user's directory was clean and there was nothing to replay. Without it
 // the branch would sit exactly where the user's HEAD does, and nothing would
