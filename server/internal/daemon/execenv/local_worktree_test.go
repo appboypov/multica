@@ -1682,6 +1682,28 @@ func TestFinalizeDeliversOnTheBranchTheAgentCheckedOut(t *testing.T) {
 	}
 }
 
+// A task branch this prepare created holds work once the agent commits on it,
+// so moving to another branch afterwards leaves it as it is.
+func TestFinalizeOnTheAgentsBranchKeepsANewTaskBranchWithCommits(t *testing.T) {
+	t.Parallel()
+	repo := newTestRepo(t)
+
+	wt := prepareTurn(t, repo, "MUL-6881", turnOneTask)
+	writeFile(t, filepath.Join(wt.WorkDir, "on-task-branch.txt"), "work on the task branch\n")
+	gitRun(t, wt.Path, "add", "-A")
+	gitRun(t, wt.Path, "commit", "-m", "work on the task branch")
+	committed := gitRun(t, wt.Path, "rev-parse", "HEAD")
+	gitRun(t, wt.Path, "checkout", "--quiet", "-b", "madspec-next", wt.BaseCommit)
+	writeFile(t, filepath.Join(wt.WorkDir, "agent.txt"), "work\n")
+
+	if outcome := finalizeOK(t, wt); outcome.Branch != "madspec-next" {
+		t.Errorf("Branch = %q, want madspec-next", outcome.Branch)
+	}
+	if got, err := gitTry(t, repo, "rev-parse", "agent/j/mul-6881"); err != nil || got != committed {
+		t.Errorf("task branch = %q (err %v), want it kept at %s", got, err, committed)
+	}
+}
+
 // An agent that renames the task branch to its own name delivers on that name.
 // The task branch is gone then, which used to fail the run with "Needed a
 // single revision".
