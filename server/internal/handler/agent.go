@@ -14,7 +14,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -32,17 +31,7 @@ import (
 	"github.com/multica-ai/multica/server/pkg/remotemcp"
 )
 
-// Mirrors AGENT_DESCRIPTION_MAX_LENGTH in packages/core/agents/constants.ts
-// and the agent_description_length CHECK constraint in migration 060. Counted
-// in unicode code points (utf8.RuneCountInString), matching Postgres
-// char_length and the front-end's String.prototype.length-with-counter UX.
-const maxAgentDescriptionLength = 255
-
-const (
-	maxAgentConversationStarters      = 3
-	maxAgentConversationStarterLabel  = 80
-	maxAgentConversationStarterLength = 4000
-)
+const maxAgentConversationStarters = 3
 
 type AgentConversationStarter struct {
 	Label  string `json:"label"`
@@ -1402,12 +1391,6 @@ func normaliseAgentConversationStarters(starters []AgentConversationStarter) ([]
 		if item.Prompt == "" {
 			return nil, fmt.Errorf("conversation_starters[%d].prompt is required", i)
 		}
-		if utf8.RuneCountInString(item.Label) > maxAgentConversationStarterLabel {
-			return nil, fmt.Errorf("conversation_starters[%d].label must be %d characters or fewer", i, maxAgentConversationStarterLabel)
-		}
-		if utf8.RuneCountInString(item.Prompt) > maxAgentConversationStarterLength {
-			return nil, fmt.Errorf("conversation_starters[%d].prompt must be %d characters or fewer", i, maxAgentConversationStarterLength)
-		}
 		normalised = append(normalised, item)
 	}
 	return normalised, nil
@@ -1430,10 +1413,6 @@ func (h *Handler) CreateAgent(w http.ResponseWriter, r *http.Request) {
 
 	if req.Name == "" {
 		writeError(w, http.StatusBadRequest, "name is required")
-		return
-	}
-	if utf8.RuneCountInString(req.Description) > maxAgentDescriptionLength {
-		writeError(w, http.StatusBadRequest, fmt.Sprintf("description must be %d characters or fewer", maxAgentDescriptionLength))
 		return
 	}
 	if req.RuntimeID == "" {
@@ -1979,10 +1958,6 @@ func (h *Handler) UpdateAgent(w http.ResponseWriter, r *http.Request) {
 		params.Name = pgtype.Text{String: *req.Name, Valid: true}
 	}
 	if req.Description != nil {
-		if utf8.RuneCountInString(*req.Description) > maxAgentDescriptionLength {
-			writeError(w, http.StatusBadRequest, fmt.Sprintf("description must be %d characters or fewer", maxAgentDescriptionLength))
-			return
-		}
 		params.Description = pgtype.Text{String: *req.Description, Valid: true}
 	}
 	if req.Instructions != nil {
