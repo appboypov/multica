@@ -12673,19 +12673,6 @@
                               "fontFamily": "$0:font-sans",
                               "fontSize": 14,
                               "fontWeight": "600"
-                            },
-                            {
-                              "type": "text",
-                              "id": "I2GM6E",
-                              "name": "Text",
-                              "fill": "$0:muted-foreground",
-                              "textGrowth": "fixed-width",
-                              "width": "fill_container",
-                              "content": "An agent asks the people on an issue and ends its run. It is woken again only when someone chooses to wake it.",
-                              "lineHeight": 1.5,
-                              "fontFamily": "$0:font-sans",
-                              "fontSize": 13,
-                              "fontWeight": "normal"
                             }
                           ]
                         },
@@ -12809,20 +12796,7 @@
                                       "fill": "$0:muted-foreground",
                                       "textGrowth": "fixed-width",
                                       "width": "fill_container",
-                                      "content": "You may ask the people on this issue a question when you cannot go on without their answer. Only people answer.",
-                                      "lineHeight": 1.5,
-                                      "fontFamily": "$0:font-mono",
-                                      "fontSize": 12,
-                                      "fontWeight": "normal"
-                                    },
-                                    {
-                                      "type": "text",
-                                      "id": "uztJr",
-                                      "name": "Text",
-                                      "fill": "$0:muted-foreground",
-                                      "textGrowth": "fixed-width",
-                                      "width": "fill_container",
-                                      "content": "Ask with `multica question ask`, then end your run. An answer does not wake you; a person wakes you, and that run starts with every answer given since.",
+                                      "content": "`multica question` asks people a question and reads their answers.",
                                       "lineHeight": 1.5,
                                       "fontFamily": "$0:font-mono",
                                       "fontSize": 12,
@@ -12835,7 +12809,7 @@
                                       "fill": "$0:muted-foreground",
                                       "textGrowth": "fixed-width",
                                       "width": "fill_container",
-                                      "content": "`multica question ask --help` lists the answer types and options.",
+                                      "content": "`multica question --help` lists its commands, answer types and options.",
                                       "lineHeight": 1.5,
                                       "fontFamily": "$0:font-mono",
                                       "fontSize": 12,
