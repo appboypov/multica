@@ -12796,7 +12796,7 @@
                                       "fill": "$0:muted-foreground",
                                       "textGrowth": "fixed-width",
                                       "width": "fill_container",
-                                      "content": "`multica question` asks people a question and reads their answers.",
+                                      "content": "`multica question` asks people one or more questions at the same time and reads their answers.",
                                       "lineHeight": 1.5,
                                       "fontFamily": "$0:font-mono",
                                       "fontSize": 12,
