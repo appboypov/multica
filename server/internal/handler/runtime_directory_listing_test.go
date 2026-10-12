@@ -64,6 +64,12 @@ func TestDirectoryListingOwnerRoundTrip(t *testing.T) {
 	if got := poll(); got.Status != RuntimeLocalSkillFailed || got.Error != "path does not exist: /missing" {
 		t.Fatalf("failed poll = %#v", got)
 	}
+
+	var bare RuntimeDirectoryListingRequest
+	testutil.Call(t, h.InitiateDirectoryListing, withURLParam(newRequestAsUser(testUserID, http.MethodPost, path, nil), "runtimeId", runtimeID)).Want(http.StatusOK).JSON(&bare)
+	if bare.Path != "" || bare.Status != RuntimeLocalSkillPending {
+		t.Fatalf("bare request = %#v", bare)
+	}
 }
 
 func TestDirectoryListingOwnerAndOnlineGates(t *testing.T) {
