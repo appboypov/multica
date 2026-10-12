@@ -4,35 +4,36 @@
 flowchart LR
   classDef work fill:#d9f2d9,stroke:#2e7d32,color:#172117
   classDef ask fill:#fff1cc,stroke:#b7791f,color:#172117
+  classDef skip fill:#eeeeee,stroke:#9e9e9e,color:#424242
   P5[P5 Technical design] --> J1
-  J1[J1 Project structure<br/>nothing to build, Open Question 1]:::ask --> J2
+  J1[J1 Project structure<br/>Skip: J1]:::skip --> J2
   J2[J2 Data models<br/>groups 1-2]:::work --> J3
   J3[J3 Data-flow prototype<br/>group 3]:::work --> J4
-  J4[J4 Design system<br/>nothing to build, Open Question 2]:::ask --> J5
-  J5[J5 Components<br/>nothing to build, Open Question 3]:::ask --> J6
+  J4[J4 Design system<br/>Skip: J4]:::skip --> J5
+  J5[J5 Components<br/>nothing to build, Open Question 1]:::ask --> J6
   J6[J6 Screens<br/>group 4]:::work --> J7
   J7[J7 Live prototype<br/>group 5]:::work --> J8
   J8[J8 Backend and agent tooling<br/>groups 6-9]:::work --> J9
   J9[J9 Frontend<br/>groups 10-12]:::work --> J10
-  J10[J10 Agent tooling for UI<br/>nothing to build, Open Question 4]:::ask --> J11
+  J10[J10 Agent tooling for UI<br/>Skip: J10]:::skip --> J11
   J11[J11 Acceptance test and archive<br/>group 13]:::work
 ```
 
 | Step | Groups | Builder |
 |---|---|---|
-| J1 Project structure | none until Brian answers Open Question 1 | — |
+| J1 Project structure | none: `Skip: J1` | — |
 | J2 Data models | 1 model change, 2 DTOs | `madspec-model-builder`, `madspec-dto-builder` |
 | J3 Data-flow prototype | 3 | `madspec-prototype-builder` |
-| J4 Design system | none until Brian answers Open Question 2 | — |
-| J5 Components | none until Brian answers Open Question 3 | — |
+| J4 Design system | none: `Skip: J4` | — |
+| J5 Components | none until Brian answers Open Question 1 | — |
 | J6 Screens | 4 | `madspec-screen-designer` |
 | J7 Live prototype | 5 | `madspec-prototype-builder` |
 | J8 Backend and agent tooling | 6 rules, 7 services, 8 endpoints, 9 daemon and CLI | `madspec-rules-builder`, `madspec-service-builder`, `madspec-api-builder`, `madspec-command-builder` |
 | J9 Frontend | 10 flow, 11 new component, 12 screens | `madspec-api-builder`, `madspec-component-builder`, `madspec-view-builder` |
-| J10 Agent tooling for UI | none until Brian answers Open Question 4 | — |
+| J10 Agent tooling for UI | none: `Skip: J10` | — |
 | J11 Acceptance test and archive | 13 | Sarkout |
 
-Every group builds on UJ-1's code (change `answer-an-agents-question-and-wake-it`), merged first; the UJ-1 paths it names exist once UJ-1's J2 to J9 are built. The task-token cases of 8.2 and 8.6 follow Open Question 5's answer.
+Every group builds on UJ-1's code (change `answer-an-agents-question-and-wake-it`), merged first; the UJ-1 paths it names exist once UJ-1's J2 to J9 are built. The task-token cases of 8.2 and 8.6 follow Open Question 2's answer.
 
 ## 1. J2 Data models: model change
 
@@ -126,3 +127,5 @@ Every group builds on UJ-1's code (change `answer-an-agents-question-and-wake-it
 ## Implementation Notes
 
 ## Plan Change Log
+
+- 2026-10-13: J1, J4 and J10 skipped by Brian's answer on WORK-378 (relayed by Skuddy), recorded as the Requests `Skip: J1`, `Skip: J4` and `Skip: J10` on journey UJ-5; design.md Open Questions renumbered: J5 Components is now 1 and agents and an issue's Agent questions 2, both still open.
