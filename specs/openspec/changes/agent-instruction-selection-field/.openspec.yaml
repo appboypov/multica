@@ -1,7 +1,7 @@
 schema: intent-driven
 created: 2026-10-12
 build:
-  status: in-progress
+  status: built
   baseline_revision: dae8f4210fc166c46ef3fcdbe31eef05ae428746
   type: feature
   ticket: ''
