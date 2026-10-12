@@ -825,6 +825,7 @@
       "codex_resume_oversized": "セッションが大きすぎて再開できません",
       "idle_watchdog": "エージェントが長時間応答しなかったため停止しました",
       "local_directory_error": "ローカルディレクトリエラー",
+      "instruction_selection_error": "指示の選択エラー",
       "cancelled": "システムによってキャンセルされました",
       "agent_error": "エージェント実行エラー",
       "codex_semantic_inactivity": "Codex に進行がないままタイムアウトしました",

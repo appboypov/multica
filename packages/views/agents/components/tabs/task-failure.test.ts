@@ -178,6 +178,21 @@ describe("failureReasonLabel", () => {
     );
   });
 
+  it("labels an instruction selection failure in every supported locale", () => {
+    const expected: Record<SupportedLocale, string> = {
+      en: "Instruction selection error",
+      "zh-Hans": "指令选择出错",
+      ja: "指示の選択エラー",
+      ko: "지침 선택 오류",
+      fr: "Erreur de sélection des instructions",
+    };
+    for (const locale of Object.keys(AGENT_RESOURCES) as SupportedLocale[]) {
+      expect(
+        failureReasonLabel("instruction_selection_error", fixedT(locale)),
+      ).toBe(expected[locale]);
+    }
+  });
+
   it("localizes the legacy user cancellation value retained by the service", () => {
     expect(failureReasonLabel("user_cancelled", enT)).toBe(
       "Cancelled by user",
