@@ -14,6 +14,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // piBackend implements Backend by spawning the Pi CLI in non-interactive
@@ -384,7 +386,7 @@ func (b *piBackend) Execute(ctx context.Context, prompt string, opts ExecOptions
 		}
 		sessionPath = p
 	}
-	if err := ensurePiSessionFile(sessionPath); err != nil {
+	if err := ensurePiSessionFile(sessionPath, label == "omp", opts.Cwd); err != nil {
 		return nil, fmt.Errorf("%s session file: %w", label, err)
 	}
 	sessionLock, locked, err := tryLockPiSessionFile(sessionPath)
@@ -1108,10 +1110,13 @@ func newPiSessionPath() (string, error) {
 	return filepath.Join(dir, name), nil
 }
 
-// ensurePiSessionFile creates an empty session file if one does not yet
-// exist at path. Pi refuses to start when --session points at a missing
-// file; paths that already exist (a resumed session) are left untouched.
-func ensurePiSessionFile(path string) error {
+// ensurePiSessionFile creates the session file if one does not yet exist at
+// path. Pi refuses to start when --session points at a missing file, so it
+// gets an empty one. omp (since 18.10) also refuses an empty file ("the
+// session file holds no entries"), so an omp file that is missing or empty
+// gets a session header line. A file with entries (a resumed session) is
+// left untouched.
+func ensurePiSessionFile(path string, withHeader bool, cwd string) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
@@ -1119,7 +1124,34 @@ func ensurePiSessionFile(path string) error {
 	if err != nil {
 		return err
 	}
-	return f.Close()
+	defer f.Close()
+	if !withHeader {
+		return nil
+	}
+	info, err := f.Stat()
+	if err != nil {
+		return err
+	}
+	if info.Size() > 0 {
+		return nil
+	}
+	if cwd == "" {
+		if cwd, err = os.Getwd(); err != nil {
+			return err
+		}
+	}
+	header, err := json.Marshal(map[string]any{
+		"type":      "session",
+		"version":   3,
+		"id":        uuid.NewString(),
+		"timestamp": time.Now().UTC().Format("2006-01-02T15:04:05.000Z"),
+		"cwd":       cwd,
+	})
+	if err != nil {
+		return err
+	}
+	_, err = f.Write(append(header, '\n'))
+	return err
 }
 
 // PiSessionDir exposes piSessionDir to other packages in this module.

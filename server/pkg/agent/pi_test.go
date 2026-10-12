@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"os"
@@ -11,6 +12,47 @@ import (
 	"testing"
 	"time"
 )
+
+// omp 18.10 refuses `--session` on an empty file ("the session file holds no
+// entries"), so every new omp task failed at start. An omp session file that
+// is missing or empty must start with a session header; pi keeps its empty
+// file, and a file with entries is never rewritten.
+func TestEnsurePiSessionFile(t *testing.T) {
+	dir := t.TempDir()
+
+	piPath := filepath.Join(dir, "pi", "new.jsonl")
+	if err := ensurePiSessionFile(piPath, false, dir); err != nil {
+		t.Fatal(err)
+	}
+	if data, _ := os.ReadFile(piPath); len(data) != 0 {
+		t.Errorf("pi session file = %q, want empty", data)
+	}
+
+	ompPath := filepath.Join(dir, "omp", "new.jsonl")
+	if err := ensurePiSessionFile(ompPath, true, "/work/dir"); err != nil {
+		t.Fatal(err)
+	}
+	data, _ := os.ReadFile(ompPath)
+	var header map[string]any
+	if err := json.Unmarshal(data, &header); err != nil {
+		t.Fatalf("omp session file %q is not one JSON line: %v", data, err)
+	}
+	if header["type"] != "session" || header["cwd"] != "/work/dir" || header["id"] == "" {
+		t.Errorf("omp header = %v, want a session header for /work/dir", header)
+	}
+
+	resumed := filepath.Join(dir, "omp", "resumed.jsonl")
+	const history = "{\"type\":\"session\",\"id\":\"x\"}\n{\"type\":\"message\"}\n"
+	if err := os.WriteFile(resumed, []byte(history), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := ensurePiSessionFile(resumed, true, dir); err != nil {
+		t.Fatal(err)
+	}
+	if data, _ := os.ReadFile(resumed); string(data) != history {
+		t.Errorf("resumed session file = %q, want it untouched", data)
+	}
+}
 
 func TestBuildPiArgsNoToolAllowlist(t *testing.T) {
 	// Extension tools registered via Pi's registerTool() must not be
