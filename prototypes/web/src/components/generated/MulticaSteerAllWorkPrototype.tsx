@@ -53,6 +53,7 @@ import {
   initials,
   issueKey,
   laneCount,
+  laneIssues,
   laneLabel,
   loadOrgs,
   plural,
@@ -61,7 +62,8 @@ import {
   templateInputs,
   templateMarkdown,
 } from './model';
-import { Avatar, Button, Chip, Markdown, Menu, MenuItem, Progress, ReleaseChip, Segmented, StatusIcon, TypeIcon } from './ui';
+import { AddRepositoryDialog, NewWorklaneDialog, PlanReleaseDialog } from './creation';
+import { Avatar, Button, Chip, IconButton, Markdown, Menu, MenuItem, Overlay, Progress, ReleaseChip, Segmented, StatusIcon, TypeIcon } from './ui';
 
 // ---------------------------------------------------------------------------
 // Routing and app state
@@ -153,9 +155,10 @@ export const MulticaSteerAllWorkPrototype = () => {
         const st = l ? releaseStates(l, statusOf) : [];
         return l?.releases?.[st.indexOf('next')]?.version;
       };
+      // A worklane's new issue also goes to the squad that works the worklane.
       const ctx: Partial<Draft> =
         route.name === 'lane'
-          ? { lane: route.ref, release: nextOf(route.ref) }
+          ? { lane: route.ref, release: nextOf(route.ref), squad: findLane(orgs, route.ref)?.lane.squad }
           : route.name === 'squad'
             ? (() => {
                 // A squad's new issue goes to the worklane of its open work, in that worklane's next release.
@@ -186,7 +189,7 @@ export const MulticaSteerAllWorkPrototype = () => {
     },
     findIssue: (id) =>
       allLanes(orgs)
-        .flatMap((l) => (l.lane.releases ?? []).flatMap((r) => r.issues))
+        .flatMap((l) => laneIssues(l.lane))
         .concat(Object.values(squadIssues).flat())
         .find((i) => i.id === id) ?? null,
     squadOf: (i) => i.squad ?? Object.keys(squadIssues).find((s) => squadIssues[s].some((x) => x.id === i.id)),
@@ -216,7 +219,7 @@ export const MulticaSteerAllWorkPrototype = () => {
     const target = d.lane ? findLane(orgs, d.lane) : null;
     const prefix = target?.project.name === 'Rebl' ? 'REBL' : 'WORK';
     const used = [
-      ...allLanes(orgs).flatMap((l) => (l.lane.releases ?? []).flatMap((r) => r.issues)),
+      ...allLanes(orgs).flatMap((l) => laneIssues(l.lane)),
       ...Object.values(squadIssues).flat(),
     ]
       .filter((i) => i.id.startsWith(prefix + '-'))
@@ -235,38 +238,16 @@ export const MulticaSteerAllWorkPrototype = () => {
       squad: d.squad,
       created: true,
     };
-    if (d.lane && d.release) {
-      setOrgs((os) =>
-        os.map((o) =>
-          o.name !== d.lane!.org
-            ? o
-            : {
-                ...o,
-                projects: o.projects.map((p) =>
-                  p.name !== d.lane!.project
-                    ? p
-                    : {
-                        ...p,
-                        repos: p.repos.map((r) =>
-                          r.name !== d.lane!.repo
-                            ? r
-                            : {
-                                ...r,
-                                lanes: r.lanes.map((l) =>
-                                  l.name !== d.lane!.lane
-                                    ? l
-                                    : {
-                                        ...l,
-                                        releases: (l.releases ?? []).map((rel) =>
-                                          rel.version === d.release ? { ...rel, issues: [...rel.issues, issue] } : rel,
-                                        ),
-                                      },
-                                ),
-                              },
-                        ),
-                      },
-                ),
-              },
+    // A worklane holds its issue in the chosen release, or in its backlog until a release is planned for it.
+    if (d.lane) {
+      const lane = d.lane.lane;
+      updateLanes(d.lane, (ls) =>
+        ls.map((l) =>
+          l.name !== lane
+            ? l
+            : d.release
+              ? { ...l, releases: (l.releases ?? []).map((rel) => (rel.version === d.release ? { ...rel, issues: [...rel.issues, issue] } : rel)) }
+              : { ...l, backlog: [...(l.backlog ?? []), issue] },
         ),
       );
     }
@@ -295,12 +276,29 @@ export const MulticaSteerAllWorkPrototype = () => {
   const addProject = (org: string, name: string) =>
     setOrgs((os) => os.map((o) => (o.name === org ? { ...o, projects: [...o.projects, { name, repos: [] }] } : o)));
 
-  const addRepo = (org: string, project: string, name: string) =>
+  const addRepo = (org: string, project: string, repo: Repo) =>
     setOrgs((os) =>
       os.map((o) =>
-        o.name !== org ? o : { ...o, projects: o.projects.map((p) => (p.name === project ? { ...p, repos: [...p.repos, { name, lanes: [] }] } : p)) },
+        o.name !== org ? o : { ...o, projects: o.projects.map((p) => (p.name === project ? { ...p, repos: [...p.repos, repo] } : p)) },
       ),
     );
+
+  // A planned release takes the picked issues out of the worklane's backlog; they are ready to pick up.
+  const planRelease = (ref: LaneRef, version: string, goal: string, ids: string[]) => {
+    const ready = (i: Issue): Issue => ({ ...i, release: version, status: i.status === 'backlog' ? 'todo' : i.status });
+    updateLanes(ref, (ls) =>
+      ls.map((l) => {
+        if (l.name !== ref.lane) return l;
+        const moved = (l.backlog ?? []).filter((i) => ids.includes(i.id));
+        return {
+          ...l,
+          releases: [...(l.releases ?? []), { version, goal, issues: moved.map(ready) }],
+          backlog: (l.backlog ?? []).filter((i) => !ids.includes(i.id)),
+        };
+      }),
+    );
+    setSquadIssues((m) => Object.fromEntries(Object.entries(m).map(([s, is]) => [s, is.map((i) => (ids.includes(i.id) ? ready(i) : i))])));
+  };
 
   let page: ReactNode;
   if (route.name === 'projects') page = <ProjectsPage api={api} onAddProject={addProject} />;
@@ -312,10 +310,15 @@ export const MulticaSteerAllWorkPrototype = () => {
         orgName={route.org}
         projectName={route.project}
         initialAddLane={route.addLane}
-        onAddRepo={(n) => addRepo(route.org, route.project, n)}
-        onAddLane={(repo, n) =>
-          updateLanes({ org: route.org, project: route.project, repo }, (ls) => [...ls, { name: n, state: 'Free', active: null, next: null, releases: [] }])
-        }
+        onAddRepo={(repo) => addRepo(route.org, route.project, repo)}
+        onAddLane={(repo, lane) => {
+          updateLanes({ org: route.org, project: route.project, repo }, (ls) => [
+            ...ls,
+            { name: lane.name, folder: lane.folder, squad: lane.squad, state: 'Free', active: null, next: null, releases: [], backlog: [] },
+          ]);
+          setRoute({ name: 'lane', ref: { org: route.org, project: route.project, repo, lane: lane.name }, view: 'timeline' });
+          toast(`Worklane ${lane.name} is ready`);
+        }}
       />
     );
   else if (route.name === 'lane')
@@ -324,16 +327,10 @@ export const MulticaSteerAllWorkPrototype = () => {
         api={api}
         refLane={route.ref}
         view={route.view}
-        onPlanRelease={(goal) =>
-          updateLanes(route.ref, (ls) =>
-            ls.map((l) => {
-              if (l.name !== route.ref.lane) return l;
-              const last = l.releases?.[l.releases.length - 1]?.version ?? 'v0.9.0';
-              const [maj, min] = last.replace('v', '').split('.').map(Number);
-              return { ...l, releases: [...(l.releases ?? []), { version: `v${maj}.${min + 1}.0`, goal, issues: [] }] };
-            }),
-          )
-        }
+        onPlanRelease={(version, goal, ids) => {
+          planRelease(route.ref, version, goal, ids);
+          toast(`${version} planned: ${goal}`);
+        }}
       />
     );
   else if (route.name === 'squad') page = <SquadPage api={api} squad={route.squad} view={route.view} issues={squadIssues[route.squad] ?? []} />;
@@ -842,36 +839,6 @@ function NewProjectDialog({ orgs, onClose, onCreate }: { orgs: string[]; onClose
 // Screen 2: one project, its repositories and worklanes
 // ---------------------------------------------------------------------------
 
-function InlineAdd({ placeholder, onAdd, onCancel }: { placeholder: string; onAdd: (v: string) => void; onCancel: () => void }) {
-  const [v, setV] = useState('');
-  return (
-    <form
-      className="flex items-center gap-2 border-t px-4 py-2"
-      style={{ borderColor: 'var(--border)' }}
-      onSubmit={(e) => {
-        e.preventDefault();
-        if (v.trim()) onAdd(v.trim());
-      }}
-    >
-      <input
-        autoFocus
-        value={v}
-        onChange={(e) => setV(e.target.value)}
-        onKeyDown={(e) => e.key === 'Escape' && onCancel()}
-        placeholder={placeholder}
-        className="h-8 flex-1 rounded-[6px] border px-2 text-[13px] outline-none focus:border-[var(--ring)]"
-        style={{ borderColor: 'var(--input)' }}
-      />
-      <Button variant="ghost" onClick={onCancel}>
-        Cancel
-      </Button>
-      <Button variant="primary" type="submit" disabled={!v.trim()}>
-        Add
-      </Button>
-    </form>
-  );
-}
-
 function ProjectPage({
   api,
   orgName,
@@ -883,8 +850,8 @@ function ProjectPage({
   api: AppApi;
   orgName: string;
   projectName: string;
-  onAddRepo: (name: string) => void;
-  onAddLane: (repo: string, name: string) => void;
+  onAddRepo: (repo: Repo) => void;
+  onAddLane: (repo: string, lane: { name: string; folder: string; squad: string }) => void;
   initialAddLane?: string;
 }) {
   const project = api.orgs.find((o) => o.name === orgName)?.projects.find((p) => p.name === projectName);
@@ -934,19 +901,18 @@ function ProjectPage({
         </div>
         <div className="mt-6 space-y-4">
           {addingRepo && (
-            <div className="rounded-[12px] border" style={{ background: 'var(--surface)', borderColor: 'var(--surface-border)' }}>
-              <InlineAdd
-                placeholder="owner/repository"
-                onCancel={() => setAddingRepo(false)}
-                onAdd={(n) => {
-                  onAddRepo(n);
-                  setAddingRepo(false);
-                  api.toast(`${n} added to ${project.name}`);
-                }}
-              />
-            </div>
+            <AddRepositoryDialog
+              orgs={api.orgs}
+              project={project}
+              onClose={() => setAddingRepo(false)}
+              onAdd={(repo) => {
+                onAddRepo(repo);
+                setAddingRepo(false);
+                api.toast(`${repo.name} added to ${project.name}`);
+              }}
+            />
           )}
-          {!project.repos.length && !addingRepo && (
+          {!project.repos.length && (
             <div className="rounded-[12px] border border-dashed px-6 py-10 text-center" style={{ borderColor: 'var(--surface-border)', color: 'var(--muted-foreground)' }}>
               <FolderGit2 size={20} className="mx-auto mb-2" />
               <p className="text-[14px]">No repositories yet</p>
@@ -977,21 +943,13 @@ function ProjectPage({
               {r.lanes.map((l) => (
                 <LaneRow key={l.name} api={api} lane={l} refLane={{ org: orgName, project: projectName, repo: r.name, lane: l.name }} indent={16} />
               ))}
-              {!r.lanes.length && addingLane !== r.name && (
+              {!r.lanes.length && (
                 <div className="border-t px-4 py-3 text-[13px]" style={{ borderColor: 'var(--border)', color: 'var(--muted-foreground)' }}>
                   No worklanes yet
                 </div>
               )}
               {addingLane === r.name && (
-                <InlineAdd
-                  placeholder="Worklane name"
-                  onCancel={() => setAddingLane(null)}
-                  onAdd={(n) => {
-                    onAddLane(r.name, n);
-                    setAddingLane(null);
-                    api.toast(`Worklane ${n} added to ${r.name}`);
-                  }}
-                />
+                <NewWorklaneDialog project={project} repo={r} onClose={() => setAddingLane(null)} onCreate={(lane) => onAddLane(r.name, lane)} />
               )}
             </section>
           ))}
@@ -1041,12 +999,23 @@ function IssueRow({ api, issue }: { api: AppApi; issue: Issue }) {
 
 const STATE_LABEL: Record<ReleaseState, string> = { shipped: 'Shipped', next: 'Next release', planned: 'Planned' };
 
-function LanePage({ api, refLane, view, onPlanRelease }: { api: AppApi; refLane: LaneRef; view: LaneView; onPlanRelease: (goal: string) => void }) {
+function LanePage({
+  api,
+  refLane,
+  view,
+  onPlanRelease,
+}: {
+  api: AppApi;
+  refLane: LaneRef;
+  view: LaneView;
+  onPlanRelease: (version: string, goal: string, issueIds: string[]) => void;
+}) {
   const found = findLane(api.orgs, refLane);
   const [types, setTypes] = useState<string[]>([]);
   const [planning, setPlanning] = useState(false);
   if (!found) return <OtherPage label="Worklane not found" />;
-  const { lane } = found;
+  const { lane, repo } = found;
+  const backlog = lane.backlog ?? [];
   const rels = lane.releases ?? [];
   const states = releaseStates(lane, api.statusOf);
   const filt = (is: Issue[]) => (types.length ? is.filter((i) => types.includes(i.type)) : is);
@@ -1102,28 +1071,27 @@ function LanePage({ api, refLane, view, onPlanRelease }: { api: AppApi; refLane:
               <div className="relative mb-5 h-3">
                 <span className="absolute top-1/2 left-0 size-3 -translate-y-1/2 rounded-full border border-dashed" style={{ borderColor: 'var(--ring)', background: 'var(--page-canvas)' }} />
               </div>
-              {planning ? (
-                <div className="overflow-hidden rounded-[12px] border" style={{ background: 'var(--surface)', borderColor: 'var(--surface-border)' }}>
-                  <div className="px-4 pt-3 text-[13px] font-medium">Plan a release</div>
-                  <InlineAdd
-                    placeholder="Release goal"
-                    onCancel={() => setPlanning(false)}
-                    onAdd={(g) => {
-                      onPlanRelease(g);
-                      setPlanning(false);
-                      api.toast(`Release planned: ${g}`);
-                    }}
-                  />
-                </div>
-              ) : (
-                <button
-                  onClick={() => setPlanning(true)}
-                  className="flex h-24 w-full flex-col items-center justify-center gap-1 rounded-[12px] border border-dashed text-[13px] hover:bg-[var(--surface-hover)]"
-                  style={{ borderColor: 'var(--surface-border)', color: 'var(--muted-foreground)' }}
-                >
-                  <Plus size={16} />
-                  Plan release
-                </button>
+              <button
+                onClick={() => setPlanning(true)}
+                className="flex h-24 w-full flex-col items-center justify-center gap-1 rounded-[12px] border border-dashed text-[13px] hover:bg-[var(--surface-hover)]"
+                style={{ borderColor: 'var(--surface-border)', color: 'var(--muted-foreground)' }}
+              >
+                <Plus size={16} />
+                Plan release
+                {!!backlog.length && <span className="text-[12px]">{plural(backlog.length, 'issue')} in no release</span>}
+              </button>
+              {planning && (
+                <PlanReleaseDialog
+                  repo={repo}
+                  laneName={lane.name}
+                  candidates={backlog}
+                  statusOf={api.statusOf}
+                  onClose={() => setPlanning(false)}
+                  onPlan={(version, goal, ids) => {
+                    onPlanRelease(version, goal, ids);
+                    setPlanning(false);
+                  }}
+                />
               )}
             </div>
           </div>
@@ -1133,7 +1101,7 @@ function LanePage({ api, refLane, view, onPlanRelease }: { api: AppApi; refLane:
         <StatusBoard
           api={api}
           columns={['backlog', 'todo', 'in_progress', 'in_review', 'done']}
-          issues={filt(rels.flatMap((r) => r.issues))}
+          issues={filt(laneIssues(lane))}
           onAdd={(s) => api.newIssue({ lane: refLane, release: rels[states.indexOf('next')]?.version, status: s })}
           showLane={false}
         />
@@ -1157,7 +1125,23 @@ function LanePage({ api, refLane, view, onPlanRelease }: { api: AppApi; refLane:
               ))}
             </section>
           ))}
-          {!rels.length && <EmptyNote text="No releases planned for this worklane yet." />}
+          {!!filt(backlog).length && (
+            <section className="mb-4 overflow-hidden rounded-[12px] border" style={{ background: 'var(--surface)', borderColor: 'var(--surface-border)' }}>
+              <div className="flex h-11 items-center gap-2 px-4">
+                <span className="font-medium">No release</span>
+                <div className="flex-1" />
+                <span className="text-[12px]" style={{ color: 'var(--muted-foreground)' }}>
+                  {plural(backlog.length, 'issue')}
+                </span>
+              </div>
+              {filt(backlog).map((is) => (
+                <div key={is.id} className="border-t" style={{ borderColor: 'var(--border)' }}>
+                  <IssueRow api={api} issue={is} />
+                </div>
+              ))}
+            </section>
+          )}
+          {!rels.length && !backlog.length && <EmptyNote text="No releases planned for this worklane yet." />}
         </div>
       )}
     </>
@@ -2092,31 +2076,6 @@ function Palette({ api, squadIssues, onClose }: { api: AppApi; squadIssues: Reco
 // ---------------------------------------------------------------------------
 // Small parts
 // ---------------------------------------------------------------------------
-
-function Overlay({ children, onClose, top }: { children: ReactNode; onClose: () => void; top?: boolean }) {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
-  return (
-    <div
-      className={`fixed inset-0 z-50 flex justify-center p-8 ${top ? 'items-start pt-[14vh]' : 'items-center'}`}
-      style={{ background: 'rgb(9 9 11 / 0.32)' }}
-      onMouseDown={(e) => e.target === e.currentTarget && onClose()}
-    >
-      {children}
-    </div>
-  );
-}
-
-function IconButton({ label, icon, onClick }: { label: string; icon: ReactNode; onClick: () => void }) {
-  return (
-    <button aria-label={label} title={label} onClick={onClick} className="flex size-7 items-center justify-center rounded-[6px] hover:bg-[var(--surface-hover)]" style={{ color: 'var(--muted-foreground)' }}>
-      {icon}
-    </button>
-  );
-}
 
 function EmptyNote({ text }: { text: string }) {
   return (

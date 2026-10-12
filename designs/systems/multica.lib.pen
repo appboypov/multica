@@ -6476,6 +6476,834 @@
               "fontWeight": "normal"
             }
           ]
+        },
+        {
+          "type": "text",
+          "id": "Th4PZ",
+          "name": "Creation forms  (NEW)",
+          "fill": "$foreground",
+          "content": "Creation forms  (NEW: add repository, new worklane, plan release)",
+          "fontFamily": "$font-sans",
+          "fontSize": "$text-title-sm",
+          "fontWeight": "600"
+        },
+        {
+          "type": "frame",
+          "id": "Gd2fY",
+          "name": "Form row",
+          "width": "fill_container",
+          "gap": 16,
+          "children": [
+            {
+              "type": "frame",
+              "id": "o4kc9",
+              "name": "Col fields",
+              "width": 560,
+              "layout": "vertical",
+              "gap": 16,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "GPVnc",
+                  "name": "Form field",
+                  "reusable": true,
+                  "width": 560,
+                  "layout": "vertical",
+                  "gap": 6,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "y7vnK0",
+                      "name": "Field head",
+                      "width": "fill_container",
+                      "justifyContent": "space_between",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "KRgjT",
+                          "name": "Field label",
+                          "fill": "$foreground",
+                          "content": "Repository",
+                          "fontFamily": "$font-sans",
+                          "fontSize": "$text-label",
+                          "fontWeight": "500"
+                        },
+                        {
+                          "type": "text",
+                          "id": "xzCrL",
+                          "name": "Field hint",
+                          "fill": "$muted-foreground",
+                          "content": "Required",
+                          "fontFamily": "$font-sans",
+                          "fontSize": "$text-caption",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "skPzP",
+                      "name": "Control",
+                      "slot": [
+                        "DmY05",
+                        "ED2nY"
+                      ],
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 6,
+                      "children": [
+                        {
+                          "id": "A5RQb",
+                          "type": "ref",
+                          "ref": "DmY05",
+                          "name": "Input",
+                          "width": "fill_container"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "JbpbF",
+                      "name": "Field help",
+                      "fill": "$muted-foreground",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Help text under the control",
+                      "fontFamily": "$font-sans",
+                      "fontSize": "$text-caption",
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "p4zvU6",
+                  "name": "Readonly value",
+                  "reusable": true,
+                  "width": 560,
+                  "fill": "$muted",
+                  "cornerRadius": "$radius-lg",
+                  "gap": 8,
+                  "padding": [
+                    8,
+                    10
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "H40b2",
+                      "name": "Icon",
+                      "width": 14,
+                      "height": 14,
+                      "icon": "folder-git-2",
+                      "library": "lucide",
+                      "fill": "$muted-foreground"
+                    },
+                    {
+                      "type": "text",
+                      "id": "dIEF6",
+                      "name": "Value",
+                      "fill": "$foreground",
+                      "content": "~/Worktrees/rebl/fan-app/rebl",
+                      "fontFamily": "$font-mono",
+                      "fontSize": "$text-label",
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "A1nAVz",
+                  "name": "Note",
+                  "reusable": true,
+                  "width": 560,
+                  "fill": "$muted",
+                  "cornerRadius": "$radius-lg",
+                  "gap": 10,
+                  "padding": [
+                    10,
+                    12
+                  ],
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "yLUVk",
+                      "name": "Icon",
+                      "width": 16,
+                      "height": 16,
+                      "icon": "rocket",
+                      "library": "lucide",
+                      "fill": "$muted-foreground"
+                    },
+                    {
+                      "type": "text",
+                      "id": "drIZb",
+                      "name": "Text",
+                      "fill": "$muted-foreground",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "When all its issues are done and merged, Multica tags v1.2.1 on main, writes the release note, publishes the GitHub release and asks you to pass it.",
+                      "lineHeight": 1.45,
+                      "fontFamily": "$font-sans",
+                      "fontSize": "$text-label",
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "k4NWEY",
+              "name": "Col rows",
+              "width": 560,
+              "layout": "vertical",
+              "gap": 12,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "AYjEQ",
+                  "name": "Repo option/Default",
+                  "reusable": true,
+                  "width": 560,
+                  "height": 48,
+                  "cornerRadius": "$radius-lg",
+                  "gap": 10,
+                  "padding": [
+                    0,
+                    12
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "zpSny",
+                      "name": "Icon",
+                      "width": 16,
+                      "height": 16,
+                      "icon": "github",
+                      "library": "lucide",
+                      "fill": "$foreground"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "Ii5aH",
+                      "name": "Text",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 2,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "cAgQn",
+                          "name": "Name",
+                          "fill": "$foreground",
+                          "content": "appboypov/rebl-admin",
+                          "fontFamily": "$font-mono",
+                          "fontSize": "$text-label",
+                          "fontWeight": "500"
+                        },
+                        {
+                          "type": "text",
+                          "id": "rOo4b",
+                          "name": "Meta",
+                          "fill": "$muted-foreground",
+                          "content": "Private · default branch main",
+                          "fontFamily": "$font-sans",
+                          "fontSize": "$text-caption",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "Z7YgvP",
+                  "name": "Repo option/Selected",
+                  "reusable": true,
+                  "width": 560,
+                  "height": 48,
+                  "fill": "$surface-selected",
+                  "cornerRadius": "$radius-lg",
+                  "stroke": "$ring",
+                  "strokeWidth": 1,
+                  "gap": 10,
+                  "padding": [
+                    0,
+                    12
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "SLJuM",
+                      "name": "Icon",
+                      "width": 16,
+                      "height": 16,
+                      "icon": "github",
+                      "library": "lucide",
+                      "fill": "$foreground"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "mdKUS",
+                      "name": "Text",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 2,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "lKS25",
+                          "name": "Name",
+                          "fill": "$foreground",
+                          "content": "appboypov/rebl-admin",
+                          "fontFamily": "$font-mono",
+                          "fontSize": "$text-label",
+                          "fontWeight": "500"
+                        },
+                        {
+                          "type": "text",
+                          "id": "TDyTn",
+                          "name": "Meta",
+                          "fill": "$muted-foreground",
+                          "content": "Private · default branch main",
+                          "fontFamily": "$font-sans",
+                          "fontSize": "$text-caption",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "icon",
+                      "id": "Thr2q",
+                      "name": "Check",
+                      "width": 16,
+                      "height": 16,
+                      "icon": "check",
+                      "library": "lucide",
+                      "fill": "$foreground"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "w1xU3g",
+                  "name": "Repo option/Taken",
+                  "reusable": true,
+                  "width": 560,
+                  "height": 48,
+                  "cornerRadius": "$radius-lg",
+                  "gap": 10,
+                  "padding": [
+                    0,
+                    12
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "M7WmH",
+                      "name": "Icon",
+                      "width": 16,
+                      "height": 16,
+                      "icon": "github",
+                      "library": "lucide",
+                      "fill": "$faint-foreground"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "B5CEeR",
+                      "name": "Text",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 2,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "gt82l",
+                          "name": "Name",
+                          "fill": "$muted-foreground",
+                          "content": "appboypov/rebl-admin",
+                          "fontFamily": "$font-mono",
+                          "fontSize": "$text-label",
+                          "fontWeight": "500"
+                        },
+                        {
+                          "type": "text",
+                          "id": "AE6Js",
+                          "name": "Meta",
+                          "fill": "$muted-foreground",
+                          "content": "Private · default branch main",
+                          "fontFamily": "$font-sans",
+                          "fontSize": "$text-caption",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "i9UySC",
+                      "name": "Taken",
+                      "fill": "$muted-foreground",
+                      "content": "In MIA",
+                      "fontFamily": "$font-sans",
+                      "fontSize": "$text-caption",
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "qtxki",
+                  "name": "Check/Done",
+                  "reusable": true,
+                  "width": 560,
+                  "height": 24,
+                  "gap": 8,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "I2cgyI",
+                      "name": "Icon",
+                      "width": 16,
+                      "height": 16,
+                      "icon": "circle-check",
+                      "library": "lucide",
+                      "fill": "$success"
+                    },
+                    {
+                      "type": "text",
+                      "id": "Sv6pI",
+                      "name": "Text",
+                      "fill": "$foreground",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Git checkout of appboypov/rebl-admin",
+                      "fontFamily": "$font-sans",
+                      "fontSize": "$text-label",
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "jBEWu",
+                      "name": "Detail",
+                      "fill": "$muted-foreground",
+                      "fontFamily": "$font-mono",
+                      "fontSize": "$text-caption",
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "j3Zsu",
+                  "name": "Check/Running",
+                  "reusable": true,
+                  "width": 560,
+                  "height": 24,
+                  "gap": 8,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "WbzZ4",
+                      "name": "Icon",
+                      "width": 16,
+                      "height": 16,
+                      "icon": "loader-circle",
+                      "library": "lucide",
+                      "fill": "$brand"
+                    },
+                    {
+                      "type": "text",
+                      "id": "lODyJ",
+                      "name": "Text",
+                      "fill": "$foreground",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Installing dependencies",
+                      "fontFamily": "$font-sans",
+                      "fontSize": "$text-label",
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "v1Tqc",
+                      "name": "Detail",
+                      "fill": "$muted-foreground",
+                      "fontFamily": "$font-mono",
+                      "fontSize": "$text-caption",
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "Y8nxe",
+                  "name": "Check/Pending",
+                  "reusable": true,
+                  "width": 560,
+                  "height": 24,
+                  "gap": 8,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "FLJCh",
+                      "name": "Icon",
+                      "width": 16,
+                      "height": 16,
+                      "icon": "circle-dashed",
+                      "library": "lucide",
+                      "fill": "$faint-foreground"
+                    },
+                    {
+                      "type": "text",
+                      "id": "uJy1L",
+                      "name": "Text",
+                      "fill": "$foreground",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Install dependencies",
+                      "fontFamily": "$font-sans",
+                      "fontSize": "$text-label",
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "mdUmc",
+                      "name": "Detail",
+                      "fill": "$muted-foreground",
+                      "fontFamily": "$font-mono",
+                      "fontSize": "$text-caption",
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "ckQaU",
+                  "name": "Check/Failed",
+                  "reusable": true,
+                  "width": 560,
+                  "height": 24,
+                  "gap": 8,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "xx8mm",
+                      "name": "Icon",
+                      "width": 16,
+                      "height": 16,
+                      "icon": "circle-x",
+                      "library": "lucide",
+                      "fill": "$destructive"
+                    },
+                    {
+                      "type": "text",
+                      "id": "oasB8",
+                      "name": "Text",
+                      "fill": "$foreground",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Folder is on branch feature/old, not main",
+                      "fontFamily": "$font-sans",
+                      "fontSize": "$text-label",
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "GR3fw",
+                      "name": "Detail",
+                      "fill": "$muted-foreground",
+                      "fontFamily": "$font-mono",
+                      "fontSize": "$text-caption",
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "rAmCb",
+                  "name": "Pick row/Checked",
+                  "reusable": true,
+                  "width": 560,
+                  "height": 36,
+                  "fill": "$surface-selected",
+                  "cornerRadius": "$radius-md",
+                  "gap": 10,
+                  "padding": [
+                    0,
+                    10
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "iHRih",
+                      "name": "Checkbox",
+                      "width": 16,
+                      "height": 16,
+                      "fill": "$primary",
+                      "cornerRadius": "$radius-xs",
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon",
+                          "id": "m487ty",
+                          "name": "Check",
+                          "width": 12,
+                          "height": 12,
+                          "icon": "check",
+                          "library": "lucide",
+                          "fill": "$primary-foreground"
+                        }
+                      ]
+                    },
+                    {
+                      "id": "J3XyNd",
+                      "type": "ref",
+                      "ref": "ngCRp",
+                      "name": "Type icon"
+                    },
+                    {
+                      "type": "text",
+                      "id": "u9j1AW",
+                      "name": "Id",
+                      "fill": "$muted-foreground",
+                      "textGrowth": "fixed-width",
+                      "width": 64,
+                      "content": "REBL-21",
+                      "fontFamily": "$font-mono",
+                      "fontSize": "$text-caption",
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "tatXr",
+                      "name": "Title",
+                      "fill": "$foreground",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Fans get a push for a new event",
+                      "fontFamily": "$font-sans",
+                      "fontSize": "$text-body",
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "id": "nGf7k",
+                      "type": "ref",
+                      "ref": "QUXmm",
+                      "name": "Status icon"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "IE4bf",
+                  "name": "Pick row/Unchecked",
+                  "reusable": true,
+                  "width": 560,
+                  "height": 36,
+                  "cornerRadius": "$radius-md",
+                  "gap": 10,
+                  "padding": [
+                    0,
+                    10
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "YihfV",
+                      "name": "Checkbox",
+                      "width": 16,
+                      "height": 16,
+                      "fill": "$surface",
+                      "cornerRadius": "$radius-xs",
+                      "stroke": "$input",
+                      "strokeWidth": 1,
+                      "justifyContent": "center",
+                      "alignItems": "center"
+                    },
+                    {
+                      "id": "E3F0y",
+                      "type": "ref",
+                      "ref": "ngCRp",
+                      "name": "Type icon"
+                    },
+                    {
+                      "type": "text",
+                      "id": "yUuoM",
+                      "name": "Id",
+                      "fill": "$muted-foreground",
+                      "textGrowth": "fixed-width",
+                      "width": 64,
+                      "content": "REBL-21",
+                      "fontFamily": "$font-mono",
+                      "fontSize": "$text-caption",
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "MaJEZ",
+                      "name": "Title",
+                      "fill": "$foreground",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Fans get a push for a new event",
+                      "fontFamily": "$font-sans",
+                      "fontSize": "$text-body",
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "id": "e80vf7",
+                      "type": "ref",
+                      "ref": "QUXmm",
+                      "name": "Status icon"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "N0pnK",
+              "name": "Col small",
+              "width": 200,
+              "layout": "vertical",
+              "gap": 12,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "oGalu",
+                  "name": "Bump option/Selected",
+                  "reusable": true,
+                  "width": 176,
+                  "height": 68,
+                  "fill": "$surface-selected",
+                  "cornerRadius": "$radius-lg",
+                  "stroke": "$ring",
+                  "strokeWidth": 1,
+                  "layout": "vertical",
+                  "gap": 4,
+                  "padding": [
+                    10,
+                    12
+                  ],
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "YC1NE",
+                      "name": "Head",
+                      "width": "fill_container",
+                      "justifyContent": "space_between",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "C5x0so",
+                          "name": "Bump",
+                          "fill": "$foreground",
+                          "content": "Patch",
+                          "fontFamily": "$font-sans",
+                          "fontSize": "$text-label",
+                          "fontWeight": "500"
+                        },
+                        {
+                          "type": "icon",
+                          "id": "ntZjH",
+                          "name": "Radio",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "circle-dot",
+                          "library": "lucide",
+                          "fill": "$foreground"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "S3bcsn",
+                      "name": "Version",
+                      "fill": "$foreground",
+                      "content": "v1.3.1",
+                      "fontFamily": "$font-mono",
+                      "fontSize": "$text-body-lg",
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "qP0WL",
+                  "name": "Bump option/Default",
+                  "reusable": true,
+                  "width": 176,
+                  "height": 68,
+                  "fill": "$surface",
+                  "cornerRadius": "$radius-lg",
+                  "stroke": "$input",
+                  "strokeWidth": 1,
+                  "layout": "vertical",
+                  "gap": 4,
+                  "padding": [
+                    10,
+                    12
+                  ],
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "tIniG",
+                      "name": "Head",
+                      "width": "fill_container",
+                      "justifyContent": "space_between",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "BFKXS",
+                          "name": "Bump",
+                          "fill": "$foreground",
+                          "content": "Patch",
+                          "fontFamily": "$font-sans",
+                          "fontSize": "$text-label",
+                          "fontWeight": "500"
+                        },
+                        {
+                          "type": "icon",
+                          "id": "QUMFr",
+                          "name": "Radio",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "circle",
+                          "library": "lucide",
+                          "fill": "$faint-foreground"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "EMAZH",
+                      "name": "Version",
+                      "fill": "$foreground",
+                      "content": "v1.3.1",
+                      "fontFamily": "$font-mono",
+                      "fontSize": "$text-body-lg",
+                      "fontWeight": "600"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
         }
       ]
     }

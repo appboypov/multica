@@ -3548,6 +3548,3335 @@
           ]
         }
       ]
+    },
+    {
+      "type": "frame",
+      "id": "IqvJH",
+      "x": 7800,
+      "y": 0,
+      "name": "6 · Add repository",
+      "clip": true,
+      "width": 1440,
+      "height": 900,
+      "fill": "$L:app-shell",
+      "children": [
+        {
+          "id": "I7tLy",
+          "type": "ref",
+          "ref": "L:aSVx6",
+          "name": "App sidebar",
+          "height": "fill_container"
+        },
+        {
+          "type": "frame",
+          "id": "NOS61",
+          "name": "Main",
+          "clip": true,
+          "width": "fill_container",
+          "height": "fill_container",
+          "fill": "$L:page-canvas",
+          "layout": "vertical",
+          "children": [
+            {
+              "id": "crZWk",
+              "type": "ref",
+              "ref": "L:p1b4tu",
+              "name": "Page header",
+              "width": "fill_container",
+              "descendants": {
+                "L:dsuI9": {
+                  "icon": "folder-kanban"
+                },
+                "L:EZ9ww": {
+                  "content": "Projects  ›  Rebl"
+                },
+                "L:ky0VG": {
+                  "content": "4",
+                  "enabled": false
+                },
+                "L:BsBNf/L:QwYQ9": {
+                  "content": "New issue"
+                }
+              }
+            },
+            {
+              "type": "frame",
+              "id": "ykZ9y",
+              "name": "Body",
+              "width": "fill_container",
+              "height": "fill_container",
+              "layout": "vertical",
+              "gap": 20,
+              "padding": [
+                0,
+                24,
+                24,
+                24
+              ],
+              "children": [
+                {
+                  "id": "yxL1Z",
+                  "type": "ref",
+                  "ref": "L:uREln",
+                  "name": "Project hero",
+                  "width": "fill_container",
+                  "padding": [
+                    24,
+                    0,
+                    4,
+                    0
+                  ],
+                  "descendants": {
+                    "L:PhXGs": {
+                      "content": "R",
+                      "fontFamily": "$L:font-sans",
+                      "fontWeight": "600",
+                      "fill": "$L:muted-foreground",
+                      "fontSize": "$L:text-title-sm"
+                    },
+                    "L:R95SQ0": {
+                      "content": "Rebl"
+                    },
+                    "L:QVV2E": {
+                      "enabled": false
+                    },
+                    "L:DidKe": {
+                      "content": "1 repository"
+                    },
+                    "L:lRfum": {
+                      "content": "3 worklanes"
+                    },
+                    "L:d11G2": {
+                      "content": "Rebl Records"
+                    },
+                    "L:k2s2nZ/L:OemMw": {
+                      "content": "Repository"
+                    }
+                  }
+                },
+                {
+                  "id": "pdu2y",
+                  "type": "ref",
+                  "ref": "L:XEjrU",
+                  "name": "Repo appboypov/rebl",
+                  "width": "fill_container",
+                  "descendants": {
+                    "L:pCFRk": {
+                      "content": "appboypov/rebl"
+                    },
+                    "L:J6G4E": {
+                      "content": "main"
+                    },
+                    "L:cg473": {
+                      "content": "3 worklanes"
+                    },
+                    "L:wuMcI": {
+                      "type": "frame",
+                      "id": "O0kkJQ",
+                      "name": "Lanes",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "children": [
+                        {
+                          "id": "jCnJd",
+                          "type": "ref",
+                          "ref": "L:P5zC6d",
+                          "name": "Lane main",
+                          "width": "fill_container",
+                          "descendants": {
+                            "L:d9CCt": {
+                              "content": "main"
+                            },
+                            "L:fCkWv": {
+                              "content": "REBL-10 Roles, access rules and revocation"
+                            },
+                            "L:GpjBb/L:NyiQr": {
+                              "icon": "circle-minus",
+                              "fill": "#000000"
+                            },
+                            "L:GpjBb/L:BGkyw": {
+                              "content": "nothing shipped",
+                              "fontFamily": "$L:font-sans",
+                              "fill": "#000000"
+                            },
+                            "L:Z1FJ6b/L:twczT/L:uo2SE": {
+                              "content": "v1.0.0"
+                            },
+                            "L:Z1FJ6b/L:G8G7r": {
+                              "content": "0/33"
+                            },
+                            "L:m1V0M/L:TsHtV": {
+                              "content": "v1.0.1"
+                            },
+                            "L:BcYp6": {
+                              "enabled": false
+                            },
+                            "L:cPIPB": {
+                              "enabled": false
+                            }
+                          }
+                        },
+                        {
+                          "id": "rHdbA",
+                          "type": "ref",
+                          "ref": "L:P5zC6d",
+                          "name": "Lane Fan accounts and push",
+                          "width": "fill_container",
+                          "descendants": {
+                            "L:d9CCt": {
+                              "content": "Fan accounts and push"
+                            },
+                            "L:Ac5sM/L:q2fV1": {
+                              "stroke": "#000000"
+                            },
+                            "L:Ac5sM/L:TXRkn": {
+                              "enabled": false
+                            },
+                            "L:fCkWv": {
+                              "content": "Next: REBL-21 Mockups Account and profile"
+                            },
+                            "L:GpjBb/L:NyiQr": {
+                              "icon": "circle-minus",
+                              "fill": "#000000"
+                            },
+                            "L:GpjBb/L:BGkyw": {
+                              "content": "nothing shipped",
+                              "fontFamily": "$L:font-sans",
+                              "fill": "#000000"
+                            },
+                            "L:Z1FJ6b/L:twczT/L:uo2SE": {
+                              "content": "v1.1.0"
+                            },
+                            "L:Z1FJ6b/L:G8G7r": {
+                              "content": "0/14"
+                            },
+                            "L:m1V0M/L:TsHtV": {
+                              "content": "v1.2.0"
+                            },
+                            "L:BcYp6": {
+                              "enabled": false
+                            },
+                            "L:cPIPB": {
+                              "enabled": false
+                            }
+                          }
+                        },
+                        {
+                          "id": "JRaeY",
+                          "type": "ref",
+                          "ref": "L:P5zC6d",
+                          "name": "Lane Agenda and publication",
+                          "width": "fill_container",
+                          "descendants": {
+                            "L:d9CCt": {
+                              "content": "Agenda and publication"
+                            },
+                            "L:Ac5sM/L:q2fV1": {
+                              "stroke": "#000000"
+                            },
+                            "L:Ac5sM/L:TXRkn": {
+                              "enabled": false
+                            },
+                            "L:fCkWv": {
+                              "content": "Next: REBL-35 Spike: System One booking data"
+                            },
+                            "L:GpjBb/L:NyiQr": {
+                              "icon": "circle-minus",
+                              "fill": "#000000"
+                            },
+                            "L:GpjBb/L:BGkyw": {
+                              "content": "nothing shipped",
+                              "fontFamily": "$L:font-sans",
+                              "fill": "#000000"
+                            },
+                            "L:Z1FJ6b/L:twczT/L:uo2SE": {
+                              "content": "v1.3.0"
+                            },
+                            "L:Z1FJ6b/L:G8G7r": {
+                              "content": "0/17"
+                            },
+                            "L:k4Uhx": {
+                              "enabled": false
+                            },
+                            "L:m1V0M": {
+                              "enabled": false
+                            },
+                            "L:BcYp6": {
+                              "enabled": false
+                            },
+                            "L:cPIPB": {
+                              "enabled": false
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "jVrdr",
+          "layoutPosition": "absolute",
+          "x": 0,
+          "y": 0,
+          "name": "Overlay",
+          "width": 1440,
+          "height": 900,
+          "fill": "#0F172A59",
+          "justifyContent": "center",
+          "alignItems": "center",
+          "children": [
+            {
+              "id": "B7Z6c",
+              "type": "ref",
+              "ref": "L:O6MA1t",
+              "name": "Add repository dialog",
+              "width": 640,
+              "height": "fit_content",
+              "descendants": {
+                "L:uDbzn": {
+                  "content": "Add repository · Rebl"
+                },
+                "L:DO71x": {
+                  "type": "frame",
+                  "id": "c9eeMY",
+                  "name": "Dialog body",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 20,
+                  "padding": 20,
+                  "children": [
+                    {
+                      "id": "ZNqBc",
+                      "type": "ref",
+                      "ref": "L:GPVnc",
+                      "name": "Field · Repository",
+                      "width": "fill_container",
+                      "descendants": {
+                        "L:KRgjT": {
+                          "content": "Repository"
+                        },
+                        "L:xzCrL": {
+                          "content": "Required"
+                        },
+                        "L:skPzP": {
+                          "type": "frame",
+                          "id": "fP7I0",
+                          "name": "Control",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 6,
+                          "children": [
+                            {
+                              "id": "TCaJY",
+                              "type": "ref",
+                              "ref": "L:DmY05",
+                              "name": "Input",
+                              "width": "fill_container",
+                              "descendants": {
+                                "L:m10Izh": {
+                                  "icon": "search"
+                                },
+                                "L:FByMw": {
+                                  "content": "Search repositories",
+                                  "fill": "$L:muted-foreground"
+                                }
+                              }
+                            },
+                            {
+                              "type": "frame",
+                              "id": "AF6U9",
+                              "name": "Options",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 2,
+                              "children": [
+                                {
+                                  "id": "B2T2RV",
+                                  "type": "ref",
+                                  "ref": "L:Z7YgvP",
+                                  "name": "Repo option",
+                                  "width": "fill_container",
+                                  "descendants": {
+                                    "L:lKS25": {
+                                      "content": "appboypov/rebl-admin"
+                                    },
+                                    "L:TDyTn": {
+                                      "content": "Private · main"
+                                    }
+                                  }
+                                },
+                                {
+                                  "id": "dUh6B",
+                                  "type": "ref",
+                                  "ref": "L:AYjEQ",
+                                  "name": "Repo option",
+                                  "width": "fill_container",
+                                  "descendants": {
+                                    "L:cAgQn": {
+                                      "content": "appboypov/rebl-site"
+                                    },
+                                    "L:rOo4b": {
+                                      "content": "Public · main"
+                                    }
+                                  }
+                                },
+                                {
+                                  "id": "Yop3E",
+                                  "type": "ref",
+                                  "ref": "L:w1xU3g",
+                                  "name": "Repo option",
+                                  "width": "fill_container",
+                                  "descendants": {
+                                    "L:gt82l": {
+                                      "content": "appboypov/rebl"
+                                    },
+                                    "L:AE6Js": {
+                                      "content": "Private · main"
+                                    },
+                                    "L:i9UySC": {
+                                      "content": "In Rebl"
+                                    }
+                                  }
+                                },
+                                {
+                                  "id": "vBxb2",
+                                  "type": "ref",
+                                  "ref": "L:w1xU3g",
+                                  "name": "Repo option",
+                                  "width": "fill_container",
+                                  "descendants": {
+                                    "L:gt82l": {
+                                      "content": "appboypov/photoprank"
+                                    },
+                                    "L:AE6Js": {
+                                      "content": "Public · main"
+                                    },
+                                    "L:i9UySC": {
+                                      "content": "In Photo Prank"
+                                    }
+                                  }
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        "L:JbpbF": {
+                          "content": "Missing one? Give Multica access on GitHub",
+                          "fill": "$L:brand"
+                        }
+                      }
+                    },
+                    {
+                      "id": "MhlFJ",
+                      "type": "ref",
+                      "ref": "L:GPVnc",
+                      "name": "Field · Checkout",
+                      "width": "fill_container",
+                      "descendants": {
+                        "L:KRgjT": {
+                          "content": "Checkout"
+                        },
+                        "L:xzCrL": {
+                          "content": "Required"
+                        },
+                        "L:skPzP": {
+                          "type": "frame",
+                          "id": "sS1SK",
+                          "name": "Control",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 6,
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "ab0YP",
+                              "name": "Runtime and folder",
+                              "width": "fill_container",
+                              "gap": 8,
+                              "children": [
+                                {
+                                  "id": "oZmo5",
+                                  "type": "ref",
+                                  "ref": "L:ED2nY",
+                                  "name": "Select",
+                                  "width": 220,
+                                  "descendants": {
+                                    "L:eiwdN": {
+                                      "content": "Brian's Mac · online"
+                                    }
+                                  }
+                                },
+                                {
+                                  "id": "JQ1Y1",
+                                  "type": "ref",
+                                  "ref": "L:p4zvU6",
+                                  "name": "Readonly",
+                                  "width": "fill_container",
+                                  "descendants": {
+                                    "L:H40b2": {
+                                      "icon": "folder"
+                                    },
+                                    "L:dIEF6": {
+                                      "content": "~/Repos/rebl-admin"
+                                    }
+                                  }
+                                },
+                                {
+                                  "id": "PKIFu",
+                                  "type": "ref",
+                                  "ref": "L:v2G260",
+                                  "name": "Choose folder",
+                                  "descendants": {
+                                    "L:c7Sgv": {
+                                      "icon": "folder-open"
+                                    },
+                                    "L:OemMw": {
+                                      "content": "Choose"
+                                    }
+                                  }
+                                }
+                              ]
+                            },
+                            {
+                              "id": "fra7v",
+                              "type": "ref",
+                              "ref": "L:qtxki",
+                              "name": "Step",
+                              "width": "fill_container",
+                              "descendants": {
+                                "L:Sv6pI": {
+                                  "content": "Git checkout of appboypov/rebl-admin"
+                                },
+                                "L:jBEWu": {
+                                  "content": "on main · origin matches"
+                                }
+                              }
+                            }
+                          ]
+                        },
+                        "L:JbpbF": {
+                          "enabled": false
+                        }
+                      }
+                    },
+                    {
+                      "id": "f5oVg",
+                      "type": "ref",
+                      "ref": "L:GPVnc",
+                      "name": "Field · Releases",
+                      "width": "fill_container",
+                      "descendants": {
+                        "L:KRgjT": {
+                          "content": "Releases"
+                        },
+                        "L:xzCrL": {
+                          "enabled": false
+                        },
+                        "L:skPzP": {
+                          "type": "frame",
+                          "id": "lsfF5",
+                          "name": "Control",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 6,
+                          "children": [
+                            {
+                              "id": "fYqqw",
+                              "type": "ref",
+                              "ref": "L:ED2nY",
+                              "name": "Select",
+                              "width": "fill_container",
+                              "descendants": {
+                                "L:eiwdN": {
+                                  "content": "Version in package.json · tags v{version}"
+                                }
+                              }
+                            }
+                          ]
+                        },
+                        "L:JbpbF": {
+                          "content": "Last tag v0.4.2"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "L:qoDPn/L:jxRBG": {
+                  "content": "Add repository"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "W6bn5",
+      "x": 9360,
+      "y": 0,
+      "name": "7 · New worklane",
+      "clip": true,
+      "width": 1440,
+      "height": 900,
+      "fill": "$L:app-shell",
+      "children": [
+        {
+          "id": "xOP49",
+          "type": "ref",
+          "ref": "L:aSVx6",
+          "name": "App sidebar",
+          "height": "fill_container"
+        },
+        {
+          "type": "frame",
+          "id": "H5Zrrt",
+          "name": "Main",
+          "clip": true,
+          "width": "fill_container",
+          "height": "fill_container",
+          "fill": "$L:page-canvas",
+          "layout": "vertical",
+          "children": [
+            {
+              "id": "UXIiH",
+              "type": "ref",
+              "ref": "L:p1b4tu",
+              "name": "Page header",
+              "width": "fill_container",
+              "descendants": {
+                "L:dsuI9": {
+                  "icon": "folder-kanban"
+                },
+                "L:EZ9ww": {
+                  "content": "Projects  ›  Rebl"
+                },
+                "L:ky0VG": {
+                  "content": "4",
+                  "enabled": false
+                },
+                "L:BsBNf/L:QwYQ9": {
+                  "content": "New issue"
+                }
+              }
+            },
+            {
+              "type": "frame",
+              "id": "KATY4",
+              "name": "Body",
+              "width": "fill_container",
+              "height": "fill_container",
+              "layout": "vertical",
+              "gap": 20,
+              "padding": [
+                0,
+                24,
+                24,
+                24
+              ],
+              "children": [
+                {
+                  "id": "SfAcS",
+                  "type": "ref",
+                  "ref": "L:uREln",
+                  "name": "Project hero",
+                  "width": "fill_container",
+                  "padding": [
+                    24,
+                    0,
+                    4,
+                    0
+                  ],
+                  "descendants": {
+                    "L:PhXGs": {
+                      "content": "R",
+                      "fontFamily": "$L:font-sans",
+                      "fontWeight": "600",
+                      "fill": "$L:muted-foreground",
+                      "fontSize": "$L:text-title-sm"
+                    },
+                    "L:R95SQ0": {
+                      "content": "Rebl"
+                    },
+                    "L:QVV2E": {
+                      "enabled": false
+                    },
+                    "L:DidKe": {
+                      "content": "1 repository"
+                    },
+                    "L:lRfum": {
+                      "content": "3 worklanes"
+                    },
+                    "L:d11G2": {
+                      "content": "Rebl Records"
+                    },
+                    "L:k2s2nZ/L:OemMw": {
+                      "content": "Repository"
+                    }
+                  }
+                },
+                {
+                  "id": "DLUFa",
+                  "type": "ref",
+                  "ref": "L:XEjrU",
+                  "name": "Repo appboypov/rebl",
+                  "width": "fill_container",
+                  "descendants": {
+                    "L:pCFRk": {
+                      "content": "appboypov/rebl"
+                    },
+                    "L:J6G4E": {
+                      "content": "main"
+                    },
+                    "L:cg473": {
+                      "content": "3 worklanes"
+                    },
+                    "L:wuMcI": {
+                      "type": "frame",
+                      "id": "XStyo",
+                      "name": "Lanes",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "children": [
+                        {
+                          "id": "O5yXU",
+                          "type": "ref",
+                          "ref": "L:P5zC6d",
+                          "name": "Lane main",
+                          "width": "fill_container",
+                          "descendants": {
+                            "L:d9CCt": {
+                              "content": "main"
+                            },
+                            "L:fCkWv": {
+                              "content": "REBL-10 Roles, access rules and revocation"
+                            },
+                            "L:GpjBb/L:NyiQr": {
+                              "icon": "circle-minus",
+                              "fill": "#000000"
+                            },
+                            "L:GpjBb/L:BGkyw": {
+                              "content": "nothing shipped",
+                              "fontFamily": "$L:font-sans",
+                              "fill": "#000000"
+                            },
+                            "L:Z1FJ6b/L:twczT/L:uo2SE": {
+                              "content": "v1.0.0"
+                            },
+                            "L:Z1FJ6b/L:G8G7r": {
+                              "content": "0/33"
+                            },
+                            "L:m1V0M/L:TsHtV": {
+                              "content": "v1.0.1"
+                            },
+                            "L:BcYp6": {
+                              "enabled": false
+                            },
+                            "L:cPIPB": {
+                              "enabled": false
+                            }
+                          }
+                        },
+                        {
+                          "id": "mXWSA",
+                          "type": "ref",
+                          "ref": "L:P5zC6d",
+                          "name": "Lane Fan accounts and push",
+                          "width": "fill_container",
+                          "descendants": {
+                            "L:d9CCt": {
+                              "content": "Fan accounts and push"
+                            },
+                            "L:Ac5sM/L:q2fV1": {
+                              "stroke": "#000000"
+                            },
+                            "L:Ac5sM/L:TXRkn": {
+                              "enabled": false
+                            },
+                            "L:fCkWv": {
+                              "content": "Next: REBL-21 Mockups Account and profile"
+                            },
+                            "L:GpjBb/L:NyiQr": {
+                              "icon": "circle-minus",
+                              "fill": "#000000"
+                            },
+                            "L:GpjBb/L:BGkyw": {
+                              "content": "nothing shipped",
+                              "fontFamily": "$L:font-sans",
+                              "fill": "#000000"
+                            },
+                            "L:Z1FJ6b/L:twczT/L:uo2SE": {
+                              "content": "v1.1.0"
+                            },
+                            "L:Z1FJ6b/L:G8G7r": {
+                              "content": "0/14"
+                            },
+                            "L:m1V0M/L:TsHtV": {
+                              "content": "v1.2.0"
+                            },
+                            "L:BcYp6": {
+                              "enabled": false
+                            },
+                            "L:cPIPB": {
+                              "enabled": false
+                            }
+                          }
+                        },
+                        {
+                          "id": "zCyzq",
+                          "type": "ref",
+                          "ref": "L:P5zC6d",
+                          "name": "Lane Agenda and publication",
+                          "width": "fill_container",
+                          "descendants": {
+                            "L:d9CCt": {
+                              "content": "Agenda and publication"
+                            },
+                            "L:Ac5sM/L:q2fV1": {
+                              "stroke": "#000000"
+                            },
+                            "L:Ac5sM/L:TXRkn": {
+                              "enabled": false
+                            },
+                            "L:fCkWv": {
+                              "content": "Next: REBL-35 Spike: System One booking data"
+                            },
+                            "L:GpjBb/L:NyiQr": {
+                              "icon": "circle-minus",
+                              "fill": "#000000"
+                            },
+                            "L:GpjBb/L:BGkyw": {
+                              "content": "nothing shipped",
+                              "fontFamily": "$L:font-sans",
+                              "fill": "#000000"
+                            },
+                            "L:Z1FJ6b/L:twczT/L:uo2SE": {
+                              "content": "v1.3.0"
+                            },
+                            "L:Z1FJ6b/L:G8G7r": {
+                              "content": "0/17"
+                            },
+                            "L:k4Uhx": {
+                              "enabled": false
+                            },
+                            "L:m1V0M": {
+                              "enabled": false
+                            },
+                            "L:BcYp6": {
+                              "enabled": false
+                            },
+                            "L:cPIPB": {
+                              "enabled": false
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "Q8ujgb",
+          "layoutPosition": "absolute",
+          "x": 0,
+          "y": 0,
+          "name": "Overlay",
+          "width": 1440,
+          "height": 900,
+          "fill": "#0F172A59",
+          "justifyContent": "center",
+          "alignItems": "center",
+          "children": [
+            {
+              "id": "qaZmJ",
+              "type": "ref",
+              "ref": "L:O6MA1t",
+              "name": "New worklane dialog",
+              "width": 640,
+              "height": "fit_content",
+              "descendants": {
+                "L:uDbzn": {
+                  "content": "New worklane · appboypov/rebl"
+                },
+                "L:DO71x": {
+                  "type": "frame",
+                  "id": "b09RX8",
+                  "name": "Dialog body",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 20,
+                  "padding": 20,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "rsNT5",
+                      "name": "Name and folder",
+                      "width": "fill_container",
+                      "gap": 12,
+                      "children": [
+                        {
+                          "id": "WhcCr",
+                          "type": "ref",
+                          "ref": "L:GPVnc",
+                          "name": "Field · Name",
+                          "width": "fill_container",
+                          "descendants": {
+                            "L:KRgjT": {
+                              "content": "Name"
+                            },
+                            "L:xzCrL": {
+                              "content": "Required"
+                            },
+                            "L:skPzP": {
+                              "type": "frame",
+                              "id": "OzIaQ",
+                              "name": "Control",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 6,
+                              "children": [
+                                {
+                                  "id": "DIHxI",
+                                  "type": "ref",
+                                  "ref": "L:DmY05",
+                                  "name": "Input",
+                                  "width": "fill_container",
+                                  "descendants": {
+                                    "L:m10Izh": {
+                                      "enabled": false
+                                    },
+                                    "L:FByMw": {
+                                      "content": "Fan app",
+                                      "fill": "$L:foreground"
+                                    }
+                                  }
+                                }
+                              ]
+                            },
+                            "L:JbpbF": {
+                              "enabled": false
+                            }
+                          }
+                        },
+                        {
+                          "id": "EZqHQ",
+                          "type": "ref",
+                          "ref": "L:GPVnc",
+                          "name": "Field · Folder",
+                          "width": "fill_container",
+                          "descendants": {
+                            "L:KRgjT": {
+                              "content": "Folder"
+                            },
+                            "L:xzCrL": {
+                              "enabled": false
+                            },
+                            "L:skPzP": {
+                              "type": "frame",
+                              "id": "GPdGP",
+                              "name": "Control",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 6,
+                              "children": [
+                                {
+                                  "id": "Z59ns",
+                                  "type": "ref",
+                                  "ref": "L:DmY05",
+                                  "name": "Input",
+                                  "width": "fill_container",
+                                  "descendants": {
+                                    "L:m10Izh": {
+                                      "enabled": false
+                                    },
+                                    "L:FByMw": {
+                                      "content": "fan-app",
+                                      "fill": "$L:foreground",
+                                      "fontFamily": "$L:font-mono",
+                                      "fontSize": "$L:text-label"
+                                    }
+                                  }
+                                }
+                              ]
+                            },
+                            "L:JbpbF": {
+                              "content": "Unique among Rebl's worklanes"
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "lIn2S",
+                      "name": "Squad and runtime",
+                      "width": "fill_container",
+                      "gap": 12,
+                      "children": [
+                        {
+                          "id": "hee7b",
+                          "type": "ref",
+                          "ref": "L:GPVnc",
+                          "name": "Field · Squad",
+                          "width": "fill_container",
+                          "descendants": {
+                            "L:KRgjT": {
+                              "content": "Squad"
+                            },
+                            "L:xzCrL": {
+                              "enabled": false
+                            },
+                            "L:skPzP": {
+                              "type": "frame",
+                              "id": "iSNbB",
+                              "name": "Control",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 6,
+                              "children": [
+                                {
+                                  "id": "mMeRX",
+                                  "type": "ref",
+                                  "ref": "L:ED2nY",
+                                  "name": "Select",
+                                  "width": "fill_container",
+                                  "descendants": {
+                                    "L:eiwdN": {
+                                      "content": "Frontend"
+                                    }
+                                  }
+                                }
+                              ]
+                            },
+                            "L:JbpbF": {
+                              "enabled": false
+                            }
+                          }
+                        },
+                        {
+                          "id": "ppCAb",
+                          "type": "ref",
+                          "ref": "L:GPVnc",
+                          "name": "Field · Runtime",
+                          "width": "fill_container",
+                          "descendants": {
+                            "L:KRgjT": {
+                              "content": "Runtime"
+                            },
+                            "L:xzCrL": {
+                              "enabled": false
+                            },
+                            "L:skPzP": {
+                              "type": "frame",
+                              "id": "z1CtI",
+                              "name": "Control",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 6,
+                              "children": [
+                                {
+                                  "id": "mCHMG",
+                                  "type": "ref",
+                                  "ref": "L:ED2nY",
+                                  "name": "Select",
+                                  "width": "fill_container",
+                                  "descendants": {
+                                    "L:eiwdN": {
+                                      "content": "Brian's Mac · online"
+                                    }
+                                  }
+                                }
+                              ]
+                            },
+                            "L:JbpbF": {
+                              "content": "Online runtimes that can make worktrees"
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "id": "tyWrv",
+                      "type": "ref",
+                      "ref": "L:GPVnc",
+                      "name": "Field · Worktree",
+                      "width": "fill_container",
+                      "descendants": {
+                        "L:KRgjT": {
+                          "content": "Worktree"
+                        },
+                        "L:xzCrL": {
+                          "enabled": false
+                        },
+                        "L:skPzP": {
+                          "type": "frame",
+                          "id": "t2Ldb6",
+                          "name": "Control",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 6,
+                          "children": [
+                            {
+                              "id": "Z8OOt",
+                              "type": "ref",
+                              "ref": "L:p4zvU6",
+                              "name": "Readonly",
+                              "width": "fill_container",
+                              "descendants": {
+                                "L:H40b2": {
+                                  "icon": "folder-git-2"
+                                },
+                                "L:dIEF6": {
+                                  "content": "~/Worktrees/rebl/fan-app/rebl"
+                                }
+                              }
+                            },
+                            {
+                              "id": "fe3pu",
+                              "type": "ref",
+                              "ref": "L:p4zvU6",
+                              "name": "Readonly",
+                              "width": "fill_container",
+                              "descendants": {
+                                "L:H40b2": {
+                                  "icon": "git-branch"
+                                },
+                                "L:dIEF6": {
+                                  "content": "from origin/main"
+                                }
+                              }
+                            },
+                            {
+                              "id": "vm6PB",
+                              "type": "ref",
+                              "ref": "L:p4zvU6",
+                              "name": "Readonly",
+                              "width": "fill_container",
+                              "descendants": {
+                                "L:H40b2": {
+                                  "icon": "terminal"
+                                },
+                                "L:dIEF6": {
+                                  "content": "pnpm install"
+                                }
+                              }
+                            }
+                          ]
+                        },
+                        "L:JbpbF": {
+                          "enabled": false
+                        }
+                      }
+                    }
+                  ]
+                },
+                "L:qoDPn/L:jxRBG": {
+                  "content": "Create worklane"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "sR5pM",
+      "x": 10920,
+      "y": 0,
+      "name": "7 · New worklane · creating",
+      "clip": true,
+      "width": 1440,
+      "height": 900,
+      "fill": "$L:app-shell",
+      "children": [
+        {
+          "id": "Z7Cxw",
+          "type": "ref",
+          "ref": "L:aSVx6",
+          "name": "App sidebar",
+          "height": "fill_container"
+        },
+        {
+          "type": "frame",
+          "id": "SVlfJ",
+          "name": "Main",
+          "clip": true,
+          "width": "fill_container",
+          "height": "fill_container",
+          "fill": "$L:page-canvas",
+          "layout": "vertical",
+          "children": [
+            {
+              "id": "ohZ9W",
+              "type": "ref",
+              "ref": "L:p1b4tu",
+              "name": "Page header",
+              "width": "fill_container",
+              "descendants": {
+                "L:dsuI9": {
+                  "icon": "folder-kanban"
+                },
+                "L:EZ9ww": {
+                  "content": "Projects  ›  Rebl"
+                },
+                "L:ky0VG": {
+                  "content": "4",
+                  "enabled": false
+                },
+                "L:BsBNf/L:QwYQ9": {
+                  "content": "New issue"
+                }
+              }
+            },
+            {
+              "type": "frame",
+              "id": "kGkiR",
+              "name": "Body",
+              "width": "fill_container",
+              "height": "fill_container",
+              "layout": "vertical",
+              "gap": 20,
+              "padding": [
+                0,
+                24,
+                24,
+                24
+              ],
+              "children": [
+                {
+                  "id": "KT7Bl",
+                  "type": "ref",
+                  "ref": "L:uREln",
+                  "name": "Project hero",
+                  "width": "fill_container",
+                  "padding": [
+                    24,
+                    0,
+                    4,
+                    0
+                  ],
+                  "descendants": {
+                    "L:PhXGs": {
+                      "content": "R",
+                      "fontFamily": "$L:font-sans",
+                      "fontWeight": "600",
+                      "fill": "$L:muted-foreground",
+                      "fontSize": "$L:text-title-sm"
+                    },
+                    "L:R95SQ0": {
+                      "content": "Rebl"
+                    },
+                    "L:QVV2E": {
+                      "enabled": false
+                    },
+                    "L:DidKe": {
+                      "content": "1 repository"
+                    },
+                    "L:lRfum": {
+                      "content": "3 worklanes"
+                    },
+                    "L:d11G2": {
+                      "content": "Rebl Records"
+                    },
+                    "L:k2s2nZ/L:OemMw": {
+                      "content": "Repository"
+                    }
+                  }
+                },
+                {
+                  "id": "HVDwO",
+                  "type": "ref",
+                  "ref": "L:XEjrU",
+                  "name": "Repo appboypov/rebl",
+                  "width": "fill_container",
+                  "descendants": {
+                    "L:pCFRk": {
+                      "content": "appboypov/rebl"
+                    },
+                    "L:J6G4E": {
+                      "content": "main"
+                    },
+                    "L:cg473": {
+                      "content": "3 worklanes"
+                    },
+                    "L:wuMcI": {
+                      "type": "frame",
+                      "id": "VZpvl",
+                      "name": "Lanes",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "children": [
+                        {
+                          "id": "PUgV4",
+                          "type": "ref",
+                          "ref": "L:P5zC6d",
+                          "name": "Lane main",
+                          "width": "fill_container",
+                          "descendants": {
+                            "L:d9CCt": {
+                              "content": "main"
+                            },
+                            "L:fCkWv": {
+                              "content": "REBL-10 Roles, access rules and revocation"
+                            },
+                            "L:GpjBb/L:NyiQr": {
+                              "icon": "circle-minus",
+                              "fill": "#000000"
+                            },
+                            "L:GpjBb/L:BGkyw": {
+                              "content": "nothing shipped",
+                              "fontFamily": "$L:font-sans",
+                              "fill": "#000000"
+                            },
+                            "L:Z1FJ6b/L:twczT/L:uo2SE": {
+                              "content": "v1.0.0"
+                            },
+                            "L:Z1FJ6b/L:G8G7r": {
+                              "content": "0/33"
+                            },
+                            "L:m1V0M/L:TsHtV": {
+                              "content": "v1.0.1"
+                            },
+                            "L:BcYp6": {
+                              "enabled": false
+                            },
+                            "L:cPIPB": {
+                              "enabled": false
+                            }
+                          }
+                        },
+                        {
+                          "id": "QlbkE",
+                          "type": "ref",
+                          "ref": "L:P5zC6d",
+                          "name": "Lane Fan accounts and push",
+                          "width": "fill_container",
+                          "descendants": {
+                            "L:d9CCt": {
+                              "content": "Fan accounts and push"
+                            },
+                            "L:Ac5sM/L:q2fV1": {
+                              "stroke": "#000000"
+                            },
+                            "L:Ac5sM/L:TXRkn": {
+                              "enabled": false
+                            },
+                            "L:fCkWv": {
+                              "content": "Next: REBL-21 Mockups Account and profile"
+                            },
+                            "L:GpjBb/L:NyiQr": {
+                              "icon": "circle-minus",
+                              "fill": "#000000"
+                            },
+                            "L:GpjBb/L:BGkyw": {
+                              "content": "nothing shipped",
+                              "fontFamily": "$L:font-sans",
+                              "fill": "#000000"
+                            },
+                            "L:Z1FJ6b/L:twczT/L:uo2SE": {
+                              "content": "v1.1.0"
+                            },
+                            "L:Z1FJ6b/L:G8G7r": {
+                              "content": "0/14"
+                            },
+                            "L:m1V0M/L:TsHtV": {
+                              "content": "v1.2.0"
+                            },
+                            "L:BcYp6": {
+                              "enabled": false
+                            },
+                            "L:cPIPB": {
+                              "enabled": false
+                            }
+                          }
+                        },
+                        {
+                          "id": "bubID",
+                          "type": "ref",
+                          "ref": "L:P5zC6d",
+                          "name": "Lane Agenda and publication",
+                          "width": "fill_container",
+                          "descendants": {
+                            "L:d9CCt": {
+                              "content": "Agenda and publication"
+                            },
+                            "L:Ac5sM/L:q2fV1": {
+                              "stroke": "#000000"
+                            },
+                            "L:Ac5sM/L:TXRkn": {
+                              "enabled": false
+                            },
+                            "L:fCkWv": {
+                              "content": "Next: REBL-35 Spike: System One booking data"
+                            },
+                            "L:GpjBb/L:NyiQr": {
+                              "icon": "circle-minus",
+                              "fill": "#000000"
+                            },
+                            "L:GpjBb/L:BGkyw": {
+                              "content": "nothing shipped",
+                              "fontFamily": "$L:font-sans",
+                              "fill": "#000000"
+                            },
+                            "L:Z1FJ6b/L:twczT/L:uo2SE": {
+                              "content": "v1.3.0"
+                            },
+                            "L:Z1FJ6b/L:G8G7r": {
+                              "content": "0/17"
+                            },
+                            "L:k4Uhx": {
+                              "enabled": false
+                            },
+                            "L:m1V0M": {
+                              "enabled": false
+                            },
+                            "L:BcYp6": {
+                              "enabled": false
+                            },
+                            "L:cPIPB": {
+                              "enabled": false
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "GZarF",
+          "layoutPosition": "absolute",
+          "x": 0,
+          "y": 0,
+          "name": "Overlay",
+          "width": 1440,
+          "height": 900,
+          "fill": "#0F172A59",
+          "justifyContent": "center",
+          "alignItems": "center",
+          "children": [
+            {
+              "id": "wa8o8",
+              "type": "ref",
+              "ref": "L:O6MA1t",
+              "name": "New worklane · creating dialog",
+              "width": 640,
+              "height": "fit_content",
+              "descendants": {
+                "L:uDbzn": {
+                  "content": "New worklane · appboypov/rebl"
+                },
+                "L:DO71x": {
+                  "type": "frame",
+                  "id": "Tjgdp",
+                  "name": "Dialog body",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 20,
+                  "padding": 20,
+                  "children": [
+                    {
+                      "id": "UnzOt",
+                      "type": "ref",
+                      "ref": "L:GPVnc",
+                      "name": "Field · Fan app",
+                      "width": "fill_container",
+                      "descendants": {
+                        "L:KRgjT": {
+                          "content": "Fan app"
+                        },
+                        "L:xzCrL": {
+                          "enabled": false
+                        },
+                        "L:skPzP": {
+                          "type": "frame",
+                          "id": "s5HMCL",
+                          "name": "Control",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 6,
+                          "children": [
+                            {
+                              "id": "OFGMA",
+                              "type": "ref",
+                              "ref": "L:p4zvU6",
+                              "name": "Readonly",
+                              "width": "fill_container",
+                              "descendants": {
+                                "L:H40b2": {
+                                  "icon": "folder-git-2"
+                                },
+                                "L:dIEF6": {
+                                  "content": "~/Worktrees/rebl/fan-app/rebl"
+                                }
+                              }
+                            }
+                          ]
+                        },
+                        "L:JbpbF": {
+                          "enabled": false
+                        }
+                      }
+                    },
+                    {
+                      "id": "nAogk",
+                      "type": "ref",
+                      "ref": "L:GPVnc",
+                      "name": "Field · Creating on Brian's Mac",
+                      "width": "fill_container",
+                      "descendants": {
+                        "L:KRgjT": {
+                          "content": "Creating on Brian's Mac"
+                        },
+                        "L:xzCrL": {
+                          "enabled": false
+                        },
+                        "L:skPzP": {
+                          "type": "frame",
+                          "id": "QOI0i",
+                          "name": "Control",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 6,
+                          "children": [
+                            {
+                              "id": "pBeO3",
+                              "type": "ref",
+                              "ref": "L:qtxki",
+                              "name": "Step",
+                              "width": "fill_container",
+                              "descendants": {
+                                "L:Sv6pI": {
+                                  "content": "Fetch origin/main"
+                                },
+                                "L:jBEWu": {
+                                  "content": "1.2 s"
+                                }
+                              }
+                            },
+                            {
+                              "id": "q7FHVD",
+                              "type": "ref",
+                              "ref": "L:qtxki",
+                              "name": "Step",
+                              "width": "fill_container",
+                              "descendants": {
+                                "L:Sv6pI": {
+                                  "content": "Add worktree"
+                                },
+                                "L:jBEWu": {
+                                  "content": "~/Worktrees/rebl/fan-app/rebl"
+                                }
+                              }
+                            },
+                            {
+                              "id": "Vaq4V",
+                              "type": "ref",
+                              "ref": "L:j3Zsu",
+                              "name": "Step",
+                              "width": "fill_container",
+                              "descendants": {
+                                "L:lODyJ": {
+                                  "content": "Install dependencies"
+                                },
+                                "L:v1Tqc": {
+                                  "content": "pnpm install"
+                                }
+                              }
+                            },
+                            {
+                              "id": "njCaC",
+                              "type": "ref",
+                              "ref": "L:Y8nxe",
+                              "name": "Step",
+                              "width": "fill_container",
+                              "descendants": {
+                                "L:uJy1L": {
+                                  "content": "Open the worklane"
+                                },
+                                "L:mdUmc": {
+                                  "enabled": false
+                                }
+                              }
+                            }
+                          ]
+                        },
+                        "L:JbpbF": {
+                          "enabled": false
+                        }
+                      }
+                    }
+                  ]
+                },
+                "L:O1n7Z6": {
+                  "opacity": 0.5
+                },
+                "L:qoDPn": {
+                  "opacity": 0.5
+                },
+                "L:qoDPn/L:jxRBG": {
+                  "content": "Creating worklane"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "C3pq2l",
+      "x": 12480,
+      "y": 0,
+      "name": "7 · New worklane · failed",
+      "clip": true,
+      "width": 1440,
+      "height": 900,
+      "fill": "$L:app-shell",
+      "children": [
+        {
+          "id": "m8C2Se",
+          "type": "ref",
+          "ref": "L:aSVx6",
+          "name": "App sidebar",
+          "height": "fill_container"
+        },
+        {
+          "type": "frame",
+          "id": "fxX8K",
+          "name": "Main",
+          "clip": true,
+          "width": "fill_container",
+          "height": "fill_container",
+          "fill": "$L:page-canvas",
+          "layout": "vertical",
+          "children": [
+            {
+              "id": "w7hI6V",
+              "type": "ref",
+              "ref": "L:p1b4tu",
+              "name": "Page header",
+              "width": "fill_container",
+              "descendants": {
+                "L:dsuI9": {
+                  "icon": "folder-kanban"
+                },
+                "L:EZ9ww": {
+                  "content": "Projects  ›  Rebl"
+                },
+                "L:ky0VG": {
+                  "content": "4",
+                  "enabled": false
+                },
+                "L:BsBNf/L:QwYQ9": {
+                  "content": "New issue"
+                }
+              }
+            },
+            {
+              "type": "frame",
+              "id": "AkHFs",
+              "name": "Body",
+              "width": "fill_container",
+              "height": "fill_container",
+              "layout": "vertical",
+              "gap": 20,
+              "padding": [
+                0,
+                24,
+                24,
+                24
+              ],
+              "children": [
+                {
+                  "id": "R4TMFH",
+                  "type": "ref",
+                  "ref": "L:uREln",
+                  "name": "Project hero",
+                  "width": "fill_container",
+                  "padding": [
+                    24,
+                    0,
+                    4,
+                    0
+                  ],
+                  "descendants": {
+                    "L:PhXGs": {
+                      "content": "R",
+                      "fontFamily": "$L:font-sans",
+                      "fontWeight": "600",
+                      "fill": "$L:muted-foreground",
+                      "fontSize": "$L:text-title-sm"
+                    },
+                    "L:R95SQ0": {
+                      "content": "Rebl"
+                    },
+                    "L:QVV2E": {
+                      "enabled": false
+                    },
+                    "L:DidKe": {
+                      "content": "1 repository"
+                    },
+                    "L:lRfum": {
+                      "content": "3 worklanes"
+                    },
+                    "L:d11G2": {
+                      "content": "Rebl Records"
+                    },
+                    "L:k2s2nZ/L:OemMw": {
+                      "content": "Repository"
+                    }
+                  }
+                },
+                {
+                  "id": "d7e5Z",
+                  "type": "ref",
+                  "ref": "L:XEjrU",
+                  "name": "Repo appboypov/rebl",
+                  "width": "fill_container",
+                  "descendants": {
+                    "L:pCFRk": {
+                      "content": "appboypov/rebl"
+                    },
+                    "L:J6G4E": {
+                      "content": "main"
+                    },
+                    "L:cg473": {
+                      "content": "3 worklanes"
+                    },
+                    "L:wuMcI": {
+                      "type": "frame",
+                      "id": "a0jKYh",
+                      "name": "Lanes",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "children": [
+                        {
+                          "id": "m89TI",
+                          "type": "ref",
+                          "ref": "L:P5zC6d",
+                          "name": "Lane main",
+                          "width": "fill_container",
+                          "descendants": {
+                            "L:d9CCt": {
+                              "content": "main"
+                            },
+                            "L:fCkWv": {
+                              "content": "REBL-10 Roles, access rules and revocation"
+                            },
+                            "L:GpjBb/L:NyiQr": {
+                              "icon": "circle-minus",
+                              "fill": "#000000"
+                            },
+                            "L:GpjBb/L:BGkyw": {
+                              "content": "nothing shipped",
+                              "fontFamily": "$L:font-sans",
+                              "fill": "#000000"
+                            },
+                            "L:Z1FJ6b/L:twczT/L:uo2SE": {
+                              "content": "v1.0.0"
+                            },
+                            "L:Z1FJ6b/L:G8G7r": {
+                              "content": "0/33"
+                            },
+                            "L:m1V0M/L:TsHtV": {
+                              "content": "v1.0.1"
+                            },
+                            "L:BcYp6": {
+                              "enabled": false
+                            },
+                            "L:cPIPB": {
+                              "enabled": false
+                            }
+                          }
+                        },
+                        {
+                          "id": "OQs68",
+                          "type": "ref",
+                          "ref": "L:P5zC6d",
+                          "name": "Lane Fan accounts and push",
+                          "width": "fill_container",
+                          "descendants": {
+                            "L:d9CCt": {
+                              "content": "Fan accounts and push"
+                            },
+                            "L:Ac5sM/L:q2fV1": {
+                              "stroke": "#000000"
+                            },
+                            "L:Ac5sM/L:TXRkn": {
+                              "enabled": false
+                            },
+                            "L:fCkWv": {
+                              "content": "Next: REBL-21 Mockups Account and profile"
+                            },
+                            "L:GpjBb/L:NyiQr": {
+                              "icon": "circle-minus",
+                              "fill": "#000000"
+                            },
+                            "L:GpjBb/L:BGkyw": {
+                              "content": "nothing shipped",
+                              "fontFamily": "$L:font-sans",
+                              "fill": "#000000"
+                            },
+                            "L:Z1FJ6b/L:twczT/L:uo2SE": {
+                              "content": "v1.1.0"
+                            },
+                            "L:Z1FJ6b/L:G8G7r": {
+                              "content": "0/14"
+                            },
+                            "L:m1V0M/L:TsHtV": {
+                              "content": "v1.2.0"
+                            },
+                            "L:BcYp6": {
+                              "enabled": false
+                            },
+                            "L:cPIPB": {
+                              "enabled": false
+                            }
+                          }
+                        },
+                        {
+                          "id": "YyWUx",
+                          "type": "ref",
+                          "ref": "L:P5zC6d",
+                          "name": "Lane Agenda and publication",
+                          "width": "fill_container",
+                          "descendants": {
+                            "L:d9CCt": {
+                              "content": "Agenda and publication"
+                            },
+                            "L:Ac5sM/L:q2fV1": {
+                              "stroke": "#000000"
+                            },
+                            "L:Ac5sM/L:TXRkn": {
+                              "enabled": false
+                            },
+                            "L:fCkWv": {
+                              "content": "Next: REBL-35 Spike: System One booking data"
+                            },
+                            "L:GpjBb/L:NyiQr": {
+                              "icon": "circle-minus",
+                              "fill": "#000000"
+                            },
+                            "L:GpjBb/L:BGkyw": {
+                              "content": "nothing shipped",
+                              "fontFamily": "$L:font-sans",
+                              "fill": "#000000"
+                            },
+                            "L:Z1FJ6b/L:twczT/L:uo2SE": {
+                              "content": "v1.3.0"
+                            },
+                            "L:Z1FJ6b/L:G8G7r": {
+                              "content": "0/17"
+                            },
+                            "L:k4Uhx": {
+                              "enabled": false
+                            },
+                            "L:m1V0M": {
+                              "enabled": false
+                            },
+                            "L:BcYp6": {
+                              "enabled": false
+                            },
+                            "L:cPIPB": {
+                              "enabled": false
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "jAwnZ",
+          "layoutPosition": "absolute",
+          "x": 0,
+          "y": 0,
+          "name": "Overlay",
+          "width": 1440,
+          "height": 900,
+          "fill": "#0F172A59",
+          "justifyContent": "center",
+          "alignItems": "center",
+          "children": [
+            {
+              "id": "C9rP4",
+              "type": "ref",
+              "ref": "L:O6MA1t",
+              "name": "New worklane · failed dialog",
+              "width": 640,
+              "height": "fit_content",
+              "descendants": {
+                "L:uDbzn": {
+                  "content": "New worklane · appboypov/rebl"
+                },
+                "L:DO71x": {
+                  "type": "frame",
+                  "id": "TXwxC",
+                  "name": "Dialog body",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 20,
+                  "padding": 20,
+                  "children": [
+                    {
+                      "id": "V7P0g4",
+                      "type": "ref",
+                      "ref": "L:GPVnc",
+                      "name": "Field · Fan app",
+                      "width": "fill_container",
+                      "descendants": {
+                        "L:KRgjT": {
+                          "content": "Fan app"
+                        },
+                        "L:xzCrL": {
+                          "enabled": false
+                        },
+                        "L:skPzP": {
+                          "type": "frame",
+                          "id": "p2QWs",
+                          "name": "Control",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 6,
+                          "children": [
+                            {
+                              "id": "krXND",
+                              "type": "ref",
+                              "ref": "L:p4zvU6",
+                              "name": "Readonly",
+                              "width": "fill_container",
+                              "descendants": {
+                                "L:H40b2": {
+                                  "icon": "folder-git-2"
+                                },
+                                "L:dIEF6": {
+                                  "content": "~/Worktrees/rebl/fan-app/rebl"
+                                }
+                              }
+                            }
+                          ]
+                        },
+                        "L:JbpbF": {
+                          "enabled": false
+                        }
+                      }
+                    },
+                    {
+                      "id": "H5uzyS",
+                      "type": "ref",
+                      "ref": "L:GPVnc",
+                      "name": "Field · Creating on Brian's Mac",
+                      "width": "fill_container",
+                      "descendants": {
+                        "L:KRgjT": {
+                          "content": "Creating on Brian's Mac"
+                        },
+                        "L:xzCrL": {
+                          "enabled": false
+                        },
+                        "L:skPzP": {
+                          "type": "frame",
+                          "id": "gmzCe",
+                          "name": "Control",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 6,
+                          "children": [
+                            {
+                              "id": "u3kuxt",
+                              "type": "ref",
+                              "ref": "L:qtxki",
+                              "name": "Step",
+                              "width": "fill_container",
+                              "descendants": {
+                                "L:Sv6pI": {
+                                  "content": "Fetch origin/main"
+                                },
+                                "L:jBEWu": {
+                                  "content": "1.2 s"
+                                }
+                              }
+                            },
+                            {
+                              "id": "hNJwb",
+                              "type": "ref",
+                              "ref": "L:qtxki",
+                              "name": "Step",
+                              "width": "fill_container",
+                              "descendants": {
+                                "L:Sv6pI": {
+                                  "content": "Add worktree"
+                                },
+                                "L:jBEWu": {
+                                  "content": "~/Worktrees/rebl/fan-app/rebl"
+                                }
+                              }
+                            },
+                            {
+                              "id": "B2caq",
+                              "type": "ref",
+                              "ref": "L:ckQaU",
+                              "name": "Step",
+                              "width": "fill_container",
+                              "descendants": {
+                                "L:oasB8": {
+                                  "content": "Install dependencies"
+                                },
+                                "L:GR3fw": {
+                                  "content": "pnpm install exited with 1"
+                                }
+                              }
+                            },
+                            {
+                              "id": "OsxFH",
+                              "type": "ref",
+                              "ref": "L:Y8nxe",
+                              "name": "Step",
+                              "width": "fill_container",
+                              "descendants": {
+                                "L:uJy1L": {
+                                  "content": "Open the worklane"
+                                },
+                                "L:mdUmc": {
+                                  "enabled": false
+                                }
+                              }
+                            }
+                          ]
+                        },
+                        "L:JbpbF": {
+                          "enabled": false
+                        }
+                      }
+                    },
+                    {
+                      "id": "pCvQg",
+                      "type": "ref",
+                      "ref": "L:A1nAVz",
+                      "name": "Note",
+                      "width": "fill_container",
+                      "descendants": {
+                        "L:yLUVk": {
+                          "icon": "triangle-alert"
+                        },
+                        "L:drIZb": {
+                          "content": "ERR_PNPM_OUTDATED_LOCKFILE: pnpm-lock.yaml is not up to date with package.json. Fix the lockfile on main, then try again. No worklane is saved until every step passes."
+                        }
+                      }
+                    }
+                  ]
+                },
+                "L:qoDPn/L:WqkO4": {
+                  "icon": "rotate-ccw"
+                },
+                "L:qoDPn/L:jxRBG": {
+                  "content": "Try again"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "VxPac",
+      "x": 14040,
+      "y": 0,
+      "name": "8 · Plan release",
+      "clip": true,
+      "width": 1440,
+      "height": 900,
+      "fill": "$L:app-shell",
+      "children": [
+        {
+          "id": "Nrx02",
+          "type": "ref",
+          "ref": "L:aSVx6",
+          "name": "App sidebar",
+          "height": "fill_container"
+        },
+        {
+          "type": "frame",
+          "id": "JZVHI",
+          "name": "Main",
+          "clip": true,
+          "width": "fill_container",
+          "height": "fill_container",
+          "fill": "$L:page-canvas",
+          "layout": "vertical",
+          "children": [
+            {
+              "id": "RZ2P7",
+              "type": "ref",
+              "ref": "L:p1b4tu",
+              "name": "Page header",
+              "width": "fill_container",
+              "descendants": {
+                "L:dsuI9": {
+                  "icon": "git-branch"
+                },
+                "L:EZ9ww": {
+                  "content": "Projects  ›  Rebl  ›  appboypov/rebl  ›  Fan accounts and push"
+                },
+                "L:ky0VG": {
+                  "content": "4",
+                  "enabled": false
+                },
+                "L:BsBNf/L:QwYQ9": {
+                  "content": "New issue"
+                }
+              }
+            },
+            {
+              "type": "frame",
+              "id": "STWzi",
+              "name": "Lane bar",
+              "width": "fill_container",
+              "stroke": "$L:border",
+              "strokeWidth": {
+                "bottom": 1
+              },
+              "gap": 8,
+              "padding": [
+                12,
+                24
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "id": "iY6UK",
+                  "type": "ref",
+                  "ref": "L:QMPnO",
+                  "name": "Repository chip",
+                  "descendants": {
+                    "L:Ws7H9": {
+                      "content": "appboypov/rebl"
+                    }
+                  }
+                },
+                {
+                  "type": "text",
+                  "id": "vkIqn",
+                  "name": "Lane state",
+                  "fill": "$L:muted-foreground",
+                  "content": "Free · nothing shipped yet · next: REBL-21 Mockups Account and profile",
+                  "fontFamily": "$L:font-sans",
+                  "fontSize": "$L:text-caption",
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "v2U1H",
+                  "name": "Spacer",
+                  "width": "fill_container",
+                  "height": 1
+                },
+                {
+                  "id": "v7oGoe",
+                  "type": "ref",
+                  "ref": "L:s6381",
+                  "name": "Segmented"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "eB6nF",
+              "name": "Timeline",
+              "clip": true,
+              "width": "fill_container",
+              "height": "fill_container",
+              "padding": [
+                20,
+                24,
+                24,
+                24
+              ],
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "koHNf",
+                  "name": "Release v1.1.0",
+                  "width": 560,
+                  "layout": "vertical",
+                  "gap": 12,
+                  "padding": [
+                    0,
+                    16,
+                    0,
+                    0
+                  ],
+                  "children": [
+                    {
+                      "id": "b9SBH",
+                      "type": "ref",
+                      "ref": "L:k0pUBh",
+                      "name": "Node",
+                      "width": "fill_container"
+                    },
+                    {
+                      "id": "wYWCx",
+                      "type": "ref",
+                      "ref": "L:y1W2fK",
+                      "name": "Column",
+                      "width": "fill_container",
+                      "descendants": {
+                        "L:HWqXX/L:uo2SE": {
+                          "content": "v1.1.0"
+                        },
+                        "L:c4q0R": {
+                          "content": "Next release",
+                          "fill": "$L:brand"
+                        },
+                        "L:wYsIo": {
+                          "content": "Account and profile"
+                        },
+                        "L:x1LDu8/L:l0V5e": {
+                          "width": 168,
+                          "enabled": false
+                        },
+                        "L:STFf9": {
+                          "content": "0 of 14 done"
+                        },
+                        "L:fwcCV": {
+                          "type": "frame",
+                          "id": "d5liKc",
+                          "name": "Issues",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "children": [
+                            {
+                              "id": "LRAU4",
+                              "type": "ref",
+                              "ref": "L:BZbwI",
+                              "name": "Issue REBL-21",
+                              "width": "fill_container",
+                              "descendants": {
+                                "L:ZcwuS": {
+                                  "id": "x9lhOz",
+                                  "type": "ref",
+                                  "ref": "L:QUXmm",
+                                  "name": "Status"
+                                },
+                                "L:EA3qL": {
+                                  "id": "g3Plgd",
+                                  "type": "ref",
+                                  "ref": "L:ac9LK",
+                                  "name": "Type"
+                                },
+                                "L:VNO0j": {
+                                  "content": "REBL-21"
+                                },
+                                "L:T3Ahyu": {
+                                  "content": "Mockups Account and profile"
+                                }
+                              }
+                            },
+                            {
+                              "id": "q0TJp1",
+                              "type": "ref",
+                              "ref": "L:BZbwI",
+                              "name": "Issue REBL-70",
+                              "width": "fill_container",
+                              "descendants": {
+                                "L:ZcwuS": {
+                                  "id": "d41jfZ",
+                                  "type": "ref",
+                                  "ref": "L:kOtJS",
+                                  "name": "Status"
+                                },
+                                "L:EA3qL": {
+                                  "id": "pB5qu",
+                                  "type": "ref",
+                                  "ref": "L:ac9LK",
+                                  "name": "Type"
+                                },
+                                "L:VNO0j": {
+                                  "content": "REBL-70"
+                                },
+                                "L:T3Ahyu": {
+                                  "content": "Texts Account and profile"
+                                }
+                              }
+                            },
+                            {
+                              "id": "aQ6RS",
+                              "type": "ref",
+                              "ref": "L:BZbwI",
+                              "name": "Issue REBL-71",
+                              "width": "fill_container",
+                              "descendants": {
+                                "L:ZcwuS": {
+                                  "id": "p9SZ8x",
+                                  "type": "ref",
+                                  "ref": "L:kOtJS",
+                                  "name": "Status"
+                                },
+                                "L:EA3qL": {
+                                  "id": "qgcSo",
+                                  "type": "ref",
+                                  "ref": "L:ngCRp",
+                                  "name": "Type"
+                                },
+                                "L:VNO0j": {
+                                  "content": "REBL-71"
+                                },
+                                "L:T3Ahyu": {
+                                  "content": "Registration creates the fan's account"
+                                }
+                              }
+                            },
+                            {
+                              "id": "eTFYW",
+                              "type": "ref",
+                              "ref": "L:BZbwI",
+                              "name": "Issue REBL-72",
+                              "width": "fill_container",
+                              "descendants": {
+                                "L:ZcwuS": {
+                                  "id": "m59Rs",
+                                  "type": "ref",
+                                  "ref": "L:kOtJS",
+                                  "name": "Status"
+                                },
+                                "L:EA3qL": {
+                                  "id": "mZfuG",
+                                  "type": "ref",
+                                  "ref": "L:ngCRp",
+                                  "name": "Type"
+                                },
+                                "L:VNO0j": {
+                                  "content": "REBL-72"
+                                },
+                                "L:T3Ahyu": {
+                                  "content": "Profile edit and photo upload"
+                                }
+                              }
+                            },
+                            {
+                              "id": "ane6W",
+                              "type": "ref",
+                              "ref": "L:BZbwI",
+                              "name": "Issue REBL-73",
+                              "width": "fill_container",
+                              "descendants": {
+                                "L:ZcwuS": {
+                                  "id": "MKgoG",
+                                  "type": "ref",
+                                  "ref": "L:kOtJS",
+                                  "name": "Status"
+                                },
+                                "L:EA3qL": {
+                                  "id": "lamtv",
+                                  "type": "ref",
+                                  "ref": "L:ngCRp",
+                                  "name": "Type"
+                                },
+                                "L:VNO0j": {
+                                  "content": "REBL-73"
+                                },
+                                "L:T3Ahyu": {
+                                  "content": "Preferences and consents are stored"
+                                }
+                              }
+                            },
+                            {
+                              "id": "zK6EC",
+                              "type": "ref",
+                              "ref": "L:BZbwI",
+                              "name": "Issue REBL-26",
+                              "width": "fill_container",
+                              "descendants": {
+                                "L:ZcwuS": {
+                                  "id": "sm0Eh",
+                                  "type": "ref",
+                                  "ref": "L:kOtJS",
+                                  "name": "Status"
+                                },
+                                "L:EA3qL": {
+                                  "id": "Ebb8E",
+                                  "type": "ref",
+                                  "ref": "L:ngCRp",
+                                  "name": "Type"
+                                },
+                                "L:VNO0j": {
+                                  "content": "REBL-26"
+                                },
+                                "L:T3Ahyu": {
+                                  "content": "Account deletion"
+                                }
+                              }
+                            },
+                            {
+                              "id": "BWLNu",
+                              "type": "ref",
+                              "ref": "L:BZbwI",
+                              "name": "Issue REBL-27",
+                              "width": "fill_container",
+                              "descendants": {
+                                "L:ZcwuS": {
+                                  "id": "HRAvU",
+                                  "type": "ref",
+                                  "ref": "L:kOtJS",
+                                  "name": "Status"
+                                },
+                                "L:EA3qL": {
+                                  "id": "RC03v",
+                                  "type": "ref",
+                                  "ref": "L:ngCRp",
+                                  "name": "Type"
+                                },
+                                "L:VNO0j": {
+                                  "content": "REBL-27"
+                                },
+                                "L:T3Ahyu": {
+                                  "content": "Retention sweep"
+                                }
+                              }
+                            },
+                            {
+                              "id": "qJOwo",
+                              "type": "ref",
+                              "ref": "L:BZbwI",
+                              "name": "Issue REBL-74",
+                              "width": "fill_container",
+                              "descendants": {
+                                "L:ZcwuS": {
+                                  "id": "fq5Ue",
+                                  "type": "ref",
+                                  "ref": "L:kOtJS",
+                                  "name": "Status"
+                                },
+                                "L:EA3qL": {
+                                  "id": "YM7HN",
+                                  "type": "ref",
+                                  "ref": "L:ngCRp",
+                                  "name": "Type"
+                                },
+                                "L:VNO0j": {
+                                  "content": "REBL-74"
+                                },
+                                "L:T3Ahyu": {
+                                  "content": "CLI account commands"
+                                }
+                              }
+                            },
+                            {
+                              "id": "L1eZnY",
+                              "type": "ref",
+                              "ref": "L:BZbwI",
+                              "name": "Issue REBL-22",
+                              "width": "fill_container",
+                              "descendants": {
+                                "L:ZcwuS": {
+                                  "id": "HTX18",
+                                  "type": "ref",
+                                  "ref": "L:kOtJS",
+                                  "name": "Status"
+                                },
+                                "L:EA3qL": {
+                                  "id": "bqhDU",
+                                  "type": "ref",
+                                  "ref": "L:ngCRp",
+                                  "name": "Type"
+                                },
+                                "L:VNO0j": {
+                                  "content": "REBL-22"
+                                },
+                                "L:T3Ahyu": {
+                                  "content": "Fan registers and confirms their email"
+                                }
+                              }
+                            },
+                            {
+                              "id": "lUyZG",
+                              "type": "ref",
+                              "ref": "L:BZbwI",
+                              "name": "Issue REBL-23",
+                              "width": "fill_container",
+                              "descendants": {
+                                "L:ZcwuS": {
+                                  "id": "XH36R",
+                                  "type": "ref",
+                                  "ref": "L:kOtJS",
+                                  "name": "Status"
+                                },
+                                "L:EA3qL": {
+                                  "id": "JCuhK",
+                                  "type": "ref",
+                                  "ref": "L:ngCRp",
+                                  "name": "Type"
+                                },
+                                "L:VNO0j": {
+                                  "content": "REBL-23"
+                                },
+                                "L:T3Ahyu": {
+                                  "content": "Forgotten password"
+                                }
+                              }
+                            },
+                            {
+                              "id": "WhfeG",
+                              "type": "ref",
+                              "ref": "L:BZbwI",
+                              "name": "Issue REBL-24",
+                              "width": "fill_container",
+                              "descendants": {
+                                "L:ZcwuS": {
+                                  "id": "wKIAA",
+                                  "type": "ref",
+                                  "ref": "L:kOtJS",
+                                  "name": "Status"
+                                },
+                                "L:EA3qL": {
+                                  "id": "SCqQJ",
+                                  "type": "ref",
+                                  "ref": "L:ngCRp",
+                                  "name": "Type"
+                                },
+                                "L:VNO0j": {
+                                  "content": "REBL-24"
+                                },
+                                "L:T3Ahyu": {
+                                  "content": "Profile page and edit with photo"
+                                }
+                              }
+                            },
+                            {
+                              "id": "o7O54d",
+                              "type": "ref",
+                              "ref": "L:BZbwI",
+                              "name": "Issue REBL-25",
+                              "width": "fill_container",
+                              "descendants": {
+                                "L:ZcwuS": {
+                                  "id": "IawW5",
+                                  "type": "ref",
+                                  "ref": "L:kOtJS",
+                                  "name": "Status"
+                                },
+                                "L:EA3qL": {
+                                  "id": "DS7Ic",
+                                  "type": "ref",
+                                  "ref": "L:ngCRp",
+                                  "name": "Type"
+                                },
+                                "L:VNO0j": {
+                                  "content": "REBL-25"
+                                },
+                                "L:T3Ahyu": {
+                                  "content": "Message preferences and consents"
+                                }
+                              }
+                            },
+                            {
+                              "id": "SW1Id",
+                              "type": "ref",
+                              "ref": "L:BZbwI",
+                              "name": "Issue REBL-75",
+                              "width": "fill_container",
+                              "descendants": {
+                                "L:ZcwuS": {
+                                  "id": "Hl2Bg",
+                                  "type": "ref",
+                                  "ref": "L:kOtJS",
+                                  "name": "Status"
+                                },
+                                "L:EA3qL": {
+                                  "id": "DWCzZ",
+                                  "type": "ref",
+                                  "ref": "L:ngCRp",
+                                  "name": "Type"
+                                },
+                                "L:VNO0j": {
+                                  "content": "REBL-75"
+                                },
+                                "L:T3Ahyu": {
+                                  "content": "Delete account from the profile"
+                                }
+                              }
+                            },
+                            {
+                              "id": "u8W7Nn",
+                              "type": "ref",
+                              "ref": "L:BZbwI",
+                              "name": "Issue REBL-76",
+                              "width": "fill_container",
+                              "descendants": {
+                                "L:ZcwuS": {
+                                  "id": "cnQbY",
+                                  "type": "ref",
+                                  "ref": "L:kOtJS",
+                                  "name": "Status"
+                                },
+                                "L:EA3qL": {
+                                  "id": "s22SS",
+                                  "type": "ref",
+                                  "ref": "L:ac9LK",
+                                  "name": "Type"
+                                },
+                                "L:VNO0j": {
+                                  "content": "REBL-76"
+                                },
+                                "L:T3Ahyu": {
+                                  "content": "E2E Account and profile"
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "b0trqx",
+                  "name": "Release v1.2.0",
+                  "width": 560,
+                  "layout": "vertical",
+                  "gap": 12,
+                  "padding": [
+                    0,
+                    16,
+                    0,
+                    0
+                  ],
+                  "children": [
+                    {
+                      "id": "oM0gI",
+                      "type": "ref",
+                      "ref": "L:AS138",
+                      "name": "Node",
+                      "width": "fill_container"
+                    },
+                    {
+                      "id": "belhX",
+                      "type": "ref",
+                      "ref": "L:y1W2fK",
+                      "name": "Column",
+                      "width": "fill_container",
+                      "descendants": {
+                        "L:HWqXX": {
+                          "id": "kwMB9",
+                          "type": "ref",
+                          "ref": "L:bFt73",
+                          "name": "Release",
+                          "descendants": {
+                            "L:TsHtV": {
+                              "content": "v1.2.0"
+                            }
+                          }
+                        },
+                        "L:c4q0R": {
+                          "content": "Planned",
+                          "fill": "$L:muted-foreground"
+                        },
+                        "L:wYsIo": {
+                          "content": "Notifications"
+                        },
+                        "L:x1LDu8/L:l0V5e": {
+                          "width": 0,
+                          "enabled": false
+                        },
+                        "L:STFf9": {
+                          "content": "0 of 13 done"
+                        },
+                        "L:fwcCV": {
+                          "type": "frame",
+                          "id": "Ucg8n",
+                          "name": "Issues",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "children": [
+                            {
+                              "id": "E6A4J",
+                              "type": "ref",
+                              "ref": "L:BZbwI",
+                              "name": "Issue REBL-78",
+                              "width": "fill_container",
+                              "descendants": {
+                                "L:ZcwuS": {
+                                  "id": "L0ylx",
+                                  "type": "ref",
+                                  "ref": "L:kOtJS",
+                                  "name": "Status"
+                                },
+                                "L:EA3qL": {
+                                  "id": "bDl96",
+                                  "type": "ref",
+                                  "ref": "L:ngCRp",
+                                  "name": "Type"
+                                },
+                                "L:VNO0j": {
+                                  "content": "REBL-78"
+                                },
+                                "L:T3Ahyu": {
+                                  "content": "Models Notifications"
+                                }
+                              }
+                            },
+                            {
+                              "id": "DOIiw",
+                              "type": "ref",
+                              "ref": "L:BZbwI",
+                              "name": "Issue REBL-29",
+                              "width": "fill_container",
+                              "descendants": {
+                                "L:ZcwuS": {
+                                  "id": "WQv8G",
+                                  "type": "ref",
+                                  "ref": "L:kOtJS",
+                                  "name": "Status"
+                                },
+                                "L:EA3qL": {
+                                  "id": "xnZYa",
+                                  "type": "ref",
+                                  "ref": "L:ac9LK",
+                                  "name": "Type"
+                                },
+                                "L:VNO0j": {
+                                  "content": "REBL-29"
+                                },
+                                "L:T3Ahyu": {
+                                  "content": "Mockups Notifications"
+                                }
+                              }
+                            },
+                            {
+                              "id": "SlGgx",
+                              "type": "ref",
+                              "ref": "L:BZbwI",
+                              "name": "Issue REBL-79",
+                              "width": "fill_container",
+                              "descendants": {
+                                "L:ZcwuS": {
+                                  "id": "gPgGj",
+                                  "type": "ref",
+                                  "ref": "L:kOtJS",
+                                  "name": "Status"
+                                },
+                                "L:EA3qL": {
+                                  "id": "vh7xD",
+                                  "type": "ref",
+                                  "ref": "L:ac9LK",
+                                  "name": "Type"
+                                },
+                                "L:VNO0j": {
+                                  "content": "REBL-79"
+                                },
+                                "L:T3Ahyu": {
+                                  "content": "Texts Notifications"
+                                }
+                              }
+                            },
+                            {
+                              "id": "J9inO",
+                              "type": "ref",
+                              "ref": "L:BZbwI",
+                              "name": "Issue REBL-80",
+                              "width": "fill_container",
+                              "descendants": {
+                                "L:ZcwuS": {
+                                  "id": "NisYk",
+                                  "type": "ref",
+                                  "ref": "L:kOtJS",
+                                  "name": "Status"
+                                },
+                                "L:EA3qL": {
+                                  "id": "h5JbaR",
+                                  "type": "ref",
+                                  "ref": "L:ac9LK",
+                                  "name": "Type"
+                                },
+                                "L:VNO0j": {
+                                  "content": "REBL-80"
+                                },
+                                "L:T3Ahyu": {
+                                  "content": "Push keys for Apple and Google"
+                                }
+                              }
+                            },
+                            {
+                              "id": "ZU6K3",
+                              "type": "ref",
+                              "ref": "L:BZbwI",
+                              "name": "Issue REBL-30",
+                              "width": "fill_container",
+                              "descendants": {
+                                "L:ZcwuS": {
+                                  "id": "o1tw7q",
+                                  "type": "ref",
+                                  "ref": "L:kOtJS",
+                                  "name": "Status"
+                                },
+                                "L:EA3qL": {
+                                  "id": "YGE71",
+                                  "type": "ref",
+                                  "ref": "L:ngCRp",
+                                  "name": "Type"
+                                },
+                                "L:VNO0j": {
+                                  "content": "REBL-30"
+                                },
+                                "L:T3Ahyu": {
+                                  "content": "Push notifications reach the phone"
+                                }
+                              }
+                            },
+                            {
+                              "id": "M6TC8Z",
+                              "type": "ref",
+                              "ref": "L:BZbwI",
+                              "name": "Issue REBL-81",
+                              "width": "fill_container",
+                              "descendants": {
+                                "L:ZcwuS": {
+                                  "id": "dJgVt",
+                                  "type": "ref",
+                                  "ref": "L:kOtJS",
+                                  "name": "Status"
+                                },
+                                "L:EA3qL": {
+                                  "id": "rbreu",
+                                  "type": "ref",
+                                  "ref": "L:ngCRp",
+                                  "name": "Type"
+                                },
+                                "L:VNO0j": {
+                                  "content": "REBL-81"
+                                },
+                                "L:T3Ahyu": {
+                                  "content": "Notification service skips turned-off kinds"
+                                }
+                              }
+                            },
+                            {
+                              "id": "XMOvm",
+                              "type": "ref",
+                              "ref": "L:BZbwI",
+                              "name": "Issue REBL-82",
+                              "width": "fill_container",
+                              "descendants": {
+                                "L:ZcwuS": {
+                                  "id": "NpNNK",
+                                  "type": "ref",
+                                  "ref": "L:kOtJS",
+                                  "name": "Status"
+                                },
+                                "L:EA3qL": {
+                                  "id": "DK0M6",
+                                  "type": "ref",
+                                  "ref": "L:ngCRp",
+                                  "name": "Type"
+                                },
+                                "L:VNO0j": {
+                                  "content": "REBL-82"
+                                },
+                                "L:T3Ahyu": {
+                                  "content": "Mark notifications as read"
+                                }
+                              }
+                            },
+                            {
+                              "id": "f36QwW",
+                              "type": "ref",
+                              "ref": "L:BZbwI",
+                              "name": "Issue REBL-83",
+                              "width": "fill_container",
+                              "descendants": {
+                                "L:ZcwuS": {
+                                  "id": "Jc91Y",
+                                  "type": "ref",
+                                  "ref": "L:kOtJS",
+                                  "name": "Status"
+                                },
+                                "L:EA3qL": {
+                                  "id": "z4T0R",
+                                  "type": "ref",
+                                  "ref": "L:ngCRp",
+                                  "name": "Type"
+                                },
+                                "L:VNO0j": {
+                                  "content": "REBL-83"
+                                },
+                                "L:T3Ahyu": {
+                                  "content": "CLI sends a test notification and marks read"
+                                }
+                              }
+                            },
+                            {
+                              "id": "mrJvz",
+                              "type": "ref",
+                              "ref": "L:BZbwI",
+                              "name": "Issue REBL-84",
+                              "width": "fill_container",
+                              "descendants": {
+                                "L:ZcwuS": {
+                                  "id": "d8GTZ",
+                                  "type": "ref",
+                                  "ref": "L:kOtJS",
+                                  "name": "Status"
+                                },
+                                "L:EA3qL": {
+                                  "id": "l1XxnQ",
+                                  "type": "ref",
+                                  "ref": "L:ngCRp",
+                                  "name": "Type"
+                                },
+                                "L:VNO0j": {
+                                  "content": "REBL-84"
+                                },
+                                "L:T3Ahyu": {
+                                  "content": "App asks for push permission and registers the phone"
+                                }
+                              }
+                            },
+                            {
+                              "id": "TrqSd",
+                              "type": "ref",
+                              "ref": "L:BZbwI",
+                              "name": "Issue REBL-31",
+                              "width": "fill_container",
+                              "descendants": {
+                                "L:ZcwuS": {
+                                  "id": "BwQ4Z",
+                                  "type": "ref",
+                                  "ref": "L:kOtJS",
+                                  "name": "Status"
+                                },
+                                "L:EA3qL": {
+                                  "id": "espmB",
+                                  "type": "ref",
+                                  "ref": "L:ngCRp",
+                                  "name": "Type"
+                                },
+                                "L:VNO0j": {
+                                  "content": "REBL-31"
+                                },
+                                "L:T3Ahyu": {
+                                  "content": "Notification choices per kind"
+                                }
+                              }
+                            },
+                            {
+                              "id": "DB8FC",
+                              "type": "ref",
+                              "ref": "L:BZbwI",
+                              "name": "Issue REBL-32",
+                              "width": "fill_container",
+                              "descendants": {
+                                "L:ZcwuS": {
+                                  "id": "Wv2kd",
+                                  "type": "ref",
+                                  "ref": "L:kOtJS",
+                                  "name": "Status"
+                                },
+                                "L:EA3qL": {
+                                  "id": "F6nuT",
+                                  "type": "ref",
+                                  "ref": "L:ngCRp",
+                                  "name": "Type"
+                                },
+                                "L:VNO0j": {
+                                  "content": "REBL-32"
+                                },
+                                "L:T3Ahyu": {
+                                  "content": "Bell list"
+                                }
+                              }
+                            },
+                            {
+                              "id": "RJwsC",
+                              "type": "ref",
+                              "ref": "L:BZbwI",
+                              "name": "Issue REBL-33",
+                              "width": "fill_container",
+                              "descendants": {
+                                "L:ZcwuS": {
+                                  "id": "P1zent",
+                                  "type": "ref",
+                                  "ref": "L:kOtJS",
+                                  "name": "Status"
+                                },
+                                "L:EA3qL": {
+                                  "id": "c0xSXX",
+                                  "type": "ref",
+                                  "ref": "L:ngCRp",
+                                  "name": "Type"
+                                },
+                                "L:VNO0j": {
+                                  "content": "REBL-33"
+                                },
+                                "L:T3Ahyu": {
+                                  "content": "Link resolver opens the notification's page"
+                                }
+                              }
+                            },
+                            {
+                              "id": "PpJxq",
+                              "type": "ref",
+                              "ref": "L:BZbwI",
+                              "name": "Issue REBL-85",
+                              "width": "fill_container",
+                              "descendants": {
+                                "L:ZcwuS": {
+                                  "id": "H0Cso2",
+                                  "type": "ref",
+                                  "ref": "L:kOtJS",
+                                  "name": "Status"
+                                },
+                                "L:EA3qL": {
+                                  "id": "E5Lb8V",
+                                  "type": "ref",
+                                  "ref": "L:ac9LK",
+                                  "name": "Type"
+                                },
+                                "L:VNO0j": {
+                                  "content": "REBL-85"
+                                },
+                                "L:T3Ahyu": {
+                                  "content": "E2E Notifications"
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "AlrDc",
+          "layoutPosition": "absolute",
+          "x": 0,
+          "y": 0,
+          "name": "Overlay",
+          "width": 1440,
+          "height": 900,
+          "fill": "#0F172A59",
+          "justifyContent": "center",
+          "alignItems": "center",
+          "children": [
+            {
+              "id": "sNcjd",
+              "type": "ref",
+              "ref": "L:O6MA1t",
+              "name": "Plan release dialog",
+              "width": 640,
+              "height": "fit_content",
+              "descendants": {
+                "L:uDbzn": {
+                  "content": "Plan release · appboypov/rebl"
+                },
+                "L:DO71x": {
+                  "type": "frame",
+                  "id": "uuCWj",
+                  "name": "Dialog body",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 20,
+                  "padding": 20,
+                  "children": [
+                    {
+                      "id": "Dr404",
+                      "type": "ref",
+                      "ref": "L:GPVnc",
+                      "name": "Field · Version",
+                      "width": "fill_container",
+                      "descendants": {
+                        "L:KRgjT": {
+                          "content": "Version"
+                        },
+                        "L:xzCrL": {
+                          "enabled": false
+                        },
+                        "L:skPzP": {
+                          "type": "frame",
+                          "id": "wPl9o",
+                          "name": "Control",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 6,
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "VjEi6",
+                              "name": "Bumps",
+                              "width": "fill_container",
+                              "gap": 8,
+                              "children": [
+                                {
+                                  "id": "l1ds2",
+                                  "type": "ref",
+                                  "ref": "L:oGalu",
+                                  "name": "Bump",
+                                  "width": "fill_container",
+                                  "descendants": {
+                                    "L:C5x0so": {
+                                      "content": "Patch"
+                                    },
+                                    "L:S3bcsn": {
+                                      "content": "v1.3.1"
+                                    }
+                                  }
+                                },
+                                {
+                                  "id": "xCjID",
+                                  "type": "ref",
+                                  "ref": "L:qP0WL",
+                                  "name": "Bump",
+                                  "width": "fill_container",
+                                  "descendants": {
+                                    "L:BFKXS": {
+                                      "content": "Minor"
+                                    },
+                                    "L:EMAZH": {
+                                      "content": "v1.4.0"
+                                    }
+                                  }
+                                },
+                                {
+                                  "id": "cuskv",
+                                  "type": "ref",
+                                  "ref": "L:qP0WL",
+                                  "name": "Bump",
+                                  "width": "fill_container",
+                                  "descendants": {
+                                    "L:BFKXS": {
+                                      "content": "Major"
+                                    },
+                                    "L:EMAZH": {
+                                      "content": "v2.0.0"
+                                    }
+                                  }
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        "L:JbpbF": {
+                          "content": "Follows v1.3.0, the last planned release. Moving it renumbers it."
+                        }
+                      }
+                    },
+                    {
+                      "id": "yu1E5",
+                      "type": "ref",
+                      "ref": "L:GPVnc",
+                      "name": "Field · Goal",
+                      "width": "fill_container",
+                      "descendants": {
+                        "L:KRgjT": {
+                          "content": "Goal"
+                        },
+                        "L:xzCrL": {
+                          "content": "Required"
+                        },
+                        "L:skPzP": {
+                          "type": "frame",
+                          "id": "z0Bbz",
+                          "name": "Control",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 6,
+                          "children": [
+                            {
+                              "id": "XxQ3f",
+                              "type": "ref",
+                              "ref": "L:DmY05",
+                              "name": "Input",
+                              "width": "fill_container",
+                              "descendants": {
+                                "L:m10Izh": {
+                                  "enabled": false
+                                },
+                                "L:FByMw": {
+                                  "content": "Fans get a push for every new event",
+                                  "fill": "$L:foreground"
+                                }
+                              }
+                            }
+                          ]
+                        },
+                        "L:JbpbF": {
+                          "enabled": false
+                        }
+                      }
+                    },
+                    {
+                      "id": "FnRLe",
+                      "type": "ref",
+                      "ref": "L:GPVnc",
+                      "name": "Field · Issues",
+                      "width": "fill_container",
+                      "descendants": {
+                        "L:KRgjT": {
+                          "content": "Issues"
+                        },
+                        "L:xzCrL": {
+                          "content": "Fan accounts and push · in no release"
+                        },
+                        "L:skPzP": {
+                          "type": "frame",
+                          "id": "QEfbp",
+                          "name": "Control",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 6,
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "p8hh43",
+                              "name": "Picks",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 2,
+                              "children": [
+                                {
+                                  "id": "cF59n",
+                                  "type": "ref",
+                                  "ref": "L:rAmCb",
+                                  "name": "Pick",
+                                  "width": "fill_container",
+                                  "descendants": {
+                                    "L:J3XyNd": {
+                                      "id": "l4bqzd",
+                                      "type": "ref",
+                                      "ref": "L:ngCRp",
+                                      "name": "Type icon"
+                                    },
+                                    "L:u9j1AW": {
+                                      "content": "REBL-86"
+                                    },
+                                    "L:tatXr": {
+                                      "content": "Fans get a push for a new event"
+                                    }
+                                  }
+                                },
+                                {
+                                  "id": "iK8CF",
+                                  "type": "ref",
+                                  "ref": "L:rAmCb",
+                                  "name": "Pick",
+                                  "width": "fill_container",
+                                  "descendants": {
+                                    "L:J3XyNd": {
+                                      "id": "H8ZiM",
+                                      "type": "ref",
+                                      "ref": "L:ngCRp",
+                                      "name": "Type icon"
+                                    },
+                                    "L:u9j1AW": {
+                                      "content": "REBL-87"
+                                    },
+                                    "L:tatXr": {
+                                      "content": "Push when an event time changes"
+                                    }
+                                  }
+                                },
+                                {
+                                  "id": "ZBlbP",
+                                  "type": "ref",
+                                  "ref": "L:IE4bf",
+                                  "name": "Pick",
+                                  "width": "fill_container",
+                                  "descendants": {
+                                    "L:E3F0y": {
+                                      "id": "Vb5VV",
+                                      "type": "ref",
+                                      "ref": "L:ac9LK",
+                                      "name": "Type icon"
+                                    },
+                                    "L:yUuoM": {
+                                      "content": "REBL-88"
+                                    },
+                                    "L:MaJEZ": {
+                                      "content": "Texts Event push"
+                                    }
+                                  }
+                                },
+                                {
+                                  "id": "lkicz",
+                                  "type": "ref",
+                                  "ref": "L:IE4bf",
+                                  "name": "Pick",
+                                  "width": "fill_container",
+                                  "descendants": {
+                                    "L:E3F0y": {
+                                      "id": "mntDc",
+                                      "type": "ref",
+                                      "ref": "L:ac9LK",
+                                      "name": "Type icon"
+                                    },
+                                    "L:yUuoM": {
+                                      "content": "REBL-89"
+                                    },
+                                    "L:MaJEZ": {
+                                      "content": "E2E Event push"
+                                    }
+                                  }
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        "L:JbpbF": {
+                          "enabled": false
+                        }
+                      }
+                    },
+                    {
+                      "id": "m3R7wp",
+                      "type": "ref",
+                      "ref": "L:A1nAVz",
+                      "name": "Note",
+                      "width": "fill_container",
+                      "descendants": {
+                        "L:yLUVk": {
+                          "icon": "rocket"
+                        },
+                        "L:drIZb": {
+                          "content": "When its issues are done and merged, Multica tags v1.3.1 on main, writes the release note, publishes the GitHub release and asks you to pass it. It gets its date when it ships."
+                        }
+                      }
+                    }
+                  ]
+                },
+                "L:qoDPn/L:jxRBG": {
+                  "content": "Plan v1.3.1"
+                }
+              }
+            }
+          ]
+        }
+      ]
     }
   ],
   "imports": {

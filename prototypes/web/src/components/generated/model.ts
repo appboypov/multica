@@ -33,11 +33,18 @@ export interface Lane {
   active: string | null;
   next: string | null;
   releases?: Release[];
+  /** Issues of this worklane that are in no release yet. */
+  backlog?: Issue[];
+  /** The squad that works the worklane and the folder its worktree lives in, set when it is made in the prototype. */
+  squad?: string;
+  folder?: string;
 }
 
 export interface Repo {
   name: string;
   lanes: Lane[];
+  /** The last tag the version policy found, the base for the first planned release. */
+  lastTag?: string;
 }
 
 export interface Project {
@@ -77,6 +84,16 @@ interface RawLane {
   releases?: { version: string; goal: string; issues: { id: string; type: string; title: string }[] }[];
 }
 
+/** Sample issues that wait in a worklane without a release, keyed `repo/lane`. */
+const LANE_BACKLOG: Record<string, { id: string; type: IssueType; title: string }[]> = {
+  'appboypov/rebl/Fan accounts and push': [
+    { id: 'REBL-86', type: 'story', title: 'Fans get a push for a new event' },
+    { id: 'REBL-87', type: 'story', title: 'Push when an event time changes' },
+    { id: 'REBL-88', type: 'chore', title: 'Texts Event push' },
+    { id: 'REBL-89', type: 'chore', title: 'E2E Event push' },
+  ],
+};
+
 export function loadOrgs(): Org[] {
   return (rawOrgs as unknown as { name: string; projects: { name: string; repos: { name: string; lanes: RawLane[] }[] }[] }[]).map(
     (o) => ({
@@ -86,29 +103,92 @@ export function loadOrgs(): Org[] {
         repos: p.repos.map((r) => ({
           name: r.name,
           // The default branch's worklane leads, as in the approved design.
-          lanes: [...r.lanes].sort((a, b) => Number(b.name === 'main') - Number(a.name === 'main')).map((l) => ({
-            name: l.name,
-            state: l.state,
-            active: l.active,
-            next: l.next,
-            releases: l.releases?.map((rel) => ({
-              version: rel.version,
-              goal: rel.goal,
-              issues: rel.issues.map((i) => ({
-                id: i.id,
-                type: (i.type as IssueType) ?? 'story',
-                title: i.title,
-                status: STATUS_OF[i.id] ?? 'backlog',
-                lane: { org: o.name, project: p.name, repo: r.name, lane: l.name },
-                release: rel.version,
+          lanes: [...r.lanes].sort((a, b) => Number(b.name === 'main') - Number(a.name === 'main')).map((l) => {
+            const lane = { org: o.name, project: p.name, repo: r.name, lane: l.name };
+            return {
+              name: l.name,
+              state: l.state,
+              active: l.active,
+              next: l.next,
+              releases: l.releases?.map((rel) => ({
+                version: rel.version,
+                goal: rel.goal,
+                issues: rel.issues.map((i) => ({
+                  id: i.id,
+                  type: (i.type as IssueType) ?? 'story',
+                  title: i.title,
+                  status: STATUS_OF[i.id] ?? 'backlog',
+                  lane,
+                  release: rel.version,
+                })),
               })),
-            })),
-          })),
+              backlog: (LANE_BACKLOG[`${r.name}/${l.name}`] ?? []).map((i) => ({ ...i, status: 'backlog' as Status, lane })),
+            };
+          }),
         })),
       })),
     }),
   );
 }
+
+/** Every issue of a worklane: those in its releases, then those in no release. */
+export function laneIssues(lane: Lane): Issue[] {
+  return [...(lane.releases ?? []).flatMap((r) => r.issues), ...(lane.backlog ?? [])];
+}
+
+export type Bump = 'patch' | 'minor' | 'major';
+
+/**
+ * A repository has one version line: the next version follows the last planned release of any of its
+ * worklanes, or its last tag when nothing is planned yet.
+ */
+export function nextVersions(repo: Repo): { base: string | null; baseIsTag: boolean; next: Record<Bump, string> } {
+  const parse = (v: string) => v.replace(/^v/, '').split('.').map(Number) as [number, number, number];
+  const cmp = (a: string, b: string) => {
+    const [x, y] = [parse(a), parse(b)];
+    return x[0] - y[0] || x[1] - y[1] || x[2] - y[2];
+  };
+  const planned = repo.lanes.flatMap((l) => (l.releases ?? []).map((r) => r.version));
+  const all = [...planned, ...(repo.lastTag ? [repo.lastTag] : [])];
+  const base = all.length ? all.reduce((m, v) => (cmp(v, m) > 0 ? v : m)) : null;
+  const [maj, min, pat] = base ? parse(base) : [0, 0, 0];
+  return {
+    base,
+    baseIsTag: !!base && !planned.includes(base),
+    next: { patch: `v${maj}.${min}.${pat + 1}`, minor: `v${maj}.${min + 1}.0`, major: `v${maj + 1}.0.0` },
+  };
+}
+
+/** A worklane's folder: one folder name made from its name. */
+export function laneFolder(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
+export interface GithubRepo {
+  name: string;
+  visibility: 'Private' | 'Public';
+  branch: string;
+  /** The version policy Multica finds in it. */
+  policy: string;
+  lastTag?: string;
+  /** Whether `~/Repos/{name}` already holds its checkout on Brian's Mac. */
+  checkedOut: boolean;
+}
+
+/** Repositories the GitHub App can see that no project holds yet. */
+export const GITHUB_REPOS: GithubRepo[] = [
+  { name: 'appboypov/rebl-admin', visibility: 'Private', branch: 'main', policy: 'Version in package.json', lastTag: 'v0.4.2', checkedOut: true },
+  { name: 'appboypov/rebl-site', visibility: 'Public', branch: 'main', policy: 'Tags only', lastTag: 'v2.1.0', checkedOut: false },
+  { name: 'appboypov/fan-widgets', visibility: 'Private', branch: 'main', policy: 'Version in pubspec.yaml', checkedOut: true },
+];
+
+export const RUNTIMES = [
+  { name: "Brian's Mac", online: true },
+  { name: 'Studio Mac mini', online: false },
+];
 export type StatusOf = (issue: Issue) => Status;
 
 export function doneCount(rel: Release, statusOf: StatusOf): number {

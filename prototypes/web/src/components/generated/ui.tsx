@@ -243,6 +243,31 @@ export function MenuItem({
   );
 }
 
+export function Overlay({ children, onClose, top }: { children: ReactNode; onClose: () => void; top?: boolean }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+  return (
+    <div
+      className={`fixed inset-0 z-50 flex justify-center p-8 ${top ? 'items-start pt-[14vh]' : 'items-center'}`}
+      style={{ background: 'rgb(9 9 11 / 0.32)' }}
+      onMouseDown={(e) => e.target === e.currentTarget && onClose()}
+    >
+      {children}
+    </div>
+  );
+}
+
+export function IconButton({ label, icon, onClick }: { label: string; icon: ReactNode; onClick: () => void }) {
+  return (
+    <button aria-label={label} title={label} onClick={onClick} className="flex size-7 items-center justify-center rounded-[6px] hover:bg-[var(--surface-hover)]" style={{ color: 'var(--muted-foreground)' }}>
+      {icon}
+    </button>
+  );
+}
+
 export function Segmented<T extends string>({
   value,
   options,
