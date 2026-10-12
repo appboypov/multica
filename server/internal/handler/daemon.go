@@ -1194,6 +1194,9 @@ func (h *Handler) DaemonHeartbeat(w http.ResponseWriter, r *http.Request) {
 	if ack.PendingLocalSkills != nil {
 		resp["pending_local_skills"] = ack.PendingLocalSkills
 	}
+	if ack.PendingDirectoryListing != nil {
+		resp["pending_directory_listing"] = ack.PendingDirectoryListing
+	}
 	if ack.PendingLocalSkillImport != nil {
 		resp["pending_local_skill_import"] = ack.PendingLocalSkillImport
 	}
@@ -1455,6 +1458,23 @@ func (h *Handler) processHeartbeat(ctx context.Context, runtimeID string, suppor
 		} else {
 			slog.Warn("local skill list HasPending failed", "error", probeErr, "runtime_id", runtimeID)
 		}
+	}
+
+	probeDirectoryCtx, cancelProbeDirectory := context.WithTimeout(ctx, heartbeatHasPendingTimeout)
+	hasDirectory, probeDirectoryErr := h.DirectoryListingStore.HasPending(probeDirectoryCtx, runtimeID)
+	cancelProbeDirectory()
+	switch {
+	case probeDirectoryErr == nil && hasDirectory:
+		pendingDirectory, popErr := h.DirectoryListingStore.PopPending(ctx, runtimeID)
+		if popErr != nil {
+			slog.Warn("directory listing PopPending failed", "error", popErr, "runtime_id", runtimeID)
+		} else if pendingDirectory != nil {
+			ack.PendingDirectoryListing = &protocol.DaemonHeartbeatPendingDirectoryListing{
+				ID: pendingDirectory.ID, Path: pendingDirectory.Path,
+			}
+		}
+	case probeDirectoryErr != nil:
+		slog.Warn("directory listing HasPending failed", "error", probeDirectoryErr, "runtime_id", runtimeID)
 	}
 
 	probeImportStart := time.Now()
