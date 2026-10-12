@@ -1,6 +1,6 @@
 ## At a glance
 
-The delta on [the living system design](../../../docs/system-design.md): the server stores and passes paths, the daemon on the runtime machine lists folders and reads the selection, madspec-sync writes persona selections.
+The delta on [the living system design](../../../../docs/system-design.md): the server stores and passes paths, the daemon on the runtime machine lists folders and reads the selection, madspec-sync writes persona selections.
 
 ```mermaid
 C4Container
@@ -175,7 +175,7 @@ Migration `564_agent_instruction_selection`: `ALTER TABLE agent ADD COLUMN instr
 
 ### 3. Owner gate
 
-On create, a non-empty selection requires the caller's user ID to equal the target runtime's `owner_id`; on update, a present selection that differs from the stored one (compared after normalising) requires the agent's runtime's `owner_id`. Otherwise 403 `only the runtime owner can change instruction_selection`. An unchanged selection in a body passes, so a member who edits only the text and sends the whole form back is not rejected. The gate sits next to the existing permission check in each handler; no new helper beyond `requireRuntimeOwner(w, runtimeID, userID) bool`, which loads the runtime row.
+On create, a non-empty selection requires the caller's user ID to equal the target runtime's `owner_id`; on update, a present selection that differs from the stored one (compared after normalising), or a move onto another runtime of an agent whose selection is non-empty, requires the `owner_id` of the runtime the agent runs on after the update. Otherwise 403 `only the runtime owner can change instruction_selection`. An unchanged selection in a body passes, so a member who edits only the text and sends the whole form back is not rejected. The gate sits next to the existing permission check in each handler; no new helper beyond `requireRuntimeOwner(w, runtimeID, userID) bool`, which loads the runtime row.
 
 ### 4. Claim carries the paths
 
@@ -187,9 +187,9 @@ On create, a non-empty selection requires the caller's user ID to equal the targ
 
 ### 6. Loader: what it reads
 
-- Each selected path: `filepath.EvalSymlinks`, then `os.Stat`. A file: read it; a NUL byte in its first 8 KB is an error `not a text file`. A folder: walk it.
+- Each selected path: `filepath.EvalSymlinks`, then `os.Stat`. A file: read its first 8 KB; a NUL byte there is an error `not a text file`, else the rest is read. A folder: walk it.
 - Walk: `os.ReadDir`, entries sorted by name (byte order), depth first. An entry whose name starts with `.` is skipped. A link is resolved with `filepath.EvalSymlinks`: a linked file counts as a file; a linked folder is walked under the link's name unless its real path was already walked in this run (a `visited` set of real folder paths, shared by all selected folders, which stops loops).
-- Git: for each walked root (a selected folder or a linked folder's target), `git -C <real dir> rev-parse --show-toplevel` through `runGitCommandContext`. When it succeeds, `git -C <real dir> ls-files --cached --others --exclude-standard -z --full-name` gives the allowed files (joined to the toplevel); a file outside that set is skipped. When git fails or is absent, the root has no ignore rules.
+- Git: for each walked root (a selected folder or a linked folder's target), `git -C <real dir> rev-parse --show-toplevel` through `runGitCommandContext`. When it succeeds, `git -C <real dir> ls-files --cached --others --exclude-standard -z --full-name` gives the allowed files (joined to the toplevel) and the folders above them; an entry outside that set is skipped before it is resolved, so an ignored folder is never walked. A selected folder that git itself ignores (`git check-ignore -q .`) is walked without ignore rules. When git fails or is absent, the root has no ignore rules.
 - A file inside a folder with a NUL byte in its first 8 KB is skipped; an inside file or folder that cannot be read fails the run.
 - Each included file is keyed by its real path; a real path seen before in this run is left out, so it stays at its first place.
 
@@ -228,7 +228,7 @@ Errors are `*instructionSelectionError{path, cause string}` with the message `in
 
 ### 10. Directory lister in the daemon
 
-`listRuntimeDirectory(provider, path string) (resolved string, entries []directoryEntry, err error)` in `directory_listing.go`. An empty path lists the roots from `localSkillRootsForProvider(provider)` that exist, each with `name` = `relativizeHomePath(root)`, its absolute `path`, `kind` folder. Otherwise a leading `~` becomes the home folder, a relative path is an error `path must be absolute`, `os.ReadDir` lists the folder, `os.Stat` (which follows links) sets `kind`, a broken link counts as a file, `hidden` is a leading `.`, and entries are sorted by name. A missing path fails with `path does not exist: <path>`, a file with `not a folder: <path>`. `handleHeartbeatActions` runs it in a goroutine, as the local-skill list does, and reports through `client.ReportDirectoryListingResult` and `reportRuntimeResultWithRetry(ctx, "directory_listing", ...)`.
+`listRuntimeDirectory(provider, path string) (resolved string, entries []directoryEntry, err error)` in `directory_listing.go`. An empty path lists the roots from `localSkillRootsForProvider(provider)` that exist, each with `name` = `relativizeHomePath(root)`, its absolute `path`, `kind` folder. Otherwise `~` or a leading `~/` becomes the home folder, any other relative path (`~name` included) is an error `path must be absolute`, `os.ReadDir` lists the folder, `os.Stat` (which follows links) sets `kind`, a broken link counts as a file, `hidden` is a leading `.`, and entries are sorted by name. A missing path fails with `path does not exist: <path>`, a file with `not a folder: <path>`. `handleHeartbeatActions` runs it in a goroutine, as the local-skill list does, and reports through `client.ReportDirectoryListingResult` and `reportRuntimeResultWithRetry(ctx, "directory_listing", ...)`.
 
 ### 11. Limits
 

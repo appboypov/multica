@@ -13,4 +13,4 @@ ADR review completed for this change.
 
 ## New Durable ADRs Created
 
-- [ADR-0001: Runtime machine files are read by the daemon](../../../../adr/0001-runtime-machine-files-are-read-by-the-daemon.md)
+- [ADR-0001: Runtime machine files are read by the daemon](../../../../../adr/0001-runtime-machine-files-are-read-by-the-daemon.md)
