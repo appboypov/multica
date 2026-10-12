@@ -1522,6 +1522,16 @@ func runGitCommandContext(parent context.Context, barePath string, timeout time.
 	return strings.TrimSpace(string(out)), err
 }
 
+func runGitCommandRawContext(parent context.Context, barePath string, timeout time.Duration, args ...string) (string, error) {
+	ctx, cancel := context.WithTimeout(parent, timeout)
+	defer cancel()
+
+	cmdArgs := append([]string{"-C", barePath}, args...)
+	cmd := exec.Command("git", cmdArgs...)
+	out, err := processtree.Output(ctx, cmd, 5*time.Second)
+	return string(out), err
+}
+
 type repoMaintenanceLockSnapshot map[string]struct{}
 
 // snapshotRepoMaintenanceLocks records only lock paths known to be produced by

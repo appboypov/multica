@@ -47,14 +47,29 @@ def test_a_persona_runs_as_its_skill_with_its_skills_and_fallbacks(repo, fallbac
     assert mitchel.fields() == {
         "name": "Mitchel",
         "description": "Runs the as-product-manager skill.",
-        "instructions": f"{{skill-root}} is {CHECKOUT / 'skills' / 'as-product-manager'}. Your instructions are "
-        f"the as-product-manager skill: read {CHECKOUT / 'skills' / 'as-product-manager' / 'SKILL.md'} in full "
-        "before anything else, and follow it.",
+        "instructions": f"`{{skill-root}}` is {CHECKOUT / 'skills' / 'as-product-manager'}. Your instructions are "
+        "the as-product-manager skill below; follow it.\n\n{selection}",
+        "instruction_selection": [str(CHECKOUT / "skills" / "as-product-manager")],
         "model": "anthropic/claude-opus-5-5",
         "thinking_level": "high",
         "custom_args": ["--skills=as-product-manager,demo-skill", f"--config={fallback_dir / 'mitchel.yml'}"],
     }
     assert multica_sync.fallback_chain(mitchel.models) == {"anthropic/claude-opus-5-5": ["openai-codex/gpt-6.1-sol:high"]}
+
+
+def test_guus_selects_his_whole_skill_folder(repo):
+    persona_skill(repo, "as-ux-designer", "Guus")
+    checkout = Path("/Users/codaveto/Repos/Ventures/madspec")
+
+    personas, problems = multica_sync.read_personas(repo, checkout)
+    guus = personas["guus"]
+
+    assert problems == {}
+    assert guus.instruction_selection == ["/Users/codaveto/Repos/Ventures/madspec/skills/as-ux-designer"]
+    assert guus.instructions == (
+        "`{skill-root}` is /Users/codaveto/Repos/Ventures/madspec/skills/as-ux-designer. "
+        "Your instructions are the as-ux-designer skill below; follow it.\n\n{selection}"
+    )
 
 
 def test_a_persona_with_every_skill_and_one_model_gets_no_arguments(repo):
@@ -205,6 +220,33 @@ def test_sync_restores_and_takes_over_an_archived_persona_agent(repo, mitchel):
     fields = {key: value for key, value in mitchel.fields().items() if key != "name"}
     assert api.writes[2] == ("PUT", "/api/agents/m", {**fields, "runtime_id": "omp"})
     assert len(api.writes) == 3
+
+
+@pytest.mark.parametrize("selection", [None, [], ["/other/skill"]])
+def test_sync_rewrites_a_stale_selection_and_leaves_equal_fields(repo, selection, capsys):
+    persona_skill(repo, "as-ux-designer", "Guus", models='["x/y"]')
+    guus = multica_sync.read_personas(repo, CHECKOUT)[0]["guus"]
+    agent = {
+        **guus.fields(),
+        **multica_sync.OPEN_TO_WORKSPACE,
+        "id": "g",
+        "runtime_id": "omp",
+        "has_custom_env": True,
+        "instruction_selection": selection,
+    }
+    api = FakeMultica([agent], {"g": {"MADSPEC_PERSONA": "guus"}})
+
+    assert multica_sync.Sync(api, repo, CHECKOUT).run("Guus") == 0
+
+    assert api.writes == [("PUT", "/api/agents/g", {"instruction_selection": guus.instruction_selection})]
+    assert capsys.readouterr().out == "update agent Guus (instruction_selection)\n"
+
+    agent["instruction_selection"] = list(guus.instruction_selection)
+    api.writes.clear()
+
+    assert multica_sync.Sync(api, repo, CHECKOUT).run("guus") == 0
+    assert api.writes == []
+    assert capsys.readouterr().out == ""
 
 
 def test_full_sync_archives_only_its_agents_whose_persona_is_gone(repo):

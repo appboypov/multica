@@ -14,7 +14,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -32,17 +31,7 @@ import (
 	"github.com/multica-ai/multica/server/pkg/remotemcp"
 )
 
-// Mirrors AGENT_DESCRIPTION_MAX_LENGTH in packages/core/agents/constants.ts
-// and the agent_description_length CHECK constraint in migration 060. Counted
-// in unicode code points (utf8.RuneCountInString), matching Postgres
-// char_length and the front-end's String.prototype.length-with-counter UX.
-const maxAgentDescriptionLength = 255
-
-const (
-	maxAgentConversationStarters      = 3
-	maxAgentConversationStarterLabel  = 80
-	maxAgentConversationStarterLength = 4000
-)
+const maxAgentConversationStarters = 3
 
 type AgentConversationStarter struct {
 	Label  string `json:"label"`
@@ -72,7 +61,8 @@ type AgentResponse struct {
 	// Instructions is what this agent's owner wrote. For a system agent it
 	// holds only the workspace's own notes — the product half lives in
 	// SystemInstructions and is never stored on the row.
-	Instructions string `json:"instructions"`
+	Instructions         string   `json:"instructions"`
+	InstructionSelection []string `json:"instruction_selection"`
 	// ConversationStarters are optional, agent-specific first-turn suggestions. An
 	// empty list tells clients to render their localized fallback prompts.
 	ConversationStarters []AgentConversationStarter `json:"conversation_starters"`
@@ -214,6 +204,7 @@ func (h *Handler) agentToResponse(a db.Agent) AgentResponse {
 		Name:                     a.Name,
 		Description:              a.Description,
 		Instructions:             a.Instructions,
+		InstructionSelection:     decodeInstructionSelection(a.InstructionSelection),
 		ConversationStarters:     conversationStarters,
 		SystemKey:                a.SystemKey.String,
 		SystemInstructions:       systemInstructionsFor(a),
@@ -241,6 +232,35 @@ func (h *Handler) agentToResponse(a db.Agent) AgentResponse {
 		ArchivedAt:               timestampToPtr(a.ArchivedAt),
 		ArchivedBy:               uuidToPtr(a.ArchivedBy),
 	}
+}
+
+func decodeInstructionSelection(raw []byte) []string {
+	var paths []string
+	if len(raw) == 0 {
+		slog.Warn("empty agent instruction_selection")
+		return []string{}
+	}
+	if err := json.Unmarshal(raw, &paths); err != nil {
+		slog.Warn("failed to unmarshal agent instruction_selection", "error", err)
+		return []string{}
+	}
+	if paths == nil {
+		slog.Warn("agent instruction_selection is not an array")
+		return []string{}
+	}
+	return paths
+}
+
+func normaliseInstructionSelection(paths []string) ([]string, error) {
+	normalised := make([]string, 0, len(paths))
+	for _, path := range paths {
+		path = strings.TrimSpace(path)
+		if !strings.HasPrefix(path, "/") {
+			return nil, fmt.Errorf("instruction_selection paths must be absolute")
+		}
+		normalised = append(normalised, path)
+	}
+	return normalised, nil
 }
 
 // maskGatewayToken replaces runtime_config.gateway.token with the public
@@ -759,6 +779,7 @@ type TaskAgentData struct {
 	ID                    string                      `json:"id"`
 	Name                  string                      `json:"name"`
 	Instructions          string                      `json:"instructions"`
+	InstructionSelection  []string                    `json:"instruction_selection"`
 	Skills                []service.AgentSkillData    `json:"skills,omitempty"`
 	SkillRefs             []service.AgentSkillRefData `json:"skill_refs,omitempty"`
 	CustomEnv             map[string]string           `json:"custom_env,omitempty"`
@@ -1298,6 +1319,7 @@ type CreateAgentRequest struct {
 	Name                 string                     `json:"name"`
 	Description          string                     `json:"description"`
 	Instructions         string                     `json:"instructions"`
+	InstructionSelection []string                   `json:"instruction_selection"`
 	ConversationStarters []AgentConversationStarter `json:"conversation_starters"`
 	AvatarURL            *string                    `json:"avatar_url"`
 	RuntimeID            string                     `json:"runtime_id"`
@@ -1369,12 +1391,6 @@ func normaliseAgentConversationStarters(starters []AgentConversationStarter) ([]
 		if item.Prompt == "" {
 			return nil, fmt.Errorf("conversation_starters[%d].prompt is required", i)
 		}
-		if utf8.RuneCountInString(item.Label) > maxAgentConversationStarterLabel {
-			return nil, fmt.Errorf("conversation_starters[%d].label must be %d characters or fewer", i, maxAgentConversationStarterLabel)
-		}
-		if utf8.RuneCountInString(item.Prompt) > maxAgentConversationStarterLength {
-			return nil, fmt.Errorf("conversation_starters[%d].prompt must be %d characters or fewer", i, maxAgentConversationStarterLength)
-		}
 		normalised = append(normalised, item)
 	}
 	return normalised, nil
@@ -1399,15 +1415,16 @@ func (h *Handler) CreateAgent(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "name is required")
 		return
 	}
-	if utf8.RuneCountInString(req.Description) > maxAgentDescriptionLength {
-		writeError(w, http.StatusBadRequest, fmt.Sprintf("description must be %d characters or fewer", maxAgentDescriptionLength))
-		return
-	}
 	if req.RuntimeID == "" {
 		writeError(w, http.StatusBadRequest, "runtime_id is required")
 		return
 	}
 	conversationStarters, err := normaliseAgentConversationStarters(req.ConversationStarters)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	instructionSelection, err := normaliseInstructionSelection(req.InstructionSelection)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
@@ -1455,6 +1472,9 @@ func (h *Handler) CreateAgent(w http.ResponseWriter, r *http.Request) {
 	}
 	if !canUseRuntimeForAgent(member, runtime) {
 		writeError(w, http.StatusForbidden, "this runtime is private; only its owner can create agents on it")
+		return
+	}
+	if len(instructionSelection) > 0 && !h.requireRuntimeOwner(w, r, runtime.ID, ownerID) {
 		return
 	}
 
@@ -1524,6 +1544,7 @@ func (h *Handler) CreateAgent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sp, _ := json.Marshal(conversationStarters)
+	selection, _ := json.Marshal(instructionSelection)
 
 	var mc []byte
 	if rawMcpConfig, ok := rawFields["mcp_config"]; ok && !bytes.Equal(bytes.TrimSpace(rawMcpConfig), []byte("null")) {
@@ -1588,6 +1609,7 @@ func (h *Handler) CreateAgent(w http.ResponseWriter, r *http.Request) {
 		ThinkingLevel:            pgtype.Text{String: req.ThinkingLevel, Valid: req.ThinkingLevel != ""},
 		ServiceTier:              pgtype.Text{String: req.ServiceTier, Valid: req.ServiceTier != ""},
 		ConversationStarters:     sp,
+		InstructionSelection:     selection,
 		ComposioToolkitAllowlist: allowlist,
 	})
 	if err != nil {
@@ -1657,6 +1679,7 @@ type UpdateAgentRequest struct {
 	Name                 *string                     `json:"name"`
 	Description          *string                     `json:"description"`
 	Instructions         *string                     `json:"instructions"`
+	InstructionSelection *[]string                   `json:"instruction_selection"`
 	ConversationStarters *[]AgentConversationStarter `json:"conversation_starters"`
 	AvatarURL            *string                     `json:"avatar_url"`
 	RuntimeID            *string                     `json:"runtime_id"`
@@ -1879,6 +1902,25 @@ func (h *Handler) canManageAgent(w http.ResponseWriter, r *http.Request, agent d
 	return true
 }
 
+func (h *Handler) requireRuntimeOwner(w http.ResponseWriter, r *http.Request, runtimeID pgtype.UUID, userID string) bool {
+	if !runtimeID.Valid {
+		writeError(w, http.StatusForbidden, "only the runtime owner can change instruction_selection")
+		return false
+	}
+	runtime, err := h.Queries.GetAgentRuntime(r.Context(), runtimeID)
+	if err != nil {
+		slog.Warn("failed to load runtime for instruction_selection owner check",
+			append(logger.RequestAttrs(r), "runtime_id", uuidToString(runtimeID), "error", err)...)
+		writeError(w, http.StatusInternalServerError, "failed to load runtime")
+		return false
+	}
+	if !runtime.OwnerID.Valid || uuidToString(runtime.OwnerID) != userID {
+		writeError(w, http.StatusForbidden, "only the runtime owner can change instruction_selection")
+		return false
+	}
+	return true
+}
+
 func (h *Handler) UpdateAgent(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	existing, ok := h.loadAgentForUser(w, r, id)
@@ -1916,14 +1958,27 @@ func (h *Handler) UpdateAgent(w http.ResponseWriter, r *http.Request) {
 		params.Name = pgtype.Text{String: *req.Name, Valid: true}
 	}
 	if req.Description != nil {
-		if utf8.RuneCountInString(*req.Description) > maxAgentDescriptionLength {
-			writeError(w, http.StatusBadRequest, fmt.Sprintf("description must be %d characters or fewer", maxAgentDescriptionLength))
-			return
-		}
 		params.Description = pgtype.Text{String: *req.Description, Valid: true}
 	}
 	if req.Instructions != nil {
 		params.Instructions = pgtype.Text{String: *req.Instructions, Valid: true}
+	}
+	selection := decodeInstructionSelection(existing.InstructionSelection)
+	selectionChanged := false
+	if _, present := rawFields["instruction_selection"]; present {
+		var paths []string
+		if req.InstructionSelection != nil {
+			paths = *req.InstructionSelection
+		}
+		instructionSelection, err := normaliseInstructionSelection(paths)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		selectionChanged = !slices.Equal(instructionSelection, selection)
+		selection = instructionSelection
+		encoded, _ := json.Marshal(instructionSelection)
+		params.InstructionSelection = encoded
 	}
 	if req.ConversationStarters != nil {
 		conversationStarters, err := normaliseAgentConversationStarters(*req.ConversationStarters)
@@ -1994,6 +2049,14 @@ func (h *Handler) UpdateAgent(w http.ResponseWriter, r *http.Request) {
 		params.RuntimeMode = pgtype.Text{String: runtime.RuntimeMode, Valid: true}
 		targetRuntimeID = runtime.ID
 		targetProvider = runtime.Provider
+	}
+	// The selection names paths on the runtime machine, so changing it, or
+	// moving an agent that has one onto another runtime, is for the owner of
+	// the runtime the agent runs on after this update.
+	moved := targetRuntimeID != existing.RuntimeID
+	if (selectionChanged || (moved && len(selection) > 0)) &&
+		!h.requireRuntimeOwner(w, r, targetRuntimeID, requestUserID(r)) {
+		return
 	}
 	// Invocation permission (MUL-3963). OWNER-ONLY write: access is the one
 	// agent property a workspace admin may NOT change (only the owner decides

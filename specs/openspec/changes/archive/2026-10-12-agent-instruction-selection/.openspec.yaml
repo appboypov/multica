@@ -1,0 +1,13 @@
+schema: intent-driven
+created: 2026-10-12
+build:
+  status: built
+  baseline_revision: 2a26a3bfdd698b1f653b6a656f938e3a04129814
+  type: feature
+  ticket: ''
+  team: backend
+  context:
+    - '{project-root}/AGENTS.md'
+    - '{project-root}/specs/docs/system-design.md'
+    - '{project-root}/adr/0001-runtime-machine-files-are-read-by-the-daemon.md'
+    - '{project-root}/madspec-sync/README.md'

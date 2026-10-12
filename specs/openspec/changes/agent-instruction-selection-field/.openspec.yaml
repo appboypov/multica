@@ -1,0 +1,13 @@
+schema: intent-driven
+created: 2026-10-12
+build:
+  status: ready-for-dev
+  type: feature
+  ticket: ''
+  team: frontend
+  context:
+    - '{project-root}/AGENTS.md'
+    - '{project-root}/specs/docs/system-design.md'
+    - '{project-root}/packages/ui/docs/dialog.md'
+    - '{project-root}/packages/ui/docs/button.md'
+    - '{project-root}/apps/docs/content/docs/developers/conventions.mdx'

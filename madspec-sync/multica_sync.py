@@ -4,18 +4,21 @@
 # ///
 """Sync the MadSpec personas to agents in the local Multica workspace.
 
-The sync runs only when started by hand. It reads MadSpec from its checkout,
-`~/Repos/Ventures/madspec`: `skills/` as it is on `origin/main`, never from the
-working tree, so only merged MadSpec reaches the agents, whichever branch or
-uncommitted edit the checkout holds.
+The sync runs only when started by hand. It reads the persona list, models and
+arguments from `skills/` on `origin/main` in `~/Repos/Ventures/madspec`,
+whichever branch or uncommitted edit the checkout holds. A persona agent's
+skill content is read from that checkout's disk by its daemon at task start.
 
 Every persona MadSpec's `roster.py --personas` reports is an agent. It runs the
 persona as MadSpec's `tools/persona.sh` starts it: its name is the persona's
-name, its description `Runs the <skill> skill.`, its instructions a link to the
-persona's `SKILL.md` in the MadSpec checkout, read in place so the agent always
-runs the merged skill and Multica holds no copy of it, its model and thinking
-level the first entry of the `model` list in the persona's `customize.toml`
-`[agent]` and its `:level`, and its env `MADSPEC_PERSONA=<command>`. Its omp
+name, its description `Runs the <skill> skill.`, its instruction selection the
+whole persona skill folder in the MadSpec checkout, and its instructions
+`{skill-root}` bound to that folder with `{selection}` below. The daemon fills
+the selection from disk at every task start, so uncommitted skill edits reach
+the next task and Multica stores paths, not a copy of the skill. Its model and
+thinking level are the first entry of the `model` list in the persona's
+`customize.toml` `[agent]` and its `:level`, and its env
+`MADSPEC_PERSONA=<command>`. Its omp
 arguments are `--skills=` with the persona's skills, left out for a persona
 with every skill, and, when `model` lists more than one entry, `--config=` with
 its fallback overlay `~/.local/state/madspec/multica/<command>.yml`:
@@ -78,7 +81,7 @@ MARKER = "MADSPEC_PERSONA"
 KEEP_ENV = "****"
 # omp's thinking levels.
 THINKING_LEVELS = {"off", "minimal", "low", "medium", "high", "xhigh", "max"}
-AGENT_FIELDS = ("name", "description", "instructions", "model", "thinking_level", "custom_args")
+AGENT_FIELDS = ("name", "description", "instructions", "instruction_selection", "model", "thinking_level", "custom_args")
 OPEN_TO_WORKSPACE = {"visibility": "workspace", "permission_mode": "public_to", "invocation_targets": [{"target_type": "workspace"}]}
 
 
@@ -91,6 +94,7 @@ class Persona:
     name: str
     description: str
     instructions: str
+    instruction_selection: list[str]
     model: str
     thinking_level: str
     custom_args: list[str]
@@ -216,8 +220,9 @@ def read_persona(found: dict, tree: Path, checkout: Path) -> Persona:
         skill=skill,
         name=found["name"],
         description=f"Runs the {skill} skill.",
-        instructions=f"{{skill-root}} is {skill_root}. Your instructions are the {skill} skill: "
-        f"read {skill_root / 'SKILL.md'} in full before anything else, and follow it.",
+        instructions=f"`{{skill-root}}` is {skill_root}. Your instructions are the {skill} skill below; follow it.\n\n"
+        "{selection}",
+        instruction_selection=[str(skill_root)],
         model=model,
         thinking_level=thinking_level,
         custom_args=arguments(found["skills"], fallback),
