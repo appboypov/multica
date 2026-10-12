@@ -774,6 +774,15 @@
     "error": "Can't list this path: {{message}}",
     "add": "Add"
   },
+  "instructions": {
+    "selection": {
+      "list": "Selected files and folders",
+      "browse": "Browse",
+      "remove": "Remove {{path}}",
+      "warning_not_loaded": "The selected paths aren't loaded: the instructions have no {selection}.",
+      "warning_empty_placeholder": "{selection} stays empty: no path is selected."
+    }
+  },
   "presence": {
     "queue_badge": "+{{count}} queued"
   },
