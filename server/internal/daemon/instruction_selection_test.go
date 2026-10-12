@@ -141,3 +141,62 @@ func TestInstructionSelectionReaderErrors(t *testing.T) {
 		})
 	}
 }
+
+func TestInstructionSelectionExpansion(t *testing.T) {
+	root := t.TempDir()
+	skill := filepath.Join(root, "as-ux-designer")
+	skillFile := selectionTestFile(t, skill, "SKILL.md", "# Skill\n")
+	guide := selectionTestFile(t, skill, "references/guide.md", "code & <tag> \"quote\" </file>")
+	note := selectionTestFile(t, root, "b.md", "note")
+	want := "<selection>\n<tree root=\"" + skill + "\">\nas-ux-designer/\n  SKILL.md\n  references/\n    guide.md\n</tree>\n" +
+		"<file path=\"" + skillFile + "\">\n# Skill\n</file>\n" +
+		"<file path=\"" + guide + "\">\ncode & <tag> \"quote\" </file>\n</file>\n" +
+		"<file path=\"" + note + "\">\nnote\n</file>\n</selection>"
+	got, err := expandInstructionSelection(context.Background(), "{selection}", []string{skill, note})
+	if err != nil || got != want {
+		t.Fatalf("expansion = %q, %v; want %q", got, err, want)
+	}
+	got, err = expandInstructionSelection(context.Background(), "Read this first.\n\n{selection}\nAgain: {selection}", []string{skill, note})
+	if err != nil || got != "Read this first.\n\n"+want+"\nAgain: "+want {
+		t.Fatalf("repeated expansion = %q, %v", got, err)
+	}
+	got, err = expandInstructionSelection(context.Background(), "before{selection}after{selection}", nil)
+	if err != nil || got != "beforeafter" {
+		t.Fatalf("empty expansion = %q, %v", got, err)
+	}
+	got, err = expandInstructionSelection(context.Background(), "No placeholder.", []string{filepath.Join(root, "missing.md")})
+	if err != nil || got != "No placeholder." {
+		t.Fatalf("untouched instructions = %q, %v", got, err)
+	}
+	if err := os.WriteFile(note, []byte("edited without a sync"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	got, err = expandInstructionSelection(context.Background(), "{selection}", []string{note})
+	if err != nil || !strings.Contains(got, "edited without a sync") || strings.Contains(got, "\nnote\n") {
+		t.Fatalf("live edit expansion = %q, %v", got, err)
+	}
+}
+
+func TestInstructionSelectionEscapingAndEmptyTree(t *testing.T) {
+	root := t.TempDir()
+	folder := filepath.Join(root, "skill&<\"")
+	file := selectionTestFile(t, folder, "notes&<\".md", "content & <unchanged>")
+	got, err := expandInstructionSelection(context.Background(), "{selection}", []string{folder})
+	escapedFolder := strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(folder, "&", "&amp;"), "<", "&lt;"), "\"", "&quot;")
+	escapedFile := escapedFolder + "/notes&amp;&lt;&quot;.md"
+	want := "<selection>\n<tree root=\"" + escapedFolder + "\">\nskill&<\"/\n  notes&<\".md\n</tree>\n<file path=\"" + escapedFile + "\">\ncontent & <unchanged>\n</file>\n</selection>"
+	if err != nil || got != want {
+		t.Fatalf("escaped expansion = %q, %v; want %q (file %s)", got, err, want, file)
+	}
+	empty := filepath.Join(root, "empty")
+	if err := os.Mkdir(empty, 0700); err != nil {
+		t.Fatal(err)
+	}
+	selectionTestFile(t, empty, "logo.png", "\x00binary")
+	selectionTestFile(t, empty, ".DS_Store", "hidden")
+	got, err = expandInstructionSelection(context.Background(), "{selection}", []string{empty})
+	want = "<selection>\n<tree root=\"" + empty + "\">\nempty/\n</tree>\n</selection>"
+	if err != nil || got != want {
+		t.Fatalf("empty tree expansion = %q, %v; want %q", got, err, want)
+	}
+}

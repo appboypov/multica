@@ -173,3 +173,42 @@ func (r *instructionSelectionReader) readFile(path, real string, selected bool) 
 	r.files = append(r.files, instructionSelectionFile{path: path, content: content})
 	return true, nil
 }
+
+var selectionAttributeEscaper = strings.NewReplacer("&", "&amp;", "<", "&lt;", "\"", "&quot;")
+
+func expandInstructionSelection(ctx context.Context, instructions string, paths []string) (string, error) {
+	if !strings.Contains(instructions, "{selection}") {
+		return instructions, nil
+	}
+	if len(paths) == 0 {
+		return strings.ReplaceAll(instructions, "{selection}", ""), nil
+	}
+	selection, err := readInstructionSelection(ctx, paths)
+	if err != nil {
+		return "", err
+	}
+	var rendered strings.Builder
+	rendered.WriteString("<selection>\n")
+	for _, tree := range selection.trees {
+		rendered.WriteString("<tree root=\"")
+		rendered.WriteString(selectionAttributeEscaper.Replace(tree.root))
+		rendered.WriteString("\">\n")
+		for _, line := range tree.lines {
+			rendered.WriteString(line)
+			rendered.WriteByte('\n')
+		}
+		rendered.WriteString("</tree>\n")
+	}
+	for _, file := range selection.files {
+		rendered.WriteString("<file path=\"")
+		rendered.WriteString(selectionAttributeEscaper.Replace(file.path))
+		rendered.WriteString("\">\n")
+		rendered.Write(file.content)
+		if len(file.content) == 0 || file.content[len(file.content)-1] != '\n' {
+			rendered.WriteByte('\n')
+		}
+		rendered.WriteString("</file>\n")
+	}
+	rendered.WriteString("</selection>")
+	return strings.ReplaceAll(instructions, "{selection}", rendered.String()), nil
+}
