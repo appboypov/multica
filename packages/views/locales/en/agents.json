@@ -761,7 +761,8 @@
     }
   },
   "char_counter": {
-    "over_limit": " · {{count}} over limit"
+    "over_limit": " · {{count}} over limit",
+    "over_threshold": " · {{count}} over the recommended {{max}}"
   },
   "presence": {
     "queue_badge": "+{{count}} queued"
