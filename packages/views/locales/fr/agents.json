@@ -418,9 +418,6 @@
     "squad_join_failed_toast": "L'agent « {{name}} » a été créé mais n'a pas pu rejoindre le squad : {{error}}. Vous pouvez l'ajouter manuellement depuis Membres.",
     "instructions": {
       "label": "Instructions",
-      "placeholder_blank": "Cliquez pour rédiger les instructions…",
-      "placeholder_duplicate": "Cliquez pour consulter ou modifier les instructions dupliquées",
-      "collapse": "Replier",
       "editor_placeholder": "Indiquez ce que cet agent doit faire, sur quoi se concentrer, ce qu'il faut éviter…"
     },
     "skills_section": {

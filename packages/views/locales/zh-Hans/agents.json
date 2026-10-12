@@ -408,9 +408,6 @@
     "squad_join_failed_toast": "智能体\"{{name}}\"已创建，但加入小队失败：{{error}}。你可以在 Members 标签里手动添加。",
     "instructions": {
       "label": "指令",
-      "placeholder_blank": "点击撰写指令…",
-      "placeholder_duplicate": "点击查看或编辑复制的指令",
-      "collapse": "收起",
       "editor_placeholder": "写下这个智能体该做什么、关注什么、要避开什么…"
     },
     "skills_section": {

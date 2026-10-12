@@ -306,9 +306,6 @@
     "squad_join_failed_toast": "エージェント \"{{name}}\" は作成されましたが、スクワッドに参加できませんでした: {{error}}。メンバーから手動で追加できます。",
     "instructions": {
       "label": "指示",
-      "placeholder_blank": "クリックして指示を作成...",
-      "placeholder_duplicate": "クリックして複製された指示を表示または編集",
-      "collapse": "折りたたむ",
       "editor_placeholder": "このエージェントが何をすべきか、何に集中すべきか、何を避けるべきかを記述してください..."
     },
     "skills_section": {
