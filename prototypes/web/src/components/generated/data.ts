@@ -314,7 +314,6 @@ const data = [
         "releases": [
          {
           "version": "v1.1.0",
-          "goal": "Account and profile",
           "issues": [
            {
             "id": "REBL-21",
@@ -390,7 +389,6 @@ const data = [
          },
          {
           "version": "v1.2.0",
-          "goal": "Notifications",
           "issues": [
            {
             "id": "REBL-78",
@@ -469,7 +467,6 @@ const data = [
         "releases": [
          {
           "version": "v1.0.0",
-          "goal": "First production release",
           "issues": [
            {
             "id": "REBL-10",
@@ -640,7 +637,6 @@ const data = [
          },
          {
           "version": "v1.0.1",
-          "goal": "Membership hardening",
           "issues": [
            {
             "id": "REBL-44",
@@ -714,7 +710,6 @@ const data = [
         "releases": [
          {
           "version": "v1.3.0",
-          "goal": "Agenda and publication",
           "issues": [
            {
             "id": "REBL-35",

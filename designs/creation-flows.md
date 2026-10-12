@@ -7,7 +7,7 @@ How the prototype's three creation flows work, built on what Multica and MadSpec
 - **Repositories in Multica.** A workspace keeps a list of repositories, picked from the GitHub App installation or entered as a URL (`packages/views/settings/components/repositories-section.tsx`). A project links repositories as project resources (`server/migrations/065_project_resources.up.sql`): a GitHub repository with an optional base branch, or a local folder on one machine (an absolute path plus the runtime it lives on), chosen with the desktop folder picker and checked to be a git checkout (`project-resources-section.tsx`).
 - **Worktrees in Multica.** The daemon makes a throwaway worktree per task or per issue, on a branch `agent/{agent}/{issue}`. There are no long-lived worktrees and no worklanes (`server/internal/daemon/execenv/local_worktree.go`).
 - **Lanes in MadSpec.** A lane belongs to a team and has a Folder, its Repositories and an Order. Lane `main` works in the repository's normal checkout under `~/Repos` and holds planning and releases. Every other lane has one worktree per repository at `~/Worktrees/{team}/{lane folder}/{repo}`, which keeps the branch of the lane's active item. After a merge it switches to the next item's branch, cut from the freshly fetched default branch, but only when nothing in it would be lost (`madspec-git` "Core Rule", `lane_worktree.py`).
-- **Releases in MadSpec.** A release is a version of a product. Its version comes from the repository's version policy. It is cut after the work has merged (own work) or at the end of a cycle (clients), and then gets its issues, a release note, a changelog, a git tag and a GitHub release (`madspec-releases`). Nothing is planned ahead, and Multica has no releases at all.
+- **Releases in MadSpec.** A release is a version of a product. Its version comes from the repository's version policy. It is cut after the work has merged, or at the end of a cycle for teams that work in cycles, and then gets its issues, a release note, a changelog, a git tag and a GitHub release (`madspec-releases`). Nothing is planned ahead, and Multica has no releases at all.
 
 ## The model
 
@@ -24,7 +24,7 @@ flowchart LR
 
 - **Repository** (in one project): a GitHub repository (`owner/name`, default branch), its checkout on a runtime (machine plus path), and its version policy: where the version lives (for example `pubspec.yaml`, `package.json` or tags only) and the tag pattern (`v{version}`). Adding a repository adds its worklane `main` at the same time.
 - **Worklane** (in one repository): a name, a folder, the runtime its worktree lives on, the squad that works it, and an order. Its worktree path follows from these: `~/Worktrees/{project key}/{folder}/{repo}`. Its state follows from its line: Busy with the active issue's branch, or Free. A worklane without a worktree does not exist, so creating a worklane creates its worktree.
-- **Release** (in one repository): a version, a goal and its issues. Each worklane's timeline shows the repository's releases with that lane's issues in them. The version is the repository's because a repository has one tag sequence, and a release is cut from the default branch with everything merged into it, whichever lane did the work.
+- **Release** (in one repository): a version and its issues. Each worklane's timeline shows the repository's releases with that lane's issues in them. The version is the repository's because a repository has one tag sequence, and a release is cut from the default branch with everything merged into it, whichever lane did the work.
 - **Issue**: has at most one worklane and at most one release, and the release must belong to that worklane's repository.
 
 ## Add repository
@@ -55,10 +55,9 @@ Brian's yes is the click, and it is recorded on the worklane's activity.
 Opened from a worklane timeline's "Plan release" button, at the end of the timeline. It is a dialog.
 
 1. **Version**: Patch, Minor or Major, each showing the version it gives after the repository's last planned release (for example v1.0.2, v1.1.0 or v2.0.0). Patch is preselected.
-2. **Goal**: one sentence a client can name, for example "Fans book a table".
-3. **Issues**: this worklane's issues that are in no release yet, with their type icon, ID, title and status, to tick. Issues can also be added later from the timeline.
-4. **Ships**: a read-only line about what happens when it ships. When all its issues are done and merged, Multica tags `v1.1.0` on `main`, writes the release note, publishes the GitHub release, and asks you to pass it. A release has no date until it ships.
-5. **Plan release** adds the release to the end of the repository's release line. On this worklane's timeline it appears in place with the chosen issues, and on the other worklanes of the repository it appears empty.
+2. **Issues**: this worklane's issues that are in no release yet, with their type icon, ID, title and status, to tick. Issues can also be added later from the timeline.
+3. **Ships**: a read-only line about what happens when it ships. When all its issues are done and merged, Multica tags `v1.1.0` on `main`, writes the release note, publishes the GitHub release, and asks you to pass it. A release has no date until it ships.
+4. **Plan release** adds the release to the end of the repository's release line. On this worklane's timeline it appears in place with the chosen issues, and on the other worklanes of the repository it appears empty.
 
 ## Decisions
 

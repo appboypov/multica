@@ -284,7 +284,7 @@ export const MulticaSteerAllWorkPrototype = () => {
     );
 
   // A planned release takes the picked issues out of the worklane's backlog; they are ready to pick up.
-  const planRelease = (ref: LaneRef, version: string, goal: string, ids: string[]) => {
+  const planRelease = (ref: LaneRef, version: string, ids: string[]) => {
     const ready = (i: Issue): Issue => ({ ...i, release: version, status: i.status === 'backlog' ? 'todo' : i.status });
     updateLanes(ref, (ls) =>
       ls.map((l) => {
@@ -292,7 +292,7 @@ export const MulticaSteerAllWorkPrototype = () => {
         const moved = (l.backlog ?? []).filter((i) => ids.includes(i.id));
         return {
           ...l,
-          releases: [...(l.releases ?? []), { version, goal, issues: moved.map(ready) }],
+          releases: [...(l.releases ?? []), { version, issues: moved.map(ready) }],
           backlog: (l.backlog ?? []).filter((i) => !ids.includes(i.id)),
         };
       }),
@@ -327,9 +327,9 @@ export const MulticaSteerAllWorkPrototype = () => {
         api={api}
         refLane={route.ref}
         view={route.view}
-        onPlanRelease={(version, goal, ids) => {
-          planRelease(route.ref, version, goal, ids);
-          toast(`${version} planned: ${goal}`);
+        onPlanRelease={(version, ids) => {
+          planRelease(route.ref, version, ids);
+          toast(`${version} planned`);
         }}
       />
     );
@@ -1008,7 +1008,7 @@ function LanePage({
   api: AppApi;
   refLane: LaneRef;
   view: LaneView;
-  onPlanRelease: (version: string, goal: string, issueIds: string[]) => void;
+  onPlanRelease: (version: string, issueIds: string[]) => void;
 }) {
   const found = findLane(api.orgs, refLane);
   const [types, setTypes] = useState<string[]>([]);
@@ -1087,8 +1087,8 @@ function LanePage({
                   candidates={backlog}
                   statusOf={api.statusOf}
                   onClose={() => setPlanning(false)}
-                  onPlan={(version, goal, ids) => {
-                    onPlanRelease(version, goal, ids);
+                  onPlan={(version, ids) => {
+                    onPlanRelease(version, ids);
                     setPlanning(false);
                   }}
                 />
@@ -1112,7 +1112,6 @@ function LanePage({
             <section key={rel.version} className="mb-4 overflow-hidden rounded-[12px] border" style={{ background: 'var(--surface)', borderColor: 'var(--surface-border)' }}>
               <div className="flex h-11 items-center gap-2 px-4">
                 <ReleaseChip version={rel.version} state={states[i]} />
-                <span className="font-medium">{rel.goal}</span>
                 <div className="flex-1" />
                 <span className="text-[12px]" style={{ color: 'var(--muted-foreground)' }}>
                   {doneCount(rel, api.statusOf)} of {rel.issues.length} done
@@ -1190,7 +1189,6 @@ function ReleaseColumn({ api, rel, state, issues, refLane }: { api: AppApi; rel:
               )}
             </Menu>
           </div>
-          <h3 className="mt-1.5 text-[14px] font-medium">{rel.goal}</h3>
           <div className="mt-3 flex items-center gap-3">
             <Progress done={done} total={rel.issues.length} />
             <span className="shrink-0 text-[12px] tabular-nums" style={{ color: 'var(--muted-foreground)' }}>
@@ -1390,11 +1388,8 @@ function SquadPage({ api, squad, view, issues }: { api: AppApi; squad: string; v
                 {laneLabel(ref)}
               </Chip>
               <ReleaseChip version={rel!.version} state="next" onClick={() => api.go({ name: 'lane', ref, view: 'timeline' })} />
-              <span className="text-[12px] tabular-nums" style={{ color: 'var(--muted-foreground)' }}>
+              <span className="mr-3 text-[12px] tabular-nums" style={{ color: 'var(--muted-foreground)' }}>
                 {doneCount(rel!, api.statusOf)}/{rel!.issues.length}
-              </span>
-              <span className="mr-3 text-[12px]" style={{ color: 'var(--muted-foreground)' }}>
-                {rel!.goal}
               </span>
             </span>
           ))}
@@ -1737,8 +1732,7 @@ function IssuePage({ api, id, from }: { api: AppApi; id: string; from: 'Projects
                   {STATE_LABEL[relState]}
                 </span>
               </div>
-              <div className="mt-2 text-[14px] font-medium">{rel.goal}</div>
-              <div className="mt-1 text-[12px]" style={{ color: 'var(--muted-foreground)' }}>
+              <div className="mt-2 text-[12px]" style={{ color: 'var(--muted-foreground)' }}>
                 {laneLabel(issue.lane)} · {issue.lane.repo}
               </div>
               <div className="mt-3 flex items-center gap-2">
@@ -1898,7 +1892,7 @@ function NewIssueDialog({ api, draft, onClose, onCreate }: { api: AppApi; draft:
                   <>
                     {(laneObj?.releases ?? []).map((r) => (
                       <MenuItem key={r.version} selected={r.version === d.release} onClick={() => (setD({ ...d, release: r.version }), close())}>
-                        <span className="mc-mono">{r.version}</span> <span style={{ color: 'var(--muted-foreground)' }}>· {r.goal}</span>
+                        <span className="mc-mono">{r.version}</span>
                       </MenuItem>
                     ))}
                     {!laneObj?.releases?.length && (

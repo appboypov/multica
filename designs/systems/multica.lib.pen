@@ -5218,18 +5218,6 @@
                       ]
                     },
                     {
-                      "type": "text",
-                      "id": "wYsIo",
-                      "name": "Release goal",
-                      "fill": "$foreground",
-                      "textGrowth": "fixed-width",
-                      "width": "fill_container",
-                      "content": "Worklane timeline and squad boards",
-                      "fontFamily": "$font-sans",
-                      "fontSize": "$text-body",
-                      "fontWeight": "500"
-                    },
-                    {
                       "type": "frame",
                       "id": "Oq65Z",
                       "name": "Progress row",

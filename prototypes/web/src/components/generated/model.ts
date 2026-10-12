@@ -23,7 +23,6 @@ export interface Issue {
 
 export interface Release {
   version: string;
-  goal: string;
   issues: Issue[];
 }
 
@@ -81,7 +80,7 @@ interface RawLane {
   state: string;
   active: string | null;
   next: string | null;
-  releases?: { version: string; goal: string; issues: { id: string; type: string; title: string }[] }[];
+  releases?: { version: string; issues: { id: string; type: string; title: string }[] }[];
 }
 
 /** Sample issues that wait in a worklane without a release, keyed `repo/lane`. */
@@ -112,7 +111,6 @@ export function loadOrgs(): Org[] {
               next: l.next,
               releases: l.releases?.map((rel) => ({
                 version: rel.version,
-                goal: rel.goal,
                 issues: rel.issues.map((i) => ({
                   id: i.id,
                   type: (i.type as IssueType) ?? 'story',

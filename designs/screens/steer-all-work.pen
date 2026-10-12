@@ -1069,7 +1069,7 @@
                       "width": "fill_container"
                     },
                     {
-                      "id": "T7KFe",
+                      "id": "ZAm0J",
                       "type": "ref",
                       "ref": "L:y1W2fK",
                       "name": "Column",
@@ -1082,9 +1082,6 @@
                           "content": "Next release",
                           "fill": "$L:brand"
                         },
-                        "L:wYsIo": {
-                          "content": "Account and profile"
-                        },
                         "L:x1LDu8/L:l0V5e": {
                           "width": 168,
                           "enabled": false
@@ -1094,26 +1091,26 @@
                         },
                         "L:fwcCV": {
                           "type": "frame",
-                          "id": "thBEW",
+                          "id": "oofjS",
                           "name": "Issues",
                           "width": "fill_container",
                           "layout": "vertical",
                           "children": [
                             {
-                              "id": "O8fl8",
+                              "id": "ZgPT1",
                               "type": "ref",
                               "ref": "L:BZbwI",
                               "name": "Issue REBL-21",
                               "width": "fill_container",
                               "descendants": {
                                 "L:ZcwuS": {
-                                  "id": "flgwW",
+                                  "id": "gslsc",
                                   "type": "ref",
                                   "ref": "L:QUXmm",
                                   "name": "Status"
                                 },
                                 "L:EA3qL": {
-                                  "id": "e5CQnG",
+                                  "id": "grzNK",
                                   "type": "ref",
                                   "ref": "L:ac9LK",
                                   "name": "Type"
@@ -1127,20 +1124,20 @@
                               }
                             },
                             {
-                              "id": "j1V6jS",
+                              "id": "MftV5",
                               "type": "ref",
                               "ref": "L:BZbwI",
                               "name": "Issue REBL-70",
                               "width": "fill_container",
                               "descendants": {
                                 "L:ZcwuS": {
-                                  "id": "gsnuZ",
+                                  "id": "EPi7r",
                                   "type": "ref",
                                   "ref": "L:kOtJS",
                                   "name": "Status"
                                 },
                                 "L:EA3qL": {
-                                  "id": "qqwVN",
+                                  "id": "d2nJFf",
                                   "type": "ref",
                                   "ref": "L:ac9LK",
                                   "name": "Type"
@@ -1154,20 +1151,20 @@
                               }
                             },
                             {
-                              "id": "wgI1u",
+                              "id": "exnsw",
                               "type": "ref",
                               "ref": "L:BZbwI",
                               "name": "Issue REBL-71",
                               "width": "fill_container",
                               "descendants": {
                                 "L:ZcwuS": {
-                                  "id": "MV0iy",
+                                  "id": "HohST",
                                   "type": "ref",
                                   "ref": "L:kOtJS",
                                   "name": "Status"
                                 },
                                 "L:EA3qL": {
-                                  "id": "JqZFC",
+                                  "id": "W1Ax4v",
                                   "type": "ref",
                                   "ref": "L:ngCRp",
                                   "name": "Type"
@@ -1181,20 +1178,20 @@
                               }
                             },
                             {
-                              "id": "PYfgB",
+                              "id": "rvU6p",
                               "type": "ref",
                               "ref": "L:BZbwI",
                               "name": "Issue REBL-72",
                               "width": "fill_container",
                               "descendants": {
                                 "L:ZcwuS": {
-                                  "id": "k32lkT",
+                                  "id": "G1Zv2i",
                                   "type": "ref",
                                   "ref": "L:kOtJS",
                                   "name": "Status"
                                 },
                                 "L:EA3qL": {
-                                  "id": "hHf7G",
+                                  "id": "C5XAA",
                                   "type": "ref",
                                   "ref": "L:ngCRp",
                                   "name": "Type"
@@ -1208,20 +1205,20 @@
                               }
                             },
                             {
-                              "id": "K4qVt",
+                              "id": "Xs3VO",
                               "type": "ref",
                               "ref": "L:BZbwI",
                               "name": "Issue REBL-73",
                               "width": "fill_container",
                               "descendants": {
                                 "L:ZcwuS": {
-                                  "id": "Vbg7x",
+                                  "id": "adUJq",
                                   "type": "ref",
                                   "ref": "L:kOtJS",
                                   "name": "Status"
                                 },
                                 "L:EA3qL": {
-                                  "id": "cLRLo",
+                                  "id": "UTbal",
                                   "type": "ref",
                                   "ref": "L:ngCRp",
                                   "name": "Type"
@@ -1235,20 +1232,20 @@
                               }
                             },
                             {
-                              "id": "vU3A5",
+                              "id": "F2yvO5",
                               "type": "ref",
                               "ref": "L:BZbwI",
                               "name": "Issue REBL-26",
                               "width": "fill_container",
                               "descendants": {
                                 "L:ZcwuS": {
-                                  "id": "mt83z",
+                                  "id": "Er5fx",
                                   "type": "ref",
                                   "ref": "L:kOtJS",
                                   "name": "Status"
                                 },
                                 "L:EA3qL": {
-                                  "id": "Yw1A6",
+                                  "id": "NIaHD",
                                   "type": "ref",
                                   "ref": "L:ngCRp",
                                   "name": "Type"
@@ -1262,20 +1259,20 @@
                               }
                             },
                             {
-                              "id": "O7ILGu",
+                              "id": "ApZ4c",
                               "type": "ref",
                               "ref": "L:BZbwI",
                               "name": "Issue REBL-27",
                               "width": "fill_container",
                               "descendants": {
                                 "L:ZcwuS": {
-                                  "id": "iLtuC",
+                                  "id": "BnyZw",
                                   "type": "ref",
                                   "ref": "L:kOtJS",
                                   "name": "Status"
                                 },
                                 "L:EA3qL": {
-                                  "id": "arGz6",
+                                  "id": "lJWBv",
                                   "type": "ref",
                                   "ref": "L:ngCRp",
                                   "name": "Type"
@@ -1289,20 +1286,20 @@
                               }
                             },
                             {
-                              "id": "RhfFO",
+                              "id": "caNjy",
                               "type": "ref",
                               "ref": "L:BZbwI",
                               "name": "Issue REBL-74",
                               "width": "fill_container",
                               "descendants": {
                                 "L:ZcwuS": {
-                                  "id": "E9a2BY",
+                                  "id": "F3dw3",
                                   "type": "ref",
                                   "ref": "L:kOtJS",
                                   "name": "Status"
                                 },
                                 "L:EA3qL": {
-                                  "id": "CHKUU",
+                                  "id": "PS7it",
                                   "type": "ref",
                                   "ref": "L:ngCRp",
                                   "name": "Type"
@@ -1316,20 +1313,20 @@
                               }
                             },
                             {
-                              "id": "qW2Ek",
+                              "id": "z53HR",
                               "type": "ref",
                               "ref": "L:BZbwI",
                               "name": "Issue REBL-22",
                               "width": "fill_container",
                               "descendants": {
                                 "L:ZcwuS": {
-                                  "id": "BrDOh",
+                                  "id": "VtrWb",
                                   "type": "ref",
                                   "ref": "L:kOtJS",
                                   "name": "Status"
                                 },
                                 "L:EA3qL": {
-                                  "id": "kY55K",
+                                  "id": "lCGyB",
                                   "type": "ref",
                                   "ref": "L:ngCRp",
                                   "name": "Type"
@@ -1343,20 +1340,20 @@
                               }
                             },
                             {
-                              "id": "l52WqE",
+                              "id": "L6QDd5",
                               "type": "ref",
                               "ref": "L:BZbwI",
                               "name": "Issue REBL-23",
                               "width": "fill_container",
                               "descendants": {
                                 "L:ZcwuS": {
-                                  "id": "fCLOY",
+                                  "id": "o6vit",
                                   "type": "ref",
                                   "ref": "L:kOtJS",
                                   "name": "Status"
                                 },
                                 "L:EA3qL": {
-                                  "id": "t3KGF",
+                                  "id": "Q2olIQ",
                                   "type": "ref",
                                   "ref": "L:ngCRp",
                                   "name": "Type"
@@ -1370,20 +1367,20 @@
                               }
                             },
                             {
-                              "id": "iSy2a",
+                              "id": "ycyq1",
                               "type": "ref",
                               "ref": "L:BZbwI",
                               "name": "Issue REBL-24",
                               "width": "fill_container",
                               "descendants": {
                                 "L:ZcwuS": {
-                                  "id": "k6cUG",
+                                  "id": "AbB5p",
                                   "type": "ref",
                                   "ref": "L:kOtJS",
                                   "name": "Status"
                                 },
                                 "L:EA3qL": {
-                                  "id": "vw9s9",
+                                  "id": "DIjZS",
                                   "type": "ref",
                                   "ref": "L:ngCRp",
                                   "name": "Type"
@@ -1397,20 +1394,20 @@
                               }
                             },
                             {
-                              "id": "b1QEs",
+                              "id": "qn0eB",
                               "type": "ref",
                               "ref": "L:BZbwI",
                               "name": "Issue REBL-25",
                               "width": "fill_container",
                               "descendants": {
                                 "L:ZcwuS": {
-                                  "id": "Da615",
+                                  "id": "wJMSJ",
                                   "type": "ref",
                                   "ref": "L:kOtJS",
                                   "name": "Status"
                                 },
                                 "L:EA3qL": {
-                                  "id": "T22C5",
+                                  "id": "ZAGW7",
                                   "type": "ref",
                                   "ref": "L:ngCRp",
                                   "name": "Type"
@@ -1424,20 +1421,20 @@
                               }
                             },
                             {
-                              "id": "q7lBG",
+                              "id": "EYo5J",
                               "type": "ref",
                               "ref": "L:BZbwI",
                               "name": "Issue REBL-75",
                               "width": "fill_container",
                               "descendants": {
                                 "L:ZcwuS": {
-                                  "id": "ZlMVS",
+                                  "id": "LX0Pz",
                                   "type": "ref",
                                   "ref": "L:kOtJS",
                                   "name": "Status"
                                 },
                                 "L:EA3qL": {
-                                  "id": "kxZbk",
+                                  "id": "j3IQ6",
                                   "type": "ref",
                                   "ref": "L:ngCRp",
                                   "name": "Type"
@@ -1451,20 +1448,20 @@
                               }
                             },
                             {
-                              "id": "v0Wsoj",
+                              "id": "p1wLP",
                               "type": "ref",
                               "ref": "L:BZbwI",
                               "name": "Issue REBL-76",
                               "width": "fill_container",
                               "descendants": {
                                 "L:ZcwuS": {
-                                  "id": "I0wEQK",
+                                  "id": "kGzC0",
                                   "type": "ref",
                                   "ref": "L:kOtJS",
                                   "name": "Status"
                                 },
                                 "L:EA3qL": {
-                                  "id": "F8Yxo",
+                                  "id": "bBV2P",
                                   "type": "ref",
                                   "ref": "L:ac9LK",
                                   "name": "Type"
@@ -1505,14 +1502,14 @@
                       "width": "fill_container"
                     },
                     {
-                      "id": "H3u5Jh",
+                      "id": "lgHQT",
                       "type": "ref",
                       "ref": "L:y1W2fK",
                       "name": "Column",
                       "width": "fill_container",
                       "descendants": {
                         "L:HWqXX": {
-                          "id": "p98SM",
+                          "id": "QKNnz",
                           "type": "ref",
                           "ref": "L:bFt73",
                           "name": "Release",
@@ -1526,9 +1523,6 @@
                           "content": "Planned",
                           "fill": "$L:muted-foreground"
                         },
-                        "L:wYsIo": {
-                          "content": "Notifications"
-                        },
                         "L:x1LDu8/L:l0V5e": {
                           "width": 0,
                           "enabled": false
@@ -1538,26 +1532,26 @@
                         },
                         "L:fwcCV": {
                           "type": "frame",
-                          "id": "Sw1Br",
+                          "id": "Q5m6Rt",
                           "name": "Issues",
                           "width": "fill_container",
                           "layout": "vertical",
                           "children": [
                             {
-                              "id": "ouYxA",
+                              "id": "aqxYv",
                               "type": "ref",
                               "ref": "L:BZbwI",
                               "name": "Issue REBL-78",
                               "width": "fill_container",
                               "descendants": {
                                 "L:ZcwuS": {
-                                  "id": "gmHBw",
+                                  "id": "kCgBQ",
                                   "type": "ref",
                                   "ref": "L:kOtJS",
                                   "name": "Status"
                                 },
                                 "L:EA3qL": {
-                                  "id": "QTs6L",
+                                  "id": "k5zy8",
                                   "type": "ref",
                                   "ref": "L:ngCRp",
                                   "name": "Type"
@@ -1571,20 +1565,20 @@
                               }
                             },
                             {
-                              "id": "vQbVe",
+                              "id": "v6r9e",
                               "type": "ref",
                               "ref": "L:BZbwI",
                               "name": "Issue REBL-29",
                               "width": "fill_container",
                               "descendants": {
                                 "L:ZcwuS": {
-                                  "id": "OqUQZ",
+                                  "id": "sO6r8",
                                   "type": "ref",
                                   "ref": "L:kOtJS",
                                   "name": "Status"
                                 },
                                 "L:EA3qL": {
-                                  "id": "uYnin",
+                                  "id": "anPlZ",
                                   "type": "ref",
                                   "ref": "L:ac9LK",
                                   "name": "Type"
@@ -1598,20 +1592,20 @@
                               }
                             },
                             {
-                              "id": "wp5bj",
+                              "id": "l8tDOj",
                               "type": "ref",
                               "ref": "L:BZbwI",
                               "name": "Issue REBL-79",
                               "width": "fill_container",
                               "descendants": {
                                 "L:ZcwuS": {
-                                  "id": "qfxzn",
+                                  "id": "CX4WX",
                                   "type": "ref",
                                   "ref": "L:kOtJS",
                                   "name": "Status"
                                 },
                                 "L:EA3qL": {
-                                  "id": "MfRgU",
+                                  "id": "usRTx",
                                   "type": "ref",
                                   "ref": "L:ac9LK",
                                   "name": "Type"
@@ -1625,20 +1619,20 @@
                               }
                             },
                             {
-                              "id": "aewn1",
+                              "id": "bwAtU",
                               "type": "ref",
                               "ref": "L:BZbwI",
                               "name": "Issue REBL-80",
                               "width": "fill_container",
                               "descendants": {
                                 "L:ZcwuS": {
-                                  "id": "iDsAz",
+                                  "id": "HhInU",
                                   "type": "ref",
                                   "ref": "L:kOtJS",
                                   "name": "Status"
                                 },
                                 "L:EA3qL": {
-                                  "id": "XPEsT",
+                                  "id": "vJ7Is",
                                   "type": "ref",
                                   "ref": "L:ac9LK",
                                   "name": "Type"
@@ -1652,20 +1646,20 @@
                               }
                             },
                             {
-                              "id": "jtTZJ",
+                              "id": "EaVkN",
                               "type": "ref",
                               "ref": "L:BZbwI",
                               "name": "Issue REBL-30",
                               "width": "fill_container",
                               "descendants": {
                                 "L:ZcwuS": {
-                                  "id": "ZXqbO",
+                                  "id": "XefhO",
                                   "type": "ref",
                                   "ref": "L:kOtJS",
                                   "name": "Status"
                                 },
                                 "L:EA3qL": {
-                                  "id": "y93aL",
+                                  "id": "obLqq",
                                   "type": "ref",
                                   "ref": "L:ngCRp",
                                   "name": "Type"
@@ -1679,20 +1673,20 @@
                               }
                             },
                             {
-                              "id": "Nw2YI",
+                              "id": "kv8HL",
                               "type": "ref",
                               "ref": "L:BZbwI",
                               "name": "Issue REBL-81",
                               "width": "fill_container",
                               "descendants": {
                                 "L:ZcwuS": {
-                                  "id": "p6Lee",
+                                  "id": "Fs2dg",
                                   "type": "ref",
                                   "ref": "L:kOtJS",
                                   "name": "Status"
                                 },
                                 "L:EA3qL": {
-                                  "id": "GS0cb",
+                                  "id": "jFfDB",
                                   "type": "ref",
                                   "ref": "L:ngCRp",
                                   "name": "Type"
@@ -1706,20 +1700,20 @@
                               }
                             },
                             {
-                              "id": "B3YRj",
+                              "id": "KJJjc",
                               "type": "ref",
                               "ref": "L:BZbwI",
                               "name": "Issue REBL-82",
                               "width": "fill_container",
                               "descendants": {
                                 "L:ZcwuS": {
-                                  "id": "JoAfq",
+                                  "id": "HxbQl",
                                   "type": "ref",
                                   "ref": "L:kOtJS",
                                   "name": "Status"
                                 },
                                 "L:EA3qL": {
-                                  "id": "nWSVB",
+                                  "id": "CCRE9",
                                   "type": "ref",
                                   "ref": "L:ngCRp",
                                   "name": "Type"
@@ -1733,20 +1727,20 @@
                               }
                             },
                             {
-                              "id": "g6INu",
+                              "id": "DTylp",
                               "type": "ref",
                               "ref": "L:BZbwI",
                               "name": "Issue REBL-83",
                               "width": "fill_container",
                               "descendants": {
                                 "L:ZcwuS": {
-                                  "id": "Aai7n",
+                                  "id": "k33XqT",
                                   "type": "ref",
                                   "ref": "L:kOtJS",
                                   "name": "Status"
                                 },
                                 "L:EA3qL": {
-                                  "id": "XS4Bf",
+                                  "id": "JIejE",
                                   "type": "ref",
                                   "ref": "L:ngCRp",
                                   "name": "Type"
@@ -1760,20 +1754,20 @@
                               }
                             },
                             {
-                              "id": "sfbyW",
+                              "id": "SU2QF",
                               "type": "ref",
                               "ref": "L:BZbwI",
                               "name": "Issue REBL-84",
                               "width": "fill_container",
                               "descendants": {
                                 "L:ZcwuS": {
-                                  "id": "DGZ6F",
+                                  "id": "vVYQq",
                                   "type": "ref",
                                   "ref": "L:kOtJS",
                                   "name": "Status"
                                 },
                                 "L:EA3qL": {
-                                  "id": "YGg9y",
+                                  "id": "YQdWe",
                                   "type": "ref",
                                   "ref": "L:ngCRp",
                                   "name": "Type"
@@ -1787,20 +1781,20 @@
                               }
                             },
                             {
-                              "id": "oF3gw",
+                              "id": "Y39hVj",
                               "type": "ref",
                               "ref": "L:BZbwI",
                               "name": "Issue REBL-31",
                               "width": "fill_container",
                               "descendants": {
                                 "L:ZcwuS": {
-                                  "id": "ou8A2",
+                                  "id": "a3OWUR",
                                   "type": "ref",
                                   "ref": "L:kOtJS",
                                   "name": "Status"
                                 },
                                 "L:EA3qL": {
-                                  "id": "E6KmQ2",
+                                  "id": "y2U4vh",
                                   "type": "ref",
                                   "ref": "L:ngCRp",
                                   "name": "Type"
@@ -1814,20 +1808,20 @@
                               }
                             },
                             {
-                              "id": "diU33",
+                              "id": "u9Lt7g",
                               "type": "ref",
                               "ref": "L:BZbwI",
                               "name": "Issue REBL-32",
                               "width": "fill_container",
                               "descendants": {
                                 "L:ZcwuS": {
-                                  "id": "ml9gO",
+                                  "id": "UNN4G",
                                   "type": "ref",
                                   "ref": "L:kOtJS",
                                   "name": "Status"
                                 },
                                 "L:EA3qL": {
-                                  "id": "D27kIo",
+                                  "id": "zHcal",
                                   "type": "ref",
                                   "ref": "L:ngCRp",
                                   "name": "Type"
@@ -1841,20 +1835,20 @@
                               }
                             },
                             {
-                              "id": "OyO9u",
+                              "id": "gfWqQ",
                               "type": "ref",
                               "ref": "L:BZbwI",
                               "name": "Issue REBL-33",
                               "width": "fill_container",
                               "descendants": {
                                 "L:ZcwuS": {
-                                  "id": "vqyB9",
+                                  "id": "Nmyex",
                                   "type": "ref",
                                   "ref": "L:kOtJS",
                                   "name": "Status"
                                 },
                                 "L:EA3qL": {
-                                  "id": "WGFPt",
+                                  "id": "Ls1B5",
                                   "type": "ref",
                                   "ref": "L:ngCRp",
                                   "name": "Type"
@@ -1868,20 +1862,20 @@
                               }
                             },
                             {
-                              "id": "X9l0f5",
+                              "id": "Jup8c",
                               "type": "ref",
                               "ref": "L:BZbwI",
                               "name": "Issue REBL-85",
                               "width": "fill_container",
                               "descendants": {
                                 "L:ZcwuS": {
-                                  "id": "kQj8D",
+                                  "id": "eocac",
                                   "type": "ref",
                                   "ref": "L:kOtJS",
                                   "name": "Status"
                                 },
                                 "L:EA3qL": {
-                                  "id": "WIroe",
+                                  "id": "kSrt8",
                                   "type": "ref",
                                   "ref": "L:ac9LK",
                                   "name": "Type"
@@ -2035,16 +2029,6 @@
                           "content": "0/33"
                         }
                       }
-                    },
-                    {
-                      "type": "text",
-                      "id": "L8U3L6",
-                      "name": "Goal",
-                      "fill": "$L:muted-foreground",
-                      "content": "First production release",
-                      "fontFamily": "$L:font-sans",
-                      "fontSize": "$L:text-caption",
-                      "fontWeight": "normal"
                     }
                   ]
                 },
@@ -2646,16 +2630,6 @@
                           "content": "0/33"
                         }
                       }
-                    },
-                    {
-                      "type": "text",
-                      "id": "cTynO",
-                      "name": "Goal",
-                      "fill": "$L:muted-foreground",
-                      "content": "First production release",
-                      "fontFamily": "$L:font-sans",
-                      "fontSize": "$L:text-caption",
-                      "fontWeight": "normal"
                     }
                   ]
                 },
@@ -5736,7 +5710,7 @@
                       "width": "fill_container"
                     },
                     {
-                      "id": "wYWCx",
+                      "id": "URKj2",
                       "type": "ref",
                       "ref": "L:y1W2fK",
                       "name": "Column",
@@ -5749,9 +5723,6 @@
                           "content": "Next release",
                           "fill": "$L:brand"
                         },
-                        "L:wYsIo": {
-                          "content": "Account and profile"
-                        },
                         "L:x1LDu8/L:l0V5e": {
                           "width": 168,
                           "enabled": false
@@ -5761,26 +5732,26 @@
                         },
                         "L:fwcCV": {
                           "type": "frame",
-                          "id": "d5liKc",
+                          "id": "FSoMR",
                           "name": "Issues",
                           "width": "fill_container",
                           "layout": "vertical",
                           "children": [
                             {
-                              "id": "LRAU4",
+                              "id": "hrK25",
                               "type": "ref",
                               "ref": "L:BZbwI",
                               "name": "Issue REBL-21",
                               "width": "fill_container",
                               "descendants": {
                                 "L:ZcwuS": {
-                                  "id": "x9lhOz",
+                                  "id": "r98CyW",
                                   "type": "ref",
                                   "ref": "L:QUXmm",
                                   "name": "Status"
                                 },
                                 "L:EA3qL": {
-                                  "id": "g3Plgd",
+                                  "id": "Q7Xo6i",
                                   "type": "ref",
                                   "ref": "L:ac9LK",
                                   "name": "Type"
@@ -5794,20 +5765,20 @@
                               }
                             },
                             {
-                              "id": "q0TJp1",
+                              "id": "cI7MQ",
                               "type": "ref",
                               "ref": "L:BZbwI",
                               "name": "Issue REBL-70",
                               "width": "fill_container",
                               "descendants": {
                                 "L:ZcwuS": {
-                                  "id": "d41jfZ",
+                                  "id": "x1swdb",
                                   "type": "ref",
                                   "ref": "L:kOtJS",
                                   "name": "Status"
                                 },
                                 "L:EA3qL": {
-                                  "id": "pB5qu",
+                                  "id": "t3vHg",
                                   "type": "ref",
                                   "ref": "L:ac9LK",
                                   "name": "Type"
@@ -5821,20 +5792,20 @@
                               }
                             },
                             {
-                              "id": "aQ6RS",
+                              "id": "bLmHb",
                               "type": "ref",
                               "ref": "L:BZbwI",
                               "name": "Issue REBL-71",
                               "width": "fill_container",
                               "descendants": {
                                 "L:ZcwuS": {
-                                  "id": "p9SZ8x",
+                                  "id": "u3sOJO",
                                   "type": "ref",
                                   "ref": "L:kOtJS",
                                   "name": "Status"
                                 },
                                 "L:EA3qL": {
-                                  "id": "qgcSo",
+                                  "id": "E4GnLY",
                                   "type": "ref",
                                   "ref": "L:ngCRp",
                                   "name": "Type"
@@ -5848,20 +5819,20 @@
                               }
                             },
                             {
-                              "id": "eTFYW",
+                              "id": "zN5m7",
                               "type": "ref",
                               "ref": "L:BZbwI",
                               "name": "Issue REBL-72",
                               "width": "fill_container",
                               "descendants": {
                                 "L:ZcwuS": {
-                                  "id": "m59Rs",
+                                  "id": "PjRtD",
                                   "type": "ref",
                                   "ref": "L:kOtJS",
                                   "name": "Status"
                                 },
                                 "L:EA3qL": {
-                                  "id": "mZfuG",
+                                  "id": "nUPIy",
                                   "type": "ref",
                                   "ref": "L:ngCRp",
                                   "name": "Type"
@@ -5875,20 +5846,20 @@
                               }
                             },
                             {
-                              "id": "ane6W",
+                              "id": "wXCzd",
                               "type": "ref",
                               "ref": "L:BZbwI",
                               "name": "Issue REBL-73",
                               "width": "fill_container",
                               "descendants": {
                                 "L:ZcwuS": {
-                                  "id": "MKgoG",
+                                  "id": "FXxwg",
                                   "type": "ref",
                                   "ref": "L:kOtJS",
                                   "name": "Status"
                                 },
                                 "L:EA3qL": {
-                                  "id": "lamtv",
+                                  "id": "XKAl0",
                                   "type": "ref",
                                   "ref": "L:ngCRp",
                                   "name": "Type"
@@ -5902,20 +5873,20 @@
                               }
                             },
                             {
-                              "id": "zK6EC",
+                              "id": "LDOWP",
                               "type": "ref",
                               "ref": "L:BZbwI",
                               "name": "Issue REBL-26",
                               "width": "fill_container",
                               "descendants": {
                                 "L:ZcwuS": {
-                                  "id": "sm0Eh",
+                                  "id": "T8xja",
                                   "type": "ref",
                                   "ref": "L:kOtJS",
                                   "name": "Status"
                                 },
                                 "L:EA3qL": {
-                                  "id": "Ebb8E",
+                                  "id": "W9yjg",
                                   "type": "ref",
                                   "ref": "L:ngCRp",
                                   "name": "Type"
@@ -5929,20 +5900,20 @@
                               }
                             },
                             {
-                              "id": "BWLNu",
+                              "id": "ByvHp",
                               "type": "ref",
                               "ref": "L:BZbwI",
                               "name": "Issue REBL-27",
                               "width": "fill_container",
                               "descendants": {
                                 "L:ZcwuS": {
-                                  "id": "HRAvU",
+                                  "id": "PgVXb",
                                   "type": "ref",
                                   "ref": "L:kOtJS",
                                   "name": "Status"
                                 },
                                 "L:EA3qL": {
-                                  "id": "RC03v",
+                                  "id": "JtS0X",
                                   "type": "ref",
                                   "ref": "L:ngCRp",
                                   "name": "Type"
@@ -5956,20 +5927,20 @@
                               }
                             },
                             {
-                              "id": "qJOwo",
+                              "id": "H0myt9",
                               "type": "ref",
                               "ref": "L:BZbwI",
                               "name": "Issue REBL-74",
                               "width": "fill_container",
                               "descendants": {
                                 "L:ZcwuS": {
-                                  "id": "fq5Ue",
+                                  "id": "p5kcZ",
                                   "type": "ref",
                                   "ref": "L:kOtJS",
                                   "name": "Status"
                                 },
                                 "L:EA3qL": {
-                                  "id": "YM7HN",
+                                  "id": "e5JjNj",
                                   "type": "ref",
                                   "ref": "L:ngCRp",
                                   "name": "Type"
@@ -5983,20 +5954,20 @@
                               }
                             },
                             {
-                              "id": "L1eZnY",
+                              "id": "y2RGm",
                               "type": "ref",
                               "ref": "L:BZbwI",
                               "name": "Issue REBL-22",
                               "width": "fill_container",
                               "descendants": {
                                 "L:ZcwuS": {
-                                  "id": "HTX18",
+                                  "id": "I2cD1E",
                                   "type": "ref",
                                   "ref": "L:kOtJS",
                                   "name": "Status"
                                 },
                                 "L:EA3qL": {
-                                  "id": "bqhDU",
+                                  "id": "B2QQC6",
                                   "type": "ref",
                                   "ref": "L:ngCRp",
                                   "name": "Type"
@@ -6010,20 +5981,20 @@
                               }
                             },
                             {
-                              "id": "lUyZG",
+                              "id": "T13zt1",
                               "type": "ref",
                               "ref": "L:BZbwI",
                               "name": "Issue REBL-23",
                               "width": "fill_container",
                               "descendants": {
                                 "L:ZcwuS": {
-                                  "id": "XH36R",
+                                  "id": "Z8MctX",
                                   "type": "ref",
                                   "ref": "L:kOtJS",
                                   "name": "Status"
                                 },
                                 "L:EA3qL": {
-                                  "id": "JCuhK",
+                                  "id": "aSHRb",
                                   "type": "ref",
                                   "ref": "L:ngCRp",
                                   "name": "Type"
@@ -6037,20 +6008,20 @@
                               }
                             },
                             {
-                              "id": "WhfeG",
+                              "id": "y9O13t",
                               "type": "ref",
                               "ref": "L:BZbwI",
                               "name": "Issue REBL-24",
                               "width": "fill_container",
                               "descendants": {
                                 "L:ZcwuS": {
-                                  "id": "wKIAA",
+                                  "id": "q9PlHj",
                                   "type": "ref",
                                   "ref": "L:kOtJS",
                                   "name": "Status"
                                 },
                                 "L:EA3qL": {
-                                  "id": "SCqQJ",
+                                  "id": "Uss1d",
                                   "type": "ref",
                                   "ref": "L:ngCRp",
                                   "name": "Type"
@@ -6064,20 +6035,20 @@
                               }
                             },
                             {
-                              "id": "o7O54d",
+                              "id": "o9fDHJ",
                               "type": "ref",
                               "ref": "L:BZbwI",
                               "name": "Issue REBL-25",
                               "width": "fill_container",
                               "descendants": {
                                 "L:ZcwuS": {
-                                  "id": "IawW5",
+                                  "id": "U6EWaJ",
                                   "type": "ref",
                                   "ref": "L:kOtJS",
                                   "name": "Status"
                                 },
                                 "L:EA3qL": {
-                                  "id": "DS7Ic",
+                                  "id": "LrJBB",
                                   "type": "ref",
                                   "ref": "L:ngCRp",
                                   "name": "Type"
@@ -6091,20 +6062,20 @@
                               }
                             },
                             {
-                              "id": "SW1Id",
+                              "id": "KfyRB",
                               "type": "ref",
                               "ref": "L:BZbwI",
                               "name": "Issue REBL-75",
                               "width": "fill_container",
                               "descendants": {
                                 "L:ZcwuS": {
-                                  "id": "Hl2Bg",
+                                  "id": "veroq",
                                   "type": "ref",
                                   "ref": "L:kOtJS",
                                   "name": "Status"
                                 },
                                 "L:EA3qL": {
-                                  "id": "DWCzZ",
+                                  "id": "iB66K",
                                   "type": "ref",
                                   "ref": "L:ngCRp",
                                   "name": "Type"
@@ -6118,20 +6089,20 @@
                               }
                             },
                             {
-                              "id": "u8W7Nn",
+                              "id": "hnGwY",
                               "type": "ref",
                               "ref": "L:BZbwI",
                               "name": "Issue REBL-76",
                               "width": "fill_container",
                               "descendants": {
                                 "L:ZcwuS": {
-                                  "id": "cnQbY",
+                                  "id": "PdJxe",
                                   "type": "ref",
                                   "ref": "L:kOtJS",
                                   "name": "Status"
                                 },
                                 "L:EA3qL": {
-                                  "id": "s22SS",
+                                  "id": "dQrOf",
                                   "type": "ref",
                                   "ref": "L:ac9LK",
                                   "name": "Type"
@@ -6172,14 +6143,14 @@
                       "width": "fill_container"
                     },
                     {
-                      "id": "belhX",
+                      "id": "TPNtD",
                       "type": "ref",
                       "ref": "L:y1W2fK",
                       "name": "Column",
                       "width": "fill_container",
                       "descendants": {
                         "L:HWqXX": {
-                          "id": "kwMB9",
+                          "id": "rNiIw",
                           "type": "ref",
                           "ref": "L:bFt73",
                           "name": "Release",
@@ -6193,9 +6164,6 @@
                           "content": "Planned",
                           "fill": "$L:muted-foreground"
                         },
-                        "L:wYsIo": {
-                          "content": "Notifications"
-                        },
                         "L:x1LDu8/L:l0V5e": {
                           "width": 0,
                           "enabled": false
@@ -6205,26 +6173,26 @@
                         },
                         "L:fwcCV": {
                           "type": "frame",
-                          "id": "Ucg8n",
+                          "id": "LujyX",
                           "name": "Issues",
                           "width": "fill_container",
                           "layout": "vertical",
                           "children": [
                             {
-                              "id": "E6A4J",
+                              "id": "PYoiT",
                               "type": "ref",
                               "ref": "L:BZbwI",
                               "name": "Issue REBL-78",
                               "width": "fill_container",
                               "descendants": {
                                 "L:ZcwuS": {
-                                  "id": "L0ylx",
+                                  "id": "bObIX",
                                   "type": "ref",
                                   "ref": "L:kOtJS",
                                   "name": "Status"
                                 },
                                 "L:EA3qL": {
-                                  "id": "bDl96",
+                                  "id": "ylT55",
                                   "type": "ref",
                                   "ref": "L:ngCRp",
                                   "name": "Type"
@@ -6238,20 +6206,20 @@
                               }
                             },
                             {
-                              "id": "DOIiw",
+                              "id": "Q3KjRi",
                               "type": "ref",
                               "ref": "L:BZbwI",
                               "name": "Issue REBL-29",
                               "width": "fill_container",
                               "descendants": {
                                 "L:ZcwuS": {
-                                  "id": "WQv8G",
+                                  "id": "yN5Q2",
                                   "type": "ref",
                                   "ref": "L:kOtJS",
                                   "name": "Status"
                                 },
                                 "L:EA3qL": {
-                                  "id": "xnZYa",
+                                  "id": "OT63W",
                                   "type": "ref",
                                   "ref": "L:ac9LK",
                                   "name": "Type"
@@ -6265,20 +6233,20 @@
                               }
                             },
                             {
-                              "id": "SlGgx",
+                              "id": "aIRKB",
                               "type": "ref",
                               "ref": "L:BZbwI",
                               "name": "Issue REBL-79",
                               "width": "fill_container",
                               "descendants": {
                                 "L:ZcwuS": {
-                                  "id": "gPgGj",
+                                  "id": "vKzn9",
                                   "type": "ref",
                                   "ref": "L:kOtJS",
                                   "name": "Status"
                                 },
                                 "L:EA3qL": {
-                                  "id": "vh7xD",
+                                  "id": "d8gh1K",
                                   "type": "ref",
                                   "ref": "L:ac9LK",
                                   "name": "Type"
@@ -6292,20 +6260,20 @@
                               }
                             },
                             {
-                              "id": "J9inO",
+                              "id": "gzYQ9",
                               "type": "ref",
                               "ref": "L:BZbwI",
                               "name": "Issue REBL-80",
                               "width": "fill_container",
                               "descendants": {
                                 "L:ZcwuS": {
-                                  "id": "NisYk",
+                                  "id": "OxiIJ",
                                   "type": "ref",
                                   "ref": "L:kOtJS",
                                   "name": "Status"
                                 },
                                 "L:EA3qL": {
-                                  "id": "h5JbaR",
+                                  "id": "yEJSN",
                                   "type": "ref",
                                   "ref": "L:ac9LK",
                                   "name": "Type"
@@ -6319,20 +6287,20 @@
                               }
                             },
                             {
-                              "id": "ZU6K3",
+                              "id": "rC5Q8",
                               "type": "ref",
                               "ref": "L:BZbwI",
                               "name": "Issue REBL-30",
                               "width": "fill_container",
                               "descendants": {
                                 "L:ZcwuS": {
-                                  "id": "o1tw7q",
+                                  "id": "AJBSR",
                                   "type": "ref",
                                   "ref": "L:kOtJS",
                                   "name": "Status"
                                 },
                                 "L:EA3qL": {
-                                  "id": "YGE71",
+                                  "id": "gfJaE",
                                   "type": "ref",
                                   "ref": "L:ngCRp",
                                   "name": "Type"
@@ -6346,20 +6314,20 @@
                               }
                             },
                             {
-                              "id": "M6TC8Z",
+                              "id": "fjRdk",
                               "type": "ref",
                               "ref": "L:BZbwI",
                               "name": "Issue REBL-81",
                               "width": "fill_container",
                               "descendants": {
                                 "L:ZcwuS": {
-                                  "id": "dJgVt",
+                                  "id": "rxErD",
                                   "type": "ref",
                                   "ref": "L:kOtJS",
                                   "name": "Status"
                                 },
                                 "L:EA3qL": {
-                                  "id": "rbreu",
+                                  "id": "L18892",
                                   "type": "ref",
                                   "ref": "L:ngCRp",
                                   "name": "Type"
@@ -6373,20 +6341,20 @@
                               }
                             },
                             {
-                              "id": "XMOvm",
+                              "id": "yH900",
                               "type": "ref",
                               "ref": "L:BZbwI",
                               "name": "Issue REBL-82",
                               "width": "fill_container",
                               "descendants": {
                                 "L:ZcwuS": {
-                                  "id": "NpNNK",
+                                  "id": "TdOny",
                                   "type": "ref",
                                   "ref": "L:kOtJS",
                                   "name": "Status"
                                 },
                                 "L:EA3qL": {
-                                  "id": "DK0M6",
+                                  "id": "f6MWK",
                                   "type": "ref",
                                   "ref": "L:ngCRp",
                                   "name": "Type"
@@ -6400,20 +6368,20 @@
                               }
                             },
                             {
-                              "id": "f36QwW",
+                              "id": "ZNj3M",
                               "type": "ref",
                               "ref": "L:BZbwI",
                               "name": "Issue REBL-83",
                               "width": "fill_container",
                               "descendants": {
                                 "L:ZcwuS": {
-                                  "id": "Jc91Y",
+                                  "id": "yDWxQ",
                                   "type": "ref",
                                   "ref": "L:kOtJS",
                                   "name": "Status"
                                 },
                                 "L:EA3qL": {
-                                  "id": "z4T0R",
+                                  "id": "wCXoV",
                                   "type": "ref",
                                   "ref": "L:ngCRp",
                                   "name": "Type"
@@ -6427,20 +6395,20 @@
                               }
                             },
                             {
-                              "id": "mrJvz",
+                              "id": "b9cVx5",
                               "type": "ref",
                               "ref": "L:BZbwI",
                               "name": "Issue REBL-84",
                               "width": "fill_container",
                               "descendants": {
                                 "L:ZcwuS": {
-                                  "id": "d8GTZ",
+                                  "id": "mPZhW",
                                   "type": "ref",
                                   "ref": "L:kOtJS",
                                   "name": "Status"
                                 },
                                 "L:EA3qL": {
-                                  "id": "l1XxnQ",
+                                  "id": "k86tBj",
                                   "type": "ref",
                                   "ref": "L:ngCRp",
                                   "name": "Type"
@@ -6454,20 +6422,20 @@
                               }
                             },
                             {
-                              "id": "TrqSd",
+                              "id": "dtrju",
                               "type": "ref",
                               "ref": "L:BZbwI",
                               "name": "Issue REBL-31",
                               "width": "fill_container",
                               "descendants": {
                                 "L:ZcwuS": {
-                                  "id": "BwQ4Z",
+                                  "id": "P2qKe3",
                                   "type": "ref",
                                   "ref": "L:kOtJS",
                                   "name": "Status"
                                 },
                                 "L:EA3qL": {
-                                  "id": "espmB",
+                                  "id": "jrvIv",
                                   "type": "ref",
                                   "ref": "L:ngCRp",
                                   "name": "Type"
@@ -6481,20 +6449,20 @@
                               }
                             },
                             {
-                              "id": "DB8FC",
+                              "id": "Iz8SF",
                               "type": "ref",
                               "ref": "L:BZbwI",
                               "name": "Issue REBL-32",
                               "width": "fill_container",
                               "descendants": {
                                 "L:ZcwuS": {
-                                  "id": "Wv2kd",
+                                  "id": "fC1kY",
                                   "type": "ref",
                                   "ref": "L:kOtJS",
                                   "name": "Status"
                                 },
                                 "L:EA3qL": {
-                                  "id": "F6nuT",
+                                  "id": "OUsSw",
                                   "type": "ref",
                                   "ref": "L:ngCRp",
                                   "name": "Type"
@@ -6508,20 +6476,20 @@
                               }
                             },
                             {
-                              "id": "RJwsC",
+                              "id": "HD374",
                               "type": "ref",
                               "ref": "L:BZbwI",
                               "name": "Issue REBL-33",
                               "width": "fill_container",
                               "descendants": {
                                 "L:ZcwuS": {
-                                  "id": "P1zent",
+                                  "id": "zzTbI",
                                   "type": "ref",
                                   "ref": "L:kOtJS",
                                   "name": "Status"
                                 },
                                 "L:EA3qL": {
-                                  "id": "c0xSXX",
+                                  "id": "T7kRK1",
                                   "type": "ref",
                                   "ref": "L:ngCRp",
                                   "name": "Type"
@@ -6535,20 +6503,20 @@
                               }
                             },
                             {
-                              "id": "PpJxq",
+                              "id": "BNF00",
                               "type": "ref",
                               "ref": "L:BZbwI",
                               "name": "Issue REBL-85",
                               "width": "fill_container",
                               "descendants": {
                                 "L:ZcwuS": {
-                                  "id": "H0Cso2",
+                                  "id": "EtgAe",
                                   "type": "ref",
                                   "ref": "L:kOtJS",
                                   "name": "Status"
                                 },
                                 "L:EA3qL": {
-                                  "id": "E5Lb8V",
+                                  "id": "xwclU",
                                   "type": "ref",
                                   "ref": "L:ac9LK",
                                   "name": "Type"
@@ -6683,50 +6651,6 @@
                         },
                         "L:JbpbF": {
                           "content": "Follows v1.3.0, the last planned release. Moving it renumbers it."
-                        }
-                      }
-                    },
-                    {
-                      "id": "yu1E5",
-                      "type": "ref",
-                      "ref": "L:GPVnc",
-                      "name": "Field · Goal",
-                      "width": "fill_container",
-                      "descendants": {
-                        "L:KRgjT": {
-                          "content": "Goal"
-                        },
-                        "L:xzCrL": {
-                          "content": "Required"
-                        },
-                        "L:skPzP": {
-                          "type": "frame",
-                          "id": "z0Bbz",
-                          "name": "Control",
-                          "width": "fill_container",
-                          "layout": "vertical",
-                          "gap": 6,
-                          "children": [
-                            {
-                              "id": "XxQ3f",
-                              "type": "ref",
-                              "ref": "L:DmY05",
-                              "name": "Input",
-                              "width": "fill_container",
-                              "descendants": {
-                                "L:m10Izh": {
-                                  "enabled": false
-                                },
-                                "L:FByMw": {
-                                  "content": "Fans get a push for every new event",
-                                  "fill": "$L:foreground"
-                                }
-                              }
-                            }
-                          ]
-                        },
-                        "L:JbpbF": {
-                          "enabled": false
                         }
                       }
                     },

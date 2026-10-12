@@ -527,11 +527,10 @@ export function PlanReleaseDialog({
   candidates: Issue[];
   statusOf: (i: Issue) => Status;
   onClose: () => void;
-  onPlan: (version: string, goal: string, issueIds: string[]) => void;
+  onPlan: (version: string, issueIds: string[]) => void;
 }) {
   const { base, baseIsTag, next } = nextVersions(repo);
   const [bump, setBump] = useState<Bump>('patch');
-  const [goal, setGoal] = useState('');
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const version = next[bump];
   const toggle = (id: string) =>
@@ -551,7 +550,7 @@ export function PlanReleaseDialog({
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button variant="brand" icon={<Check size={15} />} disabled={!goal.trim()} onClick={() => onPlan(version, goal.trim(), candidates.filter((i) => picked.has(i.id)).map((i) => i.id))}>
+          <Button variant="brand" icon={<Check size={15} />} onClick={() => onPlan(version, candidates.filter((i) => picked.has(i.id)).map((i) => i.id))}>
             Plan {version}
           </Button>
         </>
@@ -583,10 +582,6 @@ export function PlanReleaseDialog({
             );
           })}
         </div>
-      </Field>
-
-      <Field label="Goal" hint="Required">
-        <TextInput label="Goal" autoFocus value={goal} onChange={setGoal} placeholder="What a client can name, for example: Fans book a table" />
       </Field>
 
       <Field label="Issues" hint={`${laneName} · in no release`} help={candidates.length ? undefined : 'Every issue of this worklane is in a release. Add issues later from the timeline.'}>
