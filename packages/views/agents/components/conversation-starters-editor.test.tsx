@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 
 import { cleanup, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "@multica/core/i18n/react";
 import type { AgentConversationStarter } from "@multica/core/types";
@@ -62,5 +64,54 @@ describe("ConversationStartersEditor preview", () => {
         "Complete or remove each suggestion before saving.",
       ),
     ).toBeInTheDocument();
+  });
+});
+
+function StatefulEditor({
+  initial,
+}: {
+  initial: AgentConversationStarter[];
+}) {
+  const [value, setValue] = useState(initial);
+  return <ConversationStartersEditor value={value} onChange={setValue} />;
+}
+
+describe("ConversationStartersEditor length warnings", () => {
+  afterEach(cleanup);
+
+  it("keeps an 81-character label and a 4,001-character prompt and warns at both", async () => {
+    const user = userEvent.setup();
+    render(
+      <I18nProvider
+        locale="en"
+        resources={{ en: { agents: enAgents, chat: enChat } }}
+      >
+        <StatefulEditor initial={[{ label: "", prompt: "" }]} />
+      </I18nProvider>,
+    );
+    const label = "L".repeat(81);
+    const prompt = "P".repeat(4001);
+
+    const labelInput = screen.getByLabelText("Suggestion 1 label") as HTMLInputElement;
+    await user.click(labelInput);
+    await user.paste(label);
+    const promptInput = screen.getByLabelText("Suggestion 1 prompt") as HTMLTextAreaElement;
+    await user.click(promptInput);
+    await user.paste(prompt);
+
+    expect(labelInput.value).toBe(label);
+    expect(promptInput.value).toBe(prompt);
+    expect(screen.getByText(/81 \/ 80 · 1 over the recommended 80/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/4001 \/ 4000 · 1 over the recommended 4000/),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("shows no counter at the thresholds", () => {
+    renderEditor([{ label: "L".repeat(80), prompt: "P".repeat(4000) }]);
+
+    expect(screen.queryByText(/over the recommended/)).toBeNull();
+    expect(screen.queryByText(/\/ 80/)).toBeNull();
   });
 });

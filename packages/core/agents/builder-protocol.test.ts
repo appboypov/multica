@@ -83,6 +83,31 @@ describe("agent builder protocol", () => {
     ]);
   });
 
+  it("keeps starter text whole and only the first three starters", () => {
+    const longLabel = "L".repeat(120);
+    const longPrompt = "P".repeat(4001);
+    const merged = mergeBuilderDraft(
+      draft(),
+      {
+        conversation_starters: [
+          { label: longLabel, prompt: longPrompt },
+          { label: "Second", prompt: "Second prompt." },
+          { label: "Third", prompt: "Third prompt." },
+          { label: "Fourth", prompt: "Fourth prompt." },
+        ],
+      },
+      new Set(),
+      new Set(),
+      new Set(["model-1"]),
+    );
+
+    expect(merged.conversationStarters).toEqual([
+      { label: longLabel, prompt: longPrompt },
+      { label: "Second", prompt: "Second prompt." },
+      { label: "Third", prompt: "Third prompt." },
+    ]);
+  });
+
   // Streaming delivers the reply token by token, so for the seconds it takes to
   // emit the JSON there is an opening tag and no closing one. The closed-form
   // pattern cannot match that, and the raw payload scrolled past the user on
