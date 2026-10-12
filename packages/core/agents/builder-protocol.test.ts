@@ -40,6 +40,30 @@ describe("agent builder protocol", () => {
     expect(parseBuilderDraft("<agent_draft>not json</agent_draft>")).toBeNull();
   });
 
+  it.each([
+    { selection: [] },
+    { selection: ["/skills/reviewer", "/notes/context.md"] },
+  ])("keeps the user's selection $selection despite a builder payload", ({ selection }) => {
+    const current = { ...draft(), instructionSelection: selection };
+    const payload = parseBuilderDraft(
+      '<agent_draft>{"name":"Renamed","instruction_selection":["/skills/invented"]}</agent_draft>',
+    );
+    expect(payload).not.toBeNull();
+
+    const merged = mergeBuilderDraft(
+      current,
+      payload!,
+      new Set(),
+      new Set(),
+      new Set(["model-1"]),
+    );
+
+    expect(merged.name).toBe("Renamed");
+    expect(merged.instructionSelection).toEqual(selection);
+    expect(merged.instructionSelection).toBe(current.instructionSelection);
+    expect(current.instructionSelection).toEqual(selection);
+  });
+
   it("accepts up to three complete conversation starters from the builder", () => {
     const merged = mergeBuilderDraft(
       draft(),

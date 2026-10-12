@@ -284,6 +284,7 @@ export function mergeBuilderDraft(
       typeof payload.instructions === "string"
         ? payload.instructions
         : current.instructions,
+    instructionSelection: current.instructionSelection,
     conversationStarters,
     model,
     // The builder can move the model, which invalidates whatever thinking /
