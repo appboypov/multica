@@ -320,6 +320,29 @@ export function issueKey(text: string | null): { id: string; title: string } | n
   return m ? { id: m[1], title: m[2] } : { id: '', title: text };
 }
 
+/**
+ * What a worklane works on now (`active`) or takes next: its own pick while that issue is not done, else its
+ * first issue that is not done, in release order.
+ */
+export function laneNow(lane: Lane, statusOf: StatusOf): { id: string; title: string; active: boolean } | null {
+  const issues = laneIssues(lane);
+  const open = (id: string) => {
+    const i = issues.find((x) => x.id === id);
+    return !i || statusOf(i) !== 'done';
+  };
+  for (const [text, active] of [
+    [lane.active, true],
+    [lane.next, false],
+  ] as const) {
+    const k = issueKey(text);
+    if (k && open(k.id)) return { ...k, active };
+  }
+  const i = issues.find((x) => statusOf(x) !== 'done');
+  if (!i) return null;
+  const s = statusOf(i);
+  return { id: i.id, title: i.title, active: s === 'in_progress' || s === 'in_review' };
+}
+
 // ---------------------------------------------------------------------------
 // Templates: the Markdown issue templates in ~/Work (emoji headings, a question
 // callout under each). An issue keeps one Markdown description; the new-issue

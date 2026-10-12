@@ -56,7 +56,7 @@ import {
   TYPE_LABEL,
   doneCount,
   initials,
-  issueKey,
+  laneNow,
   laneCount,
   laneIssues,
   laneLabel,
@@ -593,7 +593,7 @@ function ReleaseChain({ api, lane, refLane, max = 2 }: { api: AppApi; lane: Lane
         </>
       )}
       {planned.map((r) => (
-        <span key={r.id} className="flex items-center gap-1">
+        <span key={r.id} className="flex items-center gap-1 max-[1000px]:hidden">
           {line}
           <ReleaseChip version={r.version} state="planned" onClick={open} />
         </span>
@@ -603,9 +603,8 @@ function ReleaseChain({ api, lane, refLane, max = 2 }: { api: AppApi; lane: Lane
 }
 
 function LaneRow({ api, lane, refLane, indent }: { api: AppApi; lane: Lane; refLane: LaneRef; indent: number }) {
-  const active = issueKey(lane.active);
-  const next = issueKey(lane.next);
-  const now = active ?? next;
+  const now = laneNow(lane, api.statusOf);
+  const active = now?.active;
   return (
     <div
       role="link"
@@ -613,7 +612,7 @@ function LaneRow({ api, lane, refLane, indent }: { api: AppApi; lane: Lane; refL
       onClick={() => api.go({ name: 'lane', ref: refLane, view: 'timeline' })}
       onKeyDown={(e) => e.key === 'Enter' && api.go({ name: 'lane', ref: refLane, view: 'timeline' })}
       className="group grid cursor-pointer items-center gap-4 border-t py-2 pr-4 hover:bg-[var(--surface-hover)]"
-      style={{ gridTemplateColumns: `minmax(0,400px) 1fr 16px`, paddingLeft: indent, borderColor: 'var(--border)' }}
+      style={{ gridTemplateColumns: `minmax(160px,400px) minmax(max-content,1fr) 16px`, paddingLeft: indent, borderColor: 'var(--border)' }}
     >
       <div className="min-w-0">
         <div className="flex items-center gap-1.5">
@@ -693,9 +692,9 @@ function ProjectsPage({ api, onAddProject }: { api: AppApi; onAddProject: (org: 
         }
       />
       <div className="flex-1 overflow-auto px-6 pb-10">
-        <div className="sticky top-0 z-10 grid gap-4 border-b py-3 pr-4 pl-4 text-[12px]" style={{ gridTemplateColumns: 'minmax(0,400px) 1fr', background: 'var(--page-canvas)', borderColor: 'var(--border)', color: 'var(--muted-foreground)' }}>
+        <div className="sticky top-0 z-10 grid gap-4 border-b py-3 pr-4 pl-4 text-[12px]" style={{ gridTemplateColumns: 'minmax(160px,400px) 1fr', background: 'var(--page-canvas)', borderColor: 'var(--border)', color: 'var(--muted-foreground)' }}>
           <span>Name</span>
-          <span>Last · Next · Planned releases</span>
+          <span className="whitespace-nowrap">Last · Next · Planned releases</span>
         </div>
         {visibleOrgs.map((o) => {
           const orgOpen = openOrgs.has(o.name);
@@ -1046,7 +1045,7 @@ function LanePage({ api, refLane, view, onSaveLine }: { api: AppApi; refLane: La
   const nextRel = rels[laneNextIdx(repo, lane, api.statusOf)]?.version;
   const filt = (is: Issue[]) => (types.length ? is.filter((i) => types.includes(i.type)) : is);
   const shippedAny = states.includes('shipped');
-  const nxt = issueKey(lane.active ?? lane.next);
+  const nxt = laneNow(lane, api.statusOf);
   const setView = (v: LaneView) => api.go({ name: 'lane', ref: refLane, view: v });
   const editRel = rels.find((r) => r.id === editing);
   const actions = (rel: Release, i: number) => (
@@ -1078,7 +1077,7 @@ function LanePage({ api, refLane, view, onSaveLine }: { api: AppApi; refLane: La
         </Chip>
         <span className="truncate text-[13px]" style={{ color: 'var(--muted-foreground)' }}>
           {lane.state} · {repo.noReleases ? 'does not release' : shippedAny ? `last shipped ${rels[states.lastIndexOf('shipped')].version}` : 'nothing shipped yet'}
-          {nxt ? ` · ${lane.active ? 'now' : 'next'}: ${nxt.id} ${nxt.title}` : ''}
+          {nxt ? ` · ${nxt.active ? 'now' : 'next'}: ${nxt.id} ${nxt.title}` : ''}
         </span>
         <div className="flex-1" />
         <Segmented<LaneView>
@@ -1265,6 +1264,7 @@ function ReleaseActions({
         <>
           <MenuItem
             icon={<Plus size={14} />}
+            disabled={releaseStates(repo, api.statusOf)[index] === 'shipped' ? 'Shipped: add it to a later release' : undefined}
             onClick={() => {
               close();
               api.newIssue({ lane: refLane, release: rel.version });
@@ -1915,7 +1915,9 @@ function NewIssueDialog({ api, draft, onClose, onCreate }: { api: AppApi; draft:
   const [priority, setPriority] = useState<Priority>('none');
   const tpl = TEMPLATES.find((t) => t.type === d.type)!;
   const lanes = useMemo(() => allLanes(api.orgs), [api.orgs]);
-  const laneObj = d.lane ? findLane(api.orgs, d.lane)?.lane : undefined;
+  const found = d.lane ? findLane(api.orgs, d.lane) : null;
+  const laneObj = found?.lane;
+  const relStates = found ? releaseStates(found.repo, api.statusOf) : [];
   const [pane, setPane] = useState<'fields' | 'markdown'>('fields');
   const inputs = templateInputs(tpl);
   // The fields only fill the template's Markdown; the issue keeps that Markdown alone.
@@ -2038,8 +2040,13 @@ function NewIssueDialog({ api, draft, onClose, onCreate }: { api: AppApi; draft:
               >
                 {(close) => (
                   <>
-                    {(laneObj?.releases ?? []).map((r) => (
-                      <MenuItem key={r.version} selected={r.version === d.release} onClick={() => (setD({ ...d, release: r.version }), close())}>
+                    {(laneObj?.releases ?? []).map((r, i) => (
+                      <MenuItem
+                        key={r.version}
+                        selected={r.version === d.release}
+                        disabled={relStates[i] === 'shipped' ? 'Shipped' : undefined}
+                        onClick={() => (setD({ ...d, release: r.version }), close())}
+                      >
                         <span className="mc-mono">{r.version}</span>
                         <span className="ml-2 truncate" style={{ color: 'var(--muted-foreground)' }}>
                           {r.title}
