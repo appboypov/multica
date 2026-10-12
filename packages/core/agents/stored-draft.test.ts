@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
+import { StoredAgentDraftSchema } from "../api/schemas";
 import type { AgentDraft } from "./draft";
 import {
   fromStoredAgentDraft,
@@ -34,6 +35,65 @@ describe("stored agent draft", () => {
       original.runtimeId,
     );
     expect(restored).toEqual(original);
+  });
+
+  it("writes and restores selected paths in their order", () => {
+    const original = {
+      ...draft(),
+      instructionSelection: ["/skills/reviewer", "/notes/context.md"],
+    };
+    const stored = toStoredAgentDraft(original, "msg-1");
+
+    expect(stored.instruction_selection).toEqual(original.instructionSelection);
+    expect(fromStoredAgentDraft(StoredAgentDraftSchema.parse(stored), "runtime-1"))
+      .toEqual(original);
+  });
+
+  it("restores an absent stored selection as empty with or without schema parsing", () => {
+    const stored = toStoredAgentDraft(draft(), null);
+    delete stored.instruction_selection;
+
+    expect(StoredAgentDraftSchema.parse(stored).instruction_selection).toEqual([]);
+    expect(fromStoredAgentDraft(stored, "runtime-1").instructionSelection).toEqual([]);
+  });
+
+  it.each([null, "/skills/reviewer", ["/skills/reviewer", 3]])(
+    "falls back to an empty selection for malformed stored paths %j",
+    (instructionSelection) => {
+      const parsed = StoredAgentDraftSchema.parse({
+        ...toStoredAgentDraft(draft(), null),
+        instruction_selection: instructionSelection,
+      });
+
+      expect(parsed.instruction_selection).toEqual([]);
+      expect(fromStoredAgentDraft(parsed, "runtime-1").instructionSelection).toEqual([]);
+    },
+  );
+
+  it("compares selected paths and their order for autosave", () => {
+    const stored = toStoredAgentDraft(
+      { ...draft(), instructionSelection: ["/skills/reviewer", "/notes/context.md"] },
+      null,
+    );
+
+    expect(storedAgentDraftsEqual(stored, { ...stored })).toBe(true);
+    expect(storedAgentDraftsEqual(stored, {
+      ...stored,
+      instruction_selection: ["/skills/reviewer"],
+    })).toBe(false);
+    expect(storedAgentDraftsEqual(stored, {
+      ...stored,
+      instruction_selection: ["/notes/context.md", "/skills/reviewer"],
+    })).toBe(false);
+  });
+
+  it("treats an absent selection and an empty selection as unchanged", () => {
+    const stored = toStoredAgentDraft(draft(), null);
+    const withoutSelection = { ...stored };
+    delete withoutSelection.instruction_selection;
+
+    expect(storedAgentDraftsEqual(stored, withoutSelection)).toBe(true);
+    expect(storedAgentDraftsEqual(withoutSelection, stored)).toBe(true);
   });
 
   // The runtime a conversation executes on is owned by its carrier agent. A

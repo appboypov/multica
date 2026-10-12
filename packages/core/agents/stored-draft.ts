@@ -11,6 +11,7 @@ export function toStoredAgentDraft(
     name: draft.name,
     description: draft.description,
     instructions: draft.instructions,
+    instruction_selection: draft.instructionSelection,
     conversation_starters: draft.conversationStarters,
     avatar_url: draft.avatarUrl,
     model: draft.model,
@@ -37,6 +38,7 @@ export function fromStoredAgentDraft(
     name: stored.name,
     description: stored.description,
     instructions: stored.instructions,
+    instructionSelection: stored.instruction_selection ?? [],
     conversationStarters: stored.conversation_starters ?? [],
     avatarUrl: stored.avatar_url,
     runtimeId,
@@ -59,5 +61,10 @@ export function storedAgentDraftsEqual(
   a: StoredAgentDraft,
   b: StoredAgentDraft,
 ): boolean {
-  return JSON.stringify(a) === JSON.stringify(b);
+  const { instruction_selection: aSelection = [], ...aFields } = a;
+  const { instruction_selection: bSelection = [], ...bFields } = b;
+  return (
+    JSON.stringify(aFields) === JSON.stringify(bFields) &&
+    JSON.stringify(aSelection) === JSON.stringify(bSelection)
+  );
 }

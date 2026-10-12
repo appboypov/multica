@@ -2183,6 +2183,7 @@ export const StoredAgentDraftSchema = z.object({
   name: z.string().catch(""),
   description: z.string().catch(""),
   instructions: z.string().catch(""),
+  instruction_selection: z.array(z.string()).catch([]),
   conversation_starters: z
     .array(
       z.object({

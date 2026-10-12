@@ -722,6 +722,7 @@ export interface StoredAgentDraft {
   name: string;
   description: string;
   instructions: string;
+  instruction_selection?: string[];
   conversation_starters: AgentConversationStarter[];
   avatar_url: string | null;
   model: string;
