@@ -28,6 +28,7 @@ import {
   Search,
   Settings,
   SquarePen,
+  Tag,
   Users,
   X,
   Zap,
@@ -81,8 +82,11 @@ type Route =
   | { name: 'projects' }
   | { name: 'organisations' }
   | { name: 'organisation'; org: string }
+  | { name: 'worklanes' }
+  | { name: 'releases' }
   | { name: 'project'; org: string; project: string; addLane?: string }
-  | { name: 'lane'; ref: LaneRef; view: LaneView }
+  /** `release`: the id of the release the timeline opens with in view. */
+  | { name: 'lane'; ref: LaneRef; view: LaneView; release?: string }
   | { name: 'other'; label: string }
   | { name: 'issue'; id: string };
 
@@ -97,6 +101,8 @@ interface AppApi {
   orgs: Org[];
   statusOf: (i: Issue) => Status;
   setStatus: (id: string, s: Status) => void;
+  /** The day the last of these issues was done in this session: a shipped release's date. */
+  shipDate: (issues: Issue[]) => string | undefined;
   /** The issue's one Markdown description, with edits made in this session. */
   descriptionOf: (i: Issue) => string;
   setDescription: (id: string, md: string) => void;
@@ -132,6 +138,8 @@ export const MulticaSteerAllWorkPrototype = () => {
   // Issues made without a worklane: Multica keeps them on its Issues page.
   const [looseIssues, setLooseIssues] = useState<Issue[]>([]);
   const [statuses, setStatuses] = useState<Record<string, Status>>({});
+  // The day each issue was set to done in this session.
+  const [doneOn, setDoneOn] = useState<Record<string, number>>({});
   const [descriptions, setDescriptions] = useState<Record<string, string>>({});
   const [route, setRoute] = useState<Route>({ name: 'projects' });
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -163,7 +171,14 @@ export const MulticaSteerAllWorkPrototype = () => {
   const api: AppApi = {
     orgs,
     statusOf,
-    setStatus: (id, s) => setStatuses((m) => ({ ...m, [id]: s })),
+    setStatus: (id, s) => {
+      setStatuses((m) => ({ ...m, [id]: s }));
+      setDoneOn((m) => (s === 'done' ? { ...m, [id]: Date.now() } : Object.fromEntries(Object.entries(m).filter(([k]) => k !== id))));
+    },
+    shipDate: (issues) => {
+      const last = Math.max(0, ...issues.map((i) => doneOn[i.id] ?? 0));
+      return last ? new Date(last).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : undefined;
+    },
     descriptionOf: (i) => descriptions[i.id] ?? i.description ?? '',
     setDescription: (id, md) => setDescriptions((m) => ({ ...m, [id]: md })),
     go: (r) => {
@@ -299,6 +314,8 @@ export const MulticaSteerAllWorkPrototype = () => {
   if (route.name === 'projects') page = <ProjectsPage api={api} onAddProject={addProject} />;
   else if (route.name === 'organisations') page = <OrganisationsPage api={api} />;
   else if (route.name === 'organisation') page = <OrganisationPage key={route.org} api={api} orgName={route.org} />;
+  else if (route.name === 'worklanes') page = <WorklanesPage api={api} />;
+  else if (route.name === 'releases') page = <ReleasesPage api={api} />;
   else if (route.name === 'project')
     page = (
       <ProjectPage
@@ -333,6 +350,7 @@ export const MulticaSteerAllWorkPrototype = () => {
         api={api}
         refLane={route.ref}
         view={route.view}
+        focusRelease={route.release}
         onSaveLine={(line, into) => saveLine(route.ref, line, into)}
       />
     );
@@ -373,11 +391,15 @@ function Sidebar({ api, route, onSearch }: { api: AppApi; route: Route; onSearch
       ? 'Projects'
       : route.name === 'organisations' || route.name === 'organisation'
         ? 'Organisations'
-        : route.name === 'issue'
-          ? api.findIssue(route.id)?.lane
-            ? 'Projects'
-            : 'Issues'
-          : route.label;
+        : route.name === 'worklanes'
+          ? 'Worklanes'
+          : route.name === 'releases'
+            ? 'Releases'
+            : route.name === 'issue'
+              ? api.findIssue(route.id)?.lane
+                ? 'Projects'
+                : 'Issues'
+              : route.label;
   const item = (label: string, Icon: LucideIcon, onClick: () => void, trailing?: ReactNode) => (
     <button
       key={label}
@@ -449,6 +471,8 @@ function Sidebar({ api, route, onSearch }: { api: AppApi; route: Route; onSearch
       {item('Issues', ListTodo, other('Issues'))}
       {item('Projects', FolderKanban, () => api.go({ name: 'projects' }))}
       {item('Organisations', Building2, () => api.go({ name: 'organisations' }))}
+      {item('Worklanes', GitBranch, () => api.go({ name: 'worklanes' }))}
+      {item('Releases', Tag, () => api.go({ name: 'releases' }))}
       {item('Autopilot', Zap, other('Autopilot'))}
       {section('AI Team')}
       {item('Agents', Bot, other('Agents'))}
@@ -658,7 +682,10 @@ function TreeHead() {
   );
 }
 
-/** An organisation's projects as a tree: project, its repositories with their branch, their worklanes. */
+/**
+ * An organisation's projects as a tree: project, its repositories with their branch, their worklanes. `rows`
+ * replaces a repository's worklanes with other rows, for a page that only lists; `meta` the project's counts.
+ */
 function ProjectTree({
   api,
   org,
@@ -667,6 +694,8 @@ function ProjectTree({
   onToggleProject,
   closedRepos,
   onToggleRepo,
+  rows,
+  meta,
 }: {
   api: AppApi;
   org: string;
@@ -675,6 +704,8 @@ function ProjectTree({
   onToggleProject: (key: string) => void;
   closedRepos: Set<string>;
   onToggleRepo: (key: string) => void;
+  rows?: (repo: Repo, project: Project) => ReactNode;
+  meta?: (project: Project) => string;
 }) {
   return (
     <>
@@ -699,7 +730,7 @@ function ProjectTree({
               </button>
               <div className="flex-1" />
               <span className="text-[13px]" style={{ color: 'var(--muted-foreground)' }}>
-                {p.repos.length ? `${plural(p.repos.length, 'repository', 'repositories')} · ${plural(lc, 'worklane')}` : 'No repositories'}
+                {meta ? meta(p) : p.repos.length ? `${plural(p.repos.length, 'repository', 'repositories')} · ${plural(lc, 'worklane')}` : 'No repositories'}
               </span>
               <Avatar text="BR" title="Lead: Brian" />
             </div>
@@ -725,15 +756,19 @@ function ProjectTree({
                         main
                       </span>
                       <div className="flex-1" />
-                      <Button variant="ghost" icon={<Plus size={14} />} onClick={() => api.go({ name: 'project', org, project: p.name, addLane: r.name })}>
-                        Worklane
-                      </Button>
+                      {!rows && (
+                        <Button variant="ghost" icon={<Plus size={14} />} onClick={() => api.go({ name: 'project', org, project: p.name, addLane: r.name })}>
+                          Worklane
+                        </Button>
+                      )}
                     </div>
+                    {rOpen && rows?.(r, p)}
                     {rOpen &&
+                      !rows &&
                       r.lanes.map((l) => (
                         <LaneRow key={l.name} api={api} lane={l} refLane={{ org, project: p.name, repo: r.name, lane: l.name }} indent={64} />
                       ))}
-                    {rOpen && !r.lanes.length && (
+                    {rOpen && !rows && !r.lanes.length && (
                       <div className="border-t py-2.5 pl-16 text-[13px]" style={{ borderColor: 'var(--border)', color: 'var(--muted-foreground)' }}>
                         No worklanes yet
                       </div>
@@ -754,6 +789,221 @@ function ProjectTree({
         );
       })}
     </>
+  );
+}
+
+/** An organisation's group header: its name opens its page; the rest of the row folds what it groups. */
+function OrgHeader({ api, org, open, onToggle, meta }: { api: AppApi; org: string; open: boolean; onToggle: () => void; meta: string }) {
+  return (
+    <div onClick={onToggle} className="flex h-[39px] w-full cursor-pointer items-center gap-2 px-4 hover:bg-[var(--surface-hover)]">
+      <button
+        aria-label={open ? `Collapse ${org}` : `Expand ${org}`}
+        aria-expanded={open}
+        onClick={(e) => (e.stopPropagation(), onToggle())}
+        className="flex items-center rounded-[4px] p-0.5"
+      >
+        <Disclosure open={open} />
+      </button>
+      <Building2 size={14} style={{ color: 'var(--muted-foreground)' }} />
+      <button onClick={(e) => (e.stopPropagation(), api.go({ name: 'organisation', org }))} className="text-[13px] font-semibold hover:underline">
+        {org}
+      </button>
+      <span className="text-[13px]" style={{ color: 'var(--muted-foreground)' }}>
+        {meta}
+      </span>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Screen 4c: every worklane of the workspace, grouped by organisation, project and repository
+// ---------------------------------------------------------------------------
+
+function WorklanesPage({ api }: { api: AppApi }) {
+  const [closedOrgs, setClosedOrgs] = useState<Set<string>>(new Set());
+  const [closedProjects, setClosedProjects] = useState<Set<string>>(new Set());
+  const [closedRepos, setClosedRepos] = useState<Set<string>>(new Set());
+  // Only the groups that hold worklanes.
+  const groups = api.orgs
+    .map((o) => ({ ...o, projects: o.projects.map((p) => ({ ...p, repos: p.repos.filter((r) => r.lanes.length) })).filter((p) => p.repos.length) }))
+    .filter((o) => o.projects.length);
+  const openProjects = new Set(groups.flatMap((o) => o.projects.map((p) => `${o.name}/${p.name}`)).filter((k) => !closedProjects.has(k)));
+  return (
+    <>
+      <PageHeader icon={GitBranch} crumbs={[{ label: 'Worklanes' }]} count={allLanes(api.orgs).length} />
+      <div className="flex-1 overflow-auto px-6 pb-10">
+        <TreeHead />
+        {groups.map((o) => {
+          const open = !closedOrgs.has(o.name);
+          return (
+            <section key={o.name}>
+              <OrgHeader
+                api={api}
+                org={o.name}
+                open={open}
+                onToggle={() => setClosedOrgs(toggled(closedOrgs, o.name))}
+                meta={plural(o.projects.reduce((n, p) => n + laneCount(p), 0), 'worklane')}
+              />
+              {open && (
+                <ProjectTree
+                  api={api}
+                  org={o.name}
+                  projects={o.projects}
+                  openProjects={openProjects}
+                  onToggleProject={(k) => setClosedProjects(toggled(closedProjects, k))}
+                  closedRepos={closedRepos}
+                  onToggleRepo={(k) => setClosedRepos(toggled(closedRepos, k))}
+                />
+              )}
+            </section>
+          );
+        })}
+        {!groups.length && <EmptyNote text="No worklanes yet." />}
+      </div>
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Screen 4d: every repository's release line, grouped by organisation, project and repository
+// ---------------------------------------------------------------------------
+
+// The name column takes what is left, so Issues and Worklanes line up between the header and the indented rows.
+const RELEASE_COLUMNS = 'minmax(0,1fr) 140px 200px 16px';
+
+function ReleasesPage({ api }: { api: AppApi }) {
+  const releases = (r: Repo) => lineOf(r).length;
+  const [closedOrgs, setClosedOrgs] = useState<Set<string>>(new Set());
+  const [closedProjects, setClosedProjects] = useState<Set<string>>(new Set());
+  const [closedRepos, setClosedRepos] = useState<Set<string>>(new Set());
+  // Only the groups that hold releases, and repositories that say they do not release.
+  const groups = api.orgs
+    .map((o) => ({ ...o, projects: o.projects.map((p) => ({ ...p, repos: p.repos.filter((r) => releases(r) || r.noReleases) })).filter((p) => p.repos.length) }))
+    .filter((o) => o.projects.length);
+  const openProjects = new Set(groups.flatMap((o) => o.projects.map((p) => `${o.name}/${p.name}`)).filter((k) => !closedProjects.has(k)));
+  const projectReleases = (p: Project) => p.repos.reduce((k, r) => k + releases(r), 0);
+  const total = groups.reduce((n, o) => n + o.projects.reduce((m, p) => m + projectReleases(p), 0), 0);
+  return (
+    <>
+      <PageHeader icon={Tag} crumbs={[{ label: 'Releases' }]} count={total} />
+      <div className="flex-1 overflow-auto px-6 pb-10">
+        <div
+          className="sticky top-0 z-10 grid gap-4 border-b py-3 pr-4 pl-4 text-[12px]"
+          style={{ gridTemplateColumns: RELEASE_COLUMNS, background: 'var(--page-canvas)', borderColor: 'var(--border)', color: 'var(--muted-foreground)' }}
+        >
+          <span>Name</span>
+          <span>Issues</span>
+          <span>Worklanes</span>
+          <span />
+        </div>
+        {groups.map((o) => {
+          const open = !closedOrgs.has(o.name);
+          return (
+            <section key={o.name}>
+              <OrgHeader
+                api={api}
+                org={o.name}
+                open={open}
+                onToggle={() => setClosedOrgs(toggled(closedOrgs, o.name))}
+                meta={plural(o.projects.reduce((n, p) => n + projectReleases(p), 0), 'release')}
+              />
+              {open && (
+                <ProjectTree
+                  api={api}
+                  org={o.name}
+                  projects={o.projects}
+                  openProjects={openProjects}
+                  onToggleProject={(k) => setClosedProjects(toggled(closedProjects, k))}
+                  closedRepos={closedRepos}
+                  onToggleRepo={(k) => setClosedRepos(toggled(closedRepos, k))}
+                  meta={(p) => `${plural(p.repos.length, 'repository', 'repositories')} · ${plural(projectReleases(p), 'release')}`}
+                  rows={(r, p) => {
+                    if (r.noReleases)
+                      return (
+                        <div className="border-t py-2.5 pl-16 text-[13px]" style={{ borderColor: 'var(--border)', color: 'var(--muted-foreground)' }}>
+                          This repository does not release
+                        </div>
+                      );
+                    const states = releaseStates(r, api.statusOf);
+                    return lineOf(r).map((head, i) => (
+                      <ReleaseRow key={head.id} api={api} repo={r} refRepo={{ org: o.name, project: p.name, repo: r.name }} head={head} index={i} state={states[i]} />
+                    ));
+                  }}
+                />
+              )}
+            </section>
+          );
+        })}
+        {!groups.length && <EmptyNote text="No releases yet." />}
+      </div>
+    </>
+  );
+}
+
+/** One release of a repository's line; it opens the timeline of the first worklane with issues in it, else `main`. */
+function ReleaseRow({
+  api,
+  repo,
+  refRepo,
+  head,
+  index,
+  state,
+}: {
+  api: AppApi;
+  repo: Repo;
+  refRepo: Omit<LaneRef, 'lane'>;
+  head: ReleaseHead;
+  index: number;
+  state: ReleaseState;
+}) {
+  const lanes = repo.lanes.filter((l) => l.releases?.[index]?.issues.length);
+  const issues = lanes.flatMap((l) => l.releases![index].issues);
+  const done = issues.filter((i) => api.statusOf(i) === 'done').length;
+  const target = lanes[0] ?? repo.lanes.find((l) => l.name === 'main') ?? repo.lanes[0];
+  const open = () => target && api.go({ name: 'lane', ref: { ...refRepo, lane: target.name }, view: 'timeline', release: head.id });
+  const muted = { color: 'var(--muted-foreground)' };
+  return (
+    <div
+      role="link"
+      tabIndex={0}
+      onClick={open}
+      onKeyDown={(e) => e.key === 'Enter' && open()}
+      className="grid cursor-pointer items-center gap-4 border-t py-2.5 pr-4 pl-16 hover:bg-[var(--surface-hover)]"
+      style={{ gridTemplateColumns: RELEASE_COLUMNS, borderColor: 'var(--border)' }}
+    >
+      <div className="flex min-w-0 items-center gap-3">
+        <ReleaseChip version={head.version} state={state} />
+        <span className="truncate text-[14px] font-medium">{head.title}</span>
+        {head.pinned && <SetByHand />}
+        {state === 'shipped' && (
+          <span className="shrink-0 text-[12px] tabular-nums" style={muted}>
+            {api.shipDate(issues)}
+          </span>
+        )}
+      </div>
+      <div className="flex items-center gap-2">
+        <div className="w-16">
+          <Progress done={done} total={issues.length} />
+        </div>
+        <span className="text-[12px] tabular-nums" style={muted}>
+          {done}/{issues.length}
+        </span>
+      </div>
+      <div className="flex min-w-0 flex-wrap gap-1">
+        {lanes.length ? (
+          lanes.map((l) => (
+            <Chip key={l.name} icon={<GitBranch size={13} />}>
+              {l.name}
+            </Chip>
+          ))
+        ) : (
+          <span className="text-[12px]" style={{ color: 'var(--faint-foreground)' }}>
+            No issues yet
+          </span>
+        )}
+      </div>
+      <ChevronRight size={16} style={muted} />
+    </div>
   );
 }
 
@@ -795,25 +1045,13 @@ function ProjectsPage({ api, onAddProject }: { api: AppApi; onAddProject: (org: 
           const lanes = o.projects.reduce((n, p) => n + laneCount(p), 0);
           return (
             <section key={o.name}>
-              {/* The organisation's name opens its page; the rest of the row folds its projects. */}
-              <div onClick={() => setOpenOrgs(toggled(openOrgs, o.name))} className="flex h-[39px] w-full cursor-pointer items-center gap-2 px-4 hover:bg-[var(--surface-hover)]">
-                <button
-                  aria-label={orgOpen ? `Collapse ${o.name}` : `Expand ${o.name}`}
-                  aria-expanded={orgOpen}
-                  onClick={(e) => (e.stopPropagation(), setOpenOrgs(toggled(openOrgs, o.name)))}
-                  className="flex items-center rounded-[4px] p-0.5"
-                >
-                  <Disclosure open={orgOpen} />
-                </button>
-                <Building2 size={14} style={{ color: 'var(--muted-foreground)' }} />
-                <button onClick={(e) => (e.stopPropagation(), api.go({ name: 'organisation', org: o.name }))} className="text-[13px] font-semibold hover:underline">
-                  {o.name}
-                </button>
-                <span className="text-[13px]" style={{ color: 'var(--muted-foreground)' }}>
-                  {plural(o.projects.length, 'project')}
-                  {lanes ? ` · ${plural(lanes, 'worklane')}` : ''}
-                </span>
-              </div>
+              <OrgHeader
+                api={api}
+                org={o.name}
+                open={orgOpen}
+                onToggle={() => setOpenOrgs(toggled(openOrgs, o.name))}
+                meta={`${plural(o.projects.length, 'project')}${lanes ? ` · ${plural(lanes, 'worklane')}` : ''}`}
+              />
               {orgOpen && (
                 <ProjectTree
                   api={api}
@@ -1174,11 +1412,30 @@ const STATE_LABEL: Record<ReleaseState, string> = { shipped: 'Shipped', next: 'N
 /** Saves a new release line; `into` puts the picked backlog issues of this worklane into one release of it. */
 type SaveLine = (line: ReleaseHead[], into?: { release: string; ids: string[] }) => void;
 
-function LanePage({ api, refLane, view, onSaveLine }: { api: AppApi; refLane: LaneRef; view: LaneView; onSaveLine: SaveLine }) {
+function LanePage({
+  api,
+  refLane,
+  view,
+  focusRelease,
+  onSaveLine,
+}: {
+  api: AppApi;
+  refLane: LaneRef;
+  view: LaneView;
+  /** The id of the release the timeline opens with in view. */
+  focusRelease?: string;
+  onSaveLine: SaveLine;
+}) {
   const found = findLane(api.orgs, refLane);
   const [types, setTypes] = useState<string[]>([]);
   const [planning, setPlanning] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
+  const timeline = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const box = timeline.current;
+    const col = box && [...box.querySelectorAll<HTMLElement>('[data-release]')].find((e) => e.dataset.release === focusRelease);
+    if (box && col) box.scrollLeft += col.getBoundingClientRect().left - box.getBoundingClientRect().left - 24;
+  }, [focusRelease, view]);
   if (!found) return <OtherPage label="Worklane not found" />;
   const { lane, repo } = found;
   const backlog = lane.backlog ?? [];
@@ -1233,7 +1490,7 @@ function LanePage({ api, refLane, view, onSaveLine }: { api: AppApi; refLane: La
         />
       </div>
       {view === 'timeline' && (
-        <div className="flex-1 overflow-auto px-6 pt-6 pb-10">
+        <div ref={timeline} className="flex-1 overflow-auto px-6 pt-6 pb-10">
           <div className="flex items-start gap-4">
             {rels.map((rel, i) => (
               <ReleaseColumn key={rel.id} api={api} rel={rel} state={states[i]} issues={filt(rel.issues)} refLane={refLane} actions={actions(rel, i)} />
@@ -1436,7 +1693,7 @@ function ReleaseColumn({ api, rel, state, issues, refLane, actions }: { api: App
   // A release of the repository that holds none of this worklane's issues stays narrow.
   const empty = rel.issues.length === 0;
   return (
-    <div className={`${empty ? 'w-[300px]' : 'w-[544px]'} shrink-0`}>
+    <div data-release={rel.id} className={`${empty ? 'w-[300px]' : 'w-[544px]'} shrink-0`}>
       <div className="relative mb-5 h-3">
         <span className="absolute top-1/2 right-[-16px] left-3 h-px -translate-y-1/2" style={{ background: 'var(--surface-border)' }} />
         <span
@@ -2214,7 +2471,7 @@ function OtherPage({ label }: { label: string }) {
     <>
       <PageHeader icon={Inbox} crumbs={[{ label }]} />
       <div className="flex flex-1 items-center justify-center p-10">
-        <EmptyNote text={`${label} stays as Multica has it today; this prototype covers Projects, Organisations, worklanes and New issue.`} />
+        <EmptyNote text={`${label} stays as Multica has it today; this prototype covers Projects, Organisations, Worklanes, Releases and New issue.`} />
       </div>
     </>
   );

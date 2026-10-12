@@ -3933,8 +3933,2854 @@
     },
     {
       "type": "frame",
-      "id": "j1Q2Ox",
+      "id": "BY7is",
       "x": 7800,
+      "y": 0,
+      "name": "4c · Worklanes",
+      "clip": true,
+      "width": 1440,
+      "height": 3049,
+      "fill": "$L:app-shell",
+      "children": [
+        {
+          "id": "tH43W",
+          "type": "ref",
+          "ref": "L:aSVx6",
+          "name": "App sidebar",
+          "height": "fill_container",
+          "descendants": {
+            "L:qSICc": {
+              "fill": "#00000000"
+            },
+            "L:qSICc/L:fVZGR": {
+              "fill": "$L:muted-foreground"
+            },
+            "L:qSICc/L:hOvR0": {
+              "fill": "$L:muted-foreground",
+              "fontWeight": "normal"
+            },
+            "L:Vqsn9": {
+              "fill": "$L:sidebar-accent"
+            },
+            "L:Vqsn9/L:irWtm": {
+              "fill": "$L:foreground"
+            },
+            "L:Vqsn9/L:eld4j": {
+              "fill": "$L:foreground",
+              "fontWeight": "500"
+            }
+          }
+        },
+        {
+          "type": "frame",
+          "id": "lNR0X",
+          "name": "Main",
+          "clip": true,
+          "width": "fill_container",
+          "height": "fill_container",
+          "fill": "$L:page-canvas",
+          "layout": "vertical",
+          "children": [
+            {
+              "id": "PlO6U",
+              "type": "ref",
+              "ref": "L:p1b4tu",
+              "name": "Page header",
+              "width": "fill_container",
+              "descendants": {
+                "L:dsuI9": {
+                  "icon": "git-branch"
+                },
+                "L:EZ9ww": {
+                  "content": "Worklanes"
+                },
+                "L:ky0VG": {
+                  "content": "30"
+                },
+                "L:SqyrP": {
+                  "enabled": false
+                }
+              }
+            },
+            {
+              "type": "frame",
+              "id": "F3FGgX",
+              "name": "Tree",
+              "width": "fill_container",
+              "layout": "vertical",
+              "padding": [
+                8,
+                24,
+                24,
+                24
+              ],
+              "children": [
+                {
+                  "id": "Tds32",
+                  "type": "ref",
+                  "ref": "L:O8mp7C",
+                  "name": "Tree header",
+                  "width": "fill_container",
+                  "descendants": {
+                    "L:GQsUn": {
+                      "width": 368
+                    }
+                  }
+                },
+                {
+                  "id": "v5R3s0",
+                  "type": "ref",
+                  "ref": "L:OmgsW",
+                  "name": "Org BABA Management",
+                  "width": "fill_container",
+                  "descendants": {
+                    "L:J0vcO": {
+                      "icon": "chevron-down"
+                    },
+                    "L:vGXBm": {
+                      "content": "BABA Management"
+                    },
+                    "L:qWYV5": {
+                      "content": "1 worklane"
+                    }
+                  }
+                },
+                {
+                  "id": "J0Zkl",
+                  "type": "ref",
+                  "ref": "L:jQgff",
+                  "name": "Project BABA",
+                  "width": "fill_container",
+                  "descendants": {
+                    "L:C91y7r": {
+                      "icon": "chevron-down"
+                    },
+                    "L:wK5Rv": {
+                      "content": "B",
+                      "fontFamily": "$L:font-sans",
+                      "fontWeight": "600",
+                      "fill": "#000000"
+                    },
+                    "L:r5iwMe": {
+                      "content": "BABA"
+                    },
+                    "L:RZAIX": {
+                      "enabled": false
+                    },
+                    "L:nK8wo": {
+                      "content": "1 repository · 1 worklane"
+                    }
+                  }
+                },
+                {
+                  "id": "b3bbQ",
+                  "type": "ref",
+                  "ref": "L:nu2ZX",
+                  "name": "Repo appboypov/baba",
+                  "width": "fill_container",
+                  "descendants": {
+                    "L:Iz3Nf": {
+                      "content": "appboypov/baba"
+                    },
+                    "L:JhS8H": {
+                      "content": "main"
+                    }
+                  }
+                },
+                {
+                  "id": "XWeTa",
+                  "type": "ref",
+                  "ref": "L:P5zC6d",
+                  "name": "Lane main",
+                  "width": "fill_container",
+                  "padding": [
+                    10,
+                    16,
+                    10,
+                    64
+                  ],
+                  "descendants": {
+                    "L:d9CCt": {
+                      "content": "main"
+                    },
+                    "L:Ac5sM/L:q2fV1": {
+                      "stroke": "#000000"
+                    },
+                    "L:Ac5sM/L:TXRkn": {
+                      "enabled": false
+                    },
+                    "L:fCkWv": {
+                      "content": "Next: BABA-2 BABA backoffice dashboard"
+                    },
+                    "L:hgwsL": {
+                      "type": "frame",
+                      "id": "l1AfTw",
+                      "name": "Track",
+                      "width": "fill_container",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "FRBSp",
+                          "name": "No releases",
+                          "fill": "$L:faint-foreground",
+                          "content": "No releases planned",
+                          "fontFamily": "$L:font-sans",
+                          "fontSize": "$L:text-caption",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "id": "oppmL",
+                  "type": "ref",
+                  "ref": "L:OmgsW",
+                  "name": "Org IVGA Vastgoed",
+                  "width": "fill_container",
+                  "descendants": {
+                    "L:J0vcO": {
+                      "icon": "chevron-down"
+                    },
+                    "L:vGXBm": {
+                      "content": "IVGA Vastgoed"
+                    },
+                    "L:qWYV5": {
+                      "content": "6 worklanes"
+                    }
+                  }
+                },
+                {
+                  "id": "f1FxIi",
+                  "type": "ref",
+                  "ref": "L:jQgff",
+                  "name": "Project AMD",
+                  "width": "fill_container",
+                  "descendants": {
+                    "L:C91y7r": {
+                      "icon": "chevron-down"
+                    },
+                    "L:wK5Rv": {
+                      "content": "A",
+                      "fontFamily": "$L:font-sans",
+                      "fontWeight": "600",
+                      "fill": "#000000"
+                    },
+                    "L:r5iwMe": {
+                      "content": "AMD"
+                    },
+                    "L:RZAIX": {
+                      "enabled": false
+                    },
+                    "L:nK8wo": {
+                      "content": "1 repository · 2 worklanes"
+                    }
+                  }
+                },
+                {
+                  "id": "w3jDI",
+                  "type": "ref",
+                  "ref": "L:nu2ZX",
+                  "name": "Repo appboypov/ivga-amd",
+                  "width": "fill_container",
+                  "descendants": {
+                    "L:Iz3Nf": {
+                      "content": "appboypov/ivga-amd"
+                    },
+                    "L:JhS8H": {
+                      "content": "main"
+                    }
+                  }
+                },
+                {
+                  "id": "AeXVG",
+                  "type": "ref",
+                  "ref": "L:P5zC6d",
+                  "name": "Lane main",
+                  "width": "fill_container",
+                  "padding": [
+                    10,
+                    16,
+                    10,
+                    64
+                  ],
+                  "descendants": {
+                    "L:d9CCt": {
+                      "content": "main"
+                    },
+                    "L:Ac5sM/L:q2fV1": {
+                      "stroke": "#000000"
+                    },
+                    "L:Ac5sM/L:TXRkn": {
+                      "enabled": false
+                    },
+                    "L:fCkWv": {
+                      "content": "Next: IVGA-45 Verify that a source correction chan…"
+                    },
+                    "L:hgwsL": {
+                      "type": "frame",
+                      "id": "eKWP7",
+                      "name": "Track",
+                      "width": "fill_container",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "zjREw",
+                          "name": "No releases",
+                          "fill": "$L:faint-foreground",
+                          "content": "No releases planned",
+                          "fontFamily": "$L:font-sans",
+                          "fontSize": "$L:text-caption",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "id": "PxMgt",
+                  "type": "ref",
+                  "ref": "L:P5zC6d",
+                  "name": "Lane Asset dashboard",
+                  "width": "fill_container",
+                  "padding": [
+                    10,
+                    16,
+                    10,
+                    64
+                  ],
+                  "descendants": {
+                    "L:d9CCt": {
+                      "content": "Asset dashboard"
+                    },
+                    "L:fCkWv": {
+                      "content": "AMD-76 Show the portfolio Waardekompas on the…"
+                    },
+                    "L:hgwsL": {
+                      "type": "frame",
+                      "id": "VzhpJ",
+                      "name": "Track",
+                      "width": "fill_container",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "P2zMx",
+                          "name": "No releases",
+                          "fill": "$L:faint-foreground",
+                          "content": "No releases planned",
+                          "fontFamily": "$L:font-sans",
+                          "fontSize": "$L:text-caption",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "id": "M0Aft",
+                  "type": "ref",
+                  "ref": "L:jQgff",
+                  "name": "Project MIA",
+                  "width": "fill_container",
+                  "descendants": {
+                    "L:C91y7r": {
+                      "icon": "chevron-down"
+                    },
+                    "L:wK5Rv": {
+                      "content": "M",
+                      "fontFamily": "$L:font-sans",
+                      "fontWeight": "600",
+                      "fill": "#000000"
+                    },
+                    "L:r5iwMe": {
+                      "content": "MIA"
+                    },
+                    "L:RZAIX": {
+                      "enabled": false
+                    },
+                    "L:nK8wo": {
+                      "content": "1 repository · 2 worklanes"
+                    }
+                  }
+                },
+                {
+                  "id": "jckbT",
+                  "type": "ref",
+                  "ref": "L:nu2ZX",
+                  "name": "Repo appboypov/mia",
+                  "width": "fill_container",
+                  "descendants": {
+                    "L:Iz3Nf": {
+                      "content": "appboypov/mia"
+                    },
+                    "L:JhS8H": {
+                      "content": "main"
+                    }
+                  }
+                },
+                {
+                  "id": "hNrjf",
+                  "type": "ref",
+                  "ref": "L:P5zC6d",
+                  "name": "Lane main",
+                  "width": "fill_container",
+                  "padding": [
+                    10,
+                    16,
+                    10,
+                    64
+                  ],
+                  "descendants": {
+                    "L:d9CCt": {
+                      "content": "main"
+                    },
+                    "L:Ac5sM/L:q2fV1": {
+                      "stroke": "#000000"
+                    },
+                    "L:Ac5sM/L:TXRkn": {
+                      "enabled": false
+                    },
+                    "L:fCkWv": {
+                      "content": "Next: IVGA-45 Verify that a source correction chan…"
+                    },
+                    "L:hgwsL": {
+                      "type": "frame",
+                      "id": "GW3BI",
+                      "name": "Track",
+                      "width": "fill_container",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "WWxTg",
+                          "name": "No releases",
+                          "fill": "$L:faint-foreground",
+                          "content": "No releases planned",
+                          "fontFamily": "$L:font-sans",
+                          "fontSize": "$L:text-caption",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "id": "GUVNq",
+                  "type": "ref",
+                  "ref": "L:P5zC6d",
+                  "name": "Lane MIA invoices",
+                  "width": "fill_container",
+                  "padding": [
+                    10,
+                    16,
+                    10,
+                    64
+                  ],
+                  "descendants": {
+                    "L:d9CCt": {
+                      "content": "MIA invoices"
+                    },
+                    "L:Ac5sM/L:q2fV1": {
+                      "stroke": "#000000"
+                    },
+                    "L:Ac5sM/L:TXRkn": {
+                      "enabled": false
+                    },
+                    "L:fCkWv": {
+                      "content": "Next: MIA-11 Run MIA and Preview on Nasir's Wind…"
+                    },
+                    "L:hgwsL": {
+                      "type": "frame",
+                      "id": "K7xC3X",
+                      "name": "Track",
+                      "width": "fill_container",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "l9lJg",
+                          "name": "No releases",
+                          "fill": "$L:faint-foreground",
+                          "content": "No releases planned",
+                          "fontFamily": "$L:font-sans",
+                          "fontSize": "$L:text-caption",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "id": "hmuRK",
+                  "type": "ref",
+                  "ref": "L:jQgff",
+                  "name": "Project Tweede brein van Nasir",
+                  "width": "fill_container",
+                  "descendants": {
+                    "L:C91y7r": {
+                      "icon": "chevron-down"
+                    },
+                    "L:wK5Rv": {
+                      "content": "T",
+                      "fontFamily": "$L:font-sans",
+                      "fontWeight": "600",
+                      "fill": "#000000"
+                    },
+                    "L:r5iwMe": {
+                      "content": "Tweede brein van Nasir"
+                    },
+                    "L:RZAIX": {
+                      "enabled": false
+                    },
+                    "L:nK8wo": {
+                      "content": "1 repository · 2 worklanes"
+                    }
+                  }
+                },
+                {
+                  "id": "CFJdG",
+                  "type": "ref",
+                  "ref": "L:nu2ZX",
+                  "name": "Repo appboypov/ivga-brain",
+                  "width": "fill_container",
+                  "descendants": {
+                    "L:Iz3Nf": {
+                      "content": "appboypov/ivga-brain"
+                    },
+                    "L:JhS8H": {
+                      "content": "main"
+                    }
+                  }
+                },
+                {
+                  "id": "G6mdV",
+                  "type": "ref",
+                  "ref": "L:P5zC6d",
+                  "name": "Lane main",
+                  "width": "fill_container",
+                  "padding": [
+                    10,
+                    16,
+                    10,
+                    64
+                  ],
+                  "descendants": {
+                    "L:d9CCt": {
+                      "content": "main"
+                    },
+                    "L:Ac5sM/L:q2fV1": {
+                      "stroke": "#000000"
+                    },
+                    "L:Ac5sM/L:TXRkn": {
+                      "enabled": false
+                    },
+                    "L:fCkWv": {
+                      "content": "Next: IVGA-45 Verify that a source correction chan…"
+                    },
+                    "L:hgwsL": {
+                      "type": "frame",
+                      "id": "k7LbXz",
+                      "name": "Track",
+                      "width": "fill_container",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "h5nJu",
+                          "name": "No releases",
+                          "fill": "$L:faint-foreground",
+                          "content": "No releases planned",
+                          "fontFamily": "$L:font-sans",
+                          "fontSize": "$L:text-caption",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "id": "dD7Qo",
+                  "type": "ref",
+                  "ref": "L:P5zC6d",
+                  "name": "Lane Second brain",
+                  "width": "fill_container",
+                  "padding": [
+                    10,
+                    16,
+                    10,
+                    64
+                  ],
+                  "descendants": {
+                    "L:d9CCt": {
+                      "content": "Second brain"
+                    },
+                    "L:Ac5sM/L:q2fV1": {
+                      "stroke": "#000000"
+                    },
+                    "L:Ac5sM/L:TXRkn": {
+                      "enabled": false
+                    },
+                    "L:fCkWv": {
+                      "content": "Next: ISB-2 Add and find knowledge by asking the…"
+                    },
+                    "L:hgwsL": {
+                      "type": "frame",
+                      "id": "Z0AA6h",
+                      "name": "Track",
+                      "width": "fill_container",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "ud2fS",
+                          "name": "No releases",
+                          "fill": "$L:faint-foreground",
+                          "content": "No releases planned",
+                          "fontFamily": "$L:font-sans",
+                          "fontSize": "$L:text-caption",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "id": "fbHFB",
+                  "type": "ref",
+                  "ref": "L:OmgsW",
+                  "name": "Org Mijn Shine",
+                  "width": "fill_container",
+                  "descendants": {
+                    "L:J0vcO": {
+                      "icon": "chevron-down"
+                    },
+                    "L:vGXBm": {
+                      "content": "Mijn Shine"
+                    },
+                    "L:qWYV5": {
+                      "content": "5 worklanes"
+                    }
+                  }
+                },
+                {
+                  "id": "n2EAA",
+                  "type": "ref",
+                  "ref": "L:jQgff",
+                  "name": "Project MultiChannable",
+                  "width": "fill_container",
+                  "descendants": {
+                    "L:C91y7r": {
+                      "icon": "chevron-down"
+                    },
+                    "L:wK5Rv": {
+                      "content": "M",
+                      "fontFamily": "$L:font-sans",
+                      "fontWeight": "600",
+                      "fill": "#000000"
+                    },
+                    "L:r5iwMe": {
+                      "content": "MultiChannable"
+                    },
+                    "L:RZAIX": {
+                      "enabled": false
+                    },
+                    "L:nK8wo": {
+                      "content": "1 repository · 5 worklanes"
+                    }
+                  }
+                },
+                {
+                  "id": "K13FM",
+                  "type": "ref",
+                  "ref": "L:nu2ZX",
+                  "name": "Repo MultiChannable/multichannable",
+                  "width": "fill_container",
+                  "descendants": {
+                    "L:Iz3Nf": {
+                      "content": "MultiChannable/multichannable"
+                    },
+                    "L:JhS8H": {
+                      "content": "main"
+                    }
+                  }
+                },
+                {
+                  "id": "GAwB7",
+                  "type": "ref",
+                  "ref": "L:P5zC6d",
+                  "name": "Lane main",
+                  "width": "fill_container",
+                  "padding": [
+                    10,
+                    16,
+                    10,
+                    64
+                  ],
+                  "descendants": {
+                    "L:d9CCt": {
+                      "content": "main"
+                    },
+                    "L:fCkWv": {
+                      "content": "UJ-1 Milad sets up once: OpenSpec change"
+                    },
+                    "L:hgwsL": {
+                      "type": "frame",
+                      "id": "r8j0n4",
+                      "name": "Track",
+                      "width": "fill_container",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "VhvqB",
+                          "name": "No releases",
+                          "fill": "$L:faint-foreground",
+                          "content": "No releases planned",
+                          "fontFamily": "$L:font-sans",
+                          "fontSize": "$L:text-caption",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "id": "SxP4T",
+                  "type": "ref",
+                  "ref": "L:P5zC6d",
+                  "name": "Lane main",
+                  "width": "fill_container",
+                  "padding": [
+                    10,
+                    16,
+                    10,
+                    64
+                  ],
+                  "descendants": {
+                    "L:d9CCt": {
+                      "content": "main"
+                    },
+                    "L:fCkWv": {
+                      "content": "MS-1 feedback over MultiChannable-overzicht-vo…"
+                    },
+                    "L:hgwsL": {
+                      "type": "frame",
+                      "id": "dsJwe",
+                      "name": "Track",
+                      "width": "fill_container",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "q58sO",
+                          "name": "No releases",
+                          "fill": "$L:faint-foreground",
+                          "content": "No releases planned",
+                          "fontFamily": "$L:font-sans",
+                          "fontSize": "$L:text-caption",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "id": "fVl5s",
+                  "type": "ref",
+                  "ref": "L:P5zC6d",
+                  "name": "Lane Listing pipeline",
+                  "width": "fill_container",
+                  "padding": [
+                    10,
+                    16,
+                    10,
+                    64
+                  ],
+                  "descendants": {
+                    "L:d9CCt": {
+                      "content": "Listing pipeline"
+                    },
+                    "L:fCkWv": {
+                      "content": "MC-209 UJ-1 J1.7 Server code to backends/, order…"
+                    },
+                    "L:hgwsL": {
+                      "type": "frame",
+                      "id": "zlU7e",
+                      "name": "Track",
+                      "width": "fill_container",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "kmLcW",
+                          "name": "No releases",
+                          "fill": "$L:faint-foreground",
+                          "content": "No releases planned",
+                          "fontFamily": "$L:font-sans",
+                          "fontSize": "$L:text-caption",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "id": "DX3TL",
+                  "type": "ref",
+                  "ref": "L:P5zC6d",
+                  "name": "Lane Orders, EAN and reports",
+                  "width": "fill_container",
+                  "padding": [
+                    10,
+                    16,
+                    10,
+                    64
+                  ],
+                  "descendants": {
+                    "L:d9CCt": {
+                      "content": "Orders, EAN and reports"
+                    },
+                    "L:Ac5sM/L:q2fV1": {
+                      "stroke": "#000000"
+                    },
+                    "L:Ac5sM/L:TXRkn": {
+                      "enabled": false
+                    },
+                    "L:fCkWv": {
+                      "content": "Next: UJ-3b J4 Components"
+                    },
+                    "L:hgwsL": {
+                      "type": "frame",
+                      "id": "VSujb",
+                      "name": "Track",
+                      "width": "fill_container",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "G6S4Q",
+                          "name": "No releases",
+                          "fill": "$L:faint-foreground",
+                          "content": "No releases planned",
+                          "fontFamily": "$L:font-sans",
+                          "fontSize": "$L:text-caption",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "id": "nXTIS",
+                  "type": "ref",
+                  "ref": "L:P5zC6d",
+                  "name": "Lane Live assortment",
+                  "width": "fill_container",
+                  "padding": [
+                    10,
+                    16,
+                    10,
+                    64
+                  ],
+                  "descendants": {
+                    "L:d9CCt": {
+                      "content": "Live assortment"
+                    },
+                    "L:Ac5sM/L:q2fV1": {
+                      "stroke": "#000000"
+                    },
+                    "L:Ac5sM/L:TXRkn": {
+                      "enabled": false
+                    },
+                    "L:fCkWv": {
+                      "content": "Next: UJ-6 J5 Screens"
+                    },
+                    "L:hgwsL": {
+                      "type": "frame",
+                      "id": "NjXVn",
+                      "name": "Track",
+                      "width": "fill_container",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "AbTR3",
+                          "name": "No releases",
+                          "fill": "$L:faint-foreground",
+                          "content": "No releases planned",
+                          "fontFamily": "$L:font-sans",
+                          "fontSize": "$L:text-caption",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "id": "ws8jN",
+                  "type": "ref",
+                  "ref": "L:OmgsW",
+                  "name": "Org Rebl Records",
+                  "width": "fill_container",
+                  "descendants": {
+                    "L:J0vcO": {
+                      "icon": "chevron-down"
+                    },
+                    "L:vGXBm": {
+                      "content": "Rebl Records"
+                    },
+                    "L:qWYV5": {
+                      "content": "3 worklanes"
+                    }
+                  }
+                },
+                {
+                  "id": "TvMqy",
+                  "type": "ref",
+                  "ref": "L:jQgff",
+                  "name": "Project Rebl",
+                  "width": "fill_container",
+                  "descendants": {
+                    "L:C91y7r": {
+                      "icon": "chevron-down"
+                    },
+                    "L:wK5Rv": {
+                      "content": "R",
+                      "fontFamily": "$L:font-sans",
+                      "fontWeight": "600",
+                      "fill": "#000000"
+                    },
+                    "L:r5iwMe": {
+                      "content": "Rebl"
+                    },
+                    "L:RZAIX": {
+                      "enabled": false
+                    },
+                    "L:nK8wo": {
+                      "content": "1 repository · 3 worklanes"
+                    }
+                  }
+                },
+                {
+                  "id": "xsvgZ",
+                  "type": "ref",
+                  "ref": "L:nu2ZX",
+                  "name": "Repo appboypov/rebl",
+                  "width": "fill_container",
+                  "descendants": {
+                    "L:Iz3Nf": {
+                      "content": "appboypov/rebl"
+                    },
+                    "L:JhS8H": {
+                      "content": "main"
+                    }
+                  }
+                },
+                {
+                  "id": "MPUgi",
+                  "type": "ref",
+                  "ref": "L:P5zC6d",
+                  "name": "Lane main",
+                  "width": "fill_container",
+                  "padding": [
+                    10,
+                    16,
+                    10,
+                    64
+                  ],
+                  "descendants": {
+                    "L:d9CCt": {
+                      "content": "main"
+                    },
+                    "L:fCkWv": {
+                      "content": "REBL-10 Roles, access rules and revocation"
+                    },
+                    "L:GpjBb/L:NyiQr": {
+                      "icon": "circle-minus",
+                      "fill": "#000000"
+                    },
+                    "L:GpjBb/L:BGkyw": {
+                      "content": "nothing shipped",
+                      "fontFamily": "$L:font-sans",
+                      "fill": "#000000"
+                    },
+                    "L:Z1FJ6b/L:twczT/L:uo2SE": {
+                      "content": "v1.0.0"
+                    },
+                    "L:Z1FJ6b/L:G8G7r": {
+                      "content": "0/33"
+                    },
+                    "L:m1V0M/L:TsHtV": {
+                      "content": "v1.0.1"
+                    },
+                    "L:BcYp6": {
+                      "enabled": false
+                    },
+                    "L:cPIPB": {
+                      "enabled": false
+                    }
+                  }
+                },
+                {
+                  "id": "pfQgW",
+                  "type": "ref",
+                  "ref": "L:P5zC6d",
+                  "name": "Lane Fan accounts and push",
+                  "width": "fill_container",
+                  "padding": [
+                    10,
+                    16,
+                    10,
+                    64
+                  ],
+                  "descendants": {
+                    "L:d9CCt": {
+                      "content": "Fan accounts and push"
+                    },
+                    "L:Ac5sM/L:q2fV1": {
+                      "stroke": "#000000"
+                    },
+                    "L:Ac5sM/L:TXRkn": {
+                      "enabled": false
+                    },
+                    "L:fCkWv": {
+                      "content": "Next: REBL-21 Mockups Account and profile"
+                    },
+                    "L:GpjBb/L:NyiQr": {
+                      "icon": "circle-minus",
+                      "fill": "#000000"
+                    },
+                    "L:GpjBb/L:BGkyw": {
+                      "content": "nothing shipped",
+                      "fontFamily": "$L:font-sans",
+                      "fill": "#000000"
+                    },
+                    "L:Z1FJ6b/L:twczT": {
+                      "id": "u6fZ8t",
+                      "type": "ref",
+                      "ref": "L:bFt73",
+                      "name": "Release",
+                      "descendants": {
+                        "L:TsHtV": {
+                          "content": "v1.1.0"
+                        }
+                      }
+                    },
+                    "L:Z1FJ6b/L:G8G7r": {
+                      "content": "0/14"
+                    },
+                    "L:m1V0M/L:TsHtV": {
+                      "content": "v1.2.0"
+                    },
+                    "L:BcYp6": {
+                      "enabled": false
+                    },
+                    "L:cPIPB": {
+                      "enabled": false
+                    }
+                  }
+                },
+                {
+                  "id": "QMreA",
+                  "type": "ref",
+                  "ref": "L:P5zC6d",
+                  "name": "Lane Agenda and publication",
+                  "width": "fill_container",
+                  "padding": [
+                    10,
+                    16,
+                    10,
+                    64
+                  ],
+                  "descendants": {
+                    "L:d9CCt": {
+                      "content": "Agenda and publication"
+                    },
+                    "L:Ac5sM/L:q2fV1": {
+                      "stroke": "#000000"
+                    },
+                    "L:Ac5sM/L:TXRkn": {
+                      "enabled": false
+                    },
+                    "L:fCkWv": {
+                      "content": "Next: REBL-35 Spike: System One booking data"
+                    },
+                    "L:GpjBb/L:NyiQr": {
+                      "icon": "circle-minus",
+                      "fill": "#000000"
+                    },
+                    "L:GpjBb/L:BGkyw": {
+                      "content": "nothing shipped",
+                      "fontFamily": "$L:font-sans",
+                      "fill": "#000000"
+                    },
+                    "L:Z1FJ6b/L:twczT": {
+                      "id": "P8Y5pt",
+                      "type": "ref",
+                      "ref": "L:bFt73",
+                      "name": "Release",
+                      "descendants": {
+                        "L:TsHtV": {
+                          "content": "v1.3.0"
+                        }
+                      }
+                    },
+                    "L:Z1FJ6b/L:G8G7r": {
+                      "content": "0/17"
+                    },
+                    "L:k4Uhx": {
+                      "enabled": false
+                    },
+                    "L:m1V0M": {
+                      "enabled": false
+                    },
+                    "L:BcYp6": {
+                      "enabled": false
+                    },
+                    "L:cPIPB": {
+                      "enabled": false
+                    }
+                  }
+                },
+                {
+                  "id": "cuhlg",
+                  "type": "ref",
+                  "ref": "L:OmgsW",
+                  "name": "Org Spar Kaart",
+                  "width": "fill_container",
+                  "descendants": {
+                    "L:J0vcO": {
+                      "icon": "chevron-down"
+                    },
+                    "L:vGXBm": {
+                      "content": "Spar Kaart"
+                    },
+                    "L:qWYV5": {
+                      "content": "1 worklane"
+                    }
+                  }
+                },
+                {
+                  "id": "GLB6I",
+                  "type": "ref",
+                  "ref": "L:jQgff",
+                  "name": "Project Spar Kaart",
+                  "width": "fill_container",
+                  "descendants": {
+                    "L:C91y7r": {
+                      "icon": "chevron-down"
+                    },
+                    "L:wK5Rv": {
+                      "content": "S",
+                      "fontFamily": "$L:font-sans",
+                      "fontWeight": "600",
+                      "fill": "#000000"
+                    },
+                    "L:r5iwMe": {
+                      "content": "Spar Kaart"
+                    },
+                    "L:RZAIX": {
+                      "enabled": false
+                    },
+                    "L:nK8wo": {
+                      "content": "1 repository · 1 worklane"
+                    }
+                  }
+                },
+                {
+                  "id": "Mo3p8",
+                  "type": "ref",
+                  "ref": "L:nu2ZX",
+                  "name": "Repo appboypov/sparkaart",
+                  "width": "fill_container",
+                  "descendants": {
+                    "L:Iz3Nf": {
+                      "content": "appboypov/sparkaart"
+                    },
+                    "L:JhS8H": {
+                      "content": "main"
+                    }
+                  }
+                },
+                {
+                  "id": "c1AT2W",
+                  "type": "ref",
+                  "ref": "L:P5zC6d",
+                  "name": "Lane main",
+                  "width": "fill_container",
+                  "padding": [
+                    10,
+                    16,
+                    10,
+                    64
+                  ],
+                  "descendants": {
+                    "L:d9CCt": {
+                      "content": "main"
+                    },
+                    "L:Ac5sM/L:q2fV1": {
+                      "stroke": "#000000"
+                    },
+                    "L:Ac5sM/L:TXRkn": {
+                      "enabled": false
+                    },
+                    "L:fCkWv": {
+                      "content": "Next: SK-25 UJ-1 J6 Screens"
+                    },
+                    "L:hgwsL": {
+                      "type": "frame",
+                      "id": "GvTq3",
+                      "name": "Track",
+                      "width": "fill_container",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "z0iq1",
+                          "name": "No releases",
+                          "fill": "$L:faint-foreground",
+                          "content": "No releases planned",
+                          "fontFamily": "$L:font-sans",
+                          "fontSize": "$L:text-caption",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "id": "WUEE4",
+                  "type": "ref",
+                  "ref": "L:OmgsW",
+                  "name": "Org SuperMarty",
+                  "width": "fill_container",
+                  "descendants": {
+                    "L:J0vcO": {
+                      "icon": "chevron-down"
+                    },
+                    "L:vGXBm": {
+                      "content": "SuperMarty"
+                    },
+                    "L:qWYV5": {
+                      "content": "10 worklanes"
+                    }
+                  }
+                },
+                {
+                  "id": "Ul7U5",
+                  "type": "ref",
+                  "ref": "L:jQgff",
+                  "name": "Project SuperMarty",
+                  "width": "fill_container",
+                  "descendants": {
+                    "L:C91y7r": {
+                      "icon": "chevron-down"
+                    },
+                    "L:wK5Rv": {
+                      "content": "S",
+                      "fontFamily": "$L:font-sans",
+                      "fontWeight": "600",
+                      "fill": "#000000"
+                    },
+                    "L:r5iwMe": {
+                      "content": "SuperMarty"
+                    },
+                    "L:RZAIX": {
+                      "enabled": false
+                    },
+                    "L:nK8wo": {
+                      "content": "12 repositories · 10 worklanes"
+                    }
+                  }
+                },
+                {
+                  "id": "Lvzr2",
+                  "type": "ref",
+                  "ref": "L:nu2ZX",
+                  "name": "Repo Supermarty-B-V/sm-cli",
+                  "width": "fill_container",
+                  "descendants": {
+                    "L:Iz3Nf": {
+                      "content": "Supermarty-B-V/sm-cli"
+                    },
+                    "L:JhS8H": {
+                      "content": "main"
+                    }
+                  }
+                },
+                {
+                  "id": "s1jpq",
+                  "type": "ref",
+                  "ref": "L:P5zC6d",
+                  "name": "Lane Catalog and tools",
+                  "width": "fill_container",
+                  "padding": [
+                    10,
+                    16,
+                    10,
+                    64
+                  ],
+                  "descendants": {
+                    "L:d9CCt": {
+                      "content": "Catalog and tools"
+                    },
+                    "L:fCkWv": {
+                      "content": "SMDA-2 Settle and reconcile the twenty shop-fami…"
+                    },
+                    "L:hgwsL": {
+                      "type": "frame",
+                      "id": "ZM9dX",
+                      "name": "Track",
+                      "width": "fill_container",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "yNqGv",
+                          "name": "No releases",
+                          "fill": "$L:faint-foreground",
+                          "content": "No releases planned",
+                          "fontFamily": "$L:font-sans",
+                          "fontSize": "$L:text-caption",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "id": "s71yCG",
+                  "type": "ref",
+                  "ref": "L:nu2ZX",
+                  "name": "Repo Supermarty-B-V/sm-mobile",
+                  "width": "fill_container",
+                  "descendants": {
+                    "L:Iz3Nf": {
+                      "content": "Supermarty-B-V/sm-mobile"
+                    },
+                    "L:JhS8H": {
+                      "content": "main"
+                    }
+                  }
+                },
+                {
+                  "id": "JM32X",
+                  "type": "ref",
+                  "ref": "L:P5zC6d",
+                  "name": "Lane Shopper apps",
+                  "width": "fill_container",
+                  "padding": [
+                    10,
+                    16,
+                    10,
+                    64
+                  ],
+                  "descendants": {
+                    "L:d9CCt": {
+                      "content": "Shopper apps"
+                    },
+                    "L:Ac5sM/L:q2fV1": {
+                      "stroke": "#000000"
+                    },
+                    "L:Ac5sM/L:TXRkn": {
+                      "enabled": false
+                    },
+                    "L:fCkWv": {
+                      "content": "Next: SMW-2 Browse the category tree"
+                    },
+                    "L:hgwsL": {
+                      "type": "frame",
+                      "id": "z7hXYO",
+                      "name": "Track",
+                      "width": "fill_container",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "HdEWm",
+                          "name": "No releases",
+                          "fill": "$L:faint-foreground",
+                          "content": "No releases planned",
+                          "fontFamily": "$L:font-sans",
+                          "fontSize": "$L:text-caption",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "id": "smBqI",
+                  "type": "ref",
+                  "ref": "L:nu2ZX",
+                  "name": "Repo Supermarty-B-V/sm-web-app",
+                  "width": "fill_container",
+                  "descendants": {
+                    "L:Iz3Nf": {
+                      "content": "Supermarty-B-V/sm-web-app"
+                    },
+                    "L:JhS8H": {
+                      "content": "main"
+                    }
+                  }
+                },
+                {
+                  "id": "z0YELM",
+                  "type": "ref",
+                  "ref": "L:P5zC6d",
+                  "name": "Lane Shopper apps",
+                  "width": "fill_container",
+                  "padding": [
+                    10,
+                    16,
+                    10,
+                    64
+                  ],
+                  "descendants": {
+                    "L:d9CCt": {
+                      "content": "Shopper apps"
+                    },
+                    "L:Ac5sM/L:q2fV1": {
+                      "stroke": "#000000"
+                    },
+                    "L:Ac5sM/L:TXRkn": {
+                      "enabled": false
+                    },
+                    "L:fCkWv": {
+                      "content": "Next: SMW-2 Browse the category tree"
+                    },
+                    "L:hgwsL": {
+                      "type": "frame",
+                      "id": "lLyRW",
+                      "name": "Track",
+                      "width": "fill_container",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "ZIKh3",
+                          "name": "No releases",
+                          "fill": "$L:faint-foreground",
+                          "content": "No releases planned",
+                          "fontFamily": "$L:font-sans",
+                          "fontSize": "$L:text-caption",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "id": "qsz5O",
+                  "type": "ref",
+                  "ref": "L:nu2ZX",
+                  "name": "Repo Supermarty-B-V/sm-api",
+                  "width": "fill_container",
+                  "descendants": {
+                    "L:Iz3Nf": {
+                      "content": "Supermarty-B-V/sm-api"
+                    },
+                    "L:JhS8H": {
+                      "content": "main"
+                    }
+                  }
+                },
+                {
+                  "id": "jrsby",
+                  "type": "ref",
+                  "ref": "L:P5zC6d",
+                  "name": "Lane Catalog and tools",
+                  "width": "fill_container",
+                  "padding": [
+                    10,
+                    16,
+                    10,
+                    64
+                  ],
+                  "descendants": {
+                    "L:d9CCt": {
+                      "content": "Catalog and tools"
+                    },
+                    "L:fCkWv": {
+                      "content": "SMDA-2 Settle and reconcile the twenty shop-fami…"
+                    },
+                    "L:hgwsL": {
+                      "type": "frame",
+                      "id": "n6TGe",
+                      "name": "Track",
+                      "width": "fill_container",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "ub4Wq",
+                          "name": "No releases",
+                          "fill": "$L:faint-foreground",
+                          "content": "No releases planned",
+                          "fontFamily": "$L:font-sans",
+                          "fontSize": "$L:text-caption",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "id": "K8QSE",
+                  "type": "ref",
+                  "ref": "L:nu2ZX",
+                  "name": "Repo Supermarty-B-V/sm-duckdb",
+                  "width": "fill_container",
+                  "descendants": {
+                    "L:Iz3Nf": {
+                      "content": "Supermarty-B-V/sm-duckdb"
+                    },
+                    "L:JhS8H": {
+                      "content": "main"
+                    }
+                  }
+                },
+                {
+                  "id": "f7QGsV",
+                  "type": "ref",
+                  "ref": "L:P5zC6d",
+                  "name": "Lane Catalog and tools",
+                  "width": "fill_container",
+                  "padding": [
+                    10,
+                    16,
+                    10,
+                    64
+                  ],
+                  "descendants": {
+                    "L:d9CCt": {
+                      "content": "Catalog and tools"
+                    },
+                    "L:fCkWv": {
+                      "content": "SMDA-2 Settle and reconcile the twenty shop-fami…"
+                    },
+                    "L:hgwsL": {
+                      "type": "frame",
+                      "id": "w4rVjg",
+                      "name": "Track",
+                      "width": "fill_container",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "mCWya",
+                          "name": "No releases",
+                          "fill": "$L:faint-foreground",
+                          "content": "No releases planned",
+                          "fontFamily": "$L:font-sans",
+                          "fontSize": "$L:text-caption",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "id": "pwsyO",
+                  "type": "ref",
+                  "ref": "L:nu2ZX",
+                  "name": "Repo Supermarty-B-V/sm-skills",
+                  "width": "fill_container",
+                  "descendants": {
+                    "L:Iz3Nf": {
+                      "content": "Supermarty-B-V/sm-skills"
+                    },
+                    "L:JhS8H": {
+                      "content": "main"
+                    }
+                  }
+                },
+                {
+                  "id": "BdyfQ",
+                  "type": "ref",
+                  "ref": "L:P5zC6d",
+                  "name": "Lane Design components",
+                  "width": "fill_container",
+                  "padding": [
+                    10,
+                    16,
+                    10,
+                    64
+                  ],
+                  "descendants": {
+                    "L:d9CCt": {
+                      "content": "Design components"
+                    },
+                    "L:fCkWv": {
+                      "content": "SMDE-4 Product components renamed to Article a…"
+                    },
+                    "L:hgwsL": {
+                      "type": "frame",
+                      "id": "UmIDZ",
+                      "name": "Track",
+                      "width": "fill_container",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "J5PDu",
+                          "name": "No releases",
+                          "fill": "$L:faint-foreground",
+                          "content": "No releases planned",
+                          "fontFamily": "$L:font-sans",
+                          "fontSize": "$L:text-caption",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "id": "FpFjC",
+                  "type": "ref",
+                  "ref": "L:P5zC6d",
+                  "name": "Lane Catalog and tools",
+                  "width": "fill_container",
+                  "padding": [
+                    10,
+                    16,
+                    10,
+                    64
+                  ],
+                  "descendants": {
+                    "L:d9CCt": {
+                      "content": "Catalog and tools"
+                    },
+                    "L:fCkWv": {
+                      "content": "SMDA-2 Settle and reconcile the twenty shop-fami…"
+                    },
+                    "L:hgwsL": {
+                      "type": "frame",
+                      "id": "rdYcE",
+                      "name": "Track",
+                      "width": "fill_container",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "l6w6mu",
+                          "name": "No releases",
+                          "fill": "$L:faint-foreground",
+                          "content": "No releases planned",
+                          "fontFamily": "$L:font-sans",
+                          "fontSize": "$L:text-caption",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "id": "DFQpE",
+                  "type": "ref",
+                  "ref": "L:nu2ZX",
+                  "name": "Repo Supermarty-B-V/sm-firebase",
+                  "width": "fill_container",
+                  "descendants": {
+                    "L:Iz3Nf": {
+                      "content": "Supermarty-B-V/sm-firebase"
+                    },
+                    "L:JhS8H": {
+                      "content": "main"
+                    }
+                  }
+                },
+                {
+                  "id": "w1skv",
+                  "type": "ref",
+                  "ref": "L:P5zC6d",
+                  "name": "Lane Catalog and tools",
+                  "width": "fill_container",
+                  "padding": [
+                    10,
+                    16,
+                    10,
+                    64
+                  ],
+                  "descendants": {
+                    "L:d9CCt": {
+                      "content": "Catalog and tools"
+                    },
+                    "L:fCkWv": {
+                      "content": "SMDA-2 Settle and reconcile the twenty shop-fami…"
+                    },
+                    "L:hgwsL": {
+                      "type": "frame",
+                      "id": "L0SqW",
+                      "name": "Track",
+                      "width": "fill_container",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "NRC7M",
+                          "name": "No releases",
+                          "fill": "$L:faint-foreground",
+                          "content": "No releases planned",
+                          "fontFamily": "$L:font-sans",
+                          "fontSize": "$L:text-caption",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "id": "sEr0E",
+                  "type": "ref",
+                  "ref": "L:nu2ZX",
+                  "name": "Repo Supermarty-B-V/sm-admin-web",
+                  "width": "fill_container",
+                  "descendants": {
+                    "L:Iz3Nf": {
+                      "content": "Supermarty-B-V/sm-admin-web"
+                    },
+                    "L:JhS8H": {
+                      "content": "main"
+                    }
+                  }
+                },
+                {
+                  "id": "YFzgA",
+                  "type": "ref",
+                  "ref": "L:P5zC6d",
+                  "name": "Lane Catalog and tools",
+                  "width": "fill_container",
+                  "padding": [
+                    10,
+                    16,
+                    10,
+                    64
+                  ],
+                  "descendants": {
+                    "L:d9CCt": {
+                      "content": "Catalog and tools"
+                    },
+                    "L:fCkWv": {
+                      "content": "SMDA-2 Settle and reconcile the twenty shop-fami…"
+                    },
+                    "L:hgwsL": {
+                      "type": "frame",
+                      "id": "v8F3Yx",
+                      "name": "Track",
+                      "width": "fill_container",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "ixRuf",
+                          "name": "No releases",
+                          "fill": "$L:faint-foreground",
+                          "content": "No releases planned",
+                          "fontFamily": "$L:font-sans",
+                          "fontSize": "$L:text-caption",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "id": "h5Izvg",
+                  "type": "ref",
+                  "ref": "L:nu2ZX",
+                  "name": "Repo Supermarty-B-V/sm-design",
+                  "width": "fill_container",
+                  "descendants": {
+                    "L:Iz3Nf": {
+                      "content": "Supermarty-B-V/sm-design"
+                    },
+                    "L:JhS8H": {
+                      "content": "main"
+                    }
+                  }
+                },
+                {
+                  "id": "rFr25",
+                  "type": "ref",
+                  "ref": "L:P5zC6d",
+                  "name": "Lane Design components",
+                  "width": "fill_container",
+                  "padding": [
+                    10,
+                    16,
+                    10,
+                    64
+                  ],
+                  "descendants": {
+                    "L:d9CCt": {
+                      "content": "Design components"
+                    },
+                    "L:fCkWv": {
+                      "content": "SMDE-4 Product components renamed to Article a…"
+                    },
+                    "L:hgwsL": {
+                      "type": "frame",
+                      "id": "gI1Gy",
+                      "name": "Track",
+                      "width": "fill_container",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "Z1WRf",
+                          "name": "No releases",
+                          "fill": "$L:faint-foreground",
+                          "content": "No releases planned",
+                          "fontFamily": "$L:font-sans",
+                          "fontSize": "$L:text-caption",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "id": "PW4TB",
+                  "type": "ref",
+                  "ref": "L:OmgsW",
+                  "name": "Org We Work",
+                  "width": "fill_container",
+                  "descendants": {
+                    "L:J0vcO": {
+                      "icon": "chevron-down"
+                    },
+                    "L:vGXBm": {
+                      "content": "We Work"
+                    },
+                    "L:qWYV5": {
+                      "content": "4 worklanes"
+                    }
+                  }
+                },
+                {
+                  "id": "X5lAz",
+                  "type": "ref",
+                  "ref": "L:jQgff",
+                  "name": "Project We Work dashboard",
+                  "width": "fill_container",
+                  "descendants": {
+                    "L:C91y7r": {
+                      "icon": "chevron-down"
+                    },
+                    "L:wK5Rv": {
+                      "content": "W",
+                      "fontFamily": "$L:font-sans",
+                      "fontWeight": "600",
+                      "fill": "#000000"
+                    },
+                    "L:r5iwMe": {
+                      "content": "We Work dashboard"
+                    },
+                    "L:RZAIX": {
+                      "enabled": false
+                    },
+                    "L:nK8wo": {
+                      "content": "1 repository · 4 worklanes"
+                    }
+                  }
+                },
+                {
+                  "id": "z7giZp",
+                  "type": "ref",
+                  "ref": "L:nu2ZX",
+                  "name": "Repo appboypov/wwfo-dashboard",
+                  "width": "fill_container",
+                  "descendants": {
+                    "L:Iz3Nf": {
+                      "content": "appboypov/wwfo-dashboard"
+                    },
+                    "L:JhS8H": {
+                      "content": "main"
+                    }
+                  }
+                },
+                {
+                  "id": "OIvjT",
+                  "type": "ref",
+                  "ref": "L:P5zC6d",
+                  "name": "Lane main",
+                  "width": "fill_container",
+                  "padding": [
+                    10,
+                    16,
+                    10,
+                    64
+                  ],
+                  "descendants": {
+                    "L:d9CCt": {
+                      "content": "main"
+                    },
+                    "L:Ac5sM/L:q2fV1": {
+                      "stroke": "#000000"
+                    },
+                    "L:Ac5sM/L:TXRkn": {
+                      "enabled": false
+                    },
+                    "L:fCkWv": {
+                      "content": "Next: WWFO-133 Verwerkersovereenkomst en regi…"
+                    },
+                    "L:hgwsL": {
+                      "type": "frame",
+                      "id": "QlCQz",
+                      "name": "Track",
+                      "width": "fill_container",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "sL8fX",
+                          "name": "No releases",
+                          "fill": "$L:faint-foreground",
+                          "content": "No releases planned",
+                          "fontFamily": "$L:font-sans",
+                          "fontSize": "$L:text-caption",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "id": "k6Qal",
+                  "type": "ref",
+                  "ref": "L:P5zC6d",
+                  "name": "Lane Dossiers en medewerkers",
+                  "width": "fill_container",
+                  "padding": [
+                    10,
+                    16,
+                    10,
+                    64
+                  ],
+                  "descendants": {
+                    "L:d9CCt": {
+                      "content": "Dossiers en medewerkers"
+                    },
+                    "L:Ac5sM/L:q2fV1": {
+                      "stroke": "#000000"
+                    },
+                    "L:Ac5sM/L:TXRkn": {
+                      "enabled": false
+                    },
+                    "L:fCkWv": {
+                      "content": "Next: WWFO-12 Uitzendkracht, medewerkerslijst e…"
+                    },
+                    "L:hgwsL": {
+                      "type": "frame",
+                      "id": "Aayja",
+                      "name": "Track",
+                      "width": "fill_container",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "MSd9d",
+                          "name": "No releases",
+                          "fill": "$L:faint-foreground",
+                          "content": "No releases planned",
+                          "fontFamily": "$L:font-sans",
+                          "fontSize": "$L:text-caption",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "id": "dyXmJ",
+                  "type": "ref",
+                  "ref": "L:P5zC6d",
+                  "name": "Lane Rooster en WhatsApp",
+                  "width": "fill_container",
+                  "padding": [
+                    10,
+                    16,
+                    10,
+                    64
+                  ],
+                  "descendants": {
+                    "L:d9CCt": {
+                      "content": "Rooster en WhatsApp"
+                    },
+                    "L:Ac5sM/L:q2fV1": {
+                      "stroke": "#000000"
+                    },
+                    "L:Ac5sM/L:TXRkn": {
+                      "enabled": false
+                    },
+                    "L:fCkWv": {
+                      "content": "Next: WWFO-46 Mockups Rooster"
+                    },
+                    "L:hgwsL": {
+                      "type": "frame",
+                      "id": "SMbY7",
+                      "name": "Track",
+                      "width": "fill_container",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "Rn6x9",
+                          "name": "No releases",
+                          "fill": "$L:faint-foreground",
+                          "content": "No releases planned",
+                          "fontFamily": "$L:font-sans",
+                          "fontSize": "$L:text-caption",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "id": "mKr89",
+                  "type": "ref",
+                  "ref": "L:P5zC6d",
+                  "name": "Lane Uren en facturen",
+                  "width": "fill_container",
+                  "padding": [
+                    10,
+                    16,
+                    10,
+                    64
+                  ],
+                  "descendants": {
+                    "L:d9CCt": {
+                      "content": "Uren en facturen"
+                    },
+                    "L:Ac5sM/L:q2fV1": {
+                      "stroke": "#000000"
+                    },
+                    "L:Ac5sM/L:TXRkn": {
+                      "enabled": false
+                    },
+                    "L:fCkWv": {
+                      "content": "Next: WWFO-97 Urenmail als tekst invoeren via de…"
+                    },
+                    "L:hgwsL": {
+                      "type": "frame",
+                      "id": "j9y8Gn",
+                      "name": "Track",
+                      "width": "fill_container",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "M1GtD",
+                          "name": "No releases",
+                          "fill": "$L:faint-foreground",
+                          "content": "No releases planned",
+                          "fontFamily": "$L:font-sans",
+                          "fontSize": "$L:text-caption",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "v0Aqs",
+      "x": 9360,
+      "y": 0,
+      "name": "4d · Releases",
+      "clip": true,
+      "width": 1440,
+      "height": 640,
+      "fill": "$L:app-shell",
+      "children": [
+        {
+          "id": "cIxwT",
+          "type": "ref",
+          "ref": "L:aSVx6",
+          "name": "App sidebar",
+          "height": "fill_container",
+          "descendants": {
+            "L:qSICc": {
+              "fill": "#00000000"
+            },
+            "L:qSICc/L:fVZGR": {
+              "fill": "$L:muted-foreground"
+            },
+            "L:qSICc/L:hOvR0": {
+              "fill": "$L:muted-foreground",
+              "fontWeight": "normal"
+            },
+            "L:AIzGY": {
+              "fill": "$L:sidebar-accent"
+            },
+            "L:AIzGY/L:irWtm": {
+              "fill": "$L:foreground"
+            },
+            "L:AIzGY/L:eld4j": {
+              "fill": "$L:foreground",
+              "fontWeight": "500"
+            }
+          }
+        },
+        {
+          "type": "frame",
+          "id": "vXc3L",
+          "name": "Main",
+          "clip": true,
+          "width": "fill_container",
+          "height": "fill_container",
+          "fill": "$L:page-canvas",
+          "layout": "vertical",
+          "children": [
+            {
+              "id": "t0IS1F",
+              "type": "ref",
+              "ref": "L:p1b4tu",
+              "name": "Page header",
+              "width": "fill_container",
+              "descendants": {
+                "L:dsuI9": {
+                  "icon": "tag"
+                },
+                "L:EZ9ww": {
+                  "content": "Releases"
+                },
+                "L:ky0VG": {
+                  "content": "5"
+                },
+                "L:SqyrP": {
+                  "enabled": false
+                }
+              }
+            },
+            {
+              "type": "frame",
+              "id": "ymQib",
+              "name": "Tree",
+              "width": "fill_container",
+              "layout": "vertical",
+              "padding": [
+                8,
+                24,
+                24,
+                24
+              ],
+              "children": [
+                {
+                  "id": "J2bIi",
+                  "type": "ref",
+                  "ref": "L:O8mp7C",
+                  "name": "Tree header",
+                  "width": "fill_container",
+                  "padding": [
+                    0,
+                    16
+                  ],
+                  "descendants": {
+                    "L:GQsUn": {
+                      "width": "fill_container"
+                    },
+                    "L:qqcdq": {
+                      "type": "frame",
+                      "id": "ah7hK",
+                      "name": "Columns",
+                      "gap": 16,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "Unt6k",
+                          "name": "Col Issues",
+                          "fill": "$L:muted-foreground",
+                          "textGrowth": "fixed-width",
+                          "width": 140,
+                          "content": "Issues",
+                          "fontFamily": "$L:font-sans",
+                          "fontSize": "$L:text-caption",
+                          "fontWeight": "500"
+                        },
+                        {
+                          "type": "text",
+                          "id": "bnvUo",
+                          "name": "Col Worklanes",
+                          "fill": "$L:muted-foreground",
+                          "textGrowth": "fixed-width",
+                          "width": 200,
+                          "content": "Worklanes",
+                          "fontFamily": "$L:font-sans",
+                          "fontSize": "$L:text-caption",
+                          "fontWeight": "500"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "WfKKD",
+                          "name": "Chevron space",
+                          "width": 16,
+                          "height": 1
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "id": "m22fv",
+                  "type": "ref",
+                  "ref": "L:OmgsW",
+                  "name": "Org Rebl Records",
+                  "width": "fill_container",
+                  "descendants": {
+                    "L:J0vcO": {
+                      "icon": "chevron-down"
+                    },
+                    "L:vGXBm": {
+                      "content": "Rebl Records"
+                    },
+                    "L:qWYV5": {
+                      "content": "5 releases"
+                    }
+                  }
+                },
+                {
+                  "id": "P1P1xJ",
+                  "type": "ref",
+                  "ref": "L:jQgff",
+                  "name": "Project Rebl",
+                  "width": "fill_container",
+                  "descendants": {
+                    "L:C91y7r": {
+                      "icon": "chevron-down"
+                    },
+                    "L:wK5Rv": {
+                      "content": "R",
+                      "fontFamily": "$L:font-sans",
+                      "fontWeight": "600",
+                      "fill": "#000000"
+                    },
+                    "L:r5iwMe": {
+                      "content": "Rebl"
+                    },
+                    "L:RZAIX": {
+                      "enabled": false
+                    },
+                    "L:nK8wo": {
+                      "content": "1 repository · 5 releases"
+                    }
+                  }
+                },
+                {
+                  "id": "jQlHP",
+                  "type": "ref",
+                  "ref": "L:nu2ZX",
+                  "name": "Repo appboypov/rebl",
+                  "width": "fill_container",
+                  "descendants": {
+                    "L:Iz3Nf": {
+                      "content": "appboypov/rebl"
+                    },
+                    "L:JhS8H": {
+                      "content": "main"
+                    },
+                    "L:x7cpGe": {
+                      "enabled": false
+                    }
+                  }
+                },
+                {
+                  "type": "frame",
+                  "id": "elT6g",
+                  "name": "Release v1.0.0",
+                  "width": "fill_container",
+                  "fill": "$L:surface",
+                  "stroke": "$L:border",
+                  "strokeWidth": {
+                    "bottom": 1
+                  },
+                  "gap": 16,
+                  "padding": [
+                    12,
+                    16,
+                    12,
+                    64
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "hdwLi",
+                      "name": "Version",
+                      "width": 96,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "id": "jwPMO",
+                          "type": "ref",
+                          "ref": "L:aCLgS",
+                          "name": "Release",
+                          "descendants": {
+                            "L:uo2SE": {
+                              "content": "v1.0.0"
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "mJDlr",
+                      "name": "Title",
+                      "fill": "$L:foreground",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "First production release",
+                      "fontFamily": "$L:font-sans",
+                      "fontSize": "$L:text-body",
+                      "fontWeight": "500"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "tgjmK",
+                      "name": "Issues",
+                      "width": 140,
+                      "gap": 8,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "id": "yAtpp",
+                          "type": "ref",
+                          "ref": "L:t8IohM",
+                          "name": "Progress",
+                          "descendants": {
+                            "L:l0V5e": {
+                              "width": 0
+                            }
+                          }
+                        },
+                        {
+                          "type": "text",
+                          "id": "WyShp",
+                          "name": "Progress label",
+                          "fill": "$L:muted-foreground",
+                          "content": "0/33",
+                          "fontFamily": "$L:font-sans",
+                          "fontSize": "$L:text-caption",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "DQR1j",
+                      "name": "Worklanes",
+                      "width": 200,
+                      "gap": 6,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "id": "D9vcxC",
+                          "type": "ref",
+                          "ref": "L:lJMgF",
+                          "name": "Worklane main",
+                          "descendants": {
+                            "L:x365t": {
+                              "content": "main"
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "type": "icon",
+                      "id": "X7SoB",
+                      "name": "Open",
+                      "width": 16,
+                      "height": 16,
+                      "icon": "chevron-right",
+                      "library": "lucide",
+                      "fill": "$L:faint-foreground"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "jYcUz",
+                  "name": "Release v1.0.1",
+                  "width": "fill_container",
+                  "fill": "$L:surface",
+                  "stroke": "$L:border",
+                  "strokeWidth": {
+                    "bottom": 1
+                  },
+                  "gap": 16,
+                  "padding": [
+                    12,
+                    16,
+                    12,
+                    64
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "T4CdsM",
+                      "name": "Version",
+                      "width": 96,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "id": "y6pm7",
+                          "type": "ref",
+                          "ref": "L:bFt73",
+                          "name": "Release",
+                          "descendants": {
+                            "L:TsHtV": {
+                              "content": "v1.0.1"
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "VYKZd",
+                      "name": "Title",
+                      "fill": "$L:foreground",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Membership hardening",
+                      "fontFamily": "$L:font-sans",
+                      "fontSize": "$L:text-body",
+                      "fontWeight": "500"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "BwqXS",
+                      "name": "Issues",
+                      "width": 140,
+                      "gap": 8,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "id": "S22k4g",
+                          "type": "ref",
+                          "ref": "L:t8IohM",
+                          "name": "Progress",
+                          "descendants": {
+                            "L:l0V5e": {
+                              "width": 11
+                            }
+                          }
+                        },
+                        {
+                          "type": "text",
+                          "id": "D0cgz",
+                          "name": "Progress label",
+                          "fill": "$L:muted-foreground",
+                          "content": "2/12",
+                          "fontFamily": "$L:font-sans",
+                          "fontSize": "$L:text-caption",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "DVyOr",
+                      "name": "Worklanes",
+                      "width": 200,
+                      "gap": 6,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "id": "c5e9o",
+                          "type": "ref",
+                          "ref": "L:lJMgF",
+                          "name": "Worklane main",
+                          "descendants": {
+                            "L:x365t": {
+                              "content": "main"
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "type": "icon",
+                      "id": "YXQgJ",
+                      "name": "Open",
+                      "width": 16,
+                      "height": 16,
+                      "icon": "chevron-right",
+                      "library": "lucide",
+                      "fill": "$L:faint-foreground"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "R42frU",
+                  "name": "Release v1.1.0",
+                  "width": "fill_container",
+                  "fill": "$L:surface",
+                  "stroke": "$L:border",
+                  "strokeWidth": {
+                    "bottom": 1
+                  },
+                  "gap": 16,
+                  "padding": [
+                    12,
+                    16,
+                    12,
+                    64
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "D6YO4n",
+                      "name": "Version",
+                      "width": 96,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "id": "WNL6C",
+                          "type": "ref",
+                          "ref": "L:bFt73",
+                          "name": "Release",
+                          "descendants": {
+                            "L:TsHtV": {
+                              "content": "v1.1.0"
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "Xh1AC",
+                      "name": "Title",
+                      "fill": "$L:foreground",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Account and profile",
+                      "fontFamily": "$L:font-sans",
+                      "fontSize": "$L:text-body",
+                      "fontWeight": "500"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "gt4uP",
+                      "name": "Issues",
+                      "width": 140,
+                      "gap": 8,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "id": "AnoxU",
+                          "type": "ref",
+                          "ref": "L:t8IohM",
+                          "name": "Progress",
+                          "descendants": {
+                            "L:l0V5e": {
+                              "width": 0
+                            }
+                          }
+                        },
+                        {
+                          "type": "text",
+                          "id": "K1RUt",
+                          "name": "Progress label",
+                          "fill": "$L:muted-foreground",
+                          "content": "0/14",
+                          "fontFamily": "$L:font-sans",
+                          "fontSize": "$L:text-caption",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "P2qBn",
+                      "name": "Worklanes",
+                      "width": 200,
+                      "gap": 6,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "id": "JbZ3T",
+                          "type": "ref",
+                          "ref": "L:lJMgF",
+                          "name": "Worklane Fan accounts and push",
+                          "descendants": {
+                            "L:x365t": {
+                              "content": "Fan accounts and push"
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "type": "icon",
+                      "id": "uDnUE",
+                      "name": "Open",
+                      "width": 16,
+                      "height": 16,
+                      "icon": "chevron-right",
+                      "library": "lucide",
+                      "fill": "$L:faint-foreground"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "h9TqtA",
+                  "name": "Release v1.2.0",
+                  "width": "fill_container",
+                  "fill": "$L:surface",
+                  "stroke": "$L:border",
+                  "strokeWidth": {
+                    "bottom": 1
+                  },
+                  "gap": 16,
+                  "padding": [
+                    12,
+                    16,
+                    12,
+                    64
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "KjtFU",
+                      "name": "Version",
+                      "width": 96,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "id": "QhPF0",
+                          "type": "ref",
+                          "ref": "L:bFt73",
+                          "name": "Release",
+                          "descendants": {
+                            "L:TsHtV": {
+                              "content": "v1.2.0"
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "R4V3U",
+                      "name": "Title",
+                      "fill": "$L:foreground",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Notifications",
+                      "fontFamily": "$L:font-sans",
+                      "fontSize": "$L:text-body",
+                      "fontWeight": "500"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "C4iy6",
+                      "name": "Issues",
+                      "width": 140,
+                      "gap": 8,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "id": "U1B16",
+                          "type": "ref",
+                          "ref": "L:t8IohM",
+                          "name": "Progress",
+                          "descendants": {
+                            "L:l0V5e": {
+                              "width": 0
+                            }
+                          }
+                        },
+                        {
+                          "type": "text",
+                          "id": "F4BO0",
+                          "name": "Progress label",
+                          "fill": "$L:muted-foreground",
+                          "content": "0/13",
+                          "fontFamily": "$L:font-sans",
+                          "fontSize": "$L:text-caption",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "OUSLr",
+                      "name": "Worklanes",
+                      "width": 200,
+                      "gap": 6,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "id": "wsEUg",
+                          "type": "ref",
+                          "ref": "L:lJMgF",
+                          "name": "Worklane Fan accounts and push",
+                          "descendants": {
+                            "L:x365t": {
+                              "content": "Fan accounts and push"
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "type": "icon",
+                      "id": "uxORX",
+                      "name": "Open",
+                      "width": 16,
+                      "height": 16,
+                      "icon": "chevron-right",
+                      "library": "lucide",
+                      "fill": "$L:faint-foreground"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "HiOlg",
+                  "name": "Release v1.3.0",
+                  "width": "fill_container",
+                  "fill": "$L:surface",
+                  "stroke": "$L:border",
+                  "strokeWidth": {
+                    "bottom": 1
+                  },
+                  "gap": 16,
+                  "padding": [
+                    12,
+                    16,
+                    12,
+                    64
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "v3YMFr",
+                      "name": "Version",
+                      "width": 96,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "id": "NYaPO",
+                          "type": "ref",
+                          "ref": "L:bFt73",
+                          "name": "Release",
+                          "descendants": {
+                            "L:TsHtV": {
+                              "content": "v1.3.0"
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "x4RK9G",
+                      "name": "Title",
+                      "fill": "$L:foreground",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Agenda and publication",
+                      "fontFamily": "$L:font-sans",
+                      "fontSize": "$L:text-body",
+                      "fontWeight": "500"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "RMIsG",
+                      "name": "Issues",
+                      "width": 140,
+                      "gap": 8,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "id": "FLghc",
+                          "type": "ref",
+                          "ref": "L:t8IohM",
+                          "name": "Progress",
+                          "descendants": {
+                            "L:l0V5e": {
+                              "width": 0
+                            }
+                          }
+                        },
+                        {
+                          "type": "text",
+                          "id": "bh12m",
+                          "name": "Progress label",
+                          "fill": "$L:muted-foreground",
+                          "content": "0/17",
+                          "fontFamily": "$L:font-sans",
+                          "fontSize": "$L:text-caption",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "jQQiv",
+                      "name": "Worklanes",
+                      "width": 200,
+                      "gap": 6,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "id": "T2MjLS",
+                          "type": "ref",
+                          "ref": "L:lJMgF",
+                          "name": "Worklane Agenda and publication",
+                          "descendants": {
+                            "L:x365t": {
+                              "content": "Agenda and publication"
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "type": "icon",
+                      "id": "RSRvK",
+                      "name": "Open",
+                      "width": 16,
+                      "height": 16,
+                      "icon": "chevron-right",
+                      "library": "lucide",
+                      "fill": "$L:faint-foreground"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "j1Q2Ox",
+      "x": 10920,
       "y": 0,
       "name": "5 · New issue from template",
       "clip": true,
@@ -4756,7 +7602,7 @@
     {
       "type": "frame",
       "id": "IqvJH",
-      "x": 9360,
+      "x": 12480,
       "y": 0,
       "name": "6 · Add repository",
       "clip": true,
@@ -5338,7 +8184,7 @@
     {
       "type": "frame",
       "id": "W6bn5",
-      "x": 10920,
+      "x": 14040,
       "y": 0,
       "name": "7 · New worklane",
       "clip": true,
@@ -5887,7 +8733,7 @@
     {
       "type": "frame",
       "id": "sR5pM",
-      "x": 12480,
+      "x": 15600,
       "y": 0,
       "name": "7 · New worklane · creating",
       "clip": true,
@@ -6352,7 +9198,7 @@
     {
       "type": "frame",
       "id": "C3pq2l",
-      "x": 14040,
+      "x": 17160,
       "y": 0,
       "name": "7 · New worklane · failed",
       "clip": true,
@@ -6829,7 +9675,7 @@
     {
       "type": "frame",
       "id": "VxPac",
-      "x": 15600,
+      "x": 18720,
       "y": 0,
       "name": "8 · Plan release",
       "clip": true,
@@ -8327,7 +11173,7 @@
     {
       "type": "frame",
       "id": "F8syw4",
-      "x": 17160,
+      "x": 20280,
       "y": 0,
       "name": "8 · Edit release · set by hand",
       "clip": true,
@@ -9728,7 +12574,7 @@
     {
       "type": "frame",
       "id": "YUHDc",
-      "x": 18720,
+      "x": 21840,
       "y": 0,
       "name": "8 · Edit release · version too low",
       "clip": true,
@@ -11126,7 +13972,7 @@
     {
       "type": "frame",
       "id": "ajRaU",
-      "x": 20280,
+      "x": 23400,
       "y": 0,
       "name": "3b · Release actions",
       "clip": true,

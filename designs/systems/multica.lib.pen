@@ -5786,9 +5786,9 @@
         {
           "type": "text",
           "id": "ikO4E",
-          "name": "App sidebar  (changed: Organisations, project tree)",
+          "name": "App sidebar  (changed: Organisations, Worklanes, Releases)",
           "fill": "$foreground",
-          "content": "App sidebar  (changed: Organisations)",
+          "content": "App sidebar  (changed: Organisations, Worklanes, Releases)",
           "fontFamily": "$font-sans",
           "fontSize": "$text-title-sm",
           "fontWeight": "600"
@@ -6043,6 +6043,36 @@
                     },
                     "eld4j": {
                       "content": "Organisations"
+                    }
+                  }
+                },
+                {
+                  "id": "Vqsn9",
+                  "type": "ref",
+                  "ref": "q5CDcw",
+                  "name": "Nav worklanes",
+                  "width": "fill_container",
+                  "descendants": {
+                    "irWtm": {
+                      "icon": "git-branch"
+                    },
+                    "eld4j": {
+                      "content": "Worklanes"
+                    }
+                  }
+                },
+                {
+                  "id": "AIzGY",
+                  "type": "ref",
+                  "ref": "q5CDcw",
+                  "name": "Nav releases",
+                  "width": "fill_container",
+                  "descendants": {
+                    "irWtm": {
+                      "icon": "tag"
+                    },
+                    "eld4j": {
+                      "content": "Releases"
                     }
                   }
                 },
