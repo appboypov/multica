@@ -33,7 +33,7 @@ Tous les autres champs peuvent garder leur valeur par défaut et être ajustés 
 
 ## Description et instructions
 
-La **description** est une courte présentation destinée à l'équipe. Elle n'apparaît que dans la liste des agents et sur la page de détail, et n'entre jamais dans le prompt de l'outil de codage IA.
+La **description** est une courte présentation destinée à l'équipe. Elle n'apparaît que dans la liste des agents et sur la page de détail, et n'entre jamais dans le prompt de l'outil de codage IA. Sa longueur n'est pas limitée : au-delà de 255 caractères, son compteur signale qu'elle dépasse la longueur recommandée, et la description s'enregistre quand même.
 
 Les **instructions** sont fournies à l'agent à chaque exécution et couvrent généralement :
 
@@ -57,6 +57,18 @@ Ne modifiez pas le code directement. Publiez vos constats dans un commentaire de
 classés par gravité ; si rien n'est bloquant, indiquez clairement que la modification peut être fusionnée.
 ```
 
+### Sélectionner des fichiers et des dossiers
+
+Les instructions peuvent aussi charger, à chaque exécution, des fichiers et des dossiers de l'ordinateur du runtime : un agent peut ainsi utiliser comme instructions vivantes un skill ou des notes que vous gardez sur le disque. La sélection se trouve sous les instructions, sur la page de création, dans la boîte de dialogue de création et dans l'onglet **Instructions** de l'agent.
+
+Le propriétaire du runtime de l'agent clique sur **Parcourir** pour lister, sur cet ordinateur, les racines de skills de l'outil de codage IA du runtime, comme `~/.omp/agent/skills`, puis ouvre des dossiers ou saisit un chemin absolu. Cochez des fichiers et des dossiers, dans autant de dossiers que vous le souhaitez, puis cliquez sur **Ajouter** : ils apparaissent sous forme de puces sous les instructions, dans l'ordre où vous les avez ajoutés. Les entrées masquées (dont le nom commence par `.`) sont listées, marquées comme masquées et peuvent être sélectionnées. Tant que le runtime est hors ligne, la boîte de dialogue Parcourir ne liste rien et n'ajoute rien ; les puces peuvent toujours être retirées.
+
+La sélection est chargée là où les instructions contiennent `{selection}`. La première fois que vous ajoutez des chemins, `{selection}` est inséré au curseur, ou à la fin si les instructions n'ont jamais eu le focus ; vous pouvez le déplacer ou l'écrire plusieurs fois. Au début de chaque exécution, le daemon de l'ordinateur du runtime lit les chemins sélectionnés sur le disque et remplace chaque `{selection}` par l'arborescence de chaque dossier sélectionné et le contenu de chaque fichier texte, dans l'ordre de la sélection. Un dossier sélectionné ignore les fichiers et dossiers masqués, les fichiers binaires et, dans un dépôt git, les fichiers que git ignore ; un chemin que vous sélectionnez vous-même est toujours lu. Les modifications sur le disque apparaissent à l'exécution suivante, sans réenregistrer l'agent.
+
+Le champ avertit quand les deux ne correspondent pas : des chemins sont sélectionnés mais les instructions ne contiennent pas `{selection}`, si bien que la sélection n'est pas chargée, ou les instructions contiennent `{selection}` mais aucun chemin n'est sélectionné, si bien qu'il reste vide. Aucun des deux avertissements n'empêche l'enregistrement. Une exécution dont un chemin sélectionné est introuvable ou illisible, ou dont un fichier sélectionné n'est pas un fichier texte, échoue avant le démarrage de l'agent avec **Erreur de sélection des instructions** et le chemin dans son erreur, et n'est pas relancée.
+
+Seul le propriétaire du runtime de l'agent peut parcourir son ordinateur et ajouter ou retirer des chemins sélectionnés. Toute autre personne qui peut voir l'agent voit les chemins sélectionnés comme des puces en lecture seule ; un membre qui peut modifier l'agent peut toujours changer le texte des instructions, et la sélection reste telle quelle.
+
 ## Ajouter des skills
 
 Lors de la création, vous pouvez choisir un ou plusieurs [skills](/skills) de l'espace de travail.
@@ -65,7 +77,9 @@ Les skills conviennent aux méthodes et aux supports réutilisés par plusieurs 
 
 ## Amorces de conversation
 
-Ajoutez jusqu'à trois **amorces de conversation** pour montrer ce que cet agent sait bien faire avant que l'on envoie un premier message dans une discussion. Elles apparaissent au-dessus du champ de saisie lorsque quelqu'un ouvre une nouvelle discussion avec l'agent. Chaque amorce comporte un libellé court et un prompt complet. En choisir une remplit le champ de saisie pour que l'utilisateur puisse la relire ou la modifier ; elle ne lance jamais d'exécution automatiquement.
+Ajoutez jusqu'à trois **amorces de conversation** pour montrer ce que cet agent sait bien faire avant que l'on envoie un premier message dans une discussion. Elles apparaissent au-dessus du champ de saisie lorsque quelqu'un ouvre une nouvelle discussion avec l'agent. Chaque amorce comporte un libellé court et un prompt complet, tous deux obligatoires. En choisir une remplit le champ de saisie pour que l'utilisateur puisse la relire ou la modifier ; elle ne lance jamais d'exécution automatiquement.
+
+Les libellés et les prompts n'ont pas de limite de longueur. L'éditeur avertit lorsqu'un libellé dépasse 80 caractères ou un prompt 4 000, et l'amorce s'enregistre quand même.
 
 L'éditeur affiche un aperçu exact de ce que montrera une nouvelle discussion, et toute personne pouvant modifier l'agent voit, dans cet état vide, un lien **Personnaliser les amorces** qui ramène directement ici.
 
@@ -137,9 +151,9 @@ La configuration MCP peut contenir des jetons ; ses règles de stockage et d'aff
 
 ## Dupliquer un agent
 
-La duplication reprend l'essentiel de la configuration de travail, sauf le nom : instructions, amorces de conversation, skills, arguments personnalisés, avatar, limite de parallélisme et paramètres d'Accès. Le modèle, le niveau de réflexion et la vitesse (niveau de service) sont également repris ; si le runtime d'origine est indisponible et que la copie doit passer sur un autre runtime, ces trois valeurs sont effacées et doivent être choisies à nouveau.
+La duplication reprend l'essentiel de la configuration de travail, sauf le nom : instructions, fichiers et dossiers sélectionnés, amorces de conversation, skills, arguments personnalisés, avatar, limite de parallélisme et paramètres d'Accès. Le modèle, le niveau de réflexion et la vitesse (niveau de service) sont également repris ; si le runtime d'origine est indisponible et que la copie doit passer sur un autre runtime, ces trois valeurs sont effacées et doivent être choisies à nouveau.
 
-Les valeurs des variables d'environnement et la configuration MCP ne sont jamais copiées et doivent être redéfinies sur le nouvel agent. La duplication conserve le rattachement au runtime et les paramètres d'Accès de l'agent d'origine.
+Les valeurs des variables d'environnement et la configuration MCP ne sont jamais copiées et doivent être redéfinies sur le nouvel agent. La duplication conserve le rattachement au runtime et les paramètres d'Accès de l'agent d'origine. Seul le propriétaire du runtime de la copie peut créer une copie qui reprend des fichiers et dossiers sélectionnés.
 
 ## Créer avec le CLI
 
