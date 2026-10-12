@@ -641,7 +641,27 @@
     }
   },
   "char_counter": {
-    "over_limit": " · 制限を {{count}} 文字超過"
+    "over_limit": " · 制限を {{count}} 文字超過",
+    "over_threshold": " · 推奨の {{max}} 文字を {{count}} 文字超過"
+  },
+  "runtime_browser": {
+    "title": "ランタイムを参照",
+    "path": "パス",
+    "up": "上の階層へ",
+    "hidden": "隠し",
+    "offline": "ランタイムはオフラインです。",
+    "empty": "何もありません。",
+    "error": "このパスを一覧表示できません: {{message}}",
+    "add": "追加"
+  },
+  "instructions": {
+    "selection": {
+      "list": "選択したファイルとフォルダー",
+      "browse": "参照",
+      "remove": "{{path}} を削除",
+      "warning_not_loaded": "選択したパスは読み込まれません: 指示に {selection} がありません。",
+      "warning_empty_placeholder": "{selection} は空のままです: パスが選択されていません。"
+    }
   },
   "presence": {
     "queue_badge": "+{{count}} 待機中"

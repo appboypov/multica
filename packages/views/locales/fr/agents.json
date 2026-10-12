@@ -758,7 +758,27 @@
     }
   },
   "char_counter": {
-    "over_limit": " · {{count}} au-delà de la limite"
+    "over_limit": " · {{count}} au-delà de la limite",
+    "over_threshold": " · {{count}} au-delà des {{max}} recommandés"
+  },
+  "runtime_browser": {
+    "title": "Parcourir le runtime",
+    "path": "Chemin",
+    "up": "Dossier parent",
+    "hidden": "masqué",
+    "offline": "Le runtime est hors ligne.",
+    "empty": "Rien ici.",
+    "error": "Impossible de lister ce chemin : {{message}}",
+    "add": "Ajouter"
+  },
+  "instructions": {
+    "selection": {
+      "list": "Fichiers et dossiers sélectionnés",
+      "browse": "Parcourir",
+      "remove": "Retirer {{path}}",
+      "warning_not_loaded": "Les chemins sélectionnés ne sont pas chargés : les instructions ne contiennent pas {selection}.",
+      "warning_empty_placeholder": "{selection} reste vide : aucun chemin n'est sélectionné."
+    }
   },
   "presence": {
     "queue_badge": "+{{count}} en attente"

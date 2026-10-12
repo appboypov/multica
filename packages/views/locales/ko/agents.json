@@ -649,7 +649,27 @@
     }
   },
   "char_counter": {
-    "over_limit": " · 제한 초과 {{count}}자"
+    "over_limit": " · 제한 초과 {{count}}자",
+    "over_threshold": " · 권장 {{max}}자보다 {{count}}자 초과"
+  },
+  "runtime_browser": {
+    "title": "런타임 찾아보기",
+    "path": "경로",
+    "up": "상위 폴더",
+    "hidden": "숨김",
+    "offline": "런타임이 오프라인입니다.",
+    "empty": "항목이 없습니다.",
+    "error": "이 경로를 나열할 수 없습니다: {{message}}",
+    "add": "추가"
+  },
+  "instructions": {
+    "selection": {
+      "list": "선택한 파일 및 폴더",
+      "browse": "찾아보기",
+      "remove": "{{path}} 제거",
+      "warning_not_loaded": "선택한 경로가 로드되지 않습니다: 지침에 {selection}이(가) 없습니다.",
+      "warning_empty_placeholder": "{selection}이(가) 비어 있습니다: 선택한 경로가 없습니다."
+    }
   },
   "presence": {
     "queue_badge": "+{{count}} 대기 중"

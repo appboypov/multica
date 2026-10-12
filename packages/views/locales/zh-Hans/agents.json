@@ -743,7 +743,27 @@
     }
   },
   "char_counter": {
-    "over_limit": " · 超出 {{count}} 字"
+    "over_limit": " · 超出 {{count}} 字",
+    "over_threshold": " · 比建议的 {{max}} 字多 {{count}} 字"
+  },
+  "runtime_browser": {
+    "title": "浏览运行时",
+    "path": "路径",
+    "up": "上一级",
+    "hidden": "隐藏",
+    "offline": "运行时已离线。",
+    "empty": "这里没有内容。",
+    "error": "无法列出此路径：{{message}}",
+    "add": "添加"
+  },
+  "instructions": {
+    "selection": {
+      "list": "已选文件和文件夹",
+      "browse": "浏览",
+      "remove": "移除 {{path}}",
+      "warning_not_loaded": "所选路径未加载：指令中没有 {selection}。",
+      "warning_empty_placeholder": "{selection} 为空：未选择任何路径。"
+    }
   },
   "presence": {
     "queue_badge": "+{{count}} 排队"
