@@ -2,18 +2,15 @@
 
 ```mermaid
 sequenceDiagram
-  actor B as Brian
-  participant M as Multica (web or desktop)
+  participant C as Client (web, desktop or madspec-sync)
   participant S as Server
   participant D as Daemon on the runtime machine
   participant A as Agent
-  B->>M: browse the runtime, select files and folders
-  M->>S: browse request
-  S->>D: heartbeat: list one folder
-  D-->>S: entries (name, file or folder, hidden)
-  S-->>M: entries
-  B->>M: save instructions with {selection} and the selected paths
-  M->>S: update agent: instructions, instruction_selection
+  C->>S: list a runtime folder
+  S->>D: heartbeat: pending directory listing
+  D-->>S: entries (name, path, file or folder, hidden)
+  S-->>C: entries
+  C->>S: update agent: instructions, instruction_selection
   Note over S,D: a task starts
   S->>D: claim: instructions and instruction_selection
   D->>D: read the paths from disk
@@ -28,10 +25,9 @@ sequenceDiagram
 flowchart LR
   classDef new fill:#d9f2d9,stroke:#2e7d32,color:#172117
   classDef changed fill:#fff1cc,stroke:#b7791f,color:#172117
-  Field[Instructions field with picker and warnings]:::new --> API[Agent API]:::changed
-  Browser[Runtime browser]:::new --> BrowseAPI[Runtime browse API]:::new
-  BrowseAPI --> Heartbeat[Daemon heartbeat]:::changed
-  API --> Agent[(agent.instruction_selection)]:::new
+  API[Agent API]:::changed --> Agent[(agent.instruction_selection)]:::new
+  ListAPI[Runtime directory listing API]:::new --> Heartbeat[Daemon heartbeat]:::changed
+  Heartbeat --> Lister[Directory lister in the daemon]:::new
   Agent --> Claim[Task claim]:::changed
   Claim --> Loader[Selection loader in the daemon]:::new
   Loader --> Brief[Brief and inline system prompt]:::changed
@@ -41,38 +37,36 @@ flowchart LR
 
 | Kind | Name | Change | Path |
 |---|---|---|---|
-| Database column | `agent.instruction_selection` | new | `server/migrations/` |
-| Database constraint | `agent_description_length` | removed | `server/migrations/` |
+| Database column | `agent.instruction_selection` | new | `server/migrations/564_agent_instruction_selection.up.sql` |
+| Database constraint | `agent_description_length` | removed | `server/migrations/565_drop_agent_description_length.up.sql` |
 | Queries | agent create and update | changed | `server/pkg/db/queries/agent.sql` |
-| API | agent create, update, response, duplicate | changed | `server/internal/handler/agent.go` |
-| API | runtime browse request and result | new | `server/internal/handler/` |
-| Task claim | agent data with the selection | changed | `server/internal/handler/daemon.go`, `server/internal/daemon/types.go` |
-| Daemon | folder listing for the browser | new | `server/internal/daemon/` |
-| Daemon | selection loader | new | `server/internal/daemon/` |
+| API | agent create, update and response carry the selection | changed | `server/internal/handler/agent.go` |
+| API | runtime directory listing request and result | new | `server/internal/handler/runtime_directory_listing.go`, `server/cmd/server/router.go` |
+| Protocol | pending directory listing on the heartbeat | new | `server/pkg/protocol/messages.go`, `server/internal/handler/daemon.go` |
+| Task claim | agent data with the selection | changed | `server/internal/handler/agent.go`, `server/internal/handler/daemon.go`, `server/internal/daemon/types.go` |
+| Daemon | directory lister | new | `server/internal/daemon/directory_listing.go` |
+| Daemon | selection loader | new | `server/internal/daemon/instruction_selection.go` |
 | Daemon | task start fills `{selection}` | changed | `server/internal/daemon/daemon.go` |
-| Failure reason | `instruction_selection_error` | new | `server/internal/daemon/`, `packages/views/agents/components/tabs/task-failure.ts` |
-| Types and schemas | `instruction_selection` | changed | `packages/core/types/agent.ts`, `packages/core/api/schemas.ts` |
-| Limits | description 255, starter label 80, prompt 4000 as warnings | changed | `packages/core/agents/constants.ts`, `packages/core/agents/draft.ts`, `packages/core/agents/builder-protocol.ts` |
-| UI | instructions field with picker, chips and warnings | new | `packages/views/agents/components/` |
-| UI | instructions tab, create panel, create dialog | changed | `packages/views/agents/components/tabs/instructions-tab.tsx`, `packages/views/agents/create/agent-configuration-panel.tsx`, `packages/views/agents/components/instructions-editor.tsx` |
-| UI | description and starter inputs warn | changed | `packages/views/agents/components/char-counter.tsx`, `packages/views/agents/components/agent-detail-inspector.tsx`, `packages/views/agents/components/conversation-starters-editor.tsx`, `packages/views/agents/components/create-agent-dialog.tsx`, `packages/views/agents/create/use-create-agent-form.ts` |
-| Copy | agents strings | changed | `packages/views/locales/{en,fr,ja,ko,zh-Hans}/agents.json` |
-| Docs | selection and the limits | changed | `apps/docs/content/docs/agents-create*.mdx`, `server/internal/service/builtin_skills/multica-platform/references/agents.md` |
+| Failure reason | `instruction_selection_error` | new | `server/internal/daemon/daemon.go` |
+| Limits | description 255, starter label 80 and prompt 4000 leave the API | changed | `server/internal/handler/agent.go` |
+| Docs | the built-in platform skill's agent reference | changed | `server/internal/service/builtin_skills/multica-platform/references/agents.md` |
 | Sync | persona agents select their skill folder | changed | `madspec-sync/multica_sync.py`, `madspec-sync/specs/multica-agents.md`, `madspec-sync/README.md`, `madspec-sync/tests/test_multica_sync.py` |
 
 ## Why
 
 An agent's instructions are typed text, so a persona agent that should run a MadSpec skill holds only a written link to the skill and depends on the agent reading it, and any other agent holds a copy that goes stale. Brian wants an agent to run with the files on its runtime machine as they are at task start, a whole skill folder included, without a sync or a copy. The length limits on an agent's description and conversation starters get in the way of the same: sizes are his own responsibility.
 
+This change holds the server, daemon and madspec-sync side. The instructions field, the runtime browser and the limit warnings in web and desktop are the change `agent-instruction-selection-field`, which builds on this one.
+
 Success signal: an omp agent whose instructions are `{selection}` with a selected skill folder starts a task, and its brief holds that folder's tree and every text file as they are on disk at that moment; an edit saved to one of those files shows in the next task without any sync.
 
 ## What Changes
 
-- An agent gets an ordered list of absolute paths on its runtime machine, `instruction_selection`, beside `instructions`; `{selection}` in the instructions marks where the selection goes.
+- An agent gets an ordered list of absolute paths on its runtime machine, `instruction_selection`, beside `instructions`; `{selection}` in the instructions marks where the selection goes. Only the runtime's owner sets or changes it.
 - At every task start the daemon reads the selected paths from disk and replaces each `{selection}` with a tree per selected folder and every file in an XML tag; the result is the agent's instructions for that run.
 - A missing or unreadable path, or a selected binary file, fails the task before the agent starts with the new failure reason `instruction_selection_error`, never retried.
-- The instructions field gets a runtime browser for the owner of the agent's runtime, the selected paths as removable chips, and warnings when `{selection}` and the selection do not match.
-- The agent description limit (255) and the conversation starter label (80) and prompt (4000) limits go from the API, the database and the forms; the forms warn above them. At most 3 starters stays.
+- A runtime's owner can list its machine's skill roots and any folder through the API; the daemon on that machine does the listing.
+- The agent description limit (255) and the conversation starter label (80) and prompt (4000) limits leave the API and the database. At most 3 starters stays.
 - madspec-sync gives each persona agent its whole skill folder as selection instead of a written link.
 
 ## Capabilities
@@ -81,9 +75,8 @@ Success signal: an omp agent whose instructions are `{selection}` with a selecte
 
 - `agent-instruction-selection`: lets the owner of an agent's runtime keep an ordered list of files and folders on that machine as part of the agent's instructions.
 - `instruction-selection-loading`: lets an agent run each task with its selected files as they are on disk at task start, and fails the task when they cannot be read.
-- `runtime-file-browser`: lets the owner of a runtime browse its machine's skill roots, folders and typed paths and select several at once, in web and desktop.
-- `instruction-selection-field`: lets Brian see the selected paths in the instructions field, place `{selection}` in his own text, and be warned when the two do not match.
-- `agent-field-limits`: lets Brian write an agent description and conversation starters of any length, warned above 255, 80 and 4000 characters.
+- `runtime-directory-listing`: lets the owner of a runtime list its machine's skill roots and folders through the API.
+- `agent-field-limits`: lets an agent description and conversation starters of any length through the API.
 - `persona-agent-selection`: lets each madspec-sync persona agent run its whole skill folder as it is on disk.
 
 ### Modified Capabilities
@@ -93,22 +86,22 @@ None: the OpenSpec root is new and holds no specs yet.
 ## Impact
 
 - Database: one new column on `agent` and one dropped constraint; no index, no foreign key.
-- HTTP API: agent create, update and response carry `instruction_selection`; a new runtime browse request and its result; description and starter lengths are no longer rejected.
-- Daemon protocol: the task claim carries the selection; the heartbeat carries browse requests and their results.
-- Web and desktop: the instructions field in the instructions tab, the create panel and the create dialog; the description and starter inputs.
+- HTTP API: agent create, update and response carry `instruction_selection`; a new runtime directory listing request and its result; description and starter lengths are no longer rejected.
+- Daemon protocol: the task claim carries the selection; the heartbeat carries directory listing requests and the daemon posts their results.
 - madspec-sync and its spec, README and tests.
-- Docs in five languages and the built-in `multica-platform` skill.
+- The built-in `multica-platform` skill's agent reference.
 
 ## Constraints
 
 - The server never reads a runtime machine's disk and never stores file content; only the daemon on that machine reads the selection.
-- Only the owner of the agent's runtime browses that machine and changes an agent's selection.
+- Only the owner of the agent's runtime lists that machine and changes an agent's selection.
 - No size limit and no size warning on a selection.
-- The cap of 3 conversation starters stays, and text limits outside agents stay, the squad description's 255 included.
-- AGENTS.md: no foreign keys, zod schemas with `parseWithFallback` and malformed-response tests for changed responses, no compatibility shims, every check local.
+- The cap of 3 conversation starters stays.
+- AGENTS.md: no foreign keys, no compatibility shims, every check local.
 
 ## Non-goals
 
+- Web, desktop and docs: the change `agent-instruction-selection-field`.
 - Mobile: it has no instructions editor and ignores the new field.
 - The CLI.
 - The AI agent builder setting a selection.

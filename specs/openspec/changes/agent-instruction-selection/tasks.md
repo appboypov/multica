@@ -1,0 +1,80 @@
+## At a glance
+
+```mermaid
+flowchart LR
+  classDef new fill:#d9f2d9,stroke:#2e7d32,color:#172117
+  classDef changed fill:#fff1cc,stroke:#b7791f,color:#172117
+  G1[1. Storage]:::new --> G2[2. Agent API]:::changed
+  G1 --> G6[6. Limits]:::changed
+  G2 --> G3[3. Claim and loader]:::new
+  G2 --> G4[4. Directory listing]:::new
+  G2 --> G5[5. madspec-sync]:::changed
+  G3 --> G7[7. Docs and checks]:::changed
+  G4 --> G7
+  G5 --> G7
+  G6 --> G7
+```
+
+| Group | Builder | Proves it |
+|---|---|---|
+| 1. Storage | `madspec-api-builder` | `make migrate-up`, `make sqlc`, `go build ./...` |
+| 2. Agent API | `madspec-api-builder` | `go test ./internal/handler -run 'Agent'` |
+| 3. Claim and loader | `madspec-function-builder` | `go test ./internal/daemon -run 'InstructionSelection'` |
+| 4. Directory listing | `madspec-api-builder` | `go test ./internal/handler ./internal/daemon -run 'DirectoryListing'` |
+| 5. madspec-sync | `madspec-function-builder` | `uv run --with pytest pytest -p no:cacheprovider madspec-sync/tests` |
+| 6. Limits | `madspec-api-builder` | `go test ./internal/handler -run 'Agent'` |
+| 7. Docs and checks | `madspec-function-builder` | `make check`, `openspec validate` |
+
+## 1. Storage
+
+- [ ] 1.1 Add `server/migrations/564_agent_instruction_selection.{up,down}.sql`: up `ALTER TABLE agent ADD COLUMN instruction_selection JSONB NOT NULL DEFAULT '[]'::jsonb;`, down `ALTER TABLE agent DROP COLUMN IF EXISTS instruction_selection;`. Verify: `make migrate-up` then `make migrate-down` and `make migrate-up` again in the worktree.
+- [ ] 1.2 Add `server/migrations/565_drop_agent_description_length.{up,down}.sql`: up `ALTER TABLE agent DROP CONSTRAINT IF EXISTS agent_description_length;`, down re-adds `CHECK (char_length(description) <= 255) NOT VALID` without `VALIDATE`. Verify: `make migrate-up`; `\d agent` in the worktree database shows no `agent_description_length`.
+- [ ] 1.3 In `server/pkg/db/queries/agent.sql`, add `instruction_selection` to `CreateAgent` as `COALESCE(sqlc.narg('instruction_selection')::jsonb, '[]'::jsonb)` and to `UpdateAgent` as `instruction_selection = COALESCE(sqlc.narg('instruction_selection'), instruction_selection)`; run `make sqlc`. Verify: `db.Agent.InstructionSelection` exists and `cd server && go build ./...` passes.
+
+## 2. Agent API
+
+- [ ] 2.1 In `server/internal/handler/agent.go`, add `decodeInstructionSelection(raw []byte) []string` (empty or invalid JSON -> `[]` with a warning log) and `AgentResponse.InstructionSelection []string` (`json:"instruction_selection"`), filled in `agentToResponse`. Verify: a handler test reads a new agent and gets `instruction_selection: []`.
+- [ ] 2.2 Add `normaliseInstructionSelection(paths []string) ([]string, error)` (trim; reject empty or not starting with `/` with 400 `instruction_selection paths must be absolute`; keep order and duplicates) and table tests for it.
+- [ ] 2.3 Add `InstructionSelection []string` to `CreateAgentRequest` and `*[]string` to `UpdateAgentRequest`; `CreateAgent` and `UpdateAgent` normalise and pass it to the queries, `UpdateAgent` only when the raw body holds the key. Verify: tests for the round trip in order, an update without the field keeping two paths, and `["notes/b.md"]` answering 400 with the stored selection unchanged.
+- [ ] 2.4 Add `requireRuntimeOwner(w, runtimeID, userID) bool` (403 `only the runtime owner can change instruction_selection`) and call it in `CreateAgent` for a non-empty selection and in `UpdateAgent` when the normalised selection differs from the stored one. Verify: DB-backed tests with `server/internal/testutil` fixtures: the owner updates (200); another member on a public runtime changes it (403, unchanged); another member sends it unchanged with new instructions (200); another member reads the agent and gets the path.
+
+## 3. Claim and loader
+
+- [ ] 3.1 Add `TaskAgentData.InstructionSelection []string` (`json:"instruction_selection"`) in `agent.go`, fill it in `buildClaimedTaskResponse` (`daemon.go`) with `decodeInstructionSelection`, and add `AgentData.InstructionSelection []string` in `server/internal/daemon/types.go`. Verify: a claim test returns the agent's paths in order.
+- [ ] 3.2 Create `server/internal/daemon/instruction_selection.go` with `instructionSelectionError{path, cause}`, `failureReasonInstructionSelection = "instruction_selection_error"`, and the reader of design Decision 6: links resolved, hidden entries skipped inside folders, NUL in the first 8 KB skipped inside folders and an error for a selected file, `git ls-files --cached --others --exclude-standard -z --full-name` per walked root through `runGitCommandContext`, a shared `visited` set of real folders, and each real file once. Verify: unit tests in `instruction_selection_test.go` with `t.TempDir()` and a `git init` repository for each scenario in `specs/instruction-selection-loading/spec.md` (hidden and binary files, a git-ignored and an untracked file, a folder outside a repository with a `.gitignore`, a hidden root and a hidden file selected by hand, a selected link, a link loop, a file selected twice, an empty folder).
+- [ ] 3.3 Add the renderer of design Decision 7 and `expandInstructionSelection(ctx, instructions, paths)`: no `{selection}` -> unchanged without reading; an empty selection -> `""`; every `{selection}` replaced. Verify: tests for the skill-folder-and-file output byte for byte, the placeholder twice, text around it, attribute escaping of `&`, `<` and `"`, and a missing path that is not read when the text has no `{selection}`.
+- [ ] 3.4 In `runTask` (`daemon.go`), call `expandInstructionSelection` right after `instructions = task.Agent.Instructions` and return its error; in `taskRunFailureReason`, map `*instructionSelectionError` to `failureReasonInstructionSelection` before the `environmentSetupError` branch. Verify: a `newTestDaemon` test with a missing selected file sees the fail report with `instruction_selection_error`, the path and `does not exist`, and no agent run; a test with a readable file sees the filled text in the brief and, for an inline-system-prompt provider, in `SystemPrompt`.
+- [ ] 3.5 Verify no retry: a `service/task.go` test fails a task with `instruction_selection_error` and finds no retry queued.
+
+## 4. Directory listing
+
+- [ ] 4.1 In `server/pkg/protocol/messages.go`, add `PendingWorkKindDirectoryListing = "directory_listing"`, `DaemonHeartbeatPendingDirectoryListing{ID, Path}` and `DaemonHeartbeatAckPayload.PendingDirectoryListing` (`json:"pending_directory_listing,omitempty"`). Verify: `go build ./...`.
+- [ ] 4.2 Create `server/internal/handler/runtime_directory_listing.go`: `RuntimeDirectoryListingRequest`, `RuntimeDirectoryEntry`, the `DirectoryListingStore` interface and `InMemoryDirectoryListingStore` (create, get with timeout, has pending, pop pending, complete, fail) on the local-skill list's statuses and timeouts; set it in `handler.New`. Verify: store tests for pop order, completion, failure and timeout.
+- [ ] 4.3 Add `InitiateDirectoryListing` (owner only through `requireRuntimeLocalSkillAccess`, 503 when offline, `requestDaemonPendingWork(..., protocol.PendingWorkKindDirectoryListing)`), `GetDirectoryListingRequest` and `ReportDirectoryListingResult` (`requireDaemonRuntimeAccess`), and their routes in `server/cmd/server/router.go`. Verify: handler tests: owner initiate and poll; another member 403 with nothing queued; offline 503; a daemon result completes and a failed one fails the request.
+- [ ] 4.4 In `processHeartbeat` (`daemon.go`), probe and pop the listing store after the local-skill list and set `ack.PendingDirectoryListing`; copy it into the `DaemonHeartbeat` response map. Verify: a heartbeat test returns `pending_directory_listing` with its id and path once.
+- [ ] 4.5 Create `server/internal/daemon/directory_listing.go` with `listRuntimeDirectory(provider, path)` per design Decision 10; add `PendingDirectoryListing` to the client aliases and `Client.ReportDirectoryListingResult`; in `handleHeartbeatActions`, run `go d.handleDirectoryListing(ctx, rt, id, path)`, which reports through `reportRuntimeResultWithRetry(ctx, "directory_listing", ...)`. Verify: tests for the roots of `omp` under a temp `HOME`, a folder with a file, a folder, a hidden folder and a link to a folder, `~/x`, a relative path, a missing path, and a file.
+
+## 5. madspec-sync
+
+- [ ] 5.1 In `madspec-sync/multica_sync.py`, add `instruction_selection` to `Persona` and `AGENT_FIELDS`, and set it and the instructions in `read_persona` per design Decision 12. Verify: `uv run --with pytest pytest -p no:cacheprovider madspec-sync/tests` with new tests for Guus's selection and instructions and for a stale selection being rewritten.
+- [ ] 5.2 Update `madspec-sync/specs/multica-agents.md` (the requirement "An agent runs its persona as the persona command does" and the module docstring of `multica_sync.py`) and `madspec-sync/README.md`: the persona agent selects its skill folder and reads it from disk at task start; models and arguments still come from `origin/main`. Verify: the README's example matches a dry run of the sync against the worktree stack.
+
+## 6. Limits
+
+- [ ] 6.1 In `server/internal/handler/agent.go`, remove `maxAgentDescriptionLength`, `maxAgentConversationStarterLabel`, `maxAgentConversationStarterLength` and their checks; keep the cap of 3 and the required label and prompt in `normaliseAgentConversationStarters`. Verify: handler tests for a 1,000-character description, a 120-character label with a 5,000-character prompt (both returned whole), 4 starters (400) and an empty label (400); remove the tests that assert the old limits.
+
+## 7. Docs and checks
+
+- [ ] 7.1 Update `server/internal/service/builtin_skills/multica-platform/references/agents.md`: no 255, 80 or 4000 limits, at most three starters, and `instruction_selection` with `{selection}` and its owner rule; update `server/internal/service/builtin_skills_test.go`. Verify: `cd server && go test ./internal/service -run BuiltinSkill`.
+- [ ] 7.2 Run `make check` in the worktree with `.env.worktree`, and `openspec validate agent-instruction-selection --type change --strict` in `specs/`. Verify: both pass.
+- [ ] 7.3 Smoke on the worktree stack: an omp agent on Brian's runtime with instructions `{selection}` and a selected skill folder runs a task whose brief holds the folder's tree and files; after an edit to one file, the next task holds the edit; a selected missing file fails the task with `instruction_selection_error` and no retry.
+
+## Implementation Notes
+
+- Build groups 1 to 7 in order; the change `agent-instruction-selection-field` starts once group 4 is in place, on the same branch.
+- Default tests must not run real agent CLIs; the daemon tests use temp folders and fake executables.
+- Squad descriptions have no server-side limit; nothing to keep there.
+
+## Plan Change Log
+
+- 2026-10-12: L5 split the work along the roster: this change holds Backend's work; web, desktop and docs moved to `agent-instruction-selection-field`. The specs `runtime-file-browser` and `instruction-selection-field` moved there; this change gained `runtime-directory-listing`; the UI scenarios of `agent-field-limits`, `agent-instruction-selection` and `instruction-selection-loading` moved there.

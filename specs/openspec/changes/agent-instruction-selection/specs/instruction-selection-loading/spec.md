@@ -95,7 +95,7 @@ A file brought in by more than one selected path SHALL appear once, at its first
 - **THEN** `<file path="/s/skill/SKILL.md">` appears once, among the folder's files
 
 ### Requirement: A selection that cannot be read fails the task
-When a selected path is missing or unreadable, or a selected file is binary, the task SHALL fail before the agent starts, with failure reason `instruction_selection_error`, never retried, and an error that names the path and the cause; the task's failure SHALL show that reason and that error in web and desktop.
+When a selected path is missing or unreadable, or a selected file is binary, the task SHALL fail before the agent starts, with failure reason `instruction_selection_error`, never retried, and an error that names the path and the cause.
 
 #### Scenario: A missing path
 - **GIVEN** the selected file `/n/gone.md`, which does not exist
@@ -111,11 +111,6 @@ When a selected path is missing or unreadable, or a selected file is binary, the
 - **GIVEN** the selected file `/n/logo.png`
 - **WHEN** a task starts
 - **THEN** the task fails with `instruction_selection_error` and its error names `/n/logo.png` and that it is not a text file
-
-#### Scenario: The failure in the task list
-- **GIVEN** a task that failed with `instruction_selection_error`
-- **WHEN** Brian opens the agent's activity
-- **THEN** the task shows the failure label for an instruction selection error and the error with the path
 
 ### Requirement: A selection without its placeholder is not read
 When the agent's instructions hold no `{selection}`, the daemon MUST NOT read the selection and the task SHALL run with the instructions as written.
