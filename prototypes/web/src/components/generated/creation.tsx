@@ -20,7 +20,6 @@ import {
 import {
   GITHUB_REPOS,
   RUNTIMES,
-  SQUADS,
   bumpBetween,
   bumpFrom,
   laneFolder,
@@ -440,12 +439,11 @@ export function NewWorklaneDialog({
   project: Project;
   repo: Repo;
   onClose: () => void;
-  onCreate: (lane: { name: string; folder: string; squad: string }) => void;
+  onCreate: (lane: { name: string; folder: string }) => void;
 }) {
   const [name, setName] = useState('');
   const [folder, setFolder] = useState('');
   const [folderEdited, setFolderEdited] = useState(false);
-  const [squad, setSquad] = useState(SQUADS[0].name);
   const [runtime, setRuntime] = useState(RUNTIMES[0].name);
   const [step, setStep] = useState<number | null>(null);
 
@@ -453,8 +451,8 @@ export function NewWorklaneDialog({
   // A worklane's name is unique in its repository; worklanes are found by it.
   const nameTaken = repo.lanes.some((l) => l.name.toLowerCase() === name.trim().toLowerCase());
   const nameError = nameTaken ? `${repo.name} already has a worklane ${name.trim()}` : undefined;
-  // Folders are unique among the project's worklanes; main works in the normal checkout.
-  const usedBy = project.repos.flatMap((r) => r.lanes).find((l) => l.name !== 'main' && (l.folder ?? laneFolder(l.name)) === f);
+  // Folders are unique among the repository's worklanes; main works in the normal checkout.
+  const usedBy = repo.lanes.find((l) => l.name !== 'main' && (l.folder ?? laneFolder(l.name)) === f);
   const folderError = !f ? undefined : !/^[a-z0-9][a-z0-9-]*$/.test(f) ? 'One folder name: lowercase letters, digits and dashes' : usedBy ? `Already used by ${usedBy.name}` : undefined;
   const valid = !!name.trim() && !nameError && !!f && !folderError;
   const worktree = `~/Worktrees/${laneFolder(project.name)}/${f || '…'}/${repoShort(repo.name)}`;
@@ -462,7 +460,7 @@ export function NewWorklaneDialog({
   useEffect(() => {
     if (step === null) return;
     if (step >= STEPS.length) {
-      onCreate({ name: name.trim(), folder: f, squad });
+      onCreate({ name: name.trim(), folder: f });
       return;
     }
     const t = window.setTimeout(() => setStep((s) => (s ?? 0) + 1), [700, 600, 1500, 400][step]);
@@ -509,18 +507,13 @@ export function NewWorklaneDialog({
             <Field label="Name" hint="Required" error={nameError}>
               <TextInput label="Name" autoFocus value={name} onChange={setName} placeholder="Fan app" />
             </Field>
-            <Field label="Folder" help={`Unique among ${project.name}'s worklanes`} error={folderError}>
+            <Field label="Folder" help={`Unique among ${repo.name}'s worklanes`} error={folderError}>
               <TextInput label="Folder" mono value={f} onChange={(v) => (setFolder(v), setFolderEdited(true))} placeholder="fan-app" />
             </Field>
           </div>
-          <div className="flex items-start gap-3">
-            <Field label="Squad">
-              <Select label="Squad" value={squad} onChange={setSquad} options={SQUADS.map((s) => ({ value: s.name, label: s.name }))} />
-            </Field>
-            <Field label="Runtime" help="Online runtimes that can make worktrees">
-              <Select label="Runtime" value={runtime} onChange={setRuntime} options={RUNTIMES.map((r) => ({ value: r.name, label: `${r.name} · ${r.online ? 'online' : 'offline'}`, disabled: r.online ? undefined : 'Offline' }))} />
-            </Field>
-          </div>
+          <Field label="Runtime" help="Online runtimes that can make worktrees">
+            <Select label="Runtime" value={runtime} onChange={setRuntime} options={RUNTIMES.map((r) => ({ value: r.name, label: `${r.name} · ${r.online ? 'online' : 'offline'}`, disabled: r.online ? undefined : 'Offline' }))} />
+          </Field>
           <Field label="Worktree">
             <Readonly icon={<FolderGit2 size={14} />}>{worktree}</Readonly>
             <Readonly icon={<GitBranch size={14} />}>from origin/main</Readonly>
