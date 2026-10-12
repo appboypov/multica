@@ -1,7 +1,7 @@
 schema: intent-driven
 created: 2026-10-12
 build:
-  status: draft
+  status: ready-for-dev
   type: feature
   ticket: DAS-431
   context:

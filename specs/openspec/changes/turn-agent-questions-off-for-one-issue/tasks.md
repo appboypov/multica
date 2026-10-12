@@ -32,7 +32,7 @@ flowchart LR
 | J10 Agent tooling for UI | none: `Skip: J10` | — |
 | J11 Acceptance test and archive | 13 | Sarkout |
 
-Every group builds on UJ-1's code (change `answer-an-agents-question-and-wake-it`), merged first; the UJ-1 paths it names exist once UJ-1's J2 to J9 are built. The task-token cases of 8.2 and 8.6 follow Open Question 1's answer.
+Every group builds on UJ-1's code (change `answer-an-agents-question-and-wake-it`), merged first; the UJ-1 paths it names exist once UJ-1's J2 to J9 are built.
 
 ## 1. J2 Data models: model change
 
@@ -129,3 +129,4 @@ Every group builds on UJ-1's code (change `answer-an-agents-question-and-wake-it
 
 - 2026-10-13: J1, J4 and J10 skipped by Brian's answer on WORK-378 (relayed by Skuddy), recorded as the Requests `Skip: J1`, `Skip: J4` and `Skip: J10` on journey UJ-5; design.md Open Questions renumbered: J5 Components is now 1 and agents and an issue's Agent questions 2, both still open.
 - 2026-10-13: J5 skipped by Brian's answer on WORK-378 (relayed by Skuddy): a step whose investigation finds nothing to build is skipped without asking him; recorded as the Request `Skip: J5` on journey UJ-5. design.md Open Questions renumbered: agents and an issue's Agent questions is now 1, still open.
+- 2026-10-13: Brian's answer on WORK-378 (relayed by Skuddy): an issue's Agent questions is for members only; decision 3 stands, with the scenario "An agent cannot see or change it" added to the `agent-questions-setting` spec and the proposal's capability line narrowed to members. No Open Questions remain; the change is ready for development.

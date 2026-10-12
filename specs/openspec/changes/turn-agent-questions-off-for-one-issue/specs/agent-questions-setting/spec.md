@@ -19,7 +19,7 @@ Owners and admins SHALL set whether agents may ask questions by default in **Set
 - **THEN** its row counts 3 open issues with their own setting
 
 ### Requirement: Agent questions on an issue
-Each issue SHALL have **Agent questions** set to **Workspace default**, **On** or **Off**, changeable at any time; Workspace default SHALL show the default's current value and follow it, and a change SHALL apply from the next run of any agent on that issue. A single run MUST NOT have a setting of its own.
+Each issue SHALL have **Agent questions** set to **Workspace default**, **On** or **Off**, changeable at any time by members who can edit the issue; Workspace default SHALL show the default's current value and follow it, and a change SHALL apply from the next run of any agent on that issue. A single run MUST NOT have a setting of its own. Agents MUST NOT see or change an issue's Agent questions.
 
 #### Scenario: Workspace default follows the workspace
 - **GIVEN** WORK-420 is on Workspace default and the Questions default is On
@@ -36,3 +36,9 @@ Each issue SHALL have **Agent questions** set to **Workspace default**, **On** o
 - **GIVEN** WORK-420 is Off and the Questions default is On
 - **WHEN** Brian sets WORK-420 to Workspace default
 - **THEN** the next run on WORK-420 has questions on
+
+#### Scenario: An agent cannot see or change it
+- **GIVEN** WORK-420 is Off and Pieter is in a run on WORK-420
+- **WHEN** Pieter reads WORK-420 and tries to set its Agent questions to On
+- **THEN** the issue Pieter reads has no Agent questions
+- **AND** his change is refused and WORK-420 stays Off

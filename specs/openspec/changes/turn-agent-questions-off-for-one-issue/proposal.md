@@ -54,7 +54,7 @@ Success signal: with questions on by default, Brian sets WORK-420 to Off; the ne
 
 ### New Capabilities
 
-- `agent-questions-setting`: lets owners and admins decide per workspace, and anyone who can edit an issue decide per issue, whether agents may ask questions.
+- `agent-questions-setting`: lets owners and admins decide per workspace, and members who can edit an issue decide per issue, whether agents may ask questions; agents neither see nor change it.
 - `agent-question-tooling`: (adds to it) tells an agent nothing about questions while they are off and refuses its asks.
 
 ## Impact
@@ -81,4 +81,4 @@ Success signal: with questions on by default, Brian sets WORK-420 to Off; the ne
 - [PRD: Questions in Multica](anytype://object?objectId=bafyreiaviofipcl3ymgld2skld4ij6hlarsm2ra55ygufsepgk5laxjf34): UJ-5; FR-21, FR-22 (while off).
 - Design and UX spec: [appboypov/multica#6](https://github.com/appboypov/multica/pull/6), `designs/screens/issue-questions.md` "Questions setting" and "Where questions live" 3: screen 7 (settings).
 - Prototype: [appboypov/multica#8](https://github.com/appboypov/multica/pull/8), `prototypes/web/issue-questions/`.
-- Brian's answers: the WORK-366 comments ("a global setting decides whether questions are allowed; it is the default, overridable and changeable per task at any time"; "no information about it when disabled") and [Plannotator Review b8b3060eec0c8d52](https://ctas.de-appspecialist.nl/plannotator/session/b8b3060eec0c8d52/) ("per issue is enough").
+- Brian's answers: the WORK-366 comments ("a global setting decides whether questions are allowed; it is the default, overridable and changeable per task at any time"; "no information about it when disabled"), [Plannotator Review b8b3060eec0c8d52](https://ctas.de-appspecialist.nl/plannotator/session/b8b3060eec0c8d52/) ("per issue is enough") and WORK-378 (2026-10-13, relayed by Skuddy: the issue's setting is for members only).

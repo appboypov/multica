@@ -181,7 +181,7 @@ Journey UJ-5 of [PRD: Questions in Multica](anytype://object?objectId=bafyreiavi
 
 **Never:**
 - No per-run setting; no setting for answering, Wake or showing questions.
-- No `agent_questions` in issue responses to task tokens and no change of it by task tokens (decision 3, until Open Question 1 is answered).
+- No `agent_questions` in issue responses to task tokens and no change of it by task tokens (decision 3).
 - No CLI flag for the setting; no new design token or colour; no mobile change; no foreign keys.
 
 **Non-Goals:** a setting per agent run; turning off answering, Wake or the display of questions already asked; workspace skills written by people (their text is theirs; only product-owned text is withheld).
@@ -206,7 +206,7 @@ The workspace default is the key `agent_questions` (boolean) in `workspace.setti
 
 `UpdateIssueRequest.AgentQuestions *bool`; key presence in `rawFields` decides: absent keeps, `null` sets Workspace default, `true`/`false` set On/Off. `IssueResponse.AgentQuestions *bool` with `json:"agent_questions,omitempty"`, so Workspace default is absent on the wire and the client schema defaults it to `null`. `issue:updated` carries it to open clients; `useUpdateIssue` patches optimistically, as for priority (predictable, trivial rollback).
 
-Brian's words decide what agents see of it: "agents must not get any info about the functionality when its disabled". The proposal's "anyone who can edit an issue" also covers agents, which can edit issues, so this part is planned as option A of Open Question 1 and waits for Brian's answer. `GetIssue` and `UpdateIssue` clear `AgentQuestions` in responses to `X-Actor-Source: task_token`, and `UpdateIssue` refuses a body with the key from a task token with 403 "only members can change this setting". So the setting is people's, an agent cannot turn its own questions on, and `multica issue get` shows nothing about it. No CLI flag sets it, since `multica issue update --help` would list it to agents.
+Brian's words decide what agents see of it: "agents must not get any info about the functionality when its disabled", and his answer on WORK-378 (2026-10-13, relayed by Skuddy) keeps the issue's setting for members only. `GetIssue` and `UpdateIssue` clear `AgentQuestions` in responses to `X-Actor-Source: task_token`, and `UpdateIssue` refuses a body with the key from a task token with 403 "only members can change this setting". So the setting is people's, an agent cannot turn its own questions on, and `multica issue get` shows nothing about it. No CLI flag sets it, since `multica issue update --help` would list it to agents.
 
 ### 4. Decided once, at claim (ADR-0005)
 
@@ -246,7 +246,3 @@ Brian's words decide what agents see of it: "agents must not get any info about 
 ## Migration Plan
 
 `572` adds `issue.agent_questions`, `573` the concurrent partial index, `574` `agent_task_queue.questions_enabled` with its default. No backfill: absent workspace key and `NULL` issue value mean On by default, as today's UJ-1 behaviour. Rollback runs the `.down.sql` files in reverse. `make local-release` deploys server, daemon and CLI together, so a daemon without `MULTICA_AGENT_QUESTIONS` never runs a CLI that hides the command.
-
-## Open Questions
-
-1. **Agents and an issue's Agent questions.** The proposal lets "anyone who can edit an issue" set it, and agents can edit issues; Brian also said agents must get no information about questions while they are off. Options: **Members only** (decision 3 as written: task tokens neither see `agent_questions` in issue responses nor change it, so an agent cannot turn its own questions on) or **Agents too** (task tokens see the field in `multica issue get` and may change it through the API; still no CLI flag, so `multica issue update --help` stays silent; the task-token cases of tasks 8.2 and 8.6 drop).
