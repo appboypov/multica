@@ -78,8 +78,9 @@ flowchart LR
   authpkg["internal/auth<br/>JWT, PAT, daemon tokens"]
   handlers["internal/handler<br/>Handler, one file per resource"]
   daemonapi["internal/handler<br/>daemon.go, daemon_ws.go<br/>/api/daemon/*"]
-  runtimeh["internal/handler<br/>runtime_local_skills.go, runtime_models.go, runtime_update.go"]
+  runtimeh["internal/handler<br/>runtime_local_skills.go, runtime_models.go,<br/>runtime_update.go, runtime_directory_listing.go"]
   reqstores["Runtime request stores<br/>UpdateStore, ModelListStore,<br/>LocalSkillListStore, LocalSkillImportStore<br/>InMemory or Redis"]
+  dirstore["DirectoryListingStore<br/>InMemory only"]
   liveness["LivenessStore<br/>runtime_liveness_store.go"]
   publicapi["pkg/publicapi/v1<br/>plugin API"]
   services["internal/service<br/>IssueService, TaskService,<br/>AutopilotService, PluginService"]
@@ -113,6 +114,8 @@ flowchart LR
   handlers --> sqlc
   runtimeh --> reqstores
   daemonapi --> reqstores
+  runtimeh --> dirstore
+  daemonapi --> dirstore
   daemonapi --> liveness
   daemonapi --> services
   publicapi --> services
@@ -150,6 +153,8 @@ flowchart TB
   actions["daemon.go<br/>handleHeartbeatActions"]
   models["handleModelList"]
   localskills["local_skills.go<br/>handleLocalSkillList, handleLocalSkillImport"]
+  dirlist["directory_listing.go<br/>handleDirectoryListing, listRuntimeDirectory"]
+  selection["instruction_selection.go<br/>expandInstructionSelection"]
   update["handleUpdate"]
   poll["daemon.go<br/>pollLoop"]
   task["daemon.go<br/>handleTask, runTask"]
@@ -176,9 +181,11 @@ flowchart TB
   hb --> actions
   actions --> models
   actions --> localskills
+  actions --> dirlist
   actions --> update
   poll -->|"ClaimTasks"| client
   poll --> task
+  task --> selection
   task --> execenv
   task --> prompt
   task --> repocache
@@ -191,6 +198,7 @@ flowchart TB
   task -->|"StartTask, ReportTaskMessages, CompleteTask"| client
   models --> client
   localskills --> client
+  dirlist --> client
   client --> server
 ```
 
@@ -309,6 +317,7 @@ classDiagram
     +uuid owner_id
     +text name
     +text instructions
+    +jsonb instruction_selection
     +text runtime_mode
     +text visibility
     +jsonb conversation_starters
