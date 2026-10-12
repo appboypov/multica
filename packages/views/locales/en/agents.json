@@ -764,6 +764,16 @@
     "over_limit": " · {{count}} over limit",
     "over_threshold": " · {{count}} over the recommended {{max}}"
   },
+  "runtime_browser": {
+    "title": "Browse runtime",
+    "path": "Path",
+    "up": "Up",
+    "hidden": "hidden",
+    "offline": "The runtime is offline.",
+    "empty": "Nothing here.",
+    "error": "Can't list this path: {{message}}",
+    "add": "Add"
+  },
   "presence": {
     "queue_badge": "+{{count}} queued"
   },
