@@ -28,6 +28,7 @@ import { ModelDropdown } from "../components/model-dropdown";
 import { RuntimePicker } from "../components/runtime-picker";
 import { SkillMultiSelect } from "../components/skill-multi-select";
 import { ConversationStartersEditor } from "../components/conversation-starters-editor";
+import { InstructionsField } from "../components/instructions-field";
 
 const PERMISSION_SCOPES: AgentPermissionScope[] = [
   "private",
@@ -73,8 +74,14 @@ export function AgentConfigurationPanel({
   );
   const selectedRuntime =
     runtimes.find((runtime) => runtime.id === draft.runtimeId) ?? null;
-  const set = <K extends keyof AgentDraft>(key: K, value: AgentDraft[K]) =>
-    onChange({ ...draft, [key]: value });
+  // The instructions field reports a first selection as two changes in one
+  // event, its text and its selection, so each change builds on the last.
+  const latestDraftRef = useRef(draft);
+  latestDraftRef.current = draft;
+  const set = <K extends keyof AgentDraft>(key: K, value: AgentDraft[K]) => {
+    latestDraftRef.current = { ...latestDraftRef.current, [key]: value };
+    onChange(latestDraftRef.current);
+  };
   const otherMembers = members.filter(
     (member) => member.user_id !== currentUserId,
   );
@@ -156,18 +163,19 @@ export function AgentConfigurationPanel({
             label={t(($) => $.create_dialog.instructions.label)}
             htmlFor="agent-create-instructions"
           >
-            <Textarea
+            <InstructionsField
               id="agent-create-instructions"
-              name="agent-instructions"
-              autoComplete="off"
-              aria-label={t(($) => $.create_dialog.instructions.label)}
               value={draft.instructions}
-              onChange={(event) => set("instructions", event.target.value)}
+              onChange={(value) => set("instructions", value)}
+              selection={draft.instructionSelection}
+              onSelectionChange={(value) => set("instructionSelection", value)}
+              runtime={selectedRuntime}
+              currentUserId={currentUserId}
               placeholder={t(
                 ($) => $.create_dialog.instructions.editor_placeholder,
               )}
               rows={compact ? 9 : 12}
-              className="min-h-44 resize-y font-mono text-label leading-6"
+              className="min-h-44 font-mono text-label"
             />
           </DraftFieldRow>
           {conversationStartersSupported ? (
