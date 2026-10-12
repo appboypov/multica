@@ -3621,7 +3621,33 @@
                                   "icon": "circle-dashed"
                                 },
                                 "L:ngl8x": {
-                                  "content": "v1.0.1"
+                                  "type": "frame",
+                                  "id": "zoOuf",
+                                  "name": "Value",
+                                  "gap": 6,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "U5bKT",
+                                      "name": "Version",
+                                      "fill": "$L:foreground",
+                                      "content": "v1.0.0",
+                                      "fontFamily": "$L:font-mono",
+                                      "fontSize": "$L:text-label",
+                                      "fontWeight": "normal"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "r5EXFQ",
+                                      "name": "Title",
+                                      "fill": "$L:foreground",
+                                      "content": "First production release",
+                                      "fontFamily": "$L:font-sans",
+                                      "fontSize": "$L:text-label",
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
                                 }
                               }
                             },
@@ -3827,9 +3853,9 @@
                       }
                     },
                     {
-                      "id": "Xbtwx",
+                      "id": "aspZm",
                       "type": "ref",
-                      "ref": "L:tRjTl",
+                      "ref": "L:VZluv",
                       "name": "Submit",
                       "descendants": {
                         "L:jxRBG": {
