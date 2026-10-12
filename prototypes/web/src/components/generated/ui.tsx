@@ -273,3 +273,147 @@ export function Segmented<T extends string>({
     </div>
   );
 }
+
+// ---------------------------------------------------------------------------
+// Markdown: the subset the issue templates use. Headings, question callouts,
+// checklists, lists and paragraphs, with **bold** and `code` inline.
+// ---------------------------------------------------------------------------
+
+type MdBlock =
+  | { kind: 'heading'; level: number; text: string }
+  | { kind: 'callout'; text: string }
+  | { kind: 'checks'; items: { done: boolean; text: string }[] }
+  | { kind: 'bullets'; items: string[] }
+  | { kind: 'numbered'; items: string[] }
+  | { kind: 'paragraph'; text: string };
+
+function parseMarkdown(md: string): MdBlock[] {
+  const out: MdBlock[] = [];
+  const last = () => out[out.length - 1];
+  let gap = true;
+  for (const raw of md.split('\n')) {
+    const line = raw.trimEnd();
+    if (!line.trim()) {
+      gap = true;
+      continue;
+    }
+    const h = line.match(/^(#{1,6})\s+(.*)$/);
+    const q = line.match(/^>\s?(.*)$/);
+    const c = line.match(/^\s*[-*+]\s+\[([ xX])\]\s+(.*)$/);
+    const b = line.match(/^\s*[-*+]\s+(.*)$/);
+    const n = line.match(/^\s*\d+[.)]\s+(.*)$/);
+    const prev = last();
+    if (h) out.push({ kind: 'heading', level: h[1].length, text: h[2] });
+    else if (q) prev?.kind === 'callout' && !gap ? (prev.text += `\n${q[1]}`) : out.push({ kind: 'callout', text: q[1] });
+    else if (c) {
+      const item = { done: c[1] !== ' ', text: c[2] };
+      prev?.kind === 'checks' ? prev.items.push(item) : out.push({ kind: 'checks', items: [item] });
+    } else if (b) prev?.kind === 'bullets' ? prev.items.push(b[1]) : out.push({ kind: 'bullets', items: [b[1]] });
+    else if (n) prev?.kind === 'numbered' ? prev.items.push(n[1]) : out.push({ kind: 'numbered', items: [n[1]] });
+    else if (prev?.kind === 'paragraph' && !gap) prev.text += `\n${line}`;
+    else out.push({ kind: 'paragraph', text: line.trim() });
+    gap = false;
+  }
+  return out;
+}
+
+function Inline({ text }: { text: string }) {
+  return (
+    <>
+      {text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g).map((part, i) =>
+        part.startsWith('**') && part.endsWith('**') && part.length > 4 ? (
+          <strong key={i} className="font-semibold">
+            {part.slice(2, -2)}
+          </strong>
+        ) : part.startsWith('`') && part.endsWith('`') && part.length > 2 ? (
+          <code key={i} className="mc-mono rounded-[4px] px-1 text-[0.9em]" style={{ background: 'var(--muted)' }}>
+            {part.slice(1, -1)}
+          </code>
+        ) : (
+          part
+        ),
+      )}
+    </>
+  );
+}
+
+const HEADING_CLASS: Record<'page' | 'peek', Record<number, string>> = {
+  page: { 1: 'text-[20px] font-semibold', 2: 'text-[16px] font-semibold', 3: 'text-[14px] font-semibold', 4: 'text-[13px] font-semibold' },
+  peek: { 1: 'text-[15px] font-semibold', 2: 'text-[14px] font-semibold', 3: 'text-[13px] font-semibold', 4: 'text-[13px] font-medium' },
+};
+
+/** Renders an issue's Markdown description. */
+export function Markdown({ text, size = 'page' }: { text: string; size?: 'page' | 'peek' }) {
+  const body = size === 'page' ? 'text-[15px] leading-[24px]' : 'text-[14px] leading-[21px]';
+  return (
+    <div className={`mc-md ${size === 'page' ? 'space-y-2.5' : 'space-y-2'}`}>
+      {parseMarkdown(text).map((b, i) => {
+        switch (b.kind) {
+          case 'heading': {
+            const Tag = (`h${Math.min(b.level + 1, 6)}` as 'h2');
+            return (
+              <Tag key={i} className={`${HEADING_CLASS[size][Math.min(b.level, 4)]} ${i ? (b.level <= 2 ? 'pt-4' : b.level === 3 ? 'pt-3' : 'pt-1') : ''}`}>
+                <Inline text={b.text} />
+              </Tag>
+            );
+          }
+          case 'callout':
+            return (
+              <div
+                key={i}
+                className={`whitespace-pre-wrap rounded-[8px] px-3 py-2 ${size === 'page' ? 'text-[13px] leading-[20px]' : 'text-[12px] leading-[18px]'}`}
+                style={{ background: 'var(--muted)', color: 'var(--muted-foreground)' }}
+              >
+                <Inline text={b.text} />
+              </div>
+            );
+          case 'checks':
+            return (
+              <ul key={i} className={`space-y-1 ${body}`}>
+                {b.items.map((it, j) => (
+                  <li key={j} className="flex items-start gap-2">
+                    <span
+                      className="mt-[5px] flex size-[14px] shrink-0 items-center justify-center rounded-[4px] border"
+                      style={{ borderColor: 'var(--input)', background: it.done ? 'var(--brand)' : 'var(--surface)' }}
+                      aria-hidden
+                    >
+                      {it.done && <Check size={10} style={{ color: 'var(--brand-foreground)' }} />}
+                    </span>
+                    <span>
+                      <Inline text={it.text} />
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            );
+          case 'bullets':
+            return (
+              <ul key={i} className={`list-disc space-y-1 pl-5 ${body}`}>
+                {b.items.map((it, j) => (
+                  <li key={j}>
+                    <Inline text={it} />
+                  </li>
+                ))}
+              </ul>
+            );
+          case 'numbered':
+            return (
+              <ol key={i} className={`list-decimal space-y-1 pl-5 ${body}`}>
+                {b.items.map((it, j) => (
+                  <li key={j}>
+                    <Inline text={it} />
+                  </li>
+                ))}
+              </ol>
+            );
+          case 'paragraph':
+            return (
+              <p key={i} className={`whitespace-pre-wrap ${body}`}>
+                <Inline text={b.text} />
+              </p>
+            );
+        }
+      })}
+    </div>
+  );
+}

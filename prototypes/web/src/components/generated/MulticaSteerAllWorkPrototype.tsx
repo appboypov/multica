@@ -58,8 +58,10 @@ import {
   plural,
   releaseStates,
   sameLane,
+  templateInputs,
+  templateMarkdown,
 } from './model';
-import { Avatar, Button, Chip, Menu, MenuItem, Progress, ReleaseChip, Segmented, StatusIcon, TypeIcon } from './ui';
+import { Avatar, Button, Chip, Markdown, Menu, MenuItem, Progress, ReleaseChip, Segmented, StatusIcon, TypeIcon } from './ui';
 
 // ---------------------------------------------------------------------------
 // Routing and app state
@@ -88,6 +90,9 @@ interface AppApi {
   orgs: Org[];
   statusOf: (i: Issue) => Status;
   setStatus: (id: string, s: Status) => void;
+  /** The issue's one Markdown description, with edits made in this session. */
+  descriptionOf: (i: Issue) => string;
+  setDescription: (id: string, md: string) => void;
   go: (r: Route) => void;
   newIssue: (d?: Partial<Draft>) => void;
   peek: (i: Issue) => void;
@@ -122,6 +127,7 @@ export const MulticaSteerAllWorkPrototype = () => {
   const [orgs, setOrgs] = useState<Org[]>(loadOrgs);
   const [squadIssues, setSquadIssues] = useState<Record<string, Issue[]>>(SQUAD_ISSUES);
   const [statuses, setStatuses] = useState<Record<string, Status>>({});
+  const [descriptions, setDescriptions] = useState<Record<string, string>>({});
   const [route, setRoute] = useState<Route>({ name: 'projects' });
   const [draft, setDraft] = useState<Draft | null>(null);
   const [peeked, setPeeked] = useState<Issue | null>(null);
@@ -166,6 +172,8 @@ export const MulticaSteerAllWorkPrototype = () => {
     orgs,
     statusOf,
     setStatus: (id, s) => setStatuses((m) => ({ ...m, [id]: s })),
+    descriptionOf: (i) => descriptions[i.id] ?? i.description ?? '',
+    setDescription: (id, md) => setDescriptions((m) => ({ ...m, [id]: md })),
     go: (r) => {
       setPeeked(null);
       setRoute(r);
@@ -204,7 +212,7 @@ export const MulticaSteerAllWorkPrototype = () => {
     return () => window.removeEventListener('keydown', onKey);
   }, [draft, palette, peeked, newIssue]);
 
-  const createIssue = (d: Draft, title: string, fields: Record<string, string>, priority: Priority) => {
+  const createIssue = (d: Draft, title: string, description: string, priority: Priority) => {
     const target = d.lane ? findLane(orgs, d.lane) : null;
     const prefix = target?.project.name === 'Rebl' ? 'REBL' : 'WORK';
     const used = [
@@ -223,7 +231,7 @@ export const MulticaSteerAllWorkPrototype = () => {
       priority,
       lane: d.lane,
       release: d.release,
-      fields,
+      description,
       squad: d.squad,
       created: true,
     };
@@ -1479,25 +1487,46 @@ function StatusMenu({ api, issue, trigger }: { api: AppApi; issue: Issue; trigge
   );
 }
 
-function IssueSections({ issue, size }: { issue: Issue; size: 'peek' | 'page' }) {
-  const tpl = TEMPLATES.find((t) => t.type === issue.type)!;
+function IssueDescription({ api, issue, size }: { api: AppApi; issue: Issue; size: 'peek' | 'page' }) {
+  const [mode, setMode] = useState<'preview' | 'markdown'>('preview');
+  const md = api.descriptionOf(issue);
+  const empty = (
+    <p className="text-[14px]" style={{ color: 'var(--faint-foreground)' }}>
+      {issue.created ? 'No description' : 'No description in this prototype'}
+    </p>
+  );
+  if (size === 'peek') return md.trim() ? <Markdown text={md} size="peek" /> : empty;
   return (
-    <div className={size === 'page' ? 'space-y-6' : 'space-y-4'}>
-      {tpl.sections.map((s) => {
-        const text = issue.fields?.[s.key]?.trim();
-        return (
-          <section key={s.key}>
-            <h3 className={size === 'page' ? 'text-[14px] font-semibold' : 'text-[13px] font-medium'}>{s.name}</h3>
-            <p
-              className={`mt-1.5 whitespace-pre-wrap ${size === 'page' ? 'text-[15px] leading-[22px]' : 'text-[14px]'}`}
-              style={{ color: text ? 'var(--foreground)' : 'var(--faint-foreground)' }}
-            >
-              {text || (issue.created ? 'Empty' : 'Not written in this prototype')}
-            </p>
-          </section>
-        );
-      })}
-    </div>
+    <section aria-label="Description">
+      <div className="mb-4 flex items-center justify-between">
+        <span className="text-[12px] font-medium" style={{ color: 'var(--muted-foreground)' }}>
+          Description
+        </span>
+        <Segmented
+          value={mode}
+          options={[
+            { value: 'preview', label: 'Preview' },
+            { value: 'markdown', label: 'Markdown' },
+          ]}
+          onChange={setMode}
+        />
+      </div>
+      {mode === 'markdown' ? (
+        <textarea
+          aria-label="Description Markdown"
+          value={md}
+          onChange={(e) => api.setDescription(issue.id, e.target.value)}
+          rows={Math.max(8, md.split('\n').length + 1)}
+          spellCheck={false}
+          className="mc-mono block w-full resize-none rounded-[8px] border px-3 py-2.5 text-[13px] leading-[20px] outline-none focus:border-[var(--ring)]"
+          style={{ borderColor: 'var(--input)', background: 'var(--surface)' }}
+        />
+      ) : md.trim() ? (
+        <Markdown text={md} />
+      ) : (
+        empty
+      )}
+    </section>
   );
 }
 
@@ -1539,7 +1568,7 @@ function IssuePeek({ api, issue, onClose }: { api: AppApi; issue: Issue; onClose
           {issue.assignee && <Chip icon={<Avatar text={initials(issue.assignee)} size={14} />}>{issue.assignee}</Chip>}
         </div>
         <div className="mt-5">
-          <IssueSections issue={issue} size="peek" />
+          <IssueDescription api={api} issue={issue} size="peek" />
         </div>
       </div>
       <div className="border-t px-4 py-2 text-[12px]" style={{ borderColor: 'var(--border)', color: 'var(--muted-foreground)' }}>
@@ -1634,7 +1663,7 @@ function IssuePage({ api, id, from }: { api: AppApi; id: string; from: 'Projects
             </div>
             <h1 className="mt-2 text-[24px] leading-[30px] font-semibold">{issue.title}</h1>
             <div className="mt-8">
-              <IssueSections issue={issue} size="page" />
+              <IssueDescription api={api} issue={issue} size="page" />
             </div>
             <p className="mt-8 text-[12px]" style={{ color: 'var(--muted-foreground)' }}>
               {RULE}
@@ -1753,7 +1782,7 @@ function IssuePage({ api, id, from }: { api: AppApi; id: string; from: 'Projects
 // Screen 5: a new issue always starts from a template
 // ---------------------------------------------------------------------------
 
-function NewIssueDialog({ api, draft, onClose, onCreate }: { api: AppApi; draft: Draft; onClose: () => void; onCreate: (d: Draft, title: string, fields: Record<string, string>, p: Priority) => void }) {
+function NewIssueDialog({ api, draft, onClose, onCreate }: { api: AppApi; draft: Draft; onClose: () => void; onCreate: (d: Draft, title: string, description: string, p: Priority) => void }) {
   const [d, setD] = useState<Draft>(draft);
   const [title, setTitle] = useState('');
   const [fields, setFields] = useState<Record<string, string>>({});
@@ -1761,8 +1790,12 @@ function NewIssueDialog({ api, draft, onClose, onCreate }: { api: AppApi; draft:
   const tpl = TEMPLATES.find((t) => t.type === d.type)!;
   const lanes = useMemo(() => allLanes(api.orgs), [api.orgs]);
   const laneObj = d.lane ? findLane(api.orgs, d.lane)?.lane : undefined;
-  const valid = title.trim() !== '' && tpl.sections.every((s) => !s.required || (fields[s.key] ?? '').trim() !== '');
-  const submit = () => valid && onCreate(d, title.trim(), fields, priority);
+  const [pane, setPane] = useState<'fields' | 'markdown'>('fields');
+  const inputs = templateInputs(tpl);
+  // The fields only fill the template's Markdown; the issue keeps that Markdown alone.
+  const markdown = templateMarkdown(tpl, fields);
+  const valid = title.trim() !== '' && inputs.every((s) => !s.required || (fields[s.key] ?? '').trim() !== '');
+  const submit = () => valid && onCreate(d, title.trim(), markdown, priority);
 
   return (
     <Overlay onClose={onClose}>
@@ -1912,28 +1945,48 @@ function NewIssueDialog({ api, draft, onClose, onCreate }: { api: AppApi; draft:
                 }
               </Menu>
             </div>
-            <div className="mt-5 space-y-4">
-              {tpl.sections.map((s) => (
-                <label key={`${d.type}-${s.key}`} className="block">
-                  <span className="flex items-baseline gap-2">
-                    <span className="text-[13px] font-medium">{s.name}</span>
-                    <span className="text-[11px]" style={{ color: 'var(--muted-foreground)' }}>
-                      {s.required ? 'Required' : 'Optional'}
-                    </span>
-                  </span>
-                  <textarea
-                    rows={s.rows}
-                    value={fields[s.key] ?? ''}
-                    onChange={(e) => setFields({ ...fields, [s.key]: e.target.value })}
-                    placeholder={s.placeholder}
-                    className="mt-1.5 block w-full resize-none rounded-[8px] border px-2.5 py-2 text-[14px] outline-none placeholder:text-[var(--faint-foreground)] focus:border-[var(--ring)]"
-                    style={{ borderColor: 'var(--input)' }}
-                  />
-                </label>
-              ))}
+            <div className="mt-5">
+              <Segmented
+                value={pane}
+                options={[
+                  { value: 'fields', label: 'Fields' },
+                  { value: 'markdown', label: 'Markdown' },
+                ]}
+                onChange={setPane}
+              />
             </div>
+            {pane === 'fields' ? (
+              <div className="mt-4 space-y-4">
+                {inputs.map((s) => (
+                  <label key={`${d.type}-${s.key}`} className="block">
+                    <span className="flex items-baseline gap-2">
+                      <span className="text-[13px] font-medium">{s.label}</span>
+                      <span className="text-[11px]" style={{ color: 'var(--muted-foreground)' }}>
+                        {s.required ? 'Required' : 'Optional'}
+                      </span>
+                    </span>
+                    <textarea
+                      rows={s.rows}
+                      value={fields[s.key] ?? ''}
+                      onChange={(e) => setFields({ ...fields, [s.key]: e.target.value })}
+                      placeholder={s.placeholder}
+                      className="mt-1.5 block w-full resize-none rounded-[8px] border px-2.5 py-2 text-[14px] outline-none placeholder:text-[var(--faint-foreground)] focus:border-[var(--ring)]"
+                      style={{ borderColor: 'var(--input)' }}
+                    />
+                  </label>
+                ))}
+              </div>
+            ) : (
+              <pre
+                aria-label="Description Markdown"
+                className="mc-mono mt-4 whitespace-pre-wrap rounded-[8px] border px-3 py-2.5 text-[12px] leading-[19px]"
+                style={{ borderColor: 'var(--surface-border)', background: 'var(--page-canvas)' }}
+              >
+                {markdown}
+              </pre>
+            )}
             <p className="mt-4 text-[12px]" style={{ color: 'var(--muted-foreground)' }}>
-              Code and technical design go in the change, not in the issue.
+              These fields fill the {tpl.name} template's Markdown. The issue keeps only that Markdown as its description; code and technical design go in the change.
             </p>
           </div>
         </div>

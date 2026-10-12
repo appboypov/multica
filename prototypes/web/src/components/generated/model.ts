@@ -13,7 +13,8 @@ export interface Issue {
   assignee?: string;
   lane?: LaneRef;
   release?: string;
-  fields?: Record<string, string>;
+  /** The issue's one Markdown description. */
+  description?: string;
   /** The squad the issue went to when it was made in the prototype. */
   squad?: string;
   /** True for issues made in this prototype session; only they have activity. */
@@ -144,52 +145,133 @@ export function issueKey(text: string | null): { id: string; title: string } | n
 }
 
 // ---------------------------------------------------------------------------
-// Templates: the issue types madspec-issues defines. Sections carry only what
-// and why; code and technical design live in the change.
+// Templates: the Markdown issue templates in ~/Work (emoji headings, a question
+// callout under each). An issue keeps one Markdown description; the new-issue
+// fields only fill that Markdown once. Sections that hold implementation
+// details (OpenSpec change, skills and tools, data flow, tests, suggested
+// approach and steps, code structure, investigation areas and experiments)
+// are left out: code and technical design live in the change.
 // ---------------------------------------------------------------------------
 
-export interface TemplateSection {
+/** How a new-issue field's text becomes Markdown under its heading. */
+export type InputFormat = 'text' | 'bullets' | 'checks' | 'scenarios';
+
+export interface TemplateInput {
   key: string;
-  name: string;
+  label: string;
   required: boolean;
   placeholder: string;
   rows: number;
+  format: InputFormat;
+}
+
+export interface TemplateBlock {
+  /** The Markdown heading, with its level and emoji. */
+  heading: string;
+  /** The question callout under the heading. */
+  question?: string;
+  /** The new-issue field that fills this section. */
+  input?: TemplateInput;
 }
 
 export interface Template {
   type: IssueType;
   name: string;
   hint: string;
-  sections: TemplateSection[];
+  blocks: TemplateBlock[];
   /** A filled-in issue of this type, for "Fill example" in the new-issue dialog. */
   example: { title: string; fields: Record<string, string>; priority: Priority };
 }
 
-const notes: TemplateSection = {
-  key: 'notes',
-  name: 'Notes',
-  required: false,
-  placeholder: 'Context, links and open questions',
-  rows: 2,
-};
+const input = (key: string, label: string, format: InputFormat, placeholder: string, rows = 3, required = true): TemplateInput => ({
+  key,
+  label,
+  required,
+  placeholder,
+  rows,
+  format,
+});
+
+const DEPENDENCIES: TemplateBlock = { heading: '## 🔗 Dependencies', question: 'Which issues must be completed first?' };
+const RELATED: TemplateBlock = { heading: '## 🔀 Related Issues', question: 'Which related issues provide context (non-blocking)?' };
+const REFERENCES: TemplateBlock = { heading: '## 📚 References' };
+const SCOPE: TemplateBlock[] = [{ heading: '## 📦 Scope' }, { heading: '### In scope' }, { heading: '### Out of scope' }];
+
+/** The per-scenario part of the story and journey templates. */
+const SCENARIO: TemplateBlock[] = [
+  { heading: '#### 👤 User Story', question: 'Who benefits and what do they want to achieve?' },
+  { heading: '#### ✨ Scenario', question: 'What do the sequences of { 👤 User, 🧠 System, 🎨 Screen } [ verb ] steps look like when this exists?' },
+  { heading: '#### 📍 Currently', question: 'What is the current state?' },
+  { heading: '#### 🎯 Should', question: 'What should the state be?' },
+  { heading: '#### ⚠️ Constraints', question: 'What limitations or constraints exist?' },
+  { heading: '#### ✅ Acceptance Criteria', question: 'How do we measure successful achievement of this scenario?' },
+];
+
+const ONE_PER_LINE = 'One per line';
 
 export const TEMPLATES: Template[] = [
   {
     type: 'epic',
     name: 'Epic',
     hint: 'An outcome made of stories',
-    sections: [
-      { key: 'outcome', name: 'Outcome', required: true, placeholder: 'What is true for whom once this epic is done', rows: 3 },
-      { key: 'done', name: 'Done when', required: true, placeholder: 'One check per line that proves the outcome', rows: 4 },
-      notes,
+    blocks: [
+      DEPENDENCIES,
+      RELATED,
+      {
+        heading: '## 🎯 Thesis & outcome',
+        question:
+          'What is this body of work and what does “done” mean — using one coherent scope (single epic, theme, or umbrella with child epics, without duplicating the same story under different labels)?',
+      },
+      { heading: '### What we are doing', input: input('doing', 'What we are doing', 'text', 'The body of work, in a few sentences') },
+      { heading: '### What success looks like' },
+      { heading: '## 🏢 Strategic alignment', question: 'How does this connect to company goals or OKRs?' },
+      { heading: '## 💡 Hypothesis', question: 'What do we believe will happen if we pursue this?' },
+      { heading: '## 💰 Value & investment', question: 'Why does this matter, what does it cost, and how do we judge importance?' },
+      { heading: '### Opportunity cost of inaction' },
+      { heading: '### Expected ROI' },
+      { heading: '### Impact (product & engineering)' },
+      { heading: '## 👥 Stakeholders', question: 'Who is involved and accountable?' },
+      {
+        heading: '## 🗺️ Delivery plan',
+        question: 'What is the timeline for the whole scope (rows may be phases, child epics, milestones, or sprint goals — use what fits)?',
+      },
+      {
+        heading: '## 👤 User stories',
+        question: 'Which user stories comprise this work, in delivery order?',
+        input: input('stories', 'User stories', 'checks', `${ONE_PER_LINE}, in delivery order`, 3, false),
+      },
+      {
+        heading: '## 🎯 Abilities',
+        question: 'What can actors do when this is complete?',
+        input: input('abilities', 'Abilities', 'checks', `{Actor} is able to {outcome}. ${ONE_PER_LINE}`),
+      },
+      { heading: '## 📍 Currently', question: 'What is the baseline state across this scope?' },
+      { heading: '## 🚀 End goal', question: 'What is the tangible measurable end state?' },
+      { heading: '## ⚠️ Constraints', question: 'What hard limits, policies, or boundaries apply?' },
+      { heading: '## 🚦 Risks & dependencies', question: 'What could block or derail delivery (capture each item in the table)?' },
+      { heading: '## 📊 Success metrics', question: 'How will we know it worked?' },
+      { heading: '### Leading (short-term)' },
+      { heading: '### Lagging (long-term)' },
+      { heading: '### Concrete KPIs' },
+      {
+        heading: '## ✅ Acceptance criteria',
+        question: 'How do we know this scope is complete?',
+        input: input('acceptance', 'Acceptance criteria', 'checks', ONE_PER_LINE),
+      },
+      { heading: '## 📎 Related work', question: 'What related epics, docs, designs, or prior art should we link?' },
+      { heading: '## 📋 Next steps', question: 'What immediate actions come next?' },
+      REFERENCES,
     ],
     example: {
       title: 'Fans manage their own account',
       priority: 'high',
       fields: {
-        outcome: 'A fan signs up, signs in and keeps their profile and notification choices up to date in the Rebl app, without asking the Rebl team for help.',
-        done: 'A new fan creates an account and lands on the home screen\nA fan changes their name, photo and language\nA fan turns event notifications on and off\nThe Rebl team gets no account requests by mail for a month',
-        notes: 'Covers the fan app only; the dashboard has its own epic.',
+        doing:
+          'A fan signs up, signs in and keeps their profile and notification choices up to date in the Rebl app, without asking the Rebl team for help.',
+        stories: 'A fan creates an account\nA fan changes their display name\nA fan turns event notifications on and off',
+        abilities:
+          'Fan is able to create an account and land on the home screen\nFan is able to change their name, photo and language\nFan is able to turn event notifications on and off',
+        acceptance: 'Every ability works in the fan app on iPhone and Android\nThe Rebl team gets no account requests by mail for a month',
       },
     },
   },
@@ -197,18 +279,24 @@ export const TEMPLATES: Template[] = [
     type: 'journey',
     name: 'Journey',
     hint: 'One user journey, one change',
-    sections: [
-      { key: 'journey', name: 'Journey', required: true, placeholder: 'Who does what, step by step', rows: 3 },
-      { key: 'criteria', name: 'Acceptance criteria', required: true, placeholder: 'Given ... when ... then ...', rows: 4 },
-      notes,
+    blocks: [
+      {
+        heading: '## 🗺️ User Journey',
+        question: 'What is this journey about in one sentence?',
+        input: input('journey', 'User journey', 'text', 'What this journey is about, in one sentence', 2),
+      },
+      {
+        heading: '## ✨ Scenarios',
+        question: 'What are the scenarios that make up this journey?',
+        input: input('scenarios', 'Scenarios', 'scenarios', `{Actor} is able to {outcome}. ${ONE_PER_LINE}; each gets its scenario sections`, 4),
+      },
     ],
     example: {
       title: 'A fan books a table for an event',
       priority: 'high',
       fields: {
-        journey: '1. The fan opens an event from the home screen\n2. They pick a table and the number of guests\n3. They confirm and pay\n4. They see the booking under My bookings and get a confirmation mail',
-        criteria: 'Given an event with free tables\nwhen a signed-in fan books a table for 4 and pays\nthen the table shows as taken for everyone\nand the booking appears under My bookings',
-        notes: 'Payment provider and refund rules are still open with Rutger.',
+        journey: 'A fan books a table for an event and pays for it in the app.',
+        scenarios: 'Fan is able to pick a table and the number of guests\nFan is able to pay for the booking\nFan is able to see the booking under My bookings',
       },
     },
   },
@@ -216,18 +304,45 @@ export const TEMPLATES: Template[] = [
     type: 'story',
     name: 'Story',
     hint: 'One slice toward an epic',
-    sections: [
-      { key: 'description', name: 'Description', required: true, placeholder: 'What changes for whom, and why now', rows: 3 },
-      { key: 'criteria', name: 'Acceptance criteria', required: true, placeholder: 'Given ... when ... then ...', rows: 4 },
-      notes,
+    blocks: [
+      DEPENDENCIES,
+      RELATED,
+      {
+        heading: '## 👤 User Story',
+        question: 'Who benefits and what do they want to achieve?',
+        input: input('story', 'User story', 'bullets', 'As a {actor}, I want {action}, so that {benefit}.', 2),
+      },
+      { heading: '## 🚀 End Goal', question: 'What is the tangible measurable end goal?' },
+      {
+        heading: '## 📍 Currently',
+        question: 'What is the current state?',
+        input: input('currently', 'Currently', 'bullets', 'The current state', 2, false),
+      },
+      {
+        heading: '## 🎯 Should',
+        question: 'What should the state be?',
+        input: input('should', 'Should', 'bullets', 'The state it should be in', 2, false),
+      },
+      { heading: '## 🗺️ User Journey', question: 'What is this journey about in one sentence?' },
+      { heading: '## ✨ Scenarios', question: 'What scenarios make up this journey (each with a mermaid sequence diagram for its flow)?' },
+      { heading: '## 🎨 UI', question: 'What does the updated UI look like in ASCII?' },
+      { heading: '## ⚠️ Constraints', question: 'What limitations or constraints exist for the overall story?' },
+      {
+        heading: '## ✅ Acceptance Criteria',
+        question: 'How do we measure successful achievement of the end goal?',
+        input: input('acceptance', 'Acceptance criteria', 'checks', `Given … when … then …. ${ONE_PER_LINE}`),
+      },
+      REFERENCES,
     ],
     example: {
       title: 'A fan changes their display name',
       priority: 'medium',
       fields: {
-        description: 'Fans now keep the name they signed up with. They want to change it, so friends recognise them in guest lists.',
-        criteria: 'Given a signed-in fan on their profile\nwhen they change their display name and save\nthen the new name shows on their profile and in guest lists',
-        notes: '',
+        story: 'As a fan, I want to change my display name, so that friends recognise me in guest lists.',
+        currently: 'Fans keep the name they signed up with.',
+        should: 'Fans change their display name on their profile, and the new name shows everywhere.',
+        acceptance:
+          'Given a signed-in fan on their profile, when they change their display name and save, then the new name shows on their profile\nGiven a fan on a guest list, when they change their display name, then the guest list shows the new name',
       },
     },
   },
@@ -235,18 +350,41 @@ export const TEMPLATES: Template[] = [
     type: 'bug',
     name: 'Bug',
     hint: 'Something broken to reproduce',
-    sections: [
-      { key: 'happens', name: 'What happens', required: true, placeholder: 'Steps to see it, and what you see', rows: 3 },
-      { key: 'expected', name: 'What should happen', required: true, placeholder: 'Given ... when ... then ...', rows: 3 },
-      notes,
+    blocks: [
+      DEPENDENCIES,
+      RELATED,
+      { heading: '## 💥 Event', question: 'When did the problem occur?' },
+      {
+        heading: '## 🦋 Expected Result',
+        question: 'What did you expect to happen?',
+        input: input('expected', 'Expected result', 'text', 'What you expected to happen', 2),
+      },
+      {
+        heading: '## 🐛 Actual Result',
+        question: 'What actually happened?',
+        input: input('actual', 'Actual result', 'text', 'What actually happened', 2),
+      },
+      {
+        heading: '## 👣 Steps to Reproduce',
+        question: 'Which steps can we take to reproduce the problem?',
+        input: input('steps', 'Steps to reproduce', 'checks', ONE_PER_LINE, 3, false),
+      },
+      {
+        heading: '## 🌍 Environment',
+        question: 'Where did the bug occur (OS, browser, app version, device, authentication state, etc.)?',
+        input: input('environment', 'Environment', 'bullets', 'OS, browser, app version, device, signed in or not', 2, false),
+      },
+      { heading: '## ✅ Acceptance Criteria', question: 'How do we measure the successful fix of the bug?' },
+      REFERENCES,
     ],
     example: {
       title: 'Invitation link opens an empty screen',
       priority: 'urgent',
       fields: {
-        happens: '1. Open a team invitation mail on a phone without the Rebl app\n2. Tap "Join the team"\nThe browser shows an empty white page and nothing else happens.',
-        expected: 'Given a phone without the Rebl app\nwhen someone taps "Join the team" in an invitation mail\nthen they land on the app store page for Rebl\nand after installing, the invitation opens in the app',
-        notes: 'Seen by two new team members this week, both on Android.',
+        expected: 'The new team member lands on the app store page for Rebl, and after installing, the invitation opens in the app.',
+        actual: 'The browser shows an empty white page and nothing else happens.',
+        steps: 'Open a team invitation mail on a phone without the Rebl app\nTap "Join the team"',
+        environment: 'Android, Chrome\nNot signed in, Rebl app not installed\nSeen by two new team members this week',
       },
     },
   },
@@ -254,18 +392,46 @@ export const TEMPLATES: Template[] = [
     type: 'enhancement',
     name: 'Enhancement',
     hint: 'Make a capability better',
-    sections: [
-      { key: 'description', name: 'Description', required: true, placeholder: 'What gets better for whom, and why now', rows: 3 },
-      { key: 'criteria', name: 'Acceptance criteria', required: true, placeholder: 'Given ... when ... then ...', rows: 4 },
-      notes,
+    blocks: [
+      DEPENDENCIES,
+      RELATED,
+      {
+        heading: '## ✨ Enhancement',
+        question: 'What existing capability are we improving, and what changes for users or operators?',
+        input: input('enhancement', 'Enhancement', 'text', 'The capability, and what changes for whom'),
+      },
+      { heading: '## 💡 Motivation', question: 'Why does this improvement matter now (pain, opportunity, feedback, metrics)?' },
+      ...SCOPE,
+      {
+        heading: '## 📍 Current behavior',
+        question: 'How does it work today?',
+        input: input('current', 'Current behavior', 'bullets', 'How it works today', 2, false),
+      },
+      {
+        heading: '## 🎯 Desired behavior',
+        question: 'How should it work after this enhancement?',
+        input: input('desired', 'Desired behavior', 'bullets', 'How it should work', 2, false),
+      },
+      {
+        heading: '## ⚠️ Constraints',
+        question: 'What compatibility, performance budgets, design system rules, release timing, or platform limits apply?',
+      },
+      {
+        heading: '## ✅ Acceptance criteria',
+        question: 'How do we know the enhancement is done and acceptable?',
+        input: input('acceptance', 'Acceptance criteria', 'checks', ONE_PER_LINE),
+      },
+      { heading: '## 📊 Success signals', question: 'What metrics, feedback, or qualitative checks after release would show success (optional)?' },
+      REFERENCES,
     ],
     example: {
-      title: 'The team list shows each member\'s role',
+      title: "The team list shows each member's role",
       priority: 'medium',
       fields: {
-        description: 'Team owners see names only and must open each member to check who can edit events. Showing the role in the list saves them that step.',
-        criteria: 'Given a team with an owner, two editors and a viewer\nwhen the owner opens the team list\nthen each member shows their role next to their name',
-        notes: '',
+        enhancement: 'The team list shows each member’s role next to their name, so team owners no longer open each member to check who can edit events.',
+        current: 'The team list shows names only.',
+        desired: 'Each member shows their role next to their name.',
+        acceptance: 'Given a team with an owner, two editors and a viewer, when the owner opens the team list, then each member shows their role',
       },
     },
   },
@@ -273,18 +439,35 @@ export const TEMPLATES: Template[] = [
     type: 'refactor',
     name: 'Refactor',
     hint: 'Same behaviour, better shape',
-    sections: [
-      { key: 'why', name: 'Why now', required: true, placeholder: 'What this makes easier, and for whom', rows: 3 },
-      { key: 'keeps', name: 'Behaviour that stays', required: true, placeholder: 'Given ... when ... then ... still holds', rows: 4 },
-      notes,
+    blocks: [
+      DEPENDENCIES,
+      RELATED,
+      {
+        heading: '## 🔁 Refactor',
+        question: 'What structure are we changing and why (internal reshaping, not new capability unless listed in scope)?',
+        input: input('refactor', 'Refactor', 'text', 'What changes shape, and why now'),
+      },
+      {
+        heading: '## 🤝 Behavioral contract',
+        question: 'What must stay the same for callers, users, or APIs, and are there any intentional behavior changes (rare — call them out)?',
+        input: input('contract', 'Behavioral contract', 'bullets', `What stays the same. ${ONE_PER_LINE}`),
+      },
+      ...SCOPE,
+      {
+        heading: '## ✅ Acceptance criteria',
+        question: 'How do we know the refactor is complete and safe?',
+        input: input('acceptance', 'Acceptance criteria', 'checks', ONE_PER_LINE, 3, false),
+      },
+      REFERENCES,
     ],
     example: {
       title: 'Team member screens show roles the same way',
       priority: 'low',
       fields: {
-        why: 'The team list, the member page and the invitation screen each show roles differently. One way of showing them makes the next role change a single change.',
-        keeps: 'Given a member with the editor role\nwhen anyone opens the team list, the member page or an invitation\nthen they still see "Editor" and the same actions as today',
-        notes: '',
+        refactor:
+          'The team list, the member page and the invitation screen each show roles differently. One way of showing them makes the next role change a single change.',
+        contract: 'Anyone still sees "Editor" for a member with the editor role\nThe actions per role stay as they are today',
+        acceptance: 'The team list, member page and invitation screen show roles the same way\nNo role shows a different label than before',
       },
     },
   },
@@ -292,18 +475,41 @@ export const TEMPLATES: Template[] = [
     type: 'chore',
     name: 'Chore',
     hint: 'Upkeep that keeps things running',
-    sections: [
-      { key: 'description', name: 'Description', required: true, placeholder: 'What needs doing, and why now', rows: 3 },
-      { key: 'done', name: 'Done when', required: true, placeholder: 'One check per line', rows: 3 },
-      notes,
+    blocks: [
+      DEPENDENCIES,
+      RELATED,
+      {
+        heading: '## 🧹 Chore',
+        question: 'What maintenance or housekeeping is this, and why now (not a user-facing feature or bug fix)?',
+        input: input('chore', 'Chore', 'text', 'What needs doing, and why now'),
+      },
+      ...SCOPE,
+      {
+        heading: '## 📍 Baseline',
+        question: 'What exists before this chore?',
+        input: input('baseline', 'Baseline', 'bullets', 'What exists before', 2, false),
+      },
+      {
+        heading: '## 🎯 Target state',
+        question: 'What exists after this chore?',
+        input: input('target', 'Target state', 'bullets', 'What exists after', 2, false),
+      },
+      { heading: '## ⚠️ Blast radius & safety', question: 'What could break, who is affected, and how to roll back or verify nothing regressed?' },
+      {
+        heading: '## ✅ Acceptance criteria',
+        question: 'How do we know this chore is done?',
+        input: input('acceptance', 'Acceptance criteria', 'checks', ONE_PER_LINE),
+      },
+      REFERENCES,
     ],
     example: {
       title: 'Renew the Apple push certificate',
       priority: 'high',
       fields: {
-        description: 'The Apple push certificate for the fan app runs out on 1 November. Without it, iPhone users get no event notifications.',
-        done: 'The new certificate is in place\nA test notification reaches an iPhone\nThe next expiry date is in the team calendar',
-        notes: '',
+        chore: 'The Apple push certificate for the fan app runs out on 1 November. Without it, iPhone users get no event notifications.',
+        baseline: 'The certificate expires on 1 November.',
+        target: 'A new certificate is in place.',
+        acceptance: 'A test notification reaches an iPhone\nThe next expiry date is in the team calendar',
       },
     },
   },
@@ -311,22 +517,76 @@ export const TEMPLATES: Template[] = [
     type: 'spike',
     name: 'Spike',
     hint: 'A question to answer in a time box',
-    sections: [
-      { key: 'question', name: 'Question', required: true, placeholder: 'What we need to know before we decide', rows: 3 },
-      { key: 'timebox', name: 'Time box', required: true, placeholder: 'For example: half a day', rows: 1 },
-      notes,
+    blocks: [
+      {
+        heading: '## 🔬 Spike Objective',
+        question: 'What question(s) are we trying to answer?',
+        input: input('objective', 'Spike objective', 'text', 'What we need to know before we decide'),
+      },
+      {
+        heading: '## ❓ Research Questions',
+        question: 'What specific unknowns need to be resolved?',
+        input: input('questions', 'Research questions', 'checks', ONE_PER_LINE, 3, false),
+      },
+      { heading: '## 🎯 Success Criteria', question: 'How do we know the spike is complete?' },
+      {
+        heading: '## ⏱️ Time Box',
+        question: 'How much time is allocated for this investigation?',
+        input: input('timebox', 'Time box', 'text', 'For example: half a day', 1),
+      },
+      { heading: '## 📚 Resources', question: 'What documentation, repos, or contacts might help?' },
+      { heading: '## 📝 Expected Output', question: 'What artifacts will be produced?' },
+      { heading: '## 🔗 Related Tickets', question: 'Which work is blocked pending this spike?' },
     ],
     example: {
       title: 'Can System One share booking data with us?',
       priority: 'medium',
       fields: {
-        question: 'Venues keep their bookings in System One. Before we plan table bookings, we need to know whether System One can share those bookings with Rebl, and on what terms.',
+        objective:
+          'Venues keep their bookings in System One. Before we plan table bookings, we need to know whether System One can share those bookings with Rebl, and on what terms.',
+        questions: 'Does System One share bookings with other apps?\nWhat does sharing cost per venue?\nWho at the venue has to agree?',
         timebox: 'One day',
-        notes: 'Contact at System One: via Rutger.',
       },
     },
   },
 ];
+
+export function templateInputs(t: Template): TemplateInput[] {
+  return t.blocks.flatMap((b) => (b.input ? [b.input] : []));
+}
+
+const LIST_MARK = /^\s*(?:[-*+]\s+(?:\[[ xX]\]\s+)?|\d+[.)]\s+)/;
+
+function lines(text: string): string[] {
+  return text
+    .split('\n')
+    .map((l) => l.replace(LIST_MARK, '').trim())
+    .filter(Boolean);
+}
+
+function section(b: TemplateBlock, body?: string): string {
+  return [b.heading, b.question && `> ${b.question}`, body && `\n${body}`].filter(Boolean).join('\n');
+}
+
+/** The template's Markdown, with what was entered converted into the sections it fills. */
+export function templateMarkdown(t: Template, fields: Record<string, string>): string {
+  return t.blocks
+    .map((b) => {
+      const text = b.input ? (fields[b.input.key] ?? '').trim() : '';
+      if (!b.input || !text) return section(b);
+      switch (b.input.format) {
+        case 'text':
+          return section(b, text);
+        case 'bullets':
+          return section(b, lines(text).map((l) => `- ${l}`).join('\n'));
+        case 'checks':
+          return section(b, lines(text).map((l) => `- [ ] ${l}`).join('\n'));
+        case 'scenarios':
+          return [section(b), ...lines(text).map((l) => [`### 👤 ${l}`, ...SCENARIO.map((s) => section(s))].join('\n\n'))].join('\n\n');
+      }
+    })
+    .join('\n\n');
+}
 
 export const TYPE_LABEL: Record<IssueType, string> = Object.fromEntries(TEMPLATES.map((t) => [t.type, t.name])) as Record<
   IssueType,
