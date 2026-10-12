@@ -110,10 +110,7 @@ export function AgentDetailInspector({
     value: profileDraft,
     savedValue: savedProfile,
     onSave: saveProfile,
-    enabled:
-      canEdit &&
-      profileDraft.name.length > 0 &&
-      profileDraft.description.length <= AGENT_DESCRIPTION_WARN_LENGTH,
+    enabled: canEdit && profileDraft.name.length > 0,
     isEqual: profileDraftsEqual,
   });
 
@@ -222,13 +219,13 @@ export function AgentDetailInspector({
                 onBlur={profileAutoSave.flush}
                 disabled={!canEdit}
                 rows={5}
-                maxLength={AGENT_DESCRIPTION_WARN_LENGTH}
                 className="resize-y"
                 placeholder={t(($) => $.inspector.description_placeholder)}
               />
               <CharCounter
                 length={[...description].length}
                 max={AGENT_DESCRIPTION_WARN_LENGTH}
+                soft
               />
             </div>
           </SettingsRow>

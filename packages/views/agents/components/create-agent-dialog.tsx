@@ -347,13 +347,13 @@ export function CreateAgentDialog({
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     placeholder={t(($) => $.create_dialog.description_placeholder)}
-                    maxLength={AGENT_DESCRIPTION_WARN_LENGTH}
                     className="mt-1"
                   />
                   <div className="mt-1">
                     <CharCounter
                       length={[...description].length}
                       max={AGENT_DESCRIPTION_WARN_LENGTH}
+                      soft
                     />
                   </div>
                 </div>

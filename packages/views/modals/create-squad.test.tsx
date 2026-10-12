@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { I18nProvider } from "@multica/core/i18n/react";
 import type { Agent, MemberWithUser, Squad } from "@multica/core/types";
 import enCommon from "../locales/en/common.json";
@@ -306,6 +307,18 @@ describe("CreateSquadModal", () => {
     expect(desc.value).toBe("We own infra");
     // Char counter reflects the typed length.
     expect(screen.getByTestId("char-counter").textContent).toMatch(/^12\//);
+  });
+
+  it("stops the description at 255 characters", async () => {
+    const user = userEvent.setup();
+    renderModal();
+    const desc = screen.getByPlaceholderText(/Describe what this squad/i) as HTMLInputElement;
+
+    await user.click(desc);
+    await user.paste("a".repeat(300));
+
+    expect(desc.value).toBe("a".repeat(255));
+    expect(screen.getByTestId("char-counter").textContent).toBe("255/255");
   });
 
   it("renders the leader picker with 'My Agents' before 'Workspace Agents'", () => {

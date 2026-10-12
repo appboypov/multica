@@ -135,15 +135,12 @@ export function AgentConfigurationPanel({
                 onChange={(event) => set("description", event.target.value)}
                 placeholder={t(($) => $.create_dialog.description_placeholder)}
                 rows={compact ? 3 : 4}
-                // The create API rejects >255 characters with a 400. Cap the
-                // input and show the counter so the limit is visible before
-                // submitting, matching the settings page.
-                maxLength={AGENT_DESCRIPTION_WARN_LENGTH}
                 className="resize-y"
               />
               <CharCounter
                 length={[...draft.description].length}
                 max={AGENT_DESCRIPTION_WARN_LENGTH}
+                soft
               />
             </div>
           </DraftFieldRow>
