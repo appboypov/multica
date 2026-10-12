@@ -4568,13 +4568,14 @@ func (d *Daemon) handleHeartbeatActions(ctx context.Context, runtimeID string, r
 	if resp == nil {
 		return
 	}
-	if resp.PendingUpdate != nil || resp.PendingModelList != nil || resp.PendingLocalSkills != nil || resp.PendingLocalSkillImport != nil {
+	if resp.PendingUpdate != nil || resp.PendingModelList != nil || resp.PendingLocalSkills != nil || resp.PendingLocalSkillImport != nil || resp.PendingDirectoryListing != nil {
 		d.logger.Debug("heartbeat: pending actions",
 			"runtime_id", runtimeID,
 			"update", resp.PendingUpdate != nil,
 			"model_list", resp.PendingModelList != nil,
 			"local_skills", resp.PendingLocalSkills != nil,
 			"local_skill_import", resp.PendingLocalSkillImport != nil,
+			"directory_listing", resp.PendingDirectoryListing != nil,
 		)
 	}
 	if resp.PendingUpdate != nil {
@@ -4588,6 +4589,11 @@ func (d *Daemon) handleHeartbeatActions(ctx context.Context, runtimeID string, r
 	if resp.PendingLocalSkills != nil {
 		if rt := d.findRuntime(runtimeID); rt != nil {
 			go d.handleLocalSkillList(ctx, *rt, resp.PendingLocalSkills.ID)
+		}
+	}
+	if resp.PendingDirectoryListing != nil {
+		if rt := d.findRuntime(runtimeID); rt != nil {
+			go d.handleDirectoryListing(ctx, *rt, resp.PendingDirectoryListing.ID, resp.PendingDirectoryListing.Path)
 		}
 	}
 	// Prefer the batch field (new backend); fall back to singular (old backend).
@@ -4917,7 +4923,7 @@ func (d *Daemon) handleLocalSkillImport(ctx context.Context, rt Runtime, pending
 
 // runtimeReportBackoffs defines the retry schedule for delivering any
 // daemon→server async result (model list, local-skill list, local-skill
-// import). First attempt runs immediately, then we back off. The sum
+// import, directory listing). First attempt runs immediately, then we back off. The sum
 // (≈6.5s) leaves most of the server-side running timeout (60s) available for
 // discovery and report attempts. Each HTTP attempt has its own client timeout,
 // so this schedule alone is not an end-to-end delivery deadline.
