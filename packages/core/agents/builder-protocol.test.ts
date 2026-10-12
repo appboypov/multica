@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from "vitest";
 import {
   decodeBuilderInput,
@@ -13,6 +14,7 @@ const draft = (): AgentDraft => ({
   name: "Old name",
   description: "Old description",
   instructions: "Old instructions",
+  instructionSelection: [],
   conversationStarters: [],
   avatarUrl: null,
   runtimeId: "runtime-1",

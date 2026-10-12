@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from "vitest";
 import type { AgentDraft } from "./draft";
 import {
@@ -10,6 +11,7 @@ const draft = (): AgentDraft => ({
   name: "Release manager",
   description: "Ships carefully",
   instructions: "# Role\nShip.",
+  instructionSelection: [],
   conversationStarters: [
     { label: "Plan a release", prompt: "Plan the next release." },
   ],

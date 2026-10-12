@@ -26,6 +26,7 @@ export interface AgentDraft {
   name: string;
   description: string;
   instructions: string;
+  instructionSelection: string[];
   conversationStarters: AgentConversationStarter[];
   avatarUrl: string | null;
   runtimeId: string;
@@ -45,6 +46,7 @@ export const EMPTY_AGENT_DRAFT: AgentDraft = {
   name: "",
   description: "",
   instructions: "",
+  instructionSelection: [],
   conversationStarters: [],
   avatarUrl: null,
   runtimeId: "",
@@ -189,6 +191,7 @@ export function buildDuplicateDraft(
     name: `${source.name}${options.nameSuffix}`,
     description: source.description ?? "",
     instructions: source.instructions ?? "",
+    instructionSelection: [...(source.instruction_selection ?? [])],
     conversationStarters: (source.conversation_starters ?? []).map((item) => ({ ...item })),
     avatarUrl: source.avatar_url ?? null,
     runtimeId: keepsRuntime
@@ -220,6 +223,9 @@ export function buildCreateAgentRequest(options: {
     name: draft.name.trim(),
     description: draft.description.trim(),
     instructions: draft.instructions.trim() || undefined,
+    ...(draft.instructionSelection.length > 0
+      ? { instruction_selection: draft.instructionSelection }
+      : {}),
     ...(draft.conversationStarters.length > 0
       ? {
           conversation_starters: draft.conversationStarters.map((item) => ({

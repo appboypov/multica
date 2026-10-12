@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from "vitest";
 import type { Agent, RuntimeDevice } from "../types";
 import {
@@ -15,6 +16,7 @@ const draft = (): AgentDraft => ({
   name: "Old name",
   description: "Old description",
   instructions: "Old instructions",
+  instructionSelection: [],
   conversationStarters: [],
   avatarUrl: null,
   runtimeId: "runtime-1",
@@ -148,6 +150,59 @@ describe("agent conversation starters", () => {
     });
 
     expect(request).not.toHaveProperty("conversation_starters");
+  });
+});
+
+describe("agent instruction selection", () => {
+  it("copies selected paths in order without sharing the source array", () => {
+    const source = sourceAgent({
+      instructions: "{selection}",
+      instruction_selection: ["/skills/reviewer", "/notes/context.md"],
+    });
+    const duplicate = buildDuplicateDraft(source, {
+      runtimes: [CODEX_RUNTIME],
+      currentUserId: "user-1",
+      fallbackRuntimeId: "runtime-2",
+      nameSuffix: " (Copy)",
+    });
+
+    expect(duplicate.instructions).toBe("{selection}");
+    expect(duplicate.instructionSelection).toEqual(source.instruction_selection);
+    expect(duplicate.instructionSelection).not.toBe(source.instruction_selection);
+  });
+
+  it("uses an empty selection when the source omits it", () => {
+    const duplicate = buildDuplicateDraft(sourceAgent(), {
+      runtimes: [CODEX_RUNTIME],
+      currentUserId: "user-1",
+      fallbackRuntimeId: "runtime-2",
+      nameSuffix: " (Copy)",
+    });
+
+    expect(duplicate.instructionSelection).toEqual([]);
+  });
+
+  it("sends selected paths unchanged in the create request", () => {
+    const paths = ["/skills/reviewer", "/notes/context.md"];
+    const request = buildCreateAgentRequest({
+      draft: { ...draft(), instructionSelection: paths },
+      runtimeId: "runtime-1",
+    });
+
+    expect(request.instruction_selection).toEqual(paths);
+  });
+
+  it("omits an empty selection from the create request", () => {
+    expect(
+      buildCreateAgentRequest({ draft: draft(), runtimeId: "runtime-1" }),
+    ).not.toHaveProperty("instruction_selection");
+  });
+
+  it("keeps the selection when changing the draft runtime", () => {
+    const current = { ...draft(), instructionSelection: ["/skills/reviewer"] };
+
+    expect(applyDraftRuntimeChange(current, "runtime-2").instructionSelection)
+      .toEqual(current.instructionSelection);
   });
 });
 

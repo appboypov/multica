@@ -71,6 +71,7 @@ const baseDraft: AgentDraft = {
   name: "Fast Codex",
   description: "",
   instructions: "",
+  instructionSelection: [],
   conversationStarters: [],
   avatarUrl: null,
   runtimeId: "runtime-1",
