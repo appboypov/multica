@@ -4,26 +4,35 @@ import { useEffect, useRef, useState } from "react";
 import { Loader2, Save } from "lucide-react";
 import { useConfigStore } from "@multica/core/config";
 import { AGENT_FOCUS_CONVERSATION_STARTERS } from "@multica/core/paths";
-import type { Agent, AgentConversationStarter } from "@multica/core/types";
+import type {
+  Agent,
+  AgentConversationStarter,
+  RuntimeDevice,
+} from "@multica/core/types";
 import { Button } from "@multica/ui/components/ui/button";
-import { Textarea } from "@multica/ui/components/ui/textarea";
 import { cn } from "@multica/ui/lib/utils";
 import { useT } from "../../../i18n";
 import { useOptionalNavigation } from "../../../navigation";
 
 import { ConversationStartersEditor } from "../conversation-starters-editor";
+import { InstructionsField } from "../instructions-field";
 
 /** How long the deep-linked conversation-starters editor stays ringed. */
 const FOCUS_FLASH_MS = 1600;
 
 export function InstructionsTab({
   agent,
+  runtime,
+  currentUserId,
   onSave,
   onDirtyChange,
 }: {
   agent: Agent;
+  runtime: RuntimeDevice | null;
+  currentUserId: string | null;
   onSave: (updates: {
     instructions: string;
+    instruction_selection?: string[];
     conversation_starters?: AgentConversationStarter[];
   }) => Promise<void>;
   onDirtyChange?: (dirty: boolean) => void;
@@ -37,6 +46,9 @@ export function InstructionsTab({
     (state) => state.agentConversationStartersSupported,
   );
   const [value, setValue] = useState(agent.instructions ?? "");
+  const [selection, setSelection] = useState<string[]>(
+    agent.instruction_selection ?? [],
+  );
   const [conversationStarters, setConversationStarters] = useState<AgentConversationStarter[]>(
     agent.conversation_starters ?? [],
   );
@@ -46,24 +58,30 @@ export function InstructionsTab({
   const focusHandledForAgentRef = useRef<string | null>(null);
   const focusFlashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [systemOpen, setSystemOpen] = useState(false);
+  const persistedSelectionKey = JSON.stringify(agent.instruction_selection ?? []);
   const persistedConversationStartersKey = JSON.stringify(
     agent.conversation_starters ?? [],
   );
   const persistedRef = useRef({
     agentId: agent.id,
     instructions: agent.instructions ?? "",
+    selectionKey: persistedSelectionKey,
     conversationStartersKey: persistedConversationStartersKey,
   });
   const localRef = useRef({
     instructions: value,
+    selectionKey: JSON.stringify(selection),
     conversationStartersKey: JSON.stringify(conversationStarters),
   });
   localRef.current = {
     instructions: value,
+    selectionKey: JSON.stringify(selection),
     conversationStartersKey: JSON.stringify(conversationStarters),
   };
+  const selectionChanged = JSON.stringify(selection) !== persistedSelectionKey;
   const isDirty =
     value !== (agent.instructions ?? "") ||
+    selectionChanged ||
     (conversationStartersSupported &&
       JSON.stringify(conversationStarters) !== persistedConversationStartersKey);
   const conversationStartersValid =
@@ -95,23 +113,33 @@ export function InstructionsTab({
     const local = localRef.current;
     const wasLocallyDirty =
       local.instructions !== previous.instructions ||
+      local.selectionKey !== previous.selectionKey ||
       local.conversationStartersKey !== previous.conversationStartersKey;
     const persistedContentsChanged =
       previous.instructions !== (agent.instructions ?? "") ||
+      previous.selectionKey !== persistedSelectionKey ||
       previous.conversationStartersKey !== persistedConversationStartersKey;
 
     persistedRef.current = {
       agentId: agent.id,
       instructions: agent.instructions ?? "",
+      selectionKey: persistedSelectionKey,
       conversationStartersKey: persistedConversationStartersKey,
     };
     if (switchingAgents || (!wasLocallyDirty && persistedContentsChanged)) {
       setValue(agent.instructions ?? "");
+      setSelection(JSON.parse(persistedSelectionKey) as string[]);
       setConversationStarters(
         JSON.parse(persistedConversationStartersKey) as AgentConversationStarter[],
       );
     }
-  }, [agent.id, agent.instructions, persistedConversationStartersKey, saving]);
+  }, [
+    agent.id,
+    agent.instructions,
+    persistedSelectionKey,
+    persistedConversationStartersKey,
+    saving,
+  ]);
 
   // Arriving from "customize" in a chat's empty state: bring the starter
   // prompts into view and flash them, so the deep link lands ON the setting
@@ -176,6 +204,9 @@ export function InstructionsTab({
     try {
       await onSave({
         instructions: value,
+        // Only the runtime's owner may change the selection; a save that
+        // leaves it as it was never carries it.
+        ...(selectionChanged ? { instruction_selection: selection } : {}),
         ...(conversationStartersSupported
           ? { conversation_starters: conversationStarters }
           : {}),
@@ -233,19 +264,21 @@ export function InstructionsTab({
             ? t(($) => $.tab_body.instructions.workspace_notes_label)
             : t(($) => $.tab_body.instructions.system_prompt_label)}
         </label>
-        <Textarea
+        <InstructionsField
           id={`agent-system-prompt-${agent.id}`}
-          name="agent-system-prompt"
-          autoComplete="off"
           value={value}
-          onChange={(event) => setValue(event.target.value)}
+          onChange={setValue}
+          selection={selection}
+          onSelectionChange={setSelection}
+          runtime={runtime}
+          currentUserId={currentUserId}
           placeholder={
             hasSystemLayer
               ? t(($) => $.tab_body.instructions.workspace_notes_placeholder)
               : t(($) => $.tab_body.instructions.placeholder)
           }
           rows={18}
-          className="min-h-96 resize-y leading-6"
+          className="min-h-96"
         />
       </div>
 

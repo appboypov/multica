@@ -3,9 +3,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { configStore } from "@multica/core/config";
 import { I18nProvider } from "@multica/core/i18n/react";
-import type { Agent } from "@multica/core/types";
+import type { Agent, RuntimeDevice } from "@multica/core/types";
 import enCommon from "../../../locales/en/common.json";
 import enAgents from "../../../locales/en/agents.json";
 // The conversation-starter editor previews the chat empty state, so it reads the
@@ -13,6 +14,17 @@ import enAgents from "../../../locales/en/agents.json";
 import enChat from "../../../locales/en/chat.json";
 import { NavigationProvider } from "../../../navigation";
 import type { NavigationAdapter } from "../../../navigation";
+
+const mockInitiateDirectoryListing = vi.hoisted(() => vi.fn());
+
+vi.mock("@multica/core/api", () => ({
+  api: {
+    initiateDirectoryListing: (...args: unknown[]) =>
+      mockInitiateDirectoryListing(...args),
+    getDirectoryListing: vi.fn(),
+  },
+}));
+
 import { InstructionsTab } from "./instructions-tab";
 
 const TEST_RESOURCES = {
@@ -48,10 +60,44 @@ const baseAgent: Agent = {
   archived_by: null,
 };
 
-function tab(agent: Agent, onSave = vi.fn().mockResolvedValue(undefined)) {
+const UX_DESIGNER = "/Users/brian/.omp/agent/skills/as-ux-designer";
+
+const RUNTIME: RuntimeDevice = {
+  id: "runtime-1",
+  workspace_id: "ws-1",
+  daemon_id: "daemon-1",
+  name: "omp (MacBook)",
+  runtime_mode: "local",
+  provider: "omp",
+  launch_header: "",
+  status: "online",
+  device_info: "",
+  metadata: {},
+  owner_id: "brian",
+  visibility: "public",
+  last_seen_at: null,
+  created_at: "2026-10-12T00:00:00Z",
+  updated_at: "2026-10-12T00:00:00Z",
+};
+
+function tab(
+  agent: Agent,
+  onSave = vi.fn().mockResolvedValue(undefined),
+  {
+    runtime = null,
+    currentUserId = null,
+  }: { runtime?: RuntimeDevice | null; currentUserId?: string | null } = {},
+) {
   return (
     <I18nProvider locale="en" resources={TEST_RESOURCES}>
-      <InstructionsTab agent={agent} onSave={onSave} />
+      <QueryClientProvider client={new QueryClient()}>
+        <InstructionsTab
+          agent={agent}
+          runtime={runtime}
+          currentUserId={currentUserId}
+          onSave={onSave}
+        />
+      </QueryClientProvider>
     </I18nProvider>
   );
 }
@@ -177,6 +223,75 @@ describe("InstructionsTab persisted-state synchronization", () => {
   });
 });
 
+describe("InstructionsTab instruction selection", () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("sends the path the runtime's owner adds", async () => {
+    mockInitiateDirectoryListing.mockResolvedValue({
+      id: "request-roots",
+      runtime_id: RUNTIME.id,
+      status: "completed",
+      path: "",
+      entries: [
+        { name: "as-ux-designer", path: UX_DESIGNER, kind: "folder", hidden: false },
+      ],
+      error: "",
+      created_at: "2026-10-12T00:00:00Z",
+      updated_at: "2026-10-12T00:00:00Z",
+    });
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    render(tab(baseAgent, onSave, { runtime: RUNTIME, currentUserId: "brian" }));
+
+    await user.click(screen.getByRole("button", { name: "Browse" }));
+    await user.click(
+      await screen.findByRole("checkbox", { name: "as-ux-designer" }),
+    );
+    await user.click(screen.getByRole("button", { name: "Add" }));
+    expect(screen.getByRole("listitem")).toHaveTextContent(
+      "~/.omp/agent/skills/as-ux-designer",
+    );
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(onSave).toHaveBeenCalledWith({
+      instructions: "Review carefully.\n\n{selection}",
+      instruction_selection: [UX_DESIGNER],
+    });
+  });
+
+  it("leaves the selection out of a member's text edit", async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    render(
+      tab(
+        {
+          ...baseAgent,
+          instructions: "{selection}",
+          instruction_selection: [UX_DESIGNER],
+        },
+        onSave,
+        { runtime: RUNTIME, currentUserId: "member-2" },
+      ),
+    );
+
+    expect(screen.getByRole("listitem")).toHaveTextContent(
+      "~/.omp/agent/skills/as-ux-designer",
+    );
+    expect(screen.queryByRole("button", { name: "Browse" })).toBeNull();
+    const instructions = screen.getByLabelText("System prompt");
+    await user.click(instructions);
+    await user.keyboard("{End} Keep it short.");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(onSave).toHaveBeenCalledWith({
+      instructions: "{selection} Keep it short.",
+    });
+    expect(mockInitiateDirectoryListing).not.toHaveBeenCalled();
+  });
+});
+
 // The "customize" link in a chat's empty state lands here with ?focus=. The
 // tab must bring the editor into view and then clear the param, so a refresh
 // or a later tab switch does not replay the flash.
@@ -214,7 +329,12 @@ describe("InstructionsTab conversation-starters deep link", () => {
     const tree = (value: NavigationAdapter, agent: Agent) => (
       <I18nProvider locale="en" resources={TEST_RESOURCES}>
         <NavigationProvider value={value}>
-          <InstructionsTab agent={agent} onSave={vi.fn()} />
+          <InstructionsTab
+            agent={agent}
+            runtime={null}
+            currentUserId={null}
+            onSave={vi.fn()}
+          />
         </NavigationProvider>
       </I18nProvider>
     );
