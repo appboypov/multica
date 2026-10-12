@@ -136,6 +136,8 @@ const DEFAULT_SQUAD = 'Backend';
 export const MulticaSteerAllWorkPrototype = () => {
   const [orgs, setOrgs] = useState<Org[]>(loadOrgs);
   const [squadIssues, setSquadIssues] = useState<Record<string, Issue[]>>(SQUAD_ISSUES);
+  // Issues made without a worklane or a squad: Multica keeps them on its Issues page.
+  const [looseIssues, setLooseIssues] = useState<Issue[]>([]);
   const [statuses, setStatuses] = useState<Record<string, Status>>({});
   const [descriptions, setDescriptions] = useState<Record<string, string>>({});
   const [route, setRoute] = useState<Route>({ name: 'projects' });
@@ -197,7 +199,7 @@ export const MulticaSteerAllWorkPrototype = () => {
     findIssue: (id) =>
       allLanes(orgs)
         .flatMap((l) => laneIssues(l.lane))
-        .concat(Object.values(squadIssues).flat())
+        .concat(Object.values(squadIssues).flat(), looseIssues)
         .find((i) => i.id === id) ?? null,
     squadOf: (i) => i.squad ?? Object.keys(squadIssues).find((s) => squadIssues[s].some((x) => x.id === i.id)),
     fresh,
@@ -228,6 +230,7 @@ export const MulticaSteerAllWorkPrototype = () => {
     const used = [
       ...allLanes(orgs).flatMap((l) => laneIssues(l.lane)),
       ...Object.values(squadIssues).flat(),
+      ...looseIssues,
     ]
       .filter((i) => i.id.startsWith(prefix + '-'))
       .map((i) => Number(i.id.split('-')[1]));
@@ -259,6 +262,7 @@ export const MulticaSteerAllWorkPrototype = () => {
       );
     }
     if (d.squad) setSquadIssues((m) => ({ ...m, [d.squad!]: [...(m[d.squad!] ?? []), issue] }));
+    if (!d.lane && !d.squad) setLooseIssues((l) => [...l, issue]);
     setDraft(null);
     setFresh(id);
     setPeeked(null);
@@ -374,7 +378,7 @@ export const MulticaSteerAllWorkPrototype = () => {
       </main>
       {peeked && <IssuePeek api={api} issue={peeked} onClose={() => setPeeked(null)} />}
       {draft && <NewIssueDialog api={api} draft={draft} onClose={() => setDraft(null)} onCreate={createIssue} />}
-      {palette && <Palette api={api} squadIssues={squadIssues} onClose={() => setPalette(false)} />}
+      {palette && <Palette api={api} squadIssues={squadIssues} looseIssues={looseIssues} onClose={() => setPalette(false)} />}
       {toastText && (
         <div
           role="status"
@@ -2154,7 +2158,7 @@ function NewIssueDialog({ api, draft, onClose, onCreate }: { api: AppApi; draft:
 // Search palette
 // ---------------------------------------------------------------------------
 
-function Palette({ api, squadIssues, onClose }: { api: AppApi; squadIssues: Record<string, Issue[]>; onClose: () => void }) {
+function Palette({ api, squadIssues, looseIssues, onClose }: { api: AppApi; squadIssues: Record<string, Issue[]>; looseIssues: Issue[]; onClose: () => void }) {
   const [q, setQ] = useState('');
   const [sel, setSel] = useState(0);
   const items = useMemo(() => {
@@ -2177,9 +2181,10 @@ function Palette({ api, squadIssues, onClose }: { api: AppApi; squadIssues: Reco
       all.push({ label: `${s.name} squad`, hint: s.leader, icon: <Users size={14} />, run: () => api.go({ name: 'squad', squad: s.name, view: 'board' }) });
       (squadIssues[s.name] ?? []).forEach((is) => all.push({ label: `${is.id} ${is.title}`, hint: s.name, icon: <TypeIcon type={is.type} />, run: () => api.peek(is) }));
     });
+    looseIssues.forEach((is) => all.push({ label: `${is.id} ${is.title}`, hint: 'No worklane', icon: <TypeIcon type={is.type} />, run: () => api.peek(is) }));
     const needle = q.trim().toLowerCase();
     return (needle ? all.filter((i) => `${i.label} ${i.hint}`.toLowerCase().includes(needle)) : all.filter((i) => !/^[A-Z]+-\d+/.test(i.label))).slice(0, 10);
-  }, [q, api, squadIssues]);
+  }, [q, api, squadIssues, looseIssues]);
   const run = (i: number) => {
     items[i]?.run();
     onClose();

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import {
   Bookmark,
   Bug,
@@ -165,7 +165,7 @@ export function Progress({ done, total }: { done: number; total: number }) {
   );
 }
 
-/** Popover anchored under its trigger; closes on outside click and Escape. */
+/** Popover anchored under its trigger, or above it when its scroll area has no room below; closes on outside click and Escape. */
 export function Menu({
   trigger,
   children,
@@ -178,7 +178,24 @@ export function Menu({
   width?: number;
 }) {
   const [open, setOpen] = useState(false);
+  const [up, setUp] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    if (!open || !ref.current || !menuRef.current) return setUp(false);
+    // The nearest scrolling ancestor clips the menu, such as a dialog's body.
+    let area = { top: 0, bottom: window.innerHeight };
+    for (let el = ref.current.parentElement; el; el = el.parentElement) {
+      if (/(auto|scroll|hidden)/.test(getComputedStyle(el).overflowY)) {
+        const r = el.getBoundingClientRect();
+        area = { top: Math.max(0, r.top), bottom: Math.min(window.innerHeight, r.bottom) };
+        break;
+      }
+    }
+    const box = ref.current.getBoundingClientRect();
+    const need = menuRef.current.offsetHeight + 4;
+    setUp(box.bottom + need > area.bottom && box.top - need >= area.top);
+  }, [open]);
   useEffect(() => {
     if (!open) return;
     const onDown = (e: MouseEvent) => {
@@ -202,8 +219,9 @@ export function Menu({
       {trigger(open, () => setOpen((o) => !o))}
       {open && (
         <div
+          ref={menuRef}
           role="menu"
-          className="mc-pop absolute top-[calc(100%+4px)] z-50 rounded-[8px] border p-1"
+          className={`mc-pop absolute z-50 rounded-[8px] border p-1 ${up ? 'bottom-[calc(100%+4px)]' : 'top-[calc(100%+4px)]'}`}
           style={{
             [align]: 0,
             width,
