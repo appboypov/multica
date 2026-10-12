@@ -1,0 +1,12 @@
+schema: intent-driven
+created: 2026-10-12
+build:
+  status: ready-for-dev
+  type: feature
+  ticket: DAS-434
+  context:
+    - '{project-root}/AGENTS.md'
+    - '{project-root}/specs/docs/system-design.md'
+    - '{project-root}/adr/0002-questions-are-their-own-aggregate.md'
+    - '{project-root}/adr/0003-only-wake-turns-answers-into-a-run.md'
+    - '{project-root}/adr/0004-question-sets-group-questions-open-is-per-question.md'
