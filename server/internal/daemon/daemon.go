@@ -6015,6 +6015,10 @@ func taskRunFailureReason(err error) string {
 	if errors.Is(err, execenv.ErrOpenclawCLITimeout) {
 		return taskfailure.ReasonRuntimeCLITimeout.String()
 	}
+	var selectionErr *instructionSelectionError
+	if errors.As(err, &selectionErr) {
+		return failureReasonInstructionSelection
+	}
 	// Everything else that failed while building or re-opening the execution
 	// environment. Last of the structural branches: the four sentinels above
 	// each name a cause the daemon already recognises on its own (task
@@ -7751,6 +7755,10 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, slot i
 	agentName = task.Agent.Name
 	skills = task.Agent.Skills
 	instructions = task.Agent.Instructions
+	instructions, err := expandInstructionSelection(prepareCtx, instructions, task.Agent.InstructionSelection)
+	if err != nil {
+		return TaskResult{}, err
+	}
 
 	// Prepare isolated execution environment.
 	// Repos are passed as metadata only — the agent checks them out on demand
