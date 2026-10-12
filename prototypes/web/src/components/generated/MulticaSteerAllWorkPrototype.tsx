@@ -49,8 +49,6 @@ import {
   type Repo,
   type Status,
   PRIORITY_LABEL,
-  SQUADS,
-  SQUAD_ISSUES,
   STATUS_LABEL,
   TEMPLATES,
   TYPE_LABEL,
@@ -78,19 +76,18 @@ import { Avatar, Button, Chip, IconButton, Markdown, Menu, MenuItem, Overlay, Pr
 // ---------------------------------------------------------------------------
 
 type LaneView = 'timeline' | 'board' | 'list';
-type SquadView = 'board' | 'list' | 'backlog';
 
 type Route =
   | { name: 'projects' }
+  | { name: 'organisations' }
+  | { name: 'organisation'; org: string }
   | { name: 'project'; org: string; project: string; addLane?: string }
   | { name: 'lane'; ref: LaneRef; view: LaneView }
-  | { name: 'squad'; squad: string; view: SquadView }
   | { name: 'other'; label: string }
-  | { name: 'issue'; id: string; from: 'Projects' | 'Squads' };
+  | { name: 'issue'; id: string };
 
 interface Draft {
   type: IssueType;
-  squad?: string;
   lane?: LaneRef;
   release?: string;
   status?: Status;
@@ -109,7 +106,6 @@ interface AppApi {
   /** Opens the issue's own page. */
   open: (i: Issue) => void;
   findIssue: (id: string) => Issue | null;
-  squadOf: (i: Issue) => string | undefined;
   /** The issue made last in this session; it flashes where it lands. */
   fresh: string | null;
   toast: (t: string) => void;
@@ -131,12 +127,9 @@ function allLanes(orgs: Org[]): { ref: LaneRef; lane: Lane }[] {
   );
 }
 
-const DEFAULT_SQUAD = 'Backend';
-
 export const MulticaSteerAllWorkPrototype = () => {
   const [orgs, setOrgs] = useState<Org[]>(loadOrgs);
-  const [squadIssues, setSquadIssues] = useState<Record<string, Issue[]>>(SQUAD_ISSUES);
-  // Issues made without a worklane or a squad: Multica keeps them on its Issues page.
+  // Issues made without a worklane: Multica keeps them on its Issues page.
   const [looseIssues, setLooseIssues] = useState<Issue[]>([]);
   const [statuses, setStatuses] = useState<Record<string, Status>>({});
   const [descriptions, setDescriptions] = useState<Record<string, string>>({});
@@ -160,24 +153,11 @@ export const MulticaSteerAllWorkPrototype = () => {
   const newIssue = useCallback(
     (d: Partial<Draft> = {}) => {
       // A worklane's new issue lands in that worklane's next release.
-      const nextOf = (ref: LaneRef | undefined) => {
-        const f = ref ? findLane(orgs, ref) : null;
-        return f ? f.lane.releases?.[laneNextIdx(f.repo, f.lane, statusOf)]?.version : undefined;
-      };
-      // A worklane's new issue also goes to the squad that works the worklane.
-      const ctx: Partial<Draft> =
-        route.name === 'lane'
-          ? { lane: route.ref, release: nextOf(route.ref), squad: findLane(orgs, route.ref)?.lane.squad }
-          : route.name === 'squad'
-            ? (() => {
-                // A squad's new issue goes to the worklane of its open work, in that worklane's next release.
-                const lane = (squadIssues[route.squad] ?? []).find((i) => i.lane && statusOf(i) !== 'done')?.lane;
-                return { squad: route.squad, lane, release: nextOf(lane) };
-              })()
-            : {};
+      const f = route.name === 'lane' ? findLane(orgs, route.ref) : null;
+      const ctx: Partial<Draft> = f && route.name === 'lane' ? { lane: route.ref, release: f.lane.releases?.[laneNextIdx(f.repo, f.lane, statusOf)]?.version } : {};
       setDraft({ type: 'story', ...ctx, ...d });
     },
-    [route, orgs, squadIssues, statusOf],
+    [route, orgs, statusOf],
   );
 
   const api: AppApi = {
@@ -194,14 +174,13 @@ export const MulticaSteerAllWorkPrototype = () => {
     peek: setPeeked,
     open: (i) => {
       setPeeked(null);
-      setRoute({ name: 'issue', id: i.id, from: i.lane && !(route.name === 'squad') ? 'Projects' : 'Squads' });
+      setRoute({ name: 'issue', id: i.id });
     },
     findIssue: (id) =>
       allLanes(orgs)
         .flatMap((l) => laneIssues(l.lane))
-        .concat(Object.values(squadIssues).flat(), looseIssues)
+        .concat(looseIssues)
         .find((i) => i.id === id) ?? null,
-    squadOf: (i) => i.squad ?? Object.keys(squadIssues).find((s) => squadIssues[s].some((x) => x.id === i.id)),
     fresh,
     toast,
   };
@@ -227,11 +206,7 @@ export const MulticaSteerAllWorkPrototype = () => {
   const createIssue = (d: Draft, title: string, description: string, priority: Priority) => {
     const target = d.lane ? findLane(orgs, d.lane) : null;
     const prefix = target?.project.name === 'Rebl' ? 'REBL' : 'WORK';
-    const used = [
-      ...allLanes(orgs).flatMap((l) => laneIssues(l.lane)),
-      ...Object.values(squadIssues).flat(),
-      ...looseIssues,
-    ]
+    const used = [...allLanes(orgs).flatMap((l) => laneIssues(l.lane)), ...looseIssues]
       .filter((i) => i.id.startsWith(prefix + '-'))
       .map((i) => Number(i.id.split('-')[1]));
     const id = `${prefix}-${Math.max(prefix === 'WORK' ? 360 : 0, ...used) + 1}`;
@@ -245,7 +220,6 @@ export const MulticaSteerAllWorkPrototype = () => {
       lane: d.lane,
       release: d.release,
       description,
-      squad: d.squad,
       created: true,
     };
     // A worklane holds its issue in the chosen release, or in its backlog until a release is planned for it.
@@ -260,14 +234,12 @@ export const MulticaSteerAllWorkPrototype = () => {
               : { ...l, backlog: [...(l.backlog ?? []), issue] },
         ),
       );
-    }
-    if (d.squad) setSquadIssues((m) => ({ ...m, [d.squad!]: [...(m[d.squad!] ?? []), issue] }));
-    if (!d.lane && !d.squad) setLooseIssues((l) => [...l, issue]);
+    } else setLooseIssues((l) => [...l, issue]);
     setDraft(null);
     setFresh(id);
     setPeeked(null);
-    setRoute({ name: 'issue', id, from: route.name === 'squad' || (!d.lane && d.squad) ? 'Squads' : 'Projects' });
-    toast(`${id} created${d.release ? ` in ${d.release}` : ''}${d.squad ? ` for ${d.squad}` : ''}`);
+    setRoute({ name: 'issue', id });
+    toast(`${id} created${d.release ? ` in ${d.release}` : ''}`);
   };
 
   const updateLanes = (ref: { org: string; project: string; repo: string }, fn: (lanes: Lane[]) => Lane[]) =>
@@ -321,13 +293,12 @@ export const MulticaSteerAllWorkPrototype = () => {
         };
       }),
     );
-    setSquadIssues((m) =>
-      Object.fromEntries(Object.entries(m).map(([s, is]) => [s, is.map((i) => (into?.ids.includes(i.id) ? ready(i) : follow(i)))])),
-    );
   };
 
   let page: ReactNode;
   if (route.name === 'projects') page = <ProjectsPage api={api} onAddProject={addProject} />;
+  else if (route.name === 'organisations') page = <OrganisationsPage api={api} />;
+  else if (route.name === 'organisation') page = <OrganisationPage key={route.org} api={api} orgName={route.org} />;
   else if (route.name === 'project')
     page = (
       <ProjectPage
@@ -343,7 +314,6 @@ export const MulticaSteerAllWorkPrototype = () => {
             {
               name: lane.name,
               folder: lane.folder,
-              squad: lane.squad,
               state: 'Free',
               active: null,
               next: null,
@@ -366,8 +336,7 @@ export const MulticaSteerAllWorkPrototype = () => {
         onSaveLine={(line, into) => saveLine(route.ref, line, into)}
       />
     );
-  else if (route.name === 'squad') page = <SquadPage api={api} squad={route.squad} view={route.view} issues={squadIssues[route.squad] ?? []} />;
-  else if (route.name === 'issue') page = <IssuePage key={route.id} api={api} id={route.id} from={route.from} />;
+  else if (route.name === 'issue') page = <IssuePage key={route.id} api={api} id={route.id} />;
   else page = <OtherPage label={route.label} />;
 
   return (
@@ -378,7 +347,7 @@ export const MulticaSteerAllWorkPrototype = () => {
       </main>
       {peeked && <IssuePeek api={api} issue={peeked} onClose={() => setPeeked(null)} />}
       {draft && <NewIssueDialog api={api} draft={draft} onClose={() => setDraft(null)} onCreate={createIssue} />}
-      {palette && <Palette api={api} squadIssues={squadIssues} looseIssues={looseIssues} onClose={() => setPalette(false)} />}
+      {palette && <Palette api={api} looseIssues={looseIssues} onClose={() => setPalette(false)} />}
       {toastText && (
         <div
           role="status"
@@ -398,13 +367,16 @@ export const MulticaSteerAllWorkPrototype = () => {
 // ---------------------------------------------------------------------------
 
 function Sidebar({ api, route, onSearch }: { api: AppApi; route: Route; onSearch: () => void }) {
+  // An issue on a worklane is found through Projects; one without a worklane on Multica's Issues page.
   const active =
     route.name === 'projects' || route.name === 'project' || route.name === 'lane'
       ? 'Projects'
-      : route.name === 'squad'
-        ? 'Squads'
+      : route.name === 'organisations' || route.name === 'organisation'
+        ? 'Organisations'
         : route.name === 'issue'
-          ? route.from
+          ? api.findIssue(route.id)?.lane
+            ? 'Projects'
+            : 'Issues'
           : route.label;
   const item = (label: string, Icon: LucideIcon, onClick: () => void, trailing?: ReactNode) => (
     <button
@@ -476,10 +448,11 @@ function Sidebar({ api, route, onSearch }: { api: AppApi; route: Route; onSearch
       {section('Work')}
       {item('Issues', ListTodo, other('Issues'))}
       {item('Projects', FolderKanban, () => api.go({ name: 'projects' }))}
+      {item('Organisations', Building2, () => api.go({ name: 'organisations' }))}
       {item('Autopilot', Zap, other('Autopilot'))}
       {section('AI Team')}
       {item('Agents', Bot, other('Agents'))}
-      {item('Squads', Users, () => api.go({ name: 'squad', squad: DEFAULT_SQUAD, view: 'board' }))}
+      {item('Squads', Users, other('Squads'))}
       {item('Skills', BookOpenText, other('Skills'))}
       {item('Runtimes', Monitor, other('Runtimes'))}
       <div className="flex-1" />
@@ -658,6 +631,132 @@ function ProjectTile({ name, size = 24 }: { name: string; size?: number }) {
   );
 }
 
+function OrgTile({ size = 24 }: { size?: number }) {
+  return (
+    <span
+      className="flex shrink-0 items-center justify-center rounded-[6px] border"
+      style={{ width: size, height: size, background: 'var(--muted)', borderColor: 'var(--surface-border)', color: 'var(--muted-foreground)' }}
+    >
+      <Building2 size={size > 30 ? 22 : 14} />
+    </span>
+  );
+}
+
+function toggled(set: Set<string>, key: string) {
+  const n = new Set(set);
+  if (n.has(key)) n.delete(key);
+  else n.add(key);
+  return n;
+}
+
+function TreeHead() {
+  return (
+    <div className="sticky top-0 z-10 grid gap-4 border-b py-3 pr-4 pl-4 text-[12px]" style={{ gridTemplateColumns: 'minmax(160px,400px) 1fr', background: 'var(--page-canvas)', borderColor: 'var(--border)', color: 'var(--muted-foreground)' }}>
+      <span>Name</span>
+      <span className="whitespace-nowrap">Last · Next · Planned releases</span>
+    </div>
+  );
+}
+
+/** An organisation's projects as a tree: project, its repositories with their branch, their worklanes. */
+function ProjectTree({
+  api,
+  org,
+  projects,
+  openProjects,
+  onToggleProject,
+  closedRepos,
+  onToggleRepo,
+}: {
+  api: AppApi;
+  org: string;
+  projects: Project[];
+  openProjects: Set<string>;
+  onToggleProject: (key: string) => void;
+  closedRepos: Set<string>;
+  onToggleRepo: (key: string) => void;
+}) {
+  return (
+    <>
+      {projects.map((p) => {
+        const key = `${org}/${p.name}`;
+        const pOpen = openProjects.has(key);
+        const lc = laneCount(p);
+        return (
+          <div key={key} style={{ background: 'var(--surface)' }}>
+            <div className="flex h-12 items-center gap-3 border-t px-4" style={{ borderColor: 'var(--border)' }}>
+              <button
+                aria-label={pOpen ? `Collapse ${p.name}` : `Expand ${p.name}`}
+                aria-expanded={pOpen}
+                onClick={() => onToggleProject(key)}
+                className="rounded-[4px] p-0.5 hover:bg-[var(--surface-hover)]"
+              >
+                <Disclosure open={pOpen} />
+              </button>
+              <ProjectTile name={p.name} />
+              <button onClick={() => api.go({ name: 'project', org, project: p.name })} className="truncate text-[14px] font-medium hover:underline">
+                {p.name}
+              </button>
+              <div className="flex-1" />
+              <span className="text-[13px]" style={{ color: 'var(--muted-foreground)' }}>
+                {p.repos.length ? `${plural(p.repos.length, 'repository', 'repositories')} · ${plural(lc, 'worklane')}` : 'No repositories'}
+              </span>
+              <Avatar text="BR" title="Lead: Brian" />
+            </div>
+            {pOpen &&
+              p.repos.map((r) => {
+                const rKey = `${key}/${r.name}`;
+                const rOpen = !closedRepos.has(rKey);
+                return (
+                  <div key={r.name}>
+                    <div className="flex h-9 items-center gap-2 border-t pr-4 pl-10" style={{ borderColor: 'var(--border)', background: 'var(--page-canvas)' }}>
+                      <button
+                        aria-label={rOpen ? `Collapse ${r.name}` : `Expand ${r.name}`}
+                        aria-expanded={rOpen}
+                        onClick={() => onToggleRepo(rKey)}
+                        className="rounded-[4px] p-0.5 hover:bg-[var(--surface-hover)]"
+                      >
+                        <Disclosure open={rOpen} />
+                      </button>
+                      <FolderGit2 size={14} style={{ color: 'var(--muted-foreground)' }} />
+                      <span className="mc-mono text-[13px] font-medium">{r.name}</span>
+                      <span className="mc-mono flex items-center gap-1 text-[12px]" style={{ color: 'var(--muted-foreground)' }}>
+                        <GitCommitHorizontal size={12} />
+                        main
+                      </span>
+                      <div className="flex-1" />
+                      <Button variant="ghost" icon={<Plus size={14} />} onClick={() => api.go({ name: 'project', org, project: p.name, addLane: r.name })}>
+                        Worklane
+                      </Button>
+                    </div>
+                    {rOpen &&
+                      r.lanes.map((l) => (
+                        <LaneRow key={l.name} api={api} lane={l} refLane={{ org, project: p.name, repo: r.name, lane: l.name }} indent={64} />
+                      ))}
+                    {rOpen && !r.lanes.length && (
+                      <div className="border-t py-2.5 pl-16 text-[13px]" style={{ borderColor: 'var(--border)', color: 'var(--muted-foreground)' }}>
+                        No worklanes yet
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            {pOpen && !p.repos.length && (
+              <div className="border-t py-3 pl-14 text-[13px]" style={{ borderColor: 'var(--border)', color: 'var(--muted-foreground)' }}>
+                No repositories yet.{' '}
+                <button className="underline" onClick={() => api.go({ name: 'project', org, project: p.name })}>
+                  Open the project
+                </button>{' '}
+                to add one.
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Screen 1: all projects, grouped by organisation
 // ---------------------------------------------------------------------------
@@ -668,12 +767,6 @@ function ProjectsPage({ api, onAddProject }: { api: AppApi; onAddProject: (org: 
   const [filter, setFilter] = useState<string[]>([]);
   const [closedRepos, setClosedRepos] = useState<Set<string>>(new Set());
   const [creating, setCreating] = useState(false);
-  const toggle = (set: Set<string>, setter: (s: Set<string>) => void, key: string) => {
-    const n = new Set(set);
-    if (n.has(key)) n.delete(key);
-    else n.add(key);
-    setter(n);
-  };
   const withLanes = filter.includes('lanes');
   const total = api.orgs.reduce((n, o) => n + o.projects.length, 0);
   const visibleOrgs = api.orgs
@@ -696,104 +789,42 @@ function ProjectsPage({ api, onAddProject }: { api: AppApi; onAddProject: (org: 
         }
       />
       <div className="flex-1 overflow-auto px-6 pb-10">
-        <div className="sticky top-0 z-10 grid gap-4 border-b py-3 pr-4 pl-4 text-[12px]" style={{ gridTemplateColumns: 'minmax(160px,400px) 1fr', background: 'var(--page-canvas)', borderColor: 'var(--border)', color: 'var(--muted-foreground)' }}>
-          <span>Name</span>
-          <span className="whitespace-nowrap">Last · Next · Planned releases</span>
-        </div>
+        <TreeHead />
         {visibleOrgs.map((o) => {
           const orgOpen = openOrgs.has(o.name);
           const lanes = o.projects.reduce((n, p) => n + laneCount(p), 0);
           return (
             <section key={o.name}>
-              <button
-                onClick={() => toggle(openOrgs, setOpenOrgs, o.name)}
-                aria-expanded={orgOpen}
-                className="flex h-[39px] w-full items-center gap-2 px-4 text-left hover:bg-[var(--surface-hover)]"
-              >
-                <Disclosure open={orgOpen} />
+              {/* The organisation's name opens its page; the rest of the row folds its projects. */}
+              <div onClick={() => setOpenOrgs(toggled(openOrgs, o.name))} className="flex h-[39px] w-full cursor-pointer items-center gap-2 px-4 hover:bg-[var(--surface-hover)]">
+                <button
+                  aria-label={orgOpen ? `Collapse ${o.name}` : `Expand ${o.name}`}
+                  aria-expanded={orgOpen}
+                  onClick={(e) => (e.stopPropagation(), setOpenOrgs(toggled(openOrgs, o.name)))}
+                  className="flex items-center rounded-[4px] p-0.5"
+                >
+                  <Disclosure open={orgOpen} />
+                </button>
                 <Building2 size={14} style={{ color: 'var(--muted-foreground)' }} />
-                <span className="text-[13px] font-semibold">{o.name}</span>
+                <button onClick={(e) => (e.stopPropagation(), api.go({ name: 'organisation', org: o.name }))} className="text-[13px] font-semibold hover:underline">
+                  {o.name}
+                </button>
                 <span className="text-[13px]" style={{ color: 'var(--muted-foreground)' }}>
                   {plural(o.projects.length, 'project')}
                   {lanes ? ` · ${plural(lanes, 'worklane')}` : ''}
                 </span>
-              </button>
-              {orgOpen &&
-                o.projects.map((p) => {
-                  const key = `${o.name}/${p.name}`;
-                  const pOpen = openProjects.has(key);
-                  const lc = laneCount(p);
-                  return (
-                    <div key={key} style={{ background: 'var(--surface)' }}>
-                      <div className="flex h-12 items-center gap-3 border-t px-4" style={{ borderColor: 'var(--border)' }}>
-                        <button
-                          aria-label={pOpen ? `Collapse ${p.name}` : `Expand ${p.name}`}
-                          aria-expanded={pOpen}
-                          onClick={() => toggle(openProjects, setOpenProjects, key)}
-                          className="rounded-[4px] p-0.5 hover:bg-[var(--surface-hover)]"
-                        >
-                          <Disclosure open={pOpen} />
-                        </button>
-                        <ProjectTile name={p.name} />
-                        <button onClick={() => api.go({ name: 'project', org: o.name, project: p.name })} className="truncate text-[14px] font-medium hover:underline">
-                          {p.name}
-                        </button>
-                        <div className="flex-1" />
-                        <span className="text-[13px]" style={{ color: 'var(--muted-foreground)' }}>
-                          {p.repos.length ? `${plural(p.repos.length, 'repository', 'repositories')} · ${plural(lc, 'worklane')}` : 'No repositories'}
-                        </span>
-                        <Avatar text="BR" title="Lead: Brian" />
-                      </div>
-                      {pOpen &&
-                        p.repos.map((r) => {
-                          const rKey = `${key}/${r.name}`;
-                          const rOpen = !closedRepos.has(rKey);
-                          return (
-                            <div key={r.name}>
-                              <div className="flex h-9 items-center gap-2 border-t pr-4 pl-10" style={{ borderColor: 'var(--border)', background: 'var(--page-canvas)' }}>
-                                <button
-                                  aria-label={rOpen ? `Collapse ${r.name}` : `Expand ${r.name}`}
-                                  aria-expanded={rOpen}
-                                  onClick={() => toggle(closedRepos, setClosedRepos, rKey)}
-                                  className="rounded-[4px] p-0.5 hover:bg-[var(--surface-hover)]"
-                                >
-                                  <Disclosure open={rOpen} />
-                                </button>
-                                <FolderGit2 size={14} style={{ color: 'var(--muted-foreground)' }} />
-                                <span className="mc-mono text-[13px] font-medium">{r.name}</span>
-                                <span className="mc-mono flex items-center gap-1 text-[12px]" style={{ color: 'var(--muted-foreground)' }}>
-                                  <GitCommitHorizontal size={12} />
-                                  main
-                                </span>
-                                <div className="flex-1" />
-                                <Button variant="ghost" icon={<Plus size={14} />} onClick={() => api.go({ name: 'project', org: o.name, project: p.name, addLane: r.name })}>
-                                  Worklane
-                                </Button>
-                              </div>
-                              {rOpen &&
-                                r.lanes.map((l) => (
-                                  <LaneRow key={l.name} api={api} lane={l} refLane={{ org: o.name, project: p.name, repo: r.name, lane: l.name }} indent={64} />
-                                ))}
-                              {rOpen && !r.lanes.length && (
-                                <div className="border-t py-2.5 pl-16 text-[13px]" style={{ borderColor: 'var(--border)', color: 'var(--muted-foreground)' }}>
-                                  No worklanes yet
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      {pOpen && !p.repos.length && (
-                        <div className="border-t py-3 pl-14 text-[13px]" style={{ borderColor: 'var(--border)', color: 'var(--muted-foreground)' }}>
-                          No repositories yet.{' '}
-                          <button className="underline" onClick={() => api.go({ name: 'project', org: o.name, project: p.name })}>
-                            Open the project
-                          </button>{' '}
-                          to add one.
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+              </div>
+              {orgOpen && (
+                <ProjectTree
+                  api={api}
+                  org={o.name}
+                  projects={o.projects}
+                  openProjects={openProjects}
+                  onToggleProject={(k) => setOpenProjects(toggled(openProjects, k))}
+                  closedRepos={closedRepos}
+                  onToggleRepo={(k) => setClosedRepos(toggled(closedRepos, k))}
+                />
+              )}
             </section>
           );
         })}
@@ -870,6 +901,113 @@ function NewProjectDialog({ orgs, onClose, onCreate }: { orgs: string[]; onClose
 }
 
 // ---------------------------------------------------------------------------
+// Screen 4: the organisations, each grouping projects
+// ---------------------------------------------------------------------------
+
+const ORG_COLUMNS = 'minmax(160px,1fr) 140px 140px 16px';
+
+function OrganisationsPage({ api }: { api: AppApi }) {
+  return (
+    <>
+      <PageHeader icon={Building2} crumbs={[{ label: 'Organisations' }]} count={api.orgs.length} />
+      <div className="flex-1 overflow-auto px-6 pb-10">
+        <div className="sticky top-0 z-10 grid gap-4 border-b py-3 px-4 text-[12px]" style={{ gridTemplateColumns: ORG_COLUMNS, background: 'var(--page-canvas)', borderColor: 'var(--border)', color: 'var(--muted-foreground)' }}>
+          <span>Name</span>
+          <span>Projects</span>
+          <span>Repositories</span>
+          <span />
+        </div>
+        <div style={{ background: 'var(--surface)' }}>
+          {api.orgs.map((o) => (
+            <div
+              key={o.name}
+              role="link"
+              tabIndex={0}
+              onClick={() => api.go({ name: 'organisation', org: o.name })}
+              onKeyDown={(e) => e.key === 'Enter' && api.go({ name: 'organisation', org: o.name })}
+              className="grid h-12 cursor-pointer items-center gap-4 border-t px-4 hover:bg-[var(--surface-hover)]"
+              style={{ gridTemplateColumns: ORG_COLUMNS, borderColor: 'var(--border)' }}
+            >
+              <span className="flex min-w-0 items-center gap-3">
+                <OrgTile />
+                <span className="truncate text-[14px] font-medium">{o.name}</span>
+              </span>
+              <span className="text-[13px]" style={{ color: 'var(--muted-foreground)' }}>
+                {plural(o.projects.length, 'project')}
+              </span>
+              <span className="text-[13px]" style={{ color: 'var(--muted-foreground)' }}>
+                {plural(
+                  o.projects.reduce((n, p) => n + p.repos.length, 0),
+                  'repository',
+                  'repositories',
+                )}
+              </span>
+              <ChevronRight size={16} style={{ color: 'var(--faint-foreground)' }} />
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Screen 4b: one organisation and its projects, as the tree of screen 1
+// ---------------------------------------------------------------------------
+
+function OrganisationPage({ api, orgName }: { api: AppApi; orgName: string }) {
+  const org = api.orgs.find((o) => o.name === orgName);
+  // Projects with repositories start open; the others stay folded.
+  const [openProjects, setOpenProjects] = useState<Set<string>>(() => new Set(org?.projects.filter((p) => p.repos.length).map((p) => `${orgName}/${p.name}`)));
+  const [closedRepos, setClosedRepos] = useState<Set<string>>(new Set());
+  if (!org) return <OtherPage label="Organisation not found" />;
+  const counts: [LucideIcon, string][] = [
+    [FolderKanban, plural(org.projects.length, 'project')],
+    [
+      FolderGit2,
+      plural(
+        org.projects.reduce((n, p) => n + p.repos.length, 0),
+        'repository',
+        'repositories',
+      ),
+    ],
+    [GitBranch, plural(org.projects.reduce((n, p) => n + laneCount(p), 0), 'worklane')],
+  ];
+  return (
+    <>
+      <PageHeader icon={Building2} crumbs={[{ label: 'Organisations', onClick: () => api.go({ name: 'organisations' }) }, { label: org.name }]} />
+      <div className="flex-1 overflow-auto px-6 pb-10">
+        <div className="flex items-start gap-4 py-6">
+          <OrgTile size={48} />
+          <div className="min-w-0 flex-1">
+            <h1 className="text-[20px] font-semibold">{org.name}</h1>
+            <div className="mt-2 flex flex-wrap items-center gap-4 text-[13px]" style={{ color: 'var(--muted-foreground)' }}>
+              {counts.map(([Icon, text]) => (
+                <span key={text} className="flex items-center gap-1.5">
+                  <Icon size={14} />
+                  {text}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+        <TreeHead />
+        <ProjectTree
+          api={api}
+          org={org.name}
+          projects={org.projects}
+          openProjects={openProjects}
+          onToggleProject={(k) => setOpenProjects(toggled(openProjects, k))}
+          closedRepos={closedRepos}
+          onToggleRepo={(k) => setClosedRepos(toggled(closedRepos, k))}
+        />
+        {!org.projects.length && <EmptyNote text={`${org.name} has no projects yet.`} />}
+      </div>
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Screen 2: one project, its repositories and worklanes
 // ---------------------------------------------------------------------------
 
@@ -885,7 +1023,7 @@ function ProjectPage({
   orgName: string;
   projectName: string;
   onAddRepo: (repo: Repo) => void;
-  onAddLane: (repo: string, lane: { name: string; folder: string; squad: string }) => void;
+  onAddLane: (repo: string, lane: { name: string; folder: string }) => void;
   initialAddLane?: string;
 }) {
   const project = api.orgs.find((o) => o.name === orgName)?.projects.find((p) => p.name === projectName);
@@ -1155,7 +1293,6 @@ function LanePage({ api, refLane, view, onSaveLine }: { api: AppApi; refLane: La
           columns={['backlog', 'todo', 'in_progress', 'in_review', 'done']}
           issues={filt(laneIssues(lane))}
           onAdd={(s) => api.newIssue({ lane: refLane, release: nextRel, status: s })}
-          showLane={false}
         />
       )}
       {view === 'list' && (
@@ -1361,10 +1498,10 @@ function ReleaseColumn({ api, rel, state, issues, refLane, actions }: { api: App
 }
 
 // ---------------------------------------------------------------------------
-// Board shared by the worklane board view and the squad board
+// The worklane's Board view: its issues by status
 // ---------------------------------------------------------------------------
 
-function StatusBoard({ api, columns, issues, onAdd, showLane }: { api: AppApi; columns: Status[]; issues: Issue[]; onAdd: (s: Status) => void; showLane: boolean }) {
+function StatusBoard({ api, columns, issues, onAdd }: { api: AppApi; columns: Status[]; issues: Issue[]; onAdd: (s: Status) => void }) {
   const [over, setOver] = useState<Status | null>(null);
   const onDrop = (s: Status) => (e: DragEvent) => {
     e.preventDefault();
@@ -1404,7 +1541,7 @@ function StatusBoard({ api, columns, issues, onAdd, showLane }: { api: AppApi; c
             </div>
             <div className="flex flex-1 flex-col gap-1.5 overflow-auto">
               {col.map((is) => (
-                <BoardCard key={is.id} api={api} issue={is} showLane={showLane} />
+                <BoardCard key={is.id} api={api} issue={is} />
               ))}
               {!col.length && (
                 <div className="px-2 py-1 text-[12px]" style={{ color: 'var(--muted-foreground)' }}>
@@ -1419,7 +1556,7 @@ function StatusBoard({ api, columns, issues, onAdd, showLane }: { api: AppApi; c
   );
 }
 
-function BoardCard({ api, issue, showLane }: { api: AppApi; issue: Issue; showLane: boolean }) {
+function BoardCard({ api, issue }: { api: AppApi; issue: Issue }) {
   const relState = releaseStateOf(api, issue);
   const { ref, fresh } = useFresh<HTMLElement>(api, issue);
   return (
@@ -1440,146 +1577,12 @@ function BoardCard({ api, issue, showLane }: { api: AppApi; issue: Issue; showLa
         {issue.assignee && <Avatar text={initials(issue.assignee)} title={issue.assignee} />}
       </div>
       <h4 className="mt-1.5 text-[14px] leading-[18px] font-medium">{issue.title}</h4>
-      {(issue.release || (showLane && issue.lane)) && (
+      {issue.release && (
         <div className="mt-2 flex flex-wrap gap-1">
-          {issue.release && <ReleaseChip version={issue.release} state={relState} />}
-          {showLane && issue.lane && <Chip icon={<GitBranch size={12} />}>{laneLabel(issue.lane)}</Chip>}
+          <ReleaseChip version={issue.release} state={relState} />
         </div>
       )}
     </article>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Screen 4: a squad's kanban board
-// ---------------------------------------------------------------------------
-
-function SquadPage({ api, squad, view, issues }: { api: AppApi; squad: string; view: SquadView; issues: Issue[] }) {
-  const [types, setTypes] = useState<string[]>([]);
-  const shown = types.length ? issues.filter((i) => types.includes(i.type)) : issues;
-  const backlog = shown.filter((i) => api.statusOf(i) === 'backlog');
-  const lanes = useMemo(() => {
-    const seen: LaneRef[] = [];
-    issues.forEach((i) => i.lane && !seen.some((s) => sameLane(s, i.lane)) && seen.push(i.lane));
-    return seen
-      .map((ref) => ({ ref, found: findLane(api.orgs, ref) }))
-      .map(({ ref, found }) => {
-        if (!found) return { ref, rel: undefined, state: 'planned' as ReleaseState };
-        const i = laneNextIdx(found.repo, found.lane, api.statusOf);
-        return { ref, rel: found.lane.releases?.[i], state: releaseStates(found.repo, api.statusOf)[i] };
-      });
-  }, [issues, api.orgs, api.statusOf]);
-  const setView = (v: SquadView) => api.go({ name: 'squad', squad, view: v });
-  return (
-    <>
-      <PageHeader
-        icon={Users}
-        crumbs={[
-          { label: 'Squads' },
-          {
-            label: squad,
-            menu: (
-              <Menu
-                width={220}
-                trigger={(_, toggle) => (
-                  <button onClick={toggle} className="flex items-center gap-1 rounded-[4px] px-1 hover:bg-[var(--surface-hover)]">
-                    {squad}
-                    <ChevronDown size={14} style={{ color: 'var(--muted-foreground)' }} />
-                  </button>
-                )}
-              >
-                {(close) =>
-                  SQUADS.map((s) => (
-                    <MenuItem
-                      key={s.name}
-                      selected={s.name === squad}
-                      icon={<Users size={14} />}
-                      onClick={() => {
-                        close();
-                        api.go({ name: 'squad', squad: s.name, view });
-                      }}
-                    >
-                      {s.name} <span style={{ color: 'var(--muted-foreground)' }}>· {s.leader}</span>
-                    </MenuItem>
-                  ))
-                }
-              </Menu>
-            ),
-          },
-        ]}
-        actions={
-          <>
-            <FilterMenu options={TYPE_FILTER} value={types} onChange={setTypes} />
-            <Button variant="primary" icon={<Plus size={15} />} onClick={() => api.newIssue({ squad })}>
-              New issue
-            </Button>
-          </>
-        }
-      />
-      <div className="flex h-[52px] shrink-0 items-center gap-2 border-b px-4" style={{ borderColor: 'var(--border)' }}>
-        <span className="mr-2 text-[12px]" style={{ color: 'var(--muted-foreground)' }}>
-          Next releases
-        </span>
-        {lanes.filter((l) => l.rel).length === 0 && (
-          <span className="text-[12px]" style={{ color: 'var(--faint-foreground)' }}>
-            No planned release in this squad's worklanes
-          </span>
-        )}
-        {lanes
-          .filter((l) => l.rel)
-          .map(({ ref, rel, state }) => (
-            <span key={laneLabel(ref)} className="flex items-center gap-1.5">
-              <Chip icon={<GitBranch size={12} />} onClick={() => api.go({ name: 'lane', ref, view: 'timeline' })}>
-                {laneLabel(ref)}
-              </Chip>
-              <ReleaseChip version={rel!.version} state={state} onClick={() => api.go({ name: 'lane', ref, view: 'timeline' })} />
-              <span className="max-w-[180px] truncate text-[12px] font-medium">{rel!.title}</span>
-              <span className="mr-3 text-[12px] tabular-nums" style={{ color: 'var(--muted-foreground)' }}>
-                {doneCount(rel!, api.statusOf)}/{rel!.issues.length}
-              </span>
-            </span>
-          ))}
-        <div className="flex-1" />
-        <Segmented<SquadView>
-          value={view}
-          onChange={setView}
-          options={[
-            { value: 'board', label: 'Board' },
-            { value: 'list', label: 'List' },
-            { value: 'backlog', label: `Backlog ${backlog.length}` },
-          ]}
-        />
-      </div>
-      {view === 'board' && (
-        <StatusBoard api={api} columns={['todo', 'in_progress', 'in_review', 'done']} issues={shown} onAdd={(s) => api.newIssue({ squad, status: s })} showLane />
-      )}
-      {view !== 'board' && (
-        <div className="flex-1 overflow-auto px-6 py-4">
-          {(view === 'backlog' ? (['backlog'] as Status[]) : (['todo', 'in_progress', 'in_review', 'done', 'backlog'] as Status[])).map((s) => {
-            const rows = shown.filter((i) => api.statusOf(i) === s);
-            if (!rows.length && view !== 'backlog') return null;
-            return (
-              <section key={s} className="mb-4 overflow-hidden rounded-[12px] border" style={{ background: 'var(--surface)', borderColor: 'var(--surface-border)' }}>
-                <div className="flex h-10 items-center gap-2 px-4">
-                  <StatusIcon status={s} />
-                  <span className="font-medium">{STATUS_LABEL[s]}</span>
-                  <span className="text-[12px]" style={{ color: 'var(--muted-foreground)' }}>
-                    {rows.length}
-                  </span>
-                </div>
-                {rows.map((is) => (
-                  <div key={is.id} className="border-t" style={{ borderColor: 'var(--border)' }}>
-                    <IssueRow api={api} issue={is} />
-                  </div>
-                ))}
-                {!rows.length && <div className="border-t px-4 py-3 text-[13px]" style={{ borderColor: 'var(--border)', color: 'var(--muted-foreground)' }}>Nothing waiting</div>}
-              </section>
-            );
-          })}
-          {!shown.length && <EmptyNote text={`${squad} has no issues yet.`} />}
-        </div>
-      )}
-    </>
   );
 }
 
@@ -1751,18 +1754,16 @@ function ActivityEntry({ children }: { children: ReactNode }) {
   );
 }
 
-function IssuePage({ api, id, from }: { api: AppApi; id: string; from: 'Projects' | 'Squads' }) {
+function IssuePage({ api, id }: { api: AppApi; id: string }) {
   const issue = api.findIssue(id);
   if (!issue) return <OtherPage label="Issue not found" />;
   const tpl = TEMPLATES.find((t) => t.type === issue.type)!;
-  const squad = api.squadOf(issue);
   const found = issue.lane ? findLane(api.orgs, issue.lane) : null;
   const rel = found?.lane.releases?.find((r) => r.version === issue.release);
   const relState = releaseStateOf(api, issue);
   const toLane = issue.lane ? () => api.go({ name: 'lane', ref: issue.lane!, view: 'timeline' }) : undefined;
-  const toSquad = squad ? () => api.go({ name: 'squad', squad, view: 'board' }) : undefined;
-  const viaLane = issue.lane && (from === 'Projects' || !squad);
-  const crumbs = viaLane
+  // An issue without a worklane lives on Multica's Issues page.
+  const crumbs = issue.lane
     ? [
         { label: 'Projects', onClick: () => api.go({ name: 'projects' }) },
         { label: issue.lane!.project, onClick: () => api.go({ name: 'project', org: issue.lane!.org, project: issue.lane!.project }) },
@@ -1771,11 +1772,11 @@ function IssuePage({ api, id, from }: { api: AppApi; id: string; from: 'Projects
         ...(issue.release ? [{ label: issue.release, onClick: toLane }] : []),
         { label: issue.id },
       ]
-    : [{ label: 'Squads', onClick: toSquad }, { label: squad ?? 'No squad', onClick: toSquad }, { label: issue.id }];
+    : [{ label: 'Issues', onClick: () => api.go({ name: 'other', label: 'Issues' }) }, { label: issue.id }];
   const typeLabel = tpl.name.toLowerCase();
   return (
     <>
-      <PageHeader icon={viaLane ? GitBranch : Users} crumbs={crumbs} />
+      <PageHeader icon={issue.lane ? GitBranch : ListTodo} crumbs={crumbs} />
       <div className="flex min-h-0 flex-1">
         <div className="min-w-0 flex-1 overflow-auto" style={{ background: 'var(--surface)' }}>
           <article className="mx-auto max-w-[760px] px-10 pt-8 pb-16">
@@ -1803,11 +1804,6 @@ function IssuePage({ api, id, from }: { api: AppApi; id: string; from: 'Projects
                   {issue.release && issue.lane && (
                     <ActivityEntry>
                       <b className="font-medium">Brian</b> planned it in {issue.release} on {laneLabel(issue.lane)}
-                    </ActivityEntry>
-                  )}
-                  {squad && (
-                    <ActivityEntry>
-                      <b className="font-medium">Brian</b> gave it to the {squad} squad
                     </ActivityEntry>
                   )}
                 </ul>
@@ -1841,11 +1837,6 @@ function IssuePage({ api, id, from }: { api: AppApi; id: string; from: 'Projects
             <PropRow label="Priority">
               <PropValue icon={<Ellipsis size={14} />} muted={(issue.priority ?? 'none') === 'none'}>
                 {PRIORITY_LABEL[issue.priority ?? 'none']}
-              </PropValue>
-            </PropRow>
-            <PropRow label="Squad">
-              <PropValue icon={<Users size={14} />} onClick={toSquad} muted={!squad}>
-                {squad ?? 'No squad'}
               </PropValue>
             </PropRow>
             <PropRow label="Assignee">
@@ -1982,27 +1973,6 @@ function NewIssueDialog({ api, draft, onClose, onCreate }: { api: AppApi; draft:
               <Chip icon={<TypeIcon type={d.type} size={13} />} title="The template sets the type">
                 {tpl.name}
               </Chip>
-              <Menu
-                width={220}
-                trigger={(_, toggle) => (
-                  <Chip icon={<Users size={13} />} onClick={toggle}>
-                    {d.squad ?? 'No squad'}
-                  </Chip>
-                )}
-              >
-                {(close) => (
-                  <>
-                    {SQUADS.map((s) => (
-                      <MenuItem key={s.name} icon={<Users size={14} />} selected={s.name === d.squad} onClick={() => (setD({ ...d, squad: s.name }), close())}>
-                        {s.name}
-                      </MenuItem>
-                    ))}
-                    <MenuItem selected={!d.squad} onClick={() => (setD({ ...d, squad: undefined }), close())}>
-                      No squad
-                    </MenuItem>
-                  </>
-                )}
-              </Menu>
               <Menu
                 width={380}
                 trigger={(_, toggle) => (
@@ -2158,12 +2128,13 @@ function NewIssueDialog({ api, draft, onClose, onCreate }: { api: AppApi; draft:
 // Search palette
 // ---------------------------------------------------------------------------
 
-function Palette({ api, squadIssues, looseIssues, onClose }: { api: AppApi; squadIssues: Record<string, Issue[]>; looseIssues: Issue[]; onClose: () => void }) {
+function Palette({ api, looseIssues, onClose }: { api: AppApi; looseIssues: Issue[]; onClose: () => void }) {
   const [q, setQ] = useState('');
   const [sel, setSel] = useState(0);
   const items = useMemo(() => {
     const all: { label: string; hint: string; icon: ReactNode; run: () => void }[] = [];
-    api.orgs.forEach((o) =>
+    api.orgs.forEach((o) => {
+      all.push({ label: o.name, hint: plural(o.projects.length, 'project'), icon: <Building2 size={14} />, run: () => api.go({ name: 'organisation', org: o.name }) });
       o.projects.forEach((p) => {
         all.push({ label: p.name, hint: o.name, icon: <FolderKanban size={14} />, run: () => api.go({ name: 'project', org: o.name, project: p.name }) });
         p.repos.forEach((r) =>
@@ -2175,16 +2146,12 @@ function Palette({ api, squadIssues, looseIssues, onClose }: { api: AppApi; squa
             );
           }),
         );
-      }),
-    );
-    SQUADS.forEach((s) => {
-      all.push({ label: `${s.name} squad`, hint: s.leader, icon: <Users size={14} />, run: () => api.go({ name: 'squad', squad: s.name, view: 'board' }) });
-      (squadIssues[s.name] ?? []).forEach((is) => all.push({ label: `${is.id} ${is.title}`, hint: s.name, icon: <TypeIcon type={is.type} />, run: () => api.peek(is) }));
+      });
     });
     looseIssues.forEach((is) => all.push({ label: `${is.id} ${is.title}`, hint: 'No worklane', icon: <TypeIcon type={is.type} />, run: () => api.peek(is) }));
     const needle = q.trim().toLowerCase();
     return (needle ? all.filter((i) => `${i.label} ${i.hint}`.toLowerCase().includes(needle)) : all.filter((i) => !/^[A-Z]+-\d+/.test(i.label))).slice(0, 10);
-  }, [q, api, squadIssues, looseIssues]);
+  }, [q, api, looseIssues]);
   const run = (i: number) => {
     items[i]?.run();
     onClose();
@@ -2203,7 +2170,7 @@ function Palette({ api, squadIssues, looseIssues, onClose }: { api: AppApi; squa
               if (e.key === 'ArrowUp') (e.preventDefault(), setSel((s) => Math.max(s - 1, 0)));
               if (e.key === 'Enter') run(sel);
             }}
-            placeholder="Search projects, worklanes, squads and issues"
+            placeholder="Search organisations, projects, worklanes and issues"
             className="h-12 flex-1 bg-transparent text-[15px] outline-none placeholder:text-[var(--faint-foreground)]"
           />
         </div>
@@ -2247,7 +2214,7 @@ function OtherPage({ label }: { label: string }) {
     <>
       <PageHeader icon={Inbox} crumbs={[{ label }]} />
       <div className="flex flex-1 items-center justify-center p-10">
-        <EmptyNote text={`${label} stays as Multica has it today; this prototype covers Projects, worklanes, Squads and New issue.`} />
+        <EmptyNote text={`${label} stays as Multica has it today; this prototype covers Projects, Organisations, worklanes and New issue.`} />
       </div>
     </>
   );

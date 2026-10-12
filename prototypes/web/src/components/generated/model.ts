@@ -15,8 +15,6 @@ export interface Issue {
   release?: string;
   /** The issue's one Markdown description. */
   description?: string;
-  /** The squad the issue went to when it was made in the prototype. */
-  squad?: string;
   /** True for issues made in this prototype session; only they have activity. */
   created?: boolean;
 }
@@ -49,8 +47,7 @@ export interface Lane {
   releases?: Release[];
   /** Issues of this worklane that are in no release yet. */
   backlog?: Issue[];
-  /** The squad that works the worklane and the folder its worktree lives in, set when it is made in the prototype. */
-  squad?: string;
+  /** The folder its worktree lives in, set when it is made in the prototype. */
   folder?: string;
 }
 
@@ -82,7 +79,7 @@ export interface LaneRef {
 
 export type ReleaseState = 'shipped' | 'next' | 'planned';
 
-// Statuses the Multica squad board and the Rebl queue agree on today.
+// Statuses the Rebl queue holds today.
 const STATUS_OF: Record<string, Status> = {
   'REBL-10': 'in_progress',
   'REBL-21': 'todo',
@@ -806,50 +803,6 @@ export const PRIORITY_LABEL: Record<Priority, string> = {
   high: 'High',
   medium: 'Medium',
   low: 'Low',
-};
-
-// ---------------------------------------------------------------------------
-// Squads and their work, as the local Multica holds them.
-// ---------------------------------------------------------------------------
-
-export interface Squad {
-  name: string;
-  leader: string;
-}
-
-export const SQUADS: Squad[] = [
-  { name: 'Frontend', leader: 'Thomas' },
-  { name: 'Backend', leader: 'Joeri' },
-  { name: 'Design', leader: 'Guus' },
-  { name: 'Quality', leader: 'Sarkout' },
-  { name: 'Management', leader: 'Skuddy' },
-];
-
-const REBL_MAIN: LaneRef = { org: 'Rebl Records', project: 'Rebl', repo: 'appboypov/rebl', lane: 'main' };
-const AMD_ASSETS: LaneRef = { org: 'IVGA Vastgoed', project: 'AMD', repo: 'appboypov/ivga-amd', lane: 'Asset dashboard' };
-
-export const SQUAD_ISSUES: Record<string, Issue[]> = {
-  Backend: [
-    { id: 'WORK-342', type: 'bug', title: 'REBL-111 Return the created invitation membership', status: 'in_review', assignee: 'Service Builder', lane: REBL_MAIN, release: 'v1.0.1' },
-    { id: 'WORK-357', type: 'journey', title: '4. CLI (madspec-command-builder)', status: 'in_review', assignee: 'Command Builder', lane: AMD_ASSETS },
-    { id: 'WORK-341', type: 'bug', title: 'REBL-110 Deliver setup mail for racing invitations', status: 'done', assignee: 'Service Builder', lane: REBL_MAIN, release: 'v1.0.1' },
-    { id: 'WORK-347', type: 'bug', title: 'REBL-110 adapter: report and guard password setup', status: 'done', assignee: 'API Builder', lane: REBL_MAIN, release: 'v1.0.1' },
-    { id: 'WORK-340', type: 'bug', title: 'REBL-109 Reject requests and invitations from a removed membership', status: 'done', assignee: 'Service Builder', lane: REBL_MAIN, release: 'v1.0.1' },
-    { id: 'WORK-339', type: 'bug', title: 'REBL-109 contract: membershipId on team members and versioned team requests', status: 'done', assignee: 'Service Builder', lane: REBL_MAIN, release: 'v1.0.1' },
-    { id: 'WORK-344', type: 'refactor', title: 'REBL-113 Align Backend contract boundaries', status: 'backlog', assignee: 'Service Builder', lane: REBL_MAIN, release: 'v1.0.1' },
-    { id: 'WORK-343', type: 'bug', title: 'REBL-112 Refuse malformed stored team members', status: 'backlog', assignee: 'Service Builder', lane: REBL_MAIN, release: 'v1.0.1' },
-    { id: 'WORK-346', type: 'chore', title: 'PR 26 Backend fix tasks: REBL-109 to REBL-112', status: 'backlog', lane: REBL_MAIN, release: 'v1.0.1' },
-  ],
-  Frontend: [
-    { id: 'WORK-360', type: 'journey', title: '7. Renderer view models and screens (madspec-view-builder)', status: 'in_review', assignee: 'View Builder', lane: AMD_ASSETS },
-    { id: 'WORK-359', type: 'journey', title: '6. Renderer converters and copy (madspec-view-builder)', status: 'in_review', assignee: 'View Builder', lane: AMD_ASSETS },
-    { id: 'WORK-358', type: 'journey', title: '5. Library components (madspec-component-builder)', status: 'in_review', assignee: 'Component Builder', lane: AMD_ASSETS },
-  ],
-  Quality: [
-    { id: 'WORK-345', type: 'story', title: 'REBL-114 Place team flows under Testing', status: 'backlog', assignee: 'E2E Test Builder', lane: REBL_MAIN, release: 'v1.0.1' },
-  ],
-  Design: [],
-  Management: [],
 };
 
 export function initials(name: string): string {

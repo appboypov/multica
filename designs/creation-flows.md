@@ -13,18 +13,19 @@ How the prototype's three creation flows work, built on what Multica and MadSpec
 
 ```mermaid
 flowchart LR
-  P[Project] --> R[Repository]
+  O[Organisation] --> P[Project]
+  P --> R[Repository]
   R --> M["Worklane main<br/>normal checkout, default branch"]
   R --> L["Worklane<br/>worktree on one runtime"]
   R --> V["Release line<br/>v1.0.0, v1.0.1, v1.1.0 ..."]
   L -. issues of this lane .-> V
   M -. issues of this lane .-> V
-  S[Squad] -- works --> L
 ```
 
+- **Organisation**: groups a workspace's projects. The sidebar's Organisations page lists them; an organisation's page shows its projects, each with its repositories and worklanes.
 - **Repository** (in one project): a GitHub repository (`owner/name`, default branch), its checkout on a runtime (machine plus path), and its version policy: where the version lives (for example `pubspec.yaml`, `package.json` or tags only) and the tag pattern (`v{version}`). Adding a repository adds its worklane `main` at the same time.
-- **Worklane** (in one repository): a name, a folder, the runtime its worktree lives on, the squad that works it, and an order. Its worktree path follows from these: `~/Worktrees/{project key}/{folder}/{repo}`. Its state follows from its line: Busy with the active issue's branch, or Free. A worklane without a worktree does not exist, so creating a worklane creates its worktree.
-- **Release** (in one repository): a version, a title, a description and its issues. Each worklane's timeline shows the repository's releases with that lane's issues in them, each under its version, title and description. The squad board's next releases and an issue's release card show the title too. The version is the repository's because a repository has one tag sequence, and a release is cut from the default branch with everything merged into it, whichever lane did the work. A planned release's version comes from its bump (patch, minor or major) after the release before it, or is set by hand; a version set by hand is marked "Set by hand" on the timeline.
+- **Worklane** (in one repository): a name, a folder, the runtime its worktree lives on, and an order. Its worktree path follows from these: `~/Worktrees/{project key}/{folder}/{repo}`. Its state follows from its line: Busy with the active issue's branch, or Free. A worklane without a worktree does not exist, so creating a worklane creates its worktree.
+- **Release** (in one repository): a version, a title, a description and its issues. Each worklane's timeline shows the repository's releases with that lane's issues in them, each under its version, title and description. An issue's release card shows the title too. The version is the repository's because a repository has one tag sequence, and a release is cut from the default branch with everything merged into it, whichever lane did the work. A planned release's version comes from its bump (patch, minor or major) after the release before it, or is set by hand; a version set by hand is marked "Set by hand" on the timeline.
 - **Issue**: has at most one worklane and at most one release, and the release must belong to that worklane's repository.
 
 ## Add repository
@@ -43,10 +44,9 @@ The button stays disabled until the repository is picked and the checkout is val
 Opened from a repository's "+ Worklane" button. It is a dialog.
 
 1. **Name**: for example "Fan app", unique in its repository. The folder is filled in from it (`fan-app`) and can be edited: one folder name, unique among the project's worklanes.
-2. **Squad**: the squad that works the worklane, for example Frontend.
-3. **Runtime**: the machine the worktree lives on; only online runtimes that can make worktrees are offered.
-4. **Worktree** (read only, follows from the fields above): `~/Worktrees/rebl/fan-app/rebl`, branched from `origin/main`, with the repository's install command (for example `pnpm install`).
-5. **Create worklane** shows each step as it runs on the runtime: fetching `origin/main`, adding the worktree, installing dependencies. When it is done, the worklane opens on its empty timeline, with state Free. If a step fails, the error stays in the dialog with "Try again", and no worklane is saved.
+2. **Runtime**: the machine the worktree lives on; only online runtimes that can make worktrees are offered.
+3. **Worktree** (read only, follows from the fields above): `~/Worktrees/rebl/fan-app/rebl`, branched from `origin/main`, with the repository's install command (for example `pnpm install`).
+4. **Create worklane** shows each step as it runs on the runtime: fetching `origin/main`, adding the worktree, installing dependencies. When it is done, the worklane opens on its empty timeline, with state Free. If a step fails, the error stays in the dialog with "Try again", and no worklane is saved.
 
 Brian's yes is the click, and it is recorded on the worklane's activity.
 

@@ -3615,9 +3615,9 @@
         {
           "type": "text",
           "id": "qxhtp",
-          "name": "Release, repository, worklane and team chips  (NEW)",
+          "name": "Release, repository and worklane chips  (NEW)",
           "fill": "$foreground",
-          "content": "Release, repository, worklane and squad chips  (NEW)",
+          "content": "Release, repository and worklane chips  (NEW)",
           "fontFamily": "$font-sans",
           "fontSize": "$text-title-sm",
           "fontWeight": "600"
@@ -3829,47 +3829,6 @@
                   "name": "Label",
                   "fill": "$foreground",
                   "content": "Board lane",
-                  "fontFamily": "$font-sans",
-                  "fontSize": "$text-caption",
-                  "fontWeight": "500"
-                }
-              ]
-            },
-            {
-              "type": "frame",
-              "id": "w48y9I",
-              "name": "Squad chip",
-              "reusable": true,
-              "height": 22,
-              "fill": "$surface",
-              "cornerRadius": "$radius-sm",
-              "stroke": "$surface-border",
-              "strokeWidth": 1,
-              "gap": 5,
-              "padding": [
-                0,
-                8,
-                0,
-                6
-              ],
-              "alignItems": "center",
-              "children": [
-                {
-                  "type": "icon",
-                  "id": "fPZxz",
-                  "name": "Icon",
-                  "width": 13,
-                  "height": 13,
-                  "icon": "users-round",
-                  "library": "lucide",
-                  "fill": "$muted-foreground"
-                },
-                {
-                  "type": "text",
-                  "id": "pwUz0",
-                  "name": "Label",
-                  "fill": "$foreground",
-                  "content": "Builders",
                   "fontFamily": "$font-sans",
                   "fontSize": "$text-caption",
                   "fontWeight": "500"
@@ -5827,9 +5786,9 @@
         {
           "type": "text",
           "id": "ikO4E",
-          "name": "App sidebar  (changed: Teams, project tree)",
+          "name": "App sidebar  (changed: Organisations, project tree)",
           "fill": "$foreground",
-          "content": "App sidebar  (changed: Squads, Organisations)",
+          "content": "App sidebar  (changed: Organisations)",
           "fontFamily": "$font-sans",
           "fontSize": "$text-title-sm",
           "fontWeight": "600"
@@ -6069,6 +6028,21 @@
                     },
                     "hOvR0": {
                       "content": "Projects"
+                    }
+                  }
+                },
+                {
+                  "id": "GQSvu",
+                  "type": "ref",
+                  "ref": "q5CDcw",
+                  "name": "Nav organisations",
+                  "width": "fill_container",
+                  "descendants": {
+                    "irWtm": {
+                      "icon": "building-2"
+                    },
+                    "eld4j": {
+                      "content": "Organisations"
                     }
                   }
                 },
