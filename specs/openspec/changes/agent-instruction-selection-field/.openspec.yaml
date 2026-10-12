@@ -1,7 +1,8 @@
 schema: intent-driven
 created: 2026-10-12
 build:
-  status: ready-for-dev
+  status: in-progress
+  baseline_revision: dae8f4210fc166c46ef3fcdbe31eef05ae428746
   type: feature
   ticket: ''
   team: frontend
