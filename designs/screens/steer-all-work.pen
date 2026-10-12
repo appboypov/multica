@@ -3467,28 +3467,87 @@
                           ]
                         },
                         {
-                          "id": "F7KJsh",
+                          "id": "lWe8h",
+                          "type": "ref",
+                          "ref": "L:s6381",
+                          "name": "Description mode",
+                          "descendants": {
+                            "L:a4Q6x": {
+                              "content": "Fields"
+                            },
+                            "L:DIs3i": {
+                              "content": "Markdown"
+                            },
+                            "L:J9i6d2": {
+                              "enabled": false
+                            }
+                          }
+                        },
+                        {
+                          "id": "cI9dl",
                           "type": "ref",
                           "ref": "L:KsCzp",
-                          "name": "Description",
+                          "name": "User story",
                           "width": "fill_container",
                           "descendants": {
                             "L:G7iDpR": {
-                              "content": "Description"
+                              "content": "User story"
                             },
                             "L:iqIbS": {
                               "content": "Required"
                             },
                             "L:q3j0I": {
-                              "height": 72
+                              "height": 56
                             },
                             "L:rxEUu": {
-                              "content": "What changes for whom, and why now"
+                              "content": "As a {actor}, I want {action}, so that {benefit}."
                             }
                           }
                         },
                         {
-                          "id": "TnfIL",
+                          "id": "wFErZ",
+                          "type": "ref",
+                          "ref": "L:KsCzp",
+                          "name": "Currently",
+                          "width": "fill_container",
+                          "descendants": {
+                            "L:G7iDpR": {
+                              "content": "Currently"
+                            },
+                            "L:iqIbS": {
+                              "content": "Optional"
+                            },
+                            "L:q3j0I": {
+                              "height": 56
+                            },
+                            "L:rxEUu": {
+                              "content": "The current state"
+                            }
+                          }
+                        },
+                        {
+                          "id": "YqGG9",
+                          "type": "ref",
+                          "ref": "L:KsCzp",
+                          "name": "Should",
+                          "width": "fill_container",
+                          "descendants": {
+                            "L:G7iDpR": {
+                              "content": "Should"
+                            },
+                            "L:iqIbS": {
+                              "content": "Optional"
+                            },
+                            "L:q3j0I": {
+                              "height": 56
+                            },
+                            "L:rxEUu": {
+                              "content": "The state it should be in"
+                            }
+                          }
+                        },
+                        {
+                          "id": "gMWwJ",
                           "type": "ref",
                           "ref": "L:KsCzp",
                           "name": "Acceptance criteria",
@@ -3501,40 +3560,22 @@
                               "content": "Required"
                             },
                             "L:q3j0I": {
-                              "height": 96
+                              "height": 80
                             },
                             "L:rxEUu": {
-                              "content": "Given … when … then …"
-                            }
-                          }
-                        },
-                        {
-                          "id": "fjxR6",
-                          "type": "ref",
-                          "ref": "L:KsCzp",
-                          "name": "Notes",
-                          "width": "fill_container",
-                          "descendants": {
-                            "L:G7iDpR": {
-                              "content": "Notes"
-                            },
-                            "L:iqIbS": {
-                              "content": "Optional"
-                            },
-                            "L:q3j0I": {
-                              "height": 48
-                            },
-                            "L:rxEUu": {
-                              "content": "Context, links and open questions"
+                              "content": "Given … when … then …. One per line"
                             }
                           }
                         },
                         {
                           "type": "text",
-                          "id": "WkJKq",
-                          "name": "Scope note",
+                          "id": "LwKsL",
+                          "name": "Markdown note",
                           "fill": "$L:muted-foreground",
-                          "content": "Code and technical design go in the change, not in the issue.",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "These fields fill the Story template's Markdown. The issue keeps only that Markdown as its description; code and technical design go in the change.",
+                          "lineHeight": 1.45,
                           "fontFamily": "$L:font-sans",
                           "fontSize": "$L:text-caption",
                           "fontWeight": "normal"
@@ -3543,8 +3584,70 @@
                     }
                   ]
                 },
-                "L:qoDPn/L:jxRBG": {
-                  "content": "Create story"
+                "L:FMFbH": {
+                  "type": "frame",
+                  "id": "dQLKO",
+                  "name": "Dialog footer",
+                  "width": "fill_container",
+                  "height": 56,
+                  "stroke": "$L:border",
+                  "strokeWidth": {
+                    "top": 1
+                  },
+                  "gap": 8,
+                  "padding": [
+                    0,
+                    16
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "id": "p9eQVQ",
+                      "type": "ref",
+                      "ref": "L:cYBGB",
+                      "name": "Fill example",
+                      "descendants": {
+                        "L:NVvjn": {
+                          "enabled": false
+                        },
+                        "L:D3stf": {
+                          "content": "Fill example"
+                        }
+                      }
+                    },
+                    {
+                      "type": "frame",
+                      "id": "lxWLS",
+                      "name": "Footer spacer",
+                      "width": "fill_container",
+                      "height": 1
+                    },
+                    {
+                      "id": "XmeyO",
+                      "type": "ref",
+                      "ref": "L:cYBGB",
+                      "name": "Cancel",
+                      "descendants": {
+                        "L:NVvjn": {
+                          "enabled": false
+                        },
+                        "L:D3stf": {
+                          "content": "Cancel"
+                        }
+                      }
+                    },
+                    {
+                      "id": "Xbtwx",
+                      "type": "ref",
+                      "ref": "L:tRjTl",
+                      "name": "Submit",
+                      "descendants": {
+                        "L:jxRBG": {
+                          "content": "Create story"
+                        }
+                      }
+                    }
+                  ]
                 }
               }
             }
