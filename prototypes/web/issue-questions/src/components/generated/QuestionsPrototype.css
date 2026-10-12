@@ -1,0 +1,113 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap');
+
+/* Multica tokens, light theme: packages/ui/styles/tokens.css, as transcribed in designs/systems/multica.lib.pen. */
+.mc-root {
+  --app-shell: #f3f3f4;
+  --page-canvas: #fbfbfb;
+  --surface: #ffffff;
+  --surface-hover: #f4f4f5;
+  --surface-selected: #eeeef0;
+  --surface-border: #e4e4e7;
+  --foreground: #09090b;
+  --muted: #f4f4f5;
+  --muted-foreground: #64636e;
+  --faint-foreground: #908f99;
+  --primary: #18181b;
+  --primary-foreground: #fafafa;
+  --border: #ececef;
+  --input: #e4e4e7;
+  --ring: #9f9fa9;
+  --brand: #0070e3;
+  --brand-foreground: #fafafa;
+  --success: #1c882d;
+  --warning: #dca400;
+  --warning-text: #a07500;
+  --info: #0072d5;
+  --destructive: #e7000b;
+  --sidebar-accent: #e9e9eb;
+  --surface-shadow: 0 1px 2px rgb(15 23 42 / 0.04), 0 1px 1px rgb(15 23 42 / 0.03);
+  --menu-shadow: 0 8px 24px rgb(15 23 42 / 0.08), 0 2px 6px rgb(15 23 42 / 0.05);
+  --floating-shadow: 0 16px 40px rgb(15 23 42 / 0.14), 0 3px 10px rgb(15 23 42 / 0.08);
+
+  font-family: Inter, 'Inter Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-feature-settings: 'cv11', 'ss01';
+  color: var(--foreground);
+  background: var(--app-shell);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+@layer base {
+  .mc-root :where(*) {
+    border-color: var(--border);
+  }
+}
+
+.mc-mono {
+  font-family: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.mc-root ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.mc-root ::-webkit-scrollbar-thumb {
+  background: rgb(0 0 0 / 0.08);
+  border-radius: 8px;
+}
+.mc-root ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.mc-root :is(button, a, [role='tab'], [role='radio'], [role='checkbox'], [role='menuitem'], [role='option']):focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 1px;
+}
+.mc-root input:focus-visible,
+.mc-root textarea:focus-visible {
+  outline: none;
+}
+
+.mc-root input::placeholder,
+.mc-root textarea::placeholder {
+  color: var(--muted-foreground);
+}
+
+@keyframes mc-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.mc-pop {
+  animation: mc-in 120ms ease-out;
+}
+
+@keyframes mc-fresh {
+  from {
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--brand) 35%, transparent);
+  }
+  to {
+    box-shadow: 0 0 0 3px transparent;
+  }
+}
+.mc-fresh {
+  animation: mc-fresh 1.8s ease-out;
+}
+
+@keyframes mc-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+.mc-pulse {
+  animation: mc-pulse 1.2s ease-in-out infinite;
+}
