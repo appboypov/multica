@@ -69,7 +69,7 @@ type SquadView = 'board' | 'list' | 'backlog';
 
 type Route =
   | { name: 'projects' }
-  | { name: 'project'; org: string; project: string }
+  | { name: 'project'; org: string; project: string; addLane?: string }
   | { name: 'lane'; ref: LaneRef; view: LaneView }
   | { name: 'squad'; squad: string; view: SquadView }
   | { name: 'other'; label: string };
@@ -134,7 +134,12 @@ export const MulticaSteerAllWorkPrototype = () => {
     (d: Partial<Draft> = {}) => {
       const ctx: Partial<Draft> =
         route.name === 'lane'
-          ? { lane: route.ref }
+          ? (() => {
+              // A worklane's new issue lands in that worklane's next release.
+              const l = findLane(orgs, route.ref)?.lane;
+              const st = l ? releaseStates(l, statusOf) : [];
+              return { lane: route.ref, release: l?.releases?.[st.indexOf('next')]?.version };
+            })()
           : route.name === 'squad'
             ? (() => {
                 // A squad's new issue lands where its open work goes: the first open issue's worklane and release.
@@ -144,7 +149,7 @@ export const MulticaSteerAllWorkPrototype = () => {
             : {};
       setDraft({ type: 'story', ...ctx, ...d });
     },
-    [route, squadIssues, statusOf],
+    [route, orgs, squadIssues, statusOf],
   );
 
   const api: AppApi = {
@@ -268,9 +273,11 @@ export const MulticaSteerAllWorkPrototype = () => {
   else if (route.name === 'project')
     page = (
       <ProjectPage
+        key={`${route.org}/${route.project}/${route.addLane ?? ''}`}
         api={api}
         orgName={route.org}
         projectName={route.project}
+        initialAddLane={route.addLane}
         onAddRepo={(n) => addRepo(route.org, route.project, n)}
         onAddLane={(repo, n) =>
           updateLanes({ org: route.org, project: route.project, repo }, (ls) => [...ls, { name: n, state: 'Free', active: null, next: null, releases: [] }])
@@ -358,13 +365,41 @@ function Sidebar({ api, route, onSearch }: { api: AppApi; route: Route; onSearch
   );
   return (
     <aside className="flex w-[256px] shrink-0 flex-col px-2 py-2" style={{ background: 'var(--app-shell)' }} aria-label="Sidebar">
-      <button className="mb-1 flex h-9 items-center gap-2 rounded-[6px] px-2 hover:bg-[var(--sidebar-accent)]">
-        <span className="flex size-5 items-center justify-center rounded-[4px] text-[11px] font-semibold text-white" style={{ background: 'var(--primary)' }}>
-          D
-        </span>
-        <span className="flex-1 text-left text-[14px] font-medium">De App Specialist</span>
-        <ChevronDown size={14} style={{ color: 'var(--muted-foreground)' }} />
-      </button>
+      <Menu
+        width={240}
+        trigger={(_, toggle) => (
+          <button onClick={toggle} aria-label="Workspace" className="mb-1 flex h-9 flex-1 items-center gap-2 rounded-[6px] px-2 hover:bg-[var(--sidebar-accent)]">
+            <span className="flex size-5 items-center justify-center rounded-[4px] text-[11px] font-semibold text-white" style={{ background: 'var(--primary)' }}>
+              D
+            </span>
+            <span className="flex-1 text-left text-[14px] font-medium">De App Specialist</span>
+            <ChevronDown size={14} style={{ color: 'var(--muted-foreground)' }} />
+          </button>
+        )}
+      >
+        {(close) => (
+          <>
+            <div className="px-2 pt-1 pb-1 text-[12px]" style={{ color: 'var(--muted-foreground)' }}>
+              Workspaces
+            </div>
+            <MenuItem
+              selected
+              onClick={close}
+              icon={
+                <span className="flex size-4 items-center justify-center rounded-[3px] text-[10px] font-semibold text-white" style={{ background: 'var(--primary)' }}>
+                  D
+                </span>
+              }
+            >
+              De App Specialist
+            </MenuItem>
+            <div className="my-1 h-px" style={{ background: 'var(--border)' }} />
+            <MenuItem icon={<Settings size={14} />} onClick={() => (close(), api.go({ name: 'other', label: 'Settings' }))}>
+              Workspace settings
+            </MenuItem>
+          </>
+        )}
+      </Menu>
       {item('Search...', Search, onSearch, keycap('⌘K'))}
       {item('New Issue', SquarePen, () => api.newIssue(), keycap('C'))}
       <div className="h-2" />
@@ -425,6 +460,7 @@ function FilterMenu({ options, value, onChange }: { options: { value: string; la
   return (
     <Menu
       align="right"
+      width={280}
       trigger={(open, toggle) => (
         <Button variant="ghost" icon={<ListFilter size={15} />} onClick={toggle}>
           Filter{value.length ? ` · ${value.length}` : ''}
@@ -518,11 +554,6 @@ function LaneRow({ api, lane, refLane, indent }: { api: AppApi; lane: Lane; refL
         <div className="flex items-center gap-1.5">
           <GitBranch size={14} style={{ color: 'var(--muted-foreground)' }} />
           <span className="truncate font-medium">{lane.name}</span>
-          {lane.state === 'Busy' && (
-            <span className="rounded-[4px] px-1.5 text-[11px]" style={{ background: 'color-mix(in oklab, var(--warning) 14%, transparent)', color: '#8a6700' }}>
-              Busy
-            </span>
-          )}
         </div>
         <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[12px]" style={{ color: 'var(--muted-foreground)' }}>
           {now ? (
@@ -552,7 +583,7 @@ function ProjectTile({ name, size = 24 }: { name: string; size?: number }) {
   return (
     <span
       className="flex shrink-0 items-center justify-center rounded-[6px] border font-semibold"
-      style={{ width: size, height: size, fontSize: size > 30 ? 16 : 13, background: 'var(--surface)', borderColor: 'var(--surface-border)' }}
+      style={{ width: size, height: size, fontSize: size > 30 ? 16 : 13, background: 'var(--muted)', borderColor: 'var(--surface-border)', color: size > 30 ? 'var(--muted-foreground)' : 'var(--foreground)' }}
     >
       {name.trim().charAt(0).toUpperCase()}
     </span>
@@ -567,6 +598,7 @@ function ProjectsPage({ api, onAddProject }: { api: AppApi; onAddProject: (org: 
   const [openOrgs, setOpenOrgs] = useState<Set<string>>(new Set(['Mijn Shine', 'Rebl Records']));
   const [openProjects, setOpenProjects] = useState<Set<string>>(new Set(['Rebl Records/Rebl']));
   const [filter, setFilter] = useState<string[]>([]);
+  const [closedRepos, setClosedRepos] = useState<Set<string>>(new Set());
   const [creating, setCreating] = useState(false);
   const toggle = (set: Set<string>, setter: (s: Set<string>) => void, key: string) => {
     const n = new Set(set);
@@ -635,7 +667,7 @@ function ProjectsPage({ api, onAddProject }: { api: AppApi; onAddProject: (org: 
                           <Disclosure open={pOpen} />
                         </button>
                         <ProjectTile name={p.name} />
-                        <button onClick={() => api.go({ name: 'project', org: o.name, project: p.name })} className="truncate text-[15px] font-medium hover:underline">
+                        <button onClick={() => api.go({ name: 'project', org: o.name, project: p.name })} className="truncate text-[14px] font-medium hover:underline">
                           {p.name}
                         </button>
                         <div className="flex-1" />
@@ -645,25 +677,43 @@ function ProjectsPage({ api, onAddProject }: { api: AppApi; onAddProject: (org: 
                         <Avatar text="BR" title="Lead: Brian" />
                       </div>
                       {pOpen &&
-                        p.repos.map((r) => (
-                          <div key={r.name}>
-                            <div className="flex h-9 items-center gap-2 border-t pr-4 pl-10" style={{ borderColor: 'var(--border)', background: 'var(--page-canvas)' }}>
-                              <FolderGit2 size={14} style={{ color: 'var(--muted-foreground)' }} />
-                              <span className="mc-mono text-[13px] font-medium">{r.name}</span>
-                              <span className="mc-mono flex items-center gap-1 text-[12px]" style={{ color: 'var(--muted-foreground)' }}>
-                                <GitCommitHorizontal size={12} />
-                                main
-                              </span>
-                              <div className="flex-1" />
-                              <span className="text-[12px]" style={{ color: 'var(--muted-foreground)' }}>
-                                {r.lanes.length ? plural(r.lanes.length, 'worklane') : 'No worklanes yet'}
-                              </span>
+                        p.repos.map((r) => {
+                          const rKey = `${key}/${r.name}`;
+                          const rOpen = !closedRepos.has(rKey);
+                          return (
+                            <div key={r.name}>
+                              <div className="flex h-9 items-center gap-2 border-t pr-4 pl-10" style={{ borderColor: 'var(--border)', background: 'var(--page-canvas)' }}>
+                                <button
+                                  aria-label={rOpen ? `Collapse ${r.name}` : `Expand ${r.name}`}
+                                  aria-expanded={rOpen}
+                                  onClick={() => toggle(closedRepos, setClosedRepos, rKey)}
+                                  className="rounded-[4px] p-0.5 hover:bg-[var(--surface-hover)]"
+                                >
+                                  <Disclosure open={rOpen} />
+                                </button>
+                                <FolderGit2 size={14} style={{ color: 'var(--muted-foreground)' }} />
+                                <span className="mc-mono text-[13px] font-medium">{r.name}</span>
+                                <span className="mc-mono flex items-center gap-1 text-[12px]" style={{ color: 'var(--muted-foreground)' }}>
+                                  <GitCommitHorizontal size={12} />
+                                  main
+                                </span>
+                                <div className="flex-1" />
+                                <Button variant="ghost" icon={<Plus size={14} />} onClick={() => api.go({ name: 'project', org: o.name, project: p.name, addLane: r.name })}>
+                                  Worklane
+                                </Button>
+                              </div>
+                              {rOpen &&
+                                r.lanes.map((l) => (
+                                  <LaneRow key={l.name} api={api} lane={l} refLane={{ org: o.name, project: p.name, repo: r.name, lane: l.name }} indent={64} />
+                                ))}
+                              {rOpen && !r.lanes.length && (
+                                <div className="border-t py-2.5 pl-16 text-[13px]" style={{ borderColor: 'var(--border)', color: 'var(--muted-foreground)' }}>
+                                  No worklanes yet
+                                </div>
+                              )}
                             </div>
-                            {r.lanes.map((l) => (
-                              <LaneRow key={l.name} api={api} lane={l} refLane={{ org: o.name, project: p.name, repo: r.name, lane: l.name }} indent={64} />
-                            ))}
-                          </div>
-                        ))}
+                          );
+                        })}
                       {pOpen && !p.repos.length && (
                         <div className="border-t py-3 pl-14 text-[13px]" style={{ borderColor: 'var(--border)', color: 'var(--muted-foreground)' }}>
                           No repositories yet.{' '}
@@ -791,16 +841,19 @@ function ProjectPage({
   projectName,
   onAddRepo,
   onAddLane,
+  initialAddLane,
 }: {
   api: AppApi;
   orgName: string;
   projectName: string;
   onAddRepo: (name: string) => void;
   onAddLane: (repo: string, name: string) => void;
+  initialAddLane?: string;
 }) {
   const project = api.orgs.find((o) => o.name === orgName)?.projects.find((p) => p.name === projectName);
   const [addingRepo, setAddingRepo] = useState(false);
-  const [addingLane, setAddingLane] = useState<string | null>(null);
+  const [addingLane, setAddingLane] = useState<string | null>(initialAddLane ?? null);
+  const [repoFilter, setRepoFilter] = useState<string[]>([]);
   if (!project) return <OtherPage label="Project not found" />;
   const lc = laneCount(project);
   const meta = (Icon: LucideIcon, text: string) => (
@@ -815,9 +868,12 @@ function ProjectPage({
         icon={FolderKanban}
         crumbs={[{ label: 'Projects', onClick: () => api.go({ name: 'projects' }) }, { label: project.name }]}
         actions={
+          <>
+            <FilterMenu options={[{ value: 'lanes', label: 'Only repositories with worklanes' }]} value={repoFilter} onChange={setRepoFilter} />
           <Button variant="primary" icon={<Plus size={15} />} onClick={() => api.newIssue(project.repos[0]?.lanes[0] ? { lane: { org: orgName, project: projectName, repo: project.repos[0].name, lane: project.repos[0].lanes[0].name } } : {})}>
             New issue
           </Button>
+          </>
         }
       />
       <div className="flex-1 overflow-auto px-6 py-6">
@@ -864,7 +920,7 @@ function ProjectPage({
               </div>
             </div>
           )}
-          {project.repos.map((r) => (
+          {project.repos.filter((r) => !repoFilter.length || r.lanes.length).map((r) => (
             <section key={r.name} className="overflow-hidden rounded-[12px] border" style={{ background: 'var(--surface)', borderColor: 'var(--surface-border)', boxShadow: 'var(--surface-shadow)' }}>
               <div className="flex h-12 items-center gap-2 px-4">
                 <FolderGit2 size={15} style={{ color: 'var(--muted-foreground)' }} />
@@ -940,7 +996,7 @@ function LanePage({ api, refLane, view, onPlanRelease }: { api: AppApi; refLane:
   const states = releaseStates(lane, api.statusOf);
   const filt = (is: Issue[]) => (types.length ? is.filter((i) => types.includes(i.type)) : is);
   const shippedAny = states.includes('shipped');
-  const nxt = issueKey(lane.next ?? lane.active);
+  const nxt = issueKey(lane.active ?? lane.next);
   const setView = (v: LaneView) => api.go({ name: 'lane', ref: refLane, view: v });
 
   return (
@@ -1094,7 +1150,7 @@ function ReleaseColumn({ api, rel, state, issues, refLane }: { api: AppApi; rel:
               )}
             </Menu>
           </div>
-          <h3 className="mt-2 text-[16px] font-semibold">{rel.goal}</h3>
+          <h3 className="mt-1.5 text-[14px] font-medium">{rel.goal}</h3>
           <div className="mt-3 flex items-center gap-3">
             <Progress done={done} total={rel.issues.length} />
             <span className="shrink-0 text-[12px] tabular-nums" style={{ color: 'var(--muted-foreground)' }}>
@@ -1102,7 +1158,7 @@ function ReleaseColumn({ api, rel, state, issues, refLane }: { api: AppApi; rel:
             </span>
           </div>
         </div>
-        <div className="max-h-[560px] overflow-auto border-t py-1" style={{ borderColor: 'var(--border)' }}>
+        <div className="border-t py-1" style={{ borderColor: 'var(--border)' }}>
           {issues.map((is) => (
             <IssueRow key={is.id} api={api} issue={is} />
           ))}
@@ -1453,7 +1509,7 @@ function NewIssueDialog({ api, draft, onClose, onCreate }: { api: AppApi; draft:
           <IconButton label="Close" icon={<X size={16} />} onClick={onClose} />
         </div>
         <div className="flex min-h-0 flex-1">
-          <div className="w-[264px] shrink-0 overflow-auto border-r p-2" style={{ background: 'var(--page-canvas)', borderColor: 'var(--border)' }} role="radiogroup" aria-label="Template">
+          <div className="w-[272px] shrink-0 overflow-auto border-r p-2" style={{ background: 'var(--page-canvas)', borderColor: 'var(--border)' }} role="radiogroup" aria-label="Template">
             <div className="px-2 pt-1 pb-2 text-[12px]" style={{ color: 'var(--muted-foreground)' }}>
               Template
             </div>
@@ -1463,12 +1519,10 @@ function NewIssueDialog({ api, draft, onClose, onCreate }: { api: AppApi; draft:
                 role="radio"
                 aria-checked={t.type === d.type}
                 onClick={() => setD({ ...d, type: t.type })}
-                className="flex w-full items-start gap-2.5 rounded-[8px] px-2 py-2 text-left hover:bg-[var(--surface-hover)]"
+                className="flex w-full items-center gap-2 rounded-[8px] px-2 py-2 text-left hover:bg-[var(--surface-hover)]"
                 style={t.type === d.type ? { background: 'var(--surface-selected)' } : undefined}
               >
-                <span className="mt-0.5">
-                  <TypeIcon type={t.type} size={15} />
-                </span>
+                <TypeIcon type={t.type} size={15} />
                 <span className="min-w-0">
                   <span className="block text-[14px] font-medium">{t.name}</span>
                   <span className="block truncate text-[12px]" style={{ color: 'var(--muted-foreground)' }}>
@@ -1485,7 +1539,7 @@ function NewIssueDialog({ api, draft, onClose, onCreate }: { api: AppApi; draft:
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Issue title"
               aria-label="Issue title"
-              className="w-full bg-transparent text-[18px] font-medium outline-none placeholder:text-[var(--faint-foreground)]"
+              className="w-full bg-transparent text-[16px] font-medium outline-none placeholder:text-[var(--faint-foreground)]"
             />
             <div className="mt-3 flex flex-wrap gap-1.5">
               <Chip icon={<TypeIcon type={d.type} size={13} />} title="The template sets the type">
@@ -1513,7 +1567,7 @@ function NewIssueDialog({ api, draft, onClose, onCreate }: { api: AppApi; draft:
                 )}
               </Menu>
               <Menu
-                width={320}
+                width={380}
                 trigger={(_, toggle) => (
                   <Chip icon={<GitBranch size={13} />} onClick={toggle}>
                     {d.lane ? laneLabel(d.lane) : 'No worklane'}
@@ -1522,7 +1576,7 @@ function NewIssueDialog({ api, draft, onClose, onCreate }: { api: AppApi; draft:
               >
                 {(close) => (
                   <div className="max-h-[320px] overflow-auto">
-                    {lanes.map(({ ref }) => (
+                    {[...lanes].sort((a, b) => Number(sameLane(b.ref, d.lane)) - Number(sameLane(a.ref, d.lane))).map(({ ref }) => (
                       <MenuItem
                         key={`${ref.org}/${ref.project}/${ref.repo}/${ref.lane}`}
                         icon={<GitBranch size={14} />}
@@ -1535,6 +1589,9 @@ function NewIssueDialog({ api, draft, onClose, onCreate }: { api: AppApi; draft:
                         }}
                       >
                         {laneLabel(ref)}
+                        <span className="ml-1.5 mc-mono text-[11px]" style={{ color: 'var(--muted-foreground)' }}>
+                          {ref.repo}
+                        </span>
                       </MenuItem>
                     ))}
                   </div>
@@ -1544,7 +1601,7 @@ function NewIssueDialog({ api, draft, onClose, onCreate }: { api: AppApi; draft:
                 width={260}
                 trigger={(_, toggle) => (
                   <Chip icon={<CircleDashed size={13} />} onClick={toggle}>
-                    <span className={d.release ? 'mc-mono' : ''}>{d.release ?? 'No release'}</span>
+                    <span>{d.release ?? 'No release'}</span>
                   </Chip>
                 )}
               >
