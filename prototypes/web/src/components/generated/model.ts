@@ -14,6 +14,10 @@ export interface Issue {
   lane?: LaneRef;
   release?: string;
   fields?: Record<string, string>;
+  /** The squad the issue went to when it was made in the prototype. */
+  squad?: string;
+  /** True for issues made in this prototype session; only they have activity. */
+  created?: boolean;
 }
 
 export interface Release {
@@ -157,6 +161,8 @@ export interface Template {
   name: string;
   hint: string;
   sections: TemplateSection[];
+  /** A filled-in issue of this type, for "Fill example" in the new-issue dialog. */
+  example: { title: string; fields: Record<string, string>; priority: Priority };
 }
 
 const notes: TemplateSection = {
@@ -177,6 +183,15 @@ export const TEMPLATES: Template[] = [
       { key: 'done', name: 'Done when', required: true, placeholder: 'One check per line that proves the outcome', rows: 4 },
       notes,
     ],
+    example: {
+      title: 'Fans manage their own account',
+      priority: 'high',
+      fields: {
+        outcome: 'A fan signs up, signs in and keeps their profile and notification choices up to date in the Rebl app, without asking the Rebl team for help.',
+        done: 'A new fan creates an account and lands on the home screen\nA fan changes their name, photo and language\nA fan turns event notifications on and off\nThe Rebl team gets no account requests by mail for a month',
+        notes: 'Covers the fan app only; the dashboard has its own epic.',
+      },
+    },
   },
   {
     type: 'journey',
@@ -187,6 +202,15 @@ export const TEMPLATES: Template[] = [
       { key: 'criteria', name: 'Acceptance criteria', required: true, placeholder: 'Given ... when ... then ...', rows: 4 },
       notes,
     ],
+    example: {
+      title: 'A fan books a table for an event',
+      priority: 'high',
+      fields: {
+        journey: '1. The fan opens an event from the home screen\n2. They pick a table and the number of guests\n3. They confirm and pay\n4. They see the booking under My bookings and get a confirmation mail',
+        criteria: 'Given an event with free tables\nwhen a signed-in fan books a table for 4 and pays\nthen the table shows as taken for everyone\nand the booking appears under My bookings',
+        notes: 'Payment provider and refund rules are still open with Rutger.',
+      },
+    },
   },
   {
     type: 'story',
@@ -197,6 +221,15 @@ export const TEMPLATES: Template[] = [
       { key: 'criteria', name: 'Acceptance criteria', required: true, placeholder: 'Given ... when ... then ...', rows: 4 },
       notes,
     ],
+    example: {
+      title: 'A fan changes their display name',
+      priority: 'medium',
+      fields: {
+        description: 'Fans now keep the name they signed up with. They want to change it, so friends recognise them in guest lists.',
+        criteria: 'Given a signed-in fan on their profile\nwhen they change their display name and save\nthen the new name shows on their profile and in guest lists',
+        notes: '',
+      },
+    },
   },
   {
     type: 'bug',
@@ -207,6 +240,15 @@ export const TEMPLATES: Template[] = [
       { key: 'expected', name: 'What should happen', required: true, placeholder: 'Given ... when ... then ...', rows: 3 },
       notes,
     ],
+    example: {
+      title: 'Invitation link opens an empty screen',
+      priority: 'urgent',
+      fields: {
+        happens: '1. Open a team invitation mail on a phone without the Rebl app\n2. Tap "Join the team"\nThe browser shows an empty white page and nothing else happens.',
+        expected: 'Given a phone without the Rebl app\nwhen someone taps "Join the team" in an invitation mail\nthen they land on the app store page for Rebl\nand after installing, the invitation opens in the app',
+        notes: 'Seen by two new team members this week, both on Android.',
+      },
+    },
   },
   {
     type: 'enhancement',
@@ -217,6 +259,15 @@ export const TEMPLATES: Template[] = [
       { key: 'criteria', name: 'Acceptance criteria', required: true, placeholder: 'Given ... when ... then ...', rows: 4 },
       notes,
     ],
+    example: {
+      title: 'The team list shows each member\'s role',
+      priority: 'medium',
+      fields: {
+        description: 'Team owners see names only and must open each member to check who can edit events. Showing the role in the list saves them that step.',
+        criteria: 'Given a team with an owner, two editors and a viewer\nwhen the owner opens the team list\nthen each member shows their role next to their name',
+        notes: '',
+      },
+    },
   },
   {
     type: 'refactor',
@@ -227,6 +278,15 @@ export const TEMPLATES: Template[] = [
       { key: 'keeps', name: 'Behaviour that stays', required: true, placeholder: 'Given ... when ... then ... still holds', rows: 4 },
       notes,
     ],
+    example: {
+      title: 'Team member screens show roles the same way',
+      priority: 'low',
+      fields: {
+        why: 'The team list, the member page and the invitation screen each show roles differently. One way of showing them makes the next role change a single change.',
+        keeps: 'Given a member with the editor role\nwhen anyone opens the team list, the member page or an invitation\nthen they still see "Editor" and the same actions as today',
+        notes: '',
+      },
+    },
   },
   {
     type: 'chore',
@@ -237,6 +297,15 @@ export const TEMPLATES: Template[] = [
       { key: 'done', name: 'Done when', required: true, placeholder: 'One check per line', rows: 3 },
       notes,
     ],
+    example: {
+      title: 'Renew the Apple push certificate',
+      priority: 'high',
+      fields: {
+        description: 'The Apple push certificate for the fan app runs out on 1 November. Without it, iPhone users get no event notifications.',
+        done: 'The new certificate is in place\nA test notification reaches an iPhone\nThe next expiry date is in the team calendar',
+        notes: '',
+      },
+    },
   },
   {
     type: 'spike',
@@ -247,6 +316,15 @@ export const TEMPLATES: Template[] = [
       { key: 'timebox', name: 'Time box', required: true, placeholder: 'For example: half a day', rows: 1 },
       notes,
     ],
+    example: {
+      title: 'Can System One share booking data with us?',
+      priority: 'medium',
+      fields: {
+        question: 'Venues keep their bookings in System One. Before we plan table bookings, we need to know whether System One can share those bookings with Rebl, and on what terms.',
+        timebox: 'One day',
+        notes: 'Contact at System One: via Rutger.',
+      },
+    },
   },
 ];
 

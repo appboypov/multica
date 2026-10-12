@@ -17,6 +17,7 @@ import {
   Inbox,
   ListFilter,
   ListTodo,
+  Maximize2,
   MessageSquare,
   Monitor,
   Plus,
@@ -72,7 +73,8 @@ type Route =
   | { name: 'project'; org: string; project: string; addLane?: string }
   | { name: 'lane'; ref: LaneRef; view: LaneView }
   | { name: 'squad'; squad: string; view: SquadView }
-  | { name: 'other'; label: string };
+  | { name: 'other'; label: string }
+  | { name: 'issue'; id: string; from: 'Projects' | 'Squads' };
 
 interface Draft {
   type: IssueType;
@@ -89,6 +91,12 @@ interface AppApi {
   go: (r: Route) => void;
   newIssue: (d?: Partial<Draft>) => void;
   peek: (i: Issue) => void;
+  /** Opens the issue's own page. */
+  open: (i: Issue) => void;
+  findIssue: (id: string) => Issue | null;
+  squadOf: (i: Issue) => string | undefined;
+  /** The issue made last in this session; it flashes where it lands. */
+  fresh: string | null;
   toast: (t: string) => void;
 }
 
@@ -117,6 +125,7 @@ export const MulticaSteerAllWorkPrototype = () => {
   const [route, setRoute] = useState<Route>({ name: 'projects' });
   const [draft, setDraft] = useState<Draft | null>(null);
   const [peeked, setPeeked] = useState<Issue | null>(null);
+  const [fresh, setFresh] = useState<string | null>(null);
   const [palette, setPalette] = useState(false);
   const [toastText, setToastText] = useState<string | null>(null);
   const toastTimer = useRef<number | undefined>(undefined);
@@ -132,19 +141,20 @@ export const MulticaSteerAllWorkPrototype = () => {
   // The new-issue dialog takes its defaults from where it was opened.
   const newIssue = useCallback(
     (d: Partial<Draft> = {}) => {
+      // A worklane's new issue lands in that worklane's next release.
+      const nextOf = (ref: LaneRef | undefined) => {
+        const l = ref ? findLane(orgs, ref)?.lane : undefined;
+        const st = l ? releaseStates(l, statusOf) : [];
+        return l?.releases?.[st.indexOf('next')]?.version;
+      };
       const ctx: Partial<Draft> =
         route.name === 'lane'
-          ? (() => {
-              // A worklane's new issue lands in that worklane's next release.
-              const l = findLane(orgs, route.ref)?.lane;
-              const st = l ? releaseStates(l, statusOf) : [];
-              return { lane: route.ref, release: l?.releases?.[st.indexOf('next')]?.version };
-            })()
+          ? { lane: route.ref, release: nextOf(route.ref) }
           : route.name === 'squad'
             ? (() => {
-                // A squad's new issue lands where its open work goes: the first open issue's worklane and release.
-                const open = (squadIssues[route.squad] ?? []).find((i) => i.release && statusOf(i) !== 'done');
-                return { squad: route.squad, lane: open?.lane, release: open?.release };
+                // A squad's new issue goes to the worklane of its open work, in that worklane's next release.
+                const lane = (squadIssues[route.squad] ?? []).find((i) => i.lane && statusOf(i) !== 'done')?.lane;
+                return { squad: route.squad, lane, release: nextOf(lane) };
               })()
             : {};
       setDraft({ type: 'story', ...ctx, ...d });
@@ -162,6 +172,17 @@ export const MulticaSteerAllWorkPrototype = () => {
     },
     newIssue,
     peek: setPeeked,
+    open: (i) => {
+      setPeeked(null);
+      setRoute({ name: 'issue', id: i.id, from: i.lane && !(route.name === 'squad') ? 'Projects' : 'Squads' });
+    },
+    findIssue: (id) =>
+      allLanes(orgs)
+        .flatMap((l) => (l.lane.releases ?? []).flatMap((r) => r.issues))
+        .concat(Object.values(squadIssues).flat())
+        .find((i) => i.id === id) ?? null,
+    squadOf: (i) => i.squad ?? Object.keys(squadIssues).find((s) => squadIssues[s].some((x) => x.id === i.id)),
+    fresh,
     toast,
   };
 
@@ -197,12 +218,14 @@ export const MulticaSteerAllWorkPrototype = () => {
       id,
       type: d.type,
       title,
-      status: d.status ?? 'backlog',
+      // Kanban: work planned into a release is ready to pick up; work without one waits in the backlog.
+      status: d.status ?? (d.release ? 'todo' : 'backlog'),
       priority,
       lane: d.lane,
       release: d.release,
       fields,
-      assignee: undefined,
+      squad: d.squad,
+      created: true,
     };
     if (d.lane && d.release) {
       setOrgs((os) =>
@@ -241,6 +264,9 @@ export const MulticaSteerAllWorkPrototype = () => {
     }
     if (d.squad) setSquadIssues((m) => ({ ...m, [d.squad!]: [...(m[d.squad!] ?? []), issue] }));
     setDraft(null);
+    setFresh(id);
+    setPeeked(null);
+    setRoute({ name: 'issue', id, from: route.name === 'squad' || (!d.lane && d.squad) ? 'Squads' : 'Projects' });
     toast(`${id} created${d.release ? ` in ${d.release}` : ''}${d.squad ? ` for ${d.squad}` : ''}`);
   };
 
@@ -303,6 +329,7 @@ export const MulticaSteerAllWorkPrototype = () => {
       />
     );
   else if (route.name === 'squad') page = <SquadPage api={api} squad={route.squad} view={route.view} issues={squadIssues[route.squad] ?? []} />;
+  else if (route.name === 'issue') page = <IssuePage key={route.id} api={api} id={route.id} from={route.from} />;
   else page = <OtherPage label={route.label} />;
 
   return (
@@ -338,7 +365,9 @@ function Sidebar({ api, route, onSearch }: { api: AppApi; route: Route; onSearch
       ? 'Projects'
       : route.name === 'squad'
         ? 'Squads'
-        : route.label;
+        : route.name === 'issue'
+          ? route.from
+          : route.label;
   const item = (label: string, Icon: LucideIcon, onClick: () => void, trailing?: ReactNode) => (
     <button
       key={label}
@@ -968,11 +997,29 @@ function ProjectPage({
 // Screen 3: a worklane's release timeline
 // ---------------------------------------------------------------------------
 
+/** The issue made last flashes once and scrolls into view wherever it shows. */
+function useFresh<T extends HTMLElement>(api: AppApi, issue: Issue) {
+  const ref = useRef<T>(null);
+  const on = api.fresh === issue.id;
+  useEffect(() => {
+    if (on) ref.current?.scrollIntoView({ block: 'nearest' });
+  }, [on]);
+  return { ref, fresh: on ? ' mc-fresh' : '' };
+}
+
+function releaseStateOf(api: AppApi, issue: Issue): ReleaseState {
+  const found = issue.lane ? findLane(api.orgs, issue.lane) : null;
+  const idx = found?.lane.releases?.findIndex((r) => r.version === issue.release) ?? -1;
+  return found && idx >= 0 ? releaseStates(found.lane, api.statusOf)[idx] : 'planned';
+}
+
 function IssueRow({ api, issue }: { api: AppApi; issue: Issue }) {
+  const { ref, fresh } = useFresh<HTMLButtonElement>(api, issue);
   return (
     <button
+      ref={ref}
       onClick={() => api.peek(issue)}
-      className="flex h-8 w-full items-center gap-2 px-4 text-left hover:bg-[var(--surface-hover)]"
+      className={`flex h-8 w-full items-center gap-2 px-4 text-left hover:bg-[var(--surface-hover)]${fresh}`}
     >
       <StatusIcon status={api.statusOf(issue)} />
       <TypeIcon type={issue.type} />
@@ -1124,8 +1171,9 @@ function ReleaseColumn({ api, rel, state, issues, refLane }: { api: AppApi; rel:
           }}
         />
       </div>
-      <section className="overflow-hidden rounded-[12px] border" style={{ background: 'var(--surface)', borderColor: next ? 'color-mix(in oklab, var(--brand) 35%, var(--surface-border))' : 'var(--surface-border)', boxShadow: 'var(--surface-shadow)' }}>
-        <div className="px-4 pt-3 pb-3">
+      <section className="rounded-[12px] border" style={{ background: 'var(--surface)', borderColor: next ? 'color-mix(in oklab, var(--brand) 35%, var(--surface-border))' : 'var(--surface-border)', boxShadow: 'var(--surface-shadow)' }}>
+        {/* The release head stays in view while a long release scrolls, so an issue is never seen without its release. */}
+        <div className="sticky -top-6 z-10 rounded-t-[12px] border-b px-4 pt-3 pb-3" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
           <div className="flex items-center gap-2">
             <ReleaseChip version={rel.version} state={state} />
             <span className="text-[12px]" style={{ color: next ? 'var(--brand)' : 'var(--muted-foreground)' }}>
@@ -1158,7 +1206,7 @@ function ReleaseColumn({ api, rel, state, issues, refLane }: { api: AppApi; rel:
             </span>
           </div>
         </div>
-        <div className="border-t py-1" style={{ borderColor: 'var(--border)' }}>
+        <div className="py-1">
           {issues.map((is) => (
             <IssueRow key={is.id} api={api} issue={is} />
           ))}
@@ -1166,7 +1214,7 @@ function ReleaseColumn({ api, rel, state, issues, refLane }: { api: AppApi; rel:
         </div>
         <button
           onClick={() => api.newIssue({ lane: refLane, release: rel.version })}
-          className="flex h-9 w-full items-center gap-2 border-t px-4 text-left text-[13px] hover:bg-[var(--surface-hover)]"
+          className="flex h-9 w-full items-center gap-2 rounded-b-[12px] border-t px-4 text-left text-[13px] hover:bg-[var(--surface-hover)]"
           style={{ borderColor: 'var(--border)', color: 'var(--muted-foreground)' }}
         >
           <Plus size={14} />
@@ -1237,15 +1285,15 @@ function StatusBoard({ api, columns, issues, onAdd, showLane }: { api: AppApi; c
 }
 
 function BoardCard({ api, issue, showLane }: { api: AppApi; issue: Issue; showLane: boolean }) {
-  const found = issue.lane ? findLane(api.orgs, issue.lane) : null;
-  const relIdx = found?.lane.releases?.findIndex((r) => r.version === issue.release) ?? -1;
-  const relState = found && relIdx >= 0 ? releaseStates(found.lane, api.statusOf)[relIdx] : 'planned';
+  const relState = releaseStateOf(api, issue);
+  const { ref, fresh } = useFresh<HTMLElement>(api, issue);
   return (
     <article
+      ref={ref}
       draggable
       onDragStart={(e) => e.dataTransfer.setData('text/plain', issue.id)}
       onClick={() => api.peek(issue)}
-      className="cursor-pointer rounded-[8px] border px-2.5 py-2.5 transition-colors hover:border-[var(--ring)]"
+      className={`cursor-pointer rounded-[8px] border px-2.5 py-2.5 transition-colors hover:border-[var(--ring)]${fresh}`}
       style={{ background: 'var(--surface)', borderColor: 'var(--surface-border)', boxShadow: 'var(--surface-shadow)' }}
     >
       <div className="flex items-center gap-1.5">
@@ -1403,12 +1451,57 @@ function SquadPage({ api, squad, view, issues }: { api: AppApi; squad: string; v
 }
 
 // ---------------------------------------------------------------------------
-// Issue peek: what and why only, read from the issue's template sections
+// An issue holds what and why only, read from its template's sections
 // ---------------------------------------------------------------------------
 
-function IssuePeek({ api, issue, onClose }: { api: AppApi; issue: Issue; onClose: () => void }) {
-  const tpl = TEMPLATES.find((t) => t.type === issue.type)!;
+const RULE = 'Code and technical design go in the change, not in the issue.';
+
+function StatusMenu({ api, issue, trigger }: { api: AppApi; issue: Issue; trigger: (status: Status, toggle: () => void) => ReactNode }) {
   const status = api.statusOf(issue);
+  return (
+    <Menu width={180} trigger={(_, toggle) => trigger(status, toggle)}>
+      {(close) =>
+        (Object.keys(STATUS_LABEL) as Status[]).map((s) => (
+          <MenuItem
+            key={s}
+            icon={<StatusIcon status={s} />}
+            selected={s === status}
+            onClick={() => {
+              close();
+              api.setStatus(issue.id, s);
+            }}
+          >
+            {STATUS_LABEL[s]}
+          </MenuItem>
+        ))
+      }
+    </Menu>
+  );
+}
+
+function IssueSections({ issue, size }: { issue: Issue; size: 'peek' | 'page' }) {
+  const tpl = TEMPLATES.find((t) => t.type === issue.type)!;
+  return (
+    <div className={size === 'page' ? 'space-y-6' : 'space-y-4'}>
+      {tpl.sections.map((s) => {
+        const text = issue.fields?.[s.key]?.trim();
+        return (
+          <section key={s.key}>
+            <h3 className={size === 'page' ? 'text-[14px] font-semibold' : 'text-[13px] font-medium'}>{s.name}</h3>
+            <p
+              className={`mt-1.5 whitespace-pre-wrap ${size === 'page' ? 'text-[15px] leading-[22px]' : 'text-[14px]'}`}
+              style={{ color: text ? 'var(--foreground)' : 'var(--faint-foreground)' }}
+            >
+              {text || (issue.created ? 'Empty' : 'Not written in this prototype')}
+            </p>
+          </section>
+        );
+      })}
+    </div>
+  );
+}
+
+function IssuePeek({ api, issue, onClose }: { api: AppApi; issue: Issue; onClose: () => void }) {
   return (
     <aside
       className="mc-pop fixed top-2 right-2 bottom-2 z-40 flex w-[440px] flex-col overflow-hidden rounded-[12px] border"
@@ -1422,58 +1515,237 @@ function IssuePeek({ api, issue, onClose }: { api: AppApi; issue: Issue; onClose
           {issue.id}
         </span>
         <div className="flex-1" />
+        <IconButton label="Open issue" icon={<Maximize2 size={15} />} onClick={() => api.open(issue)} />
         <IconButton label="Close" icon={<X size={16} />} onClick={onClose} />
       </div>
       <div className="flex-1 overflow-auto p-4">
         <h2 className="text-[18px] leading-6 font-semibold">{issue.title}</h2>
         <div className="mt-3 flex flex-wrap gap-1.5">
-          <Menu
-            width={180}
-            trigger={(_, toggle) => (
+          <StatusMenu
+            api={api}
+            issue={issue}
+            trigger={(status, toggle) => (
               <Chip icon={<StatusIcon status={status} size={12} />} onClick={toggle}>
                 {STATUS_LABEL[status]}
               </Chip>
             )}
-          >
-            {(close) =>
-              (Object.keys(STATUS_LABEL) as Status[]).map((s) => (
-                <MenuItem
-                  key={s}
-                  icon={<StatusIcon status={s} />}
-                  selected={s === status}
-                  onClick={() => {
-                    close();
-                    api.setStatus(issue.id, s);
-                  }}
-                >
-                  {STATUS_LABEL[s]}
-                </MenuItem>
-              ))
-            }
-          </Menu>
+          />
           {issue.lane && (
             <Chip icon={<GitBranch size={12} />} onClick={() => api.go({ name: 'lane', ref: issue.lane!, view: 'timeline' })}>
               {laneLabel(issue.lane)}
             </Chip>
           )}
-          {issue.release && <ReleaseChip version={issue.release} state="planned" />}
+          {issue.release && <ReleaseChip version={issue.release} state={releaseStateOf(api, issue)} />}
           {issue.assignee && <Chip icon={<Avatar text={initials(issue.assignee)} size={14} />}>{issue.assignee}</Chip>}
         </div>
-        <div className="mt-5 space-y-4">
-          {tpl.sections.map((s) => (
-            <div key={s.key}>
-              <div className="text-[13px] font-medium">{s.name}</div>
-              <p className="mt-1 text-[14px] whitespace-pre-wrap" style={{ color: issue.fields?.[s.key] ? 'var(--foreground)' : 'var(--faint-foreground)' }}>
-                {issue.fields?.[s.key] || 'Not written in this prototype'}
-              </p>
-            </div>
-          ))}
+        <div className="mt-5">
+          <IssueSections issue={issue} size="peek" />
         </div>
       </div>
       <div className="border-t px-4 py-2 text-[12px]" style={{ borderColor: 'var(--border)', color: 'var(--muted-foreground)' }}>
-        Code and technical design go in the change, not in the issue.
+        {RULE}
       </div>
     </aside>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Screen 6: an issue's own page
+// ---------------------------------------------------------------------------
+
+function PropRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <>
+      <span className="flex h-8 items-center text-[13px]" style={{ color: 'var(--muted-foreground)' }}>
+        {label}
+      </span>
+      <span className="flex min-w-0 items-center">{children}</span>
+    </>
+  );
+}
+
+function PropValue({ icon, children, onClick, muted }: { icon: ReactNode; children: ReactNode; onClick?: () => void; muted?: boolean }) {
+  const cls = 'flex h-8 min-w-0 items-center gap-2 rounded-[6px] px-2 text-left text-[13px]';
+  const body = (
+    <>
+      <span className="flex shrink-0 items-center" style={{ color: 'var(--muted-foreground)' }}>
+        {icon}
+      </span>
+      <span className="truncate" style={muted ? { color: 'var(--muted-foreground)' } : undefined}>
+        {children}
+      </span>
+    </>
+  );
+  return onClick ? (
+    <button onClick={onClick} className={`${cls} hover:bg-[var(--surface-hover)]`}>
+      {body}
+    </button>
+  ) : (
+    <span className={cls}>{body}</span>
+  );
+}
+
+function ActivityEntry({ children }: { children: ReactNode }) {
+  return (
+    <li className="flex items-start gap-2.5 text-[13px] leading-5">
+      <Avatar text="BR" size={20} title="Brian" />
+      <span className="pt-px">
+        {children}
+        <span style={{ color: 'var(--muted-foreground)' }}> · just now</span>
+      </span>
+    </li>
+  );
+}
+
+function IssuePage({ api, id, from }: { api: AppApi; id: string; from: 'Projects' | 'Squads' }) {
+  const issue = api.findIssue(id);
+  if (!issue) return <OtherPage label="Issue not found" />;
+  const tpl = TEMPLATES.find((t) => t.type === issue.type)!;
+  const squad = api.squadOf(issue);
+  const found = issue.lane ? findLane(api.orgs, issue.lane) : null;
+  const rel = found?.lane.releases?.find((r) => r.version === issue.release);
+  const relState = releaseStateOf(api, issue);
+  const toLane = issue.lane ? () => api.go({ name: 'lane', ref: issue.lane!, view: 'timeline' }) : undefined;
+  const toSquad = squad ? () => api.go({ name: 'squad', squad, view: 'board' }) : undefined;
+  const viaLane = issue.lane && (from === 'Projects' || !squad);
+  const crumbs = viaLane
+    ? [
+        { label: 'Projects', onClick: () => api.go({ name: 'projects' }) },
+        { label: issue.lane!.project, onClick: () => api.go({ name: 'project', org: issue.lane!.org, project: issue.lane!.project }) },
+        { label: issue.lane!.repo, onClick: () => api.go({ name: 'project', org: issue.lane!.org, project: issue.lane!.project }) },
+        { label: issue.lane!.lane, onClick: toLane },
+        ...(issue.release ? [{ label: issue.release, onClick: toLane }] : []),
+        { label: issue.id },
+      ]
+    : [{ label: 'Squads', onClick: toSquad }, { label: squad ?? 'No squad', onClick: toSquad }, { label: issue.id }];
+  const typeLabel = tpl.name.toLowerCase();
+  return (
+    <>
+      <PageHeader icon={viaLane ? GitBranch : Users} crumbs={crumbs} />
+      <div className="flex min-h-0 flex-1">
+        <div className="min-w-0 flex-1 overflow-auto" style={{ background: 'var(--surface)' }}>
+          <article className="mx-auto max-w-[760px] px-10 pt-8 pb-16">
+            <div className="flex items-center gap-2">
+              <TypeIcon type={issue.type} size={16} />
+              <span className="text-[13px] font-medium">{tpl.name}</span>
+              <span className="mc-mono text-[12px]" style={{ color: 'var(--muted-foreground)' }}>
+                {issue.id}
+              </span>
+            </div>
+            <h1 className="mt-2 text-[24px] leading-[30px] font-semibold">{issue.title}</h1>
+            <div className="mt-8">
+              <IssueSections issue={issue} size="page" />
+            </div>
+            <p className="mt-8 text-[12px]" style={{ color: 'var(--muted-foreground)' }}>
+              {RULE}
+            </p>
+            <div className="mt-8 border-t pt-6" style={{ borderColor: 'var(--border)' }}>
+              <h2 className="text-[16px] font-semibold">Activity</h2>
+              {issue.created ? (
+                <ul className="mt-4 space-y-3">
+                  <ActivityEntry>
+                    <b className="font-medium">Brian</b> created this {typeLabel} from the {tpl.name} template
+                  </ActivityEntry>
+                  {issue.release && issue.lane && (
+                    <ActivityEntry>
+                      <b className="font-medium">Brian</b> planned it in {issue.release} on {laneLabel(issue.lane)}
+                    </ActivityEntry>
+                  )}
+                  {squad && (
+                    <ActivityEntry>
+                      <b className="font-medium">Brian</b> gave it to the {squad} squad
+                    </ActivityEntry>
+                  )}
+                </ul>
+              ) : (
+                <p className="mt-3 text-[13px]" style={{ color: 'var(--muted-foreground)' }}>
+                  Activity from before this prototype is not shown.
+                </p>
+              )}
+            </div>
+          </article>
+        </div>
+        <aside className="w-[320px] shrink-0 overflow-auto border-l p-4" style={{ borderColor: 'var(--border)' }} aria-label="Properties">
+          <h2 className="px-2 text-[12px] font-medium" style={{ color: 'var(--muted-foreground)' }}>
+            Properties
+          </h2>
+          <div className="mt-1 grid grid-cols-[88px_1fr] gap-x-2 gap-y-0.5 pl-2">
+            <PropRow label="Type">
+              <PropValue icon={<TypeIcon type={issue.type} />}>{tpl.name}</PropValue>
+            </PropRow>
+            <PropRow label="Status">
+              <StatusMenu
+                api={api}
+                issue={issue}
+                trigger={(status, toggle) => (
+                  <PropValue icon={<StatusIcon status={status} />} onClick={toggle}>
+                    {STATUS_LABEL[status]}
+                  </PropValue>
+                )}
+              />
+            </PropRow>
+            <PropRow label="Priority">
+              <PropValue icon={<Ellipsis size={14} />} muted={(issue.priority ?? 'none') === 'none'}>
+                {PRIORITY_LABEL[issue.priority ?? 'none']}
+              </PropValue>
+            </PropRow>
+            <PropRow label="Squad">
+              <PropValue icon={<Users size={14} />} onClick={toSquad} muted={!squad}>
+                {squad ?? 'No squad'}
+              </PropValue>
+            </PropRow>
+            <PropRow label="Assignee">
+              <PropValue icon={issue.assignee ? <Avatar text={initials(issue.assignee)} size={16} /> : <CircleUser size={14} />} muted={!issue.assignee}>
+                {issue.assignee ?? 'Unassigned'}
+              </PropValue>
+            </PropRow>
+            <PropRow label="Worklane">
+              <PropValue icon={<GitBranch size={14} />} onClick={toLane} muted={!issue.lane}>
+                {issue.lane ? laneLabel(issue.lane) : 'No worklane'}
+              </PropValue>
+            </PropRow>
+            <PropRow label="Release">
+              {issue.release ? (
+                <button onClick={toLane} className="flex h-8 items-center rounded-[6px] px-1.5 hover:bg-[var(--surface-hover)]">
+                  <ReleaseChip version={issue.release} state={relState} />
+                </button>
+              ) : (
+                <PropValue icon={<CircleDashed size={14} />} muted>
+                  No release
+                </PropValue>
+              )}
+            </PropRow>
+          </div>
+          {rel && issue.lane && (
+            <section className="mt-5 rounded-[12px] border p-3" style={{ borderColor: 'var(--surface-border)', background: 'var(--surface)' }} aria-label="Release">
+              <div className="flex items-center gap-2">
+                <ReleaseChip version={rel.version} state={relState} />
+                <span className="text-[12px]" style={{ color: relState === 'next' ? 'var(--brand)' : 'var(--muted-foreground)' }}>
+                  {STATE_LABEL[relState]}
+                </span>
+              </div>
+              <div className="mt-2 text-[14px] font-medium">{rel.goal}</div>
+              <div className="mt-1 text-[12px]" style={{ color: 'var(--muted-foreground)' }}>
+                {laneLabel(issue.lane)} · {issue.lane.repo}
+              </div>
+              <div className="mt-3 flex items-center gap-2">
+                <div className="flex-1">
+                  <Progress done={doneCount(rel, api.statusOf)} total={rel.issues.length} />
+                </div>
+                <span className="text-[12px]" style={{ color: 'var(--muted-foreground)' }}>
+                  {doneCount(rel, api.statusOf)} of {rel.issues.length} done
+                </span>
+              </div>
+              <div className="mt-2">
+                <Button variant="ghost" icon={<GitBranch size={14} />} onClick={toLane}>
+                  Open timeline
+                </Button>
+              </div>
+            </section>
+          )}
+        </aside>
+      </div>
+    </>
   );
 }
 
@@ -1666,6 +1938,17 @@ function NewIssueDialog({ api, draft, onClose, onCreate }: { api: AppApi; draft:
           </div>
         </div>
         <div className="flex h-14 shrink-0 items-center justify-end gap-2 border-t px-4" style={{ borderColor: 'var(--border)' }}>
+          <Button
+            variant="ghost"
+            onClick={() => {
+              setTitle(tpl.example.title);
+              setFields({ ...tpl.example.fields });
+              setPriority(tpl.example.priority);
+            }}
+          >
+            Fill example
+          </Button>
+          <div className="flex-1" />
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>

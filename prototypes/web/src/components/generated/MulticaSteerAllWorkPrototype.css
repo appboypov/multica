@@ -76,3 +76,19 @@
 .mc-pop {
   animation: mc-in 120ms ease-out;
 }
+
+/* The issue made last: a brand outline that fades, so it is found where it lands. */
+@keyframes mc-fresh {
+  from {
+    box-shadow: 0 0 0 2px var(--brand);
+    background-color: color-mix(in oklab, var(--brand) 8%, var(--surface));
+  }
+  to {
+    box-shadow: 0 0 0 2px transparent;
+  }
+}
+.mc-fresh {
+  animation: mc-fresh 2.4s ease-out;
+  /* Clear of a sticky release head above and the toast below. */
+  scroll-margin: 140px 0 72px;
+}
