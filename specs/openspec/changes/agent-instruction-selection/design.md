@@ -126,7 +126,7 @@ sequenceDiagram
 
 ## Context
 
-The team is **Backend** (`as-backend-lead`, Joeri), from `roster.py`. The roster gives one team per change, so the web, desktop and docs work of the same Approach is the change `agent-instruction-selection-field` (Frontend, Thomas). Both changes live on the branch `agent-instruction-selection` and reach `main` in one pull request; this change's tasks are built first because the other one calls its API.
+The team is **Backend** (`as-backend-lead`, Joeri), from `roster.py`. The roster gives one team per change, so the web, desktop and docs work of the same Approach is the change `agent-instruction-selection-field` (Frontend, Thomas). This change reaches `main` first, in its own pull request, because the other one calls its API; `agent-instruction-selection-field` is built after it merges.
 
 Code map:
 

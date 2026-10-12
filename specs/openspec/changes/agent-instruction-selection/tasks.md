@@ -71,7 +71,7 @@ flowchart LR
 
 ## Implementation Notes
 
-- Build groups 1 to 7 in order; the change `agent-instruction-selection-field` starts once group 4 is in place, on the same branch.
+- Build groups 1 to 7 in order; the change `agent-instruction-selection-field` starts after this change merges.
 - Default tests must not run real agent CLIs; the daemon tests use temp folders and fake executables.
 - Squad descriptions have no server-side limit; nothing to keep there.
 - Group 1 storage: added `server/migrations/564_agent_instruction_selection.up.sql` and `.down.sql`, with the JSONB default and column drop specified in Decision 1. Joeri approved the full rollback check on the disposable worktree database `multica_agent_instruction_selection_748`.
