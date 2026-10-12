@@ -72,7 +72,8 @@ type AgentResponse struct {
 	// Instructions is what this agent's owner wrote. For a system agent it
 	// holds only the workspace's own notes — the product half lives in
 	// SystemInstructions and is never stored on the row.
-	Instructions string `json:"instructions"`
+	Instructions         string   `json:"instructions"`
+	InstructionSelection []string `json:"instruction_selection"`
 	// ConversationStarters are optional, agent-specific first-turn suggestions. An
 	// empty list tells clients to render their localized fallback prompts.
 	ConversationStarters []AgentConversationStarter `json:"conversation_starters"`
@@ -214,6 +215,7 @@ func (h *Handler) agentToResponse(a db.Agent) AgentResponse {
 		Name:                     a.Name,
 		Description:              a.Description,
 		Instructions:             a.Instructions,
+		InstructionSelection:     decodeInstructionSelection(a.InstructionSelection),
 		ConversationStarters:     conversationStarters,
 		SystemKey:                a.SystemKey.String,
 		SystemInstructions:       systemInstructionsFor(a),
@@ -241,6 +243,23 @@ func (h *Handler) agentToResponse(a db.Agent) AgentResponse {
 		ArchivedAt:               timestampToPtr(a.ArchivedAt),
 		ArchivedBy:               uuidToPtr(a.ArchivedBy),
 	}
+}
+
+func decodeInstructionSelection(raw []byte) []string {
+	var paths []string
+	if len(raw) == 0 {
+		slog.Warn("empty agent instruction_selection")
+		return []string{}
+	}
+	if err := json.Unmarshal(raw, &paths); err != nil {
+		slog.Warn("failed to unmarshal agent instruction_selection", "error", err)
+		return []string{}
+	}
+	if paths == nil {
+		slog.Warn("agent instruction_selection is not an array")
+		return []string{}
+	}
+	return paths
 }
 
 // maskGatewayToken replaces runtime_config.gateway.token with the public
