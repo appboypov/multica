@@ -512,8 +512,16 @@
                       "fontFamily": "$L:font-sans",
                       "fill": "#000000"
                     },
-                    "L:Z1FJ6b/L:twczT/L:uo2SE": {
-                      "content": "v1.1.0"
+                    "L:Z1FJ6b/L:twczT": {
+                      "id": "Lnh38",
+                      "type": "ref",
+                      "ref": "L:bFt73",
+                      "name": "Release",
+                      "descendants": {
+                        "L:TsHtV": {
+                          "content": "v1.1.0"
+                        }
+                      }
                     },
                     "L:Z1FJ6b/L:G8G7r": {
                       "content": "0/14"
@@ -563,8 +571,16 @@
                       "fontFamily": "$L:font-sans",
                       "fill": "#000000"
                     },
-                    "L:Z1FJ6b/L:twczT/L:uo2SE": {
-                      "content": "v1.3.0"
+                    "L:Z1FJ6b/L:twczT": {
+                      "id": "mNNUs",
+                      "type": "ref",
+                      "ref": "L:bFt73",
+                      "name": "Release",
+                      "descendants": {
+                        "L:TsHtV": {
+                          "content": "v1.3.0"
+                        }
+                      }
                     },
                     "L:Z1FJ6b/L:G8G7r": {
                       "content": "0/17"
@@ -856,8 +872,16 @@
                               "fontFamily": "$L:font-sans",
                               "fill": "#000000"
                             },
-                            "L:Z1FJ6b/L:twczT/L:uo2SE": {
-                              "content": "v1.1.0"
+                            "L:Z1FJ6b/L:twczT": {
+                              "id": "K3Wxk",
+                              "type": "ref",
+                              "ref": "L:bFt73",
+                              "name": "Release",
+                              "descendants": {
+                                "L:TsHtV": {
+                                  "content": "v1.1.0"
+                                }
+                              }
                             },
                             "L:Z1FJ6b/L:G8G7r": {
                               "content": "0/14"
@@ -901,8 +925,16 @@
                               "fontFamily": "$L:font-sans",
                               "fill": "#000000"
                             },
-                            "L:Z1FJ6b/L:twczT/L:uo2SE": {
-                              "content": "v1.3.0"
+                            "L:Z1FJ6b/L:twczT": {
+                              "id": "zIq8N",
+                              "type": "ref",
+                              "ref": "L:bFt73",
+                              "name": "Release",
+                              "descendants": {
+                                "L:TsHtV": {
+                                  "content": "v1.3.0"
+                                }
+                              }
                             },
                             "L:Z1FJ6b/L:G8G7r": {
                               "content": "0/17"
@@ -1049,6 +1081,156 @@
               "children": [
                 {
                   "type": "frame",
+                  "id": "iClgf",
+                  "name": "Release v1.0.0",
+                  "width": 316,
+                  "layout": "vertical",
+                  "gap": 12,
+                  "padding": [
+                    0,
+                    16,
+                    0,
+                    0
+                  ],
+                  "children": [
+                    {
+                      "id": "hJfu1",
+                      "type": "ref",
+                      "ref": "L:k0pUBh",
+                      "name": "Node",
+                      "width": "fill_container"
+                    },
+                    {
+                      "id": "FGl9Y",
+                      "type": "ref",
+                      "ref": "L:y1W2fK",
+                      "name": "Column",
+                      "width": "fill_container",
+                      "descendants": {
+                        "L:HWqXX/L:uo2SE": {
+                          "content": "v1.0.0"
+                        },
+                        "L:c4q0R": {
+                          "content": "Next release",
+                          "fill": "$L:brand"
+                        },
+                        "L:So0rS": {
+                          "content": "First production release"
+                        },
+                        "L:foN9s": {
+                          "content": "Teams manage their members, roles and invitations, and the app is in the App Store and Play Store."
+                        },
+                        "L:Oq65Z": {
+                          "enabled": false
+                        },
+                        "L:fwcCV": {
+                          "type": "frame",
+                          "id": "KVDWJ",
+                          "name": "Issues",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "padding": [
+                            16,
+                            14
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "DVlPV",
+                              "name": "Empty",
+                              "fill": "$L:muted-foreground",
+                              "content": "No issues of this worklane",
+                              "fontFamily": "$L:font-sans",
+                              "fontSize": "$L:text-label",
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "q8590s",
+                  "name": "Release v1.0.1",
+                  "width": 316,
+                  "layout": "vertical",
+                  "gap": 12,
+                  "padding": [
+                    0,
+                    16,
+                    0,
+                    0
+                  ],
+                  "children": [
+                    {
+                      "id": "XFiL4",
+                      "type": "ref",
+                      "ref": "L:AS138",
+                      "name": "Node",
+                      "width": "fill_container"
+                    },
+                    {
+                      "id": "a6en8r",
+                      "type": "ref",
+                      "ref": "L:y1W2fK",
+                      "name": "Column",
+                      "width": "fill_container",
+                      "descendants": {
+                        "L:HWqXX": {
+                          "id": "XjIs0",
+                          "type": "ref",
+                          "ref": "L:bFt73",
+                          "name": "Release",
+                          "descendants": {
+                            "L:TsHtV": {
+                              "content": "v1.0.1"
+                            }
+                          }
+                        },
+                        "L:c4q0R": {
+                          "content": "Planned",
+                          "fill": "$L:muted-foreground"
+                        },
+                        "L:So0rS": {
+                          "content": "Membership hardening"
+                        },
+                        "L:foN9s": {
+                          "content": "Fixes for invitations and memberships found after the first release."
+                        },
+                        "L:Oq65Z": {
+                          "enabled": false
+                        },
+                        "L:fwcCV": {
+                          "type": "frame",
+                          "id": "lE02i",
+                          "name": "Issues",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "padding": [
+                            16,
+                            14
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "iJRPK",
+                              "name": "Empty",
+                              "fill": "$L:muted-foreground",
+                              "content": "No issues of this worklane",
+                              "fontFamily": "$L:font-sans",
+                              "fontSize": "$L:text-label",
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
                   "id": "MPXt3",
                   "name": "Release v1.1.0",
                   "width": 560,
@@ -1062,9 +1244,9 @@
                   ],
                   "children": [
                     {
-                      "id": "ZZLiN",
+                      "id": "IsPXk",
                       "type": "ref",
-                      "ref": "L:k0pUBh",
+                      "ref": "L:AS138",
                       "name": "Node",
                       "width": "fill_container"
                     },
@@ -1075,12 +1257,20 @@
                       "name": "Column",
                       "width": "fill_container",
                       "descendants": {
-                        "L:HWqXX/L:uo2SE": {
-                          "content": "v1.1.0"
+                        "L:HWqXX": {
+                          "id": "NyWip",
+                          "type": "ref",
+                          "ref": "L:bFt73",
+                          "name": "Release",
+                          "descendants": {
+                            "L:TsHtV": {
+                              "content": "v1.1.0"
+                            }
+                          }
                         },
                         "L:c4q0R": {
-                          "content": "Next release",
-                          "fill": "$L:brand"
+                          "content": "Planned",
+                          "fill": "$L:muted-foreground"
                         },
                         "L:So0rS": {
                           "content": "Account and profile"
@@ -3850,8 +4040,16 @@
                               "fontFamily": "$L:font-sans",
                               "fill": "#000000"
                             },
-                            "L:Z1FJ6b/L:twczT/L:uo2SE": {
-                              "content": "v1.1.0"
+                            "L:Z1FJ6b/L:twczT": {
+                              "id": "SXw13",
+                              "type": "ref",
+                              "ref": "L:bFt73",
+                              "name": "Release",
+                              "descendants": {
+                                "L:TsHtV": {
+                                  "content": "v1.1.0"
+                                }
+                              }
                             },
                             "L:Z1FJ6b/L:G8G7r": {
                               "content": "0/14"
@@ -3895,8 +4093,16 @@
                               "fontFamily": "$L:font-sans",
                               "fill": "#000000"
                             },
-                            "L:Z1FJ6b/L:twczT/L:uo2SE": {
-                              "content": "v1.3.0"
+                            "L:Z1FJ6b/L:twczT": {
+                              "id": "RsN7c",
+                              "type": "ref",
+                              "ref": "L:bFt73",
+                              "name": "Release",
+                              "descendants": {
+                                "L:TsHtV": {
+                                  "content": "v1.3.0"
+                                }
+                              }
                             },
                             "L:Z1FJ6b/L:G8G7r": {
                               "content": "0/17"
@@ -4416,8 +4622,16 @@
                               "fontFamily": "$L:font-sans",
                               "fill": "#000000"
                             },
-                            "L:Z1FJ6b/L:twczT/L:uo2SE": {
-                              "content": "v1.1.0"
+                            "L:Z1FJ6b/L:twczT": {
+                              "id": "L6KFQb",
+                              "type": "ref",
+                              "ref": "L:bFt73",
+                              "name": "Release",
+                              "descendants": {
+                                "L:TsHtV": {
+                                  "content": "v1.1.0"
+                                }
+                              }
                             },
                             "L:Z1FJ6b/L:G8G7r": {
                               "content": "0/14"
@@ -4461,8 +4675,16 @@
                               "fontFamily": "$L:font-sans",
                               "fill": "#000000"
                             },
-                            "L:Z1FJ6b/L:twczT/L:uo2SE": {
-                              "content": "v1.3.0"
+                            "L:Z1FJ6b/L:twczT": {
+                              "id": "aCUIi",
+                              "type": "ref",
+                              "ref": "L:bFt73",
+                              "name": "Release",
+                              "descendants": {
+                                "L:TsHtV": {
+                                  "content": "v1.3.0"
+                                }
+                              }
                             },
                             "L:Z1FJ6b/L:G8G7r": {
                               "content": "0/17"
@@ -4989,8 +5211,16 @@
                               "fontFamily": "$L:font-sans",
                               "fill": "#000000"
                             },
-                            "L:Z1FJ6b/L:twczT/L:uo2SE": {
-                              "content": "v1.1.0"
+                            "L:Z1FJ6b/L:twczT": {
+                              "id": "gmpQY",
+                              "type": "ref",
+                              "ref": "L:bFt73",
+                              "name": "Release",
+                              "descendants": {
+                                "L:TsHtV": {
+                                  "content": "v1.1.0"
+                                }
+                              }
                             },
                             "L:Z1FJ6b/L:G8G7r": {
                               "content": "0/14"
@@ -5034,8 +5264,16 @@
                               "fontFamily": "$L:font-sans",
                               "fill": "#000000"
                             },
-                            "L:Z1FJ6b/L:twczT/L:uo2SE": {
-                              "content": "v1.3.0"
+                            "L:Z1FJ6b/L:twczT": {
+                              "id": "MjOzb",
+                              "type": "ref",
+                              "ref": "L:bFt73",
+                              "name": "Release",
+                              "descendants": {
+                                "L:TsHtV": {
+                                  "content": "v1.3.0"
+                                }
+                              }
                             },
                             "L:Z1FJ6b/L:G8G7r": {
                               "content": "0/17"
@@ -5438,8 +5676,16 @@
                               "fontFamily": "$L:font-sans",
                               "fill": "#000000"
                             },
-                            "L:Z1FJ6b/L:twczT/L:uo2SE": {
-                              "content": "v1.1.0"
+                            "L:Z1FJ6b/L:twczT": {
+                              "id": "Y8oOWW",
+                              "type": "ref",
+                              "ref": "L:bFt73",
+                              "name": "Release",
+                              "descendants": {
+                                "L:TsHtV": {
+                                  "content": "v1.1.0"
+                                }
+                              }
                             },
                             "L:Z1FJ6b/L:G8G7r": {
                               "content": "0/14"
@@ -5483,8 +5729,16 @@
                               "fontFamily": "$L:font-sans",
                               "fill": "#000000"
                             },
-                            "L:Z1FJ6b/L:twczT/L:uo2SE": {
-                              "content": "v1.3.0"
+                            "L:Z1FJ6b/L:twczT": {
+                              "id": "nybsb",
+                              "type": "ref",
+                              "ref": "L:bFt73",
+                              "name": "Release",
+                              "descendants": {
+                                "L:TsHtV": {
+                                  "content": "v1.3.0"
+                                }
+                              }
                             },
                             "L:Z1FJ6b/L:G8G7r": {
                               "content": "0/17"
@@ -5822,6 +6076,156 @@
               "children": [
                 {
                   "type": "frame",
+                  "id": "kdQhP",
+                  "name": "Release v1.0.0",
+                  "width": 316,
+                  "layout": "vertical",
+                  "gap": 12,
+                  "padding": [
+                    0,
+                    16,
+                    0,
+                    0
+                  ],
+                  "children": [
+                    {
+                      "id": "iCZIW",
+                      "type": "ref",
+                      "ref": "L:k0pUBh",
+                      "name": "Node",
+                      "width": "fill_container"
+                    },
+                    {
+                      "id": "sGY8g",
+                      "type": "ref",
+                      "ref": "L:y1W2fK",
+                      "name": "Column",
+                      "width": "fill_container",
+                      "descendants": {
+                        "L:HWqXX/L:uo2SE": {
+                          "content": "v1.0.0"
+                        },
+                        "L:c4q0R": {
+                          "content": "Next release",
+                          "fill": "$L:brand"
+                        },
+                        "L:So0rS": {
+                          "content": "First production release"
+                        },
+                        "L:foN9s": {
+                          "content": "Teams manage their members, roles and invitations, and the app is in the App Store and Play Store."
+                        },
+                        "L:Oq65Z": {
+                          "enabled": false
+                        },
+                        "L:fwcCV": {
+                          "type": "frame",
+                          "id": "bKEDd",
+                          "name": "Issues",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "padding": [
+                            16,
+                            14
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "Y5IrL",
+                              "name": "Empty",
+                              "fill": "$L:muted-foreground",
+                              "content": "No issues of this worklane",
+                              "fontFamily": "$L:font-sans",
+                              "fontSize": "$L:text-label",
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "V4mU9R",
+                  "name": "Release v1.0.1",
+                  "width": 316,
+                  "layout": "vertical",
+                  "gap": 12,
+                  "padding": [
+                    0,
+                    16,
+                    0,
+                    0
+                  ],
+                  "children": [
+                    {
+                      "id": "Tmx9T",
+                      "type": "ref",
+                      "ref": "L:AS138",
+                      "name": "Node",
+                      "width": "fill_container"
+                    },
+                    {
+                      "id": "CGmP4",
+                      "type": "ref",
+                      "ref": "L:y1W2fK",
+                      "name": "Column",
+                      "width": "fill_container",
+                      "descendants": {
+                        "L:HWqXX": {
+                          "id": "whJdm",
+                          "type": "ref",
+                          "ref": "L:bFt73",
+                          "name": "Release",
+                          "descendants": {
+                            "L:TsHtV": {
+                              "content": "v1.0.1"
+                            }
+                          }
+                        },
+                        "L:c4q0R": {
+                          "content": "Planned",
+                          "fill": "$L:muted-foreground"
+                        },
+                        "L:So0rS": {
+                          "content": "Membership hardening"
+                        },
+                        "L:foN9s": {
+                          "content": "Fixes for invitations and memberships found after the first release."
+                        },
+                        "L:Oq65Z": {
+                          "enabled": false
+                        },
+                        "L:fwcCV": {
+                          "type": "frame",
+                          "id": "uteTa",
+                          "name": "Issues",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "padding": [
+                            16,
+                            14
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "OjWeK",
+                              "name": "Empty",
+                              "fill": "$L:muted-foreground",
+                              "content": "No issues of this worklane",
+                              "fontFamily": "$L:font-sans",
+                              "fontSize": "$L:text-label",
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
                   "id": "koHNf",
                   "name": "Release v1.1.0",
                   "width": 560,
@@ -5835,9 +6239,9 @@
                   ],
                   "children": [
                     {
-                      "id": "b9SBH",
+                      "id": "sTXS4",
                       "type": "ref",
-                      "ref": "L:k0pUBh",
+                      "ref": "L:AS138",
                       "name": "Node",
                       "width": "fill_container"
                     },
@@ -5848,12 +6252,20 @@
                       "name": "Column",
                       "width": "fill_container",
                       "descendants": {
-                        "L:HWqXX/L:uo2SE": {
-                          "content": "v1.1.0"
+                        "L:HWqXX": {
+                          "id": "y5JZxY",
+                          "type": "ref",
+                          "ref": "L:bFt73",
+                          "name": "Release",
+                          "descendants": {
+                            "L:TsHtV": {
+                              "content": "v1.1.0"
+                            }
+                          }
                         },
                         "L:c4q0R": {
-                          "content": "Next release",
-                          "fill": "$L:brand"
+                          "content": "Planned",
+                          "fill": "$L:muted-foreground"
                         },
                         "L:So0rS": {
                           "content": "Account and profile"
@@ -7162,6 +7574,156 @@
               "children": [
                 {
                   "type": "frame",
+                  "id": "N5xPq",
+                  "name": "Release v1.0.0",
+                  "width": 316,
+                  "layout": "vertical",
+                  "gap": 12,
+                  "padding": [
+                    0,
+                    16,
+                    0,
+                    0
+                  ],
+                  "children": [
+                    {
+                      "id": "P7B4Xm",
+                      "type": "ref",
+                      "ref": "L:k0pUBh",
+                      "name": "Node",
+                      "width": "fill_container"
+                    },
+                    {
+                      "id": "oujsG",
+                      "type": "ref",
+                      "ref": "L:y1W2fK",
+                      "name": "Column",
+                      "width": "fill_container",
+                      "descendants": {
+                        "L:HWqXX/L:uo2SE": {
+                          "content": "v1.0.0"
+                        },
+                        "L:c4q0R": {
+                          "content": "Next release",
+                          "fill": "$L:brand"
+                        },
+                        "L:So0rS": {
+                          "content": "First production release"
+                        },
+                        "L:foN9s": {
+                          "content": "Teams manage their members, roles and invitations, and the app is in the App Store and Play Store."
+                        },
+                        "L:Oq65Z": {
+                          "enabled": false
+                        },
+                        "L:fwcCV": {
+                          "type": "frame",
+                          "id": "SMzcs",
+                          "name": "Issues",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "padding": [
+                            16,
+                            14
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "jx0qK",
+                              "name": "Empty",
+                              "fill": "$L:muted-foreground",
+                              "content": "No issues of this worklane",
+                              "fontFamily": "$L:font-sans",
+                              "fontSize": "$L:text-label",
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "TvFxM",
+                  "name": "Release v1.0.1",
+                  "width": 316,
+                  "layout": "vertical",
+                  "gap": 12,
+                  "padding": [
+                    0,
+                    16,
+                    0,
+                    0
+                  ],
+                  "children": [
+                    {
+                      "id": "a5M5L",
+                      "type": "ref",
+                      "ref": "L:AS138",
+                      "name": "Node",
+                      "width": "fill_container"
+                    },
+                    {
+                      "id": "yoPik",
+                      "type": "ref",
+                      "ref": "L:y1W2fK",
+                      "name": "Column",
+                      "width": "fill_container",
+                      "descendants": {
+                        "L:HWqXX": {
+                          "id": "vJHTt",
+                          "type": "ref",
+                          "ref": "L:bFt73",
+                          "name": "Release",
+                          "descendants": {
+                            "L:TsHtV": {
+                              "content": "v1.0.1"
+                            }
+                          }
+                        },
+                        "L:c4q0R": {
+                          "content": "Planned",
+                          "fill": "$L:muted-foreground"
+                        },
+                        "L:So0rS": {
+                          "content": "Membership hardening"
+                        },
+                        "L:foN9s": {
+                          "content": "Fixes for invitations and memberships found after the first release."
+                        },
+                        "L:Oq65Z": {
+                          "enabled": false
+                        },
+                        "L:fwcCV": {
+                          "type": "frame",
+                          "id": "F80Xq",
+                          "name": "Issues",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "padding": [
+                            16,
+                            14
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "chNPc",
+                              "name": "Empty",
+                              "fill": "$L:muted-foreground",
+                              "content": "No issues of this worklane",
+                              "fontFamily": "$L:font-sans",
+                              "fontSize": "$L:text-label",
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
                   "id": "kbaAl",
                   "name": "Release v1.1.0",
                   "width": 560,
@@ -7175,9 +7737,9 @@
                   ],
                   "children": [
                     {
-                      "id": "qVjZ2",
+                      "id": "K797Am",
                       "type": "ref",
-                      "ref": "L:k0pUBh",
+                      "ref": "L:AS138",
                       "name": "Node",
                       "width": "fill_container"
                     },
@@ -7188,12 +7750,20 @@
                       "name": "Column",
                       "width": "fill_container",
                       "descendants": {
-                        "L:HWqXX/L:uo2SE": {
-                          "content": "v1.1.0"
+                        "L:HWqXX": {
+                          "id": "dmAhO",
+                          "type": "ref",
+                          "ref": "L:bFt73",
+                          "name": "Release",
+                          "descendants": {
+                            "L:TsHtV": {
+                              "content": "v1.1.0"
+                            }
+                          }
                         },
                         "L:c4q0R": {
-                          "content": "Next release",
-                          "fill": "$L:brand"
+                          "content": "Planned",
+                          "fill": "$L:muted-foreground"
                         },
                         "L:So0rS": {
                           "content": "Account and profile"
@@ -8405,6 +8975,156 @@
               "children": [
                 {
                   "type": "frame",
+                  "id": "F3ktpL",
+                  "name": "Release v1.0.0",
+                  "width": 316,
+                  "layout": "vertical",
+                  "gap": 12,
+                  "padding": [
+                    0,
+                    16,
+                    0,
+                    0
+                  ],
+                  "children": [
+                    {
+                      "id": "U3eXZW",
+                      "type": "ref",
+                      "ref": "L:k0pUBh",
+                      "name": "Node",
+                      "width": "fill_container"
+                    },
+                    {
+                      "id": "lnIpx",
+                      "type": "ref",
+                      "ref": "L:y1W2fK",
+                      "name": "Column",
+                      "width": "fill_container",
+                      "descendants": {
+                        "L:HWqXX/L:uo2SE": {
+                          "content": "v1.0.0"
+                        },
+                        "L:c4q0R": {
+                          "content": "Next release",
+                          "fill": "$L:brand"
+                        },
+                        "L:So0rS": {
+                          "content": "First production release"
+                        },
+                        "L:foN9s": {
+                          "content": "Teams manage their members, roles and invitations, and the app is in the App Store and Play Store."
+                        },
+                        "L:Oq65Z": {
+                          "enabled": false
+                        },
+                        "L:fwcCV": {
+                          "type": "frame",
+                          "id": "IsCex",
+                          "name": "Issues",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "padding": [
+                            16,
+                            14
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "JqjaC",
+                              "name": "Empty",
+                              "fill": "$L:muted-foreground",
+                              "content": "No issues of this worklane",
+                              "fontFamily": "$L:font-sans",
+                              "fontSize": "$L:text-label",
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "OJIxT",
+                  "name": "Release v1.0.1",
+                  "width": 316,
+                  "layout": "vertical",
+                  "gap": 12,
+                  "padding": [
+                    0,
+                    16,
+                    0,
+                    0
+                  ],
+                  "children": [
+                    {
+                      "id": "IfiR8",
+                      "type": "ref",
+                      "ref": "L:AS138",
+                      "name": "Node",
+                      "width": "fill_container"
+                    },
+                    {
+                      "id": "rQ2cx",
+                      "type": "ref",
+                      "ref": "L:y1W2fK",
+                      "name": "Column",
+                      "width": "fill_container",
+                      "descendants": {
+                        "L:HWqXX": {
+                          "id": "vok5C",
+                          "type": "ref",
+                          "ref": "L:bFt73",
+                          "name": "Release",
+                          "descendants": {
+                            "L:TsHtV": {
+                              "content": "v1.0.1"
+                            }
+                          }
+                        },
+                        "L:c4q0R": {
+                          "content": "Planned",
+                          "fill": "$L:muted-foreground"
+                        },
+                        "L:So0rS": {
+                          "content": "Membership hardening"
+                        },
+                        "L:foN9s": {
+                          "content": "Fixes for invitations and memberships found after the first release."
+                        },
+                        "L:Oq65Z": {
+                          "enabled": false
+                        },
+                        "L:fwcCV": {
+                          "type": "frame",
+                          "id": "wIRVb",
+                          "name": "Issues",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "padding": [
+                            16,
+                            14
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "KYOn9",
+                              "name": "Empty",
+                              "fill": "$L:muted-foreground",
+                              "content": "No issues of this worklane",
+                              "fontFamily": "$L:font-sans",
+                              "fontSize": "$L:text-label",
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
                   "id": "oytOA",
                   "name": "Release v1.1.0",
                   "width": 560,
@@ -8418,9 +9138,9 @@
                   ],
                   "children": [
                     {
-                      "id": "WH7OO",
+                      "id": "OsAdB",
                       "type": "ref",
-                      "ref": "L:k0pUBh",
+                      "ref": "L:AS138",
                       "name": "Node",
                       "width": "fill_container"
                     },
@@ -8431,12 +9151,20 @@
                       "name": "Column",
                       "width": "fill_container",
                       "descendants": {
-                        "L:HWqXX/L:uo2SE": {
-                          "content": "v1.1.0"
+                        "L:HWqXX": {
+                          "id": "o5TQw",
+                          "type": "ref",
+                          "ref": "L:bFt73",
+                          "name": "Release",
+                          "descendants": {
+                            "L:TsHtV": {
+                              "content": "v1.1.0"
+                            }
+                          }
                         },
                         "L:c4q0R": {
-                          "content": "Next release",
-                          "fill": "$L:brand"
+                          "content": "Planned",
+                          "fill": "$L:muted-foreground"
                         },
                         "L:So0rS": {
                           "content": "Account and profile"
@@ -9638,11 +10366,162 @@
               "height": "fill_container",
               "padding": [
                 20,
-                24,
+                48,
                 24,
                 24
               ],
+              "justifyContent": "end",
               "children": [
+                {
+                  "type": "frame",
+                  "id": "KTxjX",
+                  "name": "Release v1.0.0",
+                  "width": 316,
+                  "layout": "vertical",
+                  "gap": 12,
+                  "padding": [
+                    0,
+                    16,
+                    0,
+                    0
+                  ],
+                  "children": [
+                    {
+                      "id": "bwzZk",
+                      "type": "ref",
+                      "ref": "L:k0pUBh",
+                      "name": "Node",
+                      "width": "fill_container"
+                    },
+                    {
+                      "id": "BYuIk",
+                      "type": "ref",
+                      "ref": "L:y1W2fK",
+                      "name": "Column",
+                      "width": "fill_container",
+                      "descendants": {
+                        "L:HWqXX/L:uo2SE": {
+                          "content": "v1.0.0"
+                        },
+                        "L:c4q0R": {
+                          "content": "Next release",
+                          "fill": "$L:brand"
+                        },
+                        "L:So0rS": {
+                          "content": "First production release"
+                        },
+                        "L:foN9s": {
+                          "content": "Teams manage their members, roles and invitations, and the app is in the App Store and Play Store."
+                        },
+                        "L:Oq65Z": {
+                          "enabled": false
+                        },
+                        "L:fwcCV": {
+                          "type": "frame",
+                          "id": "TagEk",
+                          "name": "Issues",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "padding": [
+                            16,
+                            14
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "f3VyZ",
+                              "name": "Empty",
+                              "fill": "$L:muted-foreground",
+                              "content": "No issues of this worklane",
+                              "fontFamily": "$L:font-sans",
+                              "fontSize": "$L:text-label",
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "yOclZ",
+                  "name": "Release v1.0.1",
+                  "width": 316,
+                  "layout": "vertical",
+                  "gap": 12,
+                  "padding": [
+                    0,
+                    16,
+                    0,
+                    0
+                  ],
+                  "children": [
+                    {
+                      "id": "OkhEb",
+                      "type": "ref",
+                      "ref": "L:AS138",
+                      "name": "Node",
+                      "width": "fill_container"
+                    },
+                    {
+                      "id": "WmQ6M",
+                      "type": "ref",
+                      "ref": "L:y1W2fK",
+                      "name": "Column",
+                      "width": "fill_container",
+                      "descendants": {
+                        "L:HWqXX": {
+                          "id": "YJOxE",
+                          "type": "ref",
+                          "ref": "L:bFt73",
+                          "name": "Release",
+                          "descendants": {
+                            "L:TsHtV": {
+                              "content": "v1.0.1"
+                            }
+                          }
+                        },
+                        "L:c4q0R": {
+                          "content": "Planned",
+                          "fill": "$L:muted-foreground"
+                        },
+                        "L:So0rS": {
+                          "content": "Membership hardening"
+                        },
+                        "L:foN9s": {
+                          "content": "Fixes for invitations and memberships found after the first release."
+                        },
+                        "L:Oq65Z": {
+                          "enabled": false
+                        },
+                        "L:fwcCV": {
+                          "type": "frame",
+                          "id": "R2PZq",
+                          "name": "Issues",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "padding": [
+                            16,
+                            14
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "htGEx",
+                              "name": "Empty",
+                              "fill": "$L:muted-foreground",
+                              "content": "No issues of this worklane",
+                              "fontFamily": "$L:font-sans",
+                              "fontSize": "$L:text-label",
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                },
                 {
                   "type": "frame",
                   "id": "D1LSFF",
@@ -9658,9 +10537,9 @@
                   ],
                   "children": [
                     {
-                      "id": "n9zOr1",
+                      "id": "tH6Mx",
                       "type": "ref",
-                      "ref": "L:k0pUBh",
+                      "ref": "L:AS138",
                       "name": "Node",
                       "width": "fill_container"
                     },
@@ -9671,12 +10550,20 @@
                       "name": "Column",
                       "width": "fill_container",
                       "descendants": {
-                        "L:HWqXX/L:uo2SE": {
-                          "content": "v1.1.0"
+                        "L:HWqXX": {
+                          "id": "sEeAF",
+                          "type": "ref",
+                          "ref": "L:bFt73",
+                          "name": "Release",
+                          "descendants": {
+                            "L:TsHtV": {
+                              "content": "v1.1.0"
+                            }
+                          }
                         },
                         "L:c4q0R": {
-                          "content": "Next release",
-                          "fill": "$L:brand"
+                          "content": "Planned",
+                          "fill": "$L:muted-foreground"
                         },
                         "L:So0rS": {
                           "content": "Account and profile"
@@ -10515,7 +11402,7 @@
           "ref": "L:ahvX2",
           "name": "Release menu",
           "layoutPosition": "absolute",
-          "x": 1110,
+          "x": 1102,
           "y": 192,
           "descendants": {
             "L:P1QbGV": {
