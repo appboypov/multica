@@ -2119,7 +2119,7 @@
       "x": 1400,
       "y": 0,
       "name": "Atoms",
-      "width": 1200,
+      "width": 1368,
       "fill": "$page-canvas",
       "layout": "vertical",
       "gap": 28,
