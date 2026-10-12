@@ -790,6 +790,7 @@ type TaskAgentData struct {
 	ID                    string                      `json:"id"`
 	Name                  string                      `json:"name"`
 	Instructions          string                      `json:"instructions"`
+	InstructionSelection  []string                    `json:"instruction_selection"`
 	Skills                []service.AgentSkillData    `json:"skills,omitempty"`
 	SkillRefs             []service.AgentSkillRefData `json:"skill_refs,omitempty"`
 	CustomEnv             map[string]string           `json:"custom_env,omitempty"`
