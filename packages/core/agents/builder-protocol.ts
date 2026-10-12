@@ -1,7 +1,7 @@
 import type { RuntimeDevice, RuntimeModel } from "../types";
 import {
-  AGENT_CONVERSATION_STARTER_LABEL_MAX_LENGTH,
-  AGENT_CONVERSATION_STARTER_MAX_LENGTH,
+  AGENT_CONVERSATION_STARTER_LABEL_WARN_LENGTH,
+  AGENT_CONVERSATION_STARTER_WARN_LENGTH,
   AGENT_CONVERSATION_STARTERS_MAX,
 } from "./constants";
 import type { AgentDraft } from "./draft";
@@ -265,10 +265,10 @@ export function mergeBuilderDraft(
         )
         .map((item) => ({
           label: [...item.label.trim()]
-            .slice(0, AGENT_CONVERSATION_STARTER_LABEL_MAX_LENGTH)
+            .slice(0, AGENT_CONVERSATION_STARTER_LABEL_WARN_LENGTH)
             .join(""),
           prompt: [...item.prompt.trim()]
-            .slice(0, AGENT_CONVERSATION_STARTER_MAX_LENGTH)
+            .slice(0, AGENT_CONVERSATION_STARTER_WARN_LENGTH)
             .join(""),
         }))
     : current.conversationStarters;

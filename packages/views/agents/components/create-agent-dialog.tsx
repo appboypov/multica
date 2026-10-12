@@ -37,7 +37,7 @@ import { Input } from "@multica/ui/components/ui/input";
 import { Label } from "@multica/ui/components/ui/label";
 import { toast } from "sonner";
 import {
-  AGENT_DESCRIPTION_MAX_LENGTH,
+  AGENT_DESCRIPTION_WARN_LENGTH,
   VISIBILITY_DESCRIPTION,
   VISIBILITY_LABEL,
 } from "@multica/core/agents";
@@ -347,13 +347,13 @@ export function CreateAgentDialog({
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     placeholder={t(($) => $.create_dialog.description_placeholder)}
-                    maxLength={AGENT_DESCRIPTION_MAX_LENGTH}
+                    maxLength={AGENT_DESCRIPTION_WARN_LENGTH}
                     className="mt-1"
                   />
                   <div className="mt-1">
                     <CharCounter
                       length={[...description].length}
-                      max={AGENT_DESCRIPTION_MAX_LENGTH}
+                      max={AGENT_DESCRIPTION_WARN_LENGTH}
                     />
                   </div>
                 </div>

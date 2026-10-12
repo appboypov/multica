@@ -8,7 +8,7 @@ import type {
   MemberWithUser,
 } from "@multica/core/types";
 import {
-  AGENT_DESCRIPTION_MAX_LENGTH,
+  AGENT_DESCRIPTION_WARN_LENGTH,
   AGENT_MAX_CONCURRENT_TASKS_MAX,
   AGENT_MAX_CONCURRENT_TASKS_MIN,
 } from "@multica/core/agents";
@@ -113,7 +113,7 @@ export function AgentDetailInspector({
     enabled:
       canEdit &&
       profileDraft.name.length > 0 &&
-      profileDraft.description.length <= AGENT_DESCRIPTION_MAX_LENGTH,
+      profileDraft.description.length <= AGENT_DESCRIPTION_WARN_LENGTH,
     isEqual: profileDraftsEqual,
   });
 
@@ -222,13 +222,13 @@ export function AgentDetailInspector({
                 onBlur={profileAutoSave.flush}
                 disabled={!canEdit}
                 rows={5}
-                maxLength={AGENT_DESCRIPTION_MAX_LENGTH}
+                maxLength={AGENT_DESCRIPTION_WARN_LENGTH}
                 className="resize-y"
                 placeholder={t(($) => $.inspector.description_placeholder)}
               />
               <CharCounter
                 length={[...description].length}
-                max={AGENT_DESCRIPTION_MAX_LENGTH}
+                max={AGENT_DESCRIPTION_WARN_LENGTH}
               />
             </div>
           </SettingsRow>

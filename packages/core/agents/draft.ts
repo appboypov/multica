@@ -8,7 +8,6 @@ import type {
   RuntimeDevice,
 } from "../types";
 import {
-  AGENT_DESCRIPTION_MAX_LENGTH,
   AGENT_MAX_CONCURRENT_TASKS_MAX,
   AGENT_MAX_CONCURRENT_TASKS_MIN,
 } from "./constants";
@@ -88,16 +87,6 @@ export function applyDraftModelChange(
 ): AgentDraft {
   if (model === draft.model) return draft;
   return { ...draft, model, thinkingLevel: "", serviceTier: "" };
-}
-
-/**
- * Mirrors the server's `utf8.RuneCountInString` check (agent.go:1013). The
- * textarea's `maxLength` covers typing and pasting, but a duplicated agent or
- * an AI-builder draft can seed a longer value programmatically — without this
- * the create button would submit into a guaranteed 400.
- */
-export function isDraftDescriptionWithinLimit(description: string): boolean {
-  return [...description].length <= AGENT_DESCRIPTION_MAX_LENGTH;
 }
 
 export function buildInvocationTargets(

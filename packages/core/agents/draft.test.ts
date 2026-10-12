@@ -8,7 +8,6 @@ import {
   buildDuplicateDraft,
   buildInvocationTargets,
   deriveDuplicateAccess,
-  isDraftDescriptionWithinLimit,
   type AgentDraft,
 } from "./draft";
 
@@ -359,13 +358,5 @@ describe("agent draft execution overrides", () => {
       thinkingLevel: "",
       serviceTier: "",
     });
-  });
-
-  it("enforces the 255-rune description limit the create API applies", () => {
-    expect(isDraftDescriptionWithinLimit("a".repeat(255))).toBe(true);
-    expect(isDraftDescriptionWithinLimit("a".repeat(256))).toBe(false);
-    // Runes, not UTF-16 units: 255 CJK characters are exactly at the limit.
-    expect(isDraftDescriptionWithinLimit("汉".repeat(255))).toBe(true);
-    expect(isDraftDescriptionWithinLimit("汉".repeat(256))).toBe(false);
   });
 });

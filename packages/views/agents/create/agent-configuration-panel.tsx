@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, type ReactNode } from "react";
 import {
-  AGENT_DESCRIPTION_MAX_LENGTH,
+  AGENT_DESCRIPTION_WARN_LENGTH,
   applyDraftModelChange,
   applyDraftRuntimeChange,
   type AgentDraft,
@@ -138,12 +138,12 @@ export function AgentConfigurationPanel({
                 // The create API rejects >255 characters with a 400. Cap the
                 // input and show the counter so the limit is visible before
                 // submitting, matching the settings page.
-                maxLength={AGENT_DESCRIPTION_MAX_LENGTH}
+                maxLength={AGENT_DESCRIPTION_WARN_LENGTH}
                 className="resize-y"
               />
               <CharCounter
                 length={[...draft.description].length}
-                max={AGENT_DESCRIPTION_MAX_LENGTH}
+                max={AGENT_DESCRIPTION_WARN_LENGTH}
               />
             </div>
           </DraftFieldRow>

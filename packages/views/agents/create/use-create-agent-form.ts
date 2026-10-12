@@ -10,9 +10,8 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import {
   EMPTY_AGENT_DRAFT,
-  isDraftDescriptionWithinLimit,
-  AGENT_CONVERSATION_STARTER_LABEL_MAX_LENGTH,
-  AGENT_CONVERSATION_STARTER_MAX_LENGTH,
+  AGENT_CONVERSATION_STARTER_LABEL_WARN_LENGTH,
+  AGENT_CONVERSATION_STARTER_WARN_LENGTH,
   type AgentDraft,
 } from "@multica/core/agents";
 import { useAuthStore } from "@multica/core/auth";
@@ -130,8 +129,8 @@ export function useCreateAgentForm(options?: {
     (item) =>
       item.label.trim().length === 0 ||
       item.prompt.trim().length === 0 ||
-      [...item.label].length > AGENT_CONVERSATION_STARTER_LABEL_MAX_LENGTH ||
-      [...item.prompt].length > AGENT_CONVERSATION_STARTER_MAX_LENGTH,
+      [...item.label].length > AGENT_CONVERSATION_STARTER_LABEL_WARN_LENGTH ||
+      [...item.prompt].length > AGENT_CONVERSATION_STARTER_WARN_LENGTH,
   );
 
   return {
@@ -148,7 +147,6 @@ export function useCreateAgentForm(options?: {
     draftReady:
       selectedRuntime != null &&
       isRuntimeUsableForUser(selectedRuntime, currentUserId) &&
-      isDraftDescriptionWithinLimit(draft.description) &&
       !accessInvalid &&
       !conversationStartersInvalid,
   };

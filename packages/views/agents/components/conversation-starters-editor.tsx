@@ -2,8 +2,8 @@
 
 import { Plus, Trash2 } from "lucide-react";
 import {
-  AGENT_CONVERSATION_STARTER_LABEL_MAX_LENGTH,
-  AGENT_CONVERSATION_STARTER_MAX_LENGTH,
+  AGENT_CONVERSATION_STARTER_LABEL_WARN_LENGTH,
+  AGENT_CONVERSATION_STARTER_WARN_LENGTH,
   AGENT_CONVERSATION_STARTERS_MAX,
   selectConversationStarters,
 } from "@multica/core/agents";
@@ -65,7 +65,7 @@ export function ConversationStartersEditor({
           <div className="flex items-center gap-2">
             <Input
               value={item.label}
-              maxLength={AGENT_CONVERSATION_STARTER_LABEL_MAX_LENGTH}
+              maxLength={AGENT_CONVERSATION_STARTER_LABEL_WARN_LENGTH}
               disabled={disabled}
               aria-label={t(($) => $.conversation_starters.item_label, {
                 number: index + 1,
@@ -90,7 +90,7 @@ export function ConversationStartersEditor({
           </div>
           <Textarea
             value={item.prompt}
-            maxLength={AGENT_CONVERSATION_STARTER_MAX_LENGTH}
+            maxLength={AGENT_CONVERSATION_STARTER_WARN_LENGTH}
             disabled={disabled}
             rows={3}
             className="mt-2 resize-y"

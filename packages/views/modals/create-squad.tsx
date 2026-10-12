@@ -12,7 +12,7 @@ import {
   memberListOptions,
   workspaceKeys,
 } from "@multica/core/workspace/queries";
-import { AGENT_DESCRIPTION_MAX_LENGTH } from "@multica/core/agents";
+import { SQUAD_DESCRIPTION_MAX_LENGTH } from "@multica/core/squads";
 import { isImeComposing } from "@multica/core/utils";
 import type { Agent, MemberWithUser } from "@multica/core/types";
 import {
@@ -189,13 +189,13 @@ export function CreateSquadModal({ onClose }: { onClose: () => void }) {
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     placeholder={t(($) => $.create_squad.description_placeholder)}
-                    maxLength={AGENT_DESCRIPTION_MAX_LENGTH}
+                    maxLength={SQUAD_DESCRIPTION_MAX_LENGTH}
                     className="mt-1"
                   />
                   <div className="mt-1">
                     <CharCounter
                       length={[...description].length}
-                      max={AGENT_DESCRIPTION_MAX_LENGTH}
+                      max={SQUAD_DESCRIPTION_MAX_LENGTH}
                     />
                   </div>
                 </div>
