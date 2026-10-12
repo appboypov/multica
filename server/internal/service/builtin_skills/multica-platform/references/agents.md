@@ -46,9 +46,9 @@ Two distinct text fields, often confused:
 
 - `description` is a catalog summary. It is stored and shown in listings; the
   daemon does NOT inject it into the agent's runtime prompt. Treat it as
-  human-facing metadata only. Capped at 255 Unicode code points.
+  human-facing metadata only.
 - `instructions` is the runtime behavior contract. The daemon reads it at
-  claim time and ships it to the provider as the agent's durable instructions.
+  claim time and uses it as the agent's durable instructions at task start.
   Persona, responsibilities, boundaries, output and escalation rules go here,
   not in `description`.
 
@@ -73,7 +73,7 @@ request is sent. `--conversation-starters` is a JSON array of `{label, prompt}`
 objects (at most 3); pass `'[]'` on update to clear.
 
 The HTTP body accepts: `name`, `description`, `instructions`,
-`conversation_starters`, `avatar_url`, `runtime_id`, `runtime_config`,
+`instruction_selection`, `conversation_starters`, `avatar_url`, `runtime_id`, `runtime_config`,
 `custom_env`, `custom_args`, `model`, `thinking_level`, `service_tier`,
 `visibility`, `max_concurrent_tasks`, `mcp_config`, `skill_ids`.
 
@@ -117,9 +117,10 @@ multica agent copy <source-agent-id> --runtime-id <target> --model <model>  # cr
 | Field | Stored as | Validated? | Consumed by |
 |---|---|---|---|
 | `name` | `name` | required, 400 if empty | listings, runtime payload |
-| `description` | `description` | 400 if > 255 code points | catalog/listing only — NOT the runtime prompt |
-| `instructions` | `instructions` | none | daemon → provider at claim time |
-| `conversation_starters` | `conversation_starters` (JSON array) | at most 3 items; each requires a label (≤80 code points) and prompt (≤4000 code points) | human-facing Chat empty state only; selecting one prefills the composer and does not start a run |
+| `description` | `description` | none | catalog/listing only — NOT the runtime prompt |
+| `instructions` | `instructions` | none | daemon → provider at task start; `{selection}` expands the selected paths |
+| `instruction_selection` | `instruction_selection` (JSON array) | ordered absolute paths; only the runtime's owner may set or change them | daemon reads files and folders from the runtime machine at every task start |
+| `conversation_starters` | `conversation_starters` (JSON array) | at most 3 items; each requires a non-empty label and prompt | human-facing Chat empty state only; selecting one prefills the composer and does not start a run |
 | `avatar_url` | `avatar_url` | none; an explicit non-empty value is preserved, while omitted/empty creates a random `emoji:<glyph>` avatar | catalog/listing UI only — NOT the runtime prompt |
 | `runtime_id` | `runtime_id` (nullable) | required at create (400) + must resolve to a runtime in this workspace | selects runtime/provider; `NULL` means unbound — see above |
 | `model` | `model` (nullable) | none beyond runtime support | daemon reads; empty = runtime default |
@@ -183,6 +184,28 @@ model/catalog-tier pair before execution and omits a stale incompatible
 override. An alternative catalog tier on an agent without an explicit model
 still fails closed because the effective config.toml model is unknown;
 `default` is model-independent once the runtime capability is known.
+
+### instruction_selection
+
+The HTTP API accepts an ordered array of absolute paths on the agent's runtime
+machine. Omitting it on create defaults to `[]`; omitting it on update preserves
+the stored selection, and `[]` clears it. Paths are trimmed; empty and relative
+paths return 400. Only the runtime's owner may create a non-empty selection or
+change it; other callers receive 403. An allowed member may read the paths and
+save an unchanged selection alongside edited instructions.
+
+At every task start, the daemon replaces every `{selection}` in `instructions`
+with the selected folders' trees and text files, read from disk at that moment.
+A selected file has no tree. Within folders, hidden, binary and git-ignored
+files are skipped; an explicitly selected hidden or ignored path is read.
+Symbolic links are followed, and each real file appears once at its first
+place in selection order. The server stores and passes paths, not file content.
+
+An empty selection replaces `{selection}` with nothing. Instructions without
+the placeholder run unchanged without reading any selected path. A missing or
+unreadable path, or an explicitly selected binary file, fails the task before
+the agent starts with `instruction_selection_error`, the path and cause, and
+no retry. Disk edits reach the next task without a sync.
 
 ### conversation_starters
 
