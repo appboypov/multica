@@ -93,6 +93,7 @@ func TestDirectoryListingPathErrors(t *testing.T) {
 	}
 	for _, tc := range []struct{ path, errorText string }{
 		{"notes", "path must be absolute"},
+		{"~root/notes", "path must be absolute"},
 		{filepath.Join(root, "missing"), "path does not exist: " + filepath.Join(root, "missing")},
 		{file, "not a folder: " + file},
 	} {

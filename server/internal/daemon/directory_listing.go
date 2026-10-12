@@ -42,7 +42,7 @@ func listRuntimeDirectory(provider, path string) (resolved string, entries []dir
 		sort.Slice(entries, func(i, j int) bool { return entries[i].Name < entries[j].Name })
 		return "", entries, nil
 	}
-	if strings.HasPrefix(path, "~") {
+	if path == "~" || strings.HasPrefix(path, "~/") {
 		home, err := os.UserHomeDir()
 		if err != nil {
 			return "", nil, fmt.Errorf("resolve user home: %w", err)
