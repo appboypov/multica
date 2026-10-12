@@ -338,7 +338,7 @@ export function AddRepositoryDialog({
         label="Repository"
         hint="Required"
         help={
-          <a href="https://github.com/apps" target="_blank" rel="noreferrer" style={{ color: 'var(--brand)' }}>
+          <a href="https://github.com/apps/pew-pew-multica/installations/new" target="_blank" rel="noreferrer" style={{ color: 'var(--brand)' }}>
             Missing one? Give Multica access on GitHub
           </a>
         }
