@@ -43,7 +43,7 @@ The button stays disabled until the repository is picked and the checkout is val
 
 Opened from a repository's "+ Worklane" button. It is a dialog.
 
-1. **Name**: for example "Fan app", unique in its repository. The folder is filled in from it (`fan-app`) and can be edited: one folder name, unique among the project's worklanes.
+1. **Name**: for example "Fan app", unique in its repository. The folder is filled in from it (`fan-app`) and can be edited: one folder name, unique among the repository's worklanes. Worklanes with the same name in different repositories of a project share their folder, with one worktree per repository, for example `~/Worktrees/supermarty/catalog-and-tools/sm-api` and `~/Worktrees/supermarty/catalog-and-tools/sm-cli`.
 2. **Runtime**: the machine the worktree lives on; only online runtimes that can make worktrees are offered.
 3. **Worktree** (read only, follows from the fields above): `~/Worktrees/rebl/fan-app/rebl`, branched from `origin/main`, with the repository's install command (for example `pnpm install`).
 4. **Create worklane** shows each step as it runs on the runtime: fetching `origin/main`, adding the worktree, installing dependencies. When it is done, the worklane opens on its empty timeline, with state Free. If a step fails, the error stays in the dialog with "Try again", and no worklane is saved.

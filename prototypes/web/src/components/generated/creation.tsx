@@ -451,8 +451,8 @@ export function NewWorklaneDialog({
   // A worklane's name is unique in its repository; worklanes are found by it.
   const nameTaken = repo.lanes.some((l) => l.name.toLowerCase() === name.trim().toLowerCase());
   const nameError = nameTaken ? `${repo.name} already has a worklane ${name.trim()}` : undefined;
-  // Folders are unique among the project's worklanes; main works in the normal checkout.
-  const usedBy = project.repos.flatMap((r) => r.lanes).find((l) => l.name !== 'main' && (l.folder ?? laneFolder(l.name)) === f);
+  // Folders are unique among the repository's worklanes; main works in the normal checkout.
+  const usedBy = repo.lanes.find((l) => l.name !== 'main' && (l.folder ?? laneFolder(l.name)) === f);
   const folderError = !f ? undefined : !/^[a-z0-9][a-z0-9-]*$/.test(f) ? 'One folder name: lowercase letters, digits and dashes' : usedBy ? `Already used by ${usedBy.name}` : undefined;
   const valid = !!name.trim() && !nameError && !!f && !folderError;
   const worktree = `~/Worktrees/${laneFolder(project.name)}/${f || '…'}/${repoShort(repo.name)}`;
@@ -507,7 +507,7 @@ export function NewWorklaneDialog({
             <Field label="Name" hint="Required" error={nameError}>
               <TextInput label="Name" autoFocus value={name} onChange={setName} placeholder="Fan app" />
             </Field>
-            <Field label="Folder" help={`Unique among ${project.name}'s worklanes`} error={folderError}>
+            <Field label="Folder" help={`Unique among ${repo.name}'s worklanes`} error={folderError}>
               <TextInput label="Folder" mono value={f} onChange={(v) => (setFolder(v), setFolderEdited(true))} placeholder="fan-app" />
             </Field>
           </div>

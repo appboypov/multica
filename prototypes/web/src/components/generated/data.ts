@@ -54,7 +54,14 @@ const data = [
     "repos": [
      {
       "name": "appboypov/floatnote",
-      "lanes": []
+      "lanes": [
+       {
+        "name": "main",
+        "state": "Free",
+        "active": null,
+        "next": null
+       }
+      ]
      }
     ]
    },
@@ -63,15 +70,36 @@ const data = [
     "repos": [
      {
       "name": "appboypov/madspec",
-      "lanes": []
+      "lanes": [
+       {
+        "name": "main",
+        "state": "Free",
+        "active": null,
+        "next": null
+       }
+      ]
      },
      {
       "name": "appboypov/plannotator",
-      "lanes": []
+      "lanes": [
+       {
+        "name": "main",
+        "state": "Free",
+        "active": null,
+        "next": null
+       }
+      ]
      },
      {
       "name": "omp-anytype-inbox",
-      "lanes": []
+      "lanes": [
+       {
+        "name": "main",
+        "state": "Free",
+        "active": null,
+        "next": null
+       }
+      ]
      }
     ]
    },
@@ -80,7 +108,14 @@ const data = [
     "repos": [
      {
       "name": "appboypov/multica",
-      "lanes": []
+      "lanes": [
+       {
+        "name": "main",
+        "state": "Free",
+        "active": null,
+        "next": null
+       }
+      ]
      }
     ]
    },
@@ -89,7 +124,14 @@ const data = [
     "repos": [
      {
       "name": "appboypov/photoprank",
-      "lanes": []
+      "lanes": [
+       {
+        "name": "main",
+        "state": "Free",
+        "active": null,
+        "next": null
+       }
+      ]
      }
     ]
    },
@@ -110,7 +152,14 @@ const data = [
     "repos": [
      {
       "name": "appboypov/turbo-herdr",
-      "lanes": []
+      "lanes": [
+       {
+        "name": "main",
+        "state": "Free",
+        "active": null,
+        "next": null
+       }
+      ]
      }
     ]
    },
@@ -139,16 +188,16 @@ const data = [
       "name": "appboypov/ivga-amd",
       "lanes": [
        {
-        "name": "Asset dashboard",
-        "state": "Busy",
-        "active": "AMD-76 Show the portfolio Waardekompas on the asset manager home",
-        "next": "AMD-77 Refresh the Waardekompas after a manual change"
-       },
-       {
         "name": "main",
         "state": "Free",
         "active": null,
         "next": "IVGA-45 Verify that a source correction changes the regenerated invoice"
+       },
+       {
+        "name": "Asset dashboard",
+        "state": "Busy",
+        "active": "AMD-76 Show the portfolio Waardekompas on the asset manager home",
+        "next": "AMD-77 Refresh the Waardekompas after a manual change"
        }
       ]
      }
@@ -187,16 +236,16 @@ const data = [
       "name": "appboypov/ivga-brain",
       "lanes": [
        {
-        "name": "Second brain",
-        "state": "Free",
-        "active": null,
-        "next": "ISB-2 Add and find knowledge by asking the AI agent in the brain folder"
-       },
-       {
         "name": "main",
         "state": "Free",
         "active": null,
         "next": "IVGA-45 Verify that a source correction changes the regenerated invoice"
+       },
+       {
+        "name": "Second brain",
+        "state": "Free",
+        "active": null,
+        "next": "ISB-2 Add and find knowledge by asking the AI agent in the brain folder"
        }
       ]
      }
@@ -248,16 +297,16 @@ const data = [
       "name": "MultiChannable/multichannable",
       "lanes": [
        {
-        "name": "Listing pipeline",
-        "state": "Busy",
-        "active": "MC-209 UJ-1 J1.7 Server code to backends/, orders, labels, settings, sync, auth",
-        "next": "UJ-1 J1.8 Shared code to packages/"
-       },
-       {
         "name": "main",
         "state": "Busy",
         "active": "UJ-1 Milad sets up once: OpenSpec change",
         "next": "UJ-1 Milad sets up once: technical design"
+       },
+       {
+        "name": "Listing pipeline",
+        "state": "Busy",
+        "active": "MC-209 UJ-1 J1.7 Server code to backends/, orders, labels, settings, sync, auth",
+        "next": "UJ-1 J1.8 Shared code to packages/"
        },
        {
         "name": "Orders, EAN and reports",
@@ -270,12 +319,6 @@ const data = [
         "state": "Free",
         "active": null,
         "next": "UJ-6 J5 Screens"
-       },
-       {
-        "name": "main",
-        "state": "Busy",
-        "active": "MS-1 feedback over MultiChannable-overzicht-voor-Milad.pdf",
-        "next": "MS-2 overdrachtsdocument en kaart voor de AI listingwizard"
        }
       ]
      }
@@ -291,7 +334,14 @@ const data = [
     "repos": [
      {
       "name": "appboypov/profa",
-      "lanes": []
+      "lanes": [
+       {
+        "name": "main",
+        "state": "Free",
+        "active": null,
+        "next": null
+       }
+      ]
      }
     ]
    }
@@ -306,163 +356,6 @@ const data = [
      {
       "name": "appboypov/rebl",
       "lanes": [
-       {
-        "name": "Fan accounts and push",
-        "state": "Free",
-        "active": null,
-        "next": "REBL-21 Mockups Account and profile",
-        "releases": [
-         {
-          "version": "v1.1.0",
-          "title": "Account and profile",
-          "description": "Fans make an account, sign in and keep their own profile with a photo.",
-          "issues": [
-           {
-            "id": "REBL-21",
-            "type": "chore",
-            "title": "Mockups Account and profile"
-           },
-           {
-            "id": "REBL-70",
-            "type": "chore",
-            "title": "Texts Account and profile"
-           },
-           {
-            "id": "REBL-71",
-            "type": "story",
-            "title": "Registration creates the fan's account"
-           },
-           {
-            "id": "REBL-72",
-            "type": "story",
-            "title": "Profile edit and photo upload"
-           },
-           {
-            "id": "REBL-73",
-            "type": "story",
-            "title": "Preferences and consents are stored"
-           },
-           {
-            "id": "REBL-26",
-            "type": "story",
-            "title": "Account deletion"
-           },
-           {
-            "id": "REBL-27",
-            "type": "story",
-            "title": "Retention sweep"
-           },
-           {
-            "id": "REBL-74",
-            "type": "story",
-            "title": "CLI account commands"
-           },
-           {
-            "id": "REBL-22",
-            "type": "story",
-            "title": "Fan registers and confirms their email"
-           },
-           {
-            "id": "REBL-23",
-            "type": "story",
-            "title": "Forgotten password"
-           },
-           {
-            "id": "REBL-24",
-            "type": "story",
-            "title": "Profile page and edit with photo"
-           },
-           {
-            "id": "REBL-25",
-            "type": "story",
-            "title": "Message preferences and consents"
-           },
-           {
-            "id": "REBL-75",
-            "type": "story",
-            "title": "Delete account from the profile"
-           },
-           {
-            "id": "REBL-76",
-            "type": "chore",
-            "title": "E2E Account and profile"
-           }
-          ]
-         },
-         {
-          "version": "v1.2.0",
-          "title": "Notifications",
-          "description": "Fans get push notifications on iOS and Android and choose which ones they want.",
-          "issues": [
-           {
-            "id": "REBL-78",
-            "type": "story",
-            "title": "Models Notifications"
-           },
-           {
-            "id": "REBL-29",
-            "type": "chore",
-            "title": "Mockups Notifications"
-           },
-           {
-            "id": "REBL-79",
-            "type": "chore",
-            "title": "Texts Notifications"
-           },
-           {
-            "id": "REBL-80",
-            "type": "chore",
-            "title": "Push keys for Apple and Google"
-           },
-           {
-            "id": "REBL-30",
-            "type": "story",
-            "title": "Push notifications reach the phone"
-           },
-           {
-            "id": "REBL-81",
-            "type": "story",
-            "title": "Notification service skips turned-off kinds"
-           },
-           {
-            "id": "REBL-82",
-            "type": "story",
-            "title": "Mark notifications as read"
-           },
-           {
-            "id": "REBL-83",
-            "type": "story",
-            "title": "CLI sends a test notification and marks read"
-           },
-           {
-            "id": "REBL-84",
-            "type": "story",
-            "title": "App asks for push permission and registers the phone"
-           },
-           {
-            "id": "REBL-31",
-            "type": "story",
-            "title": "Notification choices per kind"
-           },
-           {
-            "id": "REBL-32",
-            "type": "story",
-            "title": "Bell list"
-           },
-           {
-            "id": "REBL-33",
-            "type": "story",
-            "title": "Link resolver opens the notification's page"
-           },
-           {
-            "id": "REBL-85",
-            "type": "chore",
-            "title": "E2E Notifications"
-           }
-          ]
-         }
-        ]
-       },
        {
         "name": "main",
         "state": "Busy",
@@ -711,6 +604,163 @@ const data = [
         ]
        },
        {
+        "name": "Fan accounts and push",
+        "state": "Free",
+        "active": null,
+        "next": "REBL-21 Mockups Account and profile",
+        "releases": [
+         {
+          "version": "v1.1.0",
+          "title": "Account and profile",
+          "description": "Fans make an account, sign in and keep their own profile with a photo.",
+          "issues": [
+           {
+            "id": "REBL-21",
+            "type": "chore",
+            "title": "Mockups Account and profile"
+           },
+           {
+            "id": "REBL-70",
+            "type": "chore",
+            "title": "Texts Account and profile"
+           },
+           {
+            "id": "REBL-71",
+            "type": "story",
+            "title": "Registration creates the fan's account"
+           },
+           {
+            "id": "REBL-72",
+            "type": "story",
+            "title": "Profile edit and photo upload"
+           },
+           {
+            "id": "REBL-73",
+            "type": "story",
+            "title": "Preferences and consents are stored"
+           },
+           {
+            "id": "REBL-26",
+            "type": "story",
+            "title": "Account deletion"
+           },
+           {
+            "id": "REBL-27",
+            "type": "story",
+            "title": "Retention sweep"
+           },
+           {
+            "id": "REBL-74",
+            "type": "story",
+            "title": "CLI account commands"
+           },
+           {
+            "id": "REBL-22",
+            "type": "story",
+            "title": "Fan registers and confirms their email"
+           },
+           {
+            "id": "REBL-23",
+            "type": "story",
+            "title": "Forgotten password"
+           },
+           {
+            "id": "REBL-24",
+            "type": "story",
+            "title": "Profile page and edit with photo"
+           },
+           {
+            "id": "REBL-25",
+            "type": "story",
+            "title": "Message preferences and consents"
+           },
+           {
+            "id": "REBL-75",
+            "type": "story",
+            "title": "Delete account from the profile"
+           },
+           {
+            "id": "REBL-76",
+            "type": "chore",
+            "title": "E2E Account and profile"
+           }
+          ]
+         },
+         {
+          "version": "v1.2.0",
+          "title": "Notifications",
+          "description": "Fans get push notifications on iOS and Android and choose which ones they want.",
+          "issues": [
+           {
+            "id": "REBL-78",
+            "type": "story",
+            "title": "Models Notifications"
+           },
+           {
+            "id": "REBL-29",
+            "type": "chore",
+            "title": "Mockups Notifications"
+           },
+           {
+            "id": "REBL-79",
+            "type": "chore",
+            "title": "Texts Notifications"
+           },
+           {
+            "id": "REBL-80",
+            "type": "chore",
+            "title": "Push keys for Apple and Google"
+           },
+           {
+            "id": "REBL-30",
+            "type": "story",
+            "title": "Push notifications reach the phone"
+           },
+           {
+            "id": "REBL-81",
+            "type": "story",
+            "title": "Notification service skips turned-off kinds"
+           },
+           {
+            "id": "REBL-82",
+            "type": "story",
+            "title": "Mark notifications as read"
+           },
+           {
+            "id": "REBL-83",
+            "type": "story",
+            "title": "CLI sends a test notification and marks read"
+           },
+           {
+            "id": "REBL-84",
+            "type": "story",
+            "title": "App asks for push permission and registers the phone"
+           },
+           {
+            "id": "REBL-31",
+            "type": "story",
+            "title": "Notification choices per kind"
+           },
+           {
+            "id": "REBL-32",
+            "type": "story",
+            "title": "Bell list"
+           },
+           {
+            "id": "REBL-33",
+            "type": "story",
+            "title": "Link resolver opens the notification's page"
+           },
+           {
+            "id": "REBL-85",
+            "type": "chore",
+            "title": "E2E Notifications"
+           }
+          ]
+         }
+        ]
+       },
+       {
         "name": "Agenda and publication",
         "state": "Free",
         "active": null,
@@ -847,6 +897,12 @@ const data = [
       "name": "Supermarty-B-V/sm-cli",
       "lanes": [
        {
+        "name": "main",
+        "state": "Free",
+        "active": null,
+        "next": null
+       },
+       {
         "name": "Catalog and tools",
         "state": "Busy",
         "active": "SMDA-2 Settle and reconcile the twenty shop-family candidate groups",
@@ -857,6 +913,12 @@ const data = [
      {
       "name": "Supermarty-B-V/sm-mobile",
       "lanes": [
+       {
+        "name": "main",
+        "state": "Free",
+        "active": null,
+        "next": null
+       },
        {
         "name": "Shopper apps",
         "state": "Free",
@@ -869,6 +931,12 @@ const data = [
       "name": "Supermarty-B-V/sm-web-app",
       "lanes": [
        {
+        "name": "main",
+        "state": "Free",
+        "active": null,
+        "next": null
+       },
+       {
         "name": "Shopper apps",
         "state": "Free",
         "active": null,
@@ -878,11 +946,24 @@ const data = [
      },
      {
       "name": "Supermarty-B-V/sm-docs",
-      "lanes": []
+      "lanes": [
+       {
+        "name": "main",
+        "state": "Free",
+        "active": null,
+        "next": null
+       }
+      ]
      },
      {
       "name": "Supermarty-B-V/sm-api",
       "lanes": [
+       {
+        "name": "main",
+        "state": "Free",
+        "active": null,
+        "next": null
+       },
        {
         "name": "Catalog and tools",
         "state": "Busy",
@@ -895,6 +976,12 @@ const data = [
       "name": "Supermarty-B-V/sm-duckdb",
       "lanes": [
        {
+        "name": "main",
+        "state": "Free",
+        "active": null,
+        "next": null
+       },
+       {
         "name": "Catalog and tools",
         "state": "Busy",
         "active": "SMDA-2 Settle and reconcile the twenty shop-family candidate groups",
@@ -905,6 +992,12 @@ const data = [
      {
       "name": "Supermarty-B-V/sm-skills",
       "lanes": [
+       {
+        "name": "main",
+        "state": "Free",
+        "active": null,
+        "next": null
+       },
        {
         "name": "Design components",
         "state": "Busy",
@@ -923,6 +1016,12 @@ const data = [
       "name": "Supermarty-B-V/sm-firebase",
       "lanes": [
        {
+        "name": "main",
+        "state": "Free",
+        "active": null,
+        "next": null
+       },
+       {
         "name": "Catalog and tools",
         "state": "Busy",
         "active": "SMDA-2 Settle and reconcile the twenty shop-family candidate groups",
@@ -932,15 +1031,35 @@ const data = [
      },
      {
       "name": "Supermarty-B-V/sm-apify",
-      "lanes": []
+      "lanes": [
+       {
+        "name": "main",
+        "state": "Free",
+        "active": null,
+        "next": null
+       }
+      ]
      },
      {
       "name": "Supermarty-B-V/sm-website",
-      "lanes": []
+      "lanes": [
+       {
+        "name": "main",
+        "state": "Free",
+        "active": null,
+        "next": null
+       }
+      ]
      },
      {
       "name": "Supermarty-B-V/sm-admin-web",
       "lanes": [
+       {
+        "name": "main",
+        "state": "Free",
+        "active": null,
+        "next": null
+       },
        {
         "name": "Catalog and tools",
         "state": "Busy",
@@ -952,6 +1071,12 @@ const data = [
      {
       "name": "Supermarty-B-V/sm-design",
       "lanes": [
+       {
+        "name": "main",
+        "state": "Free",
+        "active": null,
+        "next": null
+       },
        {
         "name": "Design components",
         "state": "Busy",
@@ -1011,7 +1136,14 @@ const data = [
     "repos": [
      {
       "name": "appboypov/whitebird-brain",
-      "lanes": []
+      "lanes": [
+       {
+        "name": "main",
+        "state": "Free",
+        "active": null,
+        "next": null
+       }
+      ]
      }
     ]
    }

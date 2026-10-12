@@ -123,8 +123,7 @@ export function loadOrgs(): Org[] {
           });
           return {
             name: r.name,
-            // The default branch's worklane leads, as in the approved design.
-            lanes: [...r.lanes].sort((a, b) => Number(b.name === 'main') - Number(a.name === 'main')).map((l) => {
+            lanes: r.lanes.map((l) => {
               const lane = { org: o.name, project: p.name, repo: r.name, lane: l.name };
               return {
                 name: l.name,
