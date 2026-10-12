@@ -21,15 +21,24 @@ export interface Issue {
   created?: boolean;
 }
 
-/** A version of the repository with a title, a description and the issues that go in it. */
+/**
+ * A version of the repository with a title, a description and the issues that go in it. Every worklane of
+ * the repository holds the same release line, each release with only that worklane's issues.
+ */
 export interface Release {
+  /** Stays the same when the release is renumbered. */
+  id: string;
   version: string;
   title: string;
   description: string;
+  /** The step from the release before it; the version follows from it unless it is set by hand. */
+  bump: Bump;
+  /** The version was set by hand: it keeps that number when the release moves. */
+  pinned: boolean;
   issues: Issue[];
 }
 
-/** What a planned release is given before it holds issues. */
+/** A release without its issues: one place on the repository's release line. */
 export type ReleaseHead = Omit<Release, 'issues'>;
 
 export interface Lane {
@@ -50,6 +59,8 @@ export interface Repo {
   lanes: Lane[];
   /** The last tag the version policy found, the base for the first planned release. */
   lastTag?: string;
+  /** The repository does not release: its worklanes plan no releases. */
+  noReleases?: boolean;
 }
 
 export interface Project {
@@ -105,33 +116,40 @@ export function loadOrgs(): Org[] {
       name: o.name,
       projects: o.projects.map((p) => ({
         name: p.name,
-        repos: p.repos.map((r) => ({
-          name: r.name,
-          // The default branch's worklane leads, as in the approved design.
-          lanes: [...r.lanes].sort((a, b) => Number(b.name === 'main') - Number(a.name === 'main')).map((l) => {
-            const lane = { org: o.name, project: p.name, repo: r.name, lane: l.name };
-            return {
-              name: l.name,
-              state: l.state,
-              active: l.active,
-              next: l.next,
-              releases: l.releases?.map((rel) => ({
-                version: rel.version,
-                title: rel.title,
-                description: rel.description,
-                issues: rel.issues.map((i) => ({
-                  id: i.id,
-                  type: (i.type as IssueType) ?? 'story',
-                  title: i.title,
-                  status: STATUS_OF[i.id] ?? 'backlog',
-                  lane,
-                  release: rel.version,
+        repos: p.repos.map((r) => {
+          // The repository's one release line: every lane's releases in version order.
+          const raw = r.lanes.flatMap((l) => l.releases ?? []).sort((a, b) => cmpVersion(a.version, b.version));
+          const line: ReleaseHead[] = raw.map((rel, i) => {
+            const prev = i ? raw[i - 1].version : null;
+            const bump = bumpBetween(prev, rel.version);
+            return { id: `${r.name}#${rel.version}`, version: rel.version, title: rel.title, description: rel.description, bump, pinned: bumpFrom(prev, bump) !== rel.version };
+          });
+          return {
+            name: r.name,
+            // The default branch's worklane leads, as in the approved design.
+            lanes: [...r.lanes].sort((a, b) => Number(b.name === 'main') - Number(a.name === 'main')).map((l) => {
+              const lane = { org: o.name, project: p.name, repo: r.name, lane: l.name };
+              return {
+                name: l.name,
+                state: l.state,
+                active: l.active,
+                next: l.next,
+                releases: line.map((head) => ({
+                  ...head,
+                  issues: (l.releases?.find((rel) => rel.version === head.version)?.issues ?? []).map((i) => ({
+                    id: i.id,
+                    type: (i.type as IssueType) ?? 'story',
+                    title: i.title,
+                    status: STATUS_OF[i.id] ?? 'backlog',
+                    lane,
+                    release: head.version,
+                  })),
                 })),
-              })),
-              backlog: (LANE_BACKLOG[`${r.name}/${l.name}`] ?? []).map((i) => ({ ...i, status: 'backlog' as Status, lane })),
-            };
-          }),
-        })),
+                backlog: (LANE_BACKLOG[`${r.name}/${l.name}`] ?? []).map((i) => ({ ...i, status: 'backlog' as Status, lane })),
+              };
+            }),
+          };
+        }),
       })),
     }),
   );
@@ -144,25 +162,84 @@ export function laneIssues(lane: Lane): Issue[] {
 
 export type Bump = 'patch' | 'minor' | 'major';
 
+/** `v1.4.0` or `1.4.0`; anything else is not a version. */
+export function parseVersion(v: string): [number, number, number] | null {
+  const m = v.trim().match(/^v?(\d+)\.(\d+)\.(\d+)$/);
+  return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
+}
+
+export function cmpVersion(a: string, b: string): number {
+  const [x, y] = [parseVersion(a) ?? [0, 0, 0], parseVersion(b) ?? [0, 0, 0]];
+  return x[0] - y[0] || x[1] - y[1] || x[2] - y[2];
+}
+
+/** The version a bump gives after `base`; the first release of a repository counts from v0.0.0. */
+export function bumpFrom(base: string | null, bump: Bump): string {
+  const [maj, min, pat] = (base && parseVersion(base)) || [0, 0, 0];
+  return bump === 'major' ? `v${maj + 1}.0.0` : bump === 'minor' ? `v${maj}.${min + 1}.0` : `v${maj}.${min}.${pat + 1}`;
+}
+
+export function bumpBetween(prev: string | null, v: string): Bump {
+  const [a, b] = [(prev && parseVersion(prev)) || [0, 0, 0], parseVersion(v) ?? [0, 0, 0]];
+  return b[0] !== a[0] ? 'major' : b[1] !== a[1] ? 'minor' : 'patch';
+}
+
+/** The repository's release line; every worklane holds the same one. */
+export function lineOf(repo: Repo): ReleaseHead[] {
+  return (repo.lanes[0]?.releases ?? []).map(({ issues: _, ...head }) => head);
+}
+
+/** Where the line starts: the release before the first one is the last tag, if there is one. */
+export function versionBefore(repo: Repo, line: ReleaseHead[], index: number): { version: string; label: string } | null {
+  if (index > 0) return { version: line[index - 1].version, label: `${line[index - 1].version} ${line[index - 1].title}` };
+  return repo.lastTag ? { version: repo.lastTag, label: `${repo.lastTag}, the last tag` } : null;
+}
+
 /**
- * A repository has one version line: the next version follows the last planned release of any of its
- * worklanes, or its last tag when nothing is planned yet.
+ * Gives every release after the shipped ones the version its place gives it: the bump from the release before
+ * it, or the version set by hand. Shipped releases keep their tag.
  */
-export function nextVersions(repo: Repo): { base: string | null; baseIsTag: boolean; next: Record<Bump, string> } {
-  const parse = (v: string) => v.replace(/^v/, '').split('.').map(Number) as [number, number, number];
-  const cmp = (a: string, b: string) => {
-    const [x, y] = [parse(a), parse(b)];
-    return x[0] - y[0] || x[1] - y[1] || x[2] - y[2];
-  };
-  const planned = repo.lanes.flatMap((l) => (l.releases ?? []).map((r) => r.version));
-  const all = [...planned, ...(repo.lastTag ? [repo.lastTag] : [])];
-  const base = all.length ? all.reduce((m, v) => (cmp(v, m) > 0 ? v : m)) : null;
-  const [maj, min, pat] = base ? parse(base) : [0, 0, 0];
-  return {
-    base,
-    baseIsTag: !!base && !planned.includes(base),
-    next: { patch: `v${maj}.${min}.${pat + 1}`, minor: `v${maj}.${min + 1}.0`, major: `v${maj + 1}.0.0` },
-  };
+export function renumber(repo: Repo, line: ReleaseHead[], shipped: number): ReleaseHead[] {
+  const out: ReleaseHead[] = [];
+  line.forEach((h, i) => {
+    const prev = versionBefore(repo, out, i)?.version ?? null;
+    out.push(i < shipped || h.pinned ? h : { ...h, version: bumpFrom(prev, h.bump) });
+  });
+  return out;
+}
+
+/** The first release on the line whose version is not higher than the one before it. */
+export function lineProblem(repo: Repo, line: ReleaseHead[]): { index: number; message: string } | null {
+  for (let i = 0; i < line.length; i++) {
+    const prev = versionBefore(repo, line, i);
+    if (prev && cmpVersion(line[i].version, prev.version) <= 0)
+      return { index: i, message: `${line[i].version} ${line[i].title} is not higher than ${prev.label}` };
+  }
+  return null;
+}
+
+/** The line with `head` at `index` (replacing the release there, or added at the end), renumbered and checked. */
+export function placeRelease(repo: Repo, statusOf: StatusOf, head: ReleaseHead, index: number): { line: ReleaseHead[]; problem: { index: number; message: string } | null } {
+  const cur = lineOf(repo);
+  const raw = index < cur.length ? cur.map((h, i) => (i === index ? head : h)) : [...cur, head];
+  const line = renumber(repo, raw, shippedCount(repo, statusOf));
+  return { line, problem: lineProblem(repo, line) };
+}
+
+/** The line with the release at `from` moved to `to`, renumbered and checked. Shipped releases never move. */
+export function moveRelease(repo: Repo, statusOf: StatusOf, from: number, to: number): { line: ReleaseHead[]; problem: string | null } {
+  const cur = lineOf(repo);
+  const shipped = shippedCount(repo, statusOf);
+  if (from < shipped) return { line: cur, problem: 'Shipped: its tag is fixed' };
+  if (to < 0) return { line: cur, problem: 'It is the first release' };
+  if (to < shipped) return { line: cur, problem: 'The release before it has shipped' };
+  if (to >= cur.length) return { line: cur, problem: 'It is the last release' };
+  const raw = [...cur];
+  const [h] = raw.splice(from, 1);
+  raw.splice(to, 0, h);
+  const line = renumber(repo, raw, shipped);
+  const p = lineProblem(repo, line);
+  return { line, problem: p ? `Then ${p.message}` : null };
 }
 
 /** A worklane's folder: one folder name made from its name. */
@@ -201,19 +278,32 @@ export function doneCount(rel: Release, statusOf: StatusOf): number {
   return rel.issues.filter((i) => statusOf(i) === 'done').length;
 }
 
-/** The first release not fully done is next; earlier ones shipped, later ones planned. */
-export function releaseStates(lane: Lane, statusOf: StatusOf): ReleaseState[] {
+/** A release has shipped once it holds issues and every worklane's issues in it are done. */
+function shippedAt(repo: Repo, index: number, statusOf: StatusOf): boolean {
+  const issues = repo.lanes.flatMap((l) => l.releases?.[index]?.issues ?? []);
+  return issues.length > 0 && issues.every((i) => statusOf(i) === 'done');
+}
+
+/** How many releases at the start of the line have shipped; their versions are fixed. */
+export function shippedCount(repo: Repo, statusOf: StatusOf): number {
+  const n = lineOf(repo).length;
+  let i = 0;
+  while (i < n && shippedAt(repo, i, statusOf)) i++;
+  return i;
+}
+
+/** The repository's first release not shipped is next; earlier ones shipped, later ones planned. */
+export function releaseStates(repo: Repo, statusOf: StatusOf): ReleaseState[] {
+  const shipped = shippedCount(repo, statusOf);
+  return lineOf(repo).map((_, i) => (i < shipped ? 'shipped' : i === shipped ? 'next' : 'planned'));
+}
+
+/** The release a worklane works toward: its first unshipped release that holds its issues, else the repository's next. */
+export function laneNextIdx(repo: Repo, lane: Lane, statusOf: StatusOf): number {
+  const shipped = shippedCount(repo, statusOf);
   const rels = lane.releases ?? [];
-  let nextFound = false;
-  return rels.map((r) => {
-    const shipped = r.issues.length > 0 && doneCount(r, statusOf) === r.issues.length;
-    if (shipped && !nextFound) return 'shipped';
-    if (!nextFound) {
-      nextFound = true;
-      return 'next';
-    }
-    return 'planned';
-  });
+  const own = rels.findIndex((r, i) => i >= shipped && r.issues.some((is) => statusOf(is) !== 'done'));
+  return own >= 0 ? own : shipped < rels.length ? shipped : -1;
 }
 
 export function laneCount(p: Project): number {

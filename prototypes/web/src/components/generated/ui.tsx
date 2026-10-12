@@ -224,20 +224,32 @@ export function MenuItem({
   onClick,
   selected,
   icon,
+  disabled,
 }: {
   children: ReactNode;
   onClick: () => void;
   selected?: boolean;
   icon?: ReactNode;
+  /** Why the item cannot be used now; it shows under the label. */
+  disabled?: string;
 }) {
   return (
     <button
       role="menuitem"
       onClick={onClick}
-      className="flex h-8 w-full items-center gap-2 rounded-[6px] px-2 text-left text-[13px] hover:bg-[var(--surface-hover)]"
+      disabled={!!disabled}
+      aria-disabled={!!disabled || undefined}
+      className={`flex w-full gap-2 rounded-[6px] px-2 text-left text-[13px] ${disabled ? 'cursor-not-allowed items-start py-1.5' : 'h-8 items-center hover:bg-[var(--surface-hover)]'}`}
     >
-      {icon}
-      <span className="min-w-0 flex-1 truncate">{children}</span>
+      <span className={disabled ? 'mt-0.5 opacity-50' : undefined}>{icon}</span>
+      <span className="min-w-0 flex-1">
+        <span className={`block truncate ${disabled ? 'opacity-50' : ''}`}>{children}</span>
+        {disabled && (
+          <span className="mt-0.5 block text-[12px] leading-4" style={{ color: 'var(--muted-foreground)' }}>
+            {disabled}
+          </span>
+        )}
+      </span>
       {selected && <Check size={14} style={{ color: 'var(--muted-foreground)' }} />}
     </button>
   );

@@ -3304,6 +3304,36 @@
             },
             {
               "type": "frame",
+              "id": "TCQGn",
+              "name": "Input/Error",
+              "reusable": true,
+              "width": 280,
+              "height": 32,
+              "fill": "$surface",
+              "cornerRadius": "$radius-lg",
+              "stroke": "$destructive",
+              "strokeWidth": 1,
+              "gap": 8,
+              "padding": [
+                0,
+                10
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "Eh5dw",
+                  "name": "Value",
+                  "fill": "$foreground",
+                  "content": "v1.2.5",
+                  "fontFamily": "$font-mono",
+                  "fontSize": "$text-label",
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
               "id": "ED2nY",
               "name": "Select",
               "reusable": true,
@@ -5133,6 +5163,36 @@
           "children": [
             {
               "type": "frame",
+              "id": "TFCDh",
+              "name": "Set by hand",
+              "reusable": true,
+              "gap": 4,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "znBPX",
+                  "name": "Pin",
+                  "width": 12,
+                  "height": 12,
+                  "icon": "pin",
+                  "library": "lucide",
+                  "fill": "$muted-foreground"
+                },
+                {
+                  "type": "text",
+                  "id": "BMZiQ",
+                  "name": "Label",
+                  "fill": "$muted-foreground",
+                  "content": "Set by hand",
+                  "fontFamily": "$font-sans",
+                  "fontSize": "$text-caption",
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
               "id": "BZbwI",
               "name": "Issue mini row",
               "reusable": true,
@@ -5235,6 +5295,13 @@
                           "fontFamily": "$font-sans",
                           "fontSize": "$text-caption",
                           "fontWeight": "500"
+                        },
+                        {
+                          "id": "uJgB5",
+                          "type": "ref",
+                          "ref": "TFCDh",
+                          "name": "Set by hand",
+                          "enabled": false
                         },
                         {
                           "type": "icon",
@@ -6535,7 +6602,7 @@
           "id": "Gd2fY",
           "name": "Form row",
           "width": "fill_container",
-          "gap": 16,
+          "gap": 12,
           "children": [
             {
               "type": "frame",
@@ -6590,6 +6657,7 @@
                       "name": "Control",
                       "slot": [
                         "DmY05",
+                        "TCQGn",
                         "ED2nY",
                         "yDwwx"
                       ],
@@ -7221,7 +7289,7 @@
               "type": "frame",
               "id": "N0pnK",
               "name": "Col small",
-              "width": 200,
+              "width": 176,
               "layout": "vertical",
               "gap": 12,
               "children": [
@@ -7344,6 +7412,208 @@
                       "fontWeight": "600"
                     }
                   ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "apSen",
+          "name": "Menu  (NEW)",
+          "fill": "$foreground",
+          "content": "Menu  (NEW: release actions; a disabled item says why)",
+          "fontFamily": "$font-sans",
+          "fontSize": "$text-title-sm",
+          "fontWeight": "600"
+        },
+        {
+          "type": "frame",
+          "id": "oqB5t",
+          "name": "Menu row",
+          "width": "fill_container",
+          "gap": 24,
+          "children": [
+            {
+              "type": "frame",
+              "id": "Ayxtf",
+              "name": "Menu item/Default",
+              "reusable": true,
+              "width": 252,
+              "height": 32,
+              "cornerRadius": "$radius-md",
+              "gap": 8,
+              "padding": [
+                0,
+                8
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "CJXmR",
+                  "name": "Icon",
+                  "width": 14,
+                  "height": 14,
+                  "icon": "pencil",
+                  "library": "lucide",
+                  "fill": "$foreground"
+                },
+                {
+                  "type": "text",
+                  "id": "Z8OaZN",
+                  "name": "Label",
+                  "fill": "$foreground",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Edit release",
+                  "fontFamily": "$font-sans",
+                  "fontSize": "$text-label",
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "G29NG",
+              "name": "Menu item/Disabled",
+              "reusable": true,
+              "width": 252,
+              "cornerRadius": "$radius-md",
+              "gap": 8,
+              "padding": [
+                6,
+                8
+              ],
+              "children": [
+                {
+                  "type": "icon",
+                  "id": "jaJEl",
+                  "name": "Icon",
+                  "width": 14,
+                  "height": 14,
+                  "icon": "arrow-left",
+                  "library": "lucide",
+                  "fill": "$faint-foreground"
+                },
+                {
+                  "type": "frame",
+                  "id": "X24u4P",
+                  "name": "Text",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 2,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "mYKC3",
+                      "name": "Label",
+                      "fill": "$faint-foreground",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Move earlier",
+                      "fontFamily": "$font-sans",
+                      "fontSize": "$text-label",
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "K0Rdq",
+                      "name": "Reason",
+                      "fill": "$muted-foreground",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "It is the first release",
+                      "fontFamily": "$font-sans",
+                      "fontSize": "$text-caption",
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "ahvX2",
+              "name": "Menu",
+              "reusable": true,
+              "width": 260,
+              "fill": "$surface-raised",
+              "cornerRadius": "$radius-lg",
+              "stroke": "$surface-border",
+              "strokeWidth": 1,
+              "effect": [
+                {
+                  "type": "shadow",
+                  "shadowType": "outer",
+                  "color": "#0F172A24",
+                  "offset": {
+                    "x": 0,
+                    "y": 16
+                  },
+                  "blur": 40
+                },
+                {
+                  "type": "shadow",
+                  "shadowType": "outer",
+                  "color": "#0F172A14",
+                  "offset": {
+                    "x": 0,
+                    "y": 3
+                  },
+                  "blur": 10
+                }
+              ],
+              "layout": "vertical",
+              "padding": 4,
+              "children": [
+                {
+                  "id": "EUmsq",
+                  "type": "ref",
+                  "ref": "Ayxtf",
+                  "name": "Add issue",
+                  "descendants": {
+                    "CJXmR": {
+                      "icon": "plus"
+                    },
+                    "Z8OaZN": {
+                      "content": "Add issue to release"
+                    }
+                  }
+                },
+                {
+                  "id": "l1aACR",
+                  "type": "ref",
+                  "ref": "Ayxtf",
+                  "name": "Edit",
+                  "descendants": {
+                    "CJXmR": {
+                      "icon": "pencil"
+                    },
+                    "Z8OaZN": {
+                      "content": "Edit release"
+                    }
+                  }
+                },
+                {
+                  "id": "P1QbGV",
+                  "type": "ref",
+                  "ref": "G29NG",
+                  "name": "Move earlier"
+                },
+                {
+                  "id": "L8ST5",
+                  "type": "ref",
+                  "ref": "Ayxtf",
+                  "name": "Move later",
+                  "descendants": {
+                    "CJXmR": {
+                      "icon": "arrow-right"
+                    },
+                    "Z8OaZN": {
+                      "content": "Move later"
+                    }
+                  }
                 }
               ]
             }

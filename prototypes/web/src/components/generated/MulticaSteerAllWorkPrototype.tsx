@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type ReactNode } from 'react';
 import {
+  ArrowLeft,
+  ArrowRight,
   BarChart3,
   Bot,
   BookOpenText,
@@ -20,6 +22,8 @@ import {
   Maximize2,
   MessageSquare,
   Monitor,
+  Pencil,
+  Pin,
   Plus,
   Search,
   Settings,
@@ -56,14 +60,17 @@ import {
   laneCount,
   laneIssues,
   laneLabel,
+  laneNextIdx,
+  lineOf,
   loadOrgs,
+  moveRelease,
   plural,
   releaseStates,
   sameLane,
   templateInputs,
   templateMarkdown,
 } from './model';
-import { AddRepositoryDialog, NewWorklaneDialog, PlanReleaseDialog } from './creation';
+import { AddRepositoryDialog, NewWorklaneDialog, ReleaseDialog } from './creation';
 import { Avatar, Button, Chip, IconButton, Markdown, Menu, MenuItem, Overlay, Progress, ReleaseChip, Segmented, StatusIcon, TypeIcon } from './ui';
 
 // ---------------------------------------------------------------------------
@@ -152,9 +159,8 @@ export const MulticaSteerAllWorkPrototype = () => {
     (d: Partial<Draft> = {}) => {
       // A worklane's new issue lands in that worklane's next release.
       const nextOf = (ref: LaneRef | undefined) => {
-        const l = ref ? findLane(orgs, ref)?.lane : undefined;
-        const st = l ? releaseStates(l, statusOf) : [];
-        return l?.releases?.[st.indexOf('next')]?.version;
+        const f = ref ? findLane(orgs, ref) : null;
+        return f ? f.lane.releases?.[laneNextIdx(f.repo, f.lane, statusOf)]?.version : undefined;
       };
       // A worklane's new issue also goes to the squad that works the worklane.
       const ctx: Partial<Draft> =
@@ -284,21 +290,36 @@ export const MulticaSteerAllWorkPrototype = () => {
       ),
     );
 
-  // A planned release takes the picked issues out of the worklane's backlog; they are ready to pick up.
-  const planRelease = (ref: LaneRef, head: ReleaseHead, ids: string[]) => {
-    const ready = (i: Issue): Issue => ({ ...i, release: head.version, status: i.status === 'backlog' ? 'todo' : i.status });
+  /**
+   * Writes the repository's release line to every worklane, renumbered: each worklane keeps its own issues in
+   * each release, and every issue follows its release to the new version. Planning a release also takes the
+   * picked issues out of the worklane's backlog; they are ready to pick up.
+   */
+  const saveLine = (ref: LaneRef, line: ReleaseHead[], into?: { release: string; ids: string[] }) => {
+    const found = findLane(orgs, ref);
+    if (!found) return;
+    const byId = new Map(line.map((h) => [h.id, h.version]));
+    const renamed = new Map(lineOf(found.repo).map((h) => [h.version, byId.get(h.id) ?? h.version]));
+    const inRepo = (i: Issue) => !!i.lane && i.lane.org === ref.org && i.lane.project === ref.project && i.lane.repo === ref.repo;
+    const follow = (i: Issue): Issue => (inRepo(i) && i.release && renamed.has(i.release) ? { ...i, release: renamed.get(i.release) } : i);
+    const target = into ? line.find((h) => h.id === into.release)!.version : null;
+    const ready = (i: Issue): Issue => ({ ...i, release: target!, status: i.status === 'backlog' ? 'todo' : i.status });
     updateLanes(ref, (ls) =>
       ls.map((l) => {
-        if (l.name !== ref.lane) return l;
-        const moved = (l.backlog ?? []).filter((i) => ids.includes(i.id));
+        const moved = into && l.name === ref.lane ? (l.backlog ?? []).filter((i) => into.ids.includes(i.id)) : [];
         return {
           ...l,
-          releases: [...(l.releases ?? []), { ...head, issues: moved.map(ready) }],
-          backlog: (l.backlog ?? []).filter((i) => !ids.includes(i.id)),
+          releases: line.map((h) => ({
+            ...h,
+            issues: [...(l.releases?.find((r) => r.id === h.id)?.issues ?? []).map(follow), ...(h.id === into?.release ? moved.map(ready) : [])],
+          })),
+          backlog: moved.length ? (l.backlog ?? []).filter((i) => !into!.ids.includes(i.id)) : l.backlog,
         };
       }),
     );
-    setSquadIssues((m) => Object.fromEntries(Object.entries(m).map(([s, is]) => [s, is.map((i) => (ids.includes(i.id) ? ready(i) : i))])));
+    setSquadIssues((m) =>
+      Object.fromEntries(Object.entries(m).map(([s, is]) => [s, is.map((i) => (into?.ids.includes(i.id) ? ready(i) : follow(i)))])),
+    );
   };
 
   let page: ReactNode;
@@ -315,7 +336,17 @@ export const MulticaSteerAllWorkPrototype = () => {
         onAddLane={(repo, lane) => {
           updateLanes({ org: route.org, project: route.project, repo }, (ls) => [
             ...ls,
-            { name: lane.name, folder: lane.folder, squad: lane.squad, state: 'Free', active: null, next: null, releases: [], backlog: [] },
+            {
+              name: lane.name,
+              folder: lane.folder,
+              squad: lane.squad,
+              state: 'Free',
+              active: null,
+              next: null,
+              // A new worklane holds the repository's release line, with none of its issues yet.
+              releases: (ls[0]?.releases ?? []).map((r) => ({ ...r, issues: [] })),
+              backlog: [],
+            },
           ]);
           setRoute({ name: 'lane', ref: { org: route.org, project: route.project, repo, lane: lane.name }, view: 'timeline' });
           toast(`Worklane ${lane.name} is ready`);
@@ -328,10 +359,7 @@ export const MulticaSteerAllWorkPrototype = () => {
         api={api}
         refLane={route.ref}
         view={route.view}
-        onPlanRelease={(head, ids) => {
-          planRelease(route.ref, head, ids);
-          toast(`${head.version} ${head.title} planned`);
-        }}
+        onSaveLine={(line, into) => saveLine(route.ref, line, into)}
       />
     );
   else if (route.name === 'squad') page = <SquadPage api={api} squad={route.squad} view={route.view} issues={squadIssues[route.squad] ?? []} />;
@@ -529,21 +557,23 @@ function FilterMenu({ options, value, onChange }: { options: { value: string; la
 const TYPE_FILTER = TEMPLATES.map((t) => ({ value: t.type, label: t.name, icon: <TypeIcon type={t.type} /> }));
 
 // ---------------------------------------------------------------------------
-// Release chain: last shipped, next with progress, planned
+// Release chain: last shipped, the release this worklane works toward with progress, its later releases
 // ---------------------------------------------------------------------------
 
 function ReleaseChain({ api, lane, refLane, max = 2 }: { api: AppApi; lane: Lane; refLane: LaneRef; max?: number }) {
+  const repo = findLane(api.orgs, refLane)?.repo;
   const rels = lane.releases ?? [];
-  if (!rels.length)
+  if (!repo || repo.noReleases || !rels.length)
     return (
       <span className="text-[12px]" style={{ color: 'var(--faint-foreground)' }}>
-        No releases planned
+        {repo?.noReleases ? 'Does not release' : 'No releases planned'}
       </span>
     );
-  const states = releaseStates(lane, api.statusOf);
+  const states = releaseStates(repo, api.statusOf);
   const shipped = rels.filter((_, i) => states[i] === 'shipped');
-  const nextIdx = states.indexOf('next');
-  const planned = rels.filter((_, i) => states[i] === 'planned').slice(0, max - 1);
+  const nextIdx = laneNextIdx(repo, lane, api.statusOf);
+  // Later releases that hold this worklane's issues; the others are the repository's, empty here.
+  const planned = rels.filter((r, i) => i > nextIdx && nextIdx >= 0 && r.issues.length > 0).slice(0, max - 1);
   const open = () => api.go({ name: 'lane', ref: refLane, view: 'timeline' });
   const line = <span className="h-px w-3 shrink-0" style={{ background: 'var(--surface-border)' }} />;
   return (
@@ -556,14 +586,14 @@ function ReleaseChain({ api, lane, refLane, max = 2 }: { api: AppApi; lane: Lane
       {nextIdx >= 0 && (
         <>
           {line}
-          <ReleaseChip version={rels[nextIdx].version} state="next" onClick={open} />
+          <ReleaseChip version={rels[nextIdx].version} state={states[nextIdx]} onClick={open} />
           <span className="text-[12px] tabular-nums" style={{ color: 'var(--muted-foreground)' }}>
             {doneCount(rels[nextIdx], api.statusOf)}/{rels[nextIdx].issues.length}
           </span>
         </>
       )}
       {planned.map((r) => (
-        <span key={r.version} className="flex items-center gap-1">
+        <span key={r.id} className="flex items-center gap-1">
           {line}
           <ReleaseChip version={r.version} state="planned" onClick={open} />
         </span>
@@ -977,7 +1007,7 @@ function useFresh<T extends HTMLElement>(api: AppApi, issue: Issue) {
 function releaseStateOf(api: AppApi, issue: Issue): ReleaseState {
   const found = issue.lane ? findLane(api.orgs, issue.lane) : null;
   const idx = found?.lane.releases?.findIndex((r) => r.version === issue.release) ?? -1;
-  return found && idx >= 0 ? releaseStates(found.lane, api.statusOf)[idx] : 'planned';
+  return found && idx >= 0 ? releaseStates(found.repo, api.statusOf)[idx] : 'planned';
 }
 
 function IssueRow({ api, issue }: { api: AppApi; issue: Issue }) {
@@ -1000,29 +1030,28 @@ function IssueRow({ api, issue }: { api: AppApi; issue: Issue }) {
 
 const STATE_LABEL: Record<ReleaseState, string> = { shipped: 'Shipped', next: 'Next release', planned: 'Planned' };
 
-function LanePage({
-  api,
-  refLane,
-  view,
-  onPlanRelease,
-}: {
-  api: AppApi;
-  refLane: LaneRef;
-  view: LaneView;
-  onPlanRelease: (head: ReleaseHead, issueIds: string[]) => void;
-}) {
+/** Saves a new release line; `into` puts the picked backlog issues of this worklane into one release of it. */
+type SaveLine = (line: ReleaseHead[], into?: { release: string; ids: string[] }) => void;
+
+function LanePage({ api, refLane, view, onSaveLine }: { api: AppApi; refLane: LaneRef; view: LaneView; onSaveLine: SaveLine }) {
   const found = findLane(api.orgs, refLane);
   const [types, setTypes] = useState<string[]>([]);
   const [planning, setPlanning] = useState(false);
+  const [editing, setEditing] = useState<string | null>(null);
   if (!found) return <OtherPage label="Worklane not found" />;
   const { lane, repo } = found;
   const backlog = lane.backlog ?? [];
   const rels = lane.releases ?? [];
-  const states = releaseStates(lane, api.statusOf);
+  const states = releaseStates(repo, api.statusOf);
+  const nextRel = rels[laneNextIdx(repo, lane, api.statusOf)]?.version;
   const filt = (is: Issue[]) => (types.length ? is.filter((i) => types.includes(i.type)) : is);
   const shippedAny = states.includes('shipped');
   const nxt = issueKey(lane.active ?? lane.next);
   const setView = (v: LaneView) => api.go({ name: 'lane', ref: refLane, view: v });
+  const editRel = rels.find((r) => r.id === editing);
+  const actions = (rel: Release, i: number) => (
+    <ReleaseActions api={api} repo={repo} rel={rel} index={i} refLane={refLane} onEdit={() => setEditing(rel.id)} onSaveLine={onSaveLine} />
+  );
 
   return (
     <>
@@ -1037,7 +1066,7 @@ function LanePage({
         actions={
           <>
             <FilterMenu options={TYPE_FILTER} value={types} onChange={setTypes} />
-            <Button variant="primary" icon={<Plus size={15} />} onClick={() => api.newIssue({ lane: refLane, release: rels[states.indexOf('next')]?.version })}>
+            <Button variant="primary" icon={<Plus size={15} />} onClick={() => api.newIssue({ lane: refLane, release: nextRel })}>
               New issue
             </Button>
           </>
@@ -1048,7 +1077,7 @@ function LanePage({
           <span className="mc-mono">{refLane.repo}</span>
         </Chip>
         <span className="truncate text-[13px]" style={{ color: 'var(--muted-foreground)' }}>
-          {lane.state} · {shippedAny ? `last shipped ${rels[states.lastIndexOf('shipped')].version}` : 'nothing shipped yet'}
+          {lane.state} · {repo.noReleases ? 'does not release' : shippedAny ? `last shipped ${rels[states.lastIndexOf('shipped')].version}` : 'nothing shipped yet'}
           {nxt ? ` · ${lane.active ? 'now' : 'next'}: ${nxt.id} ${nxt.title}` : ''}
         </span>
         <div className="flex-1" />
@@ -1066,58 +1095,79 @@ function LanePage({
         <div className="flex-1 overflow-auto px-6 pt-6 pb-10">
           <div className="flex items-start gap-4">
             {rels.map((rel, i) => (
-              <ReleaseColumn key={rel.version} api={api} rel={rel} state={states[i]} issues={filt(rel.issues)} refLane={refLane} />
+              <ReleaseColumn key={rel.id} api={api} rel={rel} state={states[i]} issues={filt(rel.issues)} refLane={refLane} actions={actions(rel, i)} />
             ))}
             <div className="w-[300px] shrink-0">
               <div className="relative mb-5 h-3">
                 <span className="absolute top-1/2 left-0 size-3 -translate-y-1/2 rounded-full border border-dashed" style={{ borderColor: 'var(--ring)', background: 'var(--page-canvas)' }} />
               </div>
-              <button
-                onClick={() => setPlanning(true)}
-                className="flex h-24 w-full flex-col items-center justify-center gap-1 rounded-[12px] border border-dashed text-[13px] hover:bg-[var(--surface-hover)]"
-                style={{ borderColor: 'var(--surface-border)', color: 'var(--muted-foreground)' }}
-              >
-                <Plus size={16} />
-                Plan release
-                {!!backlog.length && <span className="text-[12px]">{plural(backlog.length, 'issue')} in no release</span>}
-              </button>
-              {planning && (
-                <PlanReleaseDialog
-                  repo={repo}
-                  laneName={lane.name}
-                  candidates={backlog}
-                  statusOf={api.statusOf}
-                  onClose={() => setPlanning(false)}
-                  onPlan={(head, ids) => {
-                    onPlanRelease(head, ids);
-                    setPlanning(false);
-                  }}
-                />
+              {repo.noReleases ? (
+                <EmptyNote text={`${repo.name} does not release, so its worklanes plan no releases.`} />
+              ) : (
+                <button
+                  onClick={() => setPlanning(true)}
+                  className="flex h-24 w-full flex-col items-center justify-center gap-1 rounded-[12px] border border-dashed text-[13px] hover:bg-[var(--surface-hover)]"
+                  style={{ borderColor: 'var(--surface-border)', color: 'var(--muted-foreground)' }}
+                >
+                  <Plus size={16} />
+                  Plan release
+                  {!!backlog.length && <span className="text-[12px]">{plural(backlog.length, 'issue')} in no release</span>}
+                </button>
               )}
             </div>
           </div>
         </div>
+      )}
+      {planning && (
+        <ReleaseDialog
+          repo={repo}
+          laneName={lane.name}
+          candidates={backlog}
+          statusOf={api.statusOf}
+          onClose={() => setPlanning(false)}
+          onSave={(line, head, ids) => {
+            onSaveLine(line, { release: head.id, ids });
+            setPlanning(false);
+            api.toast(`${head.version} ${head.title} planned`);
+          }}
+        />
+      )}
+      {editRel && (
+        <ReleaseDialog
+          repo={repo}
+          laneName={lane.name}
+          statusOf={api.statusOf}
+          release={editRel}
+          onClose={() => setEditing(null)}
+          onSave={(line, head) => {
+            onSaveLine(line);
+            setEditing(null);
+            api.toast(`${head.version} ${head.title} saved`);
+          }}
+        />
       )}
       {view === 'board' && (
         <StatusBoard
           api={api}
           columns={['backlog', 'todo', 'in_progress', 'in_review', 'done']}
           issues={filt(laneIssues(lane))}
-          onAdd={(s) => api.newIssue({ lane: refLane, release: rels[states.indexOf('next')]?.version, status: s })}
+          onAdd={(s) => api.newIssue({ lane: refLane, release: nextRel, status: s })}
           showLane={false}
         />
       )}
       {view === 'list' && (
         <div className="flex-1 overflow-auto px-6 py-4">
           {rels.map((rel, i) => (
-            <section key={rel.version} className="mb-4 overflow-hidden rounded-[12px] border" style={{ background: 'var(--surface)', borderColor: 'var(--surface-border)' }}>
+            <section key={rel.id} className="mb-4 overflow-hidden rounded-[12px] border" style={{ background: 'var(--surface)', borderColor: 'var(--surface-border)' }}>
               <div className="flex h-11 items-center gap-2 px-4">
                 <ReleaseChip version={rel.version} state={states[i]} />
                 <span className="min-w-0 truncate text-[14px] font-medium">{rel.title}</span>
+                {rel.pinned && <SetByHand />}
                 <div className="flex-1" />
                 <span className="shrink-0 text-[12px]" style={{ color: 'var(--muted-foreground)' }}>
-                  {doneCount(rel, api.statusOf)} of {rel.issues.length} done
+                  {rel.issues.length ? `${doneCount(rel, api.statusOf)} of ${rel.issues.length} done` : 'No issues of this worklane'}
                 </span>
+                {actions(rel, i)}
               </div>
               {rel.description && (
                 <p className="-mt-1 px-4 pb-3 text-[13px]" style={{ color: 'var(--muted-foreground)' }}>
@@ -1147,18 +1197,105 @@ function LanePage({
               ))}
             </section>
           )}
-          {!rels.length && !backlog.length && <EmptyNote text="No releases planned for this worklane yet." />}
+          {!rels.length && !backlog.length && (
+            <EmptyNote text={repo.noReleases ? `${repo.name} does not release, so its worklanes plan no releases.` : 'No releases planned for this worklane yet.'} />
+          )}
         </div>
       )}
     </>
   );
 }
 
-function ReleaseColumn({ api, rel, state, issues, refLane }: { api: AppApi; rel: Release; state: ReleaseState; issues: Issue[]; refLane: LaneRef }) {
+/** Marks a release whose version was set by hand: it keeps that number when it moves. */
+function SetByHand() {
+  return (
+    <span className="flex shrink-0 items-center gap-1 text-[12px]" style={{ color: 'var(--muted-foreground)' }} title="Version set by hand: it keeps this number when the release moves">
+      <Pin size={12} />
+      Set by hand
+    </span>
+  );
+}
+
+/**
+ * A release's actions: add an issue, edit it, or move it one place on the repository's line. A move renumbers
+ * the releases after the shipped ones; it is refused, with the reason, when a version would no longer be higher
+ * than the release before it.
+ */
+function ReleaseActions({
+  api,
+  repo,
+  rel,
+  index,
+  refLane,
+  onEdit,
+  onSaveLine,
+}: {
+  api: AppApi;
+  repo: Repo;
+  rel: Release;
+  index: number;
+  refLane: LaneRef;
+  onEdit: () => void;
+  onSaveLine: SaveLine;
+}) {
+  const move = (to: number, label: string, icon: ReactNode, close: () => void) => {
+    const { line, problem } = moveRelease(repo, api.statusOf, index, to);
+    return (
+      <MenuItem
+        icon={icon}
+        disabled={problem ?? undefined}
+        onClick={() => {
+          close();
+          const cur = lineOf(repo);
+          const changed = line.flatMap((h) => {
+            const was = cur.find((c) => c.id === h.id)!;
+            return was.version !== h.version ? [`${was.version} → ${h.version}`] : [];
+          });
+          onSaveLine(line);
+          api.toast(`${rel.title} moved${changed.length ? `: ${changed.join(', ')}` : ''}`);
+        }}
+      >
+        {label}
+      </MenuItem>
+    );
+  };
+  return (
+    <Menu align="right" width={260} trigger={(_, toggle) => <IconButton label="Release actions" icon={<Ellipsis size={16} />} onClick={toggle} />}>
+      {(close) => (
+        <>
+          <MenuItem
+            icon={<Plus size={14} />}
+            onClick={() => {
+              close();
+              api.newIssue({ lane: refLane, release: rel.version });
+            }}
+          >
+            Add issue to release
+          </MenuItem>
+          <MenuItem
+            icon={<Pencil size={14} />}
+            onClick={() => {
+              close();
+              onEdit();
+            }}
+          >
+            Edit release
+          </MenuItem>
+          {move(index - 1, 'Move earlier', <ArrowLeft size={14} />, close)}
+          {move(index + 1, 'Move later', <ArrowRight size={14} />, close)}
+        </>
+      )}
+    </Menu>
+  );
+}
+
+function ReleaseColumn({ api, rel, state, issues, refLane, actions }: { api: AppApi; rel: Release; state: ReleaseState; issues: Issue[]; refLane: LaneRef; actions: ReactNode }) {
   const done = doneCount(rel, api.statusOf);
   const next = state === 'next';
+  // A release of the repository that holds none of this worklane's issues stays narrow.
+  const empty = rel.issues.length === 0;
   return (
-    <div className="w-[544px] shrink-0">
+    <div className={`${empty ? 'w-[300px]' : 'w-[544px]'} shrink-0`}>
       <div className="relative mb-5 h-3">
         <span className="absolute top-1/2 right-[-16px] left-3 h-px -translate-y-1/2" style={{ background: 'var(--surface-border)' }} />
         <span
@@ -1177,24 +1314,9 @@ function ReleaseColumn({ api, rel, state, issues, refLane }: { api: AppApi; rel:
             <span className="text-[12px]" style={{ color: next ? 'var(--brand)' : 'var(--muted-foreground)' }}>
               {STATE_LABEL[state]}
             </span>
+            {rel.pinned && <SetByHand />}
             <div className="flex-1" />
-            <Menu
-              align="right"
-              width={200}
-              trigger={(_, toggle) => <IconButton label="Release actions" icon={<Ellipsis size={16} />} onClick={toggle} />}
-            >
-              {(close) => (
-                <MenuItem
-                  icon={<Plus size={14} />}
-                  onClick={() => {
-                    close();
-                    api.newIssue({ lane: refLane, release: rel.version });
-                  }}
-                >
-                  Add issue to release
-                </MenuItem>
-              )}
-            </Menu>
+            {actions}
           </div>
           <h3 className="mt-2 text-[15px] font-medium">{rel.title}</h3>
           {rel.description && (
@@ -1202,18 +1324,24 @@ function ReleaseColumn({ api, rel, state, issues, refLane }: { api: AppApi; rel:
               {rel.description}
             </p>
           )}
-          <div className="mt-3 flex items-center gap-3">
-            <Progress done={done} total={rel.issues.length} />
-            <span className="shrink-0 text-[12px] tabular-nums" style={{ color: 'var(--muted-foreground)' }}>
-              {done} of {rel.issues.length} done
-            </span>
-          </div>
+          {!empty && (
+            <div className="mt-3 flex items-center gap-3">
+              <Progress done={done} total={rel.issues.length} />
+              <span className="shrink-0 text-[12px] tabular-nums" style={{ color: 'var(--muted-foreground)' }}>
+                {done} of {rel.issues.length} done
+              </span>
+            </div>
+          )}
         </div>
         <div className="py-1">
           {issues.map((is) => (
             <IssueRow key={is.id} api={api} issue={is} />
           ))}
-          {!issues.length && <div className="px-4 py-3 text-[13px]" style={{ color: 'var(--muted-foreground)' }}>No issues</div>}
+          {!issues.length && (
+            <div className="px-4 py-3 text-[13px]" style={{ color: 'var(--muted-foreground)' }}>
+              {empty ? 'No issues of this worklane' : 'No issues'}
+            </div>
+          )}
         </div>
         <button
           onClick={() => api.newIssue({ lane: refLane, release: rel.version })}
@@ -1332,9 +1460,9 @@ function SquadPage({ api, squad, view, issues }: { api: AppApi; squad: string; v
     return seen
       .map((ref) => ({ ref, found: findLane(api.orgs, ref) }))
       .map(({ ref, found }) => {
-        const states = found ? releaseStates(found.lane, api.statusOf) : [];
-        const rel = found?.lane.releases?.[states.indexOf('next')];
-        return { ref, rel };
+        if (!found) return { ref, rel: undefined, state: 'planned' as ReleaseState };
+        const i = laneNextIdx(found.repo, found.lane, api.statusOf);
+        return { ref, rel: found.lane.releases?.[i], state: releaseStates(found.repo, api.statusOf)[i] };
       });
   }, [issues, api.orgs, api.statusOf]);
   const setView = (v: SquadView) => api.go({ name: 'squad', squad, view: v });
@@ -1395,12 +1523,12 @@ function SquadPage({ api, squad, view, issues }: { api: AppApi; squad: string; v
         )}
         {lanes
           .filter((l) => l.rel)
-          .map(({ ref, rel }) => (
+          .map(({ ref, rel, state }) => (
             <span key={laneLabel(ref)} className="flex items-center gap-1.5">
               <Chip icon={<GitBranch size={12} />} onClick={() => api.go({ name: 'lane', ref, view: 'timeline' })}>
                 {laneLabel(ref)}
               </Chip>
-              <ReleaseChip version={rel!.version} state="next" onClick={() => api.go({ name: 'lane', ref, view: 'timeline' })} />
+              <ReleaseChip version={rel!.version} state={state} onClick={() => api.go({ name: 'lane', ref, view: 'timeline' })} />
               <span className="max-w-[180px] truncate text-[12px] font-medium">{rel!.title}</span>
               <span className="mr-3 text-[12px] tabular-nums" style={{ color: 'var(--muted-foreground)' }}>
                 {doneCount(rel!, api.statusOf)}/{rel!.issues.length}
@@ -1885,9 +2013,8 @@ function NewIssueDialog({ api, draft, onClose, onCreate }: { api: AppApi; draft:
                         icon={<GitBranch size={14} />}
                         selected={sameLane(ref, d.lane)}
                         onClick={() => {
-                          const l = findLane(api.orgs, ref)!.lane;
-                          const st = releaseStates(l, api.statusOf);
-                          setD({ ...d, lane: ref, release: l.releases?.[st.indexOf('next')]?.version });
+                          const f = findLane(api.orgs, ref)!;
+                          setD({ ...d, lane: ref, release: f.lane.releases?.[laneNextIdx(f.repo, f.lane, api.statusOf)]?.version });
                           close();
                         }}
                       >

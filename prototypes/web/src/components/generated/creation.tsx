@@ -21,15 +21,22 @@ import {
   GITHUB_REPOS,
   RUNTIMES,
   SQUADS,
+  bumpBetween,
+  bumpFrom,
   laneFolder,
-  nextVersions,
+  lineOf,
+  parseVersion,
+  placeRelease,
+  shippedCount,
+  versionBefore,
   type Bump,
   type GithubRepo,
   type Issue,
   type Org,
   type Project,
+  type ReleaseHead,
   type Repo,
-  type Status,
+  type StatusOf,
 } from './model';
 import { Button, IconButton, Menu, MenuItem, Overlay, StatusIcon, TypeIcon } from './ui';
 
@@ -105,6 +112,7 @@ function TextInput({
   mono,
   autoFocus,
   label,
+  invalid,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -113,15 +121,18 @@ function TextInput({
   mono?: boolean;
   autoFocus?: boolean;
   label: string;
+  /** Its field shows an error: the border turns destructive. */
+  invalid?: boolean;
 }) {
   return (
     <label
-      className="flex h-8 w-full items-center gap-2 rounded-[8px] border px-2.5 focus-within:border-[var(--ring)]"
-      style={{ background: 'var(--surface)', borderColor: 'var(--input)' }}
+      className={`flex h-8 w-full items-center gap-2 rounded-[8px] border px-2.5 ${invalid ? '' : 'focus-within:border-[var(--ring)]'}`}
+      style={{ background: 'var(--surface)', borderColor: invalid ? 'var(--destructive)' : 'var(--input)' }}
     >
       {icon && <span style={{ color: 'var(--muted-foreground)' }}>{icon}</span>}
       <input
         aria-label={label}
+        aria-invalid={invalid || undefined}
         autoFocus={autoFocus}
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -518,7 +529,7 @@ export function NewWorklaneDialog({
 }
 
 // ---------------------------------------------------------------------------
-// Plan release: the next version on the repository's line, with this worklane's issues
+// Plan or edit a release: its place on the repository's line, its version, title, description
 // ---------------------------------------------------------------------------
 
 const BUMPS: { value: Bump; label: string }[] = [
@@ -527,39 +538,73 @@ const BUMPS: { value: Bump; label: string }[] = [
   { value: 'major', label: 'Major' },
 ];
 
-export function PlanReleaseDialog({
+/**
+ * Plans a new release at the end of the repository's line, or edits one that is on it. The version follows
+ * the release before it by a bump, or is set by hand; either way it must be higher than the release before it,
+ * and later releases set by hand must stay higher than theirs. A shipped release keeps its tag.
+ */
+export function ReleaseDialog({
   repo,
   laneName,
-  candidates,
   statusOf,
+  candidates,
+  release,
   onClose,
-  onPlan,
+  onSave,
 }: {
   repo: Repo;
   laneName: string;
-  /** This worklane's issues that are in no release yet. */
-  candidates: Issue[];
-  statusOf: (i: Issue) => Status;
+  statusOf: StatusOf;
+  /** Planning only: this worklane's issues that are in no release yet. */
+  candidates?: Issue[];
+  /** The release to edit; without it the dialog plans a new one. */
+  release?: ReleaseHead;
   onClose: () => void;
-  onPlan: (release: { version: string; title: string; description: string }, issueIds: string[]) => void;
+  onSave: (line: ReleaseHead[], head: ReleaseHead, issueIds: string[]) => void;
 }) {
-  const { base, baseIsTag, next } = nextVersions(repo);
-  const [bump, setBump] = useState<Bump>('patch');
+  const cur = lineOf(repo);
+  const index = release ? cur.findIndex((h) => h.id === release.id) : cur.length;
+  const shipped = index < shippedCount(repo, statusOf);
+  const prev = versionBefore(repo, cur, index);
+  const [choice, setChoice] = useState<Bump | 'custom'>(release ? (release.pinned ? 'custom' : release.bump) : 'patch');
+  const [custom, setCustom] = useState(release?.pinned ? release.version : '');
   const [picked, setPicked] = useState<Set<string>>(new Set());
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const version = next[bump];
-  const toggle = (id: string) =>
+  const [title, setTitle] = useState(release?.title ?? '');
+  const [description, setDescription] = useState(release?.description ?? '');
+  const [id] = useState(() => release?.id ?? `${repo.name}#${Date.now()}`);
+
+  const parsed = parseVersion(custom);
+  const typed = parsed ? `v${parsed.join('.')}` : '';
+  const prevVersion = prev?.version ?? null;
+  const head: ReleaseHead = shipped
+    ? { ...release!, title: title.trim(), description: description.trim() }
+    : choice === 'custom'
+      ? { id, version: typed, title: title.trim(), description: description.trim(), bump: bumpBetween(prevVersion, typed || 'v0.0.0'), pinned: true }
+      : { id, version: bumpFrom(prevVersion, choice), title: title.trim(), description: description.trim(), bump: choice, pinned: false };
+  const placed = shipped || (choice === 'custom' && !parsed) ? null : placeRelease(repo, statusOf, head, index);
+  const error =
+    choice === 'custom' && !shipped && !parsed
+      ? custom.trim()
+        ? 'Use the form v1.4.0.'
+        : undefined
+      : placed?.problem
+        ? placed.problem.index === index
+          ? `Must be higher than ${prev!.label}${index > 0 ? ', the release before it' : ''}.`
+          : `Then ${placed.problem.message}, the release before it. Set a different version.`
+        : undefined;
+  const renumbered = placed && !placed.problem ? placed.line.flatMap((h, i) => (i !== index && i < cur.length && h.version !== cur[i].version ? [`${cur[i].version} → ${h.version}`] : [])) : [];
+  const ready = !!title.trim() && !error && (shipped || choice !== 'custom' || !!parsed);
+  const toggle = (i: string) =>
     setPicked((s) => {
       const n = new Set(s);
-      if (n.has(id)) n.delete(id);
-      else n.add(id);
+      if (n.has(i)) n.delete(i);
+      else n.add(i);
       return n;
     });
 
   return (
     <Dialog
-      title={`Plan release · ${repo.name}`}
+      title={release ? `Edit release · ${repo.name}` : `Plan release · ${repo.name}`}
       onClose={onClose}
       submit={
         <>
@@ -569,75 +614,104 @@ export function PlanReleaseDialog({
           <Button
             variant="brand"
             icon={<Check size={15} />}
-            disabled={!title.trim()}
-            onClick={() => onPlan({ version, title: title.trim(), description: description.trim() }, candidates.filter((i) => picked.has(i.id)).map((i) => i.id))}
+            disabled={!ready}
+            onClick={() => onSave(placed?.line ?? cur.map((h) => (h.id === head.id ? head : h)), head, (candidates ?? []).filter((i) => picked.has(i.id)).map((i) => i.id))}
           >
-            Plan {version}
+            {release ? 'Save release' : `Plan ${head.version || 'release'}`}
           </Button>
         </>
       }
     >
-      <Field
-        label="Version"
-        help={!base ? 'The first release of this repository.' : baseIsTag ? `Follows ${base}, the last tag.` : `Follows ${base}, the last planned release. Moving it renumbers it.`}
-      >
-        <div role="radiogroup" aria-label="Version" className="grid grid-cols-3 gap-2">
-          {BUMPS.map((b) => {
-            const sel = b.value === bump;
-            return (
-              <button
-                key={b.value}
-                type="button"
-                role="radio"
-                aria-checked={sel}
-                onClick={() => setBump(b.value)}
-                className="rounded-[8px] border px-3 py-2.5 text-left hover:bg-[var(--surface-hover)]"
-                style={{ background: sel ? 'var(--surface-selected)' : 'var(--surface)', borderColor: sel ? 'var(--ring)' : 'var(--surface-border)' }}
-              >
-                <span className="flex items-center justify-between text-[13px] font-medium">
-                  {b.label}
-                  {sel ? <CircleDot size={14} /> : <Circle size={14} style={{ color: 'var(--muted-foreground)' }} />}
-                </span>
-                <span className="mc-mono mt-1 block text-[15px] font-semibold">{next[b.value]}</span>
-              </button>
-            );
-          })}
-        </div>
-      </Field>
+      {shipped ? (
+        <Field label="Version" help="Shipped: its tag is fixed.">
+          <Readonly icon={<Rocket size={14} />}>{release!.version}</Readonly>
+        </Field>
+      ) : (
+        <Field
+          label="Version"
+          error={error}
+          help={
+            <>
+              {choice === 'custom'
+                ? `Set by hand: it keeps this number when the release moves${prev ? `, and must stay higher than the release before it` : ''}.`
+                : prev
+                  ? `Follows ${prev.label}. Moving it renumbers it.`
+                  : 'The first release of this repository.'}
+              {renumbered.length > 0 && <span className="block">Later releases renumber: {renumbered.join(', ')}.</span>}
+            </>
+          }
+        >
+          <div role="radiogroup" aria-label="Version" className="grid grid-cols-4 gap-2">
+            {[...BUMPS, { value: 'custom' as const, label: 'Custom' }].map((b) => {
+              const sel = b.value === choice;
+              return (
+                <button
+                  key={b.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={sel}
+                  onClick={() => setChoice(b.value)}
+                  className="rounded-[8px] border px-3 py-2.5 text-left hover:bg-[var(--surface-hover)]"
+                  style={{ background: sel ? 'var(--surface-selected)' : 'var(--surface)', borderColor: sel ? (error ? 'var(--destructive)' : 'var(--ring)') : 'var(--surface-border)' }}
+                >
+                  <span className="flex items-center justify-between text-[13px] font-medium">
+                    {b.label}
+                    {sel ? <CircleDot size={14} /> : <Circle size={14} style={{ color: 'var(--muted-foreground)' }} />}
+                  </span>
+                  {b.value === 'custom' ? (
+                    <span className="mt-1 block text-[13px] leading-[22px]" style={{ color: 'var(--muted-foreground)' }}>
+                      Set by hand
+                    </span>
+                  ) : (
+                    <span className="mc-mono mt-1 block text-[15px] font-semibold">{bumpFrom(prevVersion, b.value)}</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          {choice === 'custom' && (
+            <TextInput label="Custom version" mono autoFocus value={custom} onChange={setCustom} placeholder={bumpFrom(prevVersion, 'minor')} invalid={!!error} />
+          )}
+        </Field>
+      )}
 
       <Field label="Title" hint="Required">
-        <TextInput label="Title" autoFocus value={title} onChange={setTitle} placeholder="Account and profile" />
+        <TextInput label="Title" autoFocus={!!release || choice !== 'custom'} value={title} onChange={setTitle} placeholder="Account and profile" />
       </Field>
 
       <Field label="Description" hint="Optional">
         <TextArea label="Description" value={description} onChange={setDescription} placeholder="What this release brings" />
       </Field>
 
-      <Field label="Issues" hint={`${laneName} · in no release`} help={candidates.length ? undefined : 'Every issue of this worklane is in a release. Add issues later from the timeline.'}>
-        <div className="space-y-0.5">
-          {candidates.map((i) => {
-            const on = picked.has(i.id);
-            return (
-              <label
-                key={i.id}
-                className="flex h-9 cursor-pointer items-center gap-2.5 rounded-[6px] px-2.5 hover:bg-[var(--surface-hover)]"
-                style={{ background: on ? 'var(--surface-selected)' : undefined }}
-              >
-                <input type="checkbox" checked={on} onChange={() => toggle(i.id)} className="size-4 accent-[var(--primary)]" aria-label={`${i.id} ${i.title}`} />
-                <TypeIcon type={i.type} />
-                <span className="mc-mono w-[64px] shrink-0 text-[12px]" style={{ color: 'var(--muted-foreground)' }}>
-                  {i.id}
-                </span>
-                <span className="min-w-0 flex-1 truncate text-[14px]">{i.title}</span>
-                <StatusIcon status={statusOf(i)} />
-              </label>
-            );
-          })}
-        </div>
-      </Field>
+      {candidates && (
+        <Field label="Issues" hint={`${laneName} · in no release`} help={candidates.length ? undefined : 'Every issue of this worklane is in a release. Add issues later from the timeline.'}>
+          <div className="space-y-0.5">
+            {candidates.map((i) => {
+              const on = picked.has(i.id);
+              return (
+                <label
+                  key={i.id}
+                  className="flex h-9 cursor-pointer items-center gap-2.5 rounded-[6px] px-2.5 hover:bg-[var(--surface-hover)]"
+                  style={{ background: on ? 'var(--surface-selected)' : undefined }}
+                >
+                  <input type="checkbox" checked={on} onChange={() => toggle(i.id)} className="size-4 accent-[var(--primary)]" aria-label={`${i.id} ${i.title}`} />
+                  <TypeIcon type={i.type} />
+                  <span className="mc-mono w-[64px] shrink-0 text-[12px]" style={{ color: 'var(--muted-foreground)' }}>
+                    {i.id}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-[14px]">{i.title}</span>
+                  <StatusIcon status={statusOf(i)} />
+                </label>
+              );
+            })}
+          </div>
+        </Field>
+      )}
 
       <Note icon={<Rocket size={16} />}>
-        When its issues are done and merged, Multica tags {version} on main, writes the release note, publishes the GitHub release and asks you to pass it. It gets its date when it ships.
+        {shipped
+          ? `Shipped as ${release!.version}. A new title or description changes the release here and on GitHub; the tag stays.`
+          : `When its issues are done and merged, Multica tags ${head.version || 'its version'} on main, writes the release note, publishes the GitHub release and asks you to pass it. It gets its date when it ships.`}
       </Note>
     </Dialog>
   );
