@@ -167,6 +167,7 @@ const (
 	PendingWorkKindModelList        = "model_list"
 	PendingWorkKindLocalSkills      = "local_skills"
 	PendingWorkKindLocalSkillImport = "local_skill_import"
+	PendingWorkKindDirectoryListing = "directory_listing"
 )
 
 // PendingWorkPayload is sent from server to daemon as a wakeup hint when a
@@ -422,6 +423,7 @@ type DaemonHeartbeatAckPayload struct {
 	PendingUpdate           *DaemonHeartbeatPendingUpdate           `json:"pending_update,omitempty"`
 	PendingModelList        *DaemonHeartbeatPendingModelList        `json:"pending_model_list,omitempty"`
 	PendingLocalSkills      *DaemonHeartbeatPendingLocalSkills      `json:"pending_local_skills,omitempty"`
+	PendingDirectoryListing *DaemonHeartbeatPendingDirectoryListing `json:"pending_directory_listing,omitempty"`
 	PendingLocalSkillImport *DaemonHeartbeatPendingLocalSkillImport `json:"pending_local_skill_import,omitempty"`
 	// PendingLocalSkillImports carries multiple import requests in a single
 	// heartbeat so the daemon can process them concurrently. Old daemons
@@ -451,6 +453,12 @@ type DaemonHeartbeatPendingModelList struct {
 // local-skill inventory.
 type DaemonHeartbeatPendingLocalSkills struct {
 	ID string `json:"id"`
+}
+
+// DaemonHeartbeatPendingDirectoryListing asks the runtime to list a folder or its skill roots.
+type DaemonHeartbeatPendingDirectoryListing struct {
+	ID   string `json:"id"`
+	Path string `json:"path"`
 }
 
 // DaemonHeartbeatPendingLocalSkillImport describes a request to import a
