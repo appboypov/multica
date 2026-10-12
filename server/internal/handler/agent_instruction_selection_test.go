@@ -31,6 +31,41 @@ func TestDecodeInstructionSelection(t *testing.T) {
 	}
 }
 
+func TestNormaliseInstructionSelection(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		paths   []string
+		want    []string
+		wantErr bool
+	}{
+		{name: "nil"},
+		{name: "empty", paths: []string{}},
+		{name: "trim in order with duplicates", paths: []string{" \t/notes/b.md\n", "/skills/persona", "/notes/b.md"}, want: []string{"/notes/b.md", "/skills/persona", "/notes/b.md"}},
+		{name: "root", paths: []string{"/"}, want: []string{"/"}},
+		{name: "unicode and spaces", paths: []string{"/notes/你好 world.md"}, want: []string{"/notes/你好 world.md"}},
+		{name: "empty path", paths: []string{""}, wantErr: true},
+		{name: "blank path", paths: []string{" \n\t"}, wantErr: true},
+		{name: "relative path", paths: []string{"/notes/a.md", "notes/b.md"}, wantErr: true},
+		{name: "home shortcut", paths: []string{"~/notes/a.md"}, wantErr: true},
+		{name: "windows path", paths: []string{`C:\notes\a.md`}, wantErr: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			original := slices.Clone(tc.paths)
+			got, err := normaliseInstructionSelection(tc.paths)
+			if tc.wantErr {
+				if err == nil || err.Error() != "instruction_selection paths must be absolute" {
+					t.Fatalf("normaliseInstructionSelection() error = %v, want absolute-path error", err)
+				}
+			} else if err != nil || got == nil || !slices.Equal(got, tc.want) {
+				t.Fatalf("normaliseInstructionSelection() = %#v, %v, want non-nil %#v", got, err, tc.want)
+			}
+			if !slices.Equal(tc.paths, original) {
+				t.Fatalf("input changed: got %#v, want %#v", tc.paths, original)
+			}
+		})
+	}
+}
+
 func TestAgentInstructionSelectionDefaultsToEmptyArray(t *testing.T) {
 	if testHandler == nil || testPool == nil {
 		t.Skip("database not available")

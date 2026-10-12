@@ -262,6 +262,18 @@ func decodeInstructionSelection(raw []byte) []string {
 	return paths
 }
 
+func normaliseInstructionSelection(paths []string) ([]string, error) {
+	normalised := make([]string, 0, len(paths))
+	for _, path := range paths {
+		path = strings.TrimSpace(path)
+		if !strings.HasPrefix(path, "/") {
+			return nil, fmt.Errorf("instruction_selection paths must be absolute")
+		}
+		normalised = append(normalised, path)
+	}
+	return normalised, nil
+}
+
 // maskGatewayToken replaces runtime_config.gateway.token with the public
 // mask sentinel when a non-empty value is present. No-op for any other
 // shape so non-openclaw / non-gateway agents pass through untouched.
