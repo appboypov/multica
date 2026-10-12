@@ -25,7 +25,7 @@ flowchart LR
 
 ## 1. Core types, client and query
 
-- [ ] 1.1 In `packages/core/types/agent.ts`, add `Agent.instruction_selection?: string[]`, `CreateAgentRequest.instruction_selection?: string[]`, `UpdateAgentRequest.instruction_selection?: string[]`, `RuntimeDirectoryEntry` and `RuntimeDirectoryListingRequest` per design Decision 1. Verify: `pnpm typecheck`.
+- [x] 1.1 In `packages/core/types/agent.ts`, add `Agent.instruction_selection?: string[]`, `CreateAgentRequest.instruction_selection?: string[]`, `UpdateAgentRequest.instruction_selection?: string[]`, `RuntimeDirectoryEntry` and `RuntimeDirectoryListingRequest` per design Decision 1. Verify: `pnpm typecheck`.
 - [ ] 1.2 In `packages/core/api/schemas.ts`, add `RuntimeDirectoryListingRequestSchema` with the fallbacks of design Decision 1; in `packages/core/api/client.ts`, add `initiateDirectoryListing(runtimeId, path)` (`POST /api/runtimes/{runtimeId}/directory-listings`) and `getDirectoryListing(runtimeId, requestId)` (`GET .../{requestId}`), both through `parseWithFallback`. Verify: `schemas.test.ts` cases for an unknown status, missing entries and an entry without `kind` or `hidden`.
 - [ ] 1.3 Create `packages/core/runtimes/directory-listing.ts` (`resolveRuntimeDirectoryListing`, `runtimeDirectoryListingKeys`, `runtimeDirectoryListingOptions`) per design Decision 2 and export it from `packages/core/runtimes/index.ts`. Verify: a `// @vitest-environment node` test with `api` mocked at `@multica/core/api`: pending then completed returns the entries; failed throws the request's error; still pending after 30 s throws a timeout (fake timers).
 
@@ -70,6 +70,8 @@ flowchart LR
 - Starts once groups 1 to 4 of `agent-instruction-selection` are built: the agent API field and the directory listing endpoints must exist.
 - Mobile ignores `instruction_selection`; nothing changes there.
 - Mock stores with their Zustand callable shape plus `getState`; views tests do not mock `next/*` or `react-router-dom`.
+- Group 1 scope: add only the selection wire fields, directory listing response parsing and client calls, and the dedicated polling query with regression tests; preserve other agent/runtime behaviour.
+- 1.1: Added optional selection fields and directory entry/listing request types in `packages/core/types/agent.ts`, and exposed the directory types through the existing explicit `packages/core/types/index.ts` barrel. The explicit barrel was an additional necessary callsite. Existing callers need no changes for the optional selection fields. Typecheck is reserved for the main agent's final verification.
 
 ## Plan Change Log
 

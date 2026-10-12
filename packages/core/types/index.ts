@@ -77,6 +77,8 @@ export type {
   RuntimeModelListRequest,
   RuntimeModelListStatus,
   RuntimeModelsResult,
+  RuntimeDirectoryEntry,
+  RuntimeDirectoryListingRequest,
   RuntimeLocalSkillStatus,
   RuntimeLocalSkillImportAction,
   RuntimeLocalSkillImportConflict,

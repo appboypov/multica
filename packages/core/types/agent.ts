@@ -510,6 +510,7 @@ export interface Agent {
   /** What this agent's owner wrote. For a system agent this holds only the
    *  workspace's own notes — the product half is `system_instructions`. */
   instructions: string;
+  instruction_selection?: string[];
   /** Up to three agent-authored first-turn suggestions. Older servers omit it. */
   conversation_starters?: AgentConversationStarter[];
   /** Set for product-defined agents (e.g. "mika"). Absent for user- and
@@ -667,6 +668,7 @@ export interface CreateAgentRequest {
   name: string;
   description?: string;
   instructions?: string;
+  instruction_selection?: string[];
   conversation_starters?: AgentConversationStarter[];
   avatar_url?: string;
   runtime_id: string;
@@ -763,6 +765,7 @@ export interface UpdateAgentRequest {
   name?: string;
   description?: string;
   instructions?: string;
+  instruction_selection?: string[];
   conversation_starters?: AgentConversationStarter[];
   avatar_url?: string;
   runtime_id?: string;
@@ -1306,6 +1309,24 @@ export interface RuntimeLocalSkillListRequest {
 	mcp_servers?: RuntimeLocalMcpServerSummary[];
 	mcp_supported?: boolean;
   error?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RuntimeDirectoryEntry {
+  name: string;
+  path: string;
+  kind: "file" | "folder";
+  hidden: boolean;
+}
+
+export interface RuntimeDirectoryListingRequest {
+  id: string;
+  runtime_id: string;
+  status: "pending" | "running" | "completed" | "failed" | "timeout";
+  path: string;
+  entries: RuntimeDirectoryEntry[];
+  error: string;
   created_at: string;
   updated_at: string;
 }
