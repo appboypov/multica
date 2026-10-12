@@ -24,7 +24,7 @@ flowchart LR
 
 - **Repository** (in one project): a GitHub repository (`owner/name`, default branch), its checkout on a runtime (machine plus path), and its version policy: where the version lives (for example `pubspec.yaml`, `package.json` or tags only) and the tag pattern (`v{version}`). Adding a repository adds its worklane `main` at the same time.
 - **Worklane** (in one repository): a name, a folder, the runtime its worktree lives on, the squad that works it, and an order. Its worktree path follows from these: `~/Worktrees/{project key}/{folder}/{repo}`. Its state follows from its line: Busy with the active issue's branch, or Free. A worklane without a worktree does not exist, so creating a worklane creates its worktree.
-- **Release** (in one repository): a version and its issues. Each worklane's timeline shows the repository's releases with that lane's issues in them. The version is the repository's because a repository has one tag sequence, and a release is cut from the default branch with everything merged into it, whichever lane did the work.
+- **Release** (in one repository): a version, a title, a description and its issues. Each worklane's timeline shows the repository's releases with that lane's issues in them, each under its version, title and description. The squad board's next releases and an issue's release card show the title too. The version is the repository's because a repository has one tag sequence, and a release is cut from the default branch with everything merged into it, whichever lane did the work.
 - **Issue**: has at most one worklane and at most one release, and the release must belong to that worklane's repository.
 
 ## Add repository
@@ -55,9 +55,13 @@ Brian's yes is the click, and it is recorded on the worklane's activity.
 Opened from a worklane timeline's "Plan release" button, at the end of the timeline. It is a dialog.
 
 1. **Version**: Patch, Minor or Major, each showing the version it gives after the repository's last planned release (for example v1.0.2, v1.1.0 or v2.0.0). Patch is preselected.
-2. **Issues**: this worklane's issues that are in no release yet, with their type icon, ID, title and status, to tick. Issues can also be added later from the timeline.
-3. **Ships**: a read-only line about what happens when it ships. When all its issues are done and merged, Multica tags `v1.1.0` on `main`, writes the release note, publishes the GitHub release, and asks you to pass it. A release has no date until it ships.
-4. **Plan release** adds the release to the end of the repository's release line. On this worklane's timeline it appears in place with the chosen issues, and on the other worklanes of the repository it appears empty.
+2. **Title**: a short name for the release, for example "Account and profile". Required.
+3. **Description**: what the release brings, in a few sentences. Optional.
+4. **Issues**: this worklane's issues that are in no release yet, with their type icon, ID, title and status, to tick. Issues can also be added later from the timeline.
+5. **Ships**: a read-only line about what happens when it ships. When all its issues are done and merged, Multica tags `v1.1.0` on `main`, writes the release note, publishes the GitHub release, and asks you to pass it. A release has no date until it ships.
+6. **Plan release** adds the release to the end of the repository's release line. On this worklane's timeline it appears in place with the chosen issues, and on the other worklanes of the repository it appears empty.
+
+The button stays disabled until the release has a title.
 
 ## Decisions
 

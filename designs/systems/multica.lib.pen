@@ -1,5 +1,5 @@
 {
-  "version": "2.20",
+  "version": "2.21",
   "children": [
     {
       "type": "frame",
@@ -3444,6 +3444,37 @@
                   ]
                 }
               ]
+            },
+            {
+              "type": "frame",
+              "id": "yDwwx",
+              "name": "Textarea",
+              "reusable": true,
+              "width": 280,
+              "height": 72,
+              "fill": "$surface",
+              "cornerRadius": "$radius-lg",
+              "stroke": "$input",
+              "strokeWidth": 1,
+              "layout": "vertical",
+              "padding": [
+                8,
+                10
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "pYMEy",
+                  "name": "Placeholder",
+                  "fill": "$muted-foreground",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "What this release brings",
+                  "fontFamily": "$font-sans",
+                  "fontSize": "$text-body",
+                  "fontWeight": "normal"
+                }
+              ]
             }
           ]
         },
@@ -5218,6 +5249,30 @@
                       ]
                     },
                     {
+                      "type": "text",
+                      "id": "So0rS",
+                      "name": "Release title",
+                      "fill": "$foreground",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Account and profile",
+                      "fontFamily": "$font-sans",
+                      "fontSize": "$text-body-lg",
+                      "fontWeight": "500"
+                    },
+                    {
+                      "type": "text",
+                      "id": "foN9s",
+                      "name": "Release description",
+                      "fill": "$muted-foreground",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Fans make an account, sign in and keep their own profile with a photo.",
+                      "fontFamily": "$font-sans",
+                      "fontSize": "$text-label",
+                      "fontWeight": "normal"
+                    },
+                    {
                       "type": "frame",
                       "id": "Oq65Z",
                       "name": "Progress row",
@@ -6535,7 +6590,8 @@
                       "name": "Control",
                       "slot": [
                         "DmY05",
-                        "ED2nY"
+                        "ED2nY",
+                        "yDwwx"
                       ],
                       "width": "fill_container",
                       "layout": "vertical",

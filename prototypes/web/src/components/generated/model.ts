@@ -21,10 +21,16 @@ export interface Issue {
   created?: boolean;
 }
 
+/** A version of the repository with a title, a description and the issues that go in it. */
 export interface Release {
   version: string;
+  title: string;
+  description: string;
   issues: Issue[];
 }
+
+/** What a planned release is given before it holds issues. */
+export type ReleaseHead = Omit<Release, 'issues'>;
 
 export interface Lane {
   name: string;
@@ -80,7 +86,7 @@ interface RawLane {
   state: string;
   active: string | null;
   next: string | null;
-  releases?: { version: string; issues: { id: string; type: string; title: string }[] }[];
+  releases?: { version: string; title: string; description: string; issues: { id: string; type: string; title: string }[] }[];
 }
 
 /** Sample issues that wait in a worklane without a release, keyed `repo/lane`. */
@@ -111,6 +117,8 @@ export function loadOrgs(): Org[] {
               next: l.next,
               releases: l.releases?.map((rel) => ({
                 version: rel.version,
+                title: rel.title,
+                description: rel.description,
                 issues: rel.issues.map((i) => ({
                   id: i.id,
                   type: (i.type as IssueType) ?? 'story',

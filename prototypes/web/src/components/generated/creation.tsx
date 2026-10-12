@@ -132,6 +132,20 @@ function TextInput({
   );
 }
 
+function TextArea({ value, onChange, placeholder, label, rows = 3 }: { value: string; onChange: (v: string) => void; placeholder?: string; label: string; rows?: number }) {
+  return (
+    <textarea
+      aria-label={label}
+      rows={rows}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      className="block w-full resize-none rounded-[8px] border px-2.5 py-2 text-[14px] outline-none placeholder:text-[var(--muted-foreground)] focus:border-[var(--ring)]"
+      style={{ background: 'var(--surface)', borderColor: 'var(--input)' }}
+    />
+  );
+}
+
 /** A select: a menu under a field-shaped trigger. */
 function Select<T extends string>({
   value,
@@ -527,11 +541,13 @@ export function PlanReleaseDialog({
   candidates: Issue[];
   statusOf: (i: Issue) => Status;
   onClose: () => void;
-  onPlan: (version: string, issueIds: string[]) => void;
+  onPlan: (release: { version: string; title: string; description: string }, issueIds: string[]) => void;
 }) {
   const { base, baseIsTag, next } = nextVersions(repo);
   const [bump, setBump] = useState<Bump>('patch');
   const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
   const version = next[bump];
   const toggle = (id: string) =>
     setPicked((s) => {
@@ -550,7 +566,12 @@ export function PlanReleaseDialog({
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button variant="brand" icon={<Check size={15} />} onClick={() => onPlan(version, candidates.filter((i) => picked.has(i.id)).map((i) => i.id))}>
+          <Button
+            variant="brand"
+            icon={<Check size={15} />}
+            disabled={!title.trim()}
+            onClick={() => onPlan({ version, title: title.trim(), description: description.trim() }, candidates.filter((i) => picked.has(i.id)).map((i) => i.id))}
+          >
             Plan {version}
           </Button>
         </>
@@ -582,6 +603,14 @@ export function PlanReleaseDialog({
             );
           })}
         </div>
+      </Field>
+
+      <Field label="Title" hint="Required">
+        <TextInput label="Title" autoFocus value={title} onChange={setTitle} placeholder="Account and profile" />
+      </Field>
+
+      <Field label="Description" hint="Optional">
+        <TextArea label="Description" value={description} onChange={setDescription} placeholder="What this release brings" />
       </Field>
 
       <Field label="Issues" hint={`${laneName} · in no release`} help={candidates.length ? undefined : 'Every issue of this worklane is in a release. Add issues later from the timeline.'}>

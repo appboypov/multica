@@ -1,5 +1,5 @@
 {
-  "version": "2.20",
+  "version": "2.21",
   "children": [
     {
       "type": "frame",
@@ -1082,6 +1082,12 @@
                           "content": "Next release",
                           "fill": "$L:brand"
                         },
+                        "L:So0rS": {
+                          "content": "Account and profile"
+                        },
+                        "L:foN9s": {
+                          "content": "Fans make an account, sign in and keep their own profile with a photo."
+                        },
                         "L:x1LDu8/L:l0V5e": {
                           "width": 168,
                           "enabled": false
@@ -1522,6 +1528,12 @@
                         "L:c4q0R": {
                           "content": "Planned",
                           "fill": "$L:muted-foreground"
+                        },
+                        "L:So0rS": {
+                          "content": "Notifications"
+                        },
+                        "L:foN9s": {
+                          "content": "Fans get push notifications on iOS and Android and choose which ones they want."
                         },
                         "L:x1LDu8/L:l0V5e": {
                           "width": 0,
@@ -2017,18 +2029,35 @@
                       }
                     },
                     {
-                      "id": "o1B5Of",
+                      "id": "J4dXh",
                       "type": "ref",
-                      "ref": "L:yGe44",
-                      "name": "Release step",
+                      "ref": "L:aCLgS",
+                      "name": "Release",
                       "descendants": {
-                        "L:twczT/L:uo2SE": {
+                        "L:uo2SE": {
                           "content": "v1.0.0"
-                        },
-                        "L:G8G7r": {
-                          "content": "0/33"
                         }
                       }
+                    },
+                    {
+                      "type": "text",
+                      "id": "DH7ez",
+                      "name": "Release title",
+                      "fill": "$L:foreground",
+                      "content": "First production release",
+                      "fontFamily": "$L:font-sans",
+                      "fontSize": "$L:text-caption",
+                      "fontWeight": "500"
+                    },
+                    {
+                      "type": "text",
+                      "id": "wPWwq",
+                      "name": "Done",
+                      "fill": "$L:muted-foreground",
+                      "content": "0/33",
+                      "fontFamily": "$L:font-sans",
+                      "fontSize": "$L:text-caption",
+                      "fontWeight": "normal"
                     }
                   ]
                 },
@@ -5723,6 +5752,12 @@
                           "content": "Next release",
                           "fill": "$L:brand"
                         },
+                        "L:So0rS": {
+                          "content": "Account and profile"
+                        },
+                        "L:foN9s": {
+                          "content": "Fans make an account, sign in and keep their own profile with a photo."
+                        },
                         "L:x1LDu8/L:l0V5e": {
                           "width": 168,
                           "enabled": false
@@ -6163,6 +6198,12 @@
                         "L:c4q0R": {
                           "content": "Planned",
                           "fill": "$L:muted-foreground"
+                        },
+                        "L:So0rS": {
+                          "content": "Notifications"
+                        },
+                        "L:foN9s": {
+                          "content": "Fans get push notifications on iOS and Android and choose which ones they want."
                         },
                         "L:x1LDu8/L:l0V5e": {
                           "width": 0,
@@ -6651,6 +6692,85 @@
                         },
                         "L:JbpbF": {
                           "content": "Follows v1.3.0, the last planned release. Moving it renumbers it."
+                        }
+                      }
+                    },
+                    {
+                      "id": "wuXAz",
+                      "type": "ref",
+                      "ref": "L:GPVnc",
+                      "name": "Field · Title",
+                      "width": "fill_container",
+                      "descendants": {
+                        "L:KRgjT": {
+                          "content": "Title"
+                        },
+                        "L:xzCrL": {
+                          "content": "Required"
+                        },
+                        "L:skPzP": {
+                          "type": "frame",
+                          "id": "mlKus",
+                          "name": "Control",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 6,
+                          "children": [
+                            {
+                              "id": "UL3zF",
+                              "type": "ref",
+                              "ref": "L:DmY05",
+                              "name": "Input",
+                              "width": "fill_container",
+                              "descendants": {
+                                "L:m10Izh": {
+                                  "enabled": false
+                                },
+                                "L:FByMw": {
+                                  "content": "Event push",
+                                  "fill": "$L:foreground"
+                                }
+                              }
+                            }
+                          ]
+                        },
+                        "L:JbpbF": {
+                          "enabled": false
+                        }
+                      }
+                    },
+                    {
+                      "id": "tdk0V",
+                      "type": "ref",
+                      "ref": "L:GPVnc",
+                      "name": "Field · Description",
+                      "width": "fill_container",
+                      "descendants": {
+                        "L:KRgjT": {
+                          "content": "Description"
+                        },
+                        "L:xzCrL": {
+                          "content": "Optional"
+                        },
+                        "L:skPzP": {
+                          "type": "frame",
+                          "id": "zBHgI",
+                          "name": "Control",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 6,
+                          "children": [
+                            {
+                              "id": "pvxKS",
+                              "type": "ref",
+                              "ref": "L:yDwwx",
+                              "name": "Textarea",
+                              "width": "fill_container"
+                            }
+                          ]
+                        },
+                        "L:JbpbF": {
+                          "enabled": false
                         }
                       }
                     },

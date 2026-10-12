@@ -314,6 +314,8 @@ const data = [
         "releases": [
          {
           "version": "v1.1.0",
+          "title": "Account and profile",
+          "description": "Fans make an account, sign in and keep their own profile with a photo.",
           "issues": [
            {
             "id": "REBL-21",
@@ -389,6 +391,8 @@ const data = [
          },
          {
           "version": "v1.2.0",
+          "title": "Notifications",
+          "description": "Fans get push notifications on iOS and Android and choose which ones they want.",
           "issues": [
            {
             "id": "REBL-78",
@@ -467,6 +471,8 @@ const data = [
         "releases": [
          {
           "version": "v1.0.0",
+          "title": "First production release",
+          "description": "Teams manage their members, roles and invitations, and the app is in the App Store and Play Store.",
           "issues": [
            {
             "id": "REBL-10",
@@ -637,6 +643,8 @@ const data = [
          },
          {
           "version": "v1.0.1",
+          "title": "Membership hardening",
+          "description": "Fixes for invitations and memberships found after the first release.",
           "issues": [
            {
             "id": "REBL-44",
@@ -710,6 +718,8 @@ const data = [
         "releases": [
          {
           "version": "v1.3.0",
+          "title": "Agenda and publication",
+          "description": "Teams plan events in an agenda and publish them for fans to see.",
           "issues": [
            {
             "id": "REBL-35",
