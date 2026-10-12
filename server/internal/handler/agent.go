@@ -1329,6 +1329,7 @@ type CreateAgentRequest struct {
 	Name                 string                     `json:"name"`
 	Description          string                     `json:"description"`
 	Instructions         string                     `json:"instructions"`
+	InstructionSelection []string                   `json:"instruction_selection"`
 	ConversationStarters []AgentConversationStarter `json:"conversation_starters"`
 	AvatarURL            *string                    `json:"avatar_url"`
 	RuntimeID            string                     `json:"runtime_id"`
@@ -1439,6 +1440,11 @@ func (h *Handler) CreateAgent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	conversationStarters, err := normaliseAgentConversationStarters(req.ConversationStarters)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	instructionSelection, err := normaliseInstructionSelection(req.InstructionSelection)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
@@ -1555,6 +1561,7 @@ func (h *Handler) CreateAgent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sp, _ := json.Marshal(conversationStarters)
+	selection, _ := json.Marshal(instructionSelection)
 
 	var mc []byte
 	if rawMcpConfig, ok := rawFields["mcp_config"]; ok && !bytes.Equal(bytes.TrimSpace(rawMcpConfig), []byte("null")) {
@@ -1619,6 +1626,7 @@ func (h *Handler) CreateAgent(w http.ResponseWriter, r *http.Request) {
 		ThinkingLevel:            pgtype.Text{String: req.ThinkingLevel, Valid: req.ThinkingLevel != ""},
 		ServiceTier:              pgtype.Text{String: req.ServiceTier, Valid: req.ServiceTier != ""},
 		ConversationStarters:     sp,
+		InstructionSelection:     selection,
 		ComposioToolkitAllowlist: allowlist,
 	})
 	if err != nil {
@@ -1688,6 +1696,7 @@ type UpdateAgentRequest struct {
 	Name                 *string                     `json:"name"`
 	Description          *string                     `json:"description"`
 	Instructions         *string                     `json:"instructions"`
+	InstructionSelection *[]string                   `json:"instruction_selection"`
 	ConversationStarters *[]AgentConversationStarter `json:"conversation_starters"`
 	AvatarURL            *string                     `json:"avatar_url"`
 	RuntimeID            *string                     `json:"runtime_id"`
@@ -1955,6 +1964,19 @@ func (h *Handler) UpdateAgent(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.Instructions != nil {
 		params.Instructions = pgtype.Text{String: *req.Instructions, Valid: true}
+	}
+	if _, present := rawFields["instruction_selection"]; present {
+		var paths []string
+		if req.InstructionSelection != nil {
+			paths = *req.InstructionSelection
+		}
+		instructionSelection, err := normaliseInstructionSelection(paths)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		encoded, _ := json.Marshal(instructionSelection)
+		params.InstructionSelection = encoded
 	}
 	if req.ConversationStarters != nil {
 		conversationStarters, err := normaliseAgentConversationStarters(*req.ConversationStarters)

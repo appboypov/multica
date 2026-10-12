@@ -90,3 +90,92 @@ func TestAgentInstructionSelectionDefaultsToEmptyArray(t *testing.T) {
 		t.Fatalf("fetched instruction_selection = %#v, want []", fetched.InstructionSelection)
 	}
 }
+
+func TestAgentInstructionSelectionRoundTrip(t *testing.T) {
+	if testHandler == nil || testPool == nil {
+		t.Skip("database not available")
+	}
+
+	runtimeID := dbfx.Runtime(t, t.Name())
+	want := []string{"/notes/b.md", "/skills/persona"}
+	var created AgentResponse
+	testutil.Call(t, testHandler.CreateAgent, newRequest(http.MethodPost, "/api/agents", map[string]any{
+		"name":                  t.Name(),
+		"runtime_id":            runtimeID,
+		"instruction_selection": []string{" /notes/b.md ", "/skills/persona"},
+	})).Want(http.StatusCreated).JSON(&created)
+	dbfx.Cleanup(t, `DELETE FROM agent WHERE id = $1`, created.ID)
+	if !slices.Equal(created.InstructionSelection, want) {
+		t.Fatalf("created instruction_selection = %#v, want %#v", created.InstructionSelection, want)
+	}
+
+	var fetched AgentResponse
+	testutil.Call(t, testHandler.GetAgent, withURLParam(
+		newRequest(http.MethodGet, "/api/agents/"+created.ID, nil), "id", created.ID,
+	)).Want(http.StatusOK).JSON(&fetched)
+	if !slices.Equal(fetched.InstructionSelection, want) {
+		t.Fatalf("fetched instruction_selection = %#v, want %#v", fetched.InstructionSelection, want)
+	}
+
+	var preserved AgentResponse
+	testutil.Call(t, testHandler.UpdateAgent, withURLParam(
+		newRequest(http.MethodPut, "/api/agents/"+created.ID, map[string]any{
+			"name": t.Name() + "-renamed",
+		}), "id", created.ID,
+	)).Want(http.StatusOK).JSON(&preserved)
+	if !slices.Equal(preserved.InstructionSelection, want) {
+		t.Fatalf("omitted instruction_selection = %#v, want %#v", preserved.InstructionSelection, want)
+	}
+
+	for _, paths := range [][]string{{"notes/b.md"}, {""}, {"~/notes/b.md"}} {
+		testutil.Call(t, testHandler.UpdateAgent, withURLParam(
+			newRequest(http.MethodPut, "/api/agents/"+created.ID, map[string]any{
+				"instruction_selection": paths,
+			}), "id", created.ID,
+		)).Want(http.StatusBadRequest)
+		var stored []byte
+		dbfx.QueryRow(t, `SELECT instruction_selection FROM agent WHERE id = $1`, created.ID).Scan(&stored)
+		if got := decodeInstructionSelection(stored); !slices.Equal(got, want) {
+			t.Fatalf("selection after rejected update = %#v, want %#v", got, want)
+		}
+	}
+
+	want = []string{"/skills/persona", "/notes/b.md", "/skills/persona"}
+	var updated AgentResponse
+	testutil.Call(t, testHandler.UpdateAgent, withURLParam(
+		newRequest(http.MethodPut, "/api/agents/"+created.ID, map[string]any{
+			"instruction_selection": []string{" /skills/persona ", "/notes/b.md", "/skills/persona"},
+		}), "id", created.ID,
+	)).Want(http.StatusOK).JSON(&updated)
+	if !slices.Equal(updated.InstructionSelection, want) {
+		t.Fatalf("updated instruction_selection = %#v, want %#v", updated.InstructionSelection, want)
+	}
+
+	for _, empty := range []any{[]string{}, nil} {
+		var cleared AgentResponse
+		testutil.Call(t, testHandler.UpdateAgent, withURLParam(
+			newRequest(http.MethodPut, "/api/agents/"+created.ID, map[string]any{
+				"instruction_selection": empty,
+			}), "id", created.ID,
+		)).Want(http.StatusOK).JSON(&cleared)
+		if cleared.InstructionSelection == nil || len(cleared.InstructionSelection) != 0 {
+			t.Fatalf("cleared instruction_selection = %#v, want []", cleared.InstructionSelection)
+		}
+	}
+}
+
+func TestCreateAgentInstructionSelectionRejectsRelativePath(t *testing.T) {
+	if testHandler == nil || testPool == nil {
+		t.Skip("database not available")
+	}
+
+	runtimeID := dbfx.Runtime(t, t.Name())
+	testutil.Call(t, testHandler.CreateAgent, newRequest(http.MethodPost, "/api/agents", map[string]any{
+		"name":                  t.Name(),
+		"runtime_id":            runtimeID,
+		"instruction_selection": []string{"notes/b.md"},
+	})).Want(http.StatusBadRequest)
+	if count := dbfx.Count(t, `SELECT count(*) FROM agent WHERE runtime_id = $1`, runtimeID); count != 0 {
+		t.Fatalf("agents after rejected create = %d, want 0", count)
+	}
+}
