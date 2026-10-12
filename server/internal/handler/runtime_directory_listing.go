@@ -2,9 +2,16 @@ package handler
 
 import (
 	"context"
+	"encoding/json"
+	"log/slog"
+	"net/http"
 	"slices"
 	"sync"
 	"time"
+
+	"github.com/go-chi/chi/v5"
+	obsmetrics "github.com/multica-ai/multica/server/internal/metrics"
+	"github.com/multica-ai/multica/server/pkg/protocol"
 )
 
 type RuntimeDirectoryEntry struct {
@@ -176,4 +183,99 @@ func (s *InMemoryDirectoryListingStore) Fail(_ context.Context, id, errMsg strin
 		}
 	}
 	return nil
+}
+
+func (h *Handler) InitiateDirectoryListing(w http.ResponseWriter, r *http.Request) {
+	rt, ok := h.requireRuntimeLocalSkillAccess(w, r, obsmetrics.RuntimeLookupSourceRuntimeAPI, chi.URLParam(r, "runtimeId"))
+	if !ok {
+		return
+	}
+	if rt.status != "online" {
+		writeError(w, http.StatusServiceUnavailable, "runtime is offline")
+		return
+	}
+
+	var body struct {
+		Path string `json:"path"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	req, err := h.DirectoryListingStore.Create(r.Context(), rt.runtimeID, body.Path)
+	if err != nil {
+		slog.Error("directory listing enqueue failed", "error", err, "runtime_id", rt.runtimeID)
+		writeError(w, http.StatusInternalServerError, "failed to enqueue directory listing")
+		return
+	}
+	h.requestDaemonPendingWork(rt.runtimeID, protocol.PendingWorkKindDirectoryListing)
+	writeJSON(w, http.StatusOK, req)
+}
+
+func (h *Handler) GetDirectoryListingRequest(w http.ResponseWriter, r *http.Request) {
+	rt, ok := h.requireRuntimeLocalSkillAccess(w, r, obsmetrics.RuntimeLookupSourceRuntimeLocalSkillPoll, chi.URLParam(r, "runtimeId"))
+	if !ok {
+		return
+	}
+	if rt.status != "online" {
+		writeError(w, http.StatusServiceUnavailable, "runtime is offline")
+		return
+	}
+	req, err := h.DirectoryListingStore.Get(r.Context(), chi.URLParam(r, "requestId"))
+	if err != nil {
+		slog.Error("directory listing load failed", "error", err, "runtime_id", rt.runtimeID)
+		writeError(w, http.StatusInternalServerError, "failed to load request")
+		return
+	}
+	if req == nil || req.RuntimeID != rt.runtimeID {
+		writeError(w, http.StatusNotFound, "request not found")
+		return
+	}
+	writeJSON(w, http.StatusOK, req)
+}
+
+func (h *Handler) ReportDirectoryListingResult(w http.ResponseWriter, r *http.Request) {
+	rt, ok := h.requireDaemonRuntimeAccess(w, r, chi.URLParam(r, "runtimeId"))
+	if !ok {
+		return
+	}
+	runtimeID := uuidToString(rt.ID)
+	requestID := chi.URLParam(r, "requestId")
+	req, err := h.DirectoryListingStore.Get(r.Context(), requestID)
+	if err != nil {
+		slog.Error("directory listing load failed", "error", err, "request_id", requestID)
+		writeError(w, http.StatusInternalServerError, "failed to load request")
+		return
+	}
+	if req == nil || req.RuntimeID != runtimeID {
+		writeError(w, http.StatusNotFound, "request not found")
+		return
+	}
+	if runtimeLocalSkillRequestTerminal(req.Status) {
+		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+		return
+	}
+
+	var body struct {
+		Status  string                  `json:"status"`
+		Path    string                  `json:"path"`
+		Entries []RuntimeDirectoryEntry `json:"entries"`
+		Error   string                  `json:"error"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if body.Status == "completed" {
+		err = h.DirectoryListingStore.Complete(r.Context(), requestID, body.Path, body.Entries)
+	} else {
+		err = h.DirectoryListingStore.Fail(r.Context(), requestID, body.Error)
+	}
+	if err != nil {
+		slog.Error("directory listing result failed", "error", err, "request_id", requestID)
+		writeError(w, http.StatusInternalServerError, "failed to persist result")
+		return
+	}
+	slog.Debug("runtime directory listing report", "runtime_id", runtimeID, "request_id", requestID, "status", body.Status, "count", len(body.Entries))
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
