@@ -1,0 +1,94 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap');
+
+/* Multica tokens, mirrored from designs/systems/multica.lib.pen (light mode). */
+.mc-root {
+  --app-shell: #f3f3f4;
+  --page-canvas: #fbfbfb;
+  --surface: #ffffff;
+  --surface-hover: #f4f4f5;
+  --surface-selected: #eeeef0;
+  --surface-border: #e4e4e7;
+  --foreground: #09090b;
+  --muted: #f4f4f5;
+  --muted-foreground: #64636e;
+  --faint-foreground: #81818b;
+  --primary: #18181b;
+  --primary-foreground: #fafafa;
+  --border: #ececef;
+  --input: #e4e4e7;
+  --ring: #9f9fa9;
+  --brand: #0070e3;
+  --brand-foreground: #fafafa;
+  --success: #1c882d;
+  --warning: #dca400;
+  --info: #0072d5;
+  --destructive: #e7000b;
+  --sidebar-accent: #e9e9eb;
+  --chart-3: #85b4f0;
+  --type-epic: #864ad2;
+  --type-journey: #4d53d9;
+  --type-story: #05893e;
+  --type-bug: #dc2627;
+  --type-enhancement: #0076cc;
+  --type-refactor: #008888;
+  --type-chore: #686774;
+  --type-spike: #d37900;
+  --surface-shadow: 0 1px 2px rgb(15 23 42 / 0.04), 0 1px 1px rgb(15 23 42 / 0.03);
+  --floating-shadow: 0 16px 40px rgb(15 23 42 / 0.12);
+
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  color: var(--foreground);
+  background: var(--app-shell);
+  -webkit-font-smoothing: antialiased;
+}
+
+.mc-mono {
+  font-family: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.mc-root ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.mc-root ::-webkit-scrollbar-thumb {
+  background: rgb(0 0 0 / 0.08);
+  border-radius: 8px;
+}
+.mc-root ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.mc-root :is(button, [role='link'], [role='tab'], [role='radio'], [role='menuitem']):focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 1px;
+}
+
+@keyframes mc-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.mc-pop {
+  animation: mc-in 120ms ease-out;
+}
+
+/* The issue made last: a brand outline that fades, so it is found where it lands. */
+@keyframes mc-fresh {
+  from {
+    box-shadow: 0 0 0 2px var(--brand);
+    background-color: color-mix(in oklab, var(--brand) 8%, var(--surface));
+  }
+  to {
+    box-shadow: 0 0 0 2px transparent;
+  }
+}
+.mc-fresh {
+  animation: mc-fresh 2.4s ease-out;
+  /* Clear of a sticky release head above and the toast below. */
+  scroll-margin: 140px 0 72px;
+}
