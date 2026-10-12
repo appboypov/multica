@@ -67,7 +67,7 @@ flowchart LR
 
 - [x] 7.1 Update `server/internal/service/builtin_skills/multica-platform/references/agents.md`: no 255, 80 or 4000 limits, at most three starters, and `instruction_selection` with `{selection}` and its owner rule; update `server/internal/service/builtin_skills_test.go`. Verify: `cd server && go test ./internal/service -run BuiltinSkill`.
 - [x] 7.2 Run `make check` in the worktree with `.env.worktree`, and `openspec validate agent-instruction-selection --type change --strict` in `specs/`. Verify: both pass.
-- [ ] 7.3 Smoke on the worktree stack: an omp agent on Brian's runtime with instructions `{selection}` and a selected skill folder runs a task whose brief holds the folder's tree and files; after an edit to one file, the next task holds the edit; a selected missing file fails the task with `instruction_selection_error` and no retry.
+- [x] 7.3 Smoke on the worktree stack: an omp agent on Brian's runtime with instructions `{selection}` and a selected skill folder runs a task whose brief holds the folder's tree and files; after an edit to one file, the next task holds the edit; a selected missing file fails the task with `instruction_selection_error` and no retry.
 
 ## Implementation Notes
 
@@ -107,6 +107,11 @@ flowchart LR
 - `e2e/issue-table.spec.ts` (3 failures): expected loaded-count copy is absent and a grouped response reports zero rather than three rows.
 - `e2e/navigation.spec.ts` (3 failures): the setup hook times out waiting for `networkidle`.
 - `e2e/settings.spec.ts` (2 failures): the Save button and expected Composio page text waits time out.
+- Task 7.3: passed the authorized real omp smoke on the disposable worktree stack (`http://localhost:18828`, profile `dev-agent_instruction_selection-748`, runtime `dc4d481b-b9ef-4273-9d6a-0e46147da37b`). `make up C=api,daemon` rebuilt the CLI but reused the running daemon, so an explicit profile-scoped `daemon restart --no-auto-update --no-auto-reload` loaded the current binary. The temporary agent `854d1ed1-892c-40aa-8b6e-0b74ce4944ed` used exact instructions `{selection}` and a harmless temporary skill folder containing `SKILL.md` and `references/guide.md`. Real omp tasks copied their generated `AGENTS.md` byte-for-byte for inspection; WebSocket terminal events supplied completion/failure evidence without task polling.
+- First task `01a131c4-1f62-7f17-a799-5037489f806e` completed. Its actual brief contained `<selection>`, a `<tree root="/var/folders/fh/kwjz4grx18nbq8pgvbzvn8rc0000gn/T/multica-g7-smoke-r73opm98/selection-smoke-skill">` listing `selection-smoke-skill/`, `SKILL.md`, `references/`, `guide.md`, and ordered `<file path=".../SKILL.md">` and `<file path=".../references/guide.md">` blocks with the exact disk bytes. The guide block held `# Live marker` and `G7_LIVE_ONE_r73opm98`.
+- After changing only the selected guide on disk, with no agent update or sync, task `01a131c4-bd4e-78ba-bf12-a79c02175d3a` completed. Its brief retained the same tree/file structure and the guide block held `G7_LIVE_TWO_r73opm98`; the first marker was absent.
+- Missing-file task `01a131c5-27bc-7557-8291-152840f60fa7` failed with `instruction_selection_error` and `instruction selection: /var/folders/fh/kwjz4grx18nbq8pgvbzvn8rc0000gn/T/multica-g7-smoke-r73opm98/does-not-exist.md: does not exist`. Its terminal event reported `retry_pending: false`; task readback showed `attempt: 1`, `max_attempts: 2`, null `started_at` and no `work_dir`. Exactly three smoke tasks existed and no retry child was queued, despite a remaining allowed attempt.
+- Smoke cleanup: cleared the smoke agent's selection and archived it, removed the created temporary skill/snapshots/Git configuration directories, and retained the three dev task records as evidence. No production configuration/data, repository source, permanent smoke script or other user's agent was changed; no push was made.
 
 ## Plan Change Log
 
