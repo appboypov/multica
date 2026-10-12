@@ -26,7 +26,7 @@ flowchart LR
 ## 1. Core types, client and query
 
 - [x] 1.1 In `packages/core/types/agent.ts`, add `Agent.instruction_selection?: string[]`, `CreateAgentRequest.instruction_selection?: string[]`, `UpdateAgentRequest.instruction_selection?: string[]`, `RuntimeDirectoryEntry` and `RuntimeDirectoryListingRequest` per design Decision 1. Verify: `pnpm typecheck`.
-- [ ] 1.2 In `packages/core/api/schemas.ts`, add `RuntimeDirectoryListingRequestSchema` with the fallbacks of design Decision 1; in `packages/core/api/client.ts`, add `initiateDirectoryListing(runtimeId, path)` (`POST /api/runtimes/{runtimeId}/directory-listings`) and `getDirectoryListing(runtimeId, requestId)` (`GET .../{requestId}`), both through `parseWithFallback`. Verify: `schemas.test.ts` cases for an unknown status, missing entries and an entry without `kind` or `hidden`.
+- [x] 1.2 In `packages/core/api/schemas.ts`, add `RuntimeDirectoryListingRequestSchema` with the fallbacks of design Decision 1; in `packages/core/api/client.ts`, add `initiateDirectoryListing(runtimeId, path)` (`POST /api/runtimes/{runtimeId}/directory-listings`) and `getDirectoryListing(runtimeId, requestId)` (`GET .../{requestId}`), both through `parseWithFallback`. Verify: `schemas.test.ts` cases for an unknown status, missing entries and an entry without `kind` or `hidden`.
 - [ ] 1.3 Create `packages/core/runtimes/directory-listing.ts` (`resolveRuntimeDirectoryListing`, `runtimeDirectoryListingKeys`, `runtimeDirectoryListingOptions`) per design Decision 2 and export it from `packages/core/runtimes/index.ts`. Verify: a `// @vitest-environment node` test with `api` mocked at `@multica/core/api`: pending then completed returns the entries; failed throws the request's error; still pending after 30 s throws a timeout (fake timers).
 
 ## 2. Core helpers and drafts
@@ -72,6 +72,7 @@ flowchart LR
 - Mock stores with their Zustand callable shape plus `getState`; views tests do not mock `next/*` or `react-router-dom`.
 - Group 1 scope: add only the selection wire fields, directory listing response parsing and client calls, and the dedicated polling query with regression tests; preserve other agent/runtime behaviour.
 - 1.1: Added optional selection fields and directory entry/listing request types in `packages/core/types/agent.ts`, and exposed the directory types through the existing explicit `packages/core/types/index.ts` barrel. The explicit barrel was an additional necessary callsite. Existing callers need no changes for the optional selection fields. Typecheck is reserved for the main agent's final verification.
+- 1.2: Added lenient listing/entry schemas and an explicit failed-response fallback in `packages/core/api/schemas.ts`; added both directory listing calls through `parseWithFallback` in `packages/core/api/client.ts`. `schemas.test.ts` covers unknown status, missing entries, missing/malformed entry markers, malformed strings and non-object responses; `client.test.ts` covers POST/GET paths, request bodies, boundary parsing and fallback request identity. Unknown statuses fail rather than pretending a directory is empty. No additional surprises; tests remain for the main agent to run.
 
 ## Plan Change Log
 
