@@ -5068,6 +5068,174 @@
                       ]
                     }
                   ]
+                },
+                {
+                  "type": "frame",
+                  "id": "BIcnF",
+                  "layoutPosition": "absolute",
+                  "x": 956,
+                  "y": 283,
+                  "name": "Agent questions menu",
+                  "width": 220,
+                  "fill": "$0:surface",
+                  "cornerRadius": 8,
+                  "stroke": "$0:border",
+                  "strokeWidth": 1,
+                  "effect": [
+                    {
+                      "type": "shadow",
+                      "shadowType": "outer",
+                      "color": "#0F172A14",
+                      "offset": {
+                        "x": 0,
+                        "y": 8
+                      },
+                      "blur": 24
+                    },
+                    {
+                      "type": "shadow",
+                      "shadowType": "outer",
+                      "color": "#0F172A0D",
+                      "offset": {
+                        "x": 0,
+                        "y": 2
+                      },
+                      "blur": 6
+                    }
+                  ],
+                  "layout": "vertical",
+                  "padding": 4,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "uDJcr",
+                      "name": "Item Workspace default",
+                      "width": "fill_container",
+                      "height": 44,
+                      "fill": "$0:surface-hover",
+                      "cornerRadius": 6,
+                      "gap": 8,
+                      "padding": [
+                        0,
+                        10
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "P6ID3r",
+                          "name": "Texts",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 1,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "V9BA2",
+                              "name": "Text",
+                              "fill": "$0:foreground",
+                              "content": "Workspace default",
+                              "fontFamily": "$0:font-sans",
+                              "fontSize": 13,
+                              "fontWeight": "normal"
+                            },
+                            {
+                              "type": "text",
+                              "id": "ESTrM",
+                              "name": "Text",
+                              "fill": "$0:muted-foreground",
+                              "content": "On",
+                              "fontFamily": "$0:font-sans",
+                              "fontSize": 12,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "icon",
+                          "id": "IXZSP",
+                          "name": "check",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "check",
+                          "library": "lucide",
+                          "fill": "$0:foreground"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "Cv7kx",
+                      "name": "Item On",
+                      "width": "fill_container",
+                      "height": 32,
+                      "cornerRadius": 6,
+                      "gap": 8,
+                      "padding": [
+                        0,
+                        10
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "hpBTg",
+                          "name": "Texts",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 1,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "f8igkD",
+                              "name": "Text",
+                              "fill": "$0:foreground",
+                              "content": "On",
+                              "fontFamily": "$0:font-sans",
+                              "fontSize": 13,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "CJwem",
+                      "name": "Item Off",
+                      "width": "fill_container",
+                      "height": 32,
+                      "cornerRadius": 6,
+                      "gap": 8,
+                      "padding": [
+                        0,
+                        10
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "yagqQ",
+                          "name": "Texts",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 1,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "rrGqP",
+                              "name": "Text",
+                              "fill": "$0:foreground",
+                              "content": "Off",
+                              "fontFamily": "$0:font-sans",
+                              "fontSize": 13,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
                 }
               ]
             }
@@ -11561,6 +11729,1132 @@
                                       }
                                     }
                                   ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "F5Jdmx",
+      "x": 0,
+      "y": 7800,
+      "name": "7 Settings — Questions",
+      "clip": true,
+      "width": 1440,
+      "height": 900,
+      "fill": "$0:app-shell",
+      "children": [
+        {
+          "type": "frame",
+          "id": "VcBJn",
+          "name": "Sidebar",
+          "width": 240,
+          "height": "fill_container",
+          "layout": "vertical",
+          "gap": 2,
+          "padding": [
+            12,
+            8
+          ],
+          "children": [
+            {
+              "type": "frame",
+              "id": "bhNBr",
+              "name": "Workspace",
+              "width": "fill_container",
+              "gap": 8,
+              "padding": [
+                4,
+                8,
+                12,
+                8
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "tVFQr",
+                  "name": "Logo",
+                  "width": 20,
+                  "height": 20,
+                  "fill": "$0:brand",
+                  "cornerRadius": 5
+                },
+                {
+                  "type": "text",
+                  "id": "I1KzB",
+                  "name": "Text",
+                  "fill": "$0:foreground",
+                  "content": "De App Specialist",
+                  "fontFamily": "$0:font-sans",
+                  "fontSize": 14,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "icon",
+                  "id": "ZnHV4",
+                  "name": "chevron-down",
+                  "width": 14,
+                  "height": 14,
+                  "icon": "chevron-down",
+                  "library": "lucide",
+                  "fill": "$0:muted-foreground"
+                }
+              ]
+            },
+            {
+              "id": "KQFIZ",
+              "type": "ref",
+              "ref": "0:gMCGY",
+              "name": "Nav Inbox",
+              "width": "fill_container",
+              "descendants": {
+                "0:Mvjm5": {
+                  "icon": "inbox"
+                },
+                "0:VZ6de": {
+                  "content": "Inbox"
+                },
+                "0:y1ZxaE": {
+                  "content": "3"
+                }
+              }
+            },
+            {
+              "id": "CSf4n",
+              "type": "ref",
+              "ref": "0:gMCGY",
+              "name": "Nav Questions",
+              "width": "fill_container",
+              "descendants": {
+                "0:Mvjm5": {
+                  "icon": "message-circle-question-mark"
+                },
+                "0:VZ6de": {
+                  "content": "Questions"
+                },
+                "0:y1ZxaE": {
+                  "content": "6"
+                }
+              }
+            },
+            {
+              "id": "OlmxE",
+              "type": "ref",
+              "ref": "0:gMCGY",
+              "name": "Nav My issues",
+              "width": "fill_container",
+              "descendants": {
+                "0:Mvjm5": {
+                  "icon": "circle-user"
+                },
+                "0:VZ6de": {
+                  "content": "My issues"
+                },
+                "0:y1ZxaE": {
+                  "content": ""
+                }
+              }
+            },
+            {
+              "id": "TvPih",
+              "type": "ref",
+              "ref": "0:gMCGY",
+              "name": "Nav Chat",
+              "width": "fill_container",
+              "descendants": {
+                "0:Mvjm5": {
+                  "icon": "message-square"
+                },
+                "0:VZ6de": {
+                  "content": "Chat"
+                },
+                "0:y1ZxaE": {
+                  "content": ""
+                }
+              }
+            },
+            {
+              "type": "frame",
+              "id": "ZK2lC",
+              "name": "Section Work",
+              "width": "fill_container",
+              "padding": [
+                14,
+                8,
+                4,
+                8
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "rQ2Zi",
+                  "name": "Text",
+                  "fill": "$0:muted-foreground",
+                  "content": "Work",
+                  "fontFamily": "$0:font-sans",
+                  "fontSize": 12,
+                  "fontWeight": "500"
+                }
+              ]
+            },
+            {
+              "id": "sCZpU",
+              "type": "ref",
+              "ref": "0:gMCGY",
+              "name": "Nav Issues",
+              "width": "fill_container",
+              "descendants": {
+                "0:Mvjm5": {
+                  "icon": "layers"
+                },
+                "0:VZ6de": {
+                  "content": "Issues"
+                },
+                "0:y1ZxaE": {
+                  "content": ""
+                }
+              }
+            },
+            {
+              "id": "f4RNa",
+              "type": "ref",
+              "ref": "0:gMCGY",
+              "name": "Nav Projects",
+              "width": "fill_container",
+              "descendants": {
+                "0:Mvjm5": {
+                  "icon": "folder"
+                },
+                "0:VZ6de": {
+                  "content": "Projects"
+                },
+                "0:y1ZxaE": {
+                  "content": ""
+                }
+              }
+            },
+            {
+              "id": "p5UpEg",
+              "type": "ref",
+              "ref": "0:gMCGY",
+              "name": "Nav Autopilots",
+              "width": "fill_container",
+              "descendants": {
+                "0:Mvjm5": {
+                  "icon": "zap"
+                },
+                "0:VZ6de": {
+                  "content": "Autopilots"
+                },
+                "0:y1ZxaE": {
+                  "content": ""
+                }
+              }
+            },
+            {
+              "type": "frame",
+              "id": "niVAr",
+              "name": "Section AI team",
+              "width": "fill_container",
+              "padding": [
+                14,
+                8,
+                4,
+                8
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "IOA74",
+                  "name": "Text",
+                  "fill": "$0:muted-foreground",
+                  "content": "AI team",
+                  "fontFamily": "$0:font-sans",
+                  "fontSize": 12,
+                  "fontWeight": "500"
+                }
+              ]
+            },
+            {
+              "id": "NQBjo",
+              "type": "ref",
+              "ref": "0:gMCGY",
+              "name": "Nav Agents",
+              "width": "fill_container",
+              "descendants": {
+                "0:Mvjm5": {
+                  "icon": "bot"
+                },
+                "0:VZ6de": {
+                  "content": "Agents"
+                },
+                "0:y1ZxaE": {
+                  "content": ""
+                }
+              }
+            },
+            {
+              "id": "QCJWB",
+              "type": "ref",
+              "ref": "0:gMCGY",
+              "name": "Nav Squads",
+              "width": "fill_container",
+              "descendants": {
+                "0:Mvjm5": {
+                  "icon": "users"
+                },
+                "0:VZ6de": {
+                  "content": "Squads"
+                },
+                "0:y1ZxaE": {
+                  "content": ""
+                }
+              }
+            },
+            {
+              "id": "urFQV",
+              "type": "ref",
+              "ref": "0:gMCGY",
+              "name": "Nav Skills",
+              "width": "fill_container",
+              "descendants": {
+                "0:Mvjm5": {
+                  "icon": "sparkles"
+                },
+                "0:VZ6de": {
+                  "content": "Skills"
+                },
+                "0:y1ZxaE": {
+                  "content": ""
+                }
+              }
+            },
+            {
+              "type": "frame",
+              "id": "VWJfz",
+              "name": "Fill",
+              "width": "fill_container",
+              "height": "fill_container"
+            },
+            {
+              "type": "frame",
+              "id": "Ui235",
+              "name": "Me",
+              "width": "fill_container",
+              "gap": 8,
+              "padding": [
+                4,
+                8
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "id": "DITJy",
+                  "type": "ref",
+                  "ref": "0:Hhbk2",
+                  "name": "Avatar BV",
+                  "fill": "#DBEAFE",
+                  "descendants": {
+                    "0:VN1Qu": {
+                      "content": "BV"
+                    }
+                  }
+                },
+                {
+                  "type": "text",
+                  "id": "thKvW",
+                  "name": "Text",
+                  "fill": "$0:foreground",
+                  "content": "Brian",
+                  "fontFamily": "$0:font-sans",
+                  "fontSize": 14,
+                  "fontWeight": "500"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "R89N4h",
+          "name": "Panel wrap",
+          "width": "fill_container",
+          "height": "fill_container",
+          "layout": "vertical",
+          "padding": [
+            8,
+            8,
+            8,
+            0
+          ],
+          "children": [
+            {
+              "type": "frame",
+              "id": "NU6jF",
+              "name": "Panel",
+              "clip": true,
+              "width": "fill_container",
+              "height": "fill_container",
+              "fill": "$0:page-canvas",
+              "cornerRadius": 12,
+              "stroke": "$0:border",
+              "strokeWidth": 1,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "uWtT8",
+                  "name": "Settings nav",
+                  "width": 232,
+                  "height": "fill_container",
+                  "stroke": "$0:border",
+                  "strokeWidth": {
+                    "right": 1
+                  },
+                  "layout": "vertical",
+                  "gap": 2,
+                  "padding": [
+                    20,
+                    12
+                  ],
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "tD3PN",
+                      "name": "Group De App Specialist",
+                      "width": "fill_container",
+                      "padding": [
+                        12,
+                        8,
+                        4,
+                        8
+                      ],
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "QHwzs",
+                          "name": "Text",
+                          "fill": "$0:muted-foreground",
+                          "content": "De App Specialist",
+                          "fontFamily": "$0:font-sans",
+                          "fontSize": 12,
+                          "fontWeight": "500"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "rrQ6L",
+                      "name": "Tab General",
+                      "width": "fill_container",
+                      "height": 30,
+                      "cornerRadius": 6,
+                      "gap": 8,
+                      "padding": [
+                        0,
+                        8
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon",
+                          "id": "f7pac",
+                          "name": "settings",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "settings",
+                          "library": "lucide",
+                          "fill": "$0:muted-foreground"
+                        },
+                        {
+                          "type": "text",
+                          "id": "yWess",
+                          "name": "Text",
+                          "fill": "$0:muted-foreground",
+                          "content": "General",
+                          "fontFamily": "$0:font-sans",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "f51gs",
+                      "name": "Tab Members",
+                      "width": "fill_container",
+                      "height": 30,
+                      "cornerRadius": 6,
+                      "gap": 8,
+                      "padding": [
+                        0,
+                        8
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon",
+                          "id": "g2LSw",
+                          "name": "users",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "users",
+                          "library": "lucide",
+                          "fill": "$0:muted-foreground"
+                        },
+                        {
+                          "type": "text",
+                          "id": "wuQJM",
+                          "name": "Text",
+                          "fill": "$0:muted-foreground",
+                          "content": "Members",
+                          "fontFamily": "$0:font-sans",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "XbkKz",
+                      "name": "Group Issues & workflow",
+                      "width": "fill_container",
+                      "padding": [
+                        12,
+                        8,
+                        4,
+                        8
+                      ],
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "XByoA",
+                          "name": "Text",
+                          "fill": "$0:muted-foreground",
+                          "content": "Issues & workflow",
+                          "fontFamily": "$0:font-sans",
+                          "fontSize": 12,
+                          "fontWeight": "500"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "OkTo6",
+                      "name": "Tab Issue Statuses",
+                      "width": "fill_container",
+                      "height": 30,
+                      "cornerRadius": 6,
+                      "gap": 8,
+                      "padding": [
+                        0,
+                        8
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon",
+                          "id": "lYC5a",
+                          "name": "circle-dot",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "circle-dot",
+                          "library": "lucide",
+                          "fill": "$0:muted-foreground"
+                        },
+                        {
+                          "type": "text",
+                          "id": "Mtpnr",
+                          "name": "Text",
+                          "fill": "$0:muted-foreground",
+                          "content": "Issue Statuses",
+                          "fontFamily": "$0:font-sans",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "Z16ph",
+                      "name": "Tab Wakeups",
+                      "width": "fill_container",
+                      "height": 30,
+                      "cornerRadius": 6,
+                      "gap": 8,
+                      "padding": [
+                        0,
+                        8
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon",
+                          "id": "P5ojy2",
+                          "name": "alarm-clock",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "alarm-clock",
+                          "library": "lucide",
+                          "fill": "$0:muted-foreground"
+                        },
+                        {
+                          "type": "text",
+                          "id": "nUKf0",
+                          "name": "Text",
+                          "fill": "$0:muted-foreground",
+                          "content": "Wakeups",
+                          "fontFamily": "$0:font-sans",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "FJzQQ",
+                      "name": "Tab Questions",
+                      "width": "fill_container",
+                      "height": 30,
+                      "fill": "$0:sidebar-accent",
+                      "cornerRadius": 6,
+                      "gap": 8,
+                      "padding": [
+                        0,
+                        8
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon",
+                          "id": "HOkh4",
+                          "name": "message-circle-question-mark",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "message-circle-question-mark",
+                          "library": "lucide",
+                          "fill": "$0:foreground"
+                        },
+                        {
+                          "type": "text",
+                          "id": "a5fupH",
+                          "name": "Text",
+                          "fill": "$0:foreground",
+                          "content": "Questions",
+                          "fontFamily": "$0:font-sans",
+                          "fontSize": 13,
+                          "fontWeight": "500"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "JmI8j",
+                      "name": "Tab Labels",
+                      "width": "fill_container",
+                      "height": 30,
+                      "cornerRadius": 6,
+                      "gap": 8,
+                      "padding": [
+                        0,
+                        8
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon",
+                          "id": "MpZo3",
+                          "name": "tags",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "tags",
+                          "library": "lucide",
+                          "fill": "$0:muted-foreground"
+                        },
+                        {
+                          "type": "text",
+                          "id": "fNJIO",
+                          "name": "Text",
+                          "fill": "$0:muted-foreground",
+                          "content": "Labels",
+                          "fontFamily": "$0:font-sans",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "jprm7",
+                      "name": "Tab Properties",
+                      "width": "fill_container",
+                      "height": 30,
+                      "cornerRadius": 6,
+                      "gap": 8,
+                      "padding": [
+                        0,
+                        8
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon",
+                          "id": "dP5In",
+                          "name": "list-plus",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "list-plus",
+                          "library": "lucide",
+                          "fill": "$0:muted-foreground"
+                        },
+                        {
+                          "type": "text",
+                          "id": "mAmjX",
+                          "name": "Text",
+                          "fill": "$0:muted-foreground",
+                          "content": "Properties",
+                          "fontFamily": "$0:font-sans",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "mb0FE",
+                      "name": "Tab Quick Actions",
+                      "width": "fill_container",
+                      "height": 30,
+                      "cornerRadius": 6,
+                      "gap": 8,
+                      "padding": [
+                        0,
+                        8
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon",
+                          "id": "RvBt5",
+                          "name": "zap",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "zap",
+                          "library": "lucide",
+                          "fill": "$0:muted-foreground"
+                        },
+                        {
+                          "type": "text",
+                          "id": "ch9z7",
+                          "name": "Text",
+                          "fill": "$0:muted-foreground",
+                          "content": "Quick Actions",
+                          "fontFamily": "$0:font-sans",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "OCcg5",
+                      "name": "Group Connections & extensions",
+                      "width": "fill_container",
+                      "padding": [
+                        12,
+                        8,
+                        4,
+                        8
+                      ],
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "Or82U",
+                          "name": "Text",
+                          "fill": "$0:muted-foreground",
+                          "content": "Connections & extensions",
+                          "fontFamily": "$0:font-sans",
+                          "fontSize": 12,
+                          "fontWeight": "500"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "WLqzQ",
+                      "name": "Tab Code",
+                      "width": "fill_container",
+                      "height": 30,
+                      "cornerRadius": 6,
+                      "gap": 8,
+                      "padding": [
+                        0,
+                        8
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon",
+                          "id": "gz6XM",
+                          "name": "folder-git-2",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "folder-git-2",
+                          "library": "lucide",
+                          "fill": "$0:muted-foreground"
+                        },
+                        {
+                          "type": "text",
+                          "id": "B4K5c",
+                          "name": "Text",
+                          "fill": "$0:muted-foreground",
+                          "content": "Code",
+                          "fontFamily": "$0:font-sans",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "PHUOi",
+                      "name": "Tab Channels",
+                      "width": "fill_container",
+                      "height": 30,
+                      "cornerRadius": 6,
+                      "gap": 8,
+                      "padding": [
+                        0,
+                        8
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon",
+                          "id": "p5LKxw",
+                          "name": "messages-square",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "messages-square",
+                          "library": "lucide",
+                          "fill": "$0:muted-foreground"
+                        },
+                        {
+                          "type": "text",
+                          "id": "iPbsg",
+                          "name": "Text",
+                          "fill": "$0:muted-foreground",
+                          "content": "Channels",
+                          "fontFamily": "$0:font-sans",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "G5Mb2b",
+                      "name": "Tab MCP servers",
+                      "width": "fill_container",
+                      "height": 30,
+                      "cornerRadius": 6,
+                      "gap": 8,
+                      "padding": [
+                        0,
+                        8
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon",
+                          "id": "Nbwxw",
+                          "name": "server",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "server",
+                          "library": "lucide",
+                          "fill": "$0:muted-foreground"
+                        },
+                        {
+                          "type": "text",
+                          "id": "xtMoR",
+                          "name": "Text",
+                          "fill": "$0:muted-foreground",
+                          "content": "MCP servers",
+                          "fontFamily": "$0:font-sans",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "olq0p",
+                  "name": "Content",
+                  "width": "fill_container",
+                  "height": "fill_container",
+                  "layout": "vertical",
+                  "gap": 28,
+                  "padding": [
+                    40,
+                    64
+                  ],
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "p327wH",
+                      "name": "Tab head",
+                      "width": 720,
+                      "layout": "vertical",
+                      "gap": 6,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "BprDR",
+                          "name": "Text",
+                          "fill": "$0:foreground",
+                          "content": "Questions",
+                          "fontFamily": "$0:font-sans",
+                          "fontSize": 20,
+                          "fontWeight": "600"
+                        },
+                        {
+                          "type": "text",
+                          "id": "m0am5j",
+                          "name": "Text",
+                          "fill": "$0:muted-foreground",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "The default for every issue. Each issue can change it in its properties.",
+                          "lineHeight": 1.5,
+                          "fontFamily": "$0:font-sans",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "gRkGK",
+                      "name": "Section Agents ask",
+                      "width": 720,
+                      "layout": "vertical",
+                      "gap": 10,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "m5eFL",
+                          "name": "Section head",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 4,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "NqCZY",
+                              "name": "Text",
+                              "fill": "$0:foreground",
+                              "content": "Agents can ask questions",
+                              "fontFamily": "$0:font-sans",
+                              "fontSize": 14,
+                              "fontWeight": "600"
+                            },
+                            {
+                              "type": "text",
+                              "id": "I2GM6E",
+                              "name": "Text",
+                              "fill": "$0:muted-foreground",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "An agent asks the people on an issue and ends its run. It is woken again only when someone chooses to wake it.",
+                              "lineHeight": 1.5,
+                              "fontFamily": "$0:font-sans",
+                              "fontSize": 13,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "d48Se",
+                          "name": "Card",
+                          "width": "fill_container",
+                          "fill": "$0:surface",
+                          "cornerRadius": 10,
+                          "stroke": "$0:border",
+                          "strokeWidth": 1,
+                          "layout": "vertical",
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "rLe4x",
+                              "name": "Row On by default",
+                              "width": "fill_container",
+                              "stroke": "$0:border",
+                              "strokeWidth": {
+                                "bottom": 1
+                              },
+                              "gap": 16,
+                              "padding": [
+                                14,
+                                16
+                              ],
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "EVQKz",
+                                  "name": "Label",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 2,
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "IHWbX",
+                                      "name": "Text",
+                                      "fill": "$0:foreground",
+                                      "content": "On by default",
+                                      "fontFamily": "$0:font-sans",
+                                      "fontSize": 14,
+                                      "fontWeight": "500"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "eZuLX",
+                                      "name": "Text",
+                                      "fill": "$0:muted-foreground",
+                                      "content": "3 open issues have their own setting and ignore this default.",
+                                      "fontFamily": "$0:font-sans",
+                                      "fontSize": 12,
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "id": "LUgsb",
+                                  "type": "ref",
+                                  "ref": "0:WhS4l",
+                                  "name": "Switch",
+                                  "fill": "$0:primary",
+                                  "justifyContent": "end"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "D9CqoO",
+                              "name": "Brief preview",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 8,
+                              "padding": [
+                                14,
+                                16
+                              ],
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "x8H9s",
+                                  "name": "Text",
+                                  "fill": "$0:foreground",
+                                  "content": "What agents get while questions are on",
+                                  "fontFamily": "$0:font-sans",
+                                  "fontSize": 14,
+                                  "fontWeight": "500"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "rgg4v",
+                                  "name": "Brief box",
+                                  "width": "fill_container",
+                                  "fill": "$0:muted",
+                                  "cornerRadius": 6,
+                                  "layout": "vertical",
+                                  "gap": 6,
+                                  "padding": [
+                                    10,
+                                    12
+                                  ],
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "iXMmP",
+                                      "name": "Text",
+                                      "fill": "$0:muted-foreground",
+                                      "content": "## Questions",
+                                      "fontFamily": "$0:font-mono",
+                                      "fontSize": 12,
+                                      "fontWeight": "600"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "LntaO",
+                                      "name": "Text",
+                                      "fill": "$0:muted-foreground",
+                                      "textGrowth": "fixed-width",
+                                      "width": "fill_container",
+                                      "content": "You may ask the people on this issue a question when you cannot go on without their answer. Only people answer.",
+                                      "lineHeight": 1.5,
+                                      "fontFamily": "$0:font-mono",
+                                      "fontSize": 12,
+                                      "fontWeight": "normal"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "uztJr",
+                                      "name": "Text",
+                                      "fill": "$0:muted-foreground",
+                                      "textGrowth": "fixed-width",
+                                      "width": "fill_container",
+                                      "content": "Ask with `multica question ask`, then end your run. An answer does not wake you; a person wakes you, and that run starts with every answer given since.",
+                                      "lineHeight": 1.5,
+                                      "fontFamily": "$0:font-mono",
+                                      "fontSize": 12,
+                                      "fontWeight": "normal"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "NgPRZ",
+                                      "name": "Text",
+                                      "fill": "$0:muted-foreground",
+                                      "textGrowth": "fixed-width",
+                                      "width": "fill_container",
+                                      "content": "`multica question ask --help` lists the answer types and options.",
+                                      "lineHeight": 1.5,
+                                      "fontFamily": "$0:font-mono",
+                                      "fontSize": 12,
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "HKbxR",
+                                  "name": "Text",
+                                  "fill": "$0:muted-foreground",
+                                  "textGrowth": "fixed-width",
+                                  "width": "fill_container",
+                                  "content": "While questions are off, agents get none of this, and `multica question` is not in their CLI help.",
+                                  "lineHeight": 1.5,
+                                  "fontFamily": "$0:font-sans",
+                                  "fontSize": 12,
+                                  "fontWeight": "normal"
                                 }
                               ]
                             }
