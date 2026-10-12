@@ -1494,6 +1494,9 @@ func (h *Handler) CreateAgent(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusForbidden, "this runtime is private; only its owner can create agents on it")
 		return
 	}
+	if len(instructionSelection) > 0 && !h.requireRuntimeOwner(w, r, runtime.ID, ownerID) {
+		return
+	}
 
 	// thinking_level validation: fixed-enum providers reject unknown literals;
 	// dynamic-catalog providers (Codex/OpenCode) reject malformed tokens here.
@@ -1919,6 +1922,25 @@ func (h *Handler) canManageAgent(w http.ResponseWriter, r *http.Request, agent d
 	return true
 }
 
+func (h *Handler) requireRuntimeOwner(w http.ResponseWriter, r *http.Request, runtimeID pgtype.UUID, userID string) bool {
+	if !runtimeID.Valid {
+		writeError(w, http.StatusForbidden, "only the runtime owner can change instruction_selection")
+		return false
+	}
+	runtime, err := h.Queries.GetAgentRuntime(r.Context(), runtimeID)
+	if err != nil {
+		slog.Warn("failed to load runtime for instruction_selection owner check",
+			append(logger.RequestAttrs(r), "runtime_id", uuidToString(runtimeID), "error", err)...)
+		writeError(w, http.StatusInternalServerError, "failed to load runtime")
+		return false
+	}
+	if !runtime.OwnerID.Valid || uuidToString(runtime.OwnerID) != userID {
+		writeError(w, http.StatusForbidden, "only the runtime owner can change instruction_selection")
+		return false
+	}
+	return true
+}
+
 func (h *Handler) UpdateAgent(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	existing, ok := h.loadAgentForUser(w, r, id)
@@ -1973,6 +1995,10 @@ func (h *Handler) UpdateAgent(w http.ResponseWriter, r *http.Request) {
 		instructionSelection, err := normaliseInstructionSelection(paths)
 		if err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		if !slices.Equal(instructionSelection, decodeInstructionSelection(existing.InstructionSelection)) &&
+			!h.requireRuntimeOwner(w, r, existing.RuntimeID, requestUserID(r)) {
 			return
 		}
 		encoded, _ := json.Marshal(instructionSelection)
