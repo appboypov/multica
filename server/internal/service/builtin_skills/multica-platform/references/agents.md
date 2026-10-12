@@ -190,9 +190,11 @@ still fails closed because the effective config.toml model is unknown;
 The HTTP API accepts an ordered array of absolute paths on the agent's runtime
 machine. Omitting it on create defaults to `[]`; omitting it on update preserves
 the stored selection, and `[]` clears it. Paths are trimmed; empty and relative
-paths return 400. Only the runtime's owner may create a non-empty selection or
-change it; other callers receive 403. An allowed member may read the paths and
-save an unchanged selection alongside edited instructions.
+paths return 400. Only the runtime's owner may create a non-empty selection,
+change it, or move an agent with a non-empty selection onto their runtime; the
+owner checked is that of the runtime the agent runs on after the request, and
+other callers receive 403. An allowed member may read the paths and save an
+unchanged selection alongside edited instructions.
 
 At every task start, the daemon replaces every `{selection}` in `instructions`
 with the selected folders' trees and text files, read from disk at that moment.

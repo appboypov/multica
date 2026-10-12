@@ -1963,6 +1963,8 @@ func (h *Handler) UpdateAgent(w http.ResponseWriter, r *http.Request) {
 	if req.Instructions != nil {
 		params.Instructions = pgtype.Text{String: *req.Instructions, Valid: true}
 	}
+	selection := decodeInstructionSelection(existing.InstructionSelection)
+	selectionChanged := false
 	if _, present := rawFields["instruction_selection"]; present {
 		var paths []string
 		if req.InstructionSelection != nil {
@@ -1973,10 +1975,8 @@ func (h *Handler) UpdateAgent(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		if !slices.Equal(instructionSelection, decodeInstructionSelection(existing.InstructionSelection)) &&
-			!h.requireRuntimeOwner(w, r, existing.RuntimeID, requestUserID(r)) {
-			return
-		}
+		selectionChanged = !slices.Equal(instructionSelection, selection)
+		selection = instructionSelection
 		encoded, _ := json.Marshal(instructionSelection)
 		params.InstructionSelection = encoded
 	}
@@ -2049,6 +2049,14 @@ func (h *Handler) UpdateAgent(w http.ResponseWriter, r *http.Request) {
 		params.RuntimeMode = pgtype.Text{String: runtime.RuntimeMode, Valid: true}
 		targetRuntimeID = runtime.ID
 		targetProvider = runtime.Provider
+	}
+	// The selection names paths on the runtime machine, so changing it, or
+	// moving an agent that has one onto another runtime, is for the owner of
+	// the runtime the agent runs on after this update.
+	moved := targetRuntimeID != existing.RuntimeID
+	if (selectionChanged || (moved && len(selection) > 0)) &&
+		!h.requireRuntimeOwner(w, r, targetRuntimeID, requestUserID(r)) {
+		return
 	}
 	// Invocation permission (MUL-3963). OWNER-ONLY write: access is the one
 	// agent property a workspace admin may NOT change (only the owner decides

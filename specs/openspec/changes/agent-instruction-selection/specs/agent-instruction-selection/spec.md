@@ -38,7 +38,7 @@ The server MUST NOT read any file of a selection and MUST NOT store any content 
 
 ### Requirement: Only the runtime's owner changes a selection
 
-Only the owner of an agent's runtime SHALL create an agent with a selection or change an agent's selection; the API SHALL reject anyone else's request that sets or changes it with 403, and SHALL return the selection to everyone who may see the agent.
+Only the owner of an agent's runtime SHALL create an agent with a selection, change an agent's selection, or move an agent that has a selection onto a runtime; the owner is that of the runtime the agent runs on after the request. The API SHALL reject anyone else's request that sets or changes it, or moves such an agent, with 403, and SHALL return the selection to everyone who may see the agent.
 
 #### Scenario: The runtime's owner changes the selection
 
@@ -57,6 +57,13 @@ Only the owner of an agent's runtime SHALL create an agent with a selection or c
 - **GIVEN** an agent on a public runtime Brian owns, with one selected path, which another workspace member may edit
 - **WHEN** that member sends an update that changes the instructions and sends `instruction_selection` unchanged
 - **THEN** the update succeeds
+
+#### Scenario: Another member moves an agent with a selection onto Brian's runtime
+
+- **GIVEN** a member's agent on the member's own runtime, with a selected path
+- **WHEN** that member moves the agent onto a public runtime Brian owns
+- **THEN** the API rejects it with 403 and the agent stays on the member's runtime
+- **AND** the same move succeeds when the agent's selection is empty
 
 #### Scenario: Another member reads the selection
 

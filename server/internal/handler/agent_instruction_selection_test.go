@@ -269,6 +269,54 @@ func TestAgentInstructionSelectionRuntimeOwnerGate(t *testing.T) {
 	}
 }
 
+func TestAgentInstructionSelectionRuntimeMoveGate(t *testing.T) {
+	if testHandler == nil || testPool == nil {
+		t.Skip("database not available")
+	}
+
+	memberID := dbfx.User(t, "Selection mover", t.Name()+"@multica.test")
+	dbfx.Member(t, testWorkspaceID, memberID, "member")
+	memberRuntimeID := dbfx.Runtime(t, t.Name()+" member", testutil.Cols{"owner_id": memberID})
+	brianRuntimeID := dbfx.Runtime(t, t.Name()+" brian", testutil.Cols{"visibility": "public"})
+	agentID := dbfx.Agent(t, t.Name(), memberRuntimeID, testutil.Cols{"owner_id": memberID})
+	move := func(userID, runtimeID string, status int) {
+		testutil.Call(t, testHandler.UpdateAgent, withURLParam(
+			newRequestAs(userID, http.MethodPut, "/api/agents/"+agentID, map[string]any{"runtime_id": runtimeID}), "id", agentID,
+		)).Want(status)
+	}
+	storedRuntime := func() string {
+		var runtimeID string
+		dbfx.QueryRow(t, `SELECT runtime_id::text FROM agent WHERE id = $1`, agentID).Scan(&runtimeID)
+		return runtimeID
+	}
+
+	// Without a selection, the move is not gated.
+	move(memberID, brianRuntimeID, http.StatusOK)
+	move(memberID, memberRuntimeID, http.StatusOK)
+
+	testutil.Call(t, testHandler.UpdateAgent, withURLParam(
+		newRequestAs(memberID, http.MethodPut, "/api/agents/"+agentID, map[string]any{"instruction_selection": []string{"/Users/member/.ssh/id_ed25519"}}), "id", agentID,
+	)).Want(http.StatusOK)
+
+	var denied map[string]string
+	testutil.Call(t, testHandler.UpdateAgent, withURLParam(
+		newRequestAs(memberID, http.MethodPut, "/api/agents/"+agentID, map[string]any{"runtime_id": brianRuntimeID}), "id", agentID,
+	)).Want(http.StatusForbidden).JSON(&denied)
+	if denied["error"] != "only the runtime owner can change instruction_selection" || storedRuntime() != memberRuntimeID {
+		t.Fatalf("move with selection = %#v, runtime = %s", denied, storedRuntime())
+	}
+
+	// Clearing the selection in the same request is a change on the target runtime too.
+	testutil.Call(t, testHandler.UpdateAgent, withURLParam(
+		newRequestAs(memberID, http.MethodPut, "/api/agents/"+agentID, map[string]any{"runtime_id": brianRuntimeID, "instruction_selection": []string{}}), "id", agentID,
+	)).Want(http.StatusForbidden)
+
+	move(testUserID, brianRuntimeID, http.StatusOK)
+	if storedRuntime() != brianRuntimeID {
+		t.Fatalf("runtime owner move left runtime %s", storedRuntime())
+	}
+}
+
 func TestCreateAgentInstructionSelectionRuntimeOwnerGate(t *testing.T) {
 	if testHandler == nil || testPool == nil {
 		t.Skip("database not available")
