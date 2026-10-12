@@ -27,8 +27,8 @@ flowchart LR
 
 ## 1. Storage
 
-- [ ] 1.1 Add `server/migrations/564_agent_instruction_selection.{up,down}.sql`: up `ALTER TABLE agent ADD COLUMN instruction_selection JSONB NOT NULL DEFAULT '[]'::jsonb;`, down `ALTER TABLE agent DROP COLUMN IF EXISTS instruction_selection;`. Verify: `make migrate-up` then `make migrate-down` and `make migrate-up` again in the worktree.
-- [ ] 1.2 Add `server/migrations/565_drop_agent_description_length.{up,down}.sql`: up `ALTER TABLE agent DROP CONSTRAINT IF EXISTS agent_description_length;`, down re-adds `CHECK (char_length(description) <= 255) NOT VALID` without `VALIDATE`. Verify: `make migrate-up`; `\d agent` in the worktree database shows no `agent_description_length`.
+- [x] 1.1 Add `server/migrations/564_agent_instruction_selection.{up,down}.sql`: up `ALTER TABLE agent ADD COLUMN instruction_selection JSONB NOT NULL DEFAULT '[]'::jsonb;`, down `ALTER TABLE agent DROP COLUMN IF EXISTS instruction_selection;`. Verify: `make migrate-up`, then `make migrate-down` rolls back 564 before its expected stop at the pre-existing forward-only migration 494 (SQLSTATE P0001), then `make migrate-up` reapplies it cleanly in the disposable worktree database, using `ENV_FILE=.env.worktree`.
+- [ ] 1.2 Add `server/migrations/565_drop_agent_description_length.{up,down}.sql`: up `ALTER TABLE agent DROP CONSTRAINT IF EXISTS agent_description_length;`, down re-adds `CHECK (char_length(description) <= 255) NOT VALID` without `VALIDATE`. Verify: `make migrate-up`, then `make migrate-down` rolls back 565 and 564 before its expected stop at migration 494 (SQLSTATE P0001), then `make migrate-up` reapplies them cleanly, using `ENV_FILE=.env.worktree`; `\d agent` in the worktree database shows no `agent_description_length`.
 - [ ] 1.3 In `server/pkg/db/queries/agent.sql`, add `instruction_selection` to `CreateAgent` as `COALESCE(sqlc.narg('instruction_selection')::jsonb, '[]'::jsonb)` and to `UpdateAgent` as `instruction_selection = COALESCE(sqlc.narg('instruction_selection'), instruction_selection)`; run `make sqlc`. Verify: `db.Agent.InstructionSelection` exists and `cd server && go build ./...` passes.
 
 ## 2. Agent API
@@ -74,6 +74,8 @@ flowchart LR
 - Build groups 1 to 7 in order; the change `agent-instruction-selection-field` starts once group 4 is in place, on the same branch.
 - Default tests must not run real agent CLIs; the daemon tests use temp folders and fake executables.
 - Squad descriptions have no server-side limit; nothing to keep there.
+- Group 1 storage: added `server/migrations/564_agent_instruction_selection.up.sql` and `.down.sql`, with the JSONB default and column drop specified in Decision 1. Joeri approved the full rollback check on the disposable worktree database `multica_agent_instruction_selection_748`.
+- Task 1.1 verification: `make migrate-up ENV_FILE=.env.worktree` applied migration 564; `make migrate-down ENV_FILE=.env.worktree` removed migrations 564 through 495, then stopped at the existing forward-only `494_issue_status_category_read_contract.down.sql` (`MUL-7365 is forward-only; apply a corrective migration`, SQLSTATE P0001). Joeri approved treating the change's successful rollback and clean reapplication as the pass, without changing migration 494. The subsequent `make migrate-up ENV_FILE=.env.worktree` succeeded and restored the fully migrated database; task Verify wording reflects this decision.
 
 ## Plan Change Log
 
