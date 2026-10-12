@@ -237,6 +237,8 @@ export const MulticaSteerAllWorkPrototype = () => {
       description,
       created: true,
     };
+    // An issue made in the Board's Done column is done from the start, so its release can show when it shipped.
+    if (issue.status === 'done') setDoneOn((m) => ({ ...m, [id]: Date.now() }));
     // A worklane holds its issue in the chosen release, or in its backlog until a release is planned for it.
     if (d.lane) {
       const lane = d.lane.lane;
