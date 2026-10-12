@@ -78,7 +78,7 @@ MARKER = "MADSPEC_PERSONA"
 KEEP_ENV = "****"
 # omp's thinking levels.
 THINKING_LEVELS = {"off", "minimal", "low", "medium", "high", "xhigh", "max"}
-AGENT_FIELDS = ("name", "description", "instructions", "model", "thinking_level", "custom_args")
+AGENT_FIELDS = ("name", "description", "instructions", "instruction_selection", "model", "thinking_level", "custom_args")
 OPEN_TO_WORKSPACE = {"visibility": "workspace", "permission_mode": "public_to", "invocation_targets": [{"target_type": "workspace"}]}
 
 
@@ -91,6 +91,7 @@ class Persona:
     name: str
     description: str
     instructions: str
+    instruction_selection: list[str]
     model: str
     thinking_level: str
     custom_args: list[str]
@@ -216,8 +217,9 @@ def read_persona(found: dict, tree: Path, checkout: Path) -> Persona:
         skill=skill,
         name=found["name"],
         description=f"Runs the {skill} skill.",
-        instructions=f"{{skill-root}} is {skill_root}. Your instructions are the {skill} skill: "
-        f"read {skill_root / 'SKILL.md'} in full before anything else, and follow it.",
+        instructions=f"`{{skill-root}}` is {skill_root}. Your instructions are the {skill} skill below; follow it.\n\n"
+        "{selection}",
+        instruction_selection=[str(skill_root)],
         model=model,
         thinking_level=thinking_level,
         custom_args=arguments(found["skills"], fallback),
