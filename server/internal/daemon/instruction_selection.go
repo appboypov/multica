@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -58,7 +59,12 @@ func readInstructionSelection(ctx context.Context, paths []string) (*instruction
 			return nil, err
 		}
 		if info.IsDir() {
-			lines, err := r.walk(ctx, path, real, selectionGitFiles(ctx, real), 1)
+			allowed := selectionGitFiles(ctx, real)
+			if selectionRootIgnored(ctx, real) {
+				// A folder selected by hand is read even when git ignores it.
+				allowed = nil
+			}
+			lines, err := r.walk(ctx, path, real, allowed, 1)
 			if err != nil {
 				return nil, err
 			}
@@ -82,6 +88,9 @@ func resolveSelectionPath(path string) (string, os.FileInfo, error) {
 	return real, info, nil
 }
 
+// selectionGitFiles returns the real paths under root that git does not ignore,
+// with every folder above them up to the repository root, or nil when root is
+// outside a git repository.
 func selectionGitFiles(ctx context.Context, root string) map[string]struct{} {
 	top, err := runGitCommandContext(ctx, root, 30*time.Second, "rev-parse", "--show-toplevel")
 	if err != nil {
@@ -93,11 +102,21 @@ func selectionGitFiles(ctx context.Context, root string) map[string]struct{} {
 	}
 	allowed := make(map[string]struct{})
 	for _, name := range strings.Split(out, "\x00") {
-		if name != "" {
-			allowed[filepath.Join(top, name)] = struct{}{}
+		if name == "" {
+			continue
+		}
+		file := filepath.Join(top, name)
+		allowed[file] = struct{}{}
+		for dir := filepath.Dir(file); len(dir) > len(top); dir = filepath.Dir(dir) {
+			allowed[dir] = struct{}{}
 		}
 	}
 	return allowed
+}
+
+func selectionRootIgnored(ctx context.Context, root string) bool {
+	_, err := runGitCommandContext(ctx, root, 30*time.Second, "check-ignore", "-q", ".")
+	return err == nil
 }
 
 func (r *instructionSelectionReader) walk(ctx context.Context, path, real string, allowed map[string]struct{}, depth int) ([]string, error) {
@@ -113,6 +132,11 @@ func (r *instructionSelectionReader) walk(ctx context.Context, path, real string
 	for _, entry := range entries {
 		if strings.HasPrefix(entry.Name(), ".") {
 			continue
+		}
+		if allowed != nil {
+			if _, ok := allowed[filepath.Join(real, entry.Name())]; !ok {
+				continue
+			}
 		}
 		child := filepath.Join(path, entry.Name())
 		childReal, info, err := resolveSelectionPath(filepath.Join(real, entry.Name()))
@@ -139,11 +163,6 @@ func (r *instructionSelectionReader) walk(ctx context.Context, path, real string
 			}
 			continue
 		}
-		if allowed != nil {
-			if _, ok := allowed[filepath.Join(real, entry.Name())]; !ok {
-				continue
-			}
-		}
 		included, err := r.readFile(child, childReal, false)
 		if err != nil {
 			return nil, err
@@ -159,18 +178,28 @@ func (r *instructionSelectionReader) readFile(path, real string, selected bool) 
 	if _, ok := r.seen[real]; ok {
 		return false, nil
 	}
-	content, err := os.ReadFile(real)
+	file, err := os.Open(real)
 	if err != nil {
 		return false, selectionReadError(path, err)
 	}
-	if bytes.IndexByte(content[:min(len(content), 8*1024)], 0) >= 0 {
+	defer file.Close()
+	head := make([]byte, 8*1024)
+	n, err := io.ReadFull(file, head)
+	if err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, io.ErrUnexpectedEOF) {
+		return false, selectionReadError(path, err)
+	}
+	if bytes.IndexByte(head[:n], 0) >= 0 {
 		if selected {
 			return false, &instructionSelectionError{path: path, cause: "not a text file"}
 		}
 		return false, nil
 	}
+	rest, err := io.ReadAll(file)
+	if err != nil {
+		return false, selectionReadError(path, err)
+	}
 	r.seen[real] = struct{}{}
-	r.files = append(r.files, instructionSelectionFile{path: path, content: content})
+	r.files = append(r.files, instructionSelectionFile{path: path, content: append(head[:n], rest...)})
 	return true, nil
 }
 

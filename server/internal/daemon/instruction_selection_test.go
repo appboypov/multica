@@ -31,7 +31,7 @@ func selectionTestLink(t *testing.T, target, path string) {
 }
 
 func TestInstructionSelectionReader(t *testing.T) {
-	for _, scenario := range []string{"hidden and binary", "git ignored and untracked", "outside git", "explicit hidden and ignored", "links and loop", "duplicates", "empty folder", "binary boundary"} {
+	for _, scenario := range []string{"hidden and binary", "git ignored and untracked", "ignored folder not walked", "ignored folder selected by hand", "outside git", "explicit hidden and ignored", "links and loop", "duplicates", "empty folder", "binary boundary"} {
 		t.Run(scenario, func(t *testing.T) {
 			root := t.TempDir()
 			var paths, want []string
@@ -58,6 +58,21 @@ func TestInstructionSelectionReader(t *testing.T) {
 				for _, name := range []string{" leading.md", "SKILL.md", "notes.md", "tracked.md"} {
 					want = append(want, filepath.Join(root, name))
 				}
+			case "ignored folder not walked":
+				if out, err := exec.Command("git", "-C", root, "init", "-q").CombinedOutput(); err != nil {
+					t.Fatalf("git init: %s: %v", out, err)
+				}
+				selectionTestFile(t, root, ".gitignore", "node_modules/\n")
+				selectionTestFile(t, root, "node_modules/pkg/index.md", "ignored")
+				selectionTestLink(t, filepath.Join(root, "missing"), filepath.Join(root, "node_modules/pkg/dangling"))
+				paths, want = []string{root}, []string{selectionTestFile(t, root, "SKILL.md", "skill")}
+			case "ignored folder selected by hand":
+				if out, err := exec.Command("git", "-C", root, "init", "-q").CombinedOutput(); err != nil {
+					t.Fatalf("git init: %s: %v", out, err)
+				}
+				selectionTestFile(t, root, ".gitignore", "out/\n")
+				want = []string{selectionTestFile(t, root, "out/a.md", "a"), selectionTestFile(t, root, "out/sub/b.md", "b")}
+				paths = []string{filepath.Join(root, "out")}
 			case "outside git":
 				selectionTestFile(t, root, ".gitignore", "draft.md\n")
 				want = []string{selectionTestFile(t, root, "draft.md", "draft")}
