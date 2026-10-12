@@ -57,12 +57,16 @@ describe("stored agent draft", () => {
     expect(fromStoredAgentDraft(stored, "runtime-1").instructionSelection).toEqual([]);
   });
 
-  it.each([null, "/skills/reviewer", ["/skills/reviewer", 3]])(
-    "falls back to an empty selection for malformed stored paths %j",
-    (instructionSelection) => {
+  it.each([
+    { selection: null },
+    { selection: "/skills/reviewer" },
+    { selection: ["/skills/reviewer", 3] },
+  ])(
+    "falls back to an empty selection for malformed stored paths $selection",
+    ({ selection }) => {
       const parsed = StoredAgentDraftSchema.parse({
         ...toStoredAgentDraft(draft(), null),
-        instruction_selection: instructionSelection,
+        instruction_selection: selection,
       });
 
       expect(parsed.instruction_selection).toEqual([]);
