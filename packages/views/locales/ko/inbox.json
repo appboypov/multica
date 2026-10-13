@@ -57,6 +57,11 @@
     "archive": "보관",
     "unarchive": "보관 해제"
   },
+  "question_pane": {
+    "open_on": "{{identifier}}에서 열기",
+    "answered_on_issue": "{{type}} 질문은 해당 태스크에서 답변합니다.",
+    "unavailable": "이 질문을 여기에 표시할 수 없습니다."
+  },
   "types": {
     "issue_assigned": "할당됨",
     "issue_subscribed": "구독됨",

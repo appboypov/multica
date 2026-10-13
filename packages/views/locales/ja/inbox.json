@@ -57,6 +57,11 @@
     "archive": "アーカイブ",
     "unarchive": "アーカイブ解除"
   },
+  "question_pane": {
+    "open_on": "{{identifier}} で開く",
+    "answered_on_issue": "{{type}}の質問はタスク上で回答します。",
+    "unavailable": "この質問はここに表示できません。"
+  },
   "types": {
     "issue_assigned": "割り当て済み",
     "issue_subscribed": "購読済み",

@@ -66,7 +66,7 @@ import {
   ListChecks,
   ArrowLeft,
 } from "lucide-react";
-import type { InboxItem } from "@multica/core/types";
+import type { InboxItem, InboxItemType } from "@multica/core/types";
 import { Button } from "@multica/ui/components/ui/button";
 import {
   ResizablePanelGroup,
@@ -91,6 +91,7 @@ import { InboxFilterMenu } from "./inbox-filter-menu";
 import { InboxContextMenuProvider } from "./inbox-context-menu";
 import { ARCHIVED_VIEW_PARAM, type InboxView } from "./inbox-view";
 import { useTypeLabels } from "./inbox-detail-label";
+import { InboxQuestionPane } from "./inbox-question-pane";
 import {
   getInboxDisplayTitle,
   isAutopilotQuotaNotice,
@@ -104,6 +105,9 @@ import { useIssueLimitUpgradePrompt } from "../../modals/use-issue-limit-upgrade
 const INBOX_LIST_DEFAULT_SIZE = 260;
 const INBOX_LIST_MIN_SIZE = 240;
 const INBOX_LIST_MAX_SIZE = 400;
+
+/** Inbox items about one question; their detail pane is the question's. */
+const QUESTION_ITEM_TYPES: ReadonlySet<InboxItemType> = new Set(["question_asked", "question_reassigned", "question_overdue"]);
 
 export function InboxPage() {
   const { t } = useT("inbox");
@@ -333,7 +337,11 @@ export function InboxPage() {
   // remount. Selection changes don't need it — they remount the detail (key
   // by issue) and a fresh mount with a cleared memento entry lands by itself.
   const [highlightRequestToken, setHighlightRequestToken] = useState(0);
+  // The question item whose issue the reader opened from its pane; any row
+  // click returns a question item to its pane.
+  const [openedQuestionItemId, setOpenedQuestionItemId] = useState<string | null>(null);
   const handleSelect = (item: InboxItem) => {
+    setOpenedQuestionItemId(null);
     const nextKey = item.issue_id ?? item.id;
     // Every click on a notification row is a fresh deep-link intent: clear
     // the "highlight already landed" memento entry so the comment jump runs
@@ -669,6 +677,7 @@ export function InboxPage() {
     </div>
   ) : null;
 
+  const questionId = detailItem && QUESTION_ITEM_TYPES.has(detailItem.type) ? detailItem.details?.question_id ?? undefined : undefined;
   const detailContent = detailItem?.issue_id ? (
     // Key by issue_id (not inbox-item id): a new comment/reaction generates a
     // new inbox notification for the same issue, and the dedup helper picks the
@@ -688,27 +697,53 @@ export function InboxPage() {
         </div>
       ) : undefined}
     >
-      <IssueDetail
-        key={detailItem.issue_id}
-        issueId={detailItem.issue_id}
-        defaultSidebarOpen={false}
-        layoutId="multica_inbox_issue_detail_layout"
-        highlightCommentId={detailItem.details?.comment_id ?? undefined}
-        highlightRequestToken={highlightRequestToken}
-        // The split layout already has a nav trigger in the list header.
-        // Explicit false suppresses the detail header's fallback trigger.
-        leadingAction={compactBackAction ?? false}
-        onDelete={() => {
-          // Issue deletion CASCADE-deletes the inbox item server-side, and the
-          // issue:deleted WS event prunes it from the inbox cache. Just clear
-          // the selection — calling archive here would 404 on a row that no
-          // longer exists.
-          setSelectedKey("");
-        }}
-        onDone={() => {
-          handleArchive(detailItem.id);
-        }}
-      />
+      {questionId && openedQuestionItemId !== detailItem.id ? (
+        <InboxQuestionPane
+          key={detailItem.id}
+          item={detailItem}
+          issueId={detailItem.issue_id}
+          questionId={questionId}
+          leadingAction={compactBackAction}
+          onOpenIssue={() => {
+            writeViewState(issueHighlightMementoKey(detailItem.issue_id!), undefined);
+            setOpenedQuestionItemId(detailItem.id);
+          }}
+          actions={isArchivedView ? (
+            <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => handleUnarchive(detailItem.id)}>
+              <ArchiveRestore className="h-3.5 w-3.5" />
+              {t(($) => $.detail.unarchive)}
+            </Button>
+          ) : (
+            <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => handleArchive(detailItem.id)}>
+              <Archive className="h-3.5 w-3.5" />
+              {t(($) => $.detail.archive)}
+            </Button>
+          )}
+        />
+      ) : (
+        <IssueDetail
+          key={detailItem.issue_id}
+          issueId={detailItem.issue_id}
+          defaultSidebarOpen={false}
+          layoutId="multica_inbox_issue_detail_layout"
+          highlightCommentId={questionId ? undefined : detailItem.details?.comment_id ?? undefined}
+          highlightQuestionId={questionId}
+          highlightRequestToken={highlightRequestToken}
+          // The split layout already has a nav trigger in the list header.
+          // Explicit false suppresses the detail header's fallback trigger.
+          leadingAction={compactBackAction ?? false}
+          onDelete={() => {
+            // Issue deletion CASCADE-deletes the inbox item server-side, and the
+            // issue:deleted WS event prunes it from the inbox cache. Just clear
+            // the selection — calling archive here would 404 on a row that no
+            // longer exists.
+            setSelectedKey("");
+          }}
+          onDone={() => {
+            handleArchive(detailItem.id);
+          }}
+        />
+      )}
     </ErrorBoundary>
   ) : detailItem ? (
     <div className="p-6">

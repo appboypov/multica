@@ -59,6 +59,11 @@
     "archive": "Archive",
     "unarchive": "Unarchive"
   },
+  "question_pane": {
+    "open_on": "Open on {{identifier}}",
+    "answered_on_issue": "{{type}} is answered on its issue.",
+    "unavailable": "This question can't be shown here."
+  },
   "types": {
     "issue_assigned": "Assigned",
     "issue_subscribed": "Subscribed",

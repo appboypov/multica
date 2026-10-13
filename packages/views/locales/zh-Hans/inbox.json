@@ -57,6 +57,11 @@
     "archive": "归档",
     "unarchive": "取消归档"
   },
+  "question_pane": {
+    "open_on": "在 {{identifier}} 中打开",
+    "answered_on_issue": "{{type}}问题需在其任务中回答。",
+    "unavailable": "无法在此显示这个问题。"
+  },
   "types": {
     "issue_assigned": "已分配",
     "issue_subscribed": "已订阅",

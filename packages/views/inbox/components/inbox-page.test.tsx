@@ -124,6 +124,13 @@ vi.mock("../../issues/components/issue-detail", () => ({
   },
   issueHighlightMementoKey: (issueId: string) => `highlight:${issueId}`,
 }));
+vi.mock("./inbox-question-pane", () => ({
+  InboxQuestionPane: ({ questionId, onOpenIssue }: { questionId: string; onOpenIssue: () => void }) => (
+    <button data-testid="question-pane" onClick={onOpenIssue}>
+      {questionId}
+    </button>
+  ),
+}));
 
 const replace = vi.fn();
 let searchParams = new URLSearchParams();
@@ -545,6 +552,24 @@ describe("InboxPage", () => {
 
     fireEvent.click(screen.getByTestId("row"));
     expect(issueDetailProps.at(-1)?.highlightRequestToken).toBe(1);
+  });
+
+  it("shows a question item's pane and opens its issue at the card", () => {
+    reset();
+    layout.width = DESKTOP;
+    listData.active = [item({ type: "question_asked", details: { question_id: "q-1" } })];
+
+    render(<InboxPage />);
+    fireEvent.click(screen.getByTestId("row"));
+    expect(screen.getByTestId("question-pane")).toHaveTextContent("q-1");
+    expect(issueDetailProps).toHaveLength(0);
+
+    fireEvent.click(screen.getByTestId("question-pane"));
+    expect(issueDetailProps.at(-1)).toMatchObject({ issueId: "issue-1", highlightQuestionId: "q-1", highlightCommentId: undefined });
+    expect(screen.queryByTestId("question-pane")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("row"));
+    expect(screen.getByTestId("question-pane")).toBeInTheDocument();
   });
 
   it("keeps the archived view in the URL when selecting an item there", () => {

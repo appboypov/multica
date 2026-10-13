@@ -59,6 +59,11 @@
     "archive": "Archiver",
     "unarchive": "Désarchiver"
   },
+  "question_pane": {
+    "open_on": "Ouvrir sur {{identifier}}",
+    "answered_on_issue": "Une question de type {{type}} se répond sur sa tâche.",
+    "unavailable": "Cette question ne peut pas être affichée ici."
+  },
   "types": {
     "issue_assigned": "Assigné",
     "issue_subscribed": "Abonné",

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { ArrowRight, Calendar, CircleCheck, CirclePause, CircleSlash, ClockAlert, CornerUpLeft, NotebookPen, Pencil, Send, Check } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthStore } from "@multica/core/auth";
@@ -31,6 +31,12 @@ export interface QuestionCardProps {
   issueId: string;
   /** The asking run's place among its agent's runs on the issue, for "asked during run #N". */
   runNumber?: number;
+  /**
+   * Shown on an open card in place of its controls and summary, where the
+   * question is answered somewhere else: the inbox's way to the issue for a
+   * type it does not answer in place.
+   */
+  answerElsewhere?: ReactNode;
 }
 
 /**
@@ -38,7 +44,7 @@ export interface QuestionCardProps {
  * holds its answer type's control for an answerer and a summary for anyone
  * else; once answered, closed or withdrawn it folds to one line.
  */
-export function QuestionCard({ question, issueId, runNumber }: QuestionCardProps) {
+export function QuestionCard({ question, issueId, runNumber, answerElsewhere }: QuestionCardProps) {
   const userId = useAuthStore((s) => s.user?.id);
   const [editing, setEditing] = useState(false);
   const isAnswerer = !!userId && question.answerers.some((a) => a.user_id === userId);
@@ -52,6 +58,7 @@ export function QuestionCard({ question, issueId, runNumber }: QuestionCardProps
       question={question}
       issueId={issueId}
       runNumber={runNumber}
+      answerElsewhere={answerElsewhere}
       isAnswerer={isAnswerer}
       ownAnswer={question.answers.find((a) => a.answerer_user_id === userId) ?? null}
       editing={editing}
@@ -116,6 +123,7 @@ function OpenQuestion({
   question,
   issueId,
   runNumber,
+  answerElsewhere,
   isAnswerer,
   ownAnswer,
   editing,
@@ -124,6 +132,7 @@ function OpenQuestion({
   question: Question;
   issueId: string;
   runNumber?: number;
+  answerElsewhere?: ReactNode;
   isAnswerer: boolean;
   ownAnswer: QuestionAnswer<unknown> | null;
   editing: boolean;
@@ -174,7 +183,7 @@ function OpenQuestion({
 
       <QuestionHistory events={question.events} />
 
-      {controls ? (
+      {answerElsewhere ?? (controls ? (
         <AnswerForm
           key={editing ? "editing" : "open"}
           question={answerable}
@@ -191,7 +200,7 @@ function OpenQuestion({
           )}
           <WaitingFooter question={question} />
         </>
-      )}
+      ))}
     </div>
   );
 }
