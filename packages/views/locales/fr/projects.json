@@ -22,18 +22,10 @@
   "table": {
     "name": "Nom",
     "priority": "Priorité",
-    "status": "Statut",
     "progress": "Avancement",
     "lead": "Responsable",
     "created": "Création",
     "issues": "Tâches"
-  },
-  "status": {
-    "planned": "Planifié",
-    "in_progress": "En cours",
-    "paused": "En pause",
-    "completed": "Terminé",
-    "cancelled": "Annulé"
   },
   "priority": {
     "urgent": "Urgente",
@@ -68,10 +60,6 @@
     "section_properties": "Propriétés",
     "section_progress": "Avancement",
     "section_description": "Description",
-    "prop_start_date": "Date de début",
-    "prop_due_date": "Date d'échéance",
-    "no_start_date": "Aucune date de début",
-    "no_due_date": "Aucune date d'échéance",
     "description_placeholder": "Ajouter une description...",
     "description_hint": "Partagé avec les agents comme contexte à chaque exécution dans ce projet.",
     "empty_issues_title": "Aucune tâche liée",
@@ -183,7 +171,6 @@
     "filter_active_count_one": "{{count}} filtre",
     "filter_active_count_other": "{{count}} filtres",
     "clear_filters": "Effacer les filtres",
-    "section_status": "Statut",
     "section_priority": "Priorité",
     "section_lead": "Responsable",
     "display": "Affichage",

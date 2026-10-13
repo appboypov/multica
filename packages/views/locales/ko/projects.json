@@ -21,18 +21,10 @@
   "table": {
     "name": "이름",
     "priority": "우선순위",
-    "status": "상태",
     "progress": "진행률",
     "lead": "리드",
     "created": "생성일",
     "issues": "태스크 수"
-  },
-  "status": {
-    "planned": "계획됨",
-    "in_progress": "진행 중",
-    "paused": "일시 중지",
-    "completed": "완료됨",
-    "cancelled": "취소됨"
   },
   "priority": {
     "urgent": "긴급",
@@ -67,10 +59,6 @@
     "section_properties": "속성",
     "section_progress": "진행률",
     "section_description": "설명",
-    "prop_start_date": "시작일",
-    "prop_due_date": "마감일",
-    "no_start_date": "시작일 없음",
-    "no_due_date": "마감일 없음",
     "description_placeholder": "설명 추가...",
     "description_hint": "이 프로젝트의 모든 실행에서 컨텍스트로 에이전트에게 공유됩니다.",
     "empty_issues_title": "연결된 태스크가 없습니다",
@@ -180,7 +168,6 @@
     "filter_label": "필터",
     "filter_active_count_other": "필터 {{count}}개",
     "clear_filters": "필터 지우기",
-    "section_status": "상태",
     "section_priority": "우선순위",
     "section_lead": "리드",
     "display": "표시",

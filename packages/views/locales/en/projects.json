@@ -22,18 +22,10 @@
   "table": {
     "name": "Name",
     "priority": "Priority",
-    "status": "Status",
     "progress": "Progress",
     "lead": "Lead",
     "created": "Created",
     "issues": "Issues"
-  },
-  "status": {
-    "planned": "Planned",
-    "in_progress": "In Progress",
-    "paused": "Paused",
-    "completed": "Completed",
-    "cancelled": "Cancelled"
   },
   "priority": {
     "urgent": "Urgent",
@@ -68,10 +60,6 @@
     "section_properties": "Properties",
     "section_progress": "Progress",
     "section_description": "Description",
-    "prop_start_date": "Start date",
-    "prop_due_date": "Due date",
-    "no_start_date": "No start date",
-    "no_due_date": "No due date",
     "description_placeholder": "Add description...",
     "description_hint": "Shared with agents as context for every run in this project.",
     "empty_issues_title": "No issues linked",
@@ -183,7 +171,6 @@
     "filter_active_count_one": "{{count}} filter",
     "filter_active_count_other": "{{count}} filters",
     "clear_filters": "Clear filters",
-    "section_status": "Status",
     "section_priority": "Priority",
     "section_lead": "Lead",
     "display": "Display",

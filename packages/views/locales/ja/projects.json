@@ -21,18 +21,10 @@
   "table": {
     "name": "名前",
     "priority": "優先度",
-    "status": "ステータス",
     "progress": "進捗",
     "lead": "リード",
     "created": "作成日",
     "issues": "タスク数"
-  },
-  "status": {
-    "planned": "計画中",
-    "in_progress": "進行中",
-    "paused": "一時停止",
-    "completed": "完了",
-    "cancelled": "キャンセル"
   },
   "priority": {
     "urgent": "緊急",
@@ -67,10 +59,6 @@
     "section_properties": "プロパティ",
     "section_progress": "進捗",
     "section_description": "説明",
-    "prop_start_date": "開始日",
-    "prop_due_date": "期限",
-    "no_start_date": "開始日なし",
-    "no_due_date": "期限なし",
     "description_placeholder": "説明を追加...",
     "description_hint": "このプロジェクトのすべての実行で、コンテキストとしてエージェントに共有されます。",
     "empty_issues_title": "リンクされたタスクはありません",
@@ -180,7 +168,6 @@
     "filter_label": "フィルター",
     "filter_active_count_other": "{{count}} 件のフィルター",
     "clear_filters": "フィルターをクリア",
-    "section_status": "ステータス",
     "section_priority": "優先度",
     "section_lead": "リード",
     "display": "表示",
