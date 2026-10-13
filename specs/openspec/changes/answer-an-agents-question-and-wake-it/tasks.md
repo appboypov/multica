@@ -68,9 +68,9 @@ flowchart LR
 
 ## 6. J6 Screens: screen design
 
-- [ ] 6.1 `designs/screens/issue-questions.pen` -- this journey's screens from appboypov/multica#6: 1 issue with a question for you (card, run row, Questions row), 3 the 12 answer types, 6 answered with Wake, and the inbox item with an inline answer; without screens 2a and 2b, the composer Question toggle and the `question_answered` item -- the specs name these screens and Brian's answers removed the others.
-- [ ] 6.2 `designs/screens/issue-questions.md` -- the UX spec of these screens with its At a glance flowchart, each arrow naming its action -- J6's contract.
-- [ ] 6.3 `designs/screens/exports/` -- one PNG per screen -- J6's contract.
+- [x] 6.1 `designs/screens/issue-questions.pen` -- this journey's screens from appboypov/multica#6: 1 issue with a question for you (card, run row, Questions row), 3 the 12 answer types, 6 answered with Wake, and the inbox item with an inline answer; without screens 2a and 2b, the composer Question toggle and the `question_answered` item -- the specs name these screens and Brian's answers removed the others.
+- [x] 6.2 `designs/screens/issue-questions.md` -- the UX spec of these screens with its At a glance flowchart, each arrow naming its action -- J6's contract.
+- [x] 6.3 `designs/screens/exports/` -- one PNG per screen -- J6's contract.
 
 ## 7. J7 Live prototype: prototype
 
@@ -247,3 +247,4 @@ Verified: `GetVariables()` deep-equal before and after (70 variables); the 92 ex
 - 2026-10-13: J1, J4 and J10 skipped by Brian's answer on WORK-378 (relayed by Skuddy), recorded as the Requests `Skip: J1`, `Skip: J4` and `Skip: J10` on journey UJ-1; design.md Open Questions resolved.
 - 2026-10-13: J2 migrations renumbered to `566`–`571`: `564` and `565` were taken on `main` by #9 and a later commit, as design.md "Risks" foresaw.
 - 2026-10-13: 16.5 (the inbox labels of the three question items) moved into 2.2, and mobile's inbox label map falls back to the raw type, so J2 leaves `main` compiling; design.md "Risks" and "Never" say so. Tasks 2.3 and 2.4 point at `api/schemas.ts` and `api/schemas.test.ts`, where the repository keeps its zod schemas.
+- 2026-10-13: J6 adds three states the specs name beside the screens of 6.1: 1b, the card for a member who is not an answerer (issue-questions "Another member sees the card without the overline", with the overdue badge of questions "Due date and overdue"); 6b, the timeline after **Wake** (agent-wake "Brian wakes Pieter"); and the inbox item of a type that opens its issue (question-inbox "Other types open the issue").
