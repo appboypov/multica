@@ -34,12 +34,12 @@ flowchart LR
 
 ## 1. J2 Data models: new model
 
-- [ ] 1.1 `server/migrations/564_question.up.sql`, `.down.sql` -- create `question`, `question_link`, `question_answerer`, `question_answer`, `question_event` as design.md "Models" draws them, with `CHECK` constraints on `answer_type` (the 12 keys of design.md decision 2), `status` (`open`, `answered`, `closed`, `withdrawn`), `link_type` (`issue`, `task`) and event `kind`; primary keys `(question_id, link_type, link_id)` and `(question_id, user_id)` on the link and answerer tables; add nullable `attachment.question_id` -- one table migration, no foreign keys or cascades (AGENTS.md, ADR-0002).
-- [ ] 1.2 `server/migrations/565_question_link_target_index.up.sql`, `.down.sql` -- `CREATE INDEX CONCURRENTLY` on `question_link (link_type, link_id)` -- lists an issue's questions.
-- [ ] 1.3 `server/migrations/566_question_answer_answerer_index.up.sql`, `.down.sql` -- `CREATE UNIQUE INDEX CONCURRENTLY` on `question_answer (question_id, answerer_user_id)` -- one answer per answerer, edited in place.
-- [ ] 1.4 `server/migrations/567_question_event_question_index.up.sql`, `.down.sql` -- `CREATE INDEX CONCURRENTLY` on `question_event (question_id, created_at)` -- the card's history and thread.
-- [ ] 1.5 `server/migrations/568_question_overdue_index.up.sql`, `.down.sql` -- partial `CREATE INDEX CONCURRENTLY` on `question (due_date) WHERE status = 'open' AND overdue_notified_at IS NULL` -- the overdue sweep.
-- [ ] 1.6 `server/migrations/569_attachment_question_index.up.sql`, `.down.sql` -- partial `CREATE INDEX CONCURRENTLY` on `attachment (question_id) WHERE question_id IS NOT NULL` -- answer attachments, as `164_attachment_task_id` does for tasks.
+- [ ] 1.1 `server/migrations/566_question.up.sql`, `.down.sql` -- create `question`, `question_link`, `question_answerer`, `question_answer`, `question_event` as design.md "Models" draws them, with `CHECK` constraints on `answer_type` (the 12 keys of design.md decision 2), `status` (`open`, `answered`, `closed`, `withdrawn`), `link_type` (`issue`, `task`) and event `kind`; primary keys `(question_id, link_type, link_id)` and `(question_id, user_id)` on the link and answerer tables; add nullable `attachment.question_id` -- one table migration, no foreign keys or cascades (AGENTS.md, ADR-0002).
+- [ ] 1.2 `server/migrations/567_question_link_target_index.up.sql`, `.down.sql` -- `CREATE INDEX CONCURRENTLY` on `question_link (link_type, link_id)` -- lists an issue's questions.
+- [ ] 1.3 `server/migrations/568_question_answer_answerer_index.up.sql`, `.down.sql` -- `CREATE UNIQUE INDEX CONCURRENTLY` on `question_answer (question_id, answerer_user_id)` -- one answer per answerer, edited in place.
+- [ ] 1.4 `server/migrations/569_question_event_question_index.up.sql`, `.down.sql` -- `CREATE INDEX CONCURRENTLY` on `question_event (question_id, created_at)` -- the card's history and thread.
+- [ ] 1.5 `server/migrations/570_question_overdue_index.up.sql`, `.down.sql` -- partial `CREATE INDEX CONCURRENTLY` on `question (due_date) WHERE status = 'open' AND overdue_notified_at IS NULL` -- the overdue sweep.
+- [ ] 1.6 `server/migrations/571_attachment_question_index.up.sql`, `.down.sql` -- partial `CREATE INDEX CONCURRENTLY` on `attachment (question_id) WHERE question_id IS NOT NULL` -- answer attachments, as `164_attachment_task_id` does for tasks.
 - [ ] 1.7 `server/pkg/db/queries/question.sql` -- workspace-filtered queries: create question, links, answerers, events; get by id; list by issue link; upsert answer; set status; replace answerer; list open overdue and stamp `overdue_notified_at`; count and list unseen answers for (agent, issue) against the agent's latest started run (design.md decision 5); list ask-backs after that anchor; has active task for (agent, issue) -- the one "unseen" query of ADR-0003.
 - [ ] 1.8 `server/pkg/db/queries/attachment.sql` -- `CreateAttachment` takes `question_id`; add `ListAttachmentsByQuestion` -- answers carry files and rich-text attachments.
 - [ ] 1.9 `server/pkg/db/generated/` -- run `make sqlc` and commit the output -- generated code stays in step with the queries.
@@ -160,3 +160,4 @@ flowchart LR
 ## Plan Change Log
 
 - 2026-10-13: J1, J4 and J10 skipped by Brian's answer on WORK-378 (relayed by Skuddy), recorded as the Requests `Skip: J1`, `Skip: J4` and `Skip: J10` on journey UJ-1; design.md Open Questions resolved.
+- 2026-10-13: J2 migrations renumbered to `566`–`571`: `564` and `565` were taken on `main` by #9 and a later commit, as design.md "Risks" foresaw.

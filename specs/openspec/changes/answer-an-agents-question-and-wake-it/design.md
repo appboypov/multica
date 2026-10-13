@@ -220,8 +220,8 @@ sequenceDiagram
 
 | Kind | Name | Change | Path |
 |---|---|---|---|
-| Migration | Question tables, `attachment.question_id` | new | `server/migrations/564_question.up.sql`, `.down.sql` |
-| Migration | One `CONCURRENTLY` index per file: link target, answer per answerer, event per question, overdue sweep, attachment per question | new | `server/migrations/565_…` to `569_…` |
+| Migration | Question tables, `attachment.question_id` | new | `server/migrations/566_question.up.sql`, `.down.sql` |
+| Migration | One `CONCURRENTLY` index per file: link target, answer per answerer, event per question, overdue sweep, attachment per question | new | `server/migrations/567_…` to `571_…` |
 | Queries | Question queries | new | `server/pkg/db/queries/question.sql` |
 | Queries | Attachment insert with `question_id` | changed | `server/pkg/db/queries/attachment.sql` |
 | Package | Answer-type registry | new | `server/internal/question/` |
@@ -397,7 +397,7 @@ The answers are hydrated at claim, so an edit between Wake and claim reaches the
 - [Answer validation is written twice, Go and TypeScript] → the server is authoritative and its 422 message shows in the card when the two drift; both have table tests over the same cases from decision 2.
 - [The mobile app gets three inbox types it does not know] → its `InboxDetailLabel` falls back to the raw type and the item still opens; the mobile app stays unchanged by the PRD.
 - [The baseline `specs/docs/system-design.md` is also added by #9, which changes it after the baseline] → whichever merges second resolves an add/add conflict by keeping #9's version; this change's delta is in this file, not in the baseline.
-- [Migration numbers `564`–`569` can be taken by another merge first] → J2 takes the next free numbers; nothing refers to them.
+- [Migration numbers can be taken by another merge first] → J2 takes the next free numbers; nothing refers to them. `564` and `565` went to #9 and a later main commit, so J2 uses `566`–`571`.
 
 ## Migration Plan
 
