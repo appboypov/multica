@@ -251,6 +251,7 @@ flowchart TB
     navigation["navigation<br/>NavigationAdapter, app-link.tsx"]
     instrfield["agents/components<br/>instructions-field.tsx InstructionsField,<br/>runtime-file-browser.tsx RuntimeFileBrowser"]
     projtable["projects/components<br/>project-table.tsx ProjectTable,<br/>organisation-picker.tsx OrganisationPicker"]
+    questions["questions<br/>question-card.tsx QuestionCard,<br/>answer-controls AnswerControl,<br/>reassign-picker.tsx, wake-button.tsx"]
   end
   subgraph core["packages/core"]
     coreprovider["platform/core-provider.tsx<br/>CoreProvider"]
@@ -260,6 +261,7 @@ flowchart TB
     orgs["organisations<br/>queries.ts, mutations.ts"]
     group["projects/group.ts<br/>groupProjectsByOrganisation"]
     dirlisting["runtimes/directory-listing.ts<br/>runtimeDirectoryListingOptions"]
+    corequestions["questions<br/>queries.ts, mutations.ts,<br/>ws-updaters.ts, validate.ts validateAnswer"]
     realtime["realtime/use-realtime-sync.ts<br/>useRealtimeSync"]
     platform["platform<br/>workspace-storage.ts, persist-storage.ts"]
     qc["query-client.ts<br/>TanStack Query"]
@@ -286,6 +288,12 @@ flowchart TB
   instrfield --> dirlisting
   dirlisting --> api
   pages --> ui
+  pages --> questions
+  questions --> corequestions
+  questions --> ui
+  corequestions --> api
+  corequestions --> qc
+  realtime --> corequestions
   features --> api
   features --> qc
   orgs --> api
