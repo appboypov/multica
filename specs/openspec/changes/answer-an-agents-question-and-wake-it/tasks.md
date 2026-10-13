@@ -48,7 +48,7 @@ flowchart LR
 
 - [x] 2.1 `packages/core/types/question.ts` -- `AnswerType`, per-type settings and value unions, `QuestionStatus`, `QuestionLink`, `QuestionAnswer`, `QuestionEvent`, `Question` (with `unseen_answer_count`, `wake_available`) and `QuestionWakeResult`, as design.md decisions 2 and 4 define them; export from `packages/core/types/index.ts` -- one client contract for web and desktop.
 - [x] 2.2 `packages/core/types/inbox.ts` -- add `question_asked`, `question_reassigned`, `question_overdue` to `InboxItemType`; `packages/views/inbox/components/inbox-detail-label.tsx`, `packages/views/locales/{en,zh-Hans,ko,ja,fr}/inbox.json` -- labels for the three question items; `apps/mobile/components/inbox/detail-label.tsx` -- its label map falls back to the raw type -- the three inbox items of the spec, the inbox lists them, and every client keeps compiling.
-- [ ] 2.3 `packages/core/api/schemas.ts` -- zod schemas for `Question`, `Question[]` and `QuestionWakeResult` with defaults for optional fields and a fallback for an unknown `answer_type`, `status` or event `kind` -- installed desktop clients meet newer servers (AGENTS.md "API Compatibility").
+- [x] 2.3 `packages/core/api/schemas.ts` -- zod schemas for `Question`, `Question[]` and `QuestionWakeResult` with defaults for optional fields and a fallback for an unknown `answer_type`, `status` or event `kind` -- installed desktop clients meet newer servers (AGENTS.md "API Compatibility").
 - [ ] 2.4 `packages/core/api/schemas.test.ts` -- malformed-response cases for each new schema: missing arrays, unknown enums, wrong value shapes fall back without throwing -- AGENTS.md requires it for every new endpoint.
 
 ## 3. J2 Data models: action names
@@ -181,7 +181,7 @@ Verified: `make migrate-up` on the worktree database, then each of 566-571 down 
 
 ### Group 2. J2 Data models: DTOs
 
-Files touched: `packages/core/types/question.ts`, `packages/core/types/index.ts`, `packages/core/types/inbox.ts`, `packages/views/inbox/components/inbox-detail-label.tsx`, `packages/views/locales/{en,fr,ja,ko,zh-Hans}/inbox.json`, `apps/mobile/components/inbox/detail-label.tsx`, `design.md` (Risks, Never, code map).
+Files touched: `packages/core/types/question.ts`, `packages/core/types/index.ts`, `packages/core/types/inbox.ts`, `packages/core/api/schemas.ts`, `packages/views/inbox/components/inbox-detail-label.tsx`, `packages/views/locales/{en,fr,ja,ko,zh-Hans}/inbox.json`, `apps/mobile/components/inbox/detail-label.tsx`, `design.md` (Risks, Never, code map).
 
 Decisions:
 
@@ -191,6 +191,8 @@ Decisions:
 - The bodies of decision 4 are typed next to them: `AnswerQuestionRequest` `{value, note?}`, `AskBackQuestionRequest` `{text}`, `ReassignQuestionRequest` `{user_id, note}`, and the 202 `QuestionWakeResult` `{task_id, answer_count}`.
 - The three inbox types are labelled "Question for you", "Question reassigned to you" and "Question overdue" (and their four translations); the UX spec of #6 names the types but no label copy, and the overline "Question for you" is the card's own wording.
 - Mobile's `TYPE_KEY` became `Partial<Record<InboxItemType, string>>` with `typeKey(type)` returning the key or the raw type, used at every former `TYPE_KEY[item.type]`; i18next prints a missing key as is, so a question item reads `question_asked`. The old default `t(TYPE_KEY[item.type]) ?? item.type` never reached its fallback, since `t(undefined)` returns a string.
+- `QuestionSchema` reads the wire loosely and then types it: one settings and one value schema per answer type (`ANSWER_TYPE_SCHEMAS`, shape only; the rules between fields stay with `questions/validate.ts` and the server). When the type is known and its settings, suggested answer and every answer value fit, the question is a `TypedQuestion`; else it reads as `answer_type: "unknown"`. The fallbacks: an unknown `status` reads `closed` (no controls offered); a link or event of an unknown `link_type` or `kind`, or a malformed one, is dropped from its list; missing `links` and `events` read `[]`, missing `answerers` and `answers` read `[]` while a non-list there fails the question; `blocks_work` and `wake_available` default false, `unseen_answer_count` 0, `display_text` "", nullable strings null. Settings booleans missing read false.
+- `QuestionListSchema` drops one malformed question instead of the whole list (`.catch(EMPTY_QUESTION)` then filtering the empty id), as `ChatSessionListSchema` does; `EMPTY_QUESTION` is an unreadable, closed question. `QuestionWakeResultSchema` needs a non-empty `task_id`; `EMPTY_QUESTION_WAKE_RESULT` is its fallback.
 
 Surprises:
 

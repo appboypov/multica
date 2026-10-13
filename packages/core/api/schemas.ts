@@ -49,6 +49,10 @@ import type {
   IssuePullRequestsResponse,
   InboxItem,
   InboxWorkspaceUnread,
+  AnswerType,
+  Question,
+  QuestionWakeResult,
+  UnreadableQuestion,
   Label,
   MemberWithUser,
   IssueProperty,
@@ -3742,3 +3746,298 @@ export const RuntimeProfileSchema = z
     runtime_type: profile.runtime_type || profile.protocol_family,
   }));
 export const RuntimeProfileListSchema = z.array(RuntimeProfileSchema);
+
+// ---------------------------------------------------------------------------
+// Questions (`/api/questions/*`, `GET /api/issues/{id}/questions`).
+//
+// The core of a question must parse: ids, prompt, answerers and answers. The
+// rest degrades on its own, so an installed client keeps showing questions a
+// newer server sends:
+//   - an unknown `status` reads as `closed`, which offers no controls;
+//   - a link or event this client does not know, or a malformed one, is
+//     dropped from its list;
+//   - an answer type, settings, suggested answer or answer value this client
+//     cannot read turns the question into `answer_type: "unknown"`, which
+//     keeps the prompt and each answer's `display_text` and offers no controls.
+// A list drops a malformed question instead of hiding the others.
+// ---------------------------------------------------------------------------
+
+// Absent and null both read as "not given" for an optional field.
+const optionalQuestionField = <T extends z.ZodType>(schema: T) =>
+  schema.nullish().transform((value) => value ?? undefined);
+
+const QuestionIdListSchema = z.array(z.string());
+
+interface AnswerTypeSchemas {
+  settings: z.ZodType;
+  value: z.ZodType;
+}
+
+// The settings and value shapes of each answer type (design.md decision 2).
+// Shape only: the rules between them (ranges, min/max, notes) are
+// `questions/validate.ts`'s and the server's. A missing boolean setting reads
+// false.
+const ANSWER_TYPE_SCHEMAS = {
+  text: {
+    settings: z.object({
+      length: z.enum(["short", "long"]),
+      placeholder: optionalQuestionField(z.string()),
+    }).loose(),
+    value: z.object({
+      text: z.string(),
+      attachment_ids: optionalQuestionField(QuestionIdListSchema),
+    }).loose(),
+  },
+  yes_no: {
+    settings: z.object({ why_on_no: z.boolean().default(false) }).loose(),
+    value: z.object({ choice: z.enum(["yes", "no"]) }).loose(),
+  },
+  single_choice: {
+    settings: z.object({
+      options: z.array(z.string()),
+      allow_other: z.boolean().default(false),
+    }).loose(),
+    value: z.union([
+      z.object({ option: z.string() }).loose(),
+      z.object({ other: z.string() }).loose(),
+    ]),
+  },
+  multiple_choice: {
+    settings: z.object({
+      options: z.array(z.string()),
+      min: z.number().int(),
+      max: z.number().int(),
+    }).loose(),
+    value: z.object({ options: z.array(z.string()) }).loose(),
+  },
+  confirm_facts: {
+    settings: z.object({ facts: z.array(z.string()) }).loose(),
+    value: z.object({
+      facts: z.array(z.union([
+        z.object({ correct: z.literal(true) }).loose(),
+        z.object({ correct: z.literal(false), correction: z.string() }).loose(),
+      ])),
+    }).loose(),
+  },
+  ranking: {
+    settings: z.object({ items: z.array(z.string()) }).loose(),
+    value: z.object({ order: z.array(z.string()) }).loose(),
+  },
+  scale: {
+    settings: z.object({
+      min: z.number().int(),
+      max: z.number().int(),
+      min_label: optionalQuestionField(z.string()),
+      max_label: optionalQuestionField(z.string()),
+    }).loose(),
+    value: z.object({ point: z.number().int() }).loose(),
+  },
+  number: {
+    settings: z.object({
+      unit: optionalQuestionField(z.string()),
+      min: optionalQuestionField(z.number()),
+      max: optionalQuestionField(z.number()),
+    }).loose(),
+    value: z.object({ number: z.number() }).loose(),
+  },
+  date: {
+    settings: z.object({ kind: z.enum(["date", "datetime", "range"]) }).loose(),
+    value: z.union([
+      z.object({ start: z.string(), end: z.string() }).loose(),
+      z.object({ datetime: z.string() }).loose(),
+      z.object({ date: z.string() }).loose(),
+    ]),
+  },
+  person: {
+    settings: z.object({ allow: z.enum(["members", "agents", "both"]) }).loose(),
+    value: z.object({ type: z.enum(["member", "agent"]), id: z.string() }).loose(),
+  },
+  file: {
+    settings: z.object({ accept: z.array(z.string()) }).loose(),
+    value: z.object({ attachment_ids: QuestionIdListSchema }).loose(),
+  },
+  approval: {
+    settings: z.object({
+      subject: z.string(),
+      link: optionalQuestionField(z.object({ title: z.string(), url: z.string() }).loose()),
+    }).loose(),
+    value: z.object({ decision: z.enum(["approve", "request_changes", "decline"]) }).loose(),
+  },
+} satisfies Record<AnswerType, AnswerTypeSchemas>;
+
+const isAnswerType = (value: string): value is AnswerType =>
+  Object.hasOwn(ANSWER_TYPE_SCHEMAS, value);
+
+// Parses each entry on its own and drops the ones that do not fit; a missing
+// or non-list value reads as an empty list.
+const listDroppingUnreadable = <T extends z.ZodType>(item: T) =>
+  z.array(z.unknown()).catch([]).transform((entries) =>
+    entries.flatMap((entry) => {
+      const parsed = item.safeParse(entry);
+      return parsed.success ? [parsed.data as z.output<T>] : [];
+    }),
+  );
+
+const QuestionLinkSchema = z.object({
+  link_type: z.enum(["issue", "task"]),
+  link_id: z.string(),
+  position: z.number().int(),
+}).loose();
+
+const QuestionEventShape = {
+  id: z.string(),
+  actor_type: z.enum(["member", "agent"]),
+  actor_id: z.string().nullish().transform((value) => value ?? null),
+  created_at: z.string(),
+};
+
+const QuestionEventSchema = z.discriminatedUnion("kind", [
+  z.object({
+    ...QuestionEventShape,
+    kind: z.literal(["asked", "answered", "answer_edited", "closed", "withdrawn"]),
+    details: z.unknown().transform((): Record<string, never> => ({})),
+  }).loose(),
+  z.object({
+    ...QuestionEventShape,
+    kind: z.literal("ask_back"),
+    details: z.object({ text: z.string() }).loose(),
+  }).loose(),
+  z.object({
+    ...QuestionEventShape,
+    kind: z.literal("reassigned"),
+    details: z.object({ user_id: z.string(), note: z.string() }).loose(),
+  }).loose(),
+  z.object({
+    ...QuestionEventShape,
+    kind: z.literal("woken"),
+    details: z.object({
+      task_id: z.string(),
+      answer_count: z.number().int().nonnegative(),
+    }).loose(),
+  }).loose(),
+]);
+
+const QuestionAnswererSchema = z.object({
+  user_id: z.string(),
+  assigned_at: z.string().catch(""),
+}).loose();
+
+const QuestionAnswerWireSchema = z.object({
+  id: z.string(),
+  answerer_user_id: z.string(),
+  value: z.unknown(),
+  display_text: z.string().catch(""),
+  note: z.string().nullish().catch(null).transform((value) => value ?? null),
+  created_at: z.string(),
+  updated_at: z.string(),
+}).loose();
+
+const QuestionWireSchema = z.object({
+  id: z.string(),
+  workspace_id: z.string(),
+  asker_agent_id: z.string(),
+  asked_in_task_id: z.string(),
+  prompt: z.string(),
+  context_line: z.string().nullish().catch(null).transform((value) => value ?? null),
+  answer_type: z.string(),
+  settings: z.unknown(),
+  suggested_answer: z.unknown(),
+  status: z.enum(["open", "answered", "closed", "withdrawn"]).catch("closed"),
+  due_date: z.string().nullish().catch(null).transform((value) => value ?? null),
+  blocks_work: BooleanWithDefaultSchema(false),
+  links: listDroppingUnreadable(QuestionLinkSchema),
+  answerers: z.array(QuestionAnswererSchema).default([]),
+  answers: z.array(QuestionAnswerWireSchema).default([]),
+  events: listDroppingUnreadable(QuestionEventSchema),
+  unseen_answer_count: z.number().int().nonnegative().catch(0),
+  wake_available: BooleanWithDefaultSchema(false),
+  created_at: z.string(),
+  updated_at: z.string(),
+}).loose();
+
+// Types the answer-type parts when every one of them fits its type, else
+// reads the question as "unknown".
+function readQuestion({
+  answer_type,
+  settings,
+  suggested_answer,
+  answers,
+  ...rest
+}: z.output<typeof QuestionWireSchema>): Question {
+  if (isAnswerType(answer_type)) {
+    const schemas: AnswerTypeSchemas = ANSWER_TYPE_SCHEMAS[answer_type];
+    const parsedSettings = schemas.settings.safeParse(settings);
+    const parsedSuggestion =
+      suggested_answer == null ? null : schemas.value.safeParse(suggested_answer);
+    const parsedValues = answers.map((answer) => schemas.value.safeParse(answer.value));
+    if (
+      parsedSettings.success &&
+      parsedSuggestion?.success !== false &&
+      parsedValues.every((parsed) => parsed.success)
+    ) {
+      // The schemas above fit AnswerSettingsByType / AnswerValueByType of
+      // `answer_type`; TS cannot correlate the lookup with the union.
+      return {
+        ...rest,
+        answer_type,
+        settings: parsedSettings.data,
+        suggested_answer: parsedSuggestion?.data ?? null,
+        answers: answers.map((answer, index) => ({ ...answer, value: parsedValues[index]?.data })),
+      } as Question;
+    }
+  }
+  const unreadable: UnreadableQuestion = {
+    ...rest,
+    answer_type: "unknown",
+    settings:
+      typeof settings === "object" && settings !== null && !Array.isArray(settings)
+        ? (settings as Record<string, unknown>)
+        : {},
+    suggested_answer: null,
+    answers: answers.map((answer) => ({ ...answer, value: answer.value })),
+  };
+  return unreadable;
+}
+
+export const QuestionSchema = QuestionWireSchema.transform(readQuestion);
+
+export const EMPTY_QUESTION: Question = {
+  id: "",
+  workspace_id: "",
+  asker_agent_id: "",
+  asked_in_task_id: "",
+  prompt: "",
+  context_line: null,
+  answer_type: "unknown",
+  settings: {},
+  suggested_answer: null,
+  status: "closed",
+  due_date: null,
+  blocks_work: false,
+  links: [],
+  answerers: [],
+  answers: [],
+  events: [],
+  unseen_answer_count: 0,
+  wake_available: false,
+  created_at: "",
+  updated_at: "",
+};
+
+export const QuestionListSchema = z
+  .array(QuestionSchema.catch(EMPTY_QUESTION))
+  .transform((questions) => questions.filter((question) => question.id !== ""))
+  .default([]);
+
+export const EMPTY_QUESTION_LIST: Question[] = [];
+
+// 202 of `POST /api/questions/{id}/wake`: the queued run and the answers it carries.
+export const QuestionWakeResultSchema = z.object({
+  task_id: z.string().min(1),
+  answer_count: z.number().int().nonnegative().catch(0),
+}).loose();
+
+export const EMPTY_QUESTION_WAKE_RESULT: QuestionWakeResult = {
+  task_id: "",
+  answer_count: 0,
+};
