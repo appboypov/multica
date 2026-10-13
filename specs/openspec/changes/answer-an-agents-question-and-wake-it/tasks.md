@@ -49,7 +49,7 @@ flowchart LR
 - [x] 2.1 `packages/core/types/question.ts` -- `AnswerType`, per-type settings and value unions, `QuestionStatus`, `QuestionLink`, `QuestionAnswer`, `QuestionEvent`, `Question` (with `unseen_answer_count`, `wake_available`) and `QuestionWakeResult`, as design.md decisions 2 and 4 define them; export from `packages/core/types/index.ts` -- one client contract for web and desktop.
 - [x] 2.2 `packages/core/types/inbox.ts` -- add `question_asked`, `question_reassigned`, `question_overdue` to `InboxItemType`; `packages/views/inbox/components/inbox-detail-label.tsx`, `packages/views/locales/{en,zh-Hans,ko,ja,fr}/inbox.json` -- labels for the three question items; `apps/mobile/components/inbox/detail-label.tsx` -- its label map falls back to the raw type -- the three inbox items of the spec, the inbox lists them, and every client keeps compiling.
 - [x] 2.3 `packages/core/api/schemas.ts` -- zod schemas for `Question`, `Question[]` and `QuestionWakeResult` with defaults for optional fields and a fallback for an unknown `answer_type`, `status` or event `kind` -- installed desktop clients meet newer servers (AGENTS.md "API Compatibility").
-- [ ] 2.4 `packages/core/api/schemas.test.ts` -- malformed-response cases for each new schema: missing arrays, unknown enums, wrong value shapes fall back without throwing -- AGENTS.md requires it for every new endpoint.
+- [x] 2.4 `packages/core/api/schemas.test.ts` -- malformed-response cases for each new schema: missing arrays, unknown enums, wrong value shapes fall back without throwing -- AGENTS.md requires it for every new endpoint.
 
 ## 3. J2 Data models: action names
 
@@ -181,7 +181,7 @@ Verified: `make migrate-up` on the worktree database, then each of 566-571 down 
 
 ### Group 2. J2 Data models: DTOs
 
-Files touched: `packages/core/types/question.ts`, `packages/core/types/index.ts`, `packages/core/types/inbox.ts`, `packages/core/api/schemas.ts`, `packages/views/inbox/components/inbox-detail-label.tsx`, `packages/views/locales/{en,fr,ja,ko,zh-Hans}/inbox.json`, `apps/mobile/components/inbox/detail-label.tsx`, `design.md` (Risks, Never, code map).
+Files touched: `packages/core/types/question.ts`, `packages/core/types/index.ts`, `packages/core/types/inbox.ts`, `packages/core/api/schemas.ts`, `packages/core/api/schemas.test.ts`, `packages/views/inbox/components/inbox-detail-label.tsx`, `packages/views/locales/{en,fr,ja,ko,zh-Hans}/inbox.json`, `apps/mobile/components/inbox/detail-label.tsx`, `design.md` (Risks, Never, code map).
 
 Decisions:
 
@@ -198,6 +198,8 @@ Surprises:
 
 - The question schemas live in `packages/core/api/schemas.ts` and their tests in `schemas.test.ts`: `schema.ts` holds only `parseWithFallback`, and `schema.test.ts` tests through `ApiClient` methods that arrive in 14.1. Tasks 2.3 and 2.4 and the design's code map name the files accordingly (agreed with Pieter).
 - Adding the three inbox types broke the exhaustive `Record<InboxItemType, string>` maps of views and mobile, so 16.5 moved into 2.2 and mobile got its label fallback, contrary to design.md's former "no mobile change" (decided by Pieter).
+
+Verified: `pnpm typecheck` at the root (web, desktop, core, views, ui); `apps/mobile` typecheck, lint and test (the checks of `apps/mobile/AGENTS.md`; no simulator run); `packages/core` vitest (2276 tests, 29 of them the question schemas: every answer type, defaults for missing fields and arrays, unknown answer type, status, link type and event kind, wrongly shaped settings, suggestion and values, malformed core, list and wake result) and eslint on the changed core files; `packages/views` vitest over `locales` (key parity) and `inbox`. i18next was checked to print a missing key as is and `t(undefined)` as `""`.
 
 ## Plan Change Log
 
