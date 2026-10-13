@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { CalendarClock, CalendarDays, ChevronRight, FolderOpen, GitBranch, Maximize2, Minimize2, MoreHorizontal, Pencil, Search, X as XIcon, UserMinus } from "lucide-react";
+import { ChevronRight, FolderOpen, GitBranch, Maximize2, Minimize2, Pencil, Search, X as XIcon, UserMinus } from "lucide-react";
 
 /**
  * GitHub mark — lucide-react v1 dropped brand icons, so we inline the
@@ -24,17 +24,13 @@ function GithubIcon({ className }: { className?: string }) {
 import { useQuery } from "@tanstack/react-query";
 import { useCreateProject } from "@multica/core/projects/mutations";
 import { useProjectDraftStore } from "@multica/core/projects";
-import {
-  PROJECT_STATUS_CONFIG,
-  PROJECT_STATUS_ORDER,
-  PROJECT_PRIORITY_ORDER,
-} from "@multica/core/projects/config";
+import { PROJECT_PRIORITY_ORDER } from "@multica/core/projects/config";
 import { splitGithubUrlRef } from "@multica/core/github";
 import { useWorkspaceId } from "@multica/core/hooks";
 import { useCurrentWorkspace, useWorkspacePaths } from "@multica/core/paths";
 import { memberListOptions, agentListOptions } from "@multica/core/workspace/queries";
 import { useActorName } from "@multica/core/workspace/hooks";
-import type { ProjectStatus, ProjectPriority } from "@multica/core/types";
+import type { ProjectPriority } from "@multica/core/types";
 import { cn } from "@multica/ui/lib/utils";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogTitle } from "@multica/ui/components/ui/dialog";
@@ -54,12 +50,8 @@ import { ActorAvatar } from "../common/actor-avatar";
 import { useNavigation } from "../navigation";
 import { useT } from "../i18n";
 import { matchesPinyin } from "../editor/extensions/pinyin-match";
-import {
-  useProjectStatusLabels,
-  useProjectPriorityLabels,
-} from "../projects/components/labels";
-import { ProjectStartDatePicker } from "../projects/components/project-start-date-picker";
-import { ProjectDueDatePicker } from "../projects/components/project-due-date-picker";
+import { useProjectPriorityLabels } from "../projects/components/labels";
+import { OrganisationPicker } from "../projects/components/organisation-picker";
 import { PillButton } from "../common/pill-button";
 import { githubShortLabel } from "../common/github-url";
 import {
@@ -139,7 +131,13 @@ function RepoUrlText({
   );
 }
 
-export function CreateProjectModal({ onClose }: { onClose: () => void }) {
+export function CreateProjectModal({
+  onClose,
+  data,
+}: {
+  onClose: () => void;
+  data?: Record<string, unknown> | null;
+}) {
   const { t } = useT("modals");
   // The execution-mode copy lives in the projects namespace alongside the
   // resource panel's, so both entry points describe the choice identically.
@@ -152,7 +150,6 @@ export function CreateProjectModal({ onClose }: { onClose: () => void }) {
   const { data: members = [] } = useQuery(memberListOptions(wsId));
   const { data: agents = [] } = useQuery(agentListOptions(wsId));
   const { getActorName } = useActorName();
-  const projectStatusLabels = useProjectStatusLabels();
   const projectPriorityLabels = useProjectPriorityLabels();
 
   const draft = useProjectDraftStore((s) => s.draft);
@@ -161,17 +158,14 @@ export function CreateProjectModal({ onClose }: { onClose: () => void }) {
 
   const [title, setTitle] = useState(draft.title);
   const descEditorRef = useRef<ContentEditorRef>(null);
-  const [status, setStatus] = useState<ProjectStatus>(draft.status);
+  // Opened from an organisation's page, New project starts in it.
+  const [organisationId, setOrganisationId] = useState<string | undefined>(
+    typeof data?.organisationId === "string" ? data.organisationId : draft.organisationId,
+  );
   const [priority, setPriority] = useState<ProjectPriority>(draft.priority);
   const [leadType, setLeadType] = useState<"member" | "agent" | undefined>(draft.leadType);
   const [leadId, setLeadId] = useState<string | undefined>(draft.leadId);
   const [icon, setIcon] = useState<string | undefined>(draft.icon);
-  const [startDate, setStartDate] = useState<string>(draft.startDate ?? "");
-  const [dueDate, setDueDate] = useState<string>(draft.dueDate ?? "");
-  // Dates are collapsed into the ⋯ overflow by default (progressive
-  // disclosure, mirroring create-issue); these flip a pill inline + open.
-  const [startDatePickerOpen, setStartDatePickerOpen] = useState(false);
-  const [dueDatePickerOpen, setDueDatePickerOpen] = useState(false);
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -313,15 +307,13 @@ export function CreateProjectModal({ onClose }: { onClose: () => void }) {
 
   // Sync field changes to draft store
   const updateTitle = (v: string) => { setTitle(v); setDraft({ title: v }); };
-  const updateStatus = (v: ProjectStatus) => { setStatus(v); setDraft({ status: v }); };
+  const updateOrganisation = (v: string) => { setOrganisationId(v); setDraft({ organisationId: v }); };
   const updatePriority = (v: ProjectPriority) => { setPriority(v); setDraft({ priority: v }); };
   const updateLead = (type?: "member" | "agent", id?: string) => {
     setLeadType(type); setLeadId(id);
     setDraft({ leadType: type, leadId: id });
   };
   const updateIcon = (v: string | undefined) => { setIcon(v); setDraft({ icon: v }); };
-  const updateStartDate = (v: string) => { setStartDate(v); setDraft({ startDate: v || undefined }); };
-  const updateDueDate = (v: string) => { setDueDate(v); setDraft({ dueDate: v || undefined }); };
 
   const [leadOpen, setLeadOpen] = useState(false);
   const [leadFilter, setLeadFilter] = useState("");
@@ -348,7 +340,7 @@ export function CreateProjectModal({ onClose }: { onClose: () => void }) {
   const handleSubmit = async () => {
     // Checked here as well as on the button: TitleEditor's onSubmit calls this
     // directly, so a disabled button alone leaves the keyboard path open.
-    if (!title.trim() || submitting) return;
+    if (!title.trim() || !organisationId || submitting) return;
     if (sourceMode === "repos" && hasRejectedRepoRef) return;
     // `sourceMode` decides which side's stash gets persisted — the other
     // side is silently dropped, so repos picked then abandoned for local
@@ -389,12 +381,10 @@ export function CreateProjectModal({ onClose }: { onClose: () => void }) {
         title: title.trim(),
         description: descEditorRef.current?.getMarkdown()?.trim() || undefined,
         icon,
-        status,
+        organisation_id: organisationId,
         priority,
         lead_type: leadType,
         lead_id: leadId,
-        start_date: startDate || undefined,
-        due_date: dueDate || undefined,
         // Server attaches these in the same transaction as the project.
         resources,
       });
@@ -567,30 +557,12 @@ export function CreateProjectModal({ onClose }: { onClose: () => void }) {
         </div>
 
         {/* Property toolbar — mirrors the create-issue footer: a wrapping pill
-            row whose low-frequency fields (start/due date) collapse into a ⋯
-            overflow, with the primary action in a separate bar below.
+            row, with the primary action in a separate bar below.
             Repos lives here alongside the property pills for now. Once we
             support more resource types (Linear / Notion / Figma / Slack), pull
             them out into a dedicated Resources strip above this footer. */}
         <div className="flex items-center gap-1.5 px-4 py-2 shrink-0 flex-wrap">
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={
-                <PillButton>
-                  <span className={cn("size-2 rounded-full", PROJECT_STATUS_CONFIG[status].dotColor)} />
-                  <span>{projectStatusLabels[status]}</span>
-                </PillButton>
-              }
-            />
-            <DropdownMenuContent align="start" className="w-44">
-              {PROJECT_STATUS_ORDER.map((s) => (
-                <DropdownMenuItem key={s} onClick={() => updateStatus(s)}>
-                  <span className={cn("size-2 rounded-full", PROJECT_STATUS_CONFIG[s].dotColor)} />
-                  <span>{projectStatusLabels[s]}</span>
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <OrganisationPicker organisationId={organisationId} onChange={updateOrganisation} />
 
           <DropdownMenu>
             <DropdownMenuTrigger
@@ -706,28 +678,6 @@ export function CreateProjectModal({ onClose }: { onClose: () => void }) {
               </div>
             </PopoverContent>
           </Popover>
-
-          {/* Start date — collapsed into ⋯ unless it has a value or was just
-              opened from the overflow (the calendar anchors on the inline pill). */}
-          {(startDate || startDatePickerOpen) && (
-            <ProjectStartDatePicker
-              startDate={startDate || null}
-              onUpdate={(u) => updateStartDate(u.start_date ?? "")}
-              triggerRender={<PillButton />}
-              open={startDatePickerOpen}
-              onOpenChange={setStartDatePickerOpen}
-            />
-          )}
-
-          {(dueDate || dueDatePickerOpen) && (
-            <ProjectDueDatePicker
-              dueDate={dueDate || null}
-              onUpdate={(u) => updateDueDate(u.due_date ?? "")}
-              triggerRender={<PillButton />}
-              open={dueDatePickerOpen}
-              onOpenChange={setDueDatePickerOpen}
-            />
-          )}
 
           <Popover
             open={repoPopoverOpen}
@@ -1069,35 +1019,6 @@ export function CreateProjectModal({ onClose }: { onClose: () => void }) {
               )}
             </PopoverContent>
           </Popover>
-
-          {/* Overflow — always the last child so it stays at the end of the
-              wrap flow. Only rendered while a date is still collapsible; when
-              both are set there is nothing left to add. */}
-          {(!startDate || !dueDate) && (
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={
-                  <PillButton aria-label={t(($) => $.create_project.more_options_aria)}>
-                    <MoreHorizontal className="size-3.5" />
-                  </PillButton>
-                }
-              />
-              <DropdownMenuContent align="start" className="w-auto">
-                {!dueDate && (
-                  <DropdownMenuItem onClick={() => setDueDatePickerOpen(true)}>
-                    <CalendarDays className="h-3.5 w-3.5" />
-                    {t(($) => $.create_project.set_due_date)}
-                  </DropdownMenuItem>
-                )}
-                {!startDate && (
-                  <DropdownMenuItem onClick={() => setStartDatePickerOpen(true)}>
-                    <CalendarClock className="h-3.5 w-3.5" />
-                    {t(($) => $.create_project.set_start_date)}
-                  </DropdownMenuItem>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
         </div>
 
         {/* Footer action bar — primary action in its own strip, matching
@@ -1108,6 +1029,7 @@ export function CreateProjectModal({ onClose }: { onClose: () => void }) {
             onClick={handleSubmit}
             disabled={
               !title.trim() ||
+              !organisationId ||
               submitting ||
               (sourceMode === "repos" && hasRejectedRepoRef)
             }
