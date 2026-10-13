@@ -4,3 +4,4 @@ export {
 export {
   useAnswerQuestion, useAskBackQuestion, useReassignQuestion, useWakeQuestionAgent, useUploadQuestionFile,
 } from "./mutations";
+export { validateAnswer, type AnswerValidationError } from "./validate";
