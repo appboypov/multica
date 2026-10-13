@@ -41,6 +41,7 @@ flowchart LR
 - [x] 1.5 `server/pkg/db/queries/organisation.sql` -- `ListOrganisations` (by `LOWER(name)`), `GetOrganisationInWorkspace`, `CreateOrganisation`, `UpdateOrganisationKey`, each filtered by `workspace_id` -- the organisation reads and writes of decision 2.
 - [x] 1.6 `server/pkg/db/queries/workspace_delete.sql` -- `DeleteWorkspaceOrganisations` -- workspace delete removes organisations, since there are no cascades.
 - [x] 1.7 `server/pkg/db/generated/` -- run `make sqlc` and commit the output -- the generated code stays in step with the queries.
+- [ ] 1.8 `server/internal/handler/workspace.go`, `server/internal/handler/workspace_delete_manifest_test.go` -- call `DeleteWorkspaceOrganisations` in the step that deletes projects, and classify `organisation` as deleted with the workspace -- no orphan rows without cascades, and the table 1.1 adds leaves `TestWorkspaceDeletionManifestCoversPublicSchema` green on `main`.
 
 ## 2. J2 Data models: model change
 
@@ -82,7 +83,6 @@ flowchart LR
   - `ProjectResponse.OrganisationID`, set by `projectToResponse`.
   - `organisation_id` on create and update, checked with `GetOrganisationInWorkspace`: 400 "organisation not found" for an unknown id or one from another workspace. On update, a missing key keeps the current value and `null` clears it.
   - `buildProjectSearchQuery` no longer filters or ranks by status.
-- [ ] 7.3 `server/internal/handler/workspace.go`, `server/internal/handler/workspace_delete_manifest_test.go` -- call `DeleteWorkspaceOrganisations` in the step that deletes projects, and classify `organisation` as deleted with the workspace -- no orphan rows without cascades.
 - [ ] 7.4 `server/cmd/server/router.go`, `server/cmd/server/listeners.go` -- register `/api/organisations` routes in the workspace-member group, next to projects, and broadcast `organisation:*` to the workspace -- clients refresh live.
 - [ ] 7.5 `server/internal/handler/reserved_slugs.json`, `packages/core/paths/reserved-slugs.ts` -- reserve `organisations`, then run `pnpm generate:reserved-slugs` -- a workspace can't take the route's slug (AGENTS.md).
 - [ ] 7.6 `server/internal/handler/organisation_test.go`, `server/internal/handler/project_test.go` -- DB tests with `testutil` fixtures:
@@ -205,6 +205,8 @@ flowchart LR
 - Down migrations 573 and 574 only drop their index, so they need no `concurrentDownIndexCleanups` entry.
 - `UpdateOrganisationKey` uses named `sqlc.arg` parameters (`key`, `id`, `workspace_id`), so its params struct reads by name; the other queries use positional parameters as `project.sql` does.
 - The new nullable column adds `OrganisationID pgtype.UUID` to `db.Project` and to every `SELECT * FROM project` row; nothing else in the server changes and `go build ./...` passes.
-- Surprise: `TestWorkspaceDeletionManifestCoversPublicSchema` in `server/internal/handler` fails with `unclassified=[organisation]` until 7.3 classifies the table and calls `DeleteWorkspaceOrganisations`. The plan puts that in group 7, so it stays red between J2 and J8.
+- Surprise: `TestWorkspaceDeletionManifestCoversPublicSchema` in `server/internal/handler` fails with `unclassified=[organisation]` until the table is classified and `DeleteWorkspaceOrganisations` is called. The plan had that in group 7 (7.3). The Plan Change Log moves it into group 1 as 1.8.
 
 ## Plan Change Log
+
+- 2026-10-13, J2: the workspace-delete step and manifest classification move from group 7 (7.3) to group 1 (1.8). The table 1.1 adds made `TestWorkspaceDeletionManifestCoversPublicSchema` fail, and J2 merges into `main` with passing checks, so its teardown ships with it. Group 7 keeps its numbering.
