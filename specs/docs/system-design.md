@@ -102,6 +102,10 @@ flowchart LR
   questionrules["internal/question<br/>answer-type registry, validation, display"]
   questioncli["cmd/multica/cmd_question.go<br/>multica question"]
   questionjob["internal/scheduler/jobs_question_overdue.go<br/>QuestionOverdueJob"]
+  orgh["internal/handler<br/>organisation.go, project.go<br/>/api/organisations, organisation_id"]
+  projsync["madspec-sync/multica_projects.py<br/>organisations, Product projects,<br/>single-repo merges"]
+  marks[("~/.local/state/madspec/multica<br/>brain-sync.json, repository_projects")]
+  brain["Anytype brain<br/>Organisations, Products, Repositories"]
   clients["Web, desktop, mobile"]
   daemon["Daemon"]
 
@@ -112,6 +116,12 @@ flowchart LR
   mw --> publicapi
   clients -->|"REST /api"| router
   questioncli -->|"REST /api/questions"| router
+  projsync -->|"REST /api/organisations, /api/projects,<br/>/api/issues/batch-update"| router
+  brain -->|"read only"| projsync
+  projsync --> marks
+  mw --> orgh
+  orgh --> sqlc
+  orgh -->|"organisation:created, organisation:updated"| bus
   clients -->|"WS /ws"| hub
   daemon -->|"REST /api/daemon"| router
   daemon -->|"WS /api/daemon/ws"| dhub
