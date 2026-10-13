@@ -59,7 +59,7 @@ flowchart LR
 
 ## 4. J3 Data-flow prototype: data-flow prototype
 
-- [ ] 4.1 `prototypes/web/issue-questions/data-flow/` -- an interactive prototype without UI that runs the journey: ask in run #3, the inbox item, Accept suggestion, the answer readable by the agent, Wake, the woken run's `[ANSWERS]` input; per step its input, output, store and agent action, as design.md "Journey sequence and data flow" draws them -- J3's contract in `madspec-prototyping`.
+- [x] 4.1 `prototypes/web/issue-questions/data-flow/` -- an interactive prototype without UI that runs the journey: ask in run #3, the inbox item, Accept suggestion, the answer readable by the agent, Wake, the woken run's `[ANSWERS]` input; per step its input, output, store and agent action, as design.md "Journey sequence and data flow" draws them -- J3's contract in `madspec-prototyping`.
 
 ## 5. J5 Components: component design
 
@@ -213,6 +213,19 @@ Decisions:
 Surprises: none.
 
 Verified: `gofmt -l` clean, `go build ./...`, `go vet` and `go test` of `./pkg/protocol` and `./internal/attribution`. The constants have no callers yet; groups 9-11 use them.
+
+### Group 4. J3 Data-flow prototype
+
+Files touched: `prototypes/web/issue-questions/data-flow/` (`README.md`, `src/`, one PNG per step).
+
+Decisions:
+- Six steps, one per hop of the sequence: ask, told, open the issue, accept the suggestion, Wake, the woken run. "The answer readable by the agent" is the agent action of step 4 (`multica question answers` while a run is active), since no run is active then.
+- A Live state panel follows `question.status`, answers, `unseen_answer_count`, `wake_available`, Pieter's task, Brian's inbox item and "Runs started since the ask", the journey's acceptance check, which stays 0 until Wake. Every step that queues nothing says "agent_task_queue: no new row".
+- Names and values come from design.md and the J2 code only; ids, the issue title and times are example data.
+
+Surprises: none.
+
+Verified: clicked through all six steps on the hosted build by rail, Back/Next and arrow keys; every step's values checked against design.md and the J2 types; the README flowchart rendered with `mmdc`.
 
 ## Plan Change Log
 
