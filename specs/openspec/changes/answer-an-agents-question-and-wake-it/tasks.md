@@ -47,9 +47,9 @@ flowchart LR
 ## 2. J2 Data models: DTOs
 
 - [x] 2.1 `packages/core/types/question.ts` -- `AnswerType`, per-type settings and value unions, `QuestionStatus`, `QuestionLink`, `QuestionAnswer`, `QuestionEvent`, `Question` (with `unseen_answer_count`, `wake_available`) and `QuestionWakeResult`, as design.md decisions 2 and 4 define them; export from `packages/core/types/index.ts` -- one client contract for web and desktop.
-- [ ] 2.2 `packages/core/types/inbox.ts` -- add `question_asked`, `question_reassigned`, `question_overdue` to `InboxItemType` -- the three inbox items of the spec.
-- [ ] 2.3 `packages/core/api/schema.ts` -- zod schemas for `Question`, `Question[]` and `QuestionWakeResult` with defaults for optional fields and a fallback for an unknown `answer_type`, `status` or event `kind` -- installed desktop clients meet newer servers (AGENTS.md "API Compatibility").
-- [ ] 2.4 `packages/core/api/schema.test.ts` -- malformed-response cases for each new schema: missing arrays, unknown enums, wrong value shapes fall back without throwing -- AGENTS.md requires it for every new endpoint.
+- [x] 2.2 `packages/core/types/inbox.ts` -- add `question_asked`, `question_reassigned`, `question_overdue` to `InboxItemType`; `packages/views/inbox/components/inbox-detail-label.tsx`, `packages/views/locales/{en,zh-Hans,ko,ja,fr}/inbox.json` -- labels for the three question items; `apps/mobile/components/inbox/detail-label.tsx` -- its label map falls back to the raw type -- the three inbox items of the spec, the inbox lists them, and every client keeps compiling.
+- [ ] 2.3 `packages/core/api/schemas.ts` -- zod schemas for `Question`, `Question[]` and `QuestionWakeResult` with defaults for optional fields and a fallback for an unknown `answer_type`, `status` or event `kind` -- installed desktop clients meet newer servers (AGENTS.md "API Compatibility").
+- [ ] 2.4 `packages/core/api/schemas.test.ts` -- malformed-response cases for each new schema: missing arrays, unknown enums, wrong value shapes fall back without throwing -- AGENTS.md requires it for every new endpoint.
 
 ## 3. J2 Data models: action names
 
@@ -145,7 +145,7 @@ flowchart LR
 - [ ] 16.2 `packages/views/issues/components/issue-detail.tsx` -- load the issue's questions, render cards in the timeline, accept `highlightQuestionId`, add the Questions row after Priority ("1 open", "1 open · blocks work") that jumps to the first open card with `jumpToComment`'s scroll and flash -- the issue-questions requirements.
 - [ ] 16.3 `packages/views/issues/components/inline-comment-run.tsx`, `task-run-labels.ts` -- a terminal run that asked reads "ended run #N with a question", N its place among that agent's runs on the issue, with "Waiting for answer" while one of its questions is open -- the run row.
 - [ ] 16.4 `packages/views/issues/components/question-wake-activity.tsx`, `issue-detail.tsx` -- render the `question_wake` activity as "Pieter was woken by Brian with 1 answer" -- the timeline records the wake.
-- [ ] 16.5 `packages/views/inbox/components/inbox-detail-label.tsx`, `packages/views/locales/{en,zh-Hans,ko,ja,fr}/inbox.json` -- labels for the three question items -- the inbox lists them.
+- 16.5 moved to 2.2: the inbox labels of the three question items land with their types, so every step's pull request leaves `main` compiling.
 - [ ] 16.6 `packages/views/inbox/components/inbox-question-pane.tsx`, `inbox-page.tsx` -- for question items: the card with inline controls for Yes / No, Single choice and Approval, else the prompt and **Open on <issue>** opening `IssueDetail` with `highlightQuestionId` -- answer simple questions in the inbox.
 - [ ] 16.7 `packages/views/locales/{en,zh-Hans,ko,ja,fr}/issues.json` -- the run row, badge, Questions row and wake activity copy -- every language has the new strings.
 - [ ] 16.8 `packages/views/issues/components/issue-detail.test.tsx`, `inline-comment-run.test.tsx`, `packages/views/inbox/components/inbox-page.test.tsx` -- the card shows at its place; the Questions row reads and jumps; the run row text and badge appear and leave once answered; a Ranking item opens the issue at the card while a Single choice item answers inline -- the screen scenarios.
@@ -181,7 +181,7 @@ Verified: `make migrate-up` on the worktree database, then each of 566-571 down 
 
 ### Group 2. J2 Data models: DTOs
 
-Files touched: `packages/core/types/question.ts`, `packages/core/types/index.ts`.
+Files touched: `packages/core/types/question.ts`, `packages/core/types/index.ts`, `packages/core/types/inbox.ts`, `packages/views/inbox/components/inbox-detail-label.tsx`, `packages/views/locales/{en,fr,ja,ko,zh-Hans}/inbox.json`, `apps/mobile/components/inbox/detail-label.tsx`, `design.md` (Risks, Never, code map).
 
 Decisions:
 
@@ -189,8 +189,16 @@ Decisions:
 - The wire names the handler (10.1) writes: `links` (`link_type`, `link_id`, `position`), `answerers` (`user_id`, `assigned_at`), `answers` (`id`, `answerer_user_id`, `value`, `display_text`, `note`, `created_at`, `updated_at`), `events` (`id`, `kind`, `actor_type`, `actor_id`, `details`, `created_at`), `unseen_answer_count`, `wake_available`; `overdue_notified_at` stays server-side. Names are resolved on the client from the ids, as comments do.
 - `QuestionEventDetailsByKind` fixes the `details` the service (9.1) writes: `ask_back` `{text}`, `reassigned` `{user_id, note}` (the actor is the old answerer, `user_id` the new one, as the reassign body), `woken` `{task_id, answer_count}`, every other kind `{}`.
 - The bodies of decision 4 are typed next to them: `AnswerQuestionRequest` `{value, note?}`, `AskBackQuestionRequest` `{text}`, `ReassignQuestionRequest` `{user_id, note}`, and the 202 `QuestionWakeResult` `{task_id, answer_count}`.
+- The three inbox types are labelled "Question for you", "Question reassigned to you" and "Question overdue" (and their four translations); the UX spec of #6 names the types but no label copy, and the overline "Question for you" is the card's own wording.
+- Mobile's `TYPE_KEY` became `Partial<Record<InboxItemType, string>>` with `typeKey(type)` returning the key or the raw type, used at every former `TYPE_KEY[item.type]`; i18next prints a missing key as is, so a question item reads `question_asked`. The old default `t(TYPE_KEY[item.type]) ?? item.type` never reached its fallback, since `t(undefined)` returns a string.
+
+Surprises:
+
+- The question schemas live in `packages/core/api/schemas.ts` and their tests in `schemas.test.ts`: `schema.ts` holds only `parseWithFallback`, and `schema.test.ts` tests through `ApiClient` methods that arrive in 14.1. Tasks 2.3 and 2.4 and the design's code map name the files accordingly (agreed with Pieter).
+- Adding the three inbox types broke the exhaustive `Record<InboxItemType, string>` maps of views and mobile, so 16.5 moved into 2.2 and mobile got its label fallback, contrary to design.md's former "no mobile change" (decided by Pieter).
 
 ## Plan Change Log
 
 - 2026-10-13: J1, J4 and J10 skipped by Brian's answer on WORK-378 (relayed by Skuddy), recorded as the Requests `Skip: J1`, `Skip: J4` and `Skip: J10` on journey UJ-1; design.md Open Questions resolved.
 - 2026-10-13: J2 migrations renumbered to `566`–`571`: `564` and `565` were taken on `main` by #9 and a later commit, as design.md "Risks" foresaw.
+- 2026-10-13: 16.5 (the inbox labels of the three question items) moved into 2.2, and mobile's inbox label map falls back to the raw type, so J2 leaves `main` compiling; design.md "Risks" and "Never" say so. Tasks 2.3 and 2.4 point at `api/schemas.ts` and `api/schemas.test.ts`, where the repository keeps its zod schemas.

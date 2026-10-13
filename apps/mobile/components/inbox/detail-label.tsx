@@ -33,8 +33,10 @@ const PRIORITY_LABEL: Record<IssuePriority, string> = {
   none: "issues:priority.none",
 };
 
-// Mirrors useTypeLabels in packages/views/inbox/components/inbox-detail-label.tsx
-const TYPE_KEY: Record<InboxItemType, string> = {
+// Mirrors useTypeLabels in packages/views/inbox/components/inbox-detail-label.tsx.
+// Partial: a type mobile has no copy for, such as the question items, has no
+// key and `typeKey` hands back the raw type, which i18next prints as is.
+const TYPE_KEY: Partial<Record<InboxItemType, string>> = {
   issue_assigned: "type.assigned",
   issue_subscribed: "type.subscribed",
   unassigned: "type.unassigned",
@@ -58,6 +60,10 @@ const TYPE_KEY: Record<InboxItemType, string> = {
   autopilot_quota_exceeded: "type.autopilot_quota_exceeded",
   children_done: "type.children_done",
 };
+
+function typeKey(type: InboxItemType): string {
+  return TYPE_KEY[type] ?? type;
+}
 
 // due_date is a calendar day — format timezone-safely (no offset day shift).
 function shortDate(dateStr: string): string {
@@ -134,7 +140,7 @@ export function InboxDetailLabel({
           );
           return t("type.assigned_to", { name });
         }
-        return t(TYPE_KEY[item.type]);
+        return t(typeKey(item.type));
       case "unassigned":
         return t("type.removed_assignee");
       case "due_date_changed":
@@ -142,30 +148,30 @@ export function InboxDetailLabel({
           ? t("type.set_due_date", { date: shortDate(details.to) })
           : t("type.removed_due_date");
       case "new_comment":
-        return singleLine(item.body) || t(TYPE_KEY[item.type]);
+        return singleLine(item.body) || t(typeKey(item.type));
       case "reaction_added":
         return details.emoji
           ? t("type.reacted_with", { emoji: details.emoji })
-          : t(TYPE_KEY[item.type]);
+          : t(typeKey(item.type));
       case "quick_create_done":
         return details.identifier
           ? t("type.created_with_agent", { identifier: details.identifier })
-          : t(TYPE_KEY[item.type]);
+          : t(typeKey(item.type));
       case "quick_create_failed": {
         const detail = singleLine(details.error) || singleLine(item.body);
-        return detail ? t("type.failed_with_detail", { detail }) : t(TYPE_KEY[item.type]);
+        return detail ? t("type.failed_with_detail", { detail }) : t(typeKey(item.type));
       }
       // Mirrors packages/views/inbox/components/inbox-detail-label.tsx: the
       // unconfirmed outcome deliberately drops the "Failed:" prefix, because
       // the issue may actually have been created.
       case "quick_create_unconfirmed": {
         const detail = singleLine(details.error) || singleLine(item.body);
-        return detail || t(TYPE_KEY[item.type]);
+        return detail || t(typeKey(item.type));
       }
       case "autopilot_quota_exceeded":
         return t("type.run_limit_blocked");
       default:
-        return t(TYPE_KEY[item.type]) ?? item.type;
+        return t(typeKey(item.type));
     }
   })();
 

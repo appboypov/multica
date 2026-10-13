@@ -79,7 +79,10 @@
     "quick_create_unconfirmed": "エージェントでの作成結果は未確認",
     "autopilot_paused": "自動化を一時停止しました",
     "children_done": "サブタスクがすべて終わりました",
-    "autopilot_quota_exceeded": "自動化の実行上限に達しました"
+    "autopilot_quota_exceeded": "自動化の実行上限に達しました",
+    "question_asked": "あなたへの質問",
+    "question_reassigned": "質問があなたに再割り当てされました",
+    "question_overdue": "質問の期限が過ぎました"
   },
   "labels": {
     "set_status_to": "ステータスを変更:",

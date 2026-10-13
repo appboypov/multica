@@ -81,7 +81,10 @@
     "quick_create_unconfirmed": "Create with agent unconfirmed",
     "autopilot_paused": "Autopilot paused",
     "children_done": "Sub-issues finished",
-    "autopilot_quota_exceeded": "Autopilot run limit reached"
+    "autopilot_quota_exceeded": "Autopilot run limit reached",
+    "question_asked": "Question for you",
+    "question_reassigned": "Question reassigned to you",
+    "question_overdue": "Question overdue"
   },
   "labels": {
     "set_status_to": "Set status to",

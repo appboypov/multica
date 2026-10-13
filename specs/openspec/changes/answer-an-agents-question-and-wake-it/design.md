@@ -92,7 +92,7 @@ flowchart TB
   classDef changed fill:#fff1cc,stroke:#b7791f,color:#172117
   subgraph core["packages/core"]
     qtypes["types/question.ts"]:::new
-    schema["api/schema.ts<br/>question schemas, parseWithFallback"]:::changed
+    schema["api/schemas.ts<br/>question schemas, parseWithFallback"]:::changed
     client["api/client.ts<br/>question methods"]:::changed
     qfeat["questions/<br/>queries, mutations, ws-updaters, validate"]:::new
     inboxt["types/inbox.ts<br/>question_asked, question_reassigned, question_overdue"]:::changed
@@ -240,7 +240,7 @@ sequenceDiagram
 | Skill | `multica-platform` names `multica question` | changed | `server/internal/service/builtin_skills/multica-platform/SKILL.md` |
 | Docs | CLI reference, five languages | changed | `apps/docs/content/docs/cli*.mdx` |
 | Type | Question, answer types, inbox types | new, changed | `packages/core/types/question.ts`, `packages/core/types/inbox.ts` |
-| Schema and client | Question schemas and API methods | changed | `packages/core/api/schema.ts`, `packages/core/api/client.ts` |
+| Schema and client | Question schemas and API methods | changed | `packages/core/api/schemas.ts`, `packages/core/api/client.ts` |
 | Feature | Queries, mutations, WS updaters, answer validation | new | `packages/core/questions/` |
 | Realtime | `question:*` and task events refresh questions | changed | `packages/core/realtime/use-realtime-sync.ts` |
 | Components | Question card and the 12 answer controls | new | `packages/views/questions/` |
@@ -277,7 +277,7 @@ Journey UJ-1 of [PRD: Questions in Multica](anytype://object?objectId=bafyreiavi
 - Attachments: `POST /api/upload-file` (`internal/handler/file.go:379`) takes an optional owner id per kind; `task_id` (`migrations/164`) is the pattern for a new owner column.
 - Scheduler: `internal/scheduler/jobs_issue_wakeup.go` `IssueWakeupJob` and its registration in `cmd/server/main.go` (~831).
 - Frontend: issue page `packages/views/issues/components/issue-detail.tsx` — timeline view (~1731), Virtuoso rows with `comment-${id}` anchors, `jumpToComment`, properties `sidebarContent` (~2664) with `PropRow` (`packages/views/common/prop-row.tsx`) and Priority (~2700). Run rows: `inline-comment-run.tsx`, labels `task-run-labels.ts`. Inbox: `packages/views/inbox/components/inbox-page.tsx` (~696 passes `highlightCommentId`, ~713 generic pane), `inbox-detail-label.tsx`. Core: `packages/core/api/client.ts` with `parseWithFallback` (`api/schema.ts`), feature folders with `queries.ts`, `mutations.ts`, `ws-updaters.ts`, subpath exports in `packages/core/package.json`. Dates: `packages/core/issues/date.ts` (`isPastDateOnly`, date-only strings). Copy: `packages/views/locales/{en,zh-Hans,ko,ja,fr}`, registered in `packages/views/locales/index.ts`.
-- Must not change: comment trigger routing, issue wakeup receipts, the pending-task unique indexes, `parseWithFallback` never throwing, the composer's built-in commands (only `/note`), the mobile app.
+- Must not change: comment trigger routing, issue wakeup receipts, the pending-task unique indexes, `parseWithFallback` never throwing, the composer's built-in commands (only `/note`), the mobile app beyond its inbox label fallback (see Risks).
 
 ## Goals / Non-Goals
 
@@ -297,7 +297,7 @@ Journey UJ-1 of [PRD: Questions in Multica](anytype://object?objectId=bafyreiavi
 
 - No question path calls `TaskService` except Wake; no question event joins the comment triggers or the issue-wakeup event vocabulary (ADR-0003).
 - No member way to create a question; no composer toggle or `/question`; no `question_answered` inbox item.
-- No foreign keys or cascades; no new design token or colour; no mobile change.
+- No foreign keys or cascades; no new design token or colour; no mobile change beyond the inbox label fallback.
 - No brief, help or skill text about when or why to ask.
 
 **Non-Goals:** question sets and answer policies (UJ-2); the Questions page, sidebar item and Answer all (UJ-3); links beyond the issue and run, parents and the indirect audience (UJ-4); the Agent questions setting (UJ-5).
@@ -395,7 +395,7 @@ The answers are hydrated at claim, so an edit between Wake and claim reaches the
 
 - [Run numbers are counted on the client from the task runs list] → the list is the one the issue page already loads; a run list that is cut short would count wrong. Acceptable for a label; a server ordinal waits for a second consumer.
 - [Answer validation is written twice, Go and TypeScript] → the server is authoritative and its 422 message shows in the card when the two drift; both have table tests over the same cases from decision 2.
-- [The mobile app gets three inbox types it does not know] → its `InboxDetailLabel` falls back to the raw type and the item still opens; the mobile app stays unchanged by the PRD.
+- [The mobile app gets three inbox types it does not know] → its `InboxDetailLabel` label map shares the core `InboxItemType`, so it becomes partial and falls back to the raw type for a type it has no copy for, a small change in `detail-label.tsx` that keeps it compiling, and the item still opens; mobile gets no question feature.
 - [The baseline `specs/docs/system-design.md` is also added by #9, which changes it after the baseline] → whichever merges second resolves an add/add conflict by keeping #9's version; this change's delta is in this file, not in the baseline.
 - [Migration numbers can be taken by another merge first] → J2 takes the next free numbers; nothing refers to them. `564` and `565` went to #9 and a later main commit, so J2 uses `566`–`571`.
 
