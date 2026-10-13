@@ -1,6 +1,8 @@
 {
   "inline_run": {
     "label": "Exécution de {{name}}",
+    "ended_with_question": "a terminé l'exécution n° {{number}} par une question",
+    "waiting_for_answer": "En attente de réponse",
     "stop": "Arrêter",
     "stopping": "Arrêt...",
     "queued": "En attente d'un agent disponible.",

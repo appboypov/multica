@@ -1,6 +1,8 @@
 {
   "inline_run": {
     "label": "{{name}} の実行",
+    "ended_with_question": "質問を残して実行 #{{number}} を終了",
+    "waiting_for_answer": "回答待ち",
     "stop": "停止",
     "stopping": "停止中...",
     "queued": "利用可能なエージェントを待っています。",

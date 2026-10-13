@@ -14,6 +14,7 @@ import { commentSupplementReceipts } from "@multica/core/issues/run-steering";
 import { dispatchReasonCode } from "@multica/core/api";
 import type { AgentTask, TimelineEntry } from "@multica/core/types";
 import { ActorAvatar } from "../../common/actor-avatar";
+import { Badge } from "@multica/ui/components/ui/badge";
 import { Button } from "@multica/ui/components/ui/button";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@multica/ui/components/ui/tooltip";
 import { cn } from "@multica/ui/lib/utils";
@@ -28,7 +29,7 @@ import { formatDuration } from "../../agents/components/agent-activity-hover-con
 import { failureNeedsAction, isCancelledOutcome, runOutcomeLabel } from "../../agents/components/tabs/task-failure";
 import { TerminateTaskConfirmDialog } from "./terminate-task-confirm-dialog";
 import { TaskStatusIcon } from "./task-status-icon";
-import { useStatusLabel } from "./task-run-labels";
+import { useAskedQuestionRun, useStatusLabel } from "./task-run-labels";
 import { commentRunOutput, isActiveCommentRun, showCommentRunInHeader, type CommentRun } from "./comment-runs";
 
 import { useRunAnimationVisibility, useRunDisclosureMotion } from "./use-run-comment-motion";
@@ -82,9 +83,11 @@ export function InlineCommentRun({ run, className, viewState, showIdentity = fal
   const status = useStatusLabel(task.status);
   const ended = task.status === "failed" || task.status === "cancelled";
   const cancelled = isCancelledOutcome(task);
-  // One label says how the run ended (MUL-7692). The raw error stays
-  // reachable: on hover, or in view when someone has to fix a setting.
-  const statusText = (ended ? runOutcomeLabel(task, tAgents) : null) ?? status;
+  const askedQuestion = useAskedQuestionRun(task);
+  // One label says how the run ended (MUL-7692): with a question when it
+  // asked one. The raw error stays reachable: on hover, or in view when
+  // someone has to fix a setting.
+  const statusText = askedQuestion?.label ?? (ended ? runOutcomeLabel(task, tAgents) : null) ?? status;
   const rawError = ended && task.error?.trim() ? redactSecrets(task.error.trim()) : "";
   const needsAction = failureNeedsAction(task);
   // Without a reply, how the run ended is the block's content, not metadata.
@@ -197,6 +200,9 @@ export function InlineCommentRun({ run, className, viewState, showIdentity = fal
             </TooltipContent>
           </Tooltip> : <span className="truncate" title={statusText}>{statusText}</span>}
         </span>
+        {askedQuestion?.waiting && <Badge variant="outline" className="border-warning/30 bg-warning/10 text-warning">
+          {t(($) => $.inline_run.waiting_for_answer)}
+        </Badge>}
         <button type="button"
           className={cn("flex min-w-0 items-center gap-1.5 rounded-xs py-1 text-left text-caption text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
             showProgress ? "flex-1 text-body" : "ml-auto shrink-0",

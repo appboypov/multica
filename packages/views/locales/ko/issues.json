@@ -1,6 +1,8 @@
 {
   "inline_run": {
     "label": "{{name}} 실행",
+    "ended_with_question": "질문을 남기고 #{{number}} 실행을 마침",
+    "waiting_for_answer": "답변 대기 중",
     "stop": "중지",
     "stopping": "중지 중...",
     "queued": "사용 가능한 에이전트를 기다리고 있습니다.",

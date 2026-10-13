@@ -1,3 +1,8 @@
+import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useWorkspaceId } from "@multica/core/hooks";
+import { issueTasksOptions } from "@multica/core/issues/queries";
+import { issueQuestionsOptions } from "@multica/core/questions";
 import type { AgentTask } from "@multica/core/types";
 import { useT } from "../../i18n";
 import { stripMentionMarkdown } from "../utils/strip-mention-markdown";
@@ -133,4 +138,30 @@ export function runNumbersByTask(tasks: readonly AgentTask[]): ReadonlyMap<strin
       .forEach((run, index) => numbers.set(run.id, index + 1));
   }
   return numbers;
+}
+
+/**
+ * The run row of a terminal run that asked a question: "ended run #N with a
+ * question", N its place among its agent's runs on the issue, and whether one
+ * of its questions still waits for an answer. Null for any other run.
+ */
+export function useAskedQuestionRun(task: AgentTask): { label: string; waiting: boolean } | null {
+  const { t } = useT("issues");
+  const wsId = useWorkspaceId();
+  const terminal = task.status === "completed" || task.status === "failed" || task.status === "cancelled";
+  const { data: questions } = useQuery({
+    ...issueQuestionsOptions(wsId, task.issue_id),
+    enabled: terminal && !!wsId && !!task.issue_id,
+  });
+  const { data: tasks } = useQuery({ ...issueTasksOptions(task.issue_id), enabled: terminal && !!task.issue_id });
+  return useMemo(() => {
+    if (!terminal || !questions || !tasks) return null;
+    const asked = questions.filter((question) => question.asked_in_task_id === task.id);
+    const number = runNumbersByTask(tasks).get(task.id);
+    if (asked.length === 0 || number === undefined) return null;
+    return {
+      label: t(($) => $.inline_run.ended_with_question, { number }),
+      waiting: asked.some((question) => question.status === "open"),
+    };
+  }, [terminal, questions, tasks, task.id, t]);
 }
