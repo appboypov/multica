@@ -20,7 +20,7 @@ flowchart LR
 
 ## 2. multica-platform skill reference
 
-- [ ] 2.1 `server/internal/service/builtin_skills/multica-platform/references/agents.md` -- in "Copying an agent", name `GET /api/runtimes?owner=me` in the opening paragraph as design Decision 5 says, and add one bullet after the runtime-specific bullet: `instruction_selection` is copied unchanged, in order, only when the caller owns the source runtime and the copy stays on it; otherwise the copy has none and one stderr line says why; a failed ownership read stops the copy before the create. -- agents reading the reference copy agents the way the CLI does. Verify: `cd server && go build ./...` (the reference is embedded).
+- [x] 2.1 `server/internal/service/builtin_skills/multica-platform/references/agents.md` -- in "Copying an agent", name `GET /api/runtimes?owner=me` in the opening paragraph as design Decision 5 says, and add one bullet after the runtime-specific bullet: `instruction_selection` is copied unchanged, in order, only when the caller owns the source runtime and the copy stays on it; otherwise the copy has none and one stderr line says why; a failed ownership read stops the copy before the create. -- agents reading the reference copy agents the way the CLI does. Verify: `cd server && go build ./...` (the reference is embedded).
 
 ## Implementation Notes
 
@@ -52,5 +52,12 @@ flowchart LR
 - Files: `apps/docs/content/docs/agents-create.mdx`, `agents-create.zh.mdx`, `agents-create.ja.mdx`, `agents-create.ko.mdx`, `agents-create.fr.mdx`.
 - Decision 5's sentence of each language is appended verbatim at the end of the paragraph under the `multica agent copy` code block (line 177), after its "full flags" link sentence. Its terms match each page's Duplicate paragraph (所选文件和文件夹, 選択したファイルとフォルダー, 선택한 파일과 폴더, fichiers et dossiers sélectionnés).
 - Verified: `git diff --check` is clean; with `pnpm --filter @multica/docs dev` on port 4000, `/docs/agents-create`, `/docs/zh/agents-create`, `/docs/ja/agents-create`, `/docs/ko/agents-create` and `/docs/fr/agents-create` each answered 200 with the new sentence in the HTML. The server was stopped afterwards.
+
+### 2.1 Skill reference
+
+- Files: `server/internal/service/builtin_skills/multica-platform/references/agents.md`.
+- The opening paragraph of "Copying an agent" now names `GET /api/runtimes?owner=me` as the extra read made before the create when the source has a selection and the copy stays on its runtime.
+- The new bullet sits right after the runtime-specific bullet and quotes both stderr notes as `cmd_agent_copy.go` prints them (the second abbreviated with `...` after the shared prefix), each with the case it covers.
+- Verified: `cd server && go build ./...` and `git diff --check` are clean.
 
 ## Plan Change Log
