@@ -107,7 +107,7 @@ flowchart LR
   - Merge repository projects through `POST /api/issues/batch-update` in pages of 100, and delete one only after a fresh read shows `issue_count` 0.
   - Report a repository without a Product, an Organisation without a key, and a Product or Organisation gone from the brain.
   - Remove the `completed` and `in_progress` status moves.
-- [ ] 8.2 `madspec-sync/tests/test_multica_projects.py` -- `plan()` cases per scenario of the `brain-project-sync` spec delta:
+- [x] 8.2 `madspec-sync/tests/test_multica_projects.py` -- `plan()` cases per scenario of the `brain-project-sync` spec delta:
   - The first run.
   - A taken-over organisation, and the keys table.
   - A key Brian changed stays.
@@ -245,6 +245,7 @@ flowchart LR
 - Identity marks live at `~/.local/state/madspec/multica/brain-sync.json`, nested by normalized server URL and workspace UUID, with `organisations` and `products` brain-ID maps. Each successful create/take-over saves via a flushed/fsynced temporary file and atomic rename before dependent writes. A short mark-file lock preserves other profiles' namespaces; the existing profile `projects.lock` still covers the entire read/plan/write run.
 - Merge reads page all issue statuses in stable created-at order before any write. Batch pages of at most 100 must each return the full `updated` count; only a fresh project GET with `issue_count` zero allows DELETE. Failed placements skip dependent writes, failed resource placement keeps its source repository project, and other independent work continues with a nonzero result.
 - Surprises: codebase-retrieval timed out, so mapping used find/read; the OpenSpec root is `specs/`, so the required apply command ran there. Python has no configured language server. The shared `multica_sync.Multica` transport and local omp runtime selection remain in use; no real sync or server mutation was run.
+- 8.2 files touched: `madspec-sync/tests/test_multica_projects.py`. Replaced repository-project/status expectations with pure plan scenarios for the 14 linked organisations/33 Products, the keys table, take-over identity and exact-title rules, Brian's key/organisation choices, missing and renamed brain objects, three checkouts and zero checkouts, 10/2/1 issue merges, non-counting versus merge scope, resource changes and ambiguous relationships. Transport-fake tests cover second-run idempotency, read-before-write pagination, 100/100/1 merge pages, partial/batch/fresh-read failures without deletion, mark/create/resource failures and recovery, independent products, empty repositories, GitHub NOT_FOUND/timeouts, case aliases/Archive exclusion, atomic file replacement and cross-profile namespaces. The overlapping-run lock regression remains. Tests are authored but not run; Main owns verification.
 
 ## Plan Change Log
 
