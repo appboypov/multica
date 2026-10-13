@@ -142,8 +142,15 @@ export function CreateAgentDialog({
 
   const [model, setModel] = useState(template?.model ?? "");
   const [instructions, setInstructions] = useState(template?.instructions ?? "");
-  const [selection, setSelection] = useState<string[]>(
-    template?.instruction_selection ?? [],
+  // The selected paths live on the template runtime's machine and only its
+  // owner may set them, so the copy keeps them only for that owner.
+  const [selection, setSelection] = useState<string[]>(() =>
+    !!currentUserId &&
+    runtimes.some(
+      (r) => r.id === template?.runtime_id && r.owner_id === currentUserId,
+    )
+      ? [...(template?.instruction_selection ?? [])]
+      : [],
   );
   const [avatarUrl, setAvatarUrl] = useState<string | null>(template?.avatar_url ?? null);
   const [selectedSkillIds, setSelectedSkillIds] = useState<Set<string>>(

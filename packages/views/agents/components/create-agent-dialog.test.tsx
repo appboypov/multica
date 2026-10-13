@@ -439,6 +439,28 @@ describe("CreateAgentDialog instruction selection", () => {
     expect(payload.instruction_selection).toEqual([UX_DESIGNER]);
   });
 
+  it("leaves the selection out of a copy by someone who does not own the runtime", async () => {
+    const theirs = makeRuntime({
+      id: "rt-theirs",
+      name: "Their Runtime",
+      owner_id: OTHER,
+      visibility: "public",
+    });
+    const { onCreate } = renderDialog([theirs], {
+      ...makeDuplicateSource("rt-theirs"),
+      instructions: "{selection}",
+      instruction_selection: [UX_DESIGNER],
+    });
+
+    expect(screen.queryByRole("listitem")).toBeNull();
+    fireEvent.click(screen.getByText("Create"));
+
+    await waitFor(() => expect(onCreate).toHaveBeenCalledTimes(1));
+    expect(onCreate.mock.calls[0]?.[0]).not.toHaveProperty(
+      "instruction_selection",
+    );
+  });
+
   it("sends no selection when none is chosen", async () => {
     const mine = makeRuntime({ id: "rt-mine", name: "My Runtime", owner_id: ME });
     const { onCreate } = renderDialog([mine]);
