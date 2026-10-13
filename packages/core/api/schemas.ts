@@ -69,6 +69,7 @@ import type {
   ListGitHubRepositoriesResponse,
   ListLabelsResponse,
   ListOrganisationsResponse,
+  ListProjectsResponse,
   ListWebhookDeliveriesResponse,
   IssueStatusEntry,
   ListIssueStatusesResponse,
@@ -80,6 +81,7 @@ import type {
   PluginPackageListResponse,
   PluginPreview,
   PluginSurfaceLaunch,
+  Project,
   ResourceLabelsResponse,
   RuntimeModelListRequest,
   RuntimeDirectoryListingRequest,
@@ -1403,15 +1405,15 @@ export const EMPTY_SEARCH_ISSUES_RESPONSE: SearchIssuesResponse = {
   issues: [],
 };
 
-const ProjectSchema = z.object({
+export const ProjectSchema = z.object({
   id: z.string(),
   workspace_id: z.string(),
   title: z.string(),
   description: z.string().nullable(),
   icon: z.string().nullable(),
-  status: z.string(),
-  priority: z.string(),
-  lead_type: z.string().nullable(),
+  status: z.enum(["planned", "in_progress", "paused", "completed", "cancelled"]).catch("planned"),
+  priority: z.enum(["urgent", "high", "medium", "low", "none"]).catch("none"),
+  lead_type: z.enum(["member", "agent"]).nullable().catch(null),
   lead_id: z.string().nullable(),
   // .default(null) so a project from a backend before organisations parses as
   // having none instead of failing the object and blanking its batch.
@@ -1427,6 +1429,36 @@ const ProjectSchema = z.object({
   done_count: z.number().default(0),
   resource_count: z.number().default(0),
 }).loose();
+
+export const EMPTY_PROJECT: Project = {
+  id: "",
+  workspace_id: "",
+  title: "",
+  description: null,
+  icon: null,
+  status: "planned",
+  priority: "none",
+  lead_type: null,
+  lead_id: null,
+  organisation_id: null,
+  start_date: null,
+  due_date: null,
+  created_at: "",
+  updated_at: "",
+  issue_count: 0,
+  done_count: 0,
+  resource_count: 0,
+};
+
+export const ListProjectsResponseSchema = z.object({
+  projects: z.array(ProjectSchema).default([]),
+  total: z.number().default(0),
+}).loose();
+
+export const EMPTY_LIST_PROJECTS_RESPONSE: ListProjectsResponse = {
+  projects: [],
+  total: 0,
+};
 
 const SearchProjectResultSchema = ProjectSchema.extend({
   match_source: z.string(),

@@ -106,6 +106,10 @@ import type {
   SendChatMessageResponse,
   StartMikaOnboardingResponse,
   CancelTaskResponse,
+  Organisation,
+  CreateOrganisationRequest,
+  UpdateOrganisationRequest,
+  ListOrganisationsResponse,
   Project,
   CreateProjectRequest,
   UpdateProjectRequest,
@@ -249,6 +253,14 @@ import { createRequestId, createSafeId } from "../utils";
 import { getCurrentSlug } from "../platform/workspace-storage";
 import { parseWithFallback } from "./schema";
 import {
+  OrganisationSchema,
+  ListOrganisationsResponseSchema,
+  EMPTY_ORGANISATION,
+  EMPTY_LIST_ORGANISATIONS_RESPONSE,
+  ProjectSchema,
+  ListProjectsResponseSchema,
+  EMPTY_PROJECT,
+  EMPTY_LIST_PROJECTS_RESPONSE,
   RuntimeProfileSchema,
   RuntimeProfileListSchema,
   AgentTaskListSchema,
@@ -4047,28 +4059,75 @@ export class ApiClient {
     return res.blob();
   }
 
+  // Organisations
+  async listOrganisations(): Promise<ListOrganisationsResponse> {
+    const raw = await this.fetch<unknown>("/api/organisations");
+    return parseWithFallback(raw, ListOrganisationsResponseSchema, EMPTY_LIST_ORGANISATIONS_RESPONSE, {
+      endpoint: "GET /api/organisations",
+    });
+  }
+
+  async getOrganisation(id: string): Promise<Organisation> {
+    const raw = await this.fetch<unknown>(`/api/organisations/${id}`);
+    return parseWithFallback(raw, OrganisationSchema, EMPTY_ORGANISATION, {
+      endpoint: "GET /api/organisations/:id",
+    });
+  }
+
+  async createOrganisation(data: CreateOrganisationRequest): Promise<Organisation> {
+    const raw = await this.fetch<unknown>("/api/organisations", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+    return parseWithFallback(raw, OrganisationSchema, EMPTY_ORGANISATION, {
+      endpoint: "POST /api/organisations",
+    });
+  }
+
+  async updateOrganisation(id: string, data: UpdateOrganisationRequest): Promise<Organisation> {
+    const raw = await this.fetch<unknown>(`/api/organisations/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+    return parseWithFallback(raw, OrganisationSchema, EMPTY_ORGANISATION, {
+      endpoint: "PUT /api/organisations/:id",
+    });
+  }
+
   // Projects
   async listProjects(params?: { status?: string }): Promise<ListProjectsResponse> {
     const search = new URLSearchParams();
     if (params?.status) search.set("status", params.status);
-    return this.fetch(`/api/projects?${search}`);
+    const raw = await this.fetch<unknown>(`/api/projects?${search}`);
+    return parseWithFallback(raw, ListProjectsResponseSchema, EMPTY_LIST_PROJECTS_RESPONSE, {
+      endpoint: "GET /api/projects",
+    });
   }
 
   async getProject(id: string): Promise<Project> {
-    return this.fetch(`/api/projects/${id}`);
+    const raw = await this.fetch<unknown>(`/api/projects/${id}`);
+    return parseWithFallback(raw, ProjectSchema, EMPTY_PROJECT, {
+      endpoint: "GET /api/projects/:id",
+    });
   }
 
   async createProject(data: CreateProjectRequest): Promise<Project> {
-    return this.fetch("/api/projects", {
+    const raw = await this.fetch<unknown>("/api/projects", {
       method: "POST",
       body: JSON.stringify(data),
+    });
+    return parseWithFallback(raw, ProjectSchema, EMPTY_PROJECT, {
+      endpoint: "POST /api/projects",
     });
   }
 
   async updateProject(id: string, data: UpdateProjectRequest): Promise<Project> {
-    return this.fetch(`/api/projects/${id}`, {
+    const raw = await this.fetch<unknown>(`/api/projects/${id}`, {
       method: "PUT",
       body: JSON.stringify(data),
+    });
+    return parseWithFallback(raw, ProjectSchema, EMPTY_PROJECT, {
+      endpoint: "PUT /api/projects/:id",
     });
   }
 
