@@ -398,6 +398,14 @@ A card scrolled out of the virtualized timeline unmounts, so nothing a card hold
 
 `multica question` is in the Core help group. `ask` takes `--prompt` or `--prompt-file`, `--context`, `--type`, the settings flags of decision 2 (`--option`, `--allow-other`, `--min`, `--max`, `--fact`, `--item`, `--min-label`, `--max-label`, `--unit`, `--date-kind`, `--allow`, `--accept`, `--length`, `--placeholder`, `--why-on-no`, `--subject`, `--link-url`, `--link-title`), `--suggest` (repeatable where the table says), `--answerer` (repeatable; name, email or id; an agent name fails before any request), `--due YYYY-MM-DD` and `--blocks-work`, and prints the question id. `answers <question-id>` prints status, answers and thread; `close` and `withdraw` take the id. All support `--output json`. `--help` lists the types and flags and nothing about when to ask. The brief gets the exact section of the spec for every task kind that runs on an issue; UJ-5 makes it conditional.
 
+### 9. J11 Acceptance delivery and archive
+
+The acceptance deliverable is `acceptance/vraag-van-een-agent-beantwoorden.html`, with a made overview and 26 walkthrough steps. Its screenshots and `annotations.js` live in `acceptance/shots/vraag-van-een-agent-beantwoorden/`. Every one of the six delta specs' 48 scenarios must be accounted for: 12 questions, 10 question-answering, 8 agent-wake, 6 question-inbox, 6 issue-questions and 6 agent-question-tooling. Rendered states require observed Crabbox screenshots at deviceScaleFactor 2; backend-only cases cite the existing PR #18 and PR #19 evidence rather than fabricated screen proof. The archived delta and main agent-wake spec retain all four PR #19 claim/retry cases.
+
+The J11 pull request carries this page, the archive at `specs/openspec/changes/archive/2026-10-14-answer-an-agents-question-and-wake-it/` and the six synced main specs together, stacked on J9 PR #21. Archiving is authorized before J9 is clean: it is a spec synchronization and artifact move, not an acceptance pass or a statement that Thomas's R1–R7 and V1–V3 fixes are complete. [PR #21's verification comment](https://github.com/appboypov/multica/pull/21#issuecomment-6157173203) records earlier observations and explicit gaps. Final-head runtime proof and strict OpenSpec validation remain open in tasks.md until observed evidence is recorded; J11 does not include Brian's pass or a client send.
+
+The originally planned `e2e/questions.spec.ts` automation remains separately open in tasks.md; the acceptance page and existing backend evidence do not certify it.
+
 ## Risks / Trade-offs
 
 - [Run numbers are counted on the client from the task runs list] → the list is the one the issue page already loads; a run list that is cut short would count wrong. Acceptable for a label; a server ordinal waits for a second consumer.
