@@ -96,7 +96,7 @@ flowchart LR
 
 ## 8. J8 Backend and agent tooling: integration
 
-- [ ] 8.1 `madspec-sync/multica_projects.py` -- the reads, plan and writes of design.md decision 6:
+- [x] 8.1 `madspec-sync/multica_projects.py` -- the reads, plan and writes of design.md decision 6:
   - Read Organisations, Products and Repositories with their links.
   - Read Multica organisations and each merge candidate's issue ids.
   - Keep the mark file `~/.local/state/madspec/multica/brain-sync.json`, keyed by server and workspace and written atomically.
@@ -236,6 +236,15 @@ flowchart LR
 - 7.5 files touched: `server/internal/handler/reserved_slugs.json`, `packages/core/paths/reserved-slugs.ts`. Added `organisations` to the workspace route segments in the JSON source and ran `pnpm generate:reserved-slugs` successfully (exit 0); the shared TypeScript set is generated from the same source as the Go embed.
 - 7.6 files touched: `server/internal/handler/organisation_test.go` (new), `server/internal/handler/project_test.go`. `testutil` fixtures and HTTP assertions cover empty and name-ordered organisation lists, trimmed names, get, key-only updates, required inputs, the key rule, distinct name/key conflicts, missing/malformed/foreign IDs, workspace-local uniqueness, event payloads and no events for rejected writes. Project tests cover create/move/keep/clear/set-first organisation values, list/get/search response IDs, optional server-side organisation for CLI callers, foreign/unknown/malformed ID rejection without writes, completed projects in search and recency rather than cancelled demotion. The existing keep-on-title-update regression now also asserts the response ID.
 - Verification handoff: the reserved-slug generator completed successfully. No test, build, lint or formatter was run by this builder; the main agent owns the final verification pass. Run Go formatting for the changed Go files, then the focused organisation/project/search/listener tests against the worktree database and `make test`. No production sync, release, push, archive or unrelated task group is part of group 7.
+
+### Group 8. J8 Backend and agent tooling: integration
+
+- 8.1 files touched: `madspec-sync/multica_projects.py`. The pure plan consumes typed brain Organisations, Products and Repositories, workspace organisations/projects/resources, pre-read issue IDs, archive states and scoped identity marks. Writes run organisation placement, Product placement, missing organisation assignment, checkout resources, then issue merges and guarded deletes. No status, title, name or existing key is written.
+- Decision resolved with Main/Joeri: counting controls only checkout resources. Every repository project with a checkout mark linking one placed Product merges regardless of checkout count, archive state, GitHub availability or shared name. Non-counting repositories print their reason and get no checkout resource on the Product project. Repositories without a Product or absent from the brain stay with their project and issues and are printed.
+- Brain link payloads are lists of brain IDs. Products or Repositories linking more than one parent are reported and left alone. Checkout marks spanning conflicting Products, an unplaced parent or a missing Repository cannot identify one safe merge destination and leave that project alone; an existing marked Product project is never deleted as a repository project.
+- Identity marks live at `~/.local/state/madspec/multica/brain-sync.json`, nested by normalized server URL and workspace UUID, with `organisations` and `products` brain-ID maps. Each successful create/take-over saves via a flushed/fsynced temporary file and atomic rename before dependent writes. A short mark-file lock preserves other profiles' namespaces; the existing profile `projects.lock` still covers the entire read/plan/write run.
+- Merge reads page all issue statuses in stable created-at order before any write. Batch pages of at most 100 must each return the full `updated` count; only a fresh project GET with `issue_count` zero allows DELETE. Failed placements skip dependent writes, failed resource placement keeps its source repository project, and other independent work continues with a nonzero result.
+- Surprises: codebase-retrieval timed out, so mapping used find/read; the OpenSpec root is `specs/`, so the required apply command ran there. Python has no configured language server. The shared `multica_sync.Multica` transport and local omp runtime selection remain in use; no real sync or server mutation was run.
 
 ## Plan Change Log
 
