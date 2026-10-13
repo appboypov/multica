@@ -1,0 +1,35 @@
+{
+  "page": {
+    "title": "组织",
+    "new_organisation": "新建组织",
+    "empty": "还没有组织"
+  },
+  "table": {
+    "name": "名称",
+    "projects": "项目"
+  },
+  "project_count_other": "{{count}} 个项目",
+  "detail": {
+    "not_found": "未找到组织",
+    "not_found_description": "请检查链接，或从组织列表打开。",
+    "new_project": "新建项目",
+    "no_projects": "此组织还没有项目",
+    "key_save_failed": "无法保存键"
+  },
+  "fields": {
+    "name_label": "名称",
+    "name_placeholder": "Rebl Records",
+    "key_label": "键",
+    "key_placeholder": "rebl",
+    "key_hint": "小写字母、数字和短横线。它是组织工作树文件夹的名称。",
+    "name_error": {
+      "required": "请输入名称",
+      "taken": "另一个组织已使用此名称"
+    },
+    "key_error": {
+      "required": "请输入键",
+      "format": "键由小写字母、数字和短横线组成，并以字母或数字开头",
+      "taken": "另一个组织已使用此键"
+    }
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "page": {
+    "title": "Organisations",
+    "new_organisation": "New organisation",
+    "empty": "No organisations yet"
+  },
+  "table": {
+    "name": "Name",
+    "projects": "Projects"
+  },
+  "project_count_one": "{{count}} project",
+  "project_count_other": "{{count}} projects",
+  "detail": {
+    "not_found": "Organisation not found",
+    "not_found_description": "Check the link, or open the organisation from Organisations.",
+    "new_project": "New project",
+    "no_projects": "No projects in this organisation yet",
+    "key_save_failed": "Could not save the key"
+  },
+  "fields": {
+    "name_label": "Name",
+    "name_placeholder": "Rebl Records",
+    "key_label": "Key",
+    "key_placeholder": "rebl",
+    "key_hint": "Lowercase letters, digits and dashes. It names the organisation's worktree folder.",
+    "name_error": {
+      "required": "Enter a name",
+      "taken": "Another organisation has this name"
+    },
+    "key_error": {
+      "required": "Enter a key",
+      "format": "A key is lowercase letters, digits and dashes, starting with a letter or digit",
+      "taken": "Another organisation has this key"
+    }
+  }
+}

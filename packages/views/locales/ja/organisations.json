@@ -1,0 +1,35 @@
+{
+  "page": {
+    "title": "組織",
+    "new_organisation": "新しい組織",
+    "empty": "組織はまだありません"
+  },
+  "table": {
+    "name": "名前",
+    "projects": "プロジェクト"
+  },
+  "project_count_other": "{{count}} 件のプロジェクト",
+  "detail": {
+    "not_found": "組織が見つかりません",
+    "not_found_description": "リンクを確認するか、組織一覧から開いてください。",
+    "new_project": "新しいプロジェクト",
+    "no_projects": "この組織にはまだプロジェクトがありません",
+    "key_save_failed": "キーを保存できませんでした"
+  },
+  "fields": {
+    "name_label": "名前",
+    "name_placeholder": "Rebl Records",
+    "key_label": "キー",
+    "key_placeholder": "rebl",
+    "key_hint": "小文字の英字・数字・ダッシュ。組織のワークツリーのフォルダ名になります。",
+    "name_error": {
+      "required": "名前を入力してください",
+      "taken": "この名前は別の組織が使っています"
+    },
+    "key_error": {
+      "required": "キーを入力してください",
+      "format": "キーは小文字の英字・数字・ダッシュで、英字か数字で始まります",
+      "taken": "このキーは別の組織が使っています"
+    }
+  }
+}

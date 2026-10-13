@@ -1,0 +1,36 @@
+{
+  "page": {
+    "title": "Organisations",
+    "new_organisation": "Nouvelle organisation",
+    "empty": "Aucune organisation pour l'instant"
+  },
+  "table": {
+    "name": "Nom",
+    "projects": "Projets"
+  },
+  "project_count_one": "{{count}} projet",
+  "project_count_other": "{{count}} projets",
+  "detail": {
+    "not_found": "Organisation introuvable",
+    "not_found_description": "Vérifiez le lien, ou ouvrez l'organisation depuis Organisations.",
+    "new_project": "Nouveau projet",
+    "no_projects": "Aucun projet dans cette organisation pour l'instant",
+    "key_save_failed": "Impossible d'enregistrer la clé"
+  },
+  "fields": {
+    "name_label": "Nom",
+    "name_placeholder": "Rebl Records",
+    "key_label": "Clé",
+    "key_placeholder": "rebl",
+    "key_hint": "Lettres minuscules, chiffres et tirets. Elle nomme le dossier des worktrees de l'organisation.",
+    "name_error": {
+      "required": "Saisissez un nom",
+      "taken": "Une autre organisation porte ce nom"
+    },
+    "key_error": {
+      "required": "Saisissez une clé",
+      "format": "Une clé se compose de lettres minuscules, de chiffres et de tirets, et commence par une lettre ou un chiffre",
+      "taken": "Une autre organisation a cette clé"
+    }
+  }
+}
