@@ -93,4 +93,56 @@ describe("useProjectViewStore", () => {
     expect(useProjectViewStore.getState().viewMode).toBe("compact");
     expect(localStorage.getItem("multica_projects_view:acme")).not.toBeNull();
   });
+
+  it("loads a saved status sort and filter with both dropped, retaining other preferences", async () => {
+    localStorage.setItem("multica_projects_view:acme", JSON.stringify({
+      version: 0,
+      state: {
+        viewMode: "comfortable",
+        sortField: "status",
+        sortDirection: "asc",
+        hiddenColumns: ["lead"],
+        filters: { statuses: ["completed"], priorities: ["high"], leads: ["agent:a1"] },
+      },
+    }));
+    setCurrentWorkspace("acme", "ws_a");
+    await useProjectViewStore.persist.rehydrate();
+    const state = useProjectViewStore.getState();
+    expect(state.sortField).toBe("created");
+    expect(state.sortDirection).toBe("desc");
+    expect(state.filters).toEqual({ priorities: ["high"], leads: ["agent:a1"] });
+    expect(state.filters).not.toHaveProperty("statuses");
+    expect(state.viewMode).toBe("comfortable");
+    expect(state.hiddenColumns).toEqual(["lead"]);
+    expect(state.collapsedOrganisations).toEqual([]);
+  });
+
+  it("keeps supported sorts and backfills missing supported filter dimensions", async () => {
+    localStorage.setItem("multica_projects_view:acme", JSON.stringify({
+      version: 0,
+      state: { sortField: "priority", sortDirection: "asc", filters: { statuses: ["paused"] } },
+    }));
+    setCurrentWorkspace("acme", "ws_a");
+    await useProjectViewStore.persist.rehydrate();
+    expect(useProjectViewStore.getState()).toMatchObject({
+      sortField: "priority", sortDirection: "asc", filters: { priorities: [], leads: [] },
+    });
+    expect(useProjectViewStore.getState().filters).not.toHaveProperty("statuses");
+  });
+
+  it("persists collapsed organisation groups per workspace and toggles them open again", async () => {
+    setCurrentWorkspace("acme", "ws_a");
+    await useProjectViewStore.persist.rehydrate();
+    useProjectViewStore.getState().toggleOrganisation("org-1");
+    useProjectViewStore.getState().toggleOrganisation("none");
+    expect(useProjectViewStore.getState().collapsedOrganisations).toEqual(["org-1", "none"]);
+    setCurrentWorkspace("beta", "ws_b");
+    await useProjectViewStore.persist.rehydrate();
+    expect(useProjectViewStore.getState().collapsedOrganisations).toEqual([]);
+    setCurrentWorkspace("acme", "ws_a");
+    await useProjectViewStore.persist.rehydrate();
+    expect(useProjectViewStore.getState().collapsedOrganisations).toEqual(["org-1", "none"]);
+    useProjectViewStore.getState().toggleOrganisation("org-1");
+    expect(useProjectViewStore.getState().collapsedOrganisations).toEqual(["none"]);
+  });
 });
