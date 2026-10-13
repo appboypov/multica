@@ -45,7 +45,7 @@ flowchart LR
 
 ## 2. J2 Data models: model change
 
-- [ ] 2.1 `server/pkg/db/queries/project.sql` -- `CreateProject` takes `organisation_id`, and `UpdateProject` sets `organisation_id` from `sqlc.narg('organisation_id')`, the way it sets `description` -- a project points to at most one organisation. Then run `make sqlc`.
+- [x] 2.1 `server/pkg/db/queries/project.sql` -- `CreateProject` takes `organisation_id`, and `UpdateProject` sets `organisation_id` from `sqlc.narg('organisation_id')`, the way it sets `description` -- a project points to at most one organisation. Then run `make sqlc`.
 - [ ] 2.2 `packages/core/types/organisation.ts`, `packages/core/types/index.ts` -- `Organisation`, `CreateOrganisationRequest {name, key}`, `UpdateOrganisationRequest {key}` and `ListOrganisationsResponse`, exported -- one client contract for web and desktop.
 - [ ] 2.3 `packages/core/types/project.ts` -- add `organisation_id: string | null` to `Project`, and `organisation_id?` to the create and update requests -- a project points to at most one organisation. Status and dates stay in the types until group 9, so J2 leaves `main` compiling.
 - [ ] 2.4 `packages/core/api/schemas.ts` -- `OrganisationSchema` and `ListOrganisationsResponseSchema` with defaults, and `organisation_id` on `ProjectSchema` (nullable, default `null`) -- AGENTS.md "API Compatibility".
@@ -208,6 +208,11 @@ flowchart LR
 - Surprise: `TestWorkspaceDeletionManifestCoversPublicSchema` in `server/internal/handler` fails with `unclassified=[organisation]` until the table is classified and `DeleteWorkspaceOrganisations` is called. The plan had that in group 7 (7.3). The Plan Change Log moves it into group 1 as 1.8.
 - 1.8: the projects step runs `DeleteWorkspaceRuntimesAndProjects`, then `DeleteWorkspaceOrganisations`, in the same transaction; its name becomes "delete runtimes, projects and organisations", so a failure log names the table. `organisation` is classified `workspaceDelete` in the manifest, between `notification_preference` and `personal_access_token`.
 - 1.8 also touches `server/internal/handler/workspace_test.go`: `TestDeleteWorkspace_PreservesOtherWorkspaceData` seeds one organisation per workspace, keeps the neighbour's and checks the target's is gone. Its cleanup deletes organisations itself, since `DELETE FROM workspace` cascades nothing to them. Without the `workspace.go` step it fails with "target organisation rows = 1, want 0".
+
+### Group 2. J2 Data models: model change
+
+- 2.1 files touched: `server/pkg/db/queries/project.sql`, `server/pkg/db/generated/project.sql.go`. `CreateProject` takes `organisation_id` as its 11th positional parameter, so `CreateProjectParams` gains `OrganisationID pgtype.UUID` after `DueDate`; `UpdateProjectParams` gains it as `$11`. `go build ./...` passes, because both handler call sites use named struct fields.
+- 2.1 risk for 7.2: like `description`, `UpdateProject` writes `organisation_id` unconditionally, so a caller that leaves `OrganisationID` unset clears it. The handler seeds `Description` from `prevProject`; until 7.2 seeds `OrganisationID: prevProject.OrganisationID` the same way, every project update writes `NULL`. Harmless while nothing sets the column, but 7.2 must add it.
 
 ## Plan Change Log
 
