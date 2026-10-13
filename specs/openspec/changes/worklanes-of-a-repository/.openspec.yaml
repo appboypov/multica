@@ -1,0 +1,16 @@
+schema: intent-driven
+created: 2026-10-13
+build:
+  status: ready-for-dev
+type: feature
+ticket: 'DAS-452'
+context:
+  - '{project-root}/AGENTS.md'
+  - '{project-root}/specs/docs/system-design.md'
+  - '{project-root}/adr/0008-worklane-activity-is-kept-in-the-activity-log.md'
+  - '{project-root}/adr/0009-the-server-keeps-worklane-and-issue-worktree-folders-apart.md'
+  - '{project-root}/adr/0006-repositories-hold-worklanes.md'
+  - '{project-root}/adr/0007-worktrees-are-made-by-the-daemon-and-recorded-by-the-server.md'
+  - '{project-root}/adr/0001-runtime-machine-files-are-read-by-the-daemon.md'
+  - '{project-root}/madspec-sync/README.md'
+  - '{project-root}/designs/creation-flows.md'
