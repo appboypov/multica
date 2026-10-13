@@ -126,7 +126,7 @@ flowchart LR
 ## 14. J9 Frontend: flow
 
 - [x] 14.1 `packages/core/api/client.ts` -- `listIssueQuestions`, `getQuestion`, `answerQuestion`, `askBackQuestion`, `reassignQuestion`, `wakeQuestionAgent`, `uploadFile` with `question_id`, each through `parseWithFallback` -- the client calls of decision 4.
-- [ ] 14.2 `packages/core/questions/queries.ts`, `mutations.ts`, `index.ts` -- `questionKeys.byIssue(wsId, issueId)`, `questionKeys.detail(wsId, id)`, query hooks and mutations that invalidate both on settle; add `./questions` to `packages/core/package.json` exports -- TanStack Query owns the questions.
+- [x] 14.2 `packages/core/questions/queries.ts`, `mutations.ts`, `index.ts` -- `questionKeys.byIssue(wsId, issueId)`, `questionKeys.detail(wsId, id)`, query hooks and mutations that invalidate both on settle; add `./questions` to `packages/core/package.json` exports -- TanStack Query owns the questions.
 - [ ] 14.3 `packages/core/questions/ws-updaters.ts`, `packages/core/realtime/use-realtime-sync.ts` -- `question:created`, `question:updated` and `task:*` events of an issue invalidate its question keys -- cards, Wake and the run badge stay live.
 - [ ] 14.4 `packages/core/questions/validate.ts` -- mirror of `ValidateAnswer` returning the message key and values that gate **Send** -- the card says why it cannot send.
 - [ ] 14.5 `packages/core/questions/validate.test.ts`, `packages/core/questions/queries.test.ts` -- the decision 2 cases as in task 8.4; keys include `wsId`; WS events invalidate the right keys -- canonical layer for the client logic.
@@ -253,6 +253,7 @@ Verified: `GetVariables()` deep-equal before and after (70 variables); the 92 ex
 
 - 14.1: `packages/core/api/client.ts` adds the six member-facing question calls through the existing schemas and `parseWithFallback`; `uploadFile` accepts `questionId` without changing existing owners or cancellation. Existing request/upload logging covers these calls without logging answer content.
 - `packages/core/api/question-client.test.ts` covers transport paths and bodies, explicit Wake, server validation errors, malformed responses for every new endpoint and question-owned uploads. No member ask/close/withdraw API was added.
+- 14.2: `packages/core/questions/{queries,mutations,index}.ts` and `packages/core/package.json` expose workspace-scoped list/detail query options and hooks, plus answer, ask-back, reassign, Wake and question-file upload mutations. Every mutation awaits list/detail invalidation on settle, including failures; no optimistic answer or enqueue side effect.
 - Surprise: OpenSpec is rooted in `specs/`, not the repository root. The root invocation reported no changes; the invocation in `specs/` returned the change and its context. Automatic editor diagnostics initially retained the pre-edit client declarations; this tool inconsistency was reported.
 - Verification is reserved for the main agent; no build, test, lint or formatter was run by this builder.
 
