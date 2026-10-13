@@ -153,7 +153,7 @@ MCP configuration may contain tokens; its storage and display rules match enviro
 
 Duplicating carries over most working configuration except the name, including instructions, selected files and folders, conversation starters, skills, custom arguments, avatar, concurrency limit, and Access settings. The model, thinking level, and service tier come along too; if the original runtime is unavailable and the copy is forced onto another runtime, those three are cleared and must be re-selected.
 
-Environment variable values and MCP configuration are never copied and must be set again on the new agent. Duplication keeps the original agent's runtime binding and Access settings. Only the owner of the copy's runtime can create a copy that carries selected files and folders.
+Environment variable values and MCP configuration are never copied and must be set again on the new agent. Duplication keeps the original agent's runtime binding and Access settings. Selected files and folders come along only when you own the original agent's runtime and the copy stays on it; otherwise the copy starts with none.
 
 ## Creating with the CLI
 

@@ -202,7 +202,7 @@ interface InstructionsFieldProps {
 
 ### 7. Drafts, duplicates and the builder
 
-`toStoredAgentDraft` writes `instruction_selection`, `fromStoredAgentDraft` reads it (`[]` when missing); `storedAgentDraftsEqual` compares it; `StoredAgentDraftSchema` gains `instruction_selection: z.array(z.string()).catch([])`. `buildDuplicateDraft` copies `source.instruction_selection ?? []`; `buildCreateAgentRequest` sends `instruction_selection` when it is not empty. `mergeBuilderDraft` always keeps `current.instructionSelection` and ignores any `instruction_selection` in a builder payload.
+`toStoredAgentDraft` writes `instruction_selection`, `fromStoredAgentDraft` reads it (`[]` when missing); `storedAgentDraftsEqual` compares it; `StoredAgentDraftSchema` gains `instruction_selection: z.array(z.string()).catch([])`. `buildDuplicateDraft` copies `source.instruction_selection ?? []` when the copy stays on the source runtime and the current user owns it, else `[]`: the paths belong to that machine and only its owner may set them; `buildCreateAgentRequest` sends `instruction_selection` when it is not empty. `mergeBuilderDraft` always keeps `current.instructionSelection` and ignores any `instruction_selection` in a builder payload.
 
 ### 8. Limits become warnings
 

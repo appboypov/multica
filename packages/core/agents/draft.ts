@@ -158,6 +158,10 @@ export function deriveDuplicateAccess(
  * for the user to pick again — the same rule `multica agent copy` already
  * enforces server-side (cmd_agent_copy.go). Before MUL-5390 the fallback kept
  * the source `model` and silently persisted a cross-provider value.
+ *
+ * `instructionSelection` holds paths on the source runtime's machine, which
+ * only that runtime's owner may set, so it rides along only when the copy
+ * stays on that runtime and the user copying it owns it.
  */
 export function buildDuplicateDraft(
   source: Agent,
@@ -168,19 +172,22 @@ export function buildDuplicateDraft(
     nameSuffix: string;
   },
 ): AgentDraft {
+  const sourceRuntime = source.runtime_id
+    ? options.runtimes.find((runtime) => runtime.id === source.runtime_id)
+    : undefined;
   const keepsRuntime =
-    !!source.runtime_id &&
-    options.runtimes.some(
-      (runtime) =>
-        runtime.id === source.runtime_id &&
-        isRuntimeUsableForUser(runtime, options.currentUserId),
-    );
+    !!sourceRuntime &&
+    isRuntimeUsableForUser(sourceRuntime, options.currentUserId);
+  const keepsSelection =
+    keepsRuntime && sourceRuntime.owner_id === options.currentUserId;
   return {
     ...EMPTY_AGENT_DRAFT,
     name: `${source.name}${options.nameSuffix}`,
     description: source.description ?? "",
     instructions: source.instructions ?? "",
-    instructionSelection: [...(source.instruction_selection ?? [])],
+    instructionSelection: keepsSelection
+      ? [...(source.instruction_selection ?? [])]
+      : [],
     conversationStarters: (source.conversation_starters ?? []).map((item) => ({ ...item })),
     avatarUrl: source.avatar_url ?? null,
     runtimeId: keepsRuntime

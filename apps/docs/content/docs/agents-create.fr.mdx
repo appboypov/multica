@@ -153,7 +153,7 @@ La configuration MCP peut contenir des jetons ; ses règles de stockage et d'aff
 
 La duplication reprend l'essentiel de la configuration de travail, sauf le nom : instructions, fichiers et dossiers sélectionnés, amorces de conversation, skills, arguments personnalisés, avatar, limite de parallélisme et paramètres d'Accès. Le modèle, le niveau de réflexion et la vitesse (niveau de service) sont également repris ; si le runtime d'origine est indisponible et que la copie doit passer sur un autre runtime, ces trois valeurs sont effacées et doivent être choisies à nouveau.
 
-Les valeurs des variables d'environnement et la configuration MCP ne sont jamais copiées et doivent être redéfinies sur le nouvel agent. La duplication conserve le rattachement au runtime et les paramètres d'Accès de l'agent d'origine. Seul le propriétaire du runtime de la copie peut créer une copie qui reprend des fichiers et dossiers sélectionnés.
+Les valeurs des variables d'environnement et la configuration MCP ne sont jamais copiées et doivent être redéfinies sur le nouvel agent. La duplication conserve le rattachement au runtime et les paramètres d'Accès de l'agent d'origine. Les fichiers et dossiers sélectionnés ne sont repris que si vous êtes propriétaire du runtime de l'agent d'origine et que la copie y reste ; sinon, la copie n'en a aucun.
 
 ## Créer avec le CLI
 

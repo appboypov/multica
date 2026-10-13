@@ -181,6 +181,44 @@ describe("agent instruction selection", () => {
     expect(duplicate.instructionSelection).toEqual([]);
   });
 
+  it("leaves the selection out of a copy by someone who does not own the runtime", () => {
+    const source = sourceAgent({
+      instructions: "{selection}",
+      instruction_selection: ["/Users/brian/skills/reviewer"],
+    });
+    const brianRuntime = {
+      ...CODEX_RUNTIME,
+      owner_id: "brian",
+      visibility: "public",
+    } as RuntimeDevice;
+    const memberRuntime = { ...OTHER_RUNTIME, owner_id: "member" } as RuntimeDevice;
+    const options = {
+      currentUserId: "member",
+      fallbackRuntimeId: "runtime-2",
+      nameSuffix: " (Copy)",
+    };
+
+    const onPublicRuntime = buildDuplicateDraft(source, {
+      ...options,
+      runtimes: [brianRuntime, memberRuntime],
+    });
+    const onOwnRuntime = buildDuplicateDraft(source, {
+      ...options,
+      runtimes: [{ ...brianRuntime, visibility: "private" } as RuntimeDevice, memberRuntime],
+    });
+
+    expect(onPublicRuntime).toMatchObject({
+      runtimeId: "runtime-1",
+      instructions: "{selection}",
+      instructionSelection: [],
+    });
+    expect(onOwnRuntime).toMatchObject({
+      runtimeId: "runtime-2",
+      instructions: "{selection}",
+      instructionSelection: [],
+    });
+  });
+
   it("sends selected paths unchanged in the create request", () => {
     const paths = ["/skills/reviewer", "/notes/context.md"];
     const request = buildCreateAgentRequest({
