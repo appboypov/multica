@@ -10,13 +10,13 @@ classDef new fill:#d9f2d9,stroke:#2e7d32,color:#172117
 classDef changed fill:#fff1cc,stroke:#b7791f,color:#172117
 B((Brian))
 AN((Anouk))
-S1[1 Issue - question for you]:::changed
-S1b[1b Issue - question for someone else]:::changed
+S1[1 Issue - question for you]:::new
+S1b[1b Issue - question for someone else]:::new
 S3[3 Answer types]:::new
-S6[6 Answered with Wake]:::changed
-S6b[6b Woken]:::changed
-IN1[Inbox - answer in place]:::changed
-IN2[Inbox - open on the issue]:::changed
+S6[6 Answered with Wake]:::new
+S6b[6b Woken]:::new
+IN1[Inbox - answer in place]:::new
+IN2[Inbox - open on the issue]:::new
 B -->|Open WORK-412| S1
 B -->|Open the question item in Inbox| IN1
 B -->|Open a Ranking question item in Inbox| IN2
