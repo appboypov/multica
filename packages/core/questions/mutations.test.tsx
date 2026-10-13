@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import { EMPTY_QUESTION } from "../api/schemas";
 import { questionKeys } from "./queries";
 import { useAnswerQuestion, useAskBackQuestion, useReassignQuestion, useWakeQuestionAgent, useUploadQuestionFile } from "./mutations";
+import { issueKeys } from "../issues/queries";
 
 const transport = vi.hoisted(() => ({
   answerQuestion: vi.fn(), askBackQuestion: vi.fn(), reassignQuestion: vi.fn(), wakeQuestionAgent: vi.fn(), uploadFile: vi.fn(),
@@ -44,6 +45,8 @@ describe.each(actions)("$name mutation", ({ method, useSubmit }) => {
     qc.setQueryData(questionKeys.detail("ws-1", "q-1"), question);
     qc.setQueryData(questionKeys.detail("ws-1", "q-2"), { ...question, id: "q-2" });
     qc.setQueryData(questionKeys.byIssue("ws-2", "issue-1"), []);
+    qc.setQueryData(issueKeys.timeline("issue-1"), []);
+    qc.setQueryData(issueKeys.timeline("issue-2"), []);
     const failure = new Error("Server refused the action");
     if (fails) transport[method].mockRejectedValue(failure);
     else transport[method].mockResolvedValue(question);
@@ -60,6 +63,8 @@ describe.each(actions)("$name mutation", ({ method, useSubmit }) => {
       expect(qc.getQueryState(questionKeys.detail("ws-1", "q-1"))?.isInvalidated).toBe(true);
       expect(qc.getQueryState(questionKeys.detail("ws-1", "q-2"))?.isInvalidated).toBe(true);
       expect(qc.getQueryState(questionKeys.byIssue("ws-2", "issue-1"))?.isInvalidated).toBe(false);
+      expect(qc.getQueryState(issueKeys.timeline("issue-1"))?.isInvalidated).toBe(method === "wakeQuestionAgent");
+      expect(qc.getQueryState(issueKeys.timeline("issue-2"))?.isInvalidated).toBe(false);
     } finally { unmount(); qc.clear(); }
   });
 });

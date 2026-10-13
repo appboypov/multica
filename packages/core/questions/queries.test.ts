@@ -6,6 +6,7 @@ import { EMPTY_QUESTION } from "../api/schemas";
 import type { Question } from "../types/question";
 import { issueQuestionsOptions, questionDetailOptions, questionKeys } from "./queries";
 import { handleQuestionEvent } from "./ws-updaters";
+import { issueKeys } from "../issues/queries";
 
 vi.mock("../api", () => ({ api: { listIssueQuestions: vi.fn(), getQuestion: vi.fn() } }));
 
@@ -54,6 +55,8 @@ describe("question WebSocket invalidation", () => {
     qc.setQueryData(questionKeys.detail("ws-1", "q-other"), linkedQuestion("q-other", "issue-2"));
     qc.setQueryData(questionKeys.byIssue("ws-2", "issue-1"), []);
     qc.setQueryData(questionKeys.detail("ws-2", "q-1"), linkedQuestion("q-1", "issue-1"));
+    qc.setQueryData(issueKeys.timeline("issue-1"), []);
+    qc.setQueryData(issueKeys.timeline("issue-2"), []);
   }
 
   it.each([
@@ -69,6 +72,8 @@ describe("question WebSocket invalidation", () => {
     expect(qc.getQueryState(questionKeys.detail("ws-1", "q-other"))?.isInvalidated).toBe(false);
     expect(qc.getQueryState(questionKeys.byIssue("ws-2", "issue-1"))?.isInvalidated).toBe(false);
     expect(qc.getQueryState(questionKeys.detail("ws-2", "q-1"))?.isInvalidated).toBe(false);
+    expect(qc.getQueryState(issueKeys.timeline("issue-1"))?.isInvalidated).toBe(type !== "question:created");
+    expect(qc.getQueryState(issueKeys.timeline("issue-2"))?.isInvalidated).toBe(false);
   });
 
   it("invalidates a named question even before its cached links include the issue", async () => {
@@ -81,6 +86,7 @@ describe("question WebSocket invalidation", () => {
     seed();
     await handleQuestionEvent(qc, "ws-1", "task:completed", payload);
     expect(qc.getQueryState(questionKeys.byIssue("ws-1", "issue-1"))?.isInvalidated).toBe(false);
+    expect(qc.getQueryState(issueKeys.timeline("issue-1"))?.isInvalidated).toBe(false);
   });
 
   it("ignores unrelated events and missing workspace context", async () => {
@@ -88,5 +94,6 @@ describe("question WebSocket invalidation", () => {
     await handleQuestionEvent(qc, "ws-1", "comment:created", { issue_id: "issue-1" });
     await handleQuestionEvent(qc, "", "question:created", { issue_id: "issue-1" });
     expect(qc.getQueryState(questionKeys.byIssue("ws-1", "issue-1"))?.isInvalidated).toBe(false);
+    expect(qc.getQueryState(issueKeys.timeline("issue-1"))?.isInvalidated).toBe(false);
   });
 });

@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
 import type { AnswerQuestionRequest, AskBackQuestionRequest, ReassignQuestionRequest } from "../types/question";
 import { invalidateIssueQuestions } from "./ws-updaters";
+import { issueKeys } from "../issues/queries";
 
 function useQuestionInvalidation(wsId: string, issueId: string) {
   const qc = useQueryClient();
@@ -33,10 +34,13 @@ export function useReassignQuestion(wsId: string, issueId: string) {
 }
 
 export function useWakeQuestionAgent(wsId: string, issueId: string) {
-  const invalidate = useQuestionInvalidation(wsId, issueId);
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id }: { id: string }) => api.wakeQuestionAgent(id),
-    onSettled: (_data, _error, { id }) => invalidate(id),
+    onSettled: (_data, _error, { id }) => Promise.all([
+      invalidateIssueQuestions(qc, wsId, issueId, id),
+      qc.invalidateQueries({ queryKey: issueKeys.timeline(issueId) }),
+    ]),
   });
 }
 
