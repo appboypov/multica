@@ -79,13 +79,19 @@ Anyone who may see an agent but does not own its runtime SHALL see its selected 
 
 ### Requirement: A duplicate carries the selection
 
-Duplicating an agent SHALL copy its `instruction_selection` with its `instructions`.
+Duplicating an agent SHALL copy its `instruction_selection` with its `instructions` when the owner of its runtime duplicates it and the copy stays on that runtime; any other duplicate starts with an empty selection.
 
 #### Scenario: Duplicating a persona agent
 
 - **GIVEN** an agent with instructions `{selection}` and one selected folder
 - **WHEN** its runtime's owner duplicates it
 - **THEN** the new agent has the same instructions and the same selected folder
+
+#### Scenario: Another member duplicates it
+
+- **GIVEN** an agent with instructions `{selection}` and one selected folder, on a public runtime Brian owns
+- **WHEN** another member duplicates it
+- **THEN** the new agent has the same instructions and no selected folder
 
 ### Requirement: The AI agent builder never sets a selection
 
