@@ -142,7 +142,7 @@ flowchart LR
   - `merge` drops a persisted `statuses` filter and `status` sort.
   - Remove the status invalidation of the issue table.
   - Decision 3 and 4.
-- [ ] 9.7 `packages/core/issues/stores/view-store.ts`, `packages/core/issue-views/baseline.ts` -- remove `projectStatusFilters` and its toggles, hydration, query baseline and `project_statuses` wiring. Hydrate ignores the old key -- the Issues filter goes.
+- [x] 9.7 `packages/core/issues/stores/view-store.ts`, `packages/core/issue-views/baseline.ts` -- remove `projectStatusFilters` and its toggles, hydration, query baseline and `project_statuses` wiring. Hydrate ignores the old key -- the Issues filter goes.
 - [ ] 9.8 `packages/core/search-index/engine.ts`, `packages/core/search/cancelled-rank.ts`, `cancelled-rank.test.ts`, `packages/core/chat/recent-context-store.ts`:
   - Project search no longer excludes or demotes by status, matching 7.2.
   - `partitionAggregatedSearchResults` demotes cancelled issues only.
@@ -261,6 +261,7 @@ flowchart LR
 - 9.4 files touched: `packages/core/realtime/use-realtime-sync.ts`. The existing prefix dispatcher handles every `organisation:*` event by invalidating the current workspace's organisation list and details through `organisationKeys.all`; no payload mirror or additional subscription.
 - 9.5 files touched: new `packages/core/projects/group.ts`, `group.test.ts`, `projects/index.ts`. A pure, exported grouping function retains input order within groups, compares organisation names with base sensitivity, omits empty groups and places null/unknown organisations last. Tests encode all five task scenarios and input immutability.
 - 9.6 files touched: `packages/core/projects/stores/view-store.ts`, `draft-store.ts`, `config.ts`, `mutations.ts`, `mutations.test.tsx`, `stores/view-store.test.ts`, `realtime/use-realtime-sync.ts`. Removed project-status sort/filter/config and draft status/dates; hydration selects supported filters/sorts and draft fields. Added durable `collapsedOrganisations` with `toggleOrganisation(id)` (`"none"` is the unassigned-group key) and draft `organisationId`. Organisation updates await cancellation of list and detail queries before snapshots/optimistic patches, retaining rollback and settle refresh. Removed status-only update invalidation; project deletion still invalidates issue membership. Realtime's comment now describes that remaining membership refresh. Existing persistence-key assertions include the added preference.
+- 9.7 files touched: `packages/core/issues/stores/view-store.ts`, `issue-views/baseline.ts`, `active-view-store.ts`, `baseline.test.ts`; removed obsolete `issues/stores/view-store-project-status.test.ts`. Removed the filter dimension, state, actions and persistence; hydrate deletes its stale key, while baseline and locked-dimension reads ignore it and retain other conditions. Surprise: saved-view locking also consumed the dimension, so it is cut over with its canonical baseline test. The query-to-table wiring is in group 10's view controller, not core; its contract was removed in 9.1.
 - Verification handoff: no tests, typecheck, lint, format or build run by this builder; Main owns the final core and integrated frontend checks.
 
 ## Plan Change Log
