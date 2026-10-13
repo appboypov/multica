@@ -504,13 +504,14 @@ func (h *Handler) UpdateProject(w http.ResponseWriter, r *http.Request) {
 	json.Unmarshal(bodyBytes, &rawFields)
 
 	params := db.UpdateProjectParams{
-		ID:          prevProject.ID,
-		Description: prevProject.Description,
-		Icon:        prevProject.Icon,
-		LeadType:    prevProject.LeadType,
-		LeadID:      prevProject.LeadID,
-		StartDate:   prevProject.StartDate,
-		DueDate:     prevProject.DueDate,
+		ID:             prevProject.ID,
+		Description:    prevProject.Description,
+		Icon:           prevProject.Icon,
+		LeadType:       prevProject.LeadType,
+		LeadID:         prevProject.LeadID,
+		StartDate:      prevProject.StartDate,
+		DueDate:        prevProject.DueDate,
+		OrganisationID: prevProject.OrganisationID,
 	}
 	if req.Title != nil {
 		params.Title = pgtype.Text{String: *req.Title, Valid: true}
