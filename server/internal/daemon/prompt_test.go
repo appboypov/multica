@@ -2279,14 +2279,14 @@ func TestQuestionWakePromptAppendsAnswersAfterRunContext(t *testing.T) {
 	}
 }
 
-func TestQuestionWakePromptSingularAndNoAnswers(t *testing.T) {
+func TestQuestionWakePromptOmitsEmptyAnswers(t *testing.T) {
 	task := Task{IssueID: "issue-1"}
 	if strings.Contains(BuildPrompt(task, "claude"), "[ANSWERS]") {
 		t.Fatal("ordinary run received an answers block")
 	}
-	task.QuestionAnswers = &protocol.QuestionAnswers{WakerName: "Brian", AnswerCount: 1}
-	if !strings.Contains(BuildPrompt(task, "claude"), "Brian woke you with 1 answer to your questions:\n") {
-		t.Fatal("one-answer wake did not name its waker and count")
+	task.QuestionAnswers = &protocol.QuestionAnswers{WakerName: "Brian"}
+	if strings.Contains(BuildPrompt(task, "claude"), "[ANSWERS]") {
+		t.Fatal("empty question wake received an answers block")
 	}
 }
 

@@ -261,30 +261,45 @@ func TestQuestionActorWorkspaceAndAskRefusals(t *testing.T) {
 	wantQuestionRefusal(t, err, 403)
 }
 
-func TestQuestionUnseenTracksStartedRunsAndAnswerEdits(t *testing.T) {
+func TestQuestionUnseenTracksClaimsAndAnswerEdits(t *testing.T) {
 	ctx := context.Background()
 	f := newQuestionFixture(t)
 	row := f.ask(t)
 	f.finishAskingRun(t)
 	row = f.answer(t, row, f.answerer, "per line")
 	if row.UnseenAnswerCount != 1 || !row.WakeAvailable {
-		t.Fatalf("before started run: count=%d wake=%v", row.UnseenAnswerCount, row.WakeAvailable)
+		t.Fatalf("before claimed run: count=%d wake=%v", row.UnseenAnswerCount, row.WakeAvailable)
 	}
-	// A later started run consumes the old answer, independently of its trigger.
-	f.fx.Task(t, util.UUIDToString(f.agent), testutil.Cols{"runtime_id": f.runtime, "issue_id": f.issue, "status": "completed", "started_at": testutil.Raw("clock_timestamp()")})
+	// A later claimed run consumes the old answer, independently of its trigger.
+	f.fx.Task(t, util.UUIDToString(f.agent), testutil.Cols{"runtime_id": f.runtime, "issue_id": f.issue, "status": "completed", "dispatched_at": testutil.Raw("clock_timestamp()"), "started_at": testutil.Raw("clock_timestamp()")})
 	row, err := f.svc.Get(ctx, f.workspace, util.MustParseUUID(row.ID))
 	if err != nil || row.UnseenAnswerCount != 0 || row.WakeAvailable {
-		t.Fatalf("after started run = %+v, %v", row, err)
+		t.Fatalf("after claimed run = %+v, %v", row, err)
 	}
 	_, err = f.svc.Wake(ctx, f.workspace, util.MustParseUUID(row.ID), f.answerer)
 	wantQuestionRefusal(t, err, 422)
 	row = f.answer(t, row, f.answerer, "per total")
 	if row.UnseenAnswerCount != 1 || !row.WakeAvailable {
-		t.Fatalf("edit after start: count=%d wake=%v", row.UnseenAnswerCount, row.WakeAvailable)
+		t.Fatalf("edit after claim: count=%d wake=%v", row.UnseenAnswerCount, row.WakeAvailable)
 	}
 	answers, err := f.svc.Queries.ListUnseenQuestionAnswers(ctx, db.ListUnseenQuestionAnswersParams{WorkspaceID: f.workspace, IssueID: f.issue, AgentID: f.agent})
 	if err != nil || len(answers) != 1 || !strings.Contains(string(answers[0].Value), "per total") {
 		t.Fatalf("unseen answers = %+v, %v", answers, err)
+	}
+}
+
+func TestQuestionUnseenSurvivesClaimThatNeverStarts(t *testing.T) {
+	f := newQuestionFixture(t)
+	row := f.ask(t)
+	f.finishAskingRun(t)
+	row = f.answer(t, row, f.answerer, "per line")
+	f.fx.Task(t, util.UUIDToString(f.agent), testutil.Cols{
+		"runtime_id": f.runtime, "issue_id": f.issue, "status": "failed",
+		"dispatched_at": testutil.Raw("clock_timestamp()"),
+	})
+	row, err := f.svc.Get(context.Background(), f.workspace, util.MustParseUUID(row.ID))
+	if err != nil || row.UnseenAnswerCount != 1 || !row.WakeAvailable {
+		t.Fatalf("unstarted claim consumed answer: %+v, %v", row, err)
 	}
 }
 
@@ -582,10 +597,11 @@ func TestQuestionAnswerDuringRunRemainsUnseenAfterRunEnds(t *testing.T) {
 	f.finishAskingRun(t)
 	row = f.answer(t, row, f.answerer, "per line")
 	run := f.fx.Task(t, util.UUIDToString(f.agent), testutil.Cols{
-		"runtime_id": f.runtime,
-		"issue_id":   f.issue,
-		"status":     "running",
-		"started_at": testutil.Raw("clock_timestamp()"),
+		"runtime_id":    f.runtime,
+		"issue_id":      f.issue,
+		"status":        "running",
+		"dispatched_at": testutil.Raw("clock_timestamp()"),
+		"started_at":    testutil.Raw("clock_timestamp()"),
 	})
 	row = f.answer(t, row, f.answerer, "per total")
 	if row.UnseenAnswerCount != 1 || row.WakeAvailable {

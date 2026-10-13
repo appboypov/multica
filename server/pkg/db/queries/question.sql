@@ -150,13 +150,22 @@ WHERE id = @id
   AND overdue_notified_at IS NULL;
 
 -- "Unseen" (design.md decision 5, ADR-0003): the answers to the questions
--- agent A asked that are linked to issue I, updated after the started_at of
--- A's latest started run on I. The run that asked is always one, so the anchor
--- exists; exclude_task_id leaves the run being claimed out of it. Closed and
--- withdrawn questions are left out: the agent ended them itself. The three
+-- agent A asked that are linked to issue I, updated after the dispatched_at of
+-- A's latest started run on I. exclude_task_id leaves the claimed task and its
+-- retry ancestors out of the anchor. Closed and withdrawn questions are left
+-- out: the agent ended them itself. The three
 -- queries below share this predicate word for word; change them together.
 
 -- name: CountUnseenQuestionAnswers :one
+WITH RECURSIVE excluded_tasks AS (
+    SELECT id, retry_of_task_id FROM agent_task_queue
+    WHERE id = sqlc.narg('exclude_task_id')::uuid
+      AND agent_id = @agent_id AND issue_id = @issue_id
+    UNION ALL
+    SELECT t.id, t.retry_of_task_id FROM agent_task_queue t
+    JOIN excluded_tasks child ON t.id = child.retry_of_task_id
+    WHERE t.agent_id = @agent_id AND t.issue_id = @issue_id
+)
 SELECT count(*)::bigint AS unseen_count
 FROM question_answer a
 JOIN question q
@@ -171,14 +180,24 @@ WHERE a.workspace_id = @workspace_id
   AND q.asker_agent_id = @agent_id
   AND q.status IN ('open', 'answered')
   AND a.updated_at > COALESCE((
-      SELECT max(t.started_at) FROM agent_task_queue t
+      SELECT max(t.dispatched_at) FROM agent_task_queue t
       WHERE t.issue_id = @issue_id
         AND t.agent_id = @agent_id
+        AND t.dispatched_at IS NOT NULL
         AND t.started_at IS NOT NULL
-        AND t.id IS DISTINCT FROM sqlc.narg('exclude_task_id')::uuid
+        AND t.id NOT IN (SELECT id FROM excluded_tasks)
   ), '-infinity'::timestamptz);
 
 -- name: ListUnseenQuestionAnswers :many
+WITH RECURSIVE excluded_tasks AS (
+    SELECT id, retry_of_task_id FROM agent_task_queue
+    WHERE id = sqlc.narg('exclude_task_id')::uuid
+      AND agent_id = @agent_id AND issue_id = @issue_id
+    UNION ALL
+    SELECT t.id, t.retry_of_task_id FROM agent_task_queue t
+    JOIN excluded_tasks child ON t.id = child.retry_of_task_id
+    WHERE t.agent_id = @agent_id AND t.issue_id = @issue_id
+)
 SELECT a.id, a.question_id, a.answerer_user_id, a.value, a.note, a.created_at, a.updated_at,
        q.prompt, q.answer_type, q.settings,
        u.name AS answerer_name
@@ -196,17 +215,27 @@ WHERE a.workspace_id = @workspace_id
   AND q.asker_agent_id = @agent_id
   AND q.status IN ('open', 'answered')
   AND a.updated_at > COALESCE((
-      SELECT max(t.started_at) FROM agent_task_queue t
+      SELECT max(t.dispatched_at) FROM agent_task_queue t
       WHERE t.issue_id = @issue_id
         AND t.agent_id = @agent_id
+        AND t.dispatched_at IS NOT NULL
         AND t.started_at IS NOT NULL
-        AND t.id IS DISTINCT FROM sqlc.narg('exclude_task_id')::uuid
+        AND t.id NOT IN (SELECT id FROM excluded_tasks)
   ), '-infinity'::timestamptz)
 ORDER BY a.updated_at ASC, a.id ASC;
 
 -- name: ListUnseenQuestionAskBacks :many
 -- Ask-backs are no answers: they count toward nothing and ride along in the
 -- next woken run, against the same anchor.
+WITH RECURSIVE excluded_tasks AS (
+    SELECT id, retry_of_task_id FROM agent_task_queue
+    WHERE id = sqlc.narg('exclude_task_id')::uuid
+      AND agent_id = @agent_id AND issue_id = @issue_id
+    UNION ALL
+    SELECT t.id, t.retry_of_task_id FROM agent_task_queue t
+    JOIN excluded_tasks child ON t.id = child.retry_of_task_id
+    WHERE t.agent_id = @agent_id AND t.issue_id = @issue_id
+)
 SELECT e.id, e.question_id, e.actor_id, e.details, e.created_at,
        q.prompt,
        u.name AS actor_name
@@ -225,10 +254,11 @@ WHERE e.workspace_id = @workspace_id
   AND q.asker_agent_id = @agent_id
   AND q.status IN ('open', 'answered')
   AND e.created_at > COALESCE((
-      SELECT max(t.started_at) FROM agent_task_queue t
+      SELECT max(t.dispatched_at) FROM agent_task_queue t
       WHERE t.issue_id = @issue_id
         AND t.agent_id = @agent_id
+        AND t.dispatched_at IS NOT NULL
         AND t.started_at IS NOT NULL
-        AND t.id IS DISTINCT FROM sqlc.narg('exclude_task_id')::uuid
+        AND t.id NOT IN (SELECT id FROM excluded_tasks)
   ), '-infinity'::timestamptz)
 ORDER BY e.created_at ASC, e.id ASC;

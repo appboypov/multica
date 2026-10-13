@@ -13,6 +13,15 @@ import (
 
 const countUnseenQuestionAnswers = `-- name: CountUnseenQuestionAnswers :one
 
+WITH RECURSIVE excluded_tasks AS (
+    SELECT id, retry_of_task_id FROM agent_task_queue
+    WHERE id = $4::uuid
+      AND agent_id = $3 AND issue_id = $1
+    UNION ALL
+    SELECT t.id, t.retry_of_task_id FROM agent_task_queue t
+    JOIN excluded_tasks child ON t.id = child.retry_of_task_id
+    WHERE t.agent_id = $3 AND t.issue_id = $1
+)
 SELECT count(*)::bigint AS unseen_count
 FROM question_answer a
 JOIN question q
@@ -27,11 +36,12 @@ WHERE a.workspace_id = $2
   AND q.asker_agent_id = $3
   AND q.status IN ('open', 'answered')
   AND a.updated_at > COALESCE((
-      SELECT max(t.started_at) FROM agent_task_queue t
+      SELECT max(t.dispatched_at) FROM agent_task_queue t
       WHERE t.issue_id = $1
         AND t.agent_id = $3
+        AND t.dispatched_at IS NOT NULL
         AND t.started_at IS NOT NULL
-        AND t.id IS DISTINCT FROM $4::uuid
+        AND t.id NOT IN (SELECT id FROM excluded_tasks)
   ), '-infinity'::timestamptz)
 `
 
@@ -43,10 +53,10 @@ type CountUnseenQuestionAnswersParams struct {
 }
 
 // "Unseen" (design.md decision 5, ADR-0003): the answers to the questions
-// agent A asked that are linked to issue I, updated after the started_at of
-// A's latest started run on I. The run that asked is always one, so the anchor
-// exists; exclude_task_id leaves the run being claimed out of it. Closed and
-// withdrawn questions are left out: the agent ended them itself. The three
+// agent A asked that are linked to issue I, updated after the dispatched_at of
+// A's latest started run on I. exclude_task_id leaves the claimed task and its
+// retry ancestors out of the anchor. Closed and withdrawn questions are left
+// out: the agent ended them itself. The three
 // queries below share this predicate word for word; change them together.
 func (q *Queries) CountUnseenQuestionAnswers(ctx context.Context, arg CountUnseenQuestionAnswersParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countUnseenQuestionAnswers,
@@ -587,6 +597,15 @@ func (q *Queries) ListQuestionsByIssue(ctx context.Context, arg ListQuestionsByI
 }
 
 const listUnseenQuestionAnswers = `-- name: ListUnseenQuestionAnswers :many
+WITH RECURSIVE excluded_tasks AS (
+    SELECT id, retry_of_task_id FROM agent_task_queue
+    WHERE id = $4::uuid
+      AND agent_id = $3 AND issue_id = $1
+    UNION ALL
+    SELECT t.id, t.retry_of_task_id FROM agent_task_queue t
+    JOIN excluded_tasks child ON t.id = child.retry_of_task_id
+    WHERE t.agent_id = $3 AND t.issue_id = $1
+)
 SELECT a.id, a.question_id, a.answerer_user_id, a.value, a.note, a.created_at, a.updated_at,
        q.prompt, q.answer_type, q.settings,
        u.name AS answerer_name
@@ -604,11 +623,12 @@ WHERE a.workspace_id = $2
   AND q.asker_agent_id = $3
   AND q.status IN ('open', 'answered')
   AND a.updated_at > COALESCE((
-      SELECT max(t.started_at) FROM agent_task_queue t
+      SELECT max(t.dispatched_at) FROM agent_task_queue t
       WHERE t.issue_id = $1
         AND t.agent_id = $3
+        AND t.dispatched_at IS NOT NULL
         AND t.started_at IS NOT NULL
-        AND t.id IS DISTINCT FROM $4::uuid
+        AND t.id NOT IN (SELECT id FROM excluded_tasks)
   ), '-infinity'::timestamptz)
 ORDER BY a.updated_at ASC, a.id ASC
 `
@@ -672,6 +692,15 @@ func (q *Queries) ListUnseenQuestionAnswers(ctx context.Context, arg ListUnseenQ
 }
 
 const listUnseenQuestionAskBacks = `-- name: ListUnseenQuestionAskBacks :many
+WITH RECURSIVE excluded_tasks AS (
+    SELECT id, retry_of_task_id FROM agent_task_queue
+    WHERE id = $4::uuid
+      AND agent_id = $3 AND issue_id = $1
+    UNION ALL
+    SELECT t.id, t.retry_of_task_id FROM agent_task_queue t
+    JOIN excluded_tasks child ON t.id = child.retry_of_task_id
+    WHERE t.agent_id = $3 AND t.issue_id = $1
+)
 SELECT e.id, e.question_id, e.actor_id, e.details, e.created_at,
        q.prompt,
        u.name AS actor_name
@@ -690,11 +719,12 @@ WHERE e.workspace_id = $2
   AND q.asker_agent_id = $3
   AND q.status IN ('open', 'answered')
   AND e.created_at > COALESCE((
-      SELECT max(t.started_at) FROM agent_task_queue t
+      SELECT max(t.dispatched_at) FROM agent_task_queue t
       WHERE t.issue_id = $1
         AND t.agent_id = $3
+        AND t.dispatched_at IS NOT NULL
         AND t.started_at IS NOT NULL
-        AND t.id IS DISTINCT FROM $4::uuid
+        AND t.id NOT IN (SELECT id FROM excluded_tasks)
   ), '-infinity'::timestamptz)
 ORDER BY e.created_at ASC, e.id ASC
 `
