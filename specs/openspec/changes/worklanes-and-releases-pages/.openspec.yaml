@@ -1,0 +1,16 @@
+schema: intent-driven
+created: 2026-10-13
+build:
+  status: ready-for-dev
+  type: feature
+  ticket: 'DAS-461'
+  context:
+    - '{project-root}/AGENTS.md'
+    - '{project-root}/specs/docs/system-design.md'
+    - '{project-root}/adr/0016-the-worklanes-and-releases-pages-are-built-from-the-workspaces-lists.md'
+    - '{project-root}/adr/0014-a-worklanes-issues-work-in-its-worktree-on-their-own-branch.md'
+    - '{project-root}/adr/0013-an-issue-is-placed-in-a-worklane-and-a-release-under-the-repositorys-lock.md'
+    - '{project-root}/adr/0010-the-server-keeps-each-repositorys-release-line.md'
+    - '{project-root}/adr/0006-repositories-hold-worklanes.md'
+    - '{project-root}/adr/0005-project-status-and-dates-stay-stored-but-unseen.md'
+    - '{project-root}/adr/0004-organisations-hold-projects.md'
