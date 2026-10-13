@@ -127,7 +127,7 @@ flowchart LR
 
 - [x] 14.1 `packages/core/api/client.ts` -- `listIssueQuestions`, `getQuestion`, `answerQuestion`, `askBackQuestion`, `reassignQuestion`, `wakeQuestionAgent`, `uploadFile` with `question_id`, each through `parseWithFallback` -- the client calls of decision 4.
 - [x] 14.2 `packages/core/questions/queries.ts`, `mutations.ts`, `index.ts` -- `questionKeys.byIssue(wsId, issueId)`, `questionKeys.detail(wsId, id)`, query hooks and mutations that invalidate both on settle; add `./questions` to `packages/core/package.json` exports -- TanStack Query owns the questions.
-- [x] 14.3 `packages/core/questions/ws-updaters.ts`, `packages/core/realtime/use-realtime-sync.ts` -- `question:created`, `question:updated` and `task:*` events of an issue invalidate its question keys -- cards, Wake and the run badge stay live.
+- [ ] 14.3 `packages/core/questions/ws-updaters.ts`, `packages/core/realtime/use-realtime-sync.ts` -- `question:created`, `question:updated` and `task:*` events of an issue invalidate its question keys -- cards, Wake and the run badge stay live.
 - [x] 14.4 `packages/core/questions/validate.ts` -- mirror of `ValidateAnswer` returning the message key and values that gate **Send** -- the card says why it cannot send.
 - [x] 14.5 `packages/core/questions/validate.test.ts`, `packages/core/questions/queries.test.ts` -- the decision 2 cases as in task 8.4; keys include `wsId`; WS events invalidate the right keys -- canonical layer for the client logic.
 
