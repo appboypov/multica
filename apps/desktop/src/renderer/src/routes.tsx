@@ -27,6 +27,7 @@ import {
   ManualCreateAgentPage,
 } from "@multica/views/agents";
 import { SquadsPage, SquadDetailPage as SquadDetailPageView } from "@multica/views/squads/components";
+import { OrganisationsPage, OrganisationPage } from "@multica/views/organisations/components";
 import { InboxPage } from "@multica/views/inbox";
 import { ChatPage } from "@multica/views/chat";
 import { SettingsPage } from "@multica/views/settings";
@@ -146,6 +147,16 @@ export const appRoutes: RouteObject[] = [
             path: "projects/:id",
             element: <ProjectDetailPage />,
             handle: { title: "Project" },
+          },
+          {
+            path: "organisations",
+            element: <OrganisationsPage />,
+            handle: { title: "Organisations" },
+          },
+          {
+            path: "organisations/:id",
+            element: <OrganisationPage />,
+            handle: { title: "Organisation" },
           },
           {
             path: "autopilots",
