@@ -20,6 +20,11 @@ const (
 	EventIssueReactionAdded   = "issue_reaction:added"
 	EventIssueReactionRemoved = "issue_reaction:removed"
 
+	// Question events (ADR-0002). Both carry QuestionEventPayload; the
+	// reason says what changed on question:updated.
+	EventQuestionCreated = "question:created"
+	EventQuestionUpdated = "question:updated"
+
 	// Agent events
 	EventAgentStatus   = "agent:status"
 	EventAgentCreated  = "agent:created"
@@ -217,3 +222,23 @@ const (
 	EventTelegramInstallationCreated = "telegram_installation:created"
 	EventTelegramInstallationRevoked = "telegram_installation:revoked"
 )
+
+// Reasons carried by question:updated.
+const (
+	QuestionReasonAnswered     = "answered"
+	QuestionReasonAnswerEdited = "answer_edited"
+	QuestionReasonAskBack      = "ask_back"
+	QuestionReasonReassigned   = "reassigned"
+	QuestionReasonClosed       = "closed"
+	QuestionReasonWithdrawn    = "withdrawn"
+	QuestionReasonOverdue      = "overdue"
+	QuestionReasonWoken        = "woken"
+)
+
+// QuestionEventPayload is the payload of question:created and
+// question:updated. Reason is empty on question:created.
+type QuestionEventPayload struct {
+	QuestionID string `json:"question_id"`
+	IssueID    string `json:"issue_id"`
+	Reason     string `json:"reason,omitempty"`
+}
