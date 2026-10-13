@@ -1,8 +1,8 @@
 schema: intent-driven
 created: 2026-10-13
 build:
-  status: built
-  baseline_revision: 'ced999b8dc3a22fd8afc131c4e6e3e43492202ad'
+  status: in-progress
+  baseline_revision: '130544018299004f2a2cec861b7ed73e308eb6a8'
   type: feature
   ticket: 'DAS-450'
   context:

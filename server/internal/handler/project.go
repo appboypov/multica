@@ -22,15 +22,16 @@ import (
 )
 
 type ProjectResponse struct {
-	ID          string  `json:"id"`
-	WorkspaceID string  `json:"workspace_id"`
-	Title       string  `json:"title"`
-	Description *string `json:"description"`
-	Icon        *string `json:"icon"`
-	Status      string  `json:"status"`
-	Priority    string  `json:"priority"`
-	LeadType    *string `json:"lead_type"`
-	LeadID      *string `json:"lead_id"`
+	ID             string  `json:"id"`
+	WorkspaceID    string  `json:"workspace_id"`
+	Title          string  `json:"title"`
+	Description    *string `json:"description"`
+	Icon           *string `json:"icon"`
+	Status         string  `json:"status"`
+	Priority       string  `json:"priority"`
+	LeadType       *string `json:"lead_type"`
+	LeadID         *string `json:"lead_id"`
+	OrganisationID *string `json:"organisation_id"`
 	// StartDate / DueDate are calendar days ("YYYY-MM-DD"), no time-of-day or
 	// timezone — same contract as issue.start_date / issue.due_date.
 	StartDate  *string `json:"start_date"`
@@ -48,19 +49,20 @@ type ProjectResponse struct {
 
 func projectToResponse(p db.Project) ProjectResponse {
 	return ProjectResponse{
-		ID:          uuidToString(p.ID),
-		WorkspaceID: uuidToString(p.WorkspaceID),
-		Title:       p.Title,
-		Description: textToPtr(p.Description),
-		Icon:        textToPtr(p.Icon),
-		Status:      p.Status,
-		Priority:    p.Priority,
-		LeadType:    textToPtr(p.LeadType),
-		LeadID:      uuidToPtr(p.LeadID),
-		StartDate:   dateToPtr(p.StartDate),
-		DueDate:     dateToPtr(p.DueDate),
-		CreatedAt:   timestampToString(p.CreatedAt),
-		UpdatedAt:   timestampToString(p.UpdatedAt),
+		ID:             uuidToString(p.ID),
+		WorkspaceID:    uuidToString(p.WorkspaceID),
+		Title:          p.Title,
+		Description:    textToPtr(p.Description),
+		Icon:           textToPtr(p.Icon),
+		Status:         p.Status,
+		Priority:       p.Priority,
+		LeadType:       textToPtr(p.LeadType),
+		LeadID:         uuidToPtr(p.LeadID),
+		OrganisationID: uuidToPtr(p.OrganisationID),
+		StartDate:      dateToPtr(p.StartDate),
+		DueDate:        dateToPtr(p.DueDate),
+		CreatedAt:      timestampToString(p.CreatedAt),
+		UpdatedAt:      timestampToString(p.UpdatedAt),
 	}
 }
 
@@ -99,16 +101,17 @@ func (h *Handler) loadProjectResourceCount(ctx context.Context, projectID pgtype
 }
 
 type CreateProjectRequest struct {
-	Title       string                                `json:"title"`
-	Description *string                               `json:"description"`
-	Icon        *string                               `json:"icon"`
-	Status      string                                `json:"status"`
-	Priority    string                                `json:"priority"`
-	LeadType    *string                               `json:"lead_type"`
-	LeadID      *string                               `json:"lead_id"`
-	StartDate   *string                               `json:"start_date"`
-	DueDate     *string                               `json:"due_date"`
-	Resources   []CreateProjectResourceRequestPayload `json:"resources,omitempty"`
+	Title          string                                `json:"title"`
+	Description    *string                               `json:"description"`
+	Icon           *string                               `json:"icon"`
+	Status         string                                `json:"status"`
+	Priority       string                                `json:"priority"`
+	LeadType       *string                               `json:"lead_type"`
+	LeadID         *string                               `json:"lead_id"`
+	StartDate      *string                               `json:"start_date"`
+	DueDate        *string                               `json:"due_date"`
+	OrganisationID *string                               `json:"organisation_id"`
+	Resources      []CreateProjectResourceRequestPayload `json:"resources,omitempty"`
 }
 
 // CreateProjectResourceRequestPayload mirrors CreateProjectResourceRequest but
@@ -122,15 +125,16 @@ type CreateProjectResourceRequestPayload struct {
 }
 
 type UpdateProjectRequest struct {
-	Title       *string `json:"title"`
-	Description *string `json:"description"`
-	Icon        *string `json:"icon"`
-	Status      *string `json:"status"`
-	Priority    *string `json:"priority"`
-	LeadType    *string `json:"lead_type"`
-	LeadID      *string `json:"lead_id"`
-	StartDate   *string `json:"start_date"`
-	DueDate     *string `json:"due_date"`
+	Title          *string `json:"title"`
+	Description    *string `json:"description"`
+	Icon           *string `json:"icon"`
+	Status         *string `json:"status"`
+	Priority       *string `json:"priority"`
+	LeadType       *string `json:"lead_type"`
+	LeadID         *string `json:"lead_id"`
+	StartDate      *string `json:"start_date"`
+	DueDate        *string `json:"due_date"`
+	OrganisationID *string `json:"organisation_id"`
 }
 
 func (h *Handler) ListProjects(w http.ResponseWriter, r *http.Request) {
@@ -255,6 +259,29 @@ func (h *Handler) writeProjectWriteError(w http.ResponseWriter, r *http.Request,
 	writeError(w, http.StatusInternalServerError, "failed to "+action+" project")
 }
 
+func (h *Handler) resolveProjectOrganisation(w http.ResponseWriter, r *http.Request, workspaceID pgtype.UUID, id *string) (pgtype.UUID, bool) {
+	if id == nil {
+		return pgtype.UUID{}, true
+	}
+	orgUUID, ok := parseUUIDOrBadRequest(w, *id, "organisation_id")
+	if !ok {
+		return pgtype.UUID{}, false
+	}
+	_, err := h.Queries.GetOrganisationInWorkspace(r.Context(), db.GetOrganisationInWorkspaceParams{
+		ID: orgUUID, WorkspaceID: workspaceID,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			writeError(w, http.StatusBadRequest, "organisation not found")
+		} else {
+			slog.Error("resolve project organisation failed", append(logger.RequestAttrs(r), "error", err)...)
+			writeError(w, http.StatusInternalServerError, "failed to get organisation")
+		}
+		return pgtype.UUID{}, false
+	}
+	return orgUUID, true
+}
+
 func (h *Handler) CreateProject(w http.ResponseWriter, r *http.Request) {
 	var req CreateProjectRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -297,6 +324,10 @@ func (h *Handler) CreateProject(w http.ResponseWriter, r *http.Request) {
 		leadID = id
 	}
 	wsUUID, ok := parseUUIDOrBadRequest(w, workspaceID, "workspace_id")
+	if !ok {
+		return
+	}
+	organisationID, ok := h.resolveProjectOrganisation(w, r, wsUUID, req.OrganisationID)
 	if !ok {
 		return
 	}
@@ -368,16 +399,17 @@ func (h *Handler) CreateProject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	createParams := db.CreateProjectParams{
-		WorkspaceID: wsUUID,
-		Title:       req.Title,
-		Description: ptrToText(req.Description),
-		Icon:        ptrToText(req.Icon),
-		Status:      status,
-		LeadType:    leadType,
-		LeadID:      leadID,
-		Priority:    priority,
-		StartDate:   startDate,
-		DueDate:     dueDate,
+		WorkspaceID:    wsUUID,
+		Title:          req.Title,
+		Description:    ptrToText(req.Description),
+		Icon:           ptrToText(req.Icon),
+		Status:         status,
+		LeadType:       leadType,
+		LeadID:         leadID,
+		Priority:       priority,
+		StartDate:      startDate,
+		DueDate:        dueDate,
+		OrganisationID: organisationID,
 	}
 
 	// Without resources, keep the simple non-tx path.
@@ -560,6 +592,13 @@ func (h *Handler) UpdateProject(w http.ResponseWriter, r *http.Request) {
 			params.LeadID = pgtype.UUID{Valid: false}
 		}
 	}
+	if _, ok := rawFields["organisation_id"]; ok {
+		organisationID, ok := h.resolveProjectOrganisation(w, r, wsUUID, req.OrganisationID)
+		if !ok {
+			return
+		}
+		params.OrganisationID = organisationID
+	}
 	// Dates follow the issue contract: a present key with an empty/null value
 	// clears the date; an absent key leaves the prior value untouched.
 	if _, ok := rawFields["start_date"]; ok {
@@ -679,7 +718,7 @@ type SearchProjectResponse struct {
 }
 
 // buildProjectSearchQuery builds a dynamic SQL query for project search.
-func buildProjectSearchQuery(phrase string, terms []string, includeClosed bool) (string, []any) {
+func buildProjectSearchQuery(phrase string, terms []string) (string, []any) {
 	phrase = strings.ToLower(phrase)
 	for i, t := range terms {
 		terms[i] = strings.ToLower(t)
@@ -734,10 +773,6 @@ func buildProjectSearchQuery(phrase string, terms []string, includeClosed bool) 
 
 	whereClause := "(" + strings.Join(whereParts, " OR ") + ")"
 
-	if !includeClosed {
-		whereClause += " AND p.status NOT IN ('completed', 'cancelled')"
-	}
-
 	// --- ORDER BY ranking ---
 	var rankCases []string
 
@@ -763,17 +798,6 @@ func buildProjectSearchQuery(phrase string, terms []string, includeClosed bool) 
 	rankCases = append(rankCases, fmt.Sprintf("WHEN LOWER(COALESCE(p.description, '')) LIKE %s THEN 4", phraseContains))
 
 	rankExpr := "CASE " + strings.Join(rankCases, " ") + " ELSE 5 END"
-
-	// Cancelled projects are abandoned work. Project search has no other status
-	// ranking, and the command palette renders projects above issues, so
-	// without this a cancelled project can be the very first row of the result
-	// list. Demote ahead of rankExpr, with the same direct-hit exception as
-	// issue search (see buildSearchQuery): an exact title means the user is
-	// targeting that one project.
-	cancelledRank := fmt.Sprintf(
-		"CASE WHEN p.status = 'cancelled' AND LOWER(p.title) <> %s THEN 1 ELSE 0 END",
-		phraseParam,
-	)
 
 	// --- match_source expression ---
 	matchSourceExpr := fmt.Sprintf(`CASE
@@ -801,16 +825,15 @@ func buildProjectSearchQuery(phrase string, terms []string, includeClosed bool) 
 	query := fmt.Sprintf(`SELECT p.id, p.workspace_id, p.title, p.description, p.icon,
 		p.status, p.priority, p.lead_type, p.lead_id,
 		p.start_date, p.due_date,
-		p.created_at, p.updated_at,
+		p.created_at, p.updated_at, p.organisation_id,
 		%s AS match_source
 	FROM project p
 	WHERE p.workspace_id = %s AND %s
-	ORDER BY %s, %s, p.updated_at DESC
+	ORDER BY %s, p.updated_at DESC
 	LIMIT %s OFFSET %s`,
 		matchSourceExpr,
 		wsParam,
 		whereClause,
-		cancelledRank,
 		rankExpr,
 		limitParam,
 		offsetParam,
@@ -845,15 +868,13 @@ func (h *Handler) SearchProjects(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	includeClosed := r.URL.Query().Get("include_closed") == "true"
-
 	wsUUID, ok := parseUUIDOrBadRequest(w, workspaceID, "workspace_id")
 	if !ok {
 		return
 	}
 	terms := splitSearchTerms(q)
 
-	sqlQuery, args := buildProjectSearchQuery(q, terms, includeClosed)
+	sqlQuery, args := buildProjectSearchQuery(q, terms)
 	args[1] = wsUUID
 	args[len(args)-2] = limit
 	args[len(args)-1] = offset
@@ -881,6 +902,7 @@ func (h *Handler) SearchProjects(w http.ResponseWriter, r *http.Request) {
 				&row.project.DueDate,
 				&row.project.CreatedAt,
 				&row.project.UpdatedAt,
+				&row.project.OrganisationID,
 				&row.matchSource,
 			); err != nil {
 				return fmt.Errorf("scan: %w", err)

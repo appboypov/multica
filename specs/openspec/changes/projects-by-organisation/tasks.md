@@ -74,18 +74,18 @@ flowchart LR
 
 ## 7. J8 Backend and agent tooling: endpoint
 
-- [ ] 7.1 `server/internal/handler/organisation.go` -- `ListOrganisations`, `GetOrganisation`, `CreateOrganisation` and `UpdateOrganisation`, as design.md decision 2 sets out:
+- [x] 7.1 `server/internal/handler/organisation.go` -- `ListOrganisations`, `GetOrganisation`, `CreateOrganisation` and `UpdateOrganisation`, as design.md decision 2 sets out:
   - Trimmed required name. Key rule 400. Name and key 409s told apart by constraint name. `PUT` takes `key` only.
   - Workspace scoping through the `X-Workspace-ID` membership.
   - `parseUUIDOrBadRequest` for the path id.
   - Publish `organisation:created` and `organisation:updated`.
-- [ ] 7.2 `server/internal/handler/project.go`:
+- [x] 7.2 `server/internal/handler/project.go`:
   - `ProjectResponse.OrganisationID`, set by `projectToResponse`.
   - `organisation_id` on create and update, checked with `GetOrganisationInWorkspace`: 400 "organisation not found" for an unknown id or one from another workspace. On update, a missing key keeps the current value and `null` clears it.
   - `buildProjectSearchQuery` no longer filters or ranks by status.
-- [ ] 7.4 `server/cmd/server/router.go`, `server/cmd/server/listeners.go` -- register `/api/organisations` routes in the workspace-member group, next to projects, and broadcast `organisation:*` to the workspace -- clients refresh live.
-- [ ] 7.5 `server/internal/handler/reserved_slugs.json`, `packages/core/paths/reserved-slugs.ts` -- reserve `organisations`, then run `pnpm generate:reserved-slugs` -- a workspace can't take the route's slug (AGENTS.md).
-- [ ] 7.6 `server/internal/handler/organisation_test.go`, `server/internal/handler/project_test.go` -- DB tests with `testutil` fixtures:
+- [x] 7.4 `server/cmd/server/router.go`, `server/cmd/server/listeners.go` -- register `/api/organisations` routes in the workspace-member group, next to projects, and broadcast `organisation:*` to the workspace -- clients refresh live.
+- [x] 7.5 `server/internal/handler/reserved_slugs.json`, `packages/core/paths/reserved-slugs.ts` -- reserve `organisations`, then run `pnpm generate:reserved-slugs` -- a workspace can't take the route's slug (AGENTS.md).
+- [x] 7.6 `server/internal/handler/organisation_test.go`, `server/internal/handler/project_test.go` -- DB tests with `testutil` fixtures:
   - Create, then list by name.
   - Name taken ignoring case: 409. Key taken: 409. Key not a folder name: 400.
   - Key change, and a key change to a taken key.
@@ -96,23 +96,25 @@ flowchart LR
 
 ## 8. J8 Backend and agent tooling: integration
 
-- [ ] 8.1 `madspec-sync/multica_projects.py` -- the reads, plan and writes of design.md decision 6:
+- [x] 8.1 `madspec-sync/multica_projects.py` -- the reads, plan and writes of design.md decision 6:
   - Read Organisations, Products and Repositories with their links.
   - Read Multica organisations and each merge candidate's issue ids.
-  - Keep the mark file `~/.local/state/madspec/multica/brain-sync.json`, keyed by server and workspace and written atomically.
+  - Keep the mark file `~/.local/state/madspec/multica/brain-sync.json`, keyed by server and workspace and written atomically, with `organisations`, `products` and `repository_projects`.
   - Create organisations with keys from the Linear key or `KEYS`, and take over by name ignoring case.
-  - Keep one project per Product, followed by mark, then taken over by exact title without a checkout mark, then created.
+  - Keep one project per Product, followed by mark, then taken over by exact title without a checkout mark other than the Product's only repository's, then created.
   - Set the organisation only when the project has none.
-  - Put checkouts on the Product's project.
-  - Merge repository projects through `POST /api/issues/batch-update` in pages of 100, and delete one only after a fresh read shows `issue_count` 0.
+  - Count a Product's repositories by the Repository objects that link it. Put the checkout of a Product with one repository on its Product's project, and none on the project of a Product with several.
+  - Merge the repository project of a Product with one repository through `POST /api/issues/batch-update` in pages of 100, and delete it only after a fresh `GET /api/issues?project_id=` shows `total` 0.
+  - Leave each repository project of a Product with several repositories as it is, with its issues and checkout, print "{project} stays for {Product}, which has {N} repositories" on every run, and record it under `repository_projects`. Print each of its repositories with a counting checkout and no repository project.
   - Report a repository without a Product, an Organisation without a key, and a Product or Organisation gone from the brain.
   - Remove the `completed` and `in_progress` status moves.
-- [ ] 8.2 `madspec-sync/tests/test_multica_projects.py` -- `plan()` cases per scenario of the `brain-project-sync` spec delta:
+- [x] 8.2 `madspec-sync/tests/test_multica_projects.py` -- `plan()` cases per scenario of the `brain-project-sync` spec delta:
   - The first run.
   - A taken-over organisation, and the keys table.
   - A key Brian changed stays.
-  - A Product with three repositories, and one without.
-  - The merge of 10, 2 and 1 issues.
+  - A Product with one repository, one with three, and one without.
+  - Rebl takes in its repository project's 6 issues, and the emptied project goes.
+  - MadSpec's repository projects with 10, 2 and 1 issues stay with their checkouts, are printed and are recorded, and no checkout is written to MadSpec.
   - A repository without a Product.
   - An organisation Brian set stays.
   - A deleted Product and a deleted Organisation.
@@ -120,7 +122,7 @@ flowchart LR
   - A second run with nothing to write.
   - A failed read writes nothing.
   - The lock test stays.
-- [ ] 8.3 `madspec-sync/specs/multica-projects.md`, `madspec-sync/README.md` -- rewrite the spec to the new rules (organisations, product projects, merges, the mark file), drop the status requirements, and update the README's description and commands -- `madspec-sync/README.md` says the spec is the sync's contract.
+- [x] 8.3 `madspec-sync/specs/multica-projects.md`, `madspec-sync/README.md` -- rewrite the spec to the new rules (organisations, product projects, the merge of a Product with one repository, the repository projects kept for a Product with several, the mark file), drop the status requirements, and update the README's description and commands -- `madspec-sync/README.md` says the spec is the sync's contract.
 
 ## 9. J9 Frontend: flow
 
@@ -227,7 +229,32 @@ flowchart LR
 - 3.1 files touched: `server/pkg/protocol/events.go`. The two constants sit after the project events; the payload is a named `OrganisationEventPayload` with one field, `OrganisationID` tagged `json:"organisation_id"`, following `QuestionEventPayload`, so 7.1's publishes share one shape. No `organisation:deleted`: organisations leave only with their workspace. `go build ./...` and `go vet ./pkg/protocol/` pass.
 - 3.2 files touched: `packages/core/modals/store.ts`, `"create-organisation"` after `"create-project"`. `tsc --noEmit` in `packages/core` passes; the registry entry is 11.5's work.
 
+### Group 7. J8 Backend and agent tooling: endpoint
+
+- Scope: organisation handlers, project organisation assignment and status-independent search, workspace routes and realtime delivery, the reserved route slug, and their canonical handler tests. Project status/date CRUD and filters remain unchanged (ADR-0005); no organisation rename or delete.
+- 7.1 files touched: `server/internal/handler/organisation.go`. Lists are workspace-scoped and name-ordered; names are trimmed and required, keys follow the folder-name rule, and unique index constraint names distinguish name/key 409s. PUT only changes the key; an extra name property cannot rename the row. Pure path UUIDs use `parseUUIDOrBadRequest`. Writes publish the shared `OrganisationEventPayload`; database faults log request attributes and return 500, while missing rows return 404.
+- 7.2 files touched: `server/internal/handler/project.go`, `server/internal/handler/search_test.go`. Every project response includes nullable `organisation_id`, including search's hand-written SELECT/Scan. Create and explicit update values load the organisation in the selected workspace: a missing or foreign row is 400, malformed UUID is 400, database faults are logged 500s. Absent update keys keep the stored ID; null clears it. Search retains relevance and recency, but removes status filtering/demotion and the unused internal includeClosed argument; all callers and obsolete status expectations were updated. The HTTP `include_closed` parameter remains accepted without affecting project results.
+- 7.4 files touched: `server/cmd/server/router.go`, `server/cmd/server/listeners.go`, `server/cmd/server/listeners_scope_test.go`. Four routes sit immediately before projects inside `RequireWorkspaceMember`. Surprise: `SubscribeAll` already broadcasts every non-personal event to its workspace; no second subscription is needed. The listener comment documents organisations using that path, and both event types have tests for exactly one workspace frame with the organisation ID and no personal/global/scope fanout.
+- 7.5 files touched: `server/internal/handler/reserved_slugs.json`, `packages/core/paths/reserved-slugs.ts`. Added `organisations` to the workspace route segments in the JSON source and ran `pnpm generate:reserved-slugs` successfully (exit 0); the shared TypeScript set is generated from the same source as the Go embed.
+- 7.6 files touched: `server/internal/handler/organisation_test.go` (new), `server/internal/handler/project_test.go`. `testutil` fixtures and HTTP assertions cover empty and name-ordered organisation lists, trimmed names, get, key-only updates, required inputs, the key rule, distinct name/key conflicts, missing/malformed/foreign IDs, workspace-local uniqueness, event payloads and no events for rejected writes. Project tests cover create/move/keep/clear/set-first organisation values, list/get/search response IDs, optional server-side organisation for CLI callers, foreign/unknown/malformed ID rejection without writes, completed projects in search and recency rather than cancelled demotion. The existing keep-on-title-update regression now also asserts the response ID.
+- Verification handoff: the reserved-slug generator completed successfully. No test, build, lint or formatter was run by this builder; the main agent owns the final verification pass. Run Go formatting for the changed Go files, then the focused organisation/project/search/listener tests against the worktree database and `make test`. No production sync, release, push, archive or unrelated task group is part of group 7.
+
+### Group 8. J8 Backend and agent tooling: integration
+
+- 8.1 files touched: `madspec-sync/multica_projects.py`. Repository objects retain their brain IDs, and Product repository counts use all objects that link the Product, including archived, missing-checkout and same-key objects. Only a Product with one Repository gets checkout writes and repository-project merges; organisation and Product placement retain the existing ownership and identity rules.
+- A Product with several Repositories leaves its repository projects, resources and issues untouched. Every run prints "{project} stays for {Product}, which has {N} repositories" and atomically records each Repository brain ID to its Multica project ID under the server/workspace's `repository_projects` map. Unchanged marks are not rewritten.
+- Merge candidates' issue IDs are read before writes only for single-repository Products. Batch pages of at most 100 must return the full updated count, and a fresh issue-list `total` of zero is required before deletion. Failed resource writes keep their source project. No status, title, name or existing key is written.
+- Existing short mark-file and profile locks remain. All three identity maps are validated before writes. Multiple-parent links and conflicting checkout marks remain reported and left alone; GitHub queries deduplicate keys without collapsing brain Repository objects.
+- Surprise: the required OpenSpec command cannot resolve the change from the worktree root. Main clarified that OpenSpec commands use the actual root `specs/`; every other command stays at the worktree root. Python has no configured language server. No real sync or server mutation was run.
+- Scope decision from Main/Joeri: no checkout resource deletion. The earlier failed Product sync only wrote to the worktree test database, not production; Main will exercise the revision in a fresh workspace. This group prevents checkout writes for multi-repository Products and does not invent cleanup beyond the change.
+- 8.2 files touched: `madspec-sync/tests/test_multica_projects.py`. Pure plans and transport-fake runs cover Rebl's one checkout and six-issue merge versus MadSpec's preserved 10/2/1 issues, unchanged checkouts, per-run reports and persisted Repository brain IDs. Products with three or zero Repositories get no checkout. Archived, missing, ambiguous-checkout and same-key Repository objects still count toward the multi-repository boundary.
+- The transport fake enforces the real one-local-directory-per-daemon constraint. New cases cover repository mark failures/recovery, invalid repository identity maps failing before server writes, unchanged second-run server writes and marks, and no merge-candidate issue reads for preserved projects. Existing organisation/keys/ownership, renamed/deleted brain objects, safe paginated merges, failed reads and overlapping-run lock scenarios stay in place. Tests are authored but not run; Main owns verification.
+- 8.3 files touched: `madspec-sync/specs/multica-projects.md`, `madspec-sync/README.md`, and the referenced workflow summary in `AGENTS.md`. The contract and run command describe single-repository checkout placement and guarded merges, multi-repository preservation and per-run reports, brain-object repository counts, and the scoped atomic `repository_projects` map for UJ-2. Existing keys, ownership, safe reads/deletes, idempotency and profile locking stay unchanged. Persona sync instructions and commands stay unchanged.
+- Verification handoff: no test, lint, formatter, build or real sync was run by this builder. Run `uv run --with pytest pytest -p no:cacheprovider madspec-sync/tests/test_multica_projects.py`, then the complete `madspec-sync/tests` suite. The live brain sync belongs to J11 task 12.2, not this assignment. A lost mark file plus a renamed Product project can create a duplicate, as design.md records; moves already made before a merge failure remain in the Product project, and a later run continues from the remaining repository issues.
+- Sarkout's verification of PR #20: a lost mark file made the sync create a second Product project and merge the real, already merged one into it, because the take-over skipped any project with a checkout mark. The take-over now also accepts the mark of the Product's only repository. The emptiness check before a delete reads the issue list's `total`, because a project's `issue_count` reads 0 when its count query fails. A counting repository of a Product with several repositories, without a repository project, is now printed, as proposal.md's "one line per repository it cannot place" asks.
+
 ## Plan Change Log
 
 - 2026-10-13, J2: the workspace-delete step and manifest classification move from group 7 (7.3) to group 1 (1.8). The table 1.1 adds made `TestWorkspaceDeletionManifestCoversPublicSchema` fail, and J2 merges into `main` with passing checks, so its teardown ships with it. Group 7 keeps its numbering.
 - 2026-10-13, J2: 2.1 also seeds `OrganisationID` from `prevProject` in the handler's `UpdateProject` call. Without it, every project update on `main` writes `NULL` to the column until J8. 7.2 still adds the request key.
+- 2026-10-13, J8: 8.1 to 8.3 reopened and reworded. The group 8 sync run against the worktree Multica got 409 "this daemon already has a local_directory attached to the project" on every second checkout of one Product project, because a project holds one `local_directory` per daemon (`findLocalDirectoryConflict`, MUL-2618). Brian decided to merge only Products with one repository in UJ-1. A Product with several keeps its repository projects, which the sync prints and records under `repository_projects` in its mark file, and UJ-2 (`repositories-of-a-project`) merges them. The `brain-project-sync` spec delta, proposal.md, design.md decision 6, its Risks and its Migration Plan are revised through `madspec-revise-plan`. The group 8 implementation notes above describe the build to that revised rule.

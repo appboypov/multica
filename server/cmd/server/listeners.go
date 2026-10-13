@@ -240,6 +240,7 @@ func registerListeners(bus *events.Bus, b realtime.Broadcaster) {
 	})
 
 	// SubscribeAll handles workspace-broadcast for non-personal events.
+	// Organisation create/update events use this same workspace fanout.
 	// Question created/updated payloads follow this workspace fanout too;
 	// answerer-specific inbox events use the personal delivery path above.
 	bus.SubscribeAll(func(e events.Event) {

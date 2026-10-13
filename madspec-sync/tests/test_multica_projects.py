@@ -1,326 +1,327 @@
 import concurrent.futures
 import json
 import sys
-import tempfile
 import time
 from copy import deepcopy
 from pathlib import Path
 from types import SimpleNamespace
+from urllib.parse import parse_qs, urlsplit
 
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-import multica_projects  # noqa: E402
-from multica_projects import (  # noqa: E402
-    COMPLETED,
-    IN_PROGRESS,
-    Create,
-    LocalDirectory,
-    ResourceUpdate,
-    StatusMove,
-    TakeOver,
-    Unplaced,
-)
+import multica_projects as sync  # noqa: E402
+from multica_projects import Brain, Organisation, Product, Repository  # noqa: E402
 
 DAEMON = "019fce17-f818-71b1-bc29-4d9229e2139a"
 REPOS = Path("/Users/brian/Repos")
+DAS = Organisation("brain-das", "De App Specialist", "DAS")
+MADSPEC = Product("brain-madspec", "MadSpec", (DAS.id,))
+HQ = Product("brain-hq", "DAS HQ", (DAS.id,))
+
+
+def repository(name, product=MADSPEC.id, checkouts=None):
+    return Repository("brain-" + name, "appboypov/" + name, () if product is None else (product,),
+                      (REPOS / "Ventures" / name,) if checkouts is None else tuple(checkouts))
+
+
+def brain(products=(MADSPEC,), repositories=(), organisations=(DAS,)):
+    return Brain(tuple(organisations), tuple(products), tuple(repositories))
 
 
 class Workspace:
-    """Multica's projects and their resources as plain data, the way the reads return them."""
+    """Plain server data used as the pure plan's inputs."""
 
-    def __init__(self) -> None:
-        self.projects: list[dict] = []
-        self.resources: dict[str, list[dict]] = {}
+    def __init__(self):
+        self.organisations = []
+        self.projects = []
+        self.resources = {}
+        self.issues = {}
+        self.marks = {"organisations": {}, "products": {}, "repository_projects": {}}
 
-    def project(self, project_id: str, title: str, status: str = IN_PROGRESS, created_at: str = "2026-10-01T00:00:00Z") -> str:
-        self.projects.append({"id": project_id, "title": title, "status": status, "created_at": created_at})
+    def organisation(self, organisation_id="org-das", name=DAS.name, key="das", brain_id=None):
+        self.organisations.append({"id": organisation_id, "name": name, "key": key})
+        if brain_id:
+            self.marks["organisations"][brain_id] = organisation_id
+        return organisation_id
+
+    def project(self, project_id, title, organisation_id=None, product_id=None, issue_count=0):
+        self.projects.append({"id": project_id, "title": title, "organisation_id": organisation_id,
+                              "created_at": "2026-10-01T00:00:00Z", "status": "paused", "description": "Keep me"})
         self.resources[project_id] = []
+        self.issues[project_id] = [f"{project_id}-issue-{index}" for index in range(issue_count)]
+        if product_id:
+            self.marks["products"][product_id] = project_id
         return project_id
 
-    def directory(self, project_id: str, path: Path, label: str = "", daemon: str = DAEMON, mode: str = "worktree") -> None:
-        ref = {"local_path": str(path), "daemon_id": daemon, "execution_mode": mode}
-        if label:
-            ref["label"] = label
-        resource = {"id": f"{project_id}-r{len(self.resources[project_id])}", "resource_type": "local_directory", "resource_ref": ref, "label": label or None}
+    def directory(self, project_id, key, path=None, daemon=DAEMON, mode="worktree"):
+        resource = {"id": f"{project_id}-r{len(self.resources[project_id])}", "resource_type": "local_directory",
+                    "resource_ref": {"local_path": str(path or REPOS / "Ventures" / sync.name_of(key)),
+                                     "daemon_id": daemon, "execution_mode": mode, "label": "madspec:" + key},
+                    "label": "madspec:" + key}
         self.resources[project_id].append(resource)
+        return resource
 
-    def marked(self, project_id: str, key: str, path: Path, status: str = IN_PROGRESS, mode: str = "worktree") -> str:
-        self.project(project_id, multica_projects.name_of(key), status)
-        self.directory(project_id, path, f"madspec:{key}", mode=mode)
-        return project_id
+    def placed(self):
+        self.organisation(brain_id=DAS.id)
+        self.project("project-madspec", MADSPEC.name, "org-das", MADSPEC.id)
+        return self
 
-    def apply(self, plan: multica_projects.Plan) -> None:
-        """What Multica holds after the plan's writes went through."""
-        for create in plan.creates:
-            project_id = self.project(f"new-{create.key}", create.title)
-            self.directory(project_id, Path(create.resource.local_path), create.resource.label)
-        for take_over in plan.take_overs:
-            self.directory(take_over.project_id, Path(take_over.resource.local_path), take_over.resource.label)
-        for update in plan.resource_updates:
-            for resource in self.resources[update.project_id]:
-                if resource["id"] == update.resource_id:
-                    resource["resource_ref"] = update.resource.ref()
-        for move in plan.status_moves:
-            next(project for project in self.projects if project["id"] == move.project_id)["status"] = move.status
-
-    def plan(self, repositories: dict[str, list[Path]], archived: dict[str, bool | None] | None = None) -> multica_projects.Plan:
-        known = {key: False for key in repositories} if archived is None else archived
-        return multica_projects.plan(repositories, known, self.projects, self.resources, DAEMON)
+    def plan(self, source=None, archived=None):
+        source = source or brain()
+        states = {repo.key.lower(): False for repo in source.repositories} if archived is None else archived
+        return sync.plan(source, states, self.organisations, self.projects, self.resources,
+                         {key: tuple(ids) for key, ids in self.issues.items()}, DAEMON, self.marks)
 
 
-def wanted(key: str, path: Path) -> LocalDirectory:
-    return LocalDirectory(str(path), DAEMON, f"madspec:{key}", "worktree")
+def test_first_run_creates_only_the_fourteen_linked_organisations_and_thirty_three_products():
+    organisations = tuple(Organisation(f"org-{index}", f"Organisation {index}", f"K{index}") for index in range(48))
+    products = tuple(Product(f"product-{index}", f"Product {index}", (organisations[index % 14].id,)) for index in range(33))
+
+    desired = Workspace().plan(brain(products, organisations=organisations))
+
+    assert len(desired.organisations) == 14
+    assert len(desired.projects) == 33
+    assert {value.key for value in desired.organisations} == {f"k{index}" for index in range(14)}
+    assert {value.title for value in desired.projects} == {value.name for value in products}
+    assert desired.resources == desired.merges == desired.assignments == ()
 
 
-def reasons(plan: multica_projects.Plan) -> dict[str, Unplaced]:
-    return {report.key: report.reason for report in plan.reports}
+@pytest.mark.parametrize("name,key", list(sync.KEYS.items()))
+def test_key_table_for_organisations_without_a_linear_key(name, key):
+    organisation = Organisation("org", name)
+    desired = Workspace().plan(brain((Product("product", "Product", ("org",)),), organisations=(organisation,)))
+    assert desired.organisations[0].key == key
 
 
-# Every Repository object is a Multica project on its checkout
-
-
-def test_the_first_run_makes_one_project_per_repository_with_a_checkout():
-    repositories = {
-        "appboypov/baba": [REPOS / "Clients/baba/baba"],
-        "appboypov/floatnote": [REPOS / "Apps/fn/floatnote"],
-        "appboypov/whitebird-brain": [REPOS / "Clients/paps/whitebird-brain"],
-        "appboypov/work": [],
-    }
+def test_hand_made_organisation_is_taken_over_ignoring_case_and_its_key_stays():
     workspace = Workspace()
-
-    plan = workspace.plan(repositories)
-
-    assert plan.creates == tuple(
-        Create(key, multica_projects.name_of(key), wanted(key, paths[0]))
-        for key, paths in sorted(repositories.items())
-        if paths
-    )
-    assert all(create.resource.execution_mode == "worktree" for create in plan.creates)
-    assert "work" not in {create.title for create in plan.creates}
-    assert plan.take_overs == plan.resource_updates == plan.status_moves == ()
+    workspace.organisation("org-manual", "de app specialist", "custom-key")
+    desired = workspace.plan()
+    assert desired.organisations[0].organisation_id == "org-manual"
+    assert desired.projects[0].organisation == DAS.id
+    assert desired.organisation_ids == {DAS.id: "org-manual"}
+    assert workspace.organisations[0]["key"] == "custom-key"
 
 
-def test_a_project_carries_its_repository_name_and_checkout():
-    checkout = REPOS / "Clients/sm/sm-design"
-
-    plan = Workspace().plan({"Supermarty-B-V/sm-design": [checkout]})
-
-    (create,) = plan.creates
-    assert create.title == "sm-design"
-    assert create.resource.ref() == {
-        "local_path": str(checkout),
-        "daemon_id": DAEMON,
-        "label": "madspec:supermarty-b-v/sm-design",
-        "execution_mode": "worktree",
-    }
+def test_marked_organisation_keeps_brians_key_and_name_even_when_brain_name_changes():
+    workspace = Workspace().placed()
+    workspace.organisations[0].update(name="Brian's name", key="rr")
+    desired = workspace.plan(brain(organisations=(Organisation(DAS.id, "Renamed in brain", "OTHER"),)))
+    assert desired.writes == ()
+    assert workspace.organisations[0]["key"] == "rr"
 
 
-def test_a_mixed_case_key_keeps_its_name_in_the_title_and_finds_its_lowercase_marker():
-    checkout = REPOS / "Clients/baba/baba"
+def test_product_with_three_repositories_and_product_without_repositories():
+    repositories = tuple(repository(name) for name in ("madspec", "plannotator", "omp-anytype-inbox"))
+    desired = Workspace().plan(brain((MADSPEC, HQ), repositories))
+    assert {value.title for value in desired.projects} == {"MadSpec", "DAS HQ"}
+    assert desired.resources == desired.merges == ()
+    assert desired.repository_projects == {}
 
-    (create,) = Workspace().plan({"AppBoyPov/Baba": [checkout]}).creates
-    assert (create.title, create.resource.label) == ("Baba", "madspec:appboypov/baba")
 
+def test_new_product_changes_nothing_else():
+    workspace = Workspace().placed()
+    desired = workspace.plan(brain((MADSPEC, HQ)))
+    assert desired.projects == (sync.PlaceProject(HQ.id, HQ.name, DAS.id, None),)
+    assert desired.organisations == desired.assignments == desired.resources == desired.merges == ()
+
+
+def test_product_take_over_requires_exact_title_and_no_checkout_mark():
     workspace = Workspace()
-    workspace.marked("p-baba", "appboypov/baba", checkout)
-    assert workspace.plan({"AppBoyPov/Baba": [checkout]}).writes == ()
+    workspace.project("manual", "MadSpec")
+    workspace.directory("manual", "unmarked")
+    workspace.resources["manual"][0].update(label=None, resource_ref={"daemon_id": DAEMON})
+    assert workspace.plan().projects[0].project_id == "manual"
+    workspace.projects[0]["title"] = "madspec"
+    assert workspace.plan().projects[0].project_id is None
+    workspace.projects[0]["title"] = "MadSpec"
+    workspace.directory("manual", "appboypov/madspec")
+    assert workspace.plan().projects[0].project_id is None
 
 
-def test_a_new_repository_object_becomes_one_project_and_nothing_else_changes():
+def test_madspec_repository_projects_keep_ten_two_and_one_issues_and_are_recorded():
+    workspace = Workspace().placed()
+    repositories = tuple(repository(name) for name in ("madspec", "plannotator", "omp-anytype-inbox"))
+    for repo, count in zip(repositories, (10, 2, 1)):
+        project_id = workspace.project(sync.name_of(repo.key), sync.name_of(repo.key), issue_count=count)
+        workspace.directory(project_id, repo.key)
+    before = deepcopy((workspace.projects, workspace.resources, workspace.issues))
+    for _ in range(2):
+        desired = workspace.plan(brain(repositories=repositories))
+        assert desired.resources == desired.merges == ()
+        assert desired.repository_projects == {repo.id: sync.name_of(repo.key) for repo in repositories}
+        assert set(desired.reports) == {
+            f"{sync.name_of(repo.key)} stays for MadSpec, which has 3 repositories" for repo in repositories
+        }
+    assert (workspace.projects, workspace.resources, workspace.issues) == before
+
+
+def test_rebl_takes_its_single_repository_checkout_and_six_issues():
+    organisation = Organisation("brain-rebl-records", "Rebl Records", "REBL")
+    product = Product("brain-rebl", "Rebl", (organisation.id,))
+    repo = repository("rebl", product.id)
     workspace = Workspace()
-    workspace.marked("p-baba", "appboypov/baba", REPOS / "Clients/baba/baba")
-    workspace.marked("p-rebl", "appboypov/rebl", REPOS / "Clients/rebl")
-    repositories = {
-        "appboypov/baba": [REPOS / "Clients/baba/baba"],
-        "appboypov/rebl": [REPOS / "Clients/rebl"],
-        "appboypov/mia": [REPOS / "Clients/ivga/mia"],
-    }
-
-    plan = workspace.plan(repositories)
-
-    assert plan.writes == (Create("appboypov/mia", "mia", wanted("appboypov/mia", REPOS / "Clients/ivga/mia")),)
-
-
-# A repository that cannot be placed is reported and left alone
-
-
-def test_a_repository_without_a_checkout_is_reported_and_gets_no_project():
-    plan = Workspace().plan({"appboypov/work": []})
-
-    assert reasons(plan) == {"appboypov/work": Unplaced.NO_CHECKOUT}
-    assert plan.writes == ()
-
-
-def test_a_repository_with_two_checkouts_is_reported_with_both_and_its_project_stays():
-    first, second = REPOS / "Clients/rebl", REPOS / "Clients/rebl/rebl"
-    workspace = Workspace()
-    workspace.marked("p-rebl", "appboypov/rebl", first, status=COMPLETED)
-
-    plan = workspace.plan({"appboypov/rebl": [second, first]})
-
-    (report,) = plan.reports
-    assert (report.key, report.reason) == ("appboypov/rebl", Unplaced.CHECKOUTS)
-    assert set(report.checkouts) == {str(first), str(second)}
-    assert plan.writes == ()
-
-
-def test_two_repositories_with_one_name_are_both_reported_and_get_no_project():
-    plan = Workspace().plan({
-        "appboypov/site": [REPOS / "Ventures/site"],
-        "supermarty-b-v/site": [REPOS / "Clients/sm/site"],
-    })
-
-    assert reasons(plan) == {"appboypov/site": Unplaced.SHARED_NAME, "supermarty-b-v/site": Unplaced.SHARED_NAME}
-    assert {report.key: report.others for report in plan.reports} == {
-        "appboypov/site": ("supermarty-b-v/site",),
-        "supermarty-b-v/site": ("appboypov/site",),
-    }
-    assert plan.writes == ()
-
-
-def test_a_repository_github_does_not_know_is_reported_and_its_project_stays():
-    workspace = Workspace()
-    workspace.marked("p-gone", "appboypov/gone", REPOS / "Ventures/gone")
-
-    plan = workspace.plan({"appboypov/gone": [REPOS / "Ventures/gone"]}, {"appboypov/gone": None})
-
-    assert reasons(plan) == {"appboypov/gone": Unplaced.UNKNOWN}
-    assert plan.writes == ()
-
-
-# A changed checkout is updated in place
-
-
-def test_a_moved_checkout_updates_the_same_project_without_touching_its_status():
-    workspace = Workspace()
-    workspace.marked("p-rebl", "appboypov/rebl", REPOS / "Clients/rebl")
-    moved = REPOS / "Clients/rebl/rebl"
-
-    plan = workspace.plan({"appboypov/rebl": [moved]})
-
-    assert plan.writes == (ResourceUpdate("appboypov/rebl", "p-rebl", "rebl", "p-rebl-r0", wanted("appboypov/rebl", moved)),)
-
-
-def test_a_resource_switched_to_in_place_goes_back_to_worktree():
-    checkout = REPOS / "Clients/baba/baba"
-    workspace = Workspace()
-    workspace.marked("p-baba", "appboypov/baba", checkout, mode="in_place")
-
-    plan = workspace.plan({"appboypov/baba": [checkout]})
-
-    (update,) = plan.resource_updates
-    assert (update.project_id, update.resource.execution_mode) == ("p-baba", "worktree")
-    assert plan.creates == plan.take_overs == plan.status_moves == ()
-
-
-# A project follows its repository out and back
-
-
-def test_a_deleted_repository_object_completes_its_project():
-    workspace = Workspace()
-    workspace.marked("p-photoprank", "appboypov/photoprank", REPOS / "Apps/photoprank")
-
-    plan = workspace.plan({"appboypov/baba": [REPOS / "Clients/baba/baba"]})
-
-    assert StatusMove("appboypov/photoprank", "p-photoprank", "photoprank", COMPLETED) in plan.status_moves
-    assert not any(write.key == "appboypov/photoprank" for write in plan.writes if not isinstance(write, StatusMove))
-
-
-def test_a_repository_github_archived_completes_its_project():
-    checkout = REPOS / "Clients/ivga/mia"
-    workspace = Workspace()
-    workspace.marked("p-mia", "appboypov/mia", checkout)
-
-    plan = workspace.plan({"appboypov/mia": [checkout]}, {"appboypov/mia": True})
-
-    assert plan.writes == (StatusMove("appboypov/mia", "p-mia", "mia", COMPLETED),)
-    assert plan.reports == ()
-
-
-def test_a_returning_repository_puts_the_same_project_back_in_progress():
-    checkout = REPOS / "Apps/photoprank"
-    workspace = Workspace()
-    workspace.marked("p-photoprank", "appboypov/photoprank", checkout, status=COMPLETED)
-
-    plan = workspace.plan({"appboypov/photoprank": [checkout]})
-
-    assert plan.writes == (StatusMove("appboypov/photoprank", "p-photoprank", "photoprank", IN_PROGRESS),)
-
-
-def test_a_status_brian_set_stays_for_a_counting_and_a_leaving_repository():
-    checkout = REPOS / "Clients/baba/baba"
-    workspace = Workspace()
-    workspace.marked("p-baba", "appboypov/baba", checkout, status="paused")
-    workspace.marked("p-old", "appboypov/old", REPOS / "Ventures/old", status="paused")
-
-    plan = workspace.plan({"appboypov/baba": [checkout]})
-
-    assert plan.writes == ()
-
-
-# The sync manages only its own projects
-
-
-def test_a_hand_made_project_with_the_repository_name_is_taken_over():
-    checkout = REPOS / "Clients/baba/baba"
-    workspace = Workspace()
-    workspace.project("p-baba", "baba")
-
-    plan = workspace.plan({"appboypov/baba": [checkout]})
-
-    assert plan.writes == (TakeOver("appboypov/baba", "p-baba", "baba", wanted("appboypov/baba", checkout)),)
-
-
-def test_a_same_named_project_already_on_the_local_daemon_is_not_taken_over():
-    checkout = REPOS / "Clients/baba/baba"
-    workspace = Workspace()
-    workspace.project("p-baba", "baba")
-    workspace.directory("p-baba", REPOS / "Elsewhere/baba")
-
-    plan = workspace.plan({"appboypov/baba": [checkout]})
-
-    assert [type(write) for write in plan.writes] == [Create]
-
-
-def test_an_unmarked_project_matching_no_repository_is_left_alone():
-    workspace = Workspace()
-    workspace.project("p-experiments", "Experiments", status="paused")
-    workspace.directory("p-experiments", REPOS / "Experiments")
-
-    plan = workspace.plan({"appboypov/baba": [REPOS / "Clients/baba/baba"]})
-
-    assert all(getattr(write, "project_id", None) != "p-experiments" for write in plan.writes)
-
-
-# A sync writes only what differs
-
-
-def test_a_second_run_without_a_source_change_writes_nothing():
-    repositories = {
-        "appboypov/baba": [REPOS / "Clients/baba/baba"],
-        "appboypov/rebl": [REPOS / "Clients/rebl/rebl"],
-        "appboypov/mia": [REPOS / "Clients/ivga/mia"],
-        "appboypov/photoprank": [REPOS / "Apps/photoprank"],
-        "appboypov/work": [],
-    }
-    workspace = Workspace()
-    workspace.project("p-baba", "baba", status=COMPLETED)
-    workspace.marked("p-rebl", "appboypov/rebl", REPOS / "Clients/rebl", mode="in_place")
-    workspace.marked("p-photoprank", "appboypov/photoprank", REPOS / "Apps/photoprank", status=COMPLETED)
-    workspace.marked("p-left", "appboypov/left", REPOS / "Ventures/left")
-    first = workspace.plan(repositories)
-    workspace.apply(first)
-
-    second = workspace.plan(repositories)
-
-    assert first.writes
-    assert second.writes == ()
-    assert reasons(second) == {"appboypov/work": Unplaced.NO_CHECKOUT}
-
-
-# The shell: failed reads never write; failed writes do not stop other projects.
+    workspace.project("repository-rebl", "rebl", issue_count=6)
+    workspace.directory("repository-rebl", repo.key)
+    desired = workspace.plan(brain((product,), (repo,), (organisation,)))
+    assert desired.projects == (sync.PlaceProject(product.id, product.name, organisation.id, None),)
+    assert len(desired.resources) == 1
+    assert desired.resources[0].product == product.id
+    assert desired.resources[0].resource.ref() == sync.LocalDirectory(str(repo.checkouts[0]), DAEMON, "madspec:" + repo.key).ref()
+    assert desired.merges == (sync.Merge("repository-rebl", "rebl", product.id,
+                                       tuple(workspace.issues["repository-rebl"]), (repo.key,)),)
+    assert desired.repository_projects == {}
+
+
+@pytest.mark.parametrize("checkouts,state", [
+    ([], False),
+    ([REPOS / "one"], True),
+    ([REPOS / "one"], None),
+    ([REPOS / "one", REPOS / "two"], False),
+])
+def test_second_repository_counts_even_when_its_checkout_cannot_be_placed(checkouts, state):
+    workspace = Workspace().placed()
+    first = repository("madspec")
+    second = repository("plannotator", checkouts=checkouts)
+    workspace.project("repository", "madspec", issue_count=10)
+    workspace.directory("repository", first.key)
+    desired = workspace.plan(brain(repositories=(first, second)), {first.key: False, second.key: state})
+    assert desired.resources == desired.merges == ()
+    assert desired.repository_projects == {first.id: "repository"}
+    assert "madspec stays for MadSpec, which has 2 repositories" in desired.reports
+
+
+def test_repository_without_a_product_keeps_its_project_and_issues():
+    workspace = Workspace().placed()
+    repo = repository("das-duckmd-brain", product=None)
+    workspace.project("standalone", "das-duckmd-brain", issue_count=8)
+    workspace.directory("standalone", repo.key)
+    before = deepcopy((workspace.projects, workspace.resources, workspace.issues))
+    desired = workspace.plan(brain(repositories=(repo,)))
+    assert desired.writes == ()
+    assert desired.reports == (f"{repo.key}: has no Product",)
+    assert (workspace.projects, workspace.resources, workspace.issues) == before
+
+
+@pytest.mark.parametrize("checkouts,state,reason", [
+    ([], False, "has no checkout"),
+    ([REPOS / "one", REPOS / "two"], False, "has more than one checkout"),
+    ([REPOS / "one"], None, "is unknown to GitHub"),
+    ([REPOS / "one"], True, "is archived on GitHub"),
+])
+def test_non_counting_repository_still_merges_but_gets_no_product_checkout(checkouts, state, reason):
+    workspace = Workspace().placed()
+    repo = repository("madspec", checkouts=checkouts)
+    workspace.project("repository", "madspec", issue_count=3)
+    workspace.directory("repository", repo.key)
+    desired = workspace.plan(brain(repositories=(repo,)), {repo.key: state})
+    assert desired.resources == ()
+    assert len(desired.merges) == 1
+    assert any(reason in report for report in desired.reports)
+
+
+def test_shared_repository_names_skip_checkouts_but_merge_single_repository_products():
+    workspace = Workspace().placed()
+    repositories = (repository("site"), Repository("brain-other-site", "other/site", (HQ.id,), (REPOS / "Other/site",)))
+    for index, repo in enumerate(repositories):
+        workspace.project(str(index), "site")
+        workspace.directory(str(index), repo.key)
+    desired = workspace.plan(brain((MADSPEC, HQ), repositories))
+    assert desired.resources == ()
+    assert len(desired.merges) == 2
+    assert len([report for report in desired.reports if "shares its name" in report]) == 2
+
+
+def test_merged_product_project_is_taken_over_by_title_with_its_own_checkout_mark():
+    workspace = Workspace().placed()
+    workspace.marks["products"] = {}
+    repo = repository("madspec")
+    workspace.directory("project-madspec", repo.key)
+    desired = workspace.plan(brain(repositories=(repo,)))
+    assert desired.projects == (sync.PlaceProject(MADSPEC.id, MADSPEC.name, DAS.id, "project-madspec"),)
+    assert desired.resources == desired.merges == ()
+
+
+def test_multi_repository_product_reports_a_repository_without_a_project():
+    workspace = Workspace().placed()
+    repositories = (repository("madspec"), repository("plannotator"))
+    workspace.project("repository", "madspec", issue_count=1)
+    workspace.directory("repository", repositories[0].key)
+    desired = workspace.plan(brain(repositories=repositories))
+    assert "appboypov/plannotator: gets no checkout, because MadSpec has 2 repositories" in desired.reports
+    assert not any(report.startswith("appboypov/madspec:") for report in desired.reports)
+
+
+def test_brians_project_organisation_is_kept_and_missing_organisation_is_assigned():
+    workspace = Workspace().placed()
+    workspace.projects[0]["organisation_id"] = "org-rebl"
+    assert workspace.plan().writes == ()
+    workspace.projects[0]["organisation_id"] = None
+    assert workspace.plan().assignments == (sync.SetOrganisation(MADSPEC.id, DAS.id),)
+
+
+def test_deleted_product_and_organisation_are_printed_on_every_run_and_left_alone():
+    workspace = Workspace().placed()
+    workspace.organisation("org-gone", "Profa", "prf", "brain-gone-org")
+    workspace.project("project-gone", "Photo Prank", "org-gone", "brain-gone-product", 7)
+    for _ in range(2):
+        desired = workspace.plan()
+        assert desired.writes == ()
+        assert set(desired.reports) == {"Profa: has no Organisation in the brain", "Photo Prank: has no Product in the brain"}
+    assert len(workspace.issues["project-gone"]) == 7
+
+
+def test_renamed_product_follows_its_mark_without_renaming_or_recreating_project():
+    workspace = Workspace().placed()
+    source = brain((Product(MADSPEC.id, "Mad Spec", (DAS.id,)),))
+    assert workspace.plan(source).writes == ()
+    assert workspace.projects[0]["title"] == "MadSpec"
+
+
+def test_missing_marked_rows_rebuild_by_name_and_exact_title():
+    workspace = Workspace().placed()
+    workspace.marks = {"organisations": {DAS.id: "deleted"}, "products": {MADSPEC.id: "deleted"}}
+    desired = workspace.plan()
+    assert desired.organisations[0].organisation_id == "org-das"
+    assert desired.projects[0].project_id == "project-madspec"
+
+
+def test_keyless_organisation_and_its_products_are_reported_without_writes():
+    unknown = Organisation("unknown", "Unknown")
+    desired = Workspace().plan(brain((Product("unknown-product", "Unknown Product", (unknown.id,)),), organisations=(unknown,)))
+    assert desired.writes == ()
+    assert set(desired.reports) == {"Unknown: has no key", "Unknown Product: Organisation Unknown has no key"}
+
+
+def test_multiple_parent_links_are_reported_and_left_alone():
+    source = brain((Product("multi", "Many", (DAS.id, "other")), MADSPEC),
+                   (Repository("brain-multi", "appboypov/multi", (MADSPEC.id, "other"), (REPOS / "multi",)),))
+    desired = Workspace().placed().plan(source)
+    assert desired.writes == ()
+    assert set(desired.reports) == {"Many: has more than one Organisation", "appboypov/multi: has more than one Product"}
+
+
+def test_repository_gone_from_brain_keeps_its_marked_project_and_is_printed():
+    workspace = Workspace().placed()
+    workspace.project("repository", "gone", issue_count=8)
+    workspace.directory("repository", "appboypov/gone")
+    desired = workspace.plan()
+    assert desired.writes == ()
+    assert desired.reports == ("appboypov/gone: has no Repository in the brain",)
+
+
+@pytest.mark.parametrize("path,daemon,mode", [(REPOS / "Moved", DAEMON, "worktree"), (None, "previous-daemon", "worktree"), (None, DAEMON, "in_place")])
+def test_checkout_changes_update_the_marked_resource_in_place(path, daemon, mode):
+    workspace = Workspace().placed()
+    repo = repository("madspec")
+    current = workspace.directory("project-madspec", repo.key, path, daemon, mode)
+    desired = workspace.plan(brain(repositories=(repo,)))
+    assert len(desired.resources) == 1
+    assert desired.resources[0].resource_id == current["id"]
+    assert desired.resources[0].resource.ref() == sync.LocalDirectory(str(repo.checkouts[0]), DAEMON, "madspec:" + repo.key).ref()
+    assert desired.merges == ()
 
 
 class FakeApiError(Exception):
@@ -328,266 +329,464 @@ class FakeApiError(Exception):
 
 
 class FakeMultica(Workspace):
-    """An in-memory workspace with the real API shapes and observable mutations."""
+    """External transport fake using the actual HTTP request/response shapes."""
 
     def __init__(self):
         super().__init__()
+        self.calls = []
         self.writes = []
         self.fail_read = None
         self.fail_create = None
         self.fail_resource = False
+        self.batch_updated = None
 
     def call(self, method, path, body=None):
+        self.calls.append((method, path, deepcopy(body)))
+        parsed = urlsplit(path)
         if method == "GET":
-            if path == self.fail_read:
+            if parsed.path == self.fail_read:
                 raise FakeApiError("Multica is unreachable")
             if path == "/api/runtimes":
-                return [{"id": "runtime", "daemon_id": DAEMON, "provider": "omp", "runtime_mode": "local"}]
+                return [{"id": "runtime", "daemon_id": DAEMON}]
+            if path == "/api/organisations":
+                return {"organisations": deepcopy(self.organisations)}
             if path == "/api/projects":
-                return {"projects": [{**project, "resource_count": len(self.resources[project["id"]])} for project in self.projects]}
-            return {"resources": self.resources[path.split("/")[3]]}
-        self.writes.append((method, path, body))
+                return {"projects": [{**project, "resource_count": len(self.resources[project['id']])} for project in self.projects]}
+            if parsed.path == "/api/issues":
+                query = parse_qs(parsed.query)
+                ids = self.issues[query["project_id"][0]]
+                offset, limit = int(query["offset"][0]), int(query["limit"][0])
+                return {"issues": [{"id": value} for value in ids[offset:offset + limit]], "total": len(ids)}
+            assert path.endswith("/resources"), path
+            return {"resources": deepcopy(self.resources[parsed.path.split("/")[3]])}
+        self.writes.append((method, path, deepcopy(body)))
+        if method == "POST" and path == "/api/organisations":
+            organisation_id = self.organisation("new-org-" + body["name"], body["name"], body["key"])
+            return next(value for value in self.organisations if value["id"] == organisation_id)
         if method == "POST" and path == "/api/projects":
             if body["title"] == self.fail_create:
                 raise FakeApiError("create refused")
-            project_id = self.project("new-" + body["title"], body["title"], body["status"])
-            return next(project for project in self.projects if project["id"] == project_id)
-        project_id = path.split("/")[3]
+            project_id = self.project("new-" + body["title"], body["title"], body.get("organisation_id"))
+            return next(value for value in self.projects if value["id"] == project_id)
+        if path == "/api/issues/batch-update":
+            ids = body["issue_ids"]
+            moved = ids if self.batch_updated is None else ids[:self.batch_updated]
+            for issue_id in moved:
+                source = next(values for values in self.issues.values() if issue_id in values)
+                source.remove(issue_id)
+                self.issues[body["updates"]["project_id"]].append(issue_id)
+            return {"updated": len(moved)}
+        project_id = parsed.path.split("/")[3]
+        if method == "DELETE":
+            self.projects = [value for value in self.projects if value["id"] != project_id]
+            del self.resources[project_id]
+            del self.issues[project_id]
+            return None
         if method == "POST":
             if self.fail_resource:
                 self.fail_resource = False
                 raise FakeApiError("resource refused")
-            resource = {"id": project_id + "-resource", **body}
+            if any(value["resource_type"] == "local_directory"
+                   and value["resource_ref"].get("daemon_id") == body["resource_ref"].get("daemon_id")
+                   for value in self.resources[project_id]):
+                raise FakeApiError("this daemon already has a local_directory attached to the project")
+            resource = {"id": f"{project_id}-resource-{len(self.resources[project_id])}", **deepcopy(body)}
             self.resources[project_id].append(resource)
             return resource
         if "/resources/" in path:
-            resource = next(resource for resource in self.resources[project_id] if resource["id"] == path.split("/")[-1])
-            resource.update(body)
+            resource = next(value for value in self.resources[project_id] if value["id"] == path.split("/")[-1])
+            resource.update(deepcopy(body))
             return resource
-        project = next(project for project in self.projects if project["id"] == project_id)
+        project = next(value for value in self.projects if value["id"] == project_id)
         project.update(body)
         return project
 
 
 class Shell:
-    """Fake external reads around the actual reader, plan and write loop."""
-
-    def __init__(self, monkeypatch):
+    def __init__(self, monkeypatch, tmp_path):
         self.api = FakeMultica()
-        self.folder = tempfile.TemporaryDirectory()
-        self.objects = [{"id": "brain-baba", "properties": {"github_key": "AppBoyPov/Baba"}}]
-        self.checkouts = {"appboypov/baba": [REPOS / "Clients/baba/baba"]}
-        self.brain_error = False
+        self.objects = {
+            "organisation": [{"id": DAS.id, "name": DAS.name, "properties": {"linear_key": DAS.linear_key}}],
+            "product": [{"id": MADSPEC.id, "name": MADSPEC.name, "properties": {"organisation": [DAS.id]}}],
+            "repository": [{"id": "brain-repository", "name": "madspec", "properties": {"github_key": "appboypov/madspec", "product": [MADSPEC.id]}}],
+        }
+        self.checkouts = {"appboypov/madspec": [REPOS / "Ventures/madspec"]}
+        self.archived = {"appboypov/madspec": False}
+        self.brain_error = None
         self.github_errors = []
-        self.archived = {"appboypov/baba": False}
-        team = SimpleNamespace(
-            brain=SimpleNamespace(search=self.search),
-            model=SimpleNamespace(api_key=lambda: "fake-key", ModelError=FakeApiError),
-            REPOS_ROOT=REPOS,
-            local_checkouts=lambda: self.checkouts,
-        )
-        sync = SimpleNamespace(
-            CONFIG=Path(self.folder.name) / "config.json",
-            load_config=lambda path: {},
-            Multica=lambda config: self.api,
-            ApiError=FakeApiError,
-            omp_runtime=lambda runtimes: runtimes[0]["id"],
-        )
-        monkeypatch.setattr(multica_projects, "load_dependencies", lambda: (team, sync))
-        monkeypatch.setattr(multica_projects.subprocess, "run", self.github)
+        self.searches = []
+        self.config = {"server_url": "http://test-server/", "workspace_id": "workspace"}
+        self.mark_path = tmp_path / "state/brain-sync.json"
+        team = SimpleNamespace(brain=SimpleNamespace(search=self.search),
+                               model=SimpleNamespace(api_key=lambda: "fake", ModelError=FakeApiError),
+                               REPOS_ROOT=REPOS, local_checkouts=lambda: self.checkouts)
+        external = SimpleNamespace(CONFIG=tmp_path / "config.json", load_config=lambda path: self.config,
+                                   Multica=lambda config: self.api, ApiError=FakeApiError,
+                                   omp_runtime=lambda runtimes: runtimes[0]["id"])
+        monkeypatch.setattr(sync, "MARK_FILE", self.mark_path)
+        monkeypatch.setattr(sync, "load_dependencies", lambda: (team, external))
+        monkeypatch.setattr(sync.subprocess, "run", self.github)
 
-    def search(self, *args, **kwargs):
-        if self.brain_error:
+    def search(self, key, kind, fields):
+        self.searches.append((kind, fields))
+        if self.brain_error == kind:
             raise FakeApiError("Anytype is unreachable")
-        return self.objects
+        return deepcopy(self.objects[kind])
 
     def github(self, command, **kwargs):
-        data = {
-            f"r{index}": None if self.archived.get(key.lower()) is None else {"isArchived": self.archived[key.lower()]}
-            for index, key in enumerate(sorted(repository["properties"]["github_key"] for repository in self.objects))
-        }
-        return SimpleNamespace(
-            stdout=json.dumps({"data": data, "errors": self.github_errors}),
-            stderr="GraphQL error" if self.github_errors else "",
-            returncode=1 if self.github_errors else 0,
-        )
-
-    def add_repository(self, key):
-        self.objects.append({"id": "brain-" + key, "properties": {"github_key": key}})
-        self.checkouts[key] = [REPOS / "Clients" / multica_projects.name_of(key)]
-        self.archived[key] = False
+        keys = sorted({value["properties"]["github_key"] for value in self.objects["repository"]})
+        data = {f"r{index}": None if self.archived.get(key.lower()) is None else {"isArchived": self.archived[key.lower()]} for index, key in enumerate(keys)}
+        return SimpleNamespace(stdout=json.dumps({"data": data, "errors": self.github_errors}), stderr="", returncode=bool(self.github_errors))
 
     def state(self):
-        return deepcopy((self.api.projects, self.api.resources))
+        return deepcopy((self.api.organisations, self.api.projects, self.api.resources, self.api.issues))
+
+    def save_marks(self):
+        marks = sync.Marks(self.mark_path, self.config["server_url"], self.config["workspace_id"])
+        for kind, values in self.api.marks.items():
+            for brain_id, multica_id in values.items():
+                marks.record(kind, brain_id, multica_id)
 
 
-def test_not_found_alias_keeps_its_project_and_syncs_the_known_repository(monkeypatch):
-    shell = Shell(monkeypatch)
-    shell.add_repository("appboypov/gone")
-    shell.archived["appboypov/gone"] = None
-    shell.github_errors = [{"type": "NOT_FOUND", "path": ["r1"], "message": "not found"}]
-    shell.api.marked("p-gone", "appboypov/gone", REPOS / "Old/gone", status=COMPLETED)
-    gone_before = deepcopy(shell.api.resources["p-gone"])
-
-    assert multica_projects.main() == 0
-
-    assert {project["title"]: project["status"] for project in shell.api.projects} == {"gone": COMPLETED, "Baba": IN_PROGRESS}
-    assert shell.api.resources["p-gone"] == gone_before
-    assert shell.api.resources["new-Baba"][0]["resource_ref"]["execution_mode"] == "worktree"
+@pytest.fixture
+def shell(monkeypatch, tmp_path):
+    return Shell(monkeypatch, tmp_path)
 
 
-def test_other_graphql_error_fails_the_read_without_writes(monkeypatch):
-    shell = Shell(monkeypatch)
-    shell.github_errors = [{"type": "FORBIDDEN", "message": "permission denied"}]
-    shell.api.marked("p-left", "appboypov/left", REPOS / "Old/left")
+def test_second_run_writes_nothing_and_preserves_status_description_and_names(shell):
+    assert sync.main() == 0
     before = shell.state()
-
-    assert multica_projects.main() == 1
-
+    writes = deepcopy(shell.api.writes)
+    assert sync.main() == 0
     assert shell.state() == before
-    assert shell.api.writes == []
+    assert shell.api.writes == writes
+    assert all("status" not in (body or {}) for _, _, body in writes)
+    assert shell.searches[:3] == [("organisation", ["linear_key"]), ("product", ["organisation"]), ("repository", ["github_key", "product"])]
 
 
-@pytest.mark.parametrize("source", ["brain", "empty-brain", "runtimes", "projects", "resources"])
-def test_failed_read_never_creates_updates_or_completes_projects(monkeypatch, source):
-    shell = Shell(monkeypatch)
-    shell.api.marked("p-baba", "appboypov/baba", REPOS / "Old/baba", mode="in_place")
-    shell.api.marked("p-left", "appboypov/left", REPOS / "Old/left")
+def test_lost_mark_file_after_a_merge_keeps_the_product_project(shell):
+    shell.api.project("repository", "madspec", issue_count=3)
+    shell.api.directory("repository", "appboypov/madspec")
+    assert sync.main() == 0
     before = shell.state()
-    if source == "brain":
-        shell.brain_error = True
-    elif source == "empty-brain":
-        shell.objects = []
+    writes = deepcopy(shell.api.writes)
+    shell.mark_path.unlink()
+    assert sync.main() == 0
+    assert shell.state() == before
+    assert shell.api.writes == writes
+    marks = sync.Marks(shell.mark_path, shell.config["server_url"], shell.config["workspace_id"])
+    assert marks.scope["products"] == {MADSPEC.id: "new-MadSpec"}
+
+
+def test_madspec_keeps_repository_projects_and_records_their_brain_ids_on_every_run(shell, capsys):
+    sources = ("madspec", "plannotator", "omp-anytype-inbox")
+    for name, count in zip(sources, (10, 2, 1)):
+        if name != "madspec":
+            key = "appboypov/" + name
+            shell.objects["repository"].append({"id": "brain-" + name, "properties": {"github_key": key, "product": [MADSPEC.id]}})
+            shell.checkouts[key] = [REPOS / "Ventures" / name]
+            shell.archived[key] = False
+        shell.api.project(name, name, issue_count=count)
+        shell.api.directory(name, "appboypov/" + name)
+    before = deepcopy((shell.api.projects, shell.api.resources, shell.api.issues))
+    for run in range(2):
+        assert sync.main() == 0
+        assert {value["title"] for value in shell.api.projects} == {*sources, "MadSpec"}
+        for index, source in enumerate(sources):
+            assert next(value for value in shell.api.projects if value["id"] == source) == before[0][index]
+            assert shell.api.resources[source] == before[1][source]
+            assert shell.api.issues[source] == before[2][source]
+        assert shell.api.issues["new-MadSpec"] == shell.api.resources["new-MadSpec"] == []
+        marks = sync.Marks(shell.mark_path, shell.config["server_url"], shell.config["workspace_id"])
+        assert marks.scope["repository_projects"] == {
+            "brain-repository": "madspec", "brain-plannotator": "plannotator", "brain-omp-anytype-inbox": "omp-anytype-inbox"
+        }
+        output = capsys.readouterr().out
+        assert all(f"{source} stays for MadSpec, which has 3 repositories" in output for source in sources)
+        if run == 0:
+            saved_marks = shell.mark_path.read_bytes()
+            saved_writes = deepcopy(shell.api.writes)
+        else:
+            assert shell.mark_path.read_bytes() == saved_marks
+            assert shell.api.writes == saved_writes
+    assert not any(path.startswith("/api/issues") or method == "DELETE" for method, path, _ in shell.api.calls)
+
+
+def test_rebl_merge_moves_six_issues_and_deletes_only_the_emptied_repository_project(shell):
+    shell.objects["organisation"] = [{"id": "brain-rebl-org", "name": "Rebl Records", "properties": {"linear_key": "REBL"}}]
+    shell.objects["product"] = [{"id": "brain-rebl", "name": "Rebl", "properties": {"organisation": ["brain-rebl-org"]}}]
+    shell.objects["repository"] = [{"id": "brain-rebl-repo", "properties": {"github_key": "appboypov/rebl", "product": ["brain-rebl"]}}]
+    shell.checkouts = {"appboypov/rebl": [REPOS / "Ventures/rebl"]}
+    shell.archived = {"appboypov/rebl": False}
+    shell.api.project("repository-rebl", "rebl", issue_count=6)
+    shell.api.directory("repository-rebl", "appboypov/rebl")
+    shell.api.project("manual", "Keep this", issue_count=4)
+    assert sync.main() == 0
+    assert {value["title"] for value in shell.api.projects} == {"Rebl", "Keep this"}
+    assert len(shell.api.issues["new-Rebl"]) == 6
+    assert len(shell.api.resources["new-Rebl"]) == 1
+    assert len(shell.api.issues["manual"]) == 4
+    check = shell.api.calls.index(("GET", "/api/issues?project_id=repository-rebl&limit=1&offset=0", None))
+    delete = shell.api.calls.index(("DELETE", "/api/projects/repository-rebl", None))
+    assert check < delete
+
+
+def test_all_issue_ids_are_read_before_writes_and_moved_in_pages_of_100(shell):
+    shell.api.project("repository", "madspec", issue_count=201)
+    shell.api.directory("repository", "appboypov/madspec")
+    assert sync.main() == 0
+    batches = [body for method, path, body in shell.api.writes if path == "/api/issues/batch-update"]
+    assert [len(value["issue_ids"]) for value in batches] == [100, 100, 1]
+    reads = [index for index, (method, path, _) in enumerate(shell.api.calls) if path.startswith("/api/issues?") and f"limit={sync.PAGE_SIZE}&" in path]
+    first_write = next(index for index, (method, _, _) in enumerate(shell.api.calls) if method != "GET")
+    assert len(reads) == 3 and max(reads) < first_write
+    assert len(shell.api.issues["new-MadSpec"]) == 201
+
+
+@pytest.mark.parametrize("failure", ["partial", "late-issue", "fresh-read", "batch"])
+def test_failed_moves_or_fresh_read_never_delete_the_repository_project(shell, monkeypatch, failure):
+    shell.api.project("repository", "madspec", issue_count=3)
+    shell.api.directory("repository", "appboypov/madspec")
+    original = shell.api.call
+    def after_moves(method, path, body=None):
+        if failure == "batch" and path == "/api/issues/batch-update":
+            raise FakeApiError("move refused")
+        result = original(method, path, body)
+        if path == "/api/issues/batch-update" and failure == "late-issue":
+            shell.api.issues["repository"].append("late-issue")
+        if path == "/api/issues/batch-update" and failure == "fresh-read":
+            shell.api.fail_read = "/api/issues"
+        return result
+    if failure == "partial":
+        shell.api.batch_updated = 2
+    monkeypatch.setattr(shell.api, "call", after_moves)
+    assert sync.main() == 1
+    assert "repository" in {value["id"] for value in shell.api.projects}
+    assert not any(method == "DELETE" for method, _, _ in shell.api.writes)
+
+
+@pytest.mark.parametrize("source", ["organisation", "product", "repository", "empty-products", "runtimes", "organisations", "projects", "resources", "issues", "github", "timeout", "marks"])
+def test_failed_read_writes_nothing(shell, monkeypatch, source):
+    shell.api.project("repository", "madspec", issue_count=3)
+    shell.api.directory("repository", "appboypov/madspec")
+    before = shell.state()
+    if source in ("organisation", "product", "repository"):
+        shell.brain_error = source
+    elif source == "empty-products":
+        shell.objects["product"] = []
+    elif source == "github":
+        shell.github_errors = [{"type": "FORBIDDEN"}]
+    elif source == "timeout":
+        def timeout(*args, **kwargs):
+            raise sync.subprocess.TimeoutExpired("gh", 60)
+        monkeypatch.setattr(sync.subprocess, "run", timeout)
+    elif source == "marks":
+        shell.mark_path.parent.mkdir()
+        shell.mark_path.write_text("not JSON")
     else:
-        shell.api.fail_read = {
-            "runtimes": "/api/runtimes", "projects": "/api/projects",
-            "resources": "/api/projects/p-left/resources",
-        }[source]
-
-    assert multica_projects.main() == 1
-
+        shell.api.fail_read = {"runtimes": "/api/runtimes", "organisations": "/api/organisations", "projects": "/api/projects",
+                               "resources": "/api/projects/repository/resources", "issues": "/api/issues"}[source]
+    assert sync.main() == 1
     assert shell.state() == before
     assert shell.api.writes == []
 
 
-def test_failed_create_still_syncs_other_projects_and_exits_one(monkeypatch):
-    shell = Shell(monkeypatch)
-    shell.add_repository("appboypov/rebl")
-    shell.api.fail_create = "Baba"
-
-    assert multica_projects.main() == 1
-
-    assert {project["title"] for project in shell.api.projects} == {"rebl"}
-    assert shell.api.resources["new-rebl"][0]["resource_ref"] == wanted("appboypov/rebl", shell.checkouts["appboypov/rebl"][0]).ref()
-
-
-def test_failed_resource_continues_and_next_run_heals_without_a_duplicate(monkeypatch):
-    shell = Shell(monkeypatch)
-    shell.add_repository("appboypov/rebl")
+def test_failed_resource_keeps_source_project_and_next_run_heals_without_duplicate(shell):
+    shell.api.project("repository", "madspec", issue_count=2)
+    shell.api.directory("repository", "appboypov/madspec")
     shell.api.fail_resource = True
-
-    assert multica_projects.main() == 1
-    assert shell.api.resources["new-Baba"] == []
-    assert shell.api.resources["new-rebl"][0]["resource_ref"]["label"] == "madspec:appboypov/rebl"
-
-    assert multica_projects.main() == 0
-
-    assert [project["title"] for project in shell.api.projects] == ["Baba", "rebl"]
-    assert shell.api.resources["new-Baba"][0]["resource_ref"]["label"] == "madspec:appboypov/baba"
-    previous_writes = deepcopy(shell.api.writes)
-    assert multica_projects.main() == 0
-    assert shell.api.writes == previous_writes
+    assert sync.main() == 1
+    assert "repository" in {value["id"] for value in shell.api.projects}
+    assert sync.main() == 0
+    assert [value["title"] for value in shell.api.projects] == ["MadSpec"]
+    assert len(shell.api.issues["new-MadSpec"]) == 2
+    writes = deepcopy(shell.api.writes)
+    assert sync.main() == 0
+    assert shell.api.writes == writes
 
 
-def test_shell_updates_resources_and_statuses_without_changing_other_fields(monkeypatch):
-    shell = Shell(monkeypatch)
-    shell.api.marked("p-baba", "appboypov/baba", REPOS / "Old/baba", status=COMPLETED, mode="in_place")
-    shell.api.marked("p-left", "appboypov/left", REPOS / "Old/left")
-    shell.api.projects[0]["description"] = "Keep this"
-    old_resource_id = shell.api.resources["p-baba"][0]["id"]
-
-    assert multica_projects.main() == 0
-
-    assert {project["id"]: project["status"] for project in shell.api.projects} == {"p-baba": IN_PROGRESS, "p-left": COMPLETED}
-    assert shell.api.projects[0]["description"] == "Keep this"
-    resource = shell.api.resources["p-baba"][0]
-    assert resource["id"] == old_resource_id
-    assert resource["resource_ref"] == wanted("appboypov/baba", shell.checkouts["appboypov/baba"][0]).ref()
+def test_failed_project_creation_does_not_stop_independent_product(shell):
+    shell.objects["product"].append({"id": HQ.id, "name": HQ.name, "properties": {"organisation": [DAS.id]}})
+    shell.api.fail_create = "MadSpec"
+    assert sync.main() == 1
+    assert [value["title"] for value in shell.api.projects] == ["DAS HQ"]
 
 
-def test_archive_checkout_is_excluded_and_mixed_case_key_uses_live_checkout(monkeypatch):
-    shell = Shell(monkeypatch)
-    shell.checkouts["appboypov/baba"].append(REPOS / "Archive/baba")
-
-    assert multica_projects.main() == 0
-
-    assert shell.api.resources["new-Baba"][0]["resource_ref"]["local_path"] == str(REPOS / "Clients/baba/baba")
-
-
-def test_failed_take_over_keeps_the_unmarked_project_completed_and_syncs_other_projects(monkeypatch):
-    shell = Shell(monkeypatch)
-    shell.api.project("manual-baba", "Baba", status=COMPLETED)
-    shell.api.marked("p-left", "appboypov/left", REPOS / "Old/left")
-    shell.api.fail_resource = True
-
-    assert multica_projects.main() == 1
-
-    assert shell.api.resources["manual-baba"] == []
-    assert {project["id"]: project["status"] for project in shell.api.projects} == {
-        "manual-baba": COMPLETED, "p-left": COMPLETED,
-    }
+def test_product_without_repositories_does_not_query_github(shell, monkeypatch):
+    shell.objects["repository"] = []
+    def unexpected_query(*args, **kwargs):
+        pytest.fail("GitHub queried without repositories")
+    monkeypatch.setattr(sync.subprocess, "run", unexpected_query)
+    assert sync.main() == 0
+    assert shell.api.resources["new-MadSpec"] == []
 
 
-def test_overlapping_syncs_create_only_one_managed_project(monkeypatch):
-    shell = Shell(monkeypatch)
-    original_call = shell.api.call
+def test_archive_checkouts_are_excluded_and_mixed_case_keys_keep_lowercase_marks(shell):
+    shell.checkouts["appboypov/madspec"].append(REPOS / "Archive/madspec")
+    shell.objects["repository"][0]["properties"]["github_key"] = "AppBoyPov/MadSpec"
+    assert sync.main() == 0
+    resource = shell.api.resources["new-MadSpec"][0]
+    assert resource["resource_ref"]["local_path"] == str(REPOS / "Ventures/madspec")
+    assert resource["resource_ref"]["label"] == "madspec:appboypov/madspec"
+    assert len(shell.api.resources["new-MadSpec"]) == 1
 
+
+def test_distinct_repository_objects_with_same_github_key_count_separately(shell, capsys):
+    shell.objects["repository"].append({"id": "brain-alias", "properties": {"github_key": "AppBoyPov/MadSpec", "product": [MADSPEC.id]}})
+    shell.api.project("repository", "madspec", issue_count=2)
+    shell.api.directory("repository", "appboypov/madspec")
+    assert sync.main() == 0
+    assert shell.api.resources["new-MadSpec"] == shell.api.issues["new-MadSpec"] == []
+    assert len(shell.api.issues["repository"]) == 2
+    assert "madspec stays for MadSpec, which has 2 repositories" in capsys.readouterr().out
+    marks = sync.Marks(shell.mark_path, shell.config["server_url"], shell.config["workspace_id"])
+    assert marks.scope["repository_projects"] == {"brain-repository": "repository", "brain-alias": "repository"}
+
+
+def test_failed_repository_identity_save_keeps_projects_and_next_run_recovers(shell, monkeypatch):
+    shell.objects["repository"].append({"id": "brain-plannotator", "properties": {"github_key": "appboypov/plannotator", "product": [MADSPEC.id]}})
+    shell.checkouts["appboypov/plannotator"] = [REPOS / "Ventures/plannotator"]
+    shell.archived["appboypov/plannotator"] = False
+    shell.api.project("repository", "madspec", issue_count=10)
+    shell.api.directory("repository", "appboypov/madspec")
+    original = sync.Marks.record
+    def refused_mark(self, kind, brain_id, multica_id):
+        if kind == "repository_projects":
+            raise OSError("mark refused")
+        return original(self, kind, brain_id, multica_id)
+    monkeypatch.setattr(sync.Marks, "record", refused_mark)
+    assert sync.main() == 1
+    assert len(shell.api.issues["repository"]) == 10
+    assert shell.api.resources["new-MadSpec"] == []
+    monkeypatch.setattr(sync.Marks, "record", original)
+    assert sync.main() == 0
+    marks = sync.Marks(shell.mark_path, shell.config["server_url"], shell.config["workspace_id"])
+    assert marks.scope["repository_projects"] == {"brain-repository": "repository"}
+    assert len(shell.api.issues["repository"]) == 10
+    assert not any(method == "DELETE" or path == "/api/issues/batch-update" for method, path, _ in shell.api.writes)
+
+
+@pytest.mark.parametrize("entries", [[], {"brain-repository": 42}])
+def test_invalid_repository_project_marks_fail_before_server_writes(shell, entries):
+    shell.mark_path.parent.mkdir()
+    shell.mark_path.write_text(json.dumps({"http://test-server": {"workspace": {"repository_projects": entries}}}))
+    assert sync.main() == 1
+    assert shell.api.calls == shell.api.writes == []
+
+
+def test_not_found_github_alias_reports_and_still_merges(shell, capsys):
+    shell.archived["appboypov/madspec"] = None
+    shell.github_errors = [{"type": "NOT_FOUND", "path": ["r0"]}]
+    shell.api.project("repository", "madspec", issue_count=1)
+    shell.api.directory("repository", "appboypov/madspec")
+    assert sync.main() == 0
+    assert len(shell.api.issues["new-MadSpec"]) == 1
+    assert shell.api.resources["new-MadSpec"] == []
+    assert "unknown to GitHub" in capsys.readouterr().out
+
+
+def test_overlapping_syncs_create_only_one_managed_project(shell, monkeypatch):
+    original = shell.api.call
     def delayed_snapshot(method, path, body=None):
-        snapshot = original_call(method, path, body)
+        snapshot = original(method, path, body)
         if method == "GET" and path == "/api/projects":
             time.sleep(0.1)
         return snapshot
-
     monkeypatch.setattr(shell.api, "call", delayed_snapshot)
     with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
-        assert list(pool.map(lambda _: multica_projects.main(), range(2))) == [0, 0]
-
-    assert [project["title"] for project in shell.api.projects] == ["Baba"]
-    assert len(shell.api.resources["new-Baba"]) == 1
-
-
-def test_github_timeout_writes_nothing(monkeypatch):
-    shell = Shell(monkeypatch)
-    shell.api.marked("p-left", "appboypov/left", REPOS / "Old/left")
-    before = shell.state()
-
-    def stalled_query(*args, **kwargs):
-        raise multica_projects.subprocess.TimeoutExpired("gh", 60)
-
-    monkeypatch.setattr(multica_projects.subprocess, "run", stalled_query)
-    assert multica_projects.main() == 1
-    assert shell.state() == before
-    assert shell.api.writes == []
+        assert list(pool.map(lambda _: sync.main(), range(2))) == [0, 0]
+    assert [value["title"] for value in shell.api.projects] == ["MadSpec"]
+    assert len(shell.api.organisations) == 1
+    assert len(shell.api.resources["new-MadSpec"]) == 1
 
 
-def test_a_marked_resource_on_another_daemon_is_updated_in_place():
-    checkout = REPOS / "Clients/baba/baba"
-    workspace = Workspace()
-    workspace.project("p-baba", "baba")
-    workspace.directory("p-baba", checkout, "madspec:appboypov/baba", daemon="previous-daemon")
+def test_mark_file_separates_servers_and_workspaces_and_preserves_concurrent_profiles(tmp_path):
+    path = tmp_path / "brain-sync.json"
+    a = sync.Marks(path, "http://one/", "workspace-a")
+    b = sync.Marks(path, "http://one", "workspace-b")
+    c = sync.Marks(path, "http://two", "workspace-a")
+    a.record("products", "product", "project-a")
+    b.record("products", "product", "project-b")
+    c.record("organisations", "organisation", "org-c")
+    assert sync.Marks(path, "http://one", "workspace-a").scope == {"products": {"product": "project-a"}}
+    assert sync.Marks(path, "http://one", "workspace-b").scope == {"products": {"product": "project-b"}}
+    assert sync.Marks(path, "http://two", "workspace-a").scope == {"organisations": {"organisation": "org-c"}}
+    assert list(tmp_path.glob(".brain-sync-*")) == []
 
-    desired = workspace.plan({"appboypov/baba": [checkout]})
 
-    assert desired.resource_updates == (
-        ResourceUpdate("appboypov/baba", "p-baba", "baba", "p-baba-r0", wanted("appboypov/baba", checkout)),
-    )
-    assert desired.creates == desired.take_overs == desired.status_moves == ()
+def test_failed_atomic_replace_keeps_saved_marks_and_removes_temporary_file(tmp_path, monkeypatch):
+    path = tmp_path / "brain-sync.json"
+    marks = sync.Marks(path, "http://one", "workspace")
+    marks.record("products", "product", "project")
+    before = path.read_bytes()
+    def refused_replace(*args):
+        raise OSError("replace refused")
+    monkeypatch.setattr(sync.os, "replace", refused_replace)
+    with pytest.raises(OSError):
+        marks.record("products", "other-product", "other-project")
+    assert path.read_bytes() == before
+    assert marks.scope == {"products": {"product": "project"}}
+    assert list(tmp_path.glob(".brain-sync-*")) == []
 
 
-def test_repository_objects_with_case_aliases_create_one_project(monkeypatch):
-    shell = Shell(monkeypatch)
-    shell.objects.append({"id": "brain-case-alias", "properties": {"github_key": "appboypov/baba"}})
+def test_conflicting_checkout_marks_cannot_delete_a_project_or_choose_one_parent():
+    workspace = Workspace().placed()
+    workspace.project("mixed", "Mixed", issue_count=5)
+    workspace.directory("mixed", "appboypov/madspec")
+    workspace.directory("mixed", "appboypov/hq")
+    desired = workspace.plan(brain((MADSPEC, HQ), (repository("madspec"), repository("hq", HQ.id))))
+    assert desired.merges == ()
+    assert any("do not identify one Product" in report for report in desired.reports)
 
-    assert multica_projects.main() == 0
-    assert [project["title"] for project in shell.api.projects] == ["Baba"]
-    assert shell.api.resources["new-Baba"][0]["resource_ref"]["label"] == "madspec:appboypov/baba"
+
+def test_existing_product_project_cannot_be_deleted_by_a_changed_repository_link():
+    workspace = Workspace().placed()
+    workspace.directory("project-madspec", "appboypov/madspec")
+    desired = workspace.plan(brain((MADSPEC, HQ), (repository("madspec", HQ.id),)))
+    assert desired.merges == ()
+    assert any("marked Product project" in report for report in desired.reports)
+
+
+def test_failed_organisation_create_skips_dependent_projects_and_merges(shell, monkeypatch):
+    shell.api.project("repository", "madspec", issue_count=1)
+    shell.api.directory("repository", "appboypov/madspec")
+    original = shell.api.call
+    def refused_create(method, path, body=None):
+        if method == "POST" and path == "/api/organisations":
+            raise FakeApiError("organisation refused")
+        return original(method, path, body)
+    monkeypatch.setattr(shell.api, "call", refused_create)
+    assert sync.main() == 1
+    assert [value["title"] for value in shell.api.projects] == ["madspec"]
+    assert shell.api.issues["repository"] == ["repository-issue-0"]
+    assert not any(method == "DELETE" for method, _, _ in shell.api.writes)
+
+
+def test_failed_project_mark_keeps_source_and_next_run_takes_over_unmarked_creation(shell, monkeypatch):
+    shell.api.project("repository", "madspec", issue_count=1)
+    shell.api.directory("repository", "appboypov/madspec")
+    original = sync.Marks.record
+    def refused_mark(self, kind, brain_id, multica_id):
+        if kind == "products":
+            raise OSError("mark refused")
+        return original(self, kind, brain_id, multica_id)
+    monkeypatch.setattr(sync.Marks, "record", refused_mark)
+    assert sync.main() == 1
+    assert {value["title"] for value in shell.api.projects} == {"madspec", "MadSpec"}
+    assert not any(method == "DELETE" for method, _, _ in shell.api.writes)
+    monkeypatch.setattr(sync.Marks, "record", original)
+    assert sync.main() == 0
+    assert [value["title"] for value in shell.api.projects] == ["MadSpec"]
+    assert len(shell.api.issues["new-MadSpec"]) == 1
+
+
+def test_partial_move_next_run_finishes_from_remaining_source_issues(shell):
+    shell.api.project("repository", "madspec", issue_count=3)
+    shell.api.directory("repository", "appboypov/madspec")
+    shell.api.batch_updated = 2
+    assert sync.main() == 1
+    assert len(shell.api.issues["repository"]) == 1
+    shell.api.batch_updated = None
+    assert sync.main() == 0
+    assert len(shell.api.issues["new-MadSpec"]) == 3
+    assert "repository" not in shell.api.issues
