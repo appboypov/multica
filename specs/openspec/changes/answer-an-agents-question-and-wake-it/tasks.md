@@ -127,14 +127,14 @@ flowchart LR
 
 - [x] 14.1 `packages/core/api/client.ts` -- `listIssueQuestions`, `getQuestion`, `answerQuestion`, `askBackQuestion`, `reassignQuestion`, `wakeQuestionAgent`, `uploadFile` with `question_id`, each through `parseWithFallback` -- the client calls of decision 4.
 - [x] 14.2 `packages/core/questions/queries.ts`, `mutations.ts`, `index.ts` -- `questionKeys.byIssue(wsId, issueId)`, `questionKeys.detail(wsId, id)`, query hooks and mutations that invalidate both on settle; add `./questions` to `packages/core/package.json` exports -- TanStack Query owns the questions.
-- [x] 14.3 `packages/core/questions/ws-updaters.ts`, `packages/core/realtime/use-realtime-sync.ts` -- `question:created`, `question:updated` and `task:*` events of an issue invalidate its question keys -- cards, Wake and the run badge stay live.
+- [ ] 14.3 `packages/core/questions/ws-updaters.ts`, `packages/core/realtime/use-realtime-sync.ts` -- `question:created`, `question:updated` and `task:*` events of an issue invalidate its question keys -- cards, Wake and the run badge stay live.
 - [x] 14.4 `packages/core/questions/validate.ts` -- mirror of `ValidateAnswer` returning the message key and values that gate **Send** -- the card says why it cannot send.
 - [x] 14.5 `packages/core/questions/validate.test.ts`, `packages/core/questions/queries.test.ts` -- the decision 2 cases as in task 8.4; keys include `wsId`; WS events invalidate the right keys -- canonical layer for the client logic.
 
 ## 15. J9 Frontend: new component
 
 - [x] 15.1 `packages/views/questions/answer-controls/` -- one control per answer type (`text`, `yes-no`, `single-choice`, `multiple-choice`, `confirm-facts`, `ranking`, `scale`, `number`, `date`, `person`, `file`, `approval`) on existing `packages/ui` primitives, with the focus keys of the UX spec, and `answer-control.tsx` choosing by type -- the 12 answer types.
-- [x] 15.2 `packages/views/questions/question-card.tsx` -- the card in the comment card's frame: overline "Question for you" for answerers, Suggested badge, **Accept suggestion** while nothing is picked else **Send**, **Add a note**, **Ask back**, **Reassign**, Blocks work and overdue badges, history and thread, the folded line with **Edit answer** until closed, **Wake <agent>** when `wake_available`, no controls for non-answerers -- the card of the specs.
+- [ ] 15.2 `packages/views/questions/question-card.tsx` -- the card in the comment card's frame: overline "Question for you" for answerers, Suggested badge, **Accept suggestion** while nothing is picked else **Send**, **Add a note**, **Ask back**, **Reassign**, Blocks work and overdue badges, history and thread, the folded line with **Edit answer** until closed, **Wake <agent>** when `wake_available`, no controls for non-answerers -- the card of the specs.
 - [x] 15.3 `packages/views/questions/reassign-picker.tsx` -- members-only picker on `AssigneePicker` with a required note -- reassign with a note.
 - [x] 15.4 `packages/views/locales/{en,zh-Hans,ko,ja,fr}/questions.json`, `packages/views/locales/index.ts` -- the `questions` namespace in all five languages, registered in `RESOURCES` -- copy follows the conventions pages.
 - [x] 15.5 `packages/views/questions/question-card.test.tsx` -- Accept suggestion sends the suggested value; picking turns it into Send; a below-minimum pick disables Send with its message; a non-answerer sees no controls; a closed card has no Edit answer; Wake shows only when available -- the card's named behaviours.
@@ -142,7 +142,7 @@ flowchart LR
 ## 16. J9 Frontend: screen
 
 - [x] 16.1 `packages/views/issues/components/comment-runs.ts` -- `orderTimelineWithRuns` places question cards by `created_at` with the anchor `question-${id}` -- the card sits where it was asked.
-- [x] 16.2 `packages/views/issues/components/issue-detail.tsx` -- load the issue's questions, render cards in the timeline, accept `highlightQuestionId`, add the Questions row after Priority ("1 open", "1 open · blocks work") that jumps to the first open card with `jumpToComment`'s scroll and flash -- the issue-questions requirements.
+- [ ] 16.2 `packages/views/issues/components/issue-detail.tsx` -- load the issue's questions, render cards in the timeline, accept `highlightQuestionId`, add the Questions row after Priority ("1 open", "1 open · blocks work") that jumps to the first open card with `jumpToComment`'s scroll and flash -- the issue-questions requirements.
 - [x] 16.3 `packages/views/issues/components/inline-comment-run.tsx`, `task-run-labels.ts` -- a terminal run that asked reads "ended run #N with a question", N its place among that agent's runs on the issue, with "Waiting for answer" while one of its questions is open -- the run row.
 - [x] 16.4 `packages/views/issues/components/question-wake-activity.tsx`, `issue-detail.tsx` -- render the `question_wake` activity as "Pieter was woken by Brian with 1 answer" -- the timeline records the wake.
 - 16.5 moved to 2.2: the inbox labels of the three question items land with their types, so every step's pull request leaves `main` compiling.
