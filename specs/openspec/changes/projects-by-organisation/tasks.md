@@ -148,7 +148,7 @@ flowchart LR
   - `partitionAggregatedSearchResults` demotes cancelled issues only.
   - Recent context drops `projectStatus`.
   - Decision 3.
-- [x] 9.9 `packages/core/paths/paths.ts`, `route-icons.ts`, `tab-subject.ts`, `consistency.test.ts`, `packages/views/editor/utils/link-handler.ts` -- `paths.organisations()`, `paths.organisationDetail(id)`, `WORKSPACE_PAGES.organisations` with the `Building2` icon, the `organisation` tab subject, and `organisations` in `WORKSPACE_ROUTE_SEGMENTS` -- shared navigation for web and desktop.
+- [ ] 9.9 `packages/core/paths/paths.ts`, `route-icons.ts`, `tab-subject.ts`, `consistency.test.ts`, `packages/views/editor/utils/link-handler.ts` -- `paths.organisations()`, `paths.organisationDetail(id)`, `WORKSPACE_PAGES.organisations` with the `Building2` icon, the `organisation` tab subject, and `organisations` in `WORKSPACE_ROUTE_SEGMENTS` -- shared navigation for web and desktop.
 - [x] 9.10 `packages/core/projects/stores/view-store.test.ts`, `packages/core/issues/stores/view-store.test.ts` -- a persisted payload with status filters or the status sort loads with them dropped -- the stale state named in decision 3.
 
 ## 10. J9 Frontend: component change
