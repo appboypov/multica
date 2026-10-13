@@ -137,7 +137,7 @@ flowchart LR
 - [x] 15.2 `packages/views/questions/question-card.tsx` -- the card in the comment card's frame: overline "Question for you" for answerers, Suggested badge, **Accept suggestion** while nothing is picked else **Send**, **Add a note**, **Ask back**, **Reassign**, Blocks work and overdue badges, history and thread, the folded line with **Edit answer** until closed, **Wake <agent>** when `wake_available`, no controls for non-answerers -- the card of the specs.
 - [x] 15.3 `packages/views/questions/reassign-picker.tsx` -- members-only picker on `AssigneePicker` with a required note -- reassign with a note.
 - [x] 15.4 `packages/views/locales/{en,zh-Hans,ko,ja,fr}/questions.json`, `packages/views/locales/index.ts` -- the `questions` namespace in all five languages, registered in `RESOURCES` -- copy follows the conventions pages.
-- [ ] 15.5 `packages/views/questions/question-card.test.tsx` -- Accept suggestion sends the suggested value; picking turns it into Send; a below-minimum pick disables Send with its message; a non-answerer sees no controls; a closed card has no Edit answer; Wake shows only when available -- the card's named behaviours.
+- [x] 15.5 `packages/views/questions/question-card.test.tsx` -- Accept suggestion sends the suggested value; picking turns it into Send; a below-minimum pick disables Send with its message; a non-answerer sees no controls; a closed card has no Edit answer; Wake shows only when available -- the card's named behaviours.
 
 ## 16. J9 Frontend: screen
 
@@ -274,6 +274,8 @@ Verified: `GetVariables()` deep-equal before and after (70 variables); the 92 ex
 - `packages/views/questions/wake-button.tsx` sends the explicit Wake mutation and `type-icon.tsx` maps each answer type to its icon; `packages/views/questions/index.ts` is the folder's barrel for group 16. Logging: `questions.card`, `questions.wake` and `questions.reassign` log failed mutations with the question id; a refused answer shows the server's 422 message in the card.
 - 15.3: `packages/views/questions/reassign-picker.tsx` lists members only, leaving out the viewer and the current answerers, with search and pinyin matching; picking a member opens a required note, sent with **Reassign** or Cmd/Ctrl+Enter.
 - Decision: the picker reuses `AssigneePicker`'s popover shell (`PropertyPicker`, `PickerSection`, `PickerItem`, `ActorAvatar`) rather than `AssigneePicker` itself, which always lists agents and squads and writes the issue's assignee; reassigning needs members only and a note.
+- 15.5: `packages/views/questions/question-card.test.tsx` renders the card through `renderWithI18n` with a real `QueryClient`, the auth store, actor names and the five question mutations mocked, and covers the six named behaviours plus the `2` focus key picking the second option. The Multiple choice case asserts the English plural message "Pick at least 2 options." from the `validation` copy.
+- Checks run by this builder: `pnpm --filter @multica/views exec tsc --noEmit` (no errors), `pnpm --filter @multica/views exec vitest run questions/ locales/` (4 files, 250 tests passed, including locale parity), `pnpm --filter @multica/views exec eslint questions locales/index.ts i18n/resources-types.ts` (clean). No build, screen or end-to-end test ran.
 
 ## Plan Change Log
 
