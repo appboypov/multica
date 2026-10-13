@@ -6,7 +6,9 @@ import type { ReactNode } from "react";
 import { api } from "@multica/core/api";
 import { chatKeys } from "@multica/core/chat/queries";
 import { issueKeys } from "@multica/core/issues/queries";
-import type { AgentTask, TimelineEntry } from "@multica/core/types";
+import { EMPTY_QUESTION } from "@multica/core/api/schemas";
+import { questionKeys } from "@multica/core/questions";
+import type { AgentTask, Question, TimelineEntry } from "@multica/core/types";
 import type { TaskMessagePayload } from "@multica/core/types/events";
 import { renderWithI18n } from "../../test/i18n";
 import { InlineCommentRun } from "./inline-comment-run";
@@ -15,7 +17,7 @@ const dispatchReasonCodeMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@multica/core/api", () => ({ api: {
   getIssue: vi.fn(), listTaskMessages: vi.fn(), cancelTask: vi.fn(), rerunIssue: vi.fn(),
-  listTasksByIssue: vi.fn(),
+  listTasksByIssue: vi.fn(), listIssueQuestions: vi.fn(),
 }, dispatchReasonCode: dispatchReasonCodeMock }));
 vi.mock("@multica/core/hooks", () => ({ useWorkspaceId: () => "workspace" }));
 vi.mock("@multica/core/workspace/hooks", () => ({ useActorName: () => ({ getActorName: () => "Reviewer" }) }));
@@ -446,5 +448,19 @@ describe("InlineCommentRun", () => {
 
     rerender(task({ status: "cancelled", completed_at: "2026-09-07T00:01:23Z" }));
     expect(screen.getByText("Cancelled")).toBeInTheDocument();
+  });
+
+  it("reads that the run ended with a question and waits for its answer until it is answered", async () => {
+    const asked = task({ status: "completed", created_at: "2026-09-07T00:05:00Z", completed_at: "2026-09-07T00:06:00Z" });
+    const question: Question = { ...EMPTY_QUESTION, id: "q-1", asked_in_task_id: id, status: "open" };
+    vi.mocked(api.listTasksByIssue).mockResolvedValue([task({ id: "earlier", status: "completed" }), asked]);
+    vi.mocked(api.listIssueQuestions).mockResolvedValue([question]);
+    const { client } = setup(asked, true);
+    expect(await screen.findByText("ended run #2 with a question")).toBeInTheDocument();
+    expect(screen.getByText("Waiting for answer")).toBeInTheDocument();
+
+    act(() => client.setQueryData(questionKeys.byIssue("workspace", "issue"), [{ ...question, status: "answered" }]));
+    await waitFor(() => expect(screen.queryByText("Waiting for answer")).not.toBeInTheDocument());
+    expect(screen.getByText("ended run #2 with a question")).toBeInTheDocument();
   });
 });

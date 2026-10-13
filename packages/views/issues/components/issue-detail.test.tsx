@@ -2,7 +2,8 @@ import { forwardRef, useEffect, useRef, useState, useImperativeHandle } from "re
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { AgentTask, Attachment, Issue, IssueStatusEntry, Label, TimelineEntry } from "@multica/core/types";
+import type { AgentTask, Attachment, Issue, IssueStatusEntry, Label, Question, TimelineEntry } from "@multica/core/types";
+import { EMPTY_QUESTION } from "@multica/core/api/schemas";
 import { issueKeys } from "@multica/core/issues/queries";
 import { issueStatusKeys } from "@multica/core/issue-statuses";
 import { I18nProvider } from "@multica/core/i18n/react";
@@ -16,8 +17,9 @@ import {
 import enAgents from "../../locales/en/agents.json";
 import enCommon from "../../locales/en/common.json";
 import enIssues from "../../locales/en/issues.json";
+import enQuestions from "../../locales/en/questions.json";
 
-const TEST_RESOURCES = { en: { agents: enAgents, common: enCommon, issues: enIssues } };
+const TEST_RESOURCES = { en: { agents: enAgents, common: enCommon, issues: enIssues, questions: enQuestions } };
 
 const mockViewport = vi.hoisted(() => ({ isMobile: false }));
 
@@ -320,6 +322,7 @@ const mockApiObj = vi.hoisted(() => ({
   unsubscribeFromIssueSubtree: vi.fn().mockResolvedValue(undefined),
   getActiveTasksForIssue: vi.fn().mockResolvedValue({ tasks: [] }),
   listTasksByIssue: vi.fn().mockResolvedValue([]),
+  listIssueQuestions: vi.fn().mockResolvedValue([]),
   rerunIssue: vi.fn(),
   listTaskMessages: vi.fn().mockResolvedValue([]),
   listChildIssues: vi.fn().mockResolvedValue({ issues: [] }),
@@ -727,6 +730,7 @@ describe("IssueDetail (shared)", () => {
     mockApiObj.listIssues.mockResolvedValue({ issues: [], total: 0 });
     mockApiObj.getActiveTasksForIssue.mockResolvedValue({ tasks: [] });
     mockApiObj.listTasksByIssue.mockResolvedValue([]);
+    mockApiObj.listIssueQuestions.mockResolvedValue([]);
     mockApiObj.listTaskMessages.mockResolvedValue([]);
     mockApiObj.rerunIssue.mockResolvedValue({ id: "task-rerun" });
     mockApiObj.listMembers.mockResolvedValue([
@@ -1109,6 +1113,61 @@ describe("IssueDetail (shared)", () => {
     // The "+ Add property" affordance is always offered while any
     // optional field is still hidden.
     expect(screen.getByText("Add property")).toBeInTheDocument();
+  });
+
+  describe("questions", () => {
+    const question: Question = {
+      ...EMPTY_QUESTION,
+      id: "q-1",
+      workspace_id: "ws-1",
+      asker_agent_id: "agent-1",
+      asked_in_task_id: "task-1",
+      prompt: "Should VAT round per invoice line or on the invoice total?",
+      answer_type: "yes_no",
+      settings: {},
+      suggested_answer: null,
+      status: "open",
+      blocks_work: true,
+      links: [{ link_type: "issue", link_id: "issue-1", position: 0 }],
+      answerers: [{ user_id: "user-1", assigned_at: "2026-01-16T12:00:00Z" }],
+      created_at: "2026-01-16T12:00:00Z",
+      updated_at: "2026-01-16T12:00:00Z",
+    } as Question;
+
+    it("shows the card at the moment it was asked, outlined for its answerer", async () => {
+      mockApiObj.listIssueQuestions.mockResolvedValue([question]);
+      renderIssueDetail();
+
+      const card = await waitFor(() => {
+        const el = document.getElementById("comment-question-q-1");
+        expect(el).not.toBeNull();
+        return el!;
+      });
+      expect(within(card).getByText("Question for you")).toBeInTheDocument();
+      const before = document.getElementById("comment-comment-1")!;
+      const after = document.getElementById("comment-comment-2")!;
+      expect(before.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(card.compareDocumentPosition(after) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
+    it("reads the open count in the Questions row and jumps to the open card", async () => {
+      mockApiObj.listIssueQuestions.mockResolvedValue([question]);
+      renderIssueDetail();
+
+      const row = await screen.findByRole("button", { name: /1 open/ });
+      expect(row).toHaveTextContent("1 open· blocks work");
+      fireEvent.click(row);
+      expect(scrollToIndexSpy).toHaveBeenCalledWith({ index: 1, align: "start", offset: -16 });
+      expect(document.getElementById("comment-question-q-1")!.firstElementChild).toHaveClass("ring-2");
+    });
+
+    it("leaves the Questions row out once no question is open", async () => {
+      mockApiObj.listIssueQuestions.mockResolvedValue([{ ...question, status: "answered" }]);
+      renderIssueDetail();
+
+      await waitFor(() => expect(document.getElementById("comment-question-q-1")).not.toBeNull());
+      expect(screen.queryByText("Questions")).not.toBeInTheDocument();
+    });
   });
 
   it("hides every optional property row when none are set", async () => {
