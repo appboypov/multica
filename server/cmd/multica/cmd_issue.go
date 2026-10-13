@@ -57,7 +57,18 @@ func resolveTextFlag(cmd *cobra.Command, flagName string) (string, bool, error) 
 		sources++
 	}
 	if sources > 1 {
-		return "", false, fmt.Errorf("--%s, --%s, and --%s are mutually exclusive", flagName, stdinFlag, fileFlag)
+		var names []string
+		for _, name := range []string{flagName, stdinFlag, fileFlag} {
+			if cmd.Flags().Lookup(name) != nil {
+				names = append(names, "--"+name)
+			}
+		}
+		conjunction := " and "
+		if len(names) > 2 {
+			conjunction = ", and "
+		}
+		last := len(names) - 1
+		return "", false, fmt.Errorf("%s%s%s are mutually exclusive", strings.Join(names[:last], ", "), conjunction, names[last])
 	}
 
 	if useStdin {
