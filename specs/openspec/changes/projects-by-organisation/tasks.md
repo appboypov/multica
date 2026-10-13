@@ -74,7 +74,7 @@ flowchart LR
 
 ## 7. J8 Backend and agent tooling: endpoint
 
-- [ ] 7.1 `server/internal/handler/organisation.go` -- `ListOrganisations`, `GetOrganisation`, `CreateOrganisation` and `UpdateOrganisation`, as design.md decision 2 sets out:
+- [x] 7.1 `server/internal/handler/organisation.go` -- `ListOrganisations`, `GetOrganisation`, `CreateOrganisation` and `UpdateOrganisation`, as design.md decision 2 sets out:
   - Trimmed required name. Key rule 400. Name and key 409s told apart by constraint name. `PUT` takes `key` only.
   - Workspace scoping through the `X-Workspace-ID` membership.
   - `parseUUIDOrBadRequest` for the path id.
@@ -226,6 +226,11 @@ flowchart LR
 
 - 3.1 files touched: `server/pkg/protocol/events.go`. The two constants sit after the project events; the payload is a named `OrganisationEventPayload` with one field, `OrganisationID` tagged `json:"organisation_id"`, following `QuestionEventPayload`, so 7.1's publishes share one shape. No `organisation:deleted`: organisations leave only with their workspace. `go build ./...` and `go vet ./pkg/protocol/` pass.
 - 3.2 files touched: `packages/core/modals/store.ts`, `"create-organisation"` after `"create-project"`. `tsc --noEmit` in `packages/core` passes; the registry entry is 11.5's work.
+
+### Group 7. J8 Backend and agent tooling: endpoint
+
+- Scope: organisation handlers, project organisation assignment and status-independent search, workspace routes and realtime delivery, the reserved route slug, and their canonical handler tests. Project status/date CRUD and filters remain unchanged (ADR-0005); no organisation rename or delete.
+- 7.1 files touched: `server/internal/handler/organisation.go`. Lists are workspace-scoped and name-ordered; names are trimmed and required, keys follow the folder-name rule, and unique index constraint names distinguish name/key 409s. PUT only changes the key; an extra name property cannot rename the row. Pure path UUIDs use `parseUUIDOrBadRequest`. Writes publish the shared `OrganisationEventPayload`; database faults log request attributes and return 500, while missing rows return 404.
 
 ## Plan Change Log
 
