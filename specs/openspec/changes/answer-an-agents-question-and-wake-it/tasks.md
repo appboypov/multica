@@ -42,7 +42,7 @@ flowchart LR
 - [x] 1.6 `server/migrations/571_attachment_question_index.up.sql`, `.down.sql` -- partial `CREATE INDEX CONCURRENTLY` on `attachment (question_id) WHERE question_id IS NOT NULL` -- answer attachments, as `164_attachment_task_id` does for tasks.
 - [x] 1.7 `server/pkg/db/queries/question.sql` -- workspace-filtered queries: create question, links, answerers, events; get by id; list by issue link; upsert answer; set status; replace answerer; list open overdue and stamp `overdue_notified_at`; count and list unseen answers for (agent, issue) against the agent's latest started run (design.md decision 5); list ask-backs after that anchor; has active task for (agent, issue) -- the one "unseen" query of ADR-0003.
 - [x] 1.8 `server/pkg/db/queries/attachment.sql` -- `CreateAttachment` takes `question_id`; add `ListAttachmentsByQuestion` -- answers carry files and rich-text attachments.
-- [ ] 1.9 `server/pkg/db/generated/` -- run `make sqlc` and commit the output -- generated code stays in step with the queries.
+- [x] 1.9 `server/pkg/db/generated/` -- run `make sqlc` and commit the output -- generated code stays in step with the queries.
 
 ## 2. J2 Data models: DTOs
 
@@ -156,6 +156,28 @@ flowchart LR
 - [ ] 17.2 `specs/openspec/changes/answer-an-agents-question-and-wake-it/` -- run `openspec validate answer-an-agents-question-and-wake-it --type change --strict`, sync the specs and archive the change -- the journey closes on its J11 pull request.
 
 ## Implementation Notes
+
+### Group 1. J2 Data models: new model
+
+Files touched: `server/migrations/566_question.{up,down}.sql`, `567_question_link_target_index`, `568_question_answer_answerer_index`, `569_question_event_question_index`, `570_question_overdue_index`, `571_attachment_question_index` (each `.up.sql` and `.down.sql`), `server/cmd/migrate/main.go`, `server/pkg/db/queries/question.sql`, `server/pkg/db/queries/attachment.sql`, `server/pkg/db/queries/workspace_delete.sql`, `server/internal/handler/workspace_delete_manifest_test.go`, `server/pkg/db/generated/{question.sql.go,attachment.sql.go,models.go,workspace_delete.sql.go}`.
+
+Decisions:
+
+- The five tables have no foreign keys; `question_link` and `question_answerer` take the composite primary keys of 1.1, which also serve the per-question reads, so only the cross-question lookups got indexes (567-571).
+- `question_answer` and `question_event` stamp `created_at`/`updated_at` with `clock_timestamp()`, not `now()`: the unseen query compares them with a run's `started_at`, and `now()` is the start of the writing transaction, so an answer saved in a transaction that began before a run started would read as seen. `UpsertQuestionAnswer` sets `updated_at = clock_timestamp()` on edit and returns `inserted` (`xmax = 0`) so the service can tell `answered` from `answer_edited`; an id from another workspace returns no row.
+- The "unseen" predicate is written once per query in `CountUnseenQuestionAnswers`, `ListUnseenQuestionAnswers` and `ListUnseenQuestionAskBacks`, with a comment that they change together. The anchor is `max(started_at)` of the agent's tasks on the issue; `exclude_task_id` (nullable) leaves the run being claimed out of the anchor, so the claim of the woken run reads the answers that woke it. Questions `closed` or `withdrawn` count nothing.
+- "Has active task for (agent, issue)" reuses the existing `HasActiveTaskForIssueAndAgent` in `agent.sql` (queued, dispatched, running, waiting for a local directory, or the channel-media deferred state) instead of a second copy in `question.sql`; `agent_task_queue` has no `workspace_id`, so the service checks the agent and issue belong to the workspace first.
+- `SetQuestionStatus` takes the allowed `from_statuses` and returns no row when a racing transition got there first; `StampQuestionOverdueNotified` is `:execrows` and stamps once, so the overdue inbox item is created once per question. `ListOpenOverdueQuestions` runs across workspaces (it is the sweep) and returns the linked issue id with each question.
+- `ReplaceQuestionAnswerer` removes the old answerer and inserts the new one in one statement and returns `removed_count`, 0 when the old user was not an answerer (nothing changes then).
+- Workspace deletion removes the five tables in `DeleteWorkspaceIssueRoots`, and the deletion manifest classifies them `workspaceDelete`; `attachment.question_id` needs no new delete, attachments already go by `workspace_id`.
+
+Surprises:
+
+- Every `CREATE INDEX CONCURRENTLY` migration has to be registered in `concurrentIndexCleanups` in `server/cmd/migrate/main.go` (`TestEveryConcurrentUpBuildHasCleanup` fails otherwise); 567-571 are registered.
+- sqlc 1.31.1 called `question_id` ambiguous inside the `DELETE ... RETURNING` CTE of `ReplaceQuestionAnswerer`; the columns are table-qualified there.
+- The edits of 1.1 to `workspace_delete.sql` were regenerated only in 1.9, so `workspace_delete.sql.go` lands with the generated commit.
+
+Verified: `make migrate-up` on the worktree database, then each of 566-571 down and up again; `go build ./...`; `go test ./cmd/migrate` (index registry tests), the workspace deletion tests in `./internal/handler` (manifest included), the attachment and upload handler tests and `./internal/integrations/channel/engine` (the `CreateAttachment` callers). The queries were exercised against the database with a throwaway test, removed again: create with links, answerers and the `asked` event, list by issue, overdue list and the stamp-once, reassign (and a second reassign changing nothing), upsert insert then edit in place, the guarded status move, unseen count/list/ask-backs before and after a newer started run, with and without `exclude_task_id`, a closed question counting nothing, and a cross-workspace get finding nothing. No permanent test for the queries is in this group; groups 8-13 test them through the service.
 
 ## Plan Change Log
 

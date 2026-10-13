@@ -241,6 +241,21 @@ WITH deleted_wakeup_receipts AS (
 deleted_child_events AS (
  DELETE FROM issue_child_event WHERE workspace_id=$1
 ),
+deleted_question_events AS (
+    DELETE FROM question_event WHERE question_event.workspace_id = $1
+),
+deleted_question_answers AS (
+    DELETE FROM question_answer WHERE question_answer.workspace_id = $1
+),
+deleted_question_answerers AS (
+    DELETE FROM question_answerer WHERE question_answerer.workspace_id = $1
+),
+deleted_question_links AS (
+    DELETE FROM question_link WHERE question_link.workspace_id = $1
+),
+deleted_questions AS (
+    DELETE FROM question WHERE question.workspace_id = $1
+),
 deleted_issues AS (
     DELETE FROM issue WHERE issue.workspace_id = $1
 ),
