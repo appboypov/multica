@@ -46,7 +46,7 @@ flowchart LR
 
 ## 2. J2 Data models: DTOs
 
-- [ ] 2.1 `packages/core/types/question.ts` -- `AnswerType`, per-type settings and value unions, `QuestionStatus`, `QuestionLink`, `QuestionAnswer`, `QuestionEvent`, `Question` (with `unseen_answer_count`, `wake_available`) and `QuestionWakeResult`, as design.md decisions 2 and 4 define them; export from `packages/core/types/index.ts` -- one client contract for web and desktop.
+- [x] 2.1 `packages/core/types/question.ts` -- `AnswerType`, per-type settings and value unions, `QuestionStatus`, `QuestionLink`, `QuestionAnswer`, `QuestionEvent`, `Question` (with `unseen_answer_count`, `wake_available`) and `QuestionWakeResult`, as design.md decisions 2 and 4 define them; export from `packages/core/types/index.ts` -- one client contract for web and desktop.
 - [ ] 2.2 `packages/core/types/inbox.ts` -- add `question_asked`, `question_reassigned`, `question_overdue` to `InboxItemType` -- the three inbox items of the spec.
 - [ ] 2.3 `packages/core/api/schema.ts` -- zod schemas for `Question`, `Question[]` and `QuestionWakeResult` with defaults for optional fields and a fallback for an unknown `answer_type`, `status` or event `kind` -- installed desktop clients meet newer servers (AGENTS.md "API Compatibility").
 - [ ] 2.4 `packages/core/api/schema.test.ts` -- malformed-response cases for each new schema: missing arrays, unknown enums, wrong value shapes fall back without throwing -- AGENTS.md requires it for every new endpoint.
@@ -178,6 +178,17 @@ Surprises:
 - The edits of 1.1 to `workspace_delete.sql` were regenerated only in 1.9, so `workspace_delete.sql.go` lands with the generated commit.
 
 Verified: `make migrate-up` on the worktree database, then each of 566-571 down and up again; `go build ./...`; `go test ./cmd/migrate` (index registry tests), the workspace deletion tests in `./internal/handler` (manifest included), the attachment and upload handler tests and `./internal/integrations/channel/engine` (the `CreateAttachment` callers). The queries were exercised against the database with a throwaway test, removed again: create with links, answerers and the `asked` event, list by issue, overdue list and the stamp-once, reassign (and a second reassign changing nothing), upsert insert then edit in place, the guarded status move, unseen count/list/ask-backs before and after a newer started run, with and without `exclude_task_id`, a closed question counting nothing, and a cross-workspace get finding nothing. No permanent test for the queries is in this group; groups 8-13 test them through the service.
+
+### Group 2. J2 Data models: DTOs
+
+Files touched: `packages/core/types/question.ts`, `packages/core/types/index.ts`.
+
+Decisions:
+
+- `Question` is a union discriminated by `answer_type`: `TypedQuestion<T>` for each of the twelve types, its `settings`, `suggested_answer` and every answer's `value` typed by `AnswerSettingsByType[T]` and `AnswerValueByType[T]`, plus `UnreadableQuestion` with `answer_type: "unknown"` for a type, settings or value this client cannot read: it keeps the prompt and each answer's `display_text`, so the card still renders, without answer controls.
+- The wire names the handler (10.1) writes: `links` (`link_type`, `link_id`, `position`), `answerers` (`user_id`, `assigned_at`), `answers` (`id`, `answerer_user_id`, `value`, `display_text`, `note`, `created_at`, `updated_at`), `events` (`id`, `kind`, `actor_type`, `actor_id`, `details`, `created_at`), `unseen_answer_count`, `wake_available`; `overdue_notified_at` stays server-side. Names are resolved on the client from the ids, as comments do.
+- `QuestionEventDetailsByKind` fixes the `details` the service (9.1) writes: `ask_back` `{text}`, `reassigned` `{user_id, note}` (the actor is the old answerer, `user_id` the new one, as the reassign body), `woken` `{task_id, answer_count}`, every other kind `{}`.
+- The bodies of decision 4 are typed next to them: `AnswerQuestionRequest` `{value, note?}`, `AskBackQuestionRequest` `{text}`, `ReassignQuestionRequest` `{user_id, note}`, and the 202 `QuestionWakeResult` `{task_id, answer_count}`.
 
 ## Plan Change Log
 
