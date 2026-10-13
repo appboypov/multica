@@ -247,15 +247,18 @@ flowchart TB
   end
   subgraph views["packages/views"]
     layout["layout/dashboard-layout.tsx"]
-    pages["issues, agents, runtimes, chat, skills,<br/>squads, projects, autopilots, inbox, settings"]
+    pages["issues, agents, runtimes, chat, skills,<br/>squads, projects, organisations,<br/>autopilots, inbox, settings"]
     navigation["navigation<br/>NavigationAdapter, app-link.tsx"]
     instrfield["agents/components<br/>instructions-field.tsx InstructionsField,<br/>runtime-file-browser.tsx RuntimeFileBrowser"]
+    projtable["projects/components<br/>project-table.tsx ProjectTable,<br/>organisation-picker.tsx OrganisationPicker"]
   end
   subgraph core["packages/core"]
     coreprovider["platform/core-provider.tsx<br/>CoreProvider"]
     api["api/client.ts ApiClient<br/>api/schema.ts parseWithFallback"]
     wsclient["api/ws-client.ts<br/>WSClient"]
     features["feature dirs<br/>queries.ts, mutations.ts, ws-updaters.ts"]
+    orgs["organisations<br/>queries.ts, mutations.ts"]
+    group["projects/group.ts<br/>groupProjectsByOrganisation"]
     dirlisting["runtimes/directory-listing.ts<br/>runtimeDirectoryListingOptions"]
     realtime["realtime/use-realtime-sync.ts<br/>useRealtimeSync"]
     platform["platform<br/>workspace-storage.ts, persist-storage.ts"]
@@ -277,13 +280,19 @@ flowchart TB
   pages --> navigation
   pages --> features
   pages --> instrfield
+  pages --> projtable
+  pages --> orgs
+  pages --> group
   instrfield --> dirlisting
   dirlisting --> api
   pages --> ui
   features --> api
   features --> qc
+  orgs --> api
+  orgs --> qc
   realtime --> wsclient
   realtime --> features
+  realtime --> orgs
   coreprovider --> api
   coreprovider --> realtime
   coreprovider --> platform
