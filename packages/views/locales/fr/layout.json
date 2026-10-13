@@ -5,6 +5,7 @@
     "my_issues": "Mes tâches",
     "issues": "Tâches",
     "projects": "Projets",
+    "organisations": "Organisations",
     "autopilots": "Automatisation",
     "agents": "Agents",
     "squads": "Squads",
@@ -16,6 +17,7 @@
   "tab": {
     "issue": "Tâche",
     "project": "Projet",
+    "organisation": "Organisation",
     "autopilot": "Automatisation",
     "agent": "Agent",
     "member": "Membre",
