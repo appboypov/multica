@@ -63,8 +63,8 @@ flowchart LR
 
 ## 5. J5 Components: component design
 
-- [ ] 5.1 `designs/systems/multica.lib.pen` -- bring the library components this journey's screens use from appboypov/multica#6 (option, radio, checkbox, switch, type icon, badge, kbd, avatar, avatar-agent, buttons, input, nav item), built from the library's existing tokens only -- J6 builds screens only from library components.
-- [ ] 5.2 `designs/systems/exports/` -- one PNG per new or changed component -- J5's contract.
+- [x] 5.1 `designs/systems/multica.lib.pen` -- bring the library components this journey's screens use from appboypov/multica#6 (option, radio, checkbox, switch, type icon, badge, kbd, avatar, avatar-agent, buttons, input, nav item), built from the library's existing tokens only -- J6 builds screens only from library components.
+- [x] 5.2 `designs/systems/exports/` -- one PNG per new or changed component -- J5's contract.
 
 ## 6. J6 Screens: screen design
 
@@ -226,6 +226,21 @@ Decisions:
 Surprises: none.
 
 Verified: clicked through all six steps on the hosted build by rail, Back/Next and arrow keys; every step's values checked against design.md and the J2 types; the README flowchart rendered with `mmdc`.
+
+### Group 5. J5 Components: component design
+
+Files touched: `designs/systems/multica.lib.pen`, `designs/systems/exports/` (16 component PNGs and `type-icon-answer-types.png`).
+
+Decisions:
+- Reused unchanged: `Avatar/Member`, `Avatar/Agent`, `Button/Primary`, `Button/Outline`, `Button/Ghost`, `Input` and `Sidebar item/*` (#6's nav item) already exist in the library from #7; #6's own copies (24px avatars, `$primary` agent avatar, px12 buttons) are not brought in, so every screen keeps the approved look. The Questions property row uses the existing `Property pill`.
+- New, one reusable per state as `Pick row/*` does: `Badge`, `Badge/Warning` ("Waiting for answer"), `Badge/Destructive` ("Blocks work"), `Badge/Brand` ("Suggested"), `Kbd`, `Radio/Unchecked|Checked`, `Checkbox/Unchecked|Checked`, `Switch/Off|On`, `TypeIcon` (answer-type plate, with a reference row of the 12 types and their icons), `Option/Default|Selected` (its control, hint and key are refs to `Radio/*`, `Badge/Brand` and `Kbd`), and `Button/Ghost/Small`, the code's `sm` button for the card's footer actions.
+- #6 tints its badges with fills no token holds (`#DCA40024`, `#E7000B14`, `#0070E314`); the variants follow the library's semantic chip (`Release/Next`): `$surface` with a 1px `$warning`, `$destructive` or `$brand` stroke. `Badge/Warning`'s label is `$foreground`, since a `$warning` label on light lacks contrast.
+- `Switch` is built as the task lists it, although UJ-1's screens do not show it (#6 uses it on screens 2a, 2b and 7); its track and thumb are #6's 28x16.
+
+Surprises:
+- Pencil drops a variable bound to width or height, so `Button/Ghost/Small`'s height 28 is a literal with the value of `$button-height-sm`. Sizes, paddings, the 16px controls and full radii stay literals, as in the existing components: the library has no size or spacing tokens.
+
+Verified: `GetVariables()` deep-equal before and after (70 variables); the 92 existing reusables and the Foundations frame hash-identical before and after (`Get(id,{depth:99})`); 107 reusables after; the Atoms and Components frames exported and checked by eye, nothing overlapping; every PNG opened.
 
 ## Plan Change Log
 
