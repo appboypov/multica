@@ -40,6 +40,8 @@ import {
   EMPTY_CREATE_FEEDBACK_RESPONSE,
   EMPTY_INBOX_ITEMS,
   EMPTY_INBOX_UNREAD_SUMMARY,
+  EMPTY_LIST_ORGANISATIONS_RESPONSE,
+  EMPTY_ORGANISATION,
   EMPTY_SEARCH_PROJECTS_RESPONSE,
   EMPTY_USER,
   InboxItemListSchema,
@@ -47,6 +49,8 @@ import {
   IssueTriggerPreviewSchema,
   ListIssuesResponseSchema,
   ListPropertiesResponseSchema,
+  ListOrganisationsResponseSchema,
+  OrganisationSchema,
   MALFORMED_RUNTIME_MODEL_LIST_REQUEST,
   RuntimeModelListRequestSchema,
   RuntimeDirectoryListingRequestSchema,
@@ -1530,7 +1534,7 @@ describe("InboxItemListSchema", () => {
   });
 });
 
-describe("SearchProjectsResponseSchema date drift", () => {
+describe("SearchProjectsResponseSchema drift", () => {
   const ENDPOINT = { endpoint: "GET /api/projects/search" };
 
   const baseProject = {
@@ -1576,6 +1580,112 @@ describe("SearchProjectsResponseSchema date drift", () => {
     expect(parsed.projects).toHaveLength(1);
     expect(parsed.projects[0]?.start_date).toBeNull();
     expect(parsed.projects[0]?.due_date).toBeNull();
+  });
+
+  it("parses organisation_id when the backend returns it", () => {
+    const parsed = parseWithFallback(
+      { projects: [{ ...baseProject, organisation_id: "org-1" }], total: 1 },
+      SearchProjectsResponseSchema,
+      EMPTY_SEARCH_PROJECTS_RESPONSE,
+      ENDPOINT,
+    );
+    expect(parsed.projects[0]?.organisation_id).toBe("org-1");
+  });
+
+  // A backend before organisations omits the key: the project parses as having
+  // no organisation instead of blanking the search results.
+  it("defaults a missing organisation_id to null without dropping results", () => {
+    const parsed = parseWithFallback(
+      { projects: [baseProject], total: 1 },
+      SearchProjectsResponseSchema,
+      EMPTY_SEARCH_PROJECTS_RESPONSE,
+      ENDPOINT,
+    );
+    expect(parsed).not.toBe(EMPTY_SEARCH_PROJECTS_RESPONSE);
+    expect(parsed.projects).toHaveLength(1);
+    expect(parsed.projects[0]?.organisation_id).toBeNull();
+  });
+});
+
+// Organisations group the Projects page and back their pages, so drift must
+// never blank every organisation for one bad row (projects-by-organisation).
+describe("organisation schemas", () => {
+  const LIST_ENDPOINT = { endpoint: "GET /api/organisations" };
+  const DETAIL_ENDPOINT = { endpoint: "GET /api/organisations/{id}" };
+
+  const baseOrganisation = {
+    id: "org-1",
+    workspace_id: "ws-1",
+    name: "Rebl Records",
+    key: "rebl",
+    created_at: "2026-10-13T00:00:00Z",
+    updated_at: "2026-10-13T00:00:00Z",
+  };
+
+  it("parses a well-formed list and keeps extra fields", () => {
+    const parsed = parseWithFallback(
+      { organisations: [{ ...baseOrganisation, future_field: true }], total: 1 },
+      ListOrganisationsResponseSchema,
+      EMPTY_LIST_ORGANISATIONS_RESPONSE,
+      LIST_ENDPOINT,
+    );
+    expect(parsed.total).toBe(1);
+    expect(parsed.organisations).toEqual([{ ...baseOrganisation, future_field: true }]);
+  });
+
+  it("defaults a missing organisations array to an empty list", () => {
+    const parsed = parseWithFallback(
+      { total: 3 },
+      ListOrganisationsResponseSchema,
+      EMPTY_LIST_ORGANISATIONS_RESPONSE,
+      LIST_ENDPOINT,
+    );
+    expect(parsed.organisations).toEqual([]);
+    expect(parsed.total).toBe(3);
+    expect(ListOrganisationsResponseSchema.parse({})).toEqual({ organisations: [], total: 0 });
+  });
+
+  it("falls back to the empty list when the body is not an object", () => {
+    for (const malformed of [null, "nope", 42, { organisations: "nope" }]) {
+      expect(
+        parseWithFallback(
+          malformed,
+          ListOrganisationsResponseSchema,
+          EMPTY_LIST_ORGANISATIONS_RESPONSE,
+          LIST_ENDPOINT,
+        ),
+      ).toEqual(EMPTY_LIST_ORGANISATIONS_RESPONSE);
+    }
+  });
+
+  it("drops an organisation without key without hiding the others", () => {
+    const { key: _key, ...withoutKey } = { ...baseOrganisation, id: "org-2", name: "Buttler" };
+    const parsed = parseWithFallback(
+      { organisations: [baseOrganisation, withoutKey, { ...baseOrganisation, id: "org-3", key: 42 }], total: 3 },
+      ListOrganisationsResponseSchema,
+      EMPTY_LIST_ORGANISATIONS_RESPONSE,
+      LIST_ENDPOINT,
+    );
+    expect(parsed.organisations.map((organisation) => organisation.id)).toEqual(["org-1"]);
+  });
+
+  it("falls back to EMPTY_ORGANISATION for a single organisation without key", () => {
+    const { key: _key, ...withoutKey } = baseOrganisation;
+    expect(
+      parseWithFallback(withoutKey, OrganisationSchema, EMPTY_ORGANISATION, DETAIL_ENDPOINT),
+    ).toEqual(EMPTY_ORGANISATION);
+    expect(EMPTY_ORGANISATION.id).toBe("");
+  });
+
+  it("defaults missing timestamps without dropping the organisation", () => {
+    const { created_at: _createdAt, updated_at: _updatedAt, ...withoutTimestamps } = baseOrganisation;
+    const parsed = parseWithFallback(
+      withoutTimestamps,
+      OrganisationSchema,
+      EMPTY_ORGANISATION,
+      DETAIL_ENDPOINT,
+    );
+    expect(parsed).toEqual({ ...withoutTimestamps, created_at: "", updated_at: "" });
   });
 });
 
