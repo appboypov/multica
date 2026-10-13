@@ -5,10 +5,10 @@ The brain sync SHALL add each Repository object a Product links to that Product'
 
 #### Scenario: MadSpec's repositories
 - **GIVEN** the Product MadSpec links appboypov/madspec, appboypov/plannotator and appboypov/omp-anytype-inbox, each with one checkout under `~/Repos` on its default branch
-- **AND** the project MadSpec holds a local folder resource for each of those checkouts
+- **AND** the projects madspec, plannotator and omp-anytype-inbox, which the sync kept for MadSpec, each hold a local folder resource for one of those checkouts
 - **WHEN** the sync runs
 - **THEN** MadSpec's page shows the three repositories as cards, each with worklane `main` Free
-- **AND** MadSpec holds no local folder resource
+- **AND** no project holds a local folder resource for those checkouts
 
 #### Scenario: The version policy
 - **GIVEN** appboypov/rebl has `pubspec.yaml` and `package.json`
@@ -34,11 +34,11 @@ The brain sync SHALL leave out and print on every run each repository it cannot 
 - **WHEN** the sync runs
 - **THEN** it prints that the GitHub App cannot see appboypov/fan-widgets and adds no repository appboypov/fan-widgets
 
-#### Scenario: In another project
+#### Scenario: In another project Brian chose
 - **GIVEN** Brian added appboypov/rebl-admin to the project Rebl
 - **AND** the brain links appboypov/rebl-admin to the Product Rebl Admin
 - **WHEN** the sync runs
-- **THEN** appboypov/rebl-admin stays in Rebl
+- **THEN** appboypov/rebl-admin stays in Rebl, and no issue moves out of Rebl
 - **AND** the sync prints that appboypov/rebl-admin is in Rebl
 
 ### Requirement: What Brian set on a repository stays
@@ -69,3 +69,19 @@ While the brain links a Repository to a Product, the brain sync SHALL add it aga
 - **WHEN** its Repository object is deleted from the brain and the sync runs
 - **THEN** MadSpec still shows appboypov/omp-anytype-inbox
 - **AND** the sync prints that appboypov/omp-anytype-inbox has no Repository in the brain
+
+### Requirement: Kept repository projects merge into their Product's project
+For each project the sync kept for a repository of a Product with several repositories, the brain sync SHALL move the project's issues into the Product's project and SHALL then delete the emptied project, once that repository is a repository of the Product's project. While it is not, the kept project MUST stay with its issues.
+
+#### Scenario: MadSpec takes in its repositories' issues
+- **GIVEN** the sync kept the projects madspec, plannotator and omp-anytype-inbox, with 10, 2 and 1 issues, for the Product MadSpec
+- **WHEN** the sync runs and adds appboypov/madspec, appboypov/plannotator and appboypov/omp-anytype-inbox to MadSpec
+- **THEN** the project MadSpec holds those 13 issues
+- **AND** the projects madspec, plannotator and omp-anytype-inbox no longer exist
+
+#### Scenario: A repository the sync cannot add keeps its project
+- **GIVEN** the sync kept the project sm-apify with its issues for the Product SuperMarty
+- **AND** the GitHub App cannot see Supermarty-B-V/sm-apify
+- **WHEN** the sync runs
+- **THEN** it prints that the GitHub App cannot see Supermarty-B-V/sm-apify
+- **AND** the project sm-apify stays with its issues

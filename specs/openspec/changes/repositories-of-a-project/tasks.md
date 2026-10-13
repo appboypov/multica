@@ -125,13 +125,14 @@ This change builds on UJ-1 (`projects-by-organisation`, DAS-450): its `organisat
 ## 9. J8 Backend and agent tooling: integration
 
 - [ ] 9.1 `madspec-sync/multica_projects.py` -- design.md decision 7:
-  - Remove the checkout and merge steps and the checkout mark from take-over.
+  - Remove the checkout step, UJ-1's single-repository merge step and the checkout mark from take-over.
   - Read `GET /api/repositories` and `/api/repositories/available`.
   - For each Repository of each Product: skip one already in Multica (print "in {project}" when in another project), report one the App cannot see, with no checkout or with several, run a check on the sync's runtime and report a failure, else `POST /api/repositories` with the first found version file or `tags`.
   - Write each added repository into the mark file; print "has no Repository in the brain" for a marked repository whose object is gone.
+  - Merge each project recorded under `repository_projects` in the mark file once its Repository is a repository of its Product's project: issues through `POST /api/issues/batch-update` in pages of 100, delete it only after a fresh read shows `issue_count` 0, then drop its entry. One whose repository is not added there stays. One that no longer exists leaves the mark file.
   - A failed read writes nothing.
-- [ ] 9.2 `madspec-sync/tests/test_multica_projects.py` -- `plan()` cases per scenario of the `brain-repository-sync` spec delta: MadSpec's three repositories, the version policy, a second run writing nothing, not on the default branch then added after the switch, the App cannot see it, in another project, an edited checkout and policy kept, removed in Multica and added again, deleted from the brain. Drop the merge and checkout cases.
-- [ ] 9.3 `madspec-sync/specs/multica-projects.md`, `madspec-sync/README.md` -- rewrite the spec to the new rules (repositories in place of checkout resources and merges, the repository marks) and update the README -- `madspec-sync/README.md` says the spec is the sync's contract.
+- [ ] 9.2 `madspec-sync/tests/test_multica_projects.py` -- `plan()` cases per scenario of the `brain-repository-sync` spec delta: MadSpec's three repositories, the version policy, a second run writing nothing, not on the default branch then added after the switch, the App cannot see it, in another project Brian chose, an edited checkout and policy kept, removed in Multica and added again, deleted from the brain, MadSpec takes in its kept projects' 13 issues, and a repository the sync cannot add keeps its project. Drop UJ-1's checkout and single-repository merge cases.
+- [ ] 9.3 `madspec-sync/specs/multica-projects.md`, `madspec-sync/README.md` -- rewrite the spec to the new rules (repositories in place of checkout resources, the merge of the projects UJ-1 kept, the repository marks) and update the README -- `madspec-sync/README.md` says the spec is the sync's contract.
 
 ## 10. J9 Frontend: flow
 
@@ -171,10 +172,12 @@ This change builds on UJ-1 (`projects-by-organisation`, DAS-450): its `organisat
   - A failed check keeps Add repository disabled.
   - Edit repository moves the checkout and stops releasing; Remove repository removes the card.
   - Projects folds Rebl open to its repositories; Organisations counts them.
-- [ ] 13.2 The brain sync run -- run `uv run madspec-sync/multica_projects.py` once against the local release and record its printed lines in the J11 pull request -- the PRD's success signal: every project shows its Product's repositories as cards and no project shows a resource.
+- [ ] 13.2 The brain sync run -- run `uv run madspec-sync/multica_projects.py` once against the local release and record its printed lines in the J11 pull request -- the PRD's success signal: every project shows its Product's repositories as cards, MadSpec and SuperMarty hold the issues of their repositories' former projects, and no project shows a resource.
 - [ ] 13.3 An issue worktree on Brian's Mac -- assign an agent to a Multica issue without a worklane, see it work in `~/Worktrees/das/multica/{issue key}`, close the issue and see the worktree go; record both in the J11 pull request.
-- [ ] 13.4 `specs/openspec/changes/repositories-of-a-project/` -- retire the `brain-project-sync` merge requirement through `madspec-revise-plan` (design.md Open Questions), run `openspec validate repositories-of-a-project --type change --strict`, sync the specs and archive the change -- the journey closes on its J11 pull request.
+- [ ] 13.4 `specs/openspec/changes/repositories-of-a-project/` -- retire the `brain-project-sync` requirements "The repository project of a Product with one repository merges into its project" and "The repository projects of a Product with several repositories stay" through `madspec-revise-plan` (design.md Open Questions), run `openspec validate repositories-of-a-project --type change --strict`, sync the specs and archive the change -- the journey closes on its J11 pull request.
 
 ## Implementation Notes
 
 ## Plan Change Log
+
+- 2026-10-13, before J2: UJ-1 (`projects-by-organisation`) now merges only Products with one repository, because a project holds one `local_directory` per daemon, and records the repository projects it keeps for a Product with several under `repository_projects` in its mark file (Brian's decision). This change's sync merges those kept projects into their Product's project once their repository is added there. 9.1 to 9.3, 13.2 and 13.4, the `brain-repository-sync` spec delta, proposal.md, design.md decision 7, its Risks, Migration Plan and Open Questions are revised through `madspec-revise-plan`.

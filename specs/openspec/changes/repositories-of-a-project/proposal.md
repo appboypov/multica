@@ -33,6 +33,7 @@ sequenceDiagram
   B->>S: run multica_projects.py
   S->>A: read Products and their Repositories
   S->>M: add each Repository with worklane main, in place of its local folder resource
+  S->>M: move the issues of each repository project UJ-1 kept into its Product's project, delete the emptied project
   S-->>B: one line per write and per repository it cannot add
 ```
 
@@ -48,15 +49,15 @@ sequenceDiagram
 | Page | Projects and an organisation's page: a project folds open to its repositories | changed | `packages/views/projects/components/projects-page.tsx`, `packages/views/organisations/` |
 | Page | Organisations and an organisation's page: number of repositories | changed | `packages/views/organisations/` |
 | Runtime | An issue's task works in a worktree per repository at `~/Worktrees/{organisation key}/{repo}/{issue key}`, removed once the issue is done and nothing would be lost | changed | `server/internal/daemon/execenv/`, `server/internal/daemon/local_directory.go` |
-| Tool | Brain sync: each Product's repositories as repositories with worklane `main`, in place of local folder resources | changed | `madspec-sync/multica_projects.py`, `madspec-sync/specs/multica-projects.md` |
+| Tool | Brain sync: each Product's repositories as repositories with worklane `main`, in place of local folder resources, and the repository projects UJ-1 kept merged into their Product's project | changed | `madspec-sync/multica_projects.py`, `madspec-sync/specs/multica-projects.md` |
 
 The `main` rows on Projects and an organisation's page, other worklanes and their counts come with UJ-3. What keeps a repository with other worklanes, releases or issues from removal comes with the journeys that bring them: UJ-3, UJ-4 and UJ-5.
 
 ## Why
 
-A project in Multica shows no repository. Its code lives in resources: a GitHub link or a local folder typed in by hand, with no check that the folder is that repository's checkout, no default branch and no idea how the repository releases. After UJ-1 a project holds a Product's several repositories, and an agent on its issues has one folder to work in at most. Brian cannot see or set what each project builds from, and the worklanes and releases of UJ-3 to UJ-8 need a repository with a checked checkout and a version policy to stand on.
+A project in Multica shows no repository. Its code lives in resources: a GitHub link or a local folder typed in by hand, with no check that the folder is that repository's checkout, no default branch and no idea how the repository releases. A project holds one local folder per runtime, so after UJ-1 a Product with several repositories, such as MadSpec, still has one project per repository next to its Product's empty project, and an agent on a project's issues has one folder to work in at most. Brian cannot see or set what each project builds from, and the worklanes and releases of UJ-3 to UJ-8 need a repository with a checked checkout and a version policy to stand on.
 
-Success signal: Brian adds appboypov/rebl-admin to the project Rebl by picking it from the GitHub App's list, cloning it to `~/Repos/rebl-admin` from the dialog, and sees its card open on Rebl's page with worklane `main` Free and "Version in package.json"; after one brain sync run every project shows its Product's repositories as cards and no project shows a resource.
+Success signal: Brian adds appboypov/rebl-admin to the project Rebl by picking it from the GitHub App's list, cloning it to `~/Repos/rebl-admin` from the dialog, and sees its card open on Rebl's page with worklane `main` Free and "Version in package.json"; after one brain sync run every project shows its Product's repositories as cards, MadSpec and SuperMarty hold the issues of their repositories' former projects, and no project shows a resource.
 
 ## What Changes
 
@@ -65,7 +66,7 @@ Success signal: Brian adds appboypov/rebl-admin to the project Rebl by picking i
 - A repository card's menu has Edit repository, for its checkout and releases, and Remove repository, which leaves the checkout folder on disk.
 - **BREAKING** Project resources go: no page shows Resources, and no GitHub repository or local folder can be attached to a project.
 - **BREAKING** An agent on an issue without a worklane gets the project's repositories and works in a worktree per repository at `~/Worktrees/{organisation key}/{repo}/{issue key}`, in place of a throwaway worktree of the project's local folder; the worktree stays for the issue's tasks and goes once the issue is Done or Cancelled and nothing in it would be lost.
-- **BREAKING** The brain sync adds each Product's repositories to its project as repositories with worklane `main`, in place of the local folder resource it made per checkout.
+- **BREAKING** The brain sync adds each Product's repositories to its project as repositories with worklane `main`, in place of the local folder resource it made per checkout. It moves the issues of each repository project UJ-1 kept for a Product with several repositories into the Product's project once the repository is added there, and deletes the emptied project.
 
 ## Capabilities
 
@@ -100,6 +101,7 @@ None in `specs/openspec/specs/`. This change builds on the unarchived change `pr
 - An agent's task never changes Brian's normal checkout; it works in the issue's worktree.
 - An issue's worktree is removed only when the issue is Done or Cancelled and it holds nothing uncommitted or unpushed.
 - The brain sync writes nothing to the brain and never changes a checkout or version policy set in Multica.
+- The brain sync deletes only a repository project UJ-1 kept whose issues it moved into its Product's project.
 - AGENTS.md: no foreign keys or cascades, `CREATE INDEX CONCURRENTLY` in its own migration, zod schemas with `parseWithFallback` and malformed-response tests for the new responses, no compatibility shims, every check local.
 
 ## Non-goals
@@ -118,6 +120,7 @@ None in `specs/openspec/specs/`. This change builds on the unarchived change `pr
 - PRD: [Multica: steer projects, repositories, worklanes and releases](anytype://object?objectId=bafyreiew63xw2dncss52jdx4qk4o6aktkklhqroclvs3cvjxcyztx7h5um): UJ-2, F2 with FR-10 to FR-19, FR-2 to FR-4, the glossary, non-goals and the Addendum.
 - Brief: [Multica: steer projects, repositories, worklanes and releases](anytype://object?objectId=bafyreicccdj6bucv5d65bxvkz4gy7jf7etplsswmwfggupqbakc6rudpmi).
 - UJ-1 change: `specs/openspec/changes/projects-by-organisation/`.
+- Brian's decision of 13 October 2026: UJ-1 merges only Products with one repository, and the repository projects of a Product with several stay until this change gives a project several repositories ([Decision](anytype://object?objectId=bafyreigpipb7flny46p4h3cxarg726x6vvij2yvgxcdq6zuiglqw3jgb2y)).
 - Design: [Steer all work screens](anytype://object?objectId=bafyreiauxfhf7w74hwn5je7ljakzxfgo2qv4noid2oshvtqjwkos2v5oiq), screens 2 Project and 6 Add repository in `designs/screens/steer-all-work.pen`, exports `designs/exports/2-project.png` and `designs/exports/6-add-repository.png`; [component library](anytype://object?objectId=bafyreiamoqycfo735krrpmzn3ujhdardv6uixsrdzkadzlodwpr7aenwee); `designs/creation-flows.md` "What exists today", "The model" and "Add repository".
 - Prototype: [Steer all work prototype](anytype://object?objectId=bafyreieck7zsmzslnfe5asszexojznfbnsnwcg62eqbesqqeigkkzgoclm), revision `460535099583266816`, `AddRepositoryDialog` in `prototypes/web/src/components/generated/creation.tsx`.
 - Brian's answers in the P4 session of 13 October 2026, on the [UJ-2 Task](anytype://object?objectId=bafyreidtcw5ftbcaufzpiwkq3gdajdd2rug5a72eoy2j7mnhz6edkjpdwi): worktrees live at `~/Worktrees/{organisation key}/{repo}/{issue key in lowercase}`, or `~/Worktrees/{repo}/{issue key}` without an organisation; an issue's worktree goes once the issue is Done or Cancelled and nothing would be lost; Multica looks for pubspec.yaml, Cargo.toml, pyproject.toml and package.json and offers each it finds. His answers that a worklane's worktree is `~/Worktrees/{organisation key}/{repo}/{worklane folder}` and that organisations get a key supersede PRD UJ-3 step 2, FR-21 and FR-23 (`~/Worktrees/{project key}/{folder}/{repo}`) and change the UJ-1 change.

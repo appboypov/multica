@@ -154,12 +154,13 @@ flowchart LR
   avail["GET /api/repositories/available"]:::new
   check["POST and GET runtime repository-checkouts"]:::new
   plan["plan()<br/>repository adds and reports"]:::changed
-  steps["checkout resources and merges"]:::removed
+  steps["checkout resources and<br/>single-repository merges"]:::removed
   write["write_plan()<br/>POST /api/repositories"]:::changed
+  merge["merges of the projects<br/>UJ-1 kept, from the mark file"]:::new
   brain --> read --> plan
   scan --> plan
   avail --> plan
-  plan --> check --> write
+  plan --> check --> write --> merge
 ```
 
 Models:
@@ -328,7 +329,7 @@ sequenceDiagram
 | Mobile | Resources section and Attach repository | removed | `apps/mobile/components/project/project-resources-section.tsx`, `apps/mobile/app/(app)/[workspace]/project/[id]/add-resource.tsx`, `apps/mobile/data/` |
 | Copy | `repositories` namespace, projects copy | new, changed | `packages/views/locales/`, `apps/mobile/` locales |
 | Docs | Projects page; project resources pages removed | changed, removed | `apps/docs/content/docs/projects*.mdx`, `project-resources*.mdx`, `meta.json` |
-| Tool | Brain sync adds repositories | changed | `madspec-sync/multica_projects.py`, `madspec-sync/tests/test_multica_projects.py` |
+| Tool | Brain sync adds repositories and merges the repository projects UJ-1 kept | changed | `madspec-sync/multica_projects.py`, `madspec-sync/tests/test_multica_projects.py` |
 | Tool spec | The sync's rules | changed | `madspec-sync/specs/multica-projects.md`, `madspec-sync/README.md` |
 | Design | Screens of this journey | changed | `designs/screens/steer-all-work.pen`, `designs/exports/`, `designs/creation-flows.md` |
 | Prototype | Data-flow prototype | new | `prototypes/web/repositories-of-a-project/data-flow/` |
@@ -372,7 +373,7 @@ J2, J3, J6, J7, J8, J9 and J11 have work. Screen 6, "Add repository", and screen
   - `projects/resource-queries.ts`, and in views `project-resources-section.tsx` (L111) with `github-ref-*`, `local-directory-*` and `platform/local-directory.ts`, which drives the desktop's native picker in `apps/desktop/src/main/local-directory.ts`.
   - `runtimes/components/runtime-machines.ts` `buildRuntimeMachines` groups runtimes into machines. `agents/components/runtime-file-browser.tsx` browses a runtime's folders on web and desktop.
 - Mobile today: `apps/mobile/components/project/project-resources-section.tsx`, `app/(app)/[workspace]/project/[id]/add-resource.tsx`, and the resource calls in `data/api.ts`, `schemas.ts`, `mutations/projects.ts`, `queries/projects.ts` and `realtime/project-ws-updaters.ts`.
-- Brain sync: `madspec-sync/multica_projects.py` finds checkouts under `~/Repos` by `origin`, writes one `local_directory` resource per checkout, and in UJ-1 merges repository projects found by that resource's label.
+- Brain sync: `madspec-sync/multica_projects.py` finds checkouts under `~/Repos` by `origin` and writes one `local_directory` resource per checkout. In UJ-1 it merges the repository project of each Product with one repository, found by that resource's label, and keeps the repository projects of a Product with several, because a project holds one `local_directory` per daemon. It records each kept project in its mark file under `repository_projects`, keyed by the Repository's brain id.
 - Checkouts on this Mac use `git@github.com:owner/name.git` as `origin`.
 
 **What must not change.** Settings > Repositories, the workspace's repository list, and the `multica repo checkout <url>` path from the bare cache for those repositories (proposal Non-goals). The Issues pages. Brian's normal checkouts: no task writes in them.
@@ -386,7 +387,7 @@ J2, J3, J6, J7, J8, J9 and J11 have work. Screen 6, "Add repository", and screen
 - Add repository, Edit repository and Remove repository on web and desktop; repository cards on the project page; repository rows and counts on Projects, Organisations and an organisation's page.
 - Project resources gone from the database, the API, the CLI, web, desktop, mobile and the docs.
 - An agent on an issue without a worklane works in `~/Worktrees/{organisation key}/{repo}/{issue key}` on the issue's branch, and the worktree goes when the issue is Done or Cancelled and nothing would be lost.
-- The brain sync adds each Product's repositories.
+- The brain sync adds each Product's repositories and merges the repository projects UJ-1 kept into their Product's project.
 
 **Non-Goals:**
 
@@ -524,7 +525,7 @@ The daemon, for the repositories whose `checkout_daemon_id` is its own:
 
 ### 7. The brain sync adds repositories
 
-`multica_projects.py` keeps UJ-1's organisations and product projects, and its lock, mark file and read guards. Its checkout step and merge step go: they used the `local_directory` resources and their labels, which this change drops. UJ-1's run merges the repository projects before this change lands (Migration Plan). A product project's take-over no longer looks for a checkout mark, because no project carries one.
+`multica_projects.py` keeps UJ-1's organisations and product projects, and its lock, mark file and read guards. Its checkout step and its single-repository merge step go: they used the `local_directory` resources and their labels, which this change drops. UJ-1's run merged the repository project of each Product with one repository, and recorded each repository project it kept for a Product with several under `repository_projects` in the mark file, before this change lands (Migration Plan). A product project's take-over no longer looks for a checkout mark, because no project carries one.
 
 For each Repository object of each Product, by `github_key`:
 
@@ -536,11 +537,17 @@ For each Repository object of each Product, by `github_key`:
 
 After each repository it adds, the sync writes the brain id of the Repository object and the Multica repository id into the mark file, atomically as UJ-1 does. A marked repository whose Repository object is gone from the brain prints "has no Repository in the brain" on every run. A repository Brian added by hand carries no mark and prints nothing. A mark whose repository Brian removed is replaced when step 5 adds it again. Nothing the sync writes changes a repository that exists, so a checkout or policy Brian set stays, and a second run without changes writes nothing. A failed read of the brain, GitHub or Multica writes nothing.
 
+Then each project recorded under `repository_projects` merges, as UJ-1 merged a Product with one repository:
+
+- Only once its Repository is a repository of the project of that Repository's Product. Its issues then move there with `POST /api/issues/batch-update` (`{issue_ids, updates: {project_id}}`), in pages of 100. It is deleted only after every move succeeded and a fresh `GET /api/projects/{id}` reads `issue_count` 0, and its entry then leaves the mark file.
+- While its Repository is not added, it stays with its issues, and the run prints why the repository was not added. When Brian added that repository to another project, the recorded project included, it stays too, and step 1 prints where the repository is.
+- A recorded project that no longer exists leaves the mark file.
+
 ## Risks / Trade-offs
 
 - **Migration numbers.** 575 to 582 can be taken on `main` before J2. The builder takes the next free numbers and renames the cleanup entries with them.
-- **The UJ-1 merge needs the resources.** If 582 runs before UJ-1's sync run, the repository projects can no longer be found to merge. The Migration Plan orders them.
-- **The brain-project-sync spec still names merges** after this change removes the merge step. Its subject, a project carrying a checkout mark, no longer exists, and this change's spec keeps a repository in another project where it is. The requirement needs retiring at this change's J11 through `madspec-revise-plan` (Open Questions).
+- **The kept projects need UJ-1's run.** The repository projects UJ-1 kept are found through its mark file, not through the checkout labels 582 drops. Without UJ-1's sync run before 582, they are not recorded and stay with their issues. The Migration Plan orders them.
+- **The brain-project-sync spec still names the single-repository merge and the kept projects** after this change removes the checkout step. Their subject, a project carrying a checkout mark, no longer exists after 582, and this change's `brain-repository-sync` merges the projects UJ-1 kept. Both requirements need retiring at this change's J11 through `madspec-revise-plan` (Open Questions).
 - **`madspec-git`'s Core Rule** still puts worktrees at `~/Worktrees/{team}/{lane folder}/{repo}`. Agents read both; the brief's issue rule names the path the daemon made, so the agent has one place to work. The skill's text is out of this repository.
 - **A check is a snapshot.** Brian can switch the checkout's branch after adding it. The issue worktree is cut from `origin/{default_branch}` after a fetch, so the checkout's current branch does not matter to a task.
 - **Mobile loses Resources.** The PRD keeps mobile out of scope, but the endpoints it calls go, so its section goes rather than failing.
@@ -548,13 +555,13 @@ After each repository it adds, the sync writes the brain id of the Repository ob
 
 ## Migration Plan
 
-1. Release UJ-1 and run its brain sync once, which merges the repository projects (UJ-1 Migration Plan).
+1. Release UJ-1 and run its brain sync once. It merges the repository project of each Product with one repository and records each repository project it keeps for a Product with several (UJ-1 Migration Plan).
 2. Apply the migrations 575 to 582. `project_resource` and its 32 rows go; issues of the projects keep running with workspace repos until step 4.
 3. Release with `make local-release`.
-4. Run `uv run madspec-sync/multica_projects.py` once by hand. It adds each Product's repositories with worklane `main` and prints every repository it cannot add.
+4. Run `uv run madspec-sync/multica_projects.py` once by hand. It adds each Product's repositories with worklane `main`, moves the issues of each project UJ-1 kept into its Product's project once its repository is added there, deletes the emptied projects, and prints every repository it cannot add.
 
 Rollback is the down migrations. The repositories, worklanes and recorded worktrees go; the worktree folders stay on disk.
 
 ## Open Questions
 
-- Retire the `brain-project-sync` requirement "Repository projects merge into their Product's project" through `madspec-revise-plan` before this change's J11 syncs its specs. Recommended: retire it, since UJ-1's run did the merge and this change's `brain-repository-sync` decides where a repository stays.
+- Retire the `brain-project-sync` requirements "The repository project of a Product with one repository merges into its project" and "The repository projects of a Product with several repositories stay" through `madspec-revise-plan` before this change's J11 syncs its specs. Recommended: retire both, since UJ-1's run did the single-repository merges and this change's `brain-repository-sync` merges the projects UJ-1 kept and decides where a repository stays.
