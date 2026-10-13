@@ -41,7 +41,7 @@ flowchart LR
 - [x] 1.5 `server/pkg/db/queries/organisation.sql` -- `ListOrganisations` (by `LOWER(name)`), `GetOrganisationInWorkspace`, `CreateOrganisation`, `UpdateOrganisationKey`, each filtered by `workspace_id` -- the organisation reads and writes of decision 2.
 - [x] 1.6 `server/pkg/db/queries/workspace_delete.sql` -- `DeleteWorkspaceOrganisations` -- workspace delete removes organisations, since there are no cascades.
 - [x] 1.7 `server/pkg/db/generated/` -- run `make sqlc` and commit the output -- the generated code stays in step with the queries.
-- [ ] 1.8 `server/internal/handler/workspace.go`, `server/internal/handler/workspace_delete_manifest_test.go` -- call `DeleteWorkspaceOrganisations` in the step that deletes projects, and classify `organisation` as deleted with the workspace -- no orphan rows without cascades, and the table 1.1 adds leaves `TestWorkspaceDeletionManifestCoversPublicSchema` green on `main`.
+- [x] 1.8 `server/internal/handler/workspace.go`, `server/internal/handler/workspace_delete_manifest_test.go` -- call `DeleteWorkspaceOrganisations` in the step that deletes projects, and classify `organisation` as deleted with the workspace -- no orphan rows without cascades, and the table 1.1 adds leaves `TestWorkspaceDeletionManifestCoversPublicSchema` green on `main`.
 
 ## 2. J2 Data models: model change
 
@@ -206,6 +206,8 @@ flowchart LR
 - `UpdateOrganisationKey` uses named `sqlc.arg` parameters (`key`, `id`, `workspace_id`), so its params struct reads by name; the other queries use positional parameters as `project.sql` does.
 - The new nullable column adds `OrganisationID pgtype.UUID` to `db.Project` and to every `SELECT * FROM project` row; nothing else in the server changes and `go build ./...` passes.
 - Surprise: `TestWorkspaceDeletionManifestCoversPublicSchema` in `server/internal/handler` fails with `unclassified=[organisation]` until the table is classified and `DeleteWorkspaceOrganisations` is called. The plan had that in group 7 (7.3). The Plan Change Log moves it into group 1 as 1.8.
+- 1.8: the projects step runs `DeleteWorkspaceRuntimesAndProjects`, then `DeleteWorkspaceOrganisations`, in the same transaction; its name becomes "delete runtimes, projects and organisations", so a failure log names the table. `organisation` is classified `workspaceDelete` in the manifest, between `notification_preference` and `personal_access_token`.
+- 1.8 also touches `server/internal/handler/workspace_test.go`: `TestDeleteWorkspace_PreservesOtherWorkspaceData` seeds one organisation per workspace, keeps the neighbour's and checks the target's is gone. Its cleanup deletes organisations itself, since `DELETE FROM workspace` cascades nothing to them. Without the `workspace.go` step it fails with "target organisation rows = 1, want 0".
 
 ## Plan Change Log
 
