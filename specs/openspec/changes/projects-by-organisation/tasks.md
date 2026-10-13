@@ -45,7 +45,7 @@ flowchart LR
 
 ## 2. J2 Data models: model change
 
-- [x] 2.1 `server/pkg/db/queries/project.sql` -- `CreateProject` takes `organisation_id`, and `UpdateProject` sets `organisation_id` from `sqlc.narg('organisation_id')`, the way it sets `description` -- a project points to at most one organisation. Then run `make sqlc`.
+- [ ] 2.1 `server/pkg/db/queries/project.sql`, `server/internal/handler/project.go` -- `CreateProject` takes `organisation_id`, and `UpdateProject` sets `organisation_id` from `sqlc.narg('organisation_id')`, the way it sets `description`, with the handler's `UpdateProjectParams` seeded from `prevProject.OrganisationID` as `Description` is, so an update keeps the column -- a project points to at most one organisation. Then run `make sqlc`.
 - [x] 2.2 `packages/core/types/organisation.ts`, `packages/core/types/index.ts` -- `Organisation`, `CreateOrganisationRequest {name, key}`, `UpdateOrganisationRequest {key}` and `ListOrganisationsResponse`, exported -- one client contract for web and desktop.
 - [x] 2.3 `packages/core/types/project.ts` -- add `organisation_id: string | null` to `Project`, and `organisation_id?` to the create and update requests -- a project points to at most one organisation. Status and dates stay in the types until group 9, so J2 leaves `main` compiling.
 - [x] 2.4 `packages/core/api/schemas.ts` -- `OrganisationSchema` and `ListOrganisationsResponseSchema` with defaults, and `organisation_id` on `ProjectSchema` (nullable, default `null`) -- AGENTS.md "API Compatibility".
@@ -224,3 +224,4 @@ flowchart LR
 ## Plan Change Log
 
 - 2026-10-13, J2: the workspace-delete step and manifest classification move from group 7 (7.3) to group 1 (1.8). The table 1.1 adds made `TestWorkspaceDeletionManifestCoversPublicSchema` fail, and J2 merges into `main` with passing checks, so its teardown ships with it. Group 7 keeps its numbering.
+- 2026-10-13, J2: 2.1 also seeds `OrganisationID` from `prevProject` in the handler's `UpdateProject` call. Without it, every project update on `main` writes `NULL` to the column until J8. 7.2 still adds the request key.
