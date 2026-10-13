@@ -86,7 +86,7 @@ func buildJoinedWakeupsBlock(notes string) string {
 }
 
 func buildQuestionAnswersBlock(answers *protocol.QuestionAnswers) string {
-	if answers == nil {
+	if answers == nil || len(answers.Answers) == 0 && len(answers.AskBacks) == 0 {
 		return ""
 	}
 	var b strings.Builder
