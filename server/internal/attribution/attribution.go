@@ -119,6 +119,9 @@ const (
 	// The dedicated chat_session_id column still exists for its own consumers;
 	// this makes the attribution UI's jump-to-evidence path uniform (MUL-4302 §2).
 	EvidenceChat EvidenceKind = "chat"
+	// EvidenceQuestionWake marks a run started by Wake on a question; the ref
+	// id is the question id, and the claim hydrates its answers (ADR-0003).
+	EvidenceQuestionWake EvidenceKind = "question_wake"
 )
 
 // TriggerKind enumerates every path that can enqueue a run. Kept as an explicit

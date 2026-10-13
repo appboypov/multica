@@ -38,6 +38,9 @@ export function useTypeLabels(): Record<InboxItemType, string> {
     autopilot_paused: t(($) => $.types.autopilot_paused),
     autopilot_quota_exceeded: t(($) => $.types.autopilot_quota_exceeded),
     children_done: t(($) => $.types.children_done),
+    question_asked: t(($) => $.types.question_asked),
+    question_reassigned: t(($) => $.types.question_reassigned),
+    question_overdue: t(($) => $.types.question_overdue),
   };
 }
 

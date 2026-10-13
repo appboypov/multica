@@ -76,6 +76,15 @@ import {
   EMPTY_LIST_ISSUE_STATUSES_RESPONSE,
   EMPTY_ISSUE_STATUS_ENTRY,
 } from "./schemas";
+import {
+  EMPTY_QUESTION,
+  EMPTY_QUESTION_LIST,
+  EMPTY_QUESTION_WAKE_RESULT,
+  QuestionListSchema,
+  QuestionSchema,
+  QuestionWakeResultSchema,
+} from "./schemas";
+import type { Question, QuestionWakeResult } from "../types";
 import { parseWithFallback } from "./schema";
 
 const baseIssue = {
@@ -2436,5 +2445,268 @@ describe("AgentActivityBucketListSchema duration", () => {
     expect(parsed[0]?.task_count).toBe(201);
     expect(parsed[0]?.duration_ms).toBeUndefined();
     expect(parsed[0]?.duration_count).toBeUndefined();
+  });
+});
+
+describe("QuestionSchema", () => {
+  const wireQuestion = {
+    id: "question-1",
+    workspace_id: "ws-1",
+    asker_agent_id: "agent-pieter",
+    asked_in_task_id: "task-3",
+    prompt: "Do invoices round per line or per total?",
+    context_line: "The old system rounded per line.",
+    answer_type: "single_choice",
+    settings: { options: ["per line", "per total"], allow_other: true },
+    suggested_answer: { option: "per line" },
+    status: "answered",
+    due_date: "2026-10-14",
+    blocks_work: true,
+    links: [
+      { link_type: "issue", link_id: "issue-412", position: 0 },
+      { link_type: "task", link_id: "task-3", position: 1 },
+    ],
+    answerers: [{ user_id: "user-brian", assigned_at: "2026-10-12T20:00:00Z" }],
+    answers: [
+      {
+        id: "answer-1",
+        answerer_user_id: "user-brian",
+        value: { option: "per line" },
+        display_text: "per line",
+        note: "as the old system did",
+        created_at: "2026-10-12T21:04:00Z",
+        updated_at: "2026-10-12T21:04:00Z",
+      },
+    ],
+    events: [
+      { id: "event-1", kind: "asked", actor_type: "agent", actor_id: "agent-pieter", details: {}, created_at: "2026-10-12T20:00:00Z" },
+      { id: "event-2", kind: "answered", actor_type: "member", actor_id: "user-brian", details: {}, created_at: "2026-10-12T21:04:00Z" },
+    ],
+    unseen_answer_count: 1,
+    wake_available: true,
+    created_at: "2026-10-12T20:00:00Z",
+    updated_at: "2026-10-12T21:04:00Z",
+  };
+
+  const parse = (overrides: Record<string, unknown>) =>
+    parseWithFallback<Question>({ ...wireQuestion, ...overrides }, QuestionSchema, EMPTY_QUESTION, {
+      endpoint: "GET /api/questions/:id",
+    });
+
+  it("types settings, suggestion and answers by the answer type", () => {
+    const question = parse({});
+    expect(question.answer_type).toBe("single_choice");
+    if (question.answer_type !== "single_choice") throw new Error("not narrowed");
+    expect(question.settings).toEqual({ options: ["per line", "per total"], allow_other: true });
+    expect(question.suggested_answer).toEqual({ option: "per line" });
+    expect(question.answers[0]).toMatchObject({
+      value: { option: "per line" },
+      display_text: "per line",
+      note: "as the old system did",
+    });
+    expect(question.links.map((link) => link.link_type)).toEqual(["issue", "task"]);
+    expect(question.events.map((event) => event.kind)).toEqual(["asked", "answered"]);
+    expect(question.unseen_answer_count).toBe(1);
+    expect(question.wake_available).toBe(true);
+  });
+
+  it.each([
+    ["text", { length: "long", placeholder: "Explain" }, { text: "Rounded per line", attachment_ids: ["att-1"] }],
+    ["yes_no", { why_on_no: true }, { choice: "no" }],
+    ["single_choice", { options: ["a", "b"], allow_other: true }, { other: "per invoice" }],
+    ["multiple_choice", { options: ["a", "b", "c"], min: 2, max: 3 }, { options: ["a", "c"] }],
+    ["confirm_facts", { facts: ["VAT 21%", "EUR"] }, { facts: [{ correct: true }, { correct: false, correction: "USD" }] }],
+    ["ranking", { items: ["a", "b"] }, { order: ["b", "a"] }],
+    ["scale", { min: 1, max: 5, min_label: "Low", max_label: "High" }, { point: 4 }],
+    ["number", { unit: "EUR", min: 0, max: 100 }, { number: 42.5 }],
+    ["date", { kind: "range" }, { start: "2026-10-12", end: "2026-10-14" }],
+    ["person", { allow: "both" }, { type: "agent", id: "agent-joeri" }],
+    ["file", { accept: ["application/pdf", ".csv"] }, { attachment_ids: ["att-1"] }],
+    ["approval", { subject: "Release 1.2", link: { title: "PR", url: "https://example.test/pr/1" } }, { decision: "request_changes" }],
+  ])("reads a %s question with its settings and value", (answerType, settings, value) => {
+    const question = parse({
+      answer_type: answerType,
+      settings,
+      suggested_answer: null,
+      answers: [{ ...wireQuestion.answers[0], value }],
+    });
+    expect(question.answer_type).toBe(answerType);
+    expect(question.settings).toEqual(settings);
+    expect(question.answers[0]?.value).toEqual(value);
+  });
+
+  it("defaults missing optional fields and arrays", () => {
+    const {
+      context_line: _contextLine,
+      suggested_answer: _suggestion,
+      due_date: _dueDate,
+      blocks_work: _blocksWork,
+      links: _links,
+      answerers: _answerers,
+      answers: _answers,
+      events: _events,
+      unseen_answer_count: _unseen,
+      wake_available: _wake,
+      ...core
+    } = wireQuestion;
+    const question = parseWithFallback<Question>(
+      { ...core, status: "open", settings: { options: ["a", "b"] } },
+      QuestionSchema,
+      EMPTY_QUESTION,
+      { endpoint: "GET /api/questions/:id" },
+    );
+    expect(question).toMatchObject({
+      id: "question-1",
+      answer_type: "single_choice",
+      settings: { options: ["a", "b"], allow_other: false },
+      suggested_answer: null,
+      context_line: null,
+      due_date: null,
+      blocks_work: false,
+      links: [],
+      answerers: [],
+      answers: [],
+      events: [],
+      unseen_answer_count: 0,
+      wake_available: false,
+    });
+  });
+
+  it("reads an unknown answer type as unknown, keeping the prompt and display text", () => {
+    const question = parse({ answer_type: "color_picker", settings: { palette: "warm" } });
+    expect(question.id).toBe("question-1");
+    expect(question.prompt).toBe(wireQuestion.prompt);
+    expect(question.answer_type).toBe("unknown");
+    expect(question.settings).toEqual({ palette: "warm" });
+    expect(question.suggested_answer).toBeNull();
+    expect(question.answers[0]?.display_text).toBe("per line");
+  });
+
+  it.each([
+    ["settings", { settings: { options: "per line" } }],
+    ["a suggested answer", { suggested_answer: { option: 3 } }],
+    ["an answer value", { answers: [{ ...wireQuestion.answers[0], value: ["per line"] }] }],
+    ["a missing answer value", { answers: [{ ...wireQuestion.answers[0], value: undefined }] }],
+  ])("reads a question with a wrongly shaped %s as unknown", (_part, overrides) => {
+    const question = parse(overrides);
+    expect(question.id).toBe("question-1");
+    expect(question.answer_type).toBe("unknown");
+    expect(question.answers.map((answer) => answer.display_text)).toEqual(["per line"]);
+  });
+
+  it("reads an unknown or missing status as closed", () => {
+    expect(parse({ status: "expired" }).status).toBe("closed");
+    expect(parse({ status: undefined }).status).toBe("closed");
+  });
+
+  it("drops events and links it cannot read and keeps the rest", () => {
+    const question = parse({
+      links: [
+        { link_type: "issue", link_id: "issue-412", position: 0 },
+        { link_type: "project", link_id: "project-1", position: 1 },
+        { link_type: "task", link_id: 7, position: 2 },
+      ],
+      events: [
+        { id: "event-1", kind: "pinned", actor_type: "member", actor_id: "user-brian", details: {}, created_at: "2026-10-12T20:00:00Z" },
+        { id: "event-2", kind: "reassigned", actor_type: "member", actor_id: "user-brian", details: { note: "no user" }, created_at: "2026-10-12T20:01:00Z" },
+        { id: "event-3", kind: "ask_back", actor_type: "member", actor_id: "user-brian", details: { text: "Which customer?" }, created_at: "2026-10-12T20:02:00Z" },
+        { id: "event-4", kind: "reassigned", actor_type: "member", actor_id: "user-brian", details: { user_id: "user-anouk", note: "You set the invoice rules" }, created_at: "2026-10-12T20:03:00Z" },
+        { id: "event-5", kind: "woken", actor_type: "member", actor_id: "user-brian", details: { task_id: "task-4", answer_count: 1 }, created_at: "2026-10-12T21:05:00Z" },
+        { id: "event-6", kind: "closed", actor_type: "agent", actor_id: null, created_at: "2026-10-12T22:00:00Z" },
+      ],
+    });
+    expect(question.links).toEqual([{ link_type: "issue", link_id: "issue-412", position: 0 }]);
+    expect(question.events.map((event) => [event.kind, event.details])).toEqual([
+      ["ask_back", { text: "Which customer?" }],
+      ["reassigned", { user_id: "user-anouk", note: "You set the invoice rules" }],
+      ["woken", { task_id: "task-4", answer_count: 1 }],
+      ["closed", {}],
+    ]);
+  });
+
+  it("reads non-list links and events as empty instead of dropping the question", () => {
+    const question = parse({ links: "issue-412", events: { kind: "asked" } });
+    expect(question.id).toBe("question-1");
+    expect(question.links).toEqual([]);
+    expect(question.events).toEqual([]);
+  });
+
+  it("degrades wrongly typed defaults instead of failing the question", () => {
+    const question = parse({ blocks_work: "yes", wake_available: 1, unseen_answer_count: -2, due_date: 20261014 });
+    expect(question).toMatchObject({
+      id: "question-1",
+      blocks_work: false,
+      wake_available: false,
+      unseen_answer_count: 0,
+      due_date: null,
+    });
+  });
+
+  it("falls back to the empty question when its core is malformed", () => {
+    expect(parse({ id: 42 })).toEqual(EMPTY_QUESTION);
+    expect(parse({ answers: "per line" })).toEqual(EMPTY_QUESTION);
+    expect(parse({ answerers: [{ assigned_at: "2026-10-12T20:00:00Z" }] })).toEqual(EMPTY_QUESTION);
+    expect(
+      parseWithFallback<Question>("not a question", QuestionSchema, EMPTY_QUESTION, {
+        endpoint: "GET /api/questions/:id",
+      }),
+    ).toEqual(EMPTY_QUESTION);
+  });
+});
+
+describe("QuestionListSchema", () => {
+  const question = {
+    id: "question-1",
+    workspace_id: "ws-1",
+    asker_agent_id: "agent-pieter",
+    asked_in_task_id: "task-3",
+    prompt: "Ship it?",
+    answer_type: "yes_no",
+    settings: { why_on_no: false },
+    status: "open",
+    created_at: "2026-10-12T20:00:00Z",
+    updated_at: "2026-10-12T20:00:00Z",
+  };
+  const parseList = (data: unknown) =>
+    parseWithFallback<Question[]>(data, QuestionListSchema, EMPTY_QUESTION_LIST, {
+      endpoint: "GET /api/issues/:id/questions",
+    });
+
+  it("drops a malformed question without hiding the others", () => {
+    const questions = parseList([
+      question,
+      { ...question, id: "question-2", prompt: null },
+      { ...question, id: "question-3", answer_type: "sketch" },
+    ]);
+    expect(questions.map((q) => [q.id, q.answer_type])).toEqual([
+      ["question-1", "yes_no"],
+      ["question-3", "unknown"],
+    ]);
+  });
+
+  it("falls back to an empty list when the response is not a list", () => {
+    expect(parseList({ questions: [question] })).toEqual(EMPTY_QUESTION_LIST);
+    expect(parseList(undefined)).toEqual([]);
+  });
+});
+
+describe("QuestionWakeResultSchema", () => {
+  const parseWake = (data: unknown) =>
+    parseWithFallback<QuestionWakeResult>(data, QuestionWakeResultSchema, EMPTY_QUESTION_WAKE_RESULT, {
+      endpoint: "POST /api/questions/:id/wake",
+    });
+
+  it("reads the queued task and its answer count", () => {
+    expect(parseWake({ task_id: "task-4", answer_count: 1 })).toEqual({ task_id: "task-4", answer_count: 1 });
+  });
+
+  it("defaults a missing or malformed answer count", () => {
+    expect(parseWake({ task_id: "task-4" })).toEqual({ task_id: "task-4", answer_count: 0 });
+    expect(parseWake({ task_id: "task-4", answer_count: "one" })).toEqual({ task_id: "task-4", answer_count: 0 });
+  });
+
+  it("falls back when the task id is missing", () => {
+    expect(parseWake({ answer_count: 1 })).toEqual(EMPTY_QUESTION_WAKE_RESULT);
+    expect(parseWake(null)).toEqual(EMPTY_QUESTION_WAKE_RESULT);
   });
 });

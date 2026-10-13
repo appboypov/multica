@@ -203,6 +203,7 @@ type Attachment struct {
 	ChatMessageID   pgtype.UUID        `json:"chat_message_id"`
 	TaskID          pgtype.UUID        `json:"task_id"`
 	SourceContextID pgtype.UUID        `json:"source_context_id"`
+	QuestionID      pgtype.UUID        `json:"question_id"`
 }
 
 type Autopilot struct {
@@ -1326,6 +1327,61 @@ type ProjectResource struct {
 	Position     int32              `json:"position"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	CreatedBy    pgtype.UUID        `json:"created_by"`
+}
+
+type Question struct {
+	ID                pgtype.UUID        `json:"id"`
+	WorkspaceID       pgtype.UUID        `json:"workspace_id"`
+	AskerAgentID      pgtype.UUID        `json:"asker_agent_id"`
+	AskedInTaskID     pgtype.UUID        `json:"asked_in_task_id"`
+	Prompt            string             `json:"prompt"`
+	ContextLine       pgtype.Text        `json:"context_line"`
+	AnswerType        string             `json:"answer_type"`
+	Settings          []byte             `json:"settings"`
+	SuggestedAnswer   []byte             `json:"suggested_answer"`
+	Status            string             `json:"status"`
+	DueDate           pgtype.Date        `json:"due_date"`
+	BlocksWork        bool               `json:"blocks_work"`
+	OverdueNotifiedAt pgtype.Timestamptz `json:"overdue_notified_at"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+}
+
+type QuestionAnswer struct {
+	ID             pgtype.UUID        `json:"id"`
+	QuestionID     pgtype.UUID        `json:"question_id"`
+	WorkspaceID    pgtype.UUID        `json:"workspace_id"`
+	AnswererUserID pgtype.UUID        `json:"answerer_user_id"`
+	Value          []byte             `json:"value"`
+	Note           pgtype.Text        `json:"note"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+type QuestionAnswerer struct {
+	QuestionID  pgtype.UUID        `json:"question_id"`
+	WorkspaceID pgtype.UUID        `json:"workspace_id"`
+	UserID      pgtype.UUID        `json:"user_id"`
+	AssignedAt  pgtype.Timestamptz `json:"assigned_at"`
+}
+
+type QuestionEvent struct {
+	ID          pgtype.UUID        `json:"id"`
+	QuestionID  pgtype.UUID        `json:"question_id"`
+	WorkspaceID pgtype.UUID        `json:"workspace_id"`
+	Kind        string             `json:"kind"`
+	ActorType   string             `json:"actor_type"`
+	ActorID     pgtype.UUID        `json:"actor_id"`
+	Details     []byte             `json:"details"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+}
+
+type QuestionLink struct {
+	QuestionID  pgtype.UUID `json:"question_id"`
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
+	LinkType    string      `json:"link_type"`
+	LinkID      pgtype.UUID `json:"link_id"`
+	Position    int32       `json:"position"`
 }
 
 type QuickAction struct {

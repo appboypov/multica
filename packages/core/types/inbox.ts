@@ -31,7 +31,12 @@ export type InboxItemType =
   | "autopilot_quota_exceeded"
   // Sub-issues of an issue assigned to the recipient closed (the child_done
   // system rule notifies a member assignee instead of waking an agent).
-  | "children_done";
+  | "children_done"
+  // A question an agent asked the recipient; `details.question_id` names it.
+  // Never muted: none is in a notification group.
+  | "question_asked"
+  | "question_reassigned"
+  | "question_overdue";
 
 /**
  * One workspace's unread inbox count in the cross-workspace summary
