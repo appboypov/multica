@@ -40,7 +40,7 @@ flowchart LR
 - [x] 1.4 `server/cmd/migrate/main.go` -- add `573` and `574` to `concurrentIndexCleanups` -- `TestEveryConcurrentUpBuildHasCleanup` requires it.
 - [x] 1.5 `server/pkg/db/queries/organisation.sql` -- `ListOrganisations` (by `LOWER(name)`), `GetOrganisationInWorkspace`, `CreateOrganisation`, `UpdateOrganisationKey`, each filtered by `workspace_id` -- the organisation reads and writes of decision 2.
 - [x] 1.6 `server/pkg/db/queries/workspace_delete.sql` -- `DeleteWorkspaceOrganisations` -- workspace delete removes organisations, since there are no cascades.
-- [ ] 1.7 `server/pkg/db/generated/` -- run `make sqlc` and commit the output -- the generated code stays in step with the queries.
+- [x] 1.7 `server/pkg/db/generated/` -- run `make sqlc` and commit the output -- the generated code stays in step with the queries.
 
 ## 2. J2 Data models: model change
 
@@ -196,5 +196,15 @@ flowchart LR
 - [ ] 12.3 `specs/openspec/changes/projects-by-organisation/` -- run `openspec validate projects-by-organisation --type change --strict`, sync the specs and archive the change -- the journey closes on its J11 pull request.
 
 ## Implementation Notes
+
+### Group 1. J2 Data models: new model
+
+- Files touched: `server/migrations/572_organisation.{up,down}.sql`, `573_organisation_name_index.{up,down}.sql`, `574_organisation_key_index.{up,down}.sql`, `server/cmd/migrate/main.go`, `server/pkg/db/queries/organisation.sql`, `server/pkg/db/queries/workspace_delete.sql`, and the sqlc output in `server/pkg/db/generated/` (`organisation.sql.go` new; `models.go`, `project.sql.go`, `search_index.sql.go`, `workspace_delete.sql.go` changed).
+- 572 follows 566: `SET LOCAL lock_timeout = '2s'` bounds the `ALTER TABLE project` lock, and `IF NOT EXISTS` / `IF EXISTS` keep both directions idempotent. The key `CHECK` is left unnamed, so Postgres names it `organisation_key_check`; the handler validates the key before writing, so nothing reads that name.
+- A unique index raises its index name as the violation's constraint name, so `organisation_workspace_name_unique` and `organisation_workspace_key_unique` are what 7.1 matches on to tell the two 409s apart. Checked on the worktree database.
+- Down migrations 573 and 574 only drop their index, so they need no `concurrentDownIndexCleanups` entry.
+- `UpdateOrganisationKey` uses named `sqlc.arg` parameters (`key`, `id`, `workspace_id`), so its params struct reads by name; the other queries use positional parameters as `project.sql` does.
+- The new nullable column adds `OrganisationID pgtype.UUID` to `db.Project` and to every `SELECT * FROM project` row; nothing else in the server changes and `go build ./...` passes.
+- Surprise: `TestWorkspaceDeletionManifestCoversPublicSchema` in `server/internal/handler` fails with `unclassified=[organisation]` until 7.3 classifies the table and calls `DeleteWorkspaceOrganisations`. The plan puts that in group 7, so it stays red between J2 and J8.
 
 ## Plan Change Log
