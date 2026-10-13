@@ -171,6 +171,18 @@ describe("QuestionCard", () => {
     expect(screen.queryByRole("button", { name: "Edit answer" })).not.toBeInTheDocument();
   });
 
+  // jsdom has no layout, so this pins the flex contract; the screen proof shows the rendering.
+  it("truncates the folded prompt before the answer", () => {
+    renderCard(answered());
+    const prompt = screen.getByText("Should VAT round per invoice line or on the invoice total?");
+    const answer = screen.getByText("Per invoice line");
+    // The prompt starts from no width and grows into the room left, up to its own width.
+    expect(prompt).toHaveClass("basis-0", "grow", "max-w-max", "min-w-0", "truncate");
+    // The answer keeps its own width, uncapped, and truncates only when it alone no longer fits.
+    expect(answer).toHaveClass("min-w-0", "truncate");
+    expect(answer.className).not.toMatch(/(^|\s)(basis-0|grow|shrink-\S+|max-w-\S+)(\s|$)/);
+  });
+
   it("offers Wake only while it is available", () => {
     const { unmount } = renderCard(answered({ wake_available: false }));
     expect(screen.queryByRole("button", { name: "Wake Pieter" })).not.toBeInTheDocument();

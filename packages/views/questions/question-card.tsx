@@ -81,7 +81,9 @@ function FoldedQuestion({ question, issueId, onEdit }: { question: Question; iss
   return (
     <div className="flex min-h-12 min-w-0 items-center gap-2 rounded-xl border bg-card px-3.5 py-1.5 text-body" data-question-state={question.status}>
       <Icon aria-hidden className={cn("size-4 shrink-0", answer ? "text-success" : "text-muted-foreground")} />
-      <span className="min-w-0 max-w-[40%] truncate text-muted-foreground" title={question.prompt}>{question.prompt}</span>
+      {/* The prompt grows from nothing into the room the answer leaves, up to its own width,
+          so it truncates first; the answer keeps its width until it alone no longer fits. */}
+      <span className="min-w-0 max-w-max grow basis-0 truncate text-muted-foreground" title={question.prompt}>{question.prompt}</span>
       <ArrowRight aria-hidden className="size-4 shrink-0 text-muted-foreground" />
       {answer ? (
         <>
