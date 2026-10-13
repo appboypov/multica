@@ -133,10 +133,10 @@ flowchart LR
 
 ## 15. J9 Frontend: new component
 
-- [ ] 15.1 `packages/views/questions/answer-controls/` -- one control per answer type (`text`, `yes-no`, `single-choice`, `multiple-choice`, `confirm-facts`, `ranking`, `scale`, `number`, `date`, `person`, `file`, `approval`) on existing `packages/ui` primitives, with the focus keys of the UX spec, and `answer-control.tsx` choosing by type -- the 12 answer types.
+- [x] 15.1 `packages/views/questions/answer-controls/` -- one control per answer type (`text`, `yes-no`, `single-choice`, `multiple-choice`, `confirm-facts`, `ranking`, `scale`, `number`, `date`, `person`, `file`, `approval`) on existing `packages/ui` primitives, with the focus keys of the UX spec, and `answer-control.tsx` choosing by type -- the 12 answer types.
 - [ ] 15.2 `packages/views/questions/question-card.tsx` -- the card in the comment card's frame: overline "Question for you" for answerers, Suggested badge, **Accept suggestion** while nothing is picked else **Send**, **Add a note**, **Ask back**, **Reassign**, Blocks work and overdue badges, history and thread, the folded line with **Edit answer** until closed, **Wake <agent>** when `wake_available`, no controls for non-answerers -- the card of the specs.
 - [ ] 15.3 `packages/views/questions/reassign-picker.tsx` -- members-only picker on `AssigneePicker` with a required note -- reassign with a note.
-- [ ] 15.4 `packages/views/locales/{en,zh-Hans,ko,ja,fr}/questions.json`, `packages/views/locales/index.ts` -- the `questions` namespace in all five languages, registered in `RESOURCES` -- copy follows the conventions pages.
+- [x] 15.4 `packages/views/locales/{en,zh-Hans,ko,ja,fr}/questions.json`, `packages/views/locales/index.ts` -- the `questions` namespace in all five languages, registered in `RESOURCES` -- copy follows the conventions pages.
 - [ ] 15.5 `packages/views/questions/question-card.test.tsx` -- Accept suggestion sends the suggested value; picking turns it into Send; a below-minimum pick disables Send with its message; a non-answerer sees no controls; a closed card has no Edit answer; Wake shows only when available -- the card's named behaviours.
 
 ## 16. J9 Frontend: screen
@@ -261,6 +261,15 @@ Verified: `GetVariables()` deep-equal before and after (70 variables); the 92 ex
 - Verification correction for 14.1: the upload fixture omitted required `download_url` and `filename`, so `parseWithFallback` correctly returned `EMPTY_ATTACHMENT`. `packages/core/api/question-client.test.ts` now supplies the real response shape; production upload parsing remains unchanged.
 - Verification correction for 14.5: `packages/core/questions/mutations.test.tsx` gives `renderHook` the test's shared `() => Promise<unknown>` result contract, accepting question, Wake and attachment submit callbacks without type assertions or production API changes. Both requested checks pass with this correction.
 - At Main's explicit request, this builder ran local core checks using `pnpm --dir packages/core exec tsc --noEmit -p .` (exit 0, no errors) and `pnpm --dir packages/core exec vitest run api questions` (13 test files, 650 tests passed). Checks ran on both corrected test files; no build, lint, formatter or screen test ran.
+
+### Group 15. J9 Frontend: new component
+
+- 15.1: `packages/views/questions/answer-controls/` holds the twelve controls (`text-control.tsx` … `approval-control.tsx`), their shared `control-props.ts`, `option-row.tsx` and `suggested-badge.tsx`, and `answer-control.tsx`, which maps `answer_type` to its control and exports `handleAnswerKey`. The pure draft logic is in `draft.ts` (`valueToSend`, `draftError`, `controlShowsNote`, `toggleOption`) and the UX spec's focus keys in `keys.ts` (`Y`/`N` for Yes / No, `1`-`9` for options, Other after the options); `draft.test.ts` covers both. Send gating calls core's `validateAnswer`; the server stays the authority. Controls use only `packages/ui` primitives and existing tokens: Button, Input, Textarea, Badge, Kbd, the `@dnd-kit` sortable list as in `issue-statuses-tab.tsx` for Ranking, the issue date-only helpers for Date, and the members/agents list queries for Person.
+- Decision: a draft is the answer value, except Confirm facts keeps `null` for an unmarked fact, so "every fact" can be told apart from "its correction". An untouched Ranking sends the order as shown, since that order is an answer too.
+- Decision: the Approval link opens only for `http(s)` URLs; an asker-given `javascript:` URL renders as plain text.
+- Logging: `createLogger` namespaces `questions.text` and `questions.file` log failed uploads with the question id, never answer content.
+- 15.4: `packages/views/locales/{en,zh-Hans,ko,ja,fr}/questions.json` hold the `types`, `card` (with Wake), `hints`, `controls`, `validation` (one message per `validateAnswer` key, plurals as `_one`/`_other`) and `reassign` copy; `packages/views/locales/index.ts` registers them in `RESOURCES` and `packages/views/i18n/resources-types.ts` types the namespace. Terms follow the glossary in `apps/docs/content/docs/developers/conventions.mdx` (run, member, agent, issue). The locale parity test passes.
+- Surprise: 15.1 and 15.4 land in one commit, since every control reads the `questions` namespace and the package would not typecheck with either alone.
 
 ## Plan Change Log
 
