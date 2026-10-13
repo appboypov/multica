@@ -130,7 +130,7 @@ flowchart LR
 - [x] 9.2 `packages/core/api/client.ts` -- `listOrganisations`, `getOrganisation`, `createOrganisation` and `updateOrganisation` through `parseWithFallback`. `listProjects`, `getProject`, `createProject` and `updateProject` parse with `ProjectSchema` -- the client calls of decision 2.
 - [x] 9.3 `packages/core/organisations/queries.ts`, `mutations.ts`, `index.ts`, `packages/core/package.json` -- `organisationKeys.list(wsId)` and `organisationKeys.detail(wsId, id)`, query hooks, and `useCreateOrganisation` and `useUpdateOrganisationKey`, which await the server and invalidate on settle. Export `./organisations` -- TanStack Query owns organisations.
 - [x] 9.4 `packages/core/realtime/use-realtime-sync.ts` -- `organisation:` events invalidate the organisation keys -- every open page stays live.
-- [ ] 9.5 `packages/core/projects/group.ts`, `group.test.ts` -- `groupProjectsByOrganisation` as decision 4 sets it out. Tests cover:
+- [x] 9.5 `packages/core/projects/group.ts`, `group.test.ts` -- `groupProjectsByOrganisation` as decision 4 sets it out. Tests cover:
   - Name order ignoring case.
   - Empty groups left out.
   - No organisation last, and only when it holds projects.
@@ -259,6 +259,7 @@ flowchart LR
 - 9.2 files touched: `packages/core/api/client.ts`, `api/schemas.ts`, `api/organisations-projects.test.ts` (new). Organisation CRUD parses the J2 schemas; project CRUD parses the exported project schema and new list schema with explicit empty fallbacks. Project enums fall back to known values; wire status and dates remain. Tests cover all read/write response boundaries, malformed organisation rows, missing list/organisation/date fields, unknown enums and server conflicts. Surprise: automatic LSP diagnostics briefly saw pre-edit API exports; the TypeScript server was reloaded, with no test or typecheck run.
 - 9.3 files touched: new `packages/core/organisations/{queries,mutations,index}.ts`, `packages/core/package.json`. Public query options and hooks follow project keys, scoped by workspace. Create and key-update mutations await the API and returned invalidation promise on settle, without optimistic organisation writes or server data in Zustand. `./organisations` exports the complete public feature API.
 - 9.4 files touched: `packages/core/realtime/use-realtime-sync.ts`. The existing prefix dispatcher handles every `organisation:*` event by invalidating the current workspace's organisation list and details through `organisationKeys.all`; no payload mirror or additional subscription.
+- 9.5 files touched: new `packages/core/projects/group.ts`, `group.test.ts`, `projects/index.ts`. A pure, exported grouping function retains input order within groups, compares organisation names with base sensitivity, omits empty groups and places null/unknown organisations last. Tests encode all five task scenarios and input immutability.
 - Verification handoff: no tests, typecheck, lint, format or build run by this builder; Main owns the final core and integrated frontend checks.
 
 ## Plan Change Log
