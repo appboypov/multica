@@ -53,7 +53,7 @@ flowchart LR
 
 ## 3. J2 Data models: action names
 
-- [ ] 3.1 `server/pkg/protocol/events.go` -- `EventQuestionCreated = "question:created"`, `EventQuestionUpdated = "question:updated"`, payload `{question_id, issue_id, reason}` with reasons `answered`, `answer_edited`, `ask_back`, `reassigned`, `closed`, `withdrawn`, `overdue`, `woken` -- the names the server, listeners and clients share.
+- [x] 3.1 `server/pkg/protocol/events.go` -- `EventQuestionCreated = "question:created"`, `EventQuestionUpdated = "question:updated"`, payload `{question_id, issue_id, reason}` with reasons `answered`, `answer_edited`, `ask_back`, `reassigned`, `closed`, `withdrawn`, `overdue`, `woken` -- the names the server, listeners and clients share.
 - [ ] 3.2 `server/internal/attribution/attribution.go` -- `EvidenceQuestionWake EvidenceKind = "question_wake"` -- marks a run started by Wake for the claim (ADR-0003).
 - [ ] 3.3 `server/internal/service/question_actions.go` -- constants for the inbox types `question_asked`, `question_reassigned`, `question_overdue` and the activity action `question_wake` -- one spelling for the listener, the job and the tests.
 
