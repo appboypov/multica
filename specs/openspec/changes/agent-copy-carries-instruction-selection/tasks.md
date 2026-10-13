@@ -15,7 +15,7 @@ flowchart LR
 
 - [x] 1.1 `server/cmd/multica/cmd_agent_copy_test.go` -- add a mock server helper that serves the `copyMockServer` routes plus `GET /api/runtimes` (asserting `owner=me`, answering a given list of owned runtime ids or a given error status) and counts the runtimes requests and creates; add the tests of design Decisions 2-4, each failing before 1.2: the owner's copy, without `--runtime-id` and with `--runtime-id runtime-1`, sends both paths in order and leaves stderr empty; a non-owner's copy sends no `instruction_selection`, prints the owner note on stderr, and prints the same `Agent copied` stdout as a copy without a selection; a copy with `--runtime-id runtime-2 --model ""` sends none, prints the machine note and makes no runtimes request; a source with `instruction_selection: []` makes no runtimes request, sends none and leaves stderr empty; a failing runtimes request returns an error naming it and makes no create. Reuse `captureStderr` and `captureStdout`. -- the spec's CLI scenarios as unit tests. Verify: `cd server && go test ./cmd/multica -run 'TestAgentCopy' -count=1` fails on the new tests only.
 - [x] 1.2 `server/cmd/multica/cmd_agent_copy.go` -- add `ownsRuntime`, `copiedInstructionSelection` and the two note constants per design Decisions 1-4; in `runAgentCopy`, call it after `sameRuntime`, return its error before the create, set `body["instruction_selection"]` when not empty, and after a successful create print the note to stderr before the stdout output. -- the copy rule of web Duplicate. Verify: `cd server && go test ./cmd/multica -run 'TestAgentCopy' -count=1` passes, the existing copy tests included.
-- [ ] 1.3 `server/cmd/multica/cmd_agent_copy.go` -- add the Long help sentence of design Decision 4 and name the ownership read in the comment above `agentCopyCmd` and on `runAgentCopy`. -- `--help` tells when the selection comes along. Verify: `cd server && go run ./cmd/multica agent copy --help` shows the sentence.
+- [x] 1.3 `server/cmd/multica/cmd_agent_copy.go` -- add the Long help sentence of design Decision 4 and name the ownership read in the comment above `agentCopyCmd` and on `runAgentCopy`. -- `--help` tells when the selection comes along. Verify: `cd server && go run ./cmd/multica agent copy --help` shows the sentence.
 - [ ] 1.4 `apps/docs/content/docs/agents-create.mdx`, `agents-create.zh.mdx`, `agents-create.ja.mdx`, `agents-create.ko.mdx`, `agents-create.fr.mdx` -- append design Decision 5's sentence of each language to the paragraph under the `multica agent copy` code block. -- the docs match the CLI. Verify: `git diff --check` and each page renders in the docs dev server (`pnpm --filter @multica/docs dev`).
 
 ## 2. multica-platform skill reference
@@ -40,5 +40,11 @@ flowchart LR
 - `copiedInstructionSelection` is called after `sameRuntime` and every flag check, just before the POST, rather than straight after `sameRuntime`: a copy that fails on a flag (an empty `--name`, a missing `--model`, invalid `--custom-env`) then makes no runtimes read, and the read still comes before the create.
 - `ownsRuntime` decodes only the `id` of each runtime `GET /api/runtimes?owner=me` returns. Its error is wrapped as `check source runtime owner: <err>`, and `cli.HTTPError` names the request (`GET /api/runtimes?owner=me returned 500: …`).
 - Verified: `cd server && go test ./cmd/multica -run 'TestAgentCopy' -count=1 -race -v` passes, the 11 existing copy tests and the 5 new ones; `go vet ./cmd/multica` and `gofmt -l` are clean.
+
+### 1.3 Help and comments
+
+- Files: `server/cmd/multica/cmd_agent_copy.go`.
+- Decision 4's sentence is its own paragraph in `Long`, between the overridable-fields paragraph and the secret-fields one, wrapped at 80 columns like the rest. The comment above `agentCopyCmd` and the doc comment of `runAgentCopy` name `GET /api/runtimes?owner=me` and when it is made.
+- Verified: `cd server && go run ./cmd/multica agent copy --help` prints the paragraph.
 
 ## Plan Change Log

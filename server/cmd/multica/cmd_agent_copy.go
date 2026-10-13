@@ -26,7 +26,9 @@ const (
 // command is a thin composition over existing endpoints — GET the source, then
 // POST a create — so it needs no dedicated server API: `POST /api/agents`
 // already binds skill_ids in the same DB transaction as the agent row, so the
-// copy never becomes visible in a partially configured state.
+// copy never becomes visible in a partially configured state. A source with
+// selected files and folders that stays on its runtime costs one more read,
+// `GET /api/runtimes?owner=me`, since only that runtime's owner may copy them.
 var agentCopyCmd = &cobra.Command{
 	Use:   "copy <source-agent-id>",
 	Short: "Copy an existing agent into a new one (optionally on a different runtime)",
@@ -42,6 +44,10 @@ Copied by default, each overridable with the matching flag: name (suffixed
 invocation permission (permission_mode + allow-list), assigned workspace skills,
 and — only when the target runtime is unchanged — model, thinking_level and
 service_tier.
+
+Selected files and folders (instruction_selection) are copied only when you own
+the source runtime and the copy stays on it; otherwise the copy has none and a
+note on stderr says why.
 
 Secret and machine-local fields are never copied: custom_env, mcp_config and
 runtime_config. Supply fresh values for the copy with the same secret-safe flags
@@ -92,7 +98,10 @@ func registerAgentCopyFlags(cmd *cobra.Command) {
 // runAgentCopy reads the source agent and assembles a create request from its
 // portable fields, then POSTs it. custom_env, mcp_config and runtime_config are
 // never read back from the source — GET redacts / masks them anyway — and are
-// set only when supplied explicitly on the command line.
+// set only when supplied explicitly on the command line. instruction_selection
+// is carried only for the source runtime's owner on that runtime, which for a
+// non-empty selection staying on it takes a `GET /api/runtimes?owner=me` read
+// before the create.
 func runAgentCopy(cmd *cobra.Command, args []string) error {
 	var maxConcurrentTasksOverride *int32
 	if cmd.Flags().Changed("max-concurrent-tasks") {
