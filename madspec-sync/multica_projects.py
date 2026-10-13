@@ -55,6 +55,7 @@ class Product:
 
 @dataclass(frozen=True)
 class Repository:
+    id: str
     key: str
     products: tuple[str, ...]
     checkouts: tuple[Path, ...]
@@ -128,6 +129,7 @@ class Plan:
     reports: tuple[str, ...] = ()
     organisation_ids: dict[str, str] = field(default_factory=dict)
     project_ids: dict[str, str] = field(default_factory=dict)
+    repository_projects: dict[str, str] = field(default_factory=dict)
 
     @property
     def writes(self) -> tuple:
@@ -137,7 +139,7 @@ class Plan:
 def plan(brain: Brain, archived: dict[str, bool | None], organisations: list[dict],
          projects: list[dict], resources: dict[str, list[dict]],
          issues: dict[str, tuple[str, ...]], daemon: str, marks: dict) -> Plan:
-    """Pure plan; counting controls checkout placement, not repository merges."""
+    """Pure plan; only Products with one Repository place checkouts and merge."""
     reports = []
     org_by_id = {org.id: org for org in brain.organisations}
     product_by_id = {product.id: product for product in brain.products}
@@ -203,6 +205,10 @@ def plan(brain: Brain, archived: dict[str, bool | None], organisations: list[dic
         if current is None or product_marks.get(product.id) != current["id"]:
             project_placements.append(PlaceProject(product.id, product.name, org_id, None if current is None else current["id"]))
     available_products = set(project_ids) | {value.brain_id for value in project_placements}
+    counts = repository_counts(brain.repositories)
+    repositories_by_key = {}
+    for repository in brain.repositories:
+        repositories_by_key.setdefault(repository.key.lower(), []).append(repository)
 
     counting, repository_products = {}, {}
     for repository in sorted(brain.repositories, key=lambda value: value.key.lower()):
@@ -212,6 +218,9 @@ def plan(brain: Brain, archived: dict[str, bool | None], organisations: list[dic
             reports.append(f"{repository.key}: {reason}")
             continue
         product_id = repository.products[0]
+        if any(other.products != repository.products for other in repositories_by_key[key]):
+            reports.append(f"{repository.key}: checkout mark does not identify one Product")
+            continue
         if product_id not in available_products:
             reports.append(f"{repository.key}: has no placed Product")
             continue
@@ -239,13 +248,15 @@ def plan(brain: Brain, archived: dict[str, bool | None], organisations: list[dic
     resource_writes = []
     for key, checkout in sorted(counting.items()):
         product_id = repository_products[key]
+        if counts[product_id] != 1:
+            continue
         target_resources = resources.get(project_ids.get(product_id), [])
         current = next((resource for resource in target_resources if marker_key(resource) == key), None)
         wanted = LocalDirectory(str(checkout), daemon, MARKER_PREFIX + key)
         if current is None or any(resource_ref(current).get(field) != value for field, value in wanted.ref().items()):
             resource_writes.append(ResourceWrite(key, product_id, wanted, None if current is None else current["id"]))
 
-    merges = []
+    merges, kept_projects = [], {}
     present = {repository.key.lower() for repository in brain.repositories}
     for project in ordered:
         keys = sorted({key for resource in resources.get(project["id"], []) if (key := marker_key(resource))})
@@ -264,9 +275,23 @@ def plan(brain: Brain, archived: dict[str, bool | None], organisations: list[dic
         if project["id"] in claimed:
             reports.append(f"{project['title']}: is a marked Product project; project left alone")
             continue
+        if counts[product_id] > 1:
+            reports.append(f"{project['title']} stays for {product_by_id[product_id].name}, which has {counts[product_id]} repositories")
+            for key in keys:
+                for repository in repositories_by_key[key]:
+                    kept_projects[repository.id] = project["id"]
+            continue
         merges.append(Merge(project["id"], project["title"], product_id, issues[project["id"]], tuple(keys)))
     return Plan(tuple(org_placements), tuple(project_placements), tuple(assignments),
-                tuple(resource_writes), tuple(merges), tuple(reports), org_ids, project_ids)
+                tuple(resource_writes), tuple(merges), tuple(reports), org_ids, project_ids, kept_projects)
+
+
+def repository_counts(repositories: tuple[Repository, ...]) -> dict[str, int]:
+    counts = {}
+    for repository in repositories:
+        for product_id in repository.products:
+            counts[product_id] = counts.get(product_id, 0) + 1
+    return counts
 
 
 def name_of(key: str) -> str:
@@ -324,29 +349,25 @@ def read_brain(team_state: ModuleType) -> Brain:
         raise ValueError("the brain holds no Product objects")
     checkouts = team_state.local_checkouts()
     archive = team_state.REPOS_ROOT / "Archive"
-    found = {}
+    found = []
     for repository in repositories:
         properties = repository["properties"]
         github_key = properties.get("github_key") or ""
         if not re.fullmatch(r"[\w.-]+/[\w.-]+", github_key):
             raise ValueError(f"Repository {repository['id']} has no valid GitHub key")
         normalized = github_key.lower()
-        product_links = links(properties, "product")
-        previous = found.get(normalized)
-        if previous is not None:
-            product_links = tuple(dict.fromkeys((*previous.products, *product_links)))
-        found[normalized] = Repository(github_key if previous is None else previous.key, product_links,
-                                       tuple(path for path in checkouts.get(normalized, []) if not path.is_relative_to(archive)))
+        found.append(Repository(repository["id"], github_key, links(properties, "product"),
+                                tuple(path for path in checkouts.get(normalized, []) if not path.is_relative_to(archive))))
     return Brain(tuple(Organisation(value["id"], value["name"], value["properties"].get("linear_key") or "") for value in organisations),
                  tuple(Product(value["id"], value["name"], links(value["properties"], "organisation")) for value in products),
-                 tuple(found[key] for key in sorted(found)))
+                 tuple(sorted(found, key=lambda value: (value.key.lower(), value.id))))
 
 
 def read_archived(repositories: tuple[Repository, ...]) -> dict[str, bool | None]:
     """One aliased GitHub query; NOT_FOUND leaves only that key unknown."""
     if not repositories:
         return {}
-    aliases = {f"r{index}": repository.key for index, repository in enumerate(sorted(repositories, key=lambda value: value.key))}
+    aliases = {f"r{index}": key for index, key in enumerate(sorted({repository.key.lower() for repository in repositories}))}
     fields = []
     for alias, key in aliases.items():
         owner, name = key.split("/", 1)
@@ -395,7 +416,9 @@ def read_multica(api, multica_sync: ModuleType, brain: Brain) -> tuple:
     projects = api.call("GET", "/api/projects")["projects"]
     resources = {project["id"]: api.call("GET", f"/api/projects/{project['id']}/resources")["resources"]
                  if project["resource_count"] > 0 else [] for project in projects}
-    linked = {repository.key.lower() for repository in brain.repositories if len(repository.products) == 1}
+    counts = repository_counts(brain.repositories)
+    linked = {repository.key.lower() for repository in brain.repositories
+              if len(repository.products) == 1 and counts[repository.products[0]] == 1}
     issues = {project["id"]: read_issue_ids(api, project["id"]) for project in projects
               if any(marker_key(resource) in linked for resource in resources[project["id"]])}
     return organisations, projects, resources, issues, daemon
@@ -415,7 +438,7 @@ class Marks:
             for scope in workspaces.values():
                 if not isinstance(scope, dict):
                     raise ValueError("invalid brain-sync workspace marks")
-                for kind in ("organisations", "products"):
+                for kind in ("organisations", "products", "repository_projects"):
                     entries = scope.get(kind, {})
                     if not isinstance(entries, dict) or any(not isinstance(key, str) or not isinstance(value, str) for key, value in entries.items()):
                         raise ValueError("invalid brain-sync identity map")
@@ -495,6 +518,15 @@ def write_plan(api, desired: Plan, multica_sync: ModuleType, marks: Marks) -> in
             failed = True
             failed_products.add(assignment.product)
             print(f"failed: project {assignment.product}: {error}", file=sys.stderr, flush=True)
+    for brain_id, project_id in sorted(desired.repository_projects.items()):
+        if marks.scope.get("repository_projects", {}).get(brain_id) == project_id:
+            continue
+        try:
+            marks.record("repository_projects", brain_id, project_id)
+            print(f"mark repository project {brain_id}: {project_id}", flush=True)
+        except errors as error:
+            failed = True
+            print(f"failed: repository project mark {brain_id}: {error}", file=sys.stderr, flush=True)
     for resource in desired.resources:
         if resource.product in failed_products or resource.product not in project_ids:
             continue
