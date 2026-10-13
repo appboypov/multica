@@ -495,6 +495,8 @@
     "loading": "Loading..."
   },
   "activity": {
+    "question_woken_one": "{{agent}} was woken by {{member}} with {{count}} answer",
+    "question_woken_other": "{{agent}} was woken by {{member}} with {{count}} answers",
     "created": "created this issue",
     "self_assigned": "self-assigned this issue",
     "assigned_to": "assigned to {{name}}",

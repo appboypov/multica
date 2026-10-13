@@ -489,6 +489,7 @@
     "loading": "불러오는 중..."
   },
   "activity": {
+    "question_woken_other": "{{member}}님이 답변 {{count}}개와 함께 {{agent}}을(를) 깨웠습니다",
     "created": "이 태스크를 만들었습니다",
     "self_assigned": "이 태스크를 본인에게 할당했습니다",
     "assigned_to": "{{name}}님에게 할당했습니다",

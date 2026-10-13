@@ -489,6 +489,7 @@
     "loading": "読み込み中..."
   },
   "activity": {
+    "question_woken_other": "{{member}} が {{count}} 件の回答とともに {{agent}} を起こしました",
     "created": "このタスクを作成しました",
     "self_assigned": "このタスクを自分に割り当てました",
     "assigned_to": "{{name}} に割り当てました",

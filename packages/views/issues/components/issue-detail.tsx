@@ -46,6 +46,7 @@ import {
   formatWakeupActivity,
   wakeupActivityChip,
 } from "./wakeup-activity";
+import { QUESTION_WAKE_ACTION, QuestionWakeActivityIcon, QuestionWakeActivityText } from "./question-wake-activity";
 import { useWakeupText } from "./wakeup-presentation";
 import type { ImageSequenceBlock } from "@multica/core/attachments/image-sequence";
 import { FileUploadButton } from "@multica/ui/components/common/file-upload-button";
@@ -740,10 +741,13 @@ function ActivityBlock({
         const isDueDateChange = entry.action === "due_date_changed";
 
         const isWakeup = WAKEUP_ACTIVITY_ACTIONS.has(entry.action ?? "");
+        const isQuestionWake = entry.action === QUESTION_WAKE_ACTION;
         const chip = isWakeup ? wakeupActivityChip(entry, t, wakeupText, getActorName) : null;
         let leadIcon: React.ReactNode;
         if (isWakeup) {
           leadIcon = <WakeupActivityIcon entry={entry} />;
+        } else if (isQuestionWake) {
+          leadIcon = <QuestionWakeActivityIcon />;
         } else if ((isStatusChange && details.to) || markedDuplicate || unmarkedDuplicate) {
           const to = markedDuplicate ? "cancelled" : details.to;
           leadIcon = (
@@ -780,21 +784,24 @@ function ActivityBlock({
               {leadIcon}
             </div>
             <div className="flex min-w-0 flex-1 items-center gap-1">
-              {/* The platform's own entries read as a sentence without an actor. */}
-              {!(isWakeup && entry.actor_type === "system") && (
+              {/* The platform's own entries read as a sentence without an
+                  actor, and so does a wake, whose subject is the woken agent. */}
+              {!(isWakeup && entry.actor_type === "system") && !isQuestionWake && (
                 <span className="shrink-0 font-medium">
                   {entry.actor_name || getActorName(entry.actor_type, entry.actor_id)}
                 </span>
               )}
               <span className="truncate">
-                <ActivityText
-                  entry={entry}
-                  text={
-                    isWakeup
-                      ? formatWakeupActivity(entry, t, wakeupText, getActorName)
-                      : formatActivity(entry, t, locale, getActorName, resolveStatusLabel)
-                  }
-                />
+                {isQuestionWake ? <QuestionWakeActivityText entry={entry} /> : (
+                  <ActivityText
+                    entry={entry}
+                    text={
+                      isWakeup
+                        ? formatWakeupActivity(entry, t, wakeupText, getActorName)
+                        : formatActivity(entry, t, locale, getActorName, resolveStatusLabel)
+                    }
+                  />
+                )}
               </span>
               {chip && (
                 <span className="ml-auto inline-flex max-w-48 shrink-0 items-center gap-1 truncate rounded-xs bg-muted px-1.5 py-0.5 text-micro text-muted-foreground">
@@ -1724,6 +1731,8 @@ export function IssueDetail({ issueId, onDelete, onDone, defaultSidebarOpen = tr
       "duplicate_unmarked",
       "duplicate_added",
       "duplicate_removed",
+      // Each wake names its agent and answer count.
+      QUESTION_WAKE_ACTION,
     ]);
     // Unanchored runs keep their enqueue-time slot while working, then use
     // the published reply's time or the run's end time. Question cards sit
