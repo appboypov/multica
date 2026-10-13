@@ -45,6 +45,41 @@ export interface TestTableIssue {
   number: number;
 }
 
+export interface TestQuestion {
+  id: string;
+  prompt: string;
+  status: string;
+  asked_in_task_id: string;
+  wake_available: boolean;
+  unseen_answer_count: number;
+  answers: {
+    answerer_user_id: string;
+    value: unknown;
+    display_text: string;
+    updated_at: string;
+  }[];
+}
+
+export interface TestClaimedTask {
+  id: string;
+  agent_id: string;
+  issue_id: string;
+  runtime_id: string;
+  dispatched_at: string;
+  auth_token: string;
+  question_answers?: {
+    waker_name: string;
+    answer_count: number;
+    answers: {
+      question_id: string;
+      prompt: string;
+      display_text: string;
+      answerer_name: string;
+      updated_at: string;
+    }[];
+  };
+}
+
 export class TestApiClient {
   private token: string | null = null;
   private workspaceSlug: string | null = null;
@@ -429,6 +464,51 @@ export class TestApiClient {
     return res.json();
   }
 
+  /** Ask through the real agent-only endpoint with a claimed run's credential. */
+  async askQuestion(taskToken: string, input: Record<string, unknown>): Promise<TestQuestion> {
+    const res = await this.authedFetch("/api/questions", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }, taskToken);
+    if (!res.ok) {
+      throw new Error(`ask question failed: ${res.status} ${await res.text()}`);
+    }
+    return res.json();
+  }
+
+  /** The read endpoint used by `multica question`, optionally as the asking agent. */
+  async getQuestion(id: string, taskToken?: string): Promise<TestQuestion> {
+    const res = await this.authedFetch(`/api/questions/${id}`, undefined, taskToken);
+    if (!res.ok) {
+      throw new Error(`get question failed: ${res.status} ${await res.text()}`);
+    }
+    return res.json();
+  }
+
+  /** Claim a fixture runtime's work without starting a daemon or an agent executable. */
+  async claimRuntimeTask(runtimeId: string): Promise<TestClaimedTask | null> {
+    const res = await this.authedFetch(`/api/daemon/runtimes/${runtimeId}/tasks/claim`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+    if (!res.ok) {
+      throw new Error(`claim task failed: ${res.status} ${await res.text()}`);
+    }
+    const result: { task: TestClaimedTask | null } = await res.json();
+    return result.task;
+  }
+
+  async startClaimedTask(task: TestClaimedTask): Promise<{ id: string; status: string }> {
+    const res = await this.authedFetch(`/api/daemon/tasks/${task.id}/start`, {
+      method: "POST",
+      body: JSON.stringify({ runtime_id: task.runtime_id, dispatched_at: task.dispatched_at }),
+    });
+    if (!res.ok) {
+      throw new Error(`start task failed: ${res.status} ${await res.text()}`);
+    }
+    return res.json();
+  }
+
   /** Clean up all issues created during this test. */
   async cleanup() {
     if (this.seededIssueIds.length > 0 && this.workspaceId) {
@@ -496,12 +576,12 @@ export class TestApiClient {
     return this.email;
   }
 
-  private async authedFetch(path: string, init?: RequestInit) {
+  private async authedFetch(path: string, init?: RequestInit, authToken = this.token) {
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
       ...((init?.headers as Record<string, string>) ?? {}),
     };
-    if (this.token) headers["Authorization"] = `Bearer ${this.token}`;
+    if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
     if (this.workspaceSlug) headers["X-Workspace-Slug"] = this.workspaceSlug;
     else if (this.workspaceId) headers["X-Workspace-ID"] = this.workspaceId;
     return fetch(`${API_BASE}${path}`, { ...init, headers });
