@@ -65,6 +65,15 @@
     "create_will_start_squad": "{{name}}'s leader will review it and start assigning work right after creation.",
     "create_parked": "Assigned — won't start working in Backlog."
   },
+  "create_organisation": {
+    "title": "New organisation",
+    "description": "An organisation holds projects. Its key names its worktree folder.",
+    "cancel": "Cancel",
+    "submit": "Create",
+    "submitting": "Creating...",
+    "toast_created": "Organisation created",
+    "toast_failed": "Could not create the organisation"
+  },
   "create_squad": {
     "title": "Create Squad",
     "description": "Create a collaborative squad with a leader agent and optional additional members.",

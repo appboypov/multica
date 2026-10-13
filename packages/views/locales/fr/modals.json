@@ -65,6 +65,15 @@
     "create_will_start_squad": "Le chef de {{name}} l'examinera et commencera à répartir le travail juste après la création.",
     "create_parked": "Assigné — ne démarrera pas tant que la tâche est dans À planifier."
   },
+  "create_organisation": {
+    "title": "Nouvelle organisation",
+    "description": "Une organisation regroupe des projets. Sa clé nomme le dossier de ses worktrees.",
+    "cancel": "Annuler",
+    "submit": "Créer",
+    "submitting": "Création...",
+    "toast_created": "Organisation créée",
+    "toast_failed": "Impossible de créer l'organisation"
+  },
   "create_squad": {
     "title": "Créer un squad",
     "description": "Créez un squad collaboratif avec un agent chef et, éventuellement, des membres supplémentaires.",

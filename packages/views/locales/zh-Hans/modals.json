@@ -65,6 +65,15 @@
     "create_will_start_squad": "创建后 {{name}} 的队长会评估并开始安排任务。",
     "create_parked": "已指派——在 backlog 中不会开始工作。"
   },
+  "create_organisation": {
+    "title": "新建组织",
+    "description": "组织用于归集项目。它的键是其工作树文件夹的名称。",
+    "cancel": "取消",
+    "submit": "创建",
+    "submitting": "创建中...",
+    "toast_created": "组织已创建",
+    "toast_failed": "无法创建组织"
+  },
   "create_squad": {
     "title": "创建小队",
     "description": "创建一个由队长智能体协调团队的协作小队，可选添加成员。",

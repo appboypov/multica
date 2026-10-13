@@ -65,6 +65,15 @@
     "create_will_start_squad": "作成後、{{name}} のリーダーが内容を評価し、タスクの割り振りを開始します。",
     "create_parked": "割り当て済み — バックログでは作業を開始しません。"
   },
+  "create_organisation": {
+    "title": "新しい組織",
+    "description": "組織はプロジェクトをまとめます。キーはワークツリーのフォルダ名になります。",
+    "cancel": "キャンセル",
+    "submit": "作成",
+    "submitting": "作成中...",
+    "toast_created": "組織を作成しました",
+    "toast_failed": "組織を作成できませんでした"
+  },
   "create_squad": {
     "title": "スクワッドを作成",
     "description": "リーダーエージェントと任意の追加メンバーで協働スクワッドを作成します。",

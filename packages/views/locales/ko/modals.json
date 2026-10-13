@@ -65,6 +65,15 @@
     "create_will_start_squad": "생성 후 {{name}}의 리더가 내용을 평가한 뒤 작업 배분을 시작합니다.",
     "create_parked": "할당됨 — 백로그에서는 작업을 시작하지 않습니다."
   },
+  "create_organisation": {
+    "title": "새 조직",
+    "description": "조직은 프로젝트를 묶습니다. 키는 워크트리 폴더 이름이 됩니다.",
+    "cancel": "취소",
+    "submit": "만들기",
+    "submitting": "만드는 중...",
+    "toast_created": "조직을 만들었습니다",
+    "toast_failed": "조직을 만들 수 없습니다"
+  },
   "create_squad": {
     "title": "스쿼드 만들기",
     "description": "리더 에이전트와 선택 멤버로 협업 스쿼드를 만듭니다.",
