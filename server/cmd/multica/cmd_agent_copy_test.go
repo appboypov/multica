@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"reflect"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -85,6 +86,101 @@ func setCopyTestEnv(t *testing.T, serverURL string) {
 	t.Setenv("MULTICA_AGENT_ID", "")
 	t.Setenv("MULTICA_TASK_ID", "")
 }
+
+// selectedPaths is the instruction_selection of selectionSourceAgent, in the
+// order the copy must keep.
+var selectedPaths = []any{"/Users/brian/specs/personas", "/Users/brian/specs/docs"}
+
+// selectionSourceAgent is fullSourceAgent on runtime-1 with two selected paths.
+func selectionSourceAgent() map[string]any {
+	src := fullSourceAgent()
+	src["instruction_selection"] = selectedPaths
+	return src
+}
+
+// selectionCopyServer counts what selectionMockServer received: the
+// GET /api/runtimes?owner=me reads and the agent creates.
+type selectionCopyServer struct {
+	*httptest.Server
+	runtimeReads atomic.Int32
+	creates      atomic.Int32
+}
+
+// selectionMockServer serves copyMockServer's routes plus
+// GET /api/runtimes?owner=me, answering the runtimes with ownedRuntimeIDs, or
+// runtimesStatus with an error body when it is not 0.
+func selectionMockServer(t *testing.T, source map[string]any, gotBody *map[string]any, ownedRuntimeIDs []string, runtimesStatus int) *selectionCopyServer {
+	t.Helper()
+	s := &selectionCopyServer{}
+	s.Server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/api/agents/"+source["id"].(string):
+			_ = json.NewEncoder(w).Encode(source)
+		case r.Method == http.MethodGet && r.URL.Path == "/api/runtimes":
+			s.runtimeReads.Add(1)
+			if got := r.URL.Query().Get("owner"); got != "me" {
+				t.Errorf("runtimes owner = %q, want me", got)
+			}
+			if runtimesStatus != 0 {
+				w.WriteHeader(runtimesStatus)
+				_ = json.NewEncoder(w).Encode(map[string]any{"error": "failed to list runtimes"})
+				return
+			}
+			runtimes := make([]map[string]any, 0, len(ownedRuntimeIDs))
+			for _, id := range ownedRuntimeIDs {
+				runtimes = append(runtimes, map[string]any{"id": id})
+			}
+			_ = json.NewEncoder(w).Encode(runtimes)
+		case r.Method == http.MethodPost && r.URL.Path == "/api/agents":
+			s.creates.Add(1)
+			if err := json.NewDecoder(r.Body).Decode(gotBody); err != nil {
+				t.Errorf("decode create body: %v", err)
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{"id": "agent-new", "name": "Src (copy)"})
+		default:
+			t.Errorf("unexpected request %s %s", r.Method, r.URL.String())
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	return s
+}
+
+// runAgentCopyCaptured runs the copy and returns its stdout, stderr and error.
+func runAgentCopyCaptured(t *testing.T, cmd *cobra.Command) (stdout, stderr string, err error) {
+	t.Helper()
+	errCapture := captureStderr(t)
+	defer errCapture.restore()
+	stdout, err = captureStdout(t, func() error {
+		return runAgentCopy(cmd, []string{"agent-src"})
+	})
+	return stdout, errCapture.read(), err
+}
+
+// copyStdoutWithoutSelection is the stdout of copying fullSourceAgent, which
+// has no selection, with the given --output.
+func copyStdoutWithoutSelection(t *testing.T, output string, flags map[string]string) string {
+	t.Helper()
+	var gotBody map[string]any
+	srv := selectionMockServer(t, fullSourceAgent(), &gotBody, nil, 0)
+	defer srv.Close()
+	setCopyTestEnv(t, srv.URL)
+
+	cmd := newAgentCopyTestCmd()
+	_ = cmd.Flags().Set("output", output)
+	for name, value := range flags {
+		_ = cmd.Flags().Set(name, value)
+	}
+	stdout, _, err := runAgentCopyCaptured(t, cmd)
+	if err != nil {
+		t.Fatalf("runAgentCopy without selection: %v", err)
+	}
+	return stdout
+}
+
+const (
+	wantMachineNote = "Selected files and folders (instruction_selection) were not copied: they are on the source runtime's machine.\n"
+	wantOwnerNote   = "Selected files and folders (instruction_selection) were not copied: only the source runtime's owner can copy them.\n"
+)
 
 func TestAgentCopySameRuntimeCopiesPortableFields(t *testing.T) {
 	var gotBody map[string]any
@@ -359,5 +455,148 @@ func TestAgentCopyAcceptsExplicitCustomEnv(t *testing.T) {
 func TestAgentCopyDoesNotExposeConversationStartersOverride(t *testing.T) {
 	if agentCopyCmd.Flag("conversation-starters") != nil {
 		t.Error("agent copy must carry conversation_starters without a dedicated override flag")
+	}
+}
+
+func TestAgentCopyOwnerCarriesInstructionSelection(t *testing.T) {
+	for name, flags := range map[string]map[string]string{
+		"without --runtime-id":       nil,
+		"with the source runtime id": {"runtime-id": "runtime-1"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			var gotBody map[string]any
+			srv := selectionMockServer(t, selectionSourceAgent(), &gotBody, []string{"runtime-0", "runtime-1"}, 0)
+			defer srv.Close()
+			setCopyTestEnv(t, srv.URL)
+
+			cmd := newAgentCopyTestCmd()
+			for flag, value := range flags {
+				_ = cmd.Flags().Set(flag, value)
+			}
+			_, stderr, err := runAgentCopyCaptured(t, cmd)
+			if err != nil {
+				t.Fatalf("runAgentCopy: %v", err)
+			}
+			if !reflect.DeepEqual(gotBody["instruction_selection"], selectedPaths) {
+				t.Errorf("instruction_selection = %v, want %v", gotBody["instruction_selection"], selectedPaths)
+			}
+			if stderr != "" {
+				t.Errorf("stderr = %q, want empty", stderr)
+			}
+			if got := srv.runtimeReads.Load(); got != 1 {
+				t.Errorf("runtimes reads = %d, want 1", got)
+			}
+		})
+	}
+}
+
+func TestAgentCopyNonOwnerLeavesInstructionSelection(t *testing.T) {
+	want := copyStdoutWithoutSelection(t, "table", nil)
+
+	var gotBody map[string]any
+	srv := selectionMockServer(t, selectionSourceAgent(), &gotBody, []string{"runtime-9"}, 0)
+	defer srv.Close()
+	setCopyTestEnv(t, srv.URL)
+
+	cmd := newAgentCopyTestCmd()
+	_ = cmd.Flags().Set("output", "table")
+	stdout, stderr, err := runAgentCopyCaptured(t, cmd)
+	if err != nil {
+		t.Fatalf("runAgentCopy: %v", err)
+	}
+	if v, ok := gotBody["instruction_selection"]; ok {
+		t.Errorf("instruction_selection must not be sent by a non-owner, got %v", v)
+	}
+	if stderr != wantOwnerNote {
+		t.Errorf("stderr = %q, want %q", stderr, wantOwnerNote)
+	}
+	if stdout != want {
+		t.Errorf("stdout = %q, want %q as for a copy without a selection", stdout, want)
+	}
+	if !strings.HasPrefix(stdout, "Agent copied: ") {
+		t.Errorf("stdout = %q, want the Agent copied line", stdout)
+	}
+}
+
+func TestAgentCopyOtherRuntimeLeavesInstructionSelection(t *testing.T) {
+	otherRuntime := map[string]string{"runtime-id": "runtime-2", "model": ""}
+	want := copyStdoutWithoutSelection(t, "json", otherRuntime)
+
+	var gotBody map[string]any
+	srv := selectionMockServer(t, selectionSourceAgent(), &gotBody, []string{"runtime-1", "runtime-2"}, 0)
+	defer srv.Close()
+	setCopyTestEnv(t, srv.URL)
+
+	cmd := newAgentCopyTestCmd()
+	for flag, value := range otherRuntime {
+		_ = cmd.Flags().Set(flag, value)
+	}
+	stdout, stderr, err := runAgentCopyCaptured(t, cmd)
+	if err != nil {
+		t.Fatalf("runAgentCopy: %v", err)
+	}
+	if v, ok := gotBody["instruction_selection"]; ok {
+		t.Errorf("instruction_selection must not travel to another runtime, got %v", v)
+	}
+	if stderr != wantMachineNote {
+		t.Errorf("stderr = %q, want %q", stderr, wantMachineNote)
+	}
+	if stdout != want {
+		t.Errorf("stdout = %q, want %q as for a copy without a selection", stdout, want)
+	}
+	if got := srv.runtimeReads.Load(); got != 0 {
+		t.Errorf("runtimes reads = %d, want 0 for a copy to another runtime", got)
+	}
+}
+
+func TestAgentCopyEmptySelectionReadsNoOwner(t *testing.T) {
+	for name, flags := range map[string]map[string]string{
+		"same runtime":    nil,
+		"another runtime": {"runtime-id": "runtime-2", "model": ""},
+	} {
+		t.Run(name, func(t *testing.T) {
+			src := fullSourceAgent()
+			src["instruction_selection"] = []any{}
+			var gotBody map[string]any
+			srv := selectionMockServer(t, src, &gotBody, nil, 0)
+			defer srv.Close()
+			setCopyTestEnv(t, srv.URL)
+
+			cmd := newAgentCopyTestCmd()
+			for flag, value := range flags {
+				_ = cmd.Flags().Set(flag, value)
+			}
+			_, stderr, err := runAgentCopyCaptured(t, cmd)
+			if err != nil {
+				t.Fatalf("runAgentCopy: %v", err)
+			}
+			if v, ok := gotBody["instruction_selection"]; ok {
+				t.Errorf("instruction_selection must not be sent for an empty selection, got %v", v)
+			}
+			if stderr != "" {
+				t.Errorf("stderr = %q, want empty", stderr)
+			}
+			if got := srv.runtimeReads.Load(); got != 0 {
+				t.Errorf("runtimes reads = %d, want 0 for an empty selection", got)
+			}
+		})
+	}
+}
+
+func TestAgentCopyFailedOwnerReadStopsCopy(t *testing.T) {
+	var gotBody map[string]any
+	srv := selectionMockServer(t, selectionSourceAgent(), &gotBody, nil, http.StatusInternalServerError)
+	defer srv.Close()
+	setCopyTestEnv(t, srv.URL)
+
+	_, _, err := runAgentCopyCaptured(t, newAgentCopyTestCmd())
+	if err == nil {
+		t.Fatal("expected an error when the runtimes read fails")
+	}
+	if !strings.Contains(err.Error(), "check source runtime owner") || !strings.Contains(err.Error(), "/api/runtimes") {
+		t.Errorf("error = %q, want it to name the runtime owner check and its request", err.Error())
+	}
+	if got := srv.creates.Load(); got != 0 {
+		t.Errorf("creates = %d, want 0 after a failed owner read", got)
 	}
 }

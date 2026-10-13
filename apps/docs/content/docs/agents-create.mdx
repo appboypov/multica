@@ -174,7 +174,7 @@ When a similarly configured agent already exists, copy it directly:
 multica agent copy <agent-id>
 ```
 
-By default the copy stays on the same runtime; add `--runtime-id` to move it to another runtime, which also requires `--model`. Environment variables, MCP configuration, and `runtime_config` are never copied; the runtime binding itself is kept. Full flags in [Using the CLI](/cli).
+By default the copy stays on the same runtime; add `--runtime-id` to move it to another runtime, which also requires `--model`. Environment variables, MCP configuration, and `runtime_config` are never copied; the runtime binding itself is kept. Full flags in [Using the CLI](/cli). Selected files and folders come along only when you own the source runtime and the copy stays on it; otherwise the copy has none and the CLI says why on stderr.
 
 ## Next steps
 
