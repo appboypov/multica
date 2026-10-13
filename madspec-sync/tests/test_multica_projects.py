@@ -22,7 +22,7 @@ HQ = Product("brain-hq", "DAS HQ", (DAS.id,))
 
 
 def repository(name, product=MADSPEC.id, checkouts=None):
-    return Repository("appboypov/" + name, () if product is None else (product,),
+    return Repository("brain-" + name, "appboypov/" + name, () if product is None else (product,),
                       (REPOS / "Ventures" / name,) if checkouts is None else tuple(checkouts))
 
 
@@ -38,7 +38,7 @@ class Workspace:
         self.projects = []
         self.resources = {}
         self.issues = {}
-        self.marks = {"organisations": {}, "products": {}}
+        self.marks = {"organisations": {}, "products": {}, "repository_projects": {}}
 
     def organisation(self, organisation_id="org-das", name=DAS.name, key="das", brain_id=None):
         self.organisations.append({"id": organisation_id, "name": name, "key": key})
@@ -117,10 +117,8 @@ def test_product_with_three_repositories_and_product_without_repositories():
     repositories = tuple(repository(name) for name in ("madspec", "plannotator", "omp-anytype-inbox"))
     desired = Workspace().plan(brain((MADSPEC, HQ), repositories))
     assert {value.title for value in desired.projects} == {"MadSpec", "DAS HQ"}
-    assert len(desired.resources) == 3
-    assert all(value.product == MADSPEC.id for value in desired.resources)
-    assert {value.resource.label for value in desired.resources} == {"madspec:" + repo.key for repo in repositories}
-    assert all(value.resource.ref()["execution_mode"] == "worktree" for value in desired.resources)
+    assert desired.resources == desired.merges == ()
+    assert desired.repository_projects == {}
 
 
 def test_new_product_changes_nothing_else():
@@ -143,16 +141,56 @@ def test_product_take_over_requires_exact_title_and_no_checkout_mark():
     assert workspace.plan().projects[0].project_id is None
 
 
-def test_merge_of_ten_two_and_one_issues_is_planned_on_their_product():
+def test_madspec_repository_projects_keep_ten_two_and_one_issues_and_are_recorded():
     workspace = Workspace().placed()
     repositories = tuple(repository(name) for name in ("madspec", "plannotator", "omp-anytype-inbox"))
     for repo, count in zip(repositories, (10, 2, 1)):
         project_id = workspace.project(sync.name_of(repo.key), sync.name_of(repo.key), issue_count=count)
         workspace.directory(project_id, repo.key)
-    desired = workspace.plan(brain(repositories=repositories))
-    assert sorted(len(value.issue_ids) for value in desired.merges) == [1, 2, 10]
-    assert all(value.product == MADSPEC.id for value in desired.merges)
-    assert "project-madspec" not in {value.project_id for value in desired.merges}
+    before = deepcopy((workspace.projects, workspace.resources, workspace.issues))
+    for _ in range(2):
+        desired = workspace.plan(brain(repositories=repositories))
+        assert desired.resources == desired.merges == ()
+        assert desired.repository_projects == {repo.id: sync.name_of(repo.key) for repo in repositories}
+        assert set(desired.reports) == {
+            f"{sync.name_of(repo.key)} stays for MadSpec, which has 3 repositories" for repo in repositories
+        }
+    assert (workspace.projects, workspace.resources, workspace.issues) == before
+
+
+def test_rebl_takes_its_single_repository_checkout_and_six_issues():
+    organisation = Organisation("brain-rebl-records", "Rebl Records", "REBL")
+    product = Product("brain-rebl", "Rebl", (organisation.id,))
+    repo = repository("rebl", product.id)
+    workspace = Workspace()
+    workspace.project("repository-rebl", "rebl", issue_count=6)
+    workspace.directory("repository-rebl", repo.key)
+    desired = workspace.plan(brain((product,), (repo,), (organisation,)))
+    assert desired.projects == (sync.PlaceProject(product.id, product.name, organisation.id, None),)
+    assert len(desired.resources) == 1
+    assert desired.resources[0].product == product.id
+    assert desired.resources[0].resource.ref() == sync.LocalDirectory(str(repo.checkouts[0]), DAEMON, "madspec:" + repo.key).ref()
+    assert desired.merges == (sync.Merge("repository-rebl", "rebl", product.id,
+                                       tuple(workspace.issues["repository-rebl"]), (repo.key,)),)
+    assert desired.repository_projects == {}
+
+
+@pytest.mark.parametrize("checkouts,state", [
+    ([], False),
+    ([REPOS / "one"], True),
+    ([REPOS / "one"], None),
+    ([REPOS / "one", REPOS / "two"], False),
+])
+def test_second_repository_counts_even_when_its_checkout_cannot_be_placed(checkouts, state):
+    workspace = Workspace().placed()
+    first = repository("madspec")
+    second = repository("plannotator", checkouts=checkouts)
+    workspace.project("repository", "madspec", issue_count=10)
+    workspace.directory("repository", first.key)
+    desired = workspace.plan(brain(repositories=(first, second)), {first.key: False, second.key: state})
+    assert desired.resources == desired.merges == ()
+    assert desired.repository_projects == {first.id: "repository"}
+    assert "madspec stays for MadSpec, which has 2 repositories" in desired.reports
 
 
 def test_repository_without_a_product_keeps_its_project_and_issues():
@@ -184,13 +222,13 @@ def test_non_counting_repository_still_merges_but_gets_no_product_checkout(check
     assert any(reason in report for report in desired.reports)
 
 
-def test_shared_repository_names_skip_both_checkouts_but_merge_both_projects():
+def test_shared_repository_names_skip_checkouts_but_merge_single_repository_products():
     workspace = Workspace().placed()
-    repositories = (repository("site"), Repository("other/site", (MADSPEC.id,), (REPOS / "Other/site",)))
+    repositories = (repository("site"), Repository("brain-other-site", "other/site", (HQ.id,), (REPOS / "Other/site",)))
     for index, repo in enumerate(repositories):
         workspace.project(str(index), "site")
         workspace.directory(str(index), repo.key)
-    desired = workspace.plan(brain(repositories=repositories))
+    desired = workspace.plan(brain((MADSPEC, HQ), repositories))
     assert desired.resources == ()
     assert len(desired.merges) == 2
     assert len([report for report in desired.reports if "shares its name" in report]) == 2
@@ -239,7 +277,7 @@ def test_keyless_organisation_and_its_products_are_reported_without_writes():
 
 def test_multiple_parent_links_are_reported_and_left_alone():
     source = brain((Product("multi", "Many", (DAS.id, "other")), MADSPEC),
-                   (Repository("appboypov/multi", (MADSPEC.id, "other"), (REPOS / "multi",)),))
+                   (Repository("brain-multi", "appboypov/multi", (MADSPEC.id, "other"), (REPOS / "multi",)),))
     desired = Workspace().placed().plan(source)
     assert desired.writes == ()
     assert set(desired.reports) == {"Many: has more than one Organisation", "appboypov/multi: has more than one Product"}
@@ -332,6 +370,10 @@ class FakeMultica(Workspace):
             if self.fail_resource:
                 self.fail_resource = False
                 raise FakeApiError("resource refused")
+            if any(value["resource_type"] == "local_directory"
+                   and value["resource_ref"].get("daemon_id") == body["resource_ref"].get("daemon_id")
+                   for value in self.resources[project_id]):
+                raise FakeApiError("this daemon already has a local_directory attached to the project")
             resource = {"id": f"{project_id}-resource-{len(self.resources[project_id])}", **deepcopy(body)}
             self.resources[project_id].append(resource)
             return resource
@@ -406,25 +448,57 @@ def test_second_run_writes_nothing_and_preserves_status_description_and_names(sh
     assert shell.searches[:3] == [("organisation", ["linear_key"]), ("product", ["organisation"]), ("repository", ["github_key", "product"])]
 
 
-def test_actual_merge_moves_13_issues_and_deletes_only_emptied_repository_projects(shell):
-    for name, count in (("madspec", 10), ("plannotator", 2), ("omp-anytype-inbox", 1)):
+def test_madspec_keeps_repository_projects_and_records_their_brain_ids_on_every_run(shell, capsys):
+    sources = ("madspec", "plannotator", "omp-anytype-inbox")
+    for name, count in zip(sources, (10, 2, 1)):
         if name != "madspec":
             key = "appboypov/" + name
-            shell.objects["repository"].append({"id": key, "properties": {"github_key": key, "product": [MADSPEC.id]}})
+            shell.objects["repository"].append({"id": "brain-" + name, "properties": {"github_key": key, "product": [MADSPEC.id]}})
             shell.checkouts[key] = [REPOS / "Ventures" / name]
             shell.archived[key] = False
         shell.api.project(name, name, issue_count=count)
         shell.api.directory(name, "appboypov/" + name)
+    before = deepcopy((shell.api.projects, shell.api.resources, shell.api.issues))
+    for run in range(2):
+        assert sync.main() == 0
+        assert {value["title"] for value in shell.api.projects} == {*sources, "MadSpec"}
+        for index, source in enumerate(sources):
+            assert next(value for value in shell.api.projects if value["id"] == source) == before[0][index]
+            assert shell.api.resources[source] == before[1][source]
+            assert shell.api.issues[source] == before[2][source]
+        assert shell.api.issues["new-MadSpec"] == shell.api.resources["new-MadSpec"] == []
+        marks = sync.Marks(shell.mark_path, shell.config["server_url"], shell.config["workspace_id"])
+        assert marks.scope["repository_projects"] == {
+            "brain-repository": "madspec", "brain-plannotator": "plannotator", "brain-omp-anytype-inbox": "omp-anytype-inbox"
+        }
+        output = capsys.readouterr().out
+        assert all(f"{source} stays for MadSpec, which has 3 repositories" in output for source in sources)
+        if run == 0:
+            saved_marks = shell.mark_path.read_bytes()
+            saved_writes = deepcopy(shell.api.writes)
+        else:
+            assert shell.mark_path.read_bytes() == saved_marks
+            assert shell.api.writes == saved_writes
+    assert not any(path.startswith("/api/issues") or method == "DELETE" for method, path, _ in shell.api.calls)
+
+
+def test_rebl_merge_moves_six_issues_and_deletes_only_the_emptied_repository_project(shell):
+    shell.objects["organisation"] = [{"id": "brain-rebl-org", "name": "Rebl Records", "properties": {"linear_key": "REBL"}}]
+    shell.objects["product"] = [{"id": "brain-rebl", "name": "Rebl", "properties": {"organisation": ["brain-rebl-org"]}}]
+    shell.objects["repository"] = [{"id": "brain-rebl-repo", "properties": {"github_key": "appboypov/rebl", "product": ["brain-rebl"]}}]
+    shell.checkouts = {"appboypov/rebl": [REPOS / "Ventures/rebl"]}
+    shell.archived = {"appboypov/rebl": False}
+    shell.api.project("repository-rebl", "rebl", issue_count=6)
+    shell.api.directory("repository-rebl", "appboypov/rebl")
     shell.api.project("manual", "Keep this", issue_count=4)
     assert sync.main() == 0
-    assert {value["title"] for value in shell.api.projects} == {"MadSpec", "Keep this"}
-    assert len(shell.api.issues["new-MadSpec"]) == 13
-    assert len(shell.api.resources["new-MadSpec"]) == 3
+    assert {value["title"] for value in shell.api.projects} == {"Rebl", "Keep this"}
+    assert len(shell.api.issues["new-Rebl"]) == 6
+    assert len(shell.api.resources["new-Rebl"]) == 1
     assert len(shell.api.issues["manual"]) == 4
-    for source in ("madspec", "plannotator", "omp-anytype-inbox"):
-        get = shell.api.calls.index(("GET", f"/api/projects/{source}", None))
-        delete = shell.api.calls.index(("DELETE", f"/api/projects/{source}", None))
-        assert get < delete
+    get = shell.api.calls.index(("GET", "/api/projects/repository-rebl", None))
+    delete = shell.api.calls.index(("DELETE", "/api/projects/repository-rebl", None))
+    assert get < delete
 
 
 def test_all_issue_ids_are_read_before_writes_and_moved_in_pages_of_100(shell):
@@ -517,17 +591,57 @@ def test_product_without_repositories_does_not_query_github(shell, monkeypatch):
     assert shell.api.resources["new-MadSpec"] == []
 
 
-def test_archive_checkouts_are_excluded_and_case_aliases_share_one_resource(shell, monkeypatch):
+def test_archive_checkouts_are_excluded_and_mixed_case_keys_keep_lowercase_marks(shell):
     shell.checkouts["appboypov/madspec"].append(REPOS / "Archive/madspec")
-    shell.objects["repository"].append({"id": "alias", "properties": {"github_key": "AppBoyPov/MadSpec", "product": [MADSPEC.id]}})
-    # read_brain deduplicates aliases before the single GitHub query.
-    def github(command, **kwargs):
-        return SimpleNamespace(stdout=json.dumps({"data": {"r0": {"isArchived": False}}}), stderr="", returncode=0)
-    monkeypatch.setattr(sync.subprocess, "run", github)
+    shell.objects["repository"][0]["properties"]["github_key"] = "AppBoyPov/MadSpec"
     assert sync.main() == 0
     resource = shell.api.resources["new-MadSpec"][0]
     assert resource["resource_ref"]["local_path"] == str(REPOS / "Ventures/madspec")
+    assert resource["resource_ref"]["label"] == "madspec:appboypov/madspec"
     assert len(shell.api.resources["new-MadSpec"]) == 1
+
+
+def test_distinct_repository_objects_with_same_github_key_count_separately(shell, capsys):
+    shell.objects["repository"].append({"id": "brain-alias", "properties": {"github_key": "AppBoyPov/MadSpec", "product": [MADSPEC.id]}})
+    shell.api.project("repository", "madspec", issue_count=2)
+    shell.api.directory("repository", "appboypov/madspec")
+    assert sync.main() == 0
+    assert shell.api.resources["new-MadSpec"] == shell.api.issues["new-MadSpec"] == []
+    assert len(shell.api.issues["repository"]) == 2
+    assert "madspec stays for MadSpec, which has 2 repositories" in capsys.readouterr().out
+    marks = sync.Marks(shell.mark_path, shell.config["server_url"], shell.config["workspace_id"])
+    assert marks.scope["repository_projects"] == {"brain-repository": "repository", "brain-alias": "repository"}
+
+
+def test_failed_repository_identity_save_keeps_projects_and_next_run_recovers(shell, monkeypatch):
+    shell.objects["repository"].append({"id": "brain-plannotator", "properties": {"github_key": "appboypov/plannotator", "product": [MADSPEC.id]}})
+    shell.checkouts["appboypov/plannotator"] = [REPOS / "Ventures/plannotator"]
+    shell.archived["appboypov/plannotator"] = False
+    shell.api.project("repository", "madspec", issue_count=10)
+    shell.api.directory("repository", "appboypov/madspec")
+    original = sync.Marks.record
+    def refused_mark(self, kind, brain_id, multica_id):
+        if kind == "repository_projects":
+            raise OSError("mark refused")
+        return original(self, kind, brain_id, multica_id)
+    monkeypatch.setattr(sync.Marks, "record", refused_mark)
+    assert sync.main() == 1
+    assert len(shell.api.issues["repository"]) == 10
+    assert shell.api.resources["new-MadSpec"] == []
+    monkeypatch.setattr(sync.Marks, "record", original)
+    assert sync.main() == 0
+    marks = sync.Marks(shell.mark_path, shell.config["server_url"], shell.config["workspace_id"])
+    assert marks.scope["repository_projects"] == {"brain-repository": "repository"}
+    assert len(shell.api.issues["repository"]) == 10
+    assert not any(method == "DELETE" or path == "/api/issues/batch-update" for method, path, _ in shell.api.writes)
+
+
+@pytest.mark.parametrize("entries", [[], {"brain-repository": 42}])
+def test_invalid_repository_project_marks_fail_before_server_writes(shell, entries):
+    shell.mark_path.parent.mkdir()
+    shell.mark_path.write_text(json.dumps({"http://test-server": {"workspace": {"repository_projects": entries}}}))
+    assert sync.main() == 1
+    assert shell.api.calls == shell.api.writes == []
 
 
 def test_not_found_github_alias_reports_and_still_merges(shell, capsys):
