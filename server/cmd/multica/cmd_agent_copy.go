@@ -13,6 +13,13 @@ import (
 	"github.com/multica-ai/multica/server/internal/cli"
 )
 
+// The stderr notes of a copy that leaves the source's selected files and
+// folders behind, one per reason.
+const (
+	selectionOnSourceMachineNote = "Selected files and folders (instruction_selection) were not copied: they are on the source runtime's machine."
+	selectionOwnerOnlyNote       = "Selected files and folders (instruction_selection) were not copied: only the source runtime's owner can copy them."
+)
+
 // agentCopyCmd forks an existing agent's portable configuration into a brand-new
 // agent, optionally on a different runtime, leaving the source untouched. It is
 // the CLI/headless equivalent of the web "Duplicate" action (MUL-5279). The
@@ -280,9 +287,24 @@ func runAgentCopy(cmd *cobra.Command, args []string) error {
 		body["runtime_config"] = rc
 	}
 
+	// Selected files and folders: the paths live on the source runtime's
+	// machine and only its owner may set them, the rule of the web Duplicate.
+	// Decided before the create, so a copy that leaves them behind still
+	// succeeds instead of failing on the server's owner check.
+	selection, selectionNote, err := copiedInstructionSelection(ctx, client, src, srcRuntimeID, sameRuntime)
+	if err != nil {
+		return err
+	}
+	if len(selection) > 0 {
+		body["instruction_selection"] = selection
+	}
+
 	var result map[string]any
 	if err := client.PostJSON(ctx, "/api/agents", body, &result); err != nil {
 		return fmt.Errorf("copy agent: %w", err)
+	}
+	if selectionNote != "" {
+		fmt.Fprintln(os.Stderr, selectionNote)
 	}
 
 	output, _ := cmd.Flags().GetString("output")
@@ -292,6 +314,47 @@ func runAgentCopy(cmd *cobra.Command, args []string) error {
 
 	fmt.Printf("Agent copied: %s (%s)\n", strVal(result, "name"), strVal(result, "id"))
 	return nil
+}
+
+// copiedInstructionSelection returns the selection the copy carries, or the
+// note to print once the copy exists. err stops the copy before the create.
+// The selection is the source's, as read, so its paths keep their order. Only
+// a non-empty selection that stays on its runtime costs a request: the
+// caller's runtimes, to learn whether they own the source runtime.
+func copiedInstructionSelection(ctx context.Context, client *cli.APIClient, src map[string]any, srcRuntimeID string, sameRuntime bool) (selection []any, note string, err error) {
+	selection, _ = src["instruction_selection"].([]any)
+	if len(selection) == 0 {
+		return nil, "", nil
+	}
+	if !sameRuntime {
+		return nil, selectionOnSourceMachineNote, nil
+	}
+	owned, err := ownsRuntime(ctx, client, srcRuntimeID)
+	if err != nil {
+		return nil, "", fmt.Errorf("check source runtime owner: %w", err)
+	}
+	if !owned {
+		return nil, selectionOwnerOnlyNote, nil
+	}
+	return selection, "", nil
+}
+
+// ownsRuntime reports whether the caller owns the runtime, from
+// GET /api/runtimes?owner=me: the server lists those runtimes for the same
+// user the create's owner check uses.
+func ownsRuntime(ctx context.Context, client *cli.APIClient, runtimeID string) (bool, error) {
+	var runtimes []struct {
+		ID string `json:"id"`
+	}
+	if err := client.GetJSON(ctx, "/api/runtimes?owner=me", &runtimes); err != nil {
+		return false, err
+	}
+	for _, runtime := range runtimes {
+		if runtime.ID == runtimeID {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func copiedAgentMaxConcurrentTasks(value any) (int32, bool) {
