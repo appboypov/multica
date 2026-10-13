@@ -443,6 +443,10 @@ func (h *Handler) UploadFile(w http.ResponseWriter, r *http.Request) {
 	} else {
 		key = "users/" + userID + "/" + filename
 	}
+	if workspaceID == "" && r.FormValue("question_id") != "" {
+		writeError(w, http.StatusBadRequest, "workspace_id is required for question_id")
+		return
+	}
 
 	// If workspace context is available, validate membership before uploading.
 	if workspaceID != "" {
@@ -463,6 +467,19 @@ func (h *Handler) UploadFile(w http.ResponseWriter, r *http.Request) {
 			SizeBytes:    int64(len(data)),
 		}
 
+		if questionID := r.FormValue("question_id"); questionID != "" {
+			questionUUID, ok := parseUUIDOrBadRequest(w, questionID, "question_id")
+			if !ok {
+				return
+			}
+			if _, err := h.Queries.GetQuestion(r.Context(), db.GetQuestionParams{
+				ID: questionUUID, WorkspaceID: params.WorkspaceID,
+			}); err != nil {
+				writeError(w, http.StatusForbidden, "invalid question_id")
+				return
+			}
+			params.QuestionID = questionUUID
+		}
 		if issueID := r.FormValue("issue_id"); issueID != "" {
 			issueUUID, ok := parseUUIDOrBadRequest(w, issueID, "issue_id")
 			if !ok {

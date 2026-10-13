@@ -61,6 +61,9 @@ func applyTemplates(cmd *cobra.Command) {
 			c.SetUsageTemplate(leafHelpTemplate)
 		}
 		applyTemplates(c)
+		if c == questionCmd {
+			c.SetHelpTemplate(strings.Replace(subHelpTemplate, "{{.Short}}", "{{.Long}}", 1))
+		}
 	}
 }
 

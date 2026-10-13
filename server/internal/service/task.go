@@ -1217,10 +1217,14 @@ func (s *TaskService) EnqueueTaskForIssueWithHandoff(ctx context.Context, issue 
 // a transient github-table hiccup can never over-dedup a review out of
 // existence; the worst case is the pre-TEN-356 coalescing behavior.
 func (s *TaskService) ResolveIssueReviewSHA(ctx context.Context, issueID pgtype.UUID) string {
+	return resolveIssueReviewSHAWithQueries(ctx, s.Queries, issueID)
+}
+
+func resolveIssueReviewSHAWithQueries(ctx context.Context, q *db.Queries, issueID pgtype.UUID) string {
 	if !issueID.Valid {
 		return ""
 	}
-	sha, err := s.Queries.GetIssueReviewHeadSha(ctx, issueID)
+	sha, err := q.GetIssueReviewHeadSha(ctx, issueID)
 	if err != nil {
 		if !errors.Is(err, pgx.ErrNoRows) {
 			slog.Warn("resolve issue review sha failed",
@@ -1427,13 +1431,48 @@ func (s *TaskService) enqueueMentionTask(ctx context.Context, issue db.Issue, ag
 }
 
 func (s *TaskService) enqueueMentionTaskWithCommentPlan(ctx context.Context, issue db.Issue, agentID pgtype.UUID, triggerCommentID pgtype.UUID, coalescedCommentIDs []pgtype.UUID, isLeader bool, squadID pgtype.UUID, forceFreshSession bool, handoffNote string, actorUserID pgtype.UUID, rerunOfTaskID pgtype.UUID, origin RunOrigin) (db.AgentTaskQueue, error) {
-	if err := guardIssueNotInTriage(ctx, s.Queries, issue.ID, origin); err != nil {
+	task, err := s.enqueueMentionTaskWithQueries(ctx, s.Queries, issue, agentID, triggerCommentID, coalescedCommentIDs, isLeader, squadID, forceFreshSession, handoffNote, actorUserID, rerunOfTaskID, origin, nil)
+	if err != nil {
 		return db.AgentTaskQueue{}, err
 	}
-	agent, err := s.Queries.GetAgent(ctx, agentID)
+	s.broadcastTaskEvent(ctx, protocol.EventTaskQueued, task)
+	s.NotifyTaskEnqueued(ctx, task)
+	return task, nil
+}
+
+type questionTaskWake struct {
+	QuestionID pgtype.UUID
+	Summary    string
+}
+
+// EnqueueTaskForQuestionWake writes through the caller's transaction. The caller
+// publishes the task and notifies the runtime only after the wake activity and
+// question event have committed with it.
+func (s *TaskService) EnqueueTaskForQuestionWake(ctx context.Context, tx pgx.Tx, issue db.Issue, agentID, actorUserID, questionID pgtype.UUID, answerCount int64) (db.AgentTaskQueue, error) {
+	q := s.Queries.WithTx(tx)
+	user, err := q.GetUser(ctx, actorUserID)
+	if err != nil {
+		return db.AgentTaskQueue{}, fmt.Errorf("load waker: %w", err)
+	}
+	noun := "answers"
+	if answerCount == 1 {
+		noun = "answer"
+	}
+	wake := &questionTaskWake{QuestionID: questionID, Summary: fmt.Sprintf("Woken by %s with %d %s", user.Name, answerCount, noun)}
+	return s.enqueueMentionTaskWithQueries(ctx, q, issue, agentID, pgtype.UUID{}, nil, false, pgtype.UUID{}, false, "", actorUserID, pgtype.UUID{}, OriginNamed, wake)
+}
+
+func (s *TaskService) enqueueMentionTaskWithQueries(ctx context.Context, q *db.Queries, issue db.Issue, agentID pgtype.UUID, triggerCommentID pgtype.UUID, coalescedCommentIDs []pgtype.UUID, isLeader bool, squadID pgtype.UUID, forceFreshSession bool, handoffNote string, actorUserID pgtype.UUID, rerunOfTaskID pgtype.UUID, origin RunOrigin, wake *questionTaskWake) (db.AgentTaskQueue, error) {
+	if err := guardIssueNotInTriage(ctx, q, issue.ID, origin); err != nil {
+		return db.AgentTaskQueue{}, err
+	}
+	agent, err := q.GetAgent(ctx, agentID)
 	if err != nil {
 		slog.Error("mention task enqueue failed: agent not found", "issue_id", util.UUIDToString(issue.ID), "agent_id", util.UUIDToString(agentID), "error", err)
 		return db.AgentTaskQueue{}, fmt.Errorf("load agent: %w", err)
+	}
+	if wake != nil && agent.WorkspaceID != issue.WorkspaceID {
+		return db.AgentTaskQueue{}, questionRefusal(403, "asking agent does not belong to this workspace")
 	}
 	if agent.ArchivedAt.Valid {
 		slog.Debug("mention task enqueue skipped: agent is archived", "issue_id", util.UUIDToString(issue.ID), "agent_id", util.UUIDToString(agentID))
@@ -1459,7 +1498,13 @@ func (s *TaskService) enqueueMentionTaskWithCommentPlan(ctx context.Context, iss
 	originatorUserID := attr.UserID
 	runtimeMCPOverlay := s.buildRuntimeMCPOverlay(ctx, originatorUserID, agent)
 	attrSource, attrDelegatedFrom, attrEvidenceKind, attrEvidenceRef := attributionCreateParams(attr)
-	task, err := s.Queries.CreateAgentTask(ctx, db.CreateAgentTaskParams{
+	triggerSummary := s.buildCommentTriggerSummary(ctx, issue.WorkspaceID, triggerCommentID)
+	if wake != nil {
+		attrEvidenceKind = pgtype.Text{String: string(attribution.EvidenceQuestionWake), Valid: true}
+		attrEvidenceRef = wake.QuestionID
+		triggerSummary = pgtype.Text{String: wake.Summary, Valid: true}
+	}
+	task, err := q.CreateAgentTask(ctx, db.CreateAgentTaskParams{
 		ID:                   dbid.NewV7(),
 		AgentID:              agentID,
 		RuntimeID:            agent.RuntimeID,
@@ -1467,7 +1512,7 @@ func (s *TaskService) enqueueMentionTaskWithCommentPlan(ctx context.Context, iss
 		Priority:             priorityToInt(issue.Priority),
 		TriggerCommentID:     triggerCommentID,
 		CoalescedCommentIds:  coalescedCommentIDs,
-		TriggerSummary:       s.buildCommentTriggerSummary(ctx, issue.WorkspaceID, triggerCommentID),
+		TriggerSummary:       triggerSummary,
 		IsLeaderTask:         pgtype.Bool{Bool: isLeader, Valid: isLeader},
 		ForceFreshSession:    pgtype.Bool{Bool: forceFreshSession, Valid: forceFreshSession},
 		HandoffNote:          pgtype.Text{String: handoffNote, Valid: handoffNote != ""},
@@ -1484,7 +1529,7 @@ func (s *TaskService) enqueueMentionTaskWithCommentPlan(ctx context.Context, iss
 		TriggerEvidenceRefID: attrEvidenceRef,
 		// Stamp the reviewed head so dedup can distinguish this run's target
 		// from a later request against a new HEAD (TEN-356).
-		HeadSha: headShaText(s.ResolveIssueReviewSHA(ctx, issue.ID)),
+		HeadSha: headShaText(resolveIssueReviewSHAWithQueries(ctx, q, issue.ID)),
 	})
 	if err != nil {
 		// A concurrent enqueue for the same (issue, agent) won the race and the
@@ -1501,9 +1546,6 @@ func (s *TaskService) enqueueMentionTaskWithCommentPlan(ctx context.Context, iss
 	}
 
 	slog.Info("mention task enqueued", "task_id", util.UUIDToString(task.ID), "issue_id", util.UUIDToString(issue.ID), "agent_id", util.UUIDToString(agentID), "is_leader_task", isLeader)
-	// See EnqueueTaskForIssue for ordering rationale.
-	s.broadcastTaskEvent(ctx, protocol.EventTaskQueued, task)
-	s.NotifyTaskEnqueued(ctx, task)
 	return task, nil
 }
 

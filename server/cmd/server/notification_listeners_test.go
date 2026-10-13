@@ -2,12 +2,16 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/multica-ai/multica/server/internal/events"
 	"github.com/multica-ai/multica/server/internal/handler"
+	"github.com/multica-ai/multica/server/internal/service"
+	"github.com/multica-ai/multica/server/internal/testutil"
 	"github.com/multica-ai/multica/server/internal/util"
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
+	"github.com/multica-ai/multica/server/pkg/dbid"
 	"github.com/multica-ai/multica/server/pkg/protocol"
 )
 
@@ -1335,5 +1339,140 @@ func TestNotification_StatusChange_ReopenSurfacesNewTaskFailed(t *testing.T) {
 	}
 	if archived != 1 {
 		t.Fatalf("expected 1 archived task_failed row preserved from prior cycle, got %d", archived)
+	}
+}
+
+func TestNotification_QuestionRecipientsAndNoAnsweredItem(t *testing.T) {
+	for _, tc := range []struct {
+		name, eventType, reason, inboxType string
+	}{
+		{"asked", protocol.EventQuestionCreated, "", service.InboxTypeQuestionAsked},
+		{"reassigned", protocol.EventQuestionUpdated, protocol.QuestionReasonReassigned, service.InboxTypeQuestionReassigned},
+		{"overdue", protocol.EventQuestionUpdated, protocol.QuestionReasonOverdue, service.InboxTypeQuestionOverdue},
+		{"answered", protocol.EventQuestionUpdated, protocol.QuestionReasonAnswered, ""},
+		{"answer edited", protocol.EventQuestionUpdated, protocol.QuestionReasonAnswerEdited, ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			base := testutil.New(testPool, testWorkspaceID, testUserID)
+			key := tc.reason
+			if key == "" {
+				key = tc.name
+			}
+			first := base.User(t, "Brian", "question-notif-"+key+"-first@multica.test")
+			second := base.User(t, "Anouk", "question-notif-"+key+"-second@multica.test")
+			ws := base.Workspace(t, "Question notifications", "question-notif-"+key)
+			fx := testutil.New(testPool, ws, first)
+			fx.Member(t, ws, first, "owner")
+			fx.Member(t, ws, second, "member")
+			issue := fx.Issue(t, "Invoice rules")
+			agent := fx.Agent(t, "Pieter", "")
+			task := fx.Task(t, agent, testutil.Cols{"issue_id": issue, "status": "completed", "completed_at": testutil.Raw("now()")})
+			id := fx.Insert(t, "question", testutil.Cols{
+				"id": dbid.NewV7(), "workspace_id": ws, "asker_agent_id": agent, "asked_in_task_id": task,
+				"prompt": "Round per line or total?", "answer_type": "yes_no", "settings": testutil.Raw(`'{"why_on_no":false}'::jsonb`),
+			})
+			fx.InsertNoID(t, "question_link", testutil.Cols{"question_id": id, "workspace_id": ws, "link_type": "issue", "link_id": issue, "position": 0}, "question_id=$1", id)
+			for _, user := range []string{first, second} {
+				fx.InsertNoID(t, "question_answerer", testutil.Cols{"question_id": id, "workspace_id": ws, "user_id": user}, "question_id=$1 AND user_id=$2", id, user)
+			}
+			if tc.reason == protocol.QuestionReasonReassigned {
+				details, err := json.Marshal(map[string]string{"user_id": second, "note": "You set the invoice rules"})
+				if err != nil {
+					t.Fatal(err)
+				}
+				fx.Insert(t, "question_event", testutil.Cols{
+					"id": dbid.NewV7(), "question_id": id, "workspace_id": ws, "kind": "reassigned",
+					"actor_type": "member", "actor_id": first, "details": details,
+				})
+			}
+			fx.Cleanup(t, "DELETE FROM inbox_item WHERE workspace_id=$1", ws)
+			queries := db.New(testPool)
+			bus := events.New()
+			registerNotificationListeners(bus, queries)
+			var delivered []events.Event
+			bus.Subscribe(protocol.EventInboxNew, func(e events.Event) { delivered = append(delivered, e) })
+			bus.Publish(events.Event{
+				Type: tc.eventType, WorkspaceID: ws, ActorType: "member", ActorID: first,
+				Payload: protocol.QuestionEventPayload{QuestionID: id, IssueID: issue, Reason: tc.reason},
+			})
+			wantTotal := 2
+			if tc.inboxType == "" {
+				wantTotal = 0
+			}
+			if tc.reason == protocol.QuestionReasonReassigned {
+				wantTotal = 1
+			}
+			if len(delivered) != wantTotal {
+				t.Fatalf("got %d inbox events, want %d", len(delivered), wantTotal)
+			}
+			for _, recipient := range []string{first, second} {
+				items, err := queries.ListInboxItems(context.Background(), db.ListInboxItemsParams{WorkspaceID: util.MustParseUUID(ws), RecipientType: "member", RecipientID: util.MustParseUUID(recipient)})
+				if err != nil {
+					t.Fatal(err)
+				}
+				want := 1
+				if tc.inboxType == "" || (tc.reason == protocol.QuestionReasonReassigned && recipient == first) {
+					want = 0
+				}
+				if len(items) != want {
+					t.Fatalf("recipient %s got %d items, want %d", recipient, len(items), want)
+				}
+				for _, item := range items {
+					if item.Type != tc.inboxType || util.UUIDToString(item.IssueID) != issue {
+						t.Fatalf("wrong notification: %+v", item)
+					}
+					var details map[string]string
+					if err := json.Unmarshal(item.Details, &details); err != nil {
+						t.Fatal(err)
+					}
+					if details["question_id"] != id {
+						t.Fatalf("question anchor missing: %+v", details)
+					}
+					if tc.reason == protocol.QuestionReasonReassigned && (details["note"] != "You set the invoice rules" || item.Body.String != details["note"]) {
+						t.Fatalf("reassignment note missing: %+v", item)
+					}
+				}
+			}
+			if n := fx.Count(t, "SELECT count(*) FROM inbox_item WHERE workspace_id=$1 AND type='question_answered'", ws); n != 0 {
+				t.Fatalf("created %d forbidden answered items", n)
+			}
+		})
+	}
+}
+
+func TestNotification_QuestionTypesCannotBeMuted(t *testing.T) {
+	prefs := map[string]string{"assignments": "muted", "status_changes": "muted", "comments": "muted", "mentions": "muted", "updates": "muted", "agent_activity": "muted"}
+	for _, kind := range []string{service.InboxTypeQuestionAsked, service.InboxTypeQuestionReassigned, service.InboxTypeQuestionOverdue} {
+		if _, exists := notifTypeToGroup[kind]; exists || isNotifMuted(prefs, kind) {
+			t.Fatalf("%s must always be delivered", kind)
+		}
+	}
+}
+
+func TestNotification_QuestionRealtimeUsesWorkspaceFanout(t *testing.T) {
+	for _, eventType := range []string{protocol.EventQuestionCreated, protocol.EventQuestionUpdated} {
+		t.Run(eventType, func(t *testing.T) {
+			bus := events.New()
+			broadcaster := &fakeBroadcaster{}
+			registerListeners(bus, broadcaster)
+			payload := protocol.QuestionEventPayload{QuestionID: "question-1", IssueID: "issue-1"}
+			if eventType == protocol.EventQuestionUpdated {
+				payload.Reason = protocol.QuestionReasonAnswered
+			}
+			bus.Publish(events.Event{Type: eventType, WorkspaceID: "workspace-1", ActorType: "member", ActorID: "member-1", Payload: payload})
+			if len(broadcaster.workspaceCalls) != 1 || broadcaster.workspaceCalls[0].workspaceID != "workspace-1" || len(broadcaster.userCalls) != 0 || broadcaster.broadcastCalled != 0 {
+				t.Fatalf("wrong question realtime audience: %+v", broadcaster)
+			}
+			var frame struct {
+				Type    string                        `json:"type"`
+				Payload protocol.QuestionEventPayload `json:"payload"`
+			}
+			if err := json.Unmarshal(broadcaster.workspaceCalls[0].msg, &frame); err != nil {
+				t.Fatal(err)
+			}
+			if frame.Type != eventType || frame.Payload != payload {
+				t.Fatalf("question realtime payload changed: %+v", frame)
+			}
+		})
 	}
 }

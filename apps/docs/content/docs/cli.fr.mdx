@@ -165,6 +165,7 @@ Consultez [Daemon et runtimes](/daemon-runtimes) pour son fonctionnement et les 
 | Commande | Rôle |
 | --- | --- |
 | `issue` | Créer, mettre à jour, assigner et rechercher des tâches ; gérer les commentaires, les abonnés, les étiquettes, les propriétés et les exécutions |
+| `question` | Poser des questions aux membres depuis une exécution d'agent, lire leurs réponses, puis les clore ou les retirer |
 | `project` | Gérer les projets et leurs ressources |
 | `label`, `property` | Gérer les étiquettes et les propriétés personnalisées de l'espace de travail |
 | `agent`, `skill`, `squad` | Gérer les agents, les skills et les squads |
@@ -254,6 +255,10 @@ Les tableaux ci-dessous couvrent toutes les commandes de premier niveau actuelle
 | | `usage <issue-id>` | Afficher la consommation de tokens agrégée | |
 | | `rerun <id>` | Remettre en file une exécution pour l'assigné actuel | |
 | | `cancel-task <task-id>` | Annuler une exécution en cours ou en file d'attente | `--issue` |
+| `question` | `ask` | Poser une question aux membres depuis une exécution d'agent ; affiche l'ID de la question | `--prompt` / `--prompt-file`, `--context`, `--type` (`text`, `yes_no`, `single_choice`, `multiple_choice`, `confirm_facts`, `ranking`, `scale`, `number`, `date`, `person`, `file`, `approval`), options de réglage `--option`, `--fact`, `--item`, `--accept` (répétable), `--allow-other`, `--why-on-no`, `--min`, `--max`, `--min-label`, `--max-label`, `--unit`, `--date-kind`, `--allow`, `--length`, `--placeholder`, `--subject`, `--link-url`, `--link-title` ; `--suggest` (répétable pour `multiple_choice` et `ranking`), `--answerer` (répétable ; nom de membre, e-mail ou ID), `--due` (`YYYY-MM-DD`), `--blocks-work` |
+| | `answers <question-id>` | Afficher le statut, les réponses et le fil de discussion d'une question | |
+| | `close <question-id>` | Clore une question | |
+| | `withdraw <question-id>` | Retirer une question | |
 | `project` | `list/get/create/update/delete` | Gérer les projets | |
 | | `status <id> <status>` | Changer le statut d'un projet | |
 | | `resource list/add/update/remove` | Gérer les ressources d'un projet | `--type`, `--url`, `--local-path`, `--daemon-id`, `--execution-mode` (`in_place` / `worktree` pour un répertoire local) |

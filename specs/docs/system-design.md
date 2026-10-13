@@ -98,6 +98,10 @@ flowchart LR
   storage["internal/storage<br/>local.go, s3.go"]
   llm["pkg/llm<br/>client.go"]
   protocol["pkg/protocol<br/>event and daemon wire types"]
+  questions["internal/service/question.go<br/>QuestionService"]
+  questionrules["internal/question<br/>answer-type registry, validation, display"]
+  questioncli["cmd/multica/cmd_question.go<br/>multica question"]
+  questionjob["internal/scheduler/jobs_question_overdue.go<br/>QuestionOverdueJob"]
   clients["Web, desktop, mobile"]
   daemon["Daemon"]
 
@@ -107,10 +111,16 @@ flowchart LR
   mw --> daemonapi
   mw --> publicapi
   clients -->|"REST /api"| router
+  questioncli -->|"REST /api/questions"| router
   clients -->|"WS /ws"| hub
   daemon -->|"REST /api/daemon"| router
   daemon -->|"WS /api/daemon/ws"| dhub
   handlers --> services
+  handlers --> questions
+  questions --> questionrules
+  questions --> sqlc
+  questions -->|"EnqueueTaskForQuestionWake"| services
+  questions --> bus
   handlers --> sqlc
   runtimeh --> reqstores
   daemonapi --> reqstores
@@ -130,6 +140,9 @@ flowchart LR
   services --> dhub
   hub --> redis
   sched --> services
+  main --> questionjob
+  questionjob --> sqlc
+  questionjob --> bus
   sched --> sqlc
   sweepers --> sqlc
   handlers --> integ
@@ -159,7 +172,7 @@ flowchart TB
   poll["daemon.go<br/>pollLoop"]
   task["daemon.go<br/>handleTask, runTask"]
   execenv["execenv<br/>Prepare, Reuse, InjectRuntimeConfig"]
-  prompt["prompt.go<br/>BuildPrompt"]
+  prompt["prompt.go<br/>BuildPrompt, buildQuestionAnswersBlock"]
   repocache["repocache<br/>Cache, CreateWorktree"]
   skillcache["skill_cache.go<br/>skill bundles"]
   mcp["runtime_mcp.go, remote_mcp_broker.go"]
@@ -184,6 +197,7 @@ flowchart TB
   actions --> dirlist
   actions --> update
   poll -->|"ClaimTasks"| client
+  client -.->|"Task.QuestionAnswers on question_wake claim"| task
   poll --> task
   task --> selection
   task --> execenv

@@ -2027,6 +2027,7 @@ func NewRouterWithOptions(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus
 					r.Post("/comments", h.CreateComment)
 					r.Get("/comments", h.ListComments)
 					r.Get("/timeline", h.ListTimeline)
+					r.Get("/questions", h.ListIssueQuestions)
 					r.Get("/subscribers", h.ListIssueSubscribers)
 					r.Post("/subscribe", h.SubscribeToIssue)
 					r.Post("/unsubscribe", h.UnsubscribeFromIssue)
@@ -2069,6 +2070,22 @@ func NewRouterWithOptions(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus
 					r.Post("/pull-requests", h.LinkIssuePullRequest)
 					r.Delete("/pull-requests/{prId}", h.UnlinkIssuePullRequest)
 					r.Put("/pr-auto-complete", h.SetIssuePRAutoComplete)
+				})
+			})
+
+			r.Route("/api/questions", func(r chi.Router) {
+				r.Post("/", h.AskQuestion)
+				r.Route("/{id}", func(r chi.Router) {
+					r.Get("/", h.GetQuestion)
+					r.Post("/close", h.CloseQuestion)
+					r.Post("/withdraw", h.WithdrawQuestion)
+					r.Group(func(r chi.Router) {
+						r.Use(handler.RequireHumanActor)
+						r.Post("/answer", h.AnswerQuestion)
+						r.Post("/ask-back", h.AskBackQuestion)
+						r.Post("/reassign", h.ReassignQuestion)
+						r.Post("/wake", h.WakeQuestion)
+					})
 				})
 			})
 

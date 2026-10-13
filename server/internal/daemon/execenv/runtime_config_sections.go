@@ -1024,6 +1024,12 @@ func writeOutput(b *strings.Builder, kind taskKind, ctx TaskContextForEnv) {
 	writeDeliveryInvariant(b)
 }
 
+func writeQuestionsSection(b *strings.Builder) {
+	b.WriteString("## Questions\n\n")
+	b.WriteString("`multica question` asks people one or more questions at the same time and reads their answers.\n\n")
+	b.WriteString("`multica question --help` lists its commands, answer types and options.\n\n")
+}
+
 // buildMetaSkillContentSlim is the post-MUL-3560 brief assembler.
 // Called from buildMetaSkillContent (runtime_config.go). The
 // `runtime_brief_slim` flag that once gated it was retired in MUL-4297.
@@ -1034,6 +1040,7 @@ func writeOutput(b *strings.Builder, kind taskKind, ctx TaskContextForEnv) {
 //	Section               | comment | assign | autopilot | quick_create | chat
 //	----------------------+---------+--------+-----------+--------------+------
 //	Available Commands    |   full  |  full  |   full    |   minimal    | full
+//	Questions (IssueID set)|    ✓    |   ✓    |     △     |      —       |  —
 //	Issue Body Formatting |    ✓    |   ✓    |     ✓     |      ✓       |  ✓
 //	Comment Formatting    |    ✓    |   ✓    |     —     |      —       |  —
 //	Repositories          |    △    |   △    |     △     |      —       |  △
@@ -1068,6 +1075,9 @@ func buildMetaSkillContentSlim(provider string, ctx TaskContextForEnv) string {
 		writeAvailableCommandsQuickCreate(&b)
 	default:
 		writeAvailableCommands(&b, ctx)
+	}
+	if ctx.IssueID != "" && kind != kindChat && kind != kindQuickCreate {
+		writeQuestionsSection(&b)
 	}
 	writeIssueBodyFormatting(&b)
 
