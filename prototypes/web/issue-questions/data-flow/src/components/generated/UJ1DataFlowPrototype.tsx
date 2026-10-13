@@ -185,7 +185,7 @@ const STEPS: Step[] = [{
   store: [{
     table: 'question_answer',
     op: 'write',
-    rows: ['{answerer_user_id: Brian, value: {option: "Per line"}, display_text: "Per line", note: null}']
+    rows: ['{answerer_user_id: Brian, value: {option: "Per line"}, note: null}']
   }, {
     table: 'question',
     op: 'write',
@@ -271,7 +271,7 @@ const STEPS: Step[] = [{
   store: [{
     table: 'question_answer',
     op: 'read',
-    rows: ['{answerer_user_id: Brian, value: {option: "Per line"}, display_text: "Per line", note: null}'],
+    rows: ['{answerer_user_id: Brian, value: {option: "Per line"}, note: null}'],
     note: "Unseen answers and ask-backs, anchored on Pieter's latest started run on WORK-412 other than this task (run #3)."
   }, {
     table: 'agent_task_queue',
