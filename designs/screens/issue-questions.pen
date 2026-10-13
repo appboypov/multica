@@ -43,7 +43,7 @@
               "fill": "$S:muted-foreground",
               "textGrowth": "fixed-width",
               "width": "fill_container",
-              "content": "Every answer type as the answerer meets it, on the issue and in the inbox. Each card keeps Note, Ask back and Reassign, so nobody is forced into a false answer. Four cards show a check that holds Send back: Other with its text, too few picks, a fact without its correction, and Request changes without a note.",
+              "content": "Every answer type as the answerer meets it, on the issue and in the inbox. Each card keeps Add a note, Ask back and Reassign, so nobody is forced into a false answer. Four cards show a check that holds Send back: Other with its text, too few picks, a fact without its correction, and Request changes without a note.",
               "lineHeight": 1.5,
               "fontFamily": "$S:font-sans",
               "fontSize": "$S:text-body",
@@ -206,13 +206,13 @@
                       "id": "un5xk",
                       "type": "ref",
                       "ref": "S:GlbnA",
-                      "name": "Button Note",
+                      "name": "Button Add a note",
                       "descendants": {
                         "S:jrrID": {
                           "icon": "notebook-pen"
                         },
                         "S:zc0if": {
-                          "content": "Note"
+                          "content": "Add a note"
                         }
                       }
                     },
@@ -463,13 +463,13 @@
                       "id": "j2T3y",
                       "type": "ref",
                       "ref": "S:GlbnA",
-                      "name": "Button Note",
+                      "name": "Button Add a note",
                       "descendants": {
                         "S:jrrID": {
                           "icon": "notebook-pen"
                         },
                         "S:zc0if": {
-                          "content": "Note"
+                          "content": "Add a note"
                         }
                       }
                     },
@@ -744,13 +744,13 @@
                       "id": "h8Fti",
                       "type": "ref",
                       "ref": "S:GlbnA",
-                      "name": "Button Note",
+                      "name": "Button Add a note",
                       "descendants": {
                         "S:jrrID": {
                           "icon": "notebook-pen"
                         },
                         "S:zc0if": {
-                          "content": "Note"
+                          "content": "Add a note"
                         }
                       }
                     },
@@ -1057,13 +1057,13 @@
                       "id": "m8HCre",
                       "type": "ref",
                       "ref": "S:GlbnA",
-                      "name": "Button Note",
+                      "name": "Button Add a note",
                       "descendants": {
                         "S:jrrID": {
                           "icon": "notebook-pen"
                         },
                         "S:zc0if": {
-                          "content": "Note"
+                          "content": "Add a note"
                         }
                       }
                     },
@@ -1480,13 +1480,13 @@
                       "id": "G3KzK",
                       "type": "ref",
                       "ref": "S:GlbnA",
-                      "name": "Button Note",
+                      "name": "Button Add a note",
                       "descendants": {
                         "S:jrrID": {
                           "icon": "notebook-pen"
                         },
                         "S:zc0if": {
-                          "content": "Note"
+                          "content": "Add a note"
                         }
                       }
                     },
@@ -2024,13 +2024,13 @@
                       "id": "TbMVu",
                       "type": "ref",
                       "ref": "S:GlbnA",
-                      "name": "Button Note",
+                      "name": "Button Add a note",
                       "descendants": {
                         "S:jrrID": {
                           "icon": "notebook-pen"
                         },
                         "S:zc0if": {
-                          "content": "Note"
+                          "content": "Add a note"
                         }
                       }
                     },
@@ -2345,13 +2345,13 @@
                       "id": "iTG4G",
                       "type": "ref",
                       "ref": "S:GlbnA",
-                      "name": "Button Note",
+                      "name": "Button Add a note",
                       "descendants": {
                         "S:jrrID": {
                           "icon": "notebook-pen"
                         },
                         "S:zc0if": {
-                          "content": "Note"
+                          "content": "Add a note"
                         }
                       }
                     },
@@ -2584,13 +2584,13 @@
                       "id": "Cqhdx",
                       "type": "ref",
                       "ref": "S:GlbnA",
-                      "name": "Button Note",
+                      "name": "Button Add a note",
                       "descendants": {
                         "S:jrrID": {
                           "icon": "notebook-pen"
                         },
                         "S:zc0if": {
-                          "content": "Note"
+                          "content": "Add a note"
                         }
                       }
                     },
@@ -2850,13 +2850,13 @@
                       "id": "fYw22",
                       "type": "ref",
                       "ref": "S:GlbnA",
-                      "name": "Button Note",
+                      "name": "Button Add a note",
                       "descendants": {
                         "S:jrrID": {
                           "icon": "notebook-pen"
                         },
                         "S:zc0if": {
-                          "content": "Note"
+                          "content": "Add a note"
                         }
                       }
                     },
@@ -3253,13 +3253,13 @@
                       "id": "Z6yIkW",
                       "type": "ref",
                       "ref": "S:GlbnA",
-                      "name": "Button Note",
+                      "name": "Button Add a note",
                       "descendants": {
                         "S:jrrID": {
                           "icon": "notebook-pen"
                         },
                         "S:zc0if": {
-                          "content": "Note"
+                          "content": "Add a note"
                         }
                       }
                     },
@@ -3548,13 +3548,13 @@
                       "id": "T7CGx",
                       "type": "ref",
                       "ref": "S:GlbnA",
-                      "name": "Button Note",
+                      "name": "Button Add a note",
                       "descendants": {
                         "S:jrrID": {
                           "icon": "notebook-pen"
                         },
                         "S:zc0if": {
-                          "content": "Note"
+                          "content": "Add a note"
                         }
                       }
                     },
@@ -3883,13 +3883,13 @@
                       "id": "UgsRg",
                       "type": "ref",
                       "ref": "S:GlbnA",
-                      "name": "Button Note",
+                      "name": "Button Add a note",
                       "descendants": {
                         "S:jrrID": {
                           "icon": "notebook-pen"
                         },
                         "S:zc0if": {
-                          "content": "Note"
+                          "content": "Add a note"
                         }
                       }
                     },
@@ -8087,7 +8087,7 @@
                                   "id": "uCN7e",
                                   "name": "Text",
                                   "fill": "$S:muted-foreground",
-                                  "content": "1 h ago",
+                                  "content": "3 days ago",
                                   "fontFamily": "$S:font-sans",
                                   "fontSize": "$S:text-caption",
                                   "fontWeight": "normal"
@@ -9044,7 +9044,7 @@
                               "id": "wQTls",
                               "name": "Text",
                               "fill": "$S:muted-foreground",
-                              "content": "Completed · 2 h ago",
+                              "content": "Completed · 3 days ago",
                               "fontFamily": "$S:font-sans",
                               "fontSize": "$S:text-caption",
                               "fontWeight": "normal"
