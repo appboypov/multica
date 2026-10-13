@@ -490,6 +490,44 @@ classDiagram
     +uuid issue_id
     +uuid comment_id
     +uuid chat_message_id
+    +uuid question_id
+  }
+  class question {
+    +uuid id
+    +uuid workspace_id
+    +uuid asker_agent_id
+    +uuid asked_in_task_id
+    +text answer_type
+    +jsonb settings
+    +jsonb suggested_answer
+    +text status
+    +date due_date
+    +bool blocks_work
+  }
+  class question_link {
+    +uuid question_id
+    +text link_type
+    +uuid link_id
+    +int position
+  }
+  class question_answerer {
+    +uuid question_id
+    +uuid user_id
+  }
+  class question_answer {
+    +uuid id
+    +uuid question_id
+    +uuid answerer_user_id
+    +jsonb value
+    +text note
+  }
+  class question_event {
+    +uuid id
+    +uuid question_id
+    +text kind
+    +text actor_type
+    +uuid actor_id
+    +jsonb details
   }
   class plugin_installation {
     +uuid id
@@ -572,6 +610,18 @@ classDiagram
   issue "1" --> "*" attachment : issue_id
   comment "1" --> "*" attachment : comment_id
   agent "1" --> "*" channel_installation : agent_id
+  workspace "1" --> "*" question : workspace_id
+  agent "1" --> "*" question : asker_agent_id
+  agent_task_queue "1" --> "*" question : asked_in_task_id
+  question "1" --> "*" question_link : question_id
+  question_link ..> issue : link_id
+  question_link ..> agent_task_queue : link_id
+  question "1" --> "*" question_answerer : question_id
+  user "1" --> "*" question_answerer : user_id
+  question "1" --> "*" question_answer : question_id
+  user "1" --> "*" question_answer : answerer_user_id
+  question "1" --> "*" question_event : question_id
+  question "1" --> "*" attachment : question_id
 ```
 
 ## Absent
