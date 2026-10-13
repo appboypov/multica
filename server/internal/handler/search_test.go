@@ -252,7 +252,6 @@ func TestBuildProjectSearchQuery_MultiTerm(t *testing.T) {
 	}
 }
 
-
 // --- extractSnippet regression tests ---
 
 func TestExtractSnippet_PhraseMatch(t *testing.T) {

@@ -22,15 +22,15 @@ import (
 )
 
 type ProjectResponse struct {
-	ID          string  `json:"id"`
-	WorkspaceID string  `json:"workspace_id"`
-	Title       string  `json:"title"`
-	Description *string `json:"description"`
-	Icon        *string `json:"icon"`
-	Status      string  `json:"status"`
-	Priority    string  `json:"priority"`
-	LeadType    *string `json:"lead_type"`
-	LeadID      *string `json:"lead_id"`
+	ID             string  `json:"id"`
+	WorkspaceID    string  `json:"workspace_id"`
+	Title          string  `json:"title"`
+	Description    *string `json:"description"`
+	Icon           *string `json:"icon"`
+	Status         string  `json:"status"`
+	Priority       string  `json:"priority"`
+	LeadType       *string `json:"lead_type"`
+	LeadID         *string `json:"lead_id"`
 	OrganisationID *string `json:"organisation_id"`
 	// StartDate / DueDate are calendar days ("YYYY-MM-DD"), no time-of-day or
 	// timezone — same contract as issue.start_date / issue.due_date.
@@ -49,20 +49,20 @@ type ProjectResponse struct {
 
 func projectToResponse(p db.Project) ProjectResponse {
 	return ProjectResponse{
-		ID:          uuidToString(p.ID),
-		WorkspaceID: uuidToString(p.WorkspaceID),
-		Title:       p.Title,
-		Description: textToPtr(p.Description),
-		Icon:        textToPtr(p.Icon),
-		Status:      p.Status,
-		Priority:    p.Priority,
-		LeadType:    textToPtr(p.LeadType),
-		LeadID:      uuidToPtr(p.LeadID),
+		ID:             uuidToString(p.ID),
+		WorkspaceID:    uuidToString(p.WorkspaceID),
+		Title:          p.Title,
+		Description:    textToPtr(p.Description),
+		Icon:           textToPtr(p.Icon),
+		Status:         p.Status,
+		Priority:       p.Priority,
+		LeadType:       textToPtr(p.LeadType),
+		LeadID:         uuidToPtr(p.LeadID),
 		OrganisationID: uuidToPtr(p.OrganisationID),
-		StartDate:   dateToPtr(p.StartDate),
-		DueDate:     dateToPtr(p.DueDate),
-		CreatedAt:   timestampToString(p.CreatedAt),
-		UpdatedAt:   timestampToString(p.UpdatedAt),
+		StartDate:      dateToPtr(p.StartDate),
+		DueDate:        dateToPtr(p.DueDate),
+		CreatedAt:      timestampToString(p.CreatedAt),
+		UpdatedAt:      timestampToString(p.UpdatedAt),
 	}
 }
 
@@ -101,17 +101,17 @@ func (h *Handler) loadProjectResourceCount(ctx context.Context, projectID pgtype
 }
 
 type CreateProjectRequest struct {
-	Title       string                                `json:"title"`
-	Description *string                               `json:"description"`
-	Icon        *string                               `json:"icon"`
-	Status      string                                `json:"status"`
-	Priority    string                                `json:"priority"`
-	LeadType    *string                               `json:"lead_type"`
-	LeadID      *string                               `json:"lead_id"`
-	StartDate   *string                               `json:"start_date"`
-	DueDate     *string                               `json:"due_date"`
+	Title          string                                `json:"title"`
+	Description    *string                               `json:"description"`
+	Icon           *string                               `json:"icon"`
+	Status         string                                `json:"status"`
+	Priority       string                                `json:"priority"`
+	LeadType       *string                               `json:"lead_type"`
+	LeadID         *string                               `json:"lead_id"`
+	StartDate      *string                               `json:"start_date"`
+	DueDate        *string                               `json:"due_date"`
 	OrganisationID *string                               `json:"organisation_id"`
-	Resources   []CreateProjectResourceRequestPayload `json:"resources,omitempty"`
+	Resources      []CreateProjectResourceRequestPayload `json:"resources,omitempty"`
 }
 
 // CreateProjectResourceRequestPayload mirrors CreateProjectResourceRequest but
@@ -125,15 +125,15 @@ type CreateProjectResourceRequestPayload struct {
 }
 
 type UpdateProjectRequest struct {
-	Title       *string `json:"title"`
-	Description *string `json:"description"`
-	Icon        *string `json:"icon"`
-	Status      *string `json:"status"`
-	Priority    *string `json:"priority"`
-	LeadType    *string `json:"lead_type"`
-	LeadID      *string `json:"lead_id"`
-	StartDate   *string `json:"start_date"`
-	DueDate     *string `json:"due_date"`
+	Title          *string `json:"title"`
+	Description    *string `json:"description"`
+	Icon           *string `json:"icon"`
+	Status         *string `json:"status"`
+	Priority       *string `json:"priority"`
+	LeadType       *string `json:"lead_type"`
+	LeadID         *string `json:"lead_id"`
+	StartDate      *string `json:"start_date"`
+	DueDate        *string `json:"due_date"`
 	OrganisationID *string `json:"organisation_id"`
 }
 
@@ -399,16 +399,16 @@ func (h *Handler) CreateProject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	createParams := db.CreateProjectParams{
-		WorkspaceID: wsUUID,
-		Title:       req.Title,
-		Description: ptrToText(req.Description),
-		Icon:        ptrToText(req.Icon),
-		Status:      status,
-		LeadType:    leadType,
-		LeadID:      leadID,
-		Priority:    priority,
-		StartDate:   startDate,
-		DueDate:     dueDate,
+		WorkspaceID:    wsUUID,
+		Title:          req.Title,
+		Description:    ptrToText(req.Description),
+		Icon:           ptrToText(req.Icon),
+		Status:         status,
+		LeadType:       leadType,
+		LeadID:         leadID,
+		Priority:       priority,
+		StartDate:      startDate,
+		DueDate:        dueDate,
 		OrganisationID: organisationID,
 	}
 
