@@ -38,7 +38,7 @@ flowchart LR
 - [x] 1.2 `server/migrations/573_organisation_name_index.up.sql`, `.down.sql` -- `CREATE UNIQUE INDEX CONCURRENTLY organisation_workspace_name_unique ON organisation (workspace_id, LOWER(name))` -- a name is unique in its workspace, ignoring case.
 - [x] 1.3 `server/migrations/574_organisation_key_index.up.sql`, `.down.sql` -- `CREATE UNIQUE INDEX CONCURRENTLY organisation_workspace_key_unique ON organisation (workspace_id, key)` -- a key is unique in its workspace.
 - [x] 1.4 `server/cmd/migrate/main.go` -- add `573` and `574` to `concurrentIndexCleanups` -- `TestEveryConcurrentUpBuildHasCleanup` requires it.
-- [ ] 1.5 `server/pkg/db/queries/organisation.sql` -- `ListOrganisations` (by `LOWER(name)`), `GetOrganisationInWorkspace`, `CreateOrganisation`, `UpdateOrganisationKey`, each filtered by `workspace_id` -- the organisation reads and writes of decision 2.
+- [x] 1.5 `server/pkg/db/queries/organisation.sql` -- `ListOrganisations` (by `LOWER(name)`), `GetOrganisationInWorkspace`, `CreateOrganisation`, `UpdateOrganisationKey`, each filtered by `workspace_id` -- the organisation reads and writes of decision 2.
 - [ ] 1.6 `server/pkg/db/queries/workspace_delete.sql` -- `DeleteWorkspaceOrganisations` -- workspace delete removes organisations, since there are no cascades.
 - [ ] 1.7 `server/pkg/db/generated/` -- run `make sqlc` and commit the output -- the generated code stays in step with the queries.
 
