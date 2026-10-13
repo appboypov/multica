@@ -168,6 +168,7 @@
     "fallback_label": "Projet"
   },
   "organisation": {
+    "label": "Organisation",
     "none": "Aucune organisation",
     "empty": "Aucune organisation pour l'instant"
   },

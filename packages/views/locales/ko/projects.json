@@ -167,6 +167,7 @@
     "fallback_label": "프로젝트"
   },
   "organisation": {
+    "label": "조직",
     "none": "조직 없음",
     "empty": "아직 조직이 없습니다"
   },

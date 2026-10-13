@@ -167,6 +167,7 @@
     "fallback_label": "プロジェクト"
   },
   "organisation": {
+    "label": "組織",
     "none": "組織なし",
     "empty": "組織はまだありません"
   },

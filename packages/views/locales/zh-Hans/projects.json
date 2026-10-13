@@ -167,6 +167,7 @@
     "fallback_label": "项目"
   },
   "organisation": {
+    "label": "组织",
     "none": "无组织",
     "empty": "还没有组织"
   },
