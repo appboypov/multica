@@ -74,7 +74,12 @@ describe("question API boundary", () => {
   });
 
   it("uploads answer attachments with question ownership and an abort signal", async () => {
-    const fetchMock = respond({ id: "attachment-1", url: "/files/1" });
+    const fetchMock = respond({
+      id: "attachment-1",
+      url: "/files/1",
+      download_url: "/files/1/download",
+      filename: "invoice.txt",
+    });
     const controller = new AbortController();
     const result = await new ApiClient("https://api.example.test").uploadFile(
       new File(["invoice"], "invoice.txt", { type: "text/plain" }),

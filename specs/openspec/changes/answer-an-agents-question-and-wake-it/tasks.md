@@ -125,7 +125,7 @@ flowchart LR
 
 ## 14. J9 Frontend: flow
 
-- [ ] 14.1 `packages/core/api/client.ts` -- `listIssueQuestions`, `getQuestion`, `answerQuestion`, `askBackQuestion`, `reassignQuestion`, `wakeQuestionAgent`, `uploadFile` with `question_id`, each through `parseWithFallback` -- the client calls of decision 4.
+- [x] 14.1 `packages/core/api/client.ts` -- `listIssueQuestions`, `getQuestion`, `answerQuestion`, `askBackQuestion`, `reassignQuestion`, `wakeQuestionAgent`, `uploadFile` with `question_id`, each through `parseWithFallback` -- the client calls of decision 4.
 - [x] 14.2 `packages/core/questions/queries.ts`, `mutations.ts`, `index.ts` -- `questionKeys.byIssue(wsId, issueId)`, `questionKeys.detail(wsId, id)`, query hooks and mutations that invalidate both on settle; add `./questions` to `packages/core/package.json` exports -- TanStack Query owns the questions.
 - [x] 14.3 `packages/core/questions/ws-updaters.ts`, `packages/core/realtime/use-realtime-sync.ts` -- `question:created`, `question:updated` and `task:*` events of an issue invalidate its question keys -- cards, Wake and the run badge stay live.
 - [x] 14.4 `packages/core/questions/validate.ts` -- mirror of `ValidateAnswer` returning the message key and values that gate **Send** -- the card says why it cannot send.
@@ -258,7 +258,8 @@ Verified: `GetVariables()` deep-equal before and after (70 variables); the 92 ex
 - 14.4: `packages/core/questions/validate.ts` and its barrel export mirror the server registry's twelve answer/settings shapes, notes, selections, limits, corrections, UUIDs and date variants. Validation returns `null` or a translation key with interpolation values. Calendar and RFC3339 checks reject normalized impossible dates; ranges compare instants with nanosecond precision. Lenient response schemas stay unchanged; server membership and attachment ownership/acceptance remain authoritative.
 - 14.5: `packages/core/questions/validate.test.ts` ports the server's 88 answer-validation cases and adds named message/interpolation, invalid suggestion, impossible timestamp and sub-millisecond range regressions. `queries.test.ts` covers workspace-key isolation, query options, both question events and every issue task event; `mutations.test.tsx` covers list/detail invalidation on success and failure and the no-implicit-Wake rule for all five mutations.
 - Surprise: OpenSpec is rooted in `specs/`, not the repository root. The root invocation reported no changes; the invocation in `specs/` returned the change and its context. Automatic editor diagnostics initially retained the pre-edit client declarations; this tool inconsistency was reported.
-- Verification is reserved for the main agent; no build, test, lint or formatter was run by this builder.
+- Verification correction for 14.1: the upload fixture omitted required `download_url` and `filename`, so `parseWithFallback` correctly returned `EMPTY_ATTACHMENT`. `packages/core/api/question-client.test.ts` now supplies the real response shape; production upload parsing remains unchanged.
+- At Main's explicit request, this builder ran local core checks using `pnpm --dir packages/core exec tsc --noEmit -p .` (exit 0, no errors) and `pnpm --dir packages/core exec vitest run api questions` (13 test files, 650 tests passed). Checks ran on both corrected test files; no build, lint, formatter or screen test ran.
 
 ## Plan Change Log
 
