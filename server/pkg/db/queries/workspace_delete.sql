@@ -703,6 +703,11 @@ deleted_profiles AS (
 )
 DELETE FROM project WHERE project.workspace_id = $1;
 
+-- name: DeleteWorkspaceOrganisations :exec
+-- Organisations have no cascades (ADR-0004); the teardown runs this in the
+-- step that deletes the workspace's projects.
+DELETE FROM organisation WHERE organisation.workspace_id = $1;
+
 -- name: DeleteWorkspaceAdministration :exec
 WITH
 deleted_members AS (
