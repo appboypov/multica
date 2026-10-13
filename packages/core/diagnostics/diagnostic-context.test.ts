@@ -35,6 +35,14 @@ describe("bucketDiagnosticPath", () => {
     expect(bucketDiagnosticPath("/acme/issues")).toBe("/:slug/issues");
   });
 
+  it("recognizes organisation list and detail routes without leaking workspace or organisation ids", () => {
+    const ws = paths.workspace("Rebl Records");
+    expect(bucketDiagnosticPath(ws.organisations())).toBe("/:slug/organisations");
+    expect(bucketDiagnosticPath(ws.organisationDetail("rebl/org"))).toBe("/:slug/organisations/:id");
+    expect(bucketDiagnosticPath(`${ws.organisationDetail("rebl/org")}?key=rr#private`)).toBe("/:slug/organisations/:id");
+    expect(bucketDiagnosticPath(`${ws.organisationDetail("rebl/org")}/unknown`)).toBe("/:slug/organisations/*");
+  });
+
   it("templates every workspace detail route", () => {
     expect(bucketDiagnosticPath("/acme/issues/MUL-5345")).toBe("/:slug/issues/:id");
     expect(bucketDiagnosticPath("/acme/projects/p1")).toBe("/:slug/projects/:id");
