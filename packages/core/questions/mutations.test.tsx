@@ -48,7 +48,7 @@ describe.each(actions)("$name mutation", ({ method, useSubmit }) => {
     if (fails) transport[method].mockRejectedValue(failure);
     else transport[method].mockResolvedValue(question);
     const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
-    const { result, unmount } = renderHook(useSubmit, { wrapper });
+    const { result, unmount } = renderHook<() => Promise<unknown>, unknown>(useSubmit, { wrapper });
     try {
       await act(async () => {
         if (fails) await expect(result.current()).rejects.toBe(failure);
