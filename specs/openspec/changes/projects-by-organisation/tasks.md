@@ -154,7 +154,7 @@ flowchart LR
 ## 10. J9 Frontend: component change
 
 - [x] 10.1 `packages/views/projects/components/project-badge.tsx`, `labels.ts`, `project-start-date-picker.tsx`, `project-due-date-picker.tsx` -- remove `ProjectStatusBadge`, the status labels and both date pickers -- ADR-0005.
-- [ ] 10.2 `packages/views/projects/components/organisation-picker.tsx` -- a dropdown of the workspace's organisations by name, with "No organisation" as the value shown when none is set, on the existing `DropdownMenu` and `PillButton` -- one control for New project and the project page.
+- [x] 10.2 `packages/views/projects/components/organisation-picker.tsx` -- a dropdown of the workspace's organisations by name, with "No organisation" as the value shown when none is set, on the existing `DropdownMenu` and `PillButton` -- one control for New project and the project page.
 - [ ] 10.3 `packages/views/projects/components/project-table.tsx` -- the table body moved out of `projects-page.tsx`, taking `projects` and optional `groups`. Group rows carry a chevron, the organisation's name as an `AppLink` to its page, and "N projects", and fold through `collapsedOrganisations` -- shared by Projects and the Organisation page.
 - [ ] 10.4 `packages/views/search/search-command.tsx`, `packages/views/editor/extensions/mention-suggestion.tsx`, `packages/views/chat/use-chat-context-items.ts` -- drop the project status icons and labels -- decision 3.
 - [ ] 10.5 `packages/views/issues/components/issues-header.tsx`, `filter-chips-bar.tsx`, `packages/views/issues/surface/use-issue-surface-controller.ts`, `use-issue-surface-data.ts`, `packages/views/issues/utils/filter.ts` -- remove the project status filter, its chips and its use in filtering -- the Issues filter goes.
@@ -271,6 +271,7 @@ flowchart LR
 ### Group 10. J9 Frontend: component change
 
 - 10.1 files touched: `packages/views/projects/components/project-badge.tsx` (only `ProjectPriorityBadge` stays), `labels.ts` (`useProjectStatusLabels` removed), deleted `project-start-date-picker.tsx`, `project-due-date-picker.tsx` and their `project-date-pickers.test.tsx`. Callers in group 11's screens (`projects-page.tsx`, `project-detail.tsx`, `create-project.tsx` and their tests' `vi.mock` of the pickers) still import them; group 11 removes those uses, so views typecheck stays red until it lands. The issue pickers (`issues/components/pickers/`) are a separate component and stay.
+- 10.2 files touched: `packages/views/projects/components/organisation-picker.tsx` (new), `organisation-picker.test.tsx` (new), `packages/views/locales/{en,fr,ja,ko,zh-Hans}/projects.json` (`organisation.none`, `organisation.empty`). `OrganisationPicker({ organisationId, onChange(id), align, className })` reads `useOrganisations(wsId)` and lists them in server order (by name); the pill shows a `Building2` icon and the name, or "No organisation" muted. It offers no clear row: design decision 5 and the spec only pick an organisation, and New project requires one. Picking the current organisation calls nothing, so the project page sends no no-op update. An `organisation_id` the list does not hold shows "No organisation", as decision 4 groups it. `vitest run projects/components/organisation-picker.test.tsx locales/parity.test.ts` passes (215 tests).
 
 ## Plan Change Log
 

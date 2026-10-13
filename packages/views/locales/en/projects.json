@@ -167,6 +167,10 @@
   "chip": {
     "fallback_label": "Project"
   },
+  "organisation": {
+    "none": "No organisation",
+    "empty": "No organisations yet"
+  },
   "toolbar": {
     "result_count_title": "Matching projects / all projects",
     "filter_label": "Filter",

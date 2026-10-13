@@ -166,6 +166,10 @@
   "chip": {
     "fallback_label": "プロジェクト"
   },
+  "organisation": {
+    "none": "組織なし",
+    "empty": "組織はまだありません"
+  },
   "toolbar": {
     "result_count_title": "該当プロジェクト / すべてのプロジェクト",
     "filter_label": "フィルター",
