@@ -79,49 +79,49 @@ flowchart LR
 
 ## 8. J8 Backend and agent tooling: rules
 
-- [ ] 8.1 `server/internal/question/types.go` -- the 12 answer-type keys and the settings and value structs of design.md decision 2 -- one registry for every validator.
-- [ ] 8.2 `server/internal/question/validate.go` -- `ValidateSettings`, `ValidateAnswer` (including the note rules of Yes / No and Request changes, `min`/`max`, Other, permutations, ranges, date kinds), `ValidateSuggested` (refused for `confirm_facts`, `file`, `approval`; its error names the suggested answer) -- the server's single authority (ADR-0002).
-- [ ] 8.3 `server/internal/question/display.go` -- `Display(type, settings, value)` one-line text -- the folded card, the inbox and the `[ANSWERS]` block say the same.
-- [ ] 8.4 `server/internal/question/validate_test.go` -- table tests per type: valid, below `min`, above `max`, Other not allowed, Request changes without a note, Not correct without a correction, suggested answer outside the options -- the spec's answer-type scenarios at their canonical layer.
+- [x] 8.1 `server/internal/question/types.go` -- the 12 answer-type keys and the settings and value structs of design.md decision 2 -- one registry for every validator.
+- [x] 8.2 `server/internal/question/validate.go` -- `ValidateSettings`, `ValidateAnswer` (including the note rules of Yes / No and Request changes, `min`/`max`, Other, permutations, ranges, date kinds), `ValidateSuggested` (refused for `confirm_facts`, `file`, `approval`; its error names the suggested answer) -- the server's single authority (ADR-0002).
+- [x] 8.3 `server/internal/question/display.go` -- `Display(type, settings, value)` one-line text -- the folded card, the inbox and the `[ANSWERS]` block say the same.
+- [x] 8.4 `server/internal/question/validate_test.go` -- table tests per type: valid, below `min`, above `max`, Other not allowed, Request changes without a note, Not correct without a correction, suggested answer outside the options -- the spec's answer-type scenarios at their canonical layer.
 
 ## 9. J8 Backend and agent tooling: services
 
-- [ ] 9.1 `server/internal/service/question.go` -- `QuestionService`: `Ask` (links issue and task from the task, refuses a task without an issue and agent answerers by name), `Answer`, `AskBack`, `Reassign` (note required), `Close`, `Withdraw`, `Get`, `ListForIssue` (with `unseen_answer_count`, `wake_available`), `Wake`; each writes its `question_event` and publishes its bus event in one transaction where it writes more than one row -- design.md decisions 1, 3 and 5.
-- [ ] 9.2 `server/internal/service/task.go` -- `EnqueueTaskForQuestionWake(ctx, issue, agentID, actorUserID, answerCount)` on top of `enqueueMentionTask`, with no trigger comment, evidence `question_wake`, ref the question id and trigger summary "Woken by <member> with <n> answer(s)" -- the only question path into `TaskService` (ADR-0003).
-- [ ] 9.3 `server/internal/service/question_test.go` -- DB tests with `testutil` fixtures: lifecycle transitions and refusals of design.md decision 3; asking, answering, editing, asking back and reassigning queue no task even when the asker is the assignee; unseen count before and after a started run; Wake refused with an active task and with nothing unseen; Wake queues one task and one `question_wake` activity -- guards the no-run rule.
+- [x] 9.1 `server/internal/service/question.go` -- `QuestionService`: `Ask` (links issue and task from the task, refuses a task without an issue and agent answerers by name), `Answer`, `AskBack`, `Reassign` (note required), `Close`, `Withdraw`, `Get`, `ListForIssue` (with `unseen_answer_count`, `wake_available`), `Wake`; each writes its `question_event` and publishes its bus event in one transaction where it writes more than one row -- design.md decisions 1, 3 and 5.
+- [x] 9.2 `server/internal/service/task.go` -- `EnqueueTaskForQuestionWake(ctx, issue, agentID, actorUserID, answerCount)` on top of `enqueueMentionTask`, with no trigger comment, evidence `question_wake`, ref the question id and trigger summary "Woken by <member> with <n> answer(s)" -- the only question path into `TaskService` (ADR-0003).
+- [x] 9.3 `server/internal/service/question_test.go` -- DB tests with `testutil` fixtures: lifecycle transitions and refusals of design.md decision 3; asking, answering, editing, asking back and reassigning queue no task even when the asker is the assignee; unseen count before and after a started run; Wake refused with an active task and with nothing unseen; Wake queues one task and one `question_wake` activity -- guards the no-run rule.
 
 ## 10. J8 Backend and agent tooling: endpoints
 
-- [ ] 10.1 `server/internal/handler/question.go` -- the nine endpoints of design.md decision 4 with their actor checks (`resolveActor`, `RequireHumanActor`, current answerer, asking agent), `loadIssueForUser`, `parseUUIDOrBadRequest` and the response structs -- the API agents and clients call.
-- [ ] 10.2 `server/cmd/server/router.go` -- register `/api/questions` routes and `GET /api/issues/{id}/questions` in the `RequireWorkspaceMember` group -- workspace scoping as every resource has.
-- [ ] 10.3 `server/internal/handler/file.go` -- `UploadFile` accepts `question_id`, checks it belongs to the workspace, stores it -- File and Text answers carry attachments.
-- [ ] 10.4 `server/internal/handler/daemon.go`, `server/internal/handler/agent.go` -- for a claimed task with evidence `question_wake`, hydrate `question_answers` (unseen answers and ask-backs against the agent's latest other started run on the issue) on the claim wire -- the woken run gets its answers at claim.
-- [ ] 10.5 `server/cmd/server/listeners.go` -- broadcast `question:created` and `question:updated` to the workspace -- clients refresh cards live.
-- [ ] 10.6 `server/cmd/server/notification_listeners.go` -- on `question:created` notify every answerer with `question_asked`; on `question:updated` reason `reassigned` notify the new answerer with `question_reassigned` and the note; reason `overdue` notify current answerers with `question_overdue`; each with `issue_id` and `details.question_id`; no `notifTypeToGroup` entry -- the inbox requirement; direct questions cannot be muted.
-- [ ] 10.7 `server/internal/handler/question_test.go` -- a member's ask is 403; an agent answerer is 422 naming the agent; an agent's answer is 403; a non-answerer's answer is 403; an invalid value is 422 with the validator's message; close by another agent is 403; wake by a member is 202 and its second call 409 -- the authorization and error matrix.
-- [ ] 10.8 `server/internal/handler/daemon_question_wake_test.go` -- a woken task's claim carries the answer given after the asking run started and an edit made after Wake; a non-wake claim carries none -- the claim contract.
-- [ ] 10.9 `server/cmd/server/notification_listeners_test.go` -- asked, reassigned and overdue create one item per recipient with `details.question_id`; answering creates none and no `question_answered` exists -- the inbox scenarios.
+- [x] 10.1 `server/internal/handler/question.go` -- the nine endpoints of design.md decision 4 with their actor checks (`resolveActor`, `RequireHumanActor`, current answerer, asking agent), `loadIssueForUser`, `parseUUIDOrBadRequest` and the response structs -- the API agents and clients call.
+- [x] 10.2 `server/cmd/server/router.go` -- register `/api/questions` routes and `GET /api/issues/{id}/questions` in the `RequireWorkspaceMember` group -- workspace scoping as every resource has.
+- [x] 10.3 `server/internal/handler/file.go` -- `UploadFile` accepts `question_id`, checks it belongs to the workspace, stores it -- File and Text answers carry attachments.
+- [x] 10.4 `server/internal/handler/daemon.go`, `server/internal/handler/agent.go` -- for a claimed task with evidence `question_wake`, hydrate `question_answers` (unseen answers and ask-backs against the agent's latest other started run on the issue) on the claim wire -- the woken run gets its answers at claim.
+- [x] 10.5 `server/cmd/server/listeners.go` -- broadcast `question:created` and `question:updated` to the workspace -- clients refresh cards live.
+- [x] 10.6 `server/cmd/server/notification_listeners.go` -- on `question:created` notify every answerer with `question_asked`; on `question:updated` reason `reassigned` notify the new answerer with `question_reassigned` and the note; reason `overdue` notify current answerers with `question_overdue`; each with `issue_id` and `details.question_id`; no `notifTypeToGroup` entry -- the inbox requirement; direct questions cannot be muted.
+- [x] 10.7 `server/internal/handler/question_test.go` -- a member's ask is 403; an agent answerer is 422 naming the agent; an agent's answer is 403; a non-answerer's answer is 403; an invalid value is 422 with the validator's message; close by another agent is 403; wake by a member is 202 and its second call 409 -- the authorization and error matrix.
+- [x] 10.8 `server/internal/handler/daemon_question_wake_test.go` -- a woken task's claim carries the answer given after the asking run started and an edit made after Wake; a non-wake claim carries none -- the claim contract.
+- [x] 10.9 `server/cmd/server/notification_listeners_test.go` -- asked, reassigned and overdue create one item per recipient with `details.question_id`; answering creates none and no `question_answered` exists -- the inbox scenarios.
 
 ## 11. J8 Backend and agent tooling: job
 
-- [ ] 11.1 `server/internal/scheduler/jobs_question_overdue.go` -- `QuestionOverdueJob`, hourly: open questions with `due_date` before the UTC day and no `overdue_notified_at` get `question:updated` reason `overdue` and the stamp -- one overdue item per question.
-- [ ] 11.2 `server/cmd/server/main.go` -- register `QuestionOverdueJob` beside `IssueWakeupJob` -- the scheduler runs it.
-- [ ] 11.3 `server/internal/scheduler/jobs_question_overdue_test.go` -- a question due yesterday and open is stamped once across two ticks; answered, withdrawn and due-today questions are not -- the overdue boundary.
+- [x] 11.1 `server/internal/scheduler/jobs_question_overdue.go` -- `QuestionOverdueJob`, hourly: open questions with `due_date` before the UTC day and no `overdue_notified_at` get `question:updated` reason `overdue` and the stamp -- one overdue item per question.
+- [x] 11.2 `server/cmd/server/main.go` -- register `QuestionOverdueJob` beside `IssueWakeupJob` -- the scheduler runs it.
+- [x] 11.3 `server/internal/scheduler/jobs_question_overdue_test.go` -- a question due yesterday and open is stamped once across two ticks; answered, withdrawn and due-today questions are not -- the overdue boundary.
 
 ## 12. J8 Backend and agent tooling: CLI command
 
-- [ ] 12.1 `server/cmd/multica/cmd_question.go` -- `multica question ask|answers|close|withdraw` with the flags of design.md decision 8, member resolution for `--answerer` that fails on an agent name, `--output json`, help that lists the answer types and flags and says nothing about when to ask -- the agent's tool.
-- [ ] 12.2 `server/cmd/multica/main.go` -- add the `question` command to the Core help group -- `multica --help` lists it.
-- [ ] 12.3 `server/cmd/multica/cmd_question_test.go` -- flag-to-request mapping per type, `--suggest` mapping, an agent answerer refused before any request, `answers` JSON output -- the CLI contract.
-- [ ] 12.4 `server/internal/daemon/execenv/runtime_config_sections.go` -- write the spec's Questions section word for word for every task kind that runs on an issue -- the brief tells only that the tool exists.
-- [ ] 12.5 `server/internal/daemon/execenv/runtime_config_sections_test.go` -- an issue run's brief holds the section exactly; a chat run's does not; `TestBriefByteIdenticalAcrossRunsForEveryKind` still passes -- the brief scenario.
-- [ ] 12.6 `server/internal/daemon/types.go`, `server/internal/daemon/prompt.go` -- `Task.QuestionAnswers` and the `[ANSWERS]` block of design.md decision 5 appended by `perTurnContextBlocks` -- run-scoped data stays out of the cached brief (MUL-5377).
-- [ ] 12.7 `server/internal/daemon/prompt_test.go` -- a woken task's prompt ends with the block naming the waker, the count and each answer; a task without answers has no block -- the woken-run scenario.
+- [x] 12.1 `server/cmd/multica/cmd_question.go` -- `multica question ask|answers|close|withdraw` with the flags of design.md decision 8, member resolution for `--answerer` that fails on an agent name, `--output json`, help that lists the answer types and flags and says nothing about when to ask -- the agent's tool.
+- [x] 12.2 `server/cmd/multica/main.go` -- add the `question` command to the Core help group -- `multica --help` lists it.
+- [x] 12.3 `server/cmd/multica/cmd_question_test.go` -- flag-to-request mapping per type, `--suggest` mapping, an agent answerer refused before any request, `answers` JSON output -- the CLI contract.
+- [x] 12.4 `server/internal/daemon/execenv/runtime_config_sections.go` -- write the spec's Questions section word for word for every task kind that runs on an issue -- the brief tells only that the tool exists.
+- [x] 12.5 `server/internal/daemon/execenv/runtime_config_sections_test.go` -- an issue run's brief holds the section exactly; a chat run's does not; `TestBriefByteIdenticalAcrossRunsForEveryKind` still passes -- the brief scenario.
+- [x] 12.6 `server/internal/daemon/types.go`, `server/internal/daemon/prompt.go` -- `Task.QuestionAnswers` and the `[ANSWERS]` block of design.md decision 5 appended by `perTurnContextBlocks` -- run-scoped data stays out of the cached brief (MUL-5377).
+- [x] 12.7 `server/internal/daemon/prompt_test.go` -- a woken task's prompt ends with the block naming the waker, the count and each answer; a task without answers has no block -- the woken-run scenario.
 
 ## 13. J8 Backend and agent tooling: skill
 
-- [ ] 13.1 `server/internal/service/builtin_skills/multica-platform/SKILL.md` -- name `multica question` and point to `multica question --help`, with no word on when or why to ask -- the skill lists the tool as the spec says.
-- [ ] 13.2 `apps/docs/content/docs/cli.mdx`, `cli.zh.mdx`, `cli.ja.mdx`, `cli.ko.mdx`, `cli.fr.mdx` -- add `multica question` and its subcommands to the CLI reference -- every documented language lists the command.
+- [x] 13.1 `server/internal/service/builtin_skills/multica-platform/SKILL.md` -- name `multica question` and point to `multica question --help`, with no word on when or why to ask -- the skill lists the tool as the spec says.
+- [x] 13.2 `apps/docs/content/docs/cli.mdx`, `cli.zh.mdx`, `cli.ja.mdx`, `cli.ko.mdx`, `cli.fr.mdx` -- add `multica question` and its subcommands to the CLI reference -- every documented language lists the command.
 
 ## 14. J9 Frontend: flow
 
@@ -206,7 +206,7 @@ Verified: `pnpm typecheck` at the root (web, desktop, core, views, ui); `apps/mo
 Files touched: `server/pkg/protocol/events.go`, `server/internal/attribution/attribution.go`, `server/internal/service/question_actions.go`.
 
 Decisions:
-- The payload is a typed `protocol.QuestionEventPayload{QuestionID, IssueID, Reason}` (JSON `question_id`, `issue_id`, `reason`, the last `omitempty` since `question:created` has none), and the eight reasons are `protocol.QuestionReason*` string constants beside it, so the service (9.1) and the listeners (10.5, 10.6) share one spelling.
+- The payload is a typed `protocol.QuestionEventPayload{QuestionID, IssueID, Reason, EventID}` (JSON `question_id`, `issue_id`, optional `reason` and `event_id`). Service mutations carry their committed event id, so a delayed reassignment notice resolves that event's recipient and note rather than a newer reassignment. The eight reasons are `protocol.QuestionReason*` string constants beside it.
 - `question_actions.go` holds `InboxTypeQuestionAsked`, `InboxTypeQuestionReassigned`, `InboxTypeQuestionOverdue` and `ActivityQuestionWake` as untyped string constants: the service package has no typed inbox or activity enum to join.
 - No new `TriggerKind`: the task names only the evidence kind; how Wake's run is attributed stays with 9.2.
 
@@ -241,6 +241,12 @@ Surprises:
 - Pencil drops a variable bound to width or height, so `Button/Ghost/Small`'s height 28 is a literal with the value of `$button-height-sm`. Sizes, paddings, the 16px controls and full radii stay literals, as in the existing components: the library has no size or spacing tokens.
 
 Verified: `GetVariables()` deep-equal before and after (70 variables); the 92 existing reusables and the Foundations frame hash-identical before and after (`Get(id,{depth:99})`); 107 reusables after; the Atoms and Components frames exported and checked by eye, nothing overlapping; every PNG opened.
+
+### Groups 8-13. J8 Backend and agent tooling
+
+- Wake requires the asking agent to be active and have a runtime; otherwise the card offers no Wake and the endpoint returns 422.
+- Notes and ask-backs occupy one line each in the run's `[ANSWERS]` block. The aggregate retains the original text.
+- Question notifications use the existing actor self-skip. Asked events come from the asking agent, overdue events from the system, and reassignment events from the departing answerer.
 
 ## Plan Change Log
 

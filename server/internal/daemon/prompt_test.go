@@ -8,6 +8,7 @@ import (
 
 	"github.com/multica-ai/multica/server/internal/daemon/execenv"
 	"github.com/multica-ai/multica/server/internal/service"
+	"github.com/multica-ai/multica/server/pkg/protocol"
 )
 
 // TestBuildQuickCreatePromptRules locks in the rules that govern how the
@@ -2252,5 +2253,57 @@ func TestPromptCarriesJoinedWakeups(t *testing.T) {
 	}
 	if out := BuildPrompt(Task{IssueID: "issue-1"}, "claude"); strings.Contains(out, "joined this run") {
 		t.Errorf("prompt without joined wakeups mentions them:\n%s", out)
+	}
+}
+
+func TestQuestionWakePromptAppendsAnswersAfterRunContext(t *testing.T) {
+	task := Task{IssueID: "issue-1", InitiatorName: "Brian", InitiatorEmail: "brian@example.com"}
+	without := BuildPrompt(task, "codex")
+	task.QuestionAnswers = &protocol.QuestionAnswers{
+		WakerName: "Brian", AnswerCount: 2,
+		Answers: []protocol.QuestionAnswerData{
+			{QuestionID: "q-1", Prompt: "Round per line or per total?", DisplayText: "per line", Note: "as the old system did", AnswererName: "Brian", UpdatedAt: "2026-10-12T21:04:00Z"},
+			{QuestionID: "q-2", Prompt: "Which customer?", DisplayText: "Acme", AnswererName: "Anouk", UpdatedAt: "2026-10-12T21:05:00Z"},
+		},
+		AskBacks: []protocol.QuestionAskBackData{
+			{QuestionID: "q-1", Prompt: "Round per line or per total?", Text: "Which currency?", ActorName: "Brian", CreatedAt: "2026-10-12T21:06:00Z"},
+		},
+	}
+	block := "[ANSWERS]\nBrian woke you with 2 answers to your questions:\n" +
+		"- q-1  \"Round per line or per total?\" → per line · Brian · 2026-10-12T21:04:00Z · note: as the old system did\n" +
+		"- q-2  \"Which customer?\" → Acme · Anouk · 2026-10-12T21:05:00Z\n" +
+		"- q-1  \"Round per line or per total?\" · ask back: Which currency? · Brian · 2026-10-12T21:06:00Z\n" +
+		"`multica question answers <question-id>` shows a question in full.\n\n"
+	if got := BuildPrompt(task, "codex"); got != without+block {
+		t.Fatalf("answers changed the prompt prefix or did not end the prompt:\n%s", got)
+	}
+}
+
+func TestQuestionWakePromptSingularAndNoAnswers(t *testing.T) {
+	task := Task{IssueID: "issue-1"}
+	if strings.Contains(BuildPrompt(task, "claude"), "[ANSWERS]") {
+		t.Fatal("ordinary run received an answers block")
+	}
+	task.QuestionAnswers = &protocol.QuestionAnswers{WakerName: "Brian", AnswerCount: 1}
+	if !strings.Contains(BuildPrompt(task, "claude"), "Brian woke you with 1 answer to your questions:\n") {
+		t.Fatal("one-answer wake did not name its waker and count")
+	}
+}
+
+func TestQuestionWakePromptKeepsMultilineInputOnOneItemLine(t *testing.T) {
+	block := buildQuestionAnswersBlock(&protocol.QuestionAnswers{
+		WakerName: "Brian", AnswerCount: 1,
+		Answers: []protocol.QuestionAnswerData{{
+			QuestionID: "q-1", Prompt: "Rounding?", DisplayText: "per line",
+			Note: "Use line totals.\n\nKeep two decimals.", AnswererName: "Brian",
+		}},
+		AskBacks: []protocol.QuestionAskBackData{{
+			QuestionID: "q-1", Prompt: "Rounding?",
+			Text: "EUR or USD?\nWhich invoice?", ActorName: "Brian",
+		}},
+	})
+	lines := strings.Split(block, "\n")
+	if len(lines) != 7 || !strings.Contains(lines[2], "Use line totals. Keep two decimals.") || !strings.Contains(lines[3], "EUR or USD? Which invoice?") {
+		t.Fatalf("multiline content broke the per-item lines:\n%s", block)
 	}
 }

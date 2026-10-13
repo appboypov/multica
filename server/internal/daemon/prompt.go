@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/multica-ai/multica/server/internal/daemon/execenv"
+	"github.com/multica-ai/multica/server/pkg/protocol"
 )
 
 // sessionContinuityNoticeFor picks the notice matching what this surface
@@ -70,6 +71,7 @@ func perTurnContextBlocks(task Task, opts promptOpts) string {
 	b.WriteString(execenv.BuildOnBehalfOfBlock(task.InitiatorName, task.InitiatorEmail))
 	b.WriteString(execenv.BuildConnectedAppsBlock(task.ConnectedApps))
 	b.WriteString(buildJoinedWakeupsBlock(task.WakeupJoined))
+	b.WriteString(buildQuestionAnswersBlock(task.QuestionAnswers))
 	return b.String()
 }
 
@@ -81,6 +83,31 @@ func buildJoinedWakeupsBlock(notes string) string {
 		return ""
 	}
 	return "[WAKEUP — joined this run]\n" + strings.TrimSpace(notes) + "\n\n"
+}
+
+func buildQuestionAnswersBlock(answers *protocol.QuestionAnswers) string {
+	if answers == nil {
+		return ""
+	}
+	var b strings.Builder
+	b.WriteString("[ANSWERS]\n")
+	plural := "answers"
+	if answers.AnswerCount == 1 {
+		plural = "answer"
+	}
+	fmt.Fprintf(&b, "%s woke you with %d %s to your questions:\n", answers.WakerName, answers.AnswerCount, plural)
+	for _, answer := range answers.Answers {
+		fmt.Fprintf(&b, "- %s  %q → %s · %s · %s", answer.QuestionID, answer.Prompt, answer.DisplayText, answer.AnswererName, answer.UpdatedAt)
+		if answer.Note != "" {
+			fmt.Fprintf(&b, " · note: %s", strings.Join(strings.Fields(answer.Note), " "))
+		}
+		b.WriteString("\n")
+	}
+	for _, reply := range answers.AskBacks {
+		fmt.Fprintf(&b, "- %s  %q · ask back: %s · %s · %s\n", reply.QuestionID, reply.Prompt, strings.Join(strings.Fields(reply.Text), " "), reply.ActorName, reply.CreatedAt)
+	}
+	b.WriteString("`multica question answers <question-id>` shows a question in full.\n\n")
+	return b.String()
 }
 
 // promptOpts carries per-run facts the claimed Task does not: things only the
