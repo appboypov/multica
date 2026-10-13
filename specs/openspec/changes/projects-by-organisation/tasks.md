@@ -153,7 +153,7 @@ flowchart LR
 
 ## 10. J9 Frontend: component change
 
-- [ ] 10.1 `packages/views/projects/components/project-badge.tsx`, `labels.ts`, `project-start-date-picker.tsx`, `project-due-date-picker.tsx` -- remove `ProjectStatusBadge`, the status labels and both date pickers -- ADR-0005.
+- [x] 10.1 `packages/views/projects/components/project-badge.tsx`, `labels.ts`, `project-start-date-picker.tsx`, `project-due-date-picker.tsx` -- remove `ProjectStatusBadge`, the status labels and both date pickers -- ADR-0005.
 - [ ] 10.2 `packages/views/projects/components/organisation-picker.tsx` -- a dropdown of the workspace's organisations by name, with "No organisation" as the value shown when none is set, on the existing `DropdownMenu` and `PillButton` -- one control for New project and the project page.
 - [ ] 10.3 `packages/views/projects/components/project-table.tsx` -- the table body moved out of `projects-page.tsx`, taking `projects` and optional `groups`. Group rows carry a chevron, the organisation's name as an `AppLink` to its page, and "N projects", and fold through `collapsedOrganisations` -- shared by Projects and the Organisation page.
 - [ ] 10.4 `packages/views/search/search-command.tsx`, `packages/views/editor/extensions/mention-suggestion.tsx`, `packages/views/chat/use-chat-context-items.ts` -- drop the project status icons and labels -- decision 3.
@@ -267,6 +267,10 @@ flowchart LR
 - 9.10 files touched: `packages/core/projects/stores/view-store.test.ts`, new `packages/core/issues/stores/view-store.test.ts`. Regression coverage loads stale project status sort/filter preferences, keeps unrelated preferences and supported sorts, and round-trips collapsed organisation groups across workspaces. Canonical issue hydration tests drop stale array/scalar/null project-status keys without mutating persisted input or losing issue status, priority or project filters, and ensure the removed dimension is not re-persisted.
 - 9.9 verification correction: Main reported core typecheck clean and 2295 passing tests, with the diagnostic builder-parity test failing because organisation routes fell into the unknown-route mask. Added `organisations` collection/detail patterns to `packages/core/diagnostics/diagnostic-context.ts` and explicit list/detail, encoded-ID, query/hash and unknown-descendant masking coverage in `diagnostic-context.test.ts`. The existing parity test still walks every real path builder. No check was rerun by this builder; Main owns post-fix verification.
 - Verification handoff: no tests, typecheck, lint, format or build run by this builder; Main owns the final core and integrated frontend checks.
+
+### Group 10. J9 Frontend: component change
+
+- 10.1 files touched: `packages/views/projects/components/project-badge.tsx` (only `ProjectPriorityBadge` stays), `labels.ts` (`useProjectStatusLabels` removed), deleted `project-start-date-picker.tsx`, `project-due-date-picker.tsx` and their `project-date-pickers.test.tsx`. Callers in group 11's screens (`projects-page.tsx`, `project-detail.tsx`, `create-project.tsx` and their tests' `vi.mock` of the pickers) still import them; group 11 removes those uses, so views typecheck stays red until it lands. The issue pickers (`issues/components/pickers/`) are a separate component and stay.
 
 ## Plan Change Log
 
