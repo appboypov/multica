@@ -20,7 +20,7 @@ flowchart LR
 
 ## 2. multica-platform skill reference
 
-- [ ] 2.1 `server/internal/service/builtin_skills/multica-platform/references/agents.md` -- in "Copying an agent", name `GET /api/runtimes?owner=me` in the opening paragraph as design Decision 5 says, and add one bullet after the runtime-specific bullet: `instruction_selection` is copied unchanged, in order, only when the caller owns the source runtime and the copy stays on it; otherwise the copy has none and one stderr line says why; a failed ownership read stops the copy before the create. -- agents reading the reference copy agents the way the CLI does. Verify: `cd server && go build ./...` (the reference is embedded).
+- [x] 2.1 `server/internal/service/builtin_skills/multica-platform/references/agents.md` -- in "Copying an agent", name `GET /api/runtimes?owner=me` in the opening paragraph as design Decision 5 says, and add one bullet after the runtime-specific bullet: `instruction_selection` is copied unchanged, in order, only when the caller owns the source runtime and the copy stays on it; otherwise the copy has none and one stderr line says why; a failed ownership read stops the copy before the create. -- agents reading the reference copy agents the way the CLI does. Verify: `cd server && go build ./...` (the reference is embedded).
 
 ## Implementation Notes
 
@@ -57,7 +57,8 @@ flowchart LR
 
 - Files: `server/internal/service/builtin_skills/multica-platform/references/agents.md`.
 - The opening paragraph of "Copying an agent" now names `GET /api/runtimes?owner=me` as the extra read made before the create when the source has a selection and the copy stays on its runtime.
-- The new bullet sits right after the runtime-specific bullet and quotes both stderr notes as `cmd_agent_copy.go` prints them (the second abbreviated with `...` after the shared prefix), each with the case it covers.
+- The new bullet sits right after the runtime-specific bullet and quotes both stderr notes in full, word for word as the constants `selectionOnSourceMachineNote` and `selectionOwnerOnlyNote` in `cmd_agent_copy.go` print them, each on its own line after the case it covers; the two long code spans are left unwrapped so neither note is split.
+- Surprise: the first build of this task edited the main checkout's copy of the file instead of this worktree's and ticked the task without the change. The edit was carried over with `git diff | git apply`, and the main checkout's file restored with `git restore`, touching nothing else there.
 - Verified: `cd server && go build ./...` and `git diff --check` are clean.
 
 ## Plan Change Log
