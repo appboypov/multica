@@ -21,6 +21,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/multica-ai/multica/server/internal/analytics"
+	"github.com/multica-ai/multica/server/internal/attribution"
 	"github.com/multica-ai/multica/server/internal/auth"
 	"github.com/multica-ai/multica/server/internal/daemonws"
 	"github.com/multica-ai/multica/server/internal/integrations/slack"
@@ -3686,7 +3687,7 @@ func (h *Handler) buildClaimedTaskResponse(r *http.Request, task *db.AgentTaskQu
 		resp.InitiatorName = originator.Name
 		resp.InitiatorEmail = originator.Email
 	}
-	if task.TriggerEvidenceKind.String == service.ActivityQuestionWake {
+	if task.TriggerEvidenceKind.String == string(attribution.EvidenceQuestionWake) {
 		resp.QuestionAnswers, err = h.loadClaimQuestionAnswers(r.Context(), *task, parseUUID(resp.WorkspaceID), resp.InitiatorName)
 		if err != nil {
 			slog.Error("claim: failed to hydrate question answers", "task_id", resp.ID, "error", err)
@@ -3700,7 +3701,7 @@ func (h *Handler) buildClaimedTaskResponse(r *http.Request, task *db.AgentTaskQu
 }
 
 func (h *Handler) loadClaimQuestionAnswers(ctx context.Context, task db.AgentTaskQueue, workspaceID pgtype.UUID, wakerName string) (*protocol.QuestionAnswers, error) {
-	if !task.TriggerEvidenceKind.Valid || task.TriggerEvidenceKind.String != service.ActivityQuestionWake {
+	if !task.TriggerEvidenceKind.Valid || task.TriggerEvidenceKind.String != string(attribution.EvidenceQuestionWake) {
 		return nil, nil
 	}
 	if !task.IssueID.Valid {

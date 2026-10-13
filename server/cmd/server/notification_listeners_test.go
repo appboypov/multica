@@ -1375,14 +1375,24 @@ func TestNotification_QuestionRecipientsAndNoAnsweredItem(t *testing.T) {
 			for _, user := range []string{first, second} {
 				fx.InsertNoID(t, "question_answerer", testutil.Cols{"question_id": id, "workspace_id": ws, "user_id": user}, "question_id=$1 AND user_id=$2", id, user)
 			}
+			reassignmentID := ""
 			if tc.reason == protocol.QuestionReasonReassigned {
 				details, err := json.Marshal(map[string]string{"user_id": second, "note": "You set the invoice rules"})
 				if err != nil {
 					t.Fatal(err)
 				}
-				fx.Insert(t, "question_event", testutil.Cols{
+				reassignmentID = fx.Insert(t, "question_event", testutil.Cols{
 					"id": dbid.NewV7(), "question_id": id, "workspace_id": ws, "kind": "reassigned",
 					"actor_type": "member", "actor_id": first, "details": details,
+					"created_at": testutil.Raw("now() - interval '1 minute'"),
+				})
+				laterDetails, err := json.Marshal(map[string]string{"user_id": first, "note": "Please check the totals"})
+				if err != nil {
+					t.Fatal(err)
+				}
+				fx.Insert(t, "question_event", testutil.Cols{
+					"id": dbid.NewV7(), "question_id": id, "workspace_id": ws, "kind": "reassigned",
+					"actor_type": "member", "actor_id": second, "details": laterDetails,
 				})
 			}
 			fx.Cleanup(t, "DELETE FROM inbox_item WHERE workspace_id=$1", ws)
@@ -1391,9 +1401,15 @@ func TestNotification_QuestionRecipientsAndNoAnsweredItem(t *testing.T) {
 			registerNotificationListeners(bus, queries)
 			var delivered []events.Event
 			bus.Subscribe(protocol.EventInboxNew, func(e events.Event) { delivered = append(delivered, e) })
+			actorType, actorID := "agent", agent
+			if tc.reason == protocol.QuestionReasonReassigned {
+				actorType, actorID = "member", first
+			} else if tc.reason == protocol.QuestionReasonOverdue {
+				actorType, actorID = "system", ""
+			}
 			bus.Publish(events.Event{
-				Type: tc.eventType, WorkspaceID: ws, ActorType: "member", ActorID: first,
-				Payload: protocol.QuestionEventPayload{QuestionID: id, IssueID: issue, Reason: tc.reason},
+				Type: tc.eventType, WorkspaceID: ws, ActorType: actorType, ActorID: actorID,
+				Payload: protocol.QuestionEventPayload{QuestionID: id, IssueID: issue, Reason: tc.reason, EventID: reassignmentID},
 			})
 			wantTotal := 2
 			if tc.inboxType == "" {

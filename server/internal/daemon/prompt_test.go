@@ -2289,3 +2289,21 @@ func TestQuestionWakePromptSingularAndNoAnswers(t *testing.T) {
 		t.Fatal("one-answer wake did not name its waker and count")
 	}
 }
+
+func TestQuestionWakePromptKeepsMultilineInputOnOneItemLine(t *testing.T) {
+	block := buildQuestionAnswersBlock(&protocol.QuestionAnswers{
+		WakerName: "Brian", AnswerCount: 1,
+		Answers: []protocol.QuestionAnswerData{{
+			QuestionID: "q-1", Prompt: "Rounding?", DisplayText: "per line",
+			Note: "Use line totals.\n\nKeep two decimals.", AnswererName: "Brian",
+		}},
+		AskBacks: []protocol.QuestionAskBackData{{
+			QuestionID: "q-1", Prompt: "Rounding?",
+			Text: "EUR or USD?\nWhich invoice?", ActorName: "Brian",
+		}},
+	})
+	lines := strings.Split(block, "\n")
+	if len(lines) != 7 || !strings.Contains(lines[2], "Use line totals. Keep two decimals.") || !strings.Contains(lines[3], "EUR or USD? Which invoice?") {
+		t.Fatalf("multiline content broke the per-item lines:\n%s", block)
+	}
+}

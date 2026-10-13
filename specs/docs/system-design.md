@@ -120,6 +120,7 @@ flowchart LR
   questions --> questionrules
   questions --> sqlc
   questions -->|"EnqueueTaskForQuestionWake"| services
+  daemonapi --> questionrules
   questions --> bus
   handlers --> sqlc
   runtimeh --> reqstores
@@ -140,7 +141,7 @@ flowchart LR
   services --> dhub
   hub --> redis
   sched --> services
-  main --> questionjob
+  main --> sched --> questionjob
   questionjob --> sqlc
   questionjob --> bus
   sched --> sqlc

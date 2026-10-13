@@ -262,19 +262,19 @@ func (s *QuestionService) validateReferences(ctx context.Context, q *db.Queries,
 	return nil
 }
 
-func (s *QuestionService) writeEvent(ctx context.Context, q *db.Queries, row db.Question, actor QuestionActor, kind string, details any) error {
+func (s *QuestionService) writeEvent(ctx context.Context, q *db.Queries, row db.Question, actor QuestionActor, kind string, details any) (string, error) {
 	if details == nil {
 		details = struct{}{}
 	}
 	encoded, err := json.Marshal(details)
 	if err != nil {
-		return err
+		return "", err
 	}
-	_, err = q.CreateQuestionEvent(ctx, db.CreateQuestionEventParams{ID: dbid.NewV7(), QuestionID: row.ID, WorkspaceID: row.WorkspaceID, Kind: kind, ActorType: actor.Type, ActorID: actor.ID, Details: encoded})
-	return err
+	event, err := q.CreateQuestionEvent(ctx, db.CreateQuestionEventParams{ID: dbid.NewV7(), QuestionID: row.ID, WorkspaceID: row.WorkspaceID, Kind: kind, ActorType: actor.Type, ActorID: actor.ID, Details: encoded})
+	return util.UUIDToString(event.ID), err
 }
 
-func (s *QuestionService) publish(row QuestionDTO, actor QuestionActor, reason string) {
+func (s *QuestionService) publish(row QuestionDTO, actor QuestionActor, reason, eventID string) {
 	slog.Info("question action committed", "question_id", row.ID, "workspace_id", row.WorkspaceID, "action", reason, "actor_type", actor.Type, "actor_id", util.UUIDToString(actor.ID))
 	if s.Bus == nil {
 		return
@@ -290,7 +290,7 @@ func (s *QuestionService) publish(row QuestionDTO, actor QuestionActor, reason s
 	if reason == "asked" {
 		eventType = protocol.EventQuestionCreated
 	}
-	s.Bus.Publish(events.Event{Type: eventType, WorkspaceID: row.WorkspaceID, ActorType: actor.Type, ActorID: util.UUIDToString(actor.ID), Payload: protocol.QuestionEventPayload{QuestionID: row.ID, IssueID: issueID, Reason: reason}})
+	s.Bus.Publish(events.Event{Type: eventType, WorkspaceID: row.WorkspaceID, ActorType: actor.Type, ActorID: util.UUIDToString(actor.ID), Payload: protocol.QuestionEventPayload{QuestionID: row.ID, IssueID: issueID, Reason: reason, EventID: eventID}})
 }
 
 func (s *QuestionService) Ask(ctx context.Context, workspaceID pgtype.UUID, actor QuestionActor, input AskQuestionInput) (QuestionDTO, error) {
@@ -358,7 +358,8 @@ func (s *QuestionService) Ask(ctx context.Context, workspaceID pgtype.UUID, acto
 	if err := q.CreateQuestionAnswerers(ctx, db.CreateQuestionAnswerersParams{QuestionID: row.ID, WorkspaceID: workspaceID, UserIds: input.AnswererIDs}); err != nil {
 		return QuestionDTO{}, err
 	}
-	if err := s.writeEvent(ctx, q, row, actor, "asked", nil); err != nil {
+	eventID, err := s.writeEvent(ctx, q, row, actor, "asked", nil)
+	if err != nil {
 		return QuestionDTO{}, err
 	}
 	result, err := s.hydrate(ctx, q, workspaceID, []db.Question{row})
@@ -368,7 +369,7 @@ func (s *QuestionService) Ask(ctx context.Context, workspaceID pgtype.UUID, acto
 	if err := tx.Commit(ctx); err != nil {
 		return QuestionDTO{}, err
 	}
-	s.publish(result[0], actor, "asked")
+	s.publish(result[0], actor, "asked", eventID)
 	return result[0], nil
 }
 
@@ -409,7 +410,8 @@ func (s *QuestionService) mutate(ctx context.Context, workspaceID, questionID pg
 	if err != nil {
 		return QuestionDTO{}, err
 	}
-	if err := s.writeEvent(ctx, q, row, actor, reason, details); err != nil {
+	eventID, err := s.writeEvent(ctx, q, row, actor, reason, details)
+	if err != nil {
 		return QuestionDTO{}, err
 	}
 	result, err := s.hydrate(ctx, q, workspaceID, []db.Question{row})
@@ -419,7 +421,7 @@ func (s *QuestionService) mutate(ctx context.Context, workspaceID, questionID pg
 	if err := tx.Commit(ctx); err != nil {
 		return QuestionDTO{}, err
 	}
-	s.publish(result[0], actor, reason)
+	s.publish(result[0], actor, reason, eventID)
 	return result[0], nil
 }
 
@@ -616,8 +618,9 @@ func (s *QuestionService) hydrate(ctx context.Context, q *db.Queries, workspaceI
 	}
 	type pair struct{ agent, issue pgtype.UUID }
 	type wakeState struct {
-		count  int64
-		active bool
+		count     int64
+		active    bool
+		available bool
 	}
 	states := make(map[pair]wakeState)
 	for i, row := range rows {
@@ -627,6 +630,11 @@ func (s *QuestionService) hydrate(ctx context.Context, q *db.Queries, workspaceI
 		key := pair{row.AskerAgentID, issueIDs[row.ID]}
 		state, ok := states[key]
 		if !ok {
+			agent, err := q.GetAgent(ctx, key.agent)
+			if err != nil {
+				return nil, err
+			}
+			state.available = !agent.ArchivedAt.Valid && agent.RuntimeID.Valid
 			state.count, err = q.CountUnseenQuestionAnswers(ctx, db.CountUnseenQuestionAnswersParams{WorkspaceID: workspaceID, IssueID: key.issue, AgentID: key.agent})
 			if err != nil {
 				return nil, err
@@ -638,7 +646,7 @@ func (s *QuestionService) hydrate(ctx context.Context, q *db.Queries, workspaceI
 			states[key] = state
 		}
 		result[i].UnseenAnswerCount = state.count
-		result[i].WakeAvailable = row.Status == "answered" && state.count > 0 && !state.active
+		result[i].WakeAvailable = row.Status == "answered" && state.count > 0 && !state.active && state.available
 	}
 	return result, nil
 }
@@ -659,6 +667,13 @@ func (s *QuestionService) Wake(ctx context.Context, workspaceID, questionID pgty
 	}
 	if row.Status != "answered" {
 		return QuestionWakeResult{}, questionRefusal(422, "only answered questions can wake their asking agent")
+	}
+	agent, err := q.GetAgent(ctx, row.AskerAgentID)
+	if err != nil {
+		return QuestionWakeResult{}, err
+	}
+	if agent.ArchivedAt.Valid || !agent.RuntimeID.Valid {
+		return QuestionWakeResult{}, questionRefusal(422, "asking agent must be active and have a runtime")
 	}
 	links, err := q.ListQuestionLinksByQuestions(ctx, db.ListQuestionLinksByQuestionsParams{WorkspaceID: workspaceID, QuestionIds: []pgtype.UUID{row.ID}})
 	if err != nil {
@@ -707,7 +722,8 @@ func (s *QuestionService) Wake(ctx context.Context, workspaceID, questionID pgty
 	if _, err := q.CreateActivity(ctx, db.CreateActivityParams{ID: dbid.NewV7(), WorkspaceID: workspaceID, IssueID: issue.ID, ActorType: pgtype.Text{String: "member", Valid: true}, ActorID: actor.ID, Action: ActivityQuestionWake, Details: details}); err != nil {
 		return QuestionWakeResult{}, err
 	}
-	if err := s.writeEvent(ctx, q, row, actor, "woken", result); err != nil {
+	eventID, err := s.writeEvent(ctx, q, row, actor, "woken", result)
+	if err != nil {
 		return QuestionWakeResult{}, err
 	}
 	if _, err := q.SetQuestionStatus(ctx, db.SetQuestionStatusParams{ID: row.ID, WorkspaceID: workspaceID, Status: "answered", FromStatuses: []string{"answered"}}); err != nil {
@@ -718,7 +734,7 @@ func (s *QuestionService) Wake(ctx context.Context, workspaceID, questionID pgty
 	}
 	s.Tasks.BroadcastTaskQueued(ctx, task)
 	s.Tasks.NotifyTaskEnqueued(ctx, task)
-	s.publish(QuestionDTO{ID: util.UUIDToString(row.ID), WorkspaceID: util.UUIDToString(workspaceID), Links: []QuestionLinkDTO{{LinkType: "issue", LinkID: util.UUIDToString(issue.ID)}}}, actor, "woken")
+	s.publish(QuestionDTO{ID: util.UUIDToString(row.ID), WorkspaceID: util.UUIDToString(workspaceID), Links: []QuestionLinkDTO{{LinkType: "issue", LinkID: util.UUIDToString(issue.ID)}}}, actor, "woken", eventID)
 	slog.Info("question agent woken", "question_id", util.UUIDToString(row.ID), "task_id", result.TaskID, "answer_count", count)
 	return result, nil
 }

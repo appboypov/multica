@@ -501,9 +501,7 @@ func notifyDirect(
 	body string,
 	details []byte,
 ) {
-	// Questions are addressed to every answerer, including self-reassignments.
-	if recipientID == e.ActorID && notifType != service.InboxTypeQuestionAsked &&
-		notifType != service.InboxTypeQuestionReassigned && notifType != service.InboxTypeQuestionOverdue {
+	if recipientID == e.ActorID {
 		return
 	}
 
@@ -1129,7 +1127,7 @@ func notifyQuestionAnswerers(ctx context.Context, queries *db.Queries, bus *even
 			return
 		}
 		for i := len(history) - 1; i >= 0; i-- {
-			if history[i].Kind != protocol.QuestionReasonReassigned {
+			if history[i].Kind != protocol.QuestionReasonReassigned || util.UUIDToString(history[i].ID) != payload.EventID {
 				continue
 			}
 			var reassignment struct {

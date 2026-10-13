@@ -206,7 +206,7 @@ Verified: `pnpm typecheck` at the root (web, desktop, core, views, ui); `apps/mo
 Files touched: `server/pkg/protocol/events.go`, `server/internal/attribution/attribution.go`, `server/internal/service/question_actions.go`.
 
 Decisions:
-- The payload is a typed `protocol.QuestionEventPayload{QuestionID, IssueID, Reason}` (JSON `question_id`, `issue_id`, `reason`, the last `omitempty` since `question:created` has none), and the eight reasons are `protocol.QuestionReason*` string constants beside it, so the service (9.1) and the listeners (10.5, 10.6) share one spelling.
+- The payload is a typed `protocol.QuestionEventPayload{QuestionID, IssueID, Reason, EventID}` (JSON `question_id`, `issue_id`, optional `reason` and `event_id`). Service mutations carry their committed event id, so a delayed reassignment notice resolves that event's recipient and note rather than a newer reassignment. The eight reasons are `protocol.QuestionReason*` string constants beside it.
 - `question_actions.go` holds `InboxTypeQuestionAsked`, `InboxTypeQuestionReassigned`, `InboxTypeQuestionOverdue` and `ActivityQuestionWake` as untyped string constants: the service package has no typed inbox or activity enum to join.
 - No new `TriggerKind`: the task names only the evidence kind; how Wake's run is attributed stays with 9.2.
 
@@ -241,6 +241,12 @@ Surprises:
 - Pencil drops a variable bound to width or height, so `Button/Ghost/Small`'s height 28 is a literal with the value of `$button-height-sm`. Sizes, paddings, the 16px controls and full radii stay literals, as in the existing components: the library has no size or spacing tokens.
 
 Verified: `GetVariables()` deep-equal before and after (70 variables); the 92 existing reusables and the Foundations frame hash-identical before and after (`Get(id,{depth:99})`); 107 reusables after; the Atoms and Components frames exported and checked by eye, nothing overlapping; every PNG opened.
+
+### Groups 8-13. J8 Backend and agent tooling
+
+- Wake requires the asking agent to be active and have a runtime; otherwise the card offers no Wake and the endpoint returns 422.
+- Notes and ask-backs occupy one line each in the run's `[ANSWERS]` block. The aggregate retains the original text.
+- Question notifications use the existing actor self-skip. Asked events come from the asking agent, overdue events from the system, and reassignment events from the departing answerer.
 
 ## Plan Change Log
 

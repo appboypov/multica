@@ -175,6 +175,15 @@ func TestQuestionLifecycleNeverEnqueues(t *testing.T) {
 		if row.Events[i].Kind != kind {
 			t.Errorf("history[%d] = %s, want %s", i, row.Events[i].Kind, kind)
 		}
+		if kind == "reassigned" {
+			var details map[string]string
+			if err := json.Unmarshal(row.Events[i].Details, &details); err != nil {
+				t.Fatal(err)
+			}
+			if details["user_id"] != util.UUIDToString(f.anouk) || details["note"] != "You set the invoice rules" {
+				t.Errorf("reassignment details = %+v", details)
+			}
+		}
 	}
 	listed, err := f.svc.ListForIssue(ctx, f.workspace, f.issue)
 	if err != nil || len(listed) != 1 || listed[0].Status != "closed" {
@@ -298,6 +307,33 @@ func TestQuestionWakeRefusesEveryActiveTask(t *testing.T) {
 			if got := f.fx.Count(t, `SELECT count(*) FROM activity_log WHERE issue_id = $1 AND action = 'question_wake'`, f.issue); got != 0 {
 				t.Fatalf("refused wake wrote %d activities", got)
 			}
+		})
+	}
+}
+
+func TestQuestionWakeRefusesUnavailableAgent(t *testing.T) {
+	for _, state := range []string{"archived", "no runtime"} {
+		t.Run(state, func(t *testing.T) {
+			f := newQuestionFixture(t)
+			row := f.ask(t)
+			f.finishAskingRun(t)
+			f.answer(t, row, f.answerer, "per line")
+			if state == "archived" {
+				f.fx.Exec(t, "UPDATE agent SET archived_at=now() WHERE id=$1", f.agent)
+			} else {
+				f.fx.Exec(t, "UPDATE agent SET runtime_id=NULL WHERE id=$1", f.agent)
+			}
+			id := util.MustParseUUID(row.ID)
+			row, err := f.svc.Get(context.Background(), f.workspace, id)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if row.WakeAvailable || row.UnseenAnswerCount != 1 {
+				t.Errorf("unavailable agent card = %+v", row)
+			}
+			_, err = f.svc.Wake(context.Background(), f.workspace, id, f.answerer)
+			wantQuestionRefusal(t, err, 422)
+			f.wantNoNewTask(t)
 		})
 	}
 }

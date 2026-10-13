@@ -241,4 +241,5 @@ type QuestionEventPayload struct {
 	QuestionID string `json:"question_id"`
 	IssueID    string `json:"issue_id"`
 	Reason     string `json:"reason,omitempty"`
+	EventID    string `json:"event_id,omitempty"`
 }

@@ -99,12 +99,12 @@ func buildQuestionAnswersBlock(answers *protocol.QuestionAnswers) string {
 	for _, answer := range answers.Answers {
 		fmt.Fprintf(&b, "- %s  %q → %s · %s · %s", answer.QuestionID, answer.Prompt, answer.DisplayText, answer.AnswererName, answer.UpdatedAt)
 		if answer.Note != "" {
-			fmt.Fprintf(&b, " · note: %s", answer.Note)
+			fmt.Fprintf(&b, " · note: %s", strings.Join(strings.Fields(answer.Note), " "))
 		}
 		b.WriteString("\n")
 	}
 	for _, reply := range answers.AskBacks {
-		fmt.Fprintf(&b, "- %s  %q · ask back: %s · %s · %s\n", reply.QuestionID, reply.Prompt, reply.Text, reply.ActorName, reply.CreatedAt)
+		fmt.Fprintf(&b, "- %s  %q · ask back: %s · %s · %s\n", reply.QuestionID, reply.Prompt, strings.Join(strings.Fields(reply.Text), " "), reply.ActorName, reply.CreatedAt)
 	}
 	b.WriteString("`multica question answers <question-id>` shows a question in full.\n\n")
 	return b.String()
