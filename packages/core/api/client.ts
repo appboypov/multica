@@ -6,6 +6,13 @@ import type { InboxFilters } from "../inbox/filter-store";
 import type { ArchivedInboxPage, ArchivedInboxFacets } from "../types/inbox";
 import { configStore } from "../config";
 import type {
+  AnswerQuestionRequest,
+  AskBackQuestionRequest,
+  Question,
+  QuestionWakeResult,
+  ReassignQuestionRequest,
+} from "../types/question";
+import type {
   Issue,
   IssuePriority,
   CreateIssueRequest,
@@ -261,6 +268,12 @@ import {
   ListProjectsResponseSchema,
   EMPTY_PROJECT,
   EMPTY_LIST_PROJECTS_RESPONSE,
+  QuestionListSchema,
+  QuestionSchema,
+  QuestionWakeResultSchema,
+  EMPTY_QUESTION,
+  EMPTY_QUESTION_LIST,
+  EMPTY_QUESTION_WAKE_RESULT,
   RuntimeProfileSchema,
   RuntimeProfileListSchema,
   AgentTaskListSchema,
@@ -3657,10 +3670,62 @@ export class ApiClient {
     await this.fetch(`/api/tokens/${id}`, { method: "DELETE" });
   }
 
+  // Questions
+  async listIssueQuestions(issueId: string): Promise<Question[]> {
+    const raw: unknown = await this.fetch(`/api/issues/${issueId}/questions`);
+    return parseWithFallback(raw, QuestionListSchema, EMPTY_QUESTION_LIST, {
+      endpoint: "GET /api/issues/:id/questions",
+    });
+  }
+
+  async getQuestion(id: string): Promise<Question> {
+    const raw: unknown = await this.fetch(`/api/questions/${id}`);
+    return parseWithFallback(raw, QuestionSchema, EMPTY_QUESTION, {
+      endpoint: "GET /api/questions/:id",
+    });
+  }
+
+  async answerQuestion(id: string, data: AnswerQuestionRequest): Promise<Question> {
+    const raw: unknown = await this.fetch(`/api/questions/${id}/answer`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+    return parseWithFallback(raw, QuestionSchema, EMPTY_QUESTION, {
+      endpoint: "POST /api/questions/:id/answer",
+    });
+  }
+
+  async askBackQuestion(id: string, data: AskBackQuestionRequest): Promise<Question> {
+    const raw: unknown = await this.fetch(`/api/questions/${id}/ask-back`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+    return parseWithFallback(raw, QuestionSchema, EMPTY_QUESTION, {
+      endpoint: "POST /api/questions/:id/ask-back",
+    });
+  }
+
+  async reassignQuestion(id: string, data: ReassignQuestionRequest): Promise<Question> {
+    const raw: unknown = await this.fetch(`/api/questions/${id}/reassign`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+    return parseWithFallback(raw, QuestionSchema, EMPTY_QUESTION, {
+      endpoint: "POST /api/questions/:id/reassign",
+    });
+  }
+
+  async wakeQuestionAgent(id: string): Promise<QuestionWakeResult> {
+    const raw: unknown = await this.fetch(`/api/questions/${id}/wake`, { method: "POST" });
+    return parseWithFallback(raw, QuestionWakeResultSchema, EMPTY_QUESTION_WAKE_RESULT, {
+      endpoint: "POST /api/questions/:id/wake",
+    });
+  }
+
   // File Upload & Attachments
   async uploadFile(
     file: File,
-    opts?: { issueId?: string; commentId?: string; chatSessionId?: string },
+    opts?: { issueId?: string; commentId?: string; chatSessionId?: string; questionId?: string },
     // Optional abort signal so a module-level upload coordinator (MUL-5181)
     // can cancel an in-flight upload on logout. When aborted, `fetch` rejects
     // with an AbortError, which the coordinator distinguishes from a real
@@ -3672,6 +3737,7 @@ export class ApiClient {
     if (opts?.issueId) formData.append("issue_id", opts.issueId);
     if (opts?.commentId) formData.append("comment_id", opts.commentId);
     if (opts?.chatSessionId) formData.append("chat_session_id", opts.chatSessionId);
+    if (opts?.questionId) formData.append("question_id", opts.questionId);
 
     const rid = createRequestId();
     const start = Date.now();
