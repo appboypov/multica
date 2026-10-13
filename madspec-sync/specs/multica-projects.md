@@ -52,7 +52,7 @@ An organisation the sync creates SHALL have its Organisation's Linear key in low
 
 ### Requirement: Each Product is one project in its organisation
 
-Each Product SHALL be one project, including a Product without repositories. The sync SHALL follow its mark when the marked project exists, otherwise take over a project with exactly the Product's title and no checkout mark, otherwise create a project with that title and the Product's organisation. Other unmarked projects SHALL stay as they are. Each successful create or take-over SHALL record the identity before dependent writes.
+Each Product SHALL be one project, including a Product without repositories. The sync SHALL follow its mark when the marked project exists, otherwise take over a project with exactly the Product's title whose only checkout mark, if any, is that of the Product's only Repository, otherwise create a project with that title and the Product's organisation. Other unmarked projects SHALL stay as they are. Each successful create or take-over SHALL record the identity before dependent writes.
 
 The sync SHALL set the organisation of an existing project only when that project has none. An organisation Brian set SHALL stay. It SHALL NOT create a project for a Repository.
 
@@ -77,6 +77,12 @@ The sync SHALL set the organisation of an existing project only when that projec
 - **WHEN** the sync runs
 - **THEN** that same project belongs to De App Specialist without a checkout when MadSpec has several Repositories
 - **AND** no second MadSpec project is made
+
+#### Scenario: A lost mark file after a merge
+- **GIVEN** Rebl holds the issues and checkout of its only Repository appboypov/rebl
+- **WHEN** the mark file is lost and the sync runs
+- **THEN** that same Rebl project is taken over and recorded
+- **AND** no project is created, moved or deleted
 
 #### Scenario: Brian moved a synced project
 - **GIVEN** Brian moved Rebl from Rebl Records to De App Specialist
@@ -126,7 +132,7 @@ A Repository with no checkout, multiple checkouts, an unknown GitHub key, a shar
 
 A project carrying a checkout mark for the only Repository of a placed Product, and that is not that Product's project, SHALL merge into that Product's project. This SHALL apply whether or not that single Repository counts, including when its checkout is missing or ambiguous, its name is shared, GitHub does not know it, or GitHub archived it.
 
-The sync SHALL read every candidate's issue IDs before any write, including closed issues. It SHALL move them through `POST /api/issues/batch-update` in pages of at most 100 with `{issue_ids, updates: {project_id}}`. Every page SHALL return the full requested `updated` count. Only after all pages succeed and a fresh `GET /api/projects/{id}` returns `issue_count` zero SHALL it delete the emptied project. A failed or partial move, failed fresh read or nonzero fresh count SHALL keep the repository project and make the run fail. A failed checkout write SHALL keep its source project. Deleting the project removes its resources.
+The sync SHALL read every candidate's issue IDs before any write, including closed issues. It SHALL move them through `POST /api/issues/batch-update` in pages of at most 100 with `{issue_ids, updates: {project_id}}`. Every page SHALL return the full requested `updated` count. Only after all pages succeed and a fresh `GET /api/issues?project_id={id}` returns `total` zero SHALL it delete the emptied project. A failed or partial move, failed fresh read or nonzero fresh total SHALL keep the repository project and make the run fail. A failed checkout write SHALL keep its source project. Deleting the project removes its resources.
 
 A Repository without a Product, and a marked project whose Repository is gone from the brain, SHALL stay with its project, resources and issues and be printed on every run. No other project SHALL be deleted.
 
@@ -161,7 +167,7 @@ A Repository without a Product, and a marked project whose Repository is gone fr
 
 ### Requirement: Repository projects of a Product with several Repositories stay
 
-For a placed Product with several brain Repository objects, the sync SHALL leave each marked repository project unchanged, with its issues and checkout. On every run it SHALL print "{project} stays for {Product}, which has {N} repositories". It SHALL atomically record each Repository's brain ID to that project's Multica ID under the scoped `repository_projects` identity map. An unchanged identity SHALL NOT be rewritten. A Repository without a repository project SHALL get neither a project nor a checkout resource.
+For a placed Product with several brain Repository objects, the sync SHALL leave each marked repository project unchanged, with its issues and checkout. On every run it SHALL print "{project} stays for {Product}, which has {N} repositories". It SHALL atomically record each Repository's brain ID to that project's Multica ID under the scoped `repository_projects` identity map. An unchanged identity SHALL NOT be rewritten. A Repository without a repository project SHALL get neither a project nor a checkout resource, and when it has a counting checkout the sync SHALL print "{repository}: gets no checkout, because {Product} has {N} repositories" on every run.
 
 #### Scenario: MadSpec's repository projects stay
 - **GIVEN** MadSpec links madspec, plannotator and omp-anytype-inbox, whose repository projects hold 10, 2 and 1 issues
@@ -169,6 +175,11 @@ For a placed Product with several brain Repository objects, the sync SHALL leave
 - **THEN** each repository project keeps its issues and checkout
 - **AND** MadSpec gets none of those issues or checkouts
 - **AND** the three retained projects are printed and recorded by their Repository brain IDs
+
+#### Scenario: A Repository without a repository project is printed
+- **GIVEN** MadSpec links madspec, whose repository project holds its checkout, and plannotator with one checkout and no project
+- **WHEN** the sync runs
+- **THEN** it prints that appboypov/plannotator gets no checkout, because MadSpec has 2 repositories
 
 #### Scenario: A Repository without a checkout still prevents a merge
 - **GIVEN** MadSpec links madspec with one checkout and plannotator without a checkout

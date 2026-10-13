@@ -441,7 +441,7 @@ The plan, in order:
    - An Organisation with neither is reported "has no key" and its Products are reported with it.
 2. **Product projects.** Every Product:
    - Its mark is followed when the marked project still exists.
-   - Otherwise a project titled exactly with the Product's name that carries no checkout mark is taken over.
+   - Otherwise a project titled exactly with the Product's name is taken over when it carries no checkout mark, or only that of the Product's only repository, so a lost mark file finds the merged project again.
    - Otherwise a project is created with that title and the organisation.
    - A taken-over or marked project without an organisation gets the Product's organisation. One with an organisation keeps it.
 3. **Checkouts.** A Product's repositories are the Repository objects that link it in the brain, archived ones and ones without a checkout included. A project holds one `local_directory` resource per daemon (`findLocalDirectoryConflict` in `server/internal/handler/project_resource.go`, since MUL-2618), and the daemon picks a task's checkout by its runtime. So:
@@ -449,7 +449,7 @@ The plan, in order:
    - The project of a Product with several repositories gets no checkout. Its repositories' checkouts stay on their repository projects as they are, and a repository of it without a repository project gets none. UJ-2 gives a project several repositories.
    - A repository without a Product is reported "has no Product" and its project is left alone.
 4. **Merges.** A project that carries the checkout mark of a repository with a Product, and is not that Product's project, is a repository project:
-   - When the Product has one repository, the project's issues move to the Product's project with `POST /api/issues/batch-update` (`{issue_ids, updates: {project_id}}`), in pages of 100. It is deleted only after every move succeeded and a fresh `GET /api/projects/{id}` reads `issue_count` 0. Deleting it removes its resources.
+   - When the Product has one repository, the project's issues move to the Product's project with `POST /api/issues/batch-update` (`{issue_ids, updates: {project_id}}`), in pages of 100. It is deleted only after every move succeeded and a fresh `GET /api/issues?project_id={id}` reads `total` 0. That count fails loudly, while a project's `issue_count` reads 0 when its count query fails. Deleting it removes its resources.
    - When the Product has several repositories, the project is left as it is, with its issues and its checkout, and prints "{project} stays for {Product}, which has {N} repositories" on every run. Its Multica id goes into the mark file under `repository_projects`, keyed by the Repository's brain id, so UJ-2's sync can still find it after UJ-2's migrations drop the checkout resources and their labels.
 5. Nothing changes a project's or organisation's title, name, key, description, icon, lead, priority or status. A Product or Organisation that is gone from the brain is printed and left alone.
 

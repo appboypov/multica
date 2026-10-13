@@ -234,6 +234,26 @@ def test_shared_repository_names_skip_checkouts_but_merge_single_repository_prod
     assert len([report for report in desired.reports if "shares its name" in report]) == 2
 
 
+def test_merged_product_project_is_taken_over_by_title_with_its_own_checkout_mark():
+    workspace = Workspace().placed()
+    workspace.marks["products"] = {}
+    repo = repository("madspec")
+    workspace.directory("project-madspec", repo.key)
+    desired = workspace.plan(brain(repositories=(repo,)))
+    assert desired.projects == (sync.PlaceProject(MADSPEC.id, MADSPEC.name, DAS.id, "project-madspec"),)
+    assert desired.resources == desired.merges == ()
+
+
+def test_multi_repository_product_reports_a_repository_without_a_project():
+    workspace = Workspace().placed()
+    repositories = (repository("madspec"), repository("plannotator"))
+    workspace.project("repository", "madspec", issue_count=1)
+    workspace.directory("repository", repositories[0].key)
+    desired = workspace.plan(brain(repositories=repositories))
+    assert "appboypov/plannotator: gets no checkout, because MadSpec has 2 repositories" in desired.reports
+    assert not any(report.startswith("appboypov/madspec:") for report in desired.reports)
+
+
 def test_brians_project_organisation_is_kept_and_missing_organisation_is_assigned():
     workspace = Workspace().placed()
     workspace.projects[0]["organisation_id"] = "org-rebl"
@@ -319,7 +339,6 @@ class FakeMultica(Workspace):
         self.fail_create = None
         self.fail_resource = False
         self.batch_updated = None
-        self.fresh_count = None
 
     def call(self, method, path, body=None):
         self.calls.append((method, path, deepcopy(body)))
@@ -338,11 +357,8 @@ class FakeMultica(Workspace):
                 ids = self.issues[query["project_id"][0]]
                 offset, limit = int(query["offset"][0]), int(query["limit"][0])
                 return {"issues": [{"id": value} for value in ids[offset:offset + limit]], "total": len(ids)}
-            project_id = parsed.path.split("/")[3]
-            if path.endswith("/resources"):
-                return {"resources": deepcopy(self.resources[project_id])}
-            return {**next(project for project in self.projects if project["id"] == project_id),
-                    "issue_count": len(self.issues[project_id]) if self.fresh_count is None else self.fresh_count}
+            assert path.endswith("/resources"), path
+            return {"resources": deepcopy(self.resources[parsed.path.split("/")[3]])}
         self.writes.append((method, path, deepcopy(body)))
         if method == "POST" and path == "/api/organisations":
             organisation_id = self.organisation("new-org-" + body["name"], body["name"], body["key"])
@@ -448,6 +464,20 @@ def test_second_run_writes_nothing_and_preserves_status_description_and_names(sh
     assert shell.searches[:3] == [("organisation", ["linear_key"]), ("product", ["organisation"]), ("repository", ["github_key", "product"])]
 
 
+def test_lost_mark_file_after_a_merge_keeps_the_product_project(shell):
+    shell.api.project("repository", "madspec", issue_count=3)
+    shell.api.directory("repository", "appboypov/madspec")
+    assert sync.main() == 0
+    before = shell.state()
+    writes = deepcopy(shell.api.writes)
+    shell.mark_path.unlink()
+    assert sync.main() == 0
+    assert shell.state() == before
+    assert shell.api.writes == writes
+    marks = sync.Marks(shell.mark_path, shell.config["server_url"], shell.config["workspace_id"])
+    assert marks.scope["products"] == {MADSPEC.id: "new-MadSpec"}
+
+
 def test_madspec_keeps_repository_projects_and_records_their_brain_ids_on_every_run(shell, capsys):
     sources = ("madspec", "plannotator", "omp-anytype-inbox")
     for name, count in zip(sources, (10, 2, 1)):
@@ -496,9 +526,9 @@ def test_rebl_merge_moves_six_issues_and_deletes_only_the_emptied_repository_pro
     assert len(shell.api.issues["new-Rebl"]) == 6
     assert len(shell.api.resources["new-Rebl"]) == 1
     assert len(shell.api.issues["manual"]) == 4
-    get = shell.api.calls.index(("GET", "/api/projects/repository-rebl", None))
+    check = shell.api.calls.index(("GET", "/api/issues?project_id=repository-rebl&limit=1&offset=0", None))
     delete = shell.api.calls.index(("DELETE", "/api/projects/repository-rebl", None))
-    assert get < delete
+    assert check < delete
 
 
 def test_all_issue_ids_are_read_before_writes_and_moved_in_pages_of_100(shell):
@@ -507,29 +537,29 @@ def test_all_issue_ids_are_read_before_writes_and_moved_in_pages_of_100(shell):
     assert sync.main() == 0
     batches = [body for method, path, body in shell.api.writes if path == "/api/issues/batch-update"]
     assert [len(value["issue_ids"]) for value in batches] == [100, 100, 1]
-    reads = [index for index, (method, path, _) in enumerate(shell.api.calls) if path.startswith("/api/issues?")]
+    reads = [index for index, (method, path, _) in enumerate(shell.api.calls) if path.startswith("/api/issues?") and f"limit={sync.PAGE_SIZE}&" in path]
     first_write = next(index for index, (method, _, _) in enumerate(shell.api.calls) if method != "GET")
     assert len(reads) == 3 and max(reads) < first_write
     assert len(shell.api.issues["new-MadSpec"]) == 201
 
 
-@pytest.mark.parametrize("failure", ["partial", "nonempty", "fresh-read", "batch"])
+@pytest.mark.parametrize("failure", ["partial", "late-issue", "fresh-read", "batch"])
 def test_failed_moves_or_fresh_read_never_delete_the_repository_project(shell, monkeypatch, failure):
     shell.api.project("repository", "madspec", issue_count=3)
     shell.api.directory("repository", "appboypov/madspec")
+    original = shell.api.call
+    def after_moves(method, path, body=None):
+        if failure == "batch" and path == "/api/issues/batch-update":
+            raise FakeApiError("move refused")
+        result = original(method, path, body)
+        if path == "/api/issues/batch-update" and failure == "late-issue":
+            shell.api.issues["repository"].append("late-issue")
+        if path == "/api/issues/batch-update" and failure == "fresh-read":
+            shell.api.fail_read = "/api/issues"
+        return result
     if failure == "partial":
         shell.api.batch_updated = 2
-    elif failure == "nonempty":
-        shell.api.fresh_count = 1
-    elif failure == "fresh-read":
-        shell.api.fail_read = "/api/projects/repository"
-    else:
-        original = shell.api.call
-        def fail_batch(method, path, body=None):
-            if path == "/api/issues/batch-update":
-                raise FakeApiError("move refused")
-            return original(method, path, body)
-        monkeypatch.setattr(shell.api, "call", fail_batch)
+    monkeypatch.setattr(shell.api, "call", after_moves)
     assert sync.main() == 1
     assert "repository" in {value["id"] for value in shell.api.projects}
     assert not any(method == "DELETE" for method, _, _ in shell.api.writes)

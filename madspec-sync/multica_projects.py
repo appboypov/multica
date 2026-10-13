@@ -186,6 +186,10 @@ def plan(brain: Brain, archived: dict[str, bool | None], organisations: list[dic
 
     ordered = sorted(projects, key=lambda value: (value.get("created_at") or "", value["id"]))
     project_placements, project_ids, assignments = [], {}, []
+    counts = repository_counts(brain.repositories)
+    # A merged Product project holds its only Repository's checkout mark, so a lost mark file still finds it.
+    only_key = {repository.products[0]: repository.key.lower() for repository in brain.repositories
+                if len(repository.products) == 1 and counts[repository.products[0]] == 1}
     # A marked identity belongs to its Product even when that Product has left.
     claimed = set(product_marks.values()) & set(current_projects)
     for product in valid_products.values():
@@ -196,7 +200,8 @@ def plan(brain: Brain, archived: dict[str, bool | None], organisations: list[dic
         if current is None:
             current = next((value for value in ordered
                             if value["id"] not in claimed and value["title"] == product.name
-                            and not any(marker_key(resource) for resource in resources.get(value["id"], []))), None)
+                            and all(marker_key(resource) in (None, only_key.get(product.id))
+                                    for resource in resources.get(value["id"], []))), None)
         if current is not None:
             claimed.add(current["id"])
             project_ids[product.id] = current["id"]
@@ -205,7 +210,6 @@ def plan(brain: Brain, archived: dict[str, bool | None], organisations: list[dic
         if current is None or product_marks.get(product.id) != current["id"]:
             project_placements.append(PlaceProject(product.id, product.name, org_id, None if current is None else current["id"]))
     available_products = set(project_ids) | {value.brain_id for value in project_placements}
-    counts = repository_counts(brain.repositories)
     repositories_by_key = {}
     for repository in brain.repositories:
         repositories_by_key.setdefault(repository.key.lower(), []).append(repository)
@@ -282,6 +286,10 @@ def plan(brain: Brain, archived: dict[str, bool | None], organisations: list[dic
                     kept_projects[repository.id] = project["id"]
             continue
         merges.append(Merge(project["id"], project["title"], product_id, issues[project["id"]], tuple(keys)))
+    for key in sorted(counting):
+        product_id = repository_products[key]
+        if counts[product_id] > 1 and not any(repository.id in kept_projects for repository in repositories_by_key[key]):
+            reports.append(f"{key}: gets no checkout, because {product_by_id[product_id].name} has {counts[product_id]} repositories")
     return Plan(tuple(org_placements), tuple(project_placements), tuple(assignments),
                 tuple(resource_writes), tuple(merges), tuple(reports), org_ids, project_ids, kept_projects)
 
@@ -552,9 +560,10 @@ def write_plan(api, desired: Plan, multica_sync: ModuleType, marks: Marks) -> in
                 if response["updated"] != len(page):
                     raise ValueError(f"only {response['updated']} of {len(page)} issues moved; repository project kept")
                 print(f"move {len(page)} issues {merge.title}: {project_ids[merge.product]}", flush=True)
-            fresh = api.call("GET", f"/api/projects/{merge.project_id}")
-            if fresh["issue_count"] != 0:
-                raise ValueError(f"{fresh['issue_count']} issues remain; repository project kept")
+            # The issue list's total fails loudly; a project's issue_count reads 0 when its count query fails.
+            remaining = api.call("GET", "/api/issues?" + urlencode({"project_id": merge.project_id, "limit": 1, "offset": 0}))["total"]
+            if remaining != 0:
+                raise ValueError(f"{remaining} issues remain; repository project kept")
             api.call("DELETE", f"/api/projects/{merge.project_id}")
             print(f"delete emptied project {merge.title}: {merge.project_id}", flush=True)
         except errors as error:
