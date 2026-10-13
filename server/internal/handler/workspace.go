@@ -1317,8 +1317,15 @@ func (h *Handler) DeleteWorkspace(w http.ResponseWriter, r *http.Request) {
 			run:  func() error { return qtx.DeleteWorkspaceAgents(ctx, requester.WorkspaceID) },
 		},
 		{
-			name: "delete runtimes and projects",
-			run:  func() error { return qtx.DeleteWorkspaceRuntimesAndProjects(ctx, requester.WorkspaceID) },
+			// Organisations have no cascades (ADR-0004); projects point at
+			// them, so they go in the same step.
+			name: "delete runtimes, projects and organisations",
+			run: func() error {
+				if err := qtx.DeleteWorkspaceRuntimesAndProjects(ctx, requester.WorkspaceID); err != nil {
+					return err
+				}
+				return qtx.DeleteWorkspaceOrganisations(ctx, requester.WorkspaceID)
+			},
 		},
 		{
 			name: "delete administration data",

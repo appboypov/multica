@@ -103,6 +103,11 @@ const (
 	EventProjectResourceUpdated = "project_resource:updated"
 	EventProjectResourceDeleted = "project_resource:deleted"
 
+	// Organisation events. Both carry OrganisationEventPayload; there is no
+	// organisation:deleted because organisations go only with their workspace.
+	EventOrganisationCreated = "organisation:created"
+	EventOrganisationUpdated = "organisation:updated"
+
 	// Label events
 	EventLabelCreated       = "label:created"
 	EventLabelUpdated       = "label:updated"
@@ -241,4 +246,10 @@ type QuestionEventPayload struct {
 	QuestionID string `json:"question_id"`
 	IssueID    string `json:"issue_id"`
 	Reason     string `json:"reason,omitempty"`
+}
+
+// OrganisationEventPayload is the payload of organisation:created and
+// organisation:updated.
+type OrganisationEventPayload struct {
+	OrganisationID string `json:"organisation_id"`
 }

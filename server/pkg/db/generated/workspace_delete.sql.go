@@ -544,6 +544,17 @@ func (q *Queries) DeleteWorkspaceLeafData(ctx context.Context, workspaceID pgtyp
 	return err
 }
 
+const deleteWorkspaceOrganisations = `-- name: DeleteWorkspaceOrganisations :exec
+DELETE FROM organisation WHERE organisation.workspace_id = $1
+`
+
+// Organisations have no cascades (ADR-0004); the teardown runs this in the
+// step that deletes the workspace's projects.
+func (q *Queries) DeleteWorkspaceOrganisations(ctx context.Context, workspaceID pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, deleteWorkspaceOrganisations, workspaceID)
+	return err
+}
+
 const deleteWorkspacePluginData = `-- name: DeleteWorkspacePluginData :exec
 WITH installations AS MATERIALIZED (
     SELECT plugin_installation.id

@@ -68,10 +68,12 @@ import type {
   ListGitHubInstallationsResponse,
   ListGitHubRepositoriesResponse,
   ListLabelsResponse,
+  ListOrganisationsResponse,
   ListWebhookDeliveriesResponse,
   IssueStatusEntry,
   ListIssueStatusesResponse,
   NotificationPreferenceResponse,
+  Organisation,
   PluginInstallation,
   PluginInstallationListResponse,
   PluginPackage,
@@ -1411,6 +1413,9 @@ const ProjectSchema = z.object({
   priority: z.string(),
   lead_type: z.string().nullable(),
   lead_id: z.string().nullable(),
+  // .default(null) so a project from a backend before organisations parses as
+  // having none instead of failing the object and blanking its batch.
+  organisation_id: z.string().nullable().default(null),
   // .default(null) so a project from an older backend (frontend deploys before
   // backend) that omits these keys parses to null instead of failing the whole
   // object — which would degrade a search/list batch to the empty fallback.
@@ -1434,6 +1439,42 @@ export const SearchProjectsResponseSchema = z.object({
 
 export const EMPTY_SEARCH_PROJECTS_RESPONSE: SearchProjectsResponse = {
   projects: [],
+};
+
+// Organisations group the Projects page and back their own pages. The identity
+// fields and the key stay required, since an organisation without them cannot
+// be shown, grouped or given folders: a malformed row is dropped from the list
+// without hiding the other organisations, and a malformed single response
+// degrades to EMPTY_ORGANISATION, whose empty id reads as not found.
+export const OrganisationSchema: z.ZodType<Organisation> = z.object({
+  id: z.string(),
+  workspace_id: z.string(),
+  name: z.string(),
+  key: z.string(),
+  created_at: z.string().default(""),
+  updated_at: z.string().default(""),
+}).loose();
+
+export const EMPTY_ORGANISATION: Organisation = {
+  id: "",
+  workspace_id: "",
+  name: "",
+  key: "",
+  created_at: "",
+  updated_at: "",
+};
+
+export const ListOrganisationsResponseSchema = z.object({
+  organisations: z
+    .array(OrganisationSchema.catch(EMPTY_ORGANISATION))
+    .transform((organisations) => organisations.filter((organisation) => organisation.id !== ""))
+    .default([]),
+  total: z.number().default(0),
+}).loose();
+
+export const EMPTY_LIST_ORGANISATIONS_RESPONSE: ListOrganisationsResponse = {
+  organisations: [],
+  total: 0,
 };
 
 // Local search index sync (MUL-7754). Callers reject a response that fails

@@ -1,0 +1,1 @@
+DROP INDEX CONCURRENTLY IF EXISTS organisation_workspace_key_unique;

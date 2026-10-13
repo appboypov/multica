@@ -399,9 +399,16 @@ classDiagram
     +uuid depends_on_issue_id
     +text type
   }
+  class organisation {
+    +uuid id
+    +uuid workspace_id
+    +text name
+    +text key
+  }
   class project {
     +uuid id
     +uuid workspace_id
+    +uuid organisation_id
     +text title
     +text lead_type
     +uuid lead_id
@@ -557,6 +564,8 @@ classDiagram
   workspace "1" --> "*" agent : workspace_id
   workspace "1" --> "*" issue : workspace_id
   workspace "1" --> "*" project : workspace_id
+  workspace "1" --> "*" organisation : workspace_id
+  organisation "1" --> "*" project : organisation_id
   workspace "1" --> "*" skill : workspace_id
   workspace "1" --> "*" squad : workspace_id
   workspace "1" --> "*" autopilot : workspace_id

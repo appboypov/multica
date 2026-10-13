@@ -540,6 +540,7 @@ RETURNING id
 			_, _ = testPool.Exec(context.Background(), `DELETE FROM task_usage_hourly_dirty WHERE workspace_id = $1`, workspaceID)
 			_, _ = testPool.Exec(context.Background(), `DELETE FROM runtime_profile WHERE workspace_id = $1`, workspaceID)
 			_, _ = testPool.Exec(context.Background(), `DELETE FROM channel_media_pending_object WHERE workspace_id = $1`, workspaceID)
+			_, _ = testPool.Exec(context.Background(), `DELETE FROM organisation WHERE workspace_id = $1`, workspaceID)
 		}
 	})
 
@@ -591,6 +592,10 @@ INSERT INTO channel_media_pending_object (
 )
 VALUES ($1, $2, gen_random_uuid(), 's3://workspace-delete/tenant-isolation')
 `, fixture.mediaKey, fixture.workspaceID)
+		dbfx.Exec(t, `
+INSERT INTO organisation (workspace_id, name, key)
+VALUES ($1, 'Workspace delete tenant isolation', 'tenant-isolation')
+`, fixture.workspaceID)
 	}
 
 	request := newRequest(http.MethodDelete, "/api/workspaces/"+targetWorkspaceID, nil)
@@ -605,6 +610,7 @@ VALUES ($1, $2, gen_random_uuid(), 's3://workspace-delete/tenant-isolation')
 		"runtime_profile":              "workspace_id",
 		"task_usage_hourly_dirty":      "workspace_id",
 		"channel_media_pending_object": "workspace_id",
+		"organisation":                 "workspace_id",
 	} {
 		var count int
 		dbfx.QueryRow(t, `
@@ -613,6 +619,13 @@ SELECT COUNT(*) FROM `+table+` WHERE `+predicate+` = $1
 		if count != 1 {
 			t.Fatalf("neighbor %s rows = %d, want 1", table, count)
 		}
+	}
+
+	// Organisations have no cascades, so the teardown must remove them itself.
+	var targetOrganisations int
+	dbfx.QueryRow(t, `SELECT COUNT(*) FROM organisation WHERE workspace_id = $1`, targetWorkspaceID).Scan(&targetOrganisations)
+	if targetOrganisations != 0 {
+		t.Fatalf("target organisation rows = %d, want 0", targetOrganisations)
 	}
 
 	var neighborMediaState string
