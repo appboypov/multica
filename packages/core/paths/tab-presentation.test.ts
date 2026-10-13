@@ -23,6 +23,10 @@ describe("resolveTabPresentation — pages", () => {
       visual: { kind: "icon", icon: "FolderKanban" },
       title: { kind: "nav", navKey: "projects" },
     });
+    expect(present("/acme/organisations")).toEqual({
+      visual: { kind: "icon", icon: "Building2" },
+      title: { kind: "nav", navKey: "organisations" },
+    });
   });
 });
 
@@ -54,6 +58,17 @@ describe("resolveTabPresentation — direct resources", () => {
     ).toEqual({
       visual: { kind: "project-icon", icon: "🚀" },
       title: { kind: "text", text: "Apollo" },
+    });
+  });
+
+  it("organisation shows its name with a building icon, pending shows its type label", () => {
+    expect(present("/acme/organisations/org-1")).toEqual({
+      visual: { kind: "icon", icon: "Building2" },
+      title: { kind: "tab", tabKey: "organisation" },
+    });
+    expect(present("/acme/organisations/org-1", { organisation: { name: "Rebl Records" } })).toEqual({
+      visual: { kind: "icon", icon: "Building2" },
+      title: { kind: "text", text: "Rebl Records" },
     });
   });
 

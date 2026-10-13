@@ -106,6 +106,12 @@ describe("openLink", () => {
     expect(navigatedPaths()).toEqual(["/acme/issues/MUL-1"]);
   });
 
+  it("opens slugless organisation links in the current workspace", () => {
+    openLink("/organisations/org-1", "acme", APP_ORIGIN);
+    expect(navigatedPaths()).toEqual(["/acme/organisations/org-1"]);
+    expect(openSpy).not.toHaveBeenCalled();
+  });
+
   it("leaves a path that already carries a slug alone", () => {
     openLink("/other/issues/MUL-1", "acme", APP_ORIGIN);
     expect(navigatedPaths()).toEqual(["/other/issues/MUL-1"]);

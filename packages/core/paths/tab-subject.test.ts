@@ -11,6 +11,7 @@ describe("parseTabSubject", () => {
     ["/acme/issues", { kind: "page", page: "issues" }],
     ["/acme/my-issues", { kind: "page", page: "myIssues" }],
     ["/acme/projects", { kind: "page", page: "projects" }],
+    ["/acme/organisations", { kind: "page", page: "organisations" }],
     ["/acme/autopilots", { kind: "page", page: "autopilots" }],
     ["/acme/agents", { kind: "page", page: "agents" }],
     ["/acme/squads", { kind: "page", page: "squads" }],
@@ -21,6 +22,7 @@ describe("parseTabSubject", () => {
     // Resource details
     ["/acme/issues/bug-1", { kind: "issue", id: "bug-1" }],
     ["/acme/projects/p1", { kind: "project", id: "p1" }],
+    ["/acme/organisations/org-1", { kind: "organisation", id: "org-1" }],
     ["/acme/autopilots/a1", { kind: "autopilot", id: "a1" }],
     ["/acme/skills/s1", { kind: "skill", id: "s1" }],
     ["/acme/attachments/att1/preview", { kind: "attachment", id: "att1", filename: null }],
@@ -90,6 +92,7 @@ describe("parseTabSubject", () => {
 describe("tabSubjectKey", () => {
   it("is stable for the same subject and distinct across selections", () => {
     expect(tabSubjectKey({ kind: "issue", id: "x" })).toBe("issue:x");
+    expect(tabSubjectKey({ kind: "organisation", id: "org-1" })).toBe("organisation:org-1");
     expect(tabSubjectKey({ kind: "chat", sessionId: null })).toBe("chat:");
     expect(tabSubjectKey({ kind: "chat", sessionId: "s1" })).toBe("chat:s1");
     expect(

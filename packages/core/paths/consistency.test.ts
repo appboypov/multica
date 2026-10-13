@@ -1,6 +1,8 @@
+// @vitest-environment node
 import { describe, it, expect } from "vitest";
 import { paths, isGlobalPath } from "./paths";
 import { RESERVED_SLUGS } from "./reserved-slugs";
+import { resolveRouteIconName, WORKSPACE_PAGES } from "./route-icons";
 
 // C4 — link-handler's WORKSPACE_ROUTE_SEGMENTS must match paths.workspace's
 // parameterless method names. We can't import WORKSPACE_ROUTE_SEGMENTS here
@@ -17,6 +19,7 @@ describe("paths.workspace() shape", () => {
       ["usage", "usage"],
       ["issues", "issues"],
       ["projects", "projects"],
+      ["organisations", "organisations"],
       ["autopilots", "autopilots"],
       ["agents", "agents"],
       ["newAgent", "agents/new"],
@@ -37,6 +40,17 @@ describe("paths.workspace() shape", () => {
       expect(typeof fn).toBe("function");
       expect(fn!()).toBe(`/acme/${segment}`);
     }
+  });
+
+  it("encodes organisation details and registers their workspace navigation identity", () => {
+    const ws = paths.workspace("acme workspace");
+    expect(ws.organisations()).toBe("/acme%20workspace/organisations");
+    expect(ws.organisationDetail("org/id")).toBe("/acme%20workspace/organisations/org%2Fid");
+    expect(WORKSPACE_PAGES.organisations).toEqual({
+      segment: "organisations", icon: "Building2", navKey: "organisations",
+    });
+    expect(resolveRouteIconName(ws.organisationDetail("org-1"))).toBe("Building2");
+    expect(RESERVED_SLUGS.has("organisations")).toBe(true);
   });
 });
 
