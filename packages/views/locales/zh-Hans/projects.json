@@ -170,6 +170,10 @@
     "none": "无组织",
     "empty": "还没有组织"
   },
+  "group": {
+    "project_count_other": "{{count}} 个项目",
+    "toggle_aria": "折叠或展开 {{name}}"
+  },
   "toolbar": {
     "result_count_title": "当前结果 / 全部项目",
     "filter_label": "筛选",

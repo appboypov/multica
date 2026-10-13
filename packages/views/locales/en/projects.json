@@ -171,6 +171,11 @@
     "none": "No organisation",
     "empty": "No organisations yet"
   },
+  "group": {
+    "project_count_one": "{{count}} project",
+    "project_count_other": "{{count}} projects",
+    "toggle_aria": "Fold or unfold {{name}}"
+  },
   "toolbar": {
     "result_count_title": "Matching projects / all projects",
     "filter_label": "Filter",

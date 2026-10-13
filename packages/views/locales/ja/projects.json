@@ -170,6 +170,10 @@
     "none": "組織なし",
     "empty": "組織はまだありません"
   },
+  "group": {
+    "project_count_other": "{{count}} 件のプロジェクト",
+    "toggle_aria": "{{name}} を折りたたむ/展開する"
+  },
   "toolbar": {
     "result_count_title": "該当プロジェクト / すべてのプロジェクト",
     "filter_label": "フィルター",

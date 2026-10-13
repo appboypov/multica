@@ -171,6 +171,11 @@
     "none": "Aucune organisation",
     "empty": "Aucune organisation pour l'instant"
   },
+  "group": {
+    "project_count_one": "{{count}} projet",
+    "project_count_other": "{{count}} projets",
+    "toggle_aria": "Replier ou déplier {{name}}"
+  },
   "toolbar": {
     "result_count_title": "Projets correspondants / tous les projets",
     "filter_label": "Filtrer",

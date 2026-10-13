@@ -170,6 +170,10 @@
     "none": "조직 없음",
     "empty": "아직 조직이 없습니다"
   },
+  "group": {
+    "project_count_other": "프로젝트 {{count}}개",
+    "toggle_aria": "{{name}} 접기/펼치기"
+  },
   "toolbar": {
     "result_count_title": "일치하는 프로젝트 / 전체 프로젝트",
     "filter_label": "필터",
