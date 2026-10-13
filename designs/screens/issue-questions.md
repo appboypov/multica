@@ -53,7 +53,7 @@ Screen 3 is not a step: it is the reference sheet of the card's body per answer 
 | Screen | Issue detail: question card, run row, Questions row, wake row | changed | `packages/views/issues/components/` |
 | Screen | Inbox: question item types and the detail pane's card | changed | `packages/views/inbox/components/` |
 
-No library component, token or colour is added: every screen uses the components J5 put in `multica.lib.pen`. Out of these screens, as Brian's answers on WORK-366 settled: the composer's Question toggle and the screens to ask a question (2a, 2b), the `question_answered` inbox item, question sets, the Questions page and the questions setting.
+No library component, token or colour is added: every screen uses the components J5 put in `multica.lib.pen`. Out of these screens: the composer's Question toggle, the screens to ask a question (2a, 2b) and the `question_answered` inbox item, which Brian's answers on WORK-366 removed; and #6's question sets, Questions page and questions setting, which this change's specs do not name.
 
 ## The question card
 
