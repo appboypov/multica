@@ -114,3 +114,23 @@ export function taskDurationMs(task: AgentTask): number | null {
   if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return null;
   return end - start;
 }
+
+/**
+ * Each run's 1-based place among its agent's runs on the issue, by
+ * `created_at`: run #3 is the third run that agent had on the issue.
+ */
+export function runNumbersByTask(tasks: readonly AgentTask[]): ReadonlyMap<string, number> {
+  const byAgent = new Map<string, AgentTask[]>();
+  for (const task of tasks) {
+    const runs = byAgent.get(task.agent_id);
+    if (runs) runs.push(task);
+    else byAgent.set(task.agent_id, [task]);
+  }
+  const numbers = new Map<string, number>();
+  for (const runs of byAgent.values()) {
+    runs
+      .sort((a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id))
+      .forEach((run, index) => numbers.set(run.id, index + 1));
+  }
+  return numbers;
+}

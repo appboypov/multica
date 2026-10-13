@@ -142,7 +142,7 @@ flowchart LR
 ## 16. J9 Frontend: screen
 
 - [x] 16.1 `packages/views/issues/components/comment-runs.ts` -- `orderTimelineWithRuns` places question cards by `created_at` with the anchor `question-${id}` -- the card sits where it was asked.
-- [ ] 16.2 `packages/views/issues/components/issue-detail.tsx` -- load the issue's questions, render cards in the timeline, accept `highlightQuestionId`, add the Questions row after Priority ("1 open", "1 open · blocks work") that jumps to the first open card with `jumpToComment`'s scroll and flash -- the issue-questions requirements.
+- [x] 16.2 `packages/views/issues/components/issue-detail.tsx` -- load the issue's questions, render cards in the timeline, accept `highlightQuestionId`, add the Questions row after Priority ("1 open", "1 open · blocks work") that jumps to the first open card with `jumpToComment`'s scroll and flash -- the issue-questions requirements.
 - [ ] 16.3 `packages/views/issues/components/inline-comment-run.tsx`, `task-run-labels.ts` -- a terminal run that asked reads "ended run #N with a question", N its place among that agent's runs on the issue, with "Waiting for answer" while one of its questions is open -- the run row.
 - [ ] 16.4 `packages/views/issues/components/question-wake-activity.tsx`, `issue-detail.tsx` -- render the `question_wake` activity as "Pieter was woken by Brian with 1 answer" -- the timeline records the wake.
 - 16.5 moved to 2.2: the inbox labels of the three question items land with their types, so every step's pull request leaves `main` compiling.

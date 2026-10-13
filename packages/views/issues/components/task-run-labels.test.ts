@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { plainTriggerSummary } from "./task-run-labels";
+import type { AgentTask } from "@multica/core/types";
+import { plainTriggerSummary, runNumbersByTask } from "./task-run-labels";
 
 const IMAGE = "[Image]";
 
@@ -43,5 +44,23 @@ describe("plainTriggerSummary", () => {
 
   it("collapses whitespace into one line", () => {
     expect(plainTriggerSummary("  first   line\n\nsecond ", IMAGE)).toBe("first line second");
+  });
+});
+
+describe("runNumbersByTask", () => {
+  const task = (id: string, agent_id: string, created_at: string) =>
+    ({ id, agent_id, created_at }) as AgentTask;
+
+  it("numbers each agent's runs on the issue by when they were created", () => {
+    const numbers = runNumbersByTask([
+      task("pieter-3", "pieter", "2026-10-13T12:00:00Z"),
+      task("anouk-1", "anouk", "2026-10-13T10:30:00Z"),
+      task("pieter-1", "pieter", "2026-10-13T10:00:00Z"),
+      task("pieter-2", "pieter", "2026-10-13T11:00:00Z"),
+    ]);
+    expect(numbers.get("pieter-1")).toBe(1);
+    expect(numbers.get("pieter-2")).toBe(2);
+    expect(numbers.get("pieter-3")).toBe(3);
+    expect(numbers.get("anouk-1")).toBe(1);
   });
 });
