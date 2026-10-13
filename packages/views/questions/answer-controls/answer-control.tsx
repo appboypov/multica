@@ -1,7 +1,7 @@
 "use client";
 
-import { useRef, useState, type KeyboardEvent, type ReactNode, type RefObject } from "react";
-import type { AnswerType, Attachment } from "@multica/core/types";
+import { useRef, type KeyboardEvent, type ReactNode, type RefObject } from "react";
+import type { AnswerType } from "@multica/core/types";
 import type { AnswerControlHandle, AnswerControlProps } from "./control-props";
 import type { AnswerDraft, AnswerableQuestion } from "./draft";
 import { draftForKey } from "./keys";
@@ -42,9 +42,8 @@ export interface AnswerControlInput {
   note: string;
   onNoteChange: (note: string) => void;
   onSubmit: () => void;
-  uploadFile: (file: File) => Promise<Attachment>;
+  draftKey: string;
   handle: RefObject<AnswerControlHandle | null>;
-  onUploadingChange: (uploading: boolean) => void;
   disabled: boolean;
 }
 
@@ -54,32 +53,24 @@ export function AnswerControl(props: AnswerControlInput) {
   return <Control {...props} />;
 }
 
-/** The card's side of its control: what Send waits for and what it sends. */
+/** The card's side of its control: what Send reads at sending time. */
 export interface AnswerControlLink {
   /** Pass to the control as `handle`. */
   handle: RefObject<AnswerControlHandle | null>;
-  /** True while a file of the answer is still uploading, for the rendered card. */
-  uploading: boolean;
-  /** Pass to the control as `onUploadingChange`. */
-  onUploadingChange: (uploading: boolean) => void;
-  /** True while a file of the answer is still uploading, read when sending. */
+  /** True while the control holds a file still uploading, read when sending. */
   isUploading: () => boolean;
   /** The draft to send: the shown draft with typing the control has not reported yet. */
   currentDraft: (shown: AnswerDraft) => AnswerDraft;
 }
 
 /**
- * Links a card to its control. The rendered `uploading` drives the card; the
- * reads at sending time cover what it trails: `⌘↵` bypasses the button, and
- * the editor reports typing only after its debounce.
+ * Links a card to its control, for the reads at sending time: `⌘↵` bypasses
+ * the button, and the editor reports typing only after its debounce.
  */
 export function useAnswerControlLink(): AnswerControlLink {
   const handle = useRef<AnswerControlHandle | null>(null);
-  const [uploading, setUploading] = useState(false);
   return {
     handle,
-    uploading,
-    onUploadingChange: setUploading,
     isUploading: () => handle.current?.isUploading?.() === true,
     currentDraft: (shown) => (handle.current?.flush ? handle.current.flush() : shown),
   };

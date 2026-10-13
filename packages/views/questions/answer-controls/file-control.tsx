@@ -1,14 +1,19 @@
 "use client";
 
-import { useImperativeHandle, useRef, useState, type ClipboardEvent, type DragEvent } from "react";
+import { useRef, useState, type ClipboardEvent, type DragEvent } from "react";
 import { CloudUpload, File as FileIcon, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
+import { api } from "@multica/core/api";
+import { hasUploadingDraft, isUploaded, startUpload } from "@multica/core/drafts";
 import { createLogger } from "@multica/core/logger";
+import { EMPTY_QUESTION_DRAFT, useQuestionDraftStore } from "@multica/core/questions";
+import { createSafeId } from "@multica/core/utils";
 import { Button } from "@multica/ui/components/ui/button";
 import { cn } from "@multica/ui/lib/utils";
 import { formatBytes } from "../../common/format-bytes";
 import { useT } from "../../i18n";
 import type { AnswerControlProps } from "./control-props";
+import type { AnswerDraftByType } from "./draft";
 
 const logger = createLogger("questions.file");
 
@@ -25,85 +30,78 @@ export function acceptsFile(accept: string[], file: { name: string; type: string
   });
 }
 
-interface UploadedFile {
-  id: string;
-  name: string;
-  size: number;
+/**
+ * Uploads a picked file onto the question through the upload coordinator,
+ * which owns the request rather than the control: a card scrolled out of the
+ * timeline unmounts, and its file still lands in the question's draft.
+ */
+function uploadAnswerFile(draftKey: string, questionId: string, file: File, onFailed: () => void) {
+  const clientUploadId = createSafeId();
+  useQuestionDraftStore.getState().addUpload(draftKey, {
+    clientUploadId,
+    status: "uploading",
+    filename: file.name,
+    size: file.size,
+    contentType: file.type || undefined,
+  });
+  startUpload({
+    clientUploadId,
+    file,
+    api,
+    ctx: { questionId },
+    onSettled: (outcome) => {
+      const { drafts, settleUpload, removeUpload, setDraft } = useQuestionDraftStore.getState();
+      const draft = drafts[draftKey];
+      // The draft was sent or dropped, or the file removed, while it uploaded.
+      if (!draft?.uploads.some((u) => u.clientUploadId === clientUploadId)) return;
+      if (outcome.status === "failed") {
+        removeUpload(draftKey, clientUploadId);
+        logger.error("upload failed", { questionId, error: outcome.error });
+        onFailed();
+        return;
+      }
+      settleUpload(draftKey, clientUploadId, outcome.attachment);
+      // Added to the files as they are now, with the picks and removals made while it uploaded.
+      const ids = (draft.answer as AnswerDraftByType["file"] | null)?.attachment_ids ?? [];
+      setDraft(draftKey, { answer: { attachment_ids: [...ids, outcome.attachment.id] } });
+    },
+  });
 }
 
 /**
  * A drop zone and one row per file; a pasted screenshot counts (`⌘V`). Each
  * file uploads onto the question as it lands, and the answer is their ids.
  */
-export function FileControl({
-  question,
-  draft,
-  onDraftChange,
-  uploadFile,
-  handle,
-  onUploadingChange,
-  disabled,
-}: AnswerControlProps<"file">) {
+export function FileControl({ question, draft, onDraftChange, draftKey, disabled }: AnswerControlProps<"file">) {
   const { t } = useT("questions");
   const { accept } = question.settings;
   const input = useRef<HTMLInputElement>(null);
-  const [files, setFiles] = useState<UploadedFile[]>([]);
-  // Files picked and not settled yet; the ref is what Send reads at sending time.
-  const [uploading, setUploading] = useState(0);
-  const uploadingRef = useRef(0);
   const [dragging, setDragging] = useState(false);
+  const uploads = useQuestionDraftStore((s) => s.drafts[draftKey]?.uploads ?? EMPTY_QUESTION_DRAFT.uploads);
+  const removeUpload = useQuestionDraftStore((s) => s.removeUpload);
   const ids = draft?.attachment_ids ?? [];
-  // The draft is read again after each upload, so files landing together all count.
-  const idsRef = useRef(ids);
-  idsRef.current = ids;
 
-  useImperativeHandle(handle, () => ({ isUploading: () => uploadingRef.current > 0 }));
-
-  const setIds = (next: string[]) => {
-    idsRef.current = next;
-    onDraftChange({ attachment_ids: next });
-  };
-
-  const track = (delta: number) => {
-    uploadingRef.current += delta;
-    setUploading(uploadingRef.current);
-    onUploadingChange(uploadingRef.current > 0);
-  };
-
-  const add = async (picked: File[]) => {
-    const accepted = picked.filter((file) => {
-      if (acceptsFile(accept, file)) return true;
-      toast.error(t(($) => $.controls.file_refused, { name: file.name }));
-      return false;
-    });
-    if (accepted.length === 0) return;
-    // Every accepted file counts from the start, so Send waits for the last of them.
-    track(accepted.length);
-    for (const file of accepted) {
-      try {
-        const attachment = await uploadFile(file);
-        setFiles((current) => [...current, { id: attachment.id, name: attachment.filename, size: attachment.size_bytes }]);
-        setIds([...idsRef.current, attachment.id]);
-      } catch (error) {
-        logger.error("upload failed", { questionId: question.id, error });
-        toast.error(t(($) => $.controls.file_failed, { name: file.name }));
-      } finally {
-        track(-1);
+  const add = (picked: File[]) => {
+    for (const file of picked) {
+      if (!acceptsFile(accept, file)) {
+        toast.error(t(($) => $.controls.file_refused, { name: file.name }));
+        continue;
       }
+      uploadAnswerFile(draftKey, question.id, file, () => toast.error(t(($) => $.controls.file_failed, { name: file.name })));
     }
   };
 
   const onDrop = (event: DragEvent) => {
     event.preventDefault();
     setDragging(false);
-    if (!disabled) void add(Array.from(event.dataTransfer.files));
+    if (!disabled) add(Array.from(event.dataTransfer.files));
   };
 
   const onPaste = (event: ClipboardEvent) => {
     const pasted = Array.from(event.clipboardData.files);
     if (disabled || pasted.length === 0) return;
     event.preventDefault();
-    void add(pasted);
+    add(pasted);
   };
 
   return (
@@ -124,7 +122,7 @@ export function FileControl({
           dragging ? "border-ring bg-muted" : "border-transparent bg-muted/60 hover:bg-muted",
         )}
       >
-        {uploading > 0 ? (
+        {hasUploadingDraft(uploads) ? (
           <Loader2 aria-hidden className="size-4 animate-spin text-muted-foreground motion-reduce:animate-none" />
         ) : (
           <CloudUpload aria-hidden className="size-4 text-muted-foreground" />
@@ -139,25 +137,30 @@ export function FileControl({
         hidden
         accept={accept.join(",") || undefined}
         onChange={(event) => {
-          void add(Array.from(event.target.files ?? []));
+          add(Array.from(event.target.files ?? []));
           event.target.value = "";
         }}
       />
-      {ids.map((id) => {
-        const file = files.find((f) => f.id === id);
+      {ids.map((id, index) => {
+        // A file of the answer being edited comes as an id only; its place in the list names it.
+        const upload = uploads.find((u) => isUploaded(u) && u.attachment.id === id);
+        const name = upload?.filename ?? t(($) => $.controls.file_earlier, { number: index + 1 });
         return (
           <div key={id} className="flex h-10 items-center gap-2 rounded-lg border border-border px-3 text-body">
             <FileIcon aria-hidden className="size-4 shrink-0 text-muted-foreground" />
-            <span className="min-w-0 truncate">{file?.name ?? t(($) => $.controls.file_earlier)}</span>
-            {file && <span className="text-caption text-muted-foreground">{formatBytes(file.size)}</span>}
+            <span className="min-w-0 truncate">{name}</span>
+            {upload && <span className="text-caption text-muted-foreground">{formatBytes(upload.size)}</span>}
             <Button
               type="button"
               variant="ghost"
               size="icon-xs"
               disabled={disabled}
               className="ml-auto text-muted-foreground"
-              aria-label={t(($) => $.controls.file_remove, { name: file?.name ?? "" })}
-              onClick={() => setIds(ids.filter((other) => other !== id))}
+              aria-label={t(($) => $.controls.file_remove, { name })}
+              onClick={() => {
+                onDraftChange({ attachment_ids: ids.filter((other) => other !== id) });
+                if (upload) removeUpload(draftKey, upload.clientUploadId);
+              }}
             >
               <X />
             </Button>

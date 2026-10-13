@@ -440,6 +440,7 @@
     "questions_open_one": "{{count}} open",
     "questions_open_other": "{{count}} open",
     "questions_blocks_work": "blocks work",
+    "questions_none_open": "None open",
     "prop_stage": "Stage",
     "prop_assignee": "Assignee",
     "prop_start_date": "Start date",

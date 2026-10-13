@@ -89,7 +89,7 @@
     "file_drop": "拖放文件，或粘贴截图",
     "file_refused": "这个问题不接受 {{name}} 这类文件",
     "file_failed": "{{name}} 上传失败",
-    "file_earlier": "已附加的文件",
+    "file_earlier": "已附加的文件 {{number}}",
     "file_remove": "移除 {{name}}",
     "text_placeholder": "填写你的回答",
     "approve": "批准",

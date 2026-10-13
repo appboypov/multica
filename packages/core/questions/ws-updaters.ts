@@ -1,12 +1,12 @@
-import type { QueryClient } from "@tanstack/react-query";
+import type { QueryClient, QueryFilters } from "@tanstack/react-query";
 import type { Question } from "../types/question";
 import { issueKeys } from "../issues/queries";
 import { questionKeys } from "./queries";
 
-export function invalidateIssueQuestions(qc: QueryClient, wsId: string, issueId: string, questionId?: string) {
-  return Promise.all([
-    qc.invalidateQueries({ queryKey: questionKeys.byIssue(wsId, issueId) }),
-    qc.invalidateQueries({
+export async function invalidateIssueQuestions(qc: QueryClient, wsId: string, issueId: string, questionId?: string) {
+  const filters: QueryFilters[] = [
+    { queryKey: questionKeys.byIssue(wsId, issueId) },
+    {
       queryKey: questionKeys.details(wsId),
       predicate: (query) => {
         if (questionId && query.queryKey[3] === questionId) return true;
@@ -15,8 +15,12 @@ export function invalidateIssueQuestions(qc: QueryClient, wsId: string, issueId:
         // keeping an in-flight snapshot from before this event indefinitely.
         return !question || question.links.some((link) => link.link_type === "issue" && link.link_id === issueId);
       },
-    }),
-  ]);
+    },
+  ];
+  // Initial loads have no cached data, so invalidation alone reuses the
+  // pre-event request. Cancel first, as inbox refreshes do, then fetch anew.
+  await Promise.all(filters.map((filter) => qc.cancelQueries(filter)));
+  await Promise.all(filters.map((filter) => qc.invalidateQueries(filter)));
 }
 
 /** Question and task events carry identities, not authoritative question data. */

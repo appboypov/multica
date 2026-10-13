@@ -1161,12 +1161,23 @@ describe("IssueDetail (shared)", () => {
       expect(document.getElementById("comment-question-q-1")!.firstElementChild).toHaveClass("ring-2");
     });
 
-    it("leaves the Questions row out once no question is open", async () => {
+    it("reads None open, with no jump, once no question is open", async () => {
       mockApiObj.listIssueQuestions.mockResolvedValue([{ ...question, status: "answered" }]);
       renderIssueDetail();
 
-      await waitFor(() => expect(document.getElementById("comment-question-q-1")).not.toBeNull());
+      const value = await screen.findByText("None open");
+      expect(screen.getByText("Questions")).toBeInTheDocument();
+      expect(value.closest("button")).toBeNull();
+      expect(screen.queryByRole("button", { name: /open/ })).not.toBeInTheDocument();
+    });
+
+    it("keeps no Questions row on an issue without questions", async () => {
+      renderIssueDetail();
+
+      await screen.findByText("Properties");
+      await waitFor(() => expect(mockApiObj.listIssueQuestions).toHaveBeenCalled());
       expect(screen.queryByText("Questions")).not.toBeInTheDocument();
+      expect(screen.queryByText("None open")).not.toBeInTheDocument();
     });
   });
 

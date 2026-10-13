@@ -434,6 +434,7 @@
     "prop_questions": "질문",
     "questions_open_other": "{{count}}개 열림",
     "questions_blocks_work": "작업 차단",
+    "questions_none_open": "열린 질문 없음",
     "prop_stage": "단계",
     "prop_assignee": "담당자",
     "prop_start_date": "시작일",

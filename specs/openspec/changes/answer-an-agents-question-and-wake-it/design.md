@@ -95,6 +95,7 @@ flowchart TB
     schema["api/schemas.ts<br/>question schemas, parseWithFallback"]:::changed
     client["api/client.ts<br/>question methods"]:::changed
     qfeat["questions/<br/>queries, mutations, ws-updaters, validate"]:::new
+    qdraft["questions/draft-store.ts<br/>unsent answer, note, ask back, uploads"]:::new
     inboxt["types/inbox.ts<br/>question_asked, question_reassigned, question_overdue"]:::changed
     rt["realtime/use-realtime-sync.ts<br/>question:*"]:::changed
   end
@@ -109,6 +110,7 @@ flowchart TB
   qtypes --> schema --> client --> qfeat
   rt --> qfeat
   qfeat --> qviews
+  qdraft --> qviews
   qviews --> detail
   qviews --> inbox
   detail --> runrow
@@ -242,6 +244,7 @@ sequenceDiagram
 | Type | Question, answer types, inbox types | new, changed | `packages/core/types/question.ts`, `packages/core/types/inbox.ts` |
 | Schema and client | Question schemas and API methods | changed | `packages/core/api/schemas.ts`, `packages/core/api/client.ts` |
 | Feature | Queries, mutations, WS updaters, answer validation | new | `packages/core/questions/` |
+| Store | Question draft: unsent answer, note, ask back and the answer's uploads, per workspace and question | new | `packages/core/questions/draft-store.ts` |
 | Realtime | `question:*` and task events refresh questions | changed | `packages/core/realtime/use-realtime-sync.ts` |
 | Components | Question card and the 12 answer controls | new | `packages/views/questions/` |
 | Screen | Issue detail: cards, run row, Questions row, wake activity | changed | `packages/views/issues/components/` |
@@ -384,6 +387,8 @@ The answers are hydrated at claim, so an edit between Wake and claim reaches the
 ### 6. The issue page
 
 `GET /api/issues/{id}/questions` loads beside the timeline and task runs, and `orderTimelineWithRuns` places each question card by `created_at`, at the place it was asked; the timeline API and `TimelineEntry` stay unchanged. Each card has the anchor `question-${id}`; `IssueDetail` takes `highlightQuestionId` next to `highlightCommentId`, and the Questions row's jump reuses the `jumpToComment` scroll and flash. The Questions row after Priority shows when the issue has an open question: "1 open", or "1 open · blocks work". The run row gets "ended run #N with a question" when its run is terminal and asked a question, N being the run's 1-based place among that agent's runs on the issue by `created_at`, and the "Waiting for answer" badge while one of those questions is `open`. A viewer who is not an answerer sees the card without the overline and without controls; a closed card has no **Edit answer**. `task:*` events refresh the issue's questions too, since a run start changes what is unseen.
+
+A card scrolled out of the virtualized timeline unmounts, so nothing a card holds lives in it. The core question draft store (`packages/core/questions/draft-store.ts`, Zustand, persisted per workspace like comment drafts) keeps, per workspace and question, the unsent answer, note, ask back, whether an edit is open, and the answer's uploads as `DraftUpload`s: a placeholder from the moment a file is picked, then the attachment with its name and size. File and Text run uploads through the upload coordinator (`packages/core/drafts/upload-coordinator.ts`, Text through `useCoordinatedUploads` as composers do), with `question_id` in its context; the settle writes into the draft as it is then, guarded on the placeholder still being there, so a late upload adds its id to the current files rather than replacing them. The send lives in TanStack Query: `useAnswerQuestion` and `useAskBackQuestion` are bound to one question and keyed `["questions", wsId, "answer" | "ask-back", questionId]`, and the card reads pending through `useIsMutating` on that key. A card mounted again therefore shows an earlier send pending, and **Send** and `⌘↵` stay blocked while that send runs or any upload of the draft is in flight. The answer mutation records the draft at sending time; its success clears only what is unchanged since, so what was written while the send was on its way stays.
 
 ### 7. Inbox
 

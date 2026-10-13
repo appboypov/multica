@@ -89,7 +89,7 @@
     "file_drop": "파일을 놓거나 스크린샷을 붙여넣으세요",
     "file_refused": "{{name}}은(는) 이 질문이 받는 파일 종류가 아닙니다",
     "file_failed": "{{name}}을(를) 업로드하지 못했습니다",
-    "file_earlier": "첨부된 파일",
+    "file_earlier": "첨부된 파일 {{number}}",
     "file_remove": "{{name}} 제거",
     "text_placeholder": "답변 입력",
     "approve": "승인",

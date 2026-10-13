@@ -363,6 +363,7 @@ export function useCoordinatedUploads(
   const issueId = ctx.issueId;
   const commentId = ctx.commentId;
   const chatSessionId = ctx.chatSessionId;
+  const questionId = ctx.questionId;
 
   const handleUpload = useCallback(
     (file: File, uploadId?: string): Promise<UploadResult | null> => {
@@ -416,7 +417,7 @@ export function useCoordinatedUploads(
           clientUploadId,
           file,
           api,
-          ctx: { issueId, commentId, chatSessionId },
+          ctx: { issueId, commentId, chatSessionId, questionId },
           onSettled: (outcome) => {
             if (outcome.status === "uploaded") {
               if (target) {
@@ -481,7 +482,7 @@ export function useCoordinatedUploads(
         });
       });
     },
-    [binding, editorRef, issueId, commentId, chatSessionId, t],
+    [binding, editorRef, issueId, commentId, chatSessionId, questionId, t],
   );
 
   const removeUpload = useCallback(

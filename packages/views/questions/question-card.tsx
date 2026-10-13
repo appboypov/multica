@@ -1,13 +1,24 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { useIsMutating, useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, Calendar, CircleCheck, CirclePause, CircleSlash, ClockAlert, CornerUpLeft, NotebookPen, Pencil, Send, Check } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthStore } from "@multica/core/auth";
+import { hasUploadingDraft } from "@multica/core/drafts";
 import { useWorkspaceId } from "@multica/core/hooks";
 import { formatDateOnly, isPastDateOnly, todayDateOnly } from "@multica/core/issues/date";
 import { createLogger } from "@multica/core/logger";
-import { useAnswerQuestion, useAskBackQuestion, useUploadQuestionFile, type AnswerValidationError } from "@multica/core/questions";
+import {
+  EMPTY_QUESTION_DRAFT,
+  questionDraftKey,
+  questionMutationKeys,
+  useAnswerQuestion,
+  useAskBackQuestion,
+  useQuestionDraftStore,
+  type AnswerValidationError,
+  type QuestionDraftPatch,
+} from "@multica/core/questions";
 import type { AnswerValue, Question, QuestionAnswer, QuestionEvent } from "@multica/core/types";
 import { useActorName } from "@multica/core/workspace/hooks";
 import { Badge } from "@multica/ui/components/ui/badge";
@@ -16,8 +27,9 @@ import { Textarea } from "@multica/ui/components/ui/textarea";
 import { cn } from "@multica/ui/lib/utils";
 import { ActorAvatar } from "../common/actor-avatar";
 import { useLocale, useT, useTimeAgo } from "../i18n";
-import { AnswerControl, handleAnswerKey } from "./answer-controls/answer-control";
+import { AnswerControl, handleAnswerKey, useAnswerControlLink } from "./answer-controls/answer-control";
 import { controlShowsNote, draftError, valueToSend, type AnswerDraft, type AnswerableQuestion } from "./answer-controls/draft";
+import { useSuggestionShown } from "./answer-controls/person-control";
 import { ReassignPicker } from "./reassign-picker";
 import { TYPE_ICONS } from "./type-icon";
 import { WakeButton } from "./wake-button";
@@ -46,12 +58,39 @@ export interface QuestionCardProps {
  */
 export function QuestionCard({ question, issueId, runNumber, answerElsewhere }: QuestionCardProps) {
   const userId = useAuthStore((s) => s.user?.id);
-  const [editing, setEditing] = useState(false);
+  const wsId = useWorkspaceId();
+  const draftKey = questionDraftKey(wsId, question.id);
+  const hasDraft = useQuestionDraftStore((s) => draftKey in s.drafts);
+  const draftEditing = useQuestionDraftStore((s) => s.drafts[draftKey]?.editing ?? false);
+  const setDraft = useQuestionDraftStore((s) => s.setDraft);
+  const clearDraft = useQuestionDraftStore((s) => s.clearDraft);
   const isAnswerer = !!userId && question.answerers.some((a) => a.user_id === userId);
+  const ownAnswer = question.answers.find((a) => a.answerer_user_id === userId) ?? null;
+
+  // The server takes an edit only on an answered question, from a current
+  // answerer who has an answer of their own. With several answerers the first
+  // answer settles the question for all of them, so the others have none to edit.
+  const canEdit = isAnswerer && ownAnswer !== null && question.status === "answered" && question.answer_type !== "unknown";
+  // A live update that takes the edit away (closed, withdrawn, reassigned) folds the card.
+  const editing = draftEditing && canEdit;
+  // A draft outlives the card, not its chance to be sent: one for a question no
+  // longer open to this answerer, or an edit no longer allowed, is dropped.
+  const stale = hasDraft && !!userId && (draftEditing ? !canEdit : question.status !== "open" || !isAnswerer);
+  useEffect(() => {
+    if (stale) clearDraft(draftKey);
+  }, [stale, draftKey, clearDraft]);
 
   if (question.status !== "open" && !editing) {
-    const canEdit = isAnswerer && question.status === "answered" && question.answer_type !== "unknown";
-    return <FoldedQuestion question={question} issueId={issueId} onEdit={canEdit ? () => setEditing(true) : undefined} />;
+    const startEdit = () =>
+      setDraft(draftKey, {
+        editing: true,
+        answer: ownAnswer?.value ?? null,
+        note: ownAnswer?.note ?? "",
+        noteOpen: !!ownAnswer?.note,
+        askBackOpen: false,
+        askBackText: "",
+      });
+    return <FoldedQuestion question={question} issueId={issueId} onEdit={canEdit ? startEdit : undefined} />;
   }
   return (
     <OpenQuestion
@@ -60,9 +99,9 @@ export function QuestionCard({ question, issueId, runNumber, answerElsewhere }: 
       runNumber={runNumber}
       answerElsewhere={answerElsewhere}
       isAnswerer={isAnswerer}
-      ownAnswer={question.answers.find((a) => a.answerer_user_id === userId) ?? null}
+      draftKey={draftKey}
       editing={editing}
-      onDone={() => setEditing(false)}
+      onDone={() => clearDraft(draftKey)}
     />
   );
 }
@@ -127,7 +166,7 @@ function OpenQuestion({
   runNumber,
   answerElsewhere,
   isAnswerer,
-  ownAnswer,
+  draftKey,
   editing,
   onDone,
 }: {
@@ -136,7 +175,7 @@ function OpenQuestion({
   runNumber?: number;
   answerElsewhere?: ReactNode;
   isAnswerer: boolean;
-  ownAnswer: QuestionAnswer<unknown> | null;
+  draftKey: string;
   editing: boolean;
   onDone: () => void;
 }) {
@@ -191,7 +230,7 @@ function OpenQuestion({
           question={answerable}
           issueId={issueId}
           agentName={agentName}
-          ownAnswer={editing ? ownAnswer : null}
+          draftKey={draftKey}
           editing={editing}
           onDone={onDone}
         />
@@ -342,48 +381,65 @@ function AnswerForm({
   question,
   issueId,
   agentName,
-  ownAnswer,
+  draftKey,
   editing,
   onDone,
 }: {
   question: AnswerableQuestion;
   issueId: string;
   agentName: string;
-  ownAnswer: QuestionAnswer<unknown> | null;
+  /** Where the unsent answer, note and ask back live, so they outlast the card. */
+  draftKey: string;
   editing: boolean;
   onDone: () => void;
 }) {
   const { t } = useT("questions");
   const wsId = useWorkspaceId();
-  const answer = useAnswerQuestion(wsId, issueId);
-  const askBack = useAskBackQuestion(wsId, issueId);
-  const upload = useUploadQuestionFile(wsId, issueId);
+  const answer = useAnswerQuestion(wsId, issueId, question.id);
+  const askBack = useAskBackQuestion(wsId, issueId, question.id);
+  // Read from the query client, not this card's own mutation: a card mounted
+  // again while its send or an ask back is on its way still shows it pending.
+  const queryClient = useQueryClient();
+  const answerKey = questionMutationKeys.answer(wsId, question.id);
+  const askBackKey = questionMutationKeys.askBack(wsId, question.id);
+  const pending = useIsMutating({ mutationKey: answerKey }) > 0;
+  const askingBack = useIsMutating({ mutationKey: askBackKey }) > 0;
 
-  // Editing starts from the sent answer; a first answer from nothing picked.
-  const [draft, setDraft] = useState<AnswerDraft>((ownAnswer?.value as AnswerDraft | undefined) ?? null);
-  const [note, setNote] = useState(ownAnswer?.note ?? "");
-  const [noteOpen, setNoteOpen] = useState(!!ownAnswer?.note);
-  const [askBackOpen, setAskBackOpen] = useState(false);
-  const [askBackText, setAskBackText] = useState("");
+  // Editing starts from the sent answer (seeded on Edit answer); a first answer from nothing picked.
+  const stored = useQuestionDraftStore((s) => s.drafts[draftKey]) ?? EMPTY_QUESTION_DRAFT;
+  const setStored = useQuestionDraftStore((s) => s.setDraft);
+  const update = (patch: QuestionDraftPatch) => setStored(draftKey, patch);
+  const draft = stored.answer as AnswerDraft;
+  // Until the answerer picks or types, the control shows the suggestion, so
+  // Accept suggestion sends what is on screen; an edit starts from it.
+  const shown = draft ?? (question.suggested_answer as AnswerDraft);
+  const { note, noteOpen, askBackOpen, askBackText } = stored;
   const [serverError, setServerError] = useState<string | null>(null);
 
   const changeDraft = (next: AnswerDraft) => {
-    setDraft(next);
+    update({ answer: next });
     setServerError(null);
   };
 
-  const accepting = draft === null && question.suggested_answer !== null;
-  const value: AnswerValue | null = accepting ? question.suggested_answer : valueToSend(question, draft);
-  const error = accepting ? validateSuggestion(question, note) : draftError(question, draft, note);
-  const noteInControl = controlShowsNote(question, draft);
-  const pending = answer.isPending;
+  const { accepting, value, error } = toSend(question, draft, note);
+  // Accept suggestion sends only what the control shows: a suggested Person once its row is on screen.
+  const suggestionShown = useSuggestionShown(question);
+  const noteInControl = controlShowsNote(question, shown);
+  const control = useAnswerControlLink();
+  // The question's uploads outlive the control that started them, so a card mounted again still waits for them.
+  const uploading = hasUploadingDraft(stored.uploads);
 
   const send = () => {
-    if (value === null || error !== null || pending) return;
+    // What the card shows can trail: `⌘↵` bypasses the button, an upload can
+    // still be in flight, and the editor reports typing after its debounce.
+    const uploads = useQuestionDraftStore.getState().drafts[draftKey]?.uploads ?? EMPTY_QUESTION_DRAFT.uploads;
+    if (queryClient.isMutating({ mutationKey: answerKey }) > 0 || hasUploadingDraft(uploads) || control.isUploading()) return;
+    const now = toSend(question, control.currentDraft(draft), note);
+    if (now.value === null || now.error !== null || (now.accepting && !suggestionShown)) return;
     answer.mutate(
-      { id: question.id, value, ...(note.trim() ? { note: note.trim() } : {}) },
+      { value: now.value, ...(note.trim() ? { note: note.trim() } : {}) },
+      // A success clears what it sent from the question's draft in `useAnswerQuestion`, ending an edit too.
       {
-        onSuccess: onDone,
         onError: (err) => {
           logger.error("answer failed", { questionId: question.id, error: err });
           // The server is the authority; its refusal shows where the client's would.
@@ -395,14 +451,11 @@ function AnswerForm({
 
   const sendAskBack = () => {
     const text = askBackText.trim();
-    if (!text || askBack.isPending) return;
+    if (!text || queryClient.isMutating({ mutationKey: askBackKey }) > 0) return;
     askBack.mutate(
-      { id: question.id, text },
+      { text },
+      // A success empties the ask-back box in `useAskBackQuestion`, unless it was written again since.
       {
-        onSuccess: () => {
-          setAskBackText("");
-          setAskBackOpen(false);
-        },
         onError: (err) => {
           logger.error("ask back failed", { questionId: question.id, error: err });
           toast.error(t(($) => $.card.ask_back_failed), { description: err.message });
@@ -414,20 +467,21 @@ function AnswerForm({
   return (
     <div
       className="flex flex-col gap-3"
-      onKeyDown={(event) => handleAnswerKey(event, { question, draft, onDraftChange: changeDraft, disabled: pending })}
+      onKeyDown={(event) => handleAnswerKey(event, { question, draft: shown, onDraftChange: changeDraft, disabled: pending })}
     >
       <AnswerControl
         question={question}
-        draft={draft}
+        draft={shown}
         onDraftChange={changeDraft}
         note={note}
-        onNoteChange={setNote}
+        onNoteChange={(next) => update({ note: next })}
         onSubmit={send}
-        uploadFile={(file) => upload.mutateAsync({ id: question.id, file })}
+        draftKey={draftKey}
+        handle={control.handle}
         disabled={pending}
       />
 
-      <AnswerLine question={question} error={error} serverError={serverError} />
+      <AnswerLine question={question} error={error} serverError={serverError} uploading={uploading} />
 
       {noteOpen && !noteInControl && (
         <Textarea
@@ -436,7 +490,7 @@ function AnswerForm({
           aria-label={t(($) => $.card.note_label)}
           placeholder={t(($) => $.card.note_placeholder)}
           className="min-h-12"
-          onChange={(event) => setNote(event.target.value)}
+          onChange={(event) => update({ note: event.target.value })}
         />
       )}
 
@@ -445,11 +499,11 @@ function AnswerForm({
           <Textarea
             autoFocus
             value={askBackText}
-            disabled={askBack.isPending}
+            disabled={askingBack}
             aria-label={t(($) => $.card.ask_back_label, { name: agentName })}
             placeholder={t(($) => $.card.ask_back_placeholder, { name: agentName })}
             className="min-h-12 border-0 p-1 shadow-none focus-visible:ring-0"
-            onChange={(event) => setAskBackText(event.target.value)}
+            onChange={(event) => update({ askBackText: event.target.value })}
             onKeyDown={(event) => {
               if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
                 event.preventDefault();
@@ -458,10 +512,10 @@ function AnswerForm({
             }}
           />
           <div className="flex justify-end gap-1.5">
-            <Button type="button" variant="ghost" size="sm" onClick={() => setAskBackOpen(false)}>
+            <Button type="button" variant="ghost" size="sm" onClick={() => update({ askBackOpen: false })}>
               {t(($) => $.card.cancel)}
             </Button>
-            <Button type="button" size="sm" disabled={!askBackText.trim() || askBack.isPending} onClick={sendAskBack}>
+            <Button type="button" size="sm" disabled={!askBackText.trim() || askingBack} onClick={sendAskBack}>
               {t(($) => $.card.ask_back_send)}
             </Button>
           </div>
@@ -470,14 +524,14 @@ function AnswerForm({
 
       <div className="flex flex-wrap items-center gap-1">
         {!noteInControl && (
-          <Button type="button" variant="ghost" size="sm" className="text-muted-foreground" aria-expanded={noteOpen} onClick={() => setNoteOpen((open) => !open)}>
+          <Button type="button" variant="ghost" size="sm" className="text-muted-foreground" aria-expanded={noteOpen} onClick={() => update({ noteOpen: !noteOpen })}>
             <NotebookPen />
             {t(($) => $.card.add_note)}
           </Button>
         )}
         {!editing && (
           <>
-            <Button type="button" variant="ghost" size="sm" className="text-muted-foreground" aria-expanded={askBackOpen} onClick={() => setAskBackOpen((open) => !open)}>
+            <Button type="button" variant="ghost" size="sm" className="text-muted-foreground" aria-expanded={askBackOpen} onClick={() => update({ askBackOpen: !askBackOpen })}>
               <CornerUpLeft />
               {t(($) => $.card.ask_back)}
             </Button>
@@ -492,7 +546,7 @@ function AnswerForm({
               {t(($) => $.card.cancel)}
             </Button>
           )}
-          <Button type="button" disabled={value === null || error !== null || pending} onClick={send}>
+          <Button type="button" disabled={value === null || error !== null || (accepting && !suggestionShown) || pending || uploading} onClick={send}>
             {accepting ? <Check /> : <Send />}
             {accepting ? t(($) => $.card.accept_suggestion) : t(($) => $.card.send)}
           </Button>
@@ -500,6 +554,20 @@ function AnswerForm({
       </div>
     </div>
   );
+}
+
+/** What Send sends for `draft`: the suggestion while nothing is picked, else the draft; and what holds it back. */
+function toSend(
+  question: AnswerableQuestion,
+  draft: AnswerDraft,
+  note: string,
+): { accepting: boolean; value: AnswerValue | null; error: AnswerValidationError | null } {
+  const accepting = draft === null && question.suggested_answer !== null;
+  return {
+    accepting,
+    value: accepting ? question.suggested_answer : valueToSend(question, draft),
+    error: accepting ? validateSuggestion(question, note) : draftError(question, draft, note),
+  };
 }
 
 /** Accept suggestion sends the suggestion as it is, under the same rules as Send. */
@@ -512,13 +580,16 @@ function AnswerLine({
   question,
   error,
   serverError,
+  uploading,
 }: {
   question: AnswerableQuestion;
   error: AnswerValidationError | null;
   serverError: string | null;
+  uploading: boolean;
 }) {
   const { t } = useT("questions");
   if (serverError) return <p role="alert" className="text-caption text-destructive">{serverError}</p>;
+  if (uploading) return <p role="status" className="text-caption text-muted-foreground">{t(($) => $.card.uploading)}</p>;
   // Nothing picked breaks no rule, so an untouched card shows its hint.
   if (error) {
     const name = error.key.slice("validation.".length) as ValidationKey;

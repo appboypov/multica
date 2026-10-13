@@ -89,7 +89,7 @@
     "file_drop": "ファイルをドロップ、またはスクリーンショットを貼り付け",
     "file_refused": "{{name}} はこの質問で受け付けない種類のファイルです",
     "file_failed": "{{name}} をアップロードできませんでした",
-    "file_earlier": "添付済みのファイル",
+    "file_earlier": "添付済みのファイル {{number}}",
     "file_remove": "{{name}} を削除",
     "text_placeholder": "回答を入力",
     "approve": "承認",

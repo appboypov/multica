@@ -1,19 +1,18 @@
 "use client";
 
-import { useImperativeHandle, useRef } from "react";
-import { toast } from "sonner";
-import { createLogger } from "@multica/core/logger";
-import { toUploadResult } from "@multica/core/hooks/use-file-upload";
+import { useImperativeHandle, useMemo, useRef } from "react";
+import { uploadedAttachments } from "@multica/core/drafts";
+import { EMPTY_QUESTION_DRAFT, useQuestionDraftStore } from "@multica/core/questions";
 import { contentReferencesAttachment } from "@multica/core/types";
 import { cn } from "@multica/ui/lib/utils";
 import { ContentEditor, type ContentEditorRef } from "../../editor";
+import { useCoordinatedUploads, type UploadDraftBinding } from "../../editor/use-coordinated-uploads";
+import { useUploadGate } from "../../editor/use-upload-gate";
 import { useT } from "../../i18n";
 import type { AnswerControlProps } from "./control-props";
 import type { AnswerDraftByType } from "./draft";
 
-const logger = createLogger("questions.text");
-
-/** A file the answer can bind: an upload made here, or one of the answer being edited. */
+/** A file the answer can bind: an upload made on this question, or one of the answer being edited. */
 interface BoundFile {
   id: string;
   url: string;
@@ -36,28 +35,52 @@ function earlierFiles(draft: AnswerDraftByType["text"] | null): BoundFile[] {
 }
 
 /**
+ * The question's draft as the coordinated-upload engine's target: its uploads
+ * and, as the body, the answer's text. Every accessor reads the store, since a
+ * settling upload calls them after this control unmounted.
+ */
+function questionUploadBinding(draftKey: string): UploadDraftBinding {
+  const store = () => useQuestionDraftStore.getState();
+  return {
+    registryKey: `question:${draftKey}`,
+    getUploads: () => store().drafts[draftKey]?.uploads ?? EMPTY_QUESTION_DRAFT.uploads,
+    addUpload: (upload) => store().addUpload(draftKey, upload),
+    settleUpload: (id, attachment) => store().settleUpload(draftKey, id, attachment),
+    // The engine leaves nothing of a failed upload, so failing is removing.
+    failUpload: (id) => store().removeUpload(draftKey, id),
+    removeUpload: (id) => store().removeUpload(draftKey, id),
+    getBody: () => (store().drafts[draftKey]?.answer as AnswerDraftByType["text"] | null | undefined)?.text ?? "",
+    appendToBody: (markdown) => {
+      const answer = store().drafts[draftKey]?.answer as AnswerDraftByType["text"] | null | undefined;
+      const text = answer?.text ?? "";
+      store().setDraft(draftKey, {
+        answer: { ...answer, text: text.trim() ? `${text.replace(/\s+$/, "")}\n\n${markdown}` : markdown },
+      });
+    },
+  };
+}
+
+/**
  * Rich text as in comments, with mentions, links and attachments; `⌘↵`
  * sends. The answer binds only the files its text still references.
  */
-export function TextControl({
-  question,
-  draft,
-  onDraftChange,
-  onSubmit,
-  uploadFile,
-  handle,
-  onUploadingChange,
-  disabled,
-}: AnswerControlProps<"text">) {
+export function TextControl({ question, draft, onDraftChange, onSubmit, draftKey, handle, disabled }: AnswerControlProps<"text">) {
   const { t } = useT("questions");
   const editor = useRef<ContentEditorRef>(null);
-  const files = useRef<BoundFile[] | null>(null);
-  if (files.current === null) files.current = earlierFiles(draft);
+  const editorGate = useUploadGate(editor);
+  const binding = useMemo(() => questionUploadBinding(draftKey), [draftKey]);
+  const storeUploads = useQuestionDraftStore((s) => s.drafts[draftKey]?.uploads ?? EMPTY_QUESTION_DRAFT.uploads);
+  const uploads = useCoordinatedUploads(binding, storeUploads, { questionId: question.id }, editorGate, editor);
+  const earlier = useRef<BoundFile[] | null>(null);
+  if (earlier.current === null) earlier.current = earlierFiles(draft);
   const markdown = useRef(draft?.text ?? "");
 
   // Emptied text stays an edit, so Accept suggestion does not come back; the card sends no blank text.
   const draftOf = (text: string): AnswerDraftByType["text"] => {
-    const ids = (files.current ?? []).filter((f) => f.keep || contentReferencesAttachment(text, f)).map((f) => f.id);
+    // Read when called: an upload can settle into the draft after this render.
+    const uploaded: BoundFile[] = uploadedAttachments(binding.getUploads());
+    const files = [...(earlier.current ?? []).filter((f) => !uploaded.some((u) => u.id === f.id)), ...uploaded];
+    const ids = files.filter((f) => f.keep || contentReferencesAttachment(text, f)).map((f) => f.id);
     return ids.length > 0 ? { text, attachment_ids: ids } : { text };
   };
 
@@ -75,7 +98,7 @@ export function TextControl({
       markdown.current = pending;
       return report();
     },
-    isUploading: () => editor.current?.hasActiveUploads() === true,
+    isUploading: uploads.gate.isBlocked,
   }));
 
   return (
@@ -99,18 +122,8 @@ export function TextControl({
           report();
         }}
         onSubmit={onSubmit}
-        onUploadingChange={onUploadingChange}
-        onUploadFile={async (file) => {
-          try {
-            const attachment = await uploadFile(file);
-            files.current = [...(files.current ?? []), attachment];
-            return toUploadResult(attachment);
-          } catch (error) {
-            logger.error("upload failed", { questionId: question.id, error });
-            toast.error(t(($) => $.controls.file_failed, { name: file.name }));
-            return null;
-          }
-        }}
+        onUploadingChange={editorGate.onUploadingChange}
+        onUploadFile={uploads.handleUpload}
       />
     </div>
   );

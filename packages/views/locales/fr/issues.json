@@ -440,6 +440,7 @@
     "questions_open_one": "{{count}} ouverte",
     "questions_open_other": "{{count}} ouvertes",
     "questions_blocks_work": "bloque le travail",
+    "questions_none_open": "Aucune ouverte",
     "prop_stage": "Étape",
     "prop_assignee": "Assigné à",
     "prop_start_date": "Date de début",

@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { QueryClient } from "@tanstack/react-query";
+import { QueryClient, QueryObserver } from "@tanstack/react-query";
 import { api } from "../api";
 import { EMPTY_QUESTION } from "../api/schemas";
 import type { Question } from "../types/question";
@@ -12,6 +12,12 @@ vi.mock("../api", () => ({ api: { listIssueQuestions: vi.fn(), getQuestion: vi.f
 
 function linkedQuestion(id: string, issueId: string): Question {
   return { ...EMPTY_QUESTION, id, links: [{ link_type: "issue", link_id: issueId, position: 0 }] };
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((done) => { resolve = done; });
+  return { promise, resolve };
 }
 
 let qc: QueryClient;
@@ -80,6 +86,112 @@ describe("question WebSocket invalidation", () => {
     qc.setQueryData(questionKeys.detail("ws-1", "q-1"), { ...EMPTY_QUESTION, id: "q-1" });
     await handleQuestionEvent(qc, "ws-1", "question:updated", { issue_id: "issue-1", question_id: "q-1" });
     expect(qc.getQueryState(questionKeys.detail("ws-1", "q-1"))?.isInvalidated).toBe(true);
+  });
+
+  it.each(["question:created", "question:updated", "task:completed"])(
+    "%s replaces the first issue-list request with post-event data",
+    async (type) => {
+      const firstResponse = deferred<Question[]>();
+      const fresh = [{ ...linkedQuestion("q-1", "issue-1"), status: "open" as const }];
+      vi.mocked(api.listIssueQuestions)
+        .mockReturnValueOnce(firstResponse.promise)
+        .mockResolvedValue(fresh);
+      const options = issueQuestionsOptions("ws-1", "issue-1");
+      const observer = new QueryObserver(qc, options);
+      const unsubscribe = observer.subscribe(() => {});
+      try {
+        expect(api.listIssueQuestions).toHaveBeenCalledTimes(1);
+        expect(qc.getQueryData(options.queryKey)).toBeUndefined();
+        const refresh = handleQuestionEvent(qc, "ws-1", type, { issue_id: "issue-1", question_id: "q-1" });
+        firstResponse.resolve([]);
+        await refresh;
+        expect(qc.getQueryData(options.queryKey)).toEqual(fresh);
+        expect(api.listIssueQuestions).toHaveBeenCalledTimes(2);
+      } finally {
+        firstResponse.resolve([]);
+        unsubscribe();
+      }
+    },
+  );
+
+  it.each(["question:created", "question:updated", "task:completed"])(
+    "%s replaces the first detail request with post-event state",
+    async (type) => {
+      const firstResponse = deferred<Question>();
+      const stale = { ...linkedQuestion("q-1", "issue-1"), status: "open" as const };
+      const fresh = { ...stale, status: "answered" as const };
+      vi.mocked(api.getQuestion)
+        .mockReturnValueOnce(firstResponse.promise)
+        .mockResolvedValue(fresh);
+      const options = questionDetailOptions("ws-1", "q-1");
+      const observer = new QueryObserver(qc, options);
+      const unsubscribe = observer.subscribe(() => {});
+      try {
+        expect(api.getQuestion).toHaveBeenCalledTimes(1);
+        expect(qc.getQueryData(options.queryKey)).toBeUndefined();
+        // Task events have no question ID; unresolved details still need a fresh response.
+        const refresh = handleQuestionEvent(qc, "ws-1", type, {
+          issue_id: "issue-1",
+          ...(type.startsWith("question:") ? { question_id: "q-1" } : {}),
+        });
+        firstResponse.resolve(stale);
+        await refresh;
+        expect(qc.getQueryData(options.queryKey)).toEqual(fresh);
+        expect(api.getQuestion).toHaveBeenCalledTimes(2);
+      } finally {
+        firstResponse.resolve(stale);
+        unsubscribe();
+      }
+    },
+  );
+
+  it.each([
+    ["ws-1", "issue-2"],
+    ["ws-2", "issue-1"],
+  ])("an event for %s/%s leaves unrelated in-flight list and linked detail requests alone", async (wsId, issueId) => {
+    const listResponse = deferred<Question[]>();
+    const detailResponse = deferred<Question>();
+    const question = linkedQuestion("q-1", "issue-1");
+    const listKey = questionKeys.byIssue("ws-1", "issue-1");
+    const detailKey = questionKeys.detail("ws-1", "q-1");
+    // A known detail's links establish its issue; unresolved details retain
+    // the existing conservative workspace-wide refresh policy.
+    qc.setQueryData(detailKey, question);
+    let listSignal!: AbortSignal;
+    let detailSignal!: AbortSignal;
+    const listFetch = vi.fn(({ signal }: { signal: AbortSignal }) => {
+      listSignal = signal;
+      return listResponse.promise;
+    });
+    const detailFetch = vi.fn(({ signal }: { signal: AbortSignal }) => {
+      detailSignal = signal;
+      return detailResponse.promise;
+    });
+    const listObserver = new QueryObserver(qc, { queryKey: listKey, queryFn: listFetch });
+    const detailObserver = new QueryObserver(qc, { queryKey: detailKey, queryFn: detailFetch, staleTime: 0 });
+    const unsubscribeList = listObserver.subscribe(() => {});
+    const unsubscribeDetail = detailObserver.subscribe(() => {});
+    try {
+      await handleQuestionEvent(qc, wsId, "question:updated", { issue_id: issueId, question_id: "q-other" });
+      expect(listSignal.aborted).toBe(false);
+      expect(detailSignal.aborted).toBe(false);
+      expect(listFetch).toHaveBeenCalledTimes(1);
+      expect(detailFetch).toHaveBeenCalledTimes(1);
+      const listFinished = qc.fetchQuery({ queryKey: listKey, queryFn: listFetch });
+      const detailFinished = qc.fetchQuery({ queryKey: detailKey, queryFn: detailFetch });
+      listResponse.resolve([question]);
+      detailResponse.resolve({ ...question, status: "answered" });
+      await Promise.all([listFinished, detailFinished]);
+      expect(qc.getQueryData(listKey)).toEqual([question]);
+      expect(qc.getQueryData(detailKey)).toEqual({ ...question, status: "answered" });
+      expect(listFetch).toHaveBeenCalledTimes(1);
+      expect(detailFetch).toHaveBeenCalledTimes(1);
+    } finally {
+      listResponse.resolve([question]);
+      detailResponse.resolve(question);
+      unsubscribeList();
+      unsubscribeDetail();
+    }
   });
 
   it.each([null, {}, { issue_id: "" }, { issue_id: 42 }, { chat_session_id: "chat-1" }])("ignores a malformed or non-issue payload %j", async (payload) => {

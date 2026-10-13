@@ -89,7 +89,7 @@
     "file_drop": "Déposez des fichiers, ou collez une capture d'écran",
     "file_refused": "{{name}} n'est pas un type de fichier accepté par cette question",
     "file_failed": "Impossible de téléverser {{name}}",
-    "file_earlier": "Fichier joint",
+    "file_earlier": "Fichier joint {{number}}",
     "file_remove": "Retirer {{name}}",
     "text_placeholder": "Écrivez votre réponse",
     "approve": "Approuver",

@@ -58,6 +58,7 @@ export interface UploadContext {
   issueId?: string;
   commentId?: string;
   chatSessionId?: string;
+  questionId?: string;
 }
 
 // pickMarkdownLink chooses the URL the editor will write into markdown.

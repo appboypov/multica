@@ -434,6 +434,7 @@
     "prop_questions": "質問",
     "questions_open_other": "未回答 {{count}} 件",
     "questions_blocks_work": "作業をブロック",
+    "questions_none_open": "未回答なし",
     "prop_stage": "ステージ",
     "prop_assignee": "担当者",
     "prop_start_date": "開始日",

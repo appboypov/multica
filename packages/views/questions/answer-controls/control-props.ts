@@ -1,5 +1,5 @@
 import type { RefObject } from "react";
-import type { AnswerType, Attachment, TypedQuestion } from "@multica/core/types";
+import type { AnswerType, TypedQuestion } from "@multica/core/types";
 import type { AnswerDraft, AnswerDraftByType } from "./draft";
 
 /**
@@ -28,11 +28,12 @@ export interface AnswerControlProps<T extends AnswerType> {
   onNoteChange: (note: string) => void;
   /** Sends the answer, as **Send** does (⌘↵ in Text). */
   onSubmit: () => void;
-  /** Uploads a file of the answer onto the question (File and Text). */
-  uploadFile: (file: File) => Promise<Attachment>;
-  /** Filled by a control whose draft or uploads Send must read at sending time (Text, File). */
+  /**
+   * The question's draft in the core question draft store, where File and Text
+   * keep the answer's uploads; Send waits while one of them runs.
+   */
+  draftKey: string;
+  /** Filled by a control whose draft or uploads Send must read at sending time (Text). */
   handle: RefObject<AnswerControlHandle | null>;
-  /** Called as files of the answer start and stop uploading; Send waits meanwhile. */
-  onUploadingChange: (uploading: boolean) => void;
   disabled: boolean;
 }

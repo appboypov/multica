@@ -22,6 +22,7 @@ import {
   ChevronLeft,
   ChevronRight,
   CircleCheck,
+  CircleHelp,
   Milestone,
   MoreHorizontal,
   PanelRight,
@@ -2746,18 +2747,26 @@ export function IssueDetail({ issueId, onDelete, onDone, defaultSidebarOpen = tr
               />
             </PropRow>
           )}
-          {openQuestions.firstAnchor && (
-            <PropRow label={t(($) => $.detail.prop_questions)}>
-              <button
-                type="button"
-                className="flex min-w-0 items-center gap-1 truncate"
-                onClick={() => jumpToThread(openQuestions.firstAnchor!)}
-              >
-                <span className="text-brand">{t(($) => $.detail.questions_open, { count: openQuestions.count })}</span>
-                {openQuestions.blocksWork && (
-                  <span className="text-destructive">· {t(($) => $.detail.questions_blocks_work)}</span>
-                )}
-              </button>
+          {questions.length > 0 && (
+            <PropRow label={t(($) => $.detail.prop_questions)} interactive={!!openQuestions.firstAnchor}>
+              {openQuestions.firstAnchor ? (
+                <button
+                  type="button"
+                  className="flex min-w-0 items-center gap-1.5 truncate"
+                  onClick={() => jumpToThread(openQuestions.firstAnchor!)}
+                >
+                  <CircleHelp aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
+                  <span className="text-brand">{t(($) => $.detail.questions_open, { count: openQuestions.count })}</span>
+                  {openQuestions.blocksWork && (
+                    <span className="text-destructive">· {t(($) => $.detail.questions_blocks_work)}</span>
+                  )}
+                </button>
+              ) : (
+                <span className="flex min-w-0 items-center gap-1.5 truncate text-muted-foreground">
+                  <CircleHelp aria-hidden className="size-3.5 shrink-0" />
+                  {t(($) => $.detail.questions_none_open)}
+                </span>
+              )}
             </PropRow>
           )}
           {issue.parent_issue_id != null && visibleOptionalProps.has("stage") && (

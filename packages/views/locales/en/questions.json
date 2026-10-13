@@ -89,7 +89,7 @@
     "file_drop": "Drop files, or paste a screenshot",
     "file_refused": "{{name}} is not a kind of file this question accepts",
     "file_failed": "Could not upload {{name}}",
-    "file_earlier": "Attached file",
+    "file_earlier": "Attached file {{number}}",
     "file_remove": "Remove {{name}}",
     "text_placeholder": "Write your answer",
     "approve": "Approve",
