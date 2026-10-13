@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   push: vi.fn(),
   recordVisit: vi.fn(),
   toastSuccess: vi.fn(),
+  updateProject: vi.fn(),
 }));
 
 vi.mock("@multica/ui/lib/clipboard", () => ({
@@ -45,8 +46,17 @@ vi.mock("@multica/core/projects/queries", () => ({
 }));
 
 vi.mock("@multica/core/projects/mutations", () => ({
-  useUpdateProject: () => ({ mutate: vi.fn() }),
+  useUpdateProject: () => ({ mutate: mocks.updateProject }),
   useDeleteProject: () => ({ mutate: mocks.deleteProject }),
+}));
+
+vi.mock("@multica/core/organisations", () => ({
+  useOrganisations: () => ({
+    data: [
+      { id: "org-das", workspace_id: "workspace-1", name: "De App Specialist", key: "das", created_at: "", updated_at: "" },
+      { id: "org-rebl", workspace_id: "workspace-1", name: "Rebl Records", key: "rebl", created_at: "", updated_at: "" },
+    ],
+  }),
 }));
 
 vi.mock("@multica/core/pins", () => ({
@@ -222,14 +232,6 @@ vi.mock("./project-resources-section", () => ({
   ProjectResourcesSection: () => null,
 }));
 
-vi.mock("./project-start-date-picker", () => ({
-  ProjectStartDatePicker: () => null,
-}));
-
-vi.mock("./project-due-date-picker", () => ({
-  ProjectDueDatePicker: () => null,
-}));
-
 vi.mock("../../issues/surface/issue-surface", () => ({
   IssueSurface: () => null,
 }));
@@ -302,6 +304,7 @@ beforeEach(() => {
   mocks.push.mockReset();
   mocks.recordVisit.mockReset();
   mocks.toastSuccess.mockReset();
+  mocks.updateProject.mockReset();
 });
 
 describe("ProjectDetail sharing", () => {
@@ -355,5 +358,30 @@ describe("ProjectDetail project deletion", () => {
     expect(
       screen.queryByRole("button", { name: "Delete project" }),
     ).not.toBeInTheDocument();
+  });
+});
+
+describe("ProjectDetail organisation", () => {
+  it("shows No organisation for a project without one and gives it the picked one", async () => {
+    const user = userEvent.setup();
+    renderProjectDetail();
+
+    expect(screen.getByText("Organisation")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "No organisation" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "De App Specialist" }));
+
+    expect(mocks.updateProject).toHaveBeenCalledWith({
+      id: PROJECT.id,
+      organisation_id: "org-das",
+    });
+  });
+
+  it("shows no status, start date or due date", () => {
+    renderProjectDetail();
+
+    for (const text of ["Status", "In Progress", "Start date", "Due date"]) {
+      expect(screen.queryByText(text)).not.toBeInTheDocument();
+    }
   });
 });

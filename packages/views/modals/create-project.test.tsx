@@ -1,5 +1,5 @@
 import React from "react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { renderWithI18n } from "../test/i18n";
@@ -18,6 +18,8 @@ vi.mock("@tanstack/react-query", () => ({
 }));
 
 const createProjectMock = vi.hoisted(() => vi.fn().mockResolvedValue({ id: "p1" }));
+// The draft's organisation; each test starts from Rebl Records.
+const draftState = vi.hoisted(() => ({ organisationId: "org-rebl" as string | undefined }));
 
 vi.mock("@multica/core/projects/mutations", () => ({
   useCreateProject: () => ({ mutateAsync: createProjectMock }),
@@ -29,15 +31,24 @@ vi.mock("@multica/core/projects", () => ({
       draft: {
         title: "",
         description: "",
-        status: "planned",
         priority: "medium",
         leadType: undefined,
         leadId: undefined,
         icon: undefined,
+        organisationId: draftState.organisationId,
       },
       setDraft: vi.fn(),
       clearDraft: vi.fn(),
     }),
+}));
+
+vi.mock("@multica/core/organisations", () => ({
+  useOrganisations: () => ({
+    data: [
+      { id: "org-das", workspace_id: "workspace-1", name: "De App Specialist", key: "das", created_at: "", updated_at: "" },
+      { id: "org-rebl", workspace_id: "workspace-1", name: "Rebl Records", key: "rebl", created_at: "", updated_at: "" },
+    ],
+  }),
 }));
 
 vi.mock("@multica/core/hooks", () => ({
@@ -125,17 +136,6 @@ vi.mock("../common/actor-avatar", () => ({
   ActorAvatar: () => <span data-testid="actor-avatar" />,
 }));
 
-// Stub the date pickers so this test doesn't pull the real Calendar (and its
-// buttonVariants import) into the modal's module graph; the pickers have their
-// own test. The stubs render the placeholder label so the pills are assertable.
-vi.mock("../projects/components/project-start-date-picker", () => ({
-  ProjectStartDatePicker: () => <button type="button">Start date</button>,
-}));
-
-vi.mock("../projects/components/project-due-date-picker", () => ({
-  ProjectDueDatePicker: () => <button type="button">Due date</button>,
-}));
-
 vi.mock("@multica/ui/components/ui/dialog", () => ({
   Dialog: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   DialogContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
@@ -210,6 +210,11 @@ vi.mock("sonner", () => ({
 import { CreateProjectModal } from "./create-project";
 
 describe("CreateProjectModal", () => {
+  beforeEach(() => {
+    draftState.organisationId = "org-rebl";
+    createProjectMock.mockClear();
+  });
+
   it("exposes full repository URLs in the repository picker", () => {
     render(<CreateProjectModal onClose={vi.fn()} />);
 
@@ -247,19 +252,60 @@ describe("CreateProjectModal", () => {
     ]);
   });
 
-  it("reveals the start/due date pickers from the ⋯ overflow menu", async () => {
+  it("asks for no status, start date or due date", () => {
+    renderWithI18n(<CreateProjectModal onClose={vi.fn()} />);
+
+    for (const name of [/planned/i, /start date/i, /due date/i, /more options/i]) {
+      expect(screen.queryByRole("button", { name })).not.toBeInTheDocument();
+    }
+  });
+
+  it("sends the draft's organisation", async () => {
     const user = userEvent.setup();
     renderWithI18n(<CreateProjectModal onClose={vi.fn()} />);
 
-    // Dates are collapsed behind the overflow by default (progressive disclosure).
-    expect(screen.queryByRole("button", { name: "Start date" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Due date" })).not.toBeInTheDocument();
+    await user.type(screen.getByPlaceholderText(/project title/i), "Fan app");
+    await user.click(screen.getByRole("button", { name: /^create project$/i }));
 
-    await user.click(screen.getByRole("button", { name: /Set start date/ }));
-    expect(screen.getByRole("button", { name: "Start date" })).toBeInTheDocument();
+    expect(createProjectMock).toHaveBeenCalledTimes(1);
+    expect(createProjectMock.mock.calls[0]?.[0]).toMatchObject({
+      title: "Fan app",
+      organisation_id: "org-rebl",
+    });
+  });
 
-    await user.click(screen.getByRole("button", { name: /Set due date/ }));
-    expect(screen.getByRole("button", { name: "Due date" })).toBeInTheDocument();
+  it("starts in the organisation it is opened from", async () => {
+    draftState.organisationId = undefined;
+    const user = userEvent.setup();
+    renderWithI18n(<CreateProjectModal onClose={vi.fn()} data={{ organisationId: "org-das" }} />);
+
+    await user.type(screen.getByPlaceholderText(/project title/i), "Fan app");
+    await user.click(screen.getByRole("button", { name: /^create project$/i }));
+
+    expect(createProjectMock.mock.calls[0]?.[0]).toMatchObject({ organisation_id: "org-das" });
+  });
+
+  it("cannot create without an organisation, until one is picked", async () => {
+    draftState.organisationId = undefined;
+    const user = userEvent.setup();
+    renderWithI18n(<CreateProjectModal onClose={vi.fn()} />);
+
+    await user.type(screen.getByPlaceholderText(/project title/i), "Fan app");
+    const create = screen.getByRole("button", { name: /^create project$/i });
+    expect(create).toBeDisabled();
+    fireEvent.keyDown(screen.getByPlaceholderText(/project title/i), { key: "Enter" });
+    expect(createProjectMock).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "Rebl Records" }));
+    await user.click(create);
+
+    expect(createProjectMock.mock.calls[0]?.[0]).toMatchObject({ organisation_id: "org-rebl" });
+  });
+
+  it("cannot create without a name", () => {
+    renderWithI18n(<CreateProjectModal onClose={vi.fn()} />);
+
+    expect(screen.getByRole("button", { name: /^create project$/i })).toBeDisabled();
   });
 
   // A project that tracks one delivery line has to be able to say so while it
