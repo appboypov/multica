@@ -127,7 +127,7 @@ flowchart LR
 
 - [x] 14.1 `packages/core/api/client.ts` -- `listIssueQuestions`, `getQuestion`, `answerQuestion`, `askBackQuestion`, `reassignQuestion`, `wakeQuestionAgent`, `uploadFile` with `question_id`, each through `parseWithFallback` -- the client calls of decision 4.
 - [x] 14.2 `packages/core/questions/queries.ts`, `mutations.ts`, `index.ts` -- `questionKeys.byIssue(wsId, issueId)`, `questionKeys.detail(wsId, id)`, query hooks and mutations that invalidate both on settle; add `./questions` to `packages/core/package.json` exports -- TanStack Query owns the questions.
-- [ ] 14.3 `packages/core/questions/ws-updaters.ts`, `packages/core/realtime/use-realtime-sync.ts` -- `question:created`, `question:updated` and `task:*` events of an issue invalidate its question keys -- cards, Wake and the run badge stay live.
+- [x] 14.3 `packages/core/questions/ws-updaters.ts`, `packages/core/realtime/use-realtime-sync.ts` -- `question:created`, `question:updated` and `task:*` events of an issue invalidate its question keys -- cards, Wake and the run badge stay live.
 - [x] 14.4 `packages/core/questions/validate.ts` -- mirror of `ValidateAnswer` returning the message key and values that gate **Send** -- the card says why it cannot send.
 - [x] 14.5 `packages/core/questions/validate.test.ts`, `packages/core/questions/queries.test.ts` -- the decision 2 cases as in task 8.4; keys include `wsId`; WS events invalidate the right keys -- canonical layer for the client logic.
 
@@ -261,6 +261,7 @@ Verified: `GetVariables()` deep-equal before and after (70 variables); the 92 ex
 - Verification correction for 14.1: the upload fixture omitted required `download_url` and `filename`, so `parseWithFallback` correctly returned `EMPTY_ATTACHMENT`. `packages/core/api/question-client.test.ts` now supplies the real response shape; production upload parsing remains unchanged.
 - Verification correction for 14.5: `packages/core/questions/mutations.test.tsx` gives `renderHook` the test's shared `() => Promise<unknown>` result contract, accepting question, Wake and attachment submit callbacks without type assertions or production API changes. Both requested checks pass with this correction.
 - At Main's explicit request, this builder ran local core checks using `pnpm --dir packages/core exec tsc --noEmit -p .` (exit 0, no errors) and `pnpm --dir packages/core exec vitest run api questions` (13 test files, 650 tests passed). Checks ran on both corrected test files; no build, lint, formatter or screen test ran.
+- Verification correction for 14.3: kept the question-prefix refresh on reconnect/new WS instances so missed question or task events cannot leave cards and Wake stale. `packages/core/realtime/use-realtime-sync-ws-instance.test.tsx` now counts 32 invalidations, documents the question prefix and explicitly asserts `questionKeys.all("ws-1")`. Local `pnpm --dir packages/core exec vitest run` passed all 176 files / 2417 tests; `pnpm --dir packages/core exec tsc --noEmit -p .` exited 0 with no errors. No production code change was needed.
 
 ### Group 15. J9 Frontend: new component
 
