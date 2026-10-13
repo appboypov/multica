@@ -5,14 +5,11 @@ import { createJSONStorage, persist } from "zustand/middleware";
 import { createWorkspaceAwareStorage, registerForWorkspaceRehydration } from "../../platform/workspace-storage";
 import { defaultStorage } from "../../platform/storage";
 
-// Projects is the one dual-view list: a dense table (compact) and a card
-// grid (comfortable), toggled by viewMode. Sort + filters feed both views;
-// hiddenColumns only applies to the table. No scope (lead is optional and
-// often an agent, so there's no strong personal axis; status is a 5-value
-// lifecycle better expressed as a filter). Search stays session-local.
+// Projects keeps a compact table and comfortable card grid. Sort and filters
+// feed both views; hidden columns apply only to the table.
 export type ProjectViewMode = "compact" | "comfortable";
 
-export type ProjectSortField = "name" | "priority" | "status" | "progress" | "created";
+export type ProjectSortField = "name" | "priority" | "progress" | "created";
 
 export type ProjectSortDirection = "asc" | "desc";
 
@@ -22,15 +19,12 @@ export const PROJECT_SORT_DEFAULT_DIRECTION: Record<
 > = {
   name: "asc",
   priority: "desc",
-  status: "asc",
   progress: "desc",
   created: "desc",
 };
 
 /** Multi-select filters. Empty array per dimension = inactive. */
 export interface ProjectListFilters {
-  /** ProjectStatus values. */
-  statuses: string[];
   /** ProjectPriority values. */
   priorities: string[];
   /** Composite "type:id" lead refs (member or agent). */
@@ -38,13 +32,11 @@ export interface ProjectListFilters {
 }
 
 export const EMPTY_PROJECT_FILTERS: ProjectListFilters = {
-  statuses: [],
   priorities: [],
   leads: [],
 };
 
-// Hideable table columns. Name + status are the always-visible core (status
-// is the project's defining lifecycle field), so they're not in this set.
+// Name is always visible; the other table columns can be hidden.
 export type ProjectColumnKey = "priority" | "progress" | "lead" | "issues" | "created";
 
 /** Issues count is opt-in; the rest show by default (matching the prior
@@ -57,11 +49,13 @@ export interface ProjectViewState {
   sortDirection: ProjectSortDirection;
   hiddenColumns: ProjectColumnKey[];
   filters: ProjectListFilters;
+  collapsedOrganisations: string[];
   setViewMode: (mode: ProjectViewMode) => void;
   toggleSort: (field: ProjectSortField) => void;
   setSortField: (field: ProjectSortField) => void;
   setSortDirection: (direction: ProjectSortDirection) => void;
   toggleColumn: (key: ProjectColumnKey) => void;
+  toggleOrganisation: (id: string) => void;
   toggleFilter: (key: keyof ProjectListFilters, value: string) => void;
   clearFilters: () => void;
 }
@@ -72,6 +66,7 @@ const DEFAULTS = {
   sortDirection: PROJECT_SORT_DEFAULT_DIRECTION.created,
   hiddenColumns: PROJECT_DEFAULT_HIDDEN_COLUMNS,
   filters: EMPTY_PROJECT_FILTERS,
+  collapsedOrganisations: [] as string[],
 };
 
 export const useProjectViewStore = create<ProjectViewState>()(
@@ -104,6 +99,12 @@ export const useProjectViewStore = create<ProjectViewState>()(
             ? state.hiddenColumns.filter((k) => k !== key)
             : [...state.hiddenColumns, key],
         })),
+      toggleOrganisation: (id) =>
+        set((state) => ({
+          collapsedOrganisations: state.collapsedOrganisations.includes(id)
+            ? state.collapsedOrganisations.filter((value) => value !== id)
+            : [...state.collapsedOrganisations, id],
+        })),
       toggleFilter: (key, value) =>
         set((state) => {
           const list = state.filters[key] as string[];
@@ -123,17 +124,27 @@ export const useProjectViewStore = create<ProjectViewState>()(
         sortDirection: state.sortDirection,
         hiddenColumns: state.hiddenColumns,
         filters: state.filters,
+        collapsedOrganisations: state.collapsedOrganisations,
       }),
-      // Deep-merge filters so a payload persisted before a filter dimension
-      // existed still gets that key's default (avoids `.length` on
-      // undefined). Same hardening as the other view stores.
+      // Keep only supported filters and sorts when loading saved preferences.
       merge: (persisted, current) => {
         if (!persisted) return { ...current, ...DEFAULTS };
         const p = persisted as Partial<ProjectViewState>;
+        const sortField = p.sortField && Object.hasOwn(PROJECT_SORT_DEFAULT_DIRECTION, p.sortField)
+          ? p.sortField
+          : DEFAULTS.sortField;
         return {
           ...current,
           ...p,
-          filters: { ...EMPTY_PROJECT_FILTERS, ...(p.filters ?? {}) },
+          sortField,
+          sortDirection: sortField === p.sortField
+            ? p.sortDirection ?? DEFAULTS.sortDirection
+            : DEFAULTS.sortDirection,
+          collapsedOrganisations: p.collapsedOrganisations ?? DEFAULTS.collapsedOrganisations,
+          filters: {
+            priorities: p.filters?.priorities ?? [],
+            leads: p.filters?.leads ?? [],
+          },
         };
       },
     }

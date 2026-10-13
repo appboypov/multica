@@ -60,9 +60,7 @@ describe("useDeleteProject", () => {
     expect(store.getState().viewMode).toBe("board");
   });
 
-  // Regression: the issue-table invalidation once sat on the create
-  // mutation, so a missed realtime event left a project-status-filtered
-  // window showing the deleted project's issues (staleTime is Infinity).
+  // Project deletion clears issue membership, including project-scoped windows.
   it("invalidates the issue table windows", async () => {
     const tableKey = [...issueKeys.tableAll("ws-1"), "window"];
     qc.setQueryData(tableKey, { rows: [] });
@@ -96,19 +94,19 @@ describe("useUpdateProject", () => {
     vi.restoreAllMocks();
   });
 
-  it("invalidates the issue table windows when the status changes", async () => {
+  it("leaves issue table windows alone when the organisation changes", async () => {
     const { result } = renderHook(() => useUpdateProject(), {
       wrapper: createWrapper(qc),
     });
 
     await act(async () => {
-      await result.current.mutateAsync({ id: "p1", status: "paused" });
+      await result.current.mutateAsync({ id: "p1", organisation_id: "org-1" });
     });
 
-    expect(qc.getQueryState(tableKey)?.isInvalidated).toBe(true);
+    expect(qc.getQueryState(tableKey)?.isInvalidated).toBe(false);
   });
 
-  it("leaves the issue table windows alone when the status is untouched", async () => {
+  it("leaves issue table windows alone when the title changes", async () => {
     const { result } = renderHook(() => useUpdateProject(), {
       wrapper: createWrapper(qc),
     });

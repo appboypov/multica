@@ -45,6 +45,7 @@ describe("useProjectViewStore", () => {
     expect(raw).not.toBeNull();
     const parsed = JSON.parse(raw as string);
     expect(Object.keys(parsed.state).sort()).toEqual([
+      "collapsedOrganisations",
       "filters",
       "hiddenColumns",
       "sortDirection",

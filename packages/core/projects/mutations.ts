@@ -32,8 +32,11 @@ export function useUpdateProject() {
   return useMutation({
     mutationFn: ({ id, ...data }: { id: string } & UpdateProjectRequest) =>
       api.updateProject(id, data),
-    onMutate: ({ id, ...data }) => {
-      qc.cancelQueries({ queryKey: projectKeys.list(wsId) });
+    onMutate: async ({ id, ...data }) => {
+      await Promise.all([
+        qc.cancelQueries({ queryKey: projectKeys.list(wsId) }),
+        qc.cancelQueries({ queryKey: projectKeys.detail(wsId, id) }),
+      ]);
       const prevList = qc.getQueryData<ListProjectsResponse>(projectKeys.list(wsId));
       const prevDetail = qc.getQueryData<Project>(projectKeys.detail(wsId, id));
       qc.setQueryData<ListProjectsResponse>(projectKeys.list(wsId), (old) =>
@@ -51,13 +54,6 @@ export function useUpdateProject() {
     onSettled: (_data, _err, vars) => {
       qc.invalidateQueries({ queryKey: projectKeys.detail(wsId, vars.id) });
       qc.invalidateQueries({ queryKey: projectKeys.list(wsId) });
-      // A project's status is a filter dimension of the issue table, so
-      // changing it moves issues in and out of a filtered window. Nothing
-      // in the issue payload changes, so only this invalidation can
-      // refresh it — the global staleTime is Infinity.
-      if ("status" in vars) {
-        qc.invalidateQueries({ queryKey: issueKeys.tableAll(wsId) });
-      }
     },
   });
 }
@@ -85,10 +81,7 @@ export function useDeleteProject() {
     },
     onSettled: () => {
       qc.invalidateQueries({ queryKey: projectKeys.list(wsId) });
-      // Deleting a project removes its status from the workspace, so a table
-      // window filtered on that status still holds its issues. The realtime
-      // event invalidates too, but a delivery gap must not leave the window
-      // wrong forever — the global staleTime is Infinity.
+      // Deleted projects clear issue membership; refresh project-scoped windows.
       qc.invalidateQueries({ queryKey: issueKeys.tableAll(wsId) });
     },
   });

@@ -1,33 +1,40 @@
-import type { ProjectStatus, ProjectPriority } from "../types";
+import type { ProjectPriority } from "../types";
 import { createDraftStore } from "../drafts/create-draft-store";
 
 interface ProjectDraft {
   title: string;
   description: string;
-  status: ProjectStatus;
+  organisationId?: string;
   priority: ProjectPriority;
   leadType?: "member" | "agent";
   leadId?: string;
   icon?: string;
-  // Calendar days ("YYYY-MM-DD"); empty/undefined means unset.
-  startDate?: string;
-  dueDate?: string;
 }
 
 const EMPTY_DRAFT: ProjectDraft = {
   title: "",
   description: "",
-  status: "planned",
   priority: "none",
   leadType: undefined,
   leadId: undefined,
   icon: undefined,
-  startDate: undefined,
-  dueDate: undefined,
+  organisationId: undefined,
 };
 
 export const useProjectDraftStore = createDraftStore<ProjectDraft>({
   storageKey: "multica_project_draft",
   emptyData: EMPTY_DRAFT,
-  hasMeaningful: (d) => !!(d.title || d.description),
+  hasMeaningful: (d) => !!(d.title || d.description || d.organisationId),
+  migrateData: (persisted) => {
+    const data = (persisted ?? {}) as Partial<ProjectDraft>;
+    return {
+      title: data.title ?? "",
+      description: data.description ?? "",
+      organisationId: data.organisationId,
+      priority: data.priority ?? "none",
+      leadType: data.leadType,
+      leadId: data.leadId,
+      icon: data.icon,
+    };
+  },
 });

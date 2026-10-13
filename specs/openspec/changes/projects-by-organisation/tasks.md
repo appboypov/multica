@@ -136,7 +136,7 @@ flowchart LR
   - No organisation last, and only when it holds projects.
   - Input order kept inside a group.
   - A project pointing at an unknown organisation goes under No organisation.
-- [ ] 9.6 `packages/core/projects/stores/view-store.ts`, `draft-store.ts`, `config.ts`, `mutations.ts`:
+- [x] 9.6 `packages/core/projects/stores/view-store.ts`, `draft-store.ts`, `config.ts`, `mutations.ts`:
   - Remove the `status` sort, the `statuses` filter, `PROJECT_STATUS_*`, and the draft's status and dates.
   - Add `collapsedOrganisations` (persisted) and the draft's `organisationId`.
   - `merge` drops a persisted `statuses` filter and `status` sort.
@@ -260,6 +260,7 @@ flowchart LR
 - 9.3 files touched: new `packages/core/organisations/{queries,mutations,index}.ts`, `packages/core/package.json`. Public query options and hooks follow project keys, scoped by workspace. Create and key-update mutations await the API and returned invalidation promise on settle, without optimistic organisation writes or server data in Zustand. `./organisations` exports the complete public feature API.
 - 9.4 files touched: `packages/core/realtime/use-realtime-sync.ts`. The existing prefix dispatcher handles every `organisation:*` event by invalidating the current workspace's organisation list and details through `organisationKeys.all`; no payload mirror or additional subscription.
 - 9.5 files touched: new `packages/core/projects/group.ts`, `group.test.ts`, `projects/index.ts`. A pure, exported grouping function retains input order within groups, compares organisation names with base sensitivity, omits empty groups and places null/unknown organisations last. Tests encode all five task scenarios and input immutability.
+- 9.6 files touched: `packages/core/projects/stores/view-store.ts`, `draft-store.ts`, `config.ts`, `mutations.ts`, `mutations.test.tsx`, `stores/view-store.test.ts`, `realtime/use-realtime-sync.ts`. Removed project-status sort/filter/config and draft status/dates; hydration selects supported filters/sorts and draft fields. Added durable `collapsedOrganisations` with `toggleOrganisation(id)` (`"none"` is the unassigned-group key) and draft `organisationId`. Organisation updates await cancellation of list and detail queries before snapshots/optimistic patches, retaining rollback and settle refresh. Removed status-only update invalidation; project deletion still invalidates issue membership. Realtime's comment now describes that remaining membership refresh. Existing persistence-key assertions include the added preference.
 - Verification handoff: no tests, typecheck, lint, format or build run by this builder; Main owns the final core and integrated frontend checks.
 
 ## Plan Change Log
