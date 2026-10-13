@@ -174,19 +174,14 @@ describe("useIssueSurfaceController — custom status filter vs a late catalog",
   });
 });
 
-// The project-status filter is evaluated client-side on Gantt and
-// the swimlane extra-children merge, against the project catalog. An
-// unresolved catalog is not "no filter": returning UNFILTERED rows under an
-// active chip is as wrong as blanking the surface, and a failed request would
-// leave it that way for good.
-describe("useIssueSurfaceController — project-status filter vs a late catalog", () => {
+// Issues no longer filter by project status (ADR-0005), so the project list
+// is display data only: a late or failed request must neither hold the
+// surface in loading nor raise the catalog error state.
+describe("useIssueSurfaceController — project list vs the surface", () => {
   function renderGantt(surfaceKey: string, projects: () => Promise<unknown>) {
     installApi(async () => ({ statuses: [], categories: [], total: 0 }), projects);
     const { store, Wrapper } = makeWrapper(qc, surfaceKey);
-    act(() => {
-      store.getState().setViewMode("gantt");
-      store.getState().toggleProjectStatusFilter("in_progress");
-    });
+    act(() => store.getState().setViewMode("gantt"));
     return renderHook(
       () =>
         useIssueSurfaceController({
@@ -197,49 +192,22 @@ describe("useIssueSurfaceController — project-status filter vs a late catalog"
     );
   }
 
-  it("stays loading while the project catalog is in flight", async () => {
+  it("does not hold the surface while the project list is in flight", async () => {
     const projects = deferred<{ projects: never[]; total: number }>();
-    const { result } = renderGantt("workspace:pstatus-pending", () => projects.promise);
+    const { result } = renderGantt("workspace:projects-pending", () => projects.promise);
 
-    await waitFor(() => expect(result.current.isLoading).toBe(true));
-
-    await act(async () => {
-      projects.resolve({ projects: [], total: 0 });
-      await projects.promise;
-    });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.isStatusCatalogError).toBe(false);
   });
 
-  it("surfaces a retryable error when the project catalog fails", async () => {
+  it("raises no catalog error when the project list fails", async () => {
     const projects = deferred<never>();
-    const { result } = renderGantt("workspace:pstatus-failed", () => projects.promise);
+    const { result } = renderGantt("workspace:projects-failed", () => projects.promise);
 
     await act(async () => {
       projects.reject(new Error("projects unavailable"));
       await projects.promise.catch(() => {});
     });
-
-    await waitFor(() => expect(result.current.isStatusCatalogError).toBe(true));
-    expect(result.current.isEmpty).toBe(false);
-  });
-
-  it("does not hold the surface when no project-status filter is active", async () => {
-    const projects = deferred<{ projects: never[]; total: number }>();
-    installApi(
-      async () => ({ statuses: [], categories: [], total: 0 }),
-      () => projects.promise,
-    );
-    const { store, Wrapper } = makeWrapper(qc, "workspace:pstatus-inactive");
-    act(() => store.getState().setViewMode("gantt"));
-
-    const { result } = renderHook(
-      () =>
-        useIssueSurfaceController({
-          scope: { type: "workspace", actorKind: "all" },
-          modes: ["gantt"],
-        }),
-      { wrapper: Wrapper },
-    );
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.isStatusCatalogError).toBe(false);
