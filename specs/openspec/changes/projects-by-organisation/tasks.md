@@ -84,7 +84,7 @@ flowchart LR
   - `organisation_id` on create and update, checked with `GetOrganisationInWorkspace`: 400 "organisation not found" for an unknown id or one from another workspace. On update, a missing key keeps the current value and `null` clears it.
   - `buildProjectSearchQuery` no longer filters or ranks by status.
 - [x] 7.4 `server/cmd/server/router.go`, `server/cmd/server/listeners.go` -- register `/api/organisations` routes in the workspace-member group, next to projects, and broadcast `organisation:*` to the workspace -- clients refresh live.
-- [ ] 7.5 `server/internal/handler/reserved_slugs.json`, `packages/core/paths/reserved-slugs.ts` -- reserve `organisations`, then run `pnpm generate:reserved-slugs` -- a workspace can't take the route's slug (AGENTS.md).
+- [x] 7.5 `server/internal/handler/reserved_slugs.json`, `packages/core/paths/reserved-slugs.ts` -- reserve `organisations`, then run `pnpm generate:reserved-slugs` -- a workspace can't take the route's slug (AGENTS.md).
 - [ ] 7.6 `server/internal/handler/organisation_test.go`, `server/internal/handler/project_test.go` -- DB tests with `testutil` fixtures:
   - Create, then list by name.
   - Name taken ignoring case: 409. Key taken: 409. Key not a folder name: 400.
@@ -233,6 +233,7 @@ flowchart LR
 - 7.1 files touched: `server/internal/handler/organisation.go`. Lists are workspace-scoped and name-ordered; names are trimmed and required, keys follow the folder-name rule, and unique index constraint names distinguish name/key 409s. PUT only changes the key; an extra name property cannot rename the row. Pure path UUIDs use `parseUUIDOrBadRequest`. Writes publish the shared `OrganisationEventPayload`; database faults log request attributes and return 500, while missing rows return 404.
 - 7.2 files touched: `server/internal/handler/project.go`, `server/internal/handler/search_test.go`. Every project response includes nullable `organisation_id`, including search's hand-written SELECT/Scan. Create and explicit update values load the organisation in the selected workspace: a missing or foreign row is 400, malformed UUID is 400, database faults are logged 500s. Absent update keys keep the stored ID; null clears it. Search retains relevance and recency, but removes status filtering/demotion and the unused internal includeClosed argument; all callers and obsolete status expectations were updated. The HTTP `include_closed` parameter remains accepted without affecting project results.
 - 7.4 files touched: `server/cmd/server/router.go`, `server/cmd/server/listeners.go`, `server/cmd/server/listeners_scope_test.go`. Four routes sit immediately before projects inside `RequireWorkspaceMember`. Surprise: `SubscribeAll` already broadcasts every non-personal event to its workspace; no second subscription is needed. The listener comment documents organisations using that path, and both event types have tests for exactly one workspace frame with the organisation ID and no personal/global/scope fanout.
+- 7.5 files touched: `server/internal/handler/reserved_slugs.json`, `packages/core/paths/reserved-slugs.ts`. Added `organisations` to the workspace route segments in the JSON source and ran `pnpm generate:reserved-slugs` successfully (exit 0); the shared TypeScript set is generated from the same source as the Go embed.
 
 ## Plan Change Log
 
