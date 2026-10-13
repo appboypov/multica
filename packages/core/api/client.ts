@@ -86,6 +86,7 @@ import type {
   DashboardFailureByAgent,
   RuntimeUpdate,
   RuntimeModelListRequest,
+  RuntimeDirectoryListingRequest,
   RuntimeLocalSkillListRequest,
   CreateRuntimeLocalSkillImportRequest,
   RuntimeLocalSkillImportRequest,
@@ -436,6 +437,8 @@ import {
   EMPTY_LIST_GITHUB_REPOSITORIES_RESPONSE,
   RuntimeModelListRequestSchema,
   MALFORMED_RUNTIME_MODEL_LIST_REQUEST,
+  RuntimeDirectoryListingRequestSchema,
+  MALFORMED_RUNTIME_DIRECTORY_LISTING_REQUEST,
   SkillSchema,
   EMPTY_SKILL,
   SkillSummaryListSchema,
@@ -2686,6 +2689,44 @@ export class ApiClient {
         runtime_id: runtimeId,
       },
       { endpoint: "GET /api/runtimes/{id}/models/{requestId}" },
+    );
+  }
+
+  async initiateDirectoryListing(
+    runtimeId: string,
+    path: string,
+  ): Promise<RuntimeDirectoryListingRequest> {
+    const raw = await this.fetch<unknown>(
+      `/api/runtimes/${runtimeId}/directory-listings`,
+      {
+        method: "POST",
+        body: JSON.stringify({ path }),
+      },
+    );
+    return parseWithFallback<RuntimeDirectoryListingRequest>(
+      raw,
+      RuntimeDirectoryListingRequestSchema,
+      { ...MALFORMED_RUNTIME_DIRECTORY_LISTING_REQUEST, runtime_id: runtimeId },
+      { endpoint: "POST /api/runtimes/{id}/directory-listings" },
+    );
+  }
+
+  async getDirectoryListing(
+    runtimeId: string,
+    requestId: string,
+  ): Promise<RuntimeDirectoryListingRequest> {
+    const raw = await this.fetch<unknown>(
+      `/api/runtimes/${runtimeId}/directory-listings/${requestId}`,
+    );
+    return parseWithFallback<RuntimeDirectoryListingRequest>(
+      raw,
+      RuntimeDirectoryListingRequestSchema,
+      {
+        ...MALFORMED_RUNTIME_DIRECTORY_LISTING_REQUEST,
+        id: requestId,
+        runtime_id: runtimeId,
+      },
+      { endpoint: "GET /api/runtimes/{id}/directory-listings/{requestId}" },
     );
   }
 

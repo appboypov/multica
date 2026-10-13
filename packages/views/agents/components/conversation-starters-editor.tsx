@@ -2,8 +2,8 @@
 
 import { Plus, Trash2 } from "lucide-react";
 import {
-  AGENT_CONVERSATION_STARTER_LABEL_MAX_LENGTH,
-  AGENT_CONVERSATION_STARTER_MAX_LENGTH,
+  AGENT_CONVERSATION_STARTER_LABEL_WARN_LENGTH,
+  AGENT_CONVERSATION_STARTER_WARN_LENGTH,
   AGENT_CONVERSATION_STARTERS_MAX,
   selectConversationStarters,
 } from "@multica/core/agents";
@@ -16,6 +16,7 @@ import {
   useFallbackConversationStarters,
 } from "../../chat/components/conversation-starter-list";
 import { useT } from "../../i18n";
+import { CharCounter } from "./char-counter";
 
 export function ConversationStartersEditor({
   value,
@@ -60,48 +61,68 @@ export function ConversationStartersEditor({
         </p>
       </div>
 
-      {value.map((item, index) => (
-        <div key={index} className="rounded-lg border bg-muted/20 p-3">
-          <div className="flex items-center gap-2">
-            <Input
-              value={item.label}
-              maxLength={AGENT_CONVERSATION_STARTER_LABEL_MAX_LENGTH}
+      {value.map((item, index) => {
+        const labelLength = [...item.label].length;
+        const promptLength = [...item.prompt].length;
+        return (
+          <div key={index} className="rounded-lg border bg-muted/20 p-3">
+            <div className="flex items-center gap-2">
+              <Input
+                value={item.label}
+                disabled={disabled}
+                aria-label={t(($) => $.conversation_starters.item_label, {
+                  number: index + 1,
+                })}
+                placeholder={t(($) => $.conversation_starters.label_placeholder)}
+                onChange={(event) => update(index, "label", event.target.value)}
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                disabled={disabled}
+                aria-label={t(($) => $.conversation_starters.remove, {
+                  number: index + 1,
+                })}
+                onClick={() =>
+                  onChange(value.filter((_, itemIndex) => itemIndex !== index))
+                }
+              >
+                <Trash2 className="size-4" aria-hidden="true" />
+              </Button>
+            </div>
+            {labelLength > AGENT_CONVERSATION_STARTER_LABEL_WARN_LENGTH ? (
+              <div className="mt-1">
+                <CharCounter
+                  length={labelLength}
+                  max={AGENT_CONVERSATION_STARTER_LABEL_WARN_LENGTH}
+                  soft
+                />
+              </div>
+            ) : null}
+            <Textarea
+              value={item.prompt}
               disabled={disabled}
-              aria-label={t(($) => $.conversation_starters.item_label, {
+              rows={3}
+              className="mt-2 resize-y"
+              aria-label={t(($) => $.conversation_starters.prompt_label, {
                 number: index + 1,
               })}
-              placeholder={t(($) => $.conversation_starters.label_placeholder)}
-              onChange={(event) => update(index, "label", event.target.value)}
+              placeholder={t(($) => $.conversation_starters.prompt_placeholder)}
+              onChange={(event) => update(index, "prompt", event.target.value)}
             />
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              disabled={disabled}
-              aria-label={t(($) => $.conversation_starters.remove, {
-                number: index + 1,
-              })}
-              onClick={() =>
-                onChange(value.filter((_, itemIndex) => itemIndex !== index))
-              }
-            >
-              <Trash2 className="size-4" aria-hidden="true" />
-            </Button>
+            {promptLength > AGENT_CONVERSATION_STARTER_WARN_LENGTH ? (
+              <div className="mt-1">
+                <CharCounter
+                  length={promptLength}
+                  max={AGENT_CONVERSATION_STARTER_WARN_LENGTH}
+                  soft
+                />
+              </div>
+            ) : null}
           </div>
-          <Textarea
-            value={item.prompt}
-            maxLength={AGENT_CONVERSATION_STARTER_MAX_LENGTH}
-            disabled={disabled}
-            rows={3}
-            className="mt-2 resize-y"
-            aria-label={t(($) => $.conversation_starters.prompt_label, {
-              number: index + 1,
-            })}
-            placeholder={t(($) => $.conversation_starters.prompt_placeholder)}
-            onChange={(event) => update(index, "prompt", event.target.value)}
-          />
-        </div>
-      ))}
+        );
+      })}
 
       {value.length < AGENT_CONVERSATION_STARTERS_MAX ? (
         <Button

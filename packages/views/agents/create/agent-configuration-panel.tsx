@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, type ReactNode } from "react";
 import {
-  AGENT_DESCRIPTION_MAX_LENGTH,
+  AGENT_DESCRIPTION_WARN_LENGTH,
   applyDraftModelChange,
   applyDraftRuntimeChange,
   type AgentDraft,
@@ -28,6 +28,7 @@ import { ModelDropdown } from "../components/model-dropdown";
 import { RuntimePicker } from "../components/runtime-picker";
 import { SkillMultiSelect } from "../components/skill-multi-select";
 import { ConversationStartersEditor } from "../components/conversation-starters-editor";
+import { InstructionsField } from "../components/instructions-field";
 
 const PERMISSION_SCOPES: AgentPermissionScope[] = [
   "private",
@@ -73,8 +74,14 @@ export function AgentConfigurationPanel({
   );
   const selectedRuntime =
     runtimes.find((runtime) => runtime.id === draft.runtimeId) ?? null;
-  const set = <K extends keyof AgentDraft>(key: K, value: AgentDraft[K]) =>
-    onChange({ ...draft, [key]: value });
+  // The instructions field reports a first selection as two changes in one
+  // event, its text and its selection, so each change builds on the last.
+  const latestDraftRef = useRef(draft);
+  latestDraftRef.current = draft;
+  const set = <K extends keyof AgentDraft>(key: K, value: AgentDraft[K]) => {
+    latestDraftRef.current = { ...latestDraftRef.current, [key]: value };
+    onChange(latestDraftRef.current);
+  };
   const otherMembers = members.filter(
     (member) => member.user_id !== currentUserId,
   );
@@ -135,15 +142,12 @@ export function AgentConfigurationPanel({
                 onChange={(event) => set("description", event.target.value)}
                 placeholder={t(($) => $.create_dialog.description_placeholder)}
                 rows={compact ? 3 : 4}
-                // The create API rejects >255 characters with a 400. Cap the
-                // input and show the counter so the limit is visible before
-                // submitting, matching the settings page.
-                maxLength={AGENT_DESCRIPTION_MAX_LENGTH}
                 className="resize-y"
               />
               <CharCounter
                 length={[...draft.description].length}
-                max={AGENT_DESCRIPTION_MAX_LENGTH}
+                max={AGENT_DESCRIPTION_WARN_LENGTH}
+                soft
               />
             </div>
           </DraftFieldRow>
@@ -159,18 +163,19 @@ export function AgentConfigurationPanel({
             label={t(($) => $.create_dialog.instructions.label)}
             htmlFor="agent-create-instructions"
           >
-            <Textarea
+            <InstructionsField
               id="agent-create-instructions"
-              name="agent-instructions"
-              autoComplete="off"
-              aria-label={t(($) => $.create_dialog.instructions.label)}
               value={draft.instructions}
-              onChange={(event) => set("instructions", event.target.value)}
+              onChange={(value) => set("instructions", value)}
+              selection={draft.instructionSelection}
+              onSelectionChange={(value) => set("instructionSelection", value)}
+              runtime={selectedRuntime}
+              currentUserId={currentUserId}
               placeholder={t(
                 ($) => $.create_dialog.instructions.editor_placeholder,
               )}
               rows={compact ? 9 : 12}
-              className="min-h-44 resize-y font-mono text-label leading-6"
+              className="min-h-44 font-mono text-label"
             />
           </DraftFieldRow>
           {conversationStartersSupported ? (

@@ -25,6 +25,65 @@ describe("ApiClient status reorder", () => {
   });
 });
 
+describe("ApiClient runtime directory listings", () => {
+  function stubResponse(body: unknown) {
+    const fetchMock = vi.fn().mockImplementation(async () =>
+      new Response(JSON.stringify(body), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    return fetchMock;
+  }
+
+  it("posts a path and parses missing entry markers at the API boundary", async () => {
+    const fetchMock = stubResponse({
+      id: "listing-1",
+      status: "completed",
+      path: "/skills",
+      entries: [{ name: "SKILL.md", path: "/skills/SKILL.md" }],
+    });
+    const client = new ApiClient("https://api.example.test");
+
+    const listing = await client.initiateDirectoryListing("runtime-1", "/skills");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.example.test/api/runtimes/runtime-1/directory-listings",
+      expect.objectContaining({ method: "POST", body: JSON.stringify({ path: "/skills" }) }),
+    );
+    expect(listing.entries).toEqual([
+      { name: "SKILL.md", path: "/skills/SKILL.md", kind: "file", hidden: false },
+    ]);
+  });
+
+  it("gets the request and turns an unknown status into a failure", async () => {
+    const fetchMock = stubResponse({ status: "superseded", error: "expired" });
+    const client = new ApiClient("https://api.example.test");
+
+    const listing = await client.getDirectoryListing("runtime-1", "listing-1");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.example.test/api/runtimes/runtime-1/directory-listings/listing-1",
+      expect.any(Object),
+    );
+    expect(fetchMock.mock.calls[0]?.[1]?.method ?? "GET").toBe("GET");
+    expect(listing).toMatchObject({ status: "failed", error: "expired", entries: [] });
+  });
+
+  it("keeps request identity in the fallback for a malformed response", async () => {
+    stubResponse(null);
+    const client = new ApiClient("https://api.example.test");
+
+    await expect(client.initiateDirectoryListing("runtime-1", "")).resolves.toMatchObject({
+      runtime_id: "runtime-1", status: "failed", entries: [],
+    });
+    await expect(client.getDirectoryListing("runtime-1", "listing-1")).resolves.toMatchObject({
+      id: "listing-1", runtime_id: "runtime-1", status: "failed", entries: [],
+    });
+  });
+});
+
 describe("ApiClient agent conversation-starter compatibility", () => {
   const prompt = {
     label: "Review a PR",

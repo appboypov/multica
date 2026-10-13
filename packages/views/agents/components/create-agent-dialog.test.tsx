@@ -2,7 +2,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, fireEvent, cleanup } from "@testing-library/react";
+import { render, screen, fireEvent, cleanup, waitFor } from "@testing-library/react";
 import type { Agent, MemberWithUser, RuntimeDevice } from "@multica/core/types";
 import { I18nProvider } from "@multica/core/i18n/react";
 import { WorkspaceSlugProvider } from "@multica/core/paths";
@@ -408,5 +408,71 @@ describe("CreateAgentDialog access picker (MUL-4010, feature-flag gated)", () =>
     expect(payload.invocation_targets).toEqual([
       { target_type: "member", target_id: OTHER },
     ]);
+  });
+});
+
+describe("CreateAgentDialog instruction selection", () => {
+  const UX_DESIGNER = "/Users/me/.omp/agent/skills/as-ux-designer";
+
+  beforeEach(() => vi.clearAllMocks());
+  afterEach(() => {
+    cleanup();
+    document.body.innerHTML = "";
+  });
+
+  it("sends the selection of the duplicated agent", async () => {
+    const mine = makeRuntime({ id: "rt-mine", name: "My Runtime", owner_id: ME });
+    const { onCreate } = renderDialog([mine], {
+      ...makeDuplicateSource("rt-mine"),
+      instructions: "{selection}",
+      instruction_selection: [UX_DESIGNER],
+    });
+
+    expect(screen.getByRole("listitem")).toHaveTextContent(
+      "~/.omp/agent/skills/as-ux-designer",
+    );
+    fireEvent.click(screen.getByText("Create"));
+
+    await waitFor(() => expect(onCreate).toHaveBeenCalledTimes(1));
+    const payload = onCreate.mock.calls[0]?.[0];
+    expect(payload.instructions).toBe("{selection}");
+    expect(payload.instruction_selection).toEqual([UX_DESIGNER]);
+  });
+
+  it("leaves the selection out of a copy by someone who does not own the runtime", async () => {
+    const theirs = makeRuntime({
+      id: "rt-theirs",
+      name: "Their Runtime",
+      owner_id: OTHER,
+      visibility: "public",
+    });
+    const { onCreate } = renderDialog([theirs], {
+      ...makeDuplicateSource("rt-theirs"),
+      instructions: "{selection}",
+      instruction_selection: [UX_DESIGNER],
+    });
+
+    expect(screen.queryByRole("listitem")).toBeNull();
+    fireEvent.click(screen.getByText("Create"));
+
+    await waitFor(() => expect(onCreate).toHaveBeenCalledTimes(1));
+    expect(onCreate.mock.calls[0]?.[0]).not.toHaveProperty(
+      "instruction_selection",
+    );
+  });
+
+  it("sends no selection when none is chosen", async () => {
+    const mine = makeRuntime({ id: "rt-mine", name: "My Runtime", owner_id: ME });
+    const { onCreate } = renderDialog([mine]);
+
+    fireEvent.change(screen.getByPlaceholderText("e.g. Deep Research Agent"), {
+      target: { value: "Plain Agent" },
+    });
+    fireEvent.click(screen.getByText("Create"));
+
+    await waitFor(() => expect(onCreate).toHaveBeenCalledTimes(1));
+    expect(onCreate.mock.calls[0]?.[0]).not.toHaveProperty(
+      "instruction_selection",
+    );
   });
 });

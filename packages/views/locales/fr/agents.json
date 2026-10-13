@@ -418,9 +418,6 @@
     "squad_join_failed_toast": "L'agent « {{name}} » a été créé mais n'a pas pu rejoindre le squad : {{error}}. Vous pouvez l'ajouter manuellement depuis Membres.",
     "instructions": {
       "label": "Instructions",
-      "placeholder_blank": "Cliquez pour rédiger les instructions…",
-      "placeholder_duplicate": "Cliquez pour consulter ou modifier les instructions dupliquées",
-      "collapse": "Replier",
       "editor_placeholder": "Indiquez ce que cet agent doit faire, sur quoi se concentrer, ce qu'il faut éviter…"
     },
     "skills_section": {
@@ -761,7 +758,27 @@
     }
   },
   "char_counter": {
-    "over_limit": " · {{count}} au-delà de la limite"
+    "over_limit": " · {{count}} au-delà de la limite",
+    "over_threshold": " · {{count}} au-delà des {{max}} recommandés"
+  },
+  "runtime_browser": {
+    "title": "Parcourir le runtime",
+    "path": "Chemin",
+    "up": "Dossier parent",
+    "hidden": "masqué",
+    "offline": "Le runtime est hors ligne.",
+    "empty": "Rien ici.",
+    "error": "Impossible de lister ce chemin : {{message}}",
+    "add": "Ajouter"
+  },
+  "instructions": {
+    "selection": {
+      "list": "Fichiers et dossiers sélectionnés",
+      "browse": "Parcourir",
+      "remove": "Retirer {{path}}",
+      "warning_not_loaded": "Les chemins sélectionnés ne sont pas chargés : les instructions ne contiennent pas {selection}.",
+      "warning_empty_placeholder": "{selection} reste vide : aucun chemin n'est sélectionné."
+    }
   },
   "presence": {
     "queue_badge": "+{{count}} en attente"
@@ -949,6 +966,7 @@
       "codex_resume_oversized": "Session trop volumineuse pour être reprise",
       "idle_watchdog": "Agent arrêté après une période d'inactivité",
       "local_directory_error": "Erreur de répertoire local",
+      "instruction_selection_error": "Erreur de sélection des instructions",
       "cancelled": "Annulée par le système",
       "agent_error": "Erreur d'exécution de l'agent",
       "codex_semantic_inactivity": "Délai d'inactivité sémantique de Codex dépassé",

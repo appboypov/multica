@@ -418,9 +418,6 @@
     "squad_join_failed_toast": "Agent \"{{name}}\" was created but couldn't join the squad: {{error}}. You can add it manually from Members.",
     "instructions": {
       "label": "Instructions",
-      "placeholder_blank": "Click to write instructions…",
-      "placeholder_duplicate": "Click to view or edit the duplicated instructions",
-      "collapse": "Collapse",
       "editor_placeholder": "Write what this agent should do, what to focus on, what to avoid…"
     },
     "skills_section": {
@@ -761,7 +758,27 @@
     }
   },
   "char_counter": {
-    "over_limit": " · {{count}} over limit"
+    "over_limit": " · {{count}} over limit",
+    "over_threshold": " · {{count}} over the recommended {{max}}"
+  },
+  "runtime_browser": {
+    "title": "Browse runtime",
+    "path": "Path",
+    "up": "Up",
+    "hidden": "hidden",
+    "offline": "The runtime is offline.",
+    "empty": "Nothing here.",
+    "error": "Can't list this path: {{message}}",
+    "add": "Add"
+  },
+  "instructions": {
+    "selection": {
+      "list": "Selected files and folders",
+      "browse": "Browse",
+      "remove": "Remove {{path}}",
+      "warning_not_loaded": "The selected paths aren't loaded: the instructions have no {selection}.",
+      "warning_empty_placeholder": "{selection} stays empty: no path is selected."
+    }
   },
   "presence": {
     "queue_badge": "+{{count}} queued"
@@ -949,6 +966,7 @@
       "codex_resume_oversized": "Session too large to resume",
       "idle_watchdog": "Agent stopped after inactivity",
       "local_directory_error": "Local directory error",
+      "instruction_selection_error": "Instruction selection error",
       "cancelled": "Cancelled by the system",
       "agent_error": "Agent execution error",
       "codex_semantic_inactivity": "Codex semantic inactivity timeout",

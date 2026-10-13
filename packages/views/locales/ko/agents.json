@@ -314,9 +314,6 @@
     "squad_join_failed_toast": "에이전트 \"{{name}}\"은(는) 만들었지만 스쿼드에 참가하지 못했습니다: {{error}}. 멤버에서 직접 추가할 수 있습니다.",
     "instructions": {
       "label": "지침",
-      "placeholder_blank": "클릭해서 지침 작성...",
-      "placeholder_duplicate": "클릭해서 복제된 지침 보기 또는 수정",
-      "collapse": "접기",
       "editor_placeholder": "이 에이전트가 무엇을 해야 하는지, 무엇에 집중해야 하는지, 무엇을 피해야 하는지 작성하세요..."
     },
     "skills_section": {
@@ -652,7 +649,27 @@
     }
   },
   "char_counter": {
-    "over_limit": " · 제한 초과 {{count}}자"
+    "over_limit": " · 제한 초과 {{count}}자",
+    "over_threshold": " · 권장 {{max}}자보다 {{count}}자 초과"
+  },
+  "runtime_browser": {
+    "title": "런타임 찾아보기",
+    "path": "경로",
+    "up": "상위 폴더",
+    "hidden": "숨김",
+    "offline": "런타임이 오프라인입니다.",
+    "empty": "항목이 없습니다.",
+    "error": "이 경로를 나열할 수 없습니다: {{message}}",
+    "add": "추가"
+  },
+  "instructions": {
+    "selection": {
+      "list": "선택한 파일 및 폴더",
+      "browse": "찾아보기",
+      "remove": "{{path}} 제거",
+      "warning_not_loaded": "선택한 경로가 로드되지 않습니다: 지침에 {selection}이(가) 없습니다.",
+      "warning_empty_placeholder": "{selection}이(가) 비어 있습니다: 선택한 경로가 없습니다."
+    }
   },
   "presence": {
     "queue_badge": "+{{count}} 대기 중"
@@ -836,6 +853,7 @@
       "codex_resume_oversized": "세션이 너무 커서 재개할 수 없음",
       "idle_watchdog": "에이전트가 장시간 응답하지 않아 중지됨",
       "local_directory_error": "로컬 디렉터리 오류",
+      "instruction_selection_error": "지침 선택 오류",
       "cancelled": "시스템에서 취소함",
       "agent_error": "에이전트 실행 오류",
       "codex_semantic_inactivity": "Codex 의미 진행 없음 시간 초과",

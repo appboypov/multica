@@ -8,13 +8,7 @@ import {
   type SetStateAction,
 } from "react";
 import { useQuery } from "@tanstack/react-query";
-import {
-  EMPTY_AGENT_DRAFT,
-  isDraftDescriptionWithinLimit,
-  AGENT_CONVERSATION_STARTER_LABEL_MAX_LENGTH,
-  AGENT_CONVERSATION_STARTER_MAX_LENGTH,
-  type AgentDraft,
-} from "@multica/core/agents";
+import { EMPTY_AGENT_DRAFT, type AgentDraft } from "@multica/core/agents";
 import { useAuthStore } from "@multica/core/auth";
 import { useWorkspaceId } from "@multica/core/hooks";
 import { isRuntimeUsableForUser, runtimeListOptions } from "@multica/core/runtimes";
@@ -127,11 +121,7 @@ export function useCreateAgentForm(options?: {
     draft.teamIds.size === 0;
 
   const conversationStartersInvalid = draft.conversationStarters.some(
-    (item) =>
-      item.label.trim().length === 0 ||
-      item.prompt.trim().length === 0 ||
-      [...item.label].length > AGENT_CONVERSATION_STARTER_LABEL_MAX_LENGTH ||
-      [...item.prompt].length > AGENT_CONVERSATION_STARTER_MAX_LENGTH,
+    (item) => item.label.trim().length === 0 || item.prompt.trim().length === 0,
   );
 
   return {
@@ -148,7 +138,6 @@ export function useCreateAgentForm(options?: {
     draftReady:
       selectedRuntime != null &&
       isRuntimeUsableForUser(selectedRuntime, currentUserId) &&
-      isDraftDescriptionWithinLimit(draft.description) &&
       !accessInvalid &&
       !conversationStartersInvalid,
   };

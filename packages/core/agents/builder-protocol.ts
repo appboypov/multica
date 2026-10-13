@@ -1,9 +1,5 @@
 import type { RuntimeDevice, RuntimeModel } from "../types";
-import {
-  AGENT_CONVERSATION_STARTER_LABEL_MAX_LENGTH,
-  AGENT_CONVERSATION_STARTER_MAX_LENGTH,
-  AGENT_CONVERSATION_STARTERS_MAX,
-} from "./constants";
+import { AGENT_CONVERSATION_STARTERS_MAX } from "./constants";
 import type { AgentDraft } from "./draft";
 
 /**
@@ -264,12 +260,8 @@ export function mergeBuilderDraft(
             (item as { prompt: string }).prompt.trim().length > 0,
         )
         .map((item) => ({
-          label: [...item.label.trim()]
-            .slice(0, AGENT_CONVERSATION_STARTER_LABEL_MAX_LENGTH)
-            .join(""),
-          prompt: [...item.prompt.trim()]
-            .slice(0, AGENT_CONVERSATION_STARTER_MAX_LENGTH)
-            .join(""),
+          label: item.label.trim(),
+          prompt: item.prompt.trim(),
         }))
     : current.conversationStarters;
 
@@ -284,6 +276,7 @@ export function mergeBuilderDraft(
       typeof payload.instructions === "string"
         ? payload.instructions
         : current.instructions,
+    instructionSelection: current.instructionSelection,
     conversationStarters,
     model,
     // The builder can move the model, which invalidates whatever thinking /

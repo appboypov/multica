@@ -49,6 +49,8 @@ import {
   ListPropertiesResponseSchema,
   MALFORMED_RUNTIME_MODEL_LIST_REQUEST,
   RuntimeModelListRequestSchema,
+  RuntimeDirectoryListingRequestSchema,
+  MALFORMED_RUNTIME_DIRECTORY_LISTING_REQUEST,
   SearchProjectsResponseSchema,
   RuntimeHourlyActivityListSchema,
   RuntimeUsageByAgentListSchema,
@@ -1874,6 +1876,87 @@ describe("RuntimeModelListRequestSchema", () => {
     expect((parsed as unknown as { future_field?: string }).future_field).toBe(
       "keep me",
     );
+  });
+});
+
+describe("RuntimeDirectoryListingRequestSchema", () => {
+  const completed = {
+    id: "listing-1",
+    runtime_id: "runtime-1",
+    status: "completed",
+    path: "/skills",
+    entries: [
+      { name: ".hidden", path: "/skills/.hidden", kind: "folder", hidden: true },
+      { name: "SKILL.md", path: "/skills/SKILL.md", kind: "file", hidden: false },
+    ],
+    error: "",
+    created_at: "2026-10-13T00:00:00Z",
+    updated_at: "2026-10-13T00:00:00Z",
+  };
+
+  function parse(raw: unknown) {
+    return parseWithFallback(
+      raw,
+      RuntimeDirectoryListingRequestSchema,
+      MALFORMED_RUNTIME_DIRECTORY_LISTING_REQUEST,
+      { endpoint: "test" },
+    );
+  }
+
+  it("preserves a completed listing and its ordered file and folder entries", () => {
+    expect(parse(completed)).toEqual(completed);
+  });
+
+  it("turns an unknown status into a failure without losing the server error", () => {
+    const parsed = parse({ ...completed, status: "superseded", error: "expired" });
+    expect(parsed.status).toBe("failed");
+    expect(parsed.error).toBe("expired");
+  });
+
+  it("defaults missing entries to an empty list", () => {
+    const { entries: _entries, ...withoutEntries } = completed;
+    expect(parse(withoutEntries).entries).toEqual([]);
+  });
+
+  it("defaults missing entry kind and hidden markers", () => {
+    const parsed = parse({
+      ...completed,
+      entries: [{ name: "SKILL.md", path: "/skills/SKILL.md" }],
+    });
+    expect(parsed.entries).toEqual([
+      { name: "SKILL.md", path: "/skills/SKILL.md", kind: "file", hidden: false },
+    ]);
+  });
+
+  it("defaults malformed entry fields without discarding other entries", () => {
+    const parsed = parse({
+      ...completed,
+      entries: [
+        { name: 42, path: null, kind: "symlink", hidden: "yes" },
+        completed.entries[0],
+      ],
+    });
+    expect(parsed.entries).toEqual([
+      { name: "", path: "", kind: "file", hidden: false },
+      completed.entries[0],
+    ]);
+  });
+
+  it("defaults missing and malformed strings and entries", () => {
+    expect(parse({ status: "completed", path: 42, entries: null })).toEqual({
+      id: "",
+      runtime_id: "",
+      status: "completed",
+      path: "",
+      entries: [],
+      error: "",
+      created_at: "",
+      updated_at: "",
+    });
+  });
+
+  it("falls back to a failed request for a non-object response", () => {
+    expect(parse(null)).toEqual(MALFORMED_RUNTIME_DIRECTORY_LISTING_REQUEST);
   });
 });
 

@@ -408,9 +408,6 @@
     "squad_join_failed_toast": "智能体\"{{name}}\"已创建，但加入小队失败：{{error}}。你可以在 Members 标签里手动添加。",
     "instructions": {
       "label": "指令",
-      "placeholder_blank": "点击撰写指令…",
-      "placeholder_duplicate": "点击查看或编辑复制的指令",
-      "collapse": "收起",
       "editor_placeholder": "写下这个智能体该做什么、关注什么、要避开什么…"
     },
     "skills_section": {
@@ -746,7 +743,27 @@
     }
   },
   "char_counter": {
-    "over_limit": " · 超出 {{count}} 字"
+    "over_limit": " · 超出 {{count}} 字",
+    "over_threshold": " · 比建议的 {{max}} 字多 {{count}} 字"
+  },
+  "runtime_browser": {
+    "title": "浏览运行时",
+    "path": "路径",
+    "up": "上一级",
+    "hidden": "隐藏",
+    "offline": "运行时已离线。",
+    "empty": "这里没有内容。",
+    "error": "无法列出此路径：{{message}}",
+    "add": "添加"
+  },
+  "instructions": {
+    "selection": {
+      "list": "已选文件和文件夹",
+      "browse": "浏览",
+      "remove": "移除 {{path}}",
+      "warning_not_loaded": "所选路径未加载：指令中没有 {selection}。",
+      "warning_empty_placeholder": "{selection} 为空：未选择任何路径。"
+    }
   },
   "presence": {
     "queue_badge": "+{{count}} 排队"
@@ -930,6 +947,7 @@
       "codex_resume_oversized": "会话过大，无法恢复",
       "idle_watchdog": "智能体长时间无活动，运行已停止",
       "local_directory_error": "本地目录出错",
+      "instruction_selection_error": "指令选择出错",
       "cancelled": "系统已取消",
       "agent_error": "智能体执行出错",
       "codex_semantic_inactivity": "Codex 长时间没有语义进展",

@@ -6,7 +6,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { ModelDropdown } from "./model-dropdown";
 import { RuntimePicker } from "./runtime-picker";
 import { isRuntimeUsableForUser } from "@multica/core/runtimes";
-import { InstructionsEditor } from "./instructions-editor";
+import { InstructionsField } from "./instructions-field";
 import { SkillMultiSelect } from "./skill-multi-select";
 import { AvatarUploadControl } from "../../common/avatar-upload-control";
 import { api } from "@multica/core/api";
@@ -37,7 +37,7 @@ import { Input } from "@multica/ui/components/ui/input";
 import { Label } from "@multica/ui/components/ui/label";
 import { toast } from "sonner";
 import {
-  AGENT_DESCRIPTION_MAX_LENGTH,
+  AGENT_DESCRIPTION_WARN_LENGTH,
   VISIBILITY_DESCRIPTION,
   VISIBILITY_LABEL,
 } from "@multica/core/agents";
@@ -142,6 +142,16 @@ export function CreateAgentDialog({
 
   const [model, setModel] = useState(template?.model ?? "");
   const [instructions, setInstructions] = useState(template?.instructions ?? "");
+  // The selected paths live on the template runtime's machine and only its
+  // owner may set them, so the copy keeps them only for that owner.
+  const [selection, setSelection] = useState<string[]>(() =>
+    !!currentUserId &&
+    runtimes.some(
+      (r) => r.id === template?.runtime_id && r.owner_id === currentUserId,
+    )
+      ? [...(template?.instruction_selection ?? [])]
+      : [],
+  );
   const [avatarUrl, setAvatarUrl] = useState<string | null>(template?.avatar_url ?? null);
   const [selectedSkillIds, setSelectedSkillIds] = useState<Set<string>>(
     () => new Set(template?.skills.map((s) => s.id) ?? []),
@@ -229,6 +239,7 @@ export function CreateAgentDialog({
         instructions: trimmedInstructions || undefined,
         avatar_url: avatarUrl ?? undefined,
         skill_ids: [...selectedSkillIds],
+        ...(selection.length > 0 ? { instruction_selection: selection } : {}),
       };
       if (accessPickerEnabled) {
         // New MUL-3963 shape: send the authoritative permission fields and
@@ -347,13 +358,13 @@ export function CreateAgentDialog({
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     placeholder={t(($) => $.create_dialog.description_placeholder)}
-                    maxLength={AGENT_DESCRIPTION_MAX_LENGTH}
                     className="mt-1"
                   />
                   <div className="mt-1">
                     <CharCounter
                       length={[...description].length}
-                      max={AGENT_DESCRIPTION_MAX_LENGTH}
+                      max={AGENT_DESCRIPTION_WARN_LENGTH}
+                      soft
                     />
                   </div>
                 </div>
@@ -436,17 +447,30 @@ export function CreateAgentDialog({
             />
 
             {/* --- Optional sections (instructions / skills) ---
-                Collapsed by default so quick-create stays fast.
                 Duplicate pre-fills everything from the source agent. */}
-            <InstructionsEditor
-              value={instructions}
-              onChange={setInstructions}
-              placeholder={
-                isDuplicate
-                  ? t(($) => $.create_dialog.instructions.placeholder_duplicate)
-                  : t(($) => $.create_dialog.instructions.placeholder_blank)
-              }
-            />
+            <div>
+              <Label
+                htmlFor="agent-create-dialog-instructions"
+                className="text-caption text-muted-foreground"
+              >
+                {t(($) => $.create_dialog.instructions.label)}
+              </Label>
+              <div className="mt-1">
+                <InstructionsField
+                  id="agent-create-dialog-instructions"
+                  value={instructions}
+                  onChange={setInstructions}
+                  selection={selection}
+                  onSelectionChange={setSelection}
+                  runtime={selectedRuntime}
+                  currentUserId={currentUserId}
+                  placeholder={t(
+                    ($) => $.create_dialog.instructions.editor_placeholder,
+                  )}
+                  rows={6}
+                />
+              </div>
+            </div>
 
             <SkillMultiSelect
               selectedIds={selectedSkillIds}

@@ -8,7 +8,6 @@ import type {
   RuntimeDevice,
 } from "../types";
 import {
-  AGENT_DESCRIPTION_MAX_LENGTH,
   AGENT_MAX_CONCURRENT_TASKS_MAX,
   AGENT_MAX_CONCURRENT_TASKS_MIN,
 } from "./constants";
@@ -26,6 +25,7 @@ export interface AgentDraft {
   name: string;
   description: string;
   instructions: string;
+  instructionSelection: string[];
   conversationStarters: AgentConversationStarter[];
   avatarUrl: string | null;
   runtimeId: string;
@@ -45,6 +45,7 @@ export const EMPTY_AGENT_DRAFT: AgentDraft = {
   name: "",
   description: "",
   instructions: "",
+  instructionSelection: [],
   conversationStarters: [],
   avatarUrl: null,
   runtimeId: "",
@@ -86,16 +87,6 @@ export function applyDraftModelChange(
 ): AgentDraft {
   if (model === draft.model) return draft;
   return { ...draft, model, thinkingLevel: "", serviceTier: "" };
-}
-
-/**
- * Mirrors the server's `utf8.RuneCountInString` check (agent.go:1013). The
- * textarea's `maxLength` covers typing and pasting, but a duplicated agent or
- * an AI-builder draft can seed a longer value programmatically — without this
- * the create button would submit into a guaranteed 400.
- */
-export function isDraftDescriptionWithinLimit(description: string): boolean {
-  return [...description].length <= AGENT_DESCRIPTION_MAX_LENGTH;
 }
 
 export function buildInvocationTargets(
@@ -167,6 +158,10 @@ export function deriveDuplicateAccess(
  * for the user to pick again — the same rule `multica agent copy` already
  * enforces server-side (cmd_agent_copy.go). Before MUL-5390 the fallback kept
  * the source `model` and silently persisted a cross-provider value.
+ *
+ * `instructionSelection` holds paths on the source runtime's machine, which
+ * only that runtime's owner may set, so it rides along only when the copy
+ * stays on that runtime and the user copying it owns it.
  */
 export function buildDuplicateDraft(
   source: Agent,
@@ -177,18 +172,22 @@ export function buildDuplicateDraft(
     nameSuffix: string;
   },
 ): AgentDraft {
+  const sourceRuntime = source.runtime_id
+    ? options.runtimes.find((runtime) => runtime.id === source.runtime_id)
+    : undefined;
   const keepsRuntime =
-    !!source.runtime_id &&
-    options.runtimes.some(
-      (runtime) =>
-        runtime.id === source.runtime_id &&
-        isRuntimeUsableForUser(runtime, options.currentUserId),
-    );
+    !!sourceRuntime &&
+    isRuntimeUsableForUser(sourceRuntime, options.currentUserId);
+  const keepsSelection =
+    keepsRuntime && sourceRuntime.owner_id === options.currentUserId;
   return {
     ...EMPTY_AGENT_DRAFT,
     name: `${source.name}${options.nameSuffix}`,
     description: source.description ?? "",
     instructions: source.instructions ?? "",
+    instructionSelection: keepsSelection
+      ? [...(source.instruction_selection ?? [])]
+      : [],
     conversationStarters: (source.conversation_starters ?? []).map((item) => ({ ...item })),
     avatarUrl: source.avatar_url ?? null,
     runtimeId: keepsRuntime
@@ -220,6 +219,9 @@ export function buildCreateAgentRequest(options: {
     name: draft.name.trim(),
     description: draft.description.trim(),
     instructions: draft.instructions.trim() || undefined,
+    ...(draft.instructionSelection.length > 0
+      ? { instruction_selection: draft.instructionSelection }
+      : {}),
     ...(draft.conversationStarters.length > 0
       ? {
           conversation_starters: draft.conversationStarters.map((item) => ({

@@ -306,9 +306,6 @@
     "squad_join_failed_toast": "エージェント \"{{name}}\" は作成されましたが、スクワッドに参加できませんでした: {{error}}。メンバーから手動で追加できます。",
     "instructions": {
       "label": "指示",
-      "placeholder_blank": "クリックして指示を作成...",
-      "placeholder_duplicate": "クリックして複製された指示を表示または編集",
-      "collapse": "折りたたむ",
       "editor_placeholder": "このエージェントが何をすべきか、何に集中すべきか、何を避けるべきかを記述してください..."
     },
     "skills_section": {
@@ -644,7 +641,27 @@
     }
   },
   "char_counter": {
-    "over_limit": " · 制限を {{count}} 文字超過"
+    "over_limit": " · 制限を {{count}} 文字超過",
+    "over_threshold": " · 推奨の {{max}} 文字を {{count}} 文字超過"
+  },
+  "runtime_browser": {
+    "title": "ランタイムを参照",
+    "path": "パス",
+    "up": "上の階層へ",
+    "hidden": "隠し",
+    "offline": "ランタイムはオフラインです。",
+    "empty": "何もありません。",
+    "error": "このパスを一覧表示できません: {{message}}",
+    "add": "追加"
+  },
+  "instructions": {
+    "selection": {
+      "list": "選択したファイルとフォルダー",
+      "browse": "参照",
+      "remove": "{{path}} を削除",
+      "warning_not_loaded": "選択したパスは読み込まれません: 指示に {selection} がありません。",
+      "warning_empty_placeholder": "{selection} は空のままです: パスが選択されていません。"
+    }
   },
   "presence": {
     "queue_badge": "+{{count}} 待機中"
@@ -828,6 +845,7 @@
       "codex_resume_oversized": "セッションが大きすぎて再開できません",
       "idle_watchdog": "エージェントが長時間応答しなかったため停止しました",
       "local_directory_error": "ローカルディレクトリエラー",
+      "instruction_selection_error": "指示の選択エラー",
       "cancelled": "システムによってキャンセルされました",
       "agent_error": "エージェント実行エラー",
       "codex_semantic_inactivity": "Codex に進行がないままタイムアウトしました",

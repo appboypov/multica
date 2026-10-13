@@ -451,6 +451,8 @@ export function AgentOverviewPane({
                   {effectiveView === "instructions" && (
                     <InstructionsTab
                       agent={agent}
+                      runtime={runtime}
+                      currentUserId={currentUserId ?? null}
                       onSave={(updates) => onUpdate(agent.id, updates)}
                       onDirtyChange={setActiveDirty}
                     />

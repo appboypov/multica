@@ -76,6 +76,7 @@ import type {
   PluginSurfaceLaunch,
   ResourceLabelsResponse,
   RuntimeModelListRequest,
+  RuntimeDirectoryListingRequest,
   SearchIssuesResponse,
   SearchProjectsResponse,
   ShareLink,
@@ -2182,6 +2183,7 @@ export const StoredAgentDraftSchema = z.object({
   name: z.string().catch(""),
   description: z.string().catch(""),
   instructions: z.string().catch(""),
+  instruction_selection: z.array(z.string()).catch([]),
   conversation_starters: z
     .array(
       z.object({
@@ -3213,6 +3215,36 @@ export const MALFORMED_RUNTIME_MODEL_LIST_REQUEST: RuntimeModelListRequest = {
   status: "failed",
   supported: true,
   error: "invalid model discovery response",
+  created_at: "",
+  updated_at: "",
+};
+
+const RuntimeDirectoryEntrySchema = z.object({
+  name: z.string().catch(""),
+  path: z.string().catch(""),
+  kind: z.enum(["file", "folder"]).catch("file"),
+  hidden: z.boolean().catch(false),
+}).loose();
+
+export const RuntimeDirectoryListingRequestSchema = z.object({
+  id: z.string().catch(""),
+  runtime_id: z.string().catch(""),
+  status: z.enum(["pending", "running", "completed", "failed", "timeout"])
+    .catch("failed"),
+  path: z.string().catch(""),
+  entries: z.array(RuntimeDirectoryEntrySchema).catch([]),
+  error: z.string().catch(""),
+  created_at: z.string().catch(""),
+  updated_at: z.string().catch(""),
+}).loose();
+
+export const MALFORMED_RUNTIME_DIRECTORY_LISTING_REQUEST: RuntimeDirectoryListingRequest = {
+  id: "",
+  runtime_id: "",
+  status: "failed",
+  path: "",
+  entries: [],
+  error: "invalid directory listing response",
   created_at: "",
   updated_at: "",
 };

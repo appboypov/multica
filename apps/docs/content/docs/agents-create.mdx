@@ -33,7 +33,7 @@ Every other field can start with its default and be adjusted after creation. By 
 
 ## Description and instructions
 
-The **description** is a short introduction for the team. It appears only in the agent list and detail page, and never enters the AI coding tool's prompt.
+The **description** is a short introduction for the team. It appears only in the agent list and detail page, and never enters the AI coding tool's prompt. It has no length limit: past 255 characters its counter warns that it is over the recommended length, and the description still saves.
 
 **Instructions** are provided to the agent on every run and usually cover:
 
@@ -57,6 +57,18 @@ Do not modify code directly. Post findings in an issue comment,
 ordered by severity; when nothing blocks, state clearly that the change can merge.
 ```
 
+### Selecting files and folders
+
+Instructions can also load files and folders from the runtime's computer at every run, so an agent can use a skill or notes you keep on disk as its live instructions. The selection sits under the instructions on the creation page, in the creation dialog, and in the agent's **Instructions** tab.
+
+The owner of the agent's runtime clicks **Browse** to list that computer's skill roots for the runtime's AI coding tool, such as `~/.omp/agent/skills`, then opens folders or types an absolute path. Tick files and folders, across as many folders as you like, and click **Add**: they appear as chips under the instructions, in the order you added them. Hidden entries (a name starting with `.`) are listed, marked hidden, and can be selected. While the runtime is offline the Browse dialog lists nothing and adds nothing; chips can still be removed.
+
+The selection is loaded where the instructions hold `{selection}`. The first time you add paths, `{selection}` is inserted at the cursor, or at the end when the instructions were never focused; you can move it or write it more than once. At the start of every run, the daemon on the runtime's computer reads the selected paths from disk and puts in place of each `{selection}` the file tree of every selected folder and the content of every text file, in selection order. A selected folder skips hidden files and folders, binary files, and, inside a git repository, the files git ignores; a path you select yourself is always read. Edits on disk show in the next run without saving the agent again.
+
+The field warns when the two don't match: paths are selected but the instructions hold no `{selection}`, so the selection is not loaded, or the instructions hold `{selection}` but no path is selected, so it stays empty. Neither warning blocks saving. A run whose selected path is missing or unreadable, or whose selected file is not a text file, fails before the agent starts with **Instruction selection error** and the path in its error, and is not retried.
+
+Only the owner of the agent's runtime can browse its computer and add or remove selected paths. Anyone else who can see the agent sees the selected paths as read-only chips; a member who may edit the agent can still change the instructions text, and the selection stays as it is.
+
 ## Adding skills
 
 During creation you can pick one or more [skills](/skills) from the workspace.
@@ -65,7 +77,9 @@ Skills suit methods and material reused across agents; long-lived requirements t
 
 ## Conversation starters
 
-Add up to three **conversation starters** to show people what this agent is good at before they send a first chat message. They appear when someone opens a new chat with the agent, above the composer. Each starter has a short label and a complete prompt. Selecting one fills the composer so the user can review or edit it; it never starts a run automatically.
+Add up to three **conversation starters** to show people what this agent is good at before they send a first chat message. They appear when someone opens a new chat with the agent, above the composer. Each starter has a short label and a complete prompt, and needs both. Selecting one fills the composer so the user can review or edit it; it never starts a run automatically.
+
+Labels and prompts have no length limit. The editor warns when a label passes 80 characters or a prompt passes 4,000, and the starter still saves.
 
 The editor previews exactly what a new chat will show, and anyone who can edit the agent gets a **Customize starters** link in that empty state that deep-links back here.
 
@@ -137,9 +151,9 @@ MCP configuration may contain tokens; its storage and display rules match enviro
 
 ## Duplicating an agent
 
-Duplicating carries over most working configuration except the name, including instructions, conversation starters, skills, custom arguments, avatar, concurrency limit, and Access settings. The model, thinking level, and service tier come along too; if the original runtime is unavailable and the copy is forced onto another runtime, those three are cleared and must be re-selected.
+Duplicating carries over most working configuration except the name, including instructions, selected files and folders, conversation starters, skills, custom arguments, avatar, concurrency limit, and Access settings. The model, thinking level, and service tier come along too; if the original runtime is unavailable and the copy is forced onto another runtime, those three are cleared and must be re-selected.
 
-Environment variable values and MCP configuration are never copied and must be set again on the new agent. Duplication keeps the original agent's runtime binding and Access settings.
+Environment variable values and MCP configuration are never copied and must be set again on the new agent. Duplication keeps the original agent's runtime binding and Access settings. Selected files and folders come along only when you own the original agent's runtime and the copy stays on it; otherwise the copy starts with none.
 
 ## Creating with the CLI
 

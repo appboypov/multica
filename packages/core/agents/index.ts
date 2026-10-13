@@ -1,5 +1,6 @@
 export * from "./types";
 export * from "./draft";
+export * from "./instruction-selection";
 export * from "./stored-draft";
 export * from "./manual-draft-store";
 export * from "./builder-protocol";

@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from "vitest";
 import type { Agent, RuntimeDevice } from "../types";
 import {
@@ -7,7 +8,6 @@ import {
   buildDuplicateDraft,
   buildInvocationTargets,
   deriveDuplicateAccess,
-  isDraftDescriptionWithinLimit,
   type AgentDraft,
 } from "./draft";
 
@@ -15,6 +15,7 @@ const draft = (): AgentDraft => ({
   name: "Old name",
   description: "Old description",
   instructions: "Old instructions",
+  instructionSelection: [],
   conversationStarters: [],
   avatarUrl: null,
   runtimeId: "runtime-1",
@@ -148,6 +149,97 @@ describe("agent conversation starters", () => {
     });
 
     expect(request).not.toHaveProperty("conversation_starters");
+  });
+});
+
+describe("agent instruction selection", () => {
+  it("copies selected paths in order without sharing the source array", () => {
+    const source = sourceAgent({
+      instructions: "{selection}",
+      instruction_selection: ["/skills/reviewer", "/notes/context.md"],
+    });
+    const duplicate = buildDuplicateDraft(source, {
+      runtimes: [CODEX_RUNTIME],
+      currentUserId: "user-1",
+      fallbackRuntimeId: "runtime-2",
+      nameSuffix: " (Copy)",
+    });
+
+    expect(duplicate.instructions).toBe("{selection}");
+    expect(duplicate.instructionSelection).toEqual(source.instruction_selection);
+    expect(duplicate.instructionSelection).not.toBe(source.instruction_selection);
+  });
+
+  it("uses an empty selection when the source omits it", () => {
+    const duplicate = buildDuplicateDraft(sourceAgent(), {
+      runtimes: [CODEX_RUNTIME],
+      currentUserId: "user-1",
+      fallbackRuntimeId: "runtime-2",
+      nameSuffix: " (Copy)",
+    });
+
+    expect(duplicate.instructionSelection).toEqual([]);
+  });
+
+  it("leaves the selection out of a copy by someone who does not own the runtime", () => {
+    const source = sourceAgent({
+      instructions: "{selection}",
+      instruction_selection: ["/Users/brian/skills/reviewer"],
+    });
+    const brianRuntime = {
+      ...CODEX_RUNTIME,
+      owner_id: "brian",
+      visibility: "public",
+    } as RuntimeDevice;
+    const memberRuntime = { ...OTHER_RUNTIME, owner_id: "member" } as RuntimeDevice;
+    const options = {
+      currentUserId: "member",
+      fallbackRuntimeId: "runtime-2",
+      nameSuffix: " (Copy)",
+    };
+
+    const onPublicRuntime = buildDuplicateDraft(source, {
+      ...options,
+      runtimes: [brianRuntime, memberRuntime],
+    });
+    const onOwnRuntime = buildDuplicateDraft(source, {
+      ...options,
+      runtimes: [{ ...brianRuntime, visibility: "private" } as RuntimeDevice, memberRuntime],
+    });
+
+    expect(onPublicRuntime).toMatchObject({
+      runtimeId: "runtime-1",
+      instructions: "{selection}",
+      instructionSelection: [],
+    });
+    expect(onOwnRuntime).toMatchObject({
+      runtimeId: "runtime-2",
+      instructions: "{selection}",
+      instructionSelection: [],
+    });
+  });
+
+  it("sends selected paths unchanged in the create request", () => {
+    const paths = ["/skills/reviewer", "/notes/context.md"];
+    const request = buildCreateAgentRequest({
+      draft: { ...draft(), instructionSelection: paths },
+      runtimeId: "runtime-1",
+    });
+
+    expect(request.instruction_selection).toEqual(paths);
+  });
+
+  it("omits an empty selection from the create request", () => {
+    expect(
+      buildCreateAgentRequest({ draft: draft(), runtimeId: "runtime-1" }),
+    ).not.toHaveProperty("instruction_selection");
+  });
+
+  it("keeps the selection when changing the draft runtime", () => {
+    const current = { ...draft(), instructionSelection: ["/skills/reviewer"] };
+
+    expect(applyDraftRuntimeChange(current, "runtime-2").instructionSelection)
+      .toEqual(current.instructionSelection);
   });
 });
 
@@ -304,13 +396,5 @@ describe("agent draft execution overrides", () => {
       thinkingLevel: "",
       serviceTier: "",
     });
-  });
-
-  it("enforces the 255-rune description limit the create API applies", () => {
-    expect(isDraftDescriptionWithinLimit("a".repeat(255))).toBe(true);
-    expect(isDraftDescriptionWithinLimit("a".repeat(256))).toBe(false);
-    // Runes, not UTF-16 units: 255 CJK characters are exactly at the limit.
-    expect(isDraftDescriptionWithinLimit("汉".repeat(255))).toBe(true);
-    expect(isDraftDescriptionWithinLimit("汉".repeat(256))).toBe(false);
   });
 });

@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, expect, it } from "vitest";
 import {
   decodeBuilderInput,
@@ -13,6 +14,7 @@ const draft = (): AgentDraft => ({
   name: "Old name",
   description: "Old description",
   instructions: "Old instructions",
+  instructionSelection: [],
   conversationStarters: [],
   avatarUrl: null,
   runtimeId: "runtime-1",
@@ -38,6 +40,30 @@ describe("agent builder protocol", () => {
     expect(parseBuilderDraft("<agent_draft>not json</agent_draft>")).toBeNull();
   });
 
+  it.each([
+    { selection: [] },
+    { selection: ["/skills/reviewer", "/notes/context.md"] },
+  ])("keeps the user's selection $selection despite a builder payload", ({ selection }) => {
+    const current = { ...draft(), instructionSelection: selection };
+    const payload = parseBuilderDraft(
+      '<agent_draft>{"name":"Renamed","instruction_selection":["/skills/invented"]}</agent_draft>',
+    );
+    expect(payload).not.toBeNull();
+
+    const merged = mergeBuilderDraft(
+      current,
+      payload!,
+      new Set(),
+      new Set(),
+      new Set(["model-1"]),
+    );
+
+    expect(merged.name).toBe("Renamed");
+    expect(merged.instructionSelection).toEqual(selection);
+    expect(merged.instructionSelection).toBe(current.instructionSelection);
+    expect(current.instructionSelection).toEqual(selection);
+  });
+
   it("accepts up to three complete conversation starters from the builder", () => {
     const merged = mergeBuilderDraft(
       draft(),
@@ -54,6 +80,31 @@ describe("agent builder protocol", () => {
 
     expect(merged.conversationStarters).toEqual([
       { label: "Review a PR", prompt: "Review the open PR." },
+    ]);
+  });
+
+  it("keeps starter text whole and only the first three starters", () => {
+    const longLabel = "L".repeat(120);
+    const longPrompt = "P".repeat(4001);
+    const merged = mergeBuilderDraft(
+      draft(),
+      {
+        conversation_starters: [
+          { label: longLabel, prompt: longPrompt },
+          { label: "Second", prompt: "Second prompt." },
+          { label: "Third", prompt: "Third prompt." },
+          { label: "Fourth", prompt: "Fourth prompt." },
+        ],
+      },
+      new Set(),
+      new Set(),
+      new Set(["model-1"]),
+    );
+
+    expect(merged.conversationStarters).toEqual([
+      { label: longLabel, prompt: longPrompt },
+      { label: "Second", prompt: "Second prompt." },
+      { label: "Third", prompt: "Third prompt." },
     ]);
   });
 
