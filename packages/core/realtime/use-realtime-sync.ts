@@ -13,6 +13,8 @@ import { getCurrentWsId, getCurrentSlug } from "../platform/workspace-storage";
 import { issueKeys } from "../issues/queries";
 import { projectKeys } from "../projects/queries";
 import { organisationKeys } from "../organisations/queries";
+import { handleQuestionEvent } from "../questions/ws-updaters";
+import { questionKeys } from "../questions/queries";
 import { pinKeys } from "../pins/queries";
 import { autopilotKeys } from "../autopilots/queries";
 import { runtimeKeys } from "../runtimes/queries";
@@ -646,6 +648,7 @@ function invalidateWorkspaceScopedQueries(qc: QueryClient): void {
   const wsId = getCurrentWsId();
   if (wsId) {
     qc.invalidateQueries({ queryKey: issueKeys.all(wsId) });
+    qc.invalidateQueries({ queryKey: questionKeys.all(wsId) });
     // Through the inbox's own entry point, not a plain invalidate: a reconnect
     // can land during the list's first load, and a plain invalidate would be
     // answered by the request already on the wire (see refreshInboxQuery).
@@ -1060,6 +1063,18 @@ export function useRealtimeSync(
     ]);
 
     const unsubAny = ws.onAny((msg) => {
+      if (msg.type === "question:created" || msg.type === "question:updated" || msg.type.startsWith("task:")) {
+        const wsId = getCurrentWsId();
+        const payload = msg.payload;
+        if (wsId && payload && typeof payload === "object" && "issue_id" in payload
+          && typeof payload.issue_id === "string" && payload.issue_id) {
+          // Coalesce streamed task frames per issue, without suppressing the
+          // lifecycle event that changes the asking agent's unseen answers.
+          debouncedRefresh(`questions:${wsId}:${payload.issue_id}`, () => {
+            if (getCurrentWsId() === wsId) handleQuestionEvent(qc, wsId, msg.type, payload);
+          });
+        }
+      }
       if (specificEvents.has(msg.type)) return;
       const prefix = msg.type.split(":")[0] ?? "";
       if (prefix === "agent" || (prefix === "task" && msg.type !== "task:progress")) {

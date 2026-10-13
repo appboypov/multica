@@ -14,6 +14,8 @@ export type WSEventType =
   | "issue:updated"
   | "issue_attachments:changed"
   | "issue:deleted"
+  | "question:created"
+  | "question:updated"
   | "comment:created"
   | "comment:updated"
   | "comment:deleted"
@@ -121,6 +123,13 @@ export interface IssueUpdatedPayload {
   // so these tell the realtime layer whose duplicate relations to refresh.
   duplicate_of_issue_id?: string | null;
   prev_duplicate_of_issue_id?: string | null;
+}
+
+export interface QuestionEventPayload {
+  question_id: string;
+  issue_id: string;
+  reason?: "answered" | "answer_edited" | "ask_back" | "reassigned" | "closed" | "withdrawn" | "overdue" | "woken";
+  event_id?: string;
 }
 
 export interface IssueDeletedPayload {
@@ -600,6 +609,8 @@ export interface WSEventPayloadMap {
   "task:message": TaskMessagePayload;
   "task:cancelled": TaskCancelledPayload;
   "task:progress": unknown;
+  "question:created": QuestionEventPayload;
+  "question:updated": QuestionEventPayload;
   "inbox:new": InboxNewPayload;
   "inbox:read": InboxReadPayload;
   "inbox:unread": InboxUnreadPayload;

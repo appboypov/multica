@@ -1,14 +1,11 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
 import type { AnswerQuestionRequest, AskBackQuestionRequest, ReassignQuestionRequest } from "../types/question";
-import { questionKeys } from "./queries";
+import { invalidateIssueQuestions } from "./ws-updaters";
 
 function useQuestionInvalidation(wsId: string, issueId: string) {
   const qc = useQueryClient();
-  return (id: string) => Promise.all([
-    qc.invalidateQueries({ queryKey: questionKeys.byIssue(wsId, issueId) }),
-    qc.invalidateQueries({ queryKey: questionKeys.detail(wsId, id) }),
-  ]);
+  return (id: string) => invalidateIssueQuestions(qc, wsId, issueId, id);
 }
 
 export function useAnswerQuestion(wsId: string, issueId: string) {
