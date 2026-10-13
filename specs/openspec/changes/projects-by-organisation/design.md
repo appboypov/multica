@@ -294,7 +294,7 @@ J2, J3, J6, J7, J8, J9 and J11 have work. The design decision `bafyreiabhj65ebgm
 - A workspace-scoped `organisation` with a unique name, ignoring case, and a unique key that is a folder name. A project points to at most one organisation.
 - Projects grouped by organisation on Projects, an Organisations page, an Organisation page, and New organisation. The project page and New project show and set the organisation.
 - No project status, start date or due date anywhere in the web and desktop apps, the Issues filter included.
-- The brain sync fills organisations and one project per Product, and merges the repository projects into them.
+- The brain sync fills organisations and one project per Product, and merges the repository project of each Product with one repository into it.
 - A model that UJ-2 to UJ-8 extend with repositories, worklanes and releases without reworking it (ADR-0004).
 
 **Non-Goals:**
@@ -430,7 +430,7 @@ The Projects page keeps its compact table and card views, with their other colum
 - From Multica: organisations, projects, their resources, and the issue ids of each project to merge.
 - The sync's mark file.
 
-The mark is `~/.local/state/madspec/multica/brain-sync.json`, keyed by server and workspace. It maps the brain id of each Organisation and Product the sync placed to its Multica id. The checkout resource label `madspec:<owner/name>` stays the mark of a checkout, and so of a repository project. A product project must keep its identity when its Product is renamed (spec "A Product renamed in the brain") or has no repository, and Multica has no field for a brain id. A mark held by the sync, next to its fallback overlays, keeps Multica's schema free of brain concepts. When the file is lost, the take-over rules rebuild it.
+The mark is `~/.local/state/madspec/multica/brain-sync.json`, keyed by server and workspace. It maps the brain id of each Organisation and Product the sync placed to its Multica id, and under `repository_projects` the brain id of each Repository whose repository project the sync keeps (step 4) to that project's Multica id. The checkout resource label `madspec:<owner/name>` stays the mark of a checkout, and so of a repository project. A product project must keep its identity when its Product is renamed (spec "A Product renamed in the brain") or has no repository, and Multica has no field for a brain id. A mark held by the sync, next to its fallback overlays, keeps Multica's schema free of brain concepts. When the file is lost, the take-over rules rebuild it.
 
 The plan, in order:
 
@@ -444,10 +444,13 @@ The plan, in order:
    - Otherwise a project titled exactly with the Product's name that carries no checkout mark is taken over.
    - Otherwise a project is created with that title and the organisation.
    - A taken-over or marked project without an organisation gets the Product's organisation. One with an organisation keeps it.
-3. **Checkouts.** Every counting repository of a Product (today's definition) gets its marked `local_directory` resource on its Product's project, created or updated in place as today. A repository without a Product is reported "has no Product" and its project is left alone.
-4. **Merges.** A project that carries a checkout mark of a repository with a Product, and is not that Product's project, is a repository project:
-   - Its issues move to the Product's project with `POST /api/issues/batch-update` (`{issue_ids, updates: {project_id}}`), in pages of 100.
-   - It is deleted only after every move succeeded and a fresh `GET /api/projects/{id}` reads `issue_count` 0. Deleting it removes its resources.
+3. **Checkouts.** A Product's repositories are the Repository objects that link it in the brain, archived ones and ones without a checkout included. A project holds one `local_directory` resource per daemon (`findLocalDirectoryConflict` in `server/internal/handler/project_resource.go`, since MUL-2618), and the daemon picks a task's checkout by its runtime. So:
+   - The only repository of a Product, when it counts (today's definition), gets its marked `local_directory` resource on its Product's project, created or updated in place as today.
+   - The project of a Product with several repositories gets no checkout. Its repositories' checkouts stay on their repository projects as they are, and a repository of it without a repository project gets none. UJ-2 gives a project several repositories.
+   - A repository without a Product is reported "has no Product" and its project is left alone.
+4. **Merges.** A project that carries the checkout mark of a repository with a Product, and is not that Product's project, is a repository project:
+   - When the Product has one repository, the project's issues move to the Product's project with `POST /api/issues/batch-update` (`{issue_ids, updates: {project_id}}`), in pages of 100. It is deleted only after every move succeeded and a fresh `GET /api/projects/{id}` reads `issue_count` 0. Deleting it removes its resources.
+   - When the Product has several repositories, the project is left as it is, with its issues and its checkout, and prints "{project} stays for {Product}, which has {N} repositories" on every run. Its Multica id goes into the mark file under `repository_projects`, keyed by the Repository's brain id, so UJ-2's sync can still find it after UJ-2's migrations drop the checkout resources and their labels.
 5. Nothing changes a project's or organisation's title, name, key, description, icon, lead, priority or status. A Product or Organisation that is gone from the brain is printed and left alone.
 
 Writes run in that order. After each successful create or take-over, the mark file is written atomically: a temp file, then a rename.
@@ -457,7 +460,8 @@ The read guards stay: a failed read of the brain, GitHub or Multica writes nothi
 ## Risks / Trade-offs
 
 - **Migration numbers.** The 572 to 574 numbers can be taken on `main` by a merge before J2. The builder takes the next free numbers and renames the cleanup entries with them.
-- **A lost mark file** makes the next run take over by exact title. A product project Brian renamed in Multica, with a Product that has no repository, would then be created again. The checkouts and issues of every other project are unaffected.
+- **One checkout per runtime on a project.** MadSpec (3 repositories) and SuperMarty (12) keep their repository projects under No organisation, and their Product projects stay empty, until UJ-2's sync adds their repositories and merges the projects recorded under `repository_projects`. Agents on those issues keep working in the right checkout meanwhile.
+- **A lost mark file** makes the next run take over by exact title. A product project Brian renamed in Multica, with a Product that has no repository, would then be created again. The checkouts and issues of every other project are unaffected. The `repository_projects` entries are written again from the checkout labels, as long as UJ-2 has not dropped them.
 - **Mobile still shows status and dates.** It is out of scope. The server still serves them, so nothing breaks.
 - **The server's `include_closed` parameter** stays and no longer changes project results. Issue results still use it.
 - **Saved issue views** that hold a project status filter lose it silently when loaded. Nothing else filters by it.
@@ -466,6 +470,6 @@ The read guards stay: a failed read of the brain, GitHub or Multica writes nothi
 
 1. Apply the migrations 572 to 574. Existing projects have `organisation_id` NULL and show under No organisation until the sync runs.
 2. Release with `make local-release`.
-3. Run `uv run madspec-sync/multica_projects.py` once by hand. It creates the 14 organisations, makes one project per Product and merges the repository projects. It prints every write.
+3. Run `uv run madspec-sync/multica_projects.py` once by hand. It creates the 14 organisations, makes one project per Product, merges the repository project of each Product with one repository, and records and prints each repository project it keeps for a Product with several. It prints every write.
 
 Rollback is the down migrations. Merged issues stay in their Product's project, because the sync never undoes a move.

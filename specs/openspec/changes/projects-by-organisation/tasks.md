@@ -96,23 +96,25 @@ flowchart LR
 
 ## 8. J8 Backend and agent tooling: integration
 
-- [x] 8.1 `madspec-sync/multica_projects.py` -- the reads, plan and writes of design.md decision 6:
+- [ ] 8.1 `madspec-sync/multica_projects.py` -- the reads, plan and writes of design.md decision 6:
   - Read Organisations, Products and Repositories with their links.
   - Read Multica organisations and each merge candidate's issue ids.
-  - Keep the mark file `~/.local/state/madspec/multica/brain-sync.json`, keyed by server and workspace and written atomically.
+  - Keep the mark file `~/.local/state/madspec/multica/brain-sync.json`, keyed by server and workspace and written atomically, with `organisations`, `products` and `repository_projects`.
   - Create organisations with keys from the Linear key or `KEYS`, and take over by name ignoring case.
   - Keep one project per Product, followed by mark, then taken over by exact title without a checkout mark, then created.
   - Set the organisation only when the project has none.
-  - Put checkouts on the Product's project.
-  - Merge repository projects through `POST /api/issues/batch-update` in pages of 100, and delete one only after a fresh read shows `issue_count` 0.
+  - Count a Product's repositories by the Repository objects that link it. Put the checkout of a Product with one repository on its Product's project, and none on the project of a Product with several.
+  - Merge the repository project of a Product with one repository through `POST /api/issues/batch-update` in pages of 100, and delete it only after a fresh read shows `issue_count` 0.
+  - Leave each repository project of a Product with several repositories as it is, with its issues and checkout, print "{project} stays for {Product}, which has {N} repositories" on every run, and record it under `repository_projects`.
   - Report a repository without a Product, an Organisation without a key, and a Product or Organisation gone from the brain.
   - Remove the `completed` and `in_progress` status moves.
-- [x] 8.2 `madspec-sync/tests/test_multica_projects.py` -- `plan()` cases per scenario of the `brain-project-sync` spec delta:
+- [ ] 8.2 `madspec-sync/tests/test_multica_projects.py` -- `plan()` cases per scenario of the `brain-project-sync` spec delta:
   - The first run.
   - A taken-over organisation, and the keys table.
   - A key Brian changed stays.
-  - A Product with three repositories, and one without.
-  - The merge of 10, 2 and 1 issues.
+  - A Product with one repository, one with three, and one without.
+  - Rebl takes in its repository project's 6 issues, and the emptied project goes.
+  - MadSpec's repository projects with 10, 2 and 1 issues stay with their checkouts, are printed and are recorded, and no checkout is written to MadSpec.
   - A repository without a Product.
   - An organisation Brian set stays.
   - A deleted Product and a deleted Organisation.
@@ -120,7 +122,7 @@ flowchart LR
   - A second run with nothing to write.
   - A failed read writes nothing.
   - The lock test stays.
-- [x] 8.3 `madspec-sync/specs/multica-projects.md`, `madspec-sync/README.md` -- rewrite the spec to the new rules (organisations, product projects, merges, the mark file), drop the status requirements, and update the README's description and commands -- `madspec-sync/README.md` says the spec is the sync's contract.
+- [ ] 8.3 `madspec-sync/specs/multica-projects.md`, `madspec-sync/README.md` -- rewrite the spec to the new rules (organisations, product projects, the merge of a Product with one repository, the repository projects kept for a Product with several, the mark file), drop the status requirements, and update the README's description and commands -- `madspec-sync/README.md` says the spec is the sync's contract.
 
 ## 9. J9 Frontend: flow
 
@@ -253,3 +255,4 @@ flowchart LR
 
 - 2026-10-13, J2: the workspace-delete step and manifest classification move from group 7 (7.3) to group 1 (1.8). The table 1.1 adds made `TestWorkspaceDeletionManifestCoversPublicSchema` fail, and J2 merges into `main` with passing checks, so its teardown ships with it. Group 7 keeps its numbering.
 - 2026-10-13, J2: 2.1 also seeds `OrganisationID` from `prevProject` in the handler's `UpdateProject` call. Without it, every project update on `main` writes `NULL` to the column until J8. 7.2 still adds the request key.
+- 2026-10-13, J8: 8.1 to 8.3 reopened and reworded. The group 8 sync run against the worktree Multica got 409 "this daemon already has a local_directory attached to the project" on every second checkout of one Product project, because a project holds one `local_directory` per daemon (`findLocalDirectoryConflict`, MUL-2618). Brian decided to merge only Products with one repository in UJ-1. A Product with several keeps its repository projects, which the sync prints and records under `repository_projects` in its mark file, and UJ-2 (`repositories-of-a-project`) merges them. The `brain-project-sync` spec delta, proposal.md, design.md decision 6, its Risks and its Migration Plan are revised through `madspec-revise-plan`. The group 8 implementation notes above describe the first build to the old rule.
