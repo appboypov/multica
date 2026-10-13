@@ -165,6 +165,7 @@ multica runtime activity <runtime-id>
 | 命令 | 用途 |
 | --- | --- |
 | `issue` | 创建、更新、分配和搜索任务；管理评论、订阅、标签、属性与执行记录 |
+| `question` | 在智能体运行中向成员提问、读取回答，并关闭或撤回问题 |
 | `project` | 管理项目及其资源 |
 | `label`、`property` | 管理工作区标签和自定义属性 |
 | `agent`、`skill`、`squad` | 管理智能体、skill 和小队 |
@@ -246,6 +247,10 @@ CLI 配置文件包含可代表你访问 Multica 的令牌。不要提交到仓�
 | | `usage <issue-id>` | 查看聚合 token 用量 | |
 | | `rerun <id>` | 按当前指派重新入队执行 | |
 | | `cancel-task <task-id>` | 取消进行中或排队中的运行 | `--issue` |
+| `question` | `ask` | 在智能体运行中向成员提问；输出问题 id | `--prompt` / `--prompt-file`、`--context`、`--type`（`text`、`yes_no`、`single_choice`、`multiple_choice`、`confirm_facts`、`ranking`、`scale`、`number`、`date`、`person`、`file`、`approval`）、设置 flag `--option`、`--fact`、`--item`、`--accept`（可重复）、`--allow-other`、`--why-on-no`、`--min`、`--max`、`--min-label`、`--max-label`、`--unit`、`--date-kind`、`--allow`、`--length`、`--placeholder`、`--subject`、`--link-url`、`--link-title`；`--suggest`（`multiple_choice` 和 `ranking` 可重复）、`--answerer`（可重复；成员的名称、邮箱或 id）、`--due`（`YYYY-MM-DD`）、`--blocks-work` |
+| | `answers <question-id>` | 查看问题的状态、回答和线程 | |
+| | `close <question-id>` | 关闭问题 | |
+| | `withdraw <question-id>` | 撤回问题 | |
 | `project` | `list/get/create/update/delete` | 管理项目 | |
 | | `status <id> <status>` | 修改项目状态 | |
 | | `resource list/add/update/remove` | 管理项目附加资源 | `--type`、`--url`、`--local-path`、`--daemon-id`、`--execution-mode`（本地目录的 `in_place` / `worktree`） |

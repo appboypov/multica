@@ -21,12 +21,14 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/multica-ai/multica/server/internal/analytics"
+	"github.com/multica-ai/multica/server/internal/attribution"
 	"github.com/multica-ai/multica/server/internal/auth"
 	"github.com/multica-ai/multica/server/internal/daemonws"
 	"github.com/multica-ai/multica/server/internal/integrations/slack"
 	"github.com/multica-ai/multica/server/internal/issuestatus"
 	obsmetrics "github.com/multica-ai/multica/server/internal/metrics"
 	"github.com/multica-ai/multica/server/internal/middleware"
+	"github.com/multica-ai/multica/server/internal/question"
 	"github.com/multica-ai/multica/server/internal/runtimeapps"
 	"github.com/multica-ai/multica/server/internal/service"
 	"github.com/multica-ai/multica/server/internal/util"
@@ -3685,8 +3687,64 @@ func (h *Handler) buildClaimedTaskResponse(r *http.Request, task *db.AgentTaskQu
 		resp.InitiatorName = originator.Name
 		resp.InitiatorEmail = originator.Email
 	}
+	if task.TriggerEvidenceKind.String == string(attribution.EvidenceQuestionWake) {
+		resp.QuestionAnswers, err = h.loadClaimQuestionAnswers(r.Context(), *task, parseUUID(resp.WorkspaceID), resp.InitiatorName)
+		if err != nil {
+			slog.Error("claim: failed to hydrate question answers", "task_id", resp.ID, "error", err)
+			return resp, deliveredCommentIDs, issueSnapshot, agentSkillCount, builtinSkillCount, &claimBuildFailure{
+				outcome: "error_question_answers", status: http.StatusInternalServerError, message: "failed to load question answers",
+			}
+		}
+	}
 
 	return resp, deliveredCommentIDs, issueSnapshot, agentSkillCount, builtinSkillCount, nil
+}
+
+func (h *Handler) loadClaimQuestionAnswers(ctx context.Context, task db.AgentTaskQueue, workspaceID pgtype.UUID, wakerName string) (*protocol.QuestionAnswers, error) {
+	if !task.TriggerEvidenceKind.Valid || task.TriggerEvidenceKind.String != string(attribution.EvidenceQuestionWake) {
+		return nil, nil
+	}
+	if !task.IssueID.Valid {
+		return nil, errors.New("question wake has no issue")
+	}
+	answers, err := h.Queries.ListUnseenQuestionAnswers(ctx, db.ListUnseenQuestionAnswersParams{
+		WorkspaceID: workspaceID, IssueID: task.IssueID, AgentID: task.AgentID, ExcludeTaskID: task.ID,
+	})
+	if err != nil {
+		return nil, err
+	}
+	askBacks, err := h.Queries.ListUnseenQuestionAskBacks(ctx, db.ListUnseenQuestionAskBacksParams{
+		WorkspaceID: workspaceID, IssueID: task.IssueID, AgentID: task.AgentID, ExcludeTaskID: task.ID,
+	})
+	if err != nil {
+		return nil, err
+	}
+	result := &protocol.QuestionAnswers{
+		WakerName: wakerName, AnswerCount: int64(len(answers)),
+		Answers:  make([]protocol.QuestionAnswerData, 0, len(answers)),
+		AskBacks: make([]protocol.QuestionAskBackData, 0, len(askBacks)),
+	}
+	for _, answer := range answers {
+		result.Answers = append(result.Answers, protocol.QuestionAnswerData{
+			QuestionID: uuidToString(answer.QuestionID), Prompt: answer.Prompt,
+			DisplayText: question.Display(answer.AnswerType, answer.Settings, answer.Value),
+			Note:        answer.Note.String, AnswererName: answer.AnswererName,
+			UpdatedAt: answer.UpdatedAt.Time.UTC().Format(time.RFC3339Nano),
+		})
+	}
+	for _, askBack := range askBacks {
+		var details struct {
+			Text string `json:"text"`
+		}
+		if err := json.Unmarshal(askBack.Details, &details); err != nil {
+			return nil, err
+		}
+		result.AskBacks = append(result.AskBacks, protocol.QuestionAskBackData{
+			QuestionID: uuidToString(askBack.QuestionID), Prompt: askBack.Prompt, Text: details.Text,
+			ActorName: askBack.ActorName, CreatedAt: askBack.CreatedAt.Time.UTC().Format(time.RFC3339Nano),
+		})
+	}
+	return result, nil
 }
 
 // worktreeClaimBlockReason returns a user-facing reason when this runtime must

@@ -151,7 +151,7 @@ const STEPS: Step[] = [{
   }, {
     table: '"unseen" query',
     op: 'read',
-    note: "Answers updated after Pieter's latest started run on WORK-412 = run #3's `started_at` → `0`"
+    note: "Answers updated after Pieter's latest claimed run on WORK-412 = run #3's `dispatched_at` → `0`"
   }, {
     table: 'HasActiveTaskForIssueAndAgent',
     op: 'read',
@@ -272,7 +272,7 @@ const STEPS: Step[] = [{
     table: 'question_answer',
     op: 'read',
     rows: ['{answerer_user_id: Brian, value: {option: "Per line"}, note: null}'],
-    note: "Unseen answers and ask-backs, anchored on Pieter's latest started run on WORK-412 other than this task (run #3)."
+    note: "Unseen answers and ask-backs, anchored on Pieter's latest claim on WORK-412 outside this task's complete retry ancestor chain (run #3)."
   }, {
     table: 'agent_task_queue',
     op: 'write',

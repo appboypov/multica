@@ -831,6 +831,9 @@ func main() {
 	if err := schedulerMgr.Register(scheduler.IssueWakeupJob(&service.IssueWakeupService{Tasks: taskSvc})); err != nil {
 		slog.Error("scheduler: register issue wakeups", "error", err)
 	}
+	if err := schedulerMgr.Register(scheduler.QuestionOverdueJob(queries, bus)); err != nil {
+		slog.Error("scheduler: register overdue questions", "error", err)
+	}
 	if err := schedulerMgr.Register(scheduler.ChildEventSweepJob(&service.IssueWakeupService{Tasks: taskSvc})); err != nil {
 		slog.Error("scheduler: register child-done sweep", "error", err)
 	}

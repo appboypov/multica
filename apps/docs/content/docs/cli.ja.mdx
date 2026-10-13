@@ -165,6 +165,7 @@ multica runtime activity <runtime-id>
 | コマンド | 用途 |
 | --- | --- |
 | `issue` | タスクの作成、更新、割り当て、検索。コメント、購読者、ラベル、プロパティ、実行履歴の管理 |
+| `question` | エージェントの実行からメンバーに質問し、回答を読み取り、質問をクローズまたは取り下げ |
 | `project` | プロジェクトとそのリソースを管理 |
 | `label`、`property` | ワークスペースのラベルとカスタムプロパティを管理 |
 | `agent`、`skill`、`squad` | エージェント、スキル、スクワッドを管理 |
@@ -246,6 +247,10 @@ CLI の設定ファイルには、あなたとして Multica にアクセスで�
 | | `usage <issue-id>` | 集計されたトークン使用量を表示 | |
 | | `rerun <id>` | 現在の担当者で実行を再キューイング | |
 | | `cancel-task <task-id>` | 進行中またはキュー中の実行をキャンセル | `--issue` |
+| `question` | `ask` | エージェントの実行からメンバーに質問し、質問の id を出力 | `--prompt` / `--prompt-file`、`--context`、`--type`（`text`、`yes_no`、`single_choice`、`multiple_choice`、`confirm_facts`、`ranking`、`scale`、`number`、`date`、`person`、`file`、`approval`）、設定フラグ `--option`、`--fact`、`--item`、`--accept`（繰り返し可）、`--allow-other`、`--why-on-no`、`--min`、`--max`、`--min-label`、`--max-label`、`--unit`、`--date-kind`、`--allow`、`--length`、`--placeholder`、`--subject`、`--link-url`、`--link-title`；`--suggest`（`multiple_choice` と `ranking` は繰り返し可）、`--answerer`（繰り返し可。メンバーの名前・メール・id）、`--due`（`YYYY-MM-DD`）、`--blocks-work` |
+| | `answers <question-id>` | 質問のステータス、回答、スレッドを表示 | |
+| | `close <question-id>` | 質問をクローズ | |
+| | `withdraw <question-id>` | 質問を取り下げ | |
 | `project` | `list/get/create/update/delete` | プロジェクトを管理 | |
 | | `status <id> <status>` | プロジェクトのステータスを変更 | |
 | | `resource list/add/update/remove` | プロジェクトの追加リソースを管理 | `--type`、`--url`、`--local-path`、`--daemon-id`、`--execution-mode`（ローカルディレクトリの `in_place` / `worktree`） |

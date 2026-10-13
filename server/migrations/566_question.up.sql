@@ -16,7 +16,7 @@
 --
 -- question_answer and question_event take clock_timestamp(): events written in
 -- one transaction keep their order, and an answer's updated_at is as close to
--- its commit as possible, since "unseen" compares it with a run's started_at.
+-- its commit as possible, since "unseen" compares it with a run's dispatched_at.
 --
 -- The runner sends this file as one implicit transaction. ALTER TABLE takes a
 -- short ACCESS EXCLUSIVE lock on attachment, so bound the wait and retry on the

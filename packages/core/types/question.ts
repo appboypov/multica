@@ -264,7 +264,7 @@ interface QuestionBase {
   links: QuestionLink[];
   answerers: QuestionAnswerer[];
   events: QuestionEvent[];
-  /** Answers the asking agent has not seen since its latest started run on the issue. */
+  /** Answers unseen since the claim of the asking agent's latest started run on the issue. */
   unseen_answer_count: number;
   /** True while there are unseen answers and the asking agent has no active task on the issue. */
   wake_available: boolean;

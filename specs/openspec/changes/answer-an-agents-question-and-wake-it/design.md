@@ -213,7 +213,7 @@ sequenceDiagram
   S->>DB: agent_task_queue row, evidence question_wake
   S->>DB: activity_log question_wake {agent, 1 answer}
   D->>S: claim
-  S->>DB: answers updated after Pieter's last started run
+  S->>DB: answers updated after Pieter's last claim outside this retry chain
   S-->>D: task + question_answers
   D->>P: prompt with ANSWERS block
 ```
@@ -364,11 +364,13 @@ Several answerers in UJ-1 behave as **Any one** ("Keep: Any one - first answer t
 
 ### 5. Wake, and what an agent has not seen
 
-One query defines "unseen": the answers to questions asked by agent A and linked to issue I whose `updated_at` is after the `started_at` of A's latest started run on I; the run that asked is always one, so the anchor exists. Questions A closed or withdrew count nothing: A ended them itself. It serves `unseen_answer_count`, the Wake guard and the claim. `wake_available` is true when the count is above zero and A has no queued, dispatched or running task on I; while one is active, the card offers no Wake, and once it ends, answers given after its start are still unseen and Wake returns. An ask-back is not an answer (FR-20 offers Wake for answers): it counts toward nothing, is readable through `multica question answers`, and rides along in the next woken run, as the prototype says ("Pieter gets your reply when he is woken").
+One query defines "unseen": the answers to questions asked by agent A and linked to issue I whose `updated_at` is after the `dispatched_at` of A's latest claimed run on I; the run that asked is always one, so the anchor exists. Questions A closed or withdrew count nothing: A ended them itself. It serves `unseen_answer_count`, the Wake guard and the claim. `wake_available` is true when the count is above zero and A has no queued, dispatched or running task on I; while one is active, the card offers no Wake, and once it ends, answers given after its claim are still unseen and Wake returns. An ask-back is not an answer (FR-20 offers Wake for answers): it counts toward nothing, is readable through `multica question answers`, and rides along in the next woken run, as the prototype says ("Pieter gets your reply when he is woken").
+
+Only claims of runs with `started_at IS NOT NULL` advance that cutoff. A claim that fails before the agent starts consumes no answers.
 
 `POST /api/questions/{id}/wake` calls `TaskService.EnqueueTaskForQuestionWake(issue, agentID, actorUserID, answerCount)`, built on `enqueueMentionTask` with no trigger comment, `trigger_evidence_kind = "question_wake"`, `trigger_evidence_ref_id` = the question id and the trigger summary "Woken by Brian with 1 answer". It writes the `activity_log` action `question_wake` with `{agent_id, answer_count, task_id}`; the timeline renders "Pieter was woken by Brian with 1 answer". `ErrDuplicatePendingTask` maps to 409; nothing unseen to 422.
 
-At claim, a task with evidence kind `question_wake` gets `question_answers`: the unseen answers and ask-backs, anchored on A's latest started run on I other than this task, each with question id, prompt, display text, note, who and when. `perTurnContextBlocks` appends:
+At claim, a task with evidence kind `question_wake` gets `question_answers`: the unseen answers and ask-backs, anchored on A's latest claimed run on I outside this task's complete `retry_of_task_id` ancestor chain, each with question id, prompt, display text, note, who and when. When there are answers or ask-backs, `perTurnContextBlocks` appends:
 
 ```text
 [ANSWERS]
@@ -377,7 +379,7 @@ Brian woke you with 1 answer to your questions:
 `multica question answers <question-id>` shows a question in full.
 ```
 
-The answers are hydrated at claim, so an edit between Wake and claim reaches the run. Recorded as ADR-0003.
+The answers are hydrated at claim, so an edit between Wake and claim reaches the run. An edit while dispatched stays unseen after the run ends. Every retry receives the answers and ask-backs from before the first attempt's claim, including subsequent edits. An empty payload adds no `[ANSWERS]` block. Recorded as ADR-0003.
 
 ### 6. The issue page
 

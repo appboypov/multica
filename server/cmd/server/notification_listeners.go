@@ -9,6 +9,7 @@ import (
 	"github.com/multica-ai/multica/server/internal/events"
 	"github.com/multica-ai/multica/server/internal/handler"
 	"github.com/multica-ai/multica/server/internal/issuestatus"
+	"github.com/multica-ai/multica/server/internal/service"
 	"github.com/multica-ai/multica/server/internal/util"
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
 	"github.com/multica-ai/multica/server/pkg/dbid"
@@ -500,7 +501,6 @@ func notifyDirect(
 	body string,
 	details []byte,
 ) {
-	// Skip if recipient is the actor
 	if recipientID == e.ActorID {
 		return
 	}
@@ -669,6 +669,13 @@ func notifyMentionedMembers(
 // concern — see events.Bus for future improvements.
 func registerNotificationListeners(bus *events.Bus, queries *db.Queries) {
 	ctx := context.Background()
+
+	bus.Subscribe(protocol.EventQuestionCreated, func(e events.Event) {
+		notifyQuestionAnswerers(ctx, queries, bus, e)
+	})
+	bus.Subscribe(protocol.EventQuestionUpdated, func(e events.Event) {
+		notifyQuestionAnswerers(ctx, queries, bus, e)
+	})
 
 	// issue:created — Direct notification to assignee if assignee != actor
 	bus.Subscribe(protocol.EventIssueCreated, func(e events.Event) {
@@ -1068,6 +1075,97 @@ func registerNotificationListeners(bus *events.Bus, queries *db.Queries) {
 			issue.Title, "",
 			emptyDetails)
 	})
+}
+
+func notifyQuestionAnswerers(ctx context.Context, queries *db.Queries, bus *events.Bus, e events.Event) {
+	payload, ok := e.Payload.(protocol.QuestionEventPayload)
+	if !ok {
+		return
+	}
+	notifType := ""
+	switch {
+	case e.Type == protocol.EventQuestionCreated:
+		notifType = service.InboxTypeQuestionAsked
+	case payload.Reason == protocol.QuestionReasonReassigned:
+		notifType = service.InboxTypeQuestionReassigned
+	case payload.Reason == protocol.QuestionReasonOverdue:
+		notifType = service.InboxTypeQuestionOverdue
+	default:
+		return
+	}
+	workspaceID, err := util.ParseUUID(e.WorkspaceID)
+	if err != nil {
+		return
+	}
+	questionID, err := util.ParseUUID(payload.QuestionID)
+	if err != nil {
+		return
+	}
+	issueID, err := util.ParseUUID(payload.IssueID)
+	if err != nil {
+		return
+	}
+	q, err := queries.GetQuestion(ctx, db.GetQuestionParams{ID: questionID, WorkspaceID: workspaceID})
+	if err != nil {
+		slog.Error("question notification: load question failed", "question_id", payload.QuestionID, "error", err)
+		return
+	}
+	issue, err := queries.GetIssueInWorkspace(ctx, db.GetIssueInWorkspaceParams{ID: issueID, WorkspaceID: workspaceID})
+	if err != nil {
+		slog.Error("question notification: load issue failed", "issue_id", payload.IssueID, "error", err)
+		return
+	}
+	recipients := []string{}
+	detailsMap := map[string]string{"question_id": payload.QuestionID}
+	body := q.Prompt
+	if notifType == service.InboxTypeQuestionReassigned {
+		history, err := queries.ListQuestionEventsByQuestions(ctx, db.ListQuestionEventsByQuestionsParams{
+			WorkspaceID: workspaceID, QuestionIds: []pgtype.UUID{questionID},
+		})
+		if err != nil {
+			slog.Error("question notification: load reassignment failed", "question_id", payload.QuestionID, "error", err)
+			return
+		}
+		for i := len(history) - 1; i >= 0; i-- {
+			if history[i].Kind != protocol.QuestionReasonReassigned || util.UUIDToString(history[i].ID) != payload.EventID {
+				continue
+			}
+			var reassignment struct {
+				UserID string `json:"user_id"`
+				Note   string `json:"note"`
+			}
+			if err := json.Unmarshal(history[i].Details, &reassignment); err != nil {
+				slog.Error("question notification: invalid reassignment", "question_id", payload.QuestionID, "error", err)
+				return
+			}
+			if _, err := util.ParseUUID(reassignment.UserID); err != nil {
+				return
+			}
+			recipients = append(recipients, reassignment.UserID)
+			detailsMap["note"] = reassignment.Note
+			body = reassignment.Note
+			break
+		}
+	} else {
+		answerers, err := queries.ListQuestionAnswerersByQuestions(ctx, db.ListQuestionAnswerersByQuestionsParams{
+			WorkspaceID: workspaceID, QuestionIds: []pgtype.UUID{questionID},
+		})
+		if err != nil {
+			slog.Error("question notification: load answerers failed", "question_id", payload.QuestionID, "error", err)
+			return
+		}
+		for _, answerer := range answerers {
+			recipients = append(recipients, util.UUIDToString(answerer.UserID))
+		}
+	}
+	details, err := json.Marshal(detailsMap)
+	if err != nil {
+		return
+	}
+	for _, recipientID := range recipients {
+		notifyDirect(ctx, queries, bus, "member", recipientID, e.WorkspaceID, e,
+			payload.IssueID, issue.Status, notifType, "action_required", issue.Title, body, details)
+	}
 }
 
 // inboxItemToResponse converts a db.InboxItem into a map suitable for

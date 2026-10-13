@@ -2,7 +2,7 @@ schema: intent-driven
 created: 2026-10-12
 build:
   status: built
-  baseline_revision: 968153ccd46416d0417f3d400d62ccb362e608f4
+  baseline_revision: 543728dc74f542122422a75ac7144191e5a0298d
   type: feature
   ticket: DAS-432
   context:
