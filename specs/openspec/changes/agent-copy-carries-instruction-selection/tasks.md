@@ -58,7 +58,7 @@ flowchart LR
 - Files: `server/internal/service/builtin_skills/multica-platform/references/agents.md`.
 - The opening paragraph of "Copying an agent" now names `GET /api/runtimes?owner=me` as the extra read made before the create when the source has a selection and the copy stays on its runtime.
 - The new bullet sits right after the runtime-specific bullet and quotes both stderr notes in full, word for word as the constants `selectionOnSourceMachineNote` and `selectionOwnerOnlyNote` in `cmd_agent_copy.go` print them, each on its own line after the case it covers; the two long code spans are left unwrapped so neither note is split.
-- Surprise: the first build of this task edited the main checkout's copy of the file instead of this worktree's and ticked the task without the change. The edit was carried over with `git diff | git apply`, and the main checkout's file restored with `git restore`, touching nothing else there.
+- Surprise: the first build of this task edited the main checkout's copy of the file instead of this worktree's and ticked the task without the change. The edit was carried over with `git diff | git apply`, and the main checkout's file restored with `git restore`, touching nothing else there. A second slip followed: the edit tool resolves a relative path against the session's cwd (the main checkout), so the full-note rewrite also landed there and was wiped by that restore, and commit 0aa6a355b still carried the `...` abbreviation. The rewrite was redone through the worktree's absolute path.
 - Verified: `cd server && go build ./...` and `git diff --check` are clean.
 
 ## Plan Change Log

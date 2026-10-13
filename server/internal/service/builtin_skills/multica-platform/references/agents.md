@@ -111,11 +111,11 @@ multica agent copy <source-agent-id> --runtime-id <target> --model <model>  # cr
   on a runtime switch.
 - `instruction_selection` is copied unchanged, in order, only when the caller
   owns the source runtime and the copy stays on it. Otherwise the copy has none
-  and one stderr line says why: `Selected files and folders
-  (instruction_selection) were not copied: they are on the source runtime's
-  machine.` (runtime switched) or `... only the source runtime's owner can copy
-  them.` (caller is not the owner). A failed ownership read stops the copy
-  before the create.
+  and one stderr line says why. When the copy moves to another runtime:
+  `Selected files and folders (instruction_selection) were not copied: they are on the source runtime's machine.`
+  When the caller does not own the source runtime:
+  `Selected files and folders (instruction_selection) were not copied: only the source runtime's owner can copy them.`
+  A failed ownership read stops the copy before the create.
 - Never copied: `custom_env`, `mcp_config`, `runtime_config` (secret /
   machine-local; redacted or masked on read anyway). Supply fresh values with
   the same secret-safe flags as `agent create` (`--custom-env*`, `--mcp-config*`,
