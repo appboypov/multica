@@ -53,8 +53,8 @@ flowchart LR
 
 ## 3. J2 Data models: action names
 
-- [ ] 3.1 `server/pkg/protocol/events.go` -- `EventOrganisationCreated = "organisation:created"` and `EventOrganisationUpdated = "organisation:updated"`, with payload `{organisation_id}` -- the names the server, listeners and clients share.
-- [ ] 3.2 `packages/core/modals/store.ts` -- add `"create-organisation"` to `ModalType` -- the dialog's one name.
+- [x] 3.1 `server/pkg/protocol/events.go` -- `EventOrganisationCreated = "organisation:created"` and `EventOrganisationUpdated = "organisation:updated"`, with payload `{organisation_id}` -- the names the server, listeners and clients share.
+- [x] 3.2 `packages/core/modals/store.ts` -- add `"create-organisation"` to `ModalType` -- the dialog's one name.
 
 ## 4. J3 Data-flow prototype: data-flow prototype
 
@@ -221,6 +221,11 @@ flowchart LR
 - 2.4 decision: the key stays required rather than defaulting to `""`, because an organisation without a key cannot name its worktree folder (ADR-0004). A row without one leaves the list, so its projects fall under No organisation as decision 4 places a project with an unknown organisation.
 - 2.4: `ProjectSchema` stays module-private, as before; `organisation_id: z.string().nullable().default(null)` sits after `lead_id` and reaches `SearchProjectsResponseSchema` and `SearchIndexProjectSchema` through `.extend`. Exporting it for the project client calls is 9.2's work.
 - 2.5 files touched: `packages/core/api/schemas.test.ts`. A new `organisation schemas` block covers a well-formed list with an extra field, a missing `organisations` array (defaults to `[]`), a non-object or wrong-typed body (falls back to `EMPTY_LIST_ORGANISATIONS_RESPONSE`), a list row without `key` or with a numeric `key` (dropped, the others kept), a single organisation without `key` (falls back to `EMPTY_ORGANISATION`), and missing timestamps (defaulted). The project cases join the existing search-projects block, renamed from "date drift" to "drift": `organisation_id` parsed when sent, and a project without it parses to `null` without dropping the batch. `vitest run api/schemas.test.ts` passes (222 tests); `eslint` and `tsc --noEmit` in `packages/core` are clean.
+
+### Group 3. J2 Data models: action names
+
+- 3.1 files touched: `server/pkg/protocol/events.go`. The two constants sit after the project events; the payload is a named `OrganisationEventPayload` with one field, `OrganisationID` tagged `json:"organisation_id"`, following `QuestionEventPayload`, so 7.1's publishes share one shape. No `organisation:deleted`: organisations leave only with their workspace. `go build ./...` and `go vet ./pkg/protocol/` pass.
+- 3.2 files touched: `packages/core/modals/store.ts`, `"create-organisation"` after `"create-project"`. `tsc --noEmit` in `packages/core` passes; the registry entry is 11.5's work.
 
 ## Plan Change Log
 
