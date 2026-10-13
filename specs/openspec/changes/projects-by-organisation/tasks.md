@@ -126,7 +126,7 @@ flowchart LR
 
 ## 9. J9 Frontend: flow
 
-- [ ] 9.1 `packages/core/types/api.ts` -- remove `project_statuses` from `IssueTableFilters`, which only the Issues project status filter sets (removed in 9.7 and 10.5). `Project`, `ProjectStatus` and `ProjectSchema` keep `status` and dates, because mobile imports them -- design.md decision 3, ADR-0005.
+- [x] 9.1 `packages/core/types/api.ts` -- remove `project_statuses` from `IssueTableFilters`, which only the Issues project status filter sets (removed in 9.7 and 10.5). `Project`, `ProjectStatus` and `ProjectSchema` keep `status` and dates, because mobile imports them -- design.md decision 3, ADR-0005.
 - [ ] 9.2 `packages/core/api/client.ts` -- `listOrganisations`, `getOrganisation`, `createOrganisation` and `updateOrganisation` through `parseWithFallback`. `listProjects`, `getProject`, `createProject` and `updateProject` parse with `ProjectSchema` -- the client calls of decision 2.
 - [ ] 9.3 `packages/core/organisations/queries.ts`, `mutations.ts`, `index.ts`, `packages/core/package.json` -- `organisationKeys.list(wsId)` and `organisationKeys.detail(wsId, id)`, query hooks, and `useCreateOrganisation` and `useUpdateOrganisationKey`, which await the server and invalidate on settle. Export `./organisations` -- TanStack Query owns organisations.
 - [ ] 9.4 `packages/core/realtime/use-realtime-sync.ts` -- `organisation:` events invalidate the organisation keys -- every open page stays live.
@@ -252,6 +252,11 @@ flowchart LR
 - 8.3 files touched: `madspec-sync/specs/multica-projects.md`, `madspec-sync/README.md`, and the referenced workflow summary in `AGENTS.md`. The contract and run command describe single-repository checkout placement and guarded merges, multi-repository preservation and per-run reports, brain-object repository counts, and the scoped atomic `repository_projects` map for UJ-2. Existing keys, ownership, safe reads/deletes, idempotency and profile locking stay unchanged. Persona sync instructions and commands stay unchanged.
 - Verification handoff: no test, lint, formatter, build or real sync was run by this builder. Run `uv run --with pytest pytest -p no:cacheprovider madspec-sync/tests/test_multica_projects.py`, then the complete `madspec-sync/tests` suite. The live brain sync belongs to J11 task 12.2, not this assignment. A lost mark file plus a renamed Product project can create a duplicate, as design.md records; moves already made before a merge failure remain in the Product project, and a later run continues from the remaining repository issues.
 - Sarkout's verification of PR #20: a lost mark file made the sync create a second Product project and merge the real, already merged one into it, because the take-over skipped any project with a checkout mark. The take-over now also accepts the mark of the Product's only repository. The emptiness check before a delete reads the issue list's `total`, because a project's `issue_count` reads 0 when its count query fails. A counting repository of a Product with several repositories, without a repository project, is now printed, as proposal.md's "one line per repository it cannot place" asks.
+
+### Group 9. J9 Frontend: flow
+
+- 9.1 files touched: `packages/core/types/api.ts`. Removed only the issue-table project-status filter contract and its unused type import; project wire status and dates remain unchanged for mobile and the CLI (ADR-0005). Group 10 owns the view caller cutover; intermediate views type errors are expected until that group lands.
+- Verification handoff: no tests, typecheck, lint, format or build run by this builder; Main owns the final core and integrated frontend checks.
 
 ## Plan Change Log
 
