@@ -1,7 +1,8 @@
 schema: intent-driven
 created: 2026-10-13
 build:
-  status: ready-for-dev
+  status: in-progress
+  baseline_revision: da176d20f6ff4003a229f94bf8d6c711b55ae1ad
   type: feature
   ticket: ''
   team: agent-tools
