@@ -1,0 +1,33 @@
+{
+  "goal": "Click the Capabilities tab to show System prompt and Selected files and folders for E2E selection route",
+  "start_url": "http://localhost:13284/dev/agents/9874710b-b1bf-4566-af58-c2f461e58908",
+  "viewport": [
+    1280,
+    1200
+  ],
+  "values": {},
+  "status": "done",
+  "error": null,
+  "steps": [
+    {
+      "kind": "click",
+      "role": "tab",
+      "url": "http://localhost:13284/dev/agents/9874710b-b1bf-4566-af58-c2f461e58908",
+      "name": "Capabilities"
+    }
+  ],
+  "jev_decisions": 2,
+  "jev_latency_ms": 704,
+  "value_calls": [],
+  "wall_ms": 3810,
+  "log": [
+    {
+      "step": 1,
+      "action": "Capabilities",
+      "kind": "click",
+      "url": "http://localhost:13284/dev/agents/9874710b-b1bf-4566-af58-c2f461e58908?view=instructions",
+      "page_changed": true,
+      "latency_ms": 342
+    }
+  ]
+}

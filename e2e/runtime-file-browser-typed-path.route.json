@@ -1,0 +1,87 @@
+{
+  "goal": "Click Capabilities and Browse, type the folder path in Path, and open it to list b.md and c.md",
+  "start_url": "http://localhost:13284/dev/agents/9874710b-b1bf-4566-af58-c2f461e58908",
+  "viewport": [
+    1280,
+    1200
+  ],
+  "values": {
+    "path": {
+      "description": "The folder path to open in the runtime browser",
+      "text": "/tmp/multica-selection-w5H696/n"
+    }
+  },
+  "status": "done",
+  "error": null,
+  "steps": [
+    {
+      "kind": "click",
+      "role": "tab",
+      "url": "http://localhost:13284/dev/agents/9874710b-b1bf-4566-af58-c2f461e58908",
+      "name": "Capabilities"
+    },
+    {
+      "kind": "click",
+      "role": "button",
+      "url": "http://localhost:13284/dev/agents/9874710b-b1bf-4566-af58-c2f461e58908?view=instructions",
+      "name": "Browse"
+    },
+    {
+      "kind": "fill",
+      "role": "textbox",
+      "url": "http://localhost:13284/dev/agents/9874710b-b1bf-4566-af58-c2f461e58908?view=instructions",
+      "name": "Path",
+      "value": "path"
+    },
+    {
+      "kind": "click",
+      "role": "textbox",
+      "url": "http://localhost:13284/dev/agents/9874710b-b1bf-4566-af58-c2f461e58908?view=instructions",
+      "name": "Path"
+    }
+  ],
+  "jev_decisions": 6,
+  "jev_latency_ms": 1562,
+  "value_calls": [
+    {
+      "field": "Path",
+      "value_name": "path",
+      "latency_ms": 204
+    }
+  ],
+  "wall_ms": 6802,
+  "log": [
+    {
+      "step": 1,
+      "action": "Capabilities",
+      "kind": "click",
+      "url": "http://localhost:13284/dev/agents/9874710b-b1bf-4566-af58-c2f461e58908?view=instructions",
+      "page_changed": true,
+      "latency_ms": 320
+    },
+    {
+      "step": 2,
+      "action": "Browse",
+      "kind": "click",
+      "url": "http://localhost:13284/dev/agents/9874710b-b1bf-4566-af58-c2f461e58908?view=instructions",
+      "page_changed": true,
+      "latency_ms": 250
+    },
+    {
+      "step": 3,
+      "action": "Path",
+      "kind": "fill",
+      "url": "http://localhost:13284/dev/agents/9874710b-b1bf-4566-af58-c2f461e58908?view=instructions",
+      "page_changed": true,
+      "latency_ms": 254
+    },
+    {
+      "step": 4,
+      "action": "Open Path",
+      "kind": "click",
+      "url": "http://localhost:13284/dev/agents/9874710b-b1bf-4566-af58-c2f461e58908?view=instructions",
+      "page_changed": false,
+      "latency_ms": 242
+    }
+  ]
+}

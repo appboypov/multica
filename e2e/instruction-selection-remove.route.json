@@ -1,0 +1,61 @@
+{
+  "goal": "Click Capabilities, remove the first Selected files and folders chip using its Remove button, then click Save",
+  "start_url": "http://localhost:13284/dev/agents/9874710b-b1bf-4566-af58-c2f461e58908",
+  "viewport": [
+    1280,
+    1200
+  ],
+  "values": {},
+  "status": "error",
+  "error": "Runtime.evaluate timed out after 5s waiting for the daemon",
+  "steps": [
+    {
+      "kind": "click",
+      "role": "tab",
+      "url": "http://localhost:13284/dev/agents/9874710b-b1bf-4566-af58-c2f461e58908",
+      "name": "Capabilities"
+    },
+    {
+      "kind": "click",
+      "role": "button",
+      "url": "http://localhost:13284/dev/agents/9874710b-b1bf-4566-af58-c2f461e58908",
+      "name": "Remove /tmp/multica-selection-w5H696/n/b.md"
+    },
+    {
+      "kind": "click",
+      "role": "button",
+      "url": "http://localhost:13284/dev/agents/9874710b-b1bf-4566-af58-c2f461e58908",
+      "name": "Save"
+    }
+  ],
+  "jev_decisions": 3,
+  "jev_latency_ms": 1062,
+  "value_calls": [],
+  "wall_ms": 24457,
+  "log": [
+    {
+      "step": 1,
+      "action": "Capabilities",
+      "kind": "click",
+      "url": "http://localhost:13284/dev/agents/9874710b-b1bf-4566-af58-c2f461e58908",
+      "page_changed": true,
+      "latency_ms": 453
+    },
+    {
+      "step": 2,
+      "action": "Remove /tmp/multica-selection-w5H696/n/b.md",
+      "kind": "click",
+      "url": "http://localhost:13284/dev/agents/9874710b-b1bf-4566-af58-c2f461e58908",
+      "page_changed": true,
+      "latency_ms": 310
+    },
+    {
+      "step": 3,
+      "action": "Save",
+      "kind": "click",
+      "url": "http://localhost:13284/dev/agents/9874710b-b1bf-4566-af58-c2f461e58908",
+      "page_changed": null,
+      "latency_ms": 299
+    }
+  ]
+}

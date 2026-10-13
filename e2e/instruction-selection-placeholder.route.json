@@ -1,0 +1,171 @@
+{
+  "goal": "Click Capabilities, focus the System prompt after Follow this., click Browse, type the fixture folder path and open it, tick as-ux-designer, then click Add selection",
+  "start_url": "http://localhost:13284/dev/agents/9874710b-b1bf-4566-af58-c2f461e58908",
+  "viewport": [
+    1280,
+    1200
+  ],
+  "values": {
+    "path": {
+      "description": "The folder path to open in the runtime browser",
+      "text": "/tmp/multica-selection-w5H696/s"
+    }
+  },
+  "status": "blocked",
+  "error": null,
+  "steps": [
+    {
+      "kind": "click",
+      "role": "tab",
+      "url": "http://localhost:13284/dev/agents/9874710b-b1bf-4566-af58-c2f461e58908",
+      "name": "Capabilities"
+    },
+    {
+      "kind": "click",
+      "role": "textbox",
+      "url": "http://localhost:13284/dev/agents/9874710b-b1bf-4566-af58-c2f461e58908?view=instructions",
+      "name": "System prompt"
+    },
+    {
+      "kind": "click",
+      "role": "button",
+      "url": "http://localhost:13284/dev/agents/9874710b-b1bf-4566-af58-c2f461e58908?view=instructions",
+      "name": "Browse"
+    },
+    {
+      "kind": "fill",
+      "role": "textbox",
+      "url": "http://localhost:13284/dev/agents/9874710b-b1bf-4566-af58-c2f461e58908?view=instructions",
+      "name": "Path",
+      "value": "path"
+    },
+    {
+      "kind": "click",
+      "role": "textbox",
+      "url": "http://localhost:13284/dev/agents/9874710b-b1bf-4566-af58-c2f461e58908?view=instructions",
+      "name": "Path"
+    },
+    {
+      "kind": "click",
+      "role": "checkbox",
+      "url": "http://localhost:13284/dev/agents/9874710b-b1bf-4566-af58-c2f461e58908?view=instructions",
+      "name": "~/.agents/skills"
+    },
+    {
+      "kind": "click",
+      "role": "button",
+      "url": "http://localhost:13284/dev/agents/9874710b-b1bf-4566-af58-c2f461e58908?view=instructions",
+      "name": "Add"
+    },
+    {
+      "kind": "click",
+      "role": "textbox",
+      "url": "http://localhost:13284/dev/agents/9874710b-b1bf-4566-af58-c2f461e58908?view=instructions",
+      "name": "System prompt"
+    },
+    {
+      "kind": "click",
+      "role": "textbox",
+      "url": "http://localhost:13284/dev/agents/9874710b-b1bf-4566-af58-c2f461e58908?view=instructions",
+      "name": "System prompt"
+    },
+    {
+      "kind": "click",
+      "role": "textbox",
+      "url": "http://localhost:13284/dev/agents/9874710b-b1bf-4566-af58-c2f461e58908?view=instructions",
+      "name": "System prompt"
+    }
+  ],
+  "jev_decisions": 11,
+  "jev_latency_ms": 3095,
+  "value_calls": [
+    {
+      "field": "Path",
+      "value_name": "path",
+      "latency_ms": 218
+    }
+  ],
+  "wall_ms": 13033,
+  "log": [
+    {
+      "step": 1,
+      "action": "Capabilities",
+      "kind": "click",
+      "url": "http://localhost:13284/dev/agents/9874710b-b1bf-4566-af58-c2f461e58908?view=instructions",
+      "page_changed": true,
+      "latency_ms": 351
+    },
+    {
+      "step": 2,
+      "action": "Open System prompt",
+      "kind": "click",
+      "url": "http://localhost:13284/dev/agents/9874710b-b1bf-4566-af58-c2f461e58908?view=instructions",
+      "page_changed": false,
+      "latency_ms": 263
+    },
+    {
+      "step": 3,
+      "action": "Browse",
+      "kind": "click",
+      "url": "http://localhost:13284/dev/agents/9874710b-b1bf-4566-af58-c2f461e58908?view=instructions",
+      "page_changed": true,
+      "latency_ms": 245
+    },
+    {
+      "step": 4,
+      "action": "Path",
+      "kind": "fill",
+      "url": "http://localhost:13284/dev/agents/9874710b-b1bf-4566-af58-c2f461e58908?view=instructions",
+      "page_changed": true,
+      "latency_ms": 224
+    },
+    {
+      "step": 5,
+      "action": "Open Path",
+      "kind": "click",
+      "url": "http://localhost:13284/dev/agents/9874710b-b1bf-4566-af58-c2f461e58908?view=instructions",
+      "page_changed": false,
+      "latency_ms": 286
+    },
+    {
+      "step": 6,
+      "action": "~/.agents/skills",
+      "kind": "click",
+      "url": "http://localhost:13284/dev/agents/9874710b-b1bf-4566-af58-c2f461e58908?view=instructions",
+      "page_changed": true,
+      "latency_ms": 235
+    },
+    {
+      "step": 7,
+      "action": "Add",
+      "kind": "click",
+      "url": "http://localhost:13284/dev/agents/9874710b-b1bf-4566-af58-c2f461e58908?view=instructions",
+      "page_changed": true,
+      "latency_ms": 235
+    },
+    {
+      "step": 8,
+      "action": "Open System prompt",
+      "kind": "click",
+      "url": "http://localhost:13284/dev/agents/9874710b-b1bf-4566-af58-c2f461e58908?view=instructions",
+      "page_changed": false,
+      "latency_ms": 298
+    },
+    {
+      "step": 9,
+      "action": "Open System prompt",
+      "kind": "click",
+      "url": "http://localhost:13284/dev/agents/9874710b-b1bf-4566-af58-c2f461e58908?view=instructions",
+      "page_changed": false,
+      "latency_ms": 264
+    },
+    {
+      "step": 10,
+      "action": "Open System prompt",
+      "kind": "click",
+      "url": "http://localhost:13284/dev/agents/9874710b-b1bf-4566-af58-c2f461e58908?view=instructions",
+      "page_changed": false,
+      "latency_ms": 456
+    }
+  ]
+}

@@ -1,0 +1,62 @@
+{
+  "goal": "Click Capabilities and Browse; open the skills folder path, tick as-ux-designer, then open the notes folder path and tick c.md; finally click Add selection to add both picks together",
+  "start_url": "http://localhost:13284/dev/agents/9874710b-b1bf-4566-af58-c2f461e58908",
+  "viewport": [
+    1280,
+    1200
+  ],
+  "values": {
+    "skills": {
+      "description": "The folder path containing as-ux-designer",
+      "text": "/tmp/multica-selection-w5H696/s"
+    },
+    "notes": {
+      "description": "The folder path containing c.md",
+      "text": "/tmp/multica-selection-w5H696/n"
+    }
+  },
+  "status": "error",
+  "error": "No named value fits the field 'Path'",
+  "steps": [
+    {
+      "kind": "click",
+      "role": "tab",
+      "url": "http://localhost:13284/dev/agents/9874710b-b1bf-4566-af58-c2f461e58908",
+      "name": "Capabilities"
+    },
+    {
+      "kind": "click",
+      "role": "button",
+      "url": "http://localhost:13284/dev/agents/9874710b-b1bf-4566-af58-c2f461e58908?view=instructions",
+      "name": "Browse"
+    }
+  ],
+  "jev_decisions": 3,
+  "jev_latency_ms": 909,
+  "value_calls": [
+    {
+      "field": "Path",
+      "value_name": "none",
+      "latency_ms": 264
+    }
+  ],
+  "wall_ms": 5707,
+  "log": [
+    {
+      "step": 1,
+      "action": "Capabilities",
+      "kind": "click",
+      "url": "http://localhost:13284/dev/agents/9874710b-b1bf-4566-af58-c2f461e58908?view=instructions",
+      "page_changed": true,
+      "latency_ms": 315
+    },
+    {
+      "step": 2,
+      "action": "Browse",
+      "kind": "click",
+      "url": "http://localhost:13284/dev/agents/9874710b-b1bf-4566-af58-c2f461e58908?view=instructions",
+      "page_changed": true,
+      "latency_ms": 328
+    }
+  ]
+}

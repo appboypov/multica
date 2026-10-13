@@ -1,0 +1,26 @@
+{
+  "goal": "Fill the Name and Description textboxes with provided values, then click Create & open agent",
+  "start_url": "http://localhost:13284/dev/agents/new/manual",
+  "viewport": [
+    1280,
+    1200
+  ],
+  "values": {
+    "name": {
+      "description": "The Name textbox value",
+      "text": "E2E Jev long description"
+    },
+    "description": {
+      "description": "The Description textbox value (300 characters)",
+      "text": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    }
+  },
+  "status": "blocked",
+  "error": null,
+  "steps": [],
+  "jev_decisions": 1,
+  "jev_latency_ms": 310,
+  "value_calls": [],
+  "wall_ms": 2940,
+  "log": []
+}
