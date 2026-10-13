@@ -1,0 +1,15 @@
+schema: intent-driven
+created: 2026-10-13
+build:
+  status: ready-for-dev
+  type: feature
+  ticket: 'DAS-455'
+  context:
+    - '{project-root}/AGENTS.md'
+    - '{project-root}/specs/docs/system-design.md'
+    - '{project-root}/adr/0010-the-server-keeps-each-repositorys-release-line.md'
+    - '{project-root}/adr/0011-a-worklane-shows-repository-activity-from-its-creation-on.md'
+    - '{project-root}/adr/0008-worklane-activity-is-kept-in-the-activity-log.md'
+    - '{project-root}/adr/0006-repositories-hold-worklanes.md'
+    - '{project-root}/adr/0001-runtime-machine-files-are-read-by-the-daemon.md'
+    - '{project-root}/designs/creation-flows.md'
