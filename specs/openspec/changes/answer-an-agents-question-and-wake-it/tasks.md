@@ -55,7 +55,7 @@ flowchart LR
 
 - [x] 3.1 `server/pkg/protocol/events.go` -- `EventQuestionCreated = "question:created"`, `EventQuestionUpdated = "question:updated"`, payload `{question_id, issue_id, reason}` with reasons `answered`, `answer_edited`, `ask_back`, `reassigned`, `closed`, `withdrawn`, `overdue`, `woken` -- the names the server, listeners and clients share.
 - [x] 3.2 `server/internal/attribution/attribution.go` -- `EvidenceQuestionWake EvidenceKind = "question_wake"` -- marks a run started by Wake for the claim (ADR-0003).
-- [ ] 3.3 `server/internal/service/question_actions.go` -- constants for the inbox types `question_asked`, `question_reassigned`, `question_overdue` and the activity action `question_wake` -- one spelling for the listener, the job and the tests.
+- [x] 3.3 `server/internal/service/question_actions.go` -- constants for the inbox types `question_asked`, `question_reassigned`, `question_overdue` and the activity action `question_wake` -- one spelling for the listener, the job and the tests.
 
 ## 4. J3 Data-flow prototype: data-flow prototype
 
@@ -200,6 +200,19 @@ Surprises:
 - Adding the three inbox types broke the exhaustive `Record<InboxItemType, string>` maps of views and mobile, so 16.5 moved into 2.2 and mobile got its label fallback, contrary to design.md's former "no mobile change" (decided by Pieter).
 
 Verified: `pnpm typecheck` at the root (web, desktop, core, views, ui); `apps/mobile` typecheck, lint and test (the checks of `apps/mobile/AGENTS.md`; no simulator run); `packages/core` vitest (2276 tests, 29 of them the question schemas: every answer type, defaults for missing fields and arrays, unknown answer type, status, link type and event kind, wrongly shaped settings, suggestion and values, malformed core, list and wake result) and eslint on the changed core files; `packages/views` vitest over `locales` (key parity) and `inbox`. i18next was checked to print a missing key as is and `t(undefined)` as `""`.
+
+### Group 3. J2 Data models: action names
+
+Files touched: `server/pkg/protocol/events.go`, `server/internal/attribution/attribution.go`, `server/internal/service/question_actions.go`.
+
+Decisions:
+- The payload is a typed `protocol.QuestionEventPayload{QuestionID, IssueID, Reason}` (JSON `question_id`, `issue_id`, `reason`, the last `omitempty` since `question:created` has none), and the eight reasons are `protocol.QuestionReason*` string constants beside it, so the service (9.1) and the listeners (10.5, 10.6) share one spelling.
+- `question_actions.go` holds `InboxTypeQuestionAsked`, `InboxTypeQuestionReassigned`, `InboxTypeQuestionOverdue` and `ActivityQuestionWake` as untyped string constants: the service package has no typed inbox or activity enum to join.
+- No new `TriggerKind`: the task names only the evidence kind; how Wake's run is attributed stays with 9.2.
+
+Surprises: none.
+
+Verified: `gofmt -l` clean, `go build ./...`, `go vet` and `go test` of `./pkg/protocol` and `./internal/attribution`. The constants have no callers yet; groups 9-11 use them.
 
 ## Plan Change Log
 
