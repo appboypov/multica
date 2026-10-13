@@ -65,7 +65,6 @@ interface CommentEntry {
 
 interface ProjectEntry {
   id: string;
-  status: string;
   title: string;
   description: string;
   updatedAt: number;
@@ -208,7 +207,6 @@ export class SearchIndexEngine {
     const description = project.description ?? "";
     const entry: ProjectEntry = {
       id: project.id,
-      status: project.status,
       title: project.title.toLowerCase(),
       description: description.toLowerCase(),
       updatedAt: timestampMicros(project.search_updated_at || project.updated_at),
@@ -387,13 +385,11 @@ export class SearchIndexEngine {
 
     interface Candidate {
       hit: ProjectHit;
-      cancelledRank: number;
       relevance: number;
       updatedAt: number;
     }
     const candidates: Candidate[] = [];
     for (const project of this.projects.values()) {
-      if (!params.include_closed && (project.status === "completed" || project.status === "cancelled")) continue;
       const { title, description } = project;
       const titlePhrase = title.includes(phrase);
       const titleAllTerms = multi && terms.every((term) => title.includes(term));
@@ -414,7 +410,6 @@ export class SearchIndexEngine {
 
       candidates.push({
         hit: { id: project.id, matchSource: titlePhrase || titleAllTerms ? "title" : "description" },
-        cancelledRank: project.status === "cancelled" && !titleExact ? 1 : 0,
         relevance,
         updatedAt: project.updatedAt,
       });
@@ -423,7 +418,6 @@ export class SearchIndexEngine {
     // The server has no final tie-breaker here; the id keeps local order stable.
     candidates.sort(
       (a, b) =>
-        a.cancelledRank - b.cancelledRank ||
         a.relevance - b.relevance ||
         b.updatedAt - a.updatedAt ||
         (a.hit.id < b.hit.id ? -1 : a.hit.id > b.hit.id ? 1 : 0),

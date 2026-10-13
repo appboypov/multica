@@ -1,22 +1,7 @@
 /**
- * Cross-type cancelled demotion for aggregated search results (MUL-5824).
- *
- * The search API already ranks cancelled work below live work — but only
- * *within one result set*. Every client that renders issues and projects
- * together aggregates two independent responses, so a cancelled row from one
- * response still lands above a live row from the other: the command palette
- * and the mobile search screen both render the whole Projects list before the
- * whole Issues list, so a single cancelled project outranks every live issue.
- *
- * The fix has to live at the aggregation point, and it has to be a *stable*
- * partition across BOTH types: relative order inside each side is preserved, so
- * the server's ranking still decides everything except "live before cancelled".
- * Applying it before any truncation is what makes cancelled rows give up their
- * slot rather than merely their position.
- *
- * Direct hits are exempt, matching the server: an exact identifier, an exact
- * bare number, or an exact title means the user is targeting that one record
- * and demoting it would hide exactly what they asked for.
+ * Stable cancelled-issue demotion for aggregated search results.
+ * Projects retain their relevance order regardless of lifecycle status.
+ * Direct issue hits are exempt, matching server search.
  */
 
 import type { SearchIssueResult, SearchProjectResult } from "../types/api";
@@ -122,14 +107,11 @@ export function partitionStable<T>(
 }
 
 export interface AggregatedSearchPartition {
-  /** Projects to render first, minus the demoted ones. */
+  /** All projects, in their original relevance order. */
   liveProjects: SearchProjectResult[];
   /** Issues to render after the live projects, minus the demoted ones. */
   liveIssues: SearchIssueResult[];
-  /**
-   * Cancelled projects then cancelled issues — one trailing bucket, so no
-   * cancelled row of either type can precede a live row of the other.
-   */
+  /** Project results have no cancellation bucket; shared consumers retain this shape. */
   cancelledProjects: SearchProjectResult[];
   cancelledIssues: SearchIssueResult[];
   /** True when anything was demoted; lets callers skip an empty section. */
@@ -139,9 +121,8 @@ export interface AggregatedSearchPartition {
 /**
  * Partitions a global-search result pair (issues + projects) for rendering.
  *
- * Render order must be: live projects → live issues → cancelled (projects then
- * issues). Callers that truncate must truncate the concatenation in that order,
- * so the cancelled tail is what gets dropped.
+ * Render projects, live issues, then cancelled issues. Truncate only after
+ * concatenating in that order so cancelled issues give up their slots.
  */
 export function partitionAggregatedSearchResults({
   issues,
@@ -158,18 +139,12 @@ export function partitionAggregatedSearchResults({
     // work and has to sink the same way. (MUL-6243)
     (issue) => issueBehavesAs(issue, "closed") && !isIssueDirectHit(issue, query),
   );
-  const projectParts = partitionStable(
-    projects,
-    (project) =>
-      project.status === "cancelled" && !isProjectDirectHit(project, query),
-  );
 
   return {
-    liveProjects: projectParts.live,
+    liveProjects: [...projects],
     liveIssues: issueParts.live,
-    cancelledProjects: projectParts.cancelled,
+    cancelledProjects: [],
     cancelledIssues: issueParts.cancelled,
-    hasCancelled:
-      projectParts.cancelled.length > 0 || issueParts.cancelled.length > 0,
+    hasCancelled: issueParts.cancelled.length > 0,
   };
 }

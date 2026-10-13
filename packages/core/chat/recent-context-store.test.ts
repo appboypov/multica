@@ -42,7 +42,6 @@ describe("useRecentContextStore.recordVisit", () => {
       label: "MUL-1",
       subtitle: "Fix login redirect",
       status: "todo",
-      projectStatus: "in_progress",
       icon: "🚀",
     });
 
@@ -52,9 +51,21 @@ describe("useRecentContextStore.recordVisit", () => {
       label: "MUL-1",
       subtitle: "Fix login redirect",
       status: "todo",
-      projectStatus: "in_progress",
       icon: "🚀",
     });
+  });
+});
+
+describe("recent context persistence", () => {
+  it("retains recent project identity without a stored project status", () => {
+    const merge = useRecentContextStore.persist.getOptions().merge!;
+    const merged = merge({
+      byWorkspace: {
+        "ws-a": [{ type: "project", id: "project-1", label: "Rebl", visitedAt: 42, projectStatus: "cancelled" }],
+      },
+    }, useRecentContextStore.getState());
+    expect(merged.byWorkspace["ws-a"]?.[0]).toMatchObject({ type: "project", id: "project-1", label: "Rebl", visitedAt: 42 });
+    expect(merged.byWorkspace["ws-a"]?.[0]).not.toHaveProperty("projectStatus");
   });
 });
 

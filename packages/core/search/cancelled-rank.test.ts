@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { describe, it, expect } from "vitest";
 import type { SearchIssueResult, SearchProjectResult } from "../types/api";
 import {
@@ -100,22 +101,20 @@ describe("partitionStable", () => {
 });
 
 describe("partitionAggregatedSearchResults", () => {
-  it("keeps a cancelled project out of the leading slot a live issue deserves", () => {
-    // The regression Sol-Boy flagged: the palette renders every project before
-    // every issue, so one cancelled project used to be the first row overall.
+  it("retains a cancelled project's relevance position ahead of issues", () => {
     const parts = partitionAggregatedSearchResults({
       issues: [issue({ id: "i-live", number: 2, title: "search live", status: "in_progress" })],
       projects: [project({ id: "p-cancelled", title: "search cancelled", status: "cancelled" })],
       query: "search",
     });
 
-    expect(parts.liveProjects).toEqual([]);
+    expect(parts.liveProjects.map((p) => p.id)).toEqual(["p-cancelled"]);
     expect(parts.liveIssues.map((i) => i.id)).toEqual(["i-live"]);
-    expect(parts.cancelledProjects.map((p) => p.id)).toEqual(["p-cancelled"]);
-    expect(parts.hasCancelled).toBe(true);
+    expect(parts.cancelledProjects).toEqual([]);
+    expect(parts.hasCancelled).toBe(false);
   });
 
-  it("demotes cancelled rows of both types while keeping server order within each side", () => {
+  it("demotes cancelled issues only while keeping project and issue relative order", () => {
     const parts = partitionAggregatedSearchResults({
       issues: [
         issue({ id: "i1", number: 1, title: "search a", status: "cancelled" }),
@@ -130,14 +129,14 @@ describe("partitionAggregatedSearchResults", () => {
       query: "search",
     });
 
-    expect(parts.liveProjects.map((p) => p.id)).toEqual(["p2"]);
+    expect(parts.liveProjects.map((p) => p.id)).toEqual(["p1", "p2"]);
     // 'done' is live: finished work is still worth referencing.
     expect(parts.liveIssues.map((i) => i.id)).toEqual(["i2", "i4"]);
-    expect(parts.cancelledProjects.map((p) => p.id)).toEqual(["p1"]);
+    expect(parts.cancelledProjects).toEqual([]);
     expect(parts.cancelledIssues.map((i) => i.id)).toEqual(["i1", "i3"]);
   });
 
-  it("exempts direct hits of either type", () => {
+  it("exempts direct issue hits and keeps every project", () => {
     const parts = partitionAggregatedSearchResults({
       issues: [issue({ id: "i-hit", number: 7, identifier: "MUL-7", status: "cancelled" })],
       projects: [project({ id: "p-other", title: "MUL-7 cleanup", status: "cancelled" })],
@@ -145,7 +144,8 @@ describe("partitionAggregatedSearchResults", () => {
     });
 
     expect(parts.liveIssues.map((i) => i.id)).toEqual(["i-hit"]);
-    expect(parts.cancelledProjects.map((p) => p.id)).toEqual(["p-other"]);
+    expect(parts.liveProjects.map((p) => p.id)).toEqual(["p-other"]);
+    expect(parts.cancelledProjects).toEqual([]);
   });
 
   it("reports no cancelled rows when nothing is demoted", () => {

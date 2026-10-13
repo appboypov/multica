@@ -312,7 +312,7 @@ describe("extractSnippet", () => {
 });
 
 describe("SearchIndexEngine.searchProjects", () => {
-  it("ranks title tiers above description and demotes cancelled projects", () => {
+  it("ranks every project by relevance and recency regardless of lifecycle status", () => {
     const exact = project({ title: "Roadmap" });
     const starts = project({ title: "Roadmap 2027" });
     const contains = project({ title: "The roadmap refresh" });
@@ -325,11 +325,13 @@ describe("SearchIndexEngine.searchProjects", () => {
     expect(engine.searchProjects({ q: "roadmap" }).map((h) => h.id)).toEqual([
       exact.id,
       starts.id,
+      completed.id,
       contains.id,
+      cancelled.id,
       described.id,
     ]);
     const all = engine.searchProjects({ q: "roadmap", include_closed: true });
-    expect(all.map((h) => h.id).at(-1)).toBe(cancelled.id);
+    expect(all).toEqual(engine.searchProjects({ q: "roadmap" }));
     expect(all.find((h) => h.id === described.id)?.matchSource).toBe("description");
 
     const row = toSearchProjectResult(described, { id: described.id, matchSource: "description" }, "roadmap");
