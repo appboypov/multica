@@ -79,7 +79,7 @@ flowchart LR
   - Workspace scoping through the `X-Workspace-ID` membership.
   - `parseUUIDOrBadRequest` for the path id.
   - Publish `organisation:created` and `organisation:updated`.
-- [ ] 7.2 `server/internal/handler/project.go`:
+- [x] 7.2 `server/internal/handler/project.go`:
   - `ProjectResponse.OrganisationID`, set by `projectToResponse`.
   - `organisation_id` on create and update, checked with `GetOrganisationInWorkspace`: 400 "organisation not found" for an unknown id or one from another workspace. On update, a missing key keeps the current value and `null` clears it.
   - `buildProjectSearchQuery` no longer filters or ranks by status.
@@ -231,6 +231,7 @@ flowchart LR
 
 - Scope: organisation handlers, project organisation assignment and status-independent search, workspace routes and realtime delivery, the reserved route slug, and their canonical handler tests. Project status/date CRUD and filters remain unchanged (ADR-0005); no organisation rename or delete.
 - 7.1 files touched: `server/internal/handler/organisation.go`. Lists are workspace-scoped and name-ordered; names are trimmed and required, keys follow the folder-name rule, and unique index constraint names distinguish name/key 409s. PUT only changes the key; an extra name property cannot rename the row. Pure path UUIDs use `parseUUIDOrBadRequest`. Writes publish the shared `OrganisationEventPayload`; database faults log request attributes and return 500, while missing rows return 404.
+- 7.2 files touched: `server/internal/handler/project.go`, `server/internal/handler/search_test.go`. Every project response includes nullable `organisation_id`, including search's hand-written SELECT/Scan. Create and explicit update values load the organisation in the selected workspace: a missing or foreign row is 400, malformed UUID is 400, database faults are logged 500s. Absent update keys keep the stored ID; null clears it. Search retains relevance and recency, but removes status filtering/demotion and the unused internal includeClosed argument; all callers and obsolete status expectations were updated. The HTTP `include_closed` parameter remains accepted without affecting project results.
 
 ## Plan Change Log
 
