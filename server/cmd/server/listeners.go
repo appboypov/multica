@@ -240,6 +240,7 @@ func registerListeners(bus *events.Bus, b realtime.Broadcaster) {
 	})
 
 	// SubscribeAll handles workspace-broadcast for non-personal events.
+	// Organisation create/update events use this same workspace fanout.
 	bus.SubscribeAll(func(e events.Event) {
 		// Skip personal events — they are handled by type-specific listeners above.
 		if personalEvents[e.Type] {

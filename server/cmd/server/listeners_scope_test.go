@@ -106,6 +106,37 @@ func (f *fakeBroadcaster) Broadcast(message []byte) {
 	f.broadcastCalled++
 }
 
+func TestRegisterListeners_OrganisationEventsGoToWorkspace(t *testing.T) {
+	for _, eventType := range []string{protocol.EventOrganisationCreated, protocol.EventOrganisationUpdated} {
+		t.Run(eventType, func(t *testing.T) {
+			bus := events.New()
+			fb := &fakeBroadcaster{}
+			registerListeners(bus, fb)
+			bus.Publish(events.Event{
+				Type: eventType, WorkspaceID: "ws-org",
+				ActorType: "member", ActorID: "creator",
+				Payload: protocol.OrganisationEventPayload{OrganisationID: "org-1"},
+			})
+			if len(fb.workspaceCalls) != 1 || fb.workspaceCalls[0].workspaceID != "ws-org" {
+				t.Fatalf("organisation fanout = %+v, want ws-org once", fb.workspaceCalls)
+			}
+			if len(fb.userCalls) != 0 || len(fb.scopeCalls) != 0 || fb.broadcastCalled != 0 {
+				t.Fatal("organisation event escaped workspace fanout")
+			}
+			var frame struct {
+				Type    string                            `json:"type"`
+				Payload protocol.OrganisationEventPayload `json:"payload"`
+			}
+			if err := json.Unmarshal(fb.workspaceCalls[0].msg, &frame); err != nil {
+				t.Fatalf("decode organisation frame: %v", err)
+			}
+			if frame.Type != eventType || frame.Payload.OrganisationID != "org-1" {
+				t.Fatalf("organisation frame = %+v", frame)
+			}
+		})
+	}
+}
+
 // TestRegisterListeners_TaskChatGoToWorkspace pins the must-fix #1 contract
 // from the PR #1429 review: until the WS client supports scope-subscribe and
 // reconnect-replay, high-frequency task/chat events MUST keep going through

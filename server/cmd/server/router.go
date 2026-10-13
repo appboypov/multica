@@ -2121,6 +2121,16 @@ func NewRouterWithOptions(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus
 				})
 			})
 
+			// Organisations
+			r.Route("/api/organisations", func(r chi.Router) {
+				r.Get("/", h.ListOrganisations)
+				r.Post("/", h.CreateOrganisation)
+				r.Route("/{id}", func(r chi.Router) {
+					r.Get("/", h.GetOrganisation)
+					r.Put("/", h.UpdateOrganisation)
+				})
+			})
+
 			// Projects
 			r.Route("/api/projects", func(r chi.Router) {
 				r.Get("/search", h.SearchProjects)
