@@ -216,6 +216,7 @@ vi.mock("@multica/core/paths", async (importOriginal) => ({
     myIssues: () => "/ws-test/my-issues",
     issues: () => "/ws-test/issues",
     projects: () => "/ws-test/projects",
+    organisations: () => "/ws-test/organisations",
     autopilots: () => "/ws-test/autopilots",
     agents: () => "/ws-test/agents",
     squads: () => "/ws-test/squads",
@@ -1026,10 +1027,10 @@ describe("SearchCommand", () => {
     expect(selectedValue()).toBe(first);
   });
 
-  // MUL-5824: the two searches are ranked independently server-side and the
-  // palette renders the whole Projects group before the whole Issues group, so
-  // per-type ranking let one cancelled project be the very first row. The
-  // partition has to be cross-type and applied here, where results aggregate.
+  // MUL-5824: the two searches are ranked independently server-side, so the
+  // cancelled-issue partition has to be cross-type and applied here, where
+  // results aggregate. Projects are never demoted: the apps no longer show a
+  // project's status (ADR-0005).
   describe("mixed issue/project cancelled demotion", () => {
     const fixtureIssue = (
       over: Partial<Record<string, unknown>> & { id: string },
@@ -1084,16 +1085,13 @@ describe("SearchCommand", () => {
         .map((el) => el.getAttribute("data-value") ?? "")
         .filter((v) => v.startsWith("project:") || v.startsWith("issue-"));
 
-    /**
-     * Group headings, top to bottom. Queried structurally rather than by text:
-     * a cancelled project also renders "Cancelled" as its status label.
-     */
+    /** Group headings, top to bottom, queried structurally. */
     const renderedHeadings = () =>
       Array.from(
         document.querySelectorAll<HTMLElement>("[cmdk-group-heading]"),
       ).map((el) => el.textContent ?? "");
 
-    it("renders project status in the selected UI language", async () => {
+    it("shows no project status in a project result", async () => {
       const user = userEvent.setup();
       mockSearchProjects.mockResolvedValue({
         projects: [
@@ -1112,13 +1110,15 @@ describe("SearchCommand", () => {
         "localized",
       );
 
-      await waitFor(() => expect(screen.getByText("进行中")).toBeInTheDocument(), {
-        timeout: 2000,
-      });
+      await waitFor(
+        () => expect(renderedValues()).toEqual(["project:proj-localized"]),
+        { timeout: 2000 },
+      );
+      expect(screen.queryByText("进行中")).toBeNull();
       expect(screen.queryByText("In Progress")).toBeNull();
     });
 
-    it("keeps a cancelled project below a live issue instead of first", async () => {
+    it("keeps a cancelled project in relevance order above live issues", async () => {
       const user = userEvent.setup();
       mockSearchIssues.mockResolvedValue({
         issues: [
@@ -1151,15 +1151,14 @@ describe("SearchCommand", () => {
 
       await waitFor(
         () => {
-          expect(renderedValues()).toEqual(["issue-live", "project:proj-dead"]);
+          expect(renderedValues()).toEqual(["project:proj-dead", "issue-live"]);
         },
         { timeout: 2000 },
       );
-      // Still discoverable, just under its own heading at the bottom.
-      expect(renderedHeadings()).toEqual(["Issues", "Cancelled"]);
+      expect(renderedHeadings()).toEqual(["Projects", "Issues"]);
     });
 
-    it("keeps live rows of both types above every cancelled row", async () => {
+    it("keeps live rows above every cancelled issue, whatever a project's status", async () => {
       const user = userEvent.setup();
       mockSearchIssues.mockResolvedValue({
         issues: [
@@ -1204,16 +1203,17 @@ describe("SearchCommand", () => {
       await waitFor(
         () => {
           expect(renderedValues()).toEqual([
+            "project:proj-dead",
             "project:proj-live",
             // 'done' is live — only cancelled work is demoted.
             "issue-live",
             "issue-done",
-            "project:proj-dead",
             "issue-dead",
           ]);
         },
         { timeout: 2000 },
       );
+      expect(renderedHeadings()).toEqual(["Projects", "Issues", "Cancelled"]);
     });
 
     it("exempts a cancelled issue the query targets by identifier", async () => {

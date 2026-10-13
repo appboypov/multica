@@ -48,10 +48,7 @@ import { resolvePublicFileUrl } from "@multica/core/workspace/avatar-url";
 import { StatusIcon } from "../issues/components";
 import { resolvedThreadRootIds, rootCommentIds } from "../issues/components/thread-utils";
 import { ProjectIcon } from "../projects/components/project-icon";
-import { useProjectStatusLabels } from "../projects/components/labels";
 import { routeIconForPath } from "../layout/route-icon-components";
-import { PROJECT_STATUS_CONFIG } from "@multica/core/projects/config";
-import type { ProjectStatus } from "@multica/core/types";
 import { ActorAvatar } from "../common/actor-avatar";
 import { ShortcutKeycaps } from "../common/shortcut-keycaps";
 import { ActorAvatar as ActorAvatarBase } from "@multica/ui/components/common/actor-avatar";
@@ -95,6 +92,7 @@ const PAGE_KEYWORDS: Record<WorkspacePageKey, string[]> = {
   myIssues: ["my", "issues", "assigned", "mine", "我的", "任务"],
   issues: ["issues", "tasks", "bugs", "任务"],
   projects: ["projects", "kanban", "项目"],
+  organisations: ["organisations", "organizations", "companies", "clients", "组织"],
   autopilots: ["autopilot", "autopilots", "automation", "schedule", "cron", "webhook", "自动化", "定时"],
   agents: ["agents", "bots", "ai", "智能体"],
   squads: ["squads", "teams", "小队", "团队"],
@@ -186,9 +184,6 @@ function ProjectResultRow({
   disabled?: boolean;
   onSelect: (value: string) => void;
 }) {
-  const projectStatusLabels = useProjectStatusLabels();
-  const status = project.status as ProjectStatus;
-
   return (
     <CommandPrimitive.Item
       key={`project:${project.id}`}
@@ -201,11 +196,6 @@ function ProjectResultRow({
         <ProjectIcon project={project} size="md" />
         <span className="truncate">
           <HighlightText text={project.title} query={query} />
-        </span>
-        <span
-          className={`ml-auto text-caption shrink-0 ${PROJECT_STATUS_CONFIG[status]?.color ?? "text-muted-foreground"}`}
-        >
-          {projectStatusLabels[status] ?? project.status}
         </span>
       </div>
       {project.match_source === "description" && project.matched_snippet && (
@@ -865,15 +855,10 @@ export function SearchCommand() {
 
             {/*
               Render order is the cross-type cancelled partition (MUL-5824):
-              live projects → live issues → one trailing Cancelled section
-              holding cancelled projects then cancelled issues. Projects and
-              issues arrive as two independently ranked responses, so per-type
-              ordering is not enough — the whole Projects group used to render
-              above the whole Issues group, letting one cancelled project be the
-              first row of the list. Keeping cancelled rows in a single trailing
-              section is the only arrangement where no cancelled row of either
-              type can precede a live row of the other. Direct hits stay in
-              their live section (see partitionAggregatedSearchResults).
+              projects → live issues → one trailing Cancelled section holding
+              cancelled issues. Projects are never demoted, because the apps no
+              longer show a project's status (ADR-0005). Direct issue hits stay
+              in their live section (see partitionAggregatedSearchResults).
             */}
             {partitionedResults.liveProjects.length > 0 && (
               <CommandPrimitive.Group
@@ -914,15 +899,6 @@ export function SearchCommand() {
                 heading={t(($) => $.groups.cancelled)}
                 className={GROUP_CLASS}
               >
-                {partitionedResults.cancelledProjects.map((project) => (
-                  <ProjectResultRow
-                    key={`project:${project.id}`}
-                    project={project}
-                    query={results.query}
-                    disabled={resultsAreStale}
-                    onSelect={handleSelect}
-                  />
-                ))}
                 {partitionedResults.cancelledIssues.map((issue) => (
                   <IssueResultRow
                     key={issue.id}

@@ -45,8 +45,7 @@ import {
   TooltipTrigger,
 } from "@multica/ui/components/ui/tooltip";
 import { cn } from "@multica/ui/lib/utils";
-import type { IssueStatus, IssueStatusCategory, ProjectStatus } from "@multica/core/types";
-import { PROJECT_STATUS_CONFIG } from "@multica/core/projects/config";
+import type { IssueStatus, IssueStatusCategory } from "@multica/core/types";
 import type { SuggestionOptions } from "@tiptap/suggestion";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { PluginKey } from "@tiptap/pm/state";
@@ -89,8 +88,6 @@ export interface MentionItem {
   statusCategory?: IssueStatusCategory;
   /** Project emoji/icon snapshot for ProjectIcon rendering */
   icon?: string | null;
-  /** Project status snapshot for recent/current project rendering */
-  projectStatus?: ProjectStatus;
   /** Present when the target should remain discoverable but cannot be selected. */
   disabledReason?: "agent_runtime_required";
 }
@@ -180,8 +177,10 @@ function mergeMentionItems(
 }
 
 /**
- * Cancelled work is abandoned work: keep it reachable, but never ahead of a
- * live match and never at the cost of a live match's slot.
+ * Cancelled issues are abandoned work: keep them reachable, but never ahead
+ * of a live match and never at the cost of a live match's slot. Projects are
+ * never demoted, because the apps no longer show a project's status
+ * (ADR-0005).
  *
  * Two independent reasons the picker needs this even though the search API
  * already ranks cancelled results last:
@@ -190,8 +189,8 @@ function mergeMentionItems(
  *    truncated to MAX_ITEMS, so a locally cached cancelled issue outranks every
  *    backend-ranked result and can push active work out of the window.
  * 2. Context mentions aggregate two independently ranked responses — issues
- *    then projects, both tagged `search` — so a cancelled project still lands
- *    above a live issue. Per-type ranking cannot fix a cross-type list.
+ *    then projects, both tagged `search` — so per-type ranking alone cannot
+ *    keep a cancelled issue below the live rows of a cross-type list.
  *
  * Exempt, matching the server and the other search surfaces:
  *
@@ -206,7 +205,6 @@ function mergeMentionItems(
 function isDemotedCancelled(item: MentionItem, query: string): boolean {
   if (isPinnedAboveTruncation(item, query)) return false;
   if (item.type === "issue") return item.statusCategory === "closed";
-  if (item.type === "project") return item.projectStatus === "cancelled";
   return false;
 }
 
@@ -596,7 +594,6 @@ function MentionRow({
   }
 
   if (item.type === "project") {
-    const projectStatusCfg = item.projectStatus ? PROJECT_STATUS_CONFIG[item.projectStatus] : null;
     return (
       <button
         type="button"
@@ -617,9 +614,6 @@ function MentionRow({
             </span>
           )}
         </span>
-        {projectStatusCfg && (
-          <span className={`${projectStatusCfg.dotColor} ml-auto size-1.5 shrink-0 rounded-full`} />
-        )}
       </button>
     );
   }
@@ -691,14 +685,13 @@ function issueToMention(
   };
 }
 
-function projectToMention(p: { id: string; title: string; description?: string | null; icon?: string | null; status?: ProjectStatus }): MentionItem {
+function projectToMention(p: { id: string; title: string; description?: string | null; icon?: string | null }): MentionItem {
   return {
     id: p.id,
     label: p.title,
     type: "project" as const,
     description: p.description ?? undefined,
     icon: p.icon ?? null,
-    projectStatus: p.status,
   };
 }
 
