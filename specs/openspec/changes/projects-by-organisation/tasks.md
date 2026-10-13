@@ -35,7 +35,7 @@ flowchart LR
 ## 1. J2 Data models: new model
 
 - [x] 1.1 `server/migrations/572_organisation.up.sql`, `.down.sql` -- create `organisation (id uuid PK default gen_random_uuid(), workspace_id uuid NOT NULL, name text NOT NULL, key text NOT NULL CHECK (key ~ '^[a-z0-9][a-z0-9-]*$'), created_at, updated_at)` without foreign keys, and `ALTER TABLE project ADD COLUMN organisation_id uuid NULL`. The down migration drops both -- design.md decision 1.
-- [ ] 1.2 `server/migrations/573_organisation_name_index.up.sql`, `.down.sql` -- `CREATE UNIQUE INDEX CONCURRENTLY organisation_workspace_name_unique ON organisation (workspace_id, LOWER(name))` -- a name is unique in its workspace, ignoring case.
+- [x] 1.2 `server/migrations/573_organisation_name_index.up.sql`, `.down.sql` -- `CREATE UNIQUE INDEX CONCURRENTLY organisation_workspace_name_unique ON organisation (workspace_id, LOWER(name))` -- a name is unique in its workspace, ignoring case.
 - [ ] 1.3 `server/migrations/574_organisation_key_index.up.sql`, `.down.sql` -- `CREATE UNIQUE INDEX CONCURRENTLY organisation_workspace_key_unique ON organisation (workspace_id, key)` -- a key is unique in its workspace.
 - [ ] 1.4 `server/cmd/migrate/main.go` -- add `573` and `574` to `concurrentIndexCleanups` -- `TestEveryConcurrentUpBuildHasCleanup` requires it.
 - [ ] 1.5 `server/pkg/db/queries/organisation.sql` -- `ListOrganisations` (by `LOWER(name)`), `GetOrganisationInWorkspace`, `CreateOrganisation`, `UpdateOrganisationKey`, each filtered by `workspace_id` -- the organisation reads and writes of decision 2.
