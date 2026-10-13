@@ -229,7 +229,7 @@ Verified: clicked through all six steps on the hosted build by rail, Back/Next a
 
 ### Group 5. J5 Components: component design
 
-Files touched: `designs/systems/multica.lib.pen`, `designs/systems/exports/` (16 component PNGs and `type-icon-answer-types.png`).
+Files touched: `designs/systems/multica.lib.pen`, `designs/systems/exports/` (15 component PNGs and `type-icon-answer-types.png`).
 
 Decisions:
 - Reused unchanged: `Avatar/Member`, `Avatar/Agent`, `Button/Primary`, `Button/Outline`, `Button/Ghost`, `Input` and `Sidebar item/*` (#6's nav item) already exist in the library from #7; #6's own copies (24px avatars, `$primary` agent avatar, px12 buttons) are not brought in, so every screen keeps the approved look. The Questions property row uses the existing `Property pill`.
