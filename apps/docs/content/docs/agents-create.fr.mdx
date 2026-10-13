@@ -174,7 +174,7 @@ Lorsqu'un agent configuré de façon similaire existe déjà, copiez-le directem
 multica agent copy <agent-id>
 ```
 
-Par défaut, la copie reste sur le même runtime ; ajoutez `--runtime-id` pour la déplacer vers un autre runtime, ce qui requiert aussi `--model`. Les variables d'environnement, la configuration MCP et `runtime_config` ne sont jamais copiés ; le rattachement au runtime lui-même est conservé. Toutes les options dans [Utiliser le CLI](/cli).
+Par défaut, la copie reste sur le même runtime ; ajoutez `--runtime-id` pour la déplacer vers un autre runtime, ce qui requiert aussi `--model`. Les variables d'environnement, la configuration MCP et `runtime_config` ne sont jamais copiés ; le rattachement au runtime lui-même est conservé. Toutes les options dans [Utiliser le CLI](/cli). Les fichiers et dossiers sélectionnés ne sont repris que si vous êtes propriétaire du runtime d'origine et que la copie y reste ; sinon, la copie n'en a aucun et le CLI en indique la raison sur stderr.
 
 ## Étapes suivantes
 

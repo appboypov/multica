@@ -174,7 +174,7 @@ multica agent create \
 multica agent copy <agent-id>
 ```
 
-默认复制到同一运行时；加 `--runtime-id` 换到其他运行时，必须同时指定 `--model`。环境变量、MCP 配置和 `runtime_config` 永不复制；运行时绑定本身会保留。完整参数见[使用 CLI](/cli)。
+默认复制到同一运行时；加 `--runtime-id` 换到其他运行时，必须同时指定 `--model`。环境变量、MCP 配置和 `runtime_config` 永不复制；运行时绑定本身会保留。完整参数见[使用 CLI](/cli)。只有当你是源运行时的所有者、且副本留在该运行时上时，所选文件和文件夹才会一并复制；否则副本不带所选文件和文件夹，CLI 会在 stderr 上说明原因。
 
 ## 接下来
 
