@@ -161,7 +161,7 @@ flowchart LR
 
 ## 11. J9 Frontend: screen
 
-- [ ] 11.1 `packages/views/projects/components/projects-page.tsx`:
+- [x] 11.1 `packages/views/projects/components/projects-page.tsx`:
   - Group the projects with `groupProjectsByOrganisation` after search and filters, through `project-table.tsx`, in the compact view, and as headed sections in the comfortable view.
   - Remove the status column, sort and filter.
   - The header counts the projects.
@@ -279,6 +279,11 @@ flowchart LR
 - 10.4 surprise: the search palette threw "Element type is invalid" for every navigation test, because group 9 registered the `organisations` page with the `Building2` route icon in `packages/core/paths`, and `packages/views/layout/route-icon-components.tsx` had no `Building2` entry. 10.4 adds it there and adds `organisations` to the palette's `PAGE_KEYWORDS` (a total `Record` over the workspace pages, so typecheck requires it) and to the test's `useWorkspacePaths` mock. The sidebar entry itself stays with 11.6.
 - 10.4 handoff to 11.8: the palette labels each page with `layout.nav[navKey]`, and `layout.json` has no `nav.organisations` yet. Until 11.8 adds it, views typecheck reports TS7053 at `search-command.tsx:314` and `search-command.test.tsx:402`, the palette shows the Organisations page without a label, and `search-command.test.tsx` "offers every workspace nav page" fails. Crabbox run of `vitest run search editor/extensions/mention-suggestion.test.tsx chat issues`: 1721 passed, that one failed; eslint on every touched file is clean; no other typecheck error is in a 10.4 or 10.5 file.
 - 10.5 files touched: `packages/views/issues/utils/filter.ts` (`projectStatusFilters` and `projectStatusById` gone from the filter state, context and predicate) and `filter.test.ts`; `issues/surface/use-issue-surface-data.ts` and `use-issue-surface-controller.ts` (no `project_statuses` in the table query, no project catalog gate on loading or on the catalog error; the project list loads only for project chips, card properties, the project column and grouping by project); `issues/components/issues-header.tsx` (the Project status submenu and its active count), `filter-chips-bar.tsx` (its chip and dimension reset), `swimlane-view.tsx`, `save-view-dialog.tsx` (saved views no longer write the key), the unused `filters.section_project_status` copy in the five `issues.json` locales, and the tests `issues-page.test.tsx`, `use-issue-surface-catalog.test.tsx` (the project list no longer holds the surface or raises the catalog error) and `use-issue-surface-controller.test.tsx` (the table query carries no `project_statuses` key).
+
+### Group 11. J9 Frontend: screen
+
+- 11.1 files touched: `packages/views/projects/components/projects-page.tsx`, `project-table.tsx`. The page groups `visible` (searched, filtered, sorted) with `groupProjectsByOrganisation(visible, organisations)` from `useOrganisations`, so an organisation whose projects are all filtered out leaves the page; the compact view hands the groups to `ProjectTable`, the card view renders one `OrganisationGroupSection` per group with its card grid. The status filter submenu, `STATUS_VALUES`, the `status` sort field and label and the card's `ProjectStatusBadge` are gone; the header still counts `projects.length`.
+- 11.1 decisions: the group heading (chevron, `Building2`, name link, count) moves out of `OrganisationGroupRow` into the exported `OrganisationGroupHeading`, shared by the table's group row and the card view's new `OrganisationGroupSection`, which folds through the same `collapsedOrganisations`. The spec's "A group folds" clicks "the rest of its group row", so the group row (and the card section heading) now folds on a click anywhere outside the name link and the chevron, which keep their own clicks. `organisationFoldKey(group)` is exported as the one place that maps No organisation to `"none"`.
 
 ## Plan Change Log
 

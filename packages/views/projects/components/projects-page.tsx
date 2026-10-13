@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import {
+  groupProjectsByOrganisation,
   projectListOptions,
   useUpdateProject,
   useProjectViewStore,
@@ -23,6 +24,7 @@ import {
   type ProjectSortField,
   type ProjectViewMode,
 } from "@multica/core/projects";
+import { useOrganisations } from "@multica/core/organisations";
 import { pinListOptions } from "@multica/core/pins";
 import { useWorkspaceId } from "@multica/core/hooks";
 import { useWorkspacePaths } from "@multica/core/paths";
@@ -65,7 +67,6 @@ import type {
   MemberWithUser,
   Project,
   ProjectPriority,
-  ProjectStatus,
   UpdateProjectRequest,
 } from "@multica/core/types";
 import {
@@ -77,9 +78,15 @@ import { ProjectIcon } from "./project-icon";
 import { useT } from "../../i18n";
 import { matchesPinyin } from "../../editor/extensions/pinyin-match";
 import { useFormatRelativeDate } from "./labels";
-import { ProjectStatusBadge, ProjectPriorityBadge } from "./project-badge";
+import { ProjectPriorityBadge } from "./project-badge";
 import { ProjectLeadPicker } from "./project-lead-picker";
-import { ProjectBatchToolbar, ProjectRowActions, ProjectTable, sortProjects } from "./project-table";
+import {
+  OrganisationGroupSection,
+  ProjectBatchToolbar,
+  ProjectRowActions,
+  ProjectTable,
+  sortProjects,
+} from "./project-table";
 import { PAGE_GUTTER, PAGE_TOOLBAR } from "../../layout/page-header";
 import { cn } from "@multica/ui/lib/utils";
 
@@ -127,7 +134,6 @@ function ProjectCard({
             <h3 className="truncate text-body font-medium">{project.title}</h3>
           </AppLink>
           <ProjectRowActions project={project} pinned={pinned} canDelete={canDelete} />
-          <ProjectStatusBadge project={project} handleUpdate={handleUpdate} triggerClassName="shrink-0" />
         </div>
 
         {project.issue_count > 0 ? (
@@ -192,20 +198,12 @@ function ProjectCard({
 // toggle.
 // ---------------------------------------------------------------------------
 
-const STATUS_VALUES: ProjectStatus[] = [
-  "planned",
-  "in_progress",
-  "paused",
-  "completed",
-  "cancelled",
-];
 const PRIORITY_VALUES: ProjectPriority[] = ["urgent", "high", "medium", "low", "none"];
 const COLUMN_KEYS: ProjectColumnKey[] = ["priority", "progress", "lead", "issues", "created"];
-const SORT_FIELDS: ProjectSortField[] = ["name", "priority", "status", "progress", "created"];
+const SORT_FIELDS: ProjectSortField[] = ["name", "priority", "progress", "created"];
 
 function countActiveFilters(f: ProjectListFilters): number {
   let c = 0;
-  if (f.statuses.length) c++;
   if (f.priorities.length) c++;
   if (f.leads.length) c++;
   return c;
@@ -235,6 +233,7 @@ export function ProjectsPage() {
   const isCompact = viewMode === "compact";
 
   const { data: projects = [], isLoading } = useQuery(projectListOptions(wsId));
+  const { data: organisations = [] } = useOrganisations(wsId);
   const { data: members = [] } = useQuery(memberListOptions(wsId));
   const { data: pins = [] } = useQuery({
     ...pinListOptions(wsId, currentUser?.id ?? ""),
@@ -280,7 +279,6 @@ export function ProjectsPage() {
       if (q && !p.title.toLowerCase().includes(q) && !matchesPinyin(p.title, q)) {
         return false;
       }
-      if (filters.statuses.length && !filters.statuses.includes(p.status)) return false;
       if (filters.priorities.length && !filters.priorities.includes(p.priority)) {
         return false;
       }
@@ -292,6 +290,12 @@ export function ProjectsPage() {
     });
     return sortProjects(filtered, sortField, sortDirection);
   }, [projects, search, filters, sortField, sortDirection]);
+  // Grouped after search and filters, so an organisation whose projects are
+  // all filtered out leaves the page.
+  const groups = useMemo(
+    () => groupProjectsByOrganisation(visible, organisations),
+    [visible, organisations],
+  );
 
   const selectedProjects = visible.filter((p) => selectedIds.has(p.id));
 
@@ -300,11 +304,9 @@ export function ProjectsPage() {
       ? t(($) => $.table.name)
       : f === "priority"
         ? t(($) => $.table.priority)
-        : f === "status"
-          ? t(($) => $.table.status)
-          : f === "progress"
-            ? t(($) => $.table.progress)
-            : t(($) => $.table.created);
+        : f === "progress"
+          ? t(($) => $.table.progress)
+          : t(($) => $.table.created);
   const columnLabel = (k: ProjectColumnKey) =>
     k === "priority"
       ? t(($) => $.table.priority)
@@ -417,27 +419,6 @@ export function ProjectsPage() {
                   }
                 />
                 <DropdownMenuContent align="end" className="w-auto">
-                  <DropdownMenuSub>
-                    <DropdownMenuSubTrigger>
-                      <span className="flex-1">{t(($) => $.toolbar.section_status)}</span>
-                      {filters.statuses.length > 0 && (
-                        <span className="text-caption font-medium text-primary">{filters.statuses.length}</span>
-                      )}
-                    </DropdownMenuSubTrigger>
-                    <DropdownMenuSubContent className="w-auto min-w-44">
-                      {STATUS_VALUES.map((s) => (
-                        <DropdownMenuCheckboxItem
-                          key={s}
-                          checked={filters.statuses.includes(s)}
-                          onCheckedChange={() => toggleFilter("statuses", s)}
-                          className={FILTER_ITEM_CLASS}
-                        >
-                          <HoverCheck checked={filters.statuses.includes(s)} />
-                          {t(($) => $.status[s])}
-                        </DropdownMenuCheckboxItem>
-                      ))}
-                    </DropdownMenuSubContent>
-                  </DropdownMenuSub>
                   <DropdownMenuSub>
                     <DropdownMenuSubTrigger>
                       <span className="flex-1">{t(($) => $.toolbar.section_priority)}</span>
@@ -620,26 +601,31 @@ export function ProjectsPage() {
           ) : isCompact ? (
             <ProjectTable
               projects={visible}
+              groups={groups}
               pinnedIds={pinnedProjectIds}
               canDelete={isWorkspaceAdmin}
               selectedIds={selectedIds}
               onSelectedIdsChange={setSelectedIds}
             />
           ) : (
-            <div className={cn("min-h-0 flex-1 overflow-y-auto pt-4", PAGE_GUTTER)}>
-              <div
-                className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4"
-                style={{ paddingBottom: LIST_GRID_BOTTOM_CLEARANCE }}
-              >
-                {visible.map((project) => (
-                  <ProjectCard
-                    key={project.id}
-                    project={project}
-                    pinned={pinnedProjectIds.has(project.id)}
-                    canDelete={isWorkspaceAdmin}
-                  />
-                ))}
-              </div>
+            <div
+              className={cn("min-h-0 flex-1 space-y-2 overflow-y-auto pt-2", PAGE_GUTTER)}
+              style={{ paddingBottom: LIST_GRID_BOTTOM_CLEARANCE }}
+            >
+              {groups.map((group) => (
+                <OrganisationGroupSection key={group.organisation?.id ?? "none"} group={group}>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    {group.projects.map((project) => (
+                      <ProjectCard
+                        key={project.id}
+                        project={project}
+                        pinned={pinnedProjectIds.has(project.id)}
+                        canDelete={isWorkspaceAdmin}
+                      />
+                    ))}
+                  </div>
+                </OrganisationGroupSection>
+              ))}
             </div>
           )}
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState, type MouseEvent } from "react";
+import { useCallback, useMemo, useState, type MouseEvent, type ReactNode } from "react";
 import {
   Building2,
   ChevronRight,
@@ -525,9 +525,17 @@ function ProjectTableHeader({
   );
 }
 
-// A group row spans every track: the chevron folds the group, the name opens
-// the organisation's page ("No organisation" has none), then the count.
-function OrganisationGroupRow({
+/** The fold key of a group in `collapsedOrganisations`. */
+export function organisationFoldKey(group: ProjectOrganisationGroup): string {
+  return group.organisation?.id ?? NO_ORGANISATION_KEY;
+}
+
+/**
+ * The heading of an organisation group: the chevron folds the group, the name
+ * opens the organisation's page ("No organisation" has none), then the count.
+ * The table's group row and the card view's sections both use it.
+ */
+export function OrganisationGroupHeading({
   group,
   collapsed,
   onToggle,
@@ -540,45 +548,105 @@ function OrganisationGroupRow({
   const wsPaths = useWorkspacePaths();
   const { organisation } = group;
   const name = organisation?.name ?? t(($) => $.organisation.none);
-  const foldKey = organisation?.id ?? NO_ORGANISATION_KEY;
 
+  return (
+    <div className="flex min-w-0 items-center gap-1.5">
+      <button
+        type="button"
+        aria-expanded={!collapsed}
+        aria-label={t(($) => $.group.toggle_aria, { name })}
+        onClick={() => onToggle(organisationFoldKey(group))}
+        className="-ml-1 flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+      >
+        <ChevronRight
+          aria-hidden="true"
+          className={cn(
+            "size-3.5 transition-transform motion-reduce:transition-none",
+            !collapsed && "rotate-90",
+          )}
+        />
+      </button>
+      <Building2 aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
+      {organisation ? (
+        <AppLink
+          href={wsPaths.organisationDetail(organisation.id)}
+          className="min-w-0 truncate text-caption font-medium hover:underline"
+        >
+          {name}
+        </AppLink>
+      ) : (
+        <span className="min-w-0 truncate text-caption font-medium">{name}</span>
+      )}
+      <span className="shrink-0 text-caption text-muted-foreground">
+        {t(($) => $.group.project_count, { count: group.projects.length })}
+      </span>
+    </div>
+  );
+}
+
+// Folds the group when a click lands on the row outside its name link and its
+// chevron, which handle their own clicks.
+function foldOnRowClick(
+  event: MouseEvent<HTMLElement>,
+  group: ProjectOrganisationGroup,
+  onToggle: (key: string) => void,
+) {
+  if ((event.target as Element).closest("a, button")) return;
+  onToggle(organisationFoldKey(group));
+}
+
+// A group row spans every track and folds from anywhere outside its name.
+function OrganisationGroupRow({
+  group,
+  collapsed,
+  onToggle,
+}: {
+  group: ProjectOrganisationGroup;
+  collapsed: boolean;
+  onToggle: (key: string) => void;
+}) {
   return (
     <div
       role="row"
-      className="col-span-full flex h-10 min-w-0 items-center border-b px-3"
+      onClick={(event) => foldOnRowClick(event, group, onToggle)}
+      className="col-span-full flex h-10 min-w-0 cursor-pointer items-center border-b px-3 transition-colors hover:bg-accent/40"
     >
-      <div role="cell" className="flex min-w-0 items-center gap-1.5">
-        <button
-          type="button"
-          aria-expanded={!collapsed}
-          aria-label={t(($) => $.group.toggle_aria, { name })}
-          onClick={() => onToggle(foldKey)}
-          className="-ml-1 flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-        >
-          <ChevronRight
-            aria-hidden="true"
-            className={cn(
-              "size-3.5 transition-transform motion-reduce:transition-none",
-              !collapsed && "rotate-90",
-            )}
-          />
-        </button>
-        <Building2 aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
-        {organisation ? (
-          <AppLink
-            href={wsPaths.organisationDetail(organisation.id)}
-            className="min-w-0 truncate text-caption font-medium hover:underline"
-          >
-            {name}
-          </AppLink>
-        ) : (
-          <span className="min-w-0 truncate text-caption font-medium">{name}</span>
-        )}
-        <span className="shrink-0 text-caption text-muted-foreground">
-          {t(($) => $.group.project_count, { count: group.projects.length })}
-        </span>
+      <div role="cell" className="flex min-w-0 items-center">
+        <OrganisationGroupHeading group={group} collapsed={collapsed} onToggle={onToggle} />
       </div>
     </div>
+  );
+}
+
+/**
+ * A card view section: the group's heading, then its cards unless folded.
+ * Folds like the table's group row, through the same `collapsedOrganisations`.
+ */
+export function OrganisationGroupSection({
+  group,
+  children,
+}: {
+  group: ProjectOrganisationGroup;
+  children: ReactNode;
+}) {
+  const collapsedOrganisations = useProjectViewStore((s) => s.collapsedOrganisations);
+  const toggleOrganisation = useProjectViewStore((s) => s.toggleOrganisation);
+  const collapsed = collapsedOrganisations.includes(organisationFoldKey(group));
+
+  return (
+    <section aria-label={group.organisation?.name}>
+      <div
+        onClick={(event) => foldOnRowClick(event, group, toggleOrganisation)}
+        className="flex h-10 min-w-0 cursor-pointer items-center"
+      >
+        <OrganisationGroupHeading
+          group={group}
+          collapsed={collapsed}
+          onToggle={toggleOrganisation}
+        />
+      </div>
+      {collapsed ? null : children}
+    </section>
   );
 }
 
@@ -667,7 +735,7 @@ export function ProjectTable({
         />
         {groups
           ? groups.map((group) => {
-              const key = group.organisation?.id ?? NO_ORGANISATION_KEY;
+              const key = organisationFoldKey(group);
               const isCollapsed = collapsed.has(key);
               return (
                 <div key={key} role="rowgroup" className="col-span-full grid grid-cols-subgrid">
