@@ -13,7 +13,7 @@ This checkout is `appboypov/multica`, a fork of `multica-ai/multica` that is dev
 - The fork has no remote pipelines: GitHub Actions is disabled and the workflow, GoReleaser and Vercel files are removed. Every check and build runs locally.
 - The main checkout's `.env` runs the local production stack (Docker Compose project `multica`: backend on 8080, web on 3000, its own Postgres). Development, `make up` and `make check` run in a worktree with its own `.env.worktree` and the separate `multica-dev` Postgres container, so they never touch production data or ports.
 - GitHub webhooks of the "Pew Pew Multica" GitHub App reach the backend at `ctas.de-appspecialist.nl/api/webhooks/github`: Caddy on clawboy-vps sends only this path to the Tailscale serve on port 8080 of this Mac, which fronts the backend on `127.0.0.1:8080`; `tailscale serve status` shows it, and the App's recent deliveries on GitHub show 202.
-- `madspec-sync/` holds the manual tools that sync MadSpec's personas to agents and the brain's Repository objects to projects; read [madspec-sync/README.md](madspec-sync/README.md) before running or changing them.
+- `madspec-sync/` holds the manual tools that sync MadSpec's personas to agents and the brain's Organisations and Products to organisations and projects, with Repository checkouts and guarded issue merges; read [madspec-sync/README.md](madspec-sync/README.md) before running or changing them.
 
 ## Scope and Reading Order
 
