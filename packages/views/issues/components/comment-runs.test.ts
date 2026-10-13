@@ -1,7 +1,8 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import type { AgentTask, TimelineEntry } from "@multica/core/types";
-import { commentRunOutput, buildCommentRunView, isRunFailureNotice, orderThreadWithRuns, orderTimelineWithRuns, type CommentRun } from "./comment-runs";
+import type { AgentTask, Question, TimelineEntry } from "@multica/core/types";
+import { EMPTY_QUESTION } from "@multica/core/api/schemas";
+import { commentRunOutput, buildCommentRunView, isRunFailureNotice, orderThreadWithRuns, orderTimelineWithRuns, questionAnchor, type CommentRun } from "./comment-runs";
 import { collectThreadReplies } from "./thread-utils";
 
 const groupCommentRuns = (...args: Parameters<typeof buildCommentRunView>) => buildCommentRunView(...args).runs;
@@ -413,6 +414,19 @@ describe("orderTimelineWithRuns", () => {
     expect(order([neighbour, reply], [placed])).toEqual(["aaa-comment", "zzz-task"]);
     expect(order([comment("ccc-comment", { created_at: same }), reply], [placed]))
       .toEqual(["zzz-task", "ccc-comment"]);
+  });
+
+  it("places a question card at the moment it was asked", () => {
+    const run = task("run", { status: "completed", created_at: "2026-09-07T10:00:00Z", completed_at: "2026-09-07T10:30:00Z" });
+    const question: Question = { ...EMPTY_QUESTION, id: "question", created_at: "2026-09-07T10:10:00Z" };
+    const before = comment("before", { created_at: "2026-09-07T10:05:00Z" });
+    const after = comment("after", { created_at: "2026-09-07T10:20:00Z" });
+    const rows = orderTimelineWithRuns([before, after], [{ task: run, hasReply: false }], new Map(), [question]);
+    expect(rows.map((item) => ("task" in item ? item.task.id : item.id))).toEqual(["before", "question", "after", "run"]);
+  });
+
+  it("anchors a question card on its own id", () => {
+    expect(questionAnchor("q-1")).toBe("question-q-1");
   });
 });
 

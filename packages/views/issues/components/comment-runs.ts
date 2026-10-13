@@ -1,4 +1,4 @@
-import type { AgentTask, TimelineEntry } from "@multica/core/types";
+import type { AgentTask, Question, TimelineEntry } from "@multica/core/types";
 import { isDeletedComment } from "@multica/core/issues/comment-deletion";
 import { commentSupplementReceipts } from "@multica/core/issues/run-steering";
 
@@ -235,30 +235,43 @@ function runSortTime(run: CommentRun, entryById: ReadonlyMap<string, TimelineEnt
   return Date.parse(run.task.completed_at ?? run.task.created_at);
 }
 
+/** The timeline row id and DOM anchor of a question's card. */
+export function questionAnchor(questionId: string): string {
+  return `question-${questionId}`;
+}
+
+function isRun(item: { created_at?: string } | CommentRun): item is CommentRun {
+  return "task" in item;
+}
+
 /**
  * Merge runs into a list of comments in reading order: standalone runs into
- * the top-level timeline, or a thread's runs into its replies.
+ * the top-level timeline, or a thread's runs into its replies. Question cards
+ * join the top-level timeline at the moment they were asked.
  *
  * A run that published a reply REPLACES that comment's own slot — the block
  * renders the comment, so leaving both would double it.
  */
-export function orderTimelineWithRuns(
+export function orderTimelineWithRuns<Q extends Question = never>(
   entries: readonly TimelineEntry[],
   runs: readonly CommentRun[],
   entryById: ReadonlyMap<string, TimelineEntry>,
-): (TimelineEntry | CommentRun)[] {
+  questions: readonly Q[] = [],
+): (TimelineEntry | CommentRun | Q)[] {
+  type Row = TimelineEntry | CommentRun | Q;
   const slotted = new Set(runs.filter((run) => run.hasReply).map((run) => run.commentId));
-  const sortTime = (item: TimelineEntry | CommentRun): number =>
-    "task" in item ? runSortTime(item, entryById) : Date.parse(item.created_at);
+  const sortTime = (item: Row): number =>
+    isRun(item) ? runSortTime(item, entryById) : Date.parse(item.created_at);
   // Ties are ordinary, not exotic: the API serializes timestamps to whole
   // seconds (util.TimestampToString), so a reply and the comment next to it
   // routinely share one. Break them on the row that OWNS the slot — the reply
   // for a run that published one, never the task behind it — so equal
   // timestamps keep the server's `created_at ASC, id ASC` order, the same
   // invariant sortTimelineEntriesAsc holds for the flat cache.
-  const slotRow = (item: TimelineEntry | CommentRun): { created_at: string; id: string } =>
-    "task" in item ? publishedReply(item, entryById) ?? item.task : item;
-  return [...entries.filter((entry) => !slotted.has(entry.id)), ...runs].sort((a, b) => {
+  const slotRow = (item: Row): { created_at: string; id: string } =>
+    isRun(item) ? publishedReply(item, entryById) ?? item.task : item;
+  const rows: Row[] = [...entries.filter((entry) => !slotted.has(entry.id)), ...runs, ...questions];
+  return rows.sort((a, b) => {
     const left = sortTime(a), right = sortTime(b);
     if (left !== right) return left < right ? -1 : 1;
     const leftRow = slotRow(a), rightRow = slotRow(b);
