@@ -3,13 +3,13 @@
 Two manual tools that fill the local Multica workspace from MadSpec, read from its checkout `~/Repos/Ventures/madspec`. They run only when started by hand.
 
 - `multica_sync.py` syncs the MadSpec personas to Multica agents. The persona list, models and arguments come from `skills/` on `origin/main`; each agent selects its whole skill folder in the checkout, whose content the daemon reads from disk at every task start. Uncommitted skill edits reach the next task without another sync; uncommitted model or argument changes do not change the synced configuration. Spec: [specs/multica-agents.md](specs/multica-agents.md).
-- `multica_projects.py` fills Multica organisations and one project per brain Product, places its counting repositories' checkout resources on it, and moves issues from marked repository projects into it before deleting only those emptied projects. Spec: [specs/multica-projects.md](specs/multica-projects.md).
+- `multica_projects.py` fills Multica organisations and one project per brain Product. A Product with one Repository gets its counting checkout and the issues of its marked repository project, which is deleted only once empty. A Product with several Repositories gets no checkout; its repository projects keep their issues and checkouts and are printed and recorded for UJ-2. Spec: [specs/multica-projects.md](specs/multica-projects.md).
 
 Both read the server, workspace and token from `~/.multica/profiles/local/config.json`.
 
-The Product sync reads Organisation Linear keys and Product/Repository links from the brain without writing to it. Organisation and Product identity is kept in `~/.local/state/madspec/multica/brain-sync.json`, separated by server and workspace and saved atomically after each create or take-over. Existing names, organisation keys and project organisations stay as Brian set them; deleted brain objects remain in Multica and are reported.
+The Product sync reads Organisation Linear keys and Product/Repository links from the brain without writing to it. Organisation and Product identity is kept in `~/.local/state/madspec/multica/brain-sync.json`, separated by server and workspace and saved atomically after each create or take-over. Its `repository_projects` map records retained repository projects by Repository brain ID so UJ-2 can find them after checkout labels are gone. Existing names, organisation keys and project organisations stay as Brian set them; deleted brain objects remain in Multica and are reported.
 
-Counting controls only checkout placement: a Repository with a Product still merges its marked repository project even if its checkout cannot be placed or GitHub archived it. A Repository without a Product or gone from the brain keeps its project and issues. Each issue page must move successfully, and a fresh project read must count zero issues before deletion. The sync prints every write and report; read failures write nothing. Run it only against the intended profile's server after that server supports organisations. The issue moves are not undone if the organisation migrations are rolled back.
+A Product's Repository count uses every linked brain Repository object, even archived ones or ones without a checkout. Only a Product with one Repository gets checkout writes and an issue merge. Whether that Repository counts for checkout placement does not change merge eligibility. A Product with several Repositories keeps each repository project as it is and prints "{project} stays for {Product}, which has {N} repositories" on every run. A Repository without a Product or gone from the brain keeps its project and issues. Each issue page must move successfully, and a fresh project read must count zero issues before deletion. Read failures write nothing. Run the sync only against the intended profile's server after that server supports organisations. The issue moves are not undone if the organisation migrations are rolled back.
 
 ## Commands
 
@@ -18,7 +18,7 @@ Run from the root of this checkout:
 ```sh
 uv run madspec-sync/multica_sync.py            # every persona
 uv run madspec-sync/multica_sync.py mitchel    # one persona, by name or command
-uv run madspec-sync/multica_projects.py        # organisations and every Product
+uv run madspec-sync/multica_projects.py        # organisations, Products, guarded single-repo merges
 uv run --with pytest pytest -p no:cacheprovider madspec-sync/tests
 uv run --with pytest pytest -p no:cacheprovider madspec-sync/tests/test_multica_projects.py
 ```
