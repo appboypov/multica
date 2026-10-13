@@ -132,6 +132,14 @@ export function InstructionsTab({
       setConversationStarters(
         JSON.parse(persistedConversationStartersKey) as AgentConversationStarter[],
       );
+    } else if (
+      local.selectionKey === previous.selectionKey &&
+      previous.selectionKey !== persistedSelectionKey
+    ) {
+      // Only the runtime's owner changes the selection. Adopt the owner's
+      // change while the text is being edited, so a save of an untouched
+      // selection never carries the old paths back.
+      setSelection(JSON.parse(persistedSelectionKey) as string[]);
     }
   }, [
     agent.id,

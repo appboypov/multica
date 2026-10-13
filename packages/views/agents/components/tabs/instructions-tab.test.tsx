@@ -290,6 +290,33 @@ describe("InstructionsTab instruction selection", () => {
     });
     expect(mockInitiateDirectoryListing).not.toHaveBeenCalled();
   });
+
+  it("keeps a member's text edit free of a selection the owner changed meanwhile", async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    const persisted: Agent = {
+      ...baseAgent,
+      instructions: "{selection}",
+      instruction_selection: [UX_DESIGNER],
+    };
+    const member = { runtime: RUNTIME, currentUserId: "member-2" };
+    const { rerender } = render(tab(persisted, onSave, member));
+    const instructions = screen.getByLabelText("System prompt");
+    await user.click(instructions);
+    await user.keyboard("{End} Keep it short.");
+
+    const ownerSelection = [UX_DESIGNER, "/Users/brian/notes/c.md"];
+    rerender(
+      tab({ ...persisted, instruction_selection: ownerSelection }, onSave, member),
+    );
+    expect(screen.getAllByRole("listitem")).toHaveLength(2);
+    expect(instructions).toHaveValue("{selection} Keep it short.");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(onSave).toHaveBeenCalledWith({
+      instructions: "{selection} Keep it short.",
+    });
+  });
 });
 
 // The "customize" link in a chat's empty state lands here with ?focus=. The
