@@ -135,9 +135,9 @@ This change builds on UJ-5 (`issues-from-templates`, DAS-456), which builds on U
 
 - [x] 12.1 `packages/core/issues/surface/scope.ts`, `query-plan.ts`, `membership.ts` -- the scope `{type: "worklane", worklaneId, issueTypes}`, its key `worklane:{id}` without the types, its query spec with `filters.types`, and membership by `worklane_id` and type -- design.md decision 3.
 - [ ] 12.2 `packages/core/issues/surface/scope.test.ts`, `membership.test.ts` -- the key, the spec with and without types, and membership of an issue of another worklane, of a type not picked, and without a type under No type.
-- [ ] 12.3 `packages/core/worklanes/list-sections.ts`, `type-filter.ts`, `index.ts` -- `listSections(line, issues)` and `typeFilter(types)` -- design.md decision 3.
+- [x] 12.3 `packages/core/worklanes/list-sections.ts`, `type-filter.ts`, `index.ts` -- `listSections(line, issues)` and `typeFilter(types)` -- design.md decision 3.
 - [ ] 12.4 `packages/core/worklanes/list-sections.test.ts`, `type-filter.test.ts` (`// @vitest-environment node`) -- sections in line order with progress and "Set by hand", a release without the worklane's issues, issues of other worklanes left out, "No release" only with issues; the filter with types, No type and nothing picked.
-- [ ] 12.5 `packages/core/realtime/use-realtime-sync.ts` -- `worklane:updated` invalidates `worklaneKeys.detail` and `worklaneKeys.list`. `issue:created` and `issue:updated` of an issue with a `worklane_id` invalidate that worklane's detail and the list, and `issue:deleted` invalidates the workspace's worklane keys, so now and next follow status changes made anywhere -- design.md decision 8.
+- [x] 12.5 `packages/core/realtime/use-realtime-sync.ts` -- `worklane:updated` invalidates `worklaneKeys.detail` and `worklaneKeys.list`. `issue:created` and `issue:updated` of an issue with a `worklane_id` invalidate that worklane's detail and the list, and `issue:deleted` invalidates the workspace's worklane keys, so now and next follow status changes made anywhere -- design.md decision 8.
 
 ## 13. J9 Frontend: component
 

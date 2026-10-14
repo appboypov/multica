@@ -206,7 +206,7 @@ describe("IssuePeekHost", () => {
   it("links to the full issue page", () => {
     renderHost();
     openCard("i-3");
-    expect(screen.getByRole("link", { name: "Open full page" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Open issue" })).toHaveAttribute(
       "href",
       "/acme/issues/i-3",
     );

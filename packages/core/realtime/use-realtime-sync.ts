@@ -739,6 +739,21 @@ async function refreshWorkingAgentQueries(qc: QueryClient, wsId: string): Promis
   await Promise.all(filters.map((filter) => qc.invalidateQueries(filter)));
 }
 
+/**
+ * A worklane's state, now and next come from its open issues (UJ-6), so an
+ * issue change refreshes the list and the detail of each worklane it touches.
+ */
+function invalidateIssueWorklanes(
+  qc: QueryClient,
+  wsId: string,
+  worklaneIds: readonly (string | null | undefined)[],
+): void {
+  const ids = new Set(worklaneIds.filter((id): id is string => !!id));
+  if (ids.size === 0) return;
+  qc.invalidateQueries({ queryKey: worklaneKeys.list(wsId) });
+  for (const id of ids) qc.invalidateQueries({ queryKey: worklaneKeys.detail(wsId, id) });
+}
+
 function invalidateSquadMemberStatusQueries(qc: QueryClient, wsId: string): void {
   qc.invalidateQueries({
     predicate: (query) => {
@@ -1118,6 +1133,11 @@ export function useRealtimeSync(
           assigneeChanged: payload.assignee_changed,
           projectChanged: payload.project_changed,
         });
+        // Read before the patch: an issue moved to another worklane changes
+        // the now and next of the worklane it left too.
+        const previousWorklaneId = qc.getQueryData<{ worklane_id?: string | null }>(
+          issueKeys.detail(wsId, issue.id),
+        )?.worklane_id;
         onIssueUpdated(qc, wsId, issue, {
           assigneeChanged: payload.assignee_changed,
           statusChanged: payload.status_changed,
@@ -1133,6 +1153,7 @@ export function useRealtimeSync(
         if (issue.status) {
           onInboxIssueStatusChanged(qc, wsId, issue.id, issue.status);
         }
+        invalidateIssueWorklanes(qc, wsId, [issue.worklane_id, previousWorklaneId]);
       }
     });
 
@@ -1140,7 +1161,10 @@ export function useRealtimeSync(
       const { issue } = p as IssueCreatedPayload;
       if (!issue) return;
       const wsId = getCurrentWsId();
-      if (wsId) onIssueCreated(qc, wsId, issue);
+      if (wsId) {
+        onIssueCreated(qc, wsId, issue);
+        invalidateIssueWorklanes(qc, wsId, [issue.worklane_id]);
+      }
     });
 
     const unsubIssueDeleted = ws.on("issue:deleted", (p) => {
@@ -1151,6 +1175,8 @@ export function useRealtimeSync(
         void invalidateQuestionReach(qc, wsId);
         onIssueDeleted(qc, wsId, issue_id);
         void onInboxIssueDeleted(qc, wsId, issue_id);
+        // The payload has no worklane, so every worklane's now and next refresh.
+        qc.invalidateQueries({ queryKey: worklaneKeys.all(wsId) });
       }
     });
 
