@@ -1,0 +1,1 @@
+DROP INDEX CONCURRENTLY IF EXISTS issue_worktree_issue_repository_unique;
