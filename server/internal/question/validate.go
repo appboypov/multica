@@ -41,6 +41,12 @@ var answerTypes = map[string]answerDefinition{
 	TypeApproval:       definition([]string{"subject"}, []string{"decision"}, false, validateApprovalSettings, validateApproval, displayApproval),
 }
 
+// ValidAnswerType reports whether answerType is one of the 12 answer types.
+func ValidAnswerType(answerType string) bool {
+	_, ok := answerTypes[answerType]
+	return ok
+}
+
 // ValidateSettings refuses settings outside the selected answer type's contract.
 func ValidateSettings(answerType string, settings json.RawMessage) error {
 	def, ok := answerTypes[answerType]
