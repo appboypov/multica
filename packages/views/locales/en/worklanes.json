@@ -157,5 +157,17 @@
     "kept_uncommitted": "The worktree stayed on {{branch}} because it holds uncommitted changes",
     "kept_unpushed_one": "The worktree stayed on {{branch}} because it holds {{count}} commit that is not pushed",
     "kept_unpushed_other": "The worktree stayed on {{branch}} because it holds {{count}} commits that are not pushed"
+  },
+  "overview": {
+    "title": "Worklanes",
+    "empty": "No worklanes yet.",
+    "column_name": "Name",
+    "repository_count_one": "{{count}} repository",
+    "repository_count_other": "{{count}} repositories",
+    "project_meta": "{{repositories}} · {{worklanes}}"
+  },
+  "row_work": {
+    "next": "Next:",
+    "nothing_queued": "Nothing queued"
   }
 }

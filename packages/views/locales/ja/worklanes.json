@@ -152,5 +152,16 @@
     "kept": "worktree は {{branch}} にとどまりました",
     "kept_uncommitted": "コミットしていない変更があるため、worktree は {{branch}} にとどまりました",
     "kept_unpushed_other": "プッシュしていないコミットが {{count}} 件あるため、worktree は {{branch}} にとどまりました"
+  },
+  "overview": {
+    "title": "worklanes",
+    "empty": "まだ worklane がありません。",
+    "column_name": "名前",
+    "repository_count_other": "{{count}} 件のリポジトリ",
+    "project_meta": "{{repositories}} · {{worklanes}}"
+  },
+  "row_work": {
+    "next": "次：",
+    "nothing_queued": "待機中のタスクなし"
   }
 }

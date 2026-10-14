@@ -29,6 +29,8 @@ import {
 } from "@multica/views/agents";
 import { SquadsPage, SquadDetailPage as SquadDetailPageView } from "@multica/views/squads/components";
 import { OrganisationsPage, OrganisationPage } from "@multica/views/organisations/components";
+import { WorklanesPage } from "@multica/views/worklanes/components";
+import { ReleasesPage } from "@multica/views/releases/components";
 import { InboxPage } from "@multica/views/inbox";
 import { AnswerAllPage, QuestionsPage } from "@multica/views/questions";
 import { ChatPage } from "@multica/views/chat";
@@ -159,6 +161,16 @@ export const appRoutes: RouteObject[] = [
             path: "organisations/:id",
             element: <OrganisationPage />,
             handle: { title: "Organisation" },
+          },
+          {
+            path: "worklanes",
+            element: <WorklanesPage />,
+            handle: { title: "Worklanes" },
+          },
+          {
+            path: "releases",
+            element: <ReleasesPage />,
+            handle: { title: "Releases" },
           },
           {
             path: "worklanes/:id",

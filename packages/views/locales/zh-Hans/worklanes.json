@@ -152,5 +152,16 @@
     "kept": "工作树留在了 {{branch}}",
     "kept_uncommitted": "工作树留在了 {{branch}}，因为其中有未提交的更改",
     "kept_unpushed_other": "工作树留在了 {{branch}}，因为其中有 {{count}} 个未推送的提交"
+  },
+  "overview": {
+    "title": "worklanes",
+    "empty": "还没有 worklane。",
+    "column_name": "名称",
+    "repository_count_other": "{{count}} 个仓库",
+    "project_meta": "{{repositories}} · {{worklanes}}"
+  },
+  "row_work": {
+    "next": "下一个：",
+    "nothing_queued": "没有排队的任务"
   }
 }

@@ -20,24 +20,28 @@ import {
 import { AppLink } from "../../navigation";
 import { useLocale, useT } from "../../i18n";
 import { ReleaseChips } from "../../releases/components/release-chips";
+import { WorklaneRowWork } from "../../worklanes/components/worklane-row-work";
 import { WorklaneMenu } from "../../worklanes/components/worklane-menu";
 import { WorklaneStateLabel } from "../../worklanes/components/worklane-state";
 
 /**
- * One worklane of the card, opening its page, with its repository's last and
- * next release, its state and its menu. The chips sit outside the row's link,
- * because each chip is a link of its own.
+ * One worklane of the card, opening its page, with the issue it works on or
+ * takes next, its repository's last and next release, its state and its menu.
+ * The chips sit outside the row's link, because each chip is a link of its own.
  */
 function WorklaneRow({ worklane }: { worklane: Worklane }) {
   const paths = useWorkspacePaths();
   return (
-    <li className="group/row flex h-9 items-center gap-2 pr-2 pl-10 hover:bg-accent/40">
+    <li className="group/row flex min-h-11 items-center gap-2 py-1 pr-2 pl-10 hover:bg-accent/40">
       <AppLink
         href={paths.worklaneDetail(worklane.id)}
         className="flex h-full min-w-0 flex-1 items-center gap-2"
       >
-        <GitBranch aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
-        <span className="min-w-0 truncate font-mono text-body">{worklane.name}</span>
+        <GitBranch aria-hidden className="mt-0.5 size-3.5 shrink-0 self-start text-muted-foreground" />
+        <span className="flex min-w-0 flex-col gap-0.5">
+          <span className="min-w-0 truncate font-mono text-body">{worklane.name}</span>
+          <WorklaneRowWork worklane={worklane} />
+        </span>
       </AppLink>
       <ReleaseChips repositoryId={worklane.repository_id} worklaneId={worklane.id} />
       <WorklaneStateLabel state={worklane.state} />

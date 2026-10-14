@@ -1,1 +1,1 @@
-export { WorklanePage } from "./components";
+export { WorklanePage, WorklanesPage } from "./components";

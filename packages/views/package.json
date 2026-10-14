@@ -43,6 +43,8 @@
     "./organisations/components": "./organisations/components/index.ts",
     "./worklanes": "./worklanes/index.ts",
     "./worklanes/components": "./worklanes/components/index.ts",
+    "./releases": "./releases/index.ts",
+    "./releases/components": "./releases/components/index.ts",
     "./workspace/workspace-avatar": "./workspace/workspace-avatar.tsx",
     "./workspace/no-access-page": "./workspace/no-access-page.tsx",
     "./workspace/welcome-after-onboarding": "./workspace/welcome-after-onboarding.tsx",

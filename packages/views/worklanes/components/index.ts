@@ -1,4 +1,7 @@
 export { WorklanePage } from "./worklane-page";
+export { WorklanesPage } from "./worklanes-page";
+export { WorklaneTreeRow } from "./worklane-tree-row";
+export { WorklaneRowWork } from "./worklane-row-work";
 export { WorklaneTimeline } from "./worklane-timeline";
 export { WorklaneActivity } from "./worklane-activity";
 export { WorklaneMenu } from "./worklane-menu";

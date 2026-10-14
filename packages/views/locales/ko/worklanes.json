@@ -152,5 +152,16 @@
     "kept": "worktree가 {{branch}}에 머물렀습니다",
     "kept_uncommitted": "커밋하지 않은 변경이 있어 worktree가 {{branch}}에 머물렀습니다",
     "kept_unpushed_other": "푸시하지 않은 커밋 {{count}}개가 있어 worktree가 {{branch}}에 머물렀습니다"
+  },
+  "overview": {
+    "title": "worklanes",
+    "empty": "아직 worklane이 없습니다.",
+    "column_name": "이름",
+    "repository_count_other": "저장소 {{count}}개",
+    "project_meta": "{{repositories}} · {{worklanes}}"
+  },
+  "row_work": {
+    "next": "다음:",
+    "nothing_queued": "대기 중인 이슈 없음"
   }
 }
