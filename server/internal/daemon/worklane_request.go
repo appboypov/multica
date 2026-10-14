@@ -223,14 +223,7 @@ func (d *Daemon) runWorklaneCreate(ctx context.Context, rt Runtime, req PendingW
 			run.fail(s, began, fmt.Errorf("the worktree path %q does not resolve", req.Path))
 			return
 		}
-		realPath, _ := resolveRealPath(run.path)
-		release, err := d.localPathLocks.Acquire(ctx, realPath, "worklane:"+req.ID, nil)
-		if err != nil {
-			run.fail(s, began, err)
-			return
-		}
-		output, err := execenv.RunInstall(ctx, run.path, req.InstallCommand)
-		release()
+		output, err := run.install()
 		if err != nil {
 			run.fail(s, began, err)
 			return
@@ -241,6 +234,40 @@ func (d *Daemon) runWorklaneCreate(ctx context.Context, rt Runtime, req PendingW
 		s.Output = output
 		run.post(nil)
 	}
+}
+
+// install keeps the running step alive while waiting for its path lock and
+// during the 20-minute install. Otherwise polling would mark a healthy install
+// lost after 15 minutes. Join the reporter before changing the step again.
+func (r *worklaneCreateRun) install() (string, error) {
+	stop := make(chan struct{})
+	stopped := make(chan struct{})
+	go func() {
+		defer close(stopped)
+		ticker := time.NewTicker(time.Minute)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-stop:
+				return
+			case <-r.ctx.Done():
+				return
+			case <-ticker.C:
+				r.post(nil)
+			}
+		}
+	}()
+	defer func() {
+		close(stop)
+		<-stopped
+	}()
+	realPath, _ := resolveRealPath(r.path)
+	release, err := r.d.localPathLocks.Acquire(r.ctx, realPath, "worklane:"+r.req.ID, nil)
+	if err != nil {
+		return "", err
+	}
+	defer release()
+	return execenv.RunInstall(r.ctx, r.path, r.req.InstallCommand)
 }
 
 func (d *Daemon) runWorklaneRemove(ctx context.Context, rt Runtime, req PendingWorklaneRequest) {

@@ -263,3 +263,21 @@ Runs of one profile SHALL hold `projects.lock` next to that profile's config acr
 - **WHEN** two sync runs start at the same time
 - **THEN** both exit successfully
 - **AND** Multica holds one organisation, one project for that Product and one checkout resource
+
+### Requirement: A repository added by the sync keeps the install command found
+
+When the sync adds a repository, it SHALL send `install_command` from the first
+command in its passed checkout check's `install_commands`, or `''` (None) when
+the check found none. It SHALL NOT update the install command of a repository
+already in Multica.
+
+#### Scenario: A synced repository uses the command found
+- **GIVEN** appboypov/plannotator is added to MadSpec and its passed checkout check found `npm ci`
+- **WHEN** the sync adds that repository
+- **THEN** it sends `install_command: "npm ci"`
+
+#### Scenario: A saved None stays unchanged
+- **GIVEN** appboypov/madspec already exists in Multica with Install set to None
+- **WHEN** the sync runs
+- **THEN** that repository's install command stays None
+

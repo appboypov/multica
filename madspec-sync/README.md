@@ -5,6 +5,11 @@ Two manual tools that fill the local Multica workspace from MadSpec, read from i
 - `multica_sync.py` syncs the MadSpec personas to Multica agents. The persona list, models and arguments come from `skills/` on `origin/main`; each agent selects its whole skill folder in the checkout, whose content the daemon reads from disk at every task start. Uncommitted skill edits reach the next task without another sync; uncommitted model or argument changes do not change the synced configuration. Spec: [specs/multica-agents.md](specs/multica-agents.md).
 - `multica_projects.py` fills Multica organisations and one project per brain Product. A Product with one Repository gets its counting checkout and the issues of its marked repository project, which is deleted only once empty. A Product with several Repositories gets no checkout; its repository projects keep their issues and checkouts and are printed and recorded for UJ-2. Spec: [specs/multica-projects.md](specs/multica-projects.md).
 
+The linked specifications are the sync tools' contracts. When the Product sync
+adds a repository, it sends the first install command found by its passed
+checkout check, or `''` (None) when none was found. It never updates an existing
+repository's install command, including an explicit None saved in Multica.
+
 Both read the server, workspace and token from `~/.multica/profiles/local/config.json`.
 
 The Product sync reads Organisation Linear keys and Product/Repository links from the brain without writing to it. Organisation and Product identity is kept in `~/.local/state/madspec/multica/brain-sync.json`, separated by server and workspace and saved atomically after each create or take-over. Its `repository_projects` map records retained repository projects by Repository brain ID so UJ-2 can find them after checkout labels are gone. Existing names, organisation keys and project organisations stay as Brian set them; deleted brain objects remain in Multica and are reported.

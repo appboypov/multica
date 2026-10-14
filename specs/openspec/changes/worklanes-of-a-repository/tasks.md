@@ -145,7 +145,7 @@ This change builds on UJ-2 (`repositories-of-a-project`, DAS-451): its `reposito
 
 - [ ] 10.1 `madspec-sync/multica_projects.py` -- send `install_command` from the check's first found command, or `''`, when it adds a repository; never update a repository that exists -- the `repository-install-command` spec delta.
 - [ ] 10.2 `madspec-sync/tests/test_multica_projects.py` -- `plan()` and write cases: appboypov/plannotator added with `npm ci`, appboypov/madspec set to None in Multica unchanged.
-- [ ] 10.3 `madspec-sync/specs/multica-projects.md`, `madspec-sync/README.md` -- the install command rule -- `madspec-sync/README.md` says the spec is the sync's contract.
+- [x] 10.3 `madspec-sync/specs/multica-projects.md`, `madspec-sync/README.md` -- the install command rule -- `madspec-sync/README.md` says the spec is the sync's contract.
 
 ## 11. J9 Frontend: flow
 
