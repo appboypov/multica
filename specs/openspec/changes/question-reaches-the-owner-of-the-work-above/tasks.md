@@ -36,7 +36,7 @@ Every group builds on UJ-1's, UJ-2's and UJ-3's code (changes `answer-an-agents-
 
 ## 1. J2 Data models: model change
 
-- [ ] 1.1 `server/migrations/710_question_link_types.up.sql`, `.down.sql` -- drop UJ-1's `CHECK` constraints on `question_link.link_type` and `question_event.kind` and add them back `NOT VALID`, then `VALIDATE CONSTRAINT`: `link_type` in `issue`, `task`, `comment`, `project`, `agent`, `squad`, `autopilot`, `skill`; `kind` UJ-1's and UJ-2's kinds plus `linked`. Down deletes `question_link` rows of the six new types and `linked` events, then restores the previous constraints -- design.md decision 1 and "Migration Plan".
+- [x] 1.1 `server/migrations/710_question_link_types.up.sql`, `.down.sql` -- drop UJ-1's `CHECK` constraints on `question_link.link_type` and `question_event.kind` and add them back `NOT VALID`, then `VALIDATE CONSTRAINT`: `link_type` in `issue`, `task`, `comment`, `project`, `agent`, `squad`, `autopilot`, `skill`; `kind` UJ-1's and UJ-2's kinds plus `linked`. Down deletes `question_link` rows of the six new types and `linked` events, then restores the previous constraints -- design.md decision 1 and "Migration Plan".
 - [ ] 1.2 `server/internal/question/links.go` -- `LinkType` constants for the eight types, `ValidLinkType`, `ParseLinkRef("project:01J…")` returning `{Type, Ref}` where a bare value is an issue and `run:` maps to `task`, and `MaxLinksPerAsk = 10` -- design.md decision 1 and 2; one registry the handler, service and CLI read.
 - [ ] 1.3 `server/internal/question/links_test.go` -- `ParseLinkRef` cases: `WORK-415`, `issue:WORK-415`, `run:<uuid>`, `comment:abc12`, an unknown prefix and an empty ref are refused -- the CLI's input rules.
 
@@ -144,6 +144,8 @@ Every group builds on UJ-1's, UJ-2's and UJ-3's code (changes `answer-an-agents-
 - No brief or skill text changes: UJ-1's brief section is fixed word for word by its spec, and `multica-platform` points to `multica question --help`, which lists `--on`, `--link` and `link`.
 - The upward and downward forms live in one file, `question_reach.sql`, next to each other, so a change to one is seen beside the other.
 - `ListForIssue` widening to comments and runs changes which cards UJ-1's issue page shows only for questions this journey links that way; every UJ-1 question links to its issue.
+- 1.1: the constraints keep PostgreSQL's default names from migration 566, `question_link_link_type_check` and `question_event_kind_check`. UJ-2 (575) and UJ-5 (583-585) add no event kind, so `kind` is 566's eight kinds plus `linked`. Files: `server/migrations/710_question_link_types.up.sql`, `.down.sql`.
+- 1.1 surprise: `cmd/migrate` sends a file as one implicit transaction, so `VALIDATE CONSTRAINT` in the same file runs under the lock of `ADD CONSTRAINT` and the `NOT VALID` step saves no lock time; repo precedent (`367_..._validate`, `402_..._validate`) validates in a separate file for that. Kept in 710 as the task says, with `SET LOCAL lock_timeout = '2s'`: widening cannot fail on existing rows and the question tables are small. The down path validates in the same file on purpose, as `263_issue_origin_wecom_chat.down.sql` does, so a narrowing CHECK fails closed.
 
 ## Plan Change Log
 
