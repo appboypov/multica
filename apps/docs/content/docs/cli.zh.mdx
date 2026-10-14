@@ -112,7 +112,7 @@ multica issue comment update <comment-id> --expected-revision 2 --content-file r
 
 `issue create --type` 支持 `epic`、`journey`、`story`、`bug`、`enhancement`、`refactor`、`chore`、`spike`。描述为空时，服务端填入该类型的 Markdown 模板。省略 `--type` 表示无类型；省略 `--status` 时，状态为 `todo`。
 
-创建和更新时，`--worklane` 接受 ID、`owner/name/worklane` 或唯一的工作线名称。`--release` 接受该工作线仓库内的发布 ID 或版本号（可带 `v`）。更新时保留另一个值，用 `none` 清除。发布必须有工作线；切换到其他仓库时，需同时指定 `--release none`。任务的项目随工作线确定。
+创建和更新时，`--worklane` 接受 ID、`owner/name/worklane` 或唯一的 worklane 名称。`--release` 接受该 worklane 所在仓库内的版本 ID 或版本号（可带 `v`）。更新时保留另一个值，用 `none` 清除。设置版本时必须有 worklane；切换到其他仓库时，需同时指定 `--release none`。任务的项目随 worklane 确定。
 
 ```bash
 multica issue create --title "修复登录失败" --type bug --worklane "appboypov/rebl/Fan accounts and push" --release v1.0.0
@@ -177,7 +177,7 @@ multica runtime activity <runtime-id>
 | --- | --- |
 | `issue` | 创建、更新、分配和搜索任务；管理评论、订阅、标签、属性与执行记录 |
 | `question` | 在智能体运行中向成员提问、读取回答，并关闭或撤回问题 |
-| `project` | 管理项目及其资源 |
+| `project` | 管理项目 |
 | `label`、`property` | 管理工作区标签和自定义属性 |
 | `agent`、`skill`、`squad` | 管理智能体、skill 和小队 |
 | `autopilot` | 管理自动化、触发器和运行历史 |
@@ -265,7 +265,6 @@ CLI 配置文件包含可代表你访问 Multica 的令牌。不要提交到仓�
 | | `withdraw <question-id>` | 撤回问题 | |
 | `project` | `list/get/create/update/delete` | 管理项目 | |
 | | `status <id> <status>` | 修改项目状态 | |
-| | `resource list/add/update/remove` | 管理项目附加资源 | `--type`、`--url`、`--local-path`、`--daemon-id`、`--execution-mode`（本地目录的 `in_place` / `worktree`） |
 | `label` | `list/get/create/update/delete` | 管理工作区标签 | `list`：`--resource-type`（`issue` 或 `skill`）、`--full-id`；`create`：`--name`、`--color`、`--resource-type`（`issue` 或 `skill`）、`--description` |
 | `property` | `list/get/create/update/archive/unarchive` | 管理工作区自定义属性 | `create`：`--name`、`--type`（`text`、`number`、`select`、`multi_select`、`date`、`checkbox`、`url`、`actor`、`multi_actor`）、`--option`（可重复，仅 select 类型）；`list`：`--include-archived`；类型创建后不可修改 |
 | `agent` | `list/get/create/update/archive/restore` | 管理智能体 | `--name`、`--runtime-id`（`create` 必填）、`--instructions`、`--conversation-starters`、`--model`、`--thinking-level`、`--mcp-config`、`--permission-mode`、`--max-concurrent-tasks` |

@@ -177,7 +177,7 @@ Consultez [Daemon et runtimes](/daemon-runtimes) pour son fonctionnement et les 
 | --- | --- |
 | `issue` | Créer, mettre à jour, assigner et rechercher des tâches ; gérer les commentaires, les abonnés, les étiquettes, les propriétés et les exécutions |
 | `question` | Poser des questions aux membres depuis une exécution d'agent, lire leurs réponses, puis les clore ou les retirer |
-| `project` | Gérer les projets et leurs ressources |
+| `project` | Gérer les projets |
 | `label`, `property` | Gérer les étiquettes et les propriétés personnalisées de l'espace de travail |
 | `agent`, `skill`, `squad` | Gérer les agents, les skills et les squads |
 | `autopilot` | Gérer les automatisations, les déclencheurs et l'historique des exécutions |
@@ -273,7 +273,6 @@ Les tableaux ci-dessous couvrent toutes les commandes de premier niveau actuelle
 | | `withdraw <question-id>` | Retirer une question | |
 | `project` | `list/get/create/update/delete` | Gérer les projets | |
 | | `status <id> <status>` | Changer le statut d'un projet | |
-| | `resource list/add/update/remove` | Gérer les ressources d'un projet | `--type`, `--url`, `--local-path`, `--daemon-id`, `--execution-mode` (`in_place` / `worktree` pour un répertoire local) |
 | `label` | `list/get/create/update/delete` | Gérer les étiquettes de l'espace de travail | `list` : `--resource-type` (`issue` ou `skill`), `--full-id` ; `create` : `--name`, `--color`, `--resource-type` (`issue` ou `skill`), `--description` |
 | `property` | `list/get/create/update/archive/unarchive` | Gérer les propriétés personnalisées de l'espace de travail | `create` : `--name`, `--type` (`text`, `number`, `select`, `multi_select`, `date`, `checkbox`, `url`, `actor`, `multi_actor`), `--option` (répétable, types select uniquement) ; `list` : `--include-archived` ; le type ne peut plus être modifié après la création |
 | `agent` | `list/get/create/update/archive/restore` | Gérer les agents | `--name`, `--runtime-id` (obligatoire pour `create`), `--instructions`, `--conversation-starters`, `--model`, `--thinking-level`, `--mcp-config`, `--permission-mode`, `--max-concurrent-tasks` |

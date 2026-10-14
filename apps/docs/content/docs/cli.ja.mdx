@@ -112,7 +112,7 @@ multica issue comment update <comment-id> --expected-revision 2 --content-file r
 
 `issue create --type` は `epic`、`journey`、`story`、`bug`、`enhancement`、`refactor`、`chore`、`spike` に対応します。説明が空なら、サーバーがその種類の Markdown テンプレートを入力します。`--type` を省略すると種類なし、`--status` を省略すると状態は `todo` になります。
 
-作成と更新の `--worklane` は ID、`owner/name/worklane`、または一意のワークレーン名を受け付けます。`--release` はそのレーンのリポジトリにあるリリース ID またはバージョン（`v` は省略可）です。更新時はもう一方の値を保持し、`none` で解除します。リリースにはワークレーンが必要です。別のリポジトリへ移すときは `--release none` も指定してください。タスクのプロジェクトはワークレーンに従います。
+作成と更新の `--worklane` は ID、`owner/name/worklane`、または一意の worklane 名を受け付けます。`--release` はその worklane のリポジトリにあるリリース ID またはバージョン（`v` は省略可）です。更新時はもう一方の値を保持し、`none` で解除します。リリースには worklane が必要です。別のリポジトリへ移すときは `--release none` も指定してください。タスクのプロジェクトは worklane に従います。
 
 ```bash
 multica issue create --title "ログイン失敗を修正" --type bug --worklane "appboypov/rebl/Fan accounts and push" --release v1.0.0
@@ -177,7 +177,7 @@ multica runtime activity <runtime-id>
 | --- | --- |
 | `issue` | タスクの作成、更新、割り当て、検索。コメント、購読者、ラベル、プロパティ、実行履歴の管理 |
 | `question` | エージェントの実行からメンバーに質問し、回答を読み取り、質問をクローズまたは取り下げ |
-| `project` | プロジェクトとそのリソースを管理 |
+| `project` | プロジェクトを管理 |
 | `label`、`property` | ワークスペースのラベルとカスタムプロパティを管理 |
 | `agent`、`skill`、`squad` | エージェント、スキル、スクワッドを管理 |
 | `autopilot` | オートパイロット、トリガー、実行履歴を管理 |
@@ -265,7 +265,6 @@ CLI の設定ファイルには、あなたとして Multica にアクセスで�
 | | `withdraw <question-id>` | 質問を取り下げ | |
 | `project` | `list/get/create/update/delete` | プロジェクトを管理 | |
 | | `status <id> <status>` | プロジェクトのステータスを変更 | |
-| | `resource list/add/update/remove` | プロジェクトの追加リソースを管理 | `--type`、`--url`、`--local-path`、`--daemon-id`、`--execution-mode`（ローカルディレクトリの `in_place` / `worktree`） |
 | `label` | `list/get/create/update/delete` | ワークスペースのラベルを管理 | `list`: `--resource-type`（`issue` または `skill`）、`--full-id`；`create`: `--name`、`--color`、`--resource-type`（`issue` または `skill`）、`--description` |
 | `property` | `list/get/create/update/archive/unarchive` | ワークスペースのカスタムプロパティを管理 | `create`: `--name`、`--type`（`text`、`number`、`select`、`multi_select`、`date`、`checkbox`、`url`、`actor`、`multi_actor`）、`--option`（繰り返し可、select 系のみ）；`list`: `--include-archived`；タイプは作成後に変更できません |
 | `agent` | `list/get/create/update/archive/restore` | エージェントを管理 | `--name`、`--runtime-id`（`create` では必須）、`--instructions`、`--conversation-starters`、`--model`、`--thinking-level`、`--mcp-config`、`--permission-mode`、`--max-concurrent-tasks` |

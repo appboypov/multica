@@ -18,7 +18,7 @@ import { Callout } from "fumadocs-ui/components/callout";
 | **优先级** | `urgent`、`high`、`medium`、`low` 或 `none`。 |
 | **负责人（lead）** | 成员或智能体，表示谁负责协调项目。 |
 | **任务和进度** | 项目中的工作及其完成比例。 |
-| **仓库** | 项目所用的 GitHub 仓库，每个仓库带有自己的检出目录和工作线。 |
+| **仓库** | 项目所用的 GitHub 仓库，每个仓库带有自己的检出目录和 worklane。 |
 
 ![项目详情：按状态分列的任务、进度与项目描述](/images/docs/project-detail.webp)
 
@@ -51,13 +51,13 @@ import { Callout } from "fumadocs-ui/components/callout";
 
 ## 仓库
 
-项目包含它所用的 GitHub 仓库。项目页面的标题处显示仓库数量，并按 `owner/name` 为每个仓库显示一张卡片：默认分支和工作线，第一条是在仓库检出目录中的 `main`。点击卡片标题可将其折叠。在**项目**和组织页面上，项目行可以展开为每个仓库一行。
+项目包含它所用的 GitHub 仓库。项目页面的标题处显示仓库数量，并按 `owner/name` 为每个仓库显示一张卡片：默认分支和 worklane，第一条是在仓库检出目录中的 `main`。点击卡片标题可将其折叠。在**项目**和组织页面上，项目行可以展开为每个仓库一行。
 
 - **仓库**会打开**添加仓库**。它列出工作区的 [GitHub App](/github-integration) 能看到的所有仓库，并显示私有或公开以及默认分支。一个仓库最多属于一个项目：已在某个项目中的仓库会显示该项目的名称，不能选择。**缺少某个仓库？在 GitHub 上授予 Multica 访问权限**会打开 App 的安装页面。
 - **检出目录**选择一台机器以及仓库常规检出所在的文件夹，默认是 `~/Repos/{name}`。Multica 会在那台机器上检查该文件夹：它必须是该仓库的 git 检出，并位于默认分支上。如果那里没有文件夹，**克隆到这里**会把仓库克隆过去。
 - **发布**选择仓库版本的来源：检出目录中找到的版本文件（`pubspec.yaml`、`Cargo.toml`、`pyproject.toml` 或 `package.json`）、**仅标签**，或**此仓库不发布**。
 - **安装**选择为新 worklane 安装依赖的命令。Multica 会在默认分支上查找 `pnpm-lock.yaml`（`pnpm install`）、`package-lock.json`（`npm ci`）、`yarn.lock`（`yarn install`）、`pubspec.yaml`（`flutter pub get`）和 `uv.lock`（`uv sync`），列出找到的每条命令并预选第一条，另有**无**和自行输入的命令。**编辑仓库**会显示已保存的命令；仓库还没有命令时，会去查找一条。
-- 卡片菜单中有**编辑仓库**和**移除仓库**。编辑仓库可以修改检出目录和发布方式，但不能更换仓库；移除仓库会把仓库及其工作线 `main` 从 Multica 中移除，检出文件夹会原样保留在机器上。仓库除了 `main` 还有其他工作线时，需先移除它们才能移除仓库。
+- 卡片菜单中有**编辑仓库**和**移除仓库**。编辑仓库可以修改检出目录和发布方式，但不能更换仓库；移除仓库会把仓库及其 worklane `main` 从 Multica 中移除，检出文件夹会原样保留在机器上。仓库除了 `main` 还有其他 worklane 时，需先移除它们才能移除仓库。
 
 ## worklane
 
