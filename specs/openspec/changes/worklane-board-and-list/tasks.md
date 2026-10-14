@@ -146,7 +146,7 @@ This change builds on UJ-5 (`issues-from-templates`, DAS-456), which builds on U
 - [ ] 13.3 `packages/views/issues/components/issue-peek-summary.tsx`, `issue-detail.tsx` -- the preview's header of design.md decision 5 at the top of `variant="peek"`.
 - [x] 13.4 `packages/views/issues/surface/peek-context.tsx`, `packages/views/issues/components/issue-peek.tsx` -- `openMode` on `IssuePeekHost` read by `useIssuePeekClick`, and the open button labelled "Open issue".
 - [x] 13.5 `packages/views/issues/surface/issue-surface.tsx`, `types.ts`, `use-issue-surface-actions.ts` -- `openMode` passed to the surface's peek host, and `announceMoves` with the toast "{identifier} moved to {status}" after the server accepts a status change.
-- [ ] 13.6 `packages/views/worklanes/components/worklane-type-filter.tsx` -- the Type filter with the eight types and No type, their icons and counts.
+- [x] 13.6 `packages/views/worklanes/components/worklane-type-filter.tsx` -- the Type filter with the eight types and No type, their icons and counts.
 - [x] 13.7 `packages/views/worklanes/components/worklane-state.tsx` -- Busy or Free with "now: {ID} {title}" or "next: {ID} {title}", the issue opening its preview.
 - [ ] 13.8 `packages/views/issues/components/issue-peek-summary.test.tsx`, `packages/views/issues/surface/issue-surface.test.tsx` -- the header with and without a worklane and a release, the status menu changing the status, the worklane link; the move toast with `announceMoves` and none without it; a click opening the preview with `openMode` `peek` while the device's mode is `page`.
 
