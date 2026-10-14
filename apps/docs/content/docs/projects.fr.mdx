@@ -14,14 +14,24 @@ Un travail qu'une seule tâche suffit à décrire n'a pas besoin de projet. Les 
 | Élément | Rôle |
 |---|---|
 | **Nom, icône et description** | Objectif, périmètre et exigences durables ; la description entre dans le contexte d'exécution des agents qui travaillent dans le projet. |
-| **Statut** | `planned` (Planifié), `in_progress` (En cours), `paused` (En pause), `completed` (Terminé) ou `cancelled` (Annulé). |
+| **Organisation** | L'organisation à laquelle appartient le projet, ou **Aucune organisation**. |
 | **Priorité** | `urgent` (Urgente), `high` (Haute), `medium` (Moyenne), `low` (Basse) ou `none` (Aucune priorité). |
 | **Responsable** | Un membre ou un agent — la personne ou l'agent qui coordonne le projet. |
-| **Dates de début et d'échéance** | La période prévue du projet. |
 | **Tâches et avancement** | Le travail du projet et la part déjà terminée. |
 | **Ressources** | Dépôts GitHub rattachés ou répertoires locaux sur des ordinateurs précis. |
 
 ![Détail d'un projet : tâches regroupées par statut, avancement et description du projet](/images/docs/project-detail.webp)
+
+## Organisations
+
+Une organisation regroupe des projets, par exemple selon l'entreprise ou le client qu'ils servent. Un projet appartient à une organisation au plus. **Nouveau projet** en demande une, et la ligne **Organisation** des propriétés d'un projet permet de la changer.
+
+- **Projets** regroupe les projets par organisation, dans l'ordre des noms, avec **Aucune organisation** en dernier pour les projets qui n'en ont pas. Cliquez sur la ligne d'un groupe pour le replier.
+- **Organisations**, dans la barre latérale après Projets, liste chaque organisation avec son nombre de projets. Une ligne ouvre la page de l'organisation, qui liste ses projets ; **Nouveau projet** y crée le projet dans cette organisation.
+- **Nouvelle organisation** demande un nom et une clé. Deux organisations ne peuvent pas avoir le même nom, sans tenir compte de la casse.
+- La **clé** nomme le dossier de l'organisation : lettres minuscules, chiffres et tirets, en commençant par une lettre ou un chiffre, et unique dans l'espace de travail. Changez-la sur la page de l'organisation.
+
+Une organisation ne peut être ni renommée ni supprimée.
 
 ## Projets et tâches
 
@@ -33,7 +43,7 @@ L'avancement du projet est calculé automatiquement à partir des tâches liées
 avancement = tâches en done ou cancelled ÷ toutes les tâches du projet
 ```
 
-`cancelled` signifie que ce travail a été retiré du périmètre du projet ; il compte donc dans l'avancement. Le statut du projet et celui des tâches sont indépendants : terminer toutes les tâches ne fait pas passer automatiquement le projet à `completed`, et modifier le statut du projet ne modifie pas ses tâches en masse.
+`cancelled` signifie que ce travail a été retiré du périmètre du projet ; il compte donc dans l'avancement.
 
 ## Description du projet et contexte d'exécution
 
@@ -61,7 +71,7 @@ Un projet épinglé apparaît dans votre barre latérale. L'épinglage est une p
 Tout membre de l'espace de travail peut créer et modifier des projets ; seuls les rôles `owner` et `admin` peuvent les supprimer.
 
 <Callout type="warning">
-Supprimer un projet ne supprime pas ses tâches : elles sont détachées et restent dans l'espace de travail. La description, le statut et les ressources du projet sont définitivement supprimés.
+Supprimer un projet ne supprime pas ses tâches : elles sont détachées et restent dans l'espace de travail. La description et les ressources du projet sont définitivement supprimées.
 </Callout>
 
 ## Étapes suivantes

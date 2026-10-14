@@ -14,14 +14,24 @@ Work that a single issue can describe does not need a project. Projects fit a gr
 | Part | Purpose |
 |---|---|
 | **Name, icon, and description** | Goal, scope, and long-lived requirements; the description enters the execution context of agents working inside the project. |
-| **Status** | `planned`, `in_progress`, `paused`, `completed`, or `cancelled`. |
+| **Organisation** | The organisation the project belongs to, or **No organisation**. |
 | **Priority** | `urgent`, `high`, `medium`, `low`, or `none`. |
 | **Lead** | A member or an agent — who coordinates the project. |
-| **Start and target dates** | The project's planned time range. |
 | **Issues and progress** | The work in the project and how much of it is finished. |
 | **Resources** | Linked GitHub repositories or local directories on specific computers. |
 
 ![Project detail: issues grouped by status, progress, and the project description](/images/docs/project-detail.webp)
+
+## Organisations
+
+An organisation groups projects, for example by the company or client they serve. A project belongs to at most one organisation. **New project** asks for one, and the **Organisation** row in a project's properties changes it.
+
+- **Projects** groups the projects by organisation, in name order, with **No organisation** last for projects without one. Click a group's row to fold it.
+- **Organisations**, in the sidebar after Projects, lists every organisation with its number of projects. A row opens the organisation's page, which lists its projects; **New project** there starts the project in that organisation.
+- **New organisation** asks for a name and a key. No two organisations share a name, ignoring case.
+- The **key** names the organisation's folder: lowercase letters, digits and dashes, starting with a letter or digit, and unique in the workspace. Change it on the organisation's page.
+
+Organisations can't be renamed or deleted.
 
 ## Projects and issues
 
@@ -33,7 +43,7 @@ Project progress is computed automatically from linked issues:
 progress = issues in done or cancelled ÷ all issues in the project
 ```
 
-`cancelled` means that work has been closed out of the project's scope, so it counts toward progress. Project status and issue status are independent: finishing every issue does not automatically set the project to `completed`, and changing the project's status does not bulk-change its issues.
+`cancelled` means that work has been closed out of the project's scope, so it counts toward progress.
 
 ## Project description and execution context
 
@@ -61,7 +71,7 @@ A pinned project appears in your sidebar. Pinning is a personal preference and d
 Any workspace member can create and edit projects; only `owner` and `admin` can delete them.
 
 <Callout type="warning">
-Deleting a project does not delete its issues: they detach and stay in the workspace. The project's description, status, and resources are permanently deleted.
+Deleting a project does not delete its issues: they detach and stay in the workspace. The project's description and resources are permanently deleted.
 </Callout>
 
 ## Next steps
