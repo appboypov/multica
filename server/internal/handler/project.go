@@ -41,11 +41,6 @@ type ProjectResponse struct {
 	UpdatedAt  string  `json:"updated_at"`
 	IssueCount int64   `json:"issue_count"`
 	DoneCount  int64   `json:"done_count"`
-	// ResourceCount is a breadcrumb pointing at the sub-collection at
-	// /api/projects/{id}/resources. Resources themselves stay out of this
-	// payload to keep parent metadata and child collections separate; clients
-	// that need the list call ListProjectResources directly.
-	ResourceCount int64 `json:"resource_count"`
 }
 
 func projectToResponse(p db.Project) ProjectResponse {
@@ -93,36 +88,17 @@ func (h *Handler) projectTerminalIssueStatusKeys(ctx context.Context, workspaceI
 	return []string{issuestatus.Done, issuestatus.Cancelled}
 }
 
-func (h *Handler) loadProjectResourceCount(ctx context.Context, projectID pgtype.UUID) int64 {
-	rows, err := h.Queries.GetProjectResourceCounts(ctx, []pgtype.UUID{projectID})
-	if err != nil || len(rows) == 0 {
-		return 0
-	}
-	return rows[0].ResourceCount
-}
-
 type CreateProjectRequest struct {
-	Title          string                                `json:"title"`
-	Description    *string                               `json:"description"`
-	Icon           *string                               `json:"icon"`
-	Status         string                                `json:"status"`
-	Priority       string                                `json:"priority"`
-	LeadType       *string                               `json:"lead_type"`
-	LeadID         *string                               `json:"lead_id"`
-	StartDate      *string                               `json:"start_date"`
-	DueDate        *string                               `json:"due_date"`
-	OrganisationID *string                               `json:"organisation_id"`
-	Resources      []CreateProjectResourceRequestPayload `json:"resources,omitempty"`
-}
-
-// CreateProjectResourceRequestPayload mirrors CreateProjectResourceRequest but
-// is embedded inside the project create payload. Kept as a separate type so a
-// future change to the standalone request can't silently break this surface.
-type CreateProjectResourceRequestPayload struct {
-	ResourceType string          `json:"resource_type"`
-	ResourceRef  json.RawMessage `json:"resource_ref"`
-	Label        *string         `json:"label"`
-	Position     *int32          `json:"position"`
+	Title          string  `json:"title"`
+	Description    *string `json:"description"`
+	Icon           *string `json:"icon"`
+	Status         string  `json:"status"`
+	Priority       string  `json:"priority"`
+	LeadType       *string `json:"lead_type"`
+	LeadID         *string `json:"lead_id"`
+	StartDate      *string `json:"start_date"`
+	DueDate        *string `json:"due_date"`
+	OrganisationID *string `json:"organisation_id"`
 }
 
 type UpdateProjectRequest struct {
@@ -162,9 +138,8 @@ func (h *Handler) ListProjects(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Batch-fetch issue stats and resource counts for all projects
+	// Batch-fetch issue stats for all projects
 	statsMap := make(map[string]db.GetProjectIssueStatsRow)
-	resourceCountMap := make(map[string]int64)
 	if len(projects) > 0 {
 		projectIDs := make([]pgtype.UUID, len(projects))
 		for i, p := range projects {
@@ -181,12 +156,6 @@ func (h *Handler) ListProjects(w http.ResponseWriter, r *http.Request) {
 				statsMap[uuidToString(s.ProjectID)] = s
 			}
 		}
-		counts, err := h.Queries.GetProjectResourceCounts(r.Context(), projectIDs)
-		if err == nil {
-			for _, c := range counts {
-				resourceCountMap[uuidToString(c.ProjectID)] = c.ResourceCount
-			}
-		}
 	}
 
 	resp := make([]ProjectResponse, len(projects))
@@ -196,7 +165,6 @@ func (h *Handler) ListProjects(w http.ResponseWriter, r *http.Request) {
 			resp[i].IssueCount = s.TotalCount
 			resp[i].DoneCount = s.DoneCount
 		}
-		resp[i].ResourceCount = resourceCountMap[resp[i].ID]
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"projects": resp, "total": len(resp)})
 }
@@ -221,7 +189,6 @@ func (h *Handler) GetProject(w http.ResponseWriter, r *http.Request) {
 	}
 	resp := projectToResponse(project)
 	resp.IssueCount, resp.DoneCount = h.loadProjectIssueStats(r.Context(), wsUUID, project.ID)
-	resp.ResourceCount = h.loadProjectResourceCount(r.Context(), project.ID)
 	writeJSON(w, http.StatusOK, resp)
 }
 
@@ -354,51 +321,6 @@ func (h *Handler) CreateProject(w http.ResponseWriter, r *http.Request) {
 		dueDate = d
 	}
 
-	// Pre-validate every resource payload before opening a transaction so an
-	// invalid ref produces a clean 400 with no DB work. For local_directory we
-	// also enforce one row per daemon_id within the batch — the daemon-side
-	// resolver picks the first match by daemon_id, so two rows on the same
-	// daemon would silently route the agent into whichever sorts first.
-	// The standalone POST/PUT paths run the same check via
-	// findLocalDirectoryConflict; this loop just covers the bundled-create
-	// surface, where there is no existing row to compare against yet.
-	normalizedRefs := make([]json.RawMessage, len(req.Resources))
-	localDirSeen := map[string]int{}
-	for i, res := range req.Resources {
-		res.ResourceType = strings.TrimSpace(res.ResourceType)
-		if res.ResourceType == "" {
-			writeError(w, http.StatusBadRequest, "resources[].resource_type is required")
-			return
-		}
-		ref, err := validateAndNormalizeResourceRef(res.ResourceType, res.ResourceRef)
-		if err != nil {
-			writeError(w, http.StatusBadRequest, "resources["+strconv.Itoa(i)+"]: "+err.Error())
-			return
-		}
-		normalizedRefs[i] = ref
-		if res.ResourceType == "local_directory" {
-			var ld localDirectoryRef
-			if err := json.Unmarshal(ref, &ld); err != nil {
-				writeError(w, http.StatusBadRequest, "resources["+strconv.Itoa(i)+"]: "+err.Error())
-				return
-			}
-			if prev, ok := localDirSeen[ld.DaemonID]; ok {
-				writeError(w, http.StatusBadRequest, "resources["+strconv.Itoa(i)+"]: duplicate local_directory for daemon (already at index "+strconv.Itoa(prev)+"); each daemon may attach at most one local_directory per project")
-				return
-			}
-			localDirSeen[ld.DaemonID] = i
-			// Same worktree gate the standalone POST/PUT paths run. This
-			// bundled-create surface skipped it, so a project created with a
-			// worktree local_directory could store a mode the machine cannot
-			// run — caught only later, by the claim gate cancelling the task.
-			// It writes its own 422; it runs before the transaction, so a
-			// rejection leaves nothing behind.
-			if !h.requireWorktreeCapableDaemon(w, r, wsUUID, res.ResourceType, ref) {
-				return
-			}
-		}
-	}
-
 	createParams := db.CreateProjectParams{
 		WorkspaceID:    wsUUID,
 		Title:          req.Title,
@@ -413,92 +335,14 @@ func (h *Handler) CreateProject(w http.ResponseWriter, r *http.Request) {
 		OrganisationID: organisationID,
 	}
 
-	// Without resources, keep the simple non-tx path.
-	if len(req.Resources) == 0 {
-		project, err := h.Queries.CreateProject(r.Context(), createParams)
-		if err != nil {
-			h.writeProjectWriteError(w, r, err, "create")
-			return
-		}
-		resp := projectToResponse(project)
-		h.publish(protocol.EventProjectCreated, workspaceID, "member", userID, map[string]any{"project": resp})
-		writeJSON(w, http.StatusCreated, resp)
-		return
-	}
-
-	// Transactional path: project + all resources are atomic.
-	tx, err := h.TxStarter.Begin(r.Context())
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to start transaction")
-		return
-	}
-	defer tx.Rollback(r.Context())
-	qtx := h.Queries.WithTx(tx)
-
-	project, err := qtx.CreateProject(r.Context(), createParams)
+	project, err := h.Queries.CreateProject(r.Context(), createParams)
 	if err != nil {
 		h.writeProjectWriteError(w, r, err, "create")
 		return
 	}
-
-	creator, _ := h.parseUserUUIDOrZero(userID)
-	resourceRows := make([]db.ProjectResource, 0, len(req.Resources))
-	for i, res := range req.Resources {
-		var label pgtype.Text
-		if res.Label != nil && strings.TrimSpace(*res.Label) != "" {
-			label = pgtype.Text{String: strings.TrimSpace(*res.Label), Valid: true}
-		}
-		var position int32 = int32(i)
-		if res.Position != nil {
-			position = *res.Position
-		}
-		row, err := qtx.CreateProjectResource(r.Context(), db.CreateProjectResourceParams{
-			ProjectID:    project.ID,
-			WorkspaceID:  project.WorkspaceID,
-			ResourceType: res.ResourceType,
-			ResourceRef:  normalizedRefs[i],
-			Label:        label,
-			Position:     position,
-			CreatedBy:    creator,
-		})
-		if err != nil {
-			if isUniqueViolation(err) {
-				writeError(w, http.StatusConflict, "resources["+strconv.Itoa(i)+"]: this resource is already attached")
-				return
-			}
-			writeError(w, http.StatusInternalServerError, "failed to attach resource at index "+strconv.Itoa(i))
-			return
-		}
-		resourceRows = append(resourceRows, row)
-	}
-	if err := tx.Commit(r.Context()); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to commit project create")
-		return
-	}
-
-	resourceResp := make([]ProjectResourceResponse, len(resourceRows))
-	for i, row := range resourceRows {
-		resourceResp[i] = projectResourceToResponse(row)
-	}
 	resp := projectToResponse(project)
-	resp.ResourceCount = int64(len(resourceResp))
 	h.publish(protocol.EventProjectCreated, workspaceID, "member", userID, map[string]any{"project": resp})
-	for _, rr := range resourceResp {
-		h.publish(protocol.EventProjectResourceCreated, workspaceID, "member", userID, map[string]any{
-			"resource":   rr,
-			"project_id": resp.ID,
-		})
-	}
-	// One-shot create echo: the parent ProjectResponse fields plus the just-
-	// created resources. This is a transient creation echo, not a contract for
-	// reads — GET /projects/{id} stays metadata-only with resource_count.
-	writeJSON(w, http.StatusCreated, struct {
-		ProjectResponse
-		Resources []ProjectResourceResponse `json:"resources"`
-	}{
-		ProjectResponse: resp,
-		Resources:       resourceResp,
-	})
+	writeJSON(w, http.StatusCreated, resp)
 }
 
 func (h *Handler) UpdateProject(w http.ResponseWriter, r *http.Request) {
@@ -633,7 +477,6 @@ func (h *Handler) UpdateProject(w http.ResponseWriter, r *http.Request) {
 	}
 	resp := projectToResponse(project)
 	resp.IssueCount, resp.DoneCount = h.loadProjectIssueStats(r.Context(), wsUUID, project.ID)
-	resp.ResourceCount = h.loadProjectResourceCount(r.Context(), project.ID)
 	h.publish(protocol.EventProjectUpdated, workspaceID, "member", userID, map[string]any{"project": resp})
 	writeJSON(w, http.StatusOK, resp)
 }
@@ -717,6 +560,23 @@ func (h *Handler) DeleteProject(w http.ResponseWriter, r *http.Request) {
 		ProjectID:   project.ID,
 	}); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to delete project releases")
+		return
+	}
+	// A project's repositories and their worklanes go with it, in the same
+	// transaction (ADR-0006). Their issue worktrees stay recorded, so they
+	// are still removed when their issue closes.
+	if err := qtx.DeleteWorklanesByProject(r.Context(), db.DeleteWorklanesByProjectParams{
+		WorkspaceID: project.WorkspaceID,
+		ProjectID:   project.ID,
+	}); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to delete project worklanes")
+		return
+	}
+	if err := qtx.DeleteRepositoriesByProject(r.Context(), db.DeleteRepositoriesByProjectParams{
+		ProjectID:   project.ID,
+		WorkspaceID: project.WorkspaceID,
+	}); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to delete project repositories")
 		return
 	}
 	if err := qtx.DeleteProject(r.Context(), db.DeleteProjectParams{
@@ -952,9 +812,8 @@ func (h *Handler) SearchProjects(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Batch-fetch issue stats and resource counts
+	// Batch-fetch issue stats
 	statsMap := make(map[string]db.GetProjectIssueStatsRow)
-	resourceCountMap := make(map[string]int64)
 	if len(results) > 0 {
 		projectIDs := make([]pgtype.UUID, len(results))
 		for i, r := range results {
@@ -971,12 +830,6 @@ func (h *Handler) SearchProjects(w http.ResponseWriter, r *http.Request) {
 				statsMap[uuidToString(s.ProjectID)] = s
 			}
 		}
-		counts, err := h.Queries.GetProjectResourceCounts(ctx, projectIDs)
-		if err == nil {
-			for _, c := range counts {
-				resourceCountMap[uuidToString(c.ProjectID)] = c.ResourceCount
-			}
-		}
 	}
 
 	resp := make([]SearchProjectResponse, len(results))
@@ -986,7 +839,6 @@ func (h *Handler) SearchProjects(w http.ResponseWriter, r *http.Request) {
 			pr.IssueCount = s.TotalCount
 			pr.DoneCount = s.DoneCount
 		}
-		pr.ResourceCount = resourceCountMap[pr.ID]
 		spr := SearchProjectResponse{
 			ProjectResponse: pr,
 			MatchSource:     row.matchSource,

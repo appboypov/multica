@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strings"
 	"time"
@@ -1363,4 +1364,47 @@ func (h *Handler) DeleteWorkspace(w http.ResponseWriter, r *http.Request) {
 	h.notifyDaemonWorkspacesChanged(affectedUserIDs...)
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// isValidGitRepoURL accepts the three forms a user can paste from GitHub's
+// "Code" menu: https://, ssh:// (with explicit scheme), and the scp-like
+// shorthand `git@host:owner/repo.git`. The check is intentionally lax — we are
+// guarding against pasted garbage like "not-a-url", not enforcing a strict
+// grammar — because the actual fetch happens client-side via `git clone` and
+// the user gets a clearer error from git than from us.
+func isValidGitRepoURL(s string) bool {
+	if u, err := url.Parse(s); err == nil && u.Host != "" {
+		switch u.Scheme {
+		case "http", "https", "ssh", "git":
+			return true
+		}
+	}
+	// scp-like ssh shorthand: [user@]host:path with a non-empty host and path,
+	// and no spaces. Reject anything that looks like a URL with a scheme
+	// (those should go through url.Parse above).
+	if strings.Contains(s, " ") || strings.Contains(s, "://") {
+		return false
+	}
+	colon := strings.Index(s, ":")
+	if colon <= 0 || colon == len(s)-1 {
+		return false
+	}
+	// In scp-like ssh shorthand `[user@]host:path`, `@` is only meaningful
+	// as a user separator before the first ':'. If '@' appears at or after
+	// the colon it is not the user separator — reject as malformed rather
+	// than guess (and avoid a slice-bounds panic from blindly slicing).
+	at := strings.Index(s, "@")
+	if at >= colon {
+		return false
+	}
+	hostStart := 0
+	if at >= 0 {
+		hostStart = at + 1
+	}
+	host := s[hostStart:colon]
+	path := s[colon+1:]
+	if host == "" || path == "" {
+		return false
+	}
+	return true
 }

@@ -327,20 +327,6 @@ type RepoData struct {
 	Ref         string `json:"ref,omitempty"`
 }
 
-// ProjectResourceData is the wire shape for a project resource included in a
-// claim response. The daemon reads this list and writes it into the agent's
-// working directory so skills/agents can discover project-scoped context.
-//
-// resource_ref is type-specific JSON; the daemon doesn't interpret it beyond
-// well-known fields like url for github_repo. New types can be added without
-// changing this struct.
-type ProjectResourceData struct {
-	ID           string          `json:"id"`
-	ResourceType string          `json:"resource_type"`
-	ResourceRef  json.RawMessage `json:"resource_ref"`
-	Label        string          `json:"label,omitempty"`
-}
-
 // ConnectedAppData keeps the daemon-claim wire field local to handler types
 // while sharing the canonical JSON shape with the runtime app metadata package.
 type ConnectedAppData = runtimeapps.ConnectedApp
@@ -439,7 +425,14 @@ type AgentTaskResponse struct {
 	ProjectID            string                `json:"project_id,omitempty"`          // issue's project, when present
 	ProjectTitle         string                `json:"project_title,omitempty"`       // for surfacing in agent context
 	ProjectDescription   string                `json:"project_description,omitempty"` // durable project-level context injected into the brief
-	ProjectResources     []ProjectResourceData `json:"project_resources,omitempty"`   // resources attached to the project
+	// Repositories are the issue's project's repositories with their checkout
+	// and the issue's recorded worktree (ADR-0006, ADR-0007).
+	Repositories []protocol.ClaimRepository `json:"repositories,omitempty"`
+	// OrganisationKey is the key of the project's organisation, empty without
+	// one; IssueKey is the issue identifier in lowercase. Both name the issue
+	// worktree path and branch.
+	OrganisationKey string `json:"organisation_key,omitempty"`
+	IssueKey        string `json:"issue_key,omitempty"`
 	CreatedAt            string                `json:"created_at"`
 	PriorSessionID       string                `json:"prior_session_id,omitempty"` // session ID from a previous task on same issue
 	PriorWorkDir         string                `json:"prior_work_dir,omitempty"`   // work_dir from a previous task on same issue

@@ -8,18 +8,6 @@ const (
 	DaemonCapabilityExecutionManifestV1 = "execution-manifest-v1"
 	DaemonCapabilityAgentSkillV1        = "agent-skill-v1"
 	DaemonCapabilityRemoteMCPV1         = "remote-mcp-v1"
-	// DaemonCapabilityLocalWorktreeV1 advertises that the daemon implements
-	// worktree mode for local_directory resources (execution_mode=worktree).
-	//
-	// This is a CAPABILITY rather than a version check on purpose. The failure
-	// mode of getting it wrong is not a missing field — a daemon without the
-	// implementation json-skips execution_mode and runs the task IN PLACE,
-	// editing the working copy the user asked to isolate. Version strings
-	// cannot answer that reliably: a git-describe dev build ("v0.4.21-24-g…")
-	// is deliberately exempted from the version floor so `make daemon` stays
-	// unblocked, which let exactly such a daemon through (MUL-5707). A daemon
-	// that implements the mode says so; one that does not, cannot.
-	DaemonCapabilityLocalWorktreeV1 = "local-worktree-v1"
 	// DaemonCapabilitySourceContextQuickCreateV1 advertises support for the
 	// two-section quick-create prompt that keeps a new instruction separate
 	// from immutable historical source context.
@@ -438,6 +426,9 @@ type DaemonHeartbeatAckPayload struct {
 	// that don't know this field silently ignore it (standard JSON behavior)
 	// and fall back to the singular PendingLocalSkillImport above.
 	PendingLocalSkillImports []DaemonHeartbeatPendingLocalSkillImport `json:"pending_local_skill_imports,omitempty"`
+	// PendingRepositoryCheckout asks the runtime to check, or clone and
+	// check, a repository's checkout (ADR-0006).
+	PendingRepositoryCheckout *DaemonHeartbeatPendingRepositoryCheckout `json:"pending_repository_checkout,omitempty"`
 	// IssueWorktreeRemovals lists the daemon's issue worktrees in state
 	// `removing`: their issue is Done or Cancelled, so the daemon removes
 	// each one that holds no unsaved work (ADR-0007).
@@ -475,6 +466,17 @@ type DaemonHeartbeatPendingLocalSkills struct {
 type DaemonHeartbeatPendingDirectoryListing struct {
 	ID   string `json:"id"`
 	Path string `json:"path"`
+}
+
+// DaemonHeartbeatPendingRepositoryCheckout asks the runtime to check a
+// checkout of full_name at path, cloning it there first when clone is set
+// and nothing is at the path.
+type DaemonHeartbeatPendingRepositoryCheckout struct {
+	ID            string `json:"id"`
+	FullName      string `json:"full_name"`
+	DefaultBranch string `json:"default_branch"`
+	Path          string `json:"path"`
+	Clone         bool   `json:"clone"`
 }
 
 // DaemonHeartbeatPendingLocalSkillImport describes a request to import a

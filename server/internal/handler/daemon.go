@@ -1499,6 +1499,49 @@ func (h *Handler) processHeartbeat(ctx context.Context, runtimeID string, suppor
 		slog.Warn("worklane request HasPending failed", "error", probeWorklaneErr, "runtime_id", runtimeID)
 	}
 
+	probeCheckoutCtx, cancelProbeCheckout := context.WithTimeout(ctx, heartbeatHasPendingTimeout)
+	hasCheckout, probeCheckoutErr := h.RepositoryCheckoutStore.HasPending(probeCheckoutCtx, runtimeID)
+	cancelProbeCheckout()
+	switch {
+	case probeCheckoutErr == nil && hasCheckout:
+		pendingCheckout, popErr := h.RepositoryCheckoutStore.PopPending(ctx, runtimeID)
+		if popErr != nil {
+			slog.Warn("repository checkout PopPending failed", "error", popErr, "runtime_id", runtimeID)
+		} else if pendingCheckout != nil {
+			ack.PendingRepositoryCheckout = &protocol.DaemonHeartbeatPendingRepositoryCheckout{
+				ID:            pendingCheckout.ID,
+				FullName:      pendingCheckout.FullName,
+				DefaultBranch: pendingCheckout.DefaultBranch,
+				Path:          pendingCheckout.Path,
+				Clone:         pendingCheckout.Clone,
+			}
+		}
+	case probeCheckoutErr != nil:
+		slog.Warn("repository checkout HasPending failed", "error", probeCheckoutErr, "runtime_id", runtimeID)
+	}
+
+	// The daemon's issue worktrees whose issue closed (ADR-0007). An offline
+	// daemon gets them on its first heartbeat back.
+	if runtimeRow, err := h.getAgentRuntime(ctx, obsmetrics.RuntimeLookupSourceDaemonAPI, parseUUID(runtimeID)); err != nil {
+		slog.Warn("issue worktree removals: load runtime failed", "error", err, "runtime_id", runtimeID)
+	} else if runtimeRow.DaemonID.Valid && runtimeRow.DaemonID.String != "" {
+		removals, err := h.Queries.ListRemovingIssueWorktreesForDaemon(ctx, db.ListRemovingIssueWorktreesForDaemonParams{
+			DaemonID:    runtimeRow.DaemonID.String,
+			WorkspaceID: runtimeRow.WorkspaceID,
+		})
+		if err != nil {
+			slog.Warn("list issue worktree removals failed", "error", err, "runtime_id", runtimeID)
+		}
+		for _, removal := range removals {
+			ack.IssueWorktreeRemovals = append(ack.IssueWorktreeRemovals, protocol.DaemonHeartbeatIssueWorktreeRemoval{
+				ID:              uuidToString(removal.ID),
+				Path:            removal.Path,
+				Branch:          removal.Branch,
+				IssueIdentifier: removal.IssueIdentifier,
+			})
+		}
+	}
+
 	probeImportStart := time.Now()
 	probeImportCtx, cancelProbeImport := context.WithTimeout(ctx, heartbeatHasPendingTimeout)
 	hasImport, probeErr := h.LocalSkillImportStore.HasPending(probeImportCtx, runtimeID)
@@ -2793,7 +2836,7 @@ func (h *Handler) buildClaimedTaskResponse(r *http.Request, task *db.AgentTaskQu
 			}
 		}
 
-		projectCtx, projectErr := h.resolveClaimProjectContext(r.Context(), issue.ProjectID, issue.WorkspaceID)
+		projectCtx, projectErr := h.resolveClaimProjectContext(r.Context(), issue.ProjectID, issue.ID, issue.WorkspaceID, runtime.DaemonID.String)
 		if projectErr != nil {
 			slog.Error("issue claim: load project context failed; preserving task for redelivery",
 				"task_id", uuidToString(task.ID),
@@ -3152,7 +3195,7 @@ func (h *Handler) buildClaimedTaskResponse(r *http.Request, task *db.AgentTaskQu
 		}
 		// A web chat can opt into the same durable project context as an
 		// issue-bound task.
-		projectCtx, projectErr := h.resolveClaimProjectContext(r.Context(), cs.ProjectID, cs.WorkspaceID)
+		projectCtx, projectErr := h.resolveClaimProjectContext(r.Context(), cs.ProjectID, pgtype.UUID{}, cs.WorkspaceID, runtime.DaemonID.String)
 		if projectErr != nil {
 			slog.Error("chat claim: load project context failed; preserving task for redelivery",
 				"task_id", uuidToString(task.ID),
@@ -3401,10 +3444,9 @@ func (h *Handler) buildClaimedTaskResponse(r *http.Request, task *db.AgentTaskQu
 
 		// A run_only autopilot has no issue from which to inherit project
 		// context, so its configured project is hydrated here. That gives the
-		// daemon the same resource contract as issue-bound and quick-create
-		// tasks: project repositories scope the checkout, while local_directory
-		// lets the daemon select the bound path and write its managed manifest.
-		projectCtx, projectErr := h.resolveClaimProjectContext(r.Context(), ap.ProjectID, ap.WorkspaceID)
+		// daemon the same repository contract as issue-bound and quick-create
+		// tasks: project repositories with their checkouts.
+		projectCtx, projectErr := h.resolveClaimProjectContext(r.Context(), ap.ProjectID, pgtype.UUID{}, ap.WorkspaceID, runtime.DaemonID.String)
 		if projectErr != nil {
 			slog.Error("autopilot claim: load project context failed; preserving task for redelivery",
 				"task_id", uuidToString(task.ID),
@@ -3476,7 +3518,7 @@ func (h *Handler) buildClaimedTaskResponse(r *http.Request, task *db.AgentTaskQu
 					quickCreateProjectID = parsed
 				}
 			}
-			projectCtx, projectErr := h.resolveClaimProjectContext(r.Context(), quickCreateProjectID, parseUUID(qc.WorkspaceID))
+			projectCtx, projectErr := h.resolveClaimProjectContext(r.Context(), quickCreateProjectID, pgtype.UUID{}, parseUUID(qc.WorkspaceID), runtime.DaemonID.String)
 			if projectErr != nil {
 				slog.Error("quick-create claim: load project context failed; preserving task for redelivery",
 					"task_id", uuidToString(task.ID),
@@ -3587,6 +3629,7 @@ func (h *Handler) buildClaimedTaskResponse(r *http.Request, task *db.AgentTaskQu
 		resp.WorkspaceSlug = ws.Slug
 		if issueNumber > 0 {
 			resp.IssueIdentifier = service.IssueIdentifier(ws.IssuePrefix, issueNumber)
+			resp.IssueKey = strings.ToLower(resp.IssueIdentifier)
 		}
 		if ws.Context.Valid {
 			resp.WorkspaceContext = ws.Context.String
@@ -3628,68 +3671,6 @@ func (h *Handler) buildClaimedTaskResponse(r *http.Request, task *db.AgentTaskQu
 				Category:    issuestatus.WireCategory(entry.Key, entry.Category),
 				Description: entry.Description,
 			})
-		}
-	}
-
-	// Last gate before dispatch: refuse to hand a worktree-mode local_directory
-	// task to a daemon that cannot implement the mode.
-	//
-	// The save-time gate in project_resource.go cannot cover this. It checks the
-	// version at the moment the resource is written; a machine downgraded
-	// afterwards still claims tasks, and an old daemon json-skips execution_mode
-	// entirely — it would run the task IN PLACE, editing the working copy the
-	// user asked to isolate. That is the exact outcome worktree mode exists to
-	// prevent, so it fails closed here, against the version of the runtime that
-	// is actually claiming.
-	if reason := worktreeClaimBlockReason(
-		resp.ProjectResources,
-		runtime,
-		requestHasClientCapability(r, protocol.DaemonCapabilityLocalWorktreeV1),
-	); reason != "" {
-		slog.Error("task claim: runtime too old for worktree mode; cancelling rather than running in place",
-			"task_id", uuidToString(task.ID),
-			"runtime_id", runtimeID,
-			"daemon_id", runtime.DaemonID.String,
-			"reason", reason,
-		)
-		// Cancel rather than leave it dispatched: the resource is pinned to this
-		// daemon, so redelivery would hand it straight back to the same too-old
-		// runtime forever.
-		//
-		// Cancel WITH the reason persisted on the row. The 4xx below only
-		// reaches the daemon's log, and the batch-claim path drops the task from
-		// its response entirely — so without this the user is left with a task
-		// that says "cancelled" and nothing else, for a condition only they can
-		// fix (update the app on that machine).
-		//
-		// Through the TaskService, not a raw query: cancellation has side
-		// effects beyond the row — audit capture, chat settle, agent status
-		// reconcile, the task:cancelled broadcast that clears live cards, and
-		// NotifyTaskFinished waking capacity/serial waiters. A direct query
-		// leaves all of those stale.
-		if _, cerr := h.TaskService.CancelTaskWithReason(r.Context(), task.ID, reason, "local_directory_error"); cerr != nil {
-			// The cancel did not commit, so the row is still claimed. The
-			// daemon is about to be refused, so left alone the task would
-			// strand in dispatched until stale reclaim, with no visible
-			// reason. Requeue it instead — the next claim re-runs this gate
-			// and retries the cancel — and report a 5xx so the daemon reads
-			// this as a transient server problem, not a claim refusal.
-			slog.Error("task claim: cancel after worktree version gate failed; requeueing so the gate can run again",
-				"task_id", uuidToString(task.ID), "error", cerr)
-			if _, rerr := h.TaskService.RequeueTaskAfterClaimFailure(r.Context(), *task); rerr != nil {
-				slog.Error("task claim: requeue after worktree-gate cancel failure failed; stale reclaim will recover it",
-					"task_id", uuidToString(task.ID), "error", rerr)
-			}
-			return resp, deliveredCommentIDs, issueSnapshot, agentSkillCount, builtinSkillCount, &claimBuildFailure{
-				outcome: "error_worktree_gate_cancel",
-				status:  http.StatusInternalServerError,
-				message: "failed to cancel a worktree task blocked by daemon version; task requeued",
-			}
-		}
-		return resp, deliveredCommentIDs, issueSnapshot, agentSkillCount, builtinSkillCount, &claimBuildFailure{
-			outcome: "error_worktree_daemon_version",
-			status:  http.StatusUnprocessableEntity,
-			message: reason,
 		}
 	}
 
@@ -3805,47 +3786,6 @@ func (h *Handler) loadClaimQuestionAnswers(ctx context.Context, task db.AgentTas
 		})
 	}
 	return result, nil
-}
-
-// worktreeClaimBlockReason returns a user-facing reason when this runtime must
-// not run the task, or "" when it may proceed.
-//
-// The decision is made on the CAPABILITY the daemon advertised on this very
-// request, not on its version string. A daemon without the implementation does
-// not merely lose concurrency — it json-skips execution_mode and runs the task
-// in place, editing the working copy the user asked to isolate. Version strings
-// could not answer that reliably: the git-describe dev-build exemption that
-// keeps `make daemon` unblocked let a v0.4.23-era daemon straight through, and
-// two tasks silently ran in the user's own directory (MUL-5707).
-//
-// Only resources bound to the claiming runtime's own daemon are considered: a
-// project may carry one local_directory per machine, and another machine's
-// worktree resource says nothing about this one's ability to run the task.
-func worktreeClaimBlockReason(resources []ProjectResourceData, runtime db.AgentRuntime, hasWorktreeCapability bool) string {
-	if !runtime.DaemonID.Valid || runtime.DaemonID.String == "" {
-		return ""
-	}
-	if hasWorktreeCapability {
-		return ""
-	}
-	for _, res := range resources {
-		if res.ResourceType != "local_directory" {
-			continue
-		}
-		var ref localDirectoryRef
-		if err := json.Unmarshal(res.ResourceRef, &ref); err != nil {
-			continue
-		}
-		if ref.ExecutionMode != localDirectoryModeWorktree || ref.DaemonID != runtime.DaemonID.String {
-			continue
-		}
-		return fmt.Sprintf(
-			"This machine's Multica runtime does not support parallel (worktree) mode, which %q is set to use. "+
-				"Update the Multica app on that machine to the latest version, then re-run this task. "+
-				"Refusing to run rather than falling back to editing the directory directly, which is what this mode exists to prevent.",
-			ref.LocalPath)
-	}
-	return ""
 }
 
 // ClaimTaskByRuntime atomically claims the next queued task for a runtime.

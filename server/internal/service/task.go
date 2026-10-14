@@ -4329,7 +4329,8 @@ func (s *TaskService) ExtendTaskPrepareLease(ctx context.Context, taskID, runtim
 
 // MarkTaskWaitingLocalDirectory parks a dispatched task in the
 // waiting_local_directory state while the daemon waits for another in-flight
-// task to release the project_resource path lock. reason carries a short
+// task on the same issue to release the issue worktree's path lock
+// (ADR-0007). reason carries a short
 // human-readable hint (typically the contested path) that the UI surfaces
 // next to the status. Returns the updated row so the daemon can confirm the
 // transition and so the broadcast carries the up-to-date snapshot.

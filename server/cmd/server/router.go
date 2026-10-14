@@ -1587,6 +1587,9 @@ func NewRouterWithOptions(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus
 		r.Post("/runtimes/{runtimeId}/local-skills/import/{requestId}/result", h.ReportLocalSkillImportResult)
 		r.Post("/runtimes/{runtimeId}/directory-listings/{requestId}/result", h.ReportDirectoryListingResult)
 		r.Post("/runtimes/{runtimeId}/worklane-requests/{requestId}/progress", h.ReportWorklaneRequestProgress)
+		r.Post("/runtimes/{runtimeId}/repository-checkouts/{requestId}/result", h.ReportRepositoryCheckoutResult)
+		r.Post("/tasks/{taskId}/issue-worktrees", h.RecordIssueWorktree)
+		r.Post("/issue-worktrees/{id}/result", h.ReportIssueWorktreeRemoval)
 
 		r.Get("/tasks/{taskId}/status", h.GetTaskStatus)
 		r.Post("/tasks/{taskId}/start", h.StartTask)
@@ -2162,10 +2165,6 @@ func NewRouterWithOptions(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus
 					r.Get("/", h.GetProject)
 					r.Put("/", h.UpdateProject)
 					r.Delete("/", h.DeleteProject)
-					r.Get("/resources", h.ListProjectResources)
-					r.Post("/resources", h.CreateProjectResource)
-					r.Put("/resources/{resourceId}", h.UpdateProjectResource)
-					r.Delete("/resources/{resourceId}", h.DeleteProjectResource)
 				})
 			})
 
@@ -2196,6 +2195,14 @@ func NewRouterWithOptions(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus
 					r.Get("/", h.GetWorklaneRequest)
 					r.Post("/retry", h.RetryWorklaneRequest)
 				})
+			})
+
+			r.Route("/api/repositories", func(r chi.Router) {
+				r.Get("/", h.ListRepositories)
+				r.Get("/available", h.ListAvailableRepositories)
+				r.Post("/", h.CreateRepository)
+				r.Put("/{id}", h.UpdateRepository)
+				r.Delete("/{id}", h.DeleteRepository)
 			})
 
 			// Squads
@@ -2401,6 +2408,8 @@ func NewRouterWithOptions(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus
 					r.Get("/local-skills/import/{requestId}", h.GetLocalSkillImportRequest)
 					r.Post("/directory-listings", h.InitiateDirectoryListing)
 					r.Get("/directory-listings/{requestId}", h.GetDirectoryListingRequest)
+					r.Post("/repository-checkouts", h.InitiateRepositoryCheckout)
+					r.Get("/repository-checkouts/{requestId}", h.GetRepositoryCheckout)
 					r.Delete("/", h.DeleteAgentRuntime)
 					// Confirmed variant of DELETE: unbind every agent bound to
 					// this runtime (they keep their configuration and chats and

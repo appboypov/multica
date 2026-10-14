@@ -4511,6 +4511,11 @@ func (h *Handler) deleteIssuesAndCollectAttachmentURLs(ctx context.Context, issu
 		if len(questionIDs) > 0 {
 			questionIDsByWorkspace[issue.WorkspaceID] = append(questionIDsByWorkspace[issue.WorkspaceID], questionIDs...)
 		}
+		// The issue's recorded worktrees go with it; their folders stay on
+		// disk (ADR-0007).
+		if err := qtx.DeleteIssueWorktreesByIssue(ctx, db.DeleteIssueWorktreesByIssueParams{IssueID: issue.ID, WorkspaceID: issue.WorkspaceID}); err != nil {
+			return issueDeleteResult{}, fmt.Errorf("delete issue worktrees: %w", err)
+		}
 		if err := qtx.DeleteIssue(ctx, db.DeleteIssueParams{ID: issue.ID, WorkspaceID: issue.WorkspaceID}); err != nil {
 			return issueDeleteResult{}, fmt.Errorf("delete issue: %w", err)
 		}

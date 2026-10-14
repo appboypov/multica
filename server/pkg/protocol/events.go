@@ -97,12 +97,9 @@ const (
 	EventChatSessionUpdated  = "chat:session_updated"
 
 	// Project events
-	EventProjectCreated         = "project:created"
-	EventProjectUpdated         = "project:updated"
-	EventProjectDeleted         = "project:deleted"
-	EventProjectResourceCreated = "project_resource:created"
-	EventProjectResourceUpdated = "project_resource:updated"
-	EventProjectResourceDeleted = "project_resource:deleted"
+	EventProjectCreated = "project:created"
+	EventProjectUpdated = "project:updated"
+	EventProjectDeleted = "project:deleted"
 
 	// Repository events (ADR-0006). All three carry RepositoryEventPayload.
 	EventRepositoryCreated = "repository:created"

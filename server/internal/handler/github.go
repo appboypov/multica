@@ -479,18 +479,26 @@ func (h *Handler) GitHubConnect(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid return target")
 		return
 	}
-	slug := githubAppSlug()
-	state, err := signStateForReturn(workspaceID, returnTo)
+	installURL, err := githubInstallURL(workspaceID, returnTo)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to sign state")
 		return
 	}
-	installURL := fmt.Sprintf(
-		"https://github.com/apps/%s/installations/new?state=%s",
-		url.PathEscape(slug),
-		url.QueryEscape(state),
-	)
 	writeJSON(w, http.StatusOK, GitHubConnectResponse{URL: installURL, Configured: true})
+}
+
+// githubInstallURL is the GitHub App's installation page, with a state token
+// that binds the setup callback to the workspace.
+func githubInstallURL(workspaceID, returnTo string) (string, error) {
+	state, err := signStateForReturn(workspaceID, returnTo)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf(
+		"https://github.com/apps/%s/installations/new?state=%s",
+		url.PathEscape(githubAppSlug()),
+		url.QueryEscape(state),
+	), nil
 }
 
 // GitHubSetupCallback (GET /api/github/setup) handles the redirect GitHub
@@ -820,86 +828,16 @@ func fetchGitHubInstallationRepositories(
 	installationID int64,
 	page, perPage int,
 ) (GitHubRepositoriesResponse, error) {
-	appJWT, err := signGitHubAppJWT(time.Now())
-	if err != nil {
-		return GitHubRepositoriesResponse{}, err
-	}
-	if appJWT == "" {
-		return GitHubRepositoriesResponse{}, errors.New("github App JWT credentials unavailable")
-	}
-
 	client := &http.Client{Timeout: 15 * time.Second}
-	tokenEndpoint := fmt.Sprintf(
-		"%s/app/installations/%d/access_tokens",
-		strings.TrimRight(githubAPIBase, "/"),
-		installationID,
-	)
-	tokenReq, err := http.NewRequestWithContext(
-		ctx,
-		http.MethodPost,
-		tokenEndpoint,
-		strings.NewReader(`{"permissions":{"metadata":"read"}}`),
-	)
+	token, err := mintGitHubInstallationToken(ctx, client, installationID)
 	if err != nil {
 		return GitHubRepositoriesResponse{}, err
 	}
-	setGitHubAPIHeaders(tokenReq, appJWT)
-	tokenReq.Header.Set("Content-Type", "application/json")
-	tokenResp, err := client.Do(tokenReq)
-	if err != nil {
-		return GitHubRepositoriesResponse{}, fmt.Errorf("create installation token: %w", err)
-	}
-	defer tokenResp.Body.Close()
-	if tokenResp.StatusCode != http.StatusCreated {
-		_, _ = io.Copy(io.Discard, io.LimitReader(tokenResp.Body, githubAPIResponseLimit))
-		return GitHubRepositoriesResponse{}, fmt.Errorf("create installation token: github status %d", tokenResp.StatusCode)
-	}
-	var tokenBody struct {
-		Token string `json:"token"`
-	}
-	if err := json.NewDecoder(io.LimitReader(tokenResp.Body, githubAPIResponseLimit)).Decode(&tokenBody); err != nil {
-		return GitHubRepositoriesResponse{}, fmt.Errorf("decode installation token: %w", err)
-	}
-	if tokenBody.Token == "" {
-		return GitHubRepositoriesResponse{}, errors.New("github returned an empty installation token")
-	}
-	defer revokeGitHubInstallationToken(client, tokenBody.Token)
+	defer revokeGitHubInstallationToken(client, token)
 
-	repositoriesEndpoint := fmt.Sprintf(
-		"%s/installation/repositories?page=%d&per_page=%d",
-		strings.TrimRight(githubAPIBase, "/"),
-		page,
-		perPage,
-	)
-	repositoriesReq, err := http.NewRequestWithContext(ctx, http.MethodGet, repositoriesEndpoint, nil)
+	body, err := getInstallationRepositoriesPage(ctx, client, token, page, perPage)
 	if err != nil {
 		return GitHubRepositoriesResponse{}, err
-	}
-	setGitHubAPIHeaders(repositoriesReq, tokenBody.Token)
-	repositoriesResp, err := client.Do(repositoriesReq)
-	if err != nil {
-		return GitHubRepositoriesResponse{}, fmt.Errorf("list installation repositories: %w", err)
-	}
-	defer repositoriesResp.Body.Close()
-	if repositoriesResp.StatusCode != http.StatusOK {
-		_, _ = io.Copy(io.Discard, io.LimitReader(repositoriesResp.Body, githubAPIResponseLimit))
-		return GitHubRepositoriesResponse{}, fmt.Errorf("list installation repositories: github status %d", repositoriesResp.StatusCode)
-	}
-	var body struct {
-		TotalCount   int64 `json:"total_count"`
-		Repositories []struct {
-			ID            int64   `json:"id"`
-			FullName      string  `json:"full_name"`
-			HTMLURL       string  `json:"html_url"`
-			CloneURL      string  `json:"clone_url"`
-			Description   *string `json:"description"`
-			Private       bool    `json:"private"`
-			Archived      bool    `json:"archived"`
-			DefaultBranch string  `json:"default_branch"`
-		} `json:"repositories"`
-	}
-	if err := json.NewDecoder(io.LimitReader(repositoriesResp.Body, githubAPIResponseLimit)).Decode(&body); err != nil {
-		return GitHubRepositoriesResponse{}, fmt.Errorf("decode installation repositories: %w", err)
 	}
 	out := GitHubRepositoriesResponse{
 		Repositories: make([]GitHubRepositoryResponse, 0, len(body.Repositories)),
@@ -913,6 +851,188 @@ func fetchGitHubInstallationRepositories(
 		out.NextPage = &nextPage
 	}
 	return out, nil
+}
+
+// mintGitHubInstallationToken signs the App JWT and exchanges it for a
+// short-lived, metadata-read installation token. The caller revokes it with
+// revokeGitHubInstallationToken when done.
+func mintGitHubInstallationToken(ctx context.Context, client *http.Client, installationID int64) (string, error) {
+	appJWT, err := signGitHubAppJWT(time.Now())
+	if err != nil {
+		return "", err
+	}
+	if appJWT == "" {
+		return "", errors.New("github App JWT credentials unavailable")
+	}
+	tokenEndpoint := fmt.Sprintf(
+		"%s/app/installations/%d/access_tokens",
+		strings.TrimRight(githubAPIBase, "/"),
+		installationID,
+	)
+	tokenReq, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodPost,
+		tokenEndpoint,
+		strings.NewReader(`{"permissions":{"metadata":"read"}}`),
+	)
+	if err != nil {
+		return "", err
+	}
+	setGitHubAPIHeaders(tokenReq, appJWT)
+	tokenReq.Header.Set("Content-Type", "application/json")
+	tokenResp, err := client.Do(tokenReq)
+	if err != nil {
+		return "", fmt.Errorf("create installation token: %w", err)
+	}
+	defer tokenResp.Body.Close()
+	if tokenResp.StatusCode != http.StatusCreated {
+		_, _ = io.Copy(io.Discard, io.LimitReader(tokenResp.Body, githubAPIResponseLimit))
+		return "", fmt.Errorf("create installation token: github status %d", tokenResp.StatusCode)
+	}
+	var tokenBody struct {
+		Token string `json:"token"`
+	}
+	if err := json.NewDecoder(io.LimitReader(tokenResp.Body, githubAPIResponseLimit)).Decode(&tokenBody); err != nil {
+		return "", fmt.Errorf("decode installation token: %w", err)
+	}
+	if tokenBody.Token == "" {
+		return "", errors.New("github returned an empty installation token")
+	}
+	return tokenBody.Token, nil
+}
+
+type githubInstallationRepositoriesPage struct {
+	TotalCount   int64 `json:"total_count"`
+	Repositories []struct {
+		ID            int64   `json:"id"`
+		FullName      string  `json:"full_name"`
+		HTMLURL       string  `json:"html_url"`
+		CloneURL      string  `json:"clone_url"`
+		Description   *string `json:"description"`
+		Private       bool    `json:"private"`
+		Archived      bool    `json:"archived"`
+		DefaultBranch string  `json:"default_branch"`
+	} `json:"repositories"`
+}
+
+func getInstallationRepositoriesPage(ctx context.Context, client *http.Client, token string, page, perPage int) (githubInstallationRepositoriesPage, error) {
+	repositoriesEndpoint := fmt.Sprintf(
+		"%s/installation/repositories?page=%d&per_page=%d",
+		strings.TrimRight(githubAPIBase, "/"),
+		page,
+		perPage,
+	)
+	repositoriesReq, err := http.NewRequestWithContext(ctx, http.MethodGet, repositoriesEndpoint, nil)
+	if err != nil {
+		return githubInstallationRepositoriesPage{}, err
+	}
+	setGitHubAPIHeaders(repositoriesReq, token)
+	repositoriesResp, err := client.Do(repositoriesReq)
+	if err != nil {
+		return githubInstallationRepositoriesPage{}, fmt.Errorf("list installation repositories: %w", err)
+	}
+	defer repositoriesResp.Body.Close()
+	if repositoriesResp.StatusCode != http.StatusOK {
+		_, _ = io.Copy(io.Discard, io.LimitReader(repositoriesResp.Body, githubAPIResponseLimit))
+		return githubInstallationRepositoriesPage{}, fmt.Errorf("list installation repositories: github status %d", repositoriesResp.StatusCode)
+	}
+	var body githubInstallationRepositoriesPage
+	if err := json.NewDecoder(io.LimitReader(repositoriesResp.Body, githubAPIResponseLimit)).Decode(&body); err != nil {
+		return githubInstallationRepositoriesPage{}, fmt.Errorf("decode installation repositories: %w", err)
+	}
+	return body, nil
+}
+
+// installationRepository is a repository as an installation of the GitHub App
+// sees it: the fields a Multica repository takes from GitHub (ADR-0006).
+type installationRepository struct {
+	GitHubRepoID  int64  `json:"github_repo_id"`
+	FullName      string `json:"full_name"`
+	Private       bool   `json:"private"`
+	DefaultBranch string `json:"default_branch"`
+}
+
+// listInstallationRepositories reads every repository one installation sees,
+// in pages of 100.
+func listInstallationRepositories(ctx context.Context, installationID int64) ([]installationRepository, error) {
+	client := &http.Client{Timeout: 15 * time.Second}
+	token, err := mintGitHubInstallationToken(ctx, client, installationID)
+	if err != nil {
+		return nil, err
+	}
+	defer revokeGitHubInstallationToken(client, token)
+
+	const perPage = 100
+	var out []installationRepository
+	for page := 1; ; page++ {
+		body, err := getInstallationRepositoriesPage(ctx, client, token, page, perPage)
+		if err != nil {
+			return nil, err
+		}
+		for _, repository := range body.Repositories {
+			out = append(out, installationRepository{
+				GitHubRepoID:  repository.ID,
+				FullName:      repository.FullName,
+				Private:       repository.Private,
+				DefaultBranch: repository.DefaultBranch,
+			})
+		}
+		if len(body.Repositories) < perPage || int64(page*perPage) >= body.TotalCount {
+			return out, nil
+		}
+	}
+}
+
+// getInstallationRepository reads one repository through an installation
+// with GET /repos/{owner}/{name}. found is false when the installation cannot
+// see it.
+func getInstallationRepository(ctx context.Context, installationID int64, fullName string) (repository installationRepository, found bool, err error) {
+	owner, name, ok := strings.Cut(fullName, "/")
+	if !ok || owner == "" || name == "" || strings.Contains(name, "/") {
+		return installationRepository{}, false, nil
+	}
+	client := &http.Client{Timeout: 15 * time.Second}
+	token, err := mintGitHubInstallationToken(ctx, client, installationID)
+	if err != nil {
+		return installationRepository{}, false, err
+	}
+	defer revokeGitHubInstallationToken(client, token)
+
+	endpoint := fmt.Sprintf("%s/repos/%s/%s",
+		strings.TrimRight(githubAPIBase, "/"), url.PathEscape(owner), url.PathEscape(name))
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return installationRepository{}, false, err
+	}
+	setGitHubAPIHeaders(req, token)
+	resp, err := client.Do(req)
+	if err != nil {
+		return installationRepository{}, false, fmt.Errorf("get repository: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusForbidden {
+		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, githubAPIResponseLimit))
+		return installationRepository{}, false, nil
+	}
+	if resp.StatusCode != http.StatusOK {
+		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, githubAPIResponseLimit))
+		return installationRepository{}, false, fmt.Errorf("get repository: github status %d", resp.StatusCode)
+	}
+	var body struct {
+		ID            int64  `json:"id"`
+		FullName      string `json:"full_name"`
+		Private       bool   `json:"private"`
+		DefaultBranch string `json:"default_branch"`
+	}
+	if err := json.NewDecoder(io.LimitReader(resp.Body, githubAPIResponseLimit)).Decode(&body); err != nil {
+		return installationRepository{}, false, fmt.Errorf("decode repository: %w", err)
+	}
+	return installationRepository{
+		GitHubRepoID:  body.ID,
+		FullName:      body.FullName,
+		Private:       body.Private,
+		DefaultBranch: body.DefaultBranch,
+	}, true, nil
 }
 
 func setGitHubAPIHeaders(req *http.Request, token string) {
