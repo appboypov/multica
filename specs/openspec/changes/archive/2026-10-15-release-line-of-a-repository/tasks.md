@@ -172,16 +172,18 @@ Its J2 starts once UJ-3's J2 is merged.
 
 ## 13. J11 Acceptance test and archive: acceptance test and archive
 
-- [ ] 13.1 `e2e/releases.spec.ts` -- the journey's acceptance test through `TestApiClient`, on appboypov/rebl with worklanes `main`, Fan accounts and push, and Agenda and publication:
+- [x] 13.1 `e2e/releases.spec.ts` -- the journey's acceptance test through `TestApiClient`, on appboypov/rebl with worklanes `main`, Fan accounts and push, and Agenda and publication:
   - On Fan accounts and push, Brian plans Major v1.0.0 First production release, Patch v1.0.1 Membership hardening, Minor v1.1.0 Account and profile and Minor v1.2.0 Notifications.
   - He moves Notifications earlier, so it becomes v1.1.0, and Account and profile becomes v1.2.0. He then sets Account and profile by hand to v1.2.5.
   - `main` and Agenda and publication show the same four releases in that order.
   - Each worklane's activity records each change.
   - A too-low Custom version keeps Plan disabled, and a move that breaks the line is disabled with its reason.
   - Remove release renumbers; Edit repository refuses "This repository does not release" while releases remain.
-- [ ] 13.2 The release line on Brian's Mac -- on the local release, plan the four releases on appboypov/rebl and move Notifications earlier, then record the Timeline of two worklanes and their activity in the J11 pull request -- the PRD's success signal.
-- [ ] 13.3 `specs/openspec/changes/release-line-of-a-repository/` -- run `openspec validate release-line-of-a-repository --type change --strict`, sync the specs and archive the change -- the journey closes on its J11 pull request.
+- [x] 13.2 The release line on Brian's Mac -- on the local release, plan the four releases on appboypov/rebl and move Notifications earlier, then record the Timeline of two worklanes and their activity in the J11 pull request -- the PRD's success signal.
+- [x] 13.3 `specs/openspec/changes/release-line-of-a-repository/` -- run `openspec validate release-line-of-a-repository --type change --strict`, sync the specs and archive the change -- the journey closes on its J11 pull request.
 
 ## Implementation Notes
 
 ## Plan Change Log
+
+- 2026-10-15, J11: the change is archived with open tasks. 2.5, 8.2, 8.3, 9.8, 10.3, 11.7 and 12.6 stay unticked, because Brian's rule shipped the lanes layer pull requests #29, #31 and #32 without tests. Groups 4, 5, 6 and 7 stay unticked, because the Gate Request dropped J3, J5, J6 and J7. Task 13.2 ran on Brian's Mac with a worklane made for it and removed afterwards, as Decision `bafyreiacuj4r4zvetjzhuc5h7xpbg6tyaluy5rhvu2o7xey3szn7dnf4gq` says. Task 13.1 ran on the Mac against the worktree's test stack instead of Crabbox, as Decision `bafyreia2mmt7l55ohjewhquapxii7r5qq3kno3i7qsk5ycmueeefttdecm` says.
