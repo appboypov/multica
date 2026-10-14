@@ -4,6 +4,7 @@ import type {
   ReleaseMovedDetails,
   ReleaseRemovedDetails,
 } from "./release";
+import type { WorklaneSwitchedDetails, WorklaneKeptDetails } from "./activity";
 
 /**
  * Worklanes — the lanes of work of a repository (ADR-0006).
@@ -16,6 +17,12 @@ import type {
 
 /** Whether an issue of the worklane is being worked on. */
 export type WorklaneState = "free" | "busy";
+
+export interface WorklaneIssueRef {
+  id: string;
+  identifier: string;
+  title: string;
+}
 
 export interface Worklane {
   id: string;
@@ -31,6 +38,9 @@ export interface Worklane {
   is_main: boolean;
   position: number;
   state: WorklaneState;
+  branch: string | null;
+  active_issue: WorklaneIssueRef | null;
+  next_issue: WorklaneIssueRef | null;
   created_at: string;
   updated_at: string;
 }
@@ -52,15 +62,15 @@ export interface RenameWorklaneRequest {
 }
 
 /**
- * Making or removing a worklane runs as a request on the worklane's machine,
+ * Making, removing or switching a worklane runs as a request on its machine,
  * polled until it ends. Every enum below has `unknown` for a value from a newer
  * server, shown as a failed step with the server's detail.
  */
-export type WorklaneRequestKind = "create" | "remove" | "unknown";
+export type WorklaneRequestKind = "create" | "remove" | "switch" | "unknown";
 
 export type WorklaneRequestStatus = "running" | "failed" | "completed" | "refused" | "unknown";
 
-export type WorklaneRequestStepKey = "fetch" | "add_worktree" | "install" | "open" | "unknown";
+export type WorklaneRequestStepKey = "fetch" | "add_worktree" | "install" | "open" | "check" | "switch" | "unknown";
 
 export type WorklaneRequestStepState = "pending" | "running" | "done" | "skipped" | "failed" | "unknown";
 
@@ -97,6 +107,7 @@ export type WorklaneRequestReasonCode =
 export interface WorklaneRequestReason {
   code: WorklaneRequestReasonCode;
   detail: string;
+  count?: number;
 }
 
 export interface WorklaneRequest {
@@ -132,6 +143,8 @@ export type WorklaneActivityAction =
   | "release_edited"
   | "release_moved"
   | "release_removed"
+  | "worklane_switched"
+  | "worklane_kept"
   | "unknown";
 
 export interface WorklaneCreatedDetails {
@@ -159,6 +172,8 @@ export type WorklaneActivityEntry = WorklaneActivityEntryBase &
     | { action: "release_edited"; details: ReleaseEditedDetails }
     | { action: "release_moved"; details: ReleaseMovedDetails }
     | { action: "release_removed"; details: ReleaseRemovedDetails }
+    | { action: "worklane_switched"; details: WorklaneSwitchedDetails }
+    | { action: "worklane_kept"; details: WorklaneKeptDetails }
     | { action: "unknown"; details: Record<string, unknown> }
   );
 

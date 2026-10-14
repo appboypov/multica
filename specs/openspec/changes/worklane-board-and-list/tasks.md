@@ -37,11 +37,11 @@ This change builds on UJ-5 (`issues-from-templates`, DAS-456), which builds on U
 
 ## 2. J2 Data models: DTO
 
-- [ ] 2.1 `packages/core/types/issue.ts` -- `done_at: string | null` on `Issue`.
-- [ ] 2.2 `packages/core/types/worklane.ts` -- `branch: string | null`, `active_issue` and `next_issue` as `WorklaneIssueRef | null` (`{id, identifier, title}`), and the request kind `switch` with its step keys `check`, `fetch` and `switch` and the refusal codes `uncommitted` and `unpushed`.
-- [ ] 2.3 `packages/core/types/api.ts` -- `IssueTableScope` gains `{kind: "worklane", worklane_id}`, and `IssueTableFilters` gains `types?: (IssueType | "none")[]`.
-- [ ] 2.4 `packages/core/types/activity.ts` -- the details of `worklane_switched` `{from, to, issue_id}` and `worklane_kept` `{branch, reason, count}`.
-- [ ] 2.5 `packages/core/api/schemas.ts` -- `IssueSchema` gains `done_at` (default `null`). The worklane schema gains `branch`, `active_issue` and `next_issue` (default `null`), and `busy` now comes from the server. The request schema takes kind `switch`, its steps and codes, with UJ-3's `unknown` fallbacks.
+- [x] 2.1 `packages/core/types/issue.ts` -- `done_at: string | null` on `Issue`.
+- [x] 2.2 `packages/core/types/worklane.ts` -- `branch: string | null`, `active_issue` and `next_issue` as `WorklaneIssueRef | null` (`{id, identifier, title}`), and the request kind `switch` with its step keys `check`, `fetch` and `switch` and the refusal codes `uncommitted` and `unpushed`.
+- [x] 2.3 `packages/core/types/api.ts` -- `IssueTableScope` gains `{kind: "worklane", worklane_id}`, and `IssueTableFilters` gains `types?: (IssueType | "none")[]`.
+- [x] 2.4 `packages/core/types/activity.ts` -- the details of `worklane_switched` `{from, to, issue_id}` and `worklane_kept` `{branch, reason, count}`.
+- [x] 2.5 `packages/core/api/schemas.ts` -- `IssueSchema` gains `done_at` (default `null`). The worklane schema gains `branch`, `active_issue` and `next_issue` (default `null`), and `busy` now comes from the server. The request schema takes kind `switch`, its steps and codes, with UJ-3's `unknown` fallbacks.
 - [ ] 2.6 `packages/core/api/schemas.test.ts` -- malformed-response cases: an issue without `done_at`, a worklane without the three fields, an `active_issue` without `title`, a switch request with an unknown step and an unknown refusal code.
 
 ## 3. J2 Data models: action names

@@ -77,3 +77,16 @@ export type IssuePlacementActivityEntry = {
     details: IssueActivityDetailsByAction[Action];
   };
 }[IssuePlacementActivityAction];
+
+export interface WorklaneSwitchedDetails {
+  /** null or "" means the worktree was detached. */
+  from: string | null;
+  to: string | null;
+  issue_id: string | null;
+}
+
+export interface WorklaneKeptDetails {
+  branch: string;
+  reason: "uncommitted" | "unpushed" | "unknown";
+  count: number;
+}

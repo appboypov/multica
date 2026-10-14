@@ -211,6 +211,8 @@ export interface Issue {
   type?: IssueType | null;
   worklane_id?: string | null;
   release_id?: string | null;
+  /** Kept by the database; absent in existing cached/literal issues. */
+  done_at?: string | null;
   position: number;
   // Ordered barrier group among sibling sub-issues (null = unstaged). The
   // parent assignee is woken when a stage closes while a later one waits;

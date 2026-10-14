@@ -1364,6 +1364,7 @@ export const IssueSchema = z.object({
   type: z.enum(ISSUE_TYPES).nullable().catch(null),
   worklane_id: z.string().nullable().default(null),
   release_id: z.string().nullable().default(null),
+  done_at: z.string().nullable().default(null),
   position: z.number(),
   // Older backends predate `stage`; default to null so a missing field parses
   // cleanly into the non-optional Issue.stage (number | null).
@@ -1677,6 +1678,12 @@ export const MALFORMED_REPOSITORY_CHECKOUT_REQUEST: RepositoryCheckoutRequest = 
 
 // Worklanes of a repository. A malformed row is dropped from the list, as for
 // repositories.
+const WorklaneIssueRefSchema = z.object({
+  id: z.string(),
+  identifier: z.string(),
+  title: z.string().default(""),
+}).loose();
+
 export const WorklaneSchema: z.ZodType<Worklane> = z.object({
   id: z.string(),
   workspace_id: z.string(),
@@ -1689,6 +1696,9 @@ export const WorklaneSchema: z.ZodType<Worklane> = z.object({
   position: z.number().default(0),
   // `free` is the fallback: an unknown state never reads as work in progress.
   state: z.enum(["free", "busy"]).catch("free"),
+  branch: z.string().nullable().default(null),
+  active_issue: WorklaneIssueRefSchema.nullable().default(null).catch(null),
+  next_issue: WorklaneIssueRefSchema.nullable().default(null).catch(null),
   created_at: z.string().default(""),
   updated_at: z.string().default(""),
 }).loose();
@@ -1704,6 +1714,9 @@ export const EMPTY_WORKLANE: Worklane = {
   is_main: false,
   position: 0,
   state: "free",
+  branch: null,
+  active_issue: null,
+  next_issue: null,
   created_at: "",
   updated_at: "",
 };
@@ -1722,7 +1735,7 @@ export const EMPTY_LIST_WORKLANES_RESPONSE: ListWorklanesResponse = {
 };
 
 const WorklaneRequestStepSchema = z.object({
-  key: z.enum(["fetch", "add_worktree", "install", "open", "unknown"]).catch("unknown"),
+  key: z.enum(["fetch", "add_worktree", "install", "open", "check", "switch", "unknown"]).catch("unknown"),
   state: z.enum(["pending", "running", "done", "skipped", "failed", "unknown"]).catch("unknown"),
   detail: z.string().catch(""),
   output: z.string().catch(""),
@@ -1753,6 +1766,7 @@ const WORKLANE_REQUEST_REASON_CODES = [
 const WorklaneRequestReasonSchema = z.object({
   code: z.enum(WORKLANE_REQUEST_REASON_CODES).catch("unknown"),
   detail: z.string().catch(""),
+  count: z.number().optional().catch(undefined),
 }).loose();
 
 // A worklane request is polled every second while it runs. Every field
@@ -1761,7 +1775,7 @@ const WorklaneRequestReasonSchema = z.object({
 // step with the server's detail, and a missing `steps` reads as none.
 export const WorklaneRequestSchema: z.ZodType<WorklaneRequest> = z.object({
   id: z.string().catch(""),
-  kind: z.enum(["create", "remove", "unknown"]).catch("unknown"),
+  kind: z.enum(["create", "remove", "switch", "unknown"]).catch("unknown"),
   repository_id: z.string().catch(""),
   worklane_id: z.string().nullable().catch(null),
   name: z.string().catch(""),
@@ -1869,6 +1883,24 @@ const WorklaneActivityEntrySchema: z.ZodType<WorklaneActivityEntry> = z.union([
       direction: z.enum(["earlier", "later", "unknown"]).catch("unknown"),
       changes: z.array(ReleaseVersionChangeSchema).catch([]),
     }).loose().catch({ ...EmptyReleaseActivityDetails, direction: "unknown", changes: [] }),
+  }).loose(),
+  z.object({
+    ...WorklaneActivityShape,
+    action: z.literal("worklane_switched"),
+    details: z.object({
+      from: z.string().nullable().catch(null),
+      to: z.string().nullable().catch(null),
+      issue_id: z.string().nullable().catch(null),
+    }).loose().catch({ from: null, to: null, issue_id: null }),
+  }).loose(),
+  z.object({
+    ...WorklaneActivityShape,
+    action: z.literal("worklane_kept"),
+    details: z.object({
+      branch: z.string().catch(""),
+      reason: z.enum(["uncommitted", "unpushed", "unknown"]).catch("unknown"),
+      count: z.number().catch(0),
+    }).loose().catch({ branch: "", reason: "unknown", count: 0 }),
   }).loose(),
   z.object({
     ...WorklaneActivityShape,

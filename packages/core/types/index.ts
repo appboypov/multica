@@ -147,6 +147,8 @@ export type {
   IssueActivityDetailsByAction,
   IssuePlacementActivityAction,
   IssuePlacementActivityEntry,
+  WorklaneSwitchedDetails,
+  WorklaneKeptDetails,
 } from "./activity";
 export type { IssueSubscriber } from "./subscriber";
 export type * from "./events";
@@ -224,6 +226,7 @@ export type {
 export type {
   WorklaneState,
   Worklane,
+  WorklaneIssueRef,
   ListWorklanesResponse,
   CreateWorklaneRequest,
   RenameWorklaneRequest,

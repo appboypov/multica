@@ -301,12 +301,14 @@ export interface GroupedIssuesResponse {
 export type IssueTableScope =
   | { kind: "workspace"; assignee_types?: IssueAssigneeType[] }
   | { kind: "project"; project_id: string; assignee_types?: IssueAssigneeType[] }
+  | { kind: "worklane"; worklane_id: string }
   | { kind: "assignee"; actor: IssueActorRef }
   | { kind: "creator"; actor: IssueActorRef }
   | { kind: "my"; relation: "assigned" | "created" | "involved" | "any" };
 
 export interface IssueTableFilters {
   statuses?: IssueStatus[];
+  types?: (IssueType | "none")[];
   priorities?: IssuePriority[];
   assignees?: IssueActorRef[];
   include_no_assignee?: boolean;
