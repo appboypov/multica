@@ -15,7 +15,7 @@ flowchart LR
   J8[J8 Backend and agent tooling<br/>groups 7-8]:::work --> J9
   J9[J9 Frontend<br/>groups 9-11]:::work --> J10
   J10[J10 Agent tooling for UI<br/>Skip: J10]:::skip --> J11
-  J11[J11 Acceptance test and archive<br/>group 12]:::work
+  J11[J11 Archive<br/>group 12]:::work
 ```
 
 | Step | Groups | Builder |
@@ -30,7 +30,7 @@ flowchart LR
 | J8 Backend and agent tooling | 7 endpoint, 8 integration | `madspec-api-builder` |
 | J9 Frontend | 9 flow, 10 component change, 11 screen | `madspec-api-builder`, `madspec-component-builder`, `madspec-view-builder` |
 | J10 Agent tooling for UI | none: `Skip: J10` | — |
-| J11 Acceptance test and archive | 12 | Sarkout |
+| J11 Archive | 12 | Sarkout |
 
 ## 1. J2 Data models: new model
 
@@ -185,9 +185,9 @@ flowchart LR
   - The spec scenarios that belong to components.
 - [x] 11.10 `apps/docs/content/docs/projects.mdx`, `projects.zh.mdx`, `projects.ko.mdx`, `projects.ja.mdx`, `projects.fr.mdx` -- replace the status table and dates with organisations: the Organisations page, the key and No organisation -- the docs match the app in every language.
 
-## 12. J11 Acceptance test and archive: acceptance test and archive
+## 12. J11 Archive
 
-- [x] 12.1 `e2e/organisations.spec.ts` -- the journey's acceptance test through `TestApiClient`:
+- [x] 12.1 `e2e/organisations.spec.ts` -- the automated journey test through `TestApiClient`:
   - Create the organisations Rebl Records and De App Specialist, and projects in each, plus one without an organisation.
   - Projects shows De App Specialist, then Rebl Records, then No organisation.
   - New organisation refuses "rebl records".
@@ -297,7 +297,7 @@ flowchart LR
 - 11.9 (written, unticked until it runs): `projects-page.test.tsx` mocks organisations and the fold state through the real `groupProjectsByOrganisation` and adds grouping, No organisation last, folding and no-status/date cases. `create-project.test.tsx` drops the date-picker mocks and the overflow test and adds the organisation preset, the `data.organisationId` start and Create staying disabled without an organisation. `project-detail.test.tsx` drops the deleted picker mocks and adds the Organisation row and no-status/date cases. New `create-organisation.test.tsx` covers create, a taken name ignoring case, a taken key, a bad key, empties and a server refusal. New `organisations-page.test.tsx` covers counts, the header count, row navigation, New organisation, own projects only, New project in the organisation, not found and the key field. None of these has run yet.
 - 11.10 files touched: `apps/docs/content/docs/projects{,.zh,.ko,.ja,.fr}.mdx`. In "Parts of a project", the Status row gives way to an Organisation row and the dates row is gone. A new "Organisations" section, before "Projects and issues", covers the required organisation in New project, the property row, Projects grouped with No organisation last and folding, the Organisations page in the sidebar, the organisation's page with New project, New organisation's unique name ignoring case, the key rule and where to change it, and that organisations can't be renamed or deleted (design Non-Goals). The progress paragraph keeps only the `cancelled` sentence, and the delete callout no longer names the status. The UI terms in each language are the views locale strings (for example 无组织, 조직 없음, 組織なし, 新規プロジェクト, Aucune organisation, Clé). The screenshot alt text still says the issues are grouped by status, which is issue status and stays.
 
-### Group 12. J11 Acceptance test and archive: acceptance test and archive
+### Group 12. J11 Archive
 
 - 12.1 files touched: new `e2e/organisations.spec.ts`, `e2e/fixtures.ts`. `TestApiClient` gains `createOrganisation(name, key)` and `listProjects()`. Organisations have no delete endpoint (a design Non-Goal), so `cleanup()` deletes every project inside an organisation the client made through the API, then the organisation rows straight from the database, as it does for seeded issues. The spec shares its workspace with the other specs, so its names carry a run suffix and the order check reads only its own groups and No organisation. It also folds a group and checks the new project's page names its organisation. On Crabbox through the slot gate, against this checkout's API and production web build on a temporary Postgres: 1 passed.
 - 12.2: the sync ran once against the local release (`main` at `11e8e0741`), after a `pg_dump` of its database. It created 14 organisations and 33 Product projects, moved 35 issues into Product projects, deleted 14 emptied repository projects, printed 15 repository projects that stay for MadSpec (3 repositories) and SuperMarty (12), and 4 repositories without a Product. A second run wrote nothing and printed only those 19 lines. The printed lines are in the J11 pull request.
