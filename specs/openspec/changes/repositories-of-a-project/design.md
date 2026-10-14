@@ -546,6 +546,7 @@ Then each project recorded under `repository_projects` merges, as UJ-1 merged a 
 ## Risks / Trade-offs
 
 - **Migration numbers.** The questions journeys keep 575 to 589 and the lanes journeys take 590 onward, so this change takes 590 to 597 and each later lanes change goes on from the highest lanes number. When `main` has taken any of them before J2, the builder takes the next free numbers and renames the cleanup entries with them.
+- **Removals wait for their callers.** Each step's pull request merges into `main` and is released on its own, so J2 only adds tables, queries, types, schemas, events and modal names. The `project_resource` drop (597), its queries, `EventProjectResource*` and `DaemonCapabilityLocalWorktreeV1` go with J8, which removes the handlers and the daemon code that use them. `local_worktree_supported`, the resource types and schemas and `resource_count` go with J9, which removes the web, desktop and core code that reads them.
 - **The kept projects need UJ-1's run.** The repository projects UJ-1 kept are found through its mark file, not through the checkout labels 597 drops. Without UJ-1's sync run before 597, they are not recorded and stay with their issues. The Migration Plan orders them.
 - **The brain-project-sync spec still names the single-repository merge and the kept projects** after this change removes the checkout step. Their subject, a project carrying a checkout mark, no longer exists after 597, and this change's `brain-repository-sync` merges the projects UJ-1 kept. Both requirements need retiring at this change's J11 through `madspec-revise-plan` (Open Questions).
 - **`madspec-git`'s Core Rule** still puts worktrees at `~/Worktrees/{team}/{lane folder}/{repo}`. Agents read both; the brief's issue rule names the path the daemon made, so the agent has one place to work. The skill's text is out of this repository.
@@ -556,7 +557,7 @@ Then each project recorded under `repository_projects` merges, as UJ-1 merged a 
 ## Migration Plan
 
 1. Release UJ-1 and run its brain sync once. It merges the repository project of each Product with one repository and records each repository project it keeps for a Product with several (UJ-1 Migration Plan).
-2. Apply the migrations 590 to 597. `project_resource` and its 32 rows go; issues of the projects keep running with workspace repos until step 4.
+2. Apply the migrations. 590 to 596 arrive with J2 and add the empty tables. 597 arrives with J8: `project_resource` and its 32 rows go, and issues of the projects keep running with workspace repos until step 4.
 3. Release with `make local-release`.
 4. Run `uv run madspec-sync/multica_projects.py` once by hand. It adds each Product's repositories with worklane `main`, moves the issues of each project UJ-1 kept into its Product's project once its repository is added there, deletes the emptied projects, and prints every repository it cannot add.
 
