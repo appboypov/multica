@@ -3,6 +3,7 @@ package scheduler
 import (
 	"context"
 	"os"
+	"slices"
 	"testing"
 	"time"
 
@@ -37,10 +38,16 @@ func TestQuestionOverdueJobStampsOpenPastDueQuestionsOnce(t *testing.T) {
 		workspaceID string
 		issueID     string
 		id          string
+		askID       string
+		group       string
+		position    int
 	}
 	cases := []questionCase{
-		{name: "open due yesterday", status: "open", due: &yesterday, wantNotice: true},
-		{name: "answered due yesterday", status: "answered", due: &yesterday},
+		{name: "first open question due yesterday", status: "open", due: &yesterday, wantNotice: true, group: "three overdue"},
+		{name: "second open question due yesterday", status: "open", due: &yesterday, wantNotice: true, group: "three overdue", position: 1},
+		{name: "third open question due yesterday", status: "open", due: &yesterday, wantNotice: true, group: "three overdue", position: 2},
+		{name: "answered first question due yesterday", status: "answered", due: &yesterday, group: "partly overdue"},
+		{name: "partly answered second question due yesterday", status: "partly_answered", due: &yesterday, wantNotice: true, group: "partly overdue", position: 1},
 		{name: "withdrawn due yesterday", status: "withdrawn", due: &yesterday},
 		{name: "closed due yesterday", status: "closed", due: &yesterday},
 		{name: "open due today", status: "open", due: &today},
@@ -57,15 +64,25 @@ func TestQuestionOverdueJobStampsOpenPastDueQuestionsOnce(t *testing.T) {
 		issueID := fixture.Issue(t, "An agent needs an answer")
 		agentID := fixture.Agent(t, "Question asker", "")
 		taskID := fixture.Task(t, agentID, dbfx.Cols{"issue_id": issueID, "status": "completed", "completed_at": dbfx.Raw("now()")})
+		groupAskIDs := make(map[string]string)
 		for i := range cases {
 			if (workspace == 0 && i == len(cases)-1) || (workspace == 1 && i != len(cases)-1) {
 				continue
 			}
 			c := &cases[i]
 			c.workspaceID, c.issueID = fixture.WorkspaceID, issueID
-			questionID := uuid.NewString()
+			c.id = uuid.NewString()
+			c.askID = c.id
+			if c.group != "" {
+				if groupAskIDs[c.group] == "" {
+					groupAskIDs[c.group] = c.id
+				}
+				c.askID = groupAskIDs[c.group]
+			}
 			c.id = fixture.Insert(t, "question", dbfx.Cols{
-				"id":                  questionID,
+				"id":                  c.id,
+				"ask_id":              c.askID,
+				"ask_position":        c.position,
 				"workspace_id":        fixture.WorkspaceID,
 				"asker_agent_id":      agentID,
 				"asked_in_task_id":    taskID,
@@ -75,8 +92,6 @@ func TestQuestionOverdueJobStampsOpenPastDueQuestionsOnce(t *testing.T) {
 				"status":              c.status,
 				"due_date":            c.due,
 				"overdue_notified_at": c.stamp,
-				"ask_id":              questionID,
-				"ask_position":        0,
 			})
 			for position, link := range []struct{ kind, id string }{{"issue", issueID}, {"task", taskID}} {
 				fixture.InsertNoID(t, "question_link", dbfx.Cols{
@@ -136,8 +151,8 @@ func TestQuestionOverdueJobStampsOpenPastDueQuestionsOnce(t *testing.T) {
 				t.Errorf("%s: stamp changed on second tick", c.name)
 			}
 		}
-		if len(published) != 2 {
-			t.Fatalf("tick %d published %d fixture events, want one per overdue question (2)", tick+1, len(published))
+		if len(published) != 3 {
+			t.Fatalf("tick %d published %d fixture events, want one per overdue ask (3)", tick+1, len(published))
 		}
 		for _, c := range cases {
 			if !c.wantNotice {
@@ -149,12 +164,21 @@ func TestQuestionOverdueJobStampsOpenPastDueQuestionsOnce(t *testing.T) {
 				if !ok {
 					t.Fatalf("event payload = %T, want QuestionEventPayload", event.Payload)
 				}
-				if payload.QuestionID != c.id {
+				if !slices.Contains(payload.QuestionIDs, c.id) {
 					continue
 				}
 				count++
-				if event.Type != protocol.EventQuestionUpdated || event.WorkspaceID != c.workspaceID || event.ActorType != "system" || payload.IssueID != c.issueID || payload.Reason != protocol.QuestionReasonOverdue {
+				if event.Type != protocol.EventQuestionUpdated || event.WorkspaceID != c.workspaceID || event.ActorType != "system" || payload.IssueID != c.issueID || payload.Reason != protocol.QuestionReasonOverdue || payload.AskID != c.askID || payload.QuestionID != c.askID {
 					t.Errorf("%s: unexpected overdue event %+v with payload %+v", c.name, event, payload)
+				}
+				wantIDs := []string{}
+				for _, sibling := range cases {
+					if sibling.askID == c.askID && sibling.wantNotice {
+						wantIDs = append(wantIDs, sibling.id)
+					}
+				}
+				if !slices.Equal(payload.QuestionIDs, wantIDs) {
+					t.Errorf("%s: grouped ids = %v, want %v in ask order", c.name, payload.QuestionIDs, wantIDs)
 				}
 			}
 			if count != 1 {

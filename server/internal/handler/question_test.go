@@ -3,6 +3,7 @@ package handler
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -45,18 +46,23 @@ func (fx questionAPIFixture) agentRequest(method, id string, body any) *http.Req
 }
 
 func questionAskBody(answerers ...string) map[string]any {
-	return map[string]any{"prompt": "Round per line or per total?", "answer_type": "single_choice",
-		"settings": map[string]any{"options": []string{"per line", "per total"}, "allow_other": false}, "answerer_ids": answerers}
+	return map[string]any{
+		"questions": []map[string]any{{
+			"prompt": "Round per line or per total?", "answer_type": "single_choice",
+			"settings": map[string]any{"options": []string{"per line", "per total"}, "allow_other": false},
+		}},
+		"answerer_ids": answerers,
+	}
 }
 
 func askQuestionForTest(t *testing.T, fx questionAPIFixture) string {
 	t.Helper()
-	out := testutil.Call(t, testHandler.AskQuestion, fx.agentRequest("POST", "", questionAskBody(testUserID))).Want(201).Map()
-	id, ok := out["id"].(string)
-	if !ok || id == "" {
-		t.Fatalf("missing question id: %+v", out)
+	var out service.QuestionAskResult
+	testutil.Call(t, testHandler.AskQuestion, fx.agentRequest("POST", "", questionAskBody(testUserID))).Want(201).JSON(&out)
+	if len(out.Questions) != 1 || out.Questions[0].ID == "" || out.AskID != out.Questions[0].ID {
+		t.Fatalf("missing one-question ask result: %+v", out)
 	}
-	return id
+	return out.Questions[0].ID
 }
 
 func TestQuestionAPI_MemberCannotAsk(t *testing.T) {
@@ -151,7 +157,7 @@ func TestQuestionAPI_WorkspaceScopeAndUUIDInput(t *testing.T) {
 	if len(questions) != 1 || questions[0]["id"] != id {
 		t.Fatalf("issue question list: %+v", questions)
 	}
-	for _, field := range []string{"links", "answerers", "answers", "events", "unseen_answer_count", "wake_available"} {
+	for _, field := range []string{"ask_id", "ask_position", "ask_title", "answer_policy", "links", "answerers", "answers", "events", "unseen_answer_count", "wake_available"} {
 		if _, ok := questions[0][field]; !ok {
 			t.Fatalf("missing question contract field %s", field)
 		}
@@ -204,5 +210,143 @@ func TestQuestionUpload_StoresQuestionOwnerAndRejectsOtherWorkspace(t *testing.T
 	testutil.Call(t, h.UploadFile, request("", id)).Want(400)
 	if n := dbfx.Count(t, "SELECT count(*) FROM attachment WHERE question_id=$1", id); n != 1 {
 		t.Fatalf("refused upload created attachment: %d", n)
+	}
+}
+
+func questionSetBody(count int, answerers ...string) map[string]any {
+	body := questionAskBody(answerers...)
+	questions := make([]map[string]any, count)
+	for i := range questions {
+		questions[i] = map[string]any{
+			"prompt": fmt.Sprintf("Question %d", i+1), "answer_type": "yes_no",
+			"settings": map[string]any{"why_on_no": false},
+		}
+	}
+	body["questions"] = questions
+	if count > 1 {
+		body["title"] = "Three things before the CSV writer"
+	}
+	return body
+}
+
+func TestQuestionAPI_ThreeQuestionAskReturnsOrderedSet(t *testing.T) {
+	fx := newQuestionAPIFixture(t)
+	var out service.QuestionAskResult
+	testutil.Call(t, testHandler.AskQuestion, fx.agentRequest("POST", "", questionSetBody(3, testUserID))).Want(201).JSON(&out)
+	if len(out.Questions) != 3 || out.AskID == "" || out.AskID != out.Questions[0].ID {
+		t.Fatalf("wrong grouped ask: %+v", out)
+	}
+	for i, q := range out.Questions {
+		if q.AskID != out.AskID || q.AskPosition != int32(i) || q.Prompt != fmt.Sprintf("Question %d", i+1) ||
+			q.AskTitle == nil || *q.AskTitle != "Three things before the CSV writer" || q.AnswerPolicy != "any_one" || !q.BlocksWork {
+			t.Fatalf("question %d lost grouped fields or order: %+v", i+1, q)
+		}
+	}
+}
+
+func TestQuestionAPI_AskRefusalsWriteNothing(t *testing.T) {
+	for _, tc := range []struct {
+		name, field string
+		status      int
+		body        func() map[string]any
+	}{
+		{"too many questions", "questions", 422, func() map[string]any { return questionSetBody(21, testUserID) }},
+		{"set without title", "title", 422, func() map[string]any {
+			body := questionSetBody(3, testUserID)
+			delete(body, "title")
+			return body
+		}},
+		{"unknown policy", "policy", 422, func() map[string]any {
+			body := questionSetBody(3, testUserID)
+			body["answer_policy"] = "all_at_once"
+			return body
+		}},
+		{"invalid squad UUID", "squad_id", 400, func() map[string]any {
+			body := questionSetBody(3, testUserID)
+			body["squad_id"] = "not-a-uuid"
+			return body
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			fx := newQuestionAPIFixture(t)
+			out := testutil.Call(t, testHandler.AskQuestion, fx.agentRequest("POST", "", tc.body())).Want(tc.status).Text()
+			if !strings.Contains(out, tc.field) {
+				t.Fatalf("refusal does not name %s: %s", tc.field, out)
+			}
+			if n := dbfx.Count(t, "SELECT count(*) FROM question WHERE asker_agent_id=$1", fx.AgentID); n != 0 {
+				t.Fatalf("refused ask created %d questions", n)
+			}
+		})
+	}
+}
+
+func TestQuestionAPI_RefusesSquadFromAnotherWorkspace(t *testing.T) {
+	fx := newQuestionAPIFixture(t)
+	ws := dbfx.Workspace(t, "Other squad workspace", "other-question-squad-workspace")
+	squad := dbfx.Squad(t, "Finance elsewhere", fx.AgentID, testutil.Cols{"workspace_id": ws})
+	body := questionSetBody(3, testUserID)
+	body["squad_id"] = squad
+	testutil.Call(t, testHandler.AskQuestion, fx.agentRequest("POST", "", body)).Want(422)
+	if n := dbfx.Count(t, "SELECT count(*) FROM question WHERE asker_agent_id=$1", fx.AgentID); n != 0 {
+		t.Fatalf("cross-workspace squad ask created %d questions", n)
+	}
+}
+
+func TestQuestionAPI_EachAnswersBecomePartlyAnsweredThenAnswered(t *testing.T) {
+	fx := newQuestionAPIFixture(t)
+	second := dbfx.User(t, "Second answerer", "question-each-api@multica.test")
+	dbfx.Member(t, testWorkspaceID, second, "member")
+	body := questionSetBody(3, testUserID, second)
+	body["answer_policy"] = "each"
+	var ask service.QuestionAskResult
+	testutil.Call(t, testHandler.AskQuestion, fx.agentRequest("POST", "", body)).Want(201).JSON(&ask)
+	if len(ask.Questions) != 3 {
+		t.Fatalf("wrong ask size: %+v", ask)
+	}
+	id := ask.Questions[0].ID
+	for i, userID := range []string{testUserID, second} {
+		r := withURLParam(newRequest("POST", "/", map[string]any{"value": map[string]any{"choice": "yes"}}), "id", id)
+		r.Header.Set("X-User-ID", userID)
+		out := testutil.Call(t, testHandler.AnswerQuestion, r).Want(200).Map()
+		want := []string{"partly_answered", "answered"}[i]
+		if out["status"] != want || out["answer_policy"] != "each" || out["ask_id"] != ask.AskID {
+			t.Fatalf("answer %d lost policy status or ask: %+v", i+1, out)
+		}
+	}
+	for _, q := range ask.Questions[1:] {
+		out := testutil.Call(t, testHandler.GetQuestion, withURLParam(newRequest("GET", "/", nil), "id", q.ID)).Want(200).Map()
+		if out["status"] != "open" {
+			t.Fatalf("answering first question changed sibling: %+v", out)
+		}
+	}
+}
+
+func TestQuestionAPI_BlocksWorkFalseSurvivesRequestParsing(t *testing.T) {
+	fx := newQuestionAPIFixture(t)
+	body := questionAskBody(testUserID)
+	body["blocks_work"] = false
+	var out service.QuestionAskResult
+	testutil.Call(t, testHandler.AskQuestion, fx.agentRequest("POST", "", body)).Want(201).JSON(&out)
+	if len(out.Questions) != 1 || out.Questions[0].BlocksWork {
+		t.Fatalf("explicit false blocks_work was lost: %+v", out)
+	}
+}
+
+func TestQuestionAPI_SquadUUIDSuppliesAnswerers(t *testing.T) {
+	fx := newQuestionAPIFixture(t)
+	squad := dbfx.Squad(t, "Question API Finance", fx.AgentID)
+	dbfx.SquadMember(t, squad, "member", testUserID)
+	dbfx.SquadMember(t, squad, "agent", fx.AgentID)
+	body := questionSetBody(3)
+	body["squad_id"] = squad
+	var out service.QuestionAskResult
+	testutil.Call(t, testHandler.AskQuestion, fx.agentRequest("POST", "", body)).Want(201).JSON(&out)
+	if len(out.Questions) != 3 {
+		t.Fatalf("squad ask lost questions: %+v", out)
+	}
+	for _, q := range out.Questions {
+		if len(q.Answerers) != 1 || q.Answerers[0].UserID != testUserID {
+			t.Fatalf("squad UUID did not supply its human answerer: %+v", q.Answerers)
+		}
 	}
 }

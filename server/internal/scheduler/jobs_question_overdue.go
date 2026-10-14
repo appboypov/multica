@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"slices"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
@@ -19,8 +20,8 @@ const (
 	questionOverdueMaxBatches = 100
 )
 
-// QuestionOverdueJob notifies once when an open question passes its UTC due
-// date. The persisted stamp also covers missed scheduler buckets.
+// QuestionOverdueJob stamps overdue open questions once and notifies per ask.
+// The persisted stamps also cover missed scheduler buckets.
 func QuestionOverdueJob(queries *db.Queries, bus *events.Bus) JobSpec {
 	return JobSpec{
 		Name:              "question_overdue",
@@ -37,6 +38,43 @@ func QuestionOverdueJob(queries *db.Queries, bus *events.Bus) JobSpec {
 		Handler: func(ctx context.Context, in HandlerInput) (HandlerResult, error) {
 			beforeDate := in.PlanTime.UTC().Truncate(24 * time.Hour)
 			var total int64
+			type overdueQuestion struct {
+				id       string
+				position int32
+			}
+			type overdueAsk struct {
+				workspaceID string
+				issueID     string
+				askID       string
+				questions   []overdueQuestion
+			}
+			asks := make(map[pgtype.UUID]*overdueAsk)
+			var askOrder []*overdueAsk
+			// An ask can straddle read batches. Publish only after grouping the
+			// sweep, including rows already stamped if a later operation fails.
+			defer func() {
+				for _, ask := range askOrder {
+					slices.SortFunc(ask.questions, func(a, b overdueQuestion) int {
+						return int(a.position - b.position)
+					})
+					ids := make([]string, 0, len(ask.questions))
+					for _, question := range ask.questions {
+						ids = append(ids, question.id)
+					}
+					bus.Publish(events.Event{
+						Type:        protocol.EventQuestionUpdated,
+						WorkspaceID: ask.workspaceID,
+						ActorType:   "system",
+						Payload: protocol.QuestionEventPayload{
+							QuestionID:  ask.askID,
+							AskID:       ask.askID,
+							QuestionIDs: ids,
+							IssueID:     ask.issueID,
+							Reason:      protocol.QuestionReasonOverdue,
+						},
+					})
+				}
+			}()
 			for range questionOverdueMaxBatches {
 				questions, err := queries.ListOpenOverdueQuestions(ctx, db.ListOpenOverdueQuestionsParams{
 					BeforeDate: pgtype.Date{Time: beforeDate, Valid: true},
@@ -57,15 +95,18 @@ func QuestionOverdueJob(queries *db.Queries, bus *events.Bus) JobSpec {
 						continue
 					}
 					total += stamped
-					bus.Publish(events.Event{
-						Type:        protocol.EventQuestionUpdated,
-						WorkspaceID: util.UUIDToString(question.WorkspaceID),
-						ActorType:   "system",
-						Payload: protocol.QuestionEventPayload{
-							QuestionID: util.UUIDToString(question.ID),
-							IssueID:    util.UUIDToString(question.IssueID),
-							Reason:     protocol.QuestionReasonOverdue,
-						},
+					ask := asks[question.AskID]
+					if ask == nil {
+						ask = &overdueAsk{
+							workspaceID: util.UUIDToString(question.WorkspaceID),
+							issueID:     util.UUIDToString(question.IssueID),
+							askID:       util.UUIDToString(question.AskID),
+						}
+						asks[question.AskID] = ask
+						askOrder = append(askOrder, ask)
+					}
+					ask.questions = append(ask.questions, overdueQuestion{
+						id: util.UUIDToString(question.ID), position: question.AskPosition,
 					})
 				}
 				if len(questions) < questionOverdueBatchSize {

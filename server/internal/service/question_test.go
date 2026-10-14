@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/multica-ai/multica/server/internal/attribution"
 	"github.com/multica-ai/multica/server/internal/events"
+	"github.com/multica-ai/multica/server/internal/question"
 	"github.com/multica-ai/multica/server/internal/testutil"
 	"github.com/multica-ai/multica/server/internal/util"
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
@@ -65,11 +66,11 @@ func (f *questionFixture) ask(t *testing.T, answerers ...pgtype.UUID) QuestionDT
 	if len(answerers) == 0 {
 		answerers = []pgtype.UUID{f.brian}
 	}
-	row, err := f.svc.Ask(context.Background(), f.workspace, f.asker, AskQuestionInput{Prompt: "Round per line or per total?", ContextLine: "Invoice rounding", AnswerType: "single_choice", Settings: json.RawMessage(`{"options":["per line","per total"],"allow_other":false}`), SuggestedAnswer: json.RawMessage(`{"option":"per line"}`), AnswererIDs: answerers, DueDate: "2026-10-14", BlocksWork: true})
+	result, err := f.svc.Ask(context.Background(), f.workspace, f.asker, AskInput{Questions: []question.AskQuestion{{Prompt: "Round per line or per total?", ContextLine: "Invoice rounding", AnswerType: "single_choice", Settings: json.RawMessage(`{"options":["per line","per total"],"allow_other":false}`), SuggestedAnswer: json.RawMessage(`{"option":"per line"}`)}}, AnswererIDs: answerers, DueDate: "2026-10-14"})
 	if err != nil {
 		t.Fatalf("ask: %v", err)
 	}
-	return row
+	return result.Questions[0]
 }
 
 func (f *questionFixture) finishAskingRun(t *testing.T) {
@@ -308,7 +309,9 @@ func TestQuestionAnyOneAndWithdrawal(t *testing.T) {
 			_, err = f.svc.Answer(ctx, f.workspace, id, f.answerer, AnswerQuestionInput{Value: json.RawMessage(`{"option":"per line"}`)})
 			wantQuestionRefusal(t, err, 422)
 			_, err = f.svc.Wake(ctx, f.workspace, id, f.answerer)
-			wantQuestionRefusal(t, err, 422)
+			if !errors.Is(err, ErrDuplicatePendingTask) {
+				t.Fatalf("withdrawn wake must retain the active-task guard: %v", err)
+			}
 			f.wantNoNewTask(t)
 		})
 	}
@@ -317,7 +320,7 @@ func TestQuestionAnyOneAndWithdrawal(t *testing.T) {
 func TestQuestionActorWorkspaceAndAskRefusals(t *testing.T) {
 	ctx := context.Background()
 	f := newQuestionFixture(t)
-	input := AskQuestionInput{Prompt: "Rules?", AnswerType: "yes_no", Settings: json.RawMessage(`{"why_on_no":false}`), AnswererIDs: []pgtype.UUID{f.brian}}
+	input := AskInput{Questions: []question.AskQuestion{{Prompt: "Rules?", AnswerType: "yes_no", Settings: json.RawMessage(`{"why_on_no":false}`)}}, AnswererIDs: []pgtype.UUID{f.brian}}
 	_, err := f.svc.Ask(ctx, f.workspace, f.answerer, input)
 	wantQuestionRefusal(t, err, 403)
 	input.AnswererIDs = []pgtype.UUID{f.agent}
@@ -578,10 +581,13 @@ func TestQuestionConcurrentWakesAcrossCardsDeduplicate(t *testing.T) {
 type questionFailingTxStarter struct {
 	TxStarter
 	queryName string
+	failAt    int
 }
 type questionFailingTx struct {
 	pgx.Tx
 	queryName string
+	failAt    int
+	calls     *int
 }
 type questionFailedRow struct{}
 
@@ -591,11 +597,14 @@ func (s questionFailingTxStarter) Begin(ctx context.Context) (pgx.Tx, error) {
 	if err != nil {
 		return nil, err
 	}
-	return questionFailingTx{Tx: tx, queryName: s.queryName}, nil
+	return questionFailingTx{Tx: tx, queryName: s.queryName, failAt: s.failAt, calls: new(int)}, nil
 }
 func (tx questionFailingTx) QueryRow(ctx context.Context, sql string, args ...any) pgx.Row {
 	if strings.HasPrefix(sql, "-- name: "+tx.queryName+" ") {
-		return questionFailedRow{}
+		*tx.calls++
+		if tx.failAt == 0 || *tx.calls == tx.failAt {
+			return questionFailedRow{}
+		}
 	}
 	return tx.Tx.QueryRow(ctx, sql, args...)
 }
@@ -637,11 +646,11 @@ func TestQuestionAttachmentsAndPersonWorkspaceValidation(t *testing.T) {
 	f := newQuestionFixture(t)
 	askType := func(answerType, settings string) QuestionDTO {
 		t.Helper()
-		row, err := f.svc.Ask(ctx, f.workspace, f.asker, AskQuestionInput{Prompt: "Supporting evidence?", AnswerType: answerType, Settings: json.RawMessage(settings), AnswererIDs: []pgtype.UUID{f.brian}})
+		result, err := f.svc.Ask(ctx, f.workspace, f.asker, AskInput{Questions: []question.AskQuestion{{Prompt: "Supporting evidence?", AnswerType: answerType, Settings: json.RawMessage(settings)}}, AnswererIDs: []pgtype.UUID{f.brian}})
 		if err != nil {
 			t.Fatalf("ask %s: %v", answerType, err)
 		}
-		return row
+		return result.Questions[0]
 	}
 	file := askType("file", `{"accept":[".pdf"]}`)
 	text := askType("text", `{"length":"short"}`)
@@ -720,10 +729,8 @@ func TestQuestionAskAndAnswerFailuresRollBackAggregate(t *testing.T) {
 	published := 0
 	f.svc.Bus.Subscribe(protocol.EventQuestionCreated, func(events.Event) { published++ })
 	f.svc.Bus.Subscribe(protocol.EventQuestionUpdated, func(events.Event) { published++ })
-	_, err := f.svc.Ask(ctx, f.workspace, f.asker, AskQuestionInput{
-		Prompt:      "Can we ship?",
-		AnswerType:  "yes_no",
-		Settings:    json.RawMessage(`{"why_on_no":false}`),
+	_, err := f.svc.Ask(ctx, f.workspace, f.asker, AskInput{
+		Questions:   []question.AskQuestion{{Prompt: "Can we ship?", AnswerType: "yes_no", Settings: json.RawMessage(`{"why_on_no":false}`)}},
 		AnswererIDs: []pgtype.UUID{f.brian},
 	})
 	if err == nil {
@@ -748,6 +755,427 @@ func TestQuestionAskAndAnswerFailuresRollBackAggregate(t *testing.T) {
 	}
 	if published != 0 {
 		t.Fatalf("failed action published %d events", published)
+	}
+	f.wantNoNewTask(t)
+}
+
+func questionSetInput(count int, answerers ...pgtype.UUID) AskInput {
+	input := AskInput{AnswererIDs: answerers, Questions: make([]question.AskQuestion, count)}
+	if count > 1 {
+		input.Title = "Invoice decisions"
+	}
+	for i := range input.Questions {
+		input.Questions[i] = question.AskQuestion{Prompt: fmt.Sprintf("Rounding decision %d?", i+1), AnswerType: "single_choice", Settings: json.RawMessage(`{"options":["per line","per total"],"allow_other":false}`)}
+	}
+	return input
+}
+
+func TestQuestionSetIsAtomicOrderedAndPublishesOnceAfterCommit(t *testing.T) {
+	ctx := context.Background()
+	f := newQuestionFixture(t)
+	published := 0
+	f.svc.Bus.Subscribe(protocol.EventQuestionCreated, func(event events.Event) {
+		published++
+		payload := event.Payload.(protocol.QuestionEventPayload)
+		if len(payload.QuestionIDs) != 3 || payload.QuestionID != payload.QuestionIDs[0] || payload.AskID != payload.QuestionID || payload.IssueID != util.UUIDToString(f.issue) || event.ActorID != util.UUIDToString(f.agent) {
+			t.Errorf("set event = %+v", event)
+		}
+		for _, table := range []string{"question", "question_event"} {
+			if n := f.fx.Count(t, `SELECT count(*) FROM `+table+` WHERE workspace_id = $1`, f.workspace); n != 3 {
+				t.Errorf("published before all %s rows committed: %d", table, n)
+			}
+		}
+	})
+	result, err := f.svc.Ask(ctx, f.workspace, f.asker, questionSetInput(3, f.brian))
+	if err != nil || len(result.Questions) != 3 || result.AskID != result.Questions[0].ID {
+		t.Fatalf("set ask = %+v, %v", result, err)
+	}
+	for i, row := range result.Questions {
+		if row.AskID != result.AskID || row.AskPosition != int32(i) || row.AskTitle == nil || *row.AskTitle != "Invoice decisions" || row.AnswerPolicy != "any_one" || !row.BlocksWork || len(row.Links) != 2 || len(row.Answerers) != 1 || len(row.Events) != 1 {
+			t.Fatalf("question %d aggregate = %+v", i+1, row)
+		}
+		var details map[string]any
+		if err := json.Unmarshal(row.Events[0].Details, &details); err != nil {
+			t.Fatal(err)
+		}
+		if details["ask_id"] != result.AskID || details["answer_policy"] != "any_one" {
+			t.Fatalf("asked details = %+v", details)
+		}
+		if _, exists := details["squad_id"]; exists {
+			t.Fatalf("unspecified squad recorded: %+v", details)
+		}
+	}
+	if published != 1 {
+		t.Fatalf("created publications = %d, want 1", published)
+	}
+	f.wantNoNewTask(t)
+	f.answer(t, result.Questions[1], f.answerer, "per line")
+	listed, err := f.svc.ListForIssue(ctx, f.workspace, f.issue)
+	if err != nil || len(listed) != 3 {
+		t.Fatalf("list set: %+v, %v", listed, err)
+	}
+	for i, row := range listed {
+		wantStatus := "open"
+		if i == 1 {
+			wantStatus = "answered"
+			if len(row.Answers) != 1 || row.Answers[0].DisplayText != "per line" {
+				t.Fatalf("answer not visible immediately: %+v", row)
+			}
+		}
+		if row.Status != wantStatus || row.AskID != result.AskID || row.AskPosition != int32(i) {
+			t.Fatalf("independent question %d: %+v", i, row)
+		}
+	}
+	f.wantNoNewTask(t)
+}
+
+func TestQuestionSetRefusedThirdWritesNothing(t *testing.T) {
+	for _, failure := range []string{"settings", "suggestion", "reference"} {
+		t.Run(failure, func(t *testing.T) {
+			f := newQuestionFixture(t)
+			input := questionSetInput(3, f.brian)
+			switch failure {
+			case "settings":
+				input.Questions[2].Settings = json.RawMessage(`{"options":[],"allow_other":false}`)
+			case "suggestion":
+				input.Questions[2].SuggestedAnswer = json.RawMessage(`{"option":"missing"}`)
+			case "reference":
+				input.Questions[2] = question.AskQuestion{Prompt: "Who?", AnswerType: "person", Settings: json.RawMessage(`{"allow":"both"}`), SuggestedAnswer: json.RawMessage(fmt.Sprintf(`{"type":"member","id":"%s"}`, util.UUIDToString(f.agent)))}
+			}
+			published := 0
+			f.svc.Bus.Subscribe(protocol.EventQuestionCreated, func(events.Event) { published++ })
+			_, err := f.svc.Ask(context.Background(), f.workspace, f.asker, input)
+			wantQuestionRefusal(t, err, 422)
+			if !strings.HasPrefix(err.Error(), "question 3:") {
+				t.Fatalf("refusal does not identify question 3: %v", err)
+			}
+			for _, table := range []string{"question", "question_link", "question_answerer", "question_event"} {
+				if n := f.fx.Count(t, `SELECT count(*) FROM `+table+` WHERE workspace_id = $1`, f.workspace); n != 0 {
+					t.Errorf("refused ask left %d %s rows", n, table)
+				}
+			}
+			if published != 0 {
+				t.Fatalf("refused set published %d events", published)
+			}
+			f.wantNoNewTask(t)
+		})
+	}
+}
+
+func TestQuestionAskSquadExpandsOnlyCurrentMembersAndDeduplicates(t *testing.T) {
+	ctx := context.Background()
+	f := newQuestionFixture(t)
+	roos := f.fx.User(t, "Roos", "question-roos-"+fmt.Sprint(time.Now().UnixNano())+"@example.test")
+	f.fx.Member(t, util.UUIDToString(f.workspace), roos, "member")
+	squad := f.fx.Squad(t, "Finance", util.UUIDToString(f.agent))
+	secondAgent := f.fx.Agent(t, "Thomas", util.UUIDToString(f.runtime))
+	for i, member := range []struct{ kind, id string }{{"member", util.UUIDToString(f.brian)}, {"agent", util.UUIDToString(f.agent)}, {"member", util.UUIDToString(f.anouk)}, {"agent", secondAgent}, {"member", roos}} {
+		f.fx.SquadMember(t, squad, member.kind, member.id, testutil.Cols{"created_at": time.Date(2026, 1, 1, 0, 0, i, 0, time.UTC)})
+	}
+	stale := f.fx.User(t, "Former member", "question-former-"+fmt.Sprint(time.Now().UnixNano())+"@example.test")
+	f.fx.SquadMember(t, squad, "member", stale)
+	input := questionSetInput(3, f.anouk, f.anouk)
+	input.SquadID = util.MustParseUUID(squad)
+	result, err := f.svc.Ask(ctx, f.workspace, f.asker, input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, row := range result.Questions {
+		if len(row.Answerers) != 3 {
+			t.Fatalf("squad answerers = %+v", row.Answerers)
+		}
+		got := make(map[string]bool)
+		for _, answerer := range row.Answerers {
+			got[answerer.UserID] = true
+		}
+		for _, id := range []string{util.UUIDToString(f.brian), util.UUIDToString(f.anouk), roos} {
+			if !got[id] {
+				t.Fatalf("missing squad member %s: %+v", id, row.Answerers)
+			}
+		}
+		var details map[string]any
+		if err := json.Unmarshal(row.Events[0].Details, &details); err != nil || details["squad_id"] != squad {
+			t.Fatalf("squad provenance = %+v, %v", details, err)
+		}
+	}
+	// Removing a member later does not change the ask's captured audience.
+	f.fx.Exec(t, `DELETE FROM squad_member WHERE squad_id = $1 AND member_id = $2`, squad, roos)
+	row, err := f.svc.Get(ctx, f.workspace, util.MustParseUUID(result.Questions[0].ID))
+	if err != nil || len(row.Answerers) != 3 {
+		t.Fatalf("squad audience was not captured: %+v, %v", row, err)
+	}
+	f.wantNoNewTask(t)
+}
+
+func TestQuestionAskRefusesArchivedEmptyAndForeignSquads(t *testing.T) {
+	for _, state := range []string{"archived", "agents only", "stale members", "foreign"} {
+		t.Run(state, func(t *testing.T) {
+			f := newQuestionFixture(t)
+			squad := f.fx.Squad(t, "Finance", util.UUIDToString(f.agent))
+			switch state {
+			case "archived":
+				f.fx.SquadMember(t, squad, "member", util.UUIDToString(f.brian))
+				f.fx.Exec(t, `UPDATE squad SET archived_at = now() WHERE id = $1`, squad)
+			case "agents only":
+				f.fx.SquadMember(t, squad, "agent", util.UUIDToString(f.agent))
+			case "stale members":
+				stale := f.fx.User(t, "Former", "question-stale-"+fmt.Sprint(time.Now().UnixNano())+"@example.test")
+				f.fx.SquadMember(t, squad, "member", stale)
+			case "foreign":
+				foreign := f.fx.Workspace(t, "Foreign squad", "foreign-squad-"+fmt.Sprint(time.Now().UnixNano()))
+				f.fx.Exec(t, `UPDATE squad SET workspace_id = $1 WHERE id = $2`, foreign, squad)
+			}
+			input := questionSetInput(1, f.brian)
+			input.SquadID = util.MustParseUUID(squad)
+			_, err := f.svc.Ask(context.Background(), f.workspace, f.asker, input)
+			wantQuestionRefusal(t, err, 422)
+			if state == "agents only" && !strings.Contains(err.Error(), "squad Finance has no members, only agents") {
+				t.Fatalf("empty squad refusal = %v", err)
+			}
+			if n := f.fx.Count(t, `SELECT count(*) FROM question WHERE workspace_id = $1`, f.workspace); n != 0 {
+				t.Fatalf("refused squad wrote %d questions", n)
+			}
+			f.wantNoNewTask(t)
+		})
+	}
+}
+
+func TestQuestionAskBlocksWorkDefaultsAndOneAnswererPolicy(t *testing.T) {
+	f := newQuestionFixture(t)
+	for _, tc := range []struct {
+		name   string
+		blocks *bool
+		want   bool
+	}{
+		{"omitted", nil, true}, {"off", new(bool), false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			input := questionSetInput(1, f.brian)
+			input.BlocksWork, input.Policy = tc.blocks, "each"
+			result, err := f.svc.Ask(context.Background(), f.workspace, f.asker, input)
+			if err != nil || len(result.Questions) != 1 {
+				t.Fatalf("ask = %+v, %v", result, err)
+			}
+			row := result.Questions[0]
+			if row.BlocksWork != tc.want || row.AnswerPolicy != "each" || row.AskTitle != nil || row.AskID != row.ID {
+				t.Fatalf("single-question defaults = %+v", row)
+			}
+			row = f.answer(t, row, f.answerer, "per line")
+			if row.Status != "answered" {
+				t.Fatalf("one-answerer each = %+v", row)
+			}
+			f.wantNoNewTask(t)
+		})
+	}
+}
+
+func TestQuestionEachLifecycleRecomputesCurrentAnswers(t *testing.T) {
+	ctx := context.Background()
+	f := newQuestionFixture(t)
+	roos := f.fx.User(t, "Roos", "question-each-"+fmt.Sprint(time.Now().UnixNano())+"@example.test")
+	f.fx.Member(t, util.UUIDToString(f.workspace), roos, "member")
+	input := questionSetInput(1, f.brian, f.anouk, util.MustParseUUID(roos))
+	input.Policy = "each"
+	result, err := f.svc.Ask(ctx, f.workspace, f.asker, input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	row := result.Questions[0]
+	id := util.MustParseUUID(row.ID)
+	if row.Status != "open" {
+		t.Fatalf("each initial = %+v", row)
+	}
+	row = f.answer(t, row, f.answerer, "per line")
+	if row.Status != "partly_answered" {
+		t.Fatalf("each first = %+v", row)
+	}
+	row = f.answer(t, row, f.answerer, "per total")
+	if row.Status != "partly_answered" || len(row.Answers) != 1 || row.Events[len(row.Events)-1].Kind != "answer_edited" {
+		t.Fatalf("partly answered edit = %+v", row)
+	}
+	row, err = f.svc.AskBack(ctx, f.workspace, id, f.other, "Which currency?")
+	if err != nil || row.Status != "partly_answered" || len(row.Answers) != 1 {
+		t.Fatalf("partly answered ask back = %+v, %v", row, err)
+	}
+	row, err = f.svc.Reassign(ctx, f.workspace, id, f.answerer, f.anouk, "Anouk can answer this")
+	if err != nil || row.Status != "open" || len(row.Answerers) != 2 || len(row.Answers) != 1 {
+		t.Fatalf("former answer must not count: %+v, %v", row, err)
+	}
+	_, err = f.svc.Answer(ctx, f.workspace, id, f.answerer, AnswerQuestionInput{Value: json.RawMessage(`{"option":"per line"}`)})
+	wantQuestionRefusal(t, err, 403)
+	row = f.answer(t, row, f.other, "per line")
+	if row.Status != "partly_answered" {
+		t.Fatalf("each remaining partial = %+v", row)
+	}
+	row = f.answer(t, row, QuestionActor{Type: "member", ID: util.MustParseUUID(roos)}, "per total")
+	if row.Status != "answered" || len(row.Answers) != 3 {
+		t.Fatalf("each complete with history = %+v", row)
+	}
+	row = f.answer(t, row, f.other, "per total")
+	if row.Status != "answered" {
+		t.Fatalf("each completed edit = %+v", row)
+	}
+	f.wantNoNewTask(t)
+}
+
+func TestQuestionPartlyAnsweredCanCloseOrWithdraw(t *testing.T) {
+	for _, end := range []string{"closed", "withdrawn"} {
+		t.Run(end, func(t *testing.T) {
+			ctx := context.Background()
+			f := newQuestionFixture(t)
+			input := questionSetInput(1, f.brian, f.anouk)
+			input.Policy = "each"
+			result, err := f.svc.Ask(ctx, f.workspace, f.asker, input)
+			if err != nil {
+				t.Fatal(err)
+			}
+			row := f.answer(t, result.Questions[0], f.answerer, "per line")
+			id := util.MustParseUUID(row.ID)
+			if end == "closed" {
+				row, err = f.svc.Close(ctx, f.workspace, id, f.asker)
+			} else {
+				row, err = f.svc.Withdraw(ctx, f.workspace, id, f.asker)
+			}
+			if err != nil || row.Status != end {
+				t.Fatalf("end partly answered = %+v, %v", row, err)
+			}
+			_, err = f.svc.Answer(ctx, f.workspace, id, f.other, AnswerQuestionInput{Value: json.RawMessage(`{"option":"per total"}`)})
+			wantQuestionRefusal(t, err, 422)
+			_, err = f.svc.Answer(ctx, f.workspace, id, f.answerer, AnswerQuestionInput{Value: json.RawMessage(`{"option":"per total"}`)})
+			wantQuestionRefusal(t, err, 422)
+			_, err = f.svc.Reassign(ctx, f.workspace, id, f.other, f.brian, "Reopen?")
+			wantQuestionRefusal(t, err, 422)
+			_, err = f.svc.AskBack(ctx, f.workspace, id, f.other, "More?")
+			wantQuestionRefusal(t, err, 422)
+			f.wantNoNewTask(t)
+		})
+	}
+}
+
+func TestQuestionSetWakeFromAnyStatusKeepsStatusAndGetsAllUnseenAnswers(t *testing.T) {
+	for _, status := range []string{"open", "partly_answered", "answered", "closed", "withdrawn"} {
+		t.Run(status, func(t *testing.T) {
+			ctx := context.Background()
+			f := newQuestionFixture(t)
+			input := questionSetInput(3, f.brian, f.anouk)
+			input.Policy = "each"
+			result, err := f.svc.Ask(ctx, f.workspace, f.asker, input)
+			if err != nil {
+				t.Fatal(err)
+			}
+			f.finishAskingRun(t)
+			f.answer(t, result.Questions[0], f.answerer, "per line")
+			f.answer(t, result.Questions[1], f.answerer, "per total")
+			row := result.Questions[2]
+			id := util.MustParseUUID(row.ID)
+			if status != "open" {
+				row = f.answer(t, row, f.answerer, "per line")
+			}
+			switch status {
+			case "answered":
+				row = f.answer(t, row, f.other, "per total")
+			case "closed":
+				row, err = f.svc.Close(ctx, f.workspace, id, f.asker)
+			case "withdrawn":
+				row, err = f.svc.Withdraw(ctx, f.workspace, id, f.asker)
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			row, err = f.svc.Get(ctx, f.workspace, id)
+			if err != nil || row.Status != status || !row.WakeAvailable || row.UnseenAnswerCount < 2 {
+				t.Fatalf("wake must be offered from %s: %+v, %v", status, row, err)
+			}
+			f.wantNoNewTask(t)
+			wake, err := f.svc.Wake(ctx, f.workspace, id, f.other)
+			if err != nil || wake.AnswerCount != row.UnseenAnswerCount {
+				t.Fatalf("wake from %s = %+v, %v", status, wake, err)
+			}
+			task, err := f.svc.Queries.GetAgentTask(ctx, util.MustParseUUID(wake.TaskID))
+			if err != nil || task.IssueID != f.issue || task.AgentID != f.agent || task.TriggerEvidenceRefID != id {
+				t.Fatalf("wake task = %+v, %v", task, err)
+			}
+			unseen, err := f.svc.Queries.ListUnseenQuestionAnswers(ctx, db.ListUnseenQuestionAnswersParams{WorkspaceID: f.workspace, IssueID: f.issue, AgentID: f.agent})
+			if err != nil || int64(len(unseen)) != wake.AnswerCount {
+				t.Fatalf("queued run must receive all unseen answers: %+v, %v", unseen, err)
+			}
+			row, err = f.svc.Get(ctx, f.workspace, id)
+			if err != nil || row.Status != status || row.WakeAvailable {
+				t.Fatalf("wake must not change question status: %+v, %v", row, err)
+			}
+			_, err = f.svc.Wake(ctx, f.workspace, util.MustParseUUID(result.Questions[0].ID), f.answerer)
+			if !errors.Is(err, ErrDuplicatePendingTask) {
+				t.Fatalf("wake active guard = %v", err)
+			}
+		})
+	}
+}
+
+func TestQuestionSetThirdWriteFailureRollsBackEarlierQuestions(t *testing.T) {
+	for _, write := range []string{"CreateQuestion", "CreateQuestionEvent"} {
+		t.Run(write, func(t *testing.T) {
+			f := newQuestionFixture(t)
+			f.svc.TxStarter = questionFailingTxStarter{TxStarter: f.svc.TxStarter, queryName: write, failAt: 3}
+			published := 0
+			f.svc.Bus.Subscribe(protocol.EventQuestionCreated, func(events.Event) { published++ })
+			_, err := f.svc.Ask(context.Background(), f.workspace, f.asker, questionSetInput(3, f.brian))
+			if err == nil {
+				t.Fatal("ask should fail at the third question write")
+			}
+			for _, table := range []string{"question", "question_link", "question_answerer", "question_event"} {
+				if n := f.fx.Count(t, `SELECT count(*) FROM `+table+` WHERE workspace_id = $1`, f.workspace); n != 0 {
+					t.Errorf("failed set left %d %s rows", n, table)
+				}
+			}
+			if published != 0 {
+				t.Fatalf("failed set published %d events", published)
+			}
+			f.wantNoNewTask(t)
+		})
+	}
+}
+
+func TestQuestionAnyOneRefusesAnotherAnswerButAcceptsTheirAskBack(t *testing.T) {
+	ctx := context.Background()
+	f := newQuestionFixture(t)
+	row := f.answer(t, f.ask(t, f.brian, f.anouk), f.answerer, "per line")
+	id := util.MustParseUUID(row.ID)
+	_, err := f.svc.Answer(ctx, f.workspace, id, f.other, AnswerQuestionInput{Value: json.RawMessage(`{"option":"per total"}`)})
+	wantQuestionRefusal(t, err, 422)
+	row, err = f.svc.AskBack(ctx, f.workspace, id, f.other, "Does this apply to credits?")
+	if err != nil || row.Status != "answered" || len(row.Answers) != 1 || row.Events[len(row.Events)-1].Kind != "ask_back" {
+		t.Fatalf("second answerer's ask back = %+v, %v", row, err)
+	}
+	f.wantNoNewTask(t)
+}
+
+func TestQuestionEachReassignmentCanCompleteTheCurrentAudience(t *testing.T) {
+	ctx := context.Background()
+	f := newQuestionFixture(t)
+	input := questionSetInput(1, f.brian, f.anouk)
+	input.Policy = "each"
+	result, err := f.svc.Ask(ctx, f.workspace, f.asker, input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	row := f.answer(t, result.Questions[0], f.answerer, "per line")
+	row, err = f.svc.Reassign(ctx, f.workspace, util.MustParseUUID(row.ID), f.other, f.brian, "Brian already has this covered")
+	if err != nil || row.Status != "answered" || len(row.Answerers) != 1 || len(row.Answers) != 1 {
+		t.Fatalf("recomputed completed audience = %+v, %v", row, err)
+	}
+	f.wantNoNewTask(t)
+}
+
+func TestQuestionOpenWakeStillRequiresUnseenAnswers(t *testing.T) {
+	ctx := context.Background()
+	f := newQuestionFixture(t)
+	row := f.ask(t)
+	f.finishAskingRun(t)
+	_, err := f.svc.Wake(ctx, f.workspace, util.MustParseUUID(row.ID), f.answerer)
+	wantQuestionRefusal(t, err, 422)
+	row, err = f.svc.Get(ctx, f.workspace, util.MustParseUUID(row.ID))
+	if err != nil || row.Status != "open" || row.UnseenAnswerCount != 0 || row.WakeAvailable {
+		t.Fatalf("open question without unseen answers = %+v, %v", row, err)
 	}
 	f.wantNoNewTask(t)
 }

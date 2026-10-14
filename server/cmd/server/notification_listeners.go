@@ -1116,7 +1116,7 @@ func notifyQuestionAnswerers(ctx context.Context, queries *db.Queries, bus *even
 		return
 	}
 	recipients := []string{}
-	detailsMap := map[string]string{"question_id": payload.QuestionID}
+	detailsMap := map[string]any{"question_id": payload.QuestionID}
 	body := q.Prompt
 	if notifType == service.InboxTypeQuestionReassigned {
 		history, err := queries.ListQuestionEventsByQuestions(ctx, db.ListQuestionEventsByQuestionsParams{
@@ -1147,14 +1147,30 @@ func notifyQuestionAnswerers(ctx context.Context, queries *db.Queries, bus *even
 			break
 		}
 	} else {
+		questionIDs := make([]pgtype.UUID, 0, len(payload.QuestionIDs))
+		for _, id := range payload.QuestionIDs {
+			parsed, err := util.ParseUUID(id)
+			if err != nil {
+				slog.Error("question notification: invalid question id", "question_id", id, "error", err)
+				return
+			}
+			questionIDs = append(questionIDs, parsed)
+		}
+		detailsMap[service.QuestionDetailAskID] = payload.AskID
+		detailsMap[service.QuestionDetailQuestionCount] = len(questionIDs)
 		answerers, err := queries.ListQuestionAnswerersByQuestions(ctx, db.ListQuestionAnswerersByQuestionsParams{
-			WorkspaceID: workspaceID, QuestionIds: []pgtype.UUID{questionID},
+			WorkspaceID: workspaceID, QuestionIds: questionIDs,
 		})
 		if err != nil {
-			slog.Error("question notification: load answerers failed", "question_id", payload.QuestionID, "error", err)
+			slog.Error("question notification: load answerers failed", "ask_id", payload.AskID, "error", err)
 			return
 		}
+		seen := make(map[pgtype.UUID]bool, len(answerers))
 		for _, answerer := range answerers {
+			if seen[answerer.UserID] {
+				continue
+			}
+			seen[answerer.UserID] = true
 			recipients = append(recipients, util.UUIDToString(answerer.UserID))
 		}
 	}

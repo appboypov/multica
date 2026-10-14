@@ -465,7 +465,7 @@ export class TestApiClient {
   }
 
   /** Ask through the real agent-only endpoint with a claimed run's credential. */
-  async askQuestion(taskToken: string, input: Record<string, unknown>): Promise<TestQuestion> {
+  async askQuestion(taskToken: string, input: Record<string, unknown>): Promise<{ ask_id: string; questions: TestQuestion[] }> {
     const res = await this.authedFetch("/api/questions", {
       method: "POST",
       body: JSON.stringify(input),

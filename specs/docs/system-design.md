@@ -715,7 +715,7 @@ classDiagram
   QuestionEventPayload ..> QuestionRow : question ids
 ```
 
-`QuestionRow` is sqlc's `db.Question` in `server/pkg/db/generated/models.go`, generated from the migrations. The client `Question` and `QuestionAskResult` contracts live in `packages/core/types/question.ts`; `packages/core/api/schemas.ts` parses question responses. The server's single-question DTO remains in `server/internal/service/question.go`; set creation and the batch response are not exposed by its handler. The event payload is declared in `server/pkg/protocol/events.go` and `packages/core/types/events.ts`.
+`QuestionRow` is sqlc's `db.Question` in `server/pkg/db/generated/models.go`, generated from the migrations. The client `Question` and `QuestionAskResult` contracts live in `packages/core/types/question.ts`; `packages/core/api/schemas.ts` parses question responses. The server's question and ask DTOs live in `server/internal/service/question.go`; `POST /api/questions` creates one transactional ask and returns `{ask_id, questions}`. `server/internal/question/policy.go` derives status from current answerers under `any_one` or `each`. Created and overdue events carry the ask's question IDs so the notification listener sends one inbox item per current answerer per ask. The event payload is declared in `server/pkg/protocol/events.go` and `packages/core/types/events.ts`.
 
 ## Absent
 

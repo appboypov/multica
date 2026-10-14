@@ -247,7 +247,7 @@ CLI 配置文件包含可代表你访问 Multica 的令牌。不要提交到仓�
 | | `usage <issue-id>` | 查看聚合 token 用量 | |
 | | `rerun <id>` | 按当前指派重新入队执行 | |
 | | `cancel-task <task-id>` | 取消进行中或排队中的运行 | `--issue` |
-| `question` | `ask` | 在智能体运行中向成员提问；输出问题 id | `--prompt` / `--prompt-file`、`--context`、`--type`（`text`、`yes_no`、`single_choice`、`multiple_choice`、`confirm_facts`、`ranking`、`scale`、`number`、`date`、`person`、`file`、`approval`）、设置 flag `--option`、`--fact`、`--item`、`--accept`（可重复）、`--allow-other`、`--why-on-no`、`--min`、`--max`、`--min-label`、`--max-label`、`--unit`、`--date-kind`、`--allow`、`--length`、`--placeholder`、`--subject`、`--link-url`、`--link-title`；`--suggest`（`multiple_choice` 和 `ranking` 可重复）、`--answerer`（可重复；成员的名称、邮箱或 id）、`--due`（`YYYY-MM-DD`）、`--blocks-work` |
+| `question` | `ask` | 在智能体运行中向成员提出一个问题或一组问题；输出 ask id，再输出每个问题的 id 和提问（`--output json` 输出 API 响应） | 一个问题：`--prompt` / `--prompt-file`、`--context`、`--type`（`text`、`yes_no`、`single_choice`、`multiple_choice`、`confirm_facts`、`ranking`、`scale`、`number`、`date`、`person`、`file`、`approval`）、设置 flag `--option`、`--fact`、`--item`、`--accept`（可重复）、`--allow-other`、`--why-on-no`、`--min`、`--max`、`--min-label`、`--max-label`、`--unit`、`--date-kind`、`--allow`、`--length`、`--placeholder`、`--subject`、`--link-url`、`--link-title`；`--suggest`（`multiple_choice` 和 `ranking` 可重复）。多个问题：`--questions-file`（JSON 数组，含 1–20 个 API 格式的 `{prompt, context_line, answer_type, settings, suggested_answer}`；不能与单个问题的 flag 同用）、`--title`（1–200 个字符；多于一个问题时必填）。共用：`--answerer`（可重复；成员的名称、邮箱或 id）、`--squad`（小队名称或 id；由其成员回答；可与 `--answerer` 同用）、`--policy`（`any_one`（默认）或 `each`）、`--due`（`YYYY-MM-DD`）、`--blocks-work`（默认开启；`--blocks-work=false` 关闭） |
 | | `answers <question-id>` | 查看问题的状态、回答和线程 | |
 | | `close <question-id>` | 关闭问题 | |
 | | `withdraw <question-id>` | 撤回问题 | |

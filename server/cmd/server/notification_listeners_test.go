@@ -1412,7 +1412,7 @@ func TestNotification_QuestionRecipientsAndNoAnsweredItem(t *testing.T) {
 			}
 			bus.Publish(events.Event{
 				Type: tc.eventType, WorkspaceID: ws, ActorType: actorType, ActorID: actorID,
-				Payload: protocol.QuestionEventPayload{QuestionID: id, IssueID: issue, Reason: tc.reason, EventID: reassignmentID},
+				Payload: protocol.QuestionEventPayload{QuestionID: id, AskID: id, QuestionIDs: []string{id}, IssueID: issue, Reason: tc.reason, EventID: reassignmentID},
 			})
 			wantTotal := 2
 			if tc.inboxType == "" {
@@ -1440,12 +1440,15 @@ func TestNotification_QuestionRecipientsAndNoAnsweredItem(t *testing.T) {
 					if item.Type != tc.inboxType || util.UUIDToString(item.IssueID) != issue {
 						t.Fatalf("wrong notification: %+v", item)
 					}
-					var details map[string]string
+					var details map[string]any
 					if err := json.Unmarshal(item.Details, &details); err != nil {
 						t.Fatal(err)
 					}
 					if details["question_id"] != id {
 						t.Fatalf("question anchor missing: %+v", details)
+					}
+					if tc.reason != protocol.QuestionReasonReassigned && (details["ask_id"] != id || details["question_count"] != float64(1)) {
+						t.Fatalf("one-question ask fields missing: %+v", details)
 					}
 					if tc.reason == protocol.QuestionReasonReassigned && (details["note"] != "You set the invoice rules" || item.Body.String != details["note"]) {
 						t.Fatalf("reassignment note missing: %+v", item)
@@ -1474,7 +1477,7 @@ func TestNotification_QuestionRealtimeUsesWorkspaceFanout(t *testing.T) {
 			bus := events.New()
 			broadcaster := &fakeBroadcaster{}
 			registerListeners(bus, broadcaster)
-			payload := protocol.QuestionEventPayload{QuestionID: "question-1", IssueID: "issue-1"}
+			payload := protocol.QuestionEventPayload{QuestionID: "question-1", AskID: "question-1", QuestionIDs: []string{"question-1", "question-2", "question-3"}, IssueID: "issue-1"}
 			if eventType == protocol.EventQuestionUpdated {
 				payload.Reason = protocol.QuestionReasonAnswered
 			}
@@ -1491,6 +1494,87 @@ func TestNotification_QuestionRealtimeUsesWorkspaceFanout(t *testing.T) {
 			}
 			if frame.Type != eventType || !reflect.DeepEqual(frame.Payload, payload) {
 				t.Fatalf("question realtime payload changed: %+v", frame)
+			}
+		})
+	}
+}
+
+func TestNotification_QuestionSetCreatesOneItemPerCurrentAnswerer(t *testing.T) {
+	for _, overdue := range []bool{false, true} {
+		name := "asked"
+		if overdue {
+			name = "overdue-after-reassignment"
+		}
+		t.Run(name, func(t *testing.T) {
+			base := testutil.New(testPool, testWorkspaceID, testUserID)
+			users := []string{
+				base.User(t, "Brian", "question-set-"+name+"-brian@multica.test"),
+				base.User(t, "Anouk", "question-set-"+name+"-anouk@multica.test"),
+				base.User(t, "Roos", "question-set-"+name+"-roos@multica.test"),
+			}
+			ws := base.Workspace(t, "Question set notifications", "question-set-"+name)
+			fx := testutil.New(testPool, ws, users[0])
+			for _, user := range users {
+				fx.Member(t, ws, user, "member")
+			}
+			issue := fx.Issue(t, "CSV writer")
+			agent := fx.Agent(t, "Pieter", "")
+			task := fx.Task(t, agent, testutil.Cols{"issue_id": issue, "status": "completed", "completed_at": testutil.Raw("now()")})
+			ids := []string{util.UUIDToString(dbid.NewV7()), util.UUIDToString(dbid.NewV7()), util.UUIDToString(dbid.NewV7())}
+			for position, id := range ids {
+				fx.Insert(t, "question", testutil.Cols{
+					"id": id, "ask_id": ids[0], "ask_position": position, "ask_title": "Before I build the CSV writer",
+					"workspace_id": ws, "asker_agent_id": agent, "asked_in_task_id": task,
+					"prompt": "Confirm the invoice rules?", "answer_type": "yes_no", "settings": testutil.Raw(`'{"why_on_no":false}'::jsonb`),
+				})
+				fx.InsertNoID(t, "question_link", testutil.Cols{"question_id": id, "workspace_id": ws, "link_type": "issue", "link_id": issue, "position": 0}, "question_id=$1", id)
+				for userPosition, user := range users {
+					// Reassignment can leave different current answerers on
+					// each question; the first question alone is insufficient.
+					if overdue && userPosition != position && userPosition != 0 {
+						continue
+					}
+					fx.InsertNoID(t, "question_answerer", testutil.Cols{"question_id": id, "workspace_id": ws, "user_id": user}, "question_id=$1 AND user_id=$2", id, user)
+				}
+			}
+			fx.Cleanup(t, "DELETE FROM inbox_item WHERE workspace_id=$1", ws)
+			queries := db.New(testPool)
+			bus := events.New()
+			registerNotificationListeners(bus, queries)
+			var delivered []events.Event
+			bus.Subscribe(protocol.EventInboxNew, func(e events.Event) { delivered = append(delivered, e) })
+			eventType, reason, inboxType, actorType, actorID := protocol.EventQuestionCreated, "", service.InboxTypeQuestionAsked, "agent", agent
+			if overdue {
+				eventType, reason, inboxType, actorType, actorID = protocol.EventQuestionUpdated, protocol.QuestionReasonOverdue, service.InboxTypeQuestionOverdue, "system", ""
+			}
+			bus.Publish(events.Event{
+				Type: eventType, WorkspaceID: ws, ActorType: actorType, ActorID: actorID,
+				Payload: protocol.QuestionEventPayload{QuestionID: ids[0], AskID: ids[0], QuestionIDs: ids, IssueID: issue, Reason: reason},
+			})
+			if len(delivered) != len(users) {
+				t.Fatalf("got %d realtime items, want %d", len(delivered), len(users))
+			}
+			for _, user := range users {
+				items, err := queries.ListInboxItems(context.Background(), db.ListInboxItemsParams{
+					WorkspaceID: util.MustParseUUID(ws), RecipientType: "member", RecipientID: util.MustParseUUID(user),
+				})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if len(items) != 1 || items[0].Type != inboxType || util.UUIDToString(items[0].IssueID) != issue {
+					t.Fatalf("recipient %s needs exactly one %s for this ask: %+v", user, inboxType, items)
+				}
+				var details struct {
+					QuestionID    string `json:"question_id"`
+					AskID         string `json:"ask_id"`
+					QuestionCount int    `json:"question_count"`
+				}
+				if err := json.Unmarshal(items[0].Details, &details); err != nil {
+					t.Fatal(err)
+				}
+				if details.QuestionID != ids[0] || details.AskID != ids[0] || details.QuestionCount != 3 {
+					t.Fatalf("wrong set notification details: %+v", details)
+				}
 			}
 		})
 	}

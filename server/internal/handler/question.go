@@ -9,6 +9,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/multica-ai/multica/server/internal/question"
 	"github.com/multica-ai/multica/server/internal/service"
 )
 
@@ -102,7 +103,15 @@ func (h *Handler) AskQuestion(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	var body AskRequest
+	var body struct {
+		Title       string                 `json:"title"`
+		Questions   []question.AskQuestion `json:"questions"`
+		AnswererIDs []string               `json:"answerer_ids"`
+		SquadID     string                 `json:"squad_id"`
+		Policy      string                 `json:"answer_policy"`
+		DueDate     string                 `json:"due_date"`
+		BlocksWork  *bool                  `json:"blocks_work"`
+	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
@@ -111,10 +120,16 @@ func (h *Handler) AskQuestion(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	result, err := h.QuestionService.Ask(r.Context(), ws, actor, service.AskQuestionInput{
-		Prompt: body.Prompt, ContextLine: body.ContextLine, AnswerType: body.AnswerType,
-		Settings: body.Settings, SuggestedAnswer: body.SuggestedAnswer, AnswererIDs: answerers,
-		DueDate: body.DueDate, BlocksWork: body.BlocksWork,
+	var squadID pgtype.UUID
+	if body.SquadID != "" {
+		squadID, ok = parseUUIDOrBadRequest(w, body.SquadID, "squad_id")
+		if !ok {
+			return
+		}
+	}
+	result, err := h.QuestionService.Ask(r.Context(), ws, actor, service.AskInput{
+		Title: body.Title, Questions: body.Questions, AnswererIDs: answerers,
+		SquadID: squadID, Policy: body.Policy, DueDate: body.DueDate, BlocksWork: body.BlocksWork,
 	})
 	if err != nil {
 		writeQuestionError(w, err)

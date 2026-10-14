@@ -1,14 +1,17 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/url"
 	"os"
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/spf13/cobra"
 
@@ -20,7 +23,11 @@ var questionCmd = newQuestionCommand()
 
 const questionTypesHelp = "Answer types: text, yes_no, single_choice, multiple_choice, confirm_facts, ranking, scale, number, date, person, file, approval."
 
-const questionAskHelp = `Ask flags: --prompt or --prompt-file, --context, --type, repeatable --answerer (member name, email or ID), --due YYYY-MM-DD, --blocks-work, --output table|json.
+const questionAskHelp = `Ask flags: --prompt or --prompt-file, --context, --type, or --questions-file;
+--title; repeatable --answerer (member name, email or ID); --squad (name or ID);
+--policy any_one|each (default any_one); --due YYYY-MM-DD;
+--blocks-work (default true; --blocks-work=false turns it off); --output table|json.
+One ask needs at least one --answerer or a --squad; --squad combines with --answerer.
 
 Settings and suggested values by --type:
   text             --length short|long --placeholder; --suggest text
@@ -37,19 +44,55 @@ Settings and suggested values by --type:
   approval         --subject, --link-url, --link-title; no --suggest
 
 Text defaults to short, date to date, person to members, scale to 1–5,
-and multiple_choice to min 1 and max the number of options.`
+and multiple_choice to min 1 and max the number of options.
 
-// questionAskRequest uses the core question model's wire names. Links come from
-// the authenticated task, not from CLI input.
-type questionAskRequest struct {
+--questions-file <path> reads 1–20 questions from a UTF-8 JSON array inside the
+working directory and excludes --prompt, --prompt-file, --context, --type, the
+settings flags and --suggest. --title (1–200 characters) is required with more
+than one question and refused with one. Each entry:
+  {"prompt": "...", "context_line": "...", "answer_type": "single_choice",
+   "settings": {"options": ["A", "B"], "allow_other": false},
+   "suggested_answer": {"option": "A"}}
+context_line and suggested_answer are optional; settings get no flag defaults.
+Keys of settings, then of suggested_answer, by answer_type:
+  text             {"length", "placeholder"}; {"text"}
+  yes_no           {"why_on_no"}; {"choice"}
+  single_choice    {"options", "allow_other"}; {"option"}
+  multiple_choice  {"options", "min", "max"}; {"options"}
+  confirm_facts    {"facts"}; none
+  ranking          {"items"}; {"order"}
+  scale            {"min", "max", "min_label", "max_label"}; {"point"}
+  number           {"unit", "min", "max"}; {"number"}
+  date             {"kind"}; {"date"}, {"datetime"} or {"start", "end"}
+  person           {"allow"}; {"type": "member|agent", "id"}
+  file             {"accept"}; none
+  approval         {"subject", "link": {"url", "title"}}; none
+
+Text output prints the ask id, then one line per question: its id and prompt.`
+
+// questionSingleFlags describe one question; --questions-file replaces them.
+var questionSingleFlags = []string{"prompt", "prompt-file", "context", "type", "option", "allow-other", "min", "max", "fact", "item", "min-label", "max-label", "unit", "date-kind", "allow", "accept", "length", "placeholder", "why-on-no", "subject", "link-url", "link-title", "suggest"}
+
+// questionAskItem is one entry of the API's questions field and of a
+// --questions-file.
+type questionAskItem struct {
 	Prompt          string          `json:"prompt"`
 	ContextLine     string          `json:"context_line,omitempty"`
 	AnswerType      string          `json:"answer_type"`
 	Settings        json.RawMessage `json:"settings"`
 	SuggestedAnswer json.RawMessage `json:"suggested_answer,omitempty"`
-	AnswererIDs     []string        `json:"answerer_ids"`
-	DueDate         string          `json:"due_date,omitempty"`
-	BlocksWork      bool            `json:"blocks_work"`
+}
+
+// questionAskRequest uses the core question model's wire names. Links come from
+// the authenticated task, not from CLI input.
+type questionAskRequest struct {
+	Title        string            `json:"title,omitempty"`
+	Questions    []questionAskItem `json:"questions"`
+	AnswererIDs  []string          `json:"answerer_ids"`
+	SquadID      string            `json:"squad_id,omitempty"`
+	AnswerPolicy string            `json:"answer_policy"`
+	DueDate      string            `json:"due_date,omitempty"`
+	BlocksWork   bool              `json:"blocks_work"`
 }
 
 // questionsAvailable reports whether this process may use questions: always in
@@ -64,11 +107,13 @@ func newQuestionCommand() *cobra.Command {
 	// While questions are off for the run, `multica --help` does not list the
 	// command, so the agent learns nothing about it.
 	q.Hidden = !questionsAvailable()
-	ask := &cobra.Command{Use: "ask", Short: "Ask members a typed question", Long: questionTypesHelp + "\n\n" + questionAskHelp, Args: cobra.NoArgs, RunE: runQuestionAsk}
+	ask := &cobra.Command{Use: "ask", Short: "Ask members one typed question or a set of questions", Long: questionTypesHelp + "\n\n" + questionAskHelp, Args: cobra.NoArgs, RunE: runQuestionAsk}
 	f := ask.Flags()
-	f.String("prompt", "", "Question prompt (mutually exclusive with --prompt-file)")
+	f.String("prompt", "", "Question prompt (mutually exclusive with --prompt-file and --questions-file)")
 	f.String("prompt-file", "", "Read the prompt from a UTF-8 file inside the working directory")
-	f.Bool("allow-external-file", false, "Allow --prompt-file outside the working directory")
+	f.String("questions-file", "", "Read the questions from a UTF-8 JSON array file inside the working directory; see the shape above")
+	f.Bool("allow-external-file", false, "Allow --prompt-file or --questions-file outside the working directory")
+	f.String("title", "", "Title of the set (1–200 characters; required with more than one question)")
 	f.String("context", "", "Optional context line")
 	f.String("type", "", "Answer type; see the twelve types above")
 	f.StringArray("option", nil, "Choice label (repeatable; single_choice or multiple_choice)")
@@ -91,8 +136,10 @@ func newQuestionCommand() *cobra.Command {
 	f.String("link-title", "", "Approval subject link title (requires --link-url)")
 	f.StringArray("suggest", nil, "Suggested value; repeat for multiple_choice or ranking; unavailable for confirm_facts, file or approval")
 	f.StringArray("answerer", nil, "Member name, email or ID (repeatable; agents cannot answer)")
+	f.String("squad", "", "Squad name or ID; its human members answer (combinable with --answerer)")
+	f.String("policy", questionrules.PolicyAnyOne, "Answer policy: any_one or each")
 	f.String("due", "", "Due date (YYYY-MM-DD)")
-	f.Bool("blocks-work", false, "Mark the question as blocking work")
+	f.Bool("blocks-work", true, "Mark the questions as blocking work; --blocks-work=false turns it off")
 	f.String("output", "table", "Output format: table or json")
 	q.AddCommand(ask)
 	for _, action := range []string{"answers", "close", "withdraw"} {
@@ -130,41 +177,50 @@ func runQuestionAsk(cmd *cobra.Command, _ []string) error {
 	}
 	ctx, cancel := cli.APIContext(cmd.Context())
 	defer cancel()
-	directory, err := loadQuestionDirectory(ctx, client)
-	if err != nil {
-		return err
-	}
 	answerers, _ := cmd.Flags().GetStringArray("answerer")
-	seen := make(map[string]bool, len(answerers))
-	for _, name := range answerers {
-		kind, id, err := matchAssignee(name, assigneeKinds{member: true, agent: true}, directory)
+	first := &request.Questions[0]
+	suggestPerson := !cmd.Flags().Changed("questions-file") && first.AnswerType == "person" && cmd.Flags().Changed("suggest")
+	if len(answerers) > 0 || suggestPerson {
+		directory, err := loadQuestionDirectory(ctx, client)
 		if err != nil {
 			return err
 		}
-		if kind == "agent" {
-			for _, entry := range directory {
-				if entry.ID == id && entry.Type == kind {
-					return fmt.Errorf("%s is an agent; only members answer questions", entry.Name)
+		seen := make(map[string]bool, len(answerers))
+		for _, name := range answerers {
+			kind, id, err := matchAssignee(name, assigneeKinds{member: true, agent: true}, directory)
+			if err != nil {
+				return err
+			}
+			if kind == "agent" {
+				for _, entry := range directory {
+					if entry.ID == id && entry.Type == kind {
+						return fmt.Errorf("%s is an agent; only members answer questions", entry.Name)
+					}
 				}
 			}
+			if !seen[id] {
+				request.AnswererIDs = append(request.AnswererIDs, id)
+				seen[id] = true
+			}
 		}
-		if !seen[id] {
-			request.AnswererIDs = append(request.AnswererIDs, id)
-			seen[id] = true
+		if suggestPerson {
+			suggest, _ := cmd.Flags().GetStringArray("suggest")
+			allow, _ := cmd.Flags().GetString("allow")
+			kind, id, err := matchAssignee(suggest[0], assigneeKinds{member: allow != "agents", agent: allow != "members"}, questionCandidatesOfKinds(directory, allow))
+			if err != nil {
+				return fmt.Errorf("suggested answer %q: %w", suggest[0], err)
+			}
+			first.SuggestedAnswer, err = json.Marshal(map[string]string{"type": kind, "id": id})
+			if err != nil {
+				return err
+			}
+			if err := questionrules.ValidateSuggested(first.AnswerType, first.Settings, first.SuggestedAnswer); err != nil {
+				return err
+			}
 		}
 	}
-	if request.AnswerType == "person" && cmd.Flags().Changed("suggest") {
-		suggest, _ := cmd.Flags().GetStringArray("suggest")
-		allow, _ := cmd.Flags().GetString("allow")
-		kind, id, err := matchAssignee(suggest[0], assigneeKinds{member: allow != "agents", agent: allow != "members"}, questionCandidatesOfKinds(directory, allow))
-		if err != nil {
-			return fmt.Errorf("suggested answer %q: %w", suggest[0], err)
-		}
-		request.SuggestedAnswer, err = json.Marshal(map[string]string{"type": kind, "id": id})
-		if err != nil {
-			return err
-		}
-		if err := questionrules.ValidateSuggested(request.AnswerType, request.Settings, request.SuggestedAnswer); err != nil {
+	if squad, _ := cmd.Flags().GetString("squad"); strings.TrimSpace(squad) != "" {
+		if _, request.SquadID, err = resolveAssignee(ctx, client, squad, assigneeKinds{squad: true}); err != nil {
 			return err
 		}
 	}
@@ -175,7 +231,14 @@ func runQuestionAsk(cmd *cobra.Command, _ []string) error {
 	if output == "json" {
 		return cli.PrintJSON(cmd.OutOrStdout(), result)
 	}
-	fmt.Fprintln(cmd.OutOrStdout(), strVal(result, "id"))
+	fmt.Fprintln(cmd.OutOrStdout(), strVal(result, "ask_id"))
+	if questions, ok := result["questions"].([]any); ok {
+		for _, raw := range questions {
+			if question, ok := raw.(map[string]any); ok {
+				fmt.Fprintf(cmd.OutOrStdout(), "%s · %s\n", strVal(question, "id"), strings.Join(strings.Fields(strVal(question, "prompt")), " "))
+			}
+		}
+	}
 	return nil
 }
 
@@ -207,22 +270,41 @@ func questionCandidatesOfKinds(directory []assigneeCandidate, allow string) []as
 	return filtered
 }
 
+// questionRequestFromFlags builds and checks the whole ask before any request:
+// one question from the flags or several from --questions-file, then the
+// fields the questions share.
 func questionRequestFromFlags(cmd *cobra.Command) (questionAskRequest, error) {
-	var request questionAskRequest
-	prompt, _, err := resolveTextFlag(cmd, "prompt")
+	request := questionAskRequest{AnswererIDs: []string{}}
+	var err error
+	if cmd.Flags().Changed("questions-file") {
+		request.Questions, err = questionsFromFile(cmd)
+	} else {
+		var question questionAskItem
+		question, err = questionFromFlags(cmd)
+		request.Questions = []questionAskItem{question}
+	}
 	if err != nil {
 		return request, err
 	}
-	if strings.TrimSpace(prompt) == "" {
-		return request, fmt.Errorf("--prompt or --prompt-file is required")
+	title, _ := cmd.Flags().GetString("title")
+	request.Title = strings.TrimSpace(title)
+	switch {
+	case len(request.Questions) > 1 && request.Title == "":
+		return request, fmt.Errorf("--title is required with more than one question")
+	case len(request.Questions) == 1 && request.Title != "":
+		return request, fmt.Errorf("--title is only for more than one question")
+	case utf8.RuneCountInString(request.Title) > 200:
+		return request, fmt.Errorf("--title must be at most 200 characters")
 	}
 	answerers, _ := cmd.Flags().GetStringArray("answerer")
-	if len(answerers) == 0 {
-		return request, fmt.Errorf("at least one --answerer is required")
+	squad, _ := cmd.Flags().GetString("squad")
+	if len(answerers) == 0 && strings.TrimSpace(squad) == "" {
+		return request, fmt.Errorf("at least one --answerer or a --squad is required")
 	}
-	request.Prompt = prompt
-	request.AnswerType, _ = cmd.Flags().GetString("type")
-	request.ContextLine, _ = cmd.Flags().GetString("context")
+	request.AnswerPolicy, _ = cmd.Flags().GetString("policy")
+	if request.AnswerPolicy != questionrules.PolicyAnyOne && request.AnswerPolicy != questionrules.PolicyEach {
+		return request, fmt.Errorf("--policy must be any_one or each")
+	}
 	request.DueDate, _ = cmd.Flags().GetString("due")
 	request.BlocksWork, _ = cmd.Flags().GetBool("blocks-work")
 	if request.DueDate != "" {
@@ -230,39 +312,105 @@ func questionRequestFromFlags(cmd *cobra.Command) (questionAskRequest, error) {
 			return request, fmt.Errorf("--due must be YYYY-MM-DD")
 		}
 	}
-	settings, err := questionSettingsFromFlags(cmd, request.AnswerType)
-	if err != nil {
-		return request, err
+	return request, nil
+}
+
+// questionsFromFile reads the API's questions field from --questions-file and
+// checks each entry, naming it by its 1-based place.
+func questionsFromFile(cmd *cobra.Command) ([]questionAskItem, error) {
+	for _, name := range questionSingleFlags {
+		if cmd.Flags().Changed(name) {
+			return nil, fmt.Errorf("--questions-file and --%s are mutually exclusive", name)
+		}
 	}
-	request.Settings, err = json.Marshal(settings)
-	if err != nil {
-		return request, err
+	path, _ := cmd.Flags().GetString("questions-file")
+	if err := ensureFileFlagWithinWorkdir(cmd, "questions-file", "questions", path); err != nil {
+		return nil, err
 	}
-	if err := questionrules.ValidateSettings(request.AnswerType, request.Settings); err != nil {
-		return request, err
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("read file for --questions-file: %w", err)
+	}
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	var questions []questionAskItem
+	if err := decoder.Decode(&questions); err != nil {
+		return nil, fmt.Errorf("--questions-file must hold a JSON array of questions: %w", err)
+	}
+	if err := decoder.Decode(&struct{}{}); err != io.EOF {
+		return nil, fmt.Errorf("--questions-file must hold one JSON array of questions")
+	}
+	if len(questions) == 0 {
+		return nil, fmt.Errorf("--questions-file holds no questions")
+	}
+	for i := range questions {
+		question := &questions[i]
+		if strings.TrimSpace(question.Prompt) == "" {
+			return nil, fmt.Errorf("question %d: prompt is required", i+1)
+		}
+		if err := questionrules.ValidateSettings(question.AnswerType, question.Settings); err != nil {
+			return nil, fmt.Errorf("question %d: %w", i+1, err)
+		}
+		if string(question.SuggestedAnswer) == "null" {
+			question.SuggestedAnswer = nil
+		}
+		if question.SuggestedAnswer != nil {
+			if err := questionrules.ValidateSuggested(question.AnswerType, question.Settings, question.SuggestedAnswer); err != nil {
+				return nil, fmt.Errorf("question %d: %w", i+1, err)
+			}
+		}
+	}
+	return questions, nil
+}
+
+// questionFromFlags builds the one question --prompt, --type and the settings
+// flags describe. A person suggestion is resolved against the workspace
+// directory before posting.
+func questionFromFlags(cmd *cobra.Command) (questionAskItem, error) {
+	var question questionAskItem
+	prompt, _, err := resolveTextFlag(cmd, "prompt")
+	if err != nil {
+		return question, err
+	}
+	if strings.TrimSpace(prompt) == "" {
+		return question, fmt.Errorf("--prompt, --prompt-file or --questions-file is required")
+	}
+	question.Prompt = prompt
+	question.AnswerType, _ = cmd.Flags().GetString("type")
+	question.ContextLine, _ = cmd.Flags().GetString("context")
+	settings, err := questionSettingsFromFlags(cmd, question.AnswerType)
+	if err != nil {
+		return question, err
+	}
+	question.Settings, err = json.Marshal(settings)
+	if err != nil {
+		return question, err
+	}
+	if err := questionrules.ValidateSettings(question.AnswerType, question.Settings); err != nil {
+		return question, err
 	}
 	suggestions, _ := cmd.Flags().GetStringArray("suggest")
 	if len(suggestions) == 0 {
-		return request, nil
+		return question, nil
 	}
-	if len(suggestions) != 1 && request.AnswerType != "multiple_choice" && request.AnswerType != "ranking" {
-		return request, fmt.Errorf("--suggest can be repeated only for multiple_choice or ranking")
+	if len(suggestions) != 1 && question.AnswerType != "multiple_choice" && question.AnswerType != "ranking" {
+		return question, fmt.Errorf("--suggest can be repeated only for multiple_choice or ranking")
 	}
-	if request.AnswerType == "person" {
-		return request, nil // resolved against the workspace directory before posting
+	if question.AnswerType == "person" {
+		return question, nil
 	}
-	value, err := questionSuggestion(request.AnswerType, settings, suggestions)
+	value, err := questionSuggestion(question.AnswerType, settings, suggestions)
 	if err != nil {
-		return request, err
+		return question, err
 	}
-	request.SuggestedAnswer, err = json.Marshal(value)
+	question.SuggestedAnswer, err = json.Marshal(value)
 	if err != nil {
-		return request, err
+		return question, err
 	}
-	if err := questionrules.ValidateSuggested(request.AnswerType, request.Settings, request.SuggestedAnswer); err != nil {
-		return request, err
+	if err := questionrules.ValidateSuggested(question.AnswerType, question.Settings, question.SuggestedAnswer); err != nil {
+		return question, err
 	}
-	return request, nil
+	return question, nil
 }
 
 func questionSettingsFromFlags(cmd *cobra.Command, answerType string) (map[string]any, error) {

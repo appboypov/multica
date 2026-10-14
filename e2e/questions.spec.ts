@@ -70,14 +70,16 @@ const test = base.extend<{ question: QuestionFixture }>({
       await page.setViewportSize({ width: 1440, height: 1000 });
 
       const ask = async (input: Record<string, unknown> = {}) => {
-        const question = await api.askQuestion(askingTask.auth_token, {
-          prompt: "Should invoice amounts round per line or per total?",
-          answer_type: "single_choice",
-          settings: { options: ["per line", "per total"], allow_other: false },
-          suggested_answer: { option: "per line" },
+        const { questions: [question] } = await api.askQuestion(askingTask.auth_token, {
+          questions: [{
+            prompt: "Should invoice amounts round per line or per total?",
+            answer_type: "single_choice",
+            settings: { options: ["per line", "per total"], allow_other: false },
+            suggested_answer: { option: "per line" },
+            ...input,
+          }],
           answerer_ids: [userId],
           blocks_work: true,
-          ...input,
         });
         // Arrange an ended asking run. Keep its fixture credential for the
         // agent-side read assertion; daemon completion/token revocation is not

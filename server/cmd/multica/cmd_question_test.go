@@ -13,6 +13,8 @@ import (
 
 const questionTestMember = "356c8712-6100-4fb2-ac42-513770588468"
 const questionTestAgent = "a57c0511-1ebc-471d-a314-438ca16cc75d"
+const questionTestSquad = "0b7f5d3e-2c41-4f8a-9a63-7d2e1c4b5a90"
+const questionTestArchivedSquad = "9e1d2c3b-4a5f-4e6d-8c7b-1a2f3e4d5c6b"
 
 func questionTestServer(t *testing.T, questionHandler http.HandlerFunc) *httptest.Server {
 	t.Helper()
@@ -24,6 +26,8 @@ func questionTestServer(t *testing.T, questionHandler http.HandlerFunc) *httptes
 			_ = json.NewEncoder(w).Encode([]map[string]string{{"user_id": questionTestMember, "name": "Brian", "email": "brian@example.com"}})
 		case "/api/agents":
 			_ = json.NewEncoder(w).Encode([]map[string]string{{"id": questionTestAgent, "name": "Joeri"}})
+		case "/api/squads":
+			_ = json.NewEncoder(w).Encode([]map[string]string{{"id": questionTestSquad, "name": "Finance"}, {"id": questionTestArchivedSquad, "name": "Old Finance", "archived_at": "2026-10-01T00:00:00Z"}})
 		default:
 			questionHandler(w, r)
 		}
@@ -33,6 +37,34 @@ func questionTestServer(t *testing.T, questionHandler http.HandlerFunc) *httptes
 	t.Setenv("MULTICA_WORKSPACE_ID", "ws-1")
 	t.Setenv("MULTICA_TOKEN", "mat_test-token")
 	return srv
+}
+
+// questionNoRequestServer fails the test on any request, so a refusal is
+// proven to happen before the CLI talks to the server.
+func questionNoRequestServer(t *testing.T) {
+	t.Helper()
+	t.Chdir(t.TempDir())
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Errorf("unexpected request %s %s", r.Method, r.URL.Path)
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	t.Cleanup(srv.Close)
+	t.Setenv("MULTICA_SERVER_URL", srv.URL)
+	t.Setenv("MULTICA_WORKSPACE_ID", "ws-1")
+	t.Setenv("MULTICA_TOKEN", "mat_test-token")
+}
+
+func onlyQuestion(t *testing.T, body map[string]any) map[string]any {
+	t.Helper()
+	questions, _ := body["questions"].([]any)
+	if len(questions) != 1 {
+		t.Fatalf("expected one question in %+v", body)
+	}
+	question, ok := questions[0].(map[string]any)
+	if !ok {
+		t.Fatalf("question is not an object: %+v", questions[0])
+	}
+	return question
 }
 
 func TestQuestionAskMapsAllAnswerTypesAndSuggestions(t *testing.T) {
@@ -71,7 +103,7 @@ func TestQuestionAskMapsAllAnswerTypesAndSuggestions(t *testing.T) {
 				if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 					t.Error(err)
 				}
-				_, _ = w.Write([]byte(`{"id":"q-1","status":"open"}`))
+				_, _ = w.Write([]byte(`{"ask_id":"q-1","questions":[{"id":"q-1","ask_id":"q-1","prompt":"What is the invoice rule?"}]}`))
 			})
 			cmd := newQuestionCommand()
 			var out bytes.Buffer
@@ -81,24 +113,28 @@ func TestQuestionAskMapsAllAnswerTypesAndSuggestions(t *testing.T) {
 			if err := cmd.Execute(); err != nil {
 				t.Fatal(err)
 			}
-			if posts != 1 || out.String() != "q-1\n" {
+			if posts != 1 || out.String() != "q-1\nq-1 · What is the invoice rule?\n" {
 				t.Fatalf("posts=%d output=%q", posts, out.String())
 			}
-			if body["prompt"] != "What is the invoice rule?" || body["answer_type"] != tc.answerType || body["context_line"] != "Legacy invoices" || body["due_date"] != "2026-10-14" || body["blocks_work"] != true {
-				t.Fatalf("lost question fields: %+v", body)
+			if body["due_date"] != "2026-10-14" || body["blocks_work"] != true || body["answer_policy"] != "any_one" {
+				t.Fatalf("lost shared fields: %+v", body)
+			}
+			question := onlyQuestion(t, body)
+			if question["prompt"] != "What is the invoice rule?" || question["answer_type"] != tc.answerType || question["context_line"] != "Legacy invoices" {
+				t.Fatalf("lost question fields: %+v", question)
 			}
 			if !reflect.DeepEqual(body["answerer_ids"], []any{questionTestMember}) {
 				t.Fatalf("wrong member IDs: %v", body["answerer_ids"])
 			}
-			assertQuestionJSON(t, body["settings"], tc.settings)
+			assertQuestionJSON(t, question["settings"], tc.settings)
 			if tc.suggested == "" {
-				if _, ok := body["suggested_answer"]; ok {
-					t.Fatalf("unexpected suggestion: %+v", body)
+				if _, ok := question["suggested_answer"]; ok {
+					t.Fatalf("unexpected suggestion: %+v", question)
 				}
 			} else {
-				assertQuestionJSON(t, body["suggested_answer"], tc.suggested)
+				assertQuestionJSON(t, question["suggested_answer"], tc.suggested)
 			}
-			for _, key := range []string{"issue_id", "task_id", "answerers", "context", "type", "due"} {
+			for _, key := range []string{"issue_id", "task_id", "answerers", "context", "type", "due", "prompt", "answer_type", "settings", "suggested_answer", "title", "squad_id"} {
 				if _, ok := body[key]; ok {
 					t.Fatalf("noncanonical request key %s", key)
 				}
@@ -124,7 +160,7 @@ func TestQuestionAskResolvesMemberNamesEmailsIDsAndDeduplicates(t *testing.T) {
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			t.Error(err)
 		}
-		_, _ = w.Write([]byte(`{"id":"q-1","status":"open"}`))
+		_, _ = w.Write([]byte(`{"ask_id":"q-1","questions":[{"id":"q-1","status":"open"}]}`))
 	})
 	cmd := newQuestionCommand()
 	var out bytes.Buffer
@@ -140,7 +176,7 @@ func TestQuestionAskResolvesMemberNamesEmailsIDsAndDeduplicates(t *testing.T) {
 	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
 		t.Fatal(err)
 	}
-	if result["id"] != "q-1" {
+	if result["ask_id"] != "q-1" {
 		t.Fatalf("ask JSON lost ID: %s", out.String())
 	}
 }
@@ -203,7 +239,7 @@ func TestQuestionAskPromptFileAndDefaults(t *testing.T) {
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			t.Error(err)
 		}
-		_, _ = w.Write([]byte(`{"id":"q-1"}`))
+		_, _ = w.Write([]byte(`{"ask_id":"q-1","questions":[{"id":"q-1"}]}`))
 	})
 	const prompt = "检查发票\nKeep literal \\n and real newlines"
 	if err := os.WriteFile("prompt.md", []byte(prompt+"\n"), 0600); err != nil {
@@ -215,17 +251,174 @@ func TestQuestionAskPromptFileAndDefaults(t *testing.T) {
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	if body["prompt"] != prompt {
-		t.Fatalf("file prompt changed: %q", body["prompt"])
+	question := onlyQuestion(t, body)
+	if question["prompt"] != prompt {
+		t.Fatalf("file prompt changed: %q", question["prompt"])
 	}
-	assertQuestionJSON(t, body["settings"], `{"length":"short"}`)
-	if body["blocks_work"] != false {
-		t.Fatalf("default blocks_work not false: %v", body)
+	assertQuestionJSON(t, question["settings"], `{"length":"short"}`)
+	if body["blocks_work"] != true || body["answer_policy"] != "any_one" {
+		t.Fatalf("default blocks_work not true or policy not any_one: %v", body)
+	}
+	if _, ok := body["squad_id"]; ok {
+		t.Fatalf("squad sent without --squad: %v", body)
 	}
 	cmd = newQuestionCommand()
 	cmd.SetArgs([]string{"ask", "--prompt", "inline", "--prompt-file", "./prompt.md", "--type", "text", "--answerer", "Brian"})
 	if err := cmd.Execute(); err == nil {
 		t.Fatal("accepted two prompt sources")
+	}
+}
+
+func TestQuestionAskQuestionsFileMapsToQuestions(t *testing.T) {
+	questions := `[
+  {"prompt": "Which rounding?", "context_line": "Legacy invoices", "answer_type": "single_choice", "settings": {"options": ["per line", "per total"], "allow_other": false}, "suggested_answer": {"option": "per line"}},
+  {"prompt": "Is tax\nincluded?", "answer_type": "yes_no", "settings": {"why_on_no": true}},
+  {"prompt": "Who signs off?", "answer_type": "person", "settings": {"allow": "members"}, "suggested_answer": {"type": "member", "id": "` + questionTestMember + `"}}
+]`
+	const response = `{"ask_id":"q-1","questions":[{"id":"q-1","ask_id":"q-1","ask_position":0,"prompt":"Which rounding?"},{"id":"q-2","ask_id":"q-1","ask_position":1,"prompt":"Is tax\nincluded?"},{"id":"q-3","ask_id":"q-1","ask_position":2,"prompt":"Who signs off?"}]}`
+	posts := 0
+	var body map[string]any
+	questionTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		posts++
+		if r.Method != http.MethodPost || r.URL.Path != "/api/questions" {
+			t.Errorf("unexpected request %s %s", r.Method, r.URL.Path)
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Error(err)
+		}
+		_, _ = w.Write([]byte(response))
+	})
+	if err := os.WriteFile("questions.json", []byte(questions), 0600); err != nil {
+		t.Fatal(err)
+	}
+	cmd := newQuestionCommand()
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetArgs([]string{"ask", "--questions-file", "./questions.json", "--title", "Three things before I build the CSV writer", "--squad", "Finance", "--answerer", "Brian", "--policy", "each", "--due", "2026-10-14"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if posts != 1 {
+		t.Fatalf("posts=%d", posts)
+	}
+	assertQuestionJSON(t, body["questions"], questions)
+	if body["title"] != "Three things before I build the CSV writer" || body["squad_id"] != questionTestSquad || body["answer_policy"] != "each" || body["due_date"] != "2026-10-14" || body["blocks_work"] != true {
+		t.Fatalf("lost shared fields: %+v", body)
+	}
+	if !reflect.DeepEqual(body["answerer_ids"], []any{questionTestMember}) {
+		t.Fatalf("wrong member IDs: %v", body["answerer_ids"])
+	}
+	if want := "q-1\nq-1 · Which rounding?\nq-2 · Is tax included?\nq-3 · Who signs off?\n"; out.String() != want {
+		t.Fatalf("output %q, want %q", out.String(), want)
+	}
+
+	cmd = newQuestionCommand()
+	out.Reset()
+	cmd.SetOut(&out)
+	cmd.SetArgs([]string{"ask", "--questions-file", "./questions.json", "--title", "Three things", "--answerer", "Brian", "--output", "json"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	var result any
+	if err := json.Unmarshal(out.Bytes(), &result); err != nil {
+		t.Fatal(err)
+	}
+	assertQuestionJSON(t, result, response)
+}
+
+func TestQuestionAskSquadAndBlocksWork(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		flags      []string
+		blocksWork bool
+	}{
+		{"squad without answerers, blocks work by default", []string{"--squad", "Finance"}, true},
+		{"squad by ID, blocks work off", []string{"--squad", questionTestSquad, "--blocks-work=false"}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var body map[string]any
+			questionTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path != "/api/questions" {
+					t.Errorf("unexpected request %s %s", r.Method, r.URL.Path)
+				}
+				if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+					t.Error(err)
+				}
+				_, _ = w.Write([]byte(`{"ask_id":"q-1","questions":[{"id":"q-1","prompt":"OK?"}]}`))
+			})
+			cmd := newQuestionCommand()
+			cmd.SetOut(&bytes.Buffer{})
+			cmd.SetArgs(append([]string{"ask", "--prompt", "OK?", "--type", "yes_no"}, tc.flags...))
+			if err := cmd.Execute(); err != nil {
+				t.Fatal(err)
+			}
+			if body["squad_id"] != questionTestSquad || body["blocks_work"] != tc.blocksWork {
+				t.Fatalf("squad or blocks_work lost: %+v", body)
+			}
+			if !reflect.DeepEqual(body["answerer_ids"], []any{}) {
+				t.Fatalf("squad-only ask sent answerers: %v", body["answerer_ids"])
+			}
+		})
+	}
+}
+
+func TestQuestionAskArchivedOrUnknownSquadNeverPosts(t *testing.T) {
+	for _, squad := range []string{"Old Finance", "Marketing"} {
+		t.Run(squad, func(t *testing.T) {
+			posts := 0
+			questionTestServer(t, func(w http.ResponseWriter, r *http.Request) { posts++; w.WriteHeader(http.StatusInternalServerError) })
+			cmd := newQuestionCommand()
+			cmd.SetArgs([]string{"ask", "--prompt", "OK?", "--type", "yes_no", "--squad", squad})
+			if err := cmd.Execute(); err == nil || !strings.Contains(err.Error(), squad) {
+				t.Fatalf("expected a refusal naming %q, got %v", squad, err)
+			}
+			if posts != 0 {
+				t.Fatalf("posted %d times", posts)
+			}
+		})
+	}
+}
+
+func TestQuestionAskRefusalsBeforeAnyRequest(t *testing.T) {
+	const three = `[{"prompt":"A","answer_type":"text","settings":{"length":"short"}},{"prompt":"B","answer_type":"text","settings":{"length":"short"}},{"prompt":"C","answer_type":"text","settings":{"length":"short"}}]`
+	const one = `[{"prompt":"A","answer_type":"text","settings":{"length":"short"}}]`
+	for _, tc := range []struct {
+		name      string
+		file      string
+		args      []string
+		errorTerm string
+	}{
+		{"questions file with prompt", three, []string{"--questions-file", "q.json", "--title", "T", "--prompt", "X", "--answerer", "Brian"}, "--prompt"},
+		{"questions file with type", three, []string{"--questions-file", "q.json", "--title", "T", "--type", "text", "--answerer", "Brian"}, "--type"},
+		{"questions file with settings flag", three, []string{"--questions-file", "q.json", "--title", "T", "--option", "A", "--answerer", "Brian"}, "--option"},
+		{"questions file with suggest", three, []string{"--questions-file", "q.json", "--title", "T", "--suggest", "A", "--answerer", "Brian"}, "--suggest"},
+		{"three questions without title", three, []string{"--questions-file", "q.json", "--answerer", "Brian"}, "--title"},
+		{"blank title", three, []string{"--questions-file", "q.json", "--title", "  ", "--answerer", "Brian"}, "--title"},
+		{"title over 200 characters", three, []string{"--questions-file", "q.json", "--title", strings.Repeat("é", 201), "--answerer", "Brian"}, "--title"},
+		{"title with one question from file", one, []string{"--questions-file", "q.json", "--title", "T", "--answerer", "Brian"}, "--title"},
+		{"title with one flag question", "", []string{"--prompt", "X", "--type", "text", "--title", "T", "--answerer", "Brian"}, "--title"},
+		{"empty file", `[]`, []string{"--questions-file", "q.json", "--answerer", "Brian"}, "no questions"},
+		{"not an array", `{"prompt":"A"}`, []string{"--questions-file", "q.json", "--answerer", "Brian"}, "json array"},
+		{"unknown field", `[{"prompt":"A","type":"text","settings":{"length":"short"}}]`, []string{"--questions-file", "q.json", "--answerer", "Brian"}, "type"},
+		{"invalid second question", `[{"prompt":"A","answer_type":"text","settings":{"length":"short"}},{"prompt":"B","answer_type":"single_choice","settings":{"options":["only"],"allow_other":false}}]`, []string{"--questions-file", "q.json", "--title", "T", "--answerer", "Brian"}, "question 2:"},
+		{"invalid suggestion", `[{"prompt":"A","answer_type":"yes_no","settings":{"why_on_no":false},"suggested_answer":{"choice":"maybe"}}]`, []string{"--questions-file", "q.json", "--answerer", "Brian"}, "question 1:"},
+		{"no answerer or squad", one, []string{"--questions-file", "q.json"}, "--squad"},
+		{"unknown policy", one, []string{"--questions-file", "q.json", "--answerer", "Brian", "--policy", "all"}, "--policy"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			questionNoRequestServer(t)
+			if tc.file != "" {
+				if err := os.WriteFile("q.json", []byte(tc.file), 0600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			cmd := newQuestionCommand()
+			cmd.SetArgs(append([]string{"ask"}, tc.args...))
+			err := cmd.Execute()
+			if err == nil || !strings.Contains(strings.ToLower(err.Error()), strings.ToLower(tc.errorTerm)) {
+				t.Fatalf("expected %q refusal, got %v", tc.errorTerm, err)
+			}
+		})
 	}
 }
 

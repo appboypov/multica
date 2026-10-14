@@ -1,6 +1,7 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -39,15 +40,19 @@ type QuestionActor struct {
 	TaskID pgtype.UUID
 }
 
-type AskQuestionInput struct {
-	Prompt          string
-	ContextLine     string
-	AnswerType      string
-	Settings        json.RawMessage
-	SuggestedAnswer json.RawMessage
-	AnswererIDs     []pgtype.UUID
-	DueDate         string
-	BlocksWork      bool
+type AskInput struct {
+	Title       string
+	Questions   []question.AskQuestion
+	AnswererIDs []pgtype.UUID
+	SquadID     pgtype.UUID
+	Policy      string
+	DueDate     string
+	BlocksWork  *bool
+}
+
+type QuestionAskResult struct {
+	AskID     string        `json:"ask_id"`
+	Questions []QuestionDTO `json:"questions"`
 }
 
 type AnswerQuestionInput struct {
@@ -100,27 +105,31 @@ type QuestionWakeTargetDTO struct {
 
 // QuestionDTO is the aggregate wire shape shared with core/types/question.ts.
 type QuestionDTO struct {
-	ID                string                  `json:"id"`
-	WorkspaceID       string                  `json:"workspace_id"`
-	AskerAgentID      string                  `json:"asker_agent_id"`
-	AskedInTaskID     string                  `json:"asked_in_task_id"`
-	Prompt            string                  `json:"prompt"`
-	ContextLine       *string                 `json:"context_line"`
-	AnswerType        string                  `json:"answer_type"`
-	Settings          json.RawMessage         `json:"settings"`
-	SuggestedAnswer   json.RawMessage         `json:"suggested_answer"`
-	Status            string                  `json:"status"`
-	DueDate           *string                 `json:"due_date"`
-	BlocksWork        bool                    `json:"blocks_work"`
-	Links             []QuestionLinkDTO       `json:"links"`
-	Answerers         []QuestionAnswererDTO   `json:"answerers"`
-	Answers           []QuestionAnswerDTO     `json:"answers"`
-	Events            []QuestionEventDTO      `json:"events"`
-	UnseenAnswerCount int64                   `json:"unseen_answer_count"`
-	WakeAvailable     bool                    `json:"wake_available"`
-	WakeTargets       []QuestionWakeTargetDTO `json:"wake_targets"`
-	CreatedAt         string                  `json:"created_at"`
-	UpdatedAt         string                  `json:"updated_at"`
+	ID                string                `json:"id"`
+	AskID             string                `json:"ask_id"`
+	AskPosition       int32                 `json:"ask_position"`
+	AskTitle          *string               `json:"ask_title"`
+	AnswerPolicy      string                `json:"answer_policy"`
+	WorkspaceID       string                `json:"workspace_id"`
+	AskerAgentID      string                `json:"asker_agent_id"`
+	AskedInTaskID     string                `json:"asked_in_task_id"`
+	Prompt            string                `json:"prompt"`
+	ContextLine       *string               `json:"context_line"`
+	AnswerType        string                `json:"answer_type"`
+	Settings          json.RawMessage       `json:"settings"`
+	SuggestedAnswer   json.RawMessage       `json:"suggested_answer"`
+	Status            string                `json:"status"`
+	DueDate           *string               `json:"due_date"`
+	BlocksWork        bool                  `json:"blocks_work"`
+	Links             []QuestionLinkDTO     `json:"links"`
+	Answerers         []QuestionAnswererDTO `json:"answerers"`
+	Answers           []QuestionAnswerDTO   `json:"answers"`
+	Events            []QuestionEventDTO    `json:"events"`
+	UnseenAnswerCount int64                 `json:"unseen_answer_count"`
+	WakeAvailable     bool                  `json:"wake_available"`
+	CreatedAt         string                `json:"created_at"`
+	UpdatedAt         string                `json:"updated_at"`
+	WakeTargets []QuestionWakeTargetDTO `json:"wake_targets"`
 }
 
 type QuestionService struct {
@@ -295,29 +304,41 @@ func (s *QuestionService) publish(row QuestionDTO, actor QuestionActor, reason, 
 			break
 		}
 	}
-	eventType := protocol.EventQuestionUpdated
-	if reason == "asked" {
-		eventType = protocol.EventQuestionCreated
-	}
-	s.Bus.Publish(events.Event{Type: eventType, WorkspaceID: row.WorkspaceID, ActorType: actor.Type, ActorID: util.UUIDToString(actor.ID), Payload: protocol.QuestionEventPayload{QuestionID: row.ID, IssueID: issueID, Reason: reason, EventID: eventID}})
+	s.Bus.Publish(events.Event{Type: protocol.EventQuestionUpdated, WorkspaceID: row.WorkspaceID, ActorType: actor.Type, ActorID: util.UUIDToString(actor.ID), Payload: protocol.QuestionEventPayload{QuestionID: row.ID, AskID: row.AskID, IssueID: issueID, Reason: reason, EventID: eventID}})
 }
 
-func (s *QuestionService) Ask(ctx context.Context, workspaceID pgtype.UUID, actor QuestionActor, input AskQuestionInput) (QuestionDTO, error) {
+func (s *QuestionService) Ask(ctx context.Context, workspaceID pgtype.UUID, actor QuestionActor, input AskInput) (QuestionAskResult, error) {
 	if actor.Type != "agent" {
-		return QuestionDTO{}, questionRefusal(403, "only agents ask questions")
+		return QuestionAskResult{}, questionRefusal(403, "only agents ask questions")
+	}
+	if err := question.ValidateAsk(input.Title, input.Questions, input.Policy); err != nil {
+		return QuestionAskResult{}, questionRefusal(422, err.Error())
+	}
+	policy := input.Policy
+	if policy == "" {
+		policy = question.PolicyAnyOne
+	}
+	blocksWork := input.BlocksWork == nil || *input.BlocksWork
+	var due pgtype.Date
+	if input.DueDate != "" {
+		date, err := time.Parse("2006-01-02", input.DueDate)
+		if err != nil {
+			return QuestionAskResult{}, questionRefusal(422, "due_date must be YYYY-MM-DD")
+		}
+		due = pgtype.Date{Time: date, Valid: true}
 	}
 	tx, err := s.TxStarter.Begin(ctx)
 	if err != nil {
-		return QuestionDTO{}, err
+		return QuestionAskResult{}, err
 	}
 	defer tx.Rollback(ctx)
 	q := s.Queries.WithTx(tx)
 	task, err := s.requireAgentTask(ctx, q, workspaceID, actor)
 	if err != nil {
-		return QuestionDTO{}, err
+		return QuestionAskResult{}, err
 	}
 	if !task.IssueID.Valid {
-		return QuestionDTO{}, questionRefusal(422, "questions are asked during an issue run")
+		return QuestionAskResult{}, questionRefusal(422, "questions are asked during an issue run")
 	}
 	// Decided at claim (ADR-0005): a run claimed while questions were off
 	// never asks, whatever the setting says now.
@@ -325,67 +346,128 @@ func (s *QuestionService) Ask(ctx context.Context, workspaceID pgtype.UUID, acto
 		return QuestionDTO{}, questionRefusal(403, "questions are off for this issue")
 	}
 	if !task.StartedAt.Valid {
-		return QuestionDTO{}, questionRefusal(422, "questions are asked during a started issue run")
+		return QuestionAskResult{}, questionRefusal(422, "questions are asked during a started issue run")
 	}
-	if strings.TrimSpace(input.Prompt) == "" {
-		return QuestionDTO{}, questionRefusal(422, "prompt is required")
-	}
-	if len(input.AnswererIDs) == 0 {
-		return QuestionDTO{}, questionRefusal(422, "at least one answerer is required")
-	}
-	if err := question.ValidateSettings(input.AnswerType, input.Settings); err != nil {
-		return QuestionDTO{}, questionRefusal(422, err.Error())
-	}
-	if len(input.SuggestedAnswer) > 0 && string(input.SuggestedAnswer) != "null" {
-		if err := question.ValidateSuggested(input.AnswerType, input.Settings, input.SuggestedAnswer); err != nil {
-			return QuestionDTO{}, questionRefusal(422, err.Error())
-		}
-		if err := s.validateReferences(ctx, q, db.Question{WorkspaceID: workspaceID, AnswerType: input.AnswerType, Settings: input.Settings}, actor.ID, input.SuggestedAnswer); err != nil {
-			return QuestionDTO{}, err
-		}
-	}
-	var due pgtype.Date
-	if input.DueDate != "" {
-		date, err := time.Parse("2006-01-02", input.DueDate)
-		if err != nil {
-			return QuestionDTO{}, questionRefusal(422, "due_date must be YYYY-MM-DD")
-		}
-		due = pgtype.Date{Time: date, Valid: true}
-	}
+	answerers := make([]pgtype.UUID, 0, len(input.AnswererIDs))
+	seen := make(map[pgtype.UUID]bool, len(input.AnswererIDs))
 	for _, id := range input.AnswererIDs {
+		if seen[id] {
+			continue
+		}
 		if err := s.validateAnswerer(ctx, q, workspaceID, id); err != nil {
-			return QuestionDTO{}, err
+			return QuestionAskResult{}, err
+		}
+		answerers = append(answerers, id)
+		seen[id] = true
+	}
+	var squadID *string
+	if input.SquadID.Valid {
+		squad, err := q.GetSquadInWorkspace(ctx, db.GetSquadInWorkspaceParams{ID: input.SquadID, WorkspaceID: workspaceID})
+		if errors.Is(err, pgx.ErrNoRows) {
+			return QuestionAskResult{}, questionRefusal(422, "squad_id must be a squad of this workspace")
+		}
+		if err != nil {
+			return QuestionAskResult{}, err
+		}
+		if squad.ArchivedAt.Valid {
+			return QuestionAskResult{}, questionRefusal(422, "squad "+squad.Name+" is archived")
+		}
+		members, err := q.ListSquadMembers(ctx, squad.ID)
+		if err != nil {
+			return QuestionAskResult{}, err
+		}
+		memberCount := 0
+		for _, member := range members {
+			if member.MemberType != "member" {
+				continue
+			}
+			_, err := q.GetMemberByUserAndWorkspace(ctx, db.GetMemberByUserAndWorkspaceParams{UserID: member.MemberID, WorkspaceID: workspaceID})
+			if errors.Is(err, pgx.ErrNoRows) {
+				continue
+			}
+			if err != nil {
+				return QuestionAskResult{}, err
+			}
+			memberCount++
+			if !seen[member.MemberID] {
+				answerers = append(answerers, member.MemberID)
+				seen[member.MemberID] = true
+			}
+		}
+		if memberCount == 0 {
+			return QuestionAskResult{}, questionRefusal(422, "squad "+squad.Name+" has no members, only agents")
+		}
+		id := util.UUIDToString(squad.ID)
+		squadID = &id
+	}
+	if len(answerers) == 0 {
+		return QuestionAskResult{}, questionRefusal(422, "at least one answerer is required")
+	}
+	// Resolve every suggestion before the first write, including references
+	// that pure validation cannot check against workspace membership.
+	for i, item := range input.Questions {
+		suggested := bytes.TrimSpace(item.SuggestedAnswer)
+		if len(suggested) > 0 && !bytes.Equal(suggested, []byte("null")) {
+			if err := s.validateReferences(ctx, q, db.Question{WorkspaceID: workspaceID, AnswerType: item.AnswerType, Settings: item.Settings}, actor.ID, suggested); err != nil {
+				var refusal *QuestionError
+				if errors.As(err, &refusal) {
+					return QuestionAskResult{}, questionRefusal(refusal.Status, fmt.Sprintf("question %d: %s", i+1, refusal.Message))
+				}
+				return QuestionAskResult{}, err
+			}
 		}
 	}
-	id := dbid.NewV7()
-	row, err := q.CreateQuestion(ctx, db.CreateQuestionParams{ID: id, WorkspaceID: workspaceID, AskerAgentID: actor.ID, AskedInTaskID: task.ID, Prompt: input.Prompt, ContextLine: pgtype.Text{String: input.ContextLine, Valid: input.ContextLine != ""}, AnswerType: input.AnswerType, Settings: input.Settings, SuggestedAnswer: input.SuggestedAnswer, DueDate: due, BlocksWork: input.BlocksWork, AskID: id, AskPosition: 0, AnswerPolicy: QuestionAnswerPolicyAnyOne})
-	if err != nil {
-		return QuestionDTO{}, err
-	}
-	for i, link := range []struct {
-		kind string
-		id   pgtype.UUID
-	}{{"issue", task.IssueID}, {"task", task.ID}} {
-		if err := q.CreateQuestionLink(ctx, db.CreateQuestionLinkParams{QuestionID: row.ID, WorkspaceID: workspaceID, LinkType: link.kind, LinkID: link.id, Position: int32(i)}); err != nil {
-			return QuestionDTO{}, err
+	askID := dbid.NewV7()
+	rows := make([]db.Question, 0, len(input.Questions))
+	ids := make([]string, 0, len(input.Questions))
+	firstEventID := ""
+	for i, item := range input.Questions {
+		id := askID
+		if i > 0 {
+			id = dbid.NewV7()
 		}
+		row, err := q.CreateQuestion(ctx, db.CreateQuestionParams{ID: id, WorkspaceID: workspaceID, AskerAgentID: actor.ID, AskedInTaskID: task.ID, Prompt: item.Prompt, ContextLine: pgtype.Text{String: item.ContextLine, Valid: item.ContextLine != ""}, AnswerType: item.AnswerType, Settings: item.Settings, SuggestedAnswer: item.SuggestedAnswer, DueDate: due, BlocksWork: blocksWork, AskID: askID, AskPosition: int32(i), AskTitle: pgtype.Text{String: input.Title, Valid: input.Title != ""}, AnswerPolicy: policy})
+		if err != nil {
+			return QuestionAskResult{}, err
+		}
+		for position, link := range []struct {
+			kind string
+			id   pgtype.UUID
+		}{{"issue", task.IssueID}, {"task", task.ID}} {
+			if err := q.CreateQuestionLink(ctx, db.CreateQuestionLinkParams{QuestionID: row.ID, WorkspaceID: workspaceID, LinkType: link.kind, LinkID: link.id, Position: int32(position)}); err != nil {
+				return QuestionAskResult{}, err
+			}
+		}
+		if err := q.CreateQuestionAnswerers(ctx, db.CreateQuestionAnswerersParams{QuestionID: row.ID, WorkspaceID: workspaceID, UserIds: answerers}); err != nil {
+			return QuestionAskResult{}, err
+		}
+		eventID, err := s.writeEvent(ctx, q, row, actor, "asked", struct {
+			AskID        string  `json:"ask_id"`
+			AnswerPolicy string  `json:"answer_policy"`
+			SquadID      *string `json:"squad_id,omitempty"`
+		}{util.UUIDToString(askID), policy, squadID})
+		if err != nil {
+			return QuestionAskResult{}, err
+		}
+		if i == 0 {
+			firstEventID = eventID
+		}
+		rows = append(rows, row)
+		ids = append(ids, util.UUIDToString(id))
 	}
-	if err := q.CreateQuestionAnswerers(ctx, db.CreateQuestionAnswerersParams{QuestionID: row.ID, WorkspaceID: workspaceID, UserIds: input.AnswererIDs}); err != nil {
-		return QuestionDTO{}, err
-	}
-	eventID, err := s.writeEvent(ctx, q, row, actor, "asked", nil)
+	hydrated, err := s.hydrate(ctx, q, workspaceID, rows)
 	if err != nil {
-		return QuestionDTO{}, err
-	}
-	result, err := s.hydrate(ctx, q, workspaceID, []db.Question{row})
-	if err != nil {
-		return QuestionDTO{}, err
+		return QuestionAskResult{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return QuestionDTO{}, err
+		return QuestionAskResult{}, err
 	}
-	s.publish(result[0], actor, "asked", eventID)
-	return result[0], nil
+	result := QuestionAskResult{AskID: util.UUIDToString(askID), Questions: hydrated}
+	slog.Info("question ask committed", "ask_id", result.AskID, "workspace_id", util.UUIDToString(workspaceID), "question_count", len(rows), "actor_id", util.UUIDToString(actor.ID))
+	if s.Bus != nil {
+		s.Bus.Publish(events.Event{Type: protocol.EventQuestionCreated, WorkspaceID: util.UUIDToString(workspaceID), ActorType: actor.Type, ActorID: util.UUIDToString(actor.ID), Payload: protocol.QuestionEventPayload{QuestionID: ids[0], AskID: result.AskID, QuestionIDs: ids, IssueID: util.UUIDToString(task.IssueID), Reason: "asked", EventID: firstEventID}})
+	}
+	return result, nil
 }
 
 // mutate serializes status and answerer checks with the action's writes. Its
@@ -440,9 +522,30 @@ func (s *QuestionService) mutate(ctx context.Context, workspaceID, questionID pg
 	return result[0], nil
 }
 
+// recomputeStatus is called only for live questions while their row is locked.
+func (s *QuestionService) recomputeStatus(ctx context.Context, q *db.Queries, row db.Question) (db.Question, error) {
+	answerers, err := q.ListQuestionAnswerersByQuestions(ctx, db.ListQuestionAnswerersByQuestionsParams{WorkspaceID: row.WorkspaceID, QuestionIds: []pgtype.UUID{row.ID}})
+	if err != nil {
+		return row, err
+	}
+	answers, err := q.ListCurrentAnswers(ctx, db.ListCurrentAnswersParams{WorkspaceID: row.WorkspaceID, QuestionID: row.ID})
+	if err != nil {
+		return row, err
+	}
+	answererIDs := make([]pgtype.UUID, len(answerers))
+	for i, answerer := range answerers {
+		answererIDs[i] = answerer.UserID
+	}
+	answeredIDs := make([]pgtype.UUID, len(answers))
+	for i, answer := range answers {
+		answeredIDs[i] = answer.AnswererUserID
+	}
+	return q.SetQuestionStatus(ctx, db.SetQuestionStatusParams{ID: row.ID, WorkspaceID: row.WorkspaceID, Status: question.DeriveStatus(row.AnswerPolicy, answererIDs, answeredIDs), FromStatuses: []string{row.Status}})
+}
+
 func (s *QuestionService) Answer(ctx context.Context, workspaceID, questionID pgtype.UUID, actor QuestionActor, input AnswerQuestionInput) (QuestionDTO, error) {
 	return s.mutate(ctx, workspaceID, questionID, actor, false, func(q *db.Queries, row db.Question) (db.Question, string, any, error) {
-		if row.Status != "open" && row.Status != "answered" {
+		if !question.IsOpen(row.Status) && row.Status != "answered" {
 			return row, "", nil, questionRefusal(422, "this question no longer accepts answers")
 		}
 		if row.Status == "answered" {
@@ -471,7 +574,7 @@ func (s *QuestionService) Answer(ctx context.Context, workspaceID, questionID pg
 		if err != nil {
 			return row, "", nil, err
 		}
-		row, err = q.SetQuestionStatus(ctx, db.SetQuestionStatusParams{ID: row.ID, WorkspaceID: workspaceID, Status: "answered", FromStatuses: []string{"open", "answered"}})
+		row, err = s.recomputeStatus(ctx, q, row)
 		reason := "answer_edited"
 		if answer.Inserted {
 			reason = "answered"
@@ -482,7 +585,7 @@ func (s *QuestionService) Answer(ctx context.Context, workspaceID, questionID pg
 
 func (s *QuestionService) AskBack(ctx context.Context, workspaceID, questionID pgtype.UUID, actor QuestionActor, text string) (QuestionDTO, error) {
 	return s.mutate(ctx, workspaceID, questionID, actor, false, func(q *db.Queries, row db.Question) (db.Question, string, any, error) {
-		if row.Status != "open" && row.Status != "answered" {
+		if !question.IsOpen(row.Status) && row.Status != "answered" {
 			return row, "", nil, questionRefusal(422, "this question no longer accepts replies")
 		}
 		if strings.TrimSpace(text) == "" {
@@ -497,8 +600,8 @@ func (s *QuestionService) AskBack(ctx context.Context, workspaceID, questionID p
 
 func (s *QuestionService) Reassign(ctx context.Context, workspaceID, questionID pgtype.UUID, actor QuestionActor, userID pgtype.UUID, note string) (QuestionDTO, error) {
 	return s.mutate(ctx, workspaceID, questionID, actor, false, func(q *db.Queries, row db.Question) (db.Question, string, any, error) {
-		if row.Status != "open" {
-			return row, "", nil, questionRefusal(422, "only open questions can be reassigned")
+		if !question.IsOpen(row.Status) {
+			return row, "", nil, questionRefusal(422, "only open or partly answered questions can be reassigned")
 		}
 		if strings.TrimSpace(note) == "" {
 			return row, "", nil, questionRefusal(422, "a reassignment note is required")
@@ -513,7 +616,7 @@ func (s *QuestionService) Reassign(ctx context.Context, workspaceID, questionID 
 		if err != nil {
 			return row, "", nil, err
 		}
-		updated, err := q.SetQuestionStatus(ctx, db.SetQuestionStatusParams{ID: row.ID, WorkspaceID: workspaceID, Status: "open", FromStatuses: []string{"open"}})
+		updated, err := s.recomputeStatus(ctx, q, row)
 		return updated, "reassigned", struct {
 			UserID string `json:"user_id"`
 			Note   string `json:"note"`
@@ -522,11 +625,11 @@ func (s *QuestionService) Reassign(ctx context.Context, workspaceID, questionID 
 }
 
 func (s *QuestionService) Close(ctx context.Context, workspaceID, questionID pgtype.UUID, actor QuestionActor) (QuestionDTO, error) {
-	return s.end(ctx, workspaceID, questionID, actor, "closed", []string{"answered"})
+	return s.end(ctx, workspaceID, questionID, actor, "closed", []string{"partly_answered", "answered"})
 }
 
 func (s *QuestionService) Withdraw(ctx context.Context, workspaceID, questionID pgtype.UUID, actor QuestionActor) (QuestionDTO, error) {
-	return s.end(ctx, workspaceID, questionID, actor, "withdrawn", []string{"open", "answered"})
+	return s.end(ctx, workspaceID, questionID, actor, "withdrawn", []string{"open", "partly_answered", "answered"})
 }
 
 func (s *QuestionService) end(ctx context.Context, workspaceID, questionID pgtype.UUID, actor QuestionActor, status string, from []string) (QuestionDTO, error) {
@@ -587,7 +690,7 @@ func (s *QuestionService) hydrate(ctx context.Context, q *db.Queries, workspaceI
 			date := row.DueDate.Time.Format("2006-01-02")
 			due = &date
 		}
-		result[i] = QuestionDTO{ID: util.UUIDToString(row.ID), WorkspaceID: util.UUIDToString(workspaceID), AskerAgentID: util.UUIDToString(row.AskerAgentID), AskedInTaskID: util.UUIDToString(row.AskedInTaskID), Prompt: row.Prompt, ContextLine: questionText(row.ContextLine), AnswerType: row.AnswerType, Settings: row.Settings, SuggestedAnswer: row.SuggestedAnswer, Status: row.Status, DueDate: due, BlocksWork: row.BlocksWork, Links: []QuestionLinkDTO{}, Answerers: []QuestionAnswererDTO{}, Answers: []QuestionAnswerDTO{}, Events: []QuestionEventDTO{}, CreatedAt: questionTime(row.CreatedAt), UpdatedAt: questionTime(row.UpdatedAt)}
+		result[i] = QuestionDTO{ID: util.UUIDToString(row.ID), AskID: util.UUIDToString(row.AskID), AskPosition: row.AskPosition, AskTitle: questionText(row.AskTitle), AnswerPolicy: row.AnswerPolicy, WorkspaceID: util.UUIDToString(workspaceID), AskerAgentID: util.UUIDToString(row.AskerAgentID), AskedInTaskID: util.UUIDToString(row.AskedInTaskID), Prompt: row.Prompt, ContextLine: questionText(row.ContextLine), AnswerType: row.AnswerType, Settings: row.Settings, SuggestedAnswer: row.SuggestedAnswer, Status: row.Status, DueDate: due, BlocksWork: row.BlocksWork, Links: []QuestionLinkDTO{}, Answerers: []QuestionAnswererDTO{}, Answers: []QuestionAnswerDTO{}, Events: []QuestionEventDTO{}, CreatedAt: questionTime(row.CreatedAt), UpdatedAt: questionTime(row.UpdatedAt)}
 	}
 	links, err := q.ListQuestionLinksByQuestions(ctx, db.ListQuestionLinksByQuestionsParams{WorkspaceID: workspaceID, QuestionIds: ids})
 	if err != nil {
@@ -639,9 +742,6 @@ func (s *QuestionService) hydrate(ctx context.Context, q *db.Queries, workspaceI
 	}
 	states := make(map[pair]wakeState)
 	for i, row := range rows {
-		if row.Status != "answered" && row.Status != "open" {
-			continue
-		}
 		key := pair{row.AskerAgentID, issueIDs[row.ID]}
 		state, ok := states[key]
 		if !ok {
@@ -661,7 +761,7 @@ func (s *QuestionService) hydrate(ctx context.Context, q *db.Queries, workspaceI
 			states[key] = state
 		}
 		result[i].UnseenAnswerCount = state.count
-		result[i].WakeAvailable = row.Status == "answered" && state.count > 0 && !state.active && state.available
+		result[i].WakeAvailable = state.count > 0 && !state.active && state.available
 	}
 	return result, nil
 }
@@ -679,9 +779,6 @@ func (s *QuestionService) Wake(ctx context.Context, workspaceID, questionID pgty
 	row, err := q.GetQuestionForUpdate(ctx, db.GetQuestionForUpdateParams{ID: questionID, WorkspaceID: workspaceID})
 	if err != nil {
 		return QuestionWakeResult{}, questionLoadError(err)
-	}
-	if row.Status != "answered" {
-		return QuestionWakeResult{}, questionRefusal(422, "only answered questions can wake their asking agent")
 	}
 	agent, err := q.GetAgent(ctx, row.AskerAgentID)
 	if err != nil {
@@ -741,7 +838,7 @@ func (s *QuestionService) Wake(ctx context.Context, workspaceID, questionID pgty
 	if err != nil {
 		return QuestionWakeResult{}, err
 	}
-	if _, err := q.SetQuestionStatus(ctx, db.SetQuestionStatusParams{ID: row.ID, WorkspaceID: workspaceID, Status: "answered", FromStatuses: []string{"answered"}}); err != nil {
+	if _, err := q.SetQuestionStatus(ctx, db.SetQuestionStatusParams{ID: row.ID, WorkspaceID: workspaceID, Status: row.Status, FromStatuses: []string{row.Status}}); err != nil {
 		return QuestionWakeResult{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -749,7 +846,7 @@ func (s *QuestionService) Wake(ctx context.Context, workspaceID, questionID pgty
 	}
 	s.Tasks.BroadcastTaskQueued(ctx, task)
 	s.Tasks.NotifyTaskEnqueued(ctx, task)
-	s.publish(QuestionDTO{ID: util.UUIDToString(row.ID), WorkspaceID: util.UUIDToString(workspaceID), Links: []QuestionLinkDTO{{LinkType: "issue", LinkID: util.UUIDToString(issue.ID)}}}, actor, "woken", eventID)
+	s.publish(QuestionDTO{ID: util.UUIDToString(row.ID), AskID: util.UUIDToString(row.AskID), WorkspaceID: util.UUIDToString(workspaceID), Links: []QuestionLinkDTO{{LinkType: "issue", LinkID: util.UUIDToString(issue.ID)}}}, actor, "woken", eventID)
 	slog.Info("question agent woken", "question_id", util.UUIDToString(row.ID), "task_id", result.TaskID, "answer_count", count)
 	return result, nil
 }
