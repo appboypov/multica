@@ -2849,6 +2849,11 @@ func (h *Handler) buildClaimedTaskResponse(r *http.Request, task *db.AgentTaskQu
 			}
 		}
 		projectCtx.applyTo(&resp)
+		var worklaneFailure *claimBuildFailure
+		resp.Repositories, worklaneFailure = h.claimWorklane(r.Context(), task, runtime, agent.Name, issue, resp.Repositories)
+		if worklaneFailure != nil {
+			return resp, deliveredCommentIDs, issueSnapshot, agentSkillCount, builtinSkillCount, worklaneFailure
+		}
 
 		// Load every planned input as one chronological, de-duplicated set.
 		// The trigger is included here so the delivery receipt can only contain

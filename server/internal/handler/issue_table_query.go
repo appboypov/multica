@@ -648,7 +648,7 @@ func (h *Handler) compileIssueTableQuery(w http.ResponseWriter, r *http.Request,
 	if len(spec.Filters.Types) > 0 {
 		types := make([]string, 0, len(spec.Filters.Types))
 		includeNoType := false
-		for _, issueType := range sortedUniqueStrings(spec.Filters.Types) {
+		for _, issueType := range spec.Filters.Types {
 			switch {
 			case issueType == issueTableNoType:
 				includeNoType = true
@@ -661,7 +661,7 @@ func (h *Handler) compileIssueTableQuery(w http.ResponseWriter, r *http.Request,
 		}
 		ors := make([]string, 0, 2)
 		if len(types) > 0 {
-			ors = append(ors, fmt.Sprintf("i.type = ANY(%s::text[])", addArg(types)))
+			ors = append(ors, fmt.Sprintf("i.type = ANY(%s::text[])", addArg(sortedUniqueStrings(types))))
 		}
 		if includeNoType {
 			ors = append(ors, "i.type IS NULL")
