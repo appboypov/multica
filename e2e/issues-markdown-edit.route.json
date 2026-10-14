@@ -1,0 +1,22 @@
+{
+  "goal": "Turn on Markdown using the Markdown button, replace Description as Markdown with EDITED_MARKDOWN, and turn Markdown off again. Stop when Shows in guest lists appears rendered as a list item; do not navigate away.",
+  "start_url": "http://localhost:33587/e2e-workspace-0-mv8qbx18-1vvvq/issues/01a13cb4-83e0-7d96-be94-eede6391e770",
+  "viewport": [
+    1280,
+    720
+  ],
+  "values": {
+    "EDITED_MARKDOWN": {
+      "description": "The edited description",
+      "text": "## 👤 User Story\n\n- A fan changes their display name\n\n## 🎯 Should\n\n- Shows in guest lists"
+    }
+  },
+  "status": "blocked",
+  "error": null,
+  "steps": [],
+  "jev_decisions": 1,
+  "jev_latency_ms": 282,
+  "value_calls": [],
+  "wall_ms": 1717,
+  "log": []
+}

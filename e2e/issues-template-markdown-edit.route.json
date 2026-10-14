@@ -1,0 +1,22 @@
+{
+  "goal": "In New Issue, with Story and the existing E2E Jev hand-edited story draft title, show Markdown, replace The template's Markdown with EDITED_MARKDOWN, turn Markdown off, and stop when Create story is visible. Do not create the issue. Open New Issue first only if its dialog is not already open; preserve the existing title and template field values.",
+  "start_url": "http://localhost:33587/e2e-workspace-0-mv8qbx18-1vvvq/issues",
+  "viewport": [
+    1280,
+    1100
+  ],
+  "values": {
+    "EDITED_MARKDOWN": {
+      "description": "The hand-edited Story description",
+      "text": "## 🔗 Dependencies\n> Which issues must be completed first?\n\n## 🔀 Related Issues\n> Which related issues provide context (non-blocking)?\n\n## 👤 User Story\n> Who benefits and what do they want to achieve?\n\n- As a fan, I want to change my display name, so that friends recognise me in guest lists.\n\n## 🚀 End Goal\n> What is the tangible measurable end goal?\n\n## 📍 Currently\n> What is the current state?\n\n## 🎯 Should\n\n- Shows in guest lists\n> What should the state be?\n\n## 🗺️ User Journey\n> What is this journey about in one sentence?\n\n## ✨ Scenarios\n> What scenarios make up this journey (each with a mermaid sequence diagram for its flow)?\n\n## 🎨 UI\n> What does the updated UI look like in ASCII?\n\n## ⚠️ Constraints\n> What limitations or constraints exist for the overall story?\n\n## ✅ Acceptance Criteria\n> How do we measure successful achievement of the end goal?\n\n## 📚 References"
+    }
+  },
+  "status": "blocked",
+  "error": null,
+  "steps": [],
+  "jev_decisions": 1,
+  "jev_latency_ms": 294,
+  "value_calls": [],
+  "wall_ms": 1791,
+  "log": []
+}

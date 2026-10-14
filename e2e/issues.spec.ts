@@ -156,6 +156,101 @@ test.describe("Issues", () => {
     await expect(page.locator("text=Properties")).toBeVisible();
   });
 
+  test("The issue page shows the type, the ID and the description, editable as Markdown / An edit in the Markdown", async ({ page }) => {
+    const description = "## 👤 User Story\n\n- A fan changes their display name\n\n## 🎯 Should";
+    const editedMarkdown = `${description}\n\n- Shows in guest lists`;
+    const issue = await api.createIssue(`E2E Markdown edit ${Date.now()}`, {
+      description,
+    });
+    await reloadAppPage(page);
+    await page.locator(`a[href$="/issues/${issue.id}"]`).click();
+
+    const toggle = page.getByRole("button", { name: "Markdown", exact: true });
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-pressed", "true");
+    const markdown = page.getByRole("textbox", { name: "Description as Markdown", exact: true });
+    await expect(markdown).toHaveValue(description);
+    await markdown.fill(editedMarkdown);
+
+    const saved = page.waitForResponse(
+      (response) => response.request().method() === "PUT" &&
+        new URL(response.url()).pathname === `/api/issues/${issue.id}`,
+    );
+    await toggle.click();
+    // THEN
+    expect((await saved).ok()).toBe(true);
+    await expect(toggle).toHaveAttribute("aria-pressed", "false");
+    const listItem = page.getByRole("listitem").filter({ hasText: /^Shows in guest lists$/ });
+    await expect(listItem).toBeVisible();
+
+    await reloadAppPage(page);
+    await expect(toggle).toHaveAttribute("aria-pressed", "false");
+    await expect(listItem).toBeVisible();
+    await toggle.click();
+    await expect(markdown).toHaveValue(editedMarkdown);
+    // END THEN
+  });
+
+  test("Brian edits New issue's Markdown by hand / A hand edit; Create stays disabled until the title and the description are complete / A hand-edited Markdown", async ({ page }) => {
+    await preferManualCreateMode(page);
+    await page.getByRole("button", { name: "New Issue", exact: true }).click();
+    const dialog = page.getByRole("dialog", { name: "New Issue", exact: true });
+    await expect(dialog.getByRole("radio", { name: /^Story\b/ })).toHaveAttribute(
+      "aria-checked", "true",
+    );
+    const title = `E2E Hand-edited story ${Date.now()}`;
+    await dialog.getByRole("textbox", { name: "Issue title", exact: true }).fill(title);
+    await dialog.getByRole("textbox", { name: /^User story\b/i }).fill(
+      "As a fan, I want to change my display name, so that friends recognise me in guest lists.",
+    );
+    const acceptanceCriteria = dialog.getByRole("textbox", { name: /^Acceptance criteria\b/i });
+    await expect(acceptanceCriteria).toHaveValue("");
+    await expect(acceptanceCriteria).toHaveAttribute("aria-required", "true");
+
+    const toggle = dialog.getByRole("button", { name: "Markdown", exact: true });
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-pressed", "true");
+    const markdown = dialog.getByRole("textbox", { name: "The template's Markdown", exact: true });
+    const originalMarkdown = await markdown.inputValue();
+    expect(originalMarkdown).toContain("## 🎯 Should");
+    const editedMarkdown = originalMarkdown.replace(
+      "## 🎯 Should", "## 🎯 Should\n\n- Shows in guest lists",
+    );
+    await markdown.fill(editedMarkdown);
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-pressed", "false");
+
+    // THEN
+    const templateFields = dialog.getByRole("textbox").and(dialog.locator("textarea"));
+    for (const field of await templateFields.all()) {
+      await expect(field).toBeDisabled();
+    }
+    await expect(acceptanceCriteria).toHaveValue("");
+    const create = dialog.getByRole("button", { name: "Create story", exact: true });
+    await expect(create).toBeEnabled();
+    const created = page.waitForResponse(
+      (response) => response.request().method() === "POST" &&
+        new URL(response.url()).pathname === "/api/issues",
+    );
+    await create.click();
+    const response = await created;
+    const issue = await response.json();
+    try {
+      expect(response.ok()).toBe(true);
+      expect(issue.description).toBe(editedMarkdown);
+      await expect(page.getByText("Issue created", { exact: true })).toBeVisible();
+      await page.getByRole("button", { name: "View issue", exact: true }).click();
+      await page.waitForURL(/\/issues\/[\w-]+/);
+      await page.getByRole("button", { name: "Markdown", exact: true }).click();
+      await expect(page.getByRole("textbox", {
+        name: "Description as Markdown", exact: true,
+      })).toHaveValue(editedMarkdown);
+    } finally {
+      await api.deleteIssue(issue.id);
+    }
+    // END THEN
+  });
+
   test("can navigate to issue detail page", async ({ page }) => {
     // Create a known issue via API so the test controls its own fixture
     const issue = await api.createIssue("E2E Detail Test " + Date.now());

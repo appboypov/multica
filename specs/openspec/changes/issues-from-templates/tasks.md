@@ -194,6 +194,37 @@ Its J2 starts once UJ-4's J2 is merged.
 - [ ] 15.2 The issues on Brian's Mac -- on the local release, create a story from the Story template on the Timeline of Fan accounts and push in v1.0.0, then record its page and the Timeline in the J11 pull request -- the PRD's success signal.
 - [ ] 15.3 `specs/openspec/changes/issues-from-templates/` -- run `openspec validate issues-from-templates --type change --strict`, sync the specs and archive the change -- the journey closes on its J11 pull request.
 
+## Test Automation Summary
+
+Source: `specs/openspec/changes/issues-from-templates/specs/`.
+
+### Generated Tests
+
+Two Playwright Chromium tests in `e2e/issues.spec.ts`, using the existing `TestApiClient` and issue-navigation helpers:
+
+- **The issue page shows the type, the ID and the description, editable as Markdown / An edit in the Markdown** — edits the description in the Markdown textarea, saves by toggling back, checks the rendered list item, reloads, and checks both the rendered item and saved Markdown.
+- **Brian edits New issue's Markdown by hand / A hand edit; Create stays disabled until the title and the description are complete / A hand-edited Markdown** — edits the Story Markdown, checks every template textarea is disabled while required Acceptance criteria is empty, checks Create story is enabled, and checks the created API response and issue page contain exactly the hand-edited Markdown.
+
+No additional API-only tests or edge/error-flow tests were added; the two UI tests assert the save/create responses themselves.
+
+### Coverage
+
+Both verifier-requested scenarios are covered by two tests. This is not the full journey acceptance suite in task 15.1.
+
+Jev returned `blocked` for both route-discovery attempts, each after one decision with no steps, no error and an empty log. The tests were therefore written by hand, as the E2E workflow prescribes for blocked routes. The findings are recorded beside the tests in `e2e/issues-markdown-edit.route.json` and `e2e/issues-template-markdown-edit.route.json`; running the tests requires no model.
+
+### Verification
+
+- On the VPS through Crabbox: **2 passed (16.3s)**, with `TYPESAFE_API_KEY` unset, against a disposable PostgreSQL database, the real Go backend and the production Next.js frontend.
+- Scoped TypeScript check: passed. Scoped ESLint check: **0 errors, 0 warnings**.
+- Earlier Next.js development-server attempts failed in the shared sign-in fixture with `TimeoutError: page.waitForFunction: Timeout 30000ms exceeded`; neither scenario reached its assertions. A production compilation completed in a separate bounded-memory build stage. The subsequent experimental generate stage reported a missing `proxy.js` rename, but the compiled frontend started successfully and both final tests passed. These are runner/build findings, not Markdown assertion failures.
+
+The exact Playwright command was:
+
+```sh
+pnpm exec playwright test e2e/issues.spec.ts --project=chromium --workers=1 --reporter=line --timeout=300000 --trace=retain-on-failure --grep 'An edit in the Markdown|A hand edit;'
+```
+
 ## Implementation Notes
 
 ## Plan Change Log
