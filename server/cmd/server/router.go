@@ -2080,6 +2080,7 @@ func NewRouterWithOptions(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus
 				r.Route("/{id}", func(r chi.Router) {
 					r.Get("/", h.GetQuestion)
 					r.Post("/close", h.CloseQuestion)
+					r.Post("/links", h.AddQuestionLinks)
 					r.Post("/withdraw", h.WithdrawQuestion)
 					r.Group(func(r chi.Router) {
 						r.Use(handler.RequireHumanActor)

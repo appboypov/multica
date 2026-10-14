@@ -127,9 +127,13 @@ func (h *Handler) AskQuestion(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	links, ok := parseQuestionLinks(w, body.Links)
+	if !ok {
+		return
+	}
 	result, err := h.QuestionService.Ask(r.Context(), ws, actor, service.AskInput{
 		Title: body.Title, Questions: body.Questions, AnswererIDs: answerers,
-		SquadID: squadID, Policy: body.Policy, DueDate: body.DueDate, BlocksWork: body.BlocksWork,
+		SquadID: squadID, Policy: body.Policy, DueDate: body.DueDate, BlocksWork: body.BlocksWork, Links: links,
 	})
 	if err != nil {
 		writeQuestionError(w, err)
@@ -289,7 +293,21 @@ func (h *Handler) WakeQuestion(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	result, err := h.QuestionService.Wake(r.Context(), ws, id, actor)
+	var body WakeRequest
+	if r.Body != nil && r.ContentLength != 0 {
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid request body")
+			return
+		}
+	}
+	var agentID pgtype.UUID
+	if body.AgentID != nil {
+		agentID, ok = parseUUIDOrBadRequest(w, *body.AgentID, "agent_id")
+		if !ok {
+			return
+		}
+	}
+	result, err := h.QuestionService.Wake(r.Context(), ws, id, actor, agentID)
 	if err != nil {
 		writeQuestionError(w, err)
 		return

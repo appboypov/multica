@@ -11,34 +11,64 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const appendQuestionLinks = `-- name: AppendQuestionLinks :one
+INSERT INTO question_link (question_id, workspace_id, link_type, link_id, position)
+SELECT q.id, q.workspace_id, $1, $2,
+       COALESCE((SELECT max(l.position) FROM question_link l
+                 WHERE l.question_id = q.id AND l.workspace_id = q.workspace_id), -1) + 1
+FROM question q
+WHERE q.id = $3 AND q.workspace_id = $4
+ON CONFLICT (question_id, link_type, link_id) DO NOTHING
+RETURNING question_id, workspace_id, link_type, link_id, position
+`
+
+type AppendQuestionLinksParams struct {
+	LinkType    string      `json:"link_type"`
+	LinkID      pgtype.UUID `json:"link_id"`
+	QuestionID  pgtype.UUID `json:"question_id"`
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
+}
+
+// Caller holds the question lock, serializing positions with other appends.
+func (q *Queries) AppendQuestionLinks(ctx context.Context, arg AppendQuestionLinksParams) (QuestionLink, error) {
+	row := q.db.QueryRow(ctx, appendQuestionLinks,
+		arg.LinkType,
+		arg.LinkID,
+		arg.QuestionID,
+		arg.WorkspaceID,
+	)
+	var i QuestionLink
+	err := row.Scan(
+		&i.QuestionID,
+		&i.WorkspaceID,
+		&i.LinkType,
+		&i.LinkID,
+		&i.Position,
+	)
+	return i, err
+}
+
 const countUnseenQuestionAnswers = `-- name: CountUnseenQuestionAnswers :one
 
 WITH RECURSIVE excluded_tasks AS (
     SELECT id, retry_of_task_id FROM agent_task_queue
-    WHERE id = $4::uuid
-      AND agent_id = $3 AND issue_id = $1
+    WHERE id = $5::uuid
+      AND agent_id = $4 AND issue_id = $3
     UNION ALL
     SELECT t.id, t.retry_of_task_id FROM agent_task_queue t
     JOIN excluded_tasks child ON t.id = child.retry_of_task_id
-    WHERE t.agent_id = $3 AND t.issue_id = $1
+    WHERE t.agent_id = $4 AND t.issue_id = $3
 )
 SELECT count(*)::bigint AS unseen_count
 FROM question_answer a
-JOIN question q
-  ON q.id = a.question_id
- AND q.workspace_id = a.workspace_id
-JOIN question_link l
-  ON l.question_id = q.id
- AND l.workspace_id = q.workspace_id
- AND l.link_type = 'issue'
- AND l.link_id = $1
-WHERE a.workspace_id = $2
-  AND q.asker_agent_id = $3
+JOIN question q ON q.id = a.question_id AND q.workspace_id = a.workspace_id
+WHERE a.workspace_id = $1
+  AND q.id = ANY($2::uuid[])
   AND q.status IN ('open', 'partly_answered', 'answered')
   AND a.updated_at > COALESCE((
       SELECT max(t.dispatched_at) FROM agent_task_queue t
-      WHERE t.issue_id = $1
-        AND t.agent_id = $3
+      JOIN agent agent ON agent.id = t.agent_id AND agent.workspace_id = $1
+      WHERE t.issue_id = $3 AND t.agent_id = $4
         AND t.dispatched_at IS NOT NULL
         AND t.started_at IS NOT NULL
         AND t.id NOT IN (SELECT id FROM excluded_tasks)
@@ -46,22 +76,20 @@ WHERE a.workspace_id = $2
 `
 
 type CountUnseenQuestionAnswersParams struct {
-	IssueID       pgtype.UUID `json:"issue_id"`
-	WorkspaceID   pgtype.UUID `json:"workspace_id"`
-	AgentID       pgtype.UUID `json:"agent_id"`
-	ExcludeTaskID pgtype.UUID `json:"exclude_task_id"`
+	WorkspaceID   pgtype.UUID   `json:"workspace_id"`
+	QuestionIds   []pgtype.UUID `json:"question_ids"`
+	IssueID       pgtype.UUID   `json:"issue_id"`
+	AgentID       pgtype.UUID   `json:"agent_id"`
+	ExcludeTaskID pgtype.UUID   `json:"exclude_task_id"`
 }
 
-// "Unseen" (design.md decision 5, ADR-0003): the answers to the questions
-// agent A asked that are linked to issue I, updated after the dispatched_at of
-// A's latest started run on I. exclude_task_id leaves the claimed task and its
-// retry ancestors out of the anchor. Closed and withdrawn questions are left
-// out: the agent ended them itself. The three
-// queries below share this predicate word for word; change them together.
+// The caller resolves the target's wake scope. All three queries use the same
+// pair-specific anchor; exclude_task_id leaves the claiming run out.
 func (q *Queries) CountUnseenQuestionAnswers(ctx context.Context, arg CountUnseenQuestionAnswersParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countUnseenQuestionAnswers,
-		arg.IssueID,
 		arg.WorkspaceID,
+		arg.QuestionIds,
+		arg.IssueID,
 		arg.AgentID,
 		arg.ExcludeTaskID,
 	)
@@ -231,6 +259,82 @@ func (q *Queries) CreateQuestionLink(ctx context.Context, arg CreateQuestionLink
 		arg.Position,
 	)
 	return err
+}
+
+const deleteQuestionLinksOfIssues = `-- name: DeleteQuestionLinksOfIssues :many
+DELETE FROM question_link l
+WHERE l.workspace_id = $1
+  AND (
+      (l.link_type = 'issue' AND l.link_id = ANY($2::uuid[]))
+      OR (l.link_type = 'comment' AND EXISTS (
+          SELECT 1 FROM comment c WHERE c.id = l.link_id
+            AND c.workspace_id = $1 AND c.issue_id = ANY($2::uuid[])
+      ))
+      OR (l.link_type = 'task' AND EXISTS (
+          SELECT 1 FROM agent_task_queue t
+          JOIN agent a ON a.id = t.agent_id AND a.workspace_id = $1
+          WHERE t.id = l.link_id AND t.issue_id = ANY($2::uuid[])
+      ))
+  )
+RETURNING l.question_id
+`
+
+type DeleteQuestionLinksOfIssuesParams struct {
+	WorkspaceID pgtype.UUID   `json:"workspace_id"`
+	IssueIds    []pgtype.UUID `json:"issue_ids"`
+}
+
+func (q *Queries) DeleteQuestionLinksOfIssues(ctx context.Context, arg DeleteQuestionLinksOfIssuesParams) ([]pgtype.UUID, error) {
+	rows, err := q.db.Query(ctx, deleteQuestionLinksOfIssues, arg.WorkspaceID, arg.IssueIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []pgtype.UUID{}
+	for rows.Next() {
+		var question_id pgtype.UUID
+		if err := rows.Scan(&question_id); err != nil {
+			return nil, err
+		}
+		items = append(items, question_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const deleteQuestionLinksTo = `-- name: DeleteQuestionLinksTo :many
+DELETE FROM question_link
+WHERE workspace_id = $1 AND link_type = $2
+  AND link_id = ANY($3::uuid[])
+RETURNING question_id
+`
+
+type DeleteQuestionLinksToParams struct {
+	WorkspaceID pgtype.UUID   `json:"workspace_id"`
+	LinkType    string        `json:"link_type"`
+	Ids         []pgtype.UUID `json:"ids"`
+}
+
+func (q *Queries) DeleteQuestionLinksTo(ctx context.Context, arg DeleteQuestionLinksToParams) ([]pgtype.UUID, error) {
+	rows, err := q.db.Query(ctx, deleteQuestionLinksTo, arg.WorkspaceID, arg.LinkType, arg.Ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []pgtype.UUID{}
+	for rows.Next() {
+		var question_id pgtype.UUID
+		if err := rows.Scan(&question_id); err != nil {
+			return nil, err
+		}
+		items = append(items, question_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getQuestion = `-- name: GetQuestion :one
@@ -677,13 +781,23 @@ func (q *Queries) ListQuestionsByAsk(ctx context.Context, arg ListQuestionsByAsk
 }
 
 const listQuestionsByIssue = `-- name: ListQuestionsByIssue :many
-SELECT q.id, q.workspace_id, q.asker_agent_id, q.asked_in_task_id, q.prompt, q.context_line, q.answer_type, q.settings, q.suggested_answer, q.status, q.due_date, q.blocks_work, q.overdue_notified_at, q.created_at, q.updated_at, q.ask_id, q.ask_position, q.ask_title, q.answer_policy FROM question q
+SELECT DISTINCT q.id, q.workspace_id, q.asker_agent_id, q.asked_in_task_id, q.prompt, q.context_line, q.answer_type, q.settings, q.suggested_answer, q.status, q.due_date, q.blocks_work, q.overdue_notified_at, q.created_at, q.updated_at, q.ask_id, q.ask_position, q.ask_title, q.answer_policy FROM question q
 JOIN question_link l
-  ON l.question_id = q.id
- AND l.workspace_id = q.workspace_id
+  ON l.question_id = q.id AND l.workspace_id = q.workspace_id
 WHERE q.workspace_id = $1
-  AND l.link_type = 'issue'
-  AND l.link_id = $2
+  AND (
+      (l.link_type = 'issue' AND l.link_id = $2)
+      OR (l.link_type = 'comment' AND EXISTS (
+          SELECT 1 FROM comment c
+          WHERE c.id = l.link_id AND c.workspace_id = $1
+            AND c.issue_id = $2 AND c.deleted_at IS NULL
+      ))
+      OR (l.link_type = 'task' AND EXISTS (
+          SELECT 1 FROM agent_task_queue t
+          JOIN agent a ON a.id = t.agent_id AND a.workspace_id = $1
+          WHERE t.id = l.link_id AND t.issue_id = $2
+      ))
+  )
 ORDER BY q.created_at ASC, q.id ASC
 `
 
@@ -692,7 +806,7 @@ type ListQuestionsByIssueParams struct {
 	IssueID     pgtype.UUID `json:"issue_id"`
 }
 
-// The questions linked to an issue, oldest first.
+// Direct cards include links to the issue, its live comments and its runs.
 func (q *Queries) ListQuestionsByIssue(ctx context.Context, arg ListQuestionsByIssueParams) ([]Question, error) {
 	rows, err := q.db.Query(ctx, listQuestionsByIssue, arg.WorkspaceID, arg.IssueID)
 	if err != nil {
@@ -736,33 +850,27 @@ func (q *Queries) ListQuestionsByIssue(ctx context.Context, arg ListQuestionsByI
 const listUnseenQuestionAnswers = `-- name: ListUnseenQuestionAnswers :many
 WITH RECURSIVE excluded_tasks AS (
     SELECT id, retry_of_task_id FROM agent_task_queue
-    WHERE id = $4::uuid
-      AND agent_id = $3 AND issue_id = $1
+    WHERE id = $5::uuid
+      AND agent_id = $4 AND issue_id = $3
     UNION ALL
     SELECT t.id, t.retry_of_task_id FROM agent_task_queue t
     JOIN excluded_tasks child ON t.id = child.retry_of_task_id
-    WHERE t.agent_id = $3 AND t.issue_id = $1
+    WHERE t.agent_id = $4 AND t.issue_id = $3
 )
 SELECT a.id, a.question_id, a.answerer_user_id, a.value, a.note, a.created_at, a.updated_at,
-       q.prompt, q.answer_type, q.settings,
-       u.name AS answerer_name
+       q.prompt, q.answer_type, q.settings, q.asker_agent_id,
+       asker.name AS asker_name, u.name AS answerer_name
 FROM question_answer a
-JOIN question q
-  ON q.id = a.question_id
- AND q.workspace_id = a.workspace_id
-JOIN question_link l
-  ON l.question_id = q.id
- AND l.workspace_id = q.workspace_id
- AND l.link_type = 'issue'
- AND l.link_id = $1
+JOIN question q ON q.id = a.question_id AND q.workspace_id = a.workspace_id
+JOIN agent asker ON asker.id = q.asker_agent_id AND asker.workspace_id = q.workspace_id
 JOIN "user" u ON u.id = a.answerer_user_id
-WHERE a.workspace_id = $2
-  AND q.asker_agent_id = $3
+WHERE a.workspace_id = $1
+  AND q.id = ANY($2::uuid[])
   AND q.status IN ('open', 'partly_answered', 'answered')
   AND a.updated_at > COALESCE((
       SELECT max(t.dispatched_at) FROM agent_task_queue t
-      WHERE t.issue_id = $1
-        AND t.agent_id = $3
+      JOIN agent agent ON agent.id = t.agent_id AND agent.workspace_id = $1
+      WHERE t.issue_id = $3 AND t.agent_id = $4
         AND t.dispatched_at IS NOT NULL
         AND t.started_at IS NOT NULL
         AND t.id NOT IN (SELECT id FROM excluded_tasks)
@@ -771,10 +879,11 @@ ORDER BY a.updated_at ASC, a.id ASC
 `
 
 type ListUnseenQuestionAnswersParams struct {
-	IssueID       pgtype.UUID `json:"issue_id"`
-	WorkspaceID   pgtype.UUID `json:"workspace_id"`
-	AgentID       pgtype.UUID `json:"agent_id"`
-	ExcludeTaskID pgtype.UUID `json:"exclude_task_id"`
+	WorkspaceID   pgtype.UUID   `json:"workspace_id"`
+	QuestionIds   []pgtype.UUID `json:"question_ids"`
+	IssueID       pgtype.UUID   `json:"issue_id"`
+	AgentID       pgtype.UUID   `json:"agent_id"`
+	ExcludeTaskID pgtype.UUID   `json:"exclude_task_id"`
 }
 
 type ListUnseenQuestionAnswersRow struct {
@@ -788,13 +897,16 @@ type ListUnseenQuestionAnswersRow struct {
 	Prompt         string             `json:"prompt"`
 	AnswerType     string             `json:"answer_type"`
 	Settings       []byte             `json:"settings"`
+	AskerAgentID   pgtype.UUID        `json:"asker_agent_id"`
+	AskerName      string             `json:"asker_name"`
 	AnswererName   string             `json:"answerer_name"`
 }
 
 func (q *Queries) ListUnseenQuestionAnswers(ctx context.Context, arg ListUnseenQuestionAnswersParams) ([]ListUnseenQuestionAnswersRow, error) {
 	rows, err := q.db.Query(ctx, listUnseenQuestionAnswers,
-		arg.IssueID,
 		arg.WorkspaceID,
+		arg.QuestionIds,
+		arg.IssueID,
 		arg.AgentID,
 		arg.ExcludeTaskID,
 	)
@@ -816,6 +928,8 @@ func (q *Queries) ListUnseenQuestionAnswers(ctx context.Context, arg ListUnseenQ
 			&i.Prompt,
 			&i.AnswerType,
 			&i.Settings,
+			&i.AskerAgentID,
+			&i.AskerName,
 			&i.AnswererName,
 		); err != nil {
 			return nil, err
@@ -831,34 +945,27 @@ func (q *Queries) ListUnseenQuestionAnswers(ctx context.Context, arg ListUnseenQ
 const listUnseenQuestionAskBacks = `-- name: ListUnseenQuestionAskBacks :many
 WITH RECURSIVE excluded_tasks AS (
     SELECT id, retry_of_task_id FROM agent_task_queue
-    WHERE id = $4::uuid
-      AND agent_id = $3 AND issue_id = $1
+    WHERE id = $5::uuid
+      AND agent_id = $4 AND issue_id = $3
     UNION ALL
     SELECT t.id, t.retry_of_task_id FROM agent_task_queue t
     JOIN excluded_tasks child ON t.id = child.retry_of_task_id
-    WHERE t.agent_id = $3 AND t.issue_id = $1
+    WHERE t.agent_id = $4 AND t.issue_id = $3
 )
 SELECT e.id, e.question_id, e.actor_id, e.details, e.created_at,
-       q.prompt,
-       u.name AS actor_name
+       q.prompt, q.asker_agent_id, asker.name AS asker_name, u.name AS actor_name
 FROM question_event e
-JOIN question q
-  ON q.id = e.question_id
- AND q.workspace_id = e.workspace_id
-JOIN question_link l
-  ON l.question_id = q.id
- AND l.workspace_id = q.workspace_id
- AND l.link_type = 'issue'
- AND l.link_id = $1
+JOIN question q ON q.id = e.question_id AND q.workspace_id = e.workspace_id
+JOIN agent asker ON asker.id = q.asker_agent_id AND asker.workspace_id = q.workspace_id
 JOIN "user" u ON u.id = e.actor_id
-WHERE e.workspace_id = $2
+WHERE e.workspace_id = $1
   AND e.kind = 'ask_back'
-  AND q.asker_agent_id = $3
+  AND q.id = ANY($2::uuid[])
   AND q.status IN ('open', 'partly_answered', 'answered')
   AND e.created_at > COALESCE((
       SELECT max(t.dispatched_at) FROM agent_task_queue t
-      WHERE t.issue_id = $1
-        AND t.agent_id = $3
+      JOIN agent agent ON agent.id = t.agent_id AND agent.workspace_id = $1
+      WHERE t.issue_id = $3 AND t.agent_id = $4
         AND t.dispatched_at IS NOT NULL
         AND t.started_at IS NOT NULL
         AND t.id NOT IN (SELECT id FROM excluded_tasks)
@@ -867,28 +974,32 @@ ORDER BY e.created_at ASC, e.id ASC
 `
 
 type ListUnseenQuestionAskBacksParams struct {
-	IssueID       pgtype.UUID `json:"issue_id"`
-	WorkspaceID   pgtype.UUID `json:"workspace_id"`
-	AgentID       pgtype.UUID `json:"agent_id"`
-	ExcludeTaskID pgtype.UUID `json:"exclude_task_id"`
+	WorkspaceID   pgtype.UUID   `json:"workspace_id"`
+	QuestionIds   []pgtype.UUID `json:"question_ids"`
+	IssueID       pgtype.UUID   `json:"issue_id"`
+	AgentID       pgtype.UUID   `json:"agent_id"`
+	ExcludeTaskID pgtype.UUID   `json:"exclude_task_id"`
 }
 
 type ListUnseenQuestionAskBacksRow struct {
-	ID         pgtype.UUID        `json:"id"`
-	QuestionID pgtype.UUID        `json:"question_id"`
-	ActorID    pgtype.UUID        `json:"actor_id"`
-	Details    []byte             `json:"details"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
-	Prompt     string             `json:"prompt"`
-	ActorName  string             `json:"actor_name"`
+	ID           pgtype.UUID        `json:"id"`
+	QuestionID   pgtype.UUID        `json:"question_id"`
+	ActorID      pgtype.UUID        `json:"actor_id"`
+	Details      []byte             `json:"details"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	Prompt       string             `json:"prompt"`
+	AskerAgentID pgtype.UUID        `json:"asker_agent_id"`
+	AskerName    string             `json:"asker_name"`
+	ActorName    string             `json:"actor_name"`
 }
 
 // Ask-backs are no answers: they count toward nothing and ride along in the
 // next woken run, against the same anchor.
 func (q *Queries) ListUnseenQuestionAskBacks(ctx context.Context, arg ListUnseenQuestionAskBacksParams) ([]ListUnseenQuestionAskBacksRow, error) {
 	rows, err := q.db.Query(ctx, listUnseenQuestionAskBacks,
-		arg.IssueID,
 		arg.WorkspaceID,
+		arg.QuestionIds,
+		arg.IssueID,
 		arg.AgentID,
 		arg.ExcludeTaskID,
 	)
@@ -906,6 +1017,8 @@ func (q *Queries) ListUnseenQuestionAskBacks(ctx context.Context, arg ListUnseen
 			&i.Details,
 			&i.CreatedAt,
 			&i.Prompt,
+			&i.AskerAgentID,
+			&i.AskerName,
 			&i.ActorName,
 		); err != nil {
 			return nil, err
@@ -1087,4 +1200,40 @@ func (q *Queries) UpsertQuestionAnswer(ctx context.Context, arg UpsertQuestionAn
 		&i.Inserted,
 	)
 	return i, err
+}
+
+const withdrawQuestionsWithoutLinks = `-- name: WithdrawQuestionsWithoutLinks :many
+UPDATE question q SET status = 'withdrawn', updated_at = now()
+WHERE q.workspace_id = $1 AND q.id = ANY($2::uuid[])
+  AND q.status IN ('open', 'partly_answered', 'answered')
+  AND NOT EXISTS (
+      SELECT 1 FROM question_link l
+      WHERE l.question_id = q.id AND l.workspace_id = q.workspace_id
+  )
+RETURNING q.id
+`
+
+type WithdrawQuestionsWithoutLinksParams struct {
+	WorkspaceID pgtype.UUID   `json:"workspace_id"`
+	QuestionIds []pgtype.UUID `json:"question_ids"`
+}
+
+func (q *Queries) WithdrawQuestionsWithoutLinks(ctx context.Context, arg WithdrawQuestionsWithoutLinksParams) ([]pgtype.UUID, error) {
+	rows, err := q.db.Query(ctx, withdrawQuestionsWithoutLinks, arg.WorkspaceID, arg.QuestionIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []pgtype.UUID{}
+	for rows.Next() {
+		var id pgtype.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }

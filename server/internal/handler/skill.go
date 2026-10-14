@@ -20,6 +20,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/multica-ai/multica/server/internal/question"
 	skillpkg "github.com/multica-ai/multica/server/internal/skill"
 	"github.com/multica-ai/multica/server/internal/util"
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
@@ -730,6 +731,11 @@ func (h *Handler) DeleteSkill(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to remove skill label assignments")
 		return
 	}
+	questionIDs, err := h.QuestionService.DropLinksTo(r.Context(), qtx, skill.WorkspaceID, question.LinkTypeSkill, []pgtype.UUID{skill.ID})
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to remove skill question links")
+		return
+	}
 	if err := qtx.DeleteSkill(r.Context(), db.DeleteSkillParams{
 		ID:          skill.ID,
 		WorkspaceID: skill.WorkspaceID,
@@ -741,6 +747,7 @@ func (h *Handler) DeleteSkill(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to commit skill deletion")
 		return
 	}
+	h.QuestionService.PublishLinkChanges(r.Context(), skill.WorkspaceID, questionIDs)
 	actorType, actorID := h.resolveActor(r, requestUserID(r), uuidToString(skill.WorkspaceID))
 	h.publish(protocol.EventSkillDeleted, uuidToString(skill.WorkspaceID), actorType, actorID, map[string]any{"skill_id": uuidToString(skill.ID)})
 	w.WriteHeader(http.StatusNoContent)

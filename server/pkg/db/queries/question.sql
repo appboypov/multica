@@ -21,6 +21,17 @@ RETURNING *;
 INSERT INTO question_link (question_id, workspace_id, link_type, link_id, position)
 VALUES (@question_id, @workspace_id, @link_type, @link_id, @position);
 
+-- name: AppendQuestionLinks :one
+-- Caller holds the question lock, serializing positions with other appends.
+INSERT INTO question_link (question_id, workspace_id, link_type, link_id, position)
+SELECT q.id, q.workspace_id, @link_type, @link_id,
+       COALESCE((SELECT max(l.position) FROM question_link l
+                 WHERE l.question_id = q.id AND l.workspace_id = q.workspace_id), -1) + 1
+FROM question q
+WHERE q.id = @question_id AND q.workspace_id = @workspace_id
+ON CONFLICT (question_id, link_type, link_id) DO NOTHING
+RETURNING *;
+
 -- name: CreateQuestionAnswerers :exec
 INSERT INTO question_answerer (question_id, workspace_id, user_id)
 SELECT @question_id, @workspace_id, answerer.user_id
@@ -44,14 +55,24 @@ WHERE id = @id AND workspace_id = @workspace_id
 FOR UPDATE;
 
 -- name: ListQuestionsByIssue :many
--- The questions linked to an issue, oldest first.
-SELECT q.* FROM question q
+-- Direct cards include links to the issue, its live comments and its runs.
+SELECT DISTINCT q.* FROM question q
 JOIN question_link l
-  ON l.question_id = q.id
- AND l.workspace_id = q.workspace_id
+  ON l.question_id = q.id AND l.workspace_id = q.workspace_id
 WHERE q.workspace_id = @workspace_id
-  AND l.link_type = 'issue'
-  AND l.link_id = @issue_id
+  AND (
+      (l.link_type = 'issue' AND l.link_id = @issue_id)
+      OR (l.link_type = 'comment' AND EXISTS (
+          SELECT 1 FROM comment c
+          WHERE c.id = l.link_id AND c.workspace_id = @workspace_id
+            AND c.issue_id = @issue_id AND c.deleted_at IS NULL
+      ))
+      OR (l.link_type = 'task' AND EXISTS (
+          SELECT 1 FROM agent_task_queue t
+          JOIN agent a ON a.id = t.agent_id AND a.workspace_id = @workspace_id
+          WHERE t.id = l.link_id AND t.issue_id = @issue_id
+      ))
+  )
 ORDER BY q.created_at ASC, q.id ASC;
 
 -- name: ListQuestionsByAsk :many
@@ -173,12 +194,8 @@ WHERE id = @id
   AND status IN ('open', 'partly_answered')
   AND overdue_notified_at IS NULL;
 
--- "Unseen" (design.md decision 5, ADR-0003): the answers to the questions
--- agent A asked that are linked to issue I, updated after the dispatched_at of
--- A's latest started run on I. exclude_task_id leaves the claimed task and its
--- retry ancestors out of the anchor. Closed and withdrawn questions are left
--- out: the agent ended them itself. The three
--- queries below share this predicate word for word; change them together.
+-- The caller resolves the target's wake scope. All three queries use the same
+-- pair-specific anchor; exclude_task_id leaves the claiming run out.
 
 -- name: CountUnseenQuestionAnswers :one
 WITH RECURSIVE excluded_tasks AS (
@@ -192,21 +209,14 @@ WITH RECURSIVE excluded_tasks AS (
 )
 SELECT count(*)::bigint AS unseen_count
 FROM question_answer a
-JOIN question q
-  ON q.id = a.question_id
- AND q.workspace_id = a.workspace_id
-JOIN question_link l
-  ON l.question_id = q.id
- AND l.workspace_id = q.workspace_id
- AND l.link_type = 'issue'
- AND l.link_id = @issue_id
+JOIN question q ON q.id = a.question_id AND q.workspace_id = a.workspace_id
 WHERE a.workspace_id = @workspace_id
-  AND q.asker_agent_id = @agent_id
+  AND q.id = ANY(@question_ids::uuid[])
   AND q.status IN ('open', 'partly_answered', 'answered')
   AND a.updated_at > COALESCE((
       SELECT max(t.dispatched_at) FROM agent_task_queue t
-      WHERE t.issue_id = @issue_id
-        AND t.agent_id = @agent_id
+      JOIN agent agent ON agent.id = t.agent_id AND agent.workspace_id = @workspace_id
+      WHERE t.issue_id = @issue_id AND t.agent_id = @agent_id
         AND t.dispatched_at IS NOT NULL
         AND t.started_at IS NOT NULL
         AND t.id NOT IN (SELECT id FROM excluded_tasks)
@@ -223,25 +233,19 @@ WITH RECURSIVE excluded_tasks AS (
     WHERE t.agent_id = @agent_id AND t.issue_id = @issue_id
 )
 SELECT a.id, a.question_id, a.answerer_user_id, a.value, a.note, a.created_at, a.updated_at,
-       q.prompt, q.answer_type, q.settings,
-       u.name AS answerer_name
+       q.prompt, q.answer_type, q.settings, q.asker_agent_id,
+       asker.name AS asker_name, u.name AS answerer_name
 FROM question_answer a
-JOIN question q
-  ON q.id = a.question_id
- AND q.workspace_id = a.workspace_id
-JOIN question_link l
-  ON l.question_id = q.id
- AND l.workspace_id = q.workspace_id
- AND l.link_type = 'issue'
- AND l.link_id = @issue_id
+JOIN question q ON q.id = a.question_id AND q.workspace_id = a.workspace_id
+JOIN agent asker ON asker.id = q.asker_agent_id AND asker.workspace_id = q.workspace_id
 JOIN "user" u ON u.id = a.answerer_user_id
 WHERE a.workspace_id = @workspace_id
-  AND q.asker_agent_id = @agent_id
+  AND q.id = ANY(@question_ids::uuid[])
   AND q.status IN ('open', 'partly_answered', 'answered')
   AND a.updated_at > COALESCE((
       SELECT max(t.dispatched_at) FROM agent_task_queue t
-      WHERE t.issue_id = @issue_id
-        AND t.agent_id = @agent_id
+      JOIN agent agent ON agent.id = t.agent_id AND agent.workspace_id = @workspace_id
+      WHERE t.issue_id = @issue_id AND t.agent_id = @agent_id
         AND t.dispatched_at IS NOT NULL
         AND t.started_at IS NOT NULL
         AND t.id NOT IN (SELECT id FROM excluded_tasks)
@@ -261,28 +265,54 @@ WITH RECURSIVE excluded_tasks AS (
     WHERE t.agent_id = @agent_id AND t.issue_id = @issue_id
 )
 SELECT e.id, e.question_id, e.actor_id, e.details, e.created_at,
-       q.prompt,
-       u.name AS actor_name
+       q.prompt, q.asker_agent_id, asker.name AS asker_name, u.name AS actor_name
 FROM question_event e
-JOIN question q
-  ON q.id = e.question_id
- AND q.workspace_id = e.workspace_id
-JOIN question_link l
-  ON l.question_id = q.id
- AND l.workspace_id = q.workspace_id
- AND l.link_type = 'issue'
- AND l.link_id = @issue_id
+JOIN question q ON q.id = e.question_id AND q.workspace_id = e.workspace_id
+JOIN agent asker ON asker.id = q.asker_agent_id AND asker.workspace_id = q.workspace_id
 JOIN "user" u ON u.id = e.actor_id
 WHERE e.workspace_id = @workspace_id
   AND e.kind = 'ask_back'
-  AND q.asker_agent_id = @agent_id
+  AND q.id = ANY(@question_ids::uuid[])
   AND q.status IN ('open', 'partly_answered', 'answered')
   AND e.created_at > COALESCE((
       SELECT max(t.dispatched_at) FROM agent_task_queue t
-      WHERE t.issue_id = @issue_id
-        AND t.agent_id = @agent_id
+      JOIN agent agent ON agent.id = t.agent_id AND agent.workspace_id = @workspace_id
+      WHERE t.issue_id = @issue_id AND t.agent_id = @agent_id
         AND t.dispatched_at IS NOT NULL
         AND t.started_at IS NOT NULL
         AND t.id NOT IN (SELECT id FROM excluded_tasks)
   ), '-infinity'::timestamptz)
 ORDER BY e.created_at ASC, e.id ASC;
+
+-- name: DeleteQuestionLinksTo :many
+DELETE FROM question_link
+WHERE workspace_id = @workspace_id AND link_type = @link_type
+  AND link_id = ANY(@ids::uuid[])
+RETURNING question_id;
+
+-- name: DeleteQuestionLinksOfIssues :many
+DELETE FROM question_link l
+WHERE l.workspace_id = @workspace_id
+  AND (
+      (l.link_type = 'issue' AND l.link_id = ANY(@issue_ids::uuid[]))
+      OR (l.link_type = 'comment' AND EXISTS (
+          SELECT 1 FROM comment c WHERE c.id = l.link_id
+            AND c.workspace_id = @workspace_id AND c.issue_id = ANY(@issue_ids::uuid[])
+      ))
+      OR (l.link_type = 'task' AND EXISTS (
+          SELECT 1 FROM agent_task_queue t
+          JOIN agent a ON a.id = t.agent_id AND a.workspace_id = @workspace_id
+          WHERE t.id = l.link_id AND t.issue_id = ANY(@issue_ids::uuid[])
+      ))
+  )
+RETURNING l.question_id;
+
+-- name: WithdrawQuestionsWithoutLinks :many
+UPDATE question q SET status = 'withdrawn', updated_at = now()
+WHERE q.workspace_id = @workspace_id AND q.id = ANY(@question_ids::uuid[])
+  AND q.status IN ('open', 'partly_answered', 'answered')
+  AND NOT EXISTS (
+      SELECT 1 FROM question_link l
+      WHERE l.question_id = q.id AND l.workspace_id = q.workspace_id
+  )
+RETURNING q.id;

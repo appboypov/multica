@@ -4439,6 +4439,7 @@ func (h *Handler) deleteIssuesAndCollectAttachmentURLs(ctx context.Context, issu
 	qtx := h.Queries.WithTx(tx)
 
 	result := issueDeleteResult{}
+	questionIDsByWorkspace := make(map[pgtype.UUID][]pgtype.UUID)
 	for _, issue := range issues {
 		if _, err := qtx.LockIssueForDelete(ctx, db.LockIssueForDeleteParams{
 			ID: issue.ID, WorkspaceID: issue.WorkspaceID,
@@ -4503,12 +4504,22 @@ func (h *Handler) deleteIssuesAndCollectAttachmentURLs(ctx context.Context, issu
 		} else if !errors.Is(contextErr, pgx.ErrNoRows) {
 			return issueDeleteResult{}, fmt.Errorf("load issue source context for delete: %w", contextErr)
 		}
+		questionIDs, err := h.QuestionService.DropLinksOfIssues(ctx, qtx, issue.WorkspaceID, []pgtype.UUID{issue.ID})
+		if err != nil {
+			return issueDeleteResult{}, fmt.Errorf("remove issue question links: %w", err)
+		}
+		if len(questionIDs) > 0 {
+			questionIDsByWorkspace[issue.WorkspaceID] = append(questionIDsByWorkspace[issue.WorkspaceID], questionIDs...)
+		}
 		if err := qtx.DeleteIssue(ctx, db.DeleteIssueParams{ID: issue.ID, WorkspaceID: issue.WorkspaceID}); err != nil {
 			return issueDeleteResult{}, fmt.Errorf("delete issue: %w", err)
 		}
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return issueDeleteResult{}, fmt.Errorf("commit issue delete: %w", err)
+	}
+	for workspaceID, questionIDs := range questionIDsByWorkspace {
+		h.QuestionService.PublishLinkChanges(ctx, workspaceID, questionIDs)
 	}
 	return result, nil
 }

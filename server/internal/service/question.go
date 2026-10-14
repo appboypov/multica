@@ -48,6 +48,7 @@ type AskInput struct {
 	Policy      string
 	DueDate     string
 	BlocksWork  *bool
+	Links       []question.LinkRef
 }
 
 type QuestionAskResult struct {
@@ -292,19 +293,35 @@ func (s *QuestionService) writeEvent(ctx context.Context, q *db.Queries, row db.
 	return util.UUIDToString(event.ID), err
 }
 
-func (s *QuestionService) publish(row QuestionDTO, actor QuestionActor, reason, eventID string) {
+func (s *QuestionService) publish(ctx context.Context, row QuestionDTO, actor QuestionActor, reason, eventID string) {
 	slog.Info("question action committed", "question_id", row.ID, "workspace_id", row.WorkspaceID, "action", reason, "actor_type", actor.Type, "actor_id", util.UUIDToString(actor.ID))
 	if s.Bus == nil {
 		return
 	}
-	issueID := ""
-	for _, link := range row.Links {
-		if link.LinkType == "issue" {
-			issueID = link.LinkID
-			break
-		}
+	workspaceID, err := util.ParseUUID(row.WorkspaceID)
+	if err != nil {
+		slog.Error("question publication has invalid workspace", "error", err)
+		return
 	}
-	s.Bus.Publish(events.Event{Type: protocol.EventQuestionUpdated, WorkspaceID: row.WorkspaceID, ActorType: actor.Type, ActorID: util.UUIDToString(actor.ID), Payload: protocol.QuestionEventPayload{QuestionID: row.ID, AskID: row.AskID, IssueID: issueID, Reason: reason, EventID: eventID}})
+	questionID, err := util.ParseUUID(row.ID)
+	if err != nil {
+		slog.Error("question publication has invalid question", "error", err)
+		return
+	}
+	ids, err := s.CardIssueIDs(ctx, s.Queries, workspaceID, []pgtype.UUID{questionID})
+	if err != nil {
+		slog.Error("question publication could not load card issues", "question_id", row.ID, "error", err)
+		return
+	}
+	issueIDs := make([]string, len(ids))
+	for i, id := range ids {
+		issueIDs[i] = util.UUIDToString(id)
+	}
+	issueID := ""
+	if len(issueIDs) > 0 {
+		issueID = issueIDs[0]
+	}
+	s.Bus.Publish(events.Event{Type: protocol.EventQuestionUpdated, WorkspaceID: row.WorkspaceID, ActorType: actor.Type, ActorID: util.UUIDToString(actor.ID), Payload: protocol.QuestionEventPayload{QuestionID: row.ID, AskID: row.AskID, IssueID: issueID, IssueIDs: issueIDs, Reason: reason, EventID: eventID}})
 }
 
 func (s *QuestionService) Ask(ctx context.Context, workspaceID pgtype.UUID, actor QuestionActor, input AskInput) (QuestionAskResult, error) {
@@ -417,9 +434,32 @@ func (s *QuestionService) Ask(ctx context.Context, workspaceID pgtype.UUID, acto
 			}
 		}
 	}
+	if len(input.Links) > question.MaxLinksPerAsk {
+		return QuestionAskResult{}, questionRefusal(422, fmt.Sprintf("at most %d links are allowed", question.MaxLinksPerAsk))
+	}
+	refs := input.Links
+	if len(refs) == 0 {
+		refs = []question.LinkRef{{Type: question.LinkTypeIssue, Ref: util.UUIDToString(task.IssueID)}}
+	}
+	resolvedLinks, err := s.resolveLinks(ctx, q, workspaceID, refs)
+	if err != nil {
+		return QuestionAskResult{}, err
+	}
+	runLink := ResolvedQuestionLink{Type: question.LinkTypeTask, ID: task.ID}
+	hasRun := false
+	for _, link := range resolvedLinks {
+		if link == runLink {
+			hasRun = true
+			break
+		}
+	}
+	if !hasRun {
+		resolvedLinks = append(resolvedLinks, runLink)
+	}
 	askID := dbid.NewV7()
 	rows := make([]db.Question, 0, len(input.Questions))
 	ids := make([]string, 0, len(input.Questions))
+	questionIDs := make([]pgtype.UUID, 0, len(input.Questions))
 	firstEventID := ""
 	for i, item := range input.Questions {
 		id := askID
@@ -430,11 +470,8 @@ func (s *QuestionService) Ask(ctx context.Context, workspaceID pgtype.UUID, acto
 		if err != nil {
 			return QuestionAskResult{}, err
 		}
-		for position, link := range []struct {
-			kind string
-			id   pgtype.UUID
-		}{{"issue", task.IssueID}, {"task", task.ID}} {
-			if err := q.CreateQuestionLink(ctx, db.CreateQuestionLinkParams{QuestionID: row.ID, WorkspaceID: workspaceID, LinkType: link.kind, LinkID: link.id, Position: int32(position)}); err != nil {
+		for position, link := range resolvedLinks {
+			if err := q.CreateQuestionLink(ctx, db.CreateQuestionLinkParams{QuestionID: row.ID, WorkspaceID: workspaceID, LinkType: link.Type, LinkID: link.ID, Position: int32(position)}); err != nil {
 				return QuestionAskResult{}, err
 			}
 		}
@@ -454,6 +491,7 @@ func (s *QuestionService) Ask(ctx context.Context, workspaceID pgtype.UUID, acto
 		}
 		rows = append(rows, row)
 		ids = append(ids, util.UUIDToString(id))
+		questionIDs = append(questionIDs, id)
 	}
 	hydrated, err := s.hydrate(ctx, q, workspaceID, rows)
 	if err != nil {
@@ -465,7 +503,20 @@ func (s *QuestionService) Ask(ctx context.Context, workspaceID pgtype.UUID, acto
 	result := QuestionAskResult{AskID: util.UUIDToString(askID), Questions: hydrated}
 	slog.Info("question ask committed", "ask_id", result.AskID, "workspace_id", util.UUIDToString(workspaceID), "question_count", len(rows), "actor_id", util.UUIDToString(actor.ID))
 	if s.Bus != nil {
-		s.Bus.Publish(events.Event{Type: protocol.EventQuestionCreated, WorkspaceID: util.UUIDToString(workspaceID), ActorType: actor.Type, ActorID: util.UUIDToString(actor.ID), Payload: protocol.QuestionEventPayload{QuestionID: ids[0], AskID: result.AskID, QuestionIDs: ids, IssueID: util.UUIDToString(task.IssueID), Reason: "asked", EventID: firstEventID}})
+		cardIssues, err := s.CardIssueIDs(ctx, s.Queries, workspaceID, questionIDs)
+		if err != nil {
+			slog.Error("question ask publication could not load card issues", "ask_id", result.AskID, "error", err)
+			return result, nil
+		}
+		issueIDs := make([]string, len(cardIssues))
+		for i, id := range cardIssues {
+			issueIDs[i] = util.UUIDToString(id)
+		}
+		issueID := ""
+		if len(issueIDs) > 0 {
+			issueID = issueIDs[0]
+		}
+		s.Bus.Publish(events.Event{Type: protocol.EventQuestionCreated, WorkspaceID: util.UUIDToString(workspaceID), ActorType: actor.Type, ActorID: util.UUIDToString(actor.ID), Payload: protocol.QuestionEventPayload{QuestionID: ids[0], AskID: result.AskID, QuestionIDs: ids, IssueID: issueID, IssueIDs: issueIDs, Reason: "asked", EventID: firstEventID}})
 	}
 	return result, nil
 }
@@ -518,7 +569,7 @@ func (s *QuestionService) mutate(ctx context.Context, workspaceID, questionID pg
 	if err := tx.Commit(ctx); err != nil {
 		return QuestionDTO{}, err
 	}
-	s.publish(result[0], actor, reason, eventID)
+	s.publish(ctx, result[0], actor, reason, eventID)
 	return result[0], nil
 }
 
@@ -696,13 +747,9 @@ func (s *QuestionService) hydrate(ctx context.Context, q *db.Queries, workspaceI
 	if err != nil {
 		return nil, err
 	}
-	issueIDs := make(map[pgtype.UUID]pgtype.UUID, len(rows))
 	for _, link := range links {
 		i := index[link.QuestionID]
 		result[i].Links = append(result[i].Links, QuestionLinkDTO{LinkType: link.LinkType, LinkID: util.UUIDToString(link.LinkID), Position: link.Position})
-		if link.LinkType == "issue" {
-			issueIDs[link.QuestionID] = link.LinkID
-		}
 	}
 	answerers, err := q.ListQuestionAnswerersByQuestions(ctx, db.ListQuestionAnswerersByQuestionsParams{WorkspaceID: workspaceID, QuestionIds: ids})
 	if err != nil {
@@ -734,39 +781,24 @@ func (s *QuestionService) hydrate(ctx context.Context, q *db.Queries, workspaceI
 		}
 		result[i].Events = append(result[i].Events, QuestionEventDTO{ID: util.UUIDToString(event.ID), Kind: event.Kind, ActorType: event.ActorType, ActorID: actorID, Details: event.Details, CreatedAt: questionTime(event.CreatedAt)})
 	}
-	type pair struct{ agent, issue pgtype.UUID }
-	type wakeState struct {
-		count     int64
-		active    bool
-		available bool
-	}
-	states := make(map[pair]wakeState)
 	for i, row := range rows {
-		key := pair{row.AskerAgentID, issueIDs[row.ID]}
-		state, ok := states[key]
-		if !ok {
-			agent, err := q.GetAgent(ctx, key.agent)
-			if err != nil {
-				return nil, err
-			}
-			state.available = !agent.ArchivedAt.Valid && agent.RuntimeID.Valid
-			state.count, err = q.CountUnseenQuestionAnswers(ctx, db.CountUnseenQuestionAnswersParams{WorkspaceID: workspaceID, IssueID: key.issue, AgentID: key.agent})
-			if err != nil {
-				return nil, err
-			}
-			state.active, err = q.HasActiveTaskForIssueAndAgent(ctx, db.HasActiveTaskForIssueAndAgentParams{IssueID: key.issue, AgentID: key.agent})
-			if err != nil {
-				return nil, err
-			}
-			states[key] = state
+		targets, err := s.wakeTargets(ctx, q, workspaceID, row)
+		if err != nil {
+			return nil, err
 		}
-		result[i].UnseenAnswerCount = state.count
-		result[i].WakeAvailable = state.count > 0 && !state.active && state.available
+		result[i].WakeTargets = targets
+		for _, target := range targets {
+			if target.AgentID == util.UUIDToString(row.AskerAgentID) {
+				result[i].UnseenAnswerCount = target.UnseenAnswerCount
+				result[i].WakeAvailable = target.WakeAvailable
+				break
+			}
+		}
 	}
 	return result, nil
 }
 
-func (s *QuestionService) Wake(ctx context.Context, workspaceID, questionID pgtype.UUID, actor QuestionActor) (QuestionWakeResult, error) {
+func (s *QuestionService) Wake(ctx context.Context, workspaceID, questionID pgtype.UUID, actor QuestionActor, agentID pgtype.UUID) (QuestionWakeResult, error) {
 	tx, err := s.TxStarter.Begin(ctx)
 	if err != nil {
 		return QuestionWakeResult{}, err
@@ -780,23 +812,45 @@ func (s *QuestionService) Wake(ctx context.Context, workspaceID, questionID pgty
 	if err != nil {
 		return QuestionWakeResult{}, questionLoadError(err)
 	}
-	agent, err := q.GetAgent(ctx, row.AskerAgentID)
-	if err != nil {
-		return QuestionWakeResult{}, err
+	if !agentID.Valid {
+		agentID = row.AskerAgentID
 	}
-	if agent.ArchivedAt.Valid || !agent.RuntimeID.Valid {
-		return QuestionWakeResult{}, questionRefusal(422, "asking agent must be active and have a runtime")
-	}
-	links, err := q.ListQuestionLinksByQuestions(ctx, db.ListQuestionLinksByQuestionsParams{WorkspaceID: workspaceID, QuestionIds: []pgtype.UUID{row.ID}})
+	targets, err := s.wakeTargets(ctx, q, workspaceID, row)
 	if err != nil {
 		return QuestionWakeResult{}, err
 	}
 	var issueID pgtype.UUID
-	for _, link := range links {
-		if link.LinkType == "issue" {
-			issueID = link.LinkID
+	for _, target := range targets {
+		if target.AgentID == util.UUIDToString(agentID) {
+			issueID, err = util.ParseUUID(target.IssueID)
+			if err != nil {
+				return QuestionWakeResult{}, err
+			}
 			break
 		}
+	}
+	// The asker keeps its own issue run as the Wake target after the question
+	// ends, so the active-task and unseen-answer guards still answer for it.
+	if !issueID.Valid && agentID == row.AskerAgentID {
+		asking, err := q.GetAgentTaskInWorkspace(ctx, db.GetAgentTaskInWorkspaceParams{ID: row.AskedInTaskID, WorkspaceID: workspaceID})
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return QuestionWakeResult{}, err
+		}
+		issueID = asking.IssueID
+	}
+	if !issueID.Valid {
+		name := util.UUIDToString(agentID)
+		if agent, err := q.GetAgentInWorkspace(ctx, db.GetAgentInWorkspaceParams{ID: agentID, WorkspaceID: workspaceID}); err == nil {
+			name = agent.Name
+		}
+		return QuestionWakeResult{}, questionRefusal(422, name+" is not offered Wake on this question")
+	}
+	agent, err := q.GetAgentInWorkspace(ctx, db.GetAgentInWorkspaceParams{ID: agentID, WorkspaceID: workspaceID})
+	if err != nil {
+		return QuestionWakeResult{}, err
+	}
+	if !agent.RuntimeID.Valid {
+		return QuestionWakeResult{}, questionRefusal(422, "agent must have a runtime")
 	}
 	// One issue lock serializes wakes even when they came from different cards.
 	// The pending-task unique index also arbitrates against other enqueue paths.
@@ -804,21 +858,21 @@ func (s *QuestionService) Wake(ctx context.Context, workspaceID, questionID pgty
 	if err != nil {
 		return QuestionWakeResult{}, questionLoadError(err)
 	}
-	active, err := q.HasActiveTaskForIssueAndAgent(ctx, db.HasActiveTaskForIssueAndAgentParams{IssueID: issue.ID, AgentID: row.AskerAgentID})
+	active, err := q.HasActiveQuestionWakeTask(ctx, db.HasActiveQuestionWakeTaskParams{WorkspaceID: workspaceID, IssueID: issue.ID, AgentID: agentID})
 	if err != nil {
 		return QuestionWakeResult{}, err
 	}
 	if active {
 		return QuestionWakeResult{}, ErrDuplicatePendingTask
 	}
-	count, err := q.CountUnseenQuestionAnswers(ctx, db.CountUnseenQuestionAnswersParams{WorkspaceID: workspaceID, IssueID: issue.ID, AgentID: row.AskerAgentID})
+	count, err := s.countUnseenAnswers(ctx, q, workspaceID, agentID, issue.ID, pgtype.UUID{})
 	if err != nil {
 		return QuestionWakeResult{}, err
 	}
 	if count == 0 {
 		return QuestionWakeResult{}, questionRefusal(422, "there are no unseen answers")
 	}
-	task, err := s.Tasks.EnqueueTaskForQuestionWake(ctx, tx, issue, row.AskerAgentID, actor.ID, row.ID, count)
+	task, err := s.Tasks.EnqueueTaskForQuestionWake(ctx, tx, issue, agentID, actor.ID, row.ID, count)
 	if err != nil {
 		return QuestionWakeResult{}, err
 	}
@@ -827,7 +881,7 @@ func (s *QuestionService) Wake(ctx context.Context, workspaceID, questionID pgty
 		AgentID     string `json:"agent_id"`
 		AnswerCount int64  `json:"answer_count"`
 		TaskID      string `json:"task_id"`
-	}{util.UUIDToString(row.AskerAgentID), count, result.TaskID})
+	}{util.UUIDToString(agentID), count, result.TaskID})
 	if err != nil {
 		return QuestionWakeResult{}, err
 	}
@@ -846,7 +900,7 @@ func (s *QuestionService) Wake(ctx context.Context, workspaceID, questionID pgty
 	}
 	s.Tasks.BroadcastTaskQueued(ctx, task)
 	s.Tasks.NotifyTaskEnqueued(ctx, task)
-	s.publish(QuestionDTO{ID: util.UUIDToString(row.ID), AskID: util.UUIDToString(row.AskID), WorkspaceID: util.UUIDToString(workspaceID), Links: []QuestionLinkDTO{{LinkType: "issue", LinkID: util.UUIDToString(issue.ID)}}}, actor, "woken", eventID)
+	s.publish(ctx, QuestionDTO{ID: util.UUIDToString(row.ID), AskID: util.UUIDToString(row.AskID), WorkspaceID: util.UUIDToString(workspaceID)}, actor, "woken", eventID)
 	slog.Info("question agent woken", "question_id", util.UUIDToString(row.ID), "task_id", result.TaskID, "answer_count", count)
 	return result, nil
 }

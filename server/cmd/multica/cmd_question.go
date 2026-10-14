@@ -25,7 +25,7 @@ const questionTypesHelp = "Answer types: text, yes_no, single_choice, multiple_c
 
 const questionAskHelp = `Ask flags: --prompt or --prompt-file, --context, --type, or --questions-file;
 --title; repeatable --answerer (member name, email or ID); --squad (name or ID);
---policy any_one|each (default any_one); --due YYYY-MM-DD;
+--policy any_one|each (default any_one); --on and repeatable --link; --due YYYY-MM-DD;
 --blocks-work (default true; --blocks-work=false turns it off); --output table|json.
 One ask needs at least one --answerer or a --squad; --squad combines with --answerer.
 
@@ -83,8 +83,23 @@ type questionAskItem struct {
 	SuggestedAnswer json.RawMessage `json:"suggested_answer,omitempty"`
 }
 
-// questionAskRequest uses the core question model's wire names. Links come from
-// the authenticated task, not from CLI input.
+const questionLinkHelp = `Links: --on <link> is where the question is asked (position 0); repeatable
+--link <link> adds more links in the given order, at most 10 together. Without
+--on the first --link takes position 0; without either the question is asked on
+the run's issue. The asking run is always linked after them. Add links later
+with: multica question link <question-id> <link>...
+
+A link is a bare issue key or ID (WORK-415), or <type>:<ref>:
+  issue:<key or ID>        project:<ID or prefix>    autopilot:<ID or prefix>
+  agent:<name or ID>       squad:<ID or prefix>      skill:<ID or prefix>
+  run:<ID>                 comment:<ID>
+run: and comment: also take a prefix of a run or comment on the asking run's
+issue. Every link resolves before any request; an unknown type or reference
+fails without asking.`
+
+// questionAskRequest uses the core question model's wire names. Links come
+// from --on and --link; the asking run's task link comes from the
+// authenticated task, not from CLI input.
 type questionAskRequest struct {
 	Title        string            `json:"title,omitempty"`
 	Questions    []questionAskItem `json:"questions"`
@@ -93,6 +108,19 @@ type questionAskRequest struct {
 	AnswerPolicy string            `json:"answer_policy"`
 	DueDate      string            `json:"due_date,omitempty"`
 	BlocksWork   bool              `json:"blocks_work"`
+	Links        []questionLink    `json:"links,omitempty"`
+}
+
+// questionLink is a resolved question link on the wire.
+type questionLink struct {
+	Type string `json:"type"`
+	ID   string `json:"id"`
+}
+
+// questionLinkInput keeps a parsed link next to what the user typed.
+type questionLinkInput struct {
+	raw string
+	ref questionrules.LinkRef
 }
 
 // questionsAvailable reports whether this process may use questions: always in
@@ -103,11 +131,11 @@ func questionsAvailable() bool {
 }
 
 func newQuestionCommand() *cobra.Command {
-	q := &cobra.Command{Use: "question", Short: "Ask, read and end questions", Long: "Ask questions, read their answers and thread, close answered questions or withdraw questions.\n\n" + questionTypesHelp + "\n\n" + questionAskHelp}
+	q := &cobra.Command{Use: "question", Short: "Ask, read and end questions", Long: "Ask questions, link them to work, read their answers and thread, close answered questions or withdraw questions.\n\n" + questionTypesHelp + "\n\n" + questionAskHelp + "\n\n" + questionLinkHelp}
 	// While questions are off for the run, `multica --help` does not list the
 	// command, so the agent learns nothing about it.
 	q.Hidden = !questionsAvailable()
-	ask := &cobra.Command{Use: "ask", Short: "Ask members one typed question or a set of questions", Long: questionTypesHelp + "\n\n" + questionAskHelp, Args: cobra.NoArgs, RunE: runQuestionAsk}
+	ask := &cobra.Command{Use: "ask", Short: "Ask members one typed question or a set of questions", Long: questionTypesHelp + "\n\n" + questionAskHelp + "\n\n" + questionLinkHelp, Args: cobra.NoArgs, RunE: runQuestionAsk}
 	f := ask.Flags()
 	f.String("prompt", "", "Question prompt (mutually exclusive with --prompt-file and --questions-file)")
 	f.String("prompt-file", "", "Read the prompt from a UTF-8 file inside the working directory")
@@ -138,10 +166,15 @@ func newQuestionCommand() *cobra.Command {
 	f.StringArray("answerer", nil, "Member name, email or ID (repeatable; agents cannot answer)")
 	f.String("squad", "", "Squad name or ID; its human members answer (combinable with --answerer)")
 	f.String("policy", questionrules.PolicyAnyOne, "Answer policy: any_one or each")
+	f.String("on", "", "Link the question is asked on, at position 0: an issue key or ID, or <type>:<ref>")
+	f.StringArray("link", nil, "Further link, kept in order (repeatable): an issue key or ID, or <type>:<ref>")
 	f.String("due", "", "Due date (YYYY-MM-DD)")
 	f.Bool("blocks-work", true, "Mark the questions as blocking work; --blocks-work=false turns it off")
 	f.String("output", "table", "Output format: table or json")
 	q.AddCommand(ask)
+	link := &cobra.Command{Use: "link <question-id> <link>...", Short: "Add links to a question you asked", Long: questionLinkHelp, Args: cobra.MinimumNArgs(2), RunE: runQuestionLink}
+	link.Flags().String("output", "table", "Output format: table or json")
+	q.AddCommand(link)
 	for _, action := range []string{"answers", "close", "withdraw"} {
 		action := action
 		c := &cobra.Command{Use: action + " <question-id>", Short: map[string]string{"answers": "Read status, answers and thread", "close": "Close an answered question", "withdraw": "Withdraw an open or answered question"}[action], Args: exactArgs(1), RunE: func(cmd *cobra.Command, args []string) error { return runQuestionAction(cmd, args[0], action) }}
@@ -168,6 +201,10 @@ func runQuestionAsk(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 	request, err := questionRequestFromFlags(cmd)
+	if err != nil {
+		return err
+	}
+	linkInputs, err := questionLinkInputsFromFlags(cmd)
 	if err != nil {
 		return err
 	}
@@ -224,6 +261,9 @@ func runQuestionAsk(cmd *cobra.Command, _ []string) error {
 			return err
 		}
 	}
+	if request.Links, err = resolveQuestionLinks(ctx, client, linkInputs); err != nil {
+		return err
+	}
 	var result map[string]any
 	if err := client.PostJSON(ctx, "/api/questions", request, &result); err != nil {
 		return err
@@ -240,6 +280,196 @@ func runQuestionAsk(cmd *cobra.Command, _ []string) error {
 		}
 	}
 	return nil
+}
+
+func runQuestionLink(cmd *cobra.Command, args []string) error {
+	output, err := questionOutput(cmd)
+	if err != nil {
+		return err
+	}
+	inputs, err := parseQuestionLinks(args[1:])
+	if err != nil {
+		return err
+	}
+	client, err := newAPIClient(cmd)
+	if err != nil {
+		return err
+	}
+	ctx, cancel := cli.APIContext(cmd.Context())
+	defer cancel()
+	links, err := resolveQuestionLinks(ctx, client, inputs)
+	if err != nil {
+		return err
+	}
+	var result map[string]any
+	if err := client.PostJSON(ctx, "/api/questions/"+url.PathEscape(args[0])+"/links", map[string]any{"links": links}, &result); err != nil {
+		return err
+	}
+	if output == "json" {
+		return cli.PrintJSON(cmd.OutOrStdout(), result)
+	}
+	fmt.Fprintf(cmd.OutOrStdout(), "%s · %s\n%s\n", strVal(result, "id"), strVal(result, "status"), strVal(result, "prompt"))
+	printQuestionLinks(cmd, result)
+	return nil
+}
+
+// questionLinkInputsFromFlags parses --on, then every --link in order, so --on
+// is position 0. It sends nothing, so a malformed link fails before any request.
+func questionLinkInputsFromFlags(cmd *cobra.Command) ([]questionLinkInput, error) {
+	on, _ := cmd.Flags().GetString("on")
+	extra, _ := cmd.Flags().GetStringArray("link")
+	raws := make([]string, 0, len(extra)+1)
+	if cmd.Flags().Changed("on") {
+		raws = append(raws, on)
+	}
+	raws = append(raws, extra...)
+	if len(raws) > questionrules.MaxLinksPerAsk {
+		return nil, fmt.Errorf("a question takes at most %d links from --on and --link, got %d", questionrules.MaxLinksPerAsk, len(raws))
+	}
+	return parseQuestionLinks(raws)
+}
+
+func parseQuestionLinks(raws []string) ([]questionLinkInput, error) {
+	inputs := make([]questionLinkInput, 0, len(raws))
+	for _, raw := range raws {
+		ref, err := questionrules.ParseLinkRef(raw)
+		if err != nil {
+			return nil, fmt.Errorf("link %q: %w", raw, err)
+		}
+		inputs = append(inputs, questionLinkInput{raw: raw, ref: ref})
+	}
+	return inputs, nil
+}
+
+// resolveQuestionLinks turns every parsed link into its object's ID, in order,
+// before the caller sends anything. The asking run's issue is looked up once,
+// and only when a run: or comment: prefix needs it.
+func resolveQuestionLinks(ctx context.Context, client *cli.APIClient, inputs []questionLinkInput) ([]questionLink, error) {
+	var taskIssueID string
+	taskIssue := func() (string, error) {
+		if taskIssueID != "" {
+			return taskIssueID, nil
+		}
+		id, err := questionTaskIssueID(ctx, client)
+		if err != nil {
+			return "", err
+		}
+		taskIssueID = id
+		return id, nil
+	}
+	links := make([]questionLink, 0, len(inputs))
+	for _, input := range inputs {
+		id, err := resolveQuestionLink(ctx, client, input.ref, taskIssue)
+		if err != nil {
+			return nil, fmt.Errorf("link %q: %w", input.raw, err)
+		}
+		links = append(links, questionLink{Type: string(input.ref.Type), ID: id})
+	}
+	return links, nil
+}
+
+func resolveQuestionLink(ctx context.Context, client *cli.APIClient, ref questionrules.LinkRef, taskIssue func() (string, error)) (string, error) {
+	var resolved resolvedID
+	var err error
+	switch ref.Type {
+	case questionrules.LinkTypeIssue:
+		resolved, err = resolveIssueRef(ctx, client, ref.Ref)
+	case questionrules.LinkTypeProject:
+		resolved, err = resolveProjectID(ctx, client, ref.Ref)
+	case questionrules.LinkTypeAutopilot:
+		resolved, err = resolveAutopilotID(ctx, client, ref.Ref)
+	case questionrules.LinkTypeAgent:
+		return resolveAgent(ctx, client, ref.Ref)
+	case questionrules.LinkTypeTask:
+		issueID := ""
+		if !uuidRegexp.MatchString(ref.Ref) {
+			if issueID, err = taskIssue(); err != nil {
+				return "", fmt.Errorf("a run prefix resolves on the asking run's issue: %w", err)
+			}
+		}
+		resolved, err = resolveTaskRunID(ctx, client, issueID, ref.Ref)
+	case questionrules.LinkTypeComment:
+		resolved, err = resolveIDByPrefix(ctx, client, "comment", ref.Ref, func(ctx context.Context, client *cli.APIClient) ([]idCandidate, error) {
+			issueID, err := taskIssue()
+			if err != nil {
+				return nil, fmt.Errorf("a comment prefix resolves on the asking run's issue: %w", err)
+			}
+			return fetchCommentCandidatesForIssue(ctx, client, issueID)
+		})
+	case questionrules.LinkTypeSquad:
+		resolved, err = resolveIDByPrefix(ctx, client, "squad", ref.Ref, fetchNamedCandidates("/api/squads"))
+	case questionrules.LinkTypeSkill:
+		resolved, err = resolveIDByPrefix(ctx, client, "skill", ref.Ref, fetchNamedCandidates("/api/skills"))
+	default:
+		return "", fmt.Errorf("unknown question link type %q", ref.Type)
+	}
+	if err != nil {
+		return "", err
+	}
+	return resolved.ID, nil
+}
+
+// questionTaskIssueID finds the issue of the run this CLI runs in, from the
+// agent's runs.
+func questionTaskIssueID(ctx context.Context, client *cli.APIClient) (string, error) {
+	if client.AgentID == "" || client.TaskID == "" {
+		return "", fmt.Errorf("no agent run in context; pass the full UUID")
+	}
+	var tasks []map[string]any
+	if err := client.GetJSON(ctx, "/api/agents/"+url.PathEscape(client.AgentID)+"/tasks", &tasks); err != nil {
+		return "", fmt.Errorf("fetch the asking run: %w", err)
+	}
+	for _, task := range tasks {
+		if strVal(task, "id") == client.TaskID {
+			if issueID := strVal(task, "issue_id"); issueID != "" {
+				return issueID, nil
+			}
+			break
+		}
+	}
+	return "", fmt.Errorf("the asking run %s has no issue; pass the full UUID", truncateID(client.TaskID))
+}
+
+func fetchCommentCandidatesForIssue(ctx context.Context, client *cli.APIClient, issueID string) ([]idCandidate, error) {
+	var comments []map[string]any
+	if err := client.GetJSON(ctx, "/api/issues/"+url.PathEscape(issueID)+"/comments", &comments); err != nil {
+		return nil, err
+	}
+	candidates := make([]idCandidate, 0, len(comments))
+	for _, c := range comments {
+		if id := strVal(c, "id"); id != "" {
+			candidates = append(candidates, idCandidate{ID: id, Display: id})
+		}
+	}
+	return candidates, nil
+}
+
+// fetchNamedCandidates lists the workspace's objects at path, each with an id
+// and a name.
+func fetchNamedCandidates(path string) func(context.Context, *cli.APIClient) ([]idCandidate, error) {
+	return func(ctx context.Context, client *cli.APIClient) ([]idCandidate, error) {
+		var objects []map[string]any
+		if err := client.GetJSON(ctx, path, &objects); err != nil {
+			return nil, err
+		}
+		candidates := make([]idCandidate, 0, len(objects))
+		for _, o := range objects {
+			if id := strVal(o, "id"); id != "" {
+				candidates = append(candidates, idCandidate{ID: id, Display: strVal(o, "name")})
+			}
+		}
+		return candidates, nil
+	}
+}
+
+// printQuestionLinks lists a question's links with their positions and types.
+func printQuestionLinks(cmd *cobra.Command, result map[string]any) {
+	links, _ := result["links"].([]any)
+	for _, raw := range links {
+		if link, ok := raw.(map[string]any); ok {
+			fmt.Fprintf(cmd.OutOrStdout(), "- link %s · %s · %s\n", strVal(link, "position"), strVal(link, "link_type"), strVal(link, "link_id"))
+		}
+	}
 }
 
 func loadQuestionDirectory(ctx context.Context, client *cli.APIClient) ([]assigneeCandidate, error) {
@@ -576,6 +806,7 @@ func runQuestionAction(cmd *cobra.Command, id, action string) error {
 	if action != "answers" {
 		return nil
 	}
+	printQuestionLinks(cmd, result)
 	lookup := loadActorDisplayLookup(ctx, client)
 	if answers, ok := result["answers"].([]any); ok {
 		for _, raw := range answers {

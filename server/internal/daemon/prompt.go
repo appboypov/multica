@@ -98,22 +98,69 @@ func buildQuestionAnswersBlock(answers *protocol.QuestionAnswers, questionsEnabl
 	if answers.AnswerCount == 1 {
 		plural = "answer"
 	}
-	fmt.Fprintf(&b, "%s woke you with %d %s to your questions:\n", answers.WakerName, answers.AnswerCount, plural)
+	onWork := false
+	for _, answer := range answers.Answers {
+		if answer.AskerAgentID != "" && answer.AskerAgentID != answers.AgentID {
+			onWork = true
+			break
+		}
+	}
+	for _, reply := range answers.AskBacks {
+		if reply.AskerAgentID != "" && reply.AskerAgentID != answers.AgentID {
+			onWork = true
+			break
+		}
+	}
+	subject := "your questions"
+	if onWork {
+		subject = "questions on your work"
+	}
+	fmt.Fprintf(&b, "%s woke you with %d %s to %s:\n", answers.WakerName, answers.AnswerCount, plural, subject)
 	for _, answer := range answers.Answers {
 		fmt.Fprintf(&b, "- %s  %q → %s · %s · %s", answer.QuestionID, answer.Prompt, answer.DisplayText, answer.AnswererName, answer.UpdatedAt)
 		if answer.Note != "" {
 			fmt.Fprintf(&b, " · note: %s", strings.Join(strings.Fields(answer.Note), " "))
 		}
+		if answer.AskerAgentID != "" && answer.AskerAgentID != answers.AgentID {
+			fmt.Fprintf(&b, " · asked by %s%s", answer.AskerName, questionAnswerVia(answer.Via))
+		}
 		b.WriteString("\n")
 	}
 	for _, reply := range answers.AskBacks {
-		fmt.Fprintf(&b, "- %s  %q · ask back: %s · %s · %s\n", reply.QuestionID, reply.Prompt, strings.Join(strings.Fields(reply.Text), " "), reply.ActorName, reply.CreatedAt)
+		fmt.Fprintf(&b, "- %s  %q · ask back: %s · %s · %s", reply.QuestionID, reply.Prompt, strings.Join(strings.Fields(reply.Text), " "), reply.ActorName, reply.CreatedAt)
+		if reply.AskerAgentID != "" && reply.AskerAgentID != answers.AgentID {
+			fmt.Fprintf(&b, " · asked by %s%s", reply.AskerName, questionAnswerVia(reply.Via))
+		}
+		b.WriteString("\n")
 	}
 	if questionsEnabled {
 		b.WriteString("`multica question answers <question-id>` shows a question in full.\n")
 	}
 	b.WriteString("\n")
 	return b.String()
+}
+
+func questionAnswerVia(via *protocol.QuestionViaData) string {
+	if via == nil {
+		return ""
+	}
+	switch via.Type {
+	case "issue":
+		return " via issue " + via.Identifier
+	case "sub_issue":
+		return " via sub-issue " + via.Identifier
+	case "comment", "task":
+		kind := "comment"
+		if via.Type == "task" {
+			kind = "run"
+		}
+		if via.IssueIdentifier != "" {
+			return " via " + kind + " on " + via.IssueIdentifier
+		}
+		return " via " + kind
+	default:
+		return ""
+	}
 }
 
 // promptOpts carries per-run facts the claimed Task does not: things only the

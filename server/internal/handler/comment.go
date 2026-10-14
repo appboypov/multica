@@ -18,6 +18,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/multica-ai/multica/server/internal/logger"
 	obsmetrics "github.com/multica-ai/multica/server/internal/metrics"
+	"github.com/multica-ai/multica/server/internal/question"
 	"github.com/multica-ai/multica/server/internal/service"
 	"github.com/multica-ai/multica/server/internal/util"
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
@@ -3893,6 +3894,11 @@ func (h *Handler) deleteComment(ctx context.Context, commentID, workspaceID pgty
 		return out, err
 	}
 
+	questionIDs, err := h.QuestionService.DropLinksTo(ctx, qtx, target.WorkspaceID, question.LinkTypeComment, []pgtype.UUID{target.ID})
+	if err != nil {
+		return out, err
+	}
+
 	if hasReplies {
 		tombstone, err := qtx.TombstoneComment(ctx, db.TombstoneCommentParams{
 			ID:          target.ID,
@@ -3945,6 +3951,7 @@ func (h *Handler) deleteComment(ctx context.Context, commentID, workspaceID pgty
 	if err := tx.Commit(ctx); err != nil {
 		return out, err
 	}
+	h.QuestionService.PublishLinkChanges(ctx, target.WorkspaceID, questionIDs)
 	return out, nil
 }
 

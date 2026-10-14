@@ -3719,26 +3719,53 @@ func (h *Handler) loadClaimQuestionAnswers(ctx context.Context, task db.AgentTas
 	if !task.IssueID.Valid {
 		return nil, errors.New("question wake has no issue")
 	}
+	scope, err := h.QuestionService.WakeScope(ctx, workspaceID, task.AgentID, task.IssueID)
+	if err != nil {
+		return nil, err
+	}
 	answers, err := h.Queries.ListUnseenQuestionAnswers(ctx, db.ListUnseenQuestionAnswersParams{
-		WorkspaceID: workspaceID, IssueID: task.IssueID, AgentID: task.AgentID, ExcludeTaskID: task.ID,
+		WorkspaceID: workspaceID, IssueID: task.IssueID, AgentID: task.AgentID, ExcludeTaskID: task.ID, QuestionIds: scope,
 	})
 	if err != nil {
 		return nil, err
 	}
 	askBacks, err := h.Queries.ListUnseenQuestionAskBacks(ctx, db.ListUnseenQuestionAskBacksParams{
-		WorkspaceID: workspaceID, IssueID: task.IssueID, AgentID: task.AgentID, ExcludeTaskID: task.ID,
+		WorkspaceID: workspaceID, IssueID: task.IssueID, AgentID: task.AgentID, ExcludeTaskID: task.ID, QuestionIds: scope,
 	})
 	if err != nil {
 		return nil, err
 	}
+	reach, err := h.QuestionService.Reach(ctx, workspaceID, scope)
+	if err != nil {
+		return nil, err
+	}
+	byQuestion := make(map[pgtype.UUID][]service.QuestionReach)
+	for _, item := range reach {
+		byQuestion[item.QuestionID] = append(byQuestion[item.QuestionID], item)
+	}
+	viaFor := func(id pgtype.UUID) *protocol.QuestionViaData {
+		via := service.Via(byQuestion[id], service.QuestionPageObject{Type: "issue", ID: task.IssueID})
+		if via == nil {
+			return nil
+		}
+		result := &protocol.QuestionViaData{Type: via.Type, ID: via.ID}
+		if via.Identifier != nil {
+			result.Identifier = *via.Identifier
+		}
+		if via.IssueIdentifier != nil {
+			result.IssueIdentifier = *via.IssueIdentifier
+		}
+		return result
+	}
 	result := &protocol.QuestionAnswers{
-		WakerName: wakerName, AnswerCount: int64(len(answers)),
+		WakerName: wakerName, AgentID: uuidToString(task.AgentID), AnswerCount: int64(len(answers)),
 		Answers:  make([]protocol.QuestionAnswerData, 0, len(answers)),
 		AskBacks: make([]protocol.QuestionAskBackData, 0, len(askBacks)),
 	}
 	for _, answer := range answers {
 		result.Answers = append(result.Answers, protocol.QuestionAnswerData{
 			QuestionID: uuidToString(answer.QuestionID), Prompt: answer.Prompt,
+			AskerAgentID: uuidToString(answer.AskerAgentID), AskerName: answer.AskerName, Via: viaFor(answer.QuestionID),
 			DisplayText: question.Display(answer.AnswerType, answer.Settings, answer.Value),
 			Note:        answer.Note.String, AnswererName: answer.AnswererName,
 			UpdatedAt: answer.UpdatedAt.Time.UTC().Format(time.RFC3339Nano),
@@ -3753,6 +3780,7 @@ func (h *Handler) loadClaimQuestionAnswers(ctx context.Context, task db.AgentTas
 		}
 		result.AskBacks = append(result.AskBacks, protocol.QuestionAskBackData{
 			QuestionID: uuidToString(askBack.QuestionID), Prompt: askBack.Prompt, Text: details.Text,
+			AskerAgentID: uuidToString(askBack.AskerAgentID), AskerName: askBack.AskerName, Via: viaFor(askBack.QuestionID),
 			ActorName: askBack.ActorName, CreatedAt: askBack.CreatedAt.Time.UTC().Format(time.RFC3339Nano),
 		})
 	}
