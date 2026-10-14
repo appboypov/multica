@@ -631,6 +631,9 @@ func init() {
 	issueCreateCmd.Flags().String("description-file", "", "Read issue description from a UTF-8 file (preserves multi-line content verbatim; use this on Windows when stdin piping mangles non-ASCII bytes). The path must be inside the current working directory unless --allow-external-file is set.")
 	issueCreateCmd.Flags().Bool("allow-external-file", false, "Allow --description-file / --attachment to read a path outside the current working directory. Off by default so a stale file from another run/environment can't be picked up (MUL-4252).")
 	issueCreateCmd.Flags().String("status", "", "Issue status")
+	issueCreateCmd.Flags().String("type", "", "Issue type: epic, journey, story, bug, enhancement, refactor, chore, spike")
+	issueCreateCmd.Flags().String("worklane", "", "Worklane ID, owner/name/worklane, or unique name")
+	issueCreateCmd.Flags().String("release", "", "Release ID or version on the worklane's repository")
 	issueCreateCmd.Flags().String("priority", "", "Issue priority")
 	issueCreateCmd.Flags().String("assignee", "", "Assignee name (member, agent, or squad; fuzzy match)")
 	issueCreateCmd.Flags().String("assignee-id", "", "Assignee UUID — member, agent, or squad (mutually exclusive with --assignee)")
@@ -653,6 +656,8 @@ func init() {
 	issueUpdateCmd.Flags().Bool("allow-external-file", false, "Allow --description-file / --attachment to read a path outside the current working directory. Off by default so a stale temp file from another run/environment can't be picked up (MUL-4252).")
 	issueUpdateCmd.Flags().StringSlice("attachment", nil, "Local file path(s) to attach to the issue description (repeatable); references are appended to the end of the description")
 	issueUpdateCmd.Flags().String("status", "", "New status")
+	issueUpdateCmd.Flags().String("worklane", "", "Worklane ID, owner/name/worklane, unique name, or none")
+	issueUpdateCmd.Flags().String("release", "", "Release ID, version on the worklane's repository, or none")
 	issueUpdateCmd.Flags().String("priority", "", "New priority")
 	issueUpdateCmd.Flags().String("assignee", "", "New assignee name (member, agent, or squad; fuzzy match)")
 	issueUpdateCmd.Flags().String("assignee-id", "", "New assignee UUID — member, agent, or squad (mutually exclusive with --assignee)")
@@ -1445,6 +1450,12 @@ func runIssueCreate(cmd *cobra.Command, _ []string) error {
 		}
 	}
 
+	if err := validateIssueTypeFlag(cmd); err != nil { return err }
+	if cmd.Flags().Changed("release") {
+		release,_ := cmd.Flags().GetString("release")
+		worklane,_ := cmd.Flags().GetString("worklane")
+		if release != "none" && (worklane == "" || worklane == "none") { return errors.New("a release needs a worklane") }
+	}
 	client, err := newAPIClient(cmd)
 	if err != nil {
 		return err
@@ -1460,6 +1471,12 @@ func runIssueCreate(cmd *cobra.Command, _ []string) error {
 	defer cancel()
 
 	body := map[string]any{"title": title}
+	if cmd.Flags().Changed("type") { value,_:=cmd.Flags().GetString("type"); body["type"]=value }
+	if cmd.Flags().Changed("worklane") || cmd.Flags().Changed("release") {
+		placement,err := issuePlacementBody(cmd,ctx,client,nil,nil)
+		if err != nil { return err }
+		for key,value := range placement { body[key]=value }
+	}
 	propertyFlags, _ := cmd.Flags().GetStringArray("property")
 	var createProperties map[string]json.RawMessage
 	if len(propertyFlags) > 0 {
@@ -1594,7 +1611,7 @@ func runIssueCreate(cmd *cobra.Command, _ []string) error {
 		if msg, ok := activeDuplicateIssueCreateMessage(err); ok {
 			return errors.New(msg)
 		}
-		return fmt.Errorf("create issue: %w", err)
+		return fmt.Errorf("create issue: %w", issuePlacementCommandError(err))
 	}
 	if err := verifyIssueCreateProperties(createProperties, result); err != nil {
 		return fmt.Errorf("issue %s was created, but the server did not confirm its custom properties; review it before retrying: %w", issueDisplayKey(result), err)
@@ -1704,6 +1721,13 @@ func runIssueUpdate(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("resolve issue: %w", err)
 	}
 
+	placementChanged := cmd.Flags().Changed("worklane") || cmd.Flags().Changed("release")
+	var placement map[string]any
+	var currentPlacement map[string]any
+	if placementChanged {
+		currentPlacement,err = fetchIssue(ctx,client,issueRef.ID)
+		if err != nil { return err }
+	}
 	body := map[string]any{}
 	if cmd.Flags().Changed("title") {
 		v, _ := cmd.Flags().GetString("title")
@@ -1786,8 +1810,12 @@ func runIssueUpdate(cmd *cobra.Command, args []string) error {
 		v, _ := cmd.Flags().GetFloat64("position")
 		body["position"] = v
 	}
+	if placementChanged {
+		placement,err = issuePlacementBody(cmd,ctx,client,currentPlacement,body)
+		if err != nil { return err }
+	}
 
-	if len(body) == 0 && len(attachmentPaths) == 0 {
+	if len(body) == 0 && len(attachmentPaths) == 0 && !placementChanged {
 		return fmt.Errorf("no fields to update; use flags like --title, --status, --priority, --assignee, etc.")
 	}
 	// Validate every path before any upload so an invalid later path cannot
@@ -1796,8 +1824,12 @@ func runIssueUpdate(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	if len(body) == 0 && len(pending) == 0 {
+	if len(body) == 0 && len(pending) == 0 && !placementChanged {
 		return fmt.Errorf("no local attachments to update; --attachment accepts file paths, not URLs")
+	}
+	var result map[string]any
+	if placementChanged {
+		if err := client.PutJSON(ctx,"/api/issues/"+issueRef.ID+"/placement",placement,&result); err != nil { return issuePlacementCommandError(err) }
 	}
 	desc, changed := body["description"].(string)
 	if len(pending) > 0 && !changed {
@@ -1826,16 +1858,17 @@ func runIssueUpdate(cmd *cobra.Command, args []string) error {
 		body["description"] = appendAttachmentReferences(desc, attachmentRefs)
 		body["attachment_ids"] = attachmentIDs
 	}
-	if noStart {
+	if noStart && len(body)>0 {
 		body["suppress_run"] = true
 	}
 
-	var result map[string]any
+	if len(body)>0 {
 	if err := client.PutJSON(ctx, "/api/issues/"+issueRef.ID, body, &result); err != nil {
 		if len(attachmentIDs) > 0 {
 			return fmt.Errorf("update issue (uploaded IDs: %v): %w", attachmentIDs, err)
 		}
-		return fmt.Errorf("update issue: %w", err)
+		return fmt.Errorf("update issue: %w", issuePlacementCommandError(err))
+	}
 	}
 	if duplicateOf != "" {
 		if _, err := recordedDuplicateOf(result, duplicateOf); err != nil {

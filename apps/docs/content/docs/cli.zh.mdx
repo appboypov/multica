@@ -110,6 +110,17 @@ multica issue comment add MUL-123 --content-stdin < review.md
 multica issue comment update <comment-id> --expected-revision 2 --content-file revised-review.md
 ```
 
+`issue create --type` 支持 `epic`、`journey`、`story`、`bug`、`enhancement`、`refactor`、`chore`、`spike`。描述为空时，服务端填入该类型的 Markdown 模板。省略 `--type` 表示无类型；省略 `--status` 时，状态为 `todo`。
+
+创建和更新时，`--worklane` 接受 ID、`owner/name/worklane` 或唯一的工作线名称。`--release` 接受该工作线仓库内的发布 ID 或版本号（可带 `v`）。更新时保留另一个值，用 `none` 清除。发布必须有工作线；切换到其他仓库时，需同时指定 `--release none`。任务的项目随工作线确定。
+
+```bash
+multica issue create --title "修复登录失败" --type bug --worklane "appboypov/rebl/Fan accounts and push" --release v1.0.0
+multica issue update MUL-123 --release none
+multica issue update MUL-123 --worklane none --release none
+```
+
+
 查看某次运行的消息，或停止运行：
 
 ```bash
@@ -229,8 +240,8 @@ CLI 配置文件包含可代表你访问 Multica 的令牌。不要提交到仓�
 | --- | --- | --- | --- |
 | `issue` | `list` | 列出任务 | `--status`、`--priority`、`--assignee`、`--project`、`--metadata`（可重复）、`--property`（可重复，`"名称=值"`；`__none__` 匹配未设置）、`--limit`、`--offset`、`--sort`（支持 `property:<名称或 id>`）、`--full-id`、`--resolve-properties`（仅 JSON；在保存的 id 旁附上属性、选项和成员名称） |
 | | `get <id>` | 查看单个任务 | `--resolve-properties`（仅 JSON；在保存的 id 旁附上属性、选项和成员名称） |
-| | `create` | 创建任务 | `--title`（必填）、`--description` / `--description-stdin` / `--description-file`、`--status`、`--priority`、`--assignee`、`--parent`、`--stage`、`--project`、`--start-date`、`--due-date`、`--attachment`（可重复） |
-| | `update <id>` | 更新任务字段 | 与 `create` 同类字段，另有 `--position`、`--no-start`、`--duplicate-of` |
+| | `create` | 创建任务 | `--title`（必填）、`--description` / `--description-stdin` / `--description-file`、`--type`、`--worklane`、`--release`、`--status`、`--priority`、`--assignee`、`--parent`、`--stage`、`--project`、`--start-date`、`--due-date`、`--attachment`（可重复） |
+| | `update <id>` | 更新任务字段 | 除 `--type` 外与 `create` 同类字段，另有 `--position`、`--no-start`、`--duplicate-of`。用 `--worklane none` 和 `--release none` 清除对应值 |
 | | `assign <id>` | 指派或取消指派 | `--to`（名称模糊匹配成员、智能体或小队）、`--to-id`、`--unassign`、`--no-start` |
 | | `status <id> <status>` | 修改状态 | `--no-start`、`--duplicate-of` |
 | | `reorder <id>` | 在列内移动 | |

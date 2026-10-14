@@ -110,6 +110,17 @@ multica issue comment add MUL-123 --content-stdin < review.md
 multica issue comment update <comment-id> --expected-revision 2 --content-file revised-review.md
 ```
 
+`issue create --type`은 `epic`, `journey`, `story`, `bug`, `enhancement`, `refactor`, `chore`, `spike`를 지원합니다. 설명이 비어 있으면 서버가 해당 유형의 Markdown 템플릿을 채웁니다. `--type`을 생략하면 유형이 없으며, `--status`를 생략하면 상태는 `todo`입니다.
+
+생성과 수정에서 `--worklane`은 ID, `owner/name/worklane` 또는 유일한 작업 레인 이름을 받습니다. `--release`는 해당 레인의 저장소에 있는 릴리스 ID나 버전(`v` 생략 가능)을 받습니다. 수정 시 다른 값은 유지되며 `none`으로 해제합니다. 릴리스에는 작업 레인이 필요합니다. 다른 저장소로 옮길 때는 `--release none`도 지정하세요. 태스크의 프로젝트는 작업 레인을 따릅니다.
+
+```bash
+multica issue create --title "로그인 실패 수정" --type bug --worklane "appboypov/rebl/Fan accounts and push" --release v1.0.0
+multica issue update MUL-123 --release none
+multica issue update MUL-123 --worklane none --release none
+```
+
+
 특정 실행의 메시지를 확인하거나 실행을 중지합니다.
 
 ```bash
@@ -229,8 +240,8 @@ CLI 설정 파일에는 사용자를 대신해 Multica에 접근할 수 있는 t
 | --- | --- | --- | --- |
 | `issue` | `list` | 태스크 목록 | `--status`, `--priority`, `--assignee`, `--project`, `--metadata`(반복 가능), `--property`(반복 가능, `"이름=값"`; `__none__`은 미설정과 일치), `--limit`, `--offset`, `--sort`(`property:<이름 또는 id>` 지원), `--full-id`, `--resolve-properties`(JSON 전용; 저장된 id와 함께 속성, 옵션, 멤버 이름을 반환) |
 | | `get <id>` | 태스크 하나 확인 | `--resolve-properties`(JSON 전용; 저장된 id와 함께 속성, 옵션, 멤버 이름을 반환) |
-| | `create` | 태스크 생성 | `--title`(필수), `--description` / `--description-stdin` / `--description-file`, `--status`, `--priority`, `--assignee`, `--parent`, `--stage`, `--project`, `--start-date`, `--due-date`, `--attachment`(반복 가능) |
-| | `update <id>` | 태스크 필드 업데이트 | `create`와 같은 종류의 필드에 `--position`, `--no-start`, `--duplicate-of` 추가 |
+| | `create` | 태스크 생성 | `--title`(필수), `--description` / `--description-stdin` / `--description-file`, `--type`, `--worklane`, `--release`, `--status`, `--priority`, `--assignee`, `--parent`, `--stage`, `--project`, `--start-date`, `--due-date`, `--attachment`(반복 가능) |
+| | `update <id>` | 태스크 필드 업데이트 | `--type`을 제외한 `create`의 필드에 `--position`, `--no-start`, `--duplicate-of` 추가. `--worklane none`, `--release none`으로 해당 값을 해제 |
 | | `assign <id>` | 할당 또는 할당 해제 | `--to`(이름으로 멤버, 에이전트, 스쿼드 fuzzy match), `--to-id`, `--unassign`, `--no-start` |
 | | `status <id> <status>` | 상태 변경 | `--no-start`, `--duplicate-of` |
 | | `reorder <id>` | 열 안에서 이동 | |

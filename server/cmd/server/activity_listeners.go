@@ -32,6 +32,14 @@ func registerActivityListeners(bus *events.Bus, queries *db.Queries) {
 		if !ok {
 			return
 		}
+		// A create from a template names its type, so the entry reads
+		// "created this story from the Story template" (decision 6).
+		details := []byte("{}")
+		if fromTemplate, _ := payload["from_template"].(bool); fromTemplate && issue.Type != nil {
+			if encoded, err := json.Marshal(map[string]any{"type": *issue.Type, "template": true}); err == nil {
+				details = encoded
+			}
+		}
 
 		activity, err := queries.CreateActivity(ctx, db.CreateActivityParams{
 			ID:          dbid.NewV7(),
@@ -40,7 +48,7 @@ func registerActivityListeners(bus *events.Bus, queries *db.Queries) {
 			ActorType:   util.StrToText(e.ActorType),
 			ActorID:     optionalUUID(e.ActorID),
 			Action:      "created",
-			Details:     []byte("{}"),
+			Details:     details,
 		})
 		if err != nil {
 			slog.Error("activity: failed to record issue created",

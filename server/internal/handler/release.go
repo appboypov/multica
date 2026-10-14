@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/multica-ai/multica/server/internal/releaseline"
+	"github.com/multica-ai/multica/server/internal/service"
 	"github.com/multica-ai/multica/server/internal/util"
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
 	"github.com/multica-ai/multica/server/pkg/protocol"
@@ -118,6 +119,7 @@ type releaseRequest struct {
 	Description *string `json:"description"`
 	Bump        *string `json:"bump"`
 	Version     *string `json:"version"`
+	IssueIDs []string `json:"issue_ids"`
 }
 
 // releaseFields are a validated releaseRequest: Bump is "" when Version was
@@ -178,6 +180,7 @@ type releaseLineWrite struct {
 	// write inserts, updates or deletes the release itself and answers the
 	// activity details.
 	write func(ctx context.Context, qtx *db.Queries, repo db.Repository, before, after releaseline.Line) (map[string]any, error)
+	afterCommit func()
 
 	// wroteVersion is true when write already set the version of releaseID,
 	// which keeps its position, so the runner leaves it out when it rewrites
@@ -249,6 +252,7 @@ func (h *Handler) runReleaseLineWrite(w http.ResponseWriter, r *http.Request, re
 	}
 	details, err := op.write(ctx, qtx, repo, before, after)
 	if err != nil {
+		if writePlacementError(w, err) { return }
 		writeError(w, http.StatusInternalServerError, "failed to write release")
 		return
 	}
@@ -288,6 +292,7 @@ func (h *Handler) runReleaseLineWrite(w http.ResponseWriter, r *http.Request, re
 		writeError(w, http.StatusInternalServerError, "failed to commit release line")
 		return
 	}
+	if op.afterCommit != nil { op.afterCommit() }
 	h.publish(protocol.EventReleaseLineUpdated, workspaceID, actorType, actorID, protocol.ReleaseLineEventPayload{
 		RepositoryID: uuidToString(repo.ID),
 	})
@@ -422,6 +427,11 @@ func (h *Handler) PlanRelease(w http.ResponseWriter, r *http.Request) {
 	}
 	var fields releaseFields
 	userUUID := parseUUIDOrNull(requestUserID(r))
+	ids, err := parseIssuePlacementIDs(req.IssueIDs)
+	if err != nil { writeError(w, http.StatusBadRequest, "invalid issue id"); return }
+	actorType, actorID := h.resolveActor(r,requestUserID(r),h.resolveWorkspaceID(r))
+	var issues []db.Issue
+	var activities []db.ActivityLog
 	h.runReleaseLineWrite(w, r, repositoryID, releaseLineWrite{
 		validate: func(w http.ResponseWriter) bool {
 			var ok bool
@@ -446,11 +456,17 @@ func (h *Handler) PlanRelease(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				return nil, err
 			}
+			issues, activities, err = h.placeIssuesInRelease(ctx,qtx,repo,row,ids,actorType,actorID)
+			if err != nil { return nil,err }
 			return map[string]any{
 				"release_id": uuidToString(row.ID),
 				"version":    row.Version,
 				"title":      row.Title,
 			}, nil
+		},
+		afterCommit: func() {
+			h.publishIssueSnapshots(r.Context(),issues,actorType,actorID)
+			service.PublishIssueActivities(h.Bus,parseUUIDOrNull(h.resolveWorkspaceID(r)),actorType,actorID,activities)
 		},
 		action: releaseActionPlanned,
 		status: http.StatusCreated,
@@ -556,6 +572,9 @@ func (h *Handler) RemoveRelease(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id := uuidToString(rel.ID)
+	actorType, actorID := h.resolveActor(r,requestUserID(r),h.resolveWorkspaceID(r))
+	var issues []db.Issue
+	var activities []db.ActivityLog
 	h.runReleaseLineWrite(w, r, rel.RepositoryID, releaseLineWrite{
 		releaseID: rel.ID,
 		change: func(line releaseline.Line) (releaseline.Line, *releaseline.Problem) {
@@ -563,6 +582,13 @@ func (h *Handler) RemoveRelease(w http.ResponseWriter, r *http.Request) {
 		},
 		write: func(ctx context.Context, qtx *db.Queries, repo db.Repository, before, after releaseline.Line) (map[string]any, error) {
 			removed := lineRelease(before, id)
+			ids,err := qtx.ClearReleaseOfIssues(ctx,db.ClearReleaseOfIssuesParams{WorkspaceID:repo.WorkspaceID,ReleaseID:rel.ID})
+			if err != nil { return nil,err }
+			current := rel
+			current.Version = removed.Version
+			current.Title = removed.Title
+			issues,activities,err = h.releaseIssueEntries(ctx,qtx,repo.WorkspaceID,ids,actorType,actorID,issueActionReleaseGone,current)
+			if err != nil { return nil,err }
 			if err := qtx.DeleteRelease(ctx, db.DeleteReleaseParams{ID: rel.ID, WorkspaceID: rel.WorkspaceID}); err != nil {
 				return nil, err
 			}
@@ -572,6 +598,10 @@ func (h *Handler) RemoveRelease(w http.ResponseWriter, r *http.Request) {
 				"title":      removed.Title,
 				"changes":    releaseline.Changes(before, after),
 			}, nil
+		},
+		afterCommit: func() {
+			h.publishIssueSnapshots(r.Context(),issues,actorType,actorID)
+			service.PublishIssueActivities(h.Bus,rel.WorkspaceID,actorType,actorID,activities)
 		},
 		action: releaseActionRemoved,
 		status: http.StatusOK,

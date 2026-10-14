@@ -118,15 +118,15 @@ Its J2 starts once UJ-4's J2 is merged.
 
 ## 9. J8 Backend and agent tooling: endpoint
 
-- [ ] 9.1 `server/internal/handler/issue_template.go` -- `ListIssueTemplates` answering `{templates}` -- design.md decision 3.
-- [ ] 9.2 `server/internal/handler/issue.go`, `server/internal/service/issue.go` -- `CreateIssueRequest` takes `type`, `from_template`, `worklane_id` and `release_id`. `IssueService.Create` locks the worklane's repository, resolves the placement, sets the project from the worklane, fills an empty description of a typed issue with `issuetemplate.Markdown`, and writes `planned_in_release`. The `issue:created` payload carries `from_template`. `issueToResponse` and the list row responses carry the three fields. `UpdateIssue` and `BatchUpdateIssues` refuse `project_follows_worklane` -- design.md decisions 4 and 5.
-- [ ] 9.3 `server/cmd/server/activity_listeners.go` -- the `created` entry adds `{type, template: true}` when the payload has `from_template` -- design.md decision 6.
-- [ ] 9.4 `server/internal/handler/issue_placement.go` -- `SetIssueType`, `SetIssuePlacement` (locks in id order, resolves, updates, writes entries), `AddIssuesToRelease`, `ListWorklaneIssues` and `ListReleaseProgress`, each publishing `issue:updated` and `activity:created` after commit -- design.md decisions 2, 5, 6 and 9.
-- [ ] 9.5 `server/internal/handler/release.go` -- Plan release takes `issue_ids` and places them in its transaction. Remove release sends its issues to No release with one `release_gone` entry each and publishes them through `publishIssueSnapshots` -- design.md decision 7.
-- [ ] 9.6 `server/internal/handler/worklane.go`, `worklane_request.go` -- `RemoveWorklane` refuses 409 `worklane_has_open_issues` with the issues. On `removed`, re-check, refuse the request when an issue opened, else clear the worklane of its closed issues in the delete's transaction -- design.md decision 8.
-- [ ] 9.7 `server/internal/handler/repository.go`, `project.go` -- `DeleteRepository` and the project delete clear the placement of their issues in their transactions -- design.md decision 8.
-- [ ] 9.8 `server/internal/handler/issue.go` `SearchIssues` -- results carry `type` and `worklane_id` -- design.md decision 9.
-- [ ] 9.9 `server/cmd/server/router.go` -- `GET /api/issue-templates`, `PUT /api/issues/{id}/type`, `PUT /api/issues/{id}/placement`, `POST /api/releases/{id}/issues`, `GET /api/worklanes/{id}/issues` and `GET /api/release-progress` behind the workspace member gate.
+- [x] 9.1 `server/internal/handler/issue_template.go` -- `ListIssueTemplates` answering `{templates}` -- design.md decision 3.
+- [x] 9.2 `server/internal/handler/issue.go`, `server/internal/service/issue.go` -- `CreateIssueRequest` takes `type`, `from_template`, `worklane_id` and `release_id`. `IssueService.Create` locks the worklane's repository, resolves the placement, sets the project from the worklane, fills an empty description of a typed issue with `issuetemplate.Markdown`, and writes `planned_in_release`. The `issue:created` payload carries `from_template`. `issueToResponse` and the list row responses carry the three fields. `UpdateIssue` and `BatchUpdateIssues` refuse `project_follows_worklane` -- design.md decisions 4 and 5.
+- [x] 9.3 `server/cmd/server/activity_listeners.go` -- the `created` entry adds `{type, template: true}` when the payload has `from_template` -- design.md decision 6.
+- [x] 9.4 `server/internal/handler/issue_placement.go` -- `SetIssueType`, `SetIssuePlacement` (locks in id order, resolves, updates, writes entries), `AddIssuesToRelease`, `ListWorklaneIssues` and `ListReleaseProgress`, each publishing `issue:updated` and `activity:created` after commit -- design.md decisions 2, 5, 6 and 9.
+- [x] 9.5 `server/internal/handler/release.go` -- Plan release takes `issue_ids` and places them in its transaction. Remove release sends its issues to No release with one `release_gone` entry each and publishes them through `publishIssueSnapshots` -- design.md decision 7.
+- [x] 9.6 `server/internal/handler/worklane.go`, `worklane_request.go` -- `RemoveWorklane` refuses 409 `worklane_has_open_issues` with the issues. On `removed`, re-check, refuse the request when an issue opened, else clear the worklane of its closed issues in the delete's transaction -- design.md decision 8.
+- [x] 9.7 `server/internal/handler/repository.go`, `project.go` -- `DeleteRepository` and the project delete clear the placement of their issues in their transactions -- design.md decision 8.
+- [x] 9.8 `server/internal/handler/issue.go` `SearchIssues` -- results carry `type` and `worklane_id` -- design.md decision 9.
+- [x] 9.9 `server/cmd/server/router.go` -- `GET /api/issue-templates`, `PUT /api/issues/{id}/type`, `PUT /api/issues/{id}/placement`, `POST /api/releases/{id}/issues`, `GET /api/worklanes/{id}/issues` and `GET /api/release-progress` behind the workspace member gate.
 - [ ] 9.10 Handler tests beside the code, with `testutil` fixtures and `testutil.Call`:
   - Each refusal code of decision 2, and nothing written on a refusal.
   - Create from a template in a release: project, status, type, the two entries. Create with a type and no description over the CLI path, and with a description without headings kept as written.
@@ -178,10 +178,10 @@ Its J2 starts once UJ-4's J2 is merged.
 
 ## 14. J10 Agent tooling for UI: command
 
-- [ ] 14.1 `server/cmd/multica/cmd_issue_placement.go` -- `resolveWorklane` (id, `owner/name/worklane`, unique bare name, `none`) and `resolveRelease` (id or version with or without `v` on the worklane's repository, `none`, "a release needs a worklane", "{version} is not a release of {owner/name}") over `GET /api/worklanes`, `GET /api/repositories` and `GET /api/releases` -- design.md decision 10.
-- [ ] 14.2 `server/cmd/multica/cmd_issue.go` -- `issue create` gains `--type` (failing on an unknown value, naming the eight), `--worklane` and `--release`. `issue update` gains `--worklane` and `--release` and sends `PUT /api/issues/{id}/placement` with the other value kept. A refusal prints its message and changes nothing. Without `--status`, no status is sent -- the `cli-issue-type-and-placement` spec delta.
+- [x] 14.1 `server/cmd/multica/cmd_issue_placement.go` -- `resolveWorklane` (id, `owner/name/worklane`, unique bare name, `none`) and `resolveRelease` (id or version with or without `v` on the worklane's repository, `none`, "a release needs a worklane", "{version} is not a release of {owner/name}") over `GET /api/worklanes`, `GET /api/repositories` and `GET /api/releases` -- design.md decision 10.
+- [x] 14.2 `server/cmd/multica/cmd_issue.go` -- `issue create` gains `--type` (failing on an unknown value, naming the eight), `--worklane` and `--release`. `issue update` gains `--worklane` and `--release` and sends `PUT /api/issues/{id}/placement` with the other value kept. A refusal prints its message and changes nothing. Without `--status`, no status is sent -- the `cli-issue-type-and-placement` spec delta.
 - [ ] 14.3 `server/cmd/multica/cmd_issue_placement_test.go`, `cmd_issue_test.go` -- resolution by each form, ambiguous and unknown names, a version of another repository, an unknown type, and the request bodies sent.
-- [ ] 14.4 `apps/docs/content/docs/cli.mdx`, `cli.zh.mdx`, `cli.ko.mdx`, `cli.ja.mdx`, `cli.fr.mdx` -- `--type`, `--worklane` and `--release` on `multica issue create` and `update`.
+- [x] 14.4 `apps/docs/content/docs/cli.mdx`, `cli.zh.mdx`, `cli.ko.mdx`, `cli.ja.mdx`, `cli.fr.mdx` -- `--type`, `--worklane` and `--release` on `multica issue create` and `update`.
 
 ## 15. J11 Acceptance test and archive: acceptance test and archive
 

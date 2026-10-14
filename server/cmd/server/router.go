@@ -1992,6 +1992,8 @@ func NewRouterWithOptions(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.RequireWorkspaceMember(queries))
 
+			r.Get("/api/issue-templates", h.ListIssueTemplates)
+			r.Get("/api/release-progress", h.ListReleaseProgress)
 			// Assignee frequency
 			r.Get("/api/assignee-frequency", h.GetAssigneeFrequency)
 
@@ -2051,6 +2053,8 @@ func NewRouterWithOptions(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus
 					r.Get("/system-wakeups", h.ListIssueSystemWakeups)
 					r.Put("/system-wakeups/{rule}", h.UpdateIssueSystemWakeup)
 					r.Get("/active-task", h.GetActiveTaskForIssue)
+					r.Put("/type", h.SetIssueType)
+					r.Put("/placement", h.SetIssuePlacement)
 					r.Post("/tasks/{taskId}/cancel", h.CancelTask)
 					r.With(handler.RequireHumanActor).Post("/tasks/{taskId}/supplements", h.CreateTaskSupplement)
 					r.With(handler.RequireHumanActor).Post("/tasks/{taskId}/supplements/{commentId}/retry", h.RetryTaskSupplement)
@@ -2177,6 +2181,7 @@ func NewRouterWithOptions(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus
 					r.Patch("/", h.EditRelease)
 					r.Delete("/", h.RemoveRelease)
 					r.Post("/move", h.MoveRelease)
+					r.Post("/issues", h.AddIssuesToRelease)
 				})
 			})
 
@@ -2188,6 +2193,7 @@ func NewRouterWithOptions(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus
 					r.Patch("/", h.RenameWorklane)
 					r.Delete("/", h.RemoveWorklane)
 					r.Get("/activity", h.ListWorklaneActivity)
+					r.Get("/issues", h.ListWorklaneIssues)
 				})
 			})
 			r.Route("/api/worklane-requests", func(r chi.Router) {

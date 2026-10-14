@@ -318,6 +318,7 @@ func (h *Handler) RemoveWorklane(w http.ResponseWriter, r *http.Request) {
 	}
 	worklaneID := uuidToString(wl.ID)
 	createdBy := requestUserID(r)
+	if h.refuseWorklaneWithOpenIssues(w,ctx,h.Queries,wsUUID,wl.ID) { return }
 	req := &WorklaneRequest{
 		ID:            randomID(),
 		Kind:          protocol.WorklaneRequestKindRemove,

@@ -7768,6 +7768,9 @@ func IssueToMap(issue db.Issue, issuePrefix string) map[string]any {
 		// row with no live mark; IssueToMapResolved resolves it for the rest.
 		"duplicate_of":     nil,
 		"project_id":       util.UUIDToPtr(issue.ProjectID),
+		"type":             util.TextToPtr(issue.Type),
+		"worklane_id":      util.UUIDToPtr(issue.WorklaneID),
+		"release_id":       util.UUIDToPtr(issue.ReleaseID),
 		"position":         issue.Position,
 		"stage":            util.Int4ToPtr(issue.Stage),
 		"start_date":       util.DateToPtr(issue.StartDate),

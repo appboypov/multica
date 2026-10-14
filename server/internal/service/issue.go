@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -16,9 +17,11 @@ import (
 	"github.com/multica-ai/multica/server/internal/entitlement"
 	"github.com/multica-ai/multica/server/internal/events"
 	"github.com/multica-ai/multica/server/internal/issueguard"
+	"github.com/multica-ai/multica/server/internal/issueplacement"
 	"github.com/multica-ai/multica/server/internal/issueposition"
 	"github.com/multica-ai/multica/server/internal/issueproperty"
 	"github.com/multica-ai/multica/server/internal/issuestatus"
+	"github.com/multica-ai/multica/server/internal/issuetemplate"
 	obsmetrics "github.com/multica-ai/multica/server/internal/metrics"
 	"github.com/multica-ai/multica/server/internal/util"
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
@@ -96,6 +99,14 @@ type IssueCreateParams struct {
 	// Its immutable snapshot and cloned attachment rows commit in the same
 	// transaction as the new issue.
 	SourceContext *SourceContextCapture
+	// Type is one of the eight issue types (NULL = No type). A typed issue
+	// without a description gets its template's Markdown (FR-51).
+	Type pgtype.Text
+	FromTemplate bool
+	// WorklaneID and ReleaseID place the new issue (ADR-0013). A worklane
+	// sets the project to its repository's project, whatever ProjectID says.
+	WorklaneID pgtype.UUID
+	ReleaseID  pgtype.UUID
 }
 
 // IssueCreateOpts groups optional knobs for IssueService.Create. Most
@@ -187,6 +198,22 @@ func (e *IssuePropertyValidationError) Error() string { return e.Message }
 var ErrIssueStatusUnavailable = errors.New("issue status is no longer available")
 
 var ErrSourceContextAlreadyAttached = errors.New("source context is already attached")
+
+// ErrWorklaneNotFound and ErrReleaseNotFound signal a placement naming a
+// worklane or release that is not in the issue's workspace. Callers answer 404.
+var (
+	ErrWorklaneNotFound = errors.New("worklane not found in this workspace")
+	ErrReleaseNotFound  = errors.New("release not found in this workspace")
+	ErrIssueTypeInvalid = errors.New("issue type is invalid")
+)
+
+// IssuePlacementRefusal is a placement the rules of issueplacement refuse.
+// Callers answer it with its code: 400 for release_needs_worklane, else 409.
+type IssuePlacementRefusal struct {
+	issueplacement.Refusal
+}
+
+func (e *IssuePlacementRefusal) Error() string { return "issue placement refused: " + e.Code }
 
 // IssueCreateResult is the typed return from IssueService.Create.
 //
@@ -314,6 +341,18 @@ func (s *IssueService) Create(ctx context.Context, p IssueCreateParams, opts Iss
 			projectID = parent.ProjectID
 		}
 	}
+	placement, err := resolveCreatePlacement(ctx, qtx, p)
+	if err != nil {
+		return IssueCreateResult{}, err
+	}
+	if placement.projectID.Valid {
+		projectID = placement.projectID
+	}
+	if p.Type.Valid && strings.TrimSpace(p.Description.String) == "" {
+		if t, ok := issuetemplate.ByType(p.Type.String); ok {
+			p.Description = pgtype.Text{String: issuetemplate.Markdown(t, nil), Valid: true}
+		}
+	}
 	if projectID.Valid {
 		if _, err := qtx.GetProjectInWorkspace(ctx, db.GetProjectInWorkspaceParams{
 			ID:          projectID,
@@ -384,6 +423,9 @@ func (s *IssueService) Create(ctx context.Context, p IssueCreateParams, opts Iss
 			OriginID:      p.OriginID,
 			Stage:         p.Stage,
 			Properties:    properties,
+			Type:          p.Type,
+			WorklaneID:    p.WorklaneID,
+			ReleaseID:     p.ReleaseID,
 		})
 	} else {
 		issue, err = qtx.CreateIssue(ctx, db.CreateIssueParams{
@@ -405,6 +447,9 @@ func (s *IssueService) Create(ctx context.Context, p IssueCreateParams, opts Iss
 			ProjectID:     projectID,
 			Stage:         p.Stage,
 			Properties:    properties,
+			Type:          p.Type,
+			WorklaneID:    p.WorklaneID,
+			ReleaseID:     p.ReleaseID,
 		})
 	}
 	if err != nil {
@@ -413,6 +458,11 @@ func (s *IssueService) Create(ctx context.Context, p IssueCreateParams, opts Iss
 			return IssueCreateResult{}, ErrIssuePropertiesTooLarge
 		}
 		return IssueCreateResult{}, fmt.Errorf("create issue: %w", err)
+	}
+
+	activities, err := WriteIssueEntries(ctx, qtx, issue.WorkspaceID, issue.ID, p.CreatorType, createActorID(p, opts), placement.entries)
+	if err != nil {
+		return IssueCreateResult{}, err
 	}
 
 	if p.SourceContext != nil {
@@ -535,6 +585,7 @@ func (s *IssueService) Create(ctx context.Context, p IssueCreateParams, opts Iss
 	}
 
 	s.publishIssueCreated(issue, attachments, labels, p.CreatorType, actorID, opts)
+	PublishIssueActivities(s.Bus, issue.WorkspaceID, p.CreatorType, actorID, activities)
 	s.captureCreatedAnalytics(issue, p.CreatorType, actorID, opts)
 	if opts.AssignedAgentRunFireAt.IsZero() {
 		assignedTaskID = s.maybeEnqueueOnAssign(ctx, issue, p.CreatorType, actorID, opts.AssignedAgentRunFireAt)
