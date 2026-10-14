@@ -148,7 +148,7 @@
     "failed": "질문을 재할당하지 못했습니다"
   },
   "badges": {
-    "policy_any_one": "{{count}}명 중 누구든 1명",
+    "policy_any": "{{count}}명 중 누구든 1명",
     "policy_each": "{{count}}명 각각"
   },
   "row": {
@@ -199,7 +199,7 @@
     "back": "질문",
     "leave": "나가기",
     "view_label": "보기",
-    "view_one": "하나씩",
+    "view_single": "하나씩",
     "view_page": "한 페이지",
     "progress": "{{current}} / {{total}}",
     "summary": "{{answered}}개 답함 · {{skipped}}개 건너뜀",

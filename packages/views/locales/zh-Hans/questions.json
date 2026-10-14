@@ -148,7 +148,7 @@
     "failed": "问题转交失败"
   },
   "badges": {
-    "policy_any_one": "{{count}} 人中任一人",
+    "policy_any": "{{count}} 人中任一人",
     "policy_each": "{{count}} 人各自"
   },
   "row": {
@@ -199,7 +199,7 @@
     "back": "问题",
     "leave": "离开",
     "view_label": "视图",
-    "view_one": "逐个",
+    "view_single": "逐个",
     "view_page": "单页",
     "progress": "{{current}} / {{total}}",
     "summary": "已回答 {{answered}} · 已跳过 {{skipped}}",

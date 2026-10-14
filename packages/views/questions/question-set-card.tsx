@@ -18,7 +18,7 @@ import { useT, useTimeAgo } from "../i18n";
 import { AnswerControl, handleAnswerKey } from "./answer-controls/answer-control";
 import { draftError, valueToSend, type AnswerDraft } from "./answer-controls/draft";
 import { AnswerCountPill, AnswererProgress, showsAnswererProgress } from "./answerer-progress";
-import { AnswerLine, QuestionHistory } from "./question-card";
+import { AnswerLine, QuestionCard, QuestionHistory } from "./question-card";
 import { ReassignPicker } from "./reassign-picker";
 import { TYPE_ICONS } from "./type-icon";
 import { WakeButton } from "./wake-button";
@@ -34,6 +34,14 @@ export interface QuestionSetCardProps {
   runNumber?: number;
   /** The question the card opens at: a deep link's or the Questions row's. */
   activeQuestionId?: string;
+  /**
+   * `tabs` (the issue page): one question at a time with the set's footer and Wake.
+   * `stacked` (Answer all's One page): every question in order with its own
+   * control and Send, and no Wake; the page shows its wake bars instead.
+   */
+  layout?: "tabs" | "stacked";
+  /** Stacked only: the question whose card owns the `send` shortcut. */
+  focusedQuestionId?: string;
 }
 
 interface Composing {
@@ -47,7 +55,38 @@ interface Composing {
  * footer with the active question's actions, the set's progress and **Wake**.
  * Each question is answered and sent on its own.
  */
-export function QuestionSetCard({ questions, issueId, runNumber, activeQuestionId }: QuestionSetCardProps) {
+export function QuestionSetCard({ layout = "tabs", focusedQuestionId, ...props }: QuestionSetCardProps) {
+  return layout === "stacked"
+    ? <StackedQuestionSet questions={props.questions} issueId={props.issueId} runNumber={props.runNumber} focusedQuestionId={focusedQuestionId} />
+    : <TabbedQuestionSet {...props} />;
+}
+
+function StackedQuestionSet({
+  questions,
+  issueId,
+  runNumber,
+  focusedQuestionId,
+}: Pick<QuestionSetCardProps, "questions" | "issueId" | "runNumber" | "focusedQuestionId">) {
+  const title = questions[0]?.ask_title;
+  return (
+    <div className="flex flex-col gap-2">
+      {title && <p className="text-title-sm font-semibold">{title}</p>}
+      {questions.map((question) => (
+        <div key={question.id} data-question-id={question.id}>
+          <QuestionCard
+            question={question}
+            issueId={issueId}
+            runNumber={runNumber}
+            hideWake
+            focused={question.id === focusedQuestionId}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function TabbedQuestionSet({ questions, issueId, runNumber, activeQuestionId }: Omit<QuestionSetCardProps, "layout" | "focusedQuestionId">) {
   const { t } = useT("questions");
   const timeAgo = useTimeAgo();
   const { getActorName } = useActorName();

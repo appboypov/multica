@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useIsMutating, useQueryClient } from "@tanstack/react-query";
-import { ArrowRight, Calendar, CircleCheck, CirclePause, CircleSlash, ClockAlert, CornerUpLeft, NotebookPen, Pencil, Send, Check } from "lucide-react";
+import { ArrowRight, CircleCheck, CircleSlash, CornerUpLeft, NotebookPen, Pencil, Send, Check } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthStore } from "@multica/core/auth";
 import { hasUploadingDraft } from "@multica/core/drafts";
 import { useWorkspaceId } from "@multica/core/hooks";
-import { formatDateOnly, isPastDateOnly, todayDateOnly } from "@multica/core/issues/date";
+import { isPortalLayerShortcutTarget, shortcutMatchesEvent, useShortcut } from "@multica/core/shortcuts";
 import { createLogger } from "@multica/core/logger";
 import {
   EMPTY_QUESTION_DRAFT,
@@ -28,7 +28,8 @@ import { Button } from "@multica/ui/components/ui/button";
 import { Textarea } from "@multica/ui/components/ui/textarea";
 import { cn } from "@multica/ui/lib/utils";
 import { ActorAvatar } from "../common/actor-avatar";
-import { useLocale, useT, useTimeAgo } from "../i18n";
+import { useT, useTimeAgo } from "../i18n";
+import { QuestionBadges } from "./question-badges";
 import { AnswerCountPill, AnswererProgress, showsAnswererProgress } from "./answerer-progress";
 import { AnswerControl, handleAnswerKey, useAnswerControlLink } from "./answer-controls/answer-control";
 import { controlShowsNote, draftError, valueToSend, type AnswerDraft, type AnswerableQuestion } from "./answer-controls/draft";
@@ -53,10 +54,13 @@ export interface QuestionCardProps {
    */
   answerElsewhere?: ReactNode;
   /**
-   * The card shows one question of a set outside the set's card: it has no
-   * Wake of its own, and folds once the viewer has answered.
+   * The card has no Wake of its own and folds once the viewer has answered:
+   * a question of a set outside the set's card, and Answer all, which shows
+   * its own wake bars.
    */
-  inSet?: boolean;
+  hideWake?: boolean;
+  /** The focused card owns the `send` shortcut and sends its draft when its Send is enabled. */
+  focused?: boolean;
 }
 
 /**
@@ -64,7 +68,7 @@ export interface QuestionCardProps {
  * holds its answer type's control for an answerer and a summary for anyone
  * else; once answered, closed or withdrawn it folds to one line.
  */
-export function QuestionCard({ question, issueId, runNumber, answerElsewhere, inSet = false }: QuestionCardProps) {
+export function QuestionCard({ question, issueId, runNumber, answerElsewhere, hideWake = false, focused = false }: QuestionCardProps) {
   const userId = useAuthStore((s) => s.user?.id);
   const wsId = useWorkspaceId();
   const draftKey = questionDraftKey(wsId, question.id);
@@ -92,7 +96,7 @@ export function QuestionCard({ question, issueId, runNumber, answerElsewhere, in
     if (stale) clearDraft(draftKey);
   }, [stale, draftKey, clearDraft]);
 
-  if ((!isOpen(question) || (inSet && ownAnswer !== null)) && !editing) {
+  if ((!isOpen(question) || (hideWake && ownAnswer !== null)) && !editing) {
     const startEdit = () =>
       setDraft(draftKey, {
         editing: true,
@@ -102,7 +106,7 @@ export function QuestionCard({ question, issueId, runNumber, answerElsewhere, in
         askBackOpen: false,
         askBackText: "",
       });
-    return <FoldedQuestion question={question} issueId={issueId} inSet={inSet} onEdit={canEdit ? startEdit : undefined} />;
+    return <FoldedQuestion question={question} issueId={issueId} hideWake={hideWake} onEdit={canEdit ? startEdit : undefined} />;
   }
   return (
     <OpenQuestion
@@ -114,6 +118,7 @@ export function QuestionCard({ question, issueId, runNumber, answerElsewhere, in
       draftKey={draftKey}
       editing={editing}
       onDone={() => clearDraft(draftKey)}
+      focused={focused}
     />
   );
 }
@@ -122,7 +127,7 @@ export function QuestionCard({ question, issueId, runNumber, answerElsewhere, in
 // Folded: prompt → answer · who · when, Edit answer, Wake <agent>
 // ---------------------------------------------------------------------------
 
-function FoldedQuestion({ question, issueId, inSet, onEdit }: { question: Question; issueId: string; inSet: boolean; onEdit?: () => void }) {
+function FoldedQuestion({ question, issueId, hideWake, onEdit }: { question: Question; issueId: string; hideWake: boolean; onEdit?: () => void }) {
   const { t } = useT("questions");
   const timeAgo = useTimeAgo();
   const { getActorName } = useActorName();
@@ -155,7 +160,7 @@ function FoldedQuestion({ question, issueId, inSet, onEdit }: { question: Questi
             {t(($) => $.card.edit_answer)}
           </Button>
         )}
-        {question.wake_available && !inSet && <WakeButton question={question} issueId={issueId} />}
+        {question.wake_available && !hideWake && <WakeButton question={question} issueId={issueId} />}
       </span>
     </div>
   );
@@ -181,6 +186,7 @@ function OpenQuestion({
   draftKey,
   editing,
   onDone,
+  focused,
 }: {
   question: Question;
   issueId: string;
@@ -190,6 +196,7 @@ function OpenQuestion({
   draftKey: string;
   editing: boolean;
   onDone: () => void;
+  focused: boolean;
 }) {
   const { t } = useT("questions");
   const timeAgo = useTimeAgo();
@@ -216,7 +223,7 @@ function OpenQuestion({
             {t(($) => $.types[question.answer_type])}
           </span>
         )}
-        <QuestionBadges question={question} />
+        <CardBadges question={question} />
       </div>
 
       <div className="flex items-center gap-2 text-body">
@@ -247,6 +254,7 @@ function OpenQuestion({
           draftKey={draftKey}
           editing={editing}
           onDone={onDone}
+          focused={focused}
         />
       ) : (
         <>
@@ -260,32 +268,11 @@ function OpenQuestion({
   );
 }
 
-function QuestionBadges({ question }: { question: Question }) {
-  const { t } = useT("questions");
-  const locale = useLocale();
-  const overdue = isOpen(question) && isPastDateOnly(question.due_date);
+function CardBadges({ question }: { question: Question }) {
   return (
     <span className="ml-auto flex shrink-0 items-center gap-1.5">
       {showsAnswererProgress(question) && <AnswerCountPill question={question} />}
-      {question.blocks_work && (
-        <Badge variant="destructive" className="border-destructive">
-          <CirclePause />
-          {t(($) => $.card.blocks_work)}
-        </Badge>
-      )}
-      {overdue ? (
-        <Badge variant="destructive" className="border-destructive">
-          <ClockAlert />
-          {t(($) => $.card.overdue)}
-        </Badge>
-      ) : question.due_date && (
-        <Badge variant="secondary">
-          <Calendar />
-          {question.due_date === todayDateOnly()
-            ? t(($) => $.card.due_today)
-            : t(($) => $.card.due_date, { date: formatDateOnly(question.due_date, { month: "short", day: "numeric" }, locale) })}
-        </Badge>
-      )}
+      <QuestionBadges blocksWork={question.blocks_work} dueDate={question.due_date} open={isOpen(question)} />
     </span>
   );
 }
@@ -399,6 +386,7 @@ function AnswerForm({
   draftKey,
   editing,
   onDone,
+  focused,
 }: {
   question: AnswerableQuestion;
   issueId: string;
@@ -407,6 +395,7 @@ function AnswerForm({
   draftKey: string;
   editing: boolean;
   onDone: () => void;
+  focused: boolean;
 }) {
   const { t } = useT("questions");
   const wsId = useWorkspaceId();
@@ -463,6 +452,23 @@ function AnswerForm({
       },
     );
   };
+
+  // The focused card owns the send shortcut. A control that already sent on the
+  // same keystroke, such as the Text editor, marks the event handled.
+  const sendShortcut = useShortcut("send");
+  const sendRef = useRef(send);
+  sendRef.current = send;
+  useEffect(() => {
+    if (!focused) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || !shortcutMatchesEvent(sendShortcut, event)) return;
+      if (isPortalLayerShortcutTarget(event.target)) return;
+      event.preventDefault();
+      sendRef.current();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [focused, sendShortcut]);
 
   const sendAskBack = () => {
     const text = askBackText.trim();

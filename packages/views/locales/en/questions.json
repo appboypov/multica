@@ -151,7 +151,7 @@
     "failed": "Could not reassign the question"
   },
   "badges": {
-    "policy_any_one": "any one of {{count}}",
+    "policy_any": "any one of {{count}}",
     "policy_each": "each of {{count}}"
   },
   "row": {
@@ -202,7 +202,7 @@
     "back": "Questions",
     "leave": "Leave",
     "view_label": "View",
-    "view_one": "One by one",
+    "view_single": "One by one",
     "view_page": "One page",
     "progress": "{{current}} of {{total}}",
     "summary": "{{answered}} answered · {{skipped}} skipped",

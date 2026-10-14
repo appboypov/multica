@@ -114,7 +114,7 @@ export function InboxQuestionPane({
                   question={q}
                   issueId={issueId}
                   runNumber={runNumber}
-                  inSet
+                  hideWake
                   answerElsewhere={ANSWERED_IN_PLACE.has(q.answer_type) ? undefined : answeredOnIssue(q)}
                 />
               ))}

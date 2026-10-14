@@ -9,3 +9,4 @@ export { QuestionBadges, type QuestionBadgesProps } from "./question-badges";
 export { QuestionListRow, type QuestionListRowProps } from "./question-row";
 export { WakeBars, type WakeBarsProps } from "./wake-bar";
 export { QuestionsPage } from "./questions-page";
+export { AnswerAllPage } from "./answer-all/answer-all-page";

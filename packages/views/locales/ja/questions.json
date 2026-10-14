@@ -148,7 +148,7 @@
     "failed": "質問を再割り当てできませんでした"
   },
   "badges": {
-    "policy_any_one": "{{count}} 人のうち誰か 1 人",
+    "policy_any": "{{count}} 人のうち誰か 1 人",
     "policy_each": "{{count}} 人それぞれ"
   },
   "row": {
@@ -199,7 +199,7 @@
     "back": "質問",
     "leave": "終了",
     "view_label": "表示",
-    "view_one": "1 問ずつ",
+    "view_single": "1 問ずつ",
     "view_page": "1 ページ",
     "progress": "{{current}} / {{total}}",
     "summary": "{{answered}} 件回答 · {{skipped}} 件スキップ",

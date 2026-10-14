@@ -43,7 +43,7 @@ export function QuestionBadges({ blocksWork, dueDate, open, policy, answererCoun
           <Users />
           {policy === "each"
             ? t(($) => $.badges.policy_each, { count: answererCount })
-            : t(($) => $.badges.policy_any_one, { count: answererCount })}
+            : t(($) => $.badges.policy_any, { count: answererCount })}
         </Badge>
       )}
       {overdue ? (

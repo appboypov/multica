@@ -151,7 +151,7 @@
     "failed": "Impossible de réattribuer la question"
   },
   "badges": {
-    "policy_any_one": "n'importe lequel des {{count}}",
+    "policy_any": "n'importe lequel des {{count}}",
     "policy_each": "chacun des {{count}}"
   },
   "row": {
@@ -202,7 +202,7 @@
     "back": "Questions",
     "leave": "Quitter",
     "view_label": "Vue",
-    "view_one": "Une par une",
+    "view_single": "Une par une",
     "view_page": "Une page",
     "progress": "{{current}} sur {{total}}",
     "summary": "{{answered}} répondues · {{skipped}} passées",
