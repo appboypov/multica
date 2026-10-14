@@ -105,6 +105,52 @@ func (q *Queries) KeepIssueWorktree(ctx context.Context, arg KeepIssueWorktreePa
 	return i, err
 }
 
+const listIssueWorktreePathsForDaemon = `-- name: ListIssueWorktreePathsForDaemon :many
+SELECT
+    iw.path,
+    (w.issue_prefix || '-' || i.number)::text AS issue_identifier
+FROM issue_worktree iw
+JOIN issue i ON i.id = iw.issue_id AND i.workspace_id = iw.workspace_id
+JOIN workspace w ON w.id = iw.workspace_id
+WHERE iw.workspace_id = $1
+  AND iw.repository_id = $2
+  AND iw.daemon_id = $3
+ORDER BY iw.created_at ASC
+`
+
+type ListIssueWorktreePathsForDaemonParams struct {
+	WorkspaceID  pgtype.UUID `json:"workspace_id"`
+	RepositoryID pgtype.UUID `json:"repository_id"`
+	DaemonID     string      `json:"daemon_id"`
+}
+
+type ListIssueWorktreePathsForDaemonRow struct {
+	Path            string `json:"path"`
+	IssueIdentifier string `json:"issue_identifier"`
+}
+
+// The issue worktrees of a repository on one daemon, so a new worklane never
+// takes an issue's worktree as its own (ADR-0009).
+func (q *Queries) ListIssueWorktreePathsForDaemon(ctx context.Context, arg ListIssueWorktreePathsForDaemonParams) ([]ListIssueWorktreePathsForDaemonRow, error) {
+	rows, err := q.db.Query(ctx, listIssueWorktreePathsForDaemon, arg.WorkspaceID, arg.RepositoryID, arg.DaemonID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListIssueWorktreePathsForDaemonRow{}
+	for rows.Next() {
+		var i ListIssueWorktreePathsForDaemonRow
+		if err := rows.Scan(&i.Path, &i.IssueIdentifier); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listIssueWorktreesForIssue = `-- name: ListIssueWorktreesForIssue :many
 SELECT id, workspace_id, issue_id, repository_id, daemon_id, path, branch, state, kept_reason, created_at, updated_at FROM issue_worktree
 WHERE issue_id = $1 AND workspace_id = $2

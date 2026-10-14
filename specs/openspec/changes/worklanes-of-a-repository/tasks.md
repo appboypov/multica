@@ -98,20 +98,20 @@ This change builds on UJ-2 (`repositories-of-a-project`, DAS-451): its `reposito
 
 ## 8. J8 Backend and agent tooling: endpoint
 
-- [ ] 8.1 `server/internal/handler/worklane_request.go` -- `WorklaneRequestStore` (in memory and Redis, as UJ-2's `RepositoryCheckoutStore`), `CreateWorklaneRequest`, `GetWorklaneRequest`, `RetryWorklaneRequest`, the daemon's `ReportWorklaneRequestProgress`, as design.md decisions 2 and 3 set out:
+- [x] 8.1 `server/internal/handler/worklane_request.go` -- `WorklaneRequestStore` (in memory and Redis, as UJ-2's `RepositoryCheckoutStore`), `CreateWorklaneRequest`, `GetWorklaneRequest`, `RetryWorklaneRequest`, the daemon's `ReportWorklaneRequestProgress`, as design.md decisions 2 and 3 set out:
   - The create checks in table order with their codes; `requireRuntimeLocalSkillAccess` on the checkout machine's runtime.
   - The path from the organisation key, read now; `base` `origin/{default_branch}`; the repository's issue worktree paths on that daemon.
   - `requestDaemonPendingWork` with `PendingWorkKindWorklaneRequest`; finished requests kept 30 minutes; `lost` after 15 minutes without progress.
   - Retry only on a failed request, from the failed step; a failed `open` reruns on the server.
   - Progress from another daemon or for an unknown request: 404.
-- [ ] 8.2 `server/internal/handler/worklane_open.go` -- on `install` done or skipped: in one transaction, check name and folder again, insert the worklane with the resolved path, next position and daemon, and the `worklane_created` entry with `runtime_name`; publish `worklane:created`; complete the request with `worklane_id`. A unique violation fails `open` with `name_taken` or `folder_taken`.
-- [ ] 8.3 `server/internal/handler/worklane.go` -- `GetWorklane` with `state` `free`; `RenameWorklane` (refuses `main` and a taken name; name and `worklane_renamed` in one transaction; `worklane:updated`); `RemoveWorklane` (refuses `main` and an offline machine; enqueues a remove request; on `removed` deletes the worklane and its activity in one transaction and publishes `worklane:deleted`; on a refusal marks the request `refused` with its reason); `ListWorklaneActivity` -- design.md decisions 4 and 6.
+- [x] 8.2 `server/internal/handler/worklane_open.go` -- on `install` done or skipped: in one transaction, check name and folder again, insert the worklane with the resolved path, next position and daemon, and the `worklane_created` entry with `runtime_name`; publish `worklane:created`; complete the request with `worklane_id`. A unique violation fails `open` with `name_taken` or `folder_taken`.
+- [x] 8.3 `server/internal/handler/worklane.go` -- `GetWorklane` with `state` `free`; `RenameWorklane` (refuses `main` and a taken name; name and `worklane_renamed` in one transaction; `worklane:updated`); `RemoveWorklane` (refuses `main` and an offline machine; enqueues a remove request; on `removed` deletes the worklane and its activity in one transaction and publishes `worklane:deleted`; on a refusal marks the request `refused` with its reason); `ListWorklaneActivity` -- design.md decisions 4 and 6.
 - [ ] 8.4 `server/internal/handler/repository.go` -- `install_command` on create (absent: the check's first command, or `''`) and update; `DeleteRepository` refuses with 409 `has_worklanes` naming them while the repository has a worklane besides `main`, and deletes the repository's activity rows -- the `manage-worklanes` and `repository-install-command` spec deltas.
 - [ ] 8.5 `server/internal/handler/runtime_repository_checkout.go` -- carry `install_commands` in the check result; on a passed check, run `BackfillRepositoryInstallCommand` and publish `repository:updated` -- design.md decision 7.
 - [ ] 8.6 `server/internal/handler/claim_repositories.go` -- `worklane_paths` per repository for the claiming daemon -- ADR-0009.
-- [ ] 8.7 `server/internal/handler/daemon.go`, `handler.go` -- the heartbeat pops one pending worklane request per runtime into `pending_worklane_request`; the handler holds `WorklaneRequestStore`.
-- [ ] 8.8 `server/internal/handler/project.go` -- project delete also deletes the activity rows of its repositories and worklanes in its transaction.
-- [ ] 8.9 `server/cmd/server/router.go`, `server/cmd/server/listeners.go` -- register `/api/worklane-requests`, `/api/worklane-requests/{id}`, `/api/worklane-requests/{id}/retry`, `/api/worklanes/{id}` (GET, PATCH, DELETE) and `/api/worklanes/{id}/activity` in the workspace-member group, the daemon's progress route, and broadcast `worklane:updated` to the workspace.
+- [x] 8.7 `server/internal/handler/daemon.go`, `handler.go` -- the heartbeat pops one pending worklane request per runtime into `pending_worklane_request`; the handler holds `WorklaneRequestStore`.
+- [x] 8.8 `server/internal/handler/project.go` -- project delete also deletes the activity rows of its repositories and worklanes in its transaction.
+- [x] 8.9 `server/cmd/server/router.go`, `server/cmd/server/listeners.go` -- register `/api/worklane-requests`, `/api/worklane-requests/{id}`, `/api/worklane-requests/{id}/retry`, `/api/worklanes/{id}` (GET, PATCH, DELETE) and `/api/worklanes/{id}/activity` in the workspace-member group, the daemon's progress route, and broadcast `worklane:updated` to the workspace.
 - [ ] 8.10 `server/internal/handler/worklane_request_test.go`, `worklane_test.go`, `repository_test.go` -- DB tests with `testutil` fixtures and a fake daemon reporting progress:
   - Each create refusal with its code; a member who does not own the runtime is refused.
   - The path with and without an organisation, and after a key change.
@@ -125,12 +125,12 @@ This change builds on UJ-2 (`repositories-of-a-project`, DAS-451): its `reposito
 
 ## 9. J8 Backend and agent tooling: integration
 
-- [ ] 9.1 `server/internal/daemon/worklane_request.go`, `daemon.go` `handleHeartbeatActions`, `client.go` -- claim `pending_worklane_request` and run it in a goroutine from `from_step`, posting the whole step list after each change -- design.md decisions 3 and 4. `daemonCommonCapabilities` adds `worklane-worktree-v1`.
-- [ ] 9.2 `server/internal/daemon/execenv/worklane_worktree.go` -- design.md decision 3 steps 1 to 3:
+- [x] 9.1 `server/internal/daemon/worklane_request.go`, `daemon.go` `handleHeartbeatActions`, `client.go` -- claim `pending_worklane_request` and run it in a goroutine from `from_step`, posting the whole step list after each change -- design.md decisions 3 and 4. `daemonCommonCapabilities` adds `worklane-worktree-v1`.
+- [x] 9.2 `server/internal/daemon/execenv/worklane_worktree.go` -- design.md decision 3 steps 1 to 3:
   - `FetchDefaultBranch` resolves the commit and its duration.
   - `AddWorklaneWorktree` takes the checkout's repo lock, refuses an issue worktree's path, runs `worktree add --detach` for a missing path or an empty folder, uses a checkout of the repository that is there as it is, and refuses anything else, touching nothing.
   - `RunInstall` runs `sh -c` in the worktree under its path lock, with a 20-minute limit and the last 8 KB of output.
-- [ ] 9.3 `server/internal/daemon/execenv/worklane_worktree.go` -- `RemoveWorklaneWorktree` -- design.md decision 4: a held lock refuses with `busy`; a missing path is removed; otherwise uncommitted, unpushed and, for a standalone clone, stashed are refused; else the worktree is removed without deleting a branch.
+- [x] 9.3 `server/internal/daemon/execenv/worklane_worktree.go` -- `RemoveWorklaneWorktree` -- design.md decision 4: a held lock refuses with `busy`; a missing path is removed; otherwise uncommitted, unpushed and, for a standalone clone, stashed are refused; else the worktree is removed without deleting a branch.
 - [ ] 9.4 `server/internal/daemon/repository_checkout.go` -- the install commands of the spec's table on `refs/heads/{default_branch}`, in table order.
 - [ ] 9.5 `server/internal/daemon/issue_worktree.go`, `execenv/issue_worktree.go` -- when an issue's default path is one of the claim's `worklane_paths`, use `{issue key}-issue` and record it -- ADR-0009.
 - [ ] 9.6 Daemon tests beside the code, on a fake git repository with a bare `origin`:

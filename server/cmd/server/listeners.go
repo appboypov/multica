@@ -243,6 +243,8 @@ func registerListeners(bus *events.Bus, b realtime.Broadcaster) {
 	// Organisation create/update events use this same workspace fanout.
 	// release_line:updated {repository_id} reaches the workspace this way too,
 	// so every member's Timeline refetches the repository's line (ADR-0010).
+	// worklane:created/updated/deleted {worklane_id, repository_id} reach the
+	// workspace this way, so a rename or remove shows on every open page.
 	// Question created/updated payloads follow this workspace fanout too;
 	// answerer-specific inbox events use the personal delivery path above.
 	bus.SubscribeAll(func(e events.Event) {
