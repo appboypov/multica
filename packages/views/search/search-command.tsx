@@ -45,7 +45,8 @@ import { useModalStore } from "@multica/core/modals";
 import { createShortcutChord } from "@multica/core/shortcuts";
 import { memberListOptions } from "@multica/core/workspace/queries";
 import { resolvePublicFileUrl } from "@multica/core/workspace/avatar-url";
-import { StatusIcon } from "../issues/components";
+import { StatusIcon, TypeIcon } from "../issues/components";
+import { worklaneListOptions } from "@multica/core/worklanes";
 import { resolvedThreadRootIds, rootCommentIds } from "../issues/components/thread-utils";
 import { ProjectIcon } from "../projects/components/project-icon";
 import { routeIconForPath } from "../layout/route-icon-components";
@@ -223,7 +224,13 @@ function IssueResultRow({
   disabled?: boolean;
   onSelect: (value: string) => void;
 }) {
-  const { colorOf, iconOf } = useIssueStatuses(useWorkspaceId());
+  const wsId = useWorkspaceId();
+  const { colorOf, iconOf } = useIssueStatuses(wsId);
+  const { t } = useT("search");
+  const { data: worklanes } = useQuery(worklaneListOptions(wsId));
+  const worklaneName = issue.worklane_id
+    ? worklanes?.find((worklane) => worklane.id === issue.worklane_id)?.name
+    : null;
   return (
     <CommandPrimitive.Item
       key={issue.id}
@@ -240,11 +247,15 @@ function IssueResultRow({
           category={issueStatusCategory(issue) ?? undefined}
           className="size-4 shrink-0"
         />
+        {issue.type ? <TypeIcon type={issue.type} /> : null}
         <span className="text-caption text-muted-foreground shrink-0">
           {issue.identifier}
         </span>
         <span className="min-w-0 flex-1 truncate">
           <HighlightText text={issue.title} query={query} />
+        </span>
+        <span className="max-w-40 shrink-0 truncate text-caption text-muted-foreground">
+          {worklaneName ?? (issue.worklane_id ? null : t(($) => $.no_worklane))}
         </span>
         <IssueAssigneeAvatar
           assigneeType={issue.assignee_type}

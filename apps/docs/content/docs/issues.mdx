@@ -108,6 +108,20 @@ Larger work can be split into sub-issues: the parent issue keeps the overall goa
 
 Sub-issues can be given a **stage** to advance in batches — 1, 2, 3. When every sub-issue in the earliest unfinished stage reaches `done` or `cancelled`, the parent issue receives a "sub-issues completed" notification; when the parent's assignee is an agent, it wakes up and decides whether to start the next stage. Sub-issues without a stage count as one batch and notify once when they all finish.
 
+## Templates and types
+
+**New issue** starts from one of eight templates: Epic, Journey, Story, Bug, Enhancement, Refactor, Chore and Spike. Story is picked when it opens. The template sets the issue's type, and its fields fill one Markdown description; the **Markdown** tab shows it as it will be saved. **Create** stays disabled until the title and every required field are filled. Code and technical design go in the change, not in the issue.
+
+The type shows as an icon beside the issue's number on lists, boards, search results and the issue page. It is set once: an issue without a type can get one on its page, but a set type does not change.
+
+## Worklanes and releases
+
+An issue can sit in a **worklane**, one line of work in a repository, and in one of that repository's unshipped **releases**. New issue fills both in when it is opened from a worklane or a project; otherwise it picks no worklane and no release. Picking a worklane fills in its repository's next release, and the status follows: `todo` with a release, `backlog` without, unless you pick one. While an issue is in a worklane, its project follows the worklane.
+
+On the issue page, the **Worklane** and **Release** rows change both, and the release card shows the release's version, title, progress and a link to the worklane's Timeline. The issue page shows the description as **Preview** or as its **Markdown**.
+
+A worklane's **Timeline** lists each release's issues of that worklane with "{done} of {total} done", then **No release**. **+ Add issue to release** opens New issue in that release, **Add issue to release** in a release's menu ticks issues that are in no release, and **Plan release** can take issues in as well. **Remove from release** puts an issue back in No release. When a release is moved, its issues move with it; when it is removed, they go to No release. A worklane cannot be removed while it holds open issues.
+
 ## Switch views
 
 The Issues page offers five views — list, board, table, Gantt, and swimlane — filterable and sortable by status, assignee, project, and other properties. They all show the same issues.

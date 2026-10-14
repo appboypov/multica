@@ -55,6 +55,7 @@ import { sortIssues } from "../utils/sort";
 import { BUILT_IN_STATUS_ORDER, STATUS_CONFIG } from "@multica/core/issues/config";
 import { DraggableBoardCard, BoardCardContent } from "./board-card";
 import { StatusIcon } from "./status-icon";
+import { TypeIcon } from "./type-icon";
 import { Button } from "@multica/ui/components/ui/button";
 import { StatusHeading } from "./status-heading";
 import { HiddenColumnsPanel, HiddenColumnRow } from "./hidden-columns-panel";
@@ -234,7 +235,7 @@ interface LaneGroup {
   title: string;
   identifier: string;
   /** Parent issue (parent grouping only) — drives the open-parent link + status icon in the header. */
-  parentIssue: Pick<Issue, "id" | "status"> | null;
+  parentIssue: (Pick<Issue, "id" | "status"> & { type?: Issue["type"] }) | null;
   /** Project metadata (project grouping only) — drives the icon in the header. */
   project: Project | null;
   /** Actor (assignee grouping only) — drives the avatar in the header. */
@@ -1683,6 +1684,7 @@ function DraggableSwimLane({
             />
           )}
           <span className="truncate text-body font-semibold">{lane.title}</span>
+          {lane.parentIssue?.type ? <TypeIcon type={lane.parentIssue.type} /> : null}
           {lane.identifier && (
             <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-micro font-medium tabular-nums text-muted-foreground">
               {lane.identifier}

@@ -20,6 +20,7 @@ import { descriptionPreview } from "./description-preview";
 import { PriorityIcon } from "./priority-icon";
 import { ProgressRing } from "./progress-ring";
 import { StatusIcon } from "./status-icon";
+import { TypeIcon } from "./type-icon";
 
 interface IssueHoverCardProps {
   issueId: string;
@@ -195,6 +196,7 @@ function IssueHoverCardBody({
             className="h-3.5 w-3.5 shrink-0"
           />
         </span>
+        {issue.type ? <TypeIcon type={issue.type} /> : null}
         <span className="text-caption font-medium text-muted-foreground">
           {issue.identifier}
         </span>

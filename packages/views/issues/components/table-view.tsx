@@ -141,6 +141,7 @@ const PEEKED_TABLE_ROW_CLASS =
   "[&>td]:bg-[color-mix(in_oklab,var(--brand)_6%,var(--background))] [&>td:first-child]:shadow-[inset_2px_0_0_var(--brand)]";
 import type { IssueCreateDefaults } from "../surface/types";
 import { ProgressRing } from "./progress-ring";
+import { TypeIcon } from "./type-icon";
 import {
   AssigneePicker,
   DueDatePicker,
@@ -727,6 +728,7 @@ export function InlineTitle({
       ) : (
         <span className="w-4 shrink-0" />
       )}
+      {row.issue.type ? <TypeIcon type={row.issue.type} /> : null}
       <span className="min-w-16 shrink-0 text-caption text-muted-foreground">
         {row.issue.identifier}
       </span>
@@ -1163,7 +1165,10 @@ function IssueTableBodyCell({
       );
     case "identifier":
       return (
-        <span className="text-caption text-muted-foreground">{issue.identifier}</span>
+        <span className="inline-flex items-center gap-1.5 text-caption text-muted-foreground">
+          {issue.type ? <TypeIcon type={issue.type} /> : null}
+          {issue.identifier}
+        </span>
       );
     case "status":
       return (
