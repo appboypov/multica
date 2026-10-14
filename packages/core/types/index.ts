@@ -461,6 +461,7 @@ export type {
   ApprovalDecision,
   ApprovalAnswerValue,
   QuestionStatus,
+  AnswerPolicy,
   QuestionLinkType,
   QuestionLink,
   QuestionAnswerer,
@@ -476,4 +477,5 @@ export type {
   ReassignQuestionRequest,
   QuestionWakeResult,
   AgentQuestionsSettings,
+  QuestionAskResult,
 } from "./question";

@@ -36,21 +36,21 @@ Every group builds on UJ-1's code (change `answer-an-agents-question-and-wake-it
 
 ## 1. J2 Data models: model change
 
-- [ ] 1.1 `server/migrations/570_question_ask.up.sql`, `.down.sql` -- add `question.ask_id uuid`, `ask_position int`, `ask_title text`, `answer_policy text NOT NULL DEFAULT 'any_one' CHECK (answer_policy IN ('any_one', 'each'))`; backfill `ask_id = id, ask_position = 0`; set `ask_id` and `ask_position` `NOT NULL`; replace the status `CHECK` with one that adds `partly_answered`; the down migration refuses while a question is `partly_answered`, then reverses -- design.md decisions 1 and 3, no foreign keys (AGENTS.md, ADR-0004).
-- [ ] 1.2 `server/migrations/571_question_ask_index.up.sql`, `.down.sql` -- `CREATE INDEX CONCURRENTLY` on `question (ask_id, ask_position)` -- loads a set's questions in order; one concurrent index per file (AGENTS.md).
-- [ ] 1.3 `server/pkg/db/queries/question.sql` -- `CreateQuestion` takes the four new columns; add `ListQuestionsByAsk` (workspace-filtered, by `ask_position`) and `ListCurrentAnswers` (the answers of the question's current answerers, joined on `question_answerer`); the overdue sweep returns `ask_id`; the status update takes `partly_answered` -- the reads the policy rule and the per-ask inbox need.
-- [ ] 1.4 `server/pkg/db/generated/` -- run `make sqlc` and commit the output -- generated code stays in step with the queries.
+- [x] 1.1 `server/migrations/575_question_ask.up.sql`, `.down.sql` -- add `question.ask_id uuid`, `ask_position int`, `ask_title text`, `answer_policy text NOT NULL DEFAULT 'any_one' CHECK (answer_policy IN ('any_one', 'each'))`; backfill `ask_id = id, ask_position = 0`; set `ask_id` and `ask_position` `NOT NULL`; replace the status `CHECK` with one that adds `partly_answered`; the down migration refuses while a question is `partly_answered`, then reverses -- design.md decisions 1 and 3, no foreign keys (AGENTS.md, ADR-0004).
+- [x] 1.2 `server/migrations/576_question_ask_index.up.sql`, `.down.sql` -- `CREATE INDEX CONCURRENTLY` on `question (ask_id, ask_position)` -- loads a set's questions in order; one concurrent index per file (AGENTS.md).
+- [x] 1.3 `server/pkg/db/queries/question.sql` -- `CreateQuestion` takes the four new columns; add `ListQuestionsByAsk` (workspace-filtered, by `ask_position`) and `ListCurrentAnswers` (the answers of the question's current answerers, joined on `question_answerer`); the overdue sweep returns `ask_id`; the status update takes `partly_answered` -- the reads the policy rule and the per-ask inbox need.
+- [x] 1.4 `server/pkg/db/generated/` -- run `make sqlc` and commit the output -- generated code stays in step with the queries.
 
 ## 2. J2 Data models: DTOs
 
-- [ ] 2.1 `packages/core/types/question.ts` -- add `AnswerPolicy = "any_one" | "each"`, `partly_answered` to `QuestionStatus`, `ask_id`, `ask_position`, `ask_title: string | null`, `answer_policy` to `Question`, and `QuestionAskResult = {ask_id, questions: Question[]}` -- the contract of design.md decision 2.
-- [ ] 2.2 `packages/core/api/schema.ts` -- the `Question` schema defaults `ask_id` to the question's `id`, `ask_position` to 0, `ask_title` to null and an absent or unknown `answer_policy` to `any_one`; `partly_answered` is a known status -- a newer client on a UJ-1 server shows each question as its own card (AGENTS.md "API Compatibility").
-- [ ] 2.3 `packages/core/api/schema.test.ts` -- malformed-response cases: a question without the ask fields gets `ask_id = id`; an unknown policy falls back to `any_one`; `partly_answered` parses -- AGENTS.md requires it for a changed response.
+- [x] 2.1 `packages/core/types/question.ts` -- add `AnswerPolicy = "any_one" | "each"`, `partly_answered` to `QuestionStatus`, `ask_id`, `ask_position`, `ask_title: string | null`, `answer_policy` to `Question`, and `QuestionAskResult = {ask_id, questions: Question[]}` -- the contract of design.md decision 2.
+- [x] 2.2 `packages/core/api/schemas.ts` -- the `Question` schema defaults `ask_id` to the question's `id`, `ask_position` to 0, `ask_title` to null and an absent or unknown `answer_policy` to `any_one`; `partly_answered` is a known status -- a newer client on a UJ-1 server shows each question as its own card (AGENTS.md "API Compatibility").
+- [x] 2.3 `packages/core/api/schemas.test.ts` -- malformed-response cases: a question without the ask fields gets `ask_id = id`; an unknown policy falls back to `any_one`; `partly_answered` parses -- AGENTS.md requires it for a changed response.
 
 ## 3. J2 Data models: action names
 
-- [ ] 3.1 `server/pkg/protocol/events.go` -- the `question:created` payload and the `question:updated` payload with reason `overdue` gain `ask_id` and `question_ids`; `question_id` stays the first question -- one event per ask (design.md decision 5).
-- [ ] 3.2 `server/internal/service/question_actions.go` -- constants for the inbox `details` keys `ask_id` and `question_count` and the answer policies `any_one`, `each` -- one spelling for the service, the listener, the job and the tests.
+- [x] 3.1 `server/pkg/protocol/events.go` -- the `question:created` payload and the `question:updated` payload with reason `overdue` gain `ask_id` and `question_ids`; `question_id` stays the first question -- one event per ask (design.md decision 5).
+- [x] 3.2 `server/internal/service/question_actions.go` -- constants for the inbox `details` keys `ask_id` and `question_count` and the answer policies `any_one`, `each` -- one spelling for the service, the listener, the job and the tests.
 
 ## 4. J3 Data-flow prototype: data-flow prototype
 
@@ -132,8 +132,10 @@ Every group builds on UJ-1's code (change `answer-an-agents-question-and-wake-it
 
 ## Implementation Notes
 
-- UJ-1 is built and merged before this change's J2; group 1 edits UJ-1's tables and group 9 UJ-1's service. If UJ-1's migration numbers moved when it merged, 570 and 571 take the next free numbers.
+- J2 builds on UJ-1's open J11 pull request; group 1 edits UJ-1's tables and group 9 UJ-1's service. The ask migrations use 575 and 576 because UJ-1 already uses 570 and 571.
 - The ask's request and response change together with `multica question ask` (group 12); no web or desktop code posts questions.
+- J2 keeps the single-question service creation path valid under the required ask columns. The grouped service, handler response, notification producers and policy transitions remain in J8; set rendering remains in J9.
+- The overdue read includes `partly_answered`; the existing partial `idx_question_overdue` covers only `open`, so the wider read cannot use that index's predicate.
 
 ## Plan Change Log
 

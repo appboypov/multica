@@ -2620,6 +2620,68 @@ describe("QuestionSchema", () => {
     expect(question.wake_available).toBe(true);
   });
 
+  it("reads a question of a set with its ask, policy and partly answered status", () => {
+    const question = parse({
+      ask_id: "question-0",
+      ask_position: 2,
+      ask_title: "Invoice rules",
+      answer_policy: "each",
+      status: "partly_answered",
+    });
+    expect(question).toMatchObject({
+      id: "question-1",
+      answer_type: "single_choice",
+      ask_id: "question-0",
+      ask_position: 2,
+      ask_title: "Invoice rules",
+      answer_policy: "each",
+      status: "partly_answered",
+    });
+  });
+
+  it("reads a question without ask fields as its own one-question ask", () => {
+    expect(parse({})).toMatchObject({
+      id: "question-1",
+      ask_id: "question-1",
+      ask_position: 0,
+      ask_title: null,
+      answer_policy: "any_one",
+    });
+  });
+
+  it.each([["first_two"], [7], [null]])("reads an unknown or malformed answer policy %j as any_one", (policy) => {
+    const question = parse({ ask_id: "question-0", answer_policy: policy });
+    expect(question).toMatchObject({ id: "question-1", ask_id: "question-0", answer_policy: "any_one" });
+  });
+
+  it("degrades malformed ask fields instead of failing the question", () => {
+    expect(parse({ ask_id: 42, ask_position: -1, ask_title: 7 })).toMatchObject({
+      id: "question-1",
+      ask_id: "question-1",
+      ask_position: 0,
+      ask_title: null,
+    });
+    expect(parse({ ask_id: "", ask_position: 1.5 })).toMatchObject({ ask_id: "question-1", ask_position: 0 });
+    expect(parse({ ask_id: null, ask_position: "2" })).toMatchObject({ ask_id: "question-1", ask_position: 0 });
+  });
+
+  it("keeps the ask of a question it reads as unknown", () => {
+    const question = parse({
+      answer_type: "color_picker",
+      ask_id: "question-0",
+      ask_position: 1,
+      ask_title: "Brand",
+      answer_policy: "each",
+    });
+    expect(question).toMatchObject({
+      answer_type: "unknown",
+      ask_id: "question-0",
+      ask_position: 1,
+      ask_title: "Brand",
+      answer_policy: "each",
+    });
+  });
+
   it.each([
     ["text", { length: "long", placeholder: "Explain" }, { text: "Rounded per line", attachment_ids: ["att-1"] }],
     ["yes_no", { why_on_no: true }, { choice: "no" }],

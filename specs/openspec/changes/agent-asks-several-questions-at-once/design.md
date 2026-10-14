@@ -62,7 +62,7 @@ flowchart TB
   classDef changed fill:#fff1cc,stroke:#b7791f,color:#172117
   subgraph core["packages/core"]
     qtypes["types/question.ts<br/>ask fields, AnswerPolicy, partly_answered"]:::changed
-    schema["api/schema.ts<br/>ask_id defaults to id"]:::changed
+    schema["api/schemas.ts<br/>ask_id defaults to id"]:::changed
     cards["questions/cards.ts<br/>groupQuestionCards, isOpen, isOpenFor, setProgress"]:::new
   end
   subgraph views["packages/views"]
@@ -146,8 +146,8 @@ sequenceDiagram
 
 | Kind | Name | Change | Path |
 |---|---|---|---|
-| Migration | `question.ask_id`, `ask_position`, `ask_title`, `answer_policy`; status `partly_answered`; existing rows become one-question asks | new | `server/migrations/570_question_ask.up.sql`, `.down.sql` |
-| Migration | `CONCURRENTLY` index on `question (ask_id, ask_position)` | new | `server/migrations/571_question_ask_index.up.sql`, `.down.sql` |
+| Migration | `question.ask_id`, `ask_position`, `ask_title`, `answer_policy`; status `partly_answered`; existing rows become one-question asks | new | `server/migrations/575_question_ask.up.sql`, `.down.sql` |
+| Migration | `CONCURRENTLY` index on `question (ask_id, ask_position)` | new | `server/migrations/576_question_ask_index.up.sql`, `.down.sql` |
 | Queries | Create with ask columns; `ListQuestionsByAsk`; overdue sweep returns `ask_id` | changed | `server/pkg/db/queries/question.sql` |
 | Package | `DeriveStatus`, `IsOpen`, `IsOpenFor` | new | `server/internal/question/policy.go` |
 | Service | Ask of several questions, squad expansion, Blocks work default, status from the policy | changed | `server/internal/service/question.go` |
@@ -157,7 +157,7 @@ sequenceDiagram
 | Job | One overdue event per ask | changed | `server/internal/scheduler/jobs_question_overdue.go` |
 | CLI | `multica question ask` `--questions-file`, `--title`, `--squad`, `--policy`, `--blocks-work` default on | changed | `server/cmd/multica/cmd_question.go` |
 | Docs | CLI reference, five languages | changed | `apps/docs/content/docs/cli*.mdx` |
-| Type and schema | Ask fields, `AnswerPolicy`, `partly_answered`; ask create result | changed | `packages/core/types/question.ts`, `packages/core/api/schema.ts` |
+| Type and schema | Ask fields, `AnswerPolicy`, `partly_answered`; ask create result | changed | `packages/core/types/question.ts`, `packages/core/api/schemas.ts` |
 | Feature | `groupQuestionCards`, `isOpen`, `isOpenFor`, `setProgress` | new | `packages/core/questions/cards.ts` |
 | Components | Question set card; answerer progress for Each | new | `packages/views/questions/question-set-card.tsx`, `packages/views/questions/answerer-progress.tsx` |
 | Component | Question card: Each progress; no own Wake inside a set | changed | `packages/views/questions/question-card.tsx` |
@@ -211,7 +211,7 @@ Journey UJ-2 of [PRD: Questions in Multica](anytype://object?objectId=bafyreiavi
 
 ### 1. An ask is a group key on `question`, not a table
 
-Every question gets `ask_id`, the id of its ask's first question, and `ask_position`; a one-question ask has `ask_id = id`. A set's title is `ask_title` on each of its questions. The answerers, answer policy, due date and Blocks work of an ask are copied to each of its questions: a question is never edited, and reassigning, answering and counting already work per question. Migration 570 adds the columns, backfills existing rows as one-question asks (`ask_id = id`, `ask_position = 0`) and then makes `ask_id` and `ask_position` `NOT NULL`; 571 indexes `(ask_id, ask_position)` concurrently. Alternatives: a `question_ask` table (a sixth table and a join on every read, for one column of its own) or a set as a `question_link` type (a set is not where a question belongs, and UJ-4 lists links as places). Recorded with decision 3 as ADR-0004.
+Every question gets `ask_id`, the id of its ask's first question, and `ask_position`; a one-question ask has `ask_id = id`. A set's title is `ask_title` on each of its questions. The answerers, answer policy, due date and Blocks work of an ask are copied to each of its questions: a question is never edited, and reassigning, answering and counting already work per question. Migration 575 adds the columns, backfills existing rows as one-question asks (`ask_id = id`, `ask_position = 0`) and then makes `ask_id` and `ask_position` `NOT NULL`; 576 indexes `(ask_id, ask_position)` concurrently. Alternatives: a `question_ask` table (a sixth table and a join on every read, for one column of its own) or a set as a `question_link` type (a set is not where a question belongs, and UJ-4 lists links as places). Recorded with decision 3 as ADR-0004.
 
 ### 2. Ask API
 
@@ -312,7 +312,7 @@ The text output prints the ask id and one line per question id and prompt; `--ou
 
 ## Migration Plan
 
-`570` adds four columns, backfills existing questions as one-question asks, sets `NOT NULL` on `ask_id` and `ask_position` and swaps the status `CHECK` for one with `partly_answered`; `571` adds the concurrent index. Rollback runs the `.down.sql` files in reverse; `570`'s down refuses while a question is `partly_answered`, since UJ-1's `CHECK` cannot hold it. `make local-release` deploys.
+`575` adds four columns, backfills existing questions as one-question asks, sets `NOT NULL` on `ask_id` and `ask_position` and swaps the status `CHECK` for one with `partly_answered`; `576` adds the concurrent index. Rollback runs the `.down.sql` files in reverse; `575`'s down refuses while a question is `partly_answered`, since UJ-1's `CHECK` cannot hold it. `make local-release` deploys.
 
 ## Open Questions
 

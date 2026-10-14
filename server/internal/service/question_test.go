@@ -108,6 +108,104 @@ func (f *questionFixture) wantNoNewTask(t *testing.T) {
 	}
 }
 
+func TestQuestionPartlyAnsweredRemainsUnseenAndOverdue(t *testing.T) {
+	ctx := context.Background()
+	f := newQuestionFixture(t)
+	row := f.ask(t)
+	id := util.MustParseUUID(row.ID)
+	f.answer(t, row, f.answerer, "per line")
+	if _, err := f.svc.AskBack(ctx, f.workspace, id, f.answerer, "Which currency?"); err != nil {
+		t.Fatal(err)
+	}
+	f.fx.Exec(t, `UPDATE question SET answer_policy = 'each', status = 'partly_answered' WHERE id = $1`, id)
+	q := f.svc.Queries
+	count, err := q.CountUnseenQuestionAnswers(ctx, db.CountUnseenQuestionAnswersParams{IssueID: f.issue, WorkspaceID: f.workspace, AgentID: f.agent})
+	if err != nil || count != 1 {
+		t.Fatalf("unseen count = %d, %v, want 1", count, err)
+	}
+	answers, err := q.ListUnseenQuestionAnswers(ctx, db.ListUnseenQuestionAnswersParams{IssueID: f.issue, WorkspaceID: f.workspace, AgentID: f.agent})
+	if err != nil || len(answers) != 1 || answers[0].QuestionID != id {
+		t.Fatalf("unseen answers = %+v, %v", answers, err)
+	}
+	replies, err := q.ListUnseenQuestionAskBacks(ctx, db.ListUnseenQuestionAskBacksParams{IssueID: f.issue, WorkspaceID: f.workspace, AgentID: f.agent})
+	if err != nil || len(replies) != 1 || replies[0].QuestionID != id {
+		t.Fatalf("unseen replies = %+v, %v", replies, err)
+	}
+	overdue, err := q.ListOpenOverdueQuestions(ctx, db.ListOpenOverdueQuestionsParams{
+		BeforeDate: pgtype.Date{Time: time.Date(2026, 10, 15, 0, 0, 0, 0, time.UTC), Valid: true}, MaxRows: 2147483647,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, question := range overdue {
+		if question.ID == id {
+			found = question.AskID == id
+		}
+	}
+	if !found {
+		t.Fatal("partly answered question missing from overdue results with its ask id")
+	}
+	stamped, err := q.StampQuestionOverdueNotified(ctx, db.StampQuestionOverdueNotifiedParams{ID: id, WorkspaceID: f.workspace})
+	if err != nil || stamped != 1 {
+		t.Fatalf("overdue stamp = %d, %v, want 1", stamped, err)
+	}
+	stamped, err = q.StampQuestionOverdueNotified(ctx, db.StampQuestionOverdueNotifiedParams{ID: id, WorkspaceID: f.workspace})
+	if err != nil || stamped != 0 {
+		t.Fatalf("repeated overdue stamp = %d, %v, want 0", stamped, err)
+	}
+}
+
+func TestQuestionAskReadsStayOrderedAndWorkspaceScoped(t *testing.T) {
+	ctx := context.Background()
+	f := newQuestionFixture(t)
+	first, last, middle := f.ask(t), f.ask(t), f.ask(t)
+	askID := util.MustParseUUID(first.ID)
+	for position, row := range []QuestionDTO{first, middle, last} {
+		f.fx.Exec(t, `UPDATE question SET ask_id = $1, ask_position = $2 WHERE id = $3`, askID, position, row.ID)
+	}
+	rows, err := f.svc.Queries.ListQuestionsByAsk(ctx, db.ListQuestionsByAskParams{WorkspaceID: f.workspace, AskID: askID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 3 || util.UUIDToString(rows[0].ID) != first.ID || util.UUIDToString(rows[1].ID) != middle.ID || util.UUIDToString(rows[2].ID) != last.ID {
+		t.Fatalf("ask order = %+v, want %s, %s, %s", rows, first.ID, middle.ID, last.ID)
+	}
+	other := newQuestionFixture(t)
+	rows, err = f.svc.Queries.ListQuestionsByAsk(ctx, db.ListQuestionsByAskParams{WorkspaceID: other.workspace, AskID: askID})
+	if err != nil || len(rows) != 0 {
+		t.Fatalf("cross-workspace ask = %+v, %v", rows, err)
+	}
+}
+
+func TestQuestionCurrentAnswersExcludeReassignedMembers(t *testing.T) {
+	ctx := context.Background()
+	f := newQuestionFixture(t)
+	row := f.ask(t)
+	f.answer(t, row, f.answerer, "per line")
+	id := util.MustParseUUID(row.ID)
+	args := db.ListCurrentAnswersParams{WorkspaceID: f.workspace, QuestionID: id}
+	answers, err := f.svc.Queries.ListCurrentAnswers(ctx, args)
+	if err != nil || len(answers) != 1 || answers[0].AnswererUserID != f.brian {
+		t.Fatalf("current answer = %+v, %v", answers, err)
+	}
+	other := newQuestionFixture(t)
+	args.WorkspaceID = other.workspace
+	answers, err = f.svc.Queries.ListCurrentAnswers(ctx, args)
+	if err != nil || len(answers) != 0 {
+		t.Fatalf("cross-workspace answers = %+v, %v", answers, err)
+	}
+	args.WorkspaceID = f.workspace
+	f.fx.Exec(t, `UPDATE question_answerer SET user_id = $1 WHERE question_id = $2 AND workspace_id = $3`, f.anouk, id, f.workspace)
+	answers, err = f.svc.Queries.ListCurrentAnswers(ctx, args)
+	if err != nil || len(answers) != 0 {
+		t.Fatalf("reassigned-away answer counted: %+v, %v", answers, err)
+	}
+	if got := f.fx.Count(t, `SELECT count(*) FROM question_answer WHERE question_id = $1`, id); got != 1 {
+		t.Fatalf("answer history = %d, want 1", got)
+	}
+}
+
 func TestQuestionLifecycleNeverEnqueues(t *testing.T) {
 	ctx := context.Background()
 	f := newQuestionFixture(t)

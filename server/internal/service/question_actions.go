@@ -15,3 +15,15 @@ const (
 	// details {agent_id, answer_count, task_id}.
 	ActivityQuestionWake = "question_wake"
 )
+
+// Inbox details shared by the question notification producers and consumers.
+const (
+	QuestionDetailAskID         = "ask_id"
+	QuestionDetailQuestionCount = "question_count"
+)
+
+// Answer policies stored on each question.
+const (
+	QuestionAnswerPolicyAnyOne = "any_one"
+	QuestionAnswerPolicyEach   = "each"
+)

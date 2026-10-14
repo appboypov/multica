@@ -348,7 +348,8 @@ func (s *QuestionService) Ask(ctx context.Context, workspaceID pgtype.UUID, acto
 			return QuestionDTO{}, err
 		}
 	}
-	row, err := q.CreateQuestion(ctx, db.CreateQuestionParams{ID: dbid.NewV7(), WorkspaceID: workspaceID, AskerAgentID: actor.ID, AskedInTaskID: task.ID, Prompt: input.Prompt, ContextLine: pgtype.Text{String: input.ContextLine, Valid: input.ContextLine != ""}, AnswerType: input.AnswerType, Settings: input.Settings, SuggestedAnswer: input.SuggestedAnswer, DueDate: due, BlocksWork: input.BlocksWork})
+	id := dbid.NewV7()
+	row, err := q.CreateQuestion(ctx, db.CreateQuestionParams{ID: id, WorkspaceID: workspaceID, AskerAgentID: actor.ID, AskedInTaskID: task.ID, Prompt: input.Prompt, ContextLine: pgtype.Text{String: input.ContextLine, Valid: input.ContextLine != ""}, AnswerType: input.AnswerType, Settings: input.Settings, SuggestedAnswer: input.SuggestedAnswer, DueDate: due, BlocksWork: input.BlocksWork, AskID: id, AskPosition: 0, AnswerPolicy: QuestionAnswerPolicyAnyOne})
 	if err != nil {
 		return QuestionDTO{}, err
 	}

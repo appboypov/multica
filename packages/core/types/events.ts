@@ -127,6 +127,8 @@ export interface IssueUpdatedPayload {
 
 export interface QuestionEventPayload {
   question_id: string;
+  ask_id?: string;
+  question_ids?: string[];
   issue_id: string;
   reason?: "answered" | "answer_edited" | "ask_back" | "reassigned" | "closed" | "withdrawn" | "overdue" | "woken";
   event_id?: string;

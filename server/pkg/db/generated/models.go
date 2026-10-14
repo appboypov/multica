@@ -1377,6 +1377,10 @@ type Question struct {
 	OverdueNotifiedAt pgtype.Timestamptz `json:"overdue_notified_at"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	AskID             pgtype.UUID        `json:"ask_id"`
+	AskPosition       int32              `json:"ask_position"`
+	AskTitle          pgtype.Text        `json:"ask_title"`
+	AnswerPolicy      string             `json:"answer_policy"`
 }
 
 type QuestionAnswer struct {

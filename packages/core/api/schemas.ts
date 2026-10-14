@@ -4373,6 +4373,10 @@ export const RuntimeProfileListSchema = z.array(RuntimeProfileSchema);
 // rest degrades on its own, so an installed client keeps showing questions a
 // newer server sends:
 //   - an unknown `status` reads as `closed`, which offers no controls;
+//   - a question without its ask fields, as a server before question sets
+//     sends it, is its own one-question ask: `ask_id` reads as its `id`,
+//     `ask_position` as 0, `ask_title` as null, and a missing or unknown
+//     `answer_policy` as `any_one`;
 //   - a link or event this client does not know, or a malformed one, is
 //     dropped from its list;
 //   - an answer type, settings, suggested answer or answer value this client
@@ -4556,12 +4560,16 @@ const QuestionWireSchema = z.object({
   workspace_id: z.string(),
   asker_agent_id: z.string(),
   asked_in_task_id: z.string(),
+  ask_id: z.string().min(1).nullish().catch(null),
+  ask_position: z.number().int().nonnegative().catch(0),
+  ask_title: z.string().nullish().catch(null).transform((value) => value ?? null),
+  answer_policy: z.enum(["any_one", "each"]).catch("any_one"),
   prompt: z.string(),
   context_line: z.string().nullish().catch(null).transform((value) => value ?? null),
   answer_type: z.string(),
   settings: z.unknown(),
   suggested_answer: z.unknown(),
-  status: z.enum(["open", "answered", "closed", "withdrawn"]).catch("closed"),
+  status: z.enum(["open", "partly_answered", "answered", "closed", "withdrawn"]).catch("closed"),
   due_date: z.string().nullish().catch(null).transform((value) => value ?? null),
   blocks_work: BooleanWithDefaultSchema(false),
   links: listDroppingUnreadable(QuestionLinkSchema),
@@ -4577,12 +4585,14 @@ const QuestionWireSchema = z.object({
 // Types the answer-type parts when every one of them fits its type, else
 // reads the question as "unknown".
 function readQuestion({
+  ask_id,
   answer_type,
   settings,
   suggested_answer,
   answers,
-  ...rest
+  ...wire
 }: z.output<typeof QuestionWireSchema>): Question {
+  const rest = { ...wire, ask_id: ask_id ?? wire.id };
   if (isAnswerType(answer_type)) {
     const schemas: AnswerTypeSchemas = ANSWER_TYPE_SCHEMAS[answer_type];
     const parsedSettings = schemas.settings.safeParse(settings);
@@ -4625,6 +4635,10 @@ export const EMPTY_QUESTION: Question = {
   workspace_id: "",
   asker_agent_id: "",
   asked_in_task_id: "",
+  ask_id: "",
+  ask_position: 0,
+  ask_title: null,
+  answer_policy: "any_one",
   prompt: "",
   context_line: null,
   answer_type: "unknown",

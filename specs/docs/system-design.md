@@ -546,6 +546,10 @@ classDiagram
     +uuid workspace_id
     +uuid asker_agent_id
     +uuid asked_in_task_id
+    +uuid ask_id
+    +int ask_position
+    +text ask_title
+    +text answer_policy
     +text answer_type
     +jsonb settings
     +jsonb suggested_answer
@@ -664,6 +668,7 @@ classDiagram
   workspace "1" --> "*" question : workspace_id
   agent "1" --> "*" question : asker_agent_id
   agent_task_queue "1" --> "*" question : asked_in_task_id
+  question "*" --> "1" question : ask_id
   question "1" --> "*" question_link : question_id
   question_link ..> issue : link_id
   question_link ..> agent_task_queue : link_id
@@ -674,6 +679,43 @@ classDiagram
   question "1" --> "*" question_event : question_id
   question "1" --> "*" attachment : question_id
 ```
+
+### Question contracts
+
+```mermaid
+classDiagram
+  class QuestionRow {
+    +uuid id
+    +uuid ask_id
+    +int ask_position
+    +text ask_title
+    +text answer_policy
+    +text status
+  }
+  class Question {
+    +string id
+    +string ask_id
+    +number ask_position
+    +string|null ask_title
+    +AnswerPolicy answer_policy
+    +QuestionStatus status
+  }
+  class QuestionAskResult {
+    +string ask_id
+    +Question[] questions
+  }
+  class QuestionEventPayload {
+    +string question_id
+    +string ask_id
+    +string[] question_ids
+    +string issue_id
+  }
+  QuestionRow ..> Question : schema fields
+  QuestionAskResult "1" o-- "*" Question : questions
+  QuestionEventPayload ..> QuestionRow : question ids
+```
+
+`QuestionRow` is sqlc's `db.Question` in `server/pkg/db/generated/models.go`, generated from the migrations. The client `Question` and `QuestionAskResult` contracts live in `packages/core/types/question.ts`; `packages/core/api/schemas.ts` parses question responses. The server's single-question DTO remains in `server/internal/service/question.go`; set creation and the batch response are not exposed by its handler. The event payload is declared in `server/pkg/protocol/events.go` and `packages/core/types/events.ts`.
 
 ## Absent
 

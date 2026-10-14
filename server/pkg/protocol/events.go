@@ -257,12 +257,15 @@ const (
 )
 
 // QuestionEventPayload is the payload of question:created and
-// question:updated. Reason is empty on question:created.
+// question:updated. Reason is empty on question:created. AskID and QuestionIDs
+// identify the ask on creation and overdue updates; QuestionID is its first question.
 type QuestionEventPayload struct {
-	QuestionID string `json:"question_id"`
-	IssueID    string `json:"issue_id"`
-	Reason     string `json:"reason,omitempty"`
-	EventID    string `json:"event_id,omitempty"`
+	QuestionID  string   `json:"question_id"`
+	AskID       string   `json:"ask_id,omitempty"`
+	QuestionIDs []string `json:"question_ids,omitempty"`
+	IssueID     string   `json:"issue_id"`
+	Reason      string   `json:"reason,omitempty"`
+	EventID     string   `json:"event_id,omitempty"`
 }
 
 // OrganisationEventPayload is the payload of organisation:created and

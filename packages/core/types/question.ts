@@ -183,8 +183,18 @@ export type AnswerValue<T extends AnswerType = AnswerType> = AnswerValueByType[T
 // The question aggregate.
 // ---------------------------------------------------------------------------
 
-/** Overdue is no status: it derives from `due_date` while `open`. */
-export type QuestionStatus = "open" | "answered" | "closed" | "withdrawn";
+/**
+ * Overdue is no status: it derives from `due_date` while open. `open` and
+ * `partly_answered` are both open (ADR-0004).
+ */
+export type QuestionStatus = "open" | "partly_answered" | "answered" | "closed" | "withdrawn";
+
+/**
+ * When answers make a question answered: under `any_one` the first answer of a
+ * current answerer does; under `each` every current answerer must answer, and
+ * the question is `partly_answered` until then.
+ */
+export type AnswerPolicy = "any_one" | "each";
 
 export type QuestionLinkType = "issue" | "task";
 
@@ -255,6 +265,13 @@ interface QuestionBase {
   workspace_id: string;
   asker_agent_id: string;
   asked_in_task_id: string;
+  /** The id of the first question of its ask; a one-question ask has `ask_id = id`. */
+  ask_id: string;
+  /** 0-based place in its ask. */
+  ask_position: number;
+  /** The set's title, set only when the ask holds several questions. */
+  ask_title: string | null;
+  answer_policy: AnswerPolicy;
   prompt: string;
   context_line: string | null;
   status: QuestionStatus;
@@ -328,4 +345,10 @@ export interface AgentQuestionsSettings {
   own_setting_count: number;
   /** The brief's Questions section agents get while questions are on. */
   brief_section: string;
+}
+
+/** 201 body of `POST /api/questions`: one ask of one or more questions, in ask order. */
+export interface QuestionAskResult {
+  ask_id: string;
+  questions: Question[];
 }
