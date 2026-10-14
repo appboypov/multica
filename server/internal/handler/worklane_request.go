@@ -111,6 +111,8 @@ type WorklaneRequest struct {
 	DefaultBranch      string                                  `json:"default_branch"`
 	CheckoutPath       string                                  `json:"checkout_path"`
 	FromStep           string                                  `json:"from_step,omitempty"`
+	FromBranch         string                                  `json:"from_branch,omitempty"`
+	ToBranch           string                                  `json:"to_branch,omitempty"`
 	IssueWorktreePaths []protocol.WorklaneRequestIssueWorktree `json:"issue_worktree_paths,omitempty"`
 	CreatedAt          time.Time                               `json:"created_at"`
 	UpdatedAt          time.Time                               `json:"updated_at"`
@@ -789,6 +791,8 @@ func pendingWorklaneRequestItem(req *WorklaneRequest) *protocol.DaemonHeartbeatP
 		Path:               req.Path,
 		InstallCommand:     req.InstallCommand,
 		FromStep:           req.FromStep,
+		FromBranch:         req.FromBranch,
+		ToBranch:           req.ToBranch,
 		IssueWorktreePaths: req.IssueWorktreePaths,
 	}
 	if req.WorklaneID != nil {
@@ -822,6 +826,7 @@ func (h *Handler) ReportWorklaneRequestProgress(w http.ResponseWriter, r *http.R
 		Steps   []WorklaneRequestStep  `json:"steps"`
 		Path    string                 `json:"path"`
 		Outcome string                 `json:"outcome"`
+		Branch  string                 `json:"branch"`
 		Reason  *WorklaneRequestReason `json:"reason"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -836,6 +841,11 @@ func (h *Handler) ReportWorklaneRequestProgress(w http.ResponseWriter, r *http.R
 		h.applyWorklaneCreateProgress(ctx, req, body.Steps, body.Reason)
 	case protocol.WorklaneRequestKindRemove:
 		h.finishWorklaneRemove(ctx, req, body.Steps, body.Outcome, body.Reason)
+	case protocol.WorklaneRequestKindSwitch:
+		if err := h.finishWorklaneSwitch(ctx, req, body.Steps, body.Outcome, body.Branch, body.Reason); err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to record worklane switch")
+			return
+		}
 	default:
 		writeError(w, http.StatusBadRequest, "unknown request kind")
 		return

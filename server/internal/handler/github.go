@@ -27,6 +27,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/multica-ai/multica/server/internal/issuestatus"
 	"github.com/multica-ai/multica/server/internal/middleware"
+	"github.com/multica-ai/multica/server/internal/service"
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
 	"github.com/multica-ai/multica/server/pkg/protocol"
 )
@@ -1379,6 +1380,11 @@ type ghPullRequestPayload struct {
 			Ref string `json:"ref"`
 			SHA string `json:"sha"`
 		} `json:"head"`
+		// Base is the branch the pull request merges into. A merge into its
+		// repository's default branch switches the worklane (UJ-6 decision 7).
+		Base struct {
+			Ref string `json:"ref"`
+		} `json:"base"`
 		User struct {
 			Login     string `json:"login"`
 			AvatarURL string `json:"avatar_url"`
@@ -1739,6 +1745,7 @@ func (h *Handler) mirrorPullRequestForWorkspace(ctx context.Context, wsID pgtype
 		}
 		// A merge is a PR event for every issue this PR is linked to, manual
 		// links included.
+		var mergedIssueIDs []pgtype.UUID
 		if state == "merged" && prevState != "merged" {
 			issueIDs, err := h.Queries.ListIssueIDsForPullRequest(ctx, pr.ID)
 			if err != nil {
@@ -1747,12 +1754,19 @@ func (h *Handler) mirrorPullRequestForWorkspace(ctx context.Context, wsID pgtype
 			for _, id := range issueIDs {
 				touched[id] = struct{}{}
 			}
+			mergedIssueIDs = issueIDs
 		}
 		// One status-catalog read per workspace per delivery, however many
 		// issues the PR touches.
 		resolver := issuestatus.NewResolver(wsID)
 		for issueID := range touched {
 			h.maybeAutoCompleteIssue(ctx, wsID, issueID, resolver)
+		}
+		if len(mergedIssueIDs) > 0 {
+			fullName := p.Repository.Owner.Login + "/" + p.Repository.Name
+			if err := service.SwitchAfterMerge(ctx, h.Queries, wsID, mergedIssueIDs, fullName, p.PullRequest.Base.Ref, p.PullRequest.Head.Ref, h.enqueueWorklaneSwitch); err != nil {
+				slog.Warn("github: switch worklanes after merge failed", "err", err, "pr", p.PullRequest.Number)
+			}
 		}
 	}
 

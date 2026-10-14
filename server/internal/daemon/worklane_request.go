@@ -69,6 +69,8 @@ func (d *Daemon) handleWorklaneRequest(ctx context.Context, rt Runtime, req Pend
 		d.runWorklaneCreate(ctx, rt, req)
 	case protocol.WorklaneRequestKindRemove:
 		d.runWorklaneRemove(ctx, rt, req)
+	case protocol.WorklaneRequestKindSwitch:
+		d.runWorklaneSwitch(ctx, rt, req)
 	default:
 		d.reportWorklaneProgress(ctx, rt, req.ID, map[string]any{
 			"outcome": worklaneOutcomeFailed,
@@ -279,4 +281,70 @@ func (d *Daemon) runWorklaneRemove(ctx context.Context, rt Runtime, req PendingW
 		d.logger.Warn("worklane worktree remove failed", "request_id", req.ID, "path", path, "error", err)
 		answer(worklaneOutcomeFailed, reason)
 	}
+}
+
+// runWorklaneSwitch holds the same path lock as issue tasks for all three
+// steps, so no task can start between its check and its switch.
+func (d *Daemon) runWorklaneSwitch(ctx context.Context, rt Runtime, req PendingWorklaneRequest) {
+	run := &worklaneCreateRun{d: d, ctx: ctx, rt: rt, req: req}
+	for _, key := range []string{"check", "fetch", "switch"} {
+		run.steps = append(run.steps, worklaneStep{Key: key, State: worklaneStepPending})
+	}
+	answer := func(outcome string, reason *worklaneReason) {
+		d.reportWorklaneProgress(ctx, rt, req.ID, map[string]any{
+			"steps": run.steps, "outcome": outcome, "branch": req.ToBranch, "reason": reason,
+		})
+	}
+	path, err := execenv.ExpandWorklanePath(req.Path)
+	if err != nil {
+		answer(worklaneOutcomeFailed, worklaneReasonOf(err))
+		return
+	}
+	realPath, err := resolveRealPath(path)
+	if err != nil {
+		answer(worklaneOutcomeFailed, worklaneReasonOf(err))
+		return
+	}
+	release, err := d.localPathLocks.Acquire(ctx, realPath, "worklane:"+req.ID, nil)
+	if err != nil {
+		answer(worklaneOutcomeFailed, worklaneReasonOf(err))
+		return
+	}
+	defer release()
+	check, started := run.start("check")
+	branch, err := execenv.WorklaneBranch(path)
+	if err == nil && branch != req.FromBranch && branch != req.ToBranch {
+		err = fmt.Errorf("the worktree changed from %q to %q before the switch", req.FromBranch, branch)
+	}
+	if err == nil {
+		err = execenv.CanLeave(path)
+	}
+	if err != nil {
+		check.State, check.Detail, check.DurationMs = worklaneStepFailed, err.Error(), time.Since(started).Milliseconds()
+		reason := worklaneReasonOf(err)
+		if reason.Code == execenv.WorklaneCodeUncommitted || reason.Code == execenv.WorklaneCodeUnpushed {
+			answer(worklaneOutcomeRefused, reason)
+		} else {
+			answer(worklaneOutcomeFailed, reason)
+		}
+		return
+	}
+	check.State, check.DurationMs = worklaneStepDone, time.Since(started).Milliseconds()
+	run.post(nil)
+	fetch, started := run.start("fetch")
+	if err := execenv.FetchWorklaneSwitch(ctx, path, req.DefaultBranch, d.logger); err != nil {
+		fetch.State, fetch.Detail, fetch.DurationMs = worklaneStepFailed, err.Error(), time.Since(started).Milliseconds()
+		answer(worklaneOutcomeFailed, worklaneReasonOf(err))
+		return
+	}
+	fetch.State, fetch.DurationMs = worklaneStepDone, time.Since(started).Milliseconds()
+	run.post(nil)
+	sw, started := run.start("switch")
+	if err := execenv.SwitchFetchedBranch(path, req.ToBranch, req.DefaultBranch, d.logger); err != nil {
+		sw.State, sw.Detail, sw.DurationMs = worklaneStepFailed, err.Error(), time.Since(started).Milliseconds()
+		answer(worklaneOutcomeFailed, worklaneReasonOf(err))
+		return
+	}
+	sw.State, sw.DurationMs = worklaneStepDone, time.Since(started).Milliseconds()
+	answer("completed", nil)
 }

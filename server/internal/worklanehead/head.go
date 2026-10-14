@@ -5,7 +5,6 @@
 package worklanehead
 
 import (
-	"sort"
 	"strings"
 	"time"
 
@@ -88,12 +87,12 @@ func Head(branch string, issues []Issue) Result {
 	if len(issues) == 0 {
 		return Result{State: StateFree}
 	}
-	ordered := make([]*Issue, len(issues))
-	for i := range issues {
-		ordered[i] = &issues[i]
+	next := issues[0]
+	for i := 1; i < len(issues); i++ {
+		if before(&issues[i], &next) {
+			next = issues[i]
+		}
 	}
-	sort.SliceStable(ordered, func(a, b int) bool { return before(ordered[a], ordered[b]) })
-	next := *ordered[0]
 	return Result{State: StateFree, Next: &next}
 }
 

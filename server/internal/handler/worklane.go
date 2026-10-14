@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/multica-ai/multica/server/internal/util"
+	"github.com/multica-ai/multica/server/internal/worklanehead"
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
 	"github.com/multica-ai/multica/server/pkg/protocol"
 )
@@ -25,9 +26,6 @@ const (
 	worklaneActionCreated = "worklane_created"
 	worklaneActionRenamed = "worklane_renamed"
 )
-
-// Worklane states. Every worklane is free until an issue can be in one.
-const worklaneStateFree = "free"
 
 // WorklaneIssueRef names an issue of a worklane.
 type WorklaneIssueRef struct {
@@ -66,11 +64,56 @@ func worklaneToResponse(w db.Worklane) WorklaneResponse {
 		Path:         textToPtr(w.Path),
 		IsMain:       w.IsMain,
 		Position:     w.Position,
-		State:        worklaneStateFree,
+		State:        worklanehead.StateFree,
 		Branch:       textToPtr(w.Branch),
 		CreatedAt:    timestampToString(w.CreatedAt),
 		UpdatedAt:    timestampToString(w.UpdatedAt),
 	}
+}
+
+// worklaneResponses is the single loader for every worklane response.
+func (h *Handler) worklaneResponses(ctx context.Context, workspaceID pgtype.UUID, lanes []db.Worklane) ([]WorklaneResponse, error) {
+	ids := make([]pgtype.UUID, len(lanes))
+	for i := range lanes {
+		ids[i] = lanes[i].ID
+	}
+	rows, err := h.Queries.ListOpenWorklaneIssues(ctx, db.ListOpenWorklaneIssuesParams{WorkspaceID: workspaceID, WorklaneIds: ids})
+	if err != nil {
+		return nil, err
+	}
+	issues := worklanehead.FromRows(rows)
+	out := make([]WorklaneResponse, len(lanes))
+	ref := func(issue *worklanehead.Issue) *WorklaneIssueRef {
+		if issue == nil {
+			return nil
+		}
+		return &WorklaneIssueRef{ID: issue.ID, Identifier: issue.Identifier, Title: issue.Title, Status: issue.Status}
+	}
+	for i, lane := range lanes {
+		out[i] = worklaneToResponse(lane)
+		head := worklanehead.Head(lane.Branch.String, issues[uuidToString(lane.ID)])
+		out[i].State, out[i].ActiveIssue, out[i].NextIssue = head.State, ref(head.Active), ref(head.Next)
+	}
+	return out, nil
+}
+
+func (h *Handler) writeWorklaneResponse(w http.ResponseWriter, ctx context.Context, lane db.Worklane) {
+	rows, err := h.worklaneResponses(ctx, lane.WorkspaceID, []db.Worklane{lane})
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load worklane issues")
+		return
+	}
+	writeJSON(w, http.StatusOK, rows[0])
+}
+
+func (h *Handler) publishWorklaneUpdated(ctx context.Context, lane db.Worklane, actorType, actorID string) {
+	rows, err := h.worklaneResponses(ctx, lane.WorkspaceID, []db.Worklane{lane})
+	if err != nil {
+		slog.Error("load worklane update failed", "worklane_id", uuidToString(lane.ID), "error", err)
+		return
+	}
+	h.publish(protocol.EventWorklaneUpdated, uuidToString(lane.WorkspaceID), actorType, actorID,
+		worklaneUpdatedPayload{WorklaneEventPayload: protocol.WorklaneEventPayload{WorklaneID: uuidToString(lane.ID), RepositoryID: uuidToString(lane.RepositoryID)}, Worklane: rows[0]})
 }
 
 // worklaneUpdatedPayload is worklane:updated: the ids and the worklane.
@@ -84,7 +127,7 @@ type worklaneUpdatedPayload struct {
 func (h *Handler) publishWorklaneEvent(eventType, workspaceID, actorType, actorID string, w db.Worklane) {
 	ids := protocol.WorklaneEventPayload{WorklaneID: uuidToString(w.ID), RepositoryID: uuidToString(w.RepositoryID)}
 	if eventType == protocol.EventWorklaneUpdated {
-		h.publish(eventType, workspaceID, actorType, actorID, worklaneUpdatedPayload{WorklaneEventPayload: ids, Worklane: worklaneToResponse(w)})
+		h.publishWorklaneUpdated(context.Background(), w, actorType, actorID)
 		return
 	}
 	h.publish(eventType, workspaceID, actorType, actorID, ids)
@@ -117,9 +160,10 @@ func (h *Handler) ListWorklanes(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to list worklanes")
 		return
 	}
-	out := make([]WorklaneResponse, 0, len(rows))
-	for _, row := range rows {
-		out = append(out, worklaneToResponse(row))
+	out, err := h.worklaneResponses(r.Context(), wsUUID, rows)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load worklane issues")
+		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"worklanes": out, "total": len(out)})
 }
@@ -152,7 +196,7 @@ func (h *Handler) GetWorklane(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	writeJSON(w, http.StatusOK, worklaneToResponse(wl))
+	h.writeWorklaneResponse(w, r.Context(), wl)
 }
 
 // RenameWorklane saves a new name with its worklane_renamed entry. main keeps
@@ -180,7 +224,7 @@ func (h *Handler) RenameWorklane(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if name == wl.Name {
-		writeJSON(w, http.StatusOK, worklaneToResponse(wl))
+		h.writeWorklaneResponse(w, ctx, wl)
 		return
 	}
 	siblings, err := h.repositoryWorklanes(ctx, wsUUID, wl.RepositoryID)
@@ -238,7 +282,7 @@ func (h *Handler) RenameWorklane(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.publishWorklaneEvent(protocol.EventWorklaneUpdated, uuidToString(wsUUID), "member", userID, renamed)
-	writeJSON(w, http.StatusOK, worklaneToResponse(renamed))
+	h.writeWorklaneResponse(w, ctx, renamed)
 }
 
 // RemoveWorklane asks the worklane's machine to remove its worktree. The

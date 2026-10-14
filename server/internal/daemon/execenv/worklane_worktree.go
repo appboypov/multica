@@ -425,3 +425,83 @@ func (b *tailBuffer) Write(p []byte) (int, error) {
 }
 
 func (b *tailBuffer) String() string { return string(b.buf) }
+
+// WorklaneBranch is empty while the worktree is detached.
+func WorklaneBranch(path string) (string, error) {
+	branch, err := runGitTrimmed(path, "rev-parse", "--abbrev-ref", "HEAD")
+	if branch == "HEAD" {
+		branch = ""
+	}
+	return branch, err
+}
+
+// CanLeave refuses a branch switch if it would abandon uncommitted work or
+// commits that are missing from every remote. Detached worktrees do not hold
+// an issue branch.
+func CanLeave(path string) error {
+	dirty, err := worktreeIsDirty(path)
+	if err != nil {
+		return err
+	}
+	if dirty {
+		return &WorklaneError{Code: WorklaneCodeUncommitted, Detail: "the worktree holds uncommitted changes"}
+	}
+	branch, err := WorklaneBranch(path)
+	if err != nil || branch == "" {
+		return err
+	}
+	out, err := runGitTrimmed(path, "rev-list", "--count", "HEAD", "--not", "--remotes")
+	if err != nil {
+		return err
+	}
+	count, err := strconv.Atoi(out)
+	if err != nil {
+		return fmt.Errorf("read unpushed commit count %q: %w", out, err)
+	}
+	if count > 0 {
+		return &WorklaneError{Code: WorklaneCodeUnpushed, Count: count, Detail: "the worktree holds commits that are not pushed"}
+	}
+	return nil
+}
+
+// FetchWorklaneSwitch fetches the default branch under the shared git lock.
+func FetchWorklaneSwitch(ctx context.Context, path, defaultBranch string, logger *slog.Logger) error {
+	unlock, err := lockGitRoot(path, logger)
+	if err != nil {
+		return err
+	}
+	defer unlock()
+	_, _, err = FetchDefaultBranch(ctx, path, defaultBranch)
+	return err
+}
+
+// SwitchBranch fetches and switches a worktree whose caller holds its path
+// lock and has checked CanLeave.
+func SwitchBranch(ctx context.Context, path, branch, defaultBranch string, logger *slog.Logger) error {
+	if err := FetchWorklaneSwitch(ctx, path, defaultBranch, logger); err != nil {
+		return err
+	}
+	return SwitchFetchedBranch(path, branch, defaultBranch, logger)
+}
+
+// SwitchFetchedBranch runs the switch step after the separately reported
+// fetch step of a worklane request.
+func SwitchFetchedBranch(path, branch, defaultBranch string, logger *slog.Logger) error {
+	unlock, err := lockGitRoot(path, logger)
+	if err != nil {
+		return err
+	}
+	defer unlock()
+	args := []string{"switch", "--detach", "origin/" + defaultBranch}
+	if branch != "" {
+		if _, err := runGitTrimmed(path, "show-ref", "--verify", "--quiet", "refs/heads/"+branch); err == nil {
+			args = []string{"switch", branch}
+		} else {
+			args = []string{"switch", "--no-track", "-c", branch, "origin/" + defaultBranch}
+		}
+	}
+	if out, err := runGit(path, args...); err != nil {
+		return fmt.Errorf("git %s: %s: %w", strings.Join(args, " "), strings.TrimSpace(out), err)
+	}
+	return nil
+}

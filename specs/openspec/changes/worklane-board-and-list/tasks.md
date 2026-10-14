@@ -103,12 +103,12 @@ This change builds on UJ-5 (`issues-from-templates`, DAS-456), which builds on U
 
 ## 9. J8 Backend and agent tooling: endpoint
 
-- [ ] 9.1 `server/internal/handler/worklane.go` -- one response function that loads `ListOpenWorklaneIssues` for the worklanes it answers and fills `branch`, `state`, `active_issue` and `next_issue` through `worklanehead.Head`. `GET /api/worklanes`, `GET /api/worklanes/{id}` and every `worklane:updated` use it -- design.md decision 2.
+- [x] 9.1 `server/internal/handler/worklane.go` -- one response function that loads `ListOpenWorklaneIssues` for the worklanes it answers and fills `branch`, `state`, `active_issue` and `next_issue` through `worklanehead.Head`. `GET /api/worklanes`, `GET /api/worklanes/{id}` and every `worklane:updated` use it -- design.md decision 2.
 - [x] 9.2 `server/internal/handler/issue_table_query.go` -- scope kind `worklane` with `worklane_id` parsed by `parseIssueTableUUIDList`'s rules, and `filters.types` with `none`, refusing an unknown type with 400 -- design.md decision 3.
-- [ ] 9.3 `server/internal/handler/worklane_branch.go` -- `ReportWorklaneBranch` for `POST /api/daemon/tasks/{taskId}/worklane-branch`: the task belongs to the calling daemon, its issue is in a worklane, then `SetWorklaneBranch`, `worklane_switched` when it changed, and `worklane:updated` -- design.md decision 6.
+- [x] 9.3 `server/internal/handler/worklane_branch.go` -- `ReportWorklaneBranch` for `POST /api/daemon/tasks/{taskId}/worklane-branch`: the task belongs to the calling daemon, its issue is in a worklane, then `SetWorklaneBranch`, `worklane_switched` when it changed, and `worklane:updated` -- design.md decision 6.
 - [ ] 9.4 `server/internal/handler/daemon.go` -- the claim fills the `worklane` block for the repository of the issue's worklane, with the checkout's path and machine for `main`. A runtime on another machine fails the task through `failClaimedTaskBeforeLaunch` with `worklane_elsewhere` and "{agent} runs on {machine}; {worklane} lives on {machine}" -- design.md decision 6.
-- [ ] 9.5 `server/internal/handler/worklane_request.go` -- kind `switch`: the progress report `completed` sets the branch and writes `worklane_switched`, `refused` writes `worklane_kept` with the reason and count, both publish `worklane:updated` -- design.md decision 7.
-- [ ] 9.6 `server/cmd/server/router.go` -- `POST /api/daemon/tasks/{taskId}/worklane-branch` behind the daemon auth.
+- [x] 9.5 `server/internal/handler/worklane_request.go` -- kind `switch`: the progress report `completed` sets the branch and writes `worklane_switched`, `refused` writes `worklane_kept` with the reason and count, both publish `worklane:updated` -- design.md decision 7.
+- [x] 9.6 `server/cmd/server/router.go` -- `POST /api/daemon/tasks/{taskId}/worklane-branch` behind the daemon auth.
 - [ ] 9.7 `server/internal/handler/worklane_test.go`, `issue_table_query_test.go`, `worklane_branch_test.go`, `daemon_test.go`, `worklane_request_test.go` -- with `testutil` fixtures and `testutil.Call`:
   - A worklane Busy with its active issue, Free with next, Free after the active issue moves to Done.
   - The worklane table read with its count per status, a type filter, `none`, and an unknown type.
@@ -119,16 +119,16 @@ This change builds on UJ-5 (`issues-from-templates`, DAS-456), which builds on U
 
 ## 10. J8 Backend and agent tooling: integration
 
-- [ ] 10.1 `server/internal/daemon/execenv/worklane_worktree.go` -- `CanLeave(path)` from `worktreeIsDirty` and the unpushed count, and `SwitchBranch(path, branch, defaultBranch)`: fetch, `git switch` to an existing branch, `git switch -c` from `origin/{default_branch}`, or `git switch --detach origin/{default_branch}` without a branch -- design.md decision 6.
+- [x] 10.1 `server/internal/daemon/execenv/worklane_worktree.go` -- `CanLeave(path)` from `worktreeIsDirty` and the unpushed count, and `SwitchBranch(path, branch, defaultBranch)`: fetch, `git switch` to an existing branch, `git switch -c` from `origin/{default_branch}`, or `git switch --detach origin/{default_branch}` without a branch -- design.md decision 6.
 - [ ] 10.2 `server/internal/daemon/daemon.go`, `server/internal/daemon/issue_worktree.go` -- an issue task with a `worklane` block takes `LocalPathLocker` on the worklane's path, switches when the branch differs and `CanLeave` passes, fails with `worklane_branch_held` and its message otherwise, starts the agent in the worktree, and makes no issue worktree for that repository.
 - [x] 10.3 `server/internal/daemon/client.go` -- `ReportWorklaneBranch(taskID, branch)` after a switch.
-- [ ] 10.4 `server/internal/daemon/worklane_request.go` -- kind `switch` with the steps `check`, `fetch` and `switch` under the same path lock, reporting `completed` with the branch or `refused` with `uncommitted` or `unpushed` and the count -- design.md decision 7.
+- [x] 10.4 `server/internal/daemon/worklane_request.go` -- kind `switch` with the steps `check`, `fetch` and `switch` under the same path lock, reporting `completed` with the branch or `refused` with `uncommitted` or `unpushed` and the count -- design.md decision 7.
 - [ ] 10.5 `server/internal/daemon/execenv/worklane_worktree_test.go`, `server/internal/daemon/worklane_request_test.go` -- on a temporary repository with a bare remote: a switch to a new branch from `origin/main`, to an existing branch, to detached; held by an uncommitted file; held by a commit not pushed; a second task waiting on the path lock.
 
 ## 11. J8 Backend and agent tooling: integration
 
-- [ ] 11.1 `server/internal/handler/github.go` -- `ghPullRequestPayload` reads `base.ref`. A pull request merged into its repository's default branch calls `SwitchAfterMerge` after `maybeAutoCompleteIssue` with its linked issue ids and `head.ref` -- design.md decision 7.
-- [ ] 11.2 `server/internal/service/worklane_switch.go` -- `SwitchAfterMerge`: for each linked issue whose worklane's `branch` is the head ref, the next issue by `worklanehead.Head` skipping the merged issue, and a worklane request of kind `switch` to its branch or to detached.
+- [x] 11.1 `server/internal/handler/github.go` -- `ghPullRequestPayload` reads `base.ref`. A pull request merged into its repository's default branch calls `SwitchAfterMerge` after `maybeAutoCompleteIssue` with its linked issue ids and `head.ref` -- design.md decision 7.
+- [x] 11.2 `server/internal/service/worklane_switch.go` -- `SwitchAfterMerge`: for each linked issue whose worklane's `branch` is the head ref, the next issue by `worklanehead.Head` skipping the merged issue, and a worklane request of kind `switch` to its branch or to detached.
 - [ ] 11.3 `server/internal/handler/github_test.go`, `server/internal/service/worklane_switch_test.go` -- a merge into the default branch enqueues the switch to the next issue, a merge into another branch and a merge of a branch the worklane is not on enqueue nothing, and no issue left enqueues detached.
 
 ## 12. J9 Frontend: flow
