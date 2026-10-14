@@ -1,0 +1,1 @@
+DROP INDEX CONCURRENTLY IF EXISTS repository_workspace_full_name_unique;
