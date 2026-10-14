@@ -26,6 +26,8 @@ export type TabSubject =
   | { kind: "project"; id: string }
   /** A single organisation detail. */
   | { kind: "organisation"; id: string }
+  /** A single worklane's page. `/worklanes` without an id is the Worklanes page. */
+  | { kind: "worklane"; id: string }
   /** A single autopilot detail. */
   | { kind: "autopilot"; id: string }
   /** An agent / member / squad detail (has an avatar identity). */
@@ -88,6 +90,8 @@ export function parseTabSubject(url: string): TabSubject {
       return id ? { kind: "project", id } : { kind: "page", page: "projects" };
     case "organisations":
       return id ? { kind: "organisation", id } : { kind: "page", page: "organisations" };
+    case "worklanes":
+      return id ? { kind: "worklane", id } : { kind: "page", page: "worklanes" };
     case "autopilots":
       return id ? { kind: "autopilot", id } : { kind: "page", page: "autopilots" };
     case "agents":
@@ -155,6 +159,8 @@ export function tabSubjectKey(subject: TabSubject): string {
       return `project:${subject.id}`;
     case "organisation":
       return `organisation:${subject.id}`;
+    case "worklane":
+      return `worklane:${subject.id}`;
     case "autopilot":
       return `autopilot:${subject.id}`;
     case "actor":

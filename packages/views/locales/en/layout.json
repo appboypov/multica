@@ -21,6 +21,7 @@
     "issue": "Issue",
     "project": "Project",
     "organisation": "Organisation",
+    "worklane": "Worklane",
     "autopilot": "Autopilot",
     "agent": "Agent",
     "member": "Member",
