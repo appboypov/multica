@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"reflect"
 	"testing"
 
 	"github.com/multica-ai/multica/server/internal/events"
@@ -1367,9 +1368,11 @@ func TestNotification_QuestionRecipientsAndNoAnsweredItem(t *testing.T) {
 			issue := fx.Issue(t, "Invoice rules")
 			agent := fx.Agent(t, "Pieter", "")
 			task := fx.Task(t, agent, testutil.Cols{"issue_id": issue, "status": "completed", "completed_at": testutil.Raw("now()")})
+			questionID := dbid.NewV7()
 			id := fx.Insert(t, "question", testutil.Cols{
-				"id": dbid.NewV7(), "workspace_id": ws, "asker_agent_id": agent, "asked_in_task_id": task,
+				"id": questionID, "workspace_id": ws, "asker_agent_id": agent, "asked_in_task_id": task,
 				"prompt": "Round per line or total?", "answer_type": "yes_no", "settings": testutil.Raw(`'{"why_on_no":false}'::jsonb`),
+				"ask_id": questionID, "ask_position": 0,
 			})
 			fx.InsertNoID(t, "question_link", testutil.Cols{"question_id": id, "workspace_id": ws, "link_type": "issue", "link_id": issue, "position": 0}, "question_id=$1", id)
 			for _, user := range []string{first, second} {
@@ -1486,7 +1489,7 @@ func TestNotification_QuestionRealtimeUsesWorkspaceFanout(t *testing.T) {
 			if err := json.Unmarshal(broadcaster.workspaceCalls[0].msg, &frame); err != nil {
 				t.Fatal(err)
 			}
-			if frame.Type != eventType || frame.Payload != payload {
+			if frame.Type != eventType || !reflect.DeepEqual(frame.Payload, payload) {
 				t.Fatalf("question realtime payload changed: %+v", frame)
 			}
 		})

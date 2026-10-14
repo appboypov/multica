@@ -63,8 +63,9 @@ func TestQuestionOverdueJobStampsOpenPastDueQuestionsOnce(t *testing.T) {
 			}
 			c := &cases[i]
 			c.workspaceID, c.issueID = fixture.WorkspaceID, issueID
+			questionID := uuid.NewString()
 			c.id = fixture.Insert(t, "question", dbfx.Cols{
-				"id":                  uuid.NewString(),
+				"id":                  questionID,
 				"workspace_id":        fixture.WorkspaceID,
 				"asker_agent_id":      agentID,
 				"asked_in_task_id":    taskID,
@@ -74,6 +75,8 @@ func TestQuestionOverdueJobStampsOpenPastDueQuestionsOnce(t *testing.T) {
 				"status":              c.status,
 				"due_date":            c.due,
 				"overdue_notified_at": c.stamp,
+				"ask_id":              questionID,
+				"ask_position":        0,
 			})
 			for position, link := range []struct{ kind, id string }{{"issue", issueID}, {"task", taskID}} {
 				fixture.InsertNoID(t, "question_link", dbfx.Cols{

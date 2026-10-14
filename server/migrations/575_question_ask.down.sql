@@ -1,7 +1,8 @@
 -- Reverse 575: UJ-1's status CHECK has no partly_answered, and moving such a
 -- question to open or answered would invent a status its answers never gave
--- it. Refuse while one exists; settle those questions (or roll back the
--- application only and keep these columns, which older builds ignore) first.
+-- it. Refuse while one exists; close or finish answering those questions
+-- first. Rolling back only the application is no way around it: older builds
+-- do not write the NOT NULL ask_id and ask_position, so their asks fail.
 --
 -- The guard aborts before any DDL runs. Rolling back otherwise turns every
 -- set into separate questions and every Each question into an Any one
@@ -18,7 +19,7 @@ BEGIN
 
     IF partly > 0 THEN
         RAISE EXCEPTION 'cannot roll back 575: % question(s) are partly_answered', partly
-            USING HINT = 'Close or finish answering those questions first, or roll back the application only and keep the ask columns.';
+            USING HINT = 'Close or finish answering those questions first.';
     END IF;
 END
 $$;
