@@ -37,9 +37,9 @@ This change builds on UJ-6 (`worklane-board-and-list`, DAS-459), which builds on
 
 ## 2. J2 Data models: DTO
 
-- [ ] 2.1 `packages/core/types/worklane.ts` -- `WorklaneIssueRef` gains `status: string`.
-- [ ] 2.2 `packages/core/issues/placement/` (the release progress type) -- the response gains `releases: ReleaseTotal[]` with `ReleaseTotal` `{release_id, done, total}`.
-- [ ] 2.3 `packages/core/api/schemas.ts` -- the worklane issue ref's `status` defaults to `""`, and the release progress schema's `releases` defaults to `[]`.
+- [x] 2.1 `packages/core/types/worklane.ts` -- `WorklaneIssueRef` gains `status: string`.
+- [x] 2.2 `packages/core/issues/placement/` (the release progress type) -- the response gains `releases: ReleaseTotal[]` with `ReleaseTotal` `{release_id, done, total}`.
+- [x] 2.3 `packages/core/api/schemas.ts` -- the worklane issue ref's `status` defaults to `""`, and the release progress schema's `releases` defaults to `[]`.
 - [ ] 2.4 `packages/core/api/schemas.test.ts` -- malformed-response cases: an `active_issue` without `status`, a release progress response without `releases`, and a `releases` entry without `done`.
 
 ## 3. J3 Data-flow prototype: data-flow prototype

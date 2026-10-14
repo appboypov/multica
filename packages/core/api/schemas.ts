@@ -1682,6 +1682,7 @@ const WorklaneIssueRefSchema = z.object({
   id: z.string(),
   identifier: z.string(),
   title: z.string().default(""),
+  status: z.string().default(""),
 }).loose();
 
 export const WorklaneSchema: z.ZodType<Worklane> = z.object({
@@ -2023,9 +2024,14 @@ const ReleaseProgressRowSchema = z.object({
 
 export const ReleaseProgressResponseSchema = z.object({
   rows: z.array(ReleaseProgressRowSchema).default([]),
+  releases: z.array(z.object({
+    release_id: z.string(),
+    done: z.number().default(0),
+    total: z.number().default(0),
+  }).loose()).default([]),
 }).loose();
 
-export const EMPTY_RELEASE_PROGRESS_RESPONSE: ReleaseProgressResponse = { rows: [] };
+export const EMPTY_RELEASE_PROGRESS_RESPONSE: ReleaseProgressResponse = { rows: [], releases: [] };
 
 export const IssuePlacementRefusalSchema: z.ZodType<IssuePlacementRefusal> = z.object({
   code: z.enum([

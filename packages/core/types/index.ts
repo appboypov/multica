@@ -271,10 +271,10 @@ export type {
   AddIssuesToReleaseRequest,
   WorklaneIssuesResponse,
   ReleaseProgressRow,
-  ReleaseProgressResponse,
   IssuePlacementRefusalCode,
   IssuePlacementRefusal,
 } from "./issue-template";
+export type { ReleaseTotal, ReleaseProgressResponse } from "../issues/placement/types";
 export type { PinnedItem, PinnedItemType, CreatePinRequest, ReorderPinsRequest } from "./pin";
 export type {
   GitHubInstallation,

@@ -22,6 +22,7 @@ export interface WorklaneIssueRef {
   id: string;
   identifier: string;
   title: string;
+  status: string;
 }
 
 export interface Worklane {

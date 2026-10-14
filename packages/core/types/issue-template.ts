@@ -51,10 +51,6 @@ export interface ReleaseProgressRow {
   total: number;
 }
 
-export interface ReleaseProgressResponse {
-  rows: ReleaseProgressRow[];
-}
-
 export type IssuePlacementRefusalCode =
   | "type_invalid"
   | "type_fixed"
