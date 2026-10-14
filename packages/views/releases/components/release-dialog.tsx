@@ -38,6 +38,7 @@ import { Textarea } from "@multica/ui/components/ui/textarea";
 import { useT } from "../../i18n";
 import { useLastTag, useReleaseLine } from "../use-release-line";
 import { problemMessage, refusalMessage } from "./release-messages";
+import { ReleaseIssuesField } from "./release-issues-field";
 
 type Choice = ReleaseBump | "custom";
 
@@ -59,6 +60,7 @@ export function ReleaseDialog({
 }) {
   const repositoryId = typeof data?.repositoryId === "string" ? data.repositoryId : "";
   const releaseId = typeof data?.releaseId === "string" ? data.releaseId : null;
+  const worklaneId = typeof data?.worklaneId === "string" ? data.worklaneId : null;
   const wsId = useWorkspaceId();
   const { data: repositories = NO_REPOSITORIES } = useQuery(repositoryListOptions(wsId));
   const repository = repositories.find((r) => r.id === repositoryId);
@@ -89,6 +91,7 @@ export function ReleaseDialog({
             }
           : null
       }
+      worklaneId={worklaneId}
       onClose={onClose}
     />
   );
@@ -146,11 +149,14 @@ function ReleaseForm({
   repository,
   line,
   release,
+  worklaneId,
   onClose,
 }: {
   repository: Repository;
   line: LinePreview["line"];
   release: EditedRelease | null;
+  /** Plan release from a worklane's Timeline: its issues in no release to tick. */
+  worklaneId: string | null;
   onClose: () => void;
 }) {
   const { t } = useT("releases");
@@ -164,6 +170,7 @@ function ReleaseForm({
   const lastTag = useLastTag(repository);
 
   const [choice, setChoice] = useState<Choice>(release ? (release.bump ?? "custom") : "patch");
+  const [issueIds, setIssueIds] = useState<string[]>([]);
   const [custom, setCustom] = useState(release && release.bump === null ? formatVersion(release.version) : "");
   const [title, setTitle] = useState(release?.title ?? "");
   const [description, setDescription] = useState(release?.description ?? "");
@@ -228,7 +235,10 @@ function ReleaseForm({
         await editRelease.mutateAsync({ id: release.id, repositoryId: repository.id, data: body });
         toast.success(t(($) => $.dialog.toast_saved, { version: shownVersion, title: fields.title }));
       } else {
-        await planRelease.mutateAsync({ repositoryId: repository.id, data: body });
+        await planRelease.mutateAsync({
+          repositoryId: repository.id,
+          data: issueIds.length > 0 ? { ...body, issue_ids: issueIds } : body,
+        });
         toast.success(t(($) => $.dialog.toast_planned, { version: shownVersion, title: fields.title }));
       }
       onClose();
@@ -379,6 +389,10 @@ function ReleaseForm({
             rows={3}
           />
         </div>
+
+        {!release && worklaneId ? (
+          <ReleaseIssuesField worklaneId={worklaneId} selected={issueIds} onChange={setIssueIds} showLater />
+        ) : null}
 
         <div className="flex gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-caption text-muted-foreground">
           <Rocket className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />

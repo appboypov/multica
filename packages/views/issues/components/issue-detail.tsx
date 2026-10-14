@@ -32,6 +32,7 @@ import {
   Tag,
   Unlink,
   Users,
+  ArrowUpRight,
 } from "lucide-react";
 import { BreadcrumbHeader, type BreadcrumbSegment } from "../../layout/breadcrumb-header";
 import { Skeleton } from "@multica/ui/components/ui/skeleton";
@@ -97,7 +98,7 @@ import { LabelChip } from "../../labels/label-chip";
 import { IssueAgentActivityIndicator } from "./issue-agent-activity-indicator";
 import { SubIssuesAgentWorkingChip } from "./sub-issues-agent-working-chip";
 import { ProjectPicker } from "../../projects/components/project-picker";
-import type { IssueType } from "@multica/core/types";
+import { ISSUE_TYPES, type IssueType } from "@multica/core/types";
 import {
   placementRefusalOf,
   releaseForWorklane,
@@ -341,8 +342,47 @@ function formatActivity(
 ): string {
   const details = (entry.details ?? {}) as Record<string, string>;
   switch (entry.action) {
-    case "created":
+    case "created": {
+      const type = details.type as IssueType | undefined;
+      if (type && ISSUE_TYPES.includes(type) && (entry.details as { template?: unknown } | undefined)?.template === true) {
+        return t(($) => $.activity.created_from_template, {
+          type: t(($) => $.types[type].lower),
+          template: t(($) => $.types[type].name),
+        });
+      }
       return t(($) => $.activity.created);
+    }
+    case "planned_in_release":
+      return t(($) => $.activity.planned_in_release, {
+        version: formatVersion(details.version ?? "?"),
+        title: details.title ?? "",
+        worklane: details.worklane_name ?? "?",
+      });
+    case "type_set": {
+      const type = details.type as IssueType | undefined;
+      return t(($) => $.activity.type_set, {
+        type: type && ISSUE_TYPES.includes(type) ? t(($) => $.types[type].name) : (details.type ?? "?"),
+      });
+    }
+    case "added_to_release":
+      return t(($) => $.activity.added_to_release, {
+        version: formatVersion(details.version ?? "?"),
+        title: details.title ?? "",
+      });
+    case "removed_from_release":
+      return t(($) => $.activity.removed_from_release, {
+        version: formatVersion(details.version ?? "?"),
+        title: details.title ?? "",
+      });
+    case "worklane_changed":
+      return details.worklane_name
+        ? t(($) => $.activity.worklane_changed, { worklane: details.worklane_name })
+        : t(($) => $.activity.worklane_cleared);
+    case "release_gone":
+      return t(($) => $.activity.release_gone, {
+        version: formatVersion(details.version ?? "?"),
+        title: details.title ?? "",
+      });
     case "status_changed":
       // PR auto-complete (MUL-7429) says why the status moved.
       if (details.source === "pr_automation") {
@@ -2309,6 +2349,8 @@ export function IssueDetail({ issueId, onDelete, onDone, defaultSidebarOpen = tr
   }, [highlightTargetId, highlightRequestToken, id, writeViewState, items, targetIdx, scrollContainerEl, replyToRoot, expandedResolved, timelineView, toggleResolvedExpand]);
 
   const descEditorRef = useRef<ContentEditorRef>(null);
+  // The description shows as Preview (the editor) or as its Markdown, read-only.
+  const [descriptionView, setDescriptionView] = useState<"preview" | "markdown">("preview");
   const descriptionEditingRef = useRef(false);
   const descriptionSaveInFlightRef = useRef(false);
   const descriptionSaveIssueIdRef = useRef(id);
@@ -2788,6 +2830,23 @@ export function IssueDetail({ issueId, onDelete, onDone, defaultSidebarOpen = tr
                 )
               }
             />
+            {(() => {
+              const worklane = placementData.worklanes.find((w) => w.id === issue.worklane_id);
+              if (!worklane) return null;
+              const repository = placementData.repositories.find((r) => r.id === worklane.repository_id);
+              return (
+                <AppLink
+                  href={paths.worklaneDetail(worklane.id)}
+                  aria-label={t(($) => $.detail.worklane_of, {
+                    worklane: worklane.name,
+                    repository: repository?.full_name ?? "",
+                  })}
+                  className="inline-flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+                >
+                  <ArrowUpRight aria-hidden className="size-3.5" />
+                </AppLink>
+              );
+            })()}
           </PropRow>
           <PropRow label={t(($) => $.detail.prop_release)}>
             <ReleasePicker
@@ -3616,11 +3675,33 @@ export function IssueDetail({ issueId, onDelete, onDone, defaultSidebarOpen = tr
             />
           )}
 
+          <div className="mt-5 flex items-center justify-between gap-3">
+            <div role="tablist" className="inline-flex rounded-md border p-0.5 text-caption">
+              {(["preview", "markdown"] as const).map((view) => (
+                <button
+                  key={view}
+                  type="button"
+                  role="tab"
+                  aria-selected={descriptionView === view}
+                  onClick={() => setDescriptionView(view)}
+                  className={cn(
+                    "rounded px-2 py-0.5 transition-colors",
+                    descriptionView === view ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {view === "preview"
+                    ? t(($) => $.detail.description_preview)
+                    : t(($) => $.detail.description_markdown)}
+                </button>
+              ))}
+            </div>
+            <p className="truncate text-caption text-muted-foreground">{t(($) => $.detail.description_note)}</p>
+          </div>
           <div
             {...descDropZoneProps}
             {...descriptionAnnotations.captureProps}
             ref={descriptionAnnotations.cardRef}
-            className="relative mt-5 rounded-lg"
+            className="relative mt-2 rounded-lg"
             onFocusCapture={() => {
               if (!descriptionEditingRef.current) {
                 descriptionEditingRef.current = true;
@@ -3633,7 +3714,7 @@ export function IssueDetail({ issueId, onDelete, onDone, defaultSidebarOpen = tr
             }}
           >
             {descriptionAnnotations.popup}
-            <div data-comment-content={descriptionSourceId}>
+            <div data-comment-content={descriptionSourceId} className={descriptionView === "markdown" ? "hidden" : undefined}>
               <ContentEditor
                 ref={descEditorRef}
                 key={id}
@@ -3677,6 +3758,14 @@ export function IssueDetail({ issueId, onDelete, onDone, defaultSidebarOpen = tr
                 attachments={descEditorAttachments}
               />
             </div>
+            {descriptionView === "markdown" && (
+              <pre
+                aria-label={t(($) => $.detail.description_markdown_aria)}
+                className="whitespace-pre-wrap break-words rounded-md bg-muted/50 p-3 font-mono text-caption"
+              >
+                {issue.description ?? ""}
+              </pre>
+            )}
 
             <div className="flex items-center gap-1 mt-3">
               <ReactionBar

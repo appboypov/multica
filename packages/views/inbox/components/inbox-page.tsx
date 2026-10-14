@@ -10,6 +10,7 @@ import {
 } from "react";
 import { useDefaultLayout } from "react-resizable-panels";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { issueTemplatesOptions } from "@multica/core/issues/templates";
 import { useWorkspaceId } from "@multica/core/hooks";
 import { ApiError, errorCode } from "@multica/core/api";
 import { useWorkspacePaths } from "@multica/core/paths";
@@ -111,6 +112,7 @@ const QUESTION_ITEM_TYPES: ReadonlySet<InboxItemType> = new Set(["question_asked
 
 export function InboxPage() {
   const { t } = useT("inbox");
+  const { data: templates = [] } = useQuery(issueTemplatesOptions());
   const showIssueLimitUpgradePrompt = useIssueLimitUpgradePrompt();
   const showAutopilotQuotaRecoveryPrompt = useIssueLimitUpgradePrompt(
     "autopilot_quota",
@@ -819,8 +821,15 @@ export function InboxPage() {
               // candidate (still editable).
               const prompt = detailItem.details?.original_prompt ?? "";
               const agentId = detailItem.details?.agent_id;
+              // The prompt fills the first field of the draft's template.
+              const { manual } = useIssueDraftStore.getState().draft;
+              const firstField = templates
+                .find((template) => template.type === manual.type)
+                ?.sections.find((section) => section.field)?.field;
               useIssueDraftStore.getState().setManual({
-                description: prompt,
+                ...(firstField && prompt
+                  ? { fields: { ...manual.fields, [firstField.key]: prompt } }
+                  : {}),
                 ...(agentId
                   ? { assigneeType: "agent" as const, assigneeId: agentId }
                   : {}),

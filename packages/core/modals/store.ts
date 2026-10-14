@@ -15,6 +15,7 @@ type ModalType =
   | "plan-release"
   | "edit-release"
   | "remove-release"
+  | "add-issues-to-release"
   | "create-squad"
   | "feedback"
   | "issue-set-parent"

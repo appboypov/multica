@@ -12,6 +12,7 @@ import { RenameWorklaneDialog } from "../worklanes/components/rename-worklane-di
 import { RemoveWorklaneDialog } from "../worklanes/components/remove-worklane-dialog";
 import { ReleaseDialog } from "../releases/components/release-dialog";
 import { RemoveReleaseDialog } from "../releases/components/remove-release-dialog";
+import { AddIssuesDialog } from "../releases/components/add-issues-dialog";
 import { CreateSquadModal } from "./create-squad";
 import { FeedbackModal } from "./feedback";
 import { SetParentIssueModal } from "./set-parent-issue";
@@ -75,6 +76,9 @@ export function ModalRegistry() {
       break;
     case "remove-release":
       activeModal = <RemoveReleaseDialog onClose={close} data={data} />;
+      break;
+    case "add-issues-to-release":
+      activeModal = <AddIssuesDialog onClose={close} data={data} />;
       break;
     case "create-squad":
       activeModal = <CreateSquadModal onClose={close} />;

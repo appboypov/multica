@@ -127,6 +127,11 @@ const emptyIssueDraft = () => ({
   manual: {
     title: "",
     description: "",
+    type: "story" as const,
+    fields: {} as Record<string, string>,
+    worklaneId: null as string | null,
+    releaseId: null as string | null,
+    statusPicked: false,
     status: "todo" as const,
     startDate: null as string | null,
     assigneeType: undefined as "agent" | "squad" | "member" | undefined,
