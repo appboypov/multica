@@ -68,31 +68,6 @@ The brain sync SHALL keep one project per Product object of the brain, titled wi
 - **THEN** one new project with that Product's name shows under its organisation
 - **AND** no other project changes
 
-### Requirement: The repository project of a Product with one repository merges into its project
-When a Product links one Repository, the brain sync SHALL move every issue of the project it made for that repository into the Product's project, and SHALL then delete the emptied repository project. It MUST NOT delete any other project.
-
-#### Scenario: Rebl takes in its repository's issues
-- **GIVEN** the repository project rebl holds 6 issues, and appboypov/rebl is the only repository of the Product Rebl
-- **WHEN** the sync runs
-- **THEN** the project Rebl holds those 6 issues and the checkout of appboypov/rebl
-- **AND** the project rebl no longer exists
-
-#### Scenario: A repository without a Product
-- **GIVEN** the repository appboypov/das-duckmd-brain links no Product and its project das-duckmd-brain holds 8 issues
-- **WHEN** the sync runs
-- **THEN** it prints that appboypov/das-duckmd-brain has no Product
-- **AND** das-duckmd-brain stays with its 8 issues and its checkout, under "No organisation"
-
-### Requirement: The repository projects of a Product with several repositories stay
-When a Product links several Repositories, the brain sync SHALL leave each project it made for one of them as it is, with its issues and its checkout, and SHALL print on every run that the project stays for that Product.
-
-#### Scenario: MadSpec's repository projects stay
-- **GIVEN** the repository projects madspec, plannotator and omp-anytype-inbox hold 10, 2 and 1 issues, and their repositories link the Product MadSpec
-- **WHEN** the sync runs
-- **THEN** the three projects stay with their issues and their checkouts, under "No organisation"
-- **AND** the project MadSpec holds none of those issues
-- **AND** the sync prints for each of the three that it stays for MadSpec, which has 3 repositories
-
 ### Requirement: An organisation set in Multica stays
 The brain sync SHALL set a project's organisation only when it creates or takes over the project or when the project has no organisation, and MUST NOT change an organisation the project already has.
 
