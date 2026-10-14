@@ -200,6 +200,15 @@ export class TestApiClient {
     return project as { id: string; title: string; status: string };
   }
 
+  async listProjects() {
+    const res = await this.authedFetch("/api/projects");
+    if (!res.ok) {
+      throw new Error(`list projects failed: ${res.status} ${await res.text()}`);
+    }
+    const body = await res.json();
+    return body.projects as { id: string; title: string; organisation_id: string | null }[];
+  }
+
   async updateProject(id: string, updates: Record<string, unknown>) {
     const res = await this.authedFetch(`/api/projects/${id}`, {
       method: "PUT",
@@ -453,16 +462,18 @@ export class TestApiClient {
       }
     }
     this.createdProjectIds = [];
+    // Organisations have no delete endpoint: projects made in the UI inside one
+    // go through the API first, then the rows go straight from the database.
     if (this.createdOrganisationIds.length > 0 && this.workspaceId) {
+      const organisationIds = new Set(this.createdOrganisationIds);
+      for (const project of await this.listProjects()) {
+        if (project.organisation_id && organisationIds.has(project.organisation_id)) {
+          await this.deleteProject(project.id);
+        }
+      }
       const client = new pg.Client(DATABASE_URL);
       await client.connect();
       try {
-        // No foreign keys: a project made in the test keeps no pointer to a
-        // removed organisation.
-        await client.query(
-          `UPDATE project SET organisation_id = NULL WHERE workspace_id = $1 AND organisation_id = ANY($2::uuid[])`,
-          [this.workspaceId, this.createdOrganisationIds],
-        );
         await client.query(
           `DELETE FROM organisation WHERE workspace_id = $1 AND id = ANY($2::uuid[])`,
           [this.workspaceId, this.createdOrganisationIds],
