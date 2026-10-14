@@ -140,18 +140,18 @@ Its J2 starts once UJ-4's J2 is merged.
 
 ## 10. J9 Frontend: style
 
-- [ ] 10.1 `packages/ui/styles/tokens.css` -- `--type-epic`, `--type-journey`, `--type-story`, `--type-bug`, `--type-enhancement`, `--type-refactor`, `--type-chore` and `--type-spike` with the library's values (`#864ad2`, `#4d53d9`, `#05893e`, `#dc2627`, `#0076cc`, `#008888`, `#686774`, `#d37900`), light mode only -- design.md decision 11.
+- [x] 10.1 `packages/ui/styles/tokens.css` -- `--type-epic`, `--type-journey`, `--type-story`, `--type-bug`, `--type-enhancement`, `--type-refactor`, `--type-chore` and `--type-spike` with the library's values (`#864ad2`, `#4d53d9`, `#05893e`, `#dc2627`, `#0076cc`, `#008888`, `#686774`, `#d37900`), light mode only -- design.md decision 11.
 
 ## 11. J9 Frontend: flow
 
-- [ ] 11.1 `packages/core/api/client.ts` -- `listIssueTemplates`, `setIssueType`, `setIssuePlacement`, `addIssuesToRelease`, `listWorklaneIssues`, `listReleaseProgress`, and the new fields on `createIssue` and `planRelease`, each through `parseWithFallback`.
-- [ ] 11.2 `packages/core/issues/templates/` (`queries.ts`, `markdown.ts`, `index.ts`) -- `issueTemplateKeys`, `issueTemplatesOptions` (account-level, `staleTime: Infinity`), `templateMarkdown(t, fields)` and `requiredFilled(t, title, fields)` -- design.md decisions 3 and 11.
+- [x] 11.1 `packages/core/api/client.ts` -- `listIssueTemplates`, `setIssueType`, `setIssuePlacement`, `addIssuesToRelease`, `listWorklaneIssues`, `listReleaseProgress`, and the new fields on `createIssue` and `planRelease`, each through `parseWithFallback`.
+- [x] 11.2 `packages/core/issues/templates/` (`queries.ts`, `markdown.ts`, `index.ts`) -- `issueTemplateKeys`, `issueTemplatesOptions` (account-level, `staleTime: Infinity`), `templateMarkdown(t, fields)` and `requiredFilled(t, title, fields)` -- design.md decisions 3 and 11.
 - [ ] 11.3 `packages/core/issues/templates/markdown.test.ts` (`// @vitest-environment node`) -- runs every case of `server/internal/issuetemplate/testdata/cases.json`, and `requiredFilled` with spaces-only fields.
-- [ ] 11.4 `packages/core/issues/placement/` (`queries.ts`, `mutations.ts`, `defaults.ts`, `index.ts`) -- `worklaneIssueKeys`, `releaseProgressKeys`, `useSetIssueType`, `useSetIssuePlacement`, `useAddIssuesToRelease`, `nextRelease`, `openedFrom` and `defaultStatus` -- design.md decision 11.
+- [x] 11.4 `packages/core/issues/placement/` (`queries.ts`, `mutations.ts`, `defaults.ts`, `index.ts`) -- `worklaneIssueKeys`, `releaseProgressKeys`, `useSetIssueType`, `useSetIssuePlacement`, `useAddIssuesToRelease`, `nextRelease`, `openedFrom` and `defaultStatus` -- design.md decision 11.
 - [ ] 11.5 `packages/core/issues/placement/defaults.test.ts` (`// @vitest-environment node`) -- New issue from the sidebar, a project with and without repositories, a worklane without releases, + Add issue to release, and the status with and without a release or a picked status.
-- [ ] 11.6 `packages/core/issues/mutations.ts`, `packages/core/releases/mutations.ts` -- `useCreateIssue` sends `type`, `from_template`, `worklane_id` and `release_id`. `usePlanRelease` sends `issue_ids`. Both invalidate the worklane issues and the progress on settle.
+- [x] 11.6 `packages/core/issues/mutations.ts`, `packages/core/releases/mutations.ts` -- `useCreateIssue` sends `type`, `from_template`, `worklane_id` and `release_id`. `usePlanRelease` sends `issue_ids`. Both invalidate the worklane issues and the progress on settle.
 - [ ] 11.7 `packages/core/issues/stores/draft-store.ts` -- the manual draft keeps `type`, `fields`, `worklaneId`, `releaseId` and `statusPicked` instead of the description.
-- [ ] 11.8 `packages/core/realtime/use-realtime-sync.ts`, `packages/core/issues/ws-updaters.ts` -- `issue:created`, `issue:updated`, `issue:deleted` and `release_line:updated` invalidate `worklaneIssueKeys` and `releaseProgressKeys` of the workspace.
+- [x] 11.8 `packages/core/realtime/use-realtime-sync.ts`, `packages/core/issues/ws-updaters.ts` -- `issue:created`, `issue:updated`, `issue:deleted` and `release_line:updated` invalidate `worklaneIssueKeys` and `releaseProgressKeys` of the workspace.
 
 ## 12. J9 Frontend: component
 

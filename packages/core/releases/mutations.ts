@@ -10,6 +10,7 @@ import type {
   ReleaseRefusal,
 } from "../types";
 import { releaseKeys } from "./queries";
+import { invalidatePlacementReads } from "../issues/placement/queries";
 
 /**
  * Every write answers with the repository's whole line: it replaces that
@@ -49,6 +50,8 @@ export function usePlanRelease() {
     mutationFn: ({ repositoryId, data }: { repositoryId: string; data: PlanReleaseRequest }) =>
       api.planRelease(repositoryId, data),
     onSuccess: (answer, { repositoryId }) => settleLine(qc, wsId, repositoryId, answer),
+    // A plan with `issue_ids` places those issues in the new release.
+    onSettled: () => invalidatePlacementReads(qc, wsId),
   });
 }
 
@@ -84,5 +87,7 @@ export function useRemoveRelease() {
   return useMutation({
     mutationFn: ({ id }: { id: string; repositoryId: string }) => api.removeRelease(id),
     onSuccess: (answer, { repositoryId }) => settleLine(qc, wsId, repositoryId, answer),
+    // The removed release's issues go to No release.
+    onSettled: () => invalidatePlacementReads(qc, wsId),
   });
 }

@@ -24,7 +24,7 @@ export interface ReleaseLineResponse {
 }
 
 /** Send either a bump or an explicit version, never both. */
-export type PlanReleaseRequest = {
+export type EditReleaseRequest = {
   title: string;
   description?: string;
 } & (
@@ -32,7 +32,8 @@ export type PlanReleaseRequest = {
   | { version: string; bump?: never }
 );
 
-export type EditReleaseRequest = PlanReleaseRequest;
+/** Plan release also places this worklane's issues in no release in the new release. */
+export type PlanReleaseRequest = EditReleaseRequest & { issue_ids?: string[] };
 
 export interface MoveReleaseRequest {
   direction: "earlier" | "later";

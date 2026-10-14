@@ -14,6 +14,7 @@ import { issueKeys } from "../issues/queries";
 import { projectKeys } from "../projects/queries";
 import { organisationKeys } from "../organisations/queries";
 import { releaseKeys } from "../releases/queries";
+import { invalidatePlacementReads } from "../issues/placement/queries";
 import { worklaneKeys } from "../worklanes/queries";
 import { handleQuestionEvent, invalidateQuestionReach, onIssueReachMaybeChanged } from "../questions/ws-updaters";
 import { questionKeys } from "../questions/queries";
@@ -664,6 +665,7 @@ function invalidateWorkspaceScopedQueries(qc: QueryClient): void {
     qc.invalidateQueries({ queryKey: projectKeys.all(wsId) });
     qc.invalidateQueries({ queryKey: organisationKeys.all(wsId) });
     qc.invalidateQueries({ queryKey: releaseKeys.all(wsId) });
+    invalidatePlacementReads(qc, wsId);
     qc.invalidateQueries({ queryKey: runtimeKeys.all(wsId) });
     qc.invalidateQueries({ queryKey: autopilotKeys.all(wsId) });
     qc.invalidateQueries({ queryKey: agentTaskSnapshotKeys.all(wsId) });
@@ -862,10 +864,12 @@ export function useRealtimeSync(
         if (wsId) qc.invalidateQueries({ queryKey: organisationKeys.all(wsId) });
       },
       // A repository's release line changed (ADR-0010): refetch the
-      // workspace's releases.
+      // workspace's releases, and the issues and progress that follow them.
       release_line: () => {
         const wsId = getCurrentWsId();
-        if (wsId) qc.invalidateQueries({ queryKey: releaseKeys.list(wsId) });
+        if (!wsId) return;
+        qc.invalidateQueries({ queryKey: releaseKeys.list(wsId) });
+        invalidatePlacementReads(qc, wsId);
       },
       // worklane:created, :updated and :deleted refresh the list, the
       // worklane's detail and its activity, all under one prefix.
