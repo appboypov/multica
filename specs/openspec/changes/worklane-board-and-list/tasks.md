@@ -121,7 +121,7 @@ This change builds on UJ-5 (`issues-from-templates`, DAS-456), which builds on U
 
 - [ ] 10.1 `server/internal/daemon/execenv/worklane_worktree.go` -- `CanLeave(path)` from `worktreeIsDirty` and the unpushed count, and `SwitchBranch(path, branch, defaultBranch)`: fetch, `git switch` to an existing branch, `git switch -c` from `origin/{default_branch}`, or `git switch --detach origin/{default_branch}` without a branch -- design.md decision 6.
 - [ ] 10.2 `server/internal/daemon/daemon.go`, `server/internal/daemon/issue_worktree.go` -- an issue task with a `worklane` block takes `LocalPathLocker` on the worklane's path, switches when the branch differs and `CanLeave` passes, fails with `worklane_branch_held` and its message otherwise, starts the agent in the worktree, and makes no issue worktree for that repository.
-- [ ] 10.3 `server/internal/daemon/client.go` -- `ReportWorklaneBranch(taskID, branch)` after a switch.
+- [x] 10.3 `server/internal/daemon/client.go` -- `ReportWorklaneBranch(taskID, branch)` after a switch.
 - [ ] 10.4 `server/internal/daemon/worklane_request.go` -- kind `switch` with the steps `check`, `fetch` and `switch` under the same path lock, reporting `completed` with the branch or `refused` with `uncommitted` or `unpushed` and the count -- design.md decision 7.
 - [ ] 10.5 `server/internal/daemon/execenv/worklane_worktree_test.go`, `server/internal/daemon/worklane_request_test.go` -- on a temporary repository with a bare remote: a switch to a new branch from `origin/main`, to an existing branch, to detached; held by an uncommitted file; held by a commit not pushed; a second task waiting on the path lock.
 

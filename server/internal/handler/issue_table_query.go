@@ -17,6 +17,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/multica-ai/multica/server/internal/issuetemplate"
 	"github.com/multica-ai/multica/server/internal/util"
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
 )
@@ -26,6 +27,9 @@ const (
 	issueTableMaxPageSize     = 100
 	issueTableQueryTimeout    = 8 * time.Second
 )
+
+// issueTableNoType in filters.types picks issues without a type.
+const issueTableNoType = "none"
 
 func withIssueTableQueryTimeout(r *http.Request) (*http.Request, context.CancelFunc) {
 	ctx, cancel := context.WithTimeout(r.Context(), issueTableQueryTimeout)
@@ -70,6 +74,7 @@ type issueTableScope struct {
 	Kind          string              `json:"kind"`
 	AssigneeTypes []string            `json:"assignee_types,omitempty"`
 	ProjectID     string              `json:"project_id,omitempty"`
+	WorklaneID    string              `json:"worklane_id,omitempty"`
 	Actor         *issueTableActorRef `json:"actor,omitempty"`
 	Relation      string              `json:"relation,omitempty"`
 }
@@ -92,6 +97,9 @@ type issueTableFiltersRequest struct {
 	// (`validProjectStatuses`), independently of ProjectIDs.
 	ProjectStatuses []string `json:"project_statuses,omitempty"`
 	LabelIDs        []string `json:"label_ids,omitempty"`
+	// Types are issue types, with "none" for an issue without a type, as
+	// include_no_project does for projects (UJ-6 design.md decision 3).
+	Types []string `json:"types,omitempty"`
 	// Members are raw JSON so operator objects ({op, value}) and plain
 	// strings both survive the round-trip into parsePropertiesFilterParam.
 	Properties       map[string][]json.RawMessage `json:"properties,omitempty"`
@@ -263,6 +271,7 @@ func canonicalIssueTableFingerprint(workspaceID string, spec issueTableQuerySpec
 	normalized.Filters.ProjectIDs = sortedUniqueStrings(normalized.Filters.ProjectIDs)
 	normalized.Filters.ProjectStatuses = sortedUniqueStrings(normalized.Filters.ProjectStatuses)
 	normalized.Filters.LabelIDs = sortedUniqueStrings(normalized.Filters.LabelIDs)
+	normalized.Filters.Types = sortedUniqueStrings(normalized.Filters.Types)
 	normalized.Filters.Assignees = sortedUniqueActors(normalized.Filters.Assignees)
 	normalized.Filters.WorkingIssueIDs = sortedUniqueStrings(normalized.Filters.WorkingIssueIDs)
 	normalized.Filters.Creators = sortedUniqueActors(normalized.Filters.Creators)
@@ -501,6 +510,12 @@ func (h *Handler) compileIssueTableQuery(w http.ResponseWriter, r *http.Request,
 		if !appendAssigneeTypes() {
 			return issueTableSQL{}, false
 		}
+	case "worklane":
+		worklaneIDs, ok := parseIssueTableUUIDList(w, []string{spec.Scope.WorklaneID}, "scope.worklane_id")
+		if !ok {
+			return issueTableSQL{}, false
+		}
+		where = append(where, fmt.Sprintf("i.worklane_id = %s::uuid", addArg(worklaneIDs[0])))
 	case "assignee":
 		if spec.Scope.Actor == nil {
 			writeError(w, http.StatusBadRequest, "scope.actor is required")
@@ -629,6 +644,29 @@ func (h *Handler) compileIssueTableQuery(w http.ResponseWriter, r *http.Request,
 	}
 	if len(labelIDs) > 0 {
 		where = append(where, fmt.Sprintf("EXISTS (SELECT 1 FROM issue_to_label itl WHERE itl.issue_id = i.id AND itl.label_id = ANY(%s::uuid[]))", addArg(labelIDs)))
+	}
+	if len(spec.Filters.Types) > 0 {
+		types := make([]string, 0, len(spec.Filters.Types))
+		includeNoType := false
+		for _, issueType := range sortedUniqueStrings(spec.Filters.Types) {
+			switch {
+			case issueType == issueTableNoType:
+				includeNoType = true
+			case issuetemplate.IsType(issueType):
+				types = append(types, issueType)
+			default:
+				writeError(w, http.StatusBadRequest, "invalid filters.types")
+				return issueTableSQL{}, false
+			}
+		}
+		ors := make([]string, 0, 2)
+		if len(types) > 0 {
+			ors = append(ors, fmt.Sprintf("i.type = ANY(%s::text[])", addArg(types)))
+		}
+		if includeNoType {
+			ors = append(ors, "i.type IS NULL")
+		}
+		where = append(where, "("+strings.Join(ors, " OR ")+")")
 	}
 
 	if len(spec.Filters.Properties) > 0 {
