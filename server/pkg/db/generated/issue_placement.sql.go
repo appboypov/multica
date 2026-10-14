@@ -325,7 +325,7 @@ SELECT i.id, i.workspace_id, i.title, i.description, i.status, i.priority,
        i.assignee_type, i.assignee_id, i.creator_type, i.creator_id,
        i.parent_issue_id, i.position, i.start_date, i.due_date, i.created_at,
        i.updated_at, i.last_activity_at, i.number, i.project_id, i.metadata, i.stage, i.properties,
-       i.revision, i.duplicate_of_issue_id, i.type, i.worklane_id, i.release_id, i.done_at
+       i.revision, i.duplicate_of_issue_id, i.agent_questions, i.type, i.worklane_id, i.release_id, i.done_at
 FROM issue i
 WHERE i.workspace_id = $1 AND i.worklane_id = $2
 ORDER BY i.created_at ASC, i.id ASC
@@ -361,6 +361,7 @@ type ListWorklaneIssuesRow struct {
 	Properties         []byte             `json:"properties"`
 	Revision           int64              `json:"revision"`
 	DuplicateOfIssueID pgtype.UUID        `json:"duplicate_of_issue_id"`
+	AgentQuestions     pgtype.Bool        `json:"agent_questions"`
 	Type               pgtype.Text        `json:"type"`
 	WorklaneID         pgtype.UUID        `json:"worklane_id"`
 	ReleaseID          pgtype.UUID        `json:"release_id"`
@@ -401,6 +402,7 @@ func (q *Queries) ListWorklaneIssues(ctx context.Context, arg ListWorklaneIssues
 			&i.Properties,
 			&i.Revision,
 			&i.DuplicateOfIssueID,
+			&i.AgentQuestions,
 			&i.Type,
 			&i.WorklaneID,
 			&i.ReleaseID,
