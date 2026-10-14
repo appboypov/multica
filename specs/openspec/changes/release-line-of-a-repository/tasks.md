@@ -132,7 +132,7 @@ Its J2 starts once UJ-3's J2 is merged.
 
 ## 10. J9 Frontend: flow
 
-- [ ] 10.1 `packages/core/api/client.ts` -- `listReleases`, `planRelease`, `editRelease`, `moveRelease` and `removeRelease`, and `last_tag` on the repository calls, each through `parseWithFallback`.
+- [x] 10.1 `packages/core/api/client.ts` -- `listReleases`, `planRelease`, `editRelease`, `moveRelease` and `removeRelease`, and `last_tag` on the repository calls, each through `parseWithFallback`.
 - [x] 10.2 `packages/core/releases/` (`queries.ts`, `mutations.ts`, `line.ts`, `index.ts`) -- design.md decision 7:
   - `releaseKeys.list(wsId)`, `releaseListOptions` and a memoised `selectLine`.
   - The four mutations, each awaiting the server, replacing the repository's releases in the list cache with the answered line and invalidating the worklane activity.
@@ -142,12 +142,12 @@ Its J2 starts once UJ-3's J2 is merged.
 
 ## 11. J9 Frontend: component
 
-- [ ] 11.1 `packages/views/releases/components/release-dialog.tsx` -- the `plan-release` and `edit-release` spec deltas: the title "Plan release · {owner/name}" or "Edit release · {owner/name}", the Version options with their versions, Custom with its errors, the hint, Set by hand and Later releases renumber, Title and Description, the read-only Ships line, "Plan v{version}" and "Save release" with their disabled states, Finding the last tag, and a server refusal shown in place.
-- [ ] 11.2 `packages/views/releases/components/release-menu.tsx`, `remove-release-dialog.tsx` -- Edit release, Move earlier, Move later and Remove release with each disabled reason; Remove's confirmation as group 6 designs it -- the `edit-release`, `move-release` and `remove-release` spec deltas.
-- [ ] 11.3 `packages/views/releases/components/release-column.tsx`, `set-by-hand.tsx` -- the timeline node, version, title, description, Set by hand, "No issues of this worklane" and the menu.
-- [ ] 11.4 `packages/views/releases/components/release-chips.tsx` -- last shipped or "nothing shipped", the next release, "No releases planned" and "Does not release", each chip opening the worklane's Timeline at that release -- the `worklane-release-chips` spec delta.
-- [ ] 11.5 `packages/views/repositories/components/releases-field.tsx`, `edit-repository-dialog.tsx` -- the does-not-release refusal naming the unshipped releases, with Save disabled; the server's `has_unshipped_releases` shown the same.
-- [ ] 11.6 `packages/views/modals/registry.tsx` -- register the three release dialogs.
+- [x] 11.1 `packages/views/releases/components/release-dialog.tsx` -- the `plan-release` and `edit-release` spec deltas: the title "Plan release · {owner/name}" or "Edit release · {owner/name}", the Version options with their versions, Custom with its errors, the hint, Set by hand and Later releases renumber, Title and Description, the read-only Ships line, "Plan v{version}" and "Save release" with their disabled states, Finding the last tag, and a server refusal shown in place.
+- [x] 11.2 `packages/views/releases/components/release-menu.tsx`, `remove-release-dialog.tsx` -- Edit release, Move earlier, Move later and Remove release with each disabled reason; Remove's confirmation as group 6 designs it -- the `edit-release`, `move-release` and `remove-release` spec deltas.
+- [x] 11.3 `packages/views/releases/components/release-column.tsx`, `set-by-hand.tsx` -- the timeline node, version, title, description, Set by hand, "No issues of this worklane" and the menu.
+- [x] 11.4 `packages/views/releases/components/release-chips.tsx` -- last shipped or "nothing shipped", the next release, "No releases planned" and "Does not release", each chip opening the worklane's Timeline at that release -- the `worklane-release-chips` spec delta.
+- [x] 11.5 `packages/views/repositories/components/releases-field.tsx`, `edit-repository-dialog.tsx` -- the does-not-release refusal naming the unshipped releases, with Save disabled; the server's `has_unshipped_releases` shown the same.
+- [x] 11.6 `packages/views/modals/registry.tsx` -- register the three release dialogs.
 - [ ] 11.7 Component tests beside them:
   - Plan release's options, hints, errors and button label.
   - Edit release filled in, with Set by hand, Later releases renumber and the too-low refusal.
@@ -156,11 +156,11 @@ Its J2 starts once UJ-3's J2 is merged.
 
 ## 12. J9 Frontend: screen
 
-- [ ] 12.1 `packages/views/worklanes/components/worklane-timeline.tsx` -- the line from `selectLine`, Next release and Planned, Plan release at the end, the does-not-release note, and `?release={id}` scrolled into view -- the `worklane-release-line` spec delta.
-- [ ] 12.2 `packages/views/worklanes/components/worklane-page.tsx` -- the header "nothing shipped yet", "last shipped v{version}" or "does not release".
-- [ ] 12.3 `packages/views/worklanes/components/worklane-activity.tsx` -- the four release sentences and one line per changed version -- the `release-line-activity` spec delta.
+- [x] 12.1 `packages/views/worklanes/components/worklane-timeline.tsx` -- the line from `selectLine`, Next release and Planned, Plan release at the end, the does-not-release note, and `?release={id}` scrolled into view -- the `worklane-release-line` spec delta.
+- [x] 12.2 `packages/views/worklanes/components/worklane-page.tsx` -- the header "nothing shipped yet", "last shipped v{version}" or "does not release".
+- [x] 12.3 `packages/views/worklanes/components/worklane-activity.tsx` -- the four release sentences and one line per changed version -- the `release-line-activity` spec delta.
 - [ ] 12.4 `packages/views/repositories/components/repository-card.tsx`, `packages/views/projects/components/project-table.tsx`, `packages/views/organisations/components/` -- the release chips on worklane rows, and the column "Last · Next · Planned releases" on Projects and an organisation's page.
-- [ ] 12.5 `packages/views/locales/{en,zh-Hans,ko,ja,fr}/` -- a `releases` namespace for the dialogs, hints, errors, menu, chips and activity sentences, and the does-not-release copy in `repositories` and `worklanes` -- `locales/parity.test.ts` stays green.
+- [x] 12.5 `packages/views/locales/{en,zh-Hans,ko,ja,fr}/` -- a `releases` namespace for the dialogs, hints, errors, menu, chips and activity sentences, and the does-not-release copy in `repositories` and `worklanes` -- `locales/parity.test.ts` stays green.
 - [ ] 12.6 `packages/views/worklanes/components/worklane-page.test.tsx`, `packages/views/projects/components/projects-page.test.tsx`, `packages/views/organisations/components/*.test.tsx` -- the `worklane-release-line`, `release-line-activity` and `worklane-release-chips` scenarios that belong to pages:
   - three releases in order on two worklanes;
   - a description;
@@ -168,7 +168,7 @@ Its J2 starts once UJ-3's J2 is merged.
   - does not release;
   - a moved line's entry;
   - the chips on Rebl's page and on Projects.
-- [ ] 12.7 `apps/docs/content/docs/projects.mdx`, `projects.zh.mdx`, `projects.ko.mdx`, `projects.ja.mdx`, `projects.fr.mdx` -- releases: the release line, Plan release, versions by bump or set by hand, Edit, Move and Remove, and repositories that do not release.
+- [x] 12.7 `apps/docs/content/docs/projects.mdx`, `projects.zh.mdx`, `projects.ko.mdx`, `projects.ja.mdx`, `projects.fr.mdx` -- releases: the release line, Plan release, versions by bump or set by hand, Edit, Move and Remove, and repositories that do not release.
 
 ## 13. J11 Acceptance test and archive: acceptance test and archive
 
