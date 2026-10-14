@@ -14,6 +14,9 @@ type IssueWorktreeParams struct {
 	Path string
 	Branch string
 	DefaultBranch string
+	// WorklanePaths reserves worklane folders when selecting a new issue
+	// worktree. Leave it nil when reusing a previously recorded issue path.
+	WorklanePaths []string
 }
 
 // PrepareIssueWorktree reuses a linked worktree without resetting its history.
@@ -21,6 +24,10 @@ type IssueWorktreeParams struct {
 func PrepareIssueWorktree(ctx context.Context, p IssueWorktreeParams, logger *slog.Logger) (string, error) {
 	path, err := ExpandWorklanePath(p.Path)
 	if err != nil { return "", err }
+	if len(p.WorklanePaths) > 0 {
+		path, err = IssueWorktreePath(path, p.Branch, p.WorklanePaths)
+		if err != nil { return "", err }
+	}
 	unlock, err := lockGitRoot(p.CheckoutPath, logger)
 	if err != nil { return "", err }
 	defer unlock()

@@ -131,8 +131,8 @@ This change builds on UJ-2 (`repositories-of-a-project`, DAS-451): its `reposito
   - `AddWorklaneWorktree` takes the checkout's repo lock, refuses an issue worktree's path, runs `worktree add --detach` for a missing path or an empty folder, uses a checkout of the repository that is there as it is, and refuses anything else, touching nothing.
   - `RunInstall` runs `sh -c` in the worktree under its path lock, with a 20-minute limit and the last 8 KB of output.
 - [x] 9.3 `server/internal/daemon/execenv/worklane_worktree.go` -- `RemoveWorklaneWorktree` -- design.md decision 4: a held lock refuses with `busy`; a missing path is removed; otherwise uncommitted, unpushed and, for a standalone clone, stashed are refused; else the worktree is removed without deleting a branch.
-- [ ] 9.4 `server/internal/daemon/repository_checkout.go` -- the install commands of the spec's table on `refs/heads/{default_branch}`, in table order.
-- [ ] 9.5 `server/internal/daemon/issue_worktree.go`, `execenv/issue_worktree.go` -- when an issue's default path is one of the claim's `worklane_paths`, use `{issue key}-issue` and record it -- ADR-0009.
+- [x] 9.4 `server/internal/daemon/repository_checkout.go` -- the install commands of the spec's table on `refs/heads/{default_branch}`, in table order.
+- [x] 9.5 `server/internal/daemon/issue_worktree.go`, `execenv/issue_worktree.go` -- when an issue's default path is one of the claim's `worklane_paths`, use `{issue key}-issue` and record it -- ADR-0009.
 - [ ] 9.6 Daemon tests beside the code, on a fake git repository with a bare `origin`:
   - Fetch, add, install and the reported steps.
   - An empty folder; the repository's worktree used as it is with its branch and uncommitted change kept; something else at the path untouched; an issue worktree's path refused.

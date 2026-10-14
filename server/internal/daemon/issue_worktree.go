@@ -15,7 +15,7 @@ import (
 	"github.com/multica-ai/multica/server/internal/daemon/execenv"
 )
 
-func issueWorktreePath(task Task, fullName, recorded string) (string, error) {
+func issueWorktreePath(task Task, fullName, recorded string, worklanePaths []string) (string, error) {
 	if recorded != "" { return execenv.ExpandWorklanePath(recorded) }
 	home, err := os.UserHomeDir()
 	if err != nil { return "", err }
@@ -26,7 +26,7 @@ func issueWorktreePath(task Task, fullName, recorded string) (string, error) {
 	if key == "" || filepath.Base(key) != key || key == ".." { return "", fmt.Errorf("invalid issue key %q", key) }
 	organisation := task.OrganisationKey
 	if organisation != "" && (filepath.Base(organisation) != organisation || organisation == "..") { return "", fmt.Errorf("invalid organisation key %q", organisation) }
-	return filepath.Join(home, "Worktrees", organisation, repo, key), nil
+	return execenv.IssueWorktreePath(filepath.Join(home, "Worktrees", organisation, repo, key), key, worklanePaths)
 }
 
 func (d *Daemon) prepareIssueWorktrees(ctx context.Context, task *Task, logger *slog.Logger) error {
@@ -34,10 +34,15 @@ func (d *Daemon) prepareIssueWorktrees(ctx context.Context, task *Task, logger *
 	for i := range task.Repositories {
 		repo := &task.Repositories[i]
 		if repo.CheckoutDaemonID != d.cfg.DaemonID { continue }
-		path, err := issueWorktreePath(*task, repo.FullName, repo.WorktreePath)
+		path, err := issueWorktreePath(*task, repo.FullName, repo.WorktreePath, repo.WorklanePaths)
 		if err != nil { return err }
+		worklanePaths := repo.WorklanePaths
+		if repo.WorktreePath != "" {
+			worklanePaths = nil // Later tasks reuse the recorded issue path.
+		}
 		path, err = execenv.PrepareIssueWorktree(ctx, execenv.IssueWorktreeParams{
 			CheckoutPath: repo.CheckoutPath, Path: path, Branch: task.IssueKey, DefaultBranch: repo.DefaultBranch,
+			WorklanePaths: worklanePaths,
 		}, logger)
 		if err != nil { return err }
 		branch, err := checkoutGit(ctx, path, "symbolic-ref", "--quiet", "--short", "HEAD")
@@ -72,7 +77,7 @@ func (d *Daemon) acquireIssueWorktreeLocks(ctx context.Context, task Task, logge
 	if task.IssueID != "" {
 		for _, repo := range task.Repositories {
 			if repo.CheckoutDaemonID != d.cfg.DaemonID { continue }
-			path, err := issueWorktreePath(task, repo.FullName, repo.WorktreePath)
+			path, err := issueWorktreePath(task, repo.FullName, repo.WorktreePath, repo.WorklanePaths)
 			if err != nil { d.reportTerminalTask(ctx, terminalTaskReport{kind: terminalTaskReportFail, taskID: task.ID, errorMessage: err.Error(), failureReason: "environment_prepare_failed"}); return nil, true }
 			path, err = resolveRealPath(path)
 			if err != nil { d.reportTerminalTask(ctx, terminalTaskReport{kind: terminalTaskReportFail, taskID: task.ID, errorMessage: err.Error(), failureReason: "environment_prepare_failed"}); return nil, true }
