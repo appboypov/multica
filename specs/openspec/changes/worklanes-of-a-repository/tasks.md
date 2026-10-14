@@ -150,16 +150,16 @@ This change builds on UJ-2 (`repositories-of-a-project`, DAS-451): its `reposito
 ## 11. J9 Frontend: flow
 
 - [ ] 11.1 `packages/core/api/client.ts` -- `createWorklaneRequest`, `getWorklaneRequest`, `retryWorklaneRequest`, `getWorklane`, `renameWorklane`, `removeWorklane`, `listWorklaneActivity`, and `install_command` on the repository calls, each through `parseWithFallback`.
-- [ ] 11.2 `packages/core/worklanes/` (`queries.ts`, `mutations.ts`, `requests.ts`, `folder.ts`, `counts.ts`, `index.ts`) -- design.md decision 8:
+- [x] 11.2 `packages/core/worklanes/` (`queries.ts`, `mutations.ts`, `requests.ts`, `folder.ts`, `counts.ts`, `index.ts`) -- design.md decision 8:
   - `worklaneKeys.detail` and `.activity`, and `worklaneRequestKeys.detail`.
   - `worklaneRequestOptions`, polling every second while `running`.
   - The create, retry, rename and remove mutations, each awaiting the server and invalidating on settle.
   - `folderFromName`, `folderProblem`, `sortWorklanes`, `countWorklanes` and `worklanePath(organisationKey, repo, folder)`.
 - [ ] 11.3 `packages/core/repositories/` -- `install_command` on create and update.
-- [ ] 11.4 `packages/core/realtime/use-realtime-sync.ts` -- `worklane:created`, `worklane:updated` and `worklane:deleted` invalidate the list, the detail and the activity.
-- [ ] 11.5 `packages/core/runtimes/cli-version.ts` -- `WORKLANE_WORKTREE_CAPABILITY` and `runtimeAdvertisesWorklaneWorktrees(runtimes, daemonId)`, reading the newest row.
-- [ ] 11.6 `packages/core/projects/stores/view-store.ts`, `view-store.test.ts` -- persisted `expandedRepositories`; a payload without it loads.
-- [ ] 11.7 `packages/core/paths/paths.ts`, `paths.test.ts` -- `worklaneDetail(id)`.
+- [x] 11.4 `packages/core/realtime/use-realtime-sync.ts` -- `worklane:created`, `worklane:updated` and `worklane:deleted` invalidate the list, the detail and the activity.
+- [x] 11.5 `packages/core/runtimes/cli-version.ts` -- `WORKLANE_WORKTREE_CAPABILITY` and `runtimeAdvertisesWorklaneWorktrees(runtimes, daemonId)`, reading the newest row.
+- [x] 11.6 `packages/core/projects/stores/view-store.ts`, `view-store.test.ts` -- persisted `expandedRepositories`; a payload without it loads.
+- [x] 11.7 `packages/core/paths/paths.ts`, `paths.test.ts` -- `worklaneDetail(id)`.
 - [ ] 11.8 `packages/core/worklanes/*.test.ts` -- `folderFromName` (spaces, symbols, leading and trailing dashes, digits), `folderProblem` (invalid, in use, free), `sortWorklanes`, `countWorklanes`, `worklanePath` with and without an organisation, and the request polling (running, failed, completed).
 
 ## 12. J9 Frontend: component

@@ -178,3 +178,33 @@ export function runtimeAdvertisesLocalWorktree(
   const caps = (metadata as { capabilities?: unknown }).capabilities;
   return Array.isArray(caps) && caps.includes(LOCAL_WORKTREE_CAPABILITY);
 }
+
+/**
+ * Capability a daemon advertises when it can make and remove worklane
+ * worktrees. Mirrors `DaemonCapabilityWorklaneWorktreeV1` in
+ * `server/pkg/protocol/messages.go`.
+ */
+export const WORKLANE_WORKTREE_CAPABILITY = "worklane-worktree-v1";
+
+/**
+ * Whether the machine behind `daemonId` advertises worklane worktrees, judged
+ * by its most recently seen runtime row: a machine that downgraded stops
+ * vouching for itself. New worklane uses it to explain why a runtime cannot be
+ * picked; the server's 409 `runtime_cannot_make_worktrees` stays the gate.
+ */
+export function runtimeAdvertisesWorklaneWorktrees(
+  runtimes: readonly { daemon_id?: string | null; last_seen_at?: string | null; metadata?: unknown }[],
+  daemonId: string | null | undefined,
+): boolean {
+  if (!daemonId) return false;
+  let newest: (typeof runtimes)[number] | undefined;
+  for (const rt of runtimes) {
+    if (rt.daemon_id !== daemonId) continue;
+    // A row that never reported sorts oldest, so a live row always wins.
+    if (!newest || (rt.last_seen_at ?? "") > (newest.last_seen_at ?? "")) newest = rt;
+  }
+  const metadata = newest?.metadata;
+  if (!metadata || typeof metadata !== "object" || !("capabilities" in metadata)) return false;
+  const caps = metadata.capabilities;
+  return Array.isArray(caps) && caps.includes(WORKLANE_WORKTREE_CAPABILITY);
+}

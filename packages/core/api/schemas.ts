@@ -1771,7 +1771,8 @@ const WORKLANE_REQUEST_REASON_CODES = [
   "unknown",
 ] as const satisfies readonly WorklaneRequestReasonCode[];
 
-const WorklaneRequestReasonSchema = z.object({
+// Also the body of a refused worklane call (`{error, code, detail}`).
+export const WorklaneRequestReasonSchema = z.object({
   code: z.enum(WORKLANE_REQUEST_REASON_CODES).catch("unknown"),
   detail: z.string().catch(""),
   count: z.number().optional().catch(undefined),

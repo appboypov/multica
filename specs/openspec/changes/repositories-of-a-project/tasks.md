@@ -137,7 +137,7 @@ This change builds on UJ-1 (`projects-by-organisation`, DAS-450): its `organisat
 
 - [ ] 10.1 `packages/core/api/client.ts` -- `listRepositories`, `listAvailableRepositories`, `createRepository`, `updateRepository`, `deleteRepository`, `listWorklanes`, `initiateRepositoryCheckout`, `getRepositoryCheckout`, each through `parseWithFallback`. Remove the resource calls.
 - [ ] 10.2 `packages/core/repositories/` (`queries.ts`, `mutations.ts`, `checkout.ts`, `index.ts`), `packages/core/package.json` -- `repositoryKeys.list(wsId)`, `repositoryKeys.available(wsId)`, the three mutations awaiting the server and invalidating on settle, and `resolveRepositoryCheckout` polling as `resolveRuntimeDirectoryListing` does. Export `./repositories`.
-- [ ] 10.3 `packages/core/worklanes/` (`queries.ts`, `index.ts`), `packages/core/package.json` -- `worklaneKeys.list(wsId)`. Export `./worklanes`.
+- [x] 10.3 `packages/core/worklanes/` (`queries.ts`, `index.ts`), `packages/core/package.json` -- `worklaneKeys.list(wsId)`. Export `./worklanes`.
 - [ ] 10.4 `packages/core/realtime/use-realtime-sync.ts` -- `repository:` and `worklane:` events invalidate their keys; drop `project_resource:`.
 - [ ] 10.5 `packages/core/projects/resource-queries.ts`, `packages/core/projects/index.ts`, `packages/core/runtimes/` -- remove the resource queries and `runtimeAdvertisesLocalWorktree`. `packages/core/api/schemas.ts`, `schemas.test.ts`, `packages/core/platform/auth-initializer.tsx` -- remove `local_worktree_supported` from the config schema, its drift test and its reader.
 - [ ] 10.6 `packages/core/projects/stores/view-store.ts`, `view-store.test.ts` -- add persisted `expandedProjects` for the repository rows; a payload without it loads.

@@ -14,6 +14,7 @@ import { issueKeys } from "../issues/queries";
 import { projectKeys } from "../projects/queries";
 import { organisationKeys } from "../organisations/queries";
 import { releaseKeys } from "../releases/queries";
+import { worklaneKeys } from "../worklanes/queries";
 import { handleQuestionEvent, invalidateQuestionReach, onIssueReachMaybeChanged } from "../questions/ws-updaters";
 import { questionKeys } from "../questions/queries";
 import { agentQuestionsKeys } from "../questions/agent-questions";
@@ -850,6 +851,12 @@ export function useRealtimeSync(
       release_line: () => {
         const wsId = getCurrentWsId();
         if (wsId) qc.invalidateQueries({ queryKey: releaseKeys.list(wsId) });
+      },
+      // worklane:created, :updated and :deleted refresh the list, the
+      // worklane's detail and its activity, all under one prefix.
+      worklane: () => {
+        const wsId = getCurrentWsId();
+        if (wsId) qc.invalidateQueries({ queryKey: worklaneKeys.all(wsId) });
       },
       squad: () => {
         const wsId = getCurrentWsId();

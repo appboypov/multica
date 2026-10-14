@@ -122,6 +122,12 @@ import type {
   CreateOrganisationRequest,
   UpdateOrganisationRequest,
   ListOrganisationsResponse,
+  Worklane,
+  ListWorklanesResponse,
+  CreateWorklaneRequest,
+  RenameWorklaneRequest,
+  WorklaneRequest,
+  WorklaneActivityResponse,
   Project,
   CreateProjectRequest,
   UpdateProjectRequest,
@@ -274,6 +280,14 @@ import {
   ListOrganisationsResponseSchema,
   EMPTY_ORGANISATION,
   EMPTY_LIST_ORGANISATIONS_RESPONSE,
+  WorklaneSchema,
+  EMPTY_WORKLANE,
+  ListWorklanesResponseSchema,
+  EMPTY_LIST_WORKLANES_RESPONSE,
+  WorklaneRequestSchema,
+  MALFORMED_WORKLANE_REQUEST,
+  WorklaneActivityResponseSchema,
+  EMPTY_WORKLANE_ACTIVITY_RESPONSE,
   ProjectSchema,
   ListProjectsResponseSchema,
   EMPTY_PROJECT,
@@ -4203,6 +4217,71 @@ export class ApiClient {
   async getAttachmentBlob(id: string): Promise<Blob> {
     const res = await this.fetchRaw(`/api/attachments/${id}/download`);
     return res.blob();
+  }
+
+  // Worklanes of a repository, and the requests that make and remove their
+  // worktrees on a machine.
+  async listWorklanes(): Promise<ListWorklanesResponse> {
+    const raw = await this.fetch<unknown>("/api/worklanes");
+    return parseWithFallback(raw, ListWorklanesResponseSchema, EMPTY_LIST_WORKLANES_RESPONSE, {
+      endpoint: "GET /api/worklanes",
+    });
+  }
+
+  async getWorklane(id: string): Promise<Worklane> {
+    const raw = await this.fetch<unknown>(`/api/worklanes/${id}`);
+    return parseWithFallback(raw, WorklaneSchema, EMPTY_WORKLANE, {
+      endpoint: "GET /api/worklanes/:id",
+    });
+  }
+
+  async renameWorklane(id: string, data: RenameWorklaneRequest): Promise<Worklane> {
+    const raw = await this.fetch<unknown>(`/api/worklanes/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+    return parseWithFallback(raw, WorklaneSchema, EMPTY_WORKLANE, {
+      endpoint: "PATCH /api/worklanes/:id",
+    });
+  }
+
+  /** Starts the remove request on the worklane's machine; poll it with getWorklaneRequest. */
+  async removeWorklane(id: string): Promise<WorklaneRequest> {
+    const raw = await this.fetch<unknown>(`/api/worklanes/${id}`, { method: "DELETE" });
+    return parseWithFallback(raw, WorklaneRequestSchema, MALFORMED_WORKLANE_REQUEST, {
+      endpoint: "DELETE /api/worklanes/:id",
+    });
+  }
+
+  async listWorklaneActivity(id: string): Promise<WorklaneActivityResponse> {
+    const raw = await this.fetch<unknown>(`/api/worklanes/${id}/activity`);
+    return parseWithFallback(raw, WorklaneActivityResponseSchema, EMPTY_WORKLANE_ACTIVITY_RESPONSE, {
+      endpoint: "GET /api/worklanes/:id/activity",
+    });
+  }
+
+  async createWorklaneRequest(data: CreateWorklaneRequest): Promise<WorklaneRequest> {
+    const raw = await this.fetch<unknown>("/api/worklane-requests", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+    return parseWithFallback(raw, WorklaneRequestSchema, MALFORMED_WORKLANE_REQUEST, {
+      endpoint: "POST /api/worklane-requests",
+    });
+  }
+
+  async getWorklaneRequest(id: string): Promise<WorklaneRequest> {
+    const raw = await this.fetch<unknown>(`/api/worklane-requests/${id}`);
+    return parseWithFallback(raw, WorklaneRequestSchema, MALFORMED_WORKLANE_REQUEST, {
+      endpoint: "GET /api/worklane-requests/:id",
+    });
+  }
+
+  async retryWorklaneRequest(id: string): Promise<WorklaneRequest> {
+    const raw = await this.fetch<unknown>(`/api/worklane-requests/${id}/retry`, { method: "POST" });
+    return parseWithFallback(raw, WorklaneRequestSchema, MALFORMED_WORKLANE_REQUEST, {
+      endpoint: "POST /api/worklane-requests/:id/retry",
+    });
   }
 
   // Organisations
