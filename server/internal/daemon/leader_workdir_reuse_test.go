@@ -107,7 +107,7 @@ func TestShouldReusePriorWorkdirNonLeaderRequiresProvenance(t *testing.T) {
 	task := leaderReuseTestTask("task-non-leader")
 	task.IsLeaderTask = false
 	task.PriorWorkDir = filepath.Join(root, "anything", "workdir")
-	if _, ok := shouldReusePriorWorkdir(task, nil, root); ok {
+	if _, ok := shouldReusePriorWorkdir(task, false, root); ok {
 		t.Fatal("non-leader task reused a prior workdir without any ownership provenance")
 	}
 }
@@ -127,12 +127,12 @@ func TestShouldReusePriorWorkdirChatAcceptsMatchingConversation(t *testing.T) {
 	task.AgentID = "agent-chat"
 	task.IsLeaderTask = false
 	task.PriorWorkDir = workDir
-	if _, ok := shouldReusePriorWorkdir(task, nil, root); !ok {
+	if _, ok := shouldReusePriorWorkdir(task, false, root); !ok {
 		t.Fatalf("chat task did not reuse its fully-provenanced conversation workdir %q", workDir)
 	}
 
 	task.ChatSessionID = "another-chat"
-	if _, ok := shouldReusePriorWorkdir(task, nil, root); ok {
+	if _, ok := shouldReusePriorWorkdir(task, false, root); ok {
 		t.Fatal("chat task reused a workdir belonging to another conversation")
 	}
 }
@@ -152,14 +152,14 @@ func TestShouldReusePriorWorkdirDeclinesRemovedDirectory(t *testing.T) {
 	task := leaderReuseTestTask("task-retry")
 	task.IsLeaderTask = false
 	task.PriorWorkDir = workDir
-	if _, ok := shouldReusePriorWorkdir(task, nil, root); !ok {
+	if _, ok := shouldReusePriorWorkdir(task, false, root); !ok {
 		t.Fatalf("setup: fully-provenanced workdir %q was not reusable", workDir)
 	}
 
 	if err := os.RemoveAll(filepath.Dir(workDir)); err != nil {
 		t.Fatalf("remove env root: %v", err)
 	}
-	if _, ok := shouldReusePriorWorkdir(task, nil, root); ok {
+	if _, ok := shouldReusePriorWorkdir(task, false, root); ok {
 		t.Fatal("reused a prior workdir that no longer exists")
 	}
 }
@@ -216,7 +216,7 @@ func TestShouldReusePriorWorkdirSquadLeaderAcceptsManagedProvenance(t *testing.T
 
 	task := leaderReuseTestTask("task-accept")
 	task.PriorWorkDir = workDir
-	if _, ok := shouldReusePriorWorkdir(task, nil, root); !ok {
+	if _, ok := shouldReusePriorWorkdir(task, false, root); !ok {
 		t.Fatalf("leader did not reuse a fully-provenanced managed workdir %q", workDir)
 	}
 }
@@ -232,7 +232,7 @@ func TestShouldReusePriorWorkdirSquadLeaderRejectsNonManagedPathUnderRoot(t *tes
 
 	task := leaderReuseTestTask("task-contained-user-dir")
 	task.PriorWorkDir = userDir
-	if _, ok := shouldReusePriorWorkdir(task, nil, root); ok {
+	if _, ok := shouldReusePriorWorkdir(task, false, root); ok {
 		t.Fatalf("leader reused non-managed path %q merely because it is under WorkspacesRoot", userDir)
 	}
 }
@@ -252,7 +252,7 @@ func TestShouldReusePriorWorkdirSquadLeaderRejectsManagedShapeWithoutProvenance(
 
 	task := leaderReuseTestTask("task-without-provenance")
 	task.PriorWorkDir = workDir
-	if _, ok := shouldReusePriorWorkdir(task, nil, root); ok {
+	if _, ok := shouldReusePriorWorkdir(task, false, root); ok {
 		t.Fatalf("leader reused marked workdir %q without managed-env provenance", workDir)
 	}
 }
@@ -270,7 +270,7 @@ func TestShouldReusePriorWorkdirSquadLeaderRejectsMismatchedProvenanceOwner(t *t
 
 	task := leaderReuseTestTask("task-mismatched-provenance")
 	task.PriorWorkDir = workDir
-	if _, ok := shouldReusePriorWorkdir(task, nil, root); ok {
+	if _, ok := shouldReusePriorWorkdir(task, false, root); ok {
 		t.Fatalf("leader reused workdir %q with provenance owned by another agent", workDir)
 	}
 }
@@ -288,7 +288,7 @@ func TestShouldReusePriorWorkdirSquadLeaderRejectsMismatchedTaskMarker(t *testin
 
 	task := leaderReuseTestTask("task-mismatched-marker")
 	task.PriorWorkDir = workDir
-	if _, ok := shouldReusePriorWorkdir(task, nil, root); ok {
+	if _, ok := shouldReusePriorWorkdir(task, false, root); ok {
 		t.Fatalf("leader reused workdir %q with a marker for another agent", workDir)
 	}
 }
@@ -307,7 +307,7 @@ func TestShouldReusePriorWorkdirSquadLeaderRejectsRegularFile(t *testing.T) {
 
 	task := leaderReuseTestTask("task-file-workdir")
 	task.PriorWorkDir = workDir
-	if _, ok := shouldReusePriorWorkdir(task, nil, root); ok {
+	if _, ok := shouldReusePriorWorkdir(task, false, root); ok {
 		t.Fatalf("leader reused regular file %q as a workdir", workDir)
 	}
 }
@@ -323,7 +323,7 @@ func TestShouldReusePriorWorkdirSquadLeaderRejectsEmptyAgentID(t *testing.T) {
 	task := leaderReuseTestTask("task-empty-agent")
 	task.AgentID = ""
 	task.PriorWorkDir = workDir
-	if _, ok := shouldReusePriorWorkdir(task, nil, root); ok {
+	if _, ok := shouldReusePriorWorkdir(task, false, root); ok {
 		t.Fatal("leader with an empty AgentID must not reuse a prior workdir")
 	}
 }
@@ -347,7 +347,7 @@ func TestShouldReusePriorWorkdirSquadLeaderRejectsSymlinkEscape(t *testing.T) {
 
 	task := leaderReuseTestTask("task-symlink-escape")
 	task.PriorWorkDir = workDir
-	if _, ok := shouldReusePriorWorkdir(task, nil, root); ok {
+	if _, ok := shouldReusePriorWorkdir(task, false, root); ok {
 		t.Fatalf("leader reused a workdir symlinked outside WorkspacesRoot (%q -> %q)", workDir, external)
 	}
 }
@@ -543,7 +543,7 @@ func TestLockReusablePriorEnvRootNeverWritesOutsideWorkspacesRoot(t *testing.T) 
 				AgentID:      "agent-1",
 				IssueID:      "issue-1",
 				PriorWorkDir: priorWorkDir,
-			}, nil, "")
+			}, false, "")
 			if ok {
 				claim.Release()
 				t.Fatal("unvalidated prior workdir was accepted for reuse")
@@ -601,7 +601,7 @@ func TestLockReusablePriorEnvRootLocksAValidatedRoot(t *testing.T) {
 	d := &Daemon{logger: discardLogger()}
 	d.cfg.WorkspacesRoot = root
 
-	claim, canonical, _, ok, _ := d.lockReusablePriorEnvRoot(context.Background(), task, nil, "")
+	claim, canonical, _, ok, _ := d.lockReusablePriorEnvRoot(context.Background(), task, false, "")
 	if !ok {
 		t.Fatal("a fully provenanced managed workdir was refused for reuse")
 	}
@@ -627,13 +627,13 @@ func TestLockReusablePriorEnvRootLocksAValidatedRoot(t *testing.T) {
 	}
 
 	// A concurrent continuation of the same task must not get the same root.
-	if second, _, _, ok, _ := d.lockReusablePriorEnvRoot(context.Background(), task, nil, ""); ok {
+	if second, _, _, ok, _ := d.lockReusablePriorEnvRoot(context.Background(), task, false, ""); ok {
 		second.Release()
 		t.Fatal("two continuations locked the same prior workdir at once")
 	}
 
 	claim.Release()
-	again, _, _, ok, _ := d.lockReusablePriorEnvRoot(context.Background(), task, nil, "")
+	again, _, _, ok, _ := d.lockReusablePriorEnvRoot(context.Background(), task, false, "")
 	if !ok {
 		t.Fatal("prior workdir stayed locked after release")
 	}
@@ -667,7 +667,7 @@ func TestLockReusablePriorEnvRootWaitsOutTheDyingPredecessor(t *testing.T) {
 	d.cfg.WorkspacesRoot = root
 
 	// The predecessor, still holding its lock when the successor starts.
-	predecessor, _, _, ok, _ := d.lockReusablePriorEnvRoot(context.Background(), task, nil, "")
+	predecessor, _, _, ok, _ := d.lockReusablePriorEnvRoot(context.Background(), task, false, "")
 	if !ok {
 		t.Fatal("could not set up the predecessor's claim")
 	}
@@ -681,7 +681,7 @@ func TestLockReusablePriorEnvRootWaitsOutTheDyingPredecessor(t *testing.T) {
 	}()
 
 	start := time.Now()
-	claim, canonical, _, ok, _ := d.lockReusablePriorEnvRoot(context.Background(), task, nil, "")
+	claim, canonical, _, ok, _ := d.lockReusablePriorEnvRoot(context.Background(), task, false, "")
 	waited := time.Since(start)
 	if !ok {
 		t.Fatal("the successor abandoned the workdir its predecessor was still exiting from: that is the lost session")
@@ -714,14 +714,14 @@ func TestLockReusablePriorEnvRootStopsWaitingWhenTheLockNeverFrees(t *testing.T)
 	d := &Daemon{logger: discardLogger(), envRootBusyWait: budget}
 	d.cfg.WorkspacesRoot = root
 
-	held, _, _, ok, _ := d.lockReusablePriorEnvRoot(context.Background(), task, nil, "")
+	held, _, _, ok, _ := d.lockReusablePriorEnvRoot(context.Background(), task, false, "")
 	if !ok {
 		t.Fatal("could not set up the holder's claim")
 	}
 	defer held.Release()
 
 	start := time.Now()
-	second, _, _, ok, _ := d.lockReusablePriorEnvRoot(context.Background(), task, nil, "")
+	second, _, _, ok, _ := d.lockReusablePriorEnvRoot(context.Background(), task, false, "")
 	waited := time.Since(start)
 	if ok {
 		second.Release()
@@ -747,7 +747,7 @@ func TestLockReusablePriorEnvRootStopsWaitingWhenTheContextEnds(t *testing.T) {
 	d := &Daemon{logger: discardLogger(), envRootBusyWait: time.Hour}
 	d.cfg.WorkspacesRoot = root
 
-	held, _, _, ok, _ := d.lockReusablePriorEnvRoot(context.Background(), task, nil, "")
+	held, _, _, ok, _ := d.lockReusablePriorEnvRoot(context.Background(), task, false, "")
 	if !ok {
 		t.Fatal("could not set up the holder's claim")
 	}
@@ -757,7 +757,7 @@ func TestLockReusablePriorEnvRootStopsWaitingWhenTheContextEnds(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	d.logger = slog.New(slog.NewTextHandler(&cancelOnLogWriter{trigger: []byte("prior workdir is still held by the previous run"), cancel: cancel}, nil))
 	start := time.Now()
-	second, _, _, ok, err := d.lockReusablePriorEnvRoot(ctx, task, nil, "")
+	second, _, _, ok, err := d.lockReusablePriorEnvRoot(ctx, task, false, "")
 	if ok {
 		second.Release()
 		t.Fatal("took a lock that was never released")
@@ -798,7 +798,7 @@ func TestRunTaskCancelledWaitingForThePriorWorkdirStopsInsteadOfPreparing(t *tes
 	second := leaderReuseTestTask("task-second")
 	second.PriorSessionID = firstResult.SessionID
 	second.PriorWorkDir = firstResult.WorkDir
-	held, _, _, ok, err := d.lockReusablePriorEnvRoot(context.Background(), second, nil, "")
+	held, _, _, ok, err := d.lockReusablePriorEnvRoot(context.Background(), second, false, "")
 	if err != nil || !ok {
 		t.Fatalf("could not hold the prior env root: ok=%v err=%v", ok, err)
 	}
@@ -901,7 +901,7 @@ func TestLockReusablePriorEnvRootSurvivesRetargetAfterValidation(t *testing.T) {
 	}
 	t.Cleanup(func() { reuseLockTestHook = nil })
 
-	claim, _, _, ok, _ := d.lockReusablePriorEnvRoot(context.Background(), task, nil, "")
+	claim, _, _, ok, _ := d.lockReusablePriorEnvRoot(context.Background(), task, false, "")
 	if claim != nil {
 		claim.Release()
 	}
@@ -947,7 +947,7 @@ func TestLockReusablePriorEnvRootRejectsIdentitySwap(t *testing.T) {
 	}
 	t.Cleanup(func() { reuseLockTestHook = nil })
 
-	claim, used, _, ok, _ := d.lockReusablePriorEnvRoot(context.Background(), task, nil, "")
+	claim, used, _, ok, _ := d.lockReusablePriorEnvRoot(context.Background(), task, false, "")
 	if claim != nil {
 		claim.Release()
 	}
@@ -1015,7 +1015,7 @@ func TestLockReusablePriorEnvRootSurvivesWorkspacesRootSwap(t *testing.T) {
 	}
 	t.Cleanup(func() { reuseLockTestHook = nil })
 
-	claim, _, _, ok, _ := d.lockReusablePriorEnvRoot(context.Background(), task, nil, "")
+	claim, _, _, ok, _ := d.lockReusablePriorEnvRoot(context.Background(), task, false, "")
 	if claim != nil {
 		claim.Release()
 	}

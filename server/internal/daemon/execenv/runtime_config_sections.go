@@ -268,7 +268,11 @@ func writeAvailableCommands(b *strings.Builder, ctx TaskContextForEnv) {
 	b.WriteString("- `multica issue wakeup <create|list|get|update|disable|trigger|delete|runs|events>` — persist an event, condition or time wakeup on this issue, then finish the current run. When the platform can check the fact itself, use a condition (`--until-status`, `--until-pr checks`, `--until-children-done`, `--until-issue`) so no run starts before it holds. Use `--event comment.created --filter-actor-type member --filter-actor-id USER_ID` to wait for a specific member to comment. See `multica issue wakeup --help` and the multica-platform issues reference.\n")
 	b.WriteString("- `multica issue children <id> [--output json]` — list a parent's sub-issues grouped by stage.\n")
 	b.WriteString("- `multica issue comment add <issue-id> [--content \"...\" | --content-file <path> | --content-stdin] [--parent <comment-id>] [--attachment <path>]` — post a comment. Agent-authored bodies MUST use `--content-file`; see `## Comment Formatting` for why. `multica issue comment add --help` for full flags.\n")
-	b.WriteString("\n" + worktreeRule)
+	if ctx.IssueID != "" && len(ctx.Repositories) > 0 {
+		b.WriteString("\nWorktree Rule: work in the issue worktree listed for the repository, on its branch. Commit and push there; never change code in the repository's normal checkout. `multica repo checkout owner/name` reuses this issue worktree and prints its path.\n\n")
+	} else {
+		b.WriteString("\n" + worktreeRule)
+	}
 	b.WriteString("Git commits use the user's configured identity. Preserve it unless the user requests another identity. In a worktree, an intentional task-local override takes `git config extensions.worktreeConfig true` once, then `git config --worktree user.name` / `user.email`; plain `git config` or `--local` writes into the repository's shared config and affects every worktree. Never change global Git identity for a task.\n\n")
 	// Squad maintenance is squad-leader surface: an agent that leads no squad
 	// has no squad to change roles in, so this shipped to every run as dead
@@ -484,7 +488,7 @@ func writeRepositories(b *strings.Builder, ctx TaskContextForEnv) {
 // issue inherits it from its project, while a chat receives it from the
 // project selected on the chat session.
 func writeProjectContext(b *strings.Builder, ctx TaskContextForEnv) {
-	if ctx.ProjectID == "" && len(ctx.ProjectResources) == 0 {
+	if ctx.ProjectID == "" && len(ctx.Repositories) == 0 {
 		return
 	}
 	b.WriteString("## Project Context\n\n")
@@ -496,15 +500,22 @@ func writeProjectContext(b *strings.Builder, ctx TaskContextForEnv) {
 		b.WriteString(desc)
 		b.WriteString("\n\n")
 	}
-	if len(ctx.ProjectResources) > 0 {
-		b.WriteString("Project resources (also written to `.multica/project/resources.json`):\n\n")
-		for _, r := range ctx.ProjectResources {
-			fmt.Fprintf(b, "- %s\n", formatProjectResource(r))
+	if len(ctx.Repositories) > 0 {
+		b.WriteString("Project repositories (also in `.multica/project/repositories.json`):\n\n")
+		for _, repo := range ctx.Repositories {
+			fmt.Fprintf(b, "- **%s** — default branch `%s`", repo.FullName, repo.DefaultBranch)
+			if repo.WorktreePath != "" {
+				fmt.Fprintf(b, "; issue worktree `%s`", repo.WorktreePath)
+			} else if repo.CheckoutPath != "" {
+				fmt.Fprintf(b, "; checkout `%s`", repo.CheckoutPath)
+			} else {
+				b.WriteString("; on another runtime")
+			}
+			b.WriteString("\n")
 		}
-		b.WriteString("\nResources are pointers — open them only when relevant to the task. ")
-		b.WriteString("Cut the worktree of a `github_repo` resource from the starting point it lists, if any, unless the task or a handoff names a different revision.\n\n")
+		b.WriteString("\n")
 	} else {
-		b.WriteString("This project has no resources attached yet.\n\n")
+		b.WriteString("This project has no repositories yet.\n\n")
 	}
 }
 

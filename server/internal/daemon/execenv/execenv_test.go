@@ -547,151 +547,9 @@ func TestPrepareDirectoryMode(t *testing.T) {
 	}
 }
 
-func TestPrepareWithProjectResources(t *testing.T) {
-	t.Parallel()
-	workspacesRoot := t.TempDir()
 
-	taskCtx := TaskContextForEnv{
-		IssueID:            "11111111-2222-3333-4444-555555555555",
-		ProjectID:          "22222222-3333-4444-5555-666666666666",
-		ProjectTitle:       "Agent UX 2026",
-		ProjectDescription: "Always write copy in British English. Ship behind a feature flag.",
-		ProjectResources: []ProjectResourceForEnv{
-			{
-				ID:           "33333333-4444-5555-6666-777777777777",
-				ResourceType: "github_repo",
-				ResourceRef:  json.RawMessage(`{"url":"https://github.com/multica-ai/multica","ref":"release/v2","default_branch_hint":"main"}`),
-			},
-		},
-	}
-	env, err := Prepare(PrepareParams{
-		WorkspacesRoot: workspacesRoot,
-		WorkspaceID:    "ws-test-pr",
-		TaskID:         "11111111-2222-3333-4444-555555555555",
-		AgentName:      "Test Agent",
-		Provider:       "claude",
-		Task:           taskCtx,
-	}, testLogger())
-	if err != nil {
-		t.Fatalf("Prepare failed: %v", err)
-	}
-	defer env.Cleanup(true)
 
-	// resources.json should exist and decode back to what we wrote.
-	resourcesPath := filepath.Join(env.WorkDir, ".multica", "project", "resources.json")
-	raw, err := os.ReadFile(resourcesPath)
-	if err != nil {
-		t.Fatalf("failed to read resources.json: %v", err)
-	}
-	var got struct {
-		ProjectID          string `json:"project_id"`
-		ProjectTitle       string `json:"project_title"`
-		ProjectDescription string `json:"project_description"`
-		Resources          []struct {
-			ID           string          `json:"id"`
-			ResourceType string          `json:"resource_type"`
-			ResourceRef  json.RawMessage `json:"resource_ref"`
-		} `json:"resources"`
-	}
-	if err := json.Unmarshal(raw, &got); err != nil {
-		t.Fatalf("resources.json unmarshal: %v\n%s", err, string(raw))
-	}
-	if got.ProjectID != taskCtx.ProjectID {
-		t.Errorf("resources.json project_id = %q, want %q", got.ProjectID, taskCtx.ProjectID)
-	}
-	if got.ProjectTitle != taskCtx.ProjectTitle {
-		t.Errorf("resources.json project_title = %q, want %q", got.ProjectTitle, taskCtx.ProjectTitle)
-	}
-	if got.ProjectDescription != taskCtx.ProjectDescription {
-		t.Errorf("resources.json project_description = %q, want %q", got.ProjectDescription, taskCtx.ProjectDescription)
-	}
-	if len(got.Resources) != 1 || got.Resources[0].ResourceType != "github_repo" {
-		t.Fatalf("resources.json resources mismatch: %+v", got.Resources)
-	}
 
-	// CLAUDE.md should mention the project context block.
-	if _, err := InjectRuntimeConfig(env.WorkDir, "claude", taskCtx); err != nil {
-		t.Fatalf("InjectRuntimeConfig: %v", err)
-	}
-	content, err := os.ReadFile(filepath.Join(env.WorkDir, "CLAUDE.md"))
-	if err != nil {
-		t.Fatalf("read CLAUDE.md: %v", err)
-	}
-	s := string(content)
-	for _, want := range []string{
-		"## Project Context",
-		"Agent UX 2026",
-		"Always write copy in British English. Ship behind a feature flag.",
-		"GitHub repo",
-		"https://github.com/multica-ai/multica",
-		"checkout ref: `release/v2`",
-		"default branch hint: `main`",
-		".multica/project/resources.json",
-	} {
-		if !strings.Contains(s, want) {
-			t.Errorf("CLAUDE.md missing %q", want)
-		}
-	}
-}
-
-func TestChatProjectContextInjectedIntoRuntimeBrief(t *testing.T) {
-	t.Parallel()
-
-	ctx := TaskContextForEnv{
-		ChatSessionID:      "chat-project-context",
-		ProjectID:          "22222222-3333-4444-5555-666666666666",
-		ProjectTitle:       "Project Beta",
-		ProjectDescription: "Use the beta repository and follow the beta rollout plan.",
-		ProjectResources: []ProjectResourceForEnv{
-			{
-				ID:           "33333333-4444-5555-6666-777777777777",
-				ResourceType: "github_repo",
-				ResourceRef:  json.RawMessage(`{"url":"https://github.com/org/beta"}`),
-			},
-		},
-	}
-
-	for _, tc := range []struct {
-		provider string
-		filename string
-	}{
-		{provider: "claude", filename: "CLAUDE.md"},
-		{provider: "codex", filename: "AGENTS.md"},
-	} {
-		tc := tc
-		t.Run(tc.provider, func(t *testing.T) {
-			t.Parallel()
-			dir := t.TempDir()
-			if _, err := InjectRuntimeConfig(dir, tc.provider, ctx); err != nil {
-				t.Fatalf("InjectRuntimeConfig: %v", err)
-			}
-			content, err := os.ReadFile(filepath.Join(dir, tc.filename))
-			if err != nil {
-				t.Fatalf("read %s: %v", tc.filename, err)
-			}
-			s := string(content)
-			for _, want := range []string{
-				"## Project Context",
-				"Project Beta",
-				"Use the beta repository and follow the beta rollout plan.",
-				"https://github.com/org/beta",
-			} {
-				if !strings.Contains(s, want) {
-					t.Errorf("%s missing chat project context %q", tc.filename, want)
-				}
-			}
-			for _, banned := range []string{
-				"This issue belongs to",
-				"## Issue Metadata",
-				"## Sub-issue Creation",
-			} {
-				if strings.Contains(s, banned) {
-					t.Errorf("%s chat brief contains issue-only text %q", tc.filename, banned)
-				}
-			}
-		})
-	}
-}
 
 // When the issue's project has its own github_repo resources, those should be
 // the only repos rendered in the meta-skill — workspace-level repos must not
@@ -711,13 +569,6 @@ func TestProjectReposReplaceWorkspaceReposInMetaSkill(t *testing.T) {
 		Repos: []RepoContextForEnv{
 			{URL: "https://github.com/org/project-repo"},
 		},
-		ProjectResources: []ProjectResourceForEnv{
-			{
-				ID:           "33333333-4444-5555-6666-777777777777",
-				ResourceType: "github_repo",
-				ResourceRef:  []byte(`{"url":"https://github.com/org/project-repo"}`),
-			},
-		},
 	}
 	if _, err := InjectRuntimeConfig(dir, "claude", ctx); err != nil {
 		t.Fatalf("InjectRuntimeConfig: %v", err)
@@ -735,16 +586,7 @@ func TestProjectReposReplaceWorkspaceReposInMetaSkill(t *testing.T) {
 	}
 }
 
-func TestWriteProjectResourcesSkippedWhenNone(t *testing.T) {
-	t.Parallel()
-	dir := t.TempDir()
-	if err := writeProjectResources(dir, TaskContextForEnv{}, nil); err != nil {
-		t.Fatalf("writeProjectResources: %v", err)
-	}
-	if _, err := os.Stat(filepath.Join(dir, ".multica", "project", "resources.json")); !os.IsNotExist(err) {
-		t.Errorf("expected no resources.json to be written when project context is empty")
-	}
-}
+
 
 func TestPrepareWithRepoContext(t *testing.T) {
 	t.Parallel()

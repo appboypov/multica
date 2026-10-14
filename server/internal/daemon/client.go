@@ -1436,3 +1436,19 @@ func (c *Client) InvokeAgentPluginHook(ctx context.Context, daemonToken, taskID,
 	}
 	return response.Output, nil
 }
+
+func (c *Client) ReportRepositoryCheckoutResult(ctx context.Context, runtimeID, requestID string, result protocol.RepositoryCheckoutResult) error {
+	return c.postJSON(ctx, fmt.Sprintf("/api/daemon/runtimes/%s/repository-checkouts/%s/result", runtimeID, requestID), result, nil)
+}
+
+func (c *Client) RecordIssueWorktree(ctx context.Context, taskID, repositoryID, path, branch string) error {
+	return c.postJSON(ctx, fmt.Sprintf("/api/daemon/tasks/%s/issue-worktrees", taskID), map[string]string{
+		"repository_id": repositoryID, "path": path, "branch": branch,
+	}, nil)
+}
+
+func (c *Client) ReportIssueWorktreeRemoval(ctx context.Context, runtimeID, worktreeID, outcome, reason string) error {
+	return c.postJSON(ctx, fmt.Sprintf("/api/daemon/issue-worktrees/%s/result", worktreeID), map[string]string{
+		"runtime_id": runtimeID, "outcome": outcome, "reason": reason,
+	}, nil)
+}

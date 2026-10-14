@@ -1,0 +1,263 @@
+package daemon
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"log/slog"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/multica-ai/multica/server/internal/daemon/execenv"
+)
+
+func issueWorktreePath(task Task, fullName, recorded string) (string, error) {
+	if recorded != "" { return execenv.ExpandWorklanePath(recorded) }
+	home, err := os.UserHomeDir()
+	if err != nil { return "", err }
+	_, repo, ok := strings.Cut(fullName, "/")
+	if !ok || repo == "" || filepath.Base(repo) != repo || repo == ".." { return "", fmt.Errorf("invalid repository %q", fullName) }
+	key := task.IssueKey
+	if key == "" { key = strings.ToLower(task.IssueIdentifier) }
+	if key == "" || filepath.Base(key) != key || key == ".." { return "", fmt.Errorf("invalid issue key %q", key) }
+	organisation := task.OrganisationKey
+	if organisation != "" && (filepath.Base(organisation) != organisation || organisation == "..") { return "", fmt.Errorf("invalid organisation key %q", organisation) }
+	return filepath.Join(home, "Worktrees", organisation, repo, key), nil
+}
+
+func (d *Daemon) prepareIssueWorktrees(ctx context.Context, task *Task, logger *slog.Logger) error {
+	if task.IssueID == "" { return nil }
+	for i := range task.Repositories {
+		repo := &task.Repositories[i]
+		if repo.CheckoutDaemonID != d.cfg.DaemonID { continue }
+		path, err := issueWorktreePath(*task, repo.FullName, repo.WorktreePath)
+		if err != nil { return err }
+		path, err = execenv.PrepareIssueWorktree(ctx, execenv.IssueWorktreeParams{
+			CheckoutPath: repo.CheckoutPath, Path: path, Branch: task.IssueKey, DefaultBranch: repo.DefaultBranch,
+		}, logger)
+		if err != nil { return err }
+		branch, err := checkoutGit(ctx, path, "symbolic-ref", "--quiet", "--short", "HEAD")
+		if err != nil { return fmt.Errorf("issue worktree has no branch: %w", err) }
+		if err := d.client.RecordIssueWorktree(ctx, task.ID, repo.ID, path, branch); err != nil { return err }
+		repo.WorktreePath = path
+	}
+	return nil
+}
+
+func taskIssueWorkdir(task Task, daemonID string) string {
+	if task.IssueID == "" { return "" }
+	path := ""
+	for _, repo := range task.Repositories {
+		if repo.CheckoutDaemonID != daemonID { continue }
+		if path != "" { return "" }
+		path = repo.WorktreePath
+	}
+	return path
+}
+
+func resolveRealPath(absPath string) (string, error) {
+	path, err := filepath.EvalSymlinks(absPath)
+	if os.IsNotExist(err) { return filepath.Clean(absPath), nil }
+	return path, err
+}
+
+// acquireIssueWorktreeLocks takes locks in canonical path order, avoiding a
+// deadlock when two issue tasks share more than one repository.
+func (d *Daemon) acquireIssueWorktreeLocks(ctx context.Context, task Task, logger *slog.Logger) (func(), bool) {
+	var paths []string
+	if task.IssueID != "" {
+		for _, repo := range task.Repositories {
+			if repo.CheckoutDaemonID != d.cfg.DaemonID { continue }
+			path, err := issueWorktreePath(task, repo.FullName, repo.WorktreePath)
+			if err != nil { d.reportTerminalTask(ctx, terminalTaskReport{kind: terminalTaskReportFail, taskID: task.ID, errorMessage: err.Error(), failureReason: "environment_prepare_failed"}); return nil, true }
+			path, err = resolveRealPath(path)
+			if err != nil { d.reportTerminalTask(ctx, terminalTaskReport{kind: terminalTaskReportFail, taskID: task.ID, errorMessage: err.Error(), failureReason: "environment_prepare_failed"}); return nil, true }
+			paths = append(paths, path)
+		}
+	}
+	sort.Strings(paths)
+	releases := make([]func(), 0, len(paths))
+	releaseAll := func() { for i := len(releases)-1; i >= 0; i-- { releases[i]() } }
+	waitCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	for _, path := range paths {
+		counted := false
+		release, err := d.localPathLocks.Acquire(waitCtx, path, task.ID, func(holder string) {
+			d.resourceWaitTasks.Add(1)
+			counted = true
+			reason := filepath.Base(path)
+			if holder != "" { reason += " (held by task " + shortID(holder) + ")" }
+			if err := d.client.MarkTaskWaitingLocalDirectory(waitCtx, task.ID, reason); err != nil { logger.Warn("mark issue worktree waiting failed", "error", err) }
+			cancelled := d.watchTaskCancellation(waitCtx, task.ID, 5*time.Second, logger)
+			go func() { select { case <-cancelled: cancel(); case <-waitCtx.Done(): } }()
+		})
+		if counted { d.resourceWaitTasks.Add(-1) }
+		if err != nil { releaseAll(); return nil, true }
+		releases = append(releases, release)
+	}
+	return releaseAll, false
+}
+// LocalPathLocker serialises agent tasks that share the same on-disk path.
+// The lock is owned for the entire lifetime of a task (claim → context
+// write → agent execution → result report), not just the agent execution
+// window, because the context files and skill scratch directories the
+// daemon writes at task-prepare time can race with a sibling task on the
+// same path.
+//
+// Implementation: per-key sync.Mutex inside a map guarded by mu. When a
+// task can't take the lock immediately, the waiter blocks on the per-key
+// Mutex itself — that gives FIFO-ish behaviour from the Go scheduler
+// (sufficient for our load; the issue body asks for a wait queue, not a
+// strict-priority queue). Holder bookkeeping (current holder task id) is
+// surfaced via Holder so callers can build a UI-friendly wait_reason.
+type LocalPathLocker struct {
+	mu    sync.Mutex
+	locks map[string]*pathLockEntry
+}
+
+type pathLockEntry struct {
+	mu       sync.Mutex // serialises holders for this key
+	mu2      sync.Mutex // guards holderID under contention
+	holderID string     // current owner, for UI hints; empty when free
+}
+
+// NewLocalPathLocker returns an empty locker. Safe for concurrent use.
+func NewLocalPathLocker() *LocalPathLocker {
+	return &LocalPathLocker{locks: make(map[string]*pathLockEntry)}
+}
+
+// Holder returns the task id currently holding the lock for realPath, or
+// "" if no task holds it. Used to populate the wait_reason hint the daemon
+// posts to the server when it parks a task — the UI then shows "waiting for
+// <path> (held by task <short id>)".
+func (l *LocalPathLocker) Holder(realPath string) string {
+	l.mu.Lock()
+	entry, ok := l.locks[realPath]
+	l.mu.Unlock()
+	if !ok {
+		return ""
+	}
+	entry.mu2.Lock()
+	defer entry.mu2.Unlock()
+	return entry.holderID
+}
+
+// Acquire takes the lock for realPath on behalf of taskID. If the lock is
+// already held, onWait is invoked (synchronously, before this goroutine
+// blocks) with the current holder id so callers can flip the task into the
+// server-side waiting_local_directory state. onWait may be nil for callers
+// that don't need the side effect.
+//
+// Returns a release func that the caller must invoke (typically deferred)
+// to free the lock. The release is idempotent.
+//
+// Acquire is cancellable via ctx. When ctx is cancelled while the goroutine
+// is blocked on the lock, Acquire returns ctx.Err() and the lock is NOT
+// taken. This is the same contract as sync.Mutex.Lock paired with
+// context-aware cancellation — a daemon shutdown won't wedge inside the
+// per-path wait queue.
+func (l *LocalPathLocker) Acquire(ctx context.Context, realPath, taskID string, onWait func(holder string)) (func(), error) {
+	if realPath == "" {
+		return nil, errors.New("local_directory: realpath required for lock")
+	}
+	if taskID == "" {
+		return nil, errors.New("local_directory: taskID required for lock")
+	}
+
+	l.mu.Lock()
+	entry, ok := l.locks[realPath]
+	if !ok {
+		entry = &pathLockEntry{}
+		l.locks[realPath] = entry
+	}
+	l.mu.Unlock()
+
+	// Try the fast path first — no allocation, no waiter goroutine.
+	if entry.mu.TryLock() {
+		entry.mu2.Lock()
+		entry.holderID = taskID
+		entry.mu2.Unlock()
+		return l.releaser(realPath, entry), nil
+	}
+
+	// Slow path: somebody else holds the lock. Fire onWait once with the
+	// current holder so the daemon can stamp the server-side wait state,
+	// then block until either we win the lock or ctx is cancelled.
+	if onWait != nil {
+		entry.mu2.Lock()
+		holder := entry.holderID
+		entry.mu2.Unlock()
+		onWait(holder)
+	}
+
+	acquired := make(chan struct{})
+	go func() {
+		entry.mu.Lock()
+		close(acquired)
+	}()
+
+	select {
+	case <-acquired:
+		entry.mu2.Lock()
+		entry.holderID = taskID
+		entry.mu2.Unlock()
+		return l.releaser(realPath, entry), nil
+	case <-ctx.Done():
+		// We lost the wait — the goroutine above will still complete and
+		// take the lock. Spin off a clean-up goroutine that releases it
+		// the moment the acquire returns so a future caller isn't stuck
+		// behind a phantom holder. The bookkeeping is best-effort: no
+		// holder id is set, since this task never owned the lock.
+		go func() {
+			<-acquired
+			entry.mu.Unlock()
+		}()
+		return nil, ctx.Err()
+	}
+}
+
+// TryAcquire takes the lock for realPath on behalf of ownerID only when it
+// is free. ok is false when another holder has it; the caller then refuses
+// rather than waits (a worklane remove answers busy).
+func (l *LocalPathLocker) TryAcquire(realPath, ownerID string) (release func(), ok bool) {
+	l.mu.Lock()
+	entry, found := l.locks[realPath]
+	if !found {
+		entry = &pathLockEntry{}
+		l.locks[realPath] = entry
+	}
+	l.mu.Unlock()
+	if !entry.mu.TryLock() {
+		return nil, false
+	}
+	entry.mu2.Lock()
+	entry.holderID = ownerID
+	entry.mu2.Unlock()
+	return l.releaser(realPath, entry), true
+}
+
+// releaser returns the unlock callback. Idempotent via a once flag so a
+// deferred release is safe even when the caller has already explicitly
+// released after task completion.
+func (l *LocalPathLocker) releaser(realPath string, entry *pathLockEntry) func() {
+	var once sync.Once
+	return func() {
+		once.Do(func() {
+			entry.mu2.Lock()
+			entry.holderID = ""
+			entry.mu2.Unlock()
+			entry.mu.Unlock()
+			// We deliberately keep the entry in the map even when nothing
+			// is queued. The cost is one *pathLockEntry per distinct path
+			// the daemon has ever served, which is bounded by the number
+			// of local_directory project resources a workspace has — tiny
+			// in practice. Pruning would race with a sibling caller that
+			// just looked up the same entry and is about to TryLock.
+			_ = realPath
+		})
+	}
+}

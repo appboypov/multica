@@ -379,35 +379,7 @@ func TestPrepareThenCleanupSidecarsRepeatedCycles(t *testing.T) {
 // TestPrepareThenCleanupSidecarsWithProjectResources extends the
 // round-trip to the .multica/project/resources.json branch — a separate
 // sidecar write that creates its own intermediate directory tree.
-func TestPrepareThenCleanupSidecarsWithProjectResources(t *testing.T) {
-	t.Parallel()
-	for _, provider := range allFileBasedProviders {
-		provider := provider
-		t.Run(provider, func(t *testing.T) {
-			t.Parallel()
-			workDir := t.TempDir()
-			envRoot := t.TempDir()
-			before := snapshot(t, workDir)
 
-			ctx := TaskContextForEnv{
-				IssueID:      "11111111-2222-3333-4444-555555555555",
-				ProjectID:    "proj-1",
-				ProjectTitle: "Demo project",
-				ProjectResources: []ProjectResourceForEnv{
-					{
-						ID:           "res-1",
-						ResourceType: "github_repo",
-						ResourceRef:  []byte(`{"url":"https://github.com/example/repo"}`),
-					},
-				},
-			}
-			runPrepareLikeCycle(t, workDir, envRoot, provider, ctx)
-
-			after := snapshot(t, workDir)
-			assertSnapshotEqual(t, provider, before, after)
-		})
-	}
-}
 
 // TestCleanupSidecarsNoOpWhenManifestMissing pins backward compatibility
 // with envRoots that predate the manifest mechanism (older daemons, GC'd
@@ -775,53 +747,7 @@ func TestPrepareThenCleanupSidecarsIssueContextCollisionPerProvider(t *testing.T
 // resources.json` — the other Multica-only namespace file. Same
 // invariant: pre-existing user content survives the round-trip
 // untouched even when the task ships project resources of its own.
-func TestPrepareThenCleanupSidecarsProjectResourcesCollisionPerProvider(t *testing.T) {
-	t.Parallel()
-	for _, provider := range allFileBasedProviders {
-		provider := provider
-		t.Run(provider, func(t *testing.T) {
-			t.Parallel()
-			workDir := t.TempDir()
-			envRoot := t.TempDir()
 
-			if err := os.MkdirAll(filepath.Join(workDir, ".multica", "project"), 0o755); err != nil {
-				t.Fatalf("seed dir: %v", err)
-			}
-			userBody := `{"user":"owns this file"}`
-			userPath := filepath.Join(workDir, ".multica", "project", "resources.json")
-			if err := os.WriteFile(userPath, []byte(userBody), 0o644); err != nil {
-				t.Fatalf("seed user file: %v", err)
-			}
-
-			before := snapshot(t, workDir)
-
-			ctx := TaskContextForEnv{
-				IssueID:      "11111111-2222-3333-4444-555555555555",
-				ProjectID:    "proj-1",
-				ProjectTitle: "Demo",
-				ProjectResources: []ProjectResourceForEnv{
-					{
-						ID:           "res-1",
-						ResourceType: "github_repo",
-						ResourceRef:  []byte(`{"url":"https://github.com/example/repo"}`),
-					},
-				},
-			}
-			runPrepareLikeCycle(t, workDir, envRoot, provider, ctx)
-
-			after := snapshot(t, workDir)
-			assertSnapshotEqual(t, provider, before, after)
-
-			got, err := os.ReadFile(userPath)
-			if err != nil {
-				t.Fatalf("user resources.json went missing: %v", err)
-			}
-			if string(got) != userBody {
-				t.Errorf("user resources.json mutated\n want: %q\n  got: %q", userBody, string(got))
-			}
-		})
-	}
-}
 
 // TestAllocateCollisionFreeSkillDir pins the slug-suffix policy:
 // first try the natural slug, then `-multica`, then `-multica-2`,
