@@ -96,7 +96,8 @@
     "cancel": "取消",
     "submit": "移除",
     "submitting": "正在移除",
-    "failed": "无法移除 worklane"
+    "failed": "无法移除 worklane",
+    "unknown_runtime": "它的运行时"
   },
   "errors": {
     "name_required": "请输入名称",

@@ -96,7 +96,8 @@
     "cancel": "취소",
     "submit": "제거",
     "submitting": "제거하는 중",
-    "failed": "worklane을 제거할 수 없습니다"
+    "failed": "worklane을 제거할 수 없습니다",
+    "unknown_runtime": "해당 런타임"
   },
   "errors": {
     "name_required": "이름을 입력하세요",

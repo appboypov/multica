@@ -97,7 +97,8 @@
     "cancel": "Cancel",
     "submit": "Remove",
     "submitting": "Removing",
-    "failed": "Could not remove the worklane"
+    "failed": "Could not remove the worklane",
+    "unknown_runtime": "its runtime"
   },
   "errors": {
     "name_required": "Enter a name",

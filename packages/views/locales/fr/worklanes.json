@@ -97,7 +97,8 @@
     "cancel": "Annuler",
     "submit": "Retirer",
     "submitting": "Retrait",
-    "failed": "Impossible de retirer le worklane"
+    "failed": "Impossible de retirer le worklane",
+    "unknown_runtime": "son runtime"
   },
   "errors": {
     "name_required": "Saisissez un nom",

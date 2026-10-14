@@ -7,6 +7,9 @@ import { CreateProjectModal } from "./create-project";
 import { CreateOrganisationModal } from "./create-organisation";
 import { AddRepositoryDialog } from "../repositories/components/add-repository-dialog";
 import { EditRepositoryDialog } from "../repositories/components/edit-repository-dialog";
+import { NewWorklaneDialog } from "../worklanes/components/new-worklane-dialog";
+import { RenameWorklaneDialog } from "../worklanes/components/rename-worklane-dialog";
+import { RemoveWorklaneDialog } from "../worklanes/components/remove-worklane-dialog";
 import { CreateSquadModal } from "./create-squad";
 import { FeedbackModal } from "./feedback";
 import { SetParentIssueModal } from "./set-parent-issue";
@@ -54,6 +57,15 @@ export function ModalRegistry() {
       break;
     case "edit-repository":
       activeModal = <EditRepositoryDialog onClose={close} data={data} />;
+      break;
+    case "new-worklane":
+      activeModal = <NewWorklaneDialog onClose={close} data={data} />;
+      break;
+    case "rename-worklane":
+      activeModal = <RenameWorklaneDialog onClose={close} data={data} />;
+      break;
+    case "remove-worklane":
+      activeModal = <RemoveWorklaneDialog onClose={close} data={data} />;
       break;
     case "create-squad":
       activeModal = <CreateSquadModal onClose={close} />;

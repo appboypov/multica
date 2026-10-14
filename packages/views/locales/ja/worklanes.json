@@ -96,7 +96,8 @@
     "cancel": "キャンセル",
     "submit": "削除",
     "submitting": "削除中",
-    "failed": "worklane を削除できませんでした"
+    "failed": "worklane を削除できませんでした",
+    "unknown_runtime": "そのランタイム"
   },
   "errors": {
     "name_required": "名前を入力してください",
