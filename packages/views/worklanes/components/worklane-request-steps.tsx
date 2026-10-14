@@ -64,8 +64,8 @@ export function WorklaneRequestSteps({ request }: { request: WorklaneRequest }) 
   return (
     <ol className="space-y-2">
       {stepsOf(request).map((step, index) => {
-        const failed = step.state === "failed" || step.state === "unknown" || step.key === "unknown";
-        const state = failed ? "failed" : step.state;
+        const state = shownState(step);
+        const failed = state === "failed";
         const secondary = subject(step);
         // A failure keeps the runtime's own words; otherwise the detail is
         // what the step found, such as a worktree that was already there.
@@ -98,11 +98,19 @@ export function WorklaneRequestSteps({ request }: { request: WorklaneRequest }) 
   );
 }
 
+type ShownStepState = "pending" | "running" | "done" | "skipped" | "failed";
+
+/** A step's state as shown: an unknown step or state reads as failed. */
+function shownState(step: WorklaneRequestStep): ShownStepState {
+  if (step.key === "unknown" || step.state === "unknown") return "failed";
+  return step.state;
+}
+
 function StepIcon({
   state,
   label,
 }: {
-  state: "pending" | "running" | "done" | "skipped" | "failed";
+  state: ShownStepState;
   label: string;
 }) {
   const className = "mt-0.5 size-4 shrink-0";
