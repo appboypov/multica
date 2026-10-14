@@ -122,6 +122,15 @@ export interface TestRepositoryCheckoutResult {
   install_commands: { file: string; command: string }[];
 }
 
+export interface TestRelease {
+  id: string;
+  repository_id: string;
+  position: number;
+  version: string;
+  bump: "patch" | "minor" | "major" | null;
+  title: string;
+}
+
 export interface TestDirectoryListing {
   id: string;
   path: string;
@@ -837,6 +846,30 @@ export class TestApiClient {
     const release = body.releases.find((item) => item.title === title);
     if (!release) throw new Error(`Planned release ${title} was not returned`);
     return release;
+  }
+
+  /** Plan a release on a repository's line: a bump, or a version set by hand. Returns the line. */
+  async planRelease(
+    repositoryId: string,
+    release: { title: string; description?: string; bump?: "patch" | "minor" | "major"; version?: string },
+  ): Promise<TestRelease[]> {
+    const body = await this.repositoryRequest<{ releases: TestRelease[] }>(
+      `/api/repositories/${repositoryId}/releases`,
+      { method: "POST", body: JSON.stringify({ description: "", ...release }) },
+    );
+    return body.releases;
+  }
+
+  async removeRelease(id: string): Promise<TestRelease[]> {
+    const body = await this.repositoryRequest<{ releases: TestRelease[] }>(`/api/releases/${id}`, {
+      method: "DELETE",
+    });
+    return body.releases;
+  }
+
+  async listReleases(repositoryId: string): Promise<TestRelease[]> {
+    const body = await this.repositoryRequest<{ releases: TestRelease[] }>("/api/releases");
+    return body.releases.filter((release) => release.repository_id === repositoryId);
   }
 
   async addIssueToRelease(releaseId: string, issueId: string): Promise<void> {
