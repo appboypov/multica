@@ -631,10 +631,21 @@ deleted_runtimes AS (
 ),
 deleted_profiles AS (
     DELETE FROM runtime_profile WHERE runtime_profile.workspace_id = $1
+),
+deleted_issue_worktrees AS (
+    DELETE FROM issue_worktree WHERE issue_worktree.workspace_id = $1
+),
+deleted_worklanes AS (
+    DELETE FROM worklane WHERE worklane.workspace_id = $1
+),
+deleted_repositories AS (
+    DELETE FROM repository WHERE repository.workspace_id = $1
 )
 DELETE FROM project WHERE project.workspace_id = $1
 `
 
+// Repositories, worklanes and issue worktrees have no cascades (ADR-0006), so
+// they go with the projects that hold them.
 func (q *Queries) DeleteWorkspaceRuntimesAndProjects(ctx context.Context, workspaceID pgtype.UUID) error {
 	_, err := q.db.Exec(ctx, deleteWorkspaceRuntimesAndProjects, workspaceID)
 	return err

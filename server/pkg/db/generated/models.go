@@ -1060,6 +1060,20 @@ type IssueWakeupReceipt struct {
 	CoalesceKey pgtype.Text        `json:"coalesce_key"`
 }
 
+type IssueWorktree struct {
+	ID           pgtype.UUID        `json:"id"`
+	WorkspaceID  pgtype.UUID        `json:"workspace_id"`
+	IssueID      pgtype.UUID        `json:"issue_id"`
+	RepositoryID pgtype.UUID        `json:"repository_id"`
+	DaemonID     string             `json:"daemon_id"`
+	Path         string             `json:"path"`
+	Branch       string             `json:"branch"`
+	State        string             `json:"state"`
+	KeptReason   pgtype.Text        `json:"kept_reason"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+}
+
 type LarkBindingToken struct {
 	TokenHash      string             `json:"token_hash"`
 	WorkspaceID    pgtype.UUID        `json:"workspace_id"`
@@ -1410,6 +1424,22 @@ type QuickAction struct {
 	CreatedByID   pgtype.UUID        `json:"created_by_id"`
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+}
+
+type Repository struct {
+	ID               pgtype.UUID        `json:"id"`
+	WorkspaceID      pgtype.UUID        `json:"workspace_id"`
+	ProjectID        pgtype.UUID        `json:"project_id"`
+	GithubRepoID     int64              `json:"github_repo_id"`
+	FullName         string             `json:"full_name"`
+	Private          bool               `json:"private"`
+	DefaultBranch    string             `json:"default_branch"`
+	CheckoutDaemonID string             `json:"checkout_daemon_id"`
+	CheckoutPath     string             `json:"checkout_path"`
+	VersionPolicy    string             `json:"version_policy"`
+	CreatedBy        pgtype.UUID        `json:"created_by"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
 }
 
 type RuntimeProfile struct {
@@ -1765,6 +1795,19 @@ type WebhookDelivery struct {
 	DispatchAttempts       int32              `json:"dispatch_attempts"`
 	ReasonCode             pgtype.Text        `json:"reason_code"`
 	ReplayIdempotencyKey   pgtype.Text        `json:"replay_idempotency_key"`
+}
+
+type Worklane struct {
+	ID           pgtype.UUID        `json:"id"`
+	WorkspaceID  pgtype.UUID        `json:"workspace_id"`
+	RepositoryID pgtype.UUID        `json:"repository_id"`
+	Name         string             `json:"name"`
+	Folder       pgtype.Text        `json:"folder"`
+	DaemonID     pgtype.Text        `json:"daemon_id"`
+	IsMain       bool               `json:"is_main"`
+	Position     int32              `json:"position"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
 }
 
 type Workspace struct {

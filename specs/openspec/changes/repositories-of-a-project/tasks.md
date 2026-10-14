@@ -48,7 +48,7 @@ This change builds on UJ-1 (`projects-by-organisation`, DAS-450): its `organisat
 - [x] 1.10 `server/pkg/db/queries/worklane.sql` -- `ListWorklanes`, `CreateWorklane`, `DeleteWorklanesByRepository`, `DeleteWorklanesByProject` (through `repository`), each filtered by `workspace_id`.
 - [x] 1.11 `server/pkg/db/queries/issue_worktree.sql` -- `UpsertIssueWorktree` on `(issue_id, repository_id)`, `ListIssueWorktreesForIssue`, `SetIssueWorktreesStateForIssue`, `ListRemovingIssueWorktreesForDaemon`, `DeleteIssueWorktree`, `KeepIssueWorktree` (state and reason), `DeleteIssueWorktreesByIssue`.
 - [x] 1.12 `server/pkg/db/queries/workspace_delete.sql` -- add deletes of `issue_worktree`, `worklane` and `repository` in the step that deletes projects. `server/internal/handler/workspace_delete_manifest_test.go` -- classify `repository`, `worklane` and `issue_worktree` as deleted with the workspace.
-- [ ] 1.13 `server/pkg/db/generated/` -- run `make sqlc` and commit the output.
+- [x] 1.13 `server/pkg/db/generated/` -- run `make sqlc` and commit the output.
 
 ## 2. J2 Data models: model change
 
@@ -176,6 +176,19 @@ This change builds on UJ-1 (`projects-by-organisation`, DAS-450): its `organisat
 - [ ] 13.4 `specs/openspec/changes/repositories-of-a-project/` -- retire the `brain-project-sync` requirements "The repository project of a Product with one repository merges into its project" and "The repository projects of a Product with several repositories stay" through `madspec-revise-plan` (design.md Open Questions), run `openspec validate repositories-of-a-project --type change --strict`, sync the specs and archive the change -- the journey closes on its J11 pull request.
 
 ## Implementation Notes
+
+Group 1 (J2, DAS-473):
+
+- Migration numbers 590 to 596 were free on `main` (its highest is 574), so no rename was needed.
+- 590 makes every `repository` field NOT NULL except `created_by`: a repository exists only with its GitHub fields and a passed checkout. `worklane.is_main` defaults to false and `position` to 0; `issue_worktree.state` defaults to `active`. 590 sets no `lock_timeout`, since it only creates tables.
+- `UpdateRepositoryGithub` sets `private` and `default_branch` only: `full_name` and `github_repo_id` stay, since the repository is fixed (design.md decision 2).
+- `ListWorklanes` orders by repository, `main` first, then `position` and name. `DeleteWorklanesByRepository` returns the deleted rows so the handler can publish `worklane:deleted`; `DeleteWorklanesByProject` runs before `DeleteRepositoriesByProject`, since it reaches worklanes through `repository`.
+- `SetIssueWorktreesStateForIssue` clears `kept_reason`, changes only rows not already in the target state and returns them, so the 7.9 listener wakes exactly the daemons involved. Moving to `removing` also retries `kept` rows, so a Done to Cancelled move retries a kept worktree; 7.9 decides whether that transition calls it.
+- `ListRemovingIssueWorktreesForDaemon` filters by `workspace_id` as well as `daemon_id`, the tenant guard, and returns `issue_identifier` built as `issue_prefix-number`. `DeleteIssueWorktree` and `KeepIssueWorktree` take the reporting `daemon_id`, so only the daemon that holds a worktree resolves it; `KeepIssueWorktree` changes only a `removing` row, so a report after a reopening leaves the row `active`. Both are `:one` and return no row when nothing matched.
+- 1.12 adds the three deletes as CTEs of `DeleteWorkspaceRuntimesAndProjects`, the query the projects step already runs, so `workspace.go` stays unchanged.
+- Files: `server/migrations/590`–`596_*.sql`, `server/cmd/migrate/main.go`, `server/pkg/db/queries/{repository,worklane,issue_worktree,workspace_delete}.sql`, `server/internal/handler/workspace_delete_manifest_test.go`, `server/pkg/db/generated/{models,repository.sql,worklane.sql,issue_worktree.sql,workspace_delete.sql}.go`.
+- Surprise: the first verification runs happened on the Mac against the shared dev Postgres (`make worktree-env`, `make migrate-up`, `go test`), before the rule that every check runs on Crabbox reached this step. The worktree database `multica_das_451_uj_2_brian_adds_a_repository_to_a_project_94` and the untracked `.env.worktree` stay behind on the Mac.
+- Checks of record: on Crabbox (lease `…-g1b`), `make sqlc` regenerated output identical to what is committed, and `cd server && go build ./...` passed. Brian asked for no further tests.
 
 ## Plan Change Log
 
