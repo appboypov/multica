@@ -79,8 +79,6 @@
     "remove": "Remove repository",
     "removing": "Removing…",
     "toast_removed": "{{name}} removed",
-    "remove_failed": "Could not remove {{name}}",
-    "worklane_free": "Free",
-    "worklane_busy": "Busy"
+    "remove_failed": "Could not remove {{name}}"
   }
 }

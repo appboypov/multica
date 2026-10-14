@@ -22,6 +22,10 @@
     "worklane_created": "{{actor}} 在 {{runtime}} 上创建了 {{name}}",
     "worklane_renamed": "{{actor}} 将 {{from}} 重命名为 {{to}}"
   },
+  "card": {
+    "add": "添加 worklane",
+    "still_has_other": "{{repository}} 仍有 worklane {{names}}"
+  },
   "rows": {
     "add": "Worklane",
     "add_label": "在 {{repository}} 中新建 worklane",

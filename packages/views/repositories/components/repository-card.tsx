@@ -1,14 +1,15 @@
 "use client";
 
-import { ChevronRight, FolderGit2, GitBranch, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { ChevronRight, FolderGit2, GitBranch, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import type { Repository, Worklane } from "@multica/core/types";
-import { clientErrorMessage } from "@multica/core/api";
+import { ApiError, clientErrorMessage } from "@multica/core/api";
+import { RepositoryRefusalSchema } from "@multica/core/api/schemas";
 import { useModalStore } from "@multica/core/modals";
+import { useWorkspacePaths } from "@multica/core/paths";
 import { useDeleteRepository } from "@multica/core/repositories";
 import { sortWorklanes } from "@multica/core/worklanes";
 import { cn } from "@multica/ui/lib/utils";
-import { Badge } from "@multica/ui/components/ui/badge";
 import { Button } from "@multica/ui/components/ui/button";
 import {
   DropdownMenu,
@@ -16,29 +17,43 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@multica/ui/components/ui/dropdown-menu";
-import { useT } from "../../i18n";
+import { AppLink } from "../../navigation";
+import { useLocale, useT } from "../../i18n";
+import { WorklaneMenu } from "../../worklanes/components/worklane-menu";
+import { WorklaneStateLabel } from "../../worklanes/components/worklane-state";
 
-/** One worklane of the card, with its state. */
+/** One worklane of the card, with its state and menu, opening its page. */
 function WorklaneRow({ worklane }: { worklane: Worklane }) {
-  const { t } = useT("repositories");
+  const paths = useWorkspacePaths();
   return (
-    <li className="flex h-9 items-center gap-2 px-4 pl-10">
-      <GitBranch aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
-      <span className="min-w-0 truncate font-mono text-body">{worklane.name}</span>
-      <Badge variant={worklane.state === "busy" ? "default" : "secondary"} className="ml-auto">
-        {worklane.state === "busy"
-          ? t(($) => $.card.worklane_busy)
-          : t(($) => $.card.worklane_free)}
-      </Badge>
+    <li className="group/row flex h-9 items-center gap-2 pr-2 pl-10 hover:bg-accent/40">
+      <AppLink
+        href={paths.worklaneDetail(worklane.id)}
+        className="flex h-full min-w-0 flex-1 items-center gap-2"
+      >
+        <GitBranch aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
+        <span className="min-w-0 truncate font-mono text-body">{worklane.name}</span>
+        <WorklaneStateLabel state={worklane.state} className="ml-auto" />
+      </AppLink>
+      {worklane.is_main ? (
+        <span aria-hidden className="size-7 shrink-0" />
+      ) : (
+        <WorklaneMenu
+          worklane={worklane}
+          className="opacity-0 transition-opacity group-hover/row:opacity-100 focus-visible:opacity-100 data-popup-open:opacity-100"
+        />
+      )}
     </li>
   );
 }
 
 /**
- * A repository of a project's page: its `owner/name` and default branch in a
- * header that folds the card, and its worklanes under it. The menu edits the
- * checkout and releases or removes the repository; Remove awaits the server
- * and leaves the checkout folder on its machine.
+ * A repository of a project's page: its `owner/name`, default branch and
+ * number of worklanes in a header that folds the card, Add worklane, and its
+ * worklanes under it, `main` first. The menu edits the checkout and releases
+ * or removes the repository; Remove awaits the server, is refused while a
+ * worklane besides `main` exists, and leaves the checkout folder on its
+ * machine.
  */
 export function RepositoryCard({
   repository,
@@ -53,8 +68,22 @@ export function RepositoryCard({
   onOpenChange: (open: boolean) => void;
 }) {
   const { t } = useT("repositories");
+  const { t: tWorklanes } = useT("worklanes");
+  const locale = useLocale();
   const deleteRepository = useDeleteRepository();
   const bodyId = `repository-${repository.id}-worklanes`;
+
+  const refusalMessage = (err: unknown): string | null => {
+    if (!(err instanceof ApiError) || err.body === undefined) return null;
+    const parsed = RepositoryRefusalSchema.safeParse(err.body);
+    if (!parsed.success || parsed.data.code !== "has_worklanes") return null;
+    const names = parsed.data.worklanes ?? [];
+    return tWorklanes(($) => $.card.still_has, {
+      count: names.length,
+      repository: repository.full_name,
+      names: new Intl.ListFormat(locale, { type: "conjunction" }).format(names),
+    });
+  };
 
   const handleRemove = async () => {
     try {
@@ -62,7 +91,9 @@ export function RepositoryCard({
       toast.success(t(($) => $.card.toast_removed, { name: repository.full_name }));
     } catch (err) {
       toast.error(
-        clientErrorMessage(err) ?? t(($) => $.card.remove_failed, { name: repository.full_name }),
+        refusalMessage(err) ??
+          clientErrorMessage(err) ??
+          t(($) => $.card.remove_failed, { name: repository.full_name }),
       );
     }
   };
@@ -96,7 +127,20 @@ export function RepositoryCard({
             <GitBranch aria-hidden className="size-3" />
             {repository.default_branch}
           </span>
+          <span className="ml-auto shrink-0 text-caption text-muted-foreground">
+            {tWorklanes(($) => $.worklane_count, { count: worklanes.length })}
+          </span>
         </button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() =>
+            useModalStore.getState().open("new-worklane", { repositoryId: repository.id })
+          }
+        >
+          <Plus />
+          {tWorklanes(($) => $.card.add)}
+        </Button>
         <DropdownMenu>
           <DropdownMenuTrigger
             render={

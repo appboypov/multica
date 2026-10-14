@@ -22,6 +22,10 @@
     "worklane_created": "{{actor}} 님이 {{runtime}}에서 {{name}}을(를) 만들었습니다",
     "worklane_renamed": "{{actor}} 님이 {{from}}의 이름을 {{to}}(으)로 바꿨습니다"
   },
+  "card": {
+    "add": "worklane 추가",
+    "still_has_other": "{{repository}}에 아직 worklane {{names}}이(가) 있습니다"
+  },
   "rows": {
     "add": "Worklane",
     "add_label": "{{repository}}에 새 worklane",

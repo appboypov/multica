@@ -79,8 +79,6 @@
     "remove": "Retirer le dépôt",
     "removing": "Retrait…",
     "toast_removed": "{{name}} retiré",
-    "remove_failed": "Impossible de retirer {{name}}",
-    "worklane_free": "Libre",
-    "worklane_busy": "Occupé"
+    "remove_failed": "Impossible de retirer {{name}}"
   }
 }

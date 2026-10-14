@@ -78,8 +78,6 @@
     "remove": "저장소 제거",
     "removing": "제거 중…",
     "toast_removed": "{{name}}을(를) 제거했습니다",
-    "remove_failed": "{{name}}을(를) 제거하지 못했습니다",
-    "worklane_free": "여유",
-    "worklane_busy": "작업 중"
+    "remove_failed": "{{name}}을(를) 제거하지 못했습니다"
   }
 }

@@ -23,6 +23,11 @@
     "worklane_created": "{{actor}} a créé {{name}} sur {{runtime}}",
     "worklane_renamed": "{{actor}} a renommé {{from}} en {{to}}"
   },
+  "card": {
+    "add": "Ajouter un worklane",
+    "still_has_one": "{{repository}} a encore le worklane {{names}}",
+    "still_has_other": "{{repository}} a encore les worklanes {{names}}"
+  },
   "rows": {
     "add": "Worklane",
     "add_label": "Nouveau worklane dans {{repository}}",

@@ -78,8 +78,6 @@
     "remove": "移除仓库",
     "removing": "正在移除…",
     "toast_removed": "已移除 {{name}}",
-    "remove_failed": "无法移除 {{name}}",
-    "worklane_free": "空闲",
-    "worklane_busy": "忙碌"
+    "remove_failed": "无法移除 {{name}}"
   }
 }
