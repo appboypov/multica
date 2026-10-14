@@ -4381,6 +4381,8 @@ export const RuntimeProfileListSchema = z.array(RuntimeProfileSchema);
 //     sends it, is its own one-question ask: `ask_id` reads as its `id`,
 //     `ask_position` as 0, `ask_title` as null, and a missing or unknown
 //     `answer_policy` as `any_one`;
+//   - missing wake targets read as an empty list; malformed targets are
+//     dropped individually;
 //   - a link or event this client does not know, or a malformed one, is
 //     dropped from its list;
 //   - an answer type, settings, suggested answer or answer value this client
@@ -4506,9 +4508,23 @@ const listDroppingUnreadable = <T extends z.ZodType>(item: T) =>
   );
 
 const QuestionLinkSchema = z.object({
-  link_type: z.enum(["issue", "task"]),
+  link_type: z.enum(["issue", "task", "comment", "project", "agent", "squad", "autopilot", "skill"]),
   link_id: z.string(),
   position: z.number().int(),
+}).loose();
+
+const QuestionWakeTargetSchema = z.object({
+  agent_id: z.string().min(1),
+  issue_id: z.string().min(1),
+  unseen_answer_count: z.number().int().nonnegative().catch(0),
+  wake_available: BooleanWithDefaultSchema(false),
+}).loose();
+
+const QuestionViaSchema = z.object({
+  type: z.enum(["issue", "sub_issue", "comment", "task"]).catch("issue"),
+  id: z.string().min(1),
+  identifier: z.string().nullish().catch(null).transform((value) => value ?? null),
+  issue_identifier: z.string().nullish().catch(null).transform((value) => value ?? null),
 }).loose();
 
 const QuestionEventShape = {
@@ -4582,6 +4598,7 @@ const QuestionWireSchema = z.object({
   events: listDroppingUnreadable(QuestionEventSchema),
   unseen_answer_count: z.number().int().nonnegative().catch(0),
   wake_available: BooleanWithDefaultSchema(false),
+  wake_targets: listDroppingUnreadable(QuestionWakeTargetSchema),
   created_at: z.string(),
   updated_at: z.string(),
 }).loose();
@@ -4657,6 +4674,7 @@ export const EMPTY_QUESTION: Question = {
   events: [],
   unseen_answer_count: 0,
   wake_available: false,
+  wake_targets: [],
   created_at: "",
   updated_at: "",
 };
@@ -4700,20 +4718,28 @@ export const EMPTY_QUESTION_WAKE_RESULT: QuestionWakeResult = {
 // `closed`, a row without its ask fields as its own one-question ask, a
 // missing or unknown `answer_policy` as `any_one`, and an answer type or
 // settings this client cannot read as `answer_type: "unknown"`. A row must
-// carry its ids, prompt and issue link with the link's `id` and
-// `identifier`; a page drops a row without them instead of hiding the
-// others. A page without `rows` reads as empty, a missing `next_cursor` as
-// the last page, a missing or malformed `my_answer` as not answered, and a
-// count that is not a number as 0.
+// carry its ids, prompt and first link's page object; a page drops a row
+// without them instead of hiding the others. Non-issue objects may have no
+// identifier or status. Unknown link and via types read as `issue`; absent
+// via reads as null, absent open_issue as the legacy issue link. A page
+// without `rows` reads as empty, a missing `next_cursor` as the last page,
+// missing or malformed `my_answer` as not answered, and malformed counts as 0.
 // ---------------------------------------------------------------------------
 
 const QuestionRowLinkSchema = z.object({
-  type: z.enum(["issue", "task"]),
+  type: z.enum(["issue", "project", "agent", "squad", "autopilot", "skill"]).catch("issue"),
+  id: z.string().min(1),
+  identifier: z.string().min(1).nullish().transform((value) => value ?? null),
+  title: z.string().catch(""),
+  status: z.string().nullish().catch(null).transform((value) => value ?? null),
+}).loose().refine((link) => link.type !== "issue" || link.identifier !== null, {
+  message: "an issue link requires its identifier",
+});
+
+const QuestionOpenIssueSchema = z.object({
   id: z.string().min(1),
   identifier: z.string().min(1),
-  title: z.string().catch(""),
-  status: z.string().catch(""),
-}).loose();
+});
 
 const QuestionRowAnswerSchema = z.object({
   display: z.string().catch(""),
@@ -4736,6 +4762,8 @@ const QuestionRowWireSchema = z.object({
   blocks_work: BooleanWithDefaultSchema(false),
   created_at: z.string(),
   link: QuestionRowLinkSchema,
+  via: QuestionViaSchema.nullish().catch(null).transform((value) => value ?? null),
+  open_issue: QuestionOpenIssueSchema.nullish(),
   my_answer: QuestionRowAnswerSchema.nullish().catch(null).transform((value) => value ?? null),
 }).loose();
 
@@ -4743,11 +4771,20 @@ const QuestionRowWireSchema = z.object({
 // as "unknown", as `readQuestion` does.
 function readQuestionRow({
   ask_id,
+  open_issue,
   answer_type,
   settings,
   ...wire
-}: z.output<typeof QuestionRowWireSchema>): QuestionRow {
-  const rest = { ...wire, ask_id: ask_id ?? wire.id };
+}: z.output<typeof QuestionRowWireSchema>, ctx: z.RefinementCtx): QuestionRow {
+  if (open_issue == null) {
+    const legacyIssue = QuestionOpenIssueSchema.safeParse(wire.link);
+    if (!legacyIssue.success) {
+      ctx.addIssue({ code: "custom", message: "question row has no opening issue" });
+      return z.NEVER;
+    }
+    open_issue = legacyIssue.data;
+  }
+  const rest = { ...wire, ask_id: ask_id ?? wire.id, open_issue };
   if (isAnswerType(answer_type)) {
     const schemas: AnswerTypeSchemas = ANSWER_TYPE_SCHEMAS[answer_type];
     const parsedSettings = schemas.settings.safeParse(settings);
@@ -4784,8 +4821,10 @@ export const EMPTY_QUESTION_ROW_PAGE: QuestionRowPage = {
 // 200 of `GET /api/questions/open-count`.
 export const QuestionOpenCountSchema = z.object({
   count: z.number().int().nonnegative().catch(0),
+  blocking_count: z.number().int().nonnegative().catch(0),
 });
 
 export const EMPTY_QUESTION_OPEN_COUNT: QuestionOpenCount = {
   count: 0,
+  blocking_count: 0,
 };
