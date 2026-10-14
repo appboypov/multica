@@ -9012,10 +9012,6 @@
                             "L:G7iDpR": {
                               "content": "User story"
                             },
-                            "L:iqIbS": {
-                              "content": "Required",
-                              "enabled": false
-                            },
                             "L:q3j0I": {
                               "height": 56
                             },
@@ -9033,10 +9029,6 @@
                           "descendants": {
                             "L:G7iDpR": {
                               "content": "Currently"
-                            },
-                            "L:iqIbS": {
-                              "content": "Optional",
-                              "enabled": false
                             },
                             "L:q3j0I": {
                               "height": 56
@@ -9056,10 +9048,6 @@
                             "L:G7iDpR": {
                               "content": "Should"
                             },
-                            "L:iqIbS": {
-                              "content": "Optional",
-                              "enabled": false
-                            },
                             "L:q3j0I": {
                               "height": 56
                             },
@@ -9077,10 +9065,6 @@
                           "descendants": {
                             "L:G7iDpR": {
                               "content": "Acceptance criteria"
-                            },
-                            "L:iqIbS": {
-                              "content": "Required",
-                              "enabled": false
                             },
                             "L:q3j0I": {
                               "height": 80

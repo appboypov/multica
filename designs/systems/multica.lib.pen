@@ -6516,16 +6516,6 @@
                       "fontFamily": "$font-sans",
                       "fontSize": "$text-label",
                       "fontWeight": "600"
-                    },
-                    {
-                      "type": "text",
-                      "id": "iqIbS",
-                      "name": "Section flag",
-                      "fill": "$muted-foreground",
-                      "content": "Required",
-                      "fontFamily": "$font-sans",
-                      "fontSize": "$text-micro",
-                      "fontWeight": "normal"
                     }
                   ]
                 },
