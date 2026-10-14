@@ -117,9 +117,9 @@ sequenceDiagram
 
 | Kind | Name | Change | Path |
 |---|---|---|---|
-| Migration | `issue.agent_questions boolean` (NULL = Workspace default) | new | `server/migrations/572_issue_agent_questions.up.sql`, `.down.sql` |
-| Migration | `CONCURRENTLY` partial index on `issue (workspace_id) WHERE agent_questions IS NOT NULL` | new | `server/migrations/573_issue_agent_questions_index.up.sql`, `.down.sql` |
-| Migration | `agent_task_queue.questions_enabled boolean NOT NULL DEFAULT false` | new | `server/migrations/574_agent_task_questions_enabled.up.sql`, `.down.sql` |
+| Migration | `issue.agent_questions boolean` (NULL = Workspace default) | new | `server/migrations/583_issue_agent_questions.up.sql`, `.down.sql` |
+| Migration | `CONCURRENTLY` partial index on `issue (workspace_id) WHERE agent_questions IS NOT NULL` | new | `server/migrations/584_issue_agent_questions_index.up.sql`, `.down.sql` |
+| Migration | `agent_task_queue.questions_enabled boolean NOT NULL DEFAULT false` | new | `server/migrations/585_agent_task_questions_enabled.up.sql`, `.down.sql` |
 | Queries | `agent_questions` in UpdateIssue and every named issue column list; `GetIssueAgentQuestions`, `CountOwnAgentQuestionIssues`; `SetTaskClaimSnapshot` replaces `SetTaskIssueSnapshot` | changed | `server/pkg/db/queries/issue.sql`, `server/pkg/db/queries/agent_questions.sql`, `server/pkg/db/queries/agent.sql` |
 | Service | `AgentQuestionsDefault`, `ResolveAgentQuestions`, `SetAgentQuestionsDefault` | new | `server/internal/service/agent_questions.go` |
 | Service | Built-in skill variant without the questions block; claim snapshot takes `questions_enabled` | changed | `server/internal/service/builtin_skills.go`, `server/internal/service/task.go` |
@@ -245,4 +245,4 @@ Brian's words decide what agents see of it: "agents must not get any info about 
 
 ## Migration Plan
 
-`572` adds `issue.agent_questions`, `573` the concurrent partial index, `574` `agent_task_queue.questions_enabled` with its default. No backfill: absent workspace key and `NULL` issue value mean On by default, as today's UJ-1 behaviour. Rollback runs the `.down.sql` files in reverse. `make local-release` deploys server, daemon and CLI together, so a daemon without `MULTICA_AGENT_QUESTIONS` never runs a CLI that hides the command.
+`583` adds `issue.agent_questions`, `584` the concurrent partial index, `585` `agent_task_queue.questions_enabled` with its default. No backfill: absent workspace key and `NULL` issue value mean On by default, as today's UJ-1 behaviour. Rollback runs the `.down.sql` files in reverse. `make local-release` deploys server, daemon and CLI together, so a daemon without `MULTICA_AGENT_QUESTIONS` never runs a CLI that hides the command.
