@@ -149,13 +149,13 @@ This change builds on UJ-2 (`repositories-of-a-project`, DAS-451): its `reposito
 
 ## 11. J9 Frontend: flow
 
-- [ ] 11.1 `packages/core/api/client.ts` -- `createWorklaneRequest`, `getWorklaneRequest`, `retryWorklaneRequest`, `getWorklane`, `renameWorklane`, `removeWorklane`, `listWorklaneActivity`, and `install_command` on the repository calls, each through `parseWithFallback`.
+- [x] 11.1 `packages/core/api/client.ts` -- `createWorklaneRequest`, `getWorklaneRequest`, `retryWorklaneRequest`, `getWorklane`, `renameWorklane`, `removeWorklane`, `listWorklaneActivity`, and `install_command` on the repository calls, each through `parseWithFallback`.
 - [x] 11.2 `packages/core/worklanes/` (`queries.ts`, `mutations.ts`, `requests.ts`, `folder.ts`, `counts.ts`, `index.ts`) -- design.md decision 8:
   - `worklaneKeys.detail` and `.activity`, and `worklaneRequestKeys.detail`.
   - `worklaneRequestOptions`, polling every second while `running`.
   - The create, retry, rename and remove mutations, each awaiting the server and invalidating on settle.
   - `folderFromName`, `folderProblem`, `sortWorklanes`, `countWorklanes` and `worklanePath(organisationKey, repo, folder)`.
-- [ ] 11.3 `packages/core/repositories/` -- `install_command` on create and update.
+- [x] 11.3 `packages/core/repositories/` -- `install_command` on create and update.
 - [x] 11.4 `packages/core/realtime/use-realtime-sync.ts` -- `worklane:created`, `worklane:updated` and `worklane:deleted` invalidate the list, the detail and the activity.
 - [x] 11.5 `packages/core/runtimes/cli-version.ts` -- `WORKLANE_WORKTREE_CAPABILITY` and `runtimeAdvertisesWorklaneWorktrees(runtimes, daemonId)`, reading the newest row.
 - [x] 11.6 `packages/core/projects/stores/view-store.ts`, `view-store.test.ts` -- persisted `expandedRepositories`; a payload without it loads.
@@ -164,16 +164,16 @@ This change builds on UJ-2 (`repositories-of-a-project`, DAS-451): its `reposito
 
 ## 12. J9 Frontend: component
 
-- [ ] 12.1 `packages/views/worklanes/components/new-worklane-dialog.tsx` -- the `new-worklane` spec deltas:
+- [x] 12.1 `packages/views/worklanes/components/new-worklane-dialog.tsx` -- the `new-worklane` spec deltas:
   - The title "New worklane · {owner/name}".
   - Name with the taken-name error; Folder filled in until edited, with its rule errors.
   - The Runtime list from `buildRuntimeMachines` with each machine's reason; Worktree read only, with Finding the install command.
   - The steps with pending, running, done, skipped and failed, and the fetch time.
   - Cancel, Create and closing disabled while it runs; the failure with "No worklane is saved until every step passes.", Cancel and Try again; on completion, navigation to the worklane page.
-- [ ] 12.2 `packages/views/worklanes/components/worklane-menu.tsx`, `rename-worklane-dialog.tsx`, `remove-worklane-dialog.tsx` -- Rename and Remove for every worklane but `main`; Rename's taken-name error; Remove names the folder it deletes, awaits the request and shows a refusal's reason -- the `manage-worklanes` spec delta.
-- [ ] 12.3 `packages/views/repositories/components/install-field.tsx` -- the found commands with the first preselected, None, and a typed command. `add-repository-dialog.tsx` and `edit-repository-dialog.tsx` carry it and send `install_command`; Edit shows the saved command and starts the check while it is null.
-- [ ] 12.4 `packages/views/repositories/components/repository-card.tsx` -- "{n} worklanes", Add worklane in the header, rows by `sortWorklanes` with their state and menu, each opening the worklane page; Remove repository shows the `has_worklanes` refusal.
-- [ ] 12.5 `packages/views/modals/registry.tsx` -- register the three worklane dialogs.
+- [x] 12.2 `packages/views/worklanes/components/worklane-menu.tsx`, `rename-worklane-dialog.tsx`, `remove-worklane-dialog.tsx` -- Rename and Remove for every worklane but `main`; Rename's taken-name error; Remove names the folder it deletes, awaits the request and shows a refusal's reason -- the `manage-worklanes` spec delta.
+- [x] 12.3 `packages/views/repositories/components/install-field.tsx` -- the found commands with the first preselected, None, and a typed command. `add-repository-dialog.tsx` and `edit-repository-dialog.tsx` carry it and send `install_command`; Edit shows the saved command and starts the check while it is null.
+- [x] 12.4 `packages/views/repositories/components/repository-card.tsx` -- "{n} worklanes", Add worklane in the header, rows by `sortWorklanes` with their state and menu, each opening the worklane page; Remove repository shows the `has_worklanes` refusal.
+- [x] 12.5 `packages/views/modals/registry.tsx` -- register the three worklane dialogs.
 - [ ] 12.6 Component tests beside them:
   - New worklane: the errors, the Runtime list, the steps, Try again, and Cancel disabled while running.
   - Rename and Remove, including each refusal; no menu on `main`.
@@ -182,11 +182,11 @@ This change builds on UJ-2 (`repositories-of-a-project`, DAS-451): its `reposito
 
 ## 13. J9 Frontend: screen
 
-- [ ] 13.1 `packages/views/worklanes/components/worklane-page.tsx`, `worklane-timeline.tsx`, `worklane-activity.tsx`, `index.ts` -- the breadcrumb Projects > {project} > {owner/name} > {worklane}, the repository, the state, "No releases yet", the activity entries with avatar, sentence and time, and the menu -- the `worklane-page` spec delta.
-- [ ] 13.2 `apps/web/app/[workspaceSlug]/(dashboard)/worklanes/[id]/page.tsx`, `apps/desktop/src/renderer/src/routes.tsx`, `apps/desktop/src/renderer/src/pages/worklane-detail-page.tsx` -- the route `worklanes/:id` with the title "Worklane" on both.
+- [x] 13.1 `packages/views/worklanes/components/worklane-page.tsx`, `worklane-timeline.tsx`, `worklane-activity.tsx`, `index.ts` -- the breadcrumb Projects > {project} > {owner/name} > {worklane}, the repository, the state, "No releases yet", the activity entries with avatar, sentence and time, and the menu -- the `worklane-page` spec delta.
+- [x] 13.2 `apps/web/app/[workspaceSlug]/(dashboard)/worklanes/[id]/page.tsx`, `apps/desktop/src/renderer/src/routes.tsx`, `apps/desktop/src/renderer/src/pages/worklane-detail-page.tsx` -- the route `worklanes/:id` with the title "Worklane" on both.
 - [ ] 13.3 `packages/views/projects/components/project-table.tsx` -- a repository row folds open through `expandedRepositories` to worklane rows with name and state, `main` first, and shows + Worklane; project and organisation rows show "{n} worklanes" -- the `repository-worklanes` spec delta.
 - [ ] 13.4 `packages/views/projects/components/project-detail.tsx`, `packages/views/organisations/components/` -- the worklane count in the project header and on an organisation's page.
-- [ ] 13.5 `packages/views/locales/{en,zh-Hans,ko,ja,fr}/` -- a `worklanes` namespace for the dialog, steps, errors, menu, page and activity sentences, and the Install copy in `repositories` -- `locales/parity.test.ts` stays green.
+- [x] 13.5 `packages/views/locales/{en,zh-Hans,ko,ja,fr}/` -- a `worklanes` namespace for the dialog, steps, errors, menu, page and activity sentences, and the Install copy in `repositories` -- `locales/parity.test.ts` stays green.
 - [ ] 13.6 `packages/views/worklanes/components/worklane-page.test.tsx`, `packages/views/projects/components/projects-page.test.tsx`, `project-detail.test.tsx`, `packages/views/organisations/components/*.test.tsx` -- the `worklane-page` and `repository-worklanes` spec scenarios that belong to pages: a new worklane's page, the activity after a rename, the fold rows, + Worklane, and the counts before and after a create.
 - [ ] 13.7 `apps/docs/content/docs/projects.mdx`, `projects.zh.mdx`, `projects.ko.mdx`, `projects.ja.mdx`, `projects.fr.mdx` -- worklanes: creating one, its page, Rename and Remove, and the Install field.
 

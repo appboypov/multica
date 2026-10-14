@@ -77,6 +77,16 @@
     "add": "Dépôt",
     "load_failed": "Impossible de charger les dépôts"
   },
+  "install": {
+    "label": "Installation",
+    "none": "Aucune",
+    "none_note": "Les nouveaux worklanes n'installent rien.",
+    "typed": "Saisir une commande",
+    "typed_placeholder": "pnpm install --frozen-lockfile",
+    "from_file": "depuis {{file}}",
+    "finding": "Recherche de la commande d'installation",
+    "pick_repository_first": "Choisissez d'abord un dépôt"
+  },
   "card": {
     "toggle": "Replier ou déplier {{name}}",
     "default_branch": "Branche par défaut {{branch}}",

@@ -76,6 +76,16 @@
     "add": "저장소",
     "load_failed": "저장소를 불러오지 못했습니다"
   },
+  "install": {
+    "label": "설치",
+    "none": "없음",
+    "none_note": "새 worklane은 아무것도 설치하지 않습니다.",
+    "typed": "명령 입력",
+    "typed_placeholder": "pnpm install --frozen-lockfile",
+    "from_file": "{{file}}에서",
+    "finding": "설치 명령을 찾는 중",
+    "pick_repository_first": "먼저 저장소를 선택하세요"
+  },
   "card": {
     "toggle": "{{name}} 접기 또는 펼치기",
     "default_branch": "기본 브랜치 {{branch}}",

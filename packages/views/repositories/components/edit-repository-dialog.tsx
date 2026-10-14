@@ -25,11 +25,13 @@ import { Label } from "@multica/ui/components/ui/label";
 import { useT } from "../../i18n";
 import { CheckoutField, type CheckoutValue } from "./checkout-field";
 import { ReleasesField } from "./releases-field";
+import { InstallField } from "./install-field";
 
 /**
- * Edit repository: the repository stays fixed; its Checkout and Releases are
- * filled in. Save sends a check id only when the checkout changed, and then
- * only once the new checkout passes its check.
+ * Edit repository: the repository stays fixed; its Checkout, Releases and
+ * Install are filled in. Save sends a check id only when the checkout changed,
+ * and then only once the new checkout passes its check. The check runs on open,
+ * so a repository from before install commands gets the command it finds.
  */
 export function EditRepositoryDialog({
   onClose,
@@ -68,6 +70,7 @@ function EditRepositoryForm({
   });
   const [check, setCheck] = useState<RepositoryCheckoutRequest | null>(null);
   const [policy, setPolicy] = useState<VersionPolicy | null>(repository.version_policy);
+  const [install, setInstall] = useState<string | null>(repository.install_command);
   const [serverError, setServerError] = useState<string | null>(null);
   const wsId = useWorkspaceId();
   const { data: releases } = useQuery(releaseListOptions(wsId));
@@ -81,20 +84,23 @@ function EditRepositoryForm({
     checkout.path.trim() !== repository.checkout_path;
   const policyChanged = policy !== null && policy !== repository.version_policy;
   const stopsReleasingTooEarly = policy === "none" && unshipped.length > 0;
+  const installChanged = install !== null && install.trim() !== repository.install_command;
   const canSave =
-    (checkoutChanged ? !!check?.passed : policyChanged) &&
+    (checkoutChanged ? !!check?.passed : policyChanged || installChanged) &&
     policy !== null &&
     !stopsReleasingTooEarly &&
+    install !== null &&
     !updateRepository.isPending;
 
   const handleSave = async () => {
-    if (!canSave || !policy) return;
+    if (!canSave || !policy || install === null) return;
     setServerError(null);
     setRefusedReleases(null);
     try {
       await updateRepository.mutateAsync({
         id: repository.id,
         version_policy: policy,
+        install_command: install.trim(),
         ...(checkoutChanged && check ? { checkout_check_id: check.id } : {}),
       });
       onClose();
@@ -153,6 +159,13 @@ function EditRepositoryForm({
             }}
             keep={repository.version_policy}
             unshipped={unshipped}
+          />
+
+          <InstallField
+            found={check ? check.install_commands : null}
+            value={install}
+            onChange={setInstall}
+            finding
           />
 
           {serverError ? (

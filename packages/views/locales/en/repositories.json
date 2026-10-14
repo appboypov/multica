@@ -77,6 +77,16 @@
     "add": "Repository",
     "load_failed": "Could not load the repositories"
   },
+  "install": {
+    "label": "Install",
+    "none": "None",
+    "none_note": "New worklanes install nothing.",
+    "typed": "Type a command",
+    "typed_placeholder": "pnpm install --frozen-lockfile",
+    "from_file": "from {{file}}",
+    "finding": "Finding the install command",
+    "pick_repository_first": "Pick a repository first"
+  },
   "card": {
     "toggle": "Fold or unfold {{name}}",
     "default_branch": "Default branch {{branch}}",

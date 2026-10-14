@@ -76,6 +76,16 @@
     "add": "仓库",
     "load_failed": "无法加载仓库"
   },
+  "install": {
+    "label": "安装",
+    "none": "无",
+    "none_note": "新的 worklane 不安装任何内容。",
+    "typed": "输入命令",
+    "typed_placeholder": "pnpm install --frozen-lockfile",
+    "from_file": "来自 {{file}}",
+    "finding": "正在查找安装命令",
+    "pick_repository_first": "请先选择仓库"
+  },
   "card": {
     "toggle": "折叠或展开 {{name}}",
     "default_branch": "默认分支 {{branch}}",

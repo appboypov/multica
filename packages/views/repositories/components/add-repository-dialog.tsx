@@ -35,11 +35,12 @@ import { useNavigation } from "../../navigation";
 import { openExternal } from "../../platform";
 import { CheckoutField, defaultCheckoutPath, type CheckoutValue } from "./checkout-field";
 import { ReleasesField } from "./releases-field";
+import { InstallField } from "./install-field";
 
 /**
  * Add repository on a project: the repositories the workspace's GitHub App
  * can see, a repository already in a project shown with that project and not
- * pickable, then its Checkout and Releases. Add repository stays disabled
+ * pickable, then its Checkout, Releases and Install. Add repository stays disabled
  * until a picked repository's checkout passes its check; it awaits the server
  * and shows the project's page, where the new card is open.
  */
@@ -66,6 +67,7 @@ export function AddRepositoryDialog({
   const [checkout, setCheckout] = useState<CheckoutValue>({ daemonId: "", path: "" });
   const [check, setCheck] = useState<RepositoryCheckoutRequest | null>(null);
   const [policy, setPolicy] = useState<VersionPolicy | null>(null);
+  const [install, setInstall] = useState<string | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
 
   const project = projects.find((p) => p.id === projectId);
@@ -88,14 +90,16 @@ export function AddRepositoryDialog({
     setPicked(repository);
     setCheck(null);
     setPolicy(null);
+    setInstall(null);
     setServerError(null);
     setCheckout((value) => ({ ...value, path: defaultCheckoutPath(repository.full_name) }));
   };
 
-  const canSubmit = !!picked && !!check?.passed && policy !== null && !createRepository.isPending;
+  const canSubmit =
+    !!picked && !!check?.passed && policy !== null && install !== null && !createRepository.isPending;
 
   const handleSubmit = async () => {
-    if (!canSubmit || !picked || !check || !policy) return;
+    if (!canSubmit || !picked || !check || !policy || install === null) return;
     setServerError(null);
     try {
       await createRepository.mutateAsync({
@@ -103,6 +107,7 @@ export function AddRepositoryDialog({
         full_name: picked.full_name,
         checkout_check_id: check.id,
         version_policy: policy,
+        install_command: install.trim(),
       });
       onClose();
       toast.success(t(($) => $.add.toast_added, { name: picked.full_name, project: projectTitle }));
@@ -227,6 +232,15 @@ export function AddRepositoryDialog({
             lastTag={check ? check.last_tag : null}
             value={policy}
             onChange={setPolicy}
+            disabled={!check}
+          />
+
+          <InstallField
+            key={picked?.full_name ?? ""}
+            found={check ? check.install_commands : null}
+            value={install}
+            onChange={setInstall}
+            finding={!!picked}
             disabled={!check}
           />
 
