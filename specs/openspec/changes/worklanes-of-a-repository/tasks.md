@@ -188,7 +188,7 @@ This change builds on UJ-2 (`repositories-of-a-project`, DAS-451): its `reposito
 - [x] 13.4 `packages/views/projects/components/project-detail.tsx`, `packages/views/organisations/components/` -- the worklane count in the project header and on an organisation's page.
 - [x] 13.5 `packages/views/locales/{en,zh-Hans,ko,ja,fr}/` -- a `worklanes` namespace for the dialog, steps, errors, menu, page and activity sentences, and the Install copy in `repositories` -- `locales/parity.test.ts` stays green.
 - [ ] 13.6 `packages/views/worklanes/components/worklane-page.test.tsx`, `packages/views/projects/components/projects-page.test.tsx`, `project-detail.test.tsx`, `packages/views/organisations/components/*.test.tsx` -- the `worklane-page` and `repository-worklanes` spec scenarios that belong to pages: a new worklane's page, the activity after a rename, the fold rows, + Worklane, and the counts before and after a create.
-- [ ] 13.7 `apps/docs/content/docs/projects.mdx`, `projects.zh.mdx`, `projects.ko.mdx`, `projects.ja.mdx`, `projects.fr.mdx` -- worklanes: creating one, its page, Rename and Remove, and the Install field.
+- [x] 13.7 `apps/docs/content/docs/projects.mdx`, `projects.zh.mdx`, `projects.ko.mdx`, `projects.ja.mdx`, `projects.fr.mdx` -- worklanes: creating one, its page, Rename and Remove, and the Install field.
 
 ## 14. J11 Acceptance test and archive: acceptance test and archive
 

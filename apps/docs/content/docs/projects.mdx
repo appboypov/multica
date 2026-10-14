@@ -56,7 +56,18 @@ A project holds the GitHub repositories it works in. Its page shows the number o
 - **Repository** opens **Add repository**. It lists every repository the workspace's [GitHub App](/github-integration) can see, with Private or Public and its default branch. A repository is in at most one project: one that is already in a project shows that project's name and can't be picked. **Missing one? Give Multica access on GitHub** opens the App's installation page.
 - **Checkout** picks a machine and the folder of the repository's normal checkout, `~/Repos/{name}` to start with. Multica checks the folder on that machine: it must be a git checkout of the repository, on its default branch. With no folder there, **Clone it there** clones it.
 - **Releases** picks where the repository's version comes from: a version file found in the checkout (`pubspec.yaml`, `Cargo.toml`, `pyproject.toml` or `package.json`), **Tags only**, or **This repository does not release**.
+- **Install** picks the command that installs a new worklane's dependencies. Multica looks on the default branch for `pnpm-lock.yaml` (`pnpm install`), `package-lock.json` (`npm ci`), `yarn.lock` (`yarn install`), `pubspec.yaml` (`flutter pub get`) and `uv.lock` (`uv sync`), and offers each command it finds, the first one picked, as well as **None** and a command you type. **Edit repository** shows the saved command, and finds one when the repository has none yet.
 - A card's menu has **Edit repository**, which changes the checkout and the releases but not the repository, and **Remove repository**, which removes the repository and its worklane `main` from Multica. The checkout folder stays on the machine, unchanged. A repository with worklanes besides `main` can't be removed until they are.
+
+## Worklanes
+
+A worklane is a lane of work in a repository, with its own git worktree on one machine. Every repository has `main`, which works in the repository's checkout.
+
+- **Add worklane** on a repository's card, or **+ Worklane** on its row on Projects and an organisation's page, opens **New worklane · {owner/name}**. The **Name** is unique in the repository. **Folder** fills in from the name, in lowercase with dashes, and is unique among the repository's worklanes. **Runtime** lists the online machines that hold the repository's checkout and can make worktrees. **Worktree** shows where the worktree goes, `~/Worktrees/{organisation key}/{repository}/{folder}`, the branch it starts from and the install command.
+- **Create worklane** runs each step on the machine: fetch the default branch, add the worktree, install the dependencies. A failed step keeps its error with **Try again**, and no worklane is saved until every step passes. Then the worklane's page opens.
+- A worklane's page shows its repository, Busy or Free, its Timeline and its activity: who created it on which machine, each rename and the changes to its repository's releases.
+- A worklane's menu has **Rename**, which keeps the folder and the worktree, and **Remove**, which deletes the worktree on its machine and removes the worklane from Multica. Remove refuses, and says why, while the machine is offline or the worktree holds uncommitted changes or commits that are not on the default branch. `main` can't be renamed or removed.
+- A repository's card, its project's header and the rows on Projects and an organisation's page show how many worklanes they hold, `main` included.
 
 ## Project lead
 

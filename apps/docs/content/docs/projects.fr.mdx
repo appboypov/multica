@@ -56,7 +56,18 @@ Un projet contient les dépôts GitHub dans lesquels il travaille. Sa page affic
 - **Dépôt** ouvre **Ajouter un dépôt**. La liste montre chaque dépôt que la [GitHub App](/github-integration) de l'espace de travail peut voir, privé ou public, avec sa branche par défaut. Un dépôt appartient à au plus un projet : un dépôt déjà dans un projet affiche le nom de ce projet et ne peut pas être choisi. **Il en manque un ? Donnez accès à Multica sur GitHub** ouvre la page d'installation de l'App.
 - **Checkout** choisit une machine et le dossier du checkout habituel du dépôt, `~/Repos/{name}` au départ. Multica vérifie le dossier sur cette machine : ce doit être un checkout git du dépôt, sur sa branche par défaut. S'il n'y a pas de dossier, **Le cloner ici** le clone.
 - **Versions** choisit d'où vient la version du dépôt : un fichier de version trouvé dans le checkout (`pubspec.yaml`, `Cargo.toml`, `pyproject.toml` ou `package.json`), **Tags uniquement**, ou **Ce dépôt ne publie pas de versions**.
+- **Installation** choisit la commande qui installe les dépendances d'un nouveau worklane. Multica cherche sur la branche par défaut `pnpm-lock.yaml` (`pnpm install`), `package-lock.json` (`npm ci`), `yarn.lock` (`yarn install`), `pubspec.yaml` (`flutter pub get`) et `uv.lock` (`uv sync`), et propose chaque commande trouvée, la première choisie d'office, ainsi que **Aucune** et une commande saisie. **Modifier le dépôt** affiche la commande enregistrée, et en cherche une quand le dépôt n'en a pas encore.
 - Le menu d'une carte propose **Modifier le dépôt**, qui change le checkout et les versions mais pas le dépôt, et **Retirer le dépôt**, qui retire le dépôt et sa worklane `main` de Multica. Le dossier du checkout reste sur la machine, inchangé. Un dépôt qui a d'autres worklanes que `main` ne peut être retiré qu'une fois celles-ci retirées.
+
+## Worklanes
+
+Un worklane est une ligne de travail d'un dépôt, avec son propre worktree git sur une machine. Chaque dépôt a `main`, qui travaille dans le checkout du dépôt.
+
+- **Ajouter un worklane** sur la carte d'un dépôt, ou **+ Worklane** sur sa ligne dans Projets et sur la page d'une organisation, ouvre **Nouveau worklane · {owner/name}**. Le **Nom** est unique dans le dépôt. Le **Dossier** se remplit à partir du nom, en minuscules avec des tirets, et est unique parmi les worklanes du dépôt. **Runtime** liste les machines en ligne qui détiennent le checkout du dépôt et peuvent créer des worktrees. **Worktree** indique où va le worktree, `~/Worktrees/{organisation key}/{repository}/{folder}`, la branche dont il part et la commande d'installation.
+- **Créer le worklane** exécute chaque étape sur la machine : récupérer la branche par défaut, ajouter le worktree, installer les dépendances. Une étape échouée garde son erreur avec **Réessayer**, et aucun worklane n'est enregistré tant que toutes les étapes n'ont pas réussi. Ensuite, la page du worklane s'ouvre.
+- La page d'un worklane montre son dépôt, Occupé ou Libre, sa Chronologie et son activité : qui l'a créé sur quelle machine, chaque renommage et les changements des versions de son dépôt.
+- Le menu d'un worklane propose **Renommer**, qui garde le dossier et le worktree, et **Retirer**, qui supprime le worktree sur sa machine et retire le worklane de Multica. Retirer refuse, en disant pourquoi, tant que la machine est hors ligne ou que le worktree contient des modifications non commitées ou des commits absents de la branche par défaut. `main` ne peut être ni renommé ni retiré.
+- La carte d'un dépôt, l'en-tête de son projet et les lignes de Projets et de la page d'une organisation montrent combien de worklanes ils contiennent, `main` compris.
 
 ## Responsable du projet
 
