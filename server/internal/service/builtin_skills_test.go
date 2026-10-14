@@ -642,9 +642,10 @@ func TestPlatformSkillCoversPlatformContracts(t *testing.T) {
 				"multica runtime list --output json",
 				"multica repo checkout <url>",
 				"MULTICA_DAEMON_PORT",
-				"resource_ref.ref",
-				"github_repo",
-				"local_directory",
+				// Project repositories replaced project resources (ADR-0007):
+				// an issue task works in its recorded issue worktree.
+				"recorded issue-worktree paths",
+				"It never redirects code work into the repository's normal checkout.",
 				"Runtime and repo commands affect active agent execution",
 				// An agent reads this to know whether its checkout can be
 				// committed to. Codex on Linux and Windows gets task-local Git
@@ -652,20 +653,20 @@ func TestPlatformSkillCoversPlatformContracts(t *testing.T) {
 				"Linux and Windows Codex",
 				"task-local Git metadata",
 			},
+			notWant: []string{"resource_ref", "local_directory"},
 		},
 		{
 			file: "references/projects.md",
 			want: []string{
-				"Projects are durable context containers",
-				".multica/project/resources.json",
-				"multica project resource list <project-id> --output json",
-				"multica project resource add <project-id> --type github_repo --url <github-url> --output json",
-				"multica project resource add <project-id> --type github_repo --url <github-url> --ref <branch-or-sha> --output json",
-				"multica project resource add <project-id> --type local_directory",
-				"Project resources are durable and affect future tasks",
-				"github_repo.resource_ref.url",
-				"resource_ref.ref",
+				"`.multica/project/repositories.json` carries the same repository context",
+				"multica repo checkout owner/name",
+				"the old `multica project resource` commands no longer exist",
+				"`~/Worktrees/{organisation key}/{repo}/{issue key}`",
+				"a passed `checkout_check_id` for that repository's current default branch",
+				"Uncommitted changes or unpushed commits keep the worktree",
+				"Project and repository writes mutate durable workspace state and affect future tasks.",
 			},
+			notWant: []string{"resources.json", "resource_ref", "multica project resource add"},
 		},
 		{
 			file: "references/skill-import.md",
