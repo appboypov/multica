@@ -1536,8 +1536,6 @@
       "name": "Aucun modèle",
       "hint": "Un titre et une description libre"
     },
-    "required": "Obligatoire",
-    "optional": "Facultatif",
     "markdown_aria": "Le Markdown du modèle"
   },
   "placement_refusal": {

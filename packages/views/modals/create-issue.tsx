@@ -35,7 +35,7 @@ import type {
   SourceContextPreview,
 } from "@multica/core/types";
 import { contentReferencesAttachment } from "@multica/core/types";
-import { issueTemplatesOptions, requiredFilled, templateMarkdown } from "@multica/core/issues/templates";
+import { issueTemplatesOptions, templateMarkdown } from "@multica/core/issues/templates";
 import {
   defaultStatus,
   openedFrom,
@@ -925,8 +925,7 @@ export function ManualCreatePanel({
       titleEditorRef.current?.focus();
       return;
     }
-    // Markdown edited by hand replaces the fields, so they gate nothing.
-    if (type !== null && handMarkdown === null && (!template || !requiredFilled(template, title, fields))) return;
+    if (type !== null && !template) return;
     void composer.submit();
   };
   const submitting = composer.submitting;
@@ -995,7 +994,7 @@ export function ManualCreatePanel({
     | "submitting"
     | "uploading"
     | "missing_title"
-    | "missing_required"
+    | "loading_template"
     | "source_unavailable"
     | "ready" =
     submitting
@@ -1006,8 +1005,8 @@ export function ManualCreatePanel({
           ? "source_unavailable"
           : !title.trim()
             ? "missing_title"
-            : type !== null && handMarkdown === null && (!template || !requiredFilled(template, title, fields))
-              ? "missing_required"
+            : type !== null && !template
+              ? "loading_template"
               : "ready";
   const submitBusy = submitState === "submitting" || submitState === "uploading";
 
@@ -1024,7 +1023,7 @@ export function ManualCreatePanel({
       disabled={submitBusy}
       aria-disabled={
         submitState === "missing_title" ||
-        submitState === "missing_required" ||
+        submitState === "loading_template" ||
         submitState === "source_unavailable" ||
         undefined
       }
@@ -1667,7 +1666,7 @@ export function ManualCreatePanel({
                 />
                 {t(($) => $.create_issue.create_another)}
               </label>
-              {submitState === "missing_title" || submitState === "missing_required" ? (
+              {submitState === "missing_title" ? (
                 <TooltipProvider delay={200}>
                   <Tooltip>
                     {/* No `<span>` wrapper needed now: aria-disabled leaves the
@@ -1675,9 +1674,7 @@ export function ManualCreatePanel({
                         tooltip. */}
                     <TooltipTrigger render={createButton} />
                     <TooltipContent side="top">
-                      {submitState === "missing_title"
-                        ? t(($) => $.create_issue.title_required)
-                        : t(($) => $.create_issue.required_missing)}
+                      {t(($) => $.create_issue.title_required)}
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>

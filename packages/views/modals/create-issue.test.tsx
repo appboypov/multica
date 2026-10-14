@@ -54,7 +54,7 @@ const mockApiUploadFile = vi.hoisted(() => vi.fn());
 const mockListIssueTemplates = vi.hoisted(() => vi.fn());
 const mockCopyText = vi.hoisted(() => vi.fn());
 
-// One template with one required field, enough to tell picking a template
+// One template with one field, enough to tell picking a template
 // apart from No template.
 const STORY_TEMPLATE = {
   type: "story" as const,
@@ -65,7 +65,6 @@ const STORY_TEMPLATE = {
       field: {
         key: "story",
         label: "Story",
-        required: true,
         placeholder: "",
         rows: 3,
         format: "text" as const,
@@ -828,7 +827,7 @@ describe("CreateIssueModal", () => {
     expect(payload).not.toHaveProperty("type");
   });
 
-  it("creates a Story from the Story template once its required field is filled", async () => {
+  it("creates a Story from the Story template with only its title filled", async () => {
     const user = userEvent.setup();
     renderModal(<CreateIssueModal onClose={vi.fn()} />);
 
@@ -838,8 +837,6 @@ describe("CreateIssueModal", () => {
     expect(screen.getByRole("button", { name: "Markdown" })).toBeInTheDocument();
 
     await user.type(screen.getByPlaceholderText("Issue title"), "Story issue");
-    expect(screen.getByRole("button", { name: "Create story" })).toHaveAttribute("aria-disabled", "true");
-    await user.type(screen.getByRole("textbox", { name: /Story/ }), "Brian wants a story");
     const create = screen.getByRole("button", { name: "Create story" });
     expect(create).not.toHaveAttribute("aria-disabled");
     await user.click(create);
@@ -849,7 +846,7 @@ describe("CreateIssueModal", () => {
       title: "Story issue",
       type: "story",
       from_template: true,
-      description: expect.stringContaining("Brian wants a story"),
+      description: "## Story\n> Who wants what?",
     });
   });
 
@@ -2232,7 +2229,7 @@ describe("CreateIssueModal", () => {
         {
           heading: "## Goal",
           question: "What should change?",
-          field: { key: "goal", label: "Goal", required: true, placeholder: "", rows: 3, format: "text" as const },
+          field: { key: "goal", label: "Goal", placeholder: "", rows: 3, format: "text" as const },
         },
       ],
     };
@@ -2269,13 +2266,11 @@ describe("CreateIssueModal", () => {
       expect(screen.getByLabelText(/^Goal/)).toHaveValue("Ship it");
     });
 
-    it("creates the issue with the hand-edited Markdown once the title is filled", async () => {
+    it("creates the issue with the hand-edited Markdown and locks the fields", async () => {
       const markdown = await openMarkdown();
       fireEvent.change(screen.getByPlaceholderText("Issue title"), { target: { value: "Hand written" } });
 
       const create = () => screen.getByRole("button", { name: /^Create story/i });
-      expect(create()).toHaveAttribute("aria-disabled", "true");
-
       fireEvent.change(markdown, { target: { value: "## Goal\n\nMy own Markdown" } });
       expect(mockSetManual).toHaveBeenLastCalledWith({ markdown: "## Goal\n\nMy own Markdown" });
       expect(create()).not.toHaveAttribute("aria-disabled");

@@ -230,7 +230,6 @@
       "sub_issue_of": "Sub-issue of {{identifier}}"
     },
     "submit_type": "Create {{type}}",
-    "required_missing": "Fill the title and every required field to create",
     "project_from_worklane": "The project follows the worklane"
   },
   "mark_duplicate": {

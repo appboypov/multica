@@ -230,7 +230,6 @@
       "sub_issue_of": "Sous-tâche de {{identifier}}"
     },
     "submit_type": "Créer : {{type}}",
-    "required_missing": "Remplissez le titre et chaque champ obligatoire pour créer",
     "project_from_worklane": "Le projet suit le worklane"
   },
   "mark_duplicate": {

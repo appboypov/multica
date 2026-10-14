@@ -191,7 +191,7 @@ test.describe("Issues", () => {
     // END THEN
   });
 
-  test("Brian edits New issue's Markdown by hand / A hand edit; Create stays disabled until the title and the description are complete / A hand-edited Markdown", async ({ page }) => {
+  test("Brian edits New issue's Markdown by hand / A hand edit", async ({ page }) => {
     await preferManualCreateMode(page);
     await page.getByRole("button", { name: "New Issue", exact: true }).click();
     const dialog = page.getByRole("dialog", { name: "New Issue", exact: true });
@@ -205,7 +205,6 @@ test.describe("Issues", () => {
     );
     const acceptanceCriteria = dialog.getByRole("textbox", { name: /^Acceptance criteria\b/i });
     await expect(acceptanceCriteria).toHaveValue("");
-    await expect(acceptanceCriteria).toHaveAttribute("aria-required", "true");
 
     const toggle = dialog.getByRole("button", { name: "Markdown", exact: true });
     await toggle.click();
@@ -312,6 +311,38 @@ test.describe("Issues", () => {
       const issue = await api.getIssue(created.id);
       expect(issue).toHaveProperty("type", null);
       expect(issue).toHaveProperty("description", expect.stringContaining(description));
+    } finally {
+      await api.deleteIssue(created.id);
+    }
+  });
+
+  test("Create stays disabled until the title is filled / Only the title filled", async ({ page }) => {
+    await preferManualCreateMode(page);
+    await page.getByRole("button", { name: "New Issue", exact: true }).click();
+
+    const dialog = page.getByRole("dialog", { name: "New Issue", exact: true });
+    await dialog.getByRole("radio", { name: /\bChore\b/ }).click();
+    const create = dialog.getByRole("button", { name: "Create chore", exact: true });
+    await expect(create).toHaveAttribute("aria-disabled", "true");
+
+    const title = `Renew the TLS certificate ${Date.now()}`;
+    await dialog.getByRole("textbox", { name: "Issue title" }).fill(title);
+    await expect(create).not.toHaveAttribute("aria-disabled");
+
+    const createdResponse = page.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname === "/api/issues" &&
+        response.request().method() === "POST" &&
+        response.request().postDataJSON()?.title === title,
+    );
+    await create.click();
+    const response = await createdResponse;
+    expect(response.ok()).toBe(true);
+    const created = await response.json();
+    try {
+      const issue = await api.getIssue(created.id);
+      expect(issue).toHaveProperty("type", "chore");
+      expect(issue).toHaveProperty("description", expect.stringContaining("Acceptance criteria"));
     } finally {
       await api.deleteIssue(created.id);
     }

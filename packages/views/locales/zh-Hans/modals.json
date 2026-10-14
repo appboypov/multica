@@ -229,7 +229,6 @@
       "sub_issue_of": "作为 {{identifier}} 的子任务"
     },
     "submit_type": "创建{{type}}",
-    "required_missing": "填写标题和所有必填字段后才能创建",
     "project_from_worklane": "项目跟随 worklane"
   },
   "mark_duplicate": {

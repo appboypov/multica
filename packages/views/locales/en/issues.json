@@ -1536,8 +1536,6 @@
       "name": "No template",
       "hint": "A title and a free description"
     },
-    "required": "Required",
-    "optional": "Optional",
     "markdown_aria": "The template's Markdown"
   },
   "placement_refusal": {
