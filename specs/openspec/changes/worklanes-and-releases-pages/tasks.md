@@ -80,11 +80,11 @@ This change builds on UJ-6 (`worklane-board-and-list`, DAS-459), which builds on
 
 ## 7. J9 Frontend: flow
 
-- [ ] 7.1 `packages/core/projects/sort.ts`, `index.ts`, `packages/views/projects/components/projects-page.tsx` -- `sortProjects(projects, sortField, sortDirection)`, the comparator moved out of `projects-page.tsx`, which calls it -- design.md decision 1.
+- [x] 7.1 `packages/core/projects/sort.ts`, `index.ts`, `packages/views/projects/components/projects-page.tsx` -- `sortProjects(projects, sortField, sortDirection)`, the comparator moved out of `projects-page.tsx`, which calls it -- design.md decision 1.
 - [ ] 7.2 `packages/core/worklanes/overview.ts`, `index.ts` -- `worklaneOverview` -- design.md decision 1.
 - [ ] 7.3 `packages/core/releases/overview.ts`, `index.ts` -- `releaseOverview` with each row's `state`, `setByHand`, `done`, `total`, `worklanes` and `target`, and `doesNotRelease` -- design.md decision 1.
 - [ ] 7.4 `packages/core/projects/sort.test.ts`, `packages/core/worklanes/overview.test.ts`, `packages/core/releases/overview.test.ts` (`// @vitest-environment node`) -- each sort field and direction; organisation, project, repository and worklane order; groups with nothing to list left out; "No organisation" last; the counts; shipped releases left out; a release's worklanes and target with and without issues; totals with a worklane-less issue; a repository that does not release; no repositories at all.
-- [ ] 7.5 `packages/core/paths/paths.ts`, `route-icons.ts`, `tab-subject.ts`, `consistency.test.ts`, `paths.test.ts`, `packages/views/editor/utils/link-handler.ts` -- `paths.worklanes()`, `paths.releases()`, `WORKSPACE_PAGES.worklanes` (`GitBranch`) and `.releases` (`Tag`), the page subjects `worklanes` and `releases` beside UJ-3's worklane subject, and both segments -- design.md decision 5.
+- [x] 7.5 `packages/core/paths/paths.ts`, `route-icons.ts`, `tab-subject.ts`, `consistency.test.ts`, `paths.test.ts`, `packages/views/editor/utils/link-handler.ts` -- `paths.worklanes()`, `paths.releases()`, `WORKSPACE_PAGES.worklanes` (`GitBranch`) and `.releases` (`Tag`), the page subjects `worklanes` and `releases` beside UJ-3's worklane subject, and both segments -- design.md decision 5.
 
 ## 8. J9 Frontend: component
 
@@ -93,7 +93,7 @@ This change builds on UJ-6 (`worklane-board-and-list`, DAS-459), which builds on
 - [ ] 8.3 `packages/views/repositories/components/repository-card.tsx` -- `worklane-row-work.tsx` under each worklane's name -- the `worklane-row-work` spec delta.
 - [ ] 8.4 `packages/views/projects/components/work-tree.tsx` -- the header row, organisation, project and repository rows with chevrons, links, meta and the repository action slot, folding through the page's closed keys -- design.md decision 4.
 - [ ] 8.5 `packages/views/releases/components/release-row.tsx` -- chip, title, "Set by hand", progress "{done}/{total}", worklane chips or "No issues yet", the row a link to the target's Timeline with `?release={id}`, no menu -- design.md decision 4.
-- [ ] 8.6 `packages/views/layout/route-icon-components.tsx`, `route-icon-components.test.tsx` -- the `GitBranch` and `Tag` icons.
+- [x] 8.6 `packages/views/layout/route-icon-components.tsx`, `route-icon-components.test.tsx` -- the `GitBranch` and `Tag` icons.
 - [ ] 8.7 `packages/views/worklanes/components/worklane-row-work.test.tsx`, `packages/views/releases/components/release-row.test.tsx` -- the three states of the line with a workspace's own status; a release row's parts, its link with `?release`, and no release actions.
 
 ## 9. J9 Frontend: screen

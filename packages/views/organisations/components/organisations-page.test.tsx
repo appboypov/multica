@@ -40,6 +40,7 @@ vi.mock("@multica/core/organisations", () => ({
 
 vi.mock("@multica/core/projects", () => ({
   projectListOptions: () => ({ queryKey: ["projects"] }),
+  sortProjects: (projects: Project[]) => projects,
   useProjectViewStore: (selector: (state: unknown) => unknown) =>
     selector({ sortField: "name", sortDirection: "asc" }),
 }));
@@ -54,7 +55,6 @@ vi.mock("../../projects/components/project-table", () => ({
     </ul>
   ),
   ProjectBatchToolbar: () => null,
-  sortProjects: (projects: Project[]) => projects,
 }));
 
 vi.mock("@multica/core/pins", () => ({

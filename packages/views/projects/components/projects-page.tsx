@@ -16,6 +16,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import {
   groupProjectsByOrganisation,
+  sortProjects,
   projectListOptions,
   useUpdateProject,
   useProjectViewStore,
@@ -85,7 +86,6 @@ import {
   ProjectBatchToolbar,
   ProjectRowActions,
   ProjectTable,
-  sortProjects,
 } from "./project-table";
 import { PAGE_GUTTER, PAGE_TOOLBAR } from "../../layout/page-header";
 import { cn } from "@multica/ui/lib/utils";

@@ -4,7 +4,8 @@ import userEvent from "@testing-library/user-event";
 import type { Organisation, Project } from "@multica/core/types";
 import { renderWithI18n } from "../../test/i18n";
 import { NavigationProvider, type NavigationAdapter } from "../../navigation";
-import { ProjectTable, sortProjects } from "./project-table";
+import { sortProjects } from "@multica/core/projects";
+import { ProjectTable } from "./project-table";
 
 const mocks = vi.hoisted(() => ({ viewStore: null as unknown as {
   setState: (state: Record<string, unknown>) => void;
@@ -34,6 +35,8 @@ vi.mock("@multica/core/projects", async () => {
   }));
   mocks.viewStore = store as unknown as typeof mocks.viewStore;
   return {
+    sortProjects: (await vi.importActual<{ sortProjects: typeof sortProjects }>("@multica/core/projects"))
+      .sortProjects,
     useProjectViewStore: store,
     useUpdateProject: () => ({ mutate: vi.fn() }),
     useDeleteProject: () => ({ mutate: vi.fn() }),

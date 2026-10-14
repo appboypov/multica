@@ -14,7 +14,7 @@ import {
 } from "@multica/core/organisations";
 import { useWorkspacePaths } from "@multica/core/paths";
 import { pinListOptions } from "@multica/core/pins";
-import { projectListOptions, useProjectViewStore } from "@multica/core/projects";
+import { projectListOptions, sortProjects, useProjectViewStore } from "@multica/core/projects";
 import type { MemberWithUser, Organisation } from "@multica/core/types";
 import { memberListOptions } from "@multica/core/workspace/queries";
 import { Input } from "@multica/ui/components/ui/input";
@@ -28,11 +28,7 @@ import {
 import { PAGE_GUTTER } from "../../layout/page-header";
 import { useNavigation } from "../../navigation";
 import { useT } from "../../i18n";
-import {
-  ProjectBatchToolbar,
-  ProjectTable,
-  sortProjects,
-} from "../../projects/components/project-table";
+import { ProjectBatchToolbar, ProjectTable } from "../../projects/components/project-table";
 import { organisationKeyProblem, type OrganisationKeyProblem } from "../validation";
 
 /**

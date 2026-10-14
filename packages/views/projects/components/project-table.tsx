@@ -25,7 +25,6 @@ import { useCreatePin, useDeletePin } from "@multica/core/pins";
 import { useWorkspacePaths } from "@multica/core/paths";
 import type {
   Project,
-  ProjectPriority,
   UpdateProjectRequest,
 } from "@multica/core/types";
 import { Button } from "@multica/ui/components/ui/button";
@@ -64,43 +63,6 @@ import { ProjectLeadPicker } from "./project-lead-picker";
 
 // The fold key of the "No organisation" group in `collapsedOrganisations`.
 const NO_ORGANISATION_KEY = "none";
-
-// Sort order map for the priority column (header sort needs a total order).
-const PRIORITY_ORDER: Record<ProjectPriority, number> = {
-  urgent: 4,
-  high: 3,
-  medium: 2,
-  low: 1,
-  none: 0,
-};
-
-const progressOf = (p: Project) =>
-  p.issue_count > 0 ? p.done_count / p.issue_count : -1;
-
-/**
- * Orders projects by the view store's sort. Callers sort before they group,
- * because `groupProjectsByOrganisation` keeps the input order in each group.
- */
-export function sortProjects(
-  projects: readonly Project[],
-  field: ProjectSortField,
-  direction: ProjectSortDirection,
-): Project[] {
-  const dir = direction === "asc" ? 1 : -1;
-  return [...projects].sort((a, b) => {
-    if (field === "name") return a.title.localeCompare(b.title) * dir;
-    if (field === "priority") {
-      return (
-        (PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority]) * dir ||
-        a.title.localeCompare(b.title)
-      );
-    }
-    if (field === "progress") {
-      return (progressOf(a) - progressOf(b)) * dir || a.title.localeCompare(b.title);
-    }
-    return (Date.parse(a.created_at) - Date.parse(b.created_at)) * dir;
-  });
-}
 
 // ---------------------------------------------------------------------------
 // Table (compact) view — ListGrid. Name is the core column;
