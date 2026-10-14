@@ -156,7 +156,7 @@ flowchart LR
 - [x] 10.1 `packages/views/projects/components/project-badge.tsx`, `labels.ts`, `project-start-date-picker.tsx`, `project-due-date-picker.tsx` -- remove `ProjectStatusBadge`, the status labels and both date pickers -- ADR-0005.
 - [x] 10.2 `packages/views/projects/components/organisation-picker.tsx` -- a dropdown of the workspace's organisations by name, with "No organisation" as the value shown when none is set, on the existing `DropdownMenu` and `PillButton` -- one control for New project and the project page.
 - [x] 10.3 `packages/views/projects/components/project-table.tsx` -- the table body moved out of `projects-page.tsx`, taking `projects` and optional `groups`. Group rows carry a chevron, the organisation's name as an `AppLink` to its page, and "N projects", and fold through `collapsedOrganisations` -- shared by Projects and the Organisation page.
-- [x] 10.4 `packages/views/search/search-command.tsx`, `packages/views/editor/extensions/mention-suggestion.tsx`, `packages/views/chat/use-chat-context-items.ts` -- drop the project status icons and labels -- decision 3.
+- [ ] 10.4 `packages/views/search/search-command.tsx`, `packages/views/editor/extensions/mention-suggestion.tsx`, `packages/views/chat/use-chat-context-items.ts` -- drop the project status icons and labels -- decision 3.
 - [x] 10.5 `packages/views/issues/components/issues-header.tsx`, `filter-chips-bar.tsx`, `packages/views/issues/surface/use-issue-surface-controller.ts`, `use-issue-surface-data.ts`, `packages/views/issues/utils/filter.ts` -- remove the project status filter, its chips and its use in filtering -- the Issues filter goes.
 
 ## 11. J9 Frontend: screen
@@ -173,7 +173,7 @@ flowchart LR
   - Send `organisation_id`.
 - [x] 11.4 `packages/views/organisations/components/organisations-page.tsx`, `organisation-page.tsx`, `index.ts` -- Organisations and Organisation as decision 5 sets them out. Organisation has the key field with inline errors and New project, and a not-found state.
 - [x] 11.5 `packages/views/modals/create-organisation.tsx`, `packages/views/modals/registry.tsx` -- New organisation with name and key. It checks for empties, the key rule, and a taken name or key against the loaded list. Create awaits the server -- the spec's dialog rules.
-- [x] 11.6 `packages/views/layout/app-sidebar.tsx` -- Organisations in `workNav` after Projects -- the spec's sidebar.
+- [ ] 11.6 `packages/views/layout/app-sidebar.tsx` -- Organisations in `workNav` after Projects -- the spec's sidebar.
 - [x] 11.7 `apps/web/app/[workspaceSlug]/(dashboard)/organisations/page.tsx`, `organisations/[id]/page.tsx`, `apps/web/proxy.ts`, `apps/desktop/src/renderer/src/routes.tsx` -- thin routes to the shared pages, as squads has them -- wired into both apps.
 - [ ] 11.8 `packages/views/locales/{en,zh-Hans,ko,ja,fr}/organisations.json`, `projects.json`, `issues.json`, `layout.json`, `modals.json`, `packages/views/i18n/resources-types.ts` -- the `organisations` namespace, and the organisation copy in projects, the sidebar and the modals. Remove the project status and date keys and the issues project status filter keys in all five languages -- `locales/parity.test.ts` stays green.
 - [ ] 11.9 `packages/views/organisations/components/organisations-page.test.tsx`, `packages/views/modals/create-organisation.test.tsx`, `packages/views/projects/components/projects-page.test.tsx`, `packages/views/modals/create-project.test.tsx`:
