@@ -132,7 +132,7 @@ Every group builds on UJ-1's code (change `answer-an-agents-question-and-wake-it
 
 ## Implementation Notes
 
-- J2 builds on UJ-1's open J11 pull request; group 1 edits UJ-1's tables and group 9 UJ-1's service. The ask migrations use 575 and 576 because UJ-1 already uses 570 and 571.
+- J2 builds on UJ-1's open J11 pull request; group 1 edits UJ-1's tables and group 9 UJ-1's service. The ask migrations use 575 and 576 because UJ-1 uses 566 to 571 and the organisation migrations use 572 to 574.
 - The ask's request and response change together with `multica question ask` (group 12); no web or desktop code posts questions.
 - J2 keeps the single-question service creation path valid under the required ask columns. The grouped service, handler response, notification producers and policy transitions remain in J8; set rendering remains in J9.
 - The overdue read includes `partly_answered`; the existing partial `idx_question_overdue` covers only `open`, so the wider read cannot use that index's predicate.
