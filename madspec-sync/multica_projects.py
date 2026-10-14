@@ -236,14 +236,13 @@ def plan(brain: Brain, organisations: list[dict], projects: list[dict],
             reports.append(f"{repo.key}: has {len(repo.checkouts)} checkouts")
             continue
         check = checks[key]
-        result = check.get("result") or {}
-        if check["status"] != "completed" or result.get("passed") is not True:
-            failures = result.get("failures") or []
+        if check["status"] != "completed" or check.get("passed") is not True:
+            failures = check.get("failures") or []
             detail = "; ".join(f"{failure['code']}: {failure.get('detail', '')}" for failure in failures)
             reports.append(f"{repo.key}: checkout failed: {detail or check.get('error') or check['status']}")
             continue
-        files = result["version_files"]
-        commands = result["install_commands"]
+        files = check.get("version_files") or []
+        commands = check.get("install_commands") or []
         repository_writes.append(RepositoryWrite(
             repo.id, product_id, visible[key]["full_name"], check["id"],
             files[0] if files else "tags", commands[0]["command"] if commands else "",
