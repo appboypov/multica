@@ -70,19 +70,19 @@ RETURNING id;
 -- name: ClearPlacementOfRepositoryIssues :many
 -- Runs before the worklanes are deleted.
 UPDATE issue SET worklane_id = NULL, release_id = NULL, revision = revision + 1, updated_at = now()
-WHERE workspace_id = sqlc.arg('workspace_id')
-  AND worklane_id IN (SELECT id FROM worklane
-                     WHERE workspace_id = sqlc.arg('workspace_id') AND repository_id = sqlc.arg('repository_id'))
-RETURNING id;
+WHERE issue.workspace_id = sqlc.arg('workspace_id')
+  AND issue.worklane_id IN (SELECT wl.id FROM worklane wl
+                           WHERE wl.workspace_id = sqlc.arg('workspace_id') AND wl.repository_id = sqlc.arg('repository_id'))
+RETURNING issue.id;
 
 -- name: ClearPlacementOfProjectIssues :many
 -- Runs before the repositories and their worklanes are deleted.
 UPDATE issue SET worklane_id = NULL, release_id = NULL, revision = revision + 1, updated_at = now()
-WHERE workspace_id = sqlc.arg('workspace_id')
-  AND worklane_id IN (SELECT wl.id FROM worklane wl
+WHERE issue.workspace_id = sqlc.arg('workspace_id')
+  AND issue.worklane_id IN (SELECT wl.id FROM worklane wl
                      JOIN repository r ON r.id = wl.repository_id AND r.workspace_id = wl.workspace_id
                      WHERE wl.workspace_id = sqlc.arg('workspace_id') AND r.project_id = sqlc.arg('project_id'))
-RETURNING id;
+RETURNING issue.id;
 
 -- name: ListReleaseTotals :many
 -- Closed issues of a removed worklane keep their release, so totals cannot
