@@ -103,6 +103,19 @@ A release has no date and no goal before it ships.
 
 Set **Releases** to **This repository does not release** in **Edit repository**, and its worklanes show "{owner/name} does not release, so its worklanes plan no releases." in place of Plan release. A repository can't stop releasing while its line holds unshipped releases: Edit repository names them and asks you to remove them first. Pick **Tags only** or a version file again, and Plan release starts from the last tag.
 
+## Worklanes and Releases
+
+**Worklanes** and **Releases** sit under Work in the sidebar, after Organisations. Both list the workspace's work by organisation, project and repository, in the order Projects shows them, and leave out anything that holds nothing to list. Every group opens unfolded; click a chevron or a group's row to fold it. An organisation's or a project's name opens its page.
+
+- **Worklanes** lists every worklane, `main` first under each repository. Each repository shows its default branch and **+ Worklane**, which opens New worklane for it. A worklane row shows what the worklane works on and its releases: the last shipped one, the next one with "{done}/{total}" over this worklane's issues in it, and up to two planned releases after it. The row opens the worklane's Timeline.
+- **Releases** lists every repository's releases that have not shipped, in line order: the version with **Next release** or **Planned**, the title, **Set by hand** for a version set by hand, a progress bar with "{done}/{total}" over every issue in the release, and the worklanes that hold its issues, or **No issues yet**. The row opens the Timeline of the first of those worklanes, or of `main`, with the release in view. A repository set to not release shows **This repository does not release**.
+
+Neither page plans, edits or moves releases: do that from a worklane's Timeline.
+
+### The line under a worklane's name
+
+Every worklane row, on Projects, an organisation's page, a project's repositories and Worklanes, shows one line under the worklane's name: the status and "{ID} {title}" of the issue it works on while Busy, "Next: {ID} {title}" while Free, or **Nothing queued** when no issue is left.
+
 ## Pin to the sidebar
 
 A pinned project appears in your sidebar. Pinning is a personal preference and does not affect other members.

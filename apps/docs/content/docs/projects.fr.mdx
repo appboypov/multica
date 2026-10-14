@@ -103,6 +103,19 @@ Une version n’a ni date ni objectif avant sa publication.
 
 Choisissez **Ce dépôt ne publie pas de versions** pour **Versions** dans **Modifier le dépôt**, et ses worklanes affichent « {owner/name} ne publie pas de versions, donc ses worklanes n’en planifient pas. » à la place de Planifier une version. Un dépôt ne peut pas arrêter de publier tant que sa ligne contient des versions non publiées : Modifier le dépôt les nomme et vous demande de les retirer d’abord. Choisissez de nouveau **Tags uniquement** ou un fichier de version, et Planifier une version repart du dernier tag.
 
+## Worklanes et Versions
+
+**Worklanes** et **Versions** se trouvent sous Travail dans la barre latérale, après Organisations. Les deux pages listent le travail de l’espace de travail par organisation, projet et dépôt, dans l’ordre de la page Projets, et omettent ce qui n’a rien à lister. Chaque groupe s’ouvre déplié ; cliquez sur un chevron ou sur la ligne d’un groupe pour le replier. Le nom d’une organisation ou d’un projet ouvre sa page.
+
+- **Worklanes** liste chaque worklane, `main` en premier sous chaque dépôt. Chaque dépôt affiche sa branche par défaut et **+ Worklane**, qui ouvre Nouveau worklane pour ce dépôt. La ligne d’un worklane montre ce sur quoi il travaille et ses versions : la dernière publiée, la prochaine avec « {done}/{total} » sur les tâches de ce worklane qu’elle contient, et jusqu’à deux versions planifiées après elle. La ligne ouvre la frise du worklane.
+- **Versions** liste les versions non publiées de chaque dépôt, dans l’ordre de sa ligne : le numéro avec **Prochaine version** ou **Planifiée**, le titre, **Définie à la main** pour un numéro saisi à la main, une barre de progression avec « {done}/{total} » sur toutes les tâches de la version, et les worklanes qui en contiennent les tâches, ou **Aucune tâche pour l’instant**. La ligne ouvre la frise du premier de ces worklanes, ou de `main`, sur cette version. Un dépôt réglé pour ne pas publier affiche **Ce dépôt ne publie pas de versions**.
+
+Aucune des deux pages ne planifie, ne modifie ni ne déplace de versions : faites-le depuis la frise d’un worklane.
+
+### La ligne sous le nom d’un worklane
+
+Chaque ligne de worklane, sur Projets, la page d’une organisation, les dépôts d’un projet et Worklanes, affiche une ligne sous le nom du worklane : le statut et « {ID} {titre} » de la tâche en cours quand il est Occupé, « Ensuite : {ID} {titre} » quand il est Libre, ou **Rien en attente** quand il ne reste aucune tâche.
+
 ## Épingler à la barre latérale
 
 Un projet épinglé apparaît dans votre barre latérale. L'épinglage est une préférence personnelle et n'affecte pas les autres membres.

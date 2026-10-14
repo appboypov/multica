@@ -104,7 +104,7 @@ This change builds on UJ-6 (`worklane-board-and-list`, DAS-459), which builds on
 - [x] 9.4 `apps/web/app/[workspaceSlug]/(dashboard)/worklanes/page.tsx`, `releases/page.tsx`, `apps/web/proxy.ts`, `apps/desktop/src/renderer/src/routes.tsx` -- thin routes to the shared pages, as squads has them, with the titles "Worklanes" and "Releases" -- wired into both apps.
 - [x] 9.5 `packages/views/locales/{en,zh-Hans,ko,ja,fr}/worklanes.json`, `releases.json`, `layout.json`, `packages/views/i18n/resources-types.ts` -- the sidebar labels, the page titles and columns, the meta counts, "Next:", "Nothing queued", "No issues yet", "This repository does not release", "No worklanes yet." and "No releases yet." in all five languages.
 - [ ] 9.6 `packages/views/worklanes/components/worklanes-page.test.tsx`, `packages/views/releases/components/releases-page.test.tsx`, `packages/views/projects/components/projects-page.test.tsx`, `packages/views/organisations/components/*.test.tsx` -- the `worklanes-page`, `releases-page` and `worklane-row-work` scenarios that belong to pages: the counts and order, folding, the links, the empty states, no release actions, and the now or next line on Projects and an organisation's page.
-- [ ] 9.7 `apps/docs/content/docs/projects.mdx`, `projects.zh.mdx`, `projects.ko.mdx`, `projects.ja.mdx`, `projects.fr.mdx` -- the Worklanes and Releases pages and the now or next line on worklane rows.
+- [x] 9.7 `apps/docs/content/docs/projects.mdx`, `projects.zh.mdx`, `projects.ko.mdx`, `projects.ja.mdx`, `projects.fr.mdx` -- the Worklanes and Releases pages and the now or next line on worklane rows.
 
 ## 10. J11 Acceptance test and archive: acceptance test and archive
 
