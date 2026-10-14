@@ -52,6 +52,7 @@ export class TestApiClient {
   private email: string | null = null;
   private createdIssueIds: string[] = [];
   private createdProjectIds: string[] = [];
+  private createdOrganisationIds: string[] = [];
   private seededIssueIds: string[] = [];
 
   async login(email: string, name: string) {
@@ -212,6 +213,23 @@ export class TestApiClient {
 
   async deleteProject(id: string) {
     await this.authedFetch(`/api/projects/${id}`, { method: "DELETE" });
+  }
+
+  /**
+   * Create an organisation and register it for cleanup. The API has no
+   * delete, so cleanup removes it from the database.
+   */
+  async createOrganisation(name: string, key: string) {
+    const res = await this.authedFetch("/api/organisations", {
+      method: "POST",
+      body: JSON.stringify({ name, key }),
+    });
+    if (!res.ok) {
+      throw new Error(`create organisation failed: ${res.status} ${await res.text()}`);
+    }
+    const organisation = await res.json();
+    this.createdOrganisationIds.push(organisation.id);
+    return organisation as { id: string; name: string; key: string };
   }
 
   async createIssue(title: string, opts?: Record<string, unknown>) {
@@ -435,6 +453,25 @@ export class TestApiClient {
       }
     }
     this.createdProjectIds = [];
+    if (this.createdOrganisationIds.length > 0 && this.workspaceId) {
+      const client = new pg.Client(DATABASE_URL);
+      await client.connect();
+      try {
+        // No foreign keys: a project made in the test keeps no pointer to a
+        // removed organisation.
+        await client.query(
+          `UPDATE project SET organisation_id = NULL WHERE workspace_id = $1 AND organisation_id = ANY($2::uuid[])`,
+          [this.workspaceId, this.createdOrganisationIds],
+        );
+        await client.query(
+          `DELETE FROM organisation WHERE workspace_id = $1 AND id = ANY($2::uuid[])`,
+          [this.workspaceId, this.createdOrganisationIds],
+        );
+      } finally {
+        await client.end();
+      }
+      this.createdOrganisationIds = [];
+    }
   }
 
   getToken() {

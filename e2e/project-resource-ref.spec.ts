@@ -1,7 +1,22 @@
 import { test, expect } from "@playwright/test";
-import { loginAsDefault, waitForPageText } from "./helpers";
+import { createTestApi, loginAsDefault, waitForPageText } from "./helpers";
+import type { TestApiClient } from "./fixtures";
 
 const REPO = "https://github.com/multica-ai/multica";
+
+let api: TestApiClient;
+let organisationName: string;
+
+test.beforeEach(async () => {
+  api = await createTestApi();
+  const suffix = Date.now().toString(36);
+  organisationName = `Release org ${suffix}`;
+  await api.createOrganisation(organisationName, `release-${suffix}`);
+});
+
+test.afterEach(async () => {
+  await api.cleanup();
+});
 
 /**
  * The checkout ref of a github_repo project resource, end to end.
@@ -20,6 +35,9 @@ test("pins, edits and clears a repository's checkout ref", async ({ page }) => {
 
   // TitleEditor is a contenteditable, not an <input> with a placeholder attr.
   await page.getByRole("textbox", { name: /project title/i }).fill("Release line");
+  // New project asks for an organisation before it creates.
+  await page.getByRole("button", { name: /no organisation/i }).click();
+  await page.getByRole("menuitem", { name: organisationName }).click();
   await page.getByRole("button", { name: /repos/i }).first().click();
   await page.getByPlaceholder(/github\.com\/owner\/repo/i).fill(REPO);
   await page.getByLabel(/starting branch/i).fill("release/2026-09");
