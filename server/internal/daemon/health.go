@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/multica-ai/multica/server/internal/daemon/repocache"
+	"github.com/multica-ai/multica/server/internal/daemon/execenv"
 	"github.com/multica-ai/multica/server/internal/util"
 )
 
@@ -127,6 +128,7 @@ type activeRepoCheckoutTask struct {
 	AgentID     string
 	AgentName   string
 	WorkDir     string
+	Task        *Task
 }
 
 // registerActiveRepoCheckoutTask binds checkout identity to the active task.
@@ -484,6 +486,39 @@ func (d *Daemon) repoCheckoutHandler() http.HandlerFunc {
 		req.TaskID = activeTask.TaskID
 		req.AgentName = activeTask.AgentName
 		req.WorkDir = authorizedWorkDir
+		if task := activeTask.Task; task != nil && task.IssueID != "" {
+			fullName := execenv.GitHubFullNameFromURL(req.URL)
+			for _, repo := range task.Repositories {
+				if !strings.EqualFold(repo.FullName, req.URL) && !strings.EqualFold(repo.FullName, fullName) {
+					continue
+				}
+				if repo.CheckoutDaemonID != d.cfg.DaemonID {
+					http.Error(w, "repository is on another runtime", http.StatusBadRequest)
+					return
+				}
+				// Task preparation already selected and locked the authoritative path.
+				path, err := execenv.PrepareIssueWorktree(r.Context(), execenv.IssueWorktreeParams{
+					CheckoutPath: repo.CheckoutPath, Path: repo.WorktreePath,
+					Branch: strings.ToLower(task.IssueKey), DefaultBranch: repo.DefaultBranch,
+				}, d.logger)
+				if err != nil {
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+					return
+				}
+				branch, err := checkoutGit(r.Context(), path, "symbolic-ref", "--quiet", "--short", "HEAD")
+				if err != nil {
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+					return
+				}
+				if err := d.client.RecordIssueWorktree(r.Context(), task.ID, repo.ID, path, branch); err != nil {
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+					return
+				}
+				w.Header().Set("Content-Type", "application/json")
+				json.NewEncoder(w).Encode(repocache.WorktreeResult{Path: path, BranchName: branch})
+				return
+			}
+		}
 
 		if d.repoCache == nil {
 			http.Error(w, "repo cache not initialized", http.StatusInternalServerError)
