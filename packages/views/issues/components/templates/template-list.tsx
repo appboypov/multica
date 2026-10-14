@@ -11,6 +11,8 @@ interface TemplateListProps {
   /** The template picked, or null for No template. */
   type: IssueType | null;
   onPick: (type: IssueType | null) => void;
+  /** Blocks picking, while the No template description still uploads a file. */
+  disabled?: boolean;
   className?: string;
 }
 
@@ -19,12 +21,13 @@ interface TemplateListProps {
  * template with its type icon, its name and its hint. Arrow keys move the
  * pick, as in a native radio group.
  */
-export function TemplateList({ templates, type, onPick, className }: TemplateListProps) {
+export function TemplateList({ templates, type, onPick, disabled, className }: TemplateListProps) {
   const { t } = useT("issues");
   const listRef = useRef<HTMLDivElement>(null);
   const options: (IssueType | null)[] = [null, ...templates.map((template) => template.type)];
 
   const move = (step: number) => {
+    if (disabled) return;
     const index = options.indexOf(type);
     const next = options[(index + step + options.length) % options.length];
     if (next === undefined) return;
@@ -39,6 +42,7 @@ export function TemplateList({ templates, type, onPick, className }: TemplateLis
       ref={listRef}
       role="radiogroup"
       aria-label={t(($) => $.templates.label)}
+      aria-disabled={disabled || undefined}
       className={cn("flex flex-col gap-0.5", className)}
       onKeyDown={(e) => {
         if (e.key === "ArrowDown" || e.key === "ArrowRight") {
@@ -63,9 +67,10 @@ export function TemplateList({ templates, type, onPick, className }: TemplateLis
             aria-checked={picked}
             tabIndex={picked ? 0 : -1}
             data-template={option ?? "none"}
+            disabled={disabled}
             onClick={() => onPick(option)}
             className={cn(
-              "flex w-full items-center gap-2 rounded-md px-2 py-2 text-left transition-colors hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+              "flex w-full items-center gap-2 rounded-md px-2 py-2 text-left transition-colors hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50",
               picked && "bg-surface-selected",
             )}
           >

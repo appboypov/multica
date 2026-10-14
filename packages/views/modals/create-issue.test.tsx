@@ -2043,6 +2043,30 @@ describe("CreateIssueModal", () => {
       fireEvent.click(switchButton);
       expect(onSwitchMode).not.toHaveBeenCalled();
     });
+
+    it("blocks picking a template while a No template upload is in flight", async () => {
+      renderManual();
+      const story = await screen.findByRole("radio", { name: /Story/ });
+
+      const pending = startPendingUpload();
+
+      // Picking a template unmounts the free description editor, which would
+      // drop the pending file and leave Create stuck on Uploading….
+      await waitFor(() => expect(story).toBeDisabled());
+      fireEvent.click(story);
+      expect(screen.getByRole("radio", { name: /No template/ })).toHaveAttribute("aria-checked", "true");
+
+      await act(async () => {
+        pending.release({
+          id: "att-1",
+          url: "https://cdn/x.png",
+          filename: "x.png",
+          size_bytes: 1,
+          content_type: "image/png",
+        });
+      });
+      await waitFor(() => expect(story).not.toBeDisabled());
+    });
   });
 
   // MUL-4931 — manual create had no submit shortcut at all, while agent create
