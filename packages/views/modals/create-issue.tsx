@@ -34,6 +34,7 @@ import type {
   IssueType,
   SourceContextPreview,
 } from "@multica/core/types";
+import { contentReferencesAttachment } from "@multica/core/types";
 import { issueTemplatesOptions, requiredFilled, templateMarkdown } from "@multica/core/issues/templates";
 import {
   defaultStatus,
@@ -59,7 +60,7 @@ import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@multi
 import { Textarea } from "@multica/ui/components/ui/textarea";
 import { Button } from "@multica/ui/components/ui/button";
 import { Switch } from "@multica/ui/components/ui/switch";
-import { TitleEditor, type TitleEditorRef, type ContentEditorRef, useFileDropZone, FileDropOverlay, useUploadGate, useComposerSubmit } from "../editor";
+import { ContentEditor, TitleEditor, type TitleEditorRef, type ContentEditorRef, useFileDropZone, FileDropOverlay, useUploadGate, useComposerSubmit } from "../editor";
 import { manualAttachmentMarkdown, useIssueCreateUploads } from "./use-issue-create-uploads";
 import { useShortcut } from "@multica/core/shortcuts";
 import { ShortcutKeycaps } from "../common/shortcut-keycaps";
@@ -262,18 +263,23 @@ export function ManualCreatePanel({
   const [title, setTitle] = useState(draft.manual.title);
   const [formResetKey, setFormResetKey] = useState(0);
   const titleEditorRef = useRef<TitleEditorRef>(null);
-  // The manual form has no description editor: the template's fields fill the
-  // description. The upload engine takes an editor ref, and this one stays empty.
-  const uploadEditorRef = useRef<ContentEditorRef>(null);
+  // The free description editor, mounted only with No template; with a
+  // template the fields fill the description and this ref stays empty.
+  const descEditorRef = useRef<ContentEditorRef>(null);
   const { isDragOver: descDragOver, dropZoneProps: descDropZoneProps } = useFileDropZone({
-    onDrop: (files) => files.forEach((f) => void handleUpload(f)),
+    onDrop: (files) =>
+      files.forEach((f) => {
+        if (descEditorRef.current) descEditorRef.current.uploadFile(f);
+        else void handleUpload(f);
+      }),
   });
   const [status, setStatus] = useState<IssueStatus>((data?.status as IssueStatus) || draft.manual.status);
   // Whether Brian picked the status; otherwise it follows the release.
   const [statusPicked, setStatusPicked] = useState(
     typeof data?.status === "string" || draft.manual.statusPicked,
   );
-  const [type, setType] = useState<IssueType>(draft.manual.type);
+  // The template picked, or null for No template.
+  const [type, setType] = useState<IssueType | null>(draft.manual.type);
   const [fields, setFields] = useState<Record<string, string>>(draft.manual.fields);
   // The Markdown edited by hand: while set, it is the description and the
   // fields no longer write it.
@@ -376,10 +382,35 @@ export function ManualCreatePanel({
     setActiveMode("manual");
   }, [setActiveMode]);
 
+  // Prune completed uploads whose markdown reference was deleted in an
+  // earlier editing session of the free description. Runs once on mount and
+  // only with No template: at that point the persisted manual description /
+  // agent prompt ARE the draft bodies (no editor edits have happened yet), so
+  // dropping `uploaded` records referenced by neither is safe. With a
+  // template every finished upload is listed and kept. Placeholders
+  // (uploading / failed / interrupted) are always kept — they have no body
+  // reference yet and the status chips are their only UI. Don't prune on
+  // description updates — an onUpdate flush can race a just-finished upload
+  // whose markdown link hasn't been inserted yet, and pruning there would
+  // drop a live attachment.
+  useEffect(() => {
+    const { draft: current } = useIssueDraftStore.getState();
+    if (current.manual.type !== null) return;
+    const uploads = current.shared.attachments ?? [];
+    const kept = uploads.filter(
+      (u) =>
+        u.status !== "uploaded" ||
+        contentReferencesAttachment(current.manual.description, u.attachment) ||
+        contentReferencesAttachment(current.agent.prompt, u.attachment),
+    );
+    if (kept.length !== uploads.length) setShared({ attachments: kept });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Gate every action that fixes this draft: Create and the switch to agent
   // mode (which assist-inits the agent prompt from the description and would
   // carry a stripped body across).
-  const uploadGate = useUploadGate(uploadEditorRef);
+  const uploadGate = useUploadGate(descEditorRef);
   // Coordinator-owned uploads in the shared pool (MUL-5181, L2): a file picked
   // here survives dialog close, aborts on logout, and is dropped after a
   // reload. `gate` widens the editor gate with the pool's placeholders.
@@ -389,11 +420,11 @@ export function ManualCreatePanel({
     handleUpload,
     removeUpload,
     gate,
-  } = useIssueCreateUploads("manual", uploadGate, uploadEditorRef);
+  } = useIssueCreateUploads("manual", uploadGate, descEditorRef);
 
   const { data: templates = [] } = useQuery(issueTemplatesOptions());
-  const template = templates.find((candidate) => candidate.type === type);
-  const typeName = tIssues(($) => $.types[type].name);
+  const template = type === null ? undefined : templates.find((candidate) => candidate.type === type);
+  const typeName = type === null ? tIssues(($) => $.types.none) : tIssues(($) => $.types[type].name);
   const placementData = usePlacementData();
   // The opened-from placement fills in as the worklanes and releases load,
   // until Brian picks one himself.
@@ -415,9 +446,9 @@ export function ManualCreatePanel({
   const submitProjectId = worklane ? (worklaneProjectId ?? undefined) : projectId;
   const effectiveStatus = defaultStatus(releaseId, statusPicked ? status : null);
   const fieldsMarkdown = template ? templateMarkdown(template, fields) : "";
-  // The template's Markdown: what the fields write, unless edited by hand.
+  // A template's Markdown: what the fields write, unless edited by hand.
   const markdown = handMarkdown ?? fieldsMarkdown;
-  // The issue's description: that Markdown, then the files' links.
+  // A template's description: that Markdown, then the files' links.
   const description = [markdown, manualAttachmentMarkdown(uploads)]
     .filter((part) => part !== "")
     .join("\n\n");
@@ -447,7 +478,14 @@ export function ManualCreatePanel({
     setManual({ propertyValues: next });
     if (propertyErrorId === propertyId) setPropertyErrorId(null);
   };
-  const pickTemplate = (next: IssueType) => { setType(next); setManual({ type: next }); };
+  const pickTemplate = (next: IssueType | null) => {
+    // The free description editor unmounts when a template is picked; keep
+    // its typing that is still inside the debounce window.
+    const pendingDesc = descEditorRef.current?.flushPendingUpdate?.();
+    if (pendingDesc != null) setManual({ description: pendingDesc });
+    setType(next);
+    setManual({ type: next });
+  };
   const updateField = (key: string, value: string) => {
     const next = { ...fields, [key]: value };
     setFields(next);
@@ -508,10 +546,12 @@ export function ManualCreatePanel({
     setParentIssueId(undefined);
     setStage(null);
     setChildIssues([]);
-    // Keep the just-used assignee for the next issue in the batch; reset
-    // everything else across the manual + shared slots.
+    // Keep the just-used assignee and template for the next issue in the
+    // batch; reset everything else across the manual + shared slots.
     setManual({
       title: "",
+      type,
+      description: "",
       fields: {},
       markdown: null,
       status: "backlog",
@@ -528,6 +568,7 @@ export function ManualCreatePanel({
       dueDate: null,
       attachments: [],
     });
+    descEditorRef.current?.clearContent();
     setFormResetKey((key) => key + 1);
   };
 
@@ -551,18 +592,29 @@ export function ManualCreatePanel({
   const submittedDraftRef = useRef<IssueCreateDraft | null>(null);
 
   const composer = useComposerSubmit({
-    editorRef: uploadEditorRef,
+    editorRef: descEditorRef,
     uploadGate: gate,
     normalize: () => title.trim(),
     onSubmit: async (): Promise<boolean> => {
       setUnavailablePropertyRemoved(false);
+      // Flush the description editor's pending debounce into the store BEFORE
+      // snapshotting, so a late flush of pre-submit typing cannot masquerade
+      // as an edit made during the request.
+      const pendingDesc = descEditorRef.current?.flushPendingUpdate?.();
+      if (pendingDesc != null) setManual({ description: pendingDesc });
       submittedDraftRef.current = useIssueDraftStore.getState().draft;
       try {
-      // Every finished file is linked after the template's Markdown.
-      const activeAttachmentIds = draftAttachments.map((a) => a.id);
+      // No template: the editor's Markdown, with the files it references.
+      // A template: every finished file is linked after its Markdown.
+      const freeDescription =
+        type === null ? descEditorRef.current?.getMarkdown()?.trim() ?? "" : null;
+      const submitDescription = freeDescription ?? description;
+      const activeAttachmentIds = draftAttachments
+        .filter((a) => freeDescription === null || contentReferencesAttachment(freeDescription, a))
+        .map((a) => a.id);
       const placement = {
-        type,
-        from_template: true,
+        ...(type === null ? {} : { type }),
+        from_template: type !== null,
         worklane_id: worklaneId,
         release_id: releaseId,
       };
@@ -575,7 +627,7 @@ export function ManualCreatePanel({
             capture_token: sourcePreview.capture_token,
             issue: {
               title: title.trim(),
-              description: description || undefined,
+              description: submitDescription || undefined,
               status: effectiveStatus,
               priority,
               assignee_type: assigneeType,
@@ -594,7 +646,7 @@ export function ManualCreatePanel({
       } else {
         issue = await createIssueMutation.mutateAsync({
           title: title.trim(),
-          description: description || undefined,
+          description: submitDescription || undefined,
           status: effectiveStatus,
           priority,
           assignee_type: assigneeType,
@@ -843,7 +895,11 @@ export function ManualCreatePanel({
       // Success may only consume the draft it submitted (MUL-5181 P0): any
       // edit after the submit snapshot — typing while the request is in
       // flight, or a reopened dialog — survives, and the dialog then stays
-      // open on the newer draft instead of closing/resetting over it.
+      // open on the newer draft instead of closing/resetting over it. Flush
+      // the editor's pending debounce first so mid-flight typing still inside
+      // the debounce window is judged correctly.
+      const lateDesc = descEditorRef.current?.flushPendingUpdate?.();
+      if (lateDesc != null) setManual({ description: lateDesc });
       const untouched =
         useIssueDraftStore.getState().draft === submittedDraftRef.current;
       if (untouched) clearDraft();
@@ -867,7 +923,7 @@ export function ManualCreatePanel({
       return;
     }
     // Markdown edited by hand replaces the fields, so they gate nothing.
-    if (handMarkdown === null && (!template || !requiredFilled(template, title, fields))) return;
+    if (type !== null && handMarkdown === null && (!template || !requiredFilled(template, title, fields))) return;
     void composer.submit();
   };
   const submitting = composer.submitting;
@@ -894,10 +950,16 @@ export function ManualCreatePanel({
     setShared({ projectId, priority, dueDate });
     const existingPrompt = draft.agent.prompt;
     if (!existingPrompt.trim()) {
-      const filled = Object.values(fields).some((value) => value.trim() !== "");
-      const desc = [handMarkdown ?? (filled ? fieldsMarkdown : ""), manualAttachmentMarkdown(uploads)]
-        .filter((part) => part !== "")
-        .join("\n\n");
+      const desc =
+        type === null
+          ? descEditorRef.current?.getMarkdown()?.trim() ?? ""
+          : [
+              handMarkdown ??
+                (Object.values(fields).some((value) => value.trim() !== "") ? fieldsMarkdown : ""),
+              manualAttachmentMarkdown(uploads),
+            ]
+              .filter((part) => part !== "")
+              .join("\n\n");
       const seeded = [title.trim(), desc].filter(Boolean).join("\n\n");
       if (seeded) setAgent({ prompt: seeded });
     }
@@ -941,7 +1003,7 @@ export function ManualCreatePanel({
           ? "source_unavailable"
           : !title.trim()
             ? "missing_title"
-            : handMarkdown === null && (!template || !requiredFilled(template, title, fields))
+            : type !== null && handMarkdown === null && (!template || !requiredFilled(template, title, fields))
               ? "missing_required"
               : "ready";
   const submitBusy = submitState === "submitting" || submitState === "uploading";
@@ -976,7 +1038,9 @@ export function ManualCreatePanel({
         tEditor(($) => $.upload.in_progress)
       ) : (
         <>
-          {t(($) => $.create_issue.submit_type, { type: typeName.toLowerCase() })}
+          {type === null
+            ? t(($) => $.create_issue.submit)
+            : t(($) => $.create_issue.submit_type, { type: typeName.toLowerCase() })}
           {/* Decorative: the accessible name must stay "Create Issue", not
               "Create Issue Command Enter". Absent when `send` is unbound.
               Hidden on phones — no ⌘ key there, and the footer row is at its
@@ -1042,7 +1106,7 @@ export function ManualCreatePanel({
             </div>
 
             <div className="flex min-h-0 flex-1 flex-col sm:flex-row">
-              {/* Templates — New issue starts only from one of them. */}
+              {/* Templates — No template, or one of the eight. */}
               <div className="max-h-36 shrink-0 overflow-y-auto border-b px-2 pb-2 sm:max-h-none sm:w-56 sm:border-r sm:border-b-0">
                 <TemplateList templates={templates} type={type} onPick={pickTemplate} />
               </div>
@@ -1063,35 +1127,52 @@ export function ManualCreatePanel({
                   />
                 </div>
 
-                {/* The template's fields fill the description; the Markdown toggle shows it to edit by hand. */}
-                <div className="flex min-h-0 flex-1 flex-col gap-2 px-5">
-                  <DescriptionMarkdownBar
-                    markdown={markdownView}
-                    onMarkdownChange={setMarkdownView}
-                    getMarkdown={() => markdown}
-                  />
-                  <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pb-3">
-                    {markdownView ? (
-                      <Textarea
-                        value={markdown}
-                        onChange={(event) => updateMarkdown(event.target.value)}
-                        aria-label={tIssues(($) => $.templates.markdown_aria)}
-                        spellCheck={false}
-                        className="resize-none font-mono text-caption md:text-caption"
-                      />
-                    ) : (
-                      template && (
-                        <TemplateFields
-                          template={template}
-                          fields={fields}
-                          onChange={updateField}
-                          disabled={handMarkdown !== null}
-                        />
-                      )
-                    )}
-                    <TemplateAttachments uploads={uploads} onRemove={removeUpload} />
+                {type === null ? (
+                  /* No template: a free description — takes remaining space */
+                  <div className="flex min-h-0 flex-1 overflow-y-auto px-5">
+                    <ContentEditor
+                      ref={descEditorRef}
+                      defaultValue={draft.manual.description}
+                      placeholder={t(($) => $.create_issue.description_placeholder)}
+                      onUpdate={(md) => setManual({ description: md })}
+                      onSubmit={handleSubmit}
+                      onUploadFile={handleUpload}
+                      onUploadingChange={uploadGate.onUploadingChange}
+                      debounceMs={500}
+                      attachments={draftAttachments}
+                    />
                   </div>
-                </div>
+                ) : (
+                  /* The template's fields fill the description; the Markdown toggle shows it to edit by hand. */
+                  <div className="flex min-h-0 flex-1 flex-col gap-2 px-5">
+                    <DescriptionMarkdownBar
+                      markdown={markdownView}
+                      onMarkdownChange={setMarkdownView}
+                      getMarkdown={() => markdown}
+                    />
+                    <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pb-3">
+                      {markdownView ? (
+                        <Textarea
+                          value={markdown}
+                          onChange={(event) => updateMarkdown(event.target.value)}
+                          aria-label={tIssues(($) => $.templates.markdown_aria)}
+                          spellCheck={false}
+                          className="resize-none font-mono text-caption md:text-caption"
+                        />
+                      ) : (
+                        template && (
+                          <TemplateFields
+                            template={template}
+                            fields={fields}
+                            onChange={updateField}
+                            disabled={handMarkdown !== null}
+                          />
+                        )
+                      )}
+                      <TemplateAttachments uploads={uploads} onRemove={removeUpload} />
+                    </div>
+                  </div>
+                )}
                 {descDragOver && <FileDropOverlay />}
               </div>
             </div>
@@ -1116,7 +1197,7 @@ export function ManualCreatePanel({
             {/* Property toolbar — each field renders per the Settings → Preferences → Issue creation
                 selection (see showField above). */}
             <div className="flex items-center gap-1.5 px-4 py-2 shrink-0 flex-wrap">
-              {/* Type — from the template */}
+              {/* Type — from the template; No type with No template */}
               <span className="inline-flex min-w-0 max-w-56 items-center gap-1.5 overflow-hidden rounded-full border px-2.5 py-1 text-caption">
                 <TypeIcon type={type} />
                 <span className="truncate">{typeName}</span>
@@ -1551,7 +1632,10 @@ export function ManualCreatePanel({
                 <FileUploadButton
                   size="sm"
                   multiple
-                  onSelect={(file) => void handleUpload(file)}
+                  onSelect={(file) => {
+                    if (descEditorRef.current) descEditorRef.current.uploadFile(file);
+                    else void handleUpload(file);
+                  }}
                 />
               </div>
               <button

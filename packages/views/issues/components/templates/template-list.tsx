@@ -8,26 +8,29 @@ import { useT } from "../../../i18n";
 
 interface TemplateListProps {
   templates: readonly IssueTemplate[];
-  type: IssueType;
-  onPick: (type: IssueType) => void;
+  /** The template picked, or null for No template. */
+  type: IssueType | null;
+  onPick: (type: IssueType | null) => void;
   className?: string;
 }
 
 /**
- * New issue's templates as a radio group: each with its type icon, its name
- * and its hint. Arrow keys move the pick, as in a native radio group.
+ * New issue's templates as a radio group: No template first, then each
+ * template with its type icon, its name and its hint. Arrow keys move the
+ * pick, as in a native radio group.
  */
 export function TemplateList({ templates, type, onPick, className }: TemplateListProps) {
   const { t } = useT("issues");
   const listRef = useRef<HTMLDivElement>(null);
+  const options: (IssueType | null)[] = [null, ...templates.map((template) => template.type)];
 
   const move = (step: number) => {
-    const index = templates.findIndex((template) => template.type === type);
-    const next = templates[(index + step + templates.length) % templates.length];
-    if (!next) return;
-    onPick(next.type);
+    const index = options.indexOf(type);
+    const next = options[(index + step + options.length) % options.length];
+    if (next === undefined) return;
+    onPick(next);
     listRef.current
-      ?.querySelector<HTMLButtonElement>(`[data-template="${next.type}"]`)
+      ?.querySelector<HTMLButtonElement>(`[data-template="${next ?? "none"}"]`)
       ?.focus();
   };
 
@@ -50,29 +53,33 @@ export function TemplateList({ templates, type, onPick, className }: TemplateLis
       <div className="px-2 pt-1 pb-2 text-caption text-muted-foreground">
         {t(($) => $.templates.label)}
       </div>
-      {templates.map((template) => {
-        const picked = template.type === type;
+      {options.map((option) => {
+        const picked = option === type;
         return (
           <button
-            key={template.type}
+            key={option ?? "none"}
             type="button"
             role="radio"
             aria-checked={picked}
             tabIndex={picked ? 0 : -1}
-            data-template={template.type}
-            onClick={() => onPick(template.type)}
+            data-template={option ?? "none"}
+            onClick={() => onPick(option)}
             className={cn(
               "flex w-full items-center gap-2 rounded-md px-2 py-2 text-left transition-colors hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
               picked && "bg-surface-selected",
             )}
           >
-            <TypeIcon type={template.type} className="size-4" />
+            <TypeIcon type={option} className="size-4" />
             <span className="min-w-0">
               <span className="block text-body font-medium">
-                {t(($) => $.types[template.type].name)}
+                {option === null
+                  ? t(($) => $.templates.none.name)
+                  : t(($) => $.types[option].name)}
               </span>
               <span className="block truncate text-caption text-muted-foreground">
-                {t(($) => $.types[template.type].hint)}
+                {option === null
+                  ? t(($) => $.templates.none.hint)
+                  : t(($) => $.types[option].hint)}
               </span>
             </span>
           </button>

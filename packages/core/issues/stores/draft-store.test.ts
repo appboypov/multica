@@ -37,7 +37,8 @@ const RESET_STATE = {
     },
     manual: {
       title: "",
-      type: "story" as const,
+      type: null,
+      description: "",
       fields: {},
       markdown: null,
       worklaneId: null,
@@ -246,6 +247,8 @@ describe("issue draft store — legacy rehydrate", () => {
     const { draft } = useIssueDraftStore.getState();
     // Manual-only fields land in the manual slot.
     expect(draft.manual.title).toBe("legacy");
+    expect(draft.manual.description).toBe("body");
+    expect(draft.manual.type).toBeNull();
     expect(draft.manual.fields).toEqual({});
     expect(draft.manual.labelIds).toEqual(["label-1"]);
     expect(draft.manual.propertyValues).toEqual({ "property-1": "option-1" });
@@ -286,6 +289,8 @@ describe("issue draft store — legacy rehydrate", () => {
     expect(draft.shared.dueDate).toBeNull();
     expect(draft.shared.attachments).toEqual([]);
     expect(draft.manual.title).toBe("kept");
+    expect(draft.manual.description).toBe("");
+    expect(draft.manual.type).toBeNull();
     expect(draft.manual.status).toBe("backlog");
     expect(draft.agent.prompt).toBe("keep me");
     expect(draft.activeMode).toBe("agent");
@@ -335,6 +340,38 @@ describe("issue draft store — legacy rehydrate", () => {
     expect(attachments.map((u) => u.status)).toEqual(["uploaded"]);
     expect(attachments[0]?.filename).toBe("old.png");
   });
+
+  async function rehydrateManual(slug: string, manual: Record<string, unknown>) {
+    localStorage.setItem(
+      `multica_issue_draft:${slug}`,
+      JSON.stringify({
+        state: { draft: { shared: {}, manual, agent: {}, activeMode: "manual" } },
+        version: 0,
+      }),
+    );
+    setCurrentWorkspace(slug, `ws_${slug}`);
+    await flush();
+    await flush();
+    return useIssueDraftStore.getState().draft.manual;
+  }
+
+  it("opens a template-only draft without any text on No template", async () => {
+    // The template-only build saved Story as its default pick.
+    const manual = await rehydrateManual("delta", { title: "  ", type: "story", fields: { story: " " } });
+    expect(manual.type).toBeNull();
+    expect(manual.description).toBe("");
+  });
+
+  it("keeps the template of a draft with a title or field text", async () => {
+    expect((await rehydrateManual("epsilon", { title: "Fix it", type: "bug" })).type).toBe("bug");
+    expect((await rehydrateManual("zeta", { type: "story", fields: { story: "Brian" } })).type).toBe("story");
+  });
+
+  it("maps an unknown type to No template and keeps a free description", async () => {
+    const manual = await rehydrateManual("eta", { title: "Kept", type: "saga", description: "Free body" });
+    expect(manual.type).toBeNull();
+    expect(manual.description).toBe("Free body");
+  });
 });
 
 describe("issue draft store — hasDraft upload semantics", () => {
@@ -371,6 +408,14 @@ describe("issue draft store — hasDraft upload semantics", () => {
     const { setShared, hasDraft } = useIssueDraftStore.getState();
     setShared({ attachments: [placeholder("failed"), placeholder("interrupted")] });
     expect(hasDraft()).toBe(false);
+  });
+
+  it("counts a non-blank free description as draft content", () => {
+    const { setManual, hasDraft } = useIssueDraftStore.getState();
+    setManual({ description: "   " });
+    expect(hasDraft()).toBe(false);
+    setManual({ description: "A free body" });
+    expect(hasDraft()).toBe(true);
   });
 });
 

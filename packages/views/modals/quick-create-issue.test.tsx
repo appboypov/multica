@@ -70,6 +70,8 @@ const emptyIssueDraft = () => ({
   manual: {
     title: "",
     description: "",
+    type: null as "story" | null,
+    fields: {} as Record<string, string>,
     status: "todo" as const,
     startDate: null as string | null,
     assigneeType: undefined as "agent" | "squad" | "member" | undefined,
@@ -699,6 +701,24 @@ describe("AgentCreatePanel", () => {
     expect(mockSetAgent).toHaveBeenLastCalledWith({ prompt: "Half-typed request" });
     expect(onClose).toHaveBeenCalled();
     expect(mockNavigationPush).toHaveBeenCalledWith("/ws-test/settings?tab=preferences&section=issue");
+  });
+
+  it("seeds the free manual description from the prompt when switching with No template", async () => {
+    const user = userEvent.setup();
+    const onSwitchMode = vi.fn();
+    renderPanel({ onClose: vi.fn(), onSwitchMode, isExpanded: false, setIsExpanded: vi.fn() });
+
+    const editor = screen.getByPlaceholderText(
+      'Tell the agent what to do, e.g. "let Bohan fix the inbox loading slowness in the Web project"',
+    );
+    fireEvent.change(editor, { target: { value: "Fix the inbox" } });
+    await user.click(screen.getByRole("button", { name: /Switch to Manual/i }));
+
+    expect(mockSetManual).toHaveBeenCalledWith({ description: "Fix the inbox" });
+    expect(mockSetManual).not.toHaveBeenCalledWith(
+      expect.objectContaining({ fields: expect.anything() }),
+    );
+    expect(onSwitchMode).toHaveBeenCalled();
   });
 
   it("respects fields enabled in Settings → Preferences → Issue creation by rendering them inline", () => {
