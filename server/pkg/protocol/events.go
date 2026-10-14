@@ -103,6 +103,15 @@ const (
 	EventProjectResourceUpdated = "project_resource:updated"
 	EventProjectResourceDeleted = "project_resource:deleted"
 
+	// Repository events (ADR-0006). All three carry RepositoryEventPayload.
+	EventRepositoryCreated = "repository:created"
+	EventRepositoryUpdated = "repository:updated"
+	EventRepositoryDeleted = "repository:deleted"
+
+	// Worklane events. Both carry WorklaneEventPayload.
+	EventWorklaneCreated = "worklane:created"
+	EventWorklaneDeleted = "worklane:deleted"
+
 	// Organisation events. Both carry OrganisationEventPayload; there is no
 	// organisation:deleted because organisations go only with their workspace.
 	EventOrganisationCreated = "organisation:created"
@@ -253,4 +262,18 @@ type QuestionEventPayload struct {
 // organisation:updated.
 type OrganisationEventPayload struct {
 	OrganisationID string `json:"organisation_id"`
+}
+
+// RepositoryEventPayload is the payload of repository:created,
+// repository:updated and repository:deleted.
+type RepositoryEventPayload struct {
+	RepositoryID string `json:"repository_id"`
+	ProjectID    string `json:"project_id"`
+}
+
+// WorklaneEventPayload is the payload of worklane:created and
+// worklane:deleted.
+type WorklaneEventPayload struct {
+	WorklaneID   string `json:"worklane_id"`
+	RepositoryID string `json:"repository_id"`
 }

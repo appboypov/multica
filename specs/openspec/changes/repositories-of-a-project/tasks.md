@@ -58,8 +58,8 @@ This change builds on UJ-1 (`projects-by-organisation`, DAS-450): its `organisat
 
 ## 3. J2 Data models: action names
 
-- [ ] 3.1 `server/pkg/protocol/events.go` -- `EventRepositoryCreated`, `EventRepositoryUpdated`, `EventRepositoryDeleted`, `EventWorklaneCreated`, `EventWorklaneDeleted` with the payloads of design.md decision 2.
-- [ ] 3.2 `server/pkg/protocol/messages.go` -- `PendingWorkKindRepositoryCheckout`, `PendingWorkKindIssueWorktrees` and the heartbeat response's `issue_worktree_removals`.
+- [x] 3.1 `server/pkg/protocol/events.go` -- `EventRepositoryCreated`, `EventRepositoryUpdated`, `EventRepositoryDeleted`, `EventWorklaneCreated`, `EventWorklaneDeleted` with the payloads of design.md decision 2.
+- [x] 3.2 `server/pkg/protocol/messages.go` -- `PendingWorkKindRepositoryCheckout`, `PendingWorkKindIssueWorktrees` and the heartbeat response's `issue_worktree_removals`.
 - [ ] 3.3 `packages/core/modals/store.ts` -- `"add-repository"` and `"edit-repository"` in `ModalType`.
 
 ## 4. J3 Data-flow prototype: data-flow prototype

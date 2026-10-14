@@ -164,10 +164,12 @@ type WorkspacesChangedPayload struct{}
 // heartbeat, which claims whatever is queued) — so an unknown value from a
 // newer server stays safe on an older daemon.
 const (
-	PendingWorkKindModelList        = "model_list"
-	PendingWorkKindLocalSkills      = "local_skills"
-	PendingWorkKindLocalSkillImport = "local_skill_import"
-	PendingWorkKindDirectoryListing = "directory_listing"
+	PendingWorkKindModelList          = "model_list"
+	PendingWorkKindLocalSkills        = "local_skills"
+	PendingWorkKindLocalSkillImport   = "local_skill_import"
+	PendingWorkKindDirectoryListing   = "directory_listing"
+	PendingWorkKindRepositoryCheckout = "repository_checkout"
+	PendingWorkKindIssueWorktrees     = "issue_worktrees"
 )
 
 // PendingWorkPayload is sent from server to daemon as a wakeup hint when a
@@ -430,6 +432,10 @@ type DaemonHeartbeatAckPayload struct {
 	// that don't know this field silently ignore it (standard JSON behavior)
 	// and fall back to the singular PendingLocalSkillImport above.
 	PendingLocalSkillImports []DaemonHeartbeatPendingLocalSkillImport `json:"pending_local_skill_imports,omitempty"`
+	// IssueWorktreeRemovals lists the daemon's issue worktrees in state
+	// `removing`: their issue is Done or Cancelled, so the daemon removes
+	// each one that holds no unsaved work (ADR-0007).
+	IssueWorktreeRemovals []DaemonHeartbeatIssueWorktreeRemoval `json:"issue_worktree_removals,omitempty"`
 }
 
 // HeartbeatStatusRuntimeGone is the ack Status used when the runtime row no
@@ -466,4 +472,13 @@ type DaemonHeartbeatPendingDirectoryListing struct {
 type DaemonHeartbeatPendingLocalSkillImport struct {
 	ID       string `json:"id"`
 	SkillKey string `json:"skill_key"`
+}
+
+// DaemonHeartbeatIssueWorktreeRemoval asks the daemon to remove one issue
+// worktree it made, and its local branch, when nothing would be lost.
+type DaemonHeartbeatIssueWorktreeRemoval struct {
+	ID              string `json:"id"`
+	Path            string `json:"path"`
+	Branch          string `json:"branch"`
+	IssueIdentifier string `json:"issue_identifier"`
 }
