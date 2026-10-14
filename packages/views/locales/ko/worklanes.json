@@ -33,7 +33,8 @@
     "add": "Worklane",
     "add_label": "{{repository}}에 새 worklane",
     "fold_open": "{{repository}}의 worklane 보기",
-    "fold_close": "{{repository}}의 worklane 숨기기"
+    "fold_close": "{{repository}}의 worklane 숨기기",
+    "project_fold": "{{project}}의 저장소 접기 또는 펼치기"
   },
   "menu": {
     "label": "worklane 작업",

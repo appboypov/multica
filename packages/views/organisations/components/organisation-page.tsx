@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useMemo, useState } from "react";
-import { Building2, FolderKanban, Plus } from "lucide-react";
+import { Building2, FolderKanban, GitBranch, Plus } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { clientErrorMessage } from "@multica/core/api";
 import { useAuthStore } from "@multica/core/auth";
@@ -29,6 +29,7 @@ import { PAGE_GUTTER } from "../../layout/page-header";
 import { useNavigation } from "../../navigation";
 import { useT } from "../../i18n";
 import { ProjectBatchToolbar, ProjectTable } from "../../projects/components/project-table";
+import { useWorklaneCounts } from "../../worklanes/use-worklane-counts";
 import { organisationKeyProblem, type OrganisationKeyProblem } from "../validation";
 
 /**
@@ -38,6 +39,8 @@ import { organisationKeyProblem, type OrganisationKeyProblem } from "../validati
  */
 export function OrganisationPage() {
   const { t } = useT("organisations");
+  const { t: tWorklanes } = useT("worklanes");
+  const worklaneCounts = useWorklaneCounts();
   const wsId = useWorkspaceId();
   const paths = useWorkspacePaths();
   const { pathname } = useNavigation();
@@ -149,6 +152,12 @@ export function OrganisationPage() {
             <span className="inline-flex items-center gap-1.5">
               <FolderKanban aria-hidden="true" className="size-3.5" />
               {t(($) => $.project_count, { count: organisationProjects.length })}
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <GitBranch aria-hidden="true" className="size-3.5" />
+              {tWorklanes(($) => $.worklane_count, {
+                count: worklaneCounts.byOrganisation.get(organisation.id) ?? 0,
+              })}
             </span>
             <OrganisationKeyField
               key={organisation.key}

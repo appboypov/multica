@@ -33,7 +33,8 @@
     "add": "Worklane",
     "add_label": "{{repository}} に新しい worklane",
     "fold_open": "{{repository}} の worklane を表示",
-    "fold_close": "{{repository}} の worklane を非表示"
+    "fold_close": "{{repository}} の worklane を非表示",
+    "project_fold": "{{project}} のリポジトリを折りたたむ・展開する"
   },
   "menu": {
     "label": "worklane の操作",

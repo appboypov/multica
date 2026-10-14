@@ -35,7 +35,8 @@
     "add": "Worklane",
     "add_label": "Nouveau worklane dans {{repository}}",
     "fold_open": "Afficher les worklanes de {{repository}}",
-    "fold_close": "Masquer les worklanes de {{repository}}"
+    "fold_close": "Masquer les worklanes de {{repository}}",
+    "project_fold": "Replier ou déplier les dépôts de {{project}}"
   },
   "menu": {
     "label": "Actions du worklane",

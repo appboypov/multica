@@ -27,6 +27,7 @@ import { TitleEditor, ContentEditor, type ContentEditorRef } from "../../editor"
 import { PriorityIcon } from "../../issues/components/priority-icon";
 import { ProjectRepositoriesSection } from "../../repositories/components/project-repositories-section";
 import { repositoriesOfProject, repositoryListOptions } from "@multica/core/repositories";
+import { useWorklaneCounts } from "../../worklanes/use-worklane-counts";
 import { OrganisationPicker } from "./organisation-picker";
 import { IssueSurface } from "../../issues/surface/issue-surface";
 import { Skeleton } from "@multica/ui/components/ui/skeleton";
@@ -103,6 +104,8 @@ function PropRow({
 export function ProjectDetail({ projectId }: { projectId: string }) {
   const { t } = useT("projects");
   const { t: tRepositories } = useT("repositories");
+  const { t: tWorklanes } = useT("worklanes");
+  const worklaneCount = useWorklaneCounts().byProject.get(projectId) ?? 0;
   const priorityLabels = useProjectPriorityLabels();
   const wsId = useWorkspaceId();
   const wsPaths = useWorkspacePaths();
@@ -472,6 +475,8 @@ export function ProjectDetail({ projectId }: { projectId: string }) {
                 <span className="truncate font-medium text-foreground">{project.title}</span>
                 <span className="shrink-0 text-caption text-muted-foreground">
                   {tRepositories(($) => $.count, { count: repositoryCount })}
+                  {" · "}
+                  {tWorklanes(($) => $.worklane_count, { count: worklaneCount })}
                 </span>
               </span>
             }

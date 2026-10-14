@@ -35,7 +35,8 @@
     "add": "Worklane",
     "add_label": "New worklane in {{repository}}",
     "fold_open": "Show the worklanes of {{repository}}",
-    "fold_close": "Hide the worklanes of {{repository}}"
+    "fold_close": "Hide the worklanes of {{repository}}",
+    "project_fold": "Fold or unfold the repositories of {{project}}"
   },
   "menu": {
     "label": "Worklane actions",

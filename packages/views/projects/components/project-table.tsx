@@ -1,16 +1,20 @@
 "use client";
 
-import { useCallback, useMemo, useState, type MouseEvent, type ReactNode } from "react";
+import { Fragment, useCallback, useMemo, useState, type MouseEvent, type ReactNode } from "react";
 import {
   Building2,
   ChevronRight,
   ExternalLink,
+  FolderGit2,
+  GitBranch,
   MoreHorizontal,
   Pin,
   PinOff,
+  Plus,
   Trash2,
   X,
 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   useDeleteProject,
@@ -23,9 +27,15 @@ import {
 } from "@multica/core/projects";
 import { useCreatePin, useDeletePin } from "@multica/core/pins";
 import { useWorkspacePaths } from "@multica/core/paths";
+import { useWorkspaceId } from "@multica/core/hooks";
+import { useModalStore } from "@multica/core/modals";
+import { repositoriesOfProject, repositoryListOptions } from "@multica/core/repositories";
+import { sortWorklanes, worklaneListOptions } from "@multica/core/worklanes";
 import type {
   Project,
+  Repository,
   UpdateProjectRequest,
+  Worklane,
 } from "@multica/core/types";
 import { Button } from "@multica/ui/components/ui/button";
 import { Checkbox } from "@multica/ui/components/ui/checkbox";
@@ -60,6 +70,12 @@ import { ProjectIcon } from "./project-icon";
 import { useFormatRelativeDate } from "./labels";
 import { ProjectPriorityBadge } from "./project-badge";
 import { ProjectLeadPicker } from "./project-lead-picker";
+import { WORK_TREE_INDENT } from "./work-tree";
+import { WorklaneTreeRow } from "../../worklanes/components/worklane-tree-row";
+import { useWorklaneCounts } from "../../worklanes/use-worklane-counts";
+
+const EMPTY_REPOSITORIES: Repository[] = [];
+const EMPTY_WORKLANES: Worklane[] = [];
 
 // The fold key of the "No organisation" group in `collapsedOrganisations`.
 const NO_ORGANISATION_KEY = "none";
@@ -287,6 +303,14 @@ function CheckboxCell({
   );
 }
 
+/** A project row's fold: its repositories, and the worklanes they hold. */
+interface ProjectFold {
+  open: boolean;
+  repositoryCount: number;
+  worklaneCount: number;
+  onToggle: (id: string) => void;
+}
+
 function ProjectTableRow({
   project,
   pinned,
@@ -294,6 +318,7 @@ function ProjectTableRow({
   isColVisible,
   selected,
   onToggleSelect,
+  fold,
 }: {
   project: Project;
   pinned: boolean;
@@ -301,7 +326,9 @@ function ProjectTableRow({
   isColVisible: (key: ProjectColumnKey) => boolean;
   selected: boolean;
   onToggleSelect: (id: string) => void;
+  fold: ProjectFold;
 }) {
+  const { t } = useT("worklanes");
   const wsPaths = useWorkspacePaths();
   const rowLink = useRowLink();
   const formatRelativeDate = useFormatRelativeDate();
@@ -318,10 +345,39 @@ function ProjectTableRow({
     >
       <CheckboxCell checked={selected} onToggle={() => onToggleSelect(project.id)} />
       <ListGridCell className="gap-2">
+        <button
+          type="button"
+          aria-expanded={fold.open}
+          aria-label={t(($) => $.rows.project_fold, { project: project.title })}
+          disabled={fold.repositoryCount === 0}
+          onClick={(event) => {
+            event.stopPropagation();
+            fold.onToggle(project.id);
+          }}
+          onAuxClick={stopRowNavigation}
+          onKeyDown={(event) => event.stopPropagation()}
+          className="-ml-1 flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:invisible"
+        >
+          <ChevronRight
+            aria-hidden="true"
+            className={cn(
+              "size-3.5 transition-transform motion-reduce:transition-none",
+              fold.open && "rotate-90",
+            )}
+          />
+        </button>
         <ProjectIcon project={project} size="sm" />
         <span className="min-w-0 truncate text-body font-medium">
           {project.title}
         </span>
+        {fold.repositoryCount > 0 ? (
+          <span className="shrink-0 truncate text-caption text-muted-foreground">
+            {t(($) => $.overview.project_meta, {
+              repositories: t(($) => $.overview.repository_count, { count: fold.repositoryCount }),
+              worklanes: t(($) => $.worklane_count, { count: fold.worklaneCount }),
+            })}
+          </span>
+        ) : null}
       </ListGridCell>
 
       {isColVisible("priority") ? (
@@ -389,6 +445,84 @@ function ProjectTableRow({
         </span>
       </ListGridCell>
     </ListGridRow>
+  );
+}
+
+/**
+ * A repository under its project's row: `owner/name` and default branch, the
+ * number of worklanes and + Worklane. It folds open to its worklane rows
+ * through the view store's `expandedRepositories`.
+ */
+function RepositoryFoldRow({
+  repository,
+  worklaneCount,
+  open,
+  onToggle,
+}: {
+  repository: Repository;
+  worklaneCount: number;
+  open: boolean;
+  onToggle: (id: string) => void;
+}) {
+  const { t } = useT("worklanes");
+  const label = open
+    ? t(($) => $.rows.fold_close, { repository: repository.full_name })
+    : t(($) => $.rows.fold_open, { repository: repository.full_name });
+
+  return (
+    <div
+      role="row"
+      onClick={(event) => {
+        if ((event.target as Element).closest("a, button")) return;
+        onToggle(repository.id);
+      }}
+      className={cn(
+        "col-span-full flex h-10 min-w-0 cursor-pointer items-center gap-2 border-b pr-3 transition-colors hover:bg-accent/40",
+        WORK_TREE_INDENT.repository,
+      )}
+    >
+      <div role="cell" className="flex min-w-0 flex-1 items-center gap-1.5">
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-label={label}
+          onClick={() => onToggle(repository.id)}
+          className="-ml-1 flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+        >
+          <ChevronRight
+            aria-hidden="true"
+            className={cn(
+              "size-3.5 transition-transform motion-reduce:transition-none",
+              open && "rotate-90",
+            )}
+          />
+        </button>
+        <FolderGit2 aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
+        <span className="min-w-0 truncate font-mono text-caption font-medium">
+          {repository.full_name}
+        </span>
+        <span className="flex shrink-0 items-center gap-1 font-mono text-caption text-muted-foreground">
+          <GitBranch aria-hidden="true" className="size-3" />
+          {repository.default_branch}
+        </span>
+        <span className="shrink-0 text-caption text-muted-foreground">
+          {t(($) => $.worklane_count, { count: worklaneCount })}
+        </span>
+      </div>
+      <div role="cell" className="shrink-0">
+        <Button
+          size="xs"
+          variant="ghost"
+          aria-label={t(($) => $.rows.add_label, { repository: repository.full_name })}
+          onClick={() =>
+            useModalStore.getState().open("new-worklane", { repositoryId: repository.id })
+          }
+        >
+          <Plus aria-hidden="true" />
+          {t(($) => $.rows.add)}
+        </Button>
+      </div>
+    </div>
   );
 }
 
@@ -507,9 +641,14 @@ export function OrganisationGroupHeading({
   onToggle: (key: string) => void;
 }) {
   const { t } = useT("projects");
+  const { t: tWorklanes } = useT("worklanes");
   const wsPaths = useWorkspacePaths();
+  const counts = useWorklaneCounts();
   const { organisation } = group;
   const name = organisation?.name ?? t(($) => $.organisation.none);
+  const worklaneCount = organisation
+    ? (counts.byOrganisation.get(organisation.id) ?? 0)
+    : group.projects.reduce((n, project) => n + (counts.byProject.get(project.id) ?? 0), 0);
 
   return (
     <div className="flex min-w-0 items-center gap-1.5">
@@ -541,6 +680,8 @@ export function OrganisationGroupHeading({
       )}
       <span className="shrink-0 text-caption text-muted-foreground">
         {t(($) => $.group.project_count, { count: group.projects.length })}
+        {" · "}
+        {tWorklanes(($) => $.worklane_count, { count: worklaneCount })}
       </span>
     </div>
   );
@@ -639,6 +780,23 @@ export function ProjectTable({
   const collapsedOrganisations = useProjectViewStore((s) => s.collapsedOrganisations);
   const toggleSort = useProjectViewStore((s) => s.toggleSort);
   const toggleOrganisation = useProjectViewStore((s) => s.toggleOrganisation);
+  const expandedProjects = useProjectViewStore((s) => s.expandedProjects);
+  const toggleProject = useProjectViewStore((s) => s.toggleProject);
+  const expandedRepositories = useProjectViewStore((s) => s.expandedRepositories);
+  const toggleRepository = useProjectViewStore((s) => s.toggleRepository);
+  const wsId = useWorkspaceId();
+  const { data: repositories = EMPTY_REPOSITORIES } = useQuery(repositoryListOptions(wsId));
+  const { data: worklanes = EMPTY_WORKLANES } = useQuery(worklaneListOptions(wsId));
+  const counts = useWorklaneCounts();
+  const worklanesByRepository = useMemo(() => {
+    const map = new Map<string, Worklane[]>();
+    for (const worklane of worklanes) {
+      const list = map.get(worklane.repository_id);
+      if (list) list.push(worklane);
+      else map.set(worklane.repository_id, [worklane]);
+    }
+    return map;
+  }, [worklanes]);
 
   const isColVisible = useCallback(
     (key: ProjectColumnKey) => !hiddenColumns.includes(key),
@@ -668,17 +826,51 @@ export function ProjectTable({
     [selectedIds, onSelectedIdsChange],
   );
 
-  const renderRow = (project: Project) => (
-    <ProjectTableRow
-      key={project.id}
-      project={project}
-      pinned={pinnedIds.has(project.id)}
-      canDelete={canDelete}
-      isColVisible={isColVisible}
-      selected={selectedIds.has(project.id)}
-      onToggleSelect={handleToggleSelect}
-    />
-  );
+  const renderRow = (project: Project) => {
+    const projectRepositories = repositoriesOfProject(repositories, project.id);
+    const open = projectRepositories.length > 0 && expandedProjects.includes(project.id);
+    return (
+      <Fragment key={project.id}>
+        <ProjectTableRow
+          project={project}
+          pinned={pinnedIds.has(project.id)}
+          canDelete={canDelete}
+          isColVisible={isColVisible}
+          selected={selectedIds.has(project.id)}
+          onToggleSelect={handleToggleSelect}
+          fold={{
+            open,
+            repositoryCount: projectRepositories.length,
+            worklaneCount: counts.byProject.get(project.id) ?? 0,
+            onToggle: toggleProject,
+          }}
+        />
+        {open &&
+          projectRepositories.map((repository) => {
+            const repositoryOpen = expandedRepositories.includes(repository.id);
+            const repositoryWorklanes = worklanesByRepository.get(repository.id) ?? [];
+            return (
+              <Fragment key={repository.id}>
+                <RepositoryFoldRow
+                  repository={repository}
+                  worklaneCount={repositoryWorklanes.length}
+                  open={repositoryOpen}
+                  onToggle={toggleRepository}
+                />
+                {repositoryOpen &&
+                  sortWorklanes(repositoryWorklanes).map((worklane) => (
+                    <WorklaneTreeRow
+                      key={worklane.id}
+                      worklane={worklane}
+                      indent={WORK_TREE_INDENT.rows}
+                    />
+                  ))}
+              </Fragment>
+            );
+          })}
+      </Fragment>
+    );
+  };
 
   return (
     <div className="min-h-0 flex-1 overflow-auto @container">
