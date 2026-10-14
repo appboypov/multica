@@ -694,12 +694,23 @@ DELETE FROM plugin_installation WHERE id IN (SELECT id FROM installations);
 DELETE FROM agent WHERE agent.workspace_id = $1;
 
 -- name: DeleteWorkspaceRuntimesAndProjects :exec
+-- Repositories, worklanes and issue worktrees have no cascades (ADR-0006), so
+-- they go with the projects that hold them.
 WITH
 deleted_runtimes AS (
     DELETE FROM agent_runtime WHERE agent_runtime.workspace_id = $1
 ),
 deleted_profiles AS (
     DELETE FROM runtime_profile WHERE runtime_profile.workspace_id = $1
+),
+deleted_issue_worktrees AS (
+    DELETE FROM issue_worktree WHERE issue_worktree.workspace_id = $1
+),
+deleted_worklanes AS (
+    DELETE FROM worklane WHERE worklane.workspace_id = $1
+),
+deleted_repositories AS (
+    DELETE FROM repository WHERE repository.workspace_id = $1
 )
 DELETE FROM project WHERE project.workspace_id = $1;
 

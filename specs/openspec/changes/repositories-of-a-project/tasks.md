@@ -47,7 +47,7 @@ This change builds on UJ-1 (`projects-by-organisation`, DAS-450): its `organisat
 - [x] 1.9 `server/pkg/db/queries/repository.sql` -- `ListRepositories` (by `LOWER(full_name)`), `ListRepositoriesByProject`, `GetRepositoryInWorkspace`, `CreateRepository`, `UpdateRepositoryCheckout`, `UpdateRepositoryGithub`, `UpdateRepositoryVersionPolicy`, `DeleteRepository`, `DeleteRepositoriesByProject`, each filtered by `workspace_id`.
 - [x] 1.10 `server/pkg/db/queries/worklane.sql` -- `ListWorklanes`, `CreateWorklane`, `DeleteWorklanesByRepository`, `DeleteWorklanesByProject` (through `repository`), each filtered by `workspace_id`.
 - [x] 1.11 `server/pkg/db/queries/issue_worktree.sql` -- `UpsertIssueWorktree` on `(issue_id, repository_id)`, `ListIssueWorktreesForIssue`, `SetIssueWorktreesStateForIssue`, `ListRemovingIssueWorktreesForDaemon`, `DeleteIssueWorktree`, `KeepIssueWorktree` (state and reason), `DeleteIssueWorktreesByIssue`.
-- [ ] 1.12 `server/pkg/db/queries/workspace_delete.sql` -- add deletes of `issue_worktree`, `worklane` and `repository` in the step that deletes projects. `server/internal/handler/workspace_delete_manifest_test.go` -- classify `repository`, `worklane` and `issue_worktree` as deleted with the workspace.
+- [x] 1.12 `server/pkg/db/queries/workspace_delete.sql` -- add deletes of `issue_worktree`, `worklane` and `repository` in the step that deletes projects. `server/internal/handler/workspace_delete_manifest_test.go` -- classify `repository`, `worklane` and `issue_worktree` as deleted with the workspace.
 - [ ] 1.13 `server/pkg/db/generated/` -- run `make sqlc` and commit the output.
 
 ## 2. J2 Data models: model change
