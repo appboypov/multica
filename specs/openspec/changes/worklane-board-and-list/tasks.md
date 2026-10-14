@@ -98,13 +98,13 @@ This change builds on UJ-5 (`issues-from-templates`, DAS-456), which builds on U
 
 ## 8. J8 Backend and agent tooling: util
 
-- [ ] 8.1 `server/internal/worklanehead/head.go` -- `Head(branch, issues)` returning `{state, active, next}` -- design.md decision 2.
+- [x] 8.1 `server/internal/worklanehead/head.go` -- `Head(branch, issues)` returning `{state, active, next}` -- design.md decision 2.
 - [ ] 8.2 `server/internal/worklanehead/head_test.go` -- table tests: the active issue on the branch in In Progress, In Review and a workspace's own started status; Blocked on the branch; the branch of a Todo issue; a detached worktree; next across two releases and No release; two issues in one release by `created_at`; every issue done or cancelled; a skipped issue for the switch after a merge.
 
 ## 9. J8 Backend and agent tooling: endpoint
 
 - [ ] 9.1 `server/internal/handler/worklane.go` -- one response function that loads `ListOpenWorklaneIssues` for the worklanes it answers and fills `branch`, `state`, `active_issue` and `next_issue` through `worklanehead.Head`. `GET /api/worklanes`, `GET /api/worklanes/{id}` and every `worklane:updated` use it -- design.md decision 2.
-- [ ] 9.2 `server/internal/handler/issue_table_query.go` -- scope kind `worklane` with `worklane_id` parsed by `parseIssueTableUUIDList`'s rules, and `filters.types` with `none`, refusing an unknown type with 400 -- design.md decision 3.
+- [x] 9.2 `server/internal/handler/issue_table_query.go` -- scope kind `worklane` with `worklane_id` parsed by `parseIssueTableUUIDList`'s rules, and `filters.types` with `none`, refusing an unknown type with 400 -- design.md decision 3.
 - [ ] 9.3 `server/internal/handler/worklane_branch.go` -- `ReportWorklaneBranch` for `POST /api/daemon/tasks/{taskId}/worklane-branch`: the task belongs to the calling daemon, its issue is in a worklane, then `SetWorklaneBranch`, `worklane_switched` when it changed, and `worklane:updated` -- design.md decision 6.
 - [ ] 9.4 `server/internal/handler/daemon.go` -- the claim fills the `worklane` block for the repository of the issue's worklane, with the checkout's path and machine for `main`. A runtime on another machine fails the task through `failClaimedTaskBeforeLaunch` with `worklane_elsewhere` and "{agent} runs on {machine}; {worklane} lives on {machine}" -- design.md decision 6.
 - [ ] 9.5 `server/internal/handler/worklane_request.go` -- kind `switch`: the progress report `completed` sets the branch and writes `worklane_switched`, `refused` writes `worklane_kept` with the reason and count, both publish `worklane:updated` -- design.md decision 7.

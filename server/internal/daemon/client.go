@@ -538,6 +538,14 @@ func (c *Client) MarkTaskWaitingLocalDirectory(ctx context.Context, taskID, reas
 	}, nil)
 }
 
+// ReportWorklaneBranch tells the server the branch a worklane's worktree
+// switched to before the task started there (UJ-6 design.md decision 6).
+func (c *Client) ReportWorklaneBranch(ctx context.Context, taskID, branch string) error {
+	return c.postJSON(ctx, fmt.Sprintf("/api/daemon/tasks/%s/worklane-branch", taskID), map[string]any{
+		"branch": branch,
+	}, nil)
+}
+
 // TaskCancelAck is the payload of the daemon's cancel acknowledgement.
 type TaskCancelAck struct {
 	// BranchName: a cancelled worktree task has already finalized — its

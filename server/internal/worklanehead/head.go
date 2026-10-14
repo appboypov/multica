@@ -8,6 +8,9 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/multica-ai/multica/server/internal/util"
+	db "github.com/multica-ai/multica/server/pkg/db/generated"
 )
 
 // States of a worklane.
@@ -37,18 +40,46 @@ type Result struct {
 	Next   *Issue
 }
 
+// FromRows groups the rows of ListOpenWorklaneIssues by worklane id, in the
+// query's order.
+func FromRows(rows []db.ListOpenWorklaneIssuesRow) map[string][]Issue {
+	byWorklane := make(map[string][]Issue)
+	for _, row := range rows {
+		issue := Issue{
+			ID:             util.UUIDToString(row.ID),
+			Identifier:     row.Identifier,
+			Title:          row.Title,
+			Status:         row.Status,
+			StatusCategory: row.StatusCategory,
+			CreatedAt:      row.CreatedAt.Time,
+		}
+		if row.ReleasePosition.Valid {
+			position := row.ReleasePosition.Int32
+			issue.ReleasePosition = &position
+		}
+		worklaneID := util.UUIDToString(row.WorklaneID)
+		byWorklane[worklaneID] = append(byWorklane[worklaneID], issue)
+	}
+	return byWorklane
+}
+
+// Branch is the branch a worklane works an issue on: its identifier in
+// lowercase, as UJ-2 names an issue's branch.
+func Branch(identifier string) string {
+	return strings.ToLower(identifier)
+}
+
 // Head returns the worklane's state with its active or next issue. branch is
 // the branch the worktree is on, empty while detached. The active issue is
-// the open issue whose lowercased identifier is the branch and whose status
-// category is started, except blocked. Without one the worklane is Free and
-// its next issue is the first open issue in release order: issues in a
-// release by the release's position, then issues in no release, each by
-// created_at, then id.
+// the open issue whose branch is the worktree's and whose status category is
+// started, except blocked. Without one the worklane is Free and its next
+// issue is the first open issue in release order: issues in a release by the
+// release's position, then issues in no release, each by created_at, then id.
 func Head(branch string, issues []Issue) Result {
 	if branch != "" {
 		for i := range issues {
 			issue := &issues[i]
-			if strings.ToLower(issue.Identifier) == branch && isWorking(issue) {
+			if Branch(issue.Identifier) == branch && isWorking(issue) {
 				active := *issue
 				return Result{State: StateBusy, Active: &active}
 			}
@@ -66,12 +97,12 @@ func Head(branch string, issues []Issue) Result {
 	return Result{State: StateFree, Next: &next}
 }
 
-// Without returns issues without the issue of the given id, as the switch
-// after a merge skips the merged issue.
-func Without(issues []Issue, id string) []Issue {
+// Without returns issues without the issues of the given ids, as the switch
+// after a merge skips the merged issues.
+func Without(issues []Issue, ids map[string]bool) []Issue {
 	out := make([]Issue, 0, len(issues))
 	for _, issue := range issues {
-		if issue.ID != id {
+		if !ids[issue.ID] {
 			out = append(out, issue)
 		}
 	}
