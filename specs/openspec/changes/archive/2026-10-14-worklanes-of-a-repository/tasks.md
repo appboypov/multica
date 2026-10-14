@@ -192,15 +192,17 @@ This change builds on UJ-2 (`repositories-of-a-project`, DAS-451): its `reposito
 
 ## 14. J11 Acceptance test and archive: acceptance test and archive
 
-- [ ] 14.1 `e2e/worklanes.spec.ts` -- the journey's acceptance test through `TestApiClient`, with a runtime that answers checks and worklane requests:
+- [x] 14.1 `e2e/worklanes.spec.ts` -- the journey's acceptance test through `TestApiClient`, with a runtime that answers checks and worklane requests:
   - Add worklane on appboypov/rebl shows `~/Worktrees/rebl/rebl/fan-app`, from origin/main, and `pnpm install`.
   - Creating "Fan app" shows each step and opens its page on the timeline, Free, with "Brian created Fan app on Brian's Mac".
   - Rebl shows "3 worklanes".
   - A failed install keeps the error with Try again and saves no worklane.
   - Rename shows its entry; Remove removes the row; Projects folds appboypov/rebl open to its worklanes.
-- [ ] 14.2 A worklane on Brian's Mac -- on the local release, create "Fan app" on appboypov/rebl, see `~/Worktrees/rebl/rebl/fan-app` at `origin/main` with `pnpm install` done and `~/Repos/rebl` untouched, then remove it; record both in the J11 pull request -- the PRD's success signal.
-- [ ] 14.3 `specs/openspec/changes/worklanes-of-a-repository/` -- run `openspec validate worklanes-of-a-repository --type change --strict`, sync the specs and archive the change -- the journey closes on its J11 pull request.
+- [x] 14.2 A worklane on Brian's Mac -- on the local release, create "Fan app" on appboypov/rebl, see `~/Worktrees/rebl/rebl/fan-app` at `origin/main` with `pnpm install` done and `~/Repos/rebl` untouched, then remove it; record both in the J11 pull request -- the PRD's success signal.
+- [x] 14.3 `specs/openspec/changes/worklanes-of-a-repository/` -- run `openspec validate worklanes-of-a-repository --type change --strict`, sync the specs and archive the change -- the journey closes on its J11 pull request.
 
 ## Implementation Notes
 
 ## Plan Change Log
+
+- 2026-10-14, J11: the change is archived with open tasks. 2.4, 8.10, 9.6, 10.2, 11.8, 12.6 and 13.6 stay unticked, because Brian's rule shipped the lanes layer pull requests #29, #31 and #32 without tests. Groups 4, 5, 6 and 7 stay unticked, because the Gate Request dropped J3, J5, J6 and J7. `.openspec.yaml` moves `type`, `ticket` and `context` under `build:`, as the other changes hold them.
