@@ -17,7 +17,7 @@ export const RELEASE_ROW_COLS =
   "grid-cols-[minmax(0,1fr)_minmax(6rem,10rem)_minmax(0,16rem)_1rem]";
 
 /**
- * One unshipped release on Releases: its version chip, title, "Set by hand",
+ * One unshipped release on Releases: its version chip, its state, title, "Set by hand",
  * progress over every issue in it and the worklanes that hold them. The whole
  * row opens the target worklane's Timeline with the release in view. It has
  * no menu: Releases does not plan, edit or move releases.
@@ -36,6 +36,9 @@ export function ReleaseRow({ row, indent }: { row: ReleaseOverviewRow; indent: s
     <>
       <span className="flex min-w-0 items-center gap-2">
         <ReleaseChip version={release.version} state={state} />
+        <span className="shrink-0 text-caption text-muted-foreground">
+          {t(($) => $.column.state[state])}
+        </span>
         <span className="min-w-0 truncate text-caption font-medium">{release.title}</span>
         {setByHand && (
           <span className="shrink-0 text-caption text-muted-foreground">
@@ -54,7 +57,7 @@ export function ReleaseRow({ row, indent }: { row: ReleaseOverviewRow; indent: s
         </span>
       </span>
       <span className="flex min-w-0 items-center gap-1.5 overflow-hidden">
-        {worklanes.length === 0 ? (
+        {total === 0 ? (
           <span className="truncate text-caption text-muted-foreground">
             {t(($) => $.overview.no_issues)}
           </span>

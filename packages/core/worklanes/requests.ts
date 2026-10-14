@@ -29,11 +29,23 @@ export function worklaneRequestOptions(wsId: string, id: string) {
 
 /**
  * The server's reason when it refuses a worklane call before anything runs
- * (`{error, code, detail}`), or null for any other error.
+ * (`{error, code, detail}`), or null for any other error, such as a plain
+ * 403 or 404 without a code. Remove's open-issues refusal names its issues in
+ * `issues` rather than `detail`; they read as the detail the request's own
+ * re-check sends, so one sentence names them both ways.
  */
 export function worklaneRefusal(error: unknown): WorklaneRequestReason | null {
   if (!(error instanceof ApiError) || error.body === undefined) return null;
+  const body = error.body as { code?: unknown; issues?: unknown };
+  if (typeof body !== "object" || body === null || typeof body.code !== "string") return null;
   const parsed = WorklaneRequestReasonSchema.safeParse(error.body);
   if (!parsed.success) return null;
-  return parsed.data;
+  const reason = parsed.data;
+  if (reason.code === "worklane_has_open_issues" && reason.detail === "" && Array.isArray(body.issues)) {
+    const identifiers = body.issues
+      .map((issue: { identifier?: unknown }) => issue?.identifier)
+      .filter((identifier): identifier is string => typeof identifier === "string");
+    return { ...reason, detail: `worklane still has the open issues ${identifiers.join(", ")}` };
+  }
+  return reason;
 }

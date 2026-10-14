@@ -127,7 +127,7 @@ function ListRowContent({
           className={`flex flex-1 items-center gap-2 min-w-0 ${isDragging ? "pointer-events-none" : ""}`}
           {...peekLinkProps}
         >
-          {issue.type && <TypeIcon type={issue.type} />}
+          <TypeIcon type={issue.type} />
           <span className="min-w-16 shrink-0 text-caption text-muted-foreground">
             {issue.identifier}
           </span>

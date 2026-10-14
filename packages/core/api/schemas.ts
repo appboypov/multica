@@ -1633,23 +1633,36 @@ const RepositoryCheckoutFailureSchema = z.object({
 // The checkout check is polled like a runtime directory listing: every field
 // degrades on its own, an unknown failure code is kept as `unknown` (a failed
 // check the dialog still explains with the server's detail), and a missing
-// `failures` reads as none.
-export const RepositoryCheckoutRequestSchema = z.object({
-  id: z.string().catch(""),
-  runtime_id: z.string().catch(""),
-  status: z.enum(["pending", "running", "completed", "failed", "timeout"]).catch("failed"),
-  resolved_path: z.string().catch(""),
-  passed: z.boolean().catch(false),
-  failures: z.array(RepositoryCheckoutFailureSchema).catch([]),
-  version_files: z.array(z.string()).catch([]),
-  last_tag: z.string().catch(""),
-  install_commands: z
-    .array(z.object({ file: z.string().catch(""), command: z.string().catch("") }).loose())
-    .catch([]),
-  error: z.string().catch(""),
-  created_at: z.string().catch(""),
-  updated_at: z.string().catch(""),
-}).loose();
+// `failures` reads as none. The server nests the daemon's answer under
+// `result`; its fields read beside the request's own, and the request's
+// `status` stays the one the poll follows. The daemon's tag keeps its `v`,
+// which the client drops, as `repository.last_tag` does.
+export const RepositoryCheckoutRequestSchema = z.preprocess(
+  (raw) => {
+    if (!raw || typeof raw !== "object") return raw;
+    const { result, ...request } = raw as Record<string, unknown>;
+    if (!result || typeof result !== "object") return request;
+    const answer: Record<string, unknown> = { ...result };
+    delete answer.status;
+    return { ...answer, ...request };
+  },
+  z.object({
+    id: z.string().catch(""),
+    runtime_id: z.string().catch(""),
+    status: z.enum(["pending", "running", "completed", "failed", "timeout"]).catch("failed"),
+    resolved_path: z.string().catch(""),
+    passed: z.boolean().catch(false),
+    failures: z.array(RepositoryCheckoutFailureSchema).catch([]),
+    version_files: z.array(z.string()).catch([]),
+    last_tag: z.string().transform((tag) => tag.replace(/^v/, "")).catch(""),
+    install_commands: z
+      .array(z.object({ file: z.string().catch(""), command: z.string().catch("") }).loose())
+      .catch([]),
+    error: z.string().catch(""),
+    created_at: z.string().catch(""),
+    updated_at: z.string().catch(""),
+  }).loose(),
+);
 
 // `failed` is the honest fallback for an unparseable check: `completed` without
 // `passed` would read as a check that ran and failed for no reason, and

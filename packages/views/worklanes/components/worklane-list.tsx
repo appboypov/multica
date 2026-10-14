@@ -20,6 +20,7 @@ import { IssueContextMenuProvider } from "../../issues/actions";
 import { ListRow } from "../../issues/components/list-row";
 import { ReleaseChip } from "../../releases/components/release-chips";
 import { ReleaseMenu } from "../../releases/components/release-menu";
+import { useLastTag } from "../../releases/use-release-line";
 import { useT } from "../../i18n";
 
 /**
@@ -106,7 +107,10 @@ function ReleaseSection({
 }) {
   const { t: tReleases } = useT("releases");
   const { release } = section;
+  const lastTag = useLastTag(repository);
   return (
+    // The release's own version and title: data, not copy.
+    // eslint-disable-next-line no-restricted-syntax
     <section aria-label={`v${release.version} ${release.title}`}>
       <header className="flex min-h-10 flex-wrap items-center gap-2 rounded-lg bg-muted px-3 py-1.5">
         <ReleaseChip version={release.version} state={section.state} />
@@ -124,7 +128,12 @@ function ReleaseSection({
             ? tReleases(($) => $.issues.progress, { done: section.done, total: section.total })
             : tReleases(($) => $.column.no_issues)}
         </span>
-        <ReleaseMenu repository={repository} release={release} line={line} />
+        <ReleaseMenu
+          repository={repository}
+          release={release}
+          line={line}
+          findingTag={lastTag === "finding"}
+        />
       </header>
       {release.description && (
         <p className="whitespace-pre-wrap px-4 pt-2 text-caption text-muted-foreground">

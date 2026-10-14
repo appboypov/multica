@@ -9,5 +9,7 @@ export default function WorklaneDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
-  return <WorklanePage worklaneId={id} />;
+  // Keyed by worklane: another worklane starts on its Timeline without the
+  // view and Type picks of the one before.
+  return <WorklanePage key={id} worklaneId={id} />;
 }

@@ -52,6 +52,22 @@ export function releaseForWorklane(worklaneId: string | null, data: PlacementDat
 }
 
 /**
+ * The release an issue keeps when its page picks another worklane: its own
+ * release when the new worklane is of the same repository as the old one,
+ * else none (the `issue-page-worklane-and-release` spec delta).
+ */
+export function releaseKeptOnWorklanePick(
+  from: { worklaneId: string | null; releaseId: string | null },
+  toWorklaneId: string | null,
+  data: PlacementData,
+): string | null {
+  if (!from.worklaneId || !from.releaseId || !toWorklaneId) return null;
+  const repositoryOf = (id: string) => data.worklanes.find((w) => w.id === id)?.repository_id;
+  const repository = repositoryOf(from.worklaneId);
+  return repository !== undefined && repository === repositoryOf(toWorklaneId) ? from.releaseId : null;
+}
+
+/**
  * The worklane and release New issue fills in. From a worklane: that worklane
  * and its repository's next release, or the release it was opened in (+ Add
  * issue to release). From a project: `main` of its first repository by

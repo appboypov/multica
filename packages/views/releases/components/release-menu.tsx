@@ -40,7 +40,7 @@ export function ReleaseMenu({
   repository: Repository;
   release: Release;
   line: Line;
-  /** The repository's last tag is being found; moves wait for it. */
+  /** The repository's last tag is being found; moves and Remove wait for it. */
   findingTag?: boolean;
   /** On a worklane: Add issue to release ticks its issues in no release. */
   worklaneId?: string;
@@ -125,9 +125,19 @@ export function ReleaseMenu({
           onMove={() => void move("later")}
         />
         <DropdownMenuSeparator />
-        <DropdownMenuItem variant="destructive" onClick={() => open("remove-release", data)}>
-          <Trash2 className="size-3.5" aria-hidden="true" />
-          {t(($) => $.menu.remove)}
+        <DropdownMenuItem
+          variant="destructive"
+          disabled={findingTag}
+          onClick={() => open("remove-release", data)}
+          className="items-start"
+        >
+          <Trash2 className="mt-0.5 size-3.5" aria-hidden="true" />
+          <span className="flex min-w-0 flex-col">
+            <span>{t(($) => $.menu.remove)}</span>
+            {findingTag ? (
+              <span className="text-caption text-muted-foreground">{t(($) => $.menu.finding_tag)}</span>
+            ) : null}
+          </span>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

@@ -728,7 +728,7 @@ export function InlineTitle({
       ) : (
         <span className="w-4 shrink-0" />
       )}
-      {row.issue.type ? <TypeIcon type={row.issue.type} /> : null}
+      <TypeIcon type={row.issue.type} />
       <span className="min-w-16 shrink-0 text-caption text-muted-foreground">
         {row.issue.identifier}
       </span>
@@ -1166,7 +1166,7 @@ function IssueTableBodyCell({
     case "identifier":
       return (
         <span className="inline-flex items-center gap-1.5 text-caption text-muted-foreground">
-          {issue.type ? <TypeIcon type={issue.type} /> : null}
+          <TypeIcon type={issue.type} />
           {issue.identifier}
         </span>
       );

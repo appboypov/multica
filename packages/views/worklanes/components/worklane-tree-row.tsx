@@ -7,6 +7,7 @@ import { cn } from "@multica/ui/lib/utils";
 import { AppLink, rowLinkInteractiveProps, useRowLink } from "../../navigation";
 import { ReleaseChips } from "../../releases/components/release-chips";
 import { WorklaneRowWork } from "./worklane-row-work";
+import { WorklaneStateLabel } from "./worklane-state";
 
 /**
  * The worklane row's own column template: the name with its now or next line,
@@ -17,7 +18,7 @@ export const WORKLANE_TREE_COLS = "grid-cols-[minmax(0,1fr)_minmax(0,24rem)]";
 
 /**
  * One worklane row, the same on Projects, an organisation's page and
- * Worklanes: the name with the branch icon and the now or next line under it,
+ * Worklanes: the name with the branch icon and its state, the now or next line under it,
  * the release chips beside it, and the row opening the worklane's Timeline.
  */
 export function WorklaneTreeRow({
@@ -50,6 +51,7 @@ export function WorklaneTreeRow({
         >
           <GitBranch aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
           <span className="min-w-0 truncate">{worklane.name}</span>
+          <WorklaneStateLabel state={worklane.state} />
         </AppLink>
         <WorklaneRowWork worklane={worklane} className="pl-5" />
       </div>

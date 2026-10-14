@@ -12,5 +12,7 @@ export function WorklaneDetailPage() {
   useDocumentTitle(worklane ? worklane.name : "Worklane");
 
   if (!id) return null;
-  return <WorklanePage worklaneId={id} />;
+  // Keyed by worklane: another worklane opened in the same tab starts on its
+  // Timeline without the view and Type picks of the one before.
+  return <WorklanePage key={id} worklaneId={id} />;
 }

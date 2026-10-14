@@ -666,6 +666,7 @@ function invalidateWorkspaceScopedQueries(qc: QueryClient): void {
     qc.invalidateQueries({ queryKey: projectKeys.all(wsId) });
     qc.invalidateQueries({ queryKey: organisationKeys.all(wsId) });
     qc.invalidateQueries({ queryKey: releaseKeys.all(wsId) });
+    qc.invalidateQueries({ queryKey: worklaneKeys.all(wsId) });
     invalidatePlacementReads(qc, wsId);
     qc.invalidateQueries({ queryKey: repositoryKeys.all(wsId) });
     qc.invalidateQueries({ queryKey: runtimeKeys.all(wsId) });
@@ -745,17 +746,13 @@ async function refreshWorkingAgentQueries(qc: QueryClient, wsId: string): Promis
 
 /**
  * A worklane's state, now and next come from its open issues (UJ-6), so an
- * issue change refreshes the list and the detail of each worklane it touches.
+ * issue change refreshes the list and every worklane detail: the worklane an
+ * issue left is not known when its detail was never cached here or a local
+ * write patched it first, and only the open worklane pages refetch.
  */
-function invalidateIssueWorklanes(
-  qc: QueryClient,
-  wsId: string,
-  worklaneIds: readonly (string | null | undefined)[],
-): void {
-  const ids = new Set(worklaneIds.filter((id): id is string => !!id));
-  if (ids.size === 0) return;
+function invalidateIssueWorklanes(qc: QueryClient, wsId: string): void {
   qc.invalidateQueries({ queryKey: worklaneKeys.list(wsId) });
-  for (const id of ids) qc.invalidateQueries({ queryKey: worklaneKeys.detail(wsId, id) });
+  qc.invalidateQueries({ queryKey: [...worklaneKeys.all(wsId), "detail"] });
 }
 
 function invalidateSquadMemberStatusQueries(qc: QueryClient, wsId: string): void {
@@ -866,13 +863,14 @@ export function useRealtimeSync(
         if (wsId) qc.invalidateQueries({ queryKey: organisationKeys.all(wsId) });
       },
       // A repository's release line changed (ADR-0010): refetch the
-      // workspace's releases, the activity of its worklanes, which records
-      // each change, and the issues and progress that follow them.
+      // workspace's releases, its worklanes, whose next issue follows release
+      // order and whose activity records each change, and the issues and
+      // progress that follow them.
       release_line: () => {
         const wsId = getCurrentWsId();
         if (!wsId) return;
         qc.invalidateQueries({ queryKey: releaseKeys.list(wsId) });
-        qc.invalidateQueries({ queryKey: worklaneKeys.activityAll(wsId) });
+        qc.invalidateQueries({ queryKey: worklaneKeys.all(wsId) });
         invalidatePlacementReads(qc, wsId);
       },
       // worklane:created, :updated and :deleted refresh the list, the
@@ -1147,11 +1145,6 @@ export function useRealtimeSync(
           assigneeChanged: payload.assignee_changed,
           projectChanged: payload.project_changed,
         });
-        // Read before the patch: an issue moved to another worklane changes
-        // the now and next of the worklane it left too.
-        const previousWorklaneId = qc.getQueryData<{ worklane_id?: string | null }>(
-          issueKeys.detail(wsId, issue.id),
-        )?.worklane_id;
         onIssueUpdated(qc, wsId, issue, {
           assigneeChanged: payload.assignee_changed,
           statusChanged: payload.status_changed,
@@ -1167,7 +1160,7 @@ export function useRealtimeSync(
         if (issue.status) {
           onInboxIssueStatusChanged(qc, wsId, issue.id, issue.status);
         }
-        invalidateIssueWorklanes(qc, wsId, [issue.worklane_id, previousWorklaneId]);
+        invalidateIssueWorklanes(qc, wsId);
       }
     });
 
@@ -1177,7 +1170,7 @@ export function useRealtimeSync(
       const wsId = getCurrentWsId();
       if (wsId) {
         onIssueCreated(qc, wsId, issue);
-        invalidateIssueWorklanes(qc, wsId, [issue.worklane_id]);
+        if (issue.worklane_id) invalidateIssueWorklanes(qc, wsId);
       }
     });
 

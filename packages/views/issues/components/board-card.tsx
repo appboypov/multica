@@ -204,7 +204,7 @@ export const BoardCardContent = memo(function BoardCardContent({
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5 min-w-0">
           {priorityIconNode}
-          {issue.type && <TypeIcon type={issue.type} />}
+          <TypeIcon type={issue.type} />
           <p className="text-caption text-muted-foreground truncate">{issue.identifier}</p>
           {issue.release_id && <IssueReleaseChip releaseId={issue.release_id} />}
           <IssueDuplicateOfMarker issue={issue} insideLink />

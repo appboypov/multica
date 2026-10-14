@@ -3,7 +3,10 @@
 import { toast } from "sonner";
 import { MoreHorizontal, X } from "lucide-react";
 import type { Issue, Release } from "@multica/core/types";
+import { useWorkspaceId } from "@multica/core/hooks";
 import { useWorkspacePaths } from "@multica/core/paths";
+import { issueStatusCategory } from "@multica/core/issues";
+import { useIssueStatuses } from "@multica/core/issue-statuses/hooks";
 import { useSetIssuePlacement } from "@multica/core/issues/placement";
 import { formatVersion } from "@multica/core/releases";
 import { Button } from "@multica/ui/components/ui/button";
@@ -14,18 +17,20 @@ import {
   DropdownMenuTrigger,
 } from "@multica/ui/components/ui/dropdown-menu";
 import { AppLink } from "../../navigation";
+import { StatusIcon } from "../../issues/components/status-icon";
 import { TypeIcon } from "../../issues/components/type-icon";
 import { useIssuePeekLinkProps } from "../../issues/surface/peek-context";
 import { useT } from "../../i18n";
 
 /**
- * One issue of a worklane in a release column of its Timeline: type icon, ID
- * and title. A click opens the issue's preview inside a peek host, else the
+ * One issue of a worklane in a release column of its Timeline: status, type
+ * icon, ID and title. A click opens the issue's preview inside a peek host, else the
  * issue's page. In an unshipped release its menu offers Remove from release,
  * which keeps the worklane and puts the issue in No release.
  */
 export function ReleaseIssueRow({ issue, release }: { issue: Issue; release?: Release }) {
   const paths = useWorkspacePaths();
+  const { colorOf, iconOf } = useIssueStatuses(useWorkspaceId());
   const peekLinkProps = useIssuePeekLinkProps(issue.id);
   return (
     <div className="group flex min-w-0 items-center">
@@ -35,6 +40,13 @@ export function ReleaseIssueRow({ issue, release }: { issue: Issue; release?: Re
         className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-body transition-colors hover:bg-accent"
         {...peekLinkProps}
       >
+        <StatusIcon
+          status={issue.status}
+          color={colorOf(issue.status)}
+          icon={iconOf(issue.status)}
+          category={issueStatusCategory(issue) ?? undefined}
+          className="size-3.5 shrink-0"
+        />
         <TypeIcon type={issue.type ?? null} />
         <span className="shrink-0 text-caption text-muted-foreground">{issue.identifier}</span>
         <span className="min-w-0 truncate">{issue.title}</span>

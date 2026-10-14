@@ -4,7 +4,7 @@ import { Milestone } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useWorkspaceId } from "@multica/core/hooks";
 import { useWorkspacePaths } from "@multica/core/paths";
-import { releaseProgressOptions } from "@multica/core/issues/placement";
+import { nextRelease, releaseProgressOptions, unshippedReleases } from "@multica/core/issues/placement";
 import { formatVersion } from "@multica/core/releases";
 import type { Issue } from "@multica/core/types";
 import { AppLink } from "../../navigation";
@@ -12,10 +12,10 @@ import { usePlacementData } from "../../issues/components/pickers";
 import { useT } from "../../i18n";
 
 /**
- * The issue page's release card: the issue's release with its version, title
- * and description, its repository and worklane, the progress of the
- * worklane's issues in it, and a link to the worklane's Timeline. An issue in
- * No release shows no card.
+ * The issue page's release card: the issue's release with its version, state
+ * (Shipped, Next release or Planned), title and description, its repository
+ * and worklane, the progress of the worklane's issues in it, and a link to the
+ * worklane's Timeline. An issue in No release shows no card.
  */
 export function IssueReleaseCard({ issue }: { issue: Issue }) {
   const { t } = useT("releases");
@@ -33,6 +33,12 @@ export function IssueReleaseCard({ issue }: { issue: Issue }) {
   );
   const totals = row ?? progress?.releases.find((candidate) => candidate.release_id === release.id);
   const version = formatVersion(release.version);
+  const state =
+    release.shipped_at !== null
+      ? "shipped"
+      : nextRelease(unshippedReleases(data.releases, release.repository_id))?.id === release.id
+        ? "next"
+        : "planned";
 
   return (
     <section
@@ -42,6 +48,9 @@ export function IssueReleaseCard({ issue }: { issue: Issue }) {
       <div className="flex items-center gap-2">
         <Milestone aria-hidden className="size-4 shrink-0 text-muted-foreground" />
         <span className="font-medium tabular-nums">{version}</span>
+        <span className="shrink-0 text-caption text-muted-foreground">
+          {t(($) => $.column.state[state])}
+        </span>
         <span className="min-w-0 truncate">{release.title}</span>
       </div>
       {release.description && (

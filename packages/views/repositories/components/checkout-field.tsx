@@ -25,6 +25,7 @@ import {
 } from "@multica/ui/components/ui/select";
 import { Spinner } from "@multica/ui/components/ui/spinner";
 import { useT } from "../../i18n";
+import { githubShortLabel } from "../../common/github-url";
 import { RuntimeFileBrowser } from "../../agents/components/runtime-file-browser";
 import { buildRuntimeMachines } from "../../runtimes/components/runtime-machines";
 
@@ -352,7 +353,10 @@ function FailureRow({
         ];
       case "origin_mismatch":
         return [
-          t(($) => $.checkout.failure.origin_mismatch, { origin: failure.detail, name: fullName }),
+          t(($) => $.checkout.failure.origin_mismatch, {
+            origin: githubShortLabel(failure.detail),
+            name: fullName,
+          }),
           t(($) => $.checkout.failure.origin_mismatch_fix, { name: fullName }),
         ];
       case "wrong_branch":

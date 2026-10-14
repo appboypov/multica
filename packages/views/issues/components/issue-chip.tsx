@@ -95,7 +95,7 @@ export function IssueChip({
         icon={statusIconOf(issue.status)}
         className="h-3.5 w-3.5 shrink-0"
       />
-      {issue.type ? <TypeIcon type={issue.type} /> : null}
+      <TypeIcon type={issue.type} />
       <span className="font-medium text-muted-foreground shrink-0">
         {issue.identifier}
       </span>

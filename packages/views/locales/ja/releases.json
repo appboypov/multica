@@ -133,6 +133,7 @@
     "remove_failed": "タスクをリリースから外せませんでした。もう一度お試しください。",
     "row_menu": "タスクの操作",
     "field_label": "タスク",
+    "field_from": "{{worklane}} · リリースなし",
     "field_empty": "この worklane のタスクはすべてリリースに含まれています。",
     "field_later": "タスクは後からタイムラインで追加できます。",
     "add_title": "{{version}} {{title}} にタスクを追加",

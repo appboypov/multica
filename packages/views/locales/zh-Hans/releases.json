@@ -133,6 +133,7 @@
     "remove_failed": "无法将任务移出版本，请重试。",
     "row_menu": "任务操作",
     "field_label": "任务",
+    "field_from": "{{worklane}} · 无版本",
     "field_empty": "此 worklane 的所有任务都已在版本中。",
     "field_later": "之后可从时间线添加任务。",
     "add_title": "向 {{version}} {{title}} 添加任务",

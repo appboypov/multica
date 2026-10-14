@@ -44,8 +44,8 @@ export function PlanReleaseButton({
  * spec delta): the repository's releases from left to right in line order,
  * each as a column, then Plan release. `?release={id}` scrolls that release
  * into view. `renderIssues` gives a release's issues of this worklane; without
- * them a column says "No issues of this worklane". `trailing` follows the
- * line, before Plan release: the worklane's "No release".
+ * them a column says "No issues of this worklane". `trailing` follows Plan
+ * release: the worklane's "No release".
  */
 export function ReleaseLine({
   repository,
@@ -88,10 +88,10 @@ export function ReleaseLine({
             {renderIssues?.(release)}
           </ReleaseColumn>
         ))}
-        {trailing}
         <div className="shrink-0 pt-8">
           <PlanReleaseButton repository={repository} worklane={worklane} />
         </div>
+        {trailing}
       </div>
     </div>
   );

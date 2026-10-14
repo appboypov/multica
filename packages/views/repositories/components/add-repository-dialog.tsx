@@ -59,7 +59,7 @@ export function AddRepositoryDialog({
   const createRepository = useCreateRepository();
 
   const { data: projects = [] } = useQuery(projectListOptions(wsId));
-  const { data: repositories = [] } = useQuery(repositoryListOptions(wsId));
+  const { data: repositories = [], isPending: repositoriesPending } = useQuery(repositoryListOptions(wsId));
   const available = useQuery(availableRepositoriesOptions(wsId));
 
   const [query, setQuery] = useState("");
@@ -146,7 +146,7 @@ export function AddRepositoryDialog({
               aria-label={t(($) => $.picker.label)}
               className="max-h-56 overflow-y-auto rounded-lg border"
             >
-              {available.isPending ? (
+              {available.isPending || repositoriesPending ? (
                 <div className="flex flex-col gap-2 p-3">
                   <Skeleton className="h-5 w-2/3" />
                   <Skeleton className="h-5 w-1/2" />

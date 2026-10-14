@@ -87,8 +87,10 @@ import {
   QuestionListSchema,
   QuestionSchema,
   QuestionWakeResultSchema,
+  RepositoryCheckoutRequestSchema,
+  MALFORMED_REPOSITORY_CHECKOUT_REQUEST,
 } from "./schemas";
-import type { Question, QuestionWakeResult } from "../types";
+import type { Question, QuestionWakeResult, RepositoryCheckoutRequest } from "../types";
 import { parseWithFallback } from "./schema";
 
 const baseIssue = {
@@ -2856,5 +2858,65 @@ describe("QuestionWakeResultSchema", () => {
   it("falls back when the task id is missing", () => {
     expect(parseWake({ answer_count: 1 })).toEqual(EMPTY_QUESTION_WAKE_RESULT);
     expect(parseWake(null)).toEqual(EMPTY_QUESTION_WAKE_RESULT);
+  });
+});
+
+describe("RepositoryCheckoutRequestSchema", () => {
+  const parseCheck = (data: unknown) =>
+    parseWithFallback<RepositoryCheckoutRequest>(
+      data,
+      RepositoryCheckoutRequestSchema,
+      MALFORMED_REPOSITORY_CHECKOUT_REQUEST,
+      { endpoint: "GET /api/runtimes/{id}/repository-checkouts/{requestId}" },
+    );
+
+  it("reads the daemon's answer the server nests under result", () => {
+    const check = parseCheck({
+      id: "check-1",
+      runtime_id: "runtime-1",
+      status: "completed",
+      result: {
+        status: "ok",
+        resolved_path: "/Users/brian/Repos/rebl",
+        passed: true,
+        failures: null,
+        version_files: ["package.json"],
+        last_tag: "v0.4.2",
+        install_commands: [{ file: "pnpm-lock.yaml", command: "pnpm install" }],
+      },
+    });
+    expect(check).toMatchObject({
+      status: "completed",
+      resolved_path: "/Users/brian/Repos/rebl",
+      passed: true,
+      failures: [],
+      version_files: ["package.json"],
+      last_tag: "0.4.2",
+      install_commands: [{ file: "pnpm-lock.yaml", command: "pnpm install" }],
+    });
+  });
+
+  it("reads a failed check's reasons from its result", () => {
+    const check = parseCheck({
+      id: "check-1",
+      runtime_id: "runtime-1",
+      status: "completed",
+      result: {
+        passed: false,
+        failures: [{ code: "origin_mismatch", detail: "git@github.com:appboypov/rebl.git" }],
+      },
+    });
+    expect(check.passed).toBe(false);
+    expect(check.failures).toEqual([
+      { code: "origin_mismatch", detail: "git@github.com:appboypov/rebl.git" },
+    ]);
+  });
+
+  it("keeps a pending check pending before the daemon answers", () => {
+    expect(parseCheck({ id: "check-1", runtime_id: "runtime-1", status: "pending" })).toMatchObject({
+      status: "pending",
+      passed: false,
+      failures: [],
+    });
   });
 });

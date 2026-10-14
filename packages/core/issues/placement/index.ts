@@ -15,6 +15,7 @@ export {
   nextRelease,
   unshippedReleases,
   releaseForWorklane,
+  releaseKeptOnWorklanePick,
   openedFrom,
   defaultStatus,
   type NewIssueOrigin,

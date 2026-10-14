@@ -196,7 +196,7 @@ function IssueHoverCardBody({
             className="h-3.5 w-3.5 shrink-0"
           />
         </span>
-        {issue.type ? <TypeIcon type={issue.type} /> : null}
+        <TypeIcon type={issue.type} />
         <span className="text-caption font-medium text-muted-foreground">
           {issue.identifier}
         </span>

@@ -1684,7 +1684,7 @@ function DraggableSwimLane({
             />
           )}
           <span className="truncate text-body font-semibold">{lane.title}</span>
-          {lane.parentIssue?.type ? <TypeIcon type={lane.parentIssue.type} /> : null}
+          {lane.parentIssue ? <TypeIcon type={lane.parentIssue.type} /> : null}
           {lane.identifier && (
             <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-micro font-medium tabular-nums text-muted-foreground">
               {lane.identifier}

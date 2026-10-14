@@ -247,7 +247,7 @@ function IssueResultRow({
           category={issueStatusCategory(issue) ?? undefined}
           className="size-4 shrink-0"
         />
-        {issue.type ? <TypeIcon type={issue.type} /> : null}
+        <TypeIcon type={issue.type} />
         <span className="text-caption text-muted-foreground shrink-0">
           {issue.identifier}
         </span>

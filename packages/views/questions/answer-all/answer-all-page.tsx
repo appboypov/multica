@@ -121,6 +121,7 @@ export function AnswerAllPage() {
         <Button type="button" variant="ghost" size="sm" className="ml-auto" onClick={leave}>
           <LogOut />
           {t(($) => $.answer_all.leave)}
+          {/* eslint-disable-next-line i18next/no-literal-string -- key name, not copy */}
           <kbd className="text-caption text-muted-foreground">Esc</kbd>
         </Button>
       </PageHeader>

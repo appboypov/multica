@@ -80,4 +80,4 @@ export interface ReleaseMovedDetails extends ReleaseEditedDetails {
   direction: "earlier" | "later" | "unknown";
 }
 
-export interface ReleaseRemovedDetails extends ReleaseEditedDetails {}
+export type ReleaseRemovedDetails = ReleaseEditedDetails;

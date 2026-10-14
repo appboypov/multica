@@ -101,7 +101,7 @@ import { ProjectPicker } from "../../projects/components/project-picker";
 import { ISSUE_TYPES, type IssueType } from "@multica/core/types";
 import {
   placementRefusalOf,
-  releaseForWorklane,
+  releaseKeptOnWorklanePick,
   useSetIssuePlacement,
   useSetIssueType,
 } from "@multica/core/issues/placement";
@@ -1372,6 +1372,7 @@ export function IssueDetailSkeleton({
 export function IssueDetail({ issueId, onDelete, onDone, defaultSidebarOpen = true, layoutId = "multica_issue_detail_layout", highlightCommentId, highlightQuestionId, highlightRequestToken, leadingAction, variant = "page", trailingActions }: IssueDetailProps) {
   const isPeek = variant === "peek";
   const { t } = useT("issues");
+  const { t: tReleases } = useT("releases");
   const locale = useLocale();
   const timeAgo = useTimeAgo();
   const id = issueId;
@@ -2825,7 +2826,11 @@ export function IssueDetail({ issueId, onDelete, onDone, defaultSidebarOpen = tr
                   {
                     id: issue.id,
                     worklane_id: worklaneId,
-                    release_id: releaseForWorklane(worklaneId, placementData),
+                    release_id: releaseKeptOnWorklanePick(
+                      { worklaneId: issue.worklane_id ?? null, releaseId: issue.release_id ?? null },
+                      worklaneId,
+                      placementData,
+                    ),
                   },
                   { onError: showPlacementRefusal },
                 )
@@ -2861,6 +2866,19 @@ export function IssueDetail({ issueId, onDelete, onDone, defaultSidebarOpen = tr
                 )
               }
             />
+            {(() => {
+              const release = placementData.releases.find((r) => r.id === issue.release_id);
+              if (!release || !issue.worklane_id) return null;
+              return (
+                <AppLink
+                  href={`${paths.worklaneDetail(issue.worklane_id)}?release=${encodeURIComponent(release.id)}`}
+                  aria-label={tReleases(($) => $.chips.open, { version: formatVersion(release.version) })}
+                  className="inline-flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+                >
+                  <ArrowUpRight aria-hidden className="size-3.5" />
+                </AppLink>
+              );
+            })()}
           </PropRow>
           {issue.release_id && (
             <div className="col-span-2 py-2">

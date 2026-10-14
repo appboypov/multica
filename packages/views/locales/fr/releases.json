@@ -135,6 +135,7 @@
     "remove_failed": "Impossible de retirer la tâche de la version. Réessayez.",
     "row_menu": "Actions de la tâche",
     "field_label": "Tâches",
+    "field_from": "{{worklane}} · sans version",
     "field_empty": "Chaque tâche de ce worklane est dans une version.",
     "field_later": "Ajoutez des tâches plus tard depuis la chronologie.",
     "add_title": "Ajouter des tâches à {{version}} {{title}}",

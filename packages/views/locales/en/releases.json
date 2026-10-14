@@ -135,6 +135,7 @@
     "remove_failed": "Could not remove the issue from the release. Try again.",
     "row_menu": "Issue actions",
     "field_label": "Issues",
+    "field_from": "{{worklane}} · in no release",
     "field_empty": "Every issue of this worklane is in a release.",
     "field_later": "Add issues later from the timeline.",
     "add_title": "Add issues to {{version}} {{title}}",
