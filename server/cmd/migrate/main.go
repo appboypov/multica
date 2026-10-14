@@ -152,6 +152,7 @@ var concurrentIndexCleanups = map[string]string{
 	"593_worklane_name_index":                                   "worklane_repository_name_unique",
 	"592_repository_project_index":                              "repository_project_idx",
 	"591_repository_full_name_index":                            "repository_workspace_full_name_unique",
+	"584_issue_agent_questions_index":                           "idx_issue_agent_questions",
 	"574_organisation_key_index":                                "organisation_workspace_key_unique",
 	"573_organisation_name_index":                               "organisation_workspace_name_unique",
 	"571_attachment_question_index":                             "idx_attachment_question",

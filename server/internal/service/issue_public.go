@@ -36,6 +36,8 @@ func (s *IssueService) UpdateContent(ctx context.Context, issue db.Issue, patch 
 		ParentIssueID: issue.ParentIssueID,
 		ProjectID:     issue.ProjectID,
 		Stage:         issue.Stage,
+		// Bare narg: pass the current value so a content edit keeps it.
+		AgentQuestions: issue.AgentQuestions,
 	}
 	if patch.ExpectedRevision != nil {
 		params.ExpectedRevision = pgtype.Int8{Int64: *patch.ExpectedRevision, Valid: true}

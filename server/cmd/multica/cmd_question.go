@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -51,8 +52,18 @@ type questionAskRequest struct {
 	BlocksWork      bool            `json:"blocks_work"`
 }
 
+// questionsAvailable reports whether this process may use questions: always in
+// a person's own terminal, and in a daemon task only while its run may ask
+// (the daemon sets cli.AgentQuestionsEnv then).
+func questionsAvailable() bool {
+	return !inDaemonTaskIdentityContext() || os.Getenv(cli.AgentQuestionsEnv) == "1"
+}
+
 func newQuestionCommand() *cobra.Command {
 	q := &cobra.Command{Use: "question", Short: "Ask, read and end questions", Long: "Ask questions, read their answers and thread, close answered questions or withdraw questions.\n\n" + questionTypesHelp + "\n\n" + questionAskHelp}
+	// While questions are off for the run, `multica --help` does not list the
+	// command, so the agent learns nothing about it.
+	q.Hidden = !questionsAvailable()
 	ask := &cobra.Command{Use: "ask", Short: "Ask members a typed question", Long: questionTypesHelp + "\n\n" + questionAskHelp, Args: cobra.NoArgs, RunE: runQuestionAsk}
 	f := ask.Flags()
 	f.String("prompt", "", "Question prompt (mutually exclusive with --prompt-file)")
@@ -102,6 +113,9 @@ func questionOutput(cmd *cobra.Command) (string, error) {
 }
 
 func runQuestionAsk(cmd *cobra.Command, _ []string) error {
+	if !questionsAvailable() {
+		return fmt.Errorf("questions are off for this issue")
+	}
 	output, err := questionOutput(cmd)
 	if err != nil {
 		return err

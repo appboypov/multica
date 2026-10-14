@@ -1024,10 +1024,19 @@ func writeOutput(b *strings.Builder, kind taskKind, ctx TaskContextForEnv) {
 	writeDeliveryInvariant(b)
 }
 
-func writeQuestionsSection(b *strings.Builder) {
-	b.WriteString("## Questions\n\n")
-	b.WriteString("`multica question` asks people one or more questions at the same time and reads their answers.\n\n")
-	b.WriteString("`multica question --help` lists its commands, answer types and options.\n\n")
+// QuestionsSection is the brief's Questions section. The server shows the same
+// text on the workspace Questions settings, so what people read there is what
+// agents get.
+const QuestionsSection = "## Questions\n\n" +
+	"`multica question` asks people one or more questions at the same time and reads their answers.\n\n" +
+	"`multica question --help` lists its commands, answer types and options.\n\n"
+
+// writeQuestionsSection writes the Questions section only while questions are
+// on for the run: while they are off the brief says nothing about them.
+func writeQuestionsSection(b *strings.Builder, ctx TaskContextForEnv) {
+	if ctx.QuestionsEnabled {
+		b.WriteString(QuestionsSection)
+	}
 }
 
 // buildMetaSkillContentSlim is the post-MUL-3560 brief assembler.
@@ -1077,7 +1086,7 @@ func buildMetaSkillContentSlim(provider string, ctx TaskContextForEnv) string {
 		writeAvailableCommands(&b, ctx)
 	}
 	if ctx.IssueID != "" && kind != kindChat && kind != kindQuickCreate {
-		writeQuestionsSection(&b)
+		writeQuestionsSection(&b, ctx)
 	}
 	writeIssueBodyFormatting(&b)
 

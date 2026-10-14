@@ -272,7 +272,7 @@ func TestLegacyRedirectsFollowTheDaemonsBrief(t *testing.T) {
 	const legacy = "multica-working-on-issues"
 	svc := &TaskService{}
 
-	current := svc.BuiltinSkills("", false)
+	current := svc.BuiltinSkills("", false, true)
 	if named(current, legacy) {
 		t.Errorf("a current daemon still receives %q; the stub only exists for briefs that name it", legacy)
 	}
@@ -280,7 +280,7 @@ func TestLegacyRedirectsFollowTheDaemonsBrief(t *testing.T) {
 		t.Fatalf("a current daemon does not receive %q", PlatformSkillName)
 	}
 
-	old := svc.BuiltinSkills("", true)
+	old := svc.BuiltinSkills("", true, true)
 	if !named(old, legacy) {
 		t.Errorf("a pre-merge daemon does not receive %q, so its brief points at a skill that is not installed", legacy)
 	}
@@ -289,10 +289,10 @@ func TestLegacyRedirectsFollowTheDaemonsBrief(t *testing.T) {
 	}
 
 	// Mika's scoping is orthogonal to the redirect: both dimensions compose.
-	if !named(svc.BuiltinSkills(MikaSystemKey, true), "multica-onboarding") {
+	if !named(svc.BuiltinSkills(MikaSystemKey, true, true), "multica-onboarding") {
 		t.Errorf("Mika on a pre-merge daemon lost multica-onboarding")
 	}
-	if named(svc.BuiltinSkills("", true), "multica-onboarding") {
+	if named(svc.BuiltinSkills("", true, true), "multica-onboarding") {
 		t.Errorf("the redirect path leaked multica-onboarding to an ordinary agent")
 	}
 
@@ -799,7 +799,7 @@ func TestPlatformSkillTeachesTheParserContract(t *testing.T) {
 func TestOnboardingSkillIsScopedToMika(t *testing.T) {
 	const onboarding = "multica-onboarding"
 
-	ordinary := loadBuiltinSkills("")
+	ordinary := loadBuiltinSkills("", true)
 	if named(ordinary, onboarding) {
 		t.Errorf("an ordinary agent still receives %q", onboarding)
 	}
@@ -807,7 +807,7 @@ func TestOnboardingSkillIsScopedToMika(t *testing.T) {
 		t.Errorf("an ordinary agent does not receive %q, which every agent needs", PlatformSkillName)
 	}
 
-	mika := loadBuiltinSkills(MikaSystemKey)
+	mika := loadBuiltinSkills(MikaSystemKey, true)
 	if !named(mika, onboarding) {
 		t.Errorf("Mika does not receive %q, which only Mika can use", onboarding)
 	}
@@ -854,7 +854,7 @@ func named(skills []AgentSkillData, name string) bool {
 // payload like any other built-in, so the template, frontmatter and
 // source-leak suites must hold for them as well.
 func allBuiltinSkillsForTest() []AgentSkillData {
-	return append(loadBuiltinSkillDirs(func(string) bool { return true }), legacyRedirectSkills()...)
+	return append(loadBuiltinSkillDirs(func(string) bool { return true }, true), legacyRedirectSkills()...)
 }
 
 func findSkill(t *testing.T, name string) (AgentSkillData, bool) {

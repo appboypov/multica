@@ -420,7 +420,7 @@ const setIssueTypeOnce = `-- name: SetIssueTypeOnce :one
 
 UPDATE issue SET type = $1, revision = revision + 1, updated_at = now()
 WHERE id = $2 AND workspace_id = $3 AND type IS NULL
-RETURNING id, workspace_id, title, description, status, priority, assignee_type, assignee_id, creator_type, creator_id, parent_issue_id, acceptance_criteria, context_refs, position, due_date, created_at, updated_at, number, project_id, origin_type, origin_id, first_executed_at, start_date, metadata, stage, properties, revision, last_activity_at, triage_state, duplicate_of_issue_id, type, worklane_id, release_id, done_at
+RETURNING id, workspace_id, title, description, status, priority, assignee_type, assignee_id, creator_type, creator_id, parent_issue_id, acceptance_criteria, context_refs, position, due_date, created_at, updated_at, number, project_id, origin_type, origin_id, first_executed_at, start_date, metadata, stage, properties, revision, last_activity_at, triage_state, duplicate_of_issue_id, agent_questions, type, worklane_id, release_id, done_at
 `
 
 type SetIssueTypeOnceParams struct {
@@ -465,6 +465,7 @@ func (q *Queries) SetIssueTypeOnce(ctx context.Context, arg SetIssueTypeOncePara
 		&i.LastActivityAt,
 		&i.TriageState,
 		&i.DuplicateOfIssueID,
+		&i.AgentQuestions,
 		&i.Type,
 		&i.WorklaneID,
 		&i.ReleaseID,
@@ -513,7 +514,7 @@ UPDATE issue SET
     revision = revision + 1,
     updated_at = now()
 WHERE id = $4 AND workspace_id = $5
-RETURNING id, workspace_id, title, description, status, priority, assignee_type, assignee_id, creator_type, creator_id, parent_issue_id, acceptance_criteria, context_refs, position, due_date, created_at, updated_at, number, project_id, origin_type, origin_id, first_executed_at, start_date, metadata, stage, properties, revision, last_activity_at, triage_state, duplicate_of_issue_id, type, worklane_id, release_id, done_at
+RETURNING id, workspace_id, title, description, status, priority, assignee_type, assignee_id, creator_type, creator_id, parent_issue_id, acceptance_criteria, context_refs, position, due_date, created_at, updated_at, number, project_id, origin_type, origin_id, first_executed_at, start_date, metadata, stage, properties, revision, last_activity_at, triage_state, duplicate_of_issue_id, agent_questions, type, worklane_id, release_id, done_at
 `
 
 type UpdateIssuePlacementParams struct {
@@ -564,6 +565,7 @@ func (q *Queries) UpdateIssuePlacement(ctx context.Context, arg UpdateIssuePlace
 		&i.LastActivityAt,
 		&i.TriageState,
 		&i.DuplicateOfIssueID,
+		&i.AgentQuestions,
 		&i.Type,
 		&i.WorklaneID,
 		&i.ReleaseID,

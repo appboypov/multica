@@ -3846,6 +3846,7 @@ func (s *TaskService) FinalizeTaskClaim(
 	recordCommentReceipt bool,
 	authorize func(qtx *db.Queries, token *db.CreateTaskTokenParams) error,
 	issueSnapshot []byte,
+	questionsEnabled bool,
 	daemonTokens ...db.CreateDaemonTokenParams,
 ) ([]pgtype.UUID, error) {
 	if len(daemonTokens) > 1 {
@@ -3871,20 +3872,25 @@ func (s *TaskService) FinalizeTaskClaim(
 				return fmt.Errorf("create remote MCP daemon token: %w", err)
 			}
 		}
+		// Written for every claim: whether the run may ask questions is
+		// decided here once (ADR-0005), and an issue-bound claim also records
+		// its issue snapshot (nil keeps the stored one). Same CAS columns as
+		// the receipt below, so a stale handler cannot write over a newer
+		// reclaim's, or after the run has started. A no-op update (0 rows) is
+		// not an error: it means this claim generation is no longer current,
+		// and the newer one records its own.
+		var snapshot []byte
 		if len(issueSnapshot) > 0 {
-			// Same CAS columns as the receipt below, so a stale handler cannot
-			// write a snapshot over a newer reclaim's, or after the run has
-			// started. A no-op update (0 rows) is not an error: it means this
-			// claim generation is no longer current, and the newer one records
-			// its own snapshot.
-			if err := qtx.SetTaskIssueSnapshot(ctx, db.SetTaskIssueSnapshotParams{
-				IssueSnapshot: issueSnapshot,
-				TaskID:        task.ID,
-				RuntimeID:     task.RuntimeID,
-				DispatchedAt:  task.DispatchedAt,
-			}); err != nil {
-				return fmt.Errorf("set task issue snapshot: %w", err)
-			}
+			snapshot = issueSnapshot
+		}
+		if err := qtx.SetTaskClaimSnapshot(ctx, db.SetTaskClaimSnapshotParams{
+			IssueSnapshot:    snapshot,
+			QuestionsEnabled: questionsEnabled,
+			TaskID:           task.ID,
+			RuntimeID:        task.RuntimeID,
+			DispatchedAt:     task.DispatchedAt,
+		}); err != nil {
+			return fmt.Errorf("set task claim snapshot: %w", err)
 		}
 		if !recordCommentReceipt {
 			return nil
@@ -6948,12 +6954,12 @@ func (s *TaskService) skillsWithFiles(ctx context.Context, skills []db.Skill) ([
 // It fails closed on a workspace-skill read error for the reason in
 // LoadAgentSkills: a bundle set built from a partial read is indistinguishable
 // from a correct one.
-func (s *TaskService) LoadAgentSkillBundles(ctx context.Context, agentID pgtype.UUID, agentSystemKey string, legacyRedirects bool) ([]AgentSkillData, []AgentSkillRefData, error) {
+func (s *TaskService) LoadAgentSkillBundles(ctx context.Context, agentID pgtype.UUID, agentSystemKey string, legacyRedirects, questions bool) ([]AgentSkillData, []AgentSkillRefData, error) {
 	skills, err := s.LoadAgentSkills(ctx, agentID)
 	if err != nil {
 		return nil, nil, err
 	}
-	skills = append(skills, s.BuiltinSkills(agentSystemKey, legacyRedirects)...)
+	skills = append(skills, s.BuiltinSkills(agentSystemKey, legacyRedirects, questions)...)
 	bundles, refs := BuildAgentSkillBundles(skills)
 	return bundles, refs, nil
 }
@@ -7036,7 +7042,11 @@ func (s *TaskService) LoadRequestedAgentSkillBundles(ctx context.Context, agentI
 	if len(wantBuiltin) > 0 {
 		// Every built-in, not the agent-scoped subset — see AllBuiltinSkills.
 		for _, builtin := range s.AllBuiltinSkills() {
-			if _, ok := wantBuiltin[BuiltinSkillID(builtin.Name)]; ok {
+			id := builtin.ID
+			if id == "" {
+				id = BuiltinSkillID(builtin.Name)
+			}
+			if _, ok := wantBuiltin[id]; ok {
 				requested = append(requested, builtin)
 			}
 		}
@@ -7730,7 +7740,7 @@ func resolveDuplicateOf(ctx context.Context, q IssueMapQuerier, issue db.Issue, 
 }
 
 func IssueToMap(issue db.Issue, issuePrefix string) map[string]any {
-	return map[string]any{
+	m := map[string]any{
 		"id":           util.UUIDToString(issue.ID),
 		"workspace_id": util.UUIDToString(issue.WorkspaceID),
 		"number":       issue.Number,
@@ -7768,6 +7778,12 @@ func IssueToMap(issue db.Issue, issuePrefix string) map[string]any {
 		"metadata":         util.JSONObjectOrEmpty(issue.Metadata),
 		"properties":       util.JSONObjectOrEmpty(issue.Properties),
 	}
+	// Mirrors handler.IssueResponse.AgentQuestions: absent on Workspace
+	// default.
+	if issue.AgentQuestions.Valid {
+		m["agent_questions"] = issue.AgentQuestions.Bool
+	}
+	return m
 }
 
 // IssueIdentifier renders the human-facing issue key ("MUL-42"). Callers that

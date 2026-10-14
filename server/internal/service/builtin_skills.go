@@ -5,6 +5,8 @@ import (
 	"io/fs"
 	"path"
 	"strings"
+
+	"github.com/multica-ai/multica/server/pkg/skillbundle"
 )
 
 //go:embed builtin_skills
@@ -65,8 +67,11 @@ var builtinSkillSystemKey = map[string]string{
 // `multica-working-on-issues`. Passing true for such a daemon keeps that
 // pointer resolvable; the stub carries no contracts of its own, only the new
 // location. Callers decide by capability, never by version string.
-func (s *TaskService) BuiltinSkills(agentSystemKey string, legacyRedirects bool) []AgentSkillData {
-	skills := loadBuiltinSkills(agentSystemKey)
+//
+// questions is whether the run may ask questions (ADR-0005): with false, every
+// skill that holds a questions block comes as its variant without it.
+func (s *TaskService) BuiltinSkills(agentSystemKey string, legacyRedirects, questions bool) []AgentSkillData {
+	skills := loadBuiltinSkills(agentSystemKey, questions)
 	if legacyRedirects {
 		skills = append(skills, legacyRedirectSkills()...)
 	}
@@ -77,30 +82,38 @@ func (s *TaskService) BuiltinSkills(agentSystemKey string, legacyRedirects bool)
 // builtin_skills/ so that nothing ships them by default — a stub is only ever
 // correct for a daemon whose brief still names the skill it replaces.
 func legacyRedirectSkills() []AgentSkillData {
-	return loadSkillDirs(legacyBuiltinSkillsFS, legacyBuiltinSkillsRoot, func(string) bool { return true })
+	return loadSkillDirs(legacyBuiltinSkillsFS, legacyBuiltinSkillsRoot, func(string) bool { return true }, true)
 }
 
 // AllBuiltinSkills returns every built-in skill regardless of agent scope. Only
 // the bundle-resolve path uses it: the claim already decided which built-ins an
 // agent was told about, and a daemon can only ask to resolve a ref it was
 // handed, so re-deriving the scope there would cost an agent read to re-answer
-// a question the claim answered.
+// a question the claim answered. A skill with a questions block comes in both
+// variants, each under its own id.
 func (s *TaskService) AllBuiltinSkills() []AgentSkillData {
-	return append(loadBuiltinSkillDirs(func(string) bool { return true }), legacyRedirectSkills()...)
+	all := func(string) bool { return true }
+	skills := loadBuiltinSkillDirs(all, true)
+	for _, skill := range loadBuiltinSkillDirs(all, false) {
+		if skill.ID != "" {
+			skills = append(skills, skill)
+		}
+	}
+	return append(skills, legacyRedirectSkills()...)
 }
 
-func loadBuiltinSkills(agentSystemKey string) []AgentSkillData {
+func loadBuiltinSkills(agentSystemKey string, questions bool) []AgentSkillData {
 	return loadBuiltinSkillDirs(func(name string) bool {
 		want, scoped := builtinSkillSystemKey[name]
 		return !scoped || want == agentSystemKey
-	})
+	}, questions)
 }
 
-func loadBuiltinSkillDirs(include func(name string) bool) []AgentSkillData {
-	return loadSkillDirs(builtinSkillsFS, builtinSkillsRoot, include)
+func loadBuiltinSkillDirs(include func(name string) bool, questions bool) []AgentSkillData {
+	return loadSkillDirs(builtinSkillsFS, builtinSkillsRoot, include, questions)
 }
 
-func loadSkillDirs(fsys embed.FS, root string, include func(name string) bool) []AgentSkillData {
+func loadSkillDirs(fsys embed.FS, root string, include func(name string) bool, questions bool) []AgentSkillData {
 	entries, err := fs.ReadDir(fsys, root)
 	if err != nil {
 		return nil
@@ -110,14 +123,22 @@ func loadSkillDirs(fsys embed.FS, root string, include func(name string) bool) [
 		if !entry.IsDir() || !include(entry.Name()) {
 			continue
 		}
-		if skill, ok := loadBuiltinSkill(fsys, root, entry.Name()); ok {
+		if skill, ok := loadBuiltinSkill(fsys, root, entry.Name(), questions); ok {
 			skills = append(skills, skill)
 		}
 	}
 	return skills
 }
 
-func loadBuiltinSkill(fsys embed.FS, root, name string) (AgentSkillData, bool) {
+// builtinSkillOffVariant suffixes the id of a skill's variant without its
+// questions block, so the two variants hash and resolve apart.
+const builtinSkillOffVariant = "@core"
+
+// loadBuiltinSkill reads one skill directory. Every file may hold a questions
+// block between the lines questionsBlockStart and questionsBlockEnd: with
+// questions on only the marker lines go, with questions off the whole block
+// goes and the skill gets the id of its off variant.
+func loadBuiltinSkill(fsys embed.FS, root, name string, questions bool) (AgentSkillData, bool) {
 	dir := path.Join(root, name)
 	content, err := fs.ReadFile(fsys, path.Join(dir, "SKILL.md"))
 	if err != nil {
@@ -125,7 +146,8 @@ func loadBuiltinSkill(fsys embed.FS, root, name string) (AgentSkillData, bool) {
 		// than ship an empty skill.
 		return AgentSkillData{}, false
 	}
-	skill := AgentSkillData{Name: name, Content: string(content)}
+	text, removed := questionsBlock(string(content), questions)
+	skill := AgentSkillData{Name: name, Content: text}
 	// Any other file in the directory becomes a supporting file, preserving
 	// its relative path so subdirectories (e.g. references/issues.md) survive.
 	_ = fs.WalkDir(fsys, dir, func(p string, d fs.DirEntry, walkErr error) error {
@@ -140,8 +162,47 @@ func loadBuiltinSkill(fsys embed.FS, root, name string) (AgentSkillData, bool) {
 		if readErr != nil {
 			return nil
 		}
-		skill.Files = append(skill.Files, AgentSkillFileData{Path: rel, Content: string(data)})
+		fileText, fileRemoved := questionsBlock(string(data), questions)
+		removed = removed || fileRemoved
+		skill.Files = append(skill.Files, AgentSkillFileData{Path: rel, Content: fileText})
 		return nil
 	})
+	if removed {
+		skill.ID = BuiltinSkillID(name) + builtinSkillOffVariant
+		skill.Source = skillbundle.SourceBuiltin
+	}
 	return skill, true
+}
+
+const (
+	questionsBlockStart = "<!-- questions -->"
+	questionsBlockEnd   = "<!-- /questions -->"
+)
+
+// questionsBlock returns text with its questions blocks kept (marker lines
+// dropped) when on, or removed whole when off, and whether a block was
+// removed.
+func questionsBlock(text string, on bool) (string, bool) {
+	if !strings.Contains(text, questionsBlockStart) {
+		return text, false
+	}
+	lines := strings.SplitAfter(text, "\n")
+	out := make([]string, 0, len(lines))
+	inBlock, removed := false, false
+	for _, line := range lines {
+		switch strings.TrimSpace(line) {
+		case questionsBlockStart:
+			inBlock = true
+			continue
+		case questionsBlockEnd:
+			inBlock = false
+			continue
+		}
+		if inBlock && !on {
+			removed = true
+			continue
+		}
+		out = append(out, line)
+	}
+	return strings.Join(out, ""), removed
 }

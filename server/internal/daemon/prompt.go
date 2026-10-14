@@ -71,7 +71,7 @@ func perTurnContextBlocks(task Task, opts promptOpts) string {
 	b.WriteString(execenv.BuildOnBehalfOfBlock(task.InitiatorName, task.InitiatorEmail))
 	b.WriteString(execenv.BuildConnectedAppsBlock(task.ConnectedApps))
 	b.WriteString(buildJoinedWakeupsBlock(task.WakeupJoined))
-	b.WriteString(buildQuestionAnswersBlock(task.QuestionAnswers))
+	b.WriteString(buildQuestionAnswersBlock(task.QuestionAnswers, task.QuestionsEnabled))
 	return b.String()
 }
 
@@ -85,7 +85,10 @@ func buildJoinedWakeupsBlock(notes string) string {
 	return "[WAKEUP — joined this run]\n" + strings.TrimSpace(notes) + "\n\n"
 }
 
-func buildQuestionAnswersBlock(answers *protocol.QuestionAnswers) string {
+// buildQuestionAnswersBlock always carries the answers a Wake delivers; the
+// line pointing at `multica question` is written only while the run may ask
+// questions (ADR-0005).
+func buildQuestionAnswersBlock(answers *protocol.QuestionAnswers, questionsEnabled bool) string {
 	if answers == nil || len(answers.Answers) == 0 && len(answers.AskBacks) == 0 {
 		return ""
 	}
@@ -106,7 +109,10 @@ func buildQuestionAnswersBlock(answers *protocol.QuestionAnswers) string {
 	for _, reply := range answers.AskBacks {
 		fmt.Fprintf(&b, "- %s  %q · ask back: %s · %s · %s\n", reply.QuestionID, reply.Prompt, strings.Join(strings.Fields(reply.Text), " "), reply.ActorName, reply.CreatedAt)
 	}
-	b.WriteString("`multica question answers <question-id>` shows a question in full.\n\n")
+	if questionsEnabled {
+		b.WriteString("`multica question answers <question-id>` shows a question in full.\n")
+	}
+	b.WriteString("\n")
 	return b.String()
 }
 

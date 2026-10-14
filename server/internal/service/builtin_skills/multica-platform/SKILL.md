@@ -37,12 +37,14 @@ What is never right is reading all eight because you are not sure. Each
 reference states its own contracts in full and none depends on another, so
 pick by domain and skip the rest.
 
+<!-- questions -->
 ## Questions
 
 `multica question` asks people one or more questions at the same time and
 reads their answers. `multica question --help` lists its commands, answer types
 and options.
 
+<!-- /questions -->
 ## Invariants
 
 These hold across every reference and are not repeated there.

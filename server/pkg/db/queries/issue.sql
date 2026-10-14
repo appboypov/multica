@@ -8,7 +8,7 @@
 SELECT i.id, i.workspace_id, i.title, i.description, i.status, i.priority,
        i.assignee_type, i.assignee_id, i.creator_type, i.creator_id,
        i.parent_issue_id, i.position, i.start_date, i.due_date, i.created_at, i.updated_at, i.last_activity_at, i.number, i.project_id, i.metadata, i.stage, i.properties,
-       i.revision, i.duplicate_of_issue_id, i.type, i.worklane_id, i.release_id, i.done_at
+       i.revision, i.duplicate_of_issue_id, i.agent_questions, i.type, i.worklane_id, i.release_id, i.done_at
 FROM issue i
 WHERE i.workspace_id = $1
   AND (sqlc.narg('status')::text IS NULL OR i.status = sqlc.narg('status'))
@@ -243,6 +243,7 @@ WITH wakeup_source AS MATERIALIZED (SELECT set_config('multica.source_task_id', 
         sqlc.narg('parent_issue_id')::uuid AS next_parent_issue_id,
         sqlc.narg('project_id')::uuid AS next_project_id,
         sqlc.narg('stage')::integer AS next_stage,
+        sqlc.narg('agent_questions')::boolean AS next_agent_questions,
         -- A supplied pointer marks the issue (the handler also sets cancelled).
         -- Otherwise a mark only survives a write that leaves an already
         -- cancelled issue cancelled. Every other write drops it: reopening is
@@ -265,12 +266,12 @@ WITH wakeup_source AS MATERIALIZED (SELECT set_config('multica.source_task_id', 
         ROW(
             title, description, status, priority, assignee_type, assignee_id,
             position, start_date, due_date, parent_issue_id, project_id, stage,
-            duplicate_of_issue_id
+            duplicate_of_issue_id, agent_questions
         ) IS DISTINCT FROM ROW(
             next_title, next_description, next_status, next_priority,
             next_assignee_type, next_assignee_id, next_position, next_start_date,
             next_due_date, next_parent_issue_id, next_project_id, next_stage,
-            next_duplicate_of_issue_id
+            next_duplicate_of_issue_id, next_agent_questions
         ) AS did_change,
         ROW(
             title, description, status, priority, assignee_type, assignee_id,
@@ -297,6 +298,7 @@ UPDATE issue AS i SET
     parent_issue_id = changed.next_parent_issue_id,
     project_id = changed.next_project_id,
     stage = changed.next_stage,
+    agent_questions = changed.next_agent_questions,
     duplicate_of_issue_id = changed.next_duplicate_of_issue_id,
     revision = i.revision + changed.did_change::integer,
     last_activity_at = CASE WHEN changed.did_activity
@@ -512,7 +514,7 @@ DELETE FROM issue WHERE issue.id IN (SELECT target.id FROM target);
 SELECT i.id, i.workspace_id, i.title, i.description, i.status, i.priority,
        i.assignee_type, i.assignee_id, i.creator_type, i.creator_id,
        i.parent_issue_id, i.position, i.start_date, i.due_date, i.created_at, i.updated_at, i.last_activity_at, i.number, i.project_id, i.metadata, i.stage, i.properties,
-       i.revision, i.duplicate_of_issue_id, i.type, i.worklane_id, i.release_id, i.done_at
+       i.revision, i.duplicate_of_issue_id, i.agent_questions, i.type, i.worklane_id, i.release_id, i.done_at
 FROM issue i
 WHERE i.workspace_id = $1
   -- Negate only known terminal keys so an unknown legacy key remains visible.

@@ -2301,7 +2301,7 @@ func TestQuestionWakePromptKeepsMultilineInputOnOneItemLine(t *testing.T) {
 			QuestionID: "q-1", Prompt: "Rounding?",
 			Text: "EUR or USD?\nWhich invoice?", ActorName: "Brian",
 		}},
-	})
+	}, true)
 	lines := strings.Split(block, "\n")
 	if len(lines) != 7 || !strings.Contains(lines[2], "Use line totals. Keep two decimals.") || !strings.Contains(lines[3], "EUR or USD? Which invoice?") {
 		t.Fatalf("multiline content broke the per-item lines:\n%s", block)

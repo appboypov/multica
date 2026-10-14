@@ -836,16 +836,17 @@ WHERE id = @task_id
   )
 RETURNING delivered_comment_ids;
 
--- name: SetTaskIssueSnapshot :exec
--- Record the comparable issue state this claim's payload was built from, so the
--- NEXT run this agent takes on the issue can be told whether the issue itself
--- moved. Written for every issue-bound claim, not just comment-backed ones: an
--- assignment run that skips this leaves the following run with no baseline to
--- compare against, which reads as "not compared" and costs an extra issue read.
--- Same CAS as SetTaskDeliveredCommentIDs so a stale handler cannot overwrite a
--- newer reclaim's snapshot, or write one after execution has started.
+-- name: SetTaskClaimSnapshot :exec
+-- Record what this claim decided, once, for every claim: whether the run may
+-- ask questions (ADR-0005), and for an issue-bound claim the comparable issue
+-- state its payload was built from, so the NEXT run this agent takes on the
+-- issue can be told whether the issue itself moved. A NULL issue_snapshot keeps
+-- the stored one. Same CAS as SetTaskDeliveredCommentIDs so a stale handler
+-- cannot overwrite a newer reclaim's snapshot, or write one after execution has
+-- started.
 UPDATE agent_task_queue
-SET issue_snapshot = @issue_snapshot
+SET issue_snapshot = COALESCE(sqlc.narg('issue_snapshot'), issue_snapshot),
+    questions_enabled = @questions_enabled
 WHERE id = @task_id
   AND runtime_id = @runtime_id
   AND status = 'dispatched'

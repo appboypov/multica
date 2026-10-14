@@ -2410,6 +2410,8 @@ func NewRouterWithOptions(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus
 			r.Get("/api/issue-wakeup-paused", h.ListPausedWakeups)
 			r.Get("/api/system-wakeups", h.ListWorkspaceSystemWakeups)
 			r.Put("/api/system-wakeups/{rule}", h.UpdateWorkspaceSystemWakeup)
+			r.Get("/api/agent-questions", h.GetAgentQuestions)
+			r.Put("/api/agent-questions", h.UpdateAgentQuestions)
 
 			// Independent workspace-level list backing the issues-header
 			// "agents working" chip and its assignee-id Table filter.

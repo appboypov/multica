@@ -2074,7 +2074,7 @@ func (h *Handler) finalizeClaimDelivery(
 		return nil
 	}
 
-	receipt, err = h.TaskService.FinalizeTaskClaim(ctx, *task, token, deliveredCommentIDs, recordCommentReceipt, authorize, issueSnapshot, daemonTokens...)
+	receipt, err = h.TaskService.FinalizeTaskClaim(ctx, *task, token, deliveredCommentIDs, recordCommentReceipt, authorize, issueSnapshot, response.QuestionsEnabled, daemonTokens...)
 	if err == nil {
 		return receipt, nil, nil
 	}
@@ -2572,8 +2572,20 @@ func (h *Handler) buildClaimedTaskResponse(r *http.Request, task *db.AgentTaskQu
 	if agent.SystemKey.String == service.MikaSystemKey {
 		resp.Agent.Instructions = service.ComposeMikaInstructions(agent.Name, agent.Instructions)
 	}
+	// Whether this run may ask questions is decided once, here (ADR-0005): it
+	// picks the skill variants below and FinalizeTaskClaim stores it on the
+	// task, so a change to the issue or the default reaches the next run only.
+	// A task without an issue cannot ask.
+	if task.IssueID.Valid {
+		setting, settingErr := h.Queries.GetIssueAgentQuestions(r.Context(), task.IssueID)
+		if settingErr != nil {
+			return resp, deliveredCommentIDs, issueSnapshot, agentSkillCount, builtinSkillCount,
+				h.rejectClaimSourceLoad(r.Context(), task, settingErr, "issue", uuidToString(task.IssueID))
+		}
+		resp.QuestionsEnabled = service.ResolveAgentQuestions(setting.AgentQuestions, setting.Settings)
+	}
 	if useSkillRefs {
-		_, skillRefs, err := h.TaskService.LoadAgentSkillBundles(r.Context(), task.AgentID, agent.SystemKey.String, legacySkillRedirects)
+		_, skillRefs, err := h.TaskService.LoadAgentSkillBundles(r.Context(), task.AgentID, agent.SystemKey.String, legacySkillRedirects, resp.QuestionsEnabled)
 		if err != nil {
 			return resp, deliveredCommentIDs, issueSnapshot, agentSkillCount, builtinSkillCount, h.rejectClaimSkillLoad(task, err)
 		}
@@ -2585,7 +2597,7 @@ func (h *Handler) buildClaimedTaskResponse(r *http.Request, task *db.AgentTaskQu
 			return resp, deliveredCommentIDs, issueSnapshot, agentSkillCount, builtinSkillCount, h.rejectClaimSkillLoad(task, err)
 		}
 		agentSkillCount = len(skills)
-		builtinSkills := h.TaskService.BuiltinSkills(agent.SystemKey.String, legacySkillRedirects)
+		builtinSkills := h.TaskService.BuiltinSkills(agent.SystemKey.String, legacySkillRedirects, resp.QuestionsEnabled)
 		builtinSkillCount = len(builtinSkills)
 		skills = append(skills, builtinSkills...)
 		resp.Agent.Skills = skills

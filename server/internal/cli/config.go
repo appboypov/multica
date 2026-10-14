@@ -17,6 +17,9 @@ const (
 	// phase-one hardening keeps the real HOME/XDG environment available to
 	// provider tooling while preventing implicit Owner-profile discovery.
 	TaskConfigRootEnv = "MULTICA_TASK_CONFIG_ROOT"
+	// AgentQuestionsEnv is "1" in a task's environment while its run may ask
+	// questions; `multica question` is hidden and refuses without it.
+	AgentQuestionsEnv = "MULTICA_AGENT_QUESTIONS"
 )
 
 // CLIConfig holds persistent CLI settings.

@@ -118,3 +118,8 @@ func isMachineCredentialActor(r *http.Request) bool {
 		return false
 	}
 }
+
+// isTaskTokenActor reports whether the request carries an agent's task token.
+func isTaskTokenActor(r *http.Request) bool {
+	return r.Header.Get("X-Actor-Source") == "task_token"
+}

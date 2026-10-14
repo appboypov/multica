@@ -77,12 +77,15 @@ type IssueResponse struct {
 	// Stage groups sub-issues under the same parent into ordered barrier
 	// groups (null = unstaged). See service/issue_wakeup_system.go for how a
 	// closed stage wakes the parent's assignee.
-	Stage     *int32  `json:"stage"`
-	StartDate *string `json:"start_date"`
-	DueDate   *string `json:"due_date"`
-	CreatedAt string  `json:"created_at"`
-	UpdatedAt string  `json:"updated_at"`
-	Revision  int64   `json:"revision"`
+	Stage *int32 `json:"stage"`
+	// AgentQuestions is the issue's own Agent questions setting; absent means
+	// Workspace default. Withheld from task tokens: agents never see it.
+	AgentQuestions *bool   `json:"agent_questions,omitempty"`
+	StartDate      *string `json:"start_date"`
+	DueDate        *string `json:"due_date"`
+	CreatedAt      string  `json:"created_at"`
+	UpdatedAt      string  `json:"updated_at"`
+	Revision       int64   `json:"revision"`
 	// LastActivityAt is the latest semantic issue activity. It stays nullable
 	// while the operator-run historical backfill is incomplete.
 	LastActivityAt *string `json:"last_activity_at"`
@@ -502,6 +505,7 @@ func issueToResponse(i db.Issue, issuePrefix string) IssueResponse {
 		ProjectID:          uuidToPtr(i.ProjectID),
 		Position:           i.Position,
 		Stage:              int4ToPtr(i.Stage),
+		AgentQuestions:     boolToPtr(i.AgentQuestions),
 		StartDate:          dateToPtr(i.StartDate),
 		DueDate:            dateToPtr(i.DueDate),
 		CreatedAt:          timestampToString(i.CreatedAt),
@@ -540,6 +544,7 @@ func issueListRowToResponse(i db.ListIssuesRow, issuePrefix string) IssueRespons
 		ProjectID:          uuidToPtr(i.ProjectID),
 		Position:           i.Position,
 		Stage:              int4ToPtr(i.Stage),
+		AgentQuestions:     boolToPtr(i.AgentQuestions),
 		StartDate:          dateToPtr(i.StartDate),
 		DueDate:            dateToPtr(i.DueDate),
 		CreatedAt:          timestampToString(i.CreatedAt),
@@ -610,6 +615,7 @@ func openIssueRowToResponse(i db.ListOpenIssuesRow, issuePrefix string) IssueRes
 		ProjectID:          uuidToPtr(i.ProjectID),
 		Position:           i.Position,
 		Stage:              int4ToPtr(i.Stage),
+		AgentQuestions:     boolToPtr(i.AgentQuestions),
 		StartDate:          dateToPtr(i.StartDate),
 		DueDate:            dateToPtr(i.DueDate),
 		CreatedAt:          timestampToString(i.CreatedAt),
@@ -2531,6 +2537,10 @@ func (h *Handler) GetIssue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Agents never see an issue's Agent questions.
+	if isTaskTokenActor(r) {
+		resp.AgentQuestions = nil
+	}
 	writeJSON(w, http.StatusOK, resp)
 }
 
@@ -3533,6 +3543,9 @@ type UpdateIssueRequest struct {
 	ParentIssueID   *string  `json:"parent_issue_id"`
 	ProjectID       *string  `json:"project_id"`
 	Stage           *int32   `json:"stage"`
+	// AgentQuestions sets the issue's Agent questions: true On, false Off,
+	// explicit null Workspace default; absent keeps it. Members only.
+	AgentQuestions *bool `json:"agent_questions"`
 	// AttachmentIDs lets the description editor bind newly uploaded files to
 	// this issue so they surface in `GET /api/issues/:id/attachments` and the
 	// editor's preview Eye keeps working past a refresh. Existing bindings
@@ -3631,6 +3644,9 @@ func refreshUntouchedNullableIssueParams(params *db.UpdateIssueParams, current d
 	}
 	if _, touched := rawFields["stage"]; !touched {
 		params.Stage = current.Stage
+	}
+	if _, touched := rawFields["agent_questions"]; !touched {
+		params.AgentQuestions = current.AgentQuestions
 	}
 }
 
@@ -3783,15 +3799,16 @@ func (h *Handler) UpdateIssue(w http.ResponseWriter, r *http.Request) {
 
 	// Pre-fill nullable fields (bare sqlc.narg) with current values
 	params := db.UpdateIssueParams{
-		SourceTaskID:  h.wakeupSourceTaskID(r),
-		ID:            prevIssue.ID,
-		AssigneeType:  prevIssue.AssigneeType,
-		AssigneeID:    prevIssue.AssigneeID,
-		StartDate:     prevIssue.StartDate,
-		DueDate:       prevIssue.DueDate,
-		ParentIssueID: prevIssue.ParentIssueID,
-		ProjectID:     prevIssue.ProjectID,
-		Stage:         prevIssue.Stage,
+		SourceTaskID:   h.wakeupSourceTaskID(r),
+		ID:             prevIssue.ID,
+		AssigneeType:   prevIssue.AssigneeType,
+		AssigneeID:     prevIssue.AssigneeID,
+		StartDate:      prevIssue.StartDate,
+		DueDate:        prevIssue.DueDate,
+		ParentIssueID:  prevIssue.ParentIssueID,
+		ProjectID:      prevIssue.ProjectID,
+		Stage:          prevIssue.Stage,
+		AgentQuestions: prevIssue.AgentQuestions,
 		// Checked against the locked rows in updateIssueWithStatusGuard.
 		DuplicateOfIssueID: duplicateOfID,
 	}
@@ -3952,6 +3969,17 @@ func (h *Handler) UpdateIssue(w http.ResponseWriter, r *http.Request) {
 			params.Stage = pgtype.Int4{Valid: false} // explicit null = unstage
 		}
 	}
+	if _, ok := rawFields["agent_questions"]; ok {
+		// The setting is people's: an agent cannot turn its own questions on.
+		if isTaskTokenActor(r) {
+			writeError(w, http.StatusForbidden, "only members can change this setting")
+			return
+		}
+		params.AgentQuestions = pgtype.Bool{} // explicit null = Workspace default
+		if req.AgentQuestions != nil {
+			params.AgentQuestions = pgtype.Bool{Bool: *req.AgentQuestions, Valid: true}
+		}
+	}
 
 	// Validate the resulting (assignee_type, assignee_id) pair when the caller
 	// touches either field. Existing data on the issue is left alone if the
@@ -4109,6 +4137,9 @@ func (h *Handler) UpdateIssue(w http.ResponseWriter, r *http.Request) {
 		h.processChildEvents(r.Context(), issue.ParentIssueID, prevIssue.ParentIssueID)
 	}
 
+	if isTaskTokenActor(r) {
+		resp.AgentQuestions = nil
+	}
 	writeJSON(w, http.StatusOK, resp)
 }
 
@@ -4629,15 +4660,16 @@ func (h *Handler) BatchUpdateIssues(w http.ResponseWriter, r *http.Request) {
 		}
 
 		params := db.UpdateIssueParams{
-			SourceTaskID:  h.wakeupSourceTaskID(r),
-			ID:            prevIssue.ID,
-			AssigneeType:  prevIssue.AssigneeType,
-			AssigneeID:    prevIssue.AssigneeID,
-			StartDate:     prevIssue.StartDate,
-			DueDate:       prevIssue.DueDate,
-			ParentIssueID: prevIssue.ParentIssueID,
-			ProjectID:     prevIssue.ProjectID,
-			Stage:         prevIssue.Stage,
+			SourceTaskID:   h.wakeupSourceTaskID(r),
+			ID:             prevIssue.ID,
+			AssigneeType:   prevIssue.AssigneeType,
+			AssigneeID:     prevIssue.AssigneeID,
+			StartDate:      prevIssue.StartDate,
+			DueDate:        prevIssue.DueDate,
+			ParentIssueID:  prevIssue.ParentIssueID,
+			ProjectID:      prevIssue.ProjectID,
+			Stage:          prevIssue.Stage,
+			AgentQuestions: prevIssue.AgentQuestions,
 		}
 
 		if req.Updates.Title != nil {

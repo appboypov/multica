@@ -181,6 +181,7 @@ type AgentTaskQueue struct {
 	CancelledByID             pgtype.UUID `json:"cancelled_by_id"`
 	CancelledByName           pgtype.Text `json:"cancelled_by_name"`
 	IssueSnapshot             []byte      `json:"issue_snapshot"`
+	QuestionsEnabled          bool        `json:"questions_enabled"`
 }
 
 type AgentToLabel struct {
@@ -830,6 +831,7 @@ type Issue struct {
 	LastActivityAt     pgtype.Timestamptz `json:"last_activity_at"`
 	TriageState        pgtype.Text        `json:"triage_state"`
 	DuplicateOfIssueID pgtype.UUID        `json:"duplicate_of_issue_id"`
+	AgentQuestions     pgtype.Bool        `json:"agent_questions"`
 	Type               pgtype.Text        `json:"type"`
 	WorklaneID         pgtype.UUID        `json:"worklane_id"`
 	ReleaseID          pgtype.UUID        `json:"release_id"`
