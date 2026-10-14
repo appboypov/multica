@@ -98,6 +98,17 @@
     "admin_only": "既定値を変更できるのはオーナーと管理者だけです。",
     "load_error": "ウェイクアップの既定値を読み込めませんでした。"
   },
+  "questions": {
+    "description": "すべてのタスクの既定値です。各タスクはプロパティで変更できます。",
+    "card_title": "エージェントが質問できる",
+    "enabled": "既定でオン",
+    "customized_other": "進行中の {{count}} 件のタスクが個別の設定を使っており、この既定値に従いません。",
+    "brief_title": "質問がオンのときにエージェントが受け取る内容",
+    "off_line": "質問がオフのとき、エージェントはこれを一切受け取らず、`multica question` は CLI のヘルプに表示されません。",
+    "admin_only": "この既定値を変更できるのはオーナーと管理者のみです。",
+    "save_error": "既定値を保存できませんでした。",
+    "load_error": "質問の既定値を読み込めませんでした。"
+  },
   "quick_actions": {
     "title": "クイックアクション",
     "description": "タスクのサイドバーから、設定済みのエージェントとプロンプトを実行します。",
@@ -397,6 +408,7 @@
       "labels": "ラベル",
       "issue_statuses": "タスクステータス",
       "wakeups": "ウェイクアップ",
+      "questions": "質問",
       "properties": "プロパティ",
       "quick_actions": "クイックアクション",
       "plugins": "プラグイン",

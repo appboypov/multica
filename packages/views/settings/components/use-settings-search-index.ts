@@ -147,6 +147,12 @@ export function useSettingsSearchIndex(
         description: t(($) => $.wakeups.child_done_description),
       },
       {
+        tab: "questions",
+        anchor: "agent-questions",
+        title: t(($) => $.questions.card_title),
+        description: t(($) => $.questions.description),
+      },
+      {
         tab: "labels",
         title: t(($) => $.page.tabs.labels),
         description: t(($) => $.labels.description),

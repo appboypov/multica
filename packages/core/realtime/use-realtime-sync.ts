@@ -15,6 +15,7 @@ import { projectKeys } from "../projects/queries";
 import { organisationKeys } from "../organisations/queries";
 import { handleQuestionEvent } from "../questions/ws-updaters";
 import { questionKeys } from "../questions/queries";
+import { agentQuestionsKeys } from "../questions/agent-questions";
 import { pinKeys } from "../pins/queries";
 import { autopilotKeys } from "../autopilots/queries";
 import { runtimeKeys } from "../runtimes/queries";
@@ -1342,7 +1343,13 @@ export function useRealtimeSync(
     };
 
     const unsubWsUpdated = ws.on("workspace:updated", (p) => {
-      applyWorkspaceUpdatedToCache(qc, p as WorkspaceUpdatedPayload);
+      const payload = p as WorkspaceUpdatedPayload;
+      applyWorkspaceUpdatedToCache(qc, payload);
+      // The Questions default lives in workspace settings: every issue row on
+      // Workspace default follows a change made elsewhere.
+      if (payload.workspace?.id) {
+        qc.invalidateQueries({ queryKey: agentQuestionsKeys.settings(payload.workspace.id) });
+      }
     });
 
     const unsubWsDeleted = ws.on("workspace:deleted", (p) => {

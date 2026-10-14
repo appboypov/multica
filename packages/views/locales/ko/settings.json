@@ -98,6 +98,17 @@
     "admin_only": "소유자와 관리자만 기본값을 바꿀 수 있습니다.",
     "load_error": "깨우기 기본값을 불러오지 못했습니다."
   },
+  "questions": {
+    "description": "모든 태스크의 기본값입니다. 각 태스크는 속성에서 변경할 수 있습니다.",
+    "card_title": "에이전트가 질문할 수 있음",
+    "enabled": "기본적으로 켜짐",
+    "customized_other": "진행 중인 태스크 {{count}}개가 자체 설정을 사용해 이 기본값을 따르지 않습니다.",
+    "brief_title": "질문이 켜져 있을 때 에이전트가 받는 내용",
+    "off_line": "질문이 꺼져 있으면 에이전트는 이 내용을 전혀 받지 않으며, `multica question`은 CLI 도움말에 표시되지 않습니다.",
+    "admin_only": "소유자와 관리자만 이 기본값을 변경할 수 있습니다.",
+    "save_error": "기본값을 저장하지 못했습니다.",
+    "load_error": "질문 기본값을 불러오지 못했습니다."
+  },
   "quick_actions": {
     "title": "퀵 액션",
     "description": "태스크 사이드바에서 미리 설정한 에이전트와 프롬프트를 실행합니다.",
@@ -397,6 +408,7 @@
       "labels": "레이블",
       "issue_statuses": "태스크 상태",
       "wakeups": "깨우기",
+      "questions": "질문",
       "properties": "속성",
       "quick_actions": "퀵 액션",
       "plugins": "플러그인",

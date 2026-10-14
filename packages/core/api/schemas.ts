@@ -50,6 +50,7 @@ import type {
   IssuePullRequestsResponse,
   InboxItem,
   InboxWorkspaceUnread,
+  AgentQuestionsSettings,
   AnswerType,
   Question,
   QuestionWakeResult,
@@ -1369,6 +1370,8 @@ export const IssueSchema = z.object({
   // Older backends predate `stage`; default to null so a missing field parses
   // cleanly into the non-optional Issue.stage (number | null).
   stage: z.number().nullable().default(null),
+  // Absent on Workspace default, for agents and on older backends.
+  agent_questions: z.boolean().nullable().default(null).catch(null),
   start_date: z.string().nullable(),
   due_date: z.string().nullable(),
   metadata: IssueMetadataSchema,
@@ -4646,6 +4649,20 @@ export const QuestionListSchema = z
   .default([]);
 
 export const EMPTY_QUESTION_LIST: Question[] = [];
+
+// `GET`/`PUT /api/agent-questions`: the workspace Questions default. Missing
+// fields fall back to On with no issue of its own and no brief text.
+export const AgentQuestionsSettingsSchema = z.object({
+  enabled: z.boolean().catch(true).default(true),
+  own_setting_count: z.number().int().nonnegative().catch(0).default(0),
+  brief_section: z.string().catch("").default(""),
+});
+
+export const EMPTY_AGENT_QUESTIONS_SETTINGS: AgentQuestionsSettings = {
+  enabled: true,
+  own_setting_count: 0,
+  brief_section: "",
+};
 
 // 202 of `POST /api/questions/{id}/wake`: the queued run and the answers it carries.
 export const QuestionWakeResultSchema = z.object({

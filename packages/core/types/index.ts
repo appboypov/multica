@@ -475,4 +475,5 @@ export type {
   AskBackQuestionRequest,
   ReassignQuestionRequest,
   QuestionWakeResult,
+  AgentQuestionsSettings,
 } from "./question";

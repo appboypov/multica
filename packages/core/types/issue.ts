@@ -218,6 +218,10 @@ export interface Issue {
   // parent assignee is woken when a stage closes while a later one waits;
   // see server/internal/service/issue_wakeup_system.go.
   stage: number | null;
+  /** Whether agents may ask questions on this issue: null or absent follows
+   *  the workspace Questions default. The server omits it on Workspace
+   *  default and for agents. */
+  agent_questions?: boolean | null;
   // Calendar days as date-only "YYYY-MM-DD" (no time, no timezone). Use the
   // helpers in @multica/core/issues/date to format/compare — never `new Date()`
   // + local formatting, which shifts the day by the viewer's offset.

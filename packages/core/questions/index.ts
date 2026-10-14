@@ -8,3 +8,4 @@ export { validateAnswer, type AnswerValidationError } from "./validate";
 export {
   useQuestionDraftStore, questionDraftKey, EMPTY_QUESTION_DRAFT, type QuestionDraft, type QuestionDraftPatch,
 } from "./draft-store";
+export { agentQuestionsKeys, agentQuestionsOptions, useUpdateAgentQuestionsDefault } from "./agent-questions";

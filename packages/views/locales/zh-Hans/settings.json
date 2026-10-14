@@ -98,6 +98,17 @@
     "admin_only": "只有所有者和管理员可以修改默认值。",
     "load_error": "无法加载唤醒默认值。"
   },
+  "questions": {
+    "description": "每个任务的默认值。每个任务都可以在其属性中修改。",
+    "card_title": "智能体可以提问",
+    "enabled": "默认开启",
+    "customized_other": "{{count}} 个进行中的任务使用了自己的设置，不跟随此默认值。",
+    "brief_title": "开启提问时智能体会收到的内容",
+    "off_line": "关闭提问时，智能体不会收到以上任何内容，`multica question` 也不会出现在其 CLI 帮助中。",
+    "admin_only": "只有所有者和管理员可以修改此默认值。",
+    "save_error": "无法保存默认值。",
+    "load_error": "无法加载提问默认值。"
+  },
   "quick_actions": {
     "title": "快捷操作",
     "description": "在任务侧栏运行预设的智能体和提示词。",
@@ -397,6 +408,7 @@
       "labels": "标签",
       "issue_statuses": "任务状态",
       "wakeups": "唤醒",
+      "questions": "问题",
       "properties": "属性",
       "quick_actions": "快捷操作",
       "plugins": "插件",

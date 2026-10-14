@@ -86,6 +86,7 @@ import { PriorityIcon } from "./priority-icon";
 import { StatusPicker } from "./pickers/status-picker";
 import { PriorityPicker } from "./pickers/priority-picker";
 import { StagePicker, maxSiblingStage } from "./pickers/stage-picker";
+import { AgentQuestionsPicker } from "./pickers/agent-questions-picker";
 import { StartDatePicker } from "./pickers/start-date-picker";
 import { DueDatePicker } from "./pickers/due-date-picker";
 import { AssigneePicker } from "./pickers/assignee-picker";
@@ -2769,6 +2770,9 @@ export function IssueDetail({ issueId, onDelete, onDone, defaultSidebarOpen = tr
               )}
             </PropRow>
           )}
+          <PropRow label={t(($) => $.detail.prop_agent_questions)}>
+            <AgentQuestionsPicker value={issue.agent_questions ?? null} onUpdate={handleUpdateField} align="start" />
+          </PropRow>
           {issue.parent_issue_id != null && visibleOptionalProps.has("stage") && (
             <PropRow label={t(($) => $.detail.prop_stage)}>
               <StagePicker

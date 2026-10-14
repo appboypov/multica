@@ -99,6 +99,18 @@
     "admin_only": "Seuls les propriétaires et administrateurs peuvent modifier ces valeurs.",
     "load_error": "Impossible de charger les valeurs par défaut des réveils."
   },
+  "questions": {
+    "description": "La valeur par défaut de chaque tâche. Chaque tâche peut la modifier dans ses propriétés.",
+    "card_title": "Les agents peuvent poser des questions",
+    "enabled": "Activé par défaut",
+    "customized_one": "{{count}} tâche ouverte a son propre réglage et ignore cette valeur par défaut.",
+    "customized_other": "{{count}} tâches ouvertes ont leur propre réglage et ignorent cette valeur par défaut.",
+    "brief_title": "Ce que reçoivent les agents quand les questions sont activées",
+    "off_line": "Quand les questions sont désactivées, les agents ne reçoivent rien de tout cela, et `multica question` n’apparaît pas dans l’aide de leur CLI.",
+    "admin_only": "Seuls les propriétaires et administrateurs peuvent modifier cette valeur.",
+    "save_error": "Impossible d’enregistrer la valeur par défaut.",
+    "load_error": "Impossible de charger la valeur par défaut des questions."
+  },
   "quick_actions": {
     "title": "Actions rapides",
     "description": "Lancez un agent et un prompt prédéfinis depuis la barre latérale d’une tâche.",
@@ -398,6 +410,7 @@
       "labels": "Étiquettes",
       "issue_statuses": "États des tâches",
       "wakeups": "Réveils",
+      "questions": "Questions",
       "properties": "Propriétés",
       "quick_actions": "Actions rapides",
       "plugins": "Plugins",

@@ -76,6 +76,8 @@ export interface UpdateIssueRequest {
   project_id?: string | null;
   /** Ordered stage (>= 1); null clears it (unstaged). */
   stage?: number | null;
+  /** Agent questions: true On, false Off, null Workspace default. */
+  agent_questions?: boolean | null;
   /** Attachment IDs to bind to this issue alongside the description update.
    *  Used by the description editor to register newly uploaded files so they
    *  surface in `issueAttachments` and keep their preview Eye on refresh. */

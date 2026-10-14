@@ -6,6 +6,7 @@ import type { InboxFilters } from "../inbox/filter-store";
 import type { ArchivedInboxPage, ArchivedInboxFacets } from "../types/inbox";
 import { configStore } from "../config";
 import type {
+  AgentQuestionsSettings,
   AnswerQuestionRequest,
   AskBackQuestionRequest,
   Question,
@@ -268,12 +269,14 @@ import {
   ListProjectsResponseSchema,
   EMPTY_PROJECT,
   EMPTY_LIST_PROJECTS_RESPONSE,
+  AgentQuestionsSettingsSchema,
   QuestionListSchema,
   QuestionSchema,
   QuestionWakeResultSchema,
   EMPTY_QUESTION,
   EMPTY_QUESTION_LIST,
   EMPTY_QUESTION_WAKE_RESULT,
+  EMPTY_AGENT_QUESTIONS_SETTINGS,
   RuntimeProfileSchema,
   RuntimeProfileListSchema,
   AgentTaskListSchema,
@@ -3671,6 +3674,23 @@ export class ApiClient {
   }
 
   // Questions
+  async getAgentQuestions(): Promise<AgentQuestionsSettings> {
+    const raw: unknown = await this.fetch("/api/agent-questions");
+    return parseWithFallback(raw, AgentQuestionsSettingsSchema, EMPTY_AGENT_QUESTIONS_SETTINGS, {
+      endpoint: "GET /api/agent-questions",
+    });
+  }
+
+  async updateAgentQuestions(data: { enabled: boolean }): Promise<AgentQuestionsSettings> {
+    const raw: unknown = await this.fetch("/api/agent-questions", {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+    return parseWithFallback(raw, AgentQuestionsSettingsSchema, EMPTY_AGENT_QUESTIONS_SETTINGS, {
+      endpoint: "PUT /api/agent-questions",
+    });
+  }
+
   async listIssueQuestions(issueId: string): Promise<Question[]> {
     const raw: unknown = await this.fetch(`/api/issues/${issueId}/questions`);
     return parseWithFallback(raw, QuestionListSchema, EMPTY_QUESTION_LIST, {

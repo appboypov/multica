@@ -99,6 +99,18 @@
     "admin_only": "Only owners and admins can change these defaults.",
     "load_error": "Could not load wakeup defaults."
   },
+  "questions": {
+    "description": "The default for every issue. Each issue can change it in its properties.",
+    "card_title": "Agents can ask questions",
+    "enabled": "On by default",
+    "customized_one": "{{count}} open issue has its own setting and ignores this default.",
+    "customized_other": "{{count}} open issues have their own setting and ignore this default.",
+    "brief_title": "What agents get while questions are on",
+    "off_line": "While questions are off, agents get none of this, and `multica question` is not in their CLI help.",
+    "admin_only": "Only owners and admins can change this default.",
+    "save_error": "Could not save the default.",
+    "load_error": "Could not load the questions default."
+  },
   "quick_actions": {
     "title": "Quick Actions",
     "description": "Run a preset agent and prompt from an issue's sidebar.",
@@ -398,6 +410,7 @@
       "labels": "Labels",
       "issue_statuses": "Issue Statuses",
       "wakeups": "Wakeups",
+      "questions": "Questions",
       "properties": "Properties",
       "quick_actions": "Quick Actions",
       "plugins": "Plugins",

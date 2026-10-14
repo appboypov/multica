@@ -320,3 +320,12 @@ export interface QuestionWakeResult {
   task_id: string;
   answer_count: number;
 }
+
+/** Body of `GET`/`PUT /api/agent-questions`: the workspace Questions default. */
+export interface AgentQuestionsSettings {
+  enabled: boolean;
+  /** Open issues with their own Agent questions; they ignore the default. */
+  own_setting_count: number;
+  /** The brief's Questions section agents get while questions are on. */
+  brief_section: string;
+}

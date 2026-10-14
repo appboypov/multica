@@ -6,6 +6,7 @@ import {
   Bell,
   Blocks,
   CircleDot,
+  CircleHelp,
   CreditCard,
   FolderGit2,
   Keyboard,
@@ -61,6 +62,7 @@ import { searchSettings } from "./settings-search";
 import { HighlightText } from "../../search/highlight-text";
 import { useSettingsSearchIndex } from "./use-settings-search-index";
 import { WakeupsTab } from "./wakeups-tab";
+import { QuestionsTab } from "./questions-tab";
 import { CollapsedNavTrigger } from "../../layout/page-header";
 import { useT } from "../../i18n";
 
@@ -213,6 +215,10 @@ export function SettingsPage({ extraDeviceTabs = [] }: SettingsPageProps = {}) {
               { wide: true, adminOnly: true },
             ),
             entry("wakeups", t(($) => $.page.tabs.wakeups), AlarmClock, <WakeupsTab />, {
+              wide: true,
+              adminOnly: true,
+            }),
+            entry("questions", t(($) => $.page.tabs.questions), CircleHelp, <QuestionsTab />, {
               wide: true,
               adminOnly: true,
             }),
