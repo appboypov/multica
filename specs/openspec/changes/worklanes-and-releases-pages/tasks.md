@@ -71,7 +71,7 @@ This change builds on UJ-6 (`worklane-board-and-list`, DAS-459), which builds on
 ## 6. J8 Backend and agent tooling: endpoint
 
 - [x] 6.1 `server/internal/worklanehead/head.go`, `head_test.go` -- the active and next issue keep their status key; the table tests assert it -- design.md decision 2.
-- [ ] 6.2 `server/internal/handler/worklane.go` -- the one worklane response function writes `status` into `active_issue` and `next_issue` -- design.md decision 2.
+- [x] 6.2 `server/internal/handler/worklane.go` -- the one worklane response function writes `status` into `active_issue` and `next_issue` -- design.md decision 2.
 - [ ] 6.3 `server/internal/handler/issue_placement.go` -- `ListReleaseProgress` also runs `ListReleaseTotals` and answers `{rows, releases}` -- design.md decision 3.
 - [x] 6.4 `server/internal/handler/reserved_slugs.json`, `packages/core/paths/reserved-slugs.ts` -- reserve `worklanes` and `releases` among the workspace route segments, then run `pnpm generate:reserved-slugs` -- a workspace can't take the routes' slugs (AGENTS.md).
 - [ ] 6.5 `server/internal/handler/worklane_test.go`, `issue_placement_test.go` -- DB tests with `testutil` fixtures:
