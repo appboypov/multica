@@ -288,7 +288,9 @@ func (h *Handler) runWithIssueStatusGuard(ctx context.Context, workspaceID pgtyp
 }
 
 // updateIssueWithStatusGuard writes params under the status-archive guard.
-func (h *Handler) updateIssueWithStatusGuard(ctx context.Context, workspaceID pgtype.UUID, statusKey string, params db.UpdateIssueParams) (db.Issue, error) {
+// projectTouched locks the row and checks that the new project follows the
+// issue's worklane. Callers that checked the project themselves pass false.
+func (h *Handler) updateIssueWithStatusGuard(ctx context.Context, workspaceID pgtype.UUID, statusKey string, params db.UpdateIssueParams, projectTouched bool) (db.Issue, error) {
 	var issue db.Issue
 	var cancelledWakeups []db.AgentTaskQueue
 	err := h.runWithIssueStatusGuard(ctx, workspaceID, statusKey, func(q *db.Queries) error {
@@ -298,12 +300,14 @@ func (h *Handler) updateIssueWithStatusGuard(ctx context.Context, workspaceID pg
 			}
 		}
 		var innerErr error
-		current, err := q.LockIssueForDescriptionUpdate(ctx, db.LockIssueForDescriptionUpdateParams{ID: params.ID, WorkspaceID: workspaceID})
-		if err != nil {
-			return err
-		}
-		if err := checkProjectFollowsWorklane(ctx, q, current, params.ProjectID); err != nil {
-			return err
+		if projectTouched {
+			current, err := q.LockIssueForDescriptionUpdate(ctx, db.LockIssueForDescriptionUpdateParams{ID: params.ID, WorkspaceID: workspaceID})
+			if err != nil {
+				return err
+			}
+			if err := checkProjectFollowsWorklane(ctx, q, current, params.ProjectID); err != nil {
+				return err
+			}
 		}
 		issue, cancelledWakeups, innerErr = updateIssueStoppingWakeups(ctx, q, params)
 		return innerErr
@@ -4081,7 +4085,8 @@ func (h *Handler) UpdateIssue(w http.ResponseWriter, r *http.Request) {
 			prevIssue = lockedPrev
 		}
 	} else {
-		issue, err = h.updateIssueWithStatusGuard(r.Context(), prevIssue.WorkspaceID, statusKeyForGuard, params)
+		_, projectTouched := rawFields["project_id"]
+		issue, err = h.updateIssueWithStatusGuard(r.Context(), prevIssue.WorkspaceID, statusKeyForGuard, params, projectTouched)
 	}
 	if err != nil {
 		if writePlacementError(w, err) {
@@ -4917,7 +4922,8 @@ func (h *Handler) BatchUpdateIssues(w http.ResponseWriter, r *http.Request) {
 				prevIssue = lockedPrev
 			}
 		} else {
-			issue, err = h.updateIssueWithStatusGuard(r.Context(), wsUUID, batchStatusKey, params)
+			// The batch checked its project against each worklane above.
+			issue, err = h.updateIssueWithStatusGuard(r.Context(), wsUUID, batchStatusKey, params, false)
 		}
 		if err != nil {
 			if writePlacementError(w, err) {
