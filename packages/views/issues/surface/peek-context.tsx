@@ -116,6 +116,11 @@ export function resolveIssueClick(
 export const IssuePeekActionsContext = createContext<IssuePeekActions | null>(null);
 export const IssuePeekIdContext = createContext<string | null>(null);
 export const IssuePeekPositionContext = createContext<IssuePeekPosition | null>(null);
+/**
+ * The open mode a peek host sets for the clicks inside it, overriding the
+ * device's open mode; `null` keeps the device's. The worklane page sets `peek`.
+ */
+export const IssuePeekOpenModeContext = createContext<IssueOpenMode | null>(null);
 
 /** `null` outside a surface that hosts a peek (e.g. a board inside a dialog). */
 export function useIssuePeekActions() {
@@ -146,7 +151,9 @@ export function useIssuePeekPosition() {
  */
 export function useIssuePeekClick() {
   const peek = useIssuePeekActions();
-  const openMode = useIssueOpeningStore((s) => s.openMode);
+  const hostOpenMode = useContext(IssuePeekOpenModeContext);
+  const deviceOpenMode = useIssueOpeningStore((s) => s.openMode);
+  const openMode = hostOpenMode ?? deviceOpenMode;
   const { push } = useNavigation();
   const paths = useWorkspacePaths();
   return useCallback((issueId: string, event?: React.MouseEvent) => {

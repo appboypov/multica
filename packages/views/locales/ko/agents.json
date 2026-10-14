@@ -834,6 +834,8 @@
       "runtime_cli_timeout": "로컬 런타임 CLI 시간 초과",
       "environment_prepare_failed": "실행 환경을 준비하지 못함",
       "runtime_access_denied": "이 에이전트는 비공개 런타임에서 실행할 수 없어 답변할 수 없습니다. 런타임을 공개로 변경하거나, 소유자가 사용할 수 있는 런타임으로 에이전트를 다시 연결/복사하세요.",
+      "worklane_elsewhere": "에이전트가 worklane과 다른 머신에서 실행됨",
+      "worklane_branch_held": "worklane 작업 트리에 커밋 또는 푸시되지 않은 작업이 있음",
       "invalid_task_identity": "실행 ID 정보가 일치하지 않음",
       "agent_error_provider_auth_or_access": "공급자 인증 실패",
       "agent_error_provider_quota_limit": "공급자 할당량 소진",

@@ -22,12 +22,10 @@ import type { IssueSortParam } from "@multica/core/issues/queries";
 import { issueTableFacetsOptions } from "@multica/core/issues/queries";
 import {
   buildIssueSurfaceQueryPlan,
+  buildIssueTableScopeQuery,
   type IssueSurfaceQueryPlan,
 } from "@multica/core/issues/surface/query-plan";
-import {
-  assigneeTypesForActorKind,
-  type IssueScope,
-} from "@multica/core/issues/surface/scope";
+import type { IssueScope } from "@multica/core/issues/surface/scope";
 import type { IssueDateFilter, SortField } from "@multica/core/issues/stores/view-store";
 import { propertyListOptions } from "@multica/core/properties";
 import { propertyIdFromViewKey } from "@multica/core/issues/stores/view-store";
@@ -61,6 +59,7 @@ interface UseIssueSurfaceControllerInput {
   modes: IssueSurfaceMode[];
   createDefaults?: IssueCreateDefaults;
   search?: string;
+  announceMoves?: boolean;
 }
 
 export interface IssueSurfaceController {
@@ -205,6 +204,7 @@ export function useIssueSurfaceController({
   modes,
   createDefaults,
   search = "",
+  announceMoves = false,
 }: UseIssueSurfaceControllerInput): IssueSurfaceController {
   const wsId = useWorkspaceId();
   const queryPlan = useMemo<IssueSurfaceQueryPlan>(
@@ -435,40 +435,7 @@ export function useIssueSurfaceController({
   }, [workspaceWorkingAgents]);
 
   const derivedTableQuerySpec = useMemo<IssueTableQuerySpec>(() => {
-    let queryScope: IssueTableQuerySpec["scope"];
-    switch (scope.type) {
-      case "workspace": {
-        const assigneeTypes = assigneeTypesForActorKind(scope.actorKind);
-        queryScope = {
-          kind: "workspace",
-          ...(assigneeTypes ? { assignee_types: assigneeTypes } : {}),
-        };
-        break;
-      }
-      case "project": {
-        const assigneeTypes = assigneeTypesForActorKind(scope.actorKind);
-        queryScope = {
-          kind: "project",
-          project_id: scope.projectId,
-          ...(assigneeTypes ? { assignee_types: assigneeTypes } : {}),
-        };
-        break;
-      }
-      case "my":
-        queryScope = {
-          kind: "my",
-          relation: scope.relation === "all" ? "any" : scope.relation,
-        };
-        break;
-      case "actor":
-        queryScope = {
-          kind: scope.relation === "assigned" ? "assignee" : "creator",
-          actor: { type: scope.actorType, id: scope.actorId },
-        };
-        break;
-      case "team":
-        throw new Error("Team issue scope is not supported by the Table query");
-    }
+    const scopeQuery = buildIssueTableScopeQuery(scope);
 
     const date =
       dateParams.date_field && dateParams.date_start && dateParams.date_end
@@ -479,8 +446,9 @@ export function useIssueSurfaceController({
           }
         : undefined;
     return {
-      scope: queryScope,
+      scope: scopeQuery.scope,
       filters: {
+        ...scopeQuery.filters,
         ...(statusFilters.length > 0 ? { statuses: statusFilters } : {}),
         ...(priorityFilters.length > 0 ? { priorities: priorityFilters } : {}),
         ...(assigneeFilters.length > 0 ? { assignees: assigneeFilters } : {}),
@@ -835,6 +803,7 @@ export function useIssueSurfaceController({
 
   const { actions, openCreateIssue, moveIssue } = useIssueSurfaceActions({
     createDefaults: resolvedCreateDefaults,
+    announceMoves,
   });
 
   const { ganttWorkingScopeIssues: _ganttWorkingScope, ...surfaceData } = data;

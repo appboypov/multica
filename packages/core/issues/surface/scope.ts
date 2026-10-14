@@ -1,4 +1,4 @@
-import type { IssueAssigneeType } from "../../types";
+import type { IssueAssigneeType, IssueType } from "../../types";
 
 export type WorkspaceIssueActorKind = "all" | "members" | "agents";
 
@@ -16,7 +16,13 @@ export type IssueScope =
       actorId: string;
       relation: "assigned" | "created";
     }
-  | { type: "team"; teamId: string };
+  | { type: "team"; teamId: string }
+  /**
+   * One worklane's issues (UJ-6). `issueTypes` are the Type filter's picks;
+   * empty means every type, and `"none"` is No type. The picks stay out of the
+   * scope key so the worklane's display state survives a change of filter.
+   */
+  | { type: "worklane"; worklaneId: string; issueTypes: (IssueType | "none")[] };
 
 /**
  * THE single translation between the UI's coarse assignee-type tab and the
@@ -77,5 +83,7 @@ export function issueScopeKey(scope: IssueScope): string {
       return `actor:${scope.actorType}:${scope.actorId}:${scope.relation}`;
     case "team":
       return `team:${scope.teamId}`;
+    case "worklane":
+      return `worklane:${scope.worklaneId}`;
   }
 }

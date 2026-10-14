@@ -1,4 +1,5 @@
 import type { IssueScope } from "@multica/core/issues/surface/scope";
+import type { IssueOpenMode } from "@multica/core/issues/stores/issue-opening-store";
 import type { CreateIssueRequest } from "@multica/core/types";
 import type { ViewMode } from "@multica/core/issues/stores/view-store";
 
@@ -28,4 +29,8 @@ export interface IssueSurfaceProps {
   createDefaults?: IssueCreateDefaults;
   /** Server-owned membership search shared by non-Table issue surfaces. */
   search?: string;
+  /** What a plain click on a card or row opens; the device's open mode when unset. */
+  openMode?: IssueOpenMode;
+  /** Toast "{identifier} moved to {status}" after the server accepts a moved card's status. */
+  announceMoves?: boolean;
 }

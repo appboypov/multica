@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
+import { memo, useContext, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { AnimatePresence, motion, useIsPresent, useReducedMotion } from "motion/react";
 import { ChevronDown, ChevronUp, Maximize2, X } from "lucide-react";
 import { Button, buttonVariants } from "@multica/ui/components/ui/button";
@@ -13,6 +13,7 @@ import { ErrorBoundary } from "@multica/ui/components/common/error-boundary";
 import { cn } from "@multica/ui/lib/utils";
 import { UI_EASE_OUT, UI_MOTION_DURATION } from "@multica/ui/lib/motion";
 import { useModalStore } from "@multica/core/modals";
+import type { IssueOpenMode } from "@multica/core/issues/stores/issue-opening-store";
 import { useWorkspacePaths } from "@multica/core/paths";
 import {
   createShortcutChord,
@@ -28,6 +29,7 @@ import { IssueDetail } from "./issue-detail";
 import {
   IssuePeekActionsContext,
   IssuePeekIdContext,
+  IssuePeekOpenModeContext,
   IssuePeekPositionContext,
   PEEK_TARGET_ATTR,
   locateInColumns,
@@ -63,8 +65,18 @@ const ARROW_STEPS: Record<string, Step> = {
  *
  * Besides a focused card's own Space (see DraggableBoardCard), Space peeks the
  * issue under the pointer, so mouse users need not Tab to it first.
+ *
+ * `openMode` sets what a plain click inside the host opens, over the device's
+ * open mode; a nested host without one keeps its parent host's.
  */
-export function IssuePeekHost({ children }: { children: ReactNode }) {
+export function IssuePeekHost({
+  children,
+  openMode,
+}: {
+  children: ReactNode;
+  openMode?: IssueOpenMode;
+}) {
+  const parentOpenMode = useContext(IssuePeekOpenModeContext);
   const [peekId, setPeekId] = useState<string | null>(null);
   const [columns, setColumns] = useState<IssuePeekColumns | null>(null);
 
@@ -101,6 +113,7 @@ export function IssuePeekHost({ children }: { children: ReactNode }) {
   }, [actions]);
 
   return (
+    <IssuePeekOpenModeContext.Provider value={openMode ?? parentOpenMode}>
     <IssuePeekActionsContext.Provider value={actions}>
       <IssuePeekIdContext.Provider value={openId}>
         <IssuePeekPositionContext.Provider value={position}>
@@ -127,6 +140,7 @@ export function IssuePeekHost({ children }: { children: ReactNode }) {
         </IssuePeekPositionContext.Provider>
       </IssuePeekIdContext.Provider>
     </IssuePeekActionsContext.Provider>
+    </IssuePeekOpenModeContext.Provider>
   );
 }
 
@@ -359,14 +373,14 @@ function IssuePeekTrailingActions({ issueId }: { issueId: string }) {
           render={
             <AppLink
               href={paths.issueDetail(issueId)}
-              aria-label={t(($) => $.peek.open_full_page)}
+              aria-label={t(($) => $.peek.open_issue)}
               className={cn(buttonVariants({ variant: "ghost", size: "icon-sm" }), "text-muted-foreground")}
             />
           }
         >
           <Maximize2 />
         </TooltipTrigger>
-        <TooltipContent side="bottom">{t(($) => $.peek.open_full_page)}</TooltipContent>
+        <TooltipContent side="bottom">{t(($) => $.peek.open_issue)}</TooltipContent>
       </Tooltip>
       <Tooltip>
         <TooltipTrigger

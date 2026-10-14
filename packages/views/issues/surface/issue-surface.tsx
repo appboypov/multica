@@ -82,6 +82,8 @@ export function IssueSurface({
   surfaceKey,
   createDefaults,
   search,
+  openMode,
+  announceMoves,
   renderHeader,
   renderEmpty,
   renderLoading,
@@ -171,6 +173,8 @@ export function IssueSurface({
         modes={modes}
         createDefaults={createDefaults}
         search={search}
+        openMode={openMode}
+        announceMoves={announceMoves}
         renderHeader={renderHeader}
         renderEmpty={renderEmpty}
         renderLoading={renderLoading}
@@ -189,6 +193,8 @@ function IssueSurfaceContent({
   modes,
   createDefaults,
   search,
+  openMode,
+  announceMoves,
   renderHeader,
   renderEmpty,
   renderLoading,
@@ -206,6 +212,7 @@ function IssueSurfaceContent({
     modes,
     createDefaults,
     search,
+    announceMoves,
   });
   const [tableLoadedIssues, setTableLoadedIssues] = useState<Issue[]>([]);
   const handleTableLoadedIssuesChange = useCallback((next: Issue[]) => {
@@ -286,7 +293,7 @@ function IssueSurfaceContent({
         {/* Every view opens the side peek on Shift+Click. The host wraps the
             loading and empty states too, so a view switch that briefly shows
             a skeleton keeps the peek open. */}
-        <IssuePeekHost>
+        <IssuePeekHost openMode={openMode}>
         {/* A failed status catalog precedes loading/empty/content on purpose.
             Row fetching is suspended while it is down (a custom status filter
             cannot be routed without it), so every branch below would render an

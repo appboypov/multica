@@ -21,6 +21,8 @@ export const FAILURE_REASON_I18N_KEYS = {
   environment_prepare_failed: "environment_prepare_failed",
   invalid_task_identity: "invalid_task_identity",
   runtime_access_denied: "runtime_access_denied",
+  worklane_elsewhere: "worklane_elsewhere",
+  worklane_branch_held: "worklane_branch_held",
 
   // Agent process side — provider.
   "agent_error.provider_auth_or_access":
@@ -144,6 +146,10 @@ const ACTION_REQUIRED_FAILURE_REASONS: ReadonlySet<string> = new Set([
   "agent_error.model_not_found_or_unavailable",
   "agent_error.runtime_version_unsupported",
   "agent_error.runtime_missing_executable",
+  // A worklane's issue runs only on its worklane's machine, and only once its
+  // worktree can leave the branch it holds.
+  "worklane_elsewhere",
+  "worklane_branch_held",
 ]);
 
 type TaskOutcome = {

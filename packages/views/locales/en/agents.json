@@ -947,6 +947,8 @@
       "runtime_cli_timeout": "Local runtime CLI timed out",
       "environment_prepare_failed": "Couldn't prepare the execution environment",
       "runtime_access_denied": "This agent can't run on its private runtime, so it couldn't reply. Make the runtime public, or rebind/copy the agent to a runtime its owner can use.",
+      "worklane_elsewhere": "Agent runs on another machine than its worklane",
+      "worklane_branch_held": "Worklane worktree holds uncommitted or unpushed work",
       "invalid_task_identity": "Run identity mismatch",
       "agent_error_provider_auth_or_access": "Provider auth failed",
       "agent_error_provider_quota_limit": "Provider quota exhausted",

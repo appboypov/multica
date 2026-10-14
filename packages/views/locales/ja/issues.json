@@ -368,14 +368,16 @@
     "empty_grouping": "一致するタスクがありません",
     "no_value": "値なし",
     "ordered_by": "{{field}} 順に並べたボード",
-    "manual_reorder_hint": "列内の順序を変更するには、並び順を「手動」に切り替えてください。"
+    "manual_reorder_hint": "列内の順序を変更するには、並び順を「手動」に切り替えてください。",
+    "moved_to": "{{identifier}} を{{status}}に移動しました"
   },
   "peek": {
     "panel_label": "タスクのプレビュー",
     "previous": "前のタスク",
     "next": "次のタスク",
-    "open_full_page": "ページ全体で開く",
-    "close": "プレビューを閉じる"
+    "open_issue": "タスクを開く",
+    "close": "プレビューを閉じる",
+    "no_worklane": "worklane なし"
   },
   "detail": {
     "not_found": "このタスクはこのワークスペースに存在しないか、削除されています。",

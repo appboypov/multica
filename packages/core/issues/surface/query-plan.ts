@@ -1,4 +1,8 @@
-import type { CreateIssueRequest } from "../../types";
+import type {
+  CreateIssueRequest,
+  IssueTableFilters,
+  IssueTableScope,
+} from "../../types";
 import type { MyIssuesFilter } from "../queries";
 import {
   assigneeTypesForActorKind,
@@ -97,7 +101,76 @@ export function buildIssueSurfaceQueryPlan(
               }
             : {},
       };
+    case "worklane":
+      return {
+        scopeKey,
+        // Gantt is not offered on a worklane, so there is no list-API filter.
+        queryFilter: {},
+        createDefaults: {},
+      };
     case "team":
       throw new UnsupportedIssueScopeError(scope, "issue surface query plan");
+  }
+}
+
+/**
+ * The scope as the Table channel's `scope` and the filters the scope itself
+ * imposes. A worklane's Type filter picks travel as `filters.types` (`none` is
+ * No type); no pick means every type, so the filter is left out.
+ */
+export interface IssueTableScopeQuery {
+  scope: IssueTableScope;
+  filters: Pick<IssueTableFilters, "types">;
+}
+
+export function buildIssueTableScopeQuery(
+  scope: IssueScope,
+): IssueTableScopeQuery {
+  switch (scope.type) {
+    case "workspace": {
+      const assigneeTypes = assigneeTypesForActorKind(scope.actorKind);
+      return {
+        scope: {
+          kind: "workspace",
+          ...(assigneeTypes ? { assignee_types: assigneeTypes } : {}),
+        },
+        filters: {},
+      };
+    }
+    case "project": {
+      const assigneeTypes = assigneeTypesForActorKind(scope.actorKind);
+      return {
+        scope: {
+          kind: "project",
+          project_id: scope.projectId,
+          ...(assigneeTypes ? { assignee_types: assigneeTypes } : {}),
+        },
+        filters: {},
+      };
+    }
+    case "my":
+      return {
+        scope: {
+          kind: "my",
+          relation: scope.relation === "all" ? "any" : scope.relation,
+        },
+        filters: {},
+      };
+    case "actor":
+      return {
+        scope: {
+          kind: scope.relation === "assigned" ? "assignee" : "creator",
+          actor: { type: scope.actorType, id: scope.actorId },
+        },
+        filters: {},
+      };
+    case "worklane":
+      return {
+        scope: { kind: "worklane", worklane_id: scope.worklaneId },
+        filters:
+          scope.issueTypes.length > 0 ? { types: [...scope.issueTypes] } : {},
+      };
+    case "team":
+      throw new UnsupportedIssueScopeError(scope, "the Table query");
   }
 }

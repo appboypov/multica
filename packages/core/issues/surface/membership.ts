@@ -1,5 +1,6 @@
-import type { Issue, UpdateIssueRequest } from "../../types";
+import type { Issue, IssueType, UpdateIssueRequest } from "../../types";
 import type { MyIssuesFilter } from "../queries";
+import type { IssueScope } from "./scope";
 
 /**
  * Whether an issue belongs to a filtered list cache.
@@ -129,4 +130,33 @@ export function issueMatchesListFilter(
   }
 
   return unknown ? "unknown" : true;
+}
+
+/**
+ * Whether an issue's type is among a Type filter's picks, by the server's
+ * `filters.types` rule: no pick admits every type, and `"none"` admits an
+ * issue without a type.
+ */
+export function issueTypePicked(
+  type: IssueType | null | undefined,
+  picked: readonly (IssueType | "none")[],
+): boolean {
+  if (picked.length === 0) return true;
+  return picked.includes(type ?? "none");
+}
+
+/**
+ * Judge an issue against a worklane scope: its `worklane_id` is the worklane
+ * and its type is picked. A partial entity without either field is
+ * `"unknown"`.
+ */
+export function issueMatchesWorklaneScope(
+  issue: Partial<Issue>,
+  scope: Extract<IssueScope, { type: "worklane" }>,
+): IssueMembership {
+  if (issue.worklane_id === undefined) return "unknown";
+  if (issue.worklane_id !== scope.worklaneId) return false;
+  if (scope.issueTypes.length === 0) return true;
+  if (issue.type === undefined) return "unknown";
+  return issueTypePicked(issue.type, scope.issueTypes);
 }

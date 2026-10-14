@@ -9,6 +9,7 @@ import {
   useUpdateIssue,
 } from "@multica/core/issues/mutations";
 import { errorCode } from "@multica/core/api";
+import { useWorkspaceId } from "@multica/core/hooks";
 import { useModalStore } from "@multica/core/modals";
 import {
   type IssueSurfaceActions,
@@ -16,6 +17,7 @@ import {
 } from "./actions-context";
 import type { IssueCreateDefaults } from "./types";
 import { useT } from "../../i18n";
+import { useStatusLabel } from "../utils/status-label";
 
 export type MoveIssueUpdates = Pick<
   UpdateIssueRequest,
@@ -42,11 +44,15 @@ export interface IssueSurfaceActionController {
 
 export function useIssueSurfaceActions({
   createDefaults,
+  announceMoves = false,
 }: {
   createDefaults: IssueCreateDefaults;
+  /** Toast "{identifier} moved to {status}" once the server accepts a move's status change. */
+  announceMoves?: boolean;
 }): IssueSurfaceActionController {
   const { t } = useT("projects");
   const { t: tIssues } = useT("issues");
+  const statusLabel = useStatusLabel(useWorkspaceId());
   const updateIssueMutation = useUpdateIssue();
   const batchUpdateMutation = useBatchUpdateIssues();
   const batchDeleteMutation = useBatchDeleteIssues();
@@ -93,6 +99,15 @@ export function useIssueSurfaceActions({
           move_intent: { before_id, after_id },
         },
         {
+          onSuccess: (issue) => {
+            if (!announceMoves || optimisticUpdates.status === undefined) return;
+            toast.success(
+              tIssues(($) => $.board.moved_to, {
+                identifier: issue.identifier,
+                status: statusLabel(issue.status),
+              }),
+            );
+          },
           onError: (err) => {
             toast.error(
               errorCode(err) === "revision_conflict"
@@ -106,7 +121,7 @@ export function useIssueSurfaceActions({
         },
       );
     },
-    [t, tIssues, updateIssueMutation],
+    [announceMoves, statusLabel, t, tIssues, updateIssueMutation],
   );
 
   const openCreateIssue = useCallback(
