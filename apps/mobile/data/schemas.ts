@@ -24,12 +24,10 @@ import type {
   IssueLabelsResponse,
   Label,
   ListLabelsResponse,
-  ListProjectResourcesResponse,
   ListProjectsResponse,
   MemberWithUser,
   PinnedItem,
   Project,
-  ProjectResource,
   RuntimeDevice,
   SearchIssuesResponse,
   SearchProjectsResponse,
@@ -174,7 +172,6 @@ export const ProjectSchema = z.object({
   updated_at: z.string(),
   issue_count: z.number().default(0),
   done_count: z.number().default(0),
-  resource_count: z.number().default(0),
 }).loose();
 
 export const ListProjectsResponseSchema = z.object({
@@ -210,33 +207,6 @@ export const EMPTY_PROJECT: Project = {
   updated_at: "",
   issue_count: 0,
   done_count: 0,
-  resource_count: 0,
-};
-
-// Project resources are typed pointers to external resources (today: GitHub
-// repos). resource_ref shape varies per resource_type; lenient on both
-// `resource_type` (so a future type doesn't crash the list) and
-// `resource_ref` (passes through unchanged for the renderer to dispatch on).
-const ProjectResourceSchema = z.object({
-  id: z.string(),
-  project_id: z.string(),
-  workspace_id: z.string(),
-  resource_type: z.string(),
-  resource_ref: z.unknown(),
-  label: z.string().nullable(),
-  position: z.number().default(0),
-  created_at: z.string(),
-  created_by: z.string().nullable(),
-}).loose();
-
-export const ListProjectResourcesResponseSchema = z.object({
-  resources: z.array(ProjectResourceSchema).default([]),
-  total: z.number().default(0),
-}).loose();
-
-export const EMPTY_LIST_PROJECT_RESOURCES_RESPONSE: ListProjectResourcesResponse = {
-  resources: [],
-  total: 0,
 };
 
 // =====================================================
@@ -778,4 +748,4 @@ export const EMPTY_ISSUE_FALLBACK: import("@multica/core/types").Issue = {
 };
 
 // Helpers re-exported for ergonomic single-import at the call site.
-export type { Label, Project, ProjectResource };
+export type { Label, Project };

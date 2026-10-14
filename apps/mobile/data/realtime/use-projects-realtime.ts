@@ -7,7 +7,7 @@
  *   - project:created → upsert into the list cache. The payload carries
  *                       the full Project; no refetch.
  *   - project:updated → patch list + detail (full replace on detail).
- *   - project:deleted → strip from list and drop detail + resources caches.
+ *   - project:deleted → strip from list and drop the detail cache.
  *   - reconnect       → invalidate project list (we may have missed
  *                       create/delete events while disconnected).
  *

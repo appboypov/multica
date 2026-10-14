@@ -21,10 +21,7 @@
   "detail": {
     "properties": "Properties",
     "related_issues": "Related issues",
-    "resources": "Resources",
-    "lead": "Lead",
-    "no_resources": "No resources attached.",
-    "add_resource": "Add resource"
+    "lead": "Lead"
   },
   "form": {
     "icon_emoji": "Icon (emoji)",
@@ -61,13 +58,6 @@
     "priority": "Priority",
     "lead": "Lead",
     "unassigned": "Unassigned"
-  },
-  "resources": {
-    "title": "Resources",
-    "add": "Add",
-    "detach_title": "Detach resource?",
-    "detach": "Detach",
-    "empty": "No resources attached."
   },
   "runs": {
     "working": "Working",

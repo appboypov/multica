@@ -242,10 +242,6 @@ export default function WorkspaceLayout() {
           name="project/[id]/picker/lead"
           options={SHEET_OPTIONS}
         />
-        <Stack.Screen
-          name="project/[id]/add-resource"
-          options={SHEET_OPTIONS}
-        />
         {/* New-issue draft formSheet pickers — stacked on top of the
             new-issue.tsx Stack.Screen (which is itself a `modal`).
             Expo Router 55 / RN Screens 4 support a formSheet pushed on top

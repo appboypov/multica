@@ -1,13 +1,12 @@
 /**
- * Workspace project queries. Three query shapes:
+ * Workspace project queries. Two query shapes:
  *
  *   - List       (projectKeys.list)       — `Project[]`
  *   - Detail     (projectKeys.detail)     — `Project`
- *   - Resources  (projectKeys.resources)  — `ProjectResource[]` (per project)
  *
- * Detail and Resources are workspace-scoped via the `wsId` segment so
- * switching workspaces flips the cache without manual invalidate, per the
- * root CLAUDE.md "Workspace-scoped queries must key on wsId" rule.
+ * Detail is workspace-scoped via the `wsId` segment so switching
+ * workspaces flips the cache without manual invalidate, per the root
+ * CLAUDE.md "Workspace-scoped queries must key on wsId" rule.
  *
  * Issues belonging to a project are NOT a project query — they live under
  * `issueKeys.list(wsId, { project_id })` and reuse the issues cache shape.
@@ -23,8 +22,6 @@ export const projectKeys = {
   list: (wsId: string | null) => [...projectKeys.all(wsId), "list"] as const,
   detail: (wsId: string | null, id: string) =>
     [...projectKeys.all(wsId), "detail", id] as const,
-  resources: (wsId: string | null, id: string) =>
-    [...projectKeys.all(wsId), "detail", id, "resources"] as const,
 };
 
 export const projectListOptions = (wsId: string | null) =>
@@ -41,16 +38,6 @@ export const projectDetailOptions = (wsId: string | null, id: string) =>
   queryOptions({
     queryKey: projectKeys.detail(wsId, id),
     queryFn: ({ signal }) => api.getProject(id, { signal }),
-    enabled: !!wsId && !!id,
-  });
-
-export const projectResourcesOptions = (wsId: string | null, id: string) =>
-  queryOptions({
-    queryKey: projectKeys.resources(wsId, id),
-    queryFn: async ({ signal }) => {
-      const res = await api.listProjectResources(id, { signal });
-      return res.resources;
-    },
     enabled: !!wsId && !!id,
   });
 

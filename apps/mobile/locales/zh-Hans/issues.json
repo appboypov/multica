@@ -218,21 +218,6 @@
     "discard": "放弃",
     "discard_a11y": "放弃失败的评论"
   },
-  "resources": {
-    "title": "添加仓库",
-    "url": "仓库 URL",
-    "branch": "起始分支（可选）",
-    "label": "标签（可选）",
-    "attach": "添加",
-    "attaching": "添加中...",
-    "branch_hint": "运行会从这个分支开始，并针对它创建 Pull Request。留空则使用仓库默认分支。",
-    "commit": "这是提交 ID，不是分支。运行会回传到起始分支。如需一次性修订，请给 multica repo checkout 传入 --ref。",
-    "too_long": "最多使用 255 个字符。",
-    "invalid_characters": "分支名不能包含空格或 ~ ^ : ? * [ \\",
-    "invalid": "不是有效的分支名。",
-    "failed": "添加资源失败",
-    "error": "未知错误"
-  },
   "runs": {
     "active": "进行中",
     "past": "历史",

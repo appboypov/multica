@@ -24,7 +24,6 @@ import type {
   CreateIssueRequest,
   CreateLabelRequest,
   CreateProjectRequest,
-  CreateProjectResourceRequest,
   InboxItem,
   InboxWorkspaceUnread,
   Issue,
@@ -34,13 +33,11 @@ import type {
   ListIssuesParams,
   ListIssuesResponse,
   ListLabelsResponse,
-  ListProjectResourcesResponse,
   ListProjectsResponse,
   MemberWithUser,
   PinnedItem,
   PinnedItemType,
   Project,
-  ProjectResource,
   Reaction,
   ReorderPinsRequest,
   RuntimeDevice,
@@ -101,7 +98,6 @@ import {
   EMPTY_INBOX_UNREAD_SUMMARY,
   EMPTY_ISSUE_FALLBACK,
   EMPTY_LIST_LABELS_RESPONSE,
-  EMPTY_LIST_PROJECT_RESOURCES_RESPONSE,
   EMPTY_LIST_PROJECTS_RESPONSE,
   EMPTY_MEMBER_LIST,
   EMPTY_NOTIFICATION_PREFERENCES,
@@ -117,7 +113,6 @@ import {
   InboxUnreadSummarySchema,
   NotificationPreferenceResponseSchema,
   ListLabelsResponseSchema,
-  ListProjectResourcesResponseSchema,
   ListProjectsResponseSchema,
   MemberListSchema,
   PinListSchema,
@@ -1056,46 +1051,6 @@ class ApiClient {
 
   async deleteProject(id: string): Promise<void> {
     await this.fetch<void>(`/api/projects/${id}`, { method: "DELETE" });
-  }
-
-  // --- Project resources ---
-  async listProjectResources(
-    projectId: string,
-    opts?: { signal?: AbortSignal },
-  ): Promise<ListProjectResourcesResponse> {
-    const raw = await this.fetch<unknown>(
-      `/api/projects/${projectId}/resources`,
-      { signal: opts?.signal },
-    );
-    return parseWithFallback(
-      raw,
-      ListProjectResourcesResponseSchema,
-      EMPTY_LIST_PROJECT_RESOURCES_RESPONSE,
-      { endpoint: "GET /api/projects/:id/resources" },
-    );
-  }
-
-  async createProjectResource(
-    projectId: string,
-    body: CreateProjectResourceRequest,
-  ): Promise<ProjectResource> {
-    return this.fetch<ProjectResource>(
-      `/api/projects/${projectId}/resources`,
-      {
-        method: "POST",
-        body: JSON.stringify(body),
-      },
-    );
-  }
-
-  async deleteProjectResource(
-    projectId: string,
-    resourceId: string,
-  ): Promise<void> {
-    await this.fetch<void>(
-      `/api/projects/${projectId}/resources/${resourceId}`,
-      { method: "DELETE" },
-    );
   }
 
   // --- Chat ---

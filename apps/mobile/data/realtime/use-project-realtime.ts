@@ -9,7 +9,7 @@
  *
  * Handles:
  *   - project:updated → replace detail cache (payload is full Project).
- *   - project:deleted → drop detail + resources, then fire `onDeleted` so
+ *   - project:deleted → drop detail, then fire `onDeleted` so
  *                       the screen pops back instead of stranding the user
  *                       on a 404 page.
  *   - issue:updated/created/deleted → patch the related-issues cache so
@@ -18,7 +18,7 @@
  *                       patch `issueKeys.myAll(wsId)`; this cache lives
  *                       under `issueKeys.list(wsId)` with a "byProject"
  *                       suffix and isn't covered by them.
- *   - reconnect       → invalidate detail + resources + related-issues
+ *   - reconnect       → invalidate detail + related-issues
  *                       (we may have missed events while disconnected).
  *
  * `project:created` is not relevant to the per-record hook (no id match).
@@ -52,9 +52,6 @@ export function useProjectRealtime(
 
       const invalidateThisProject = () => {
         qc.invalidateQueries({ queryKey: projectKeys.detail(wsId, projectId) });
-        qc.invalidateQueries({
-          queryKey: projectKeys.resources(wsId, projectId),
-        });
         qc.invalidateQueries({ queryKey: issueListKey });
       };
 

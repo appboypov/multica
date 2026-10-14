@@ -3,7 +3,6 @@
  *
  *   Header card (icon + title + description, tap → edit)
  *   Properties section (Status / Priority / Lead — tap chip → picker)
- *   Resources section (read-only by default, "Add" button → resource form)
  *   Related issues (Open / Done bucketed list)
  *
  * Per-record realtime: `useProjectRealtime(id, onDeleted=back)` subscribes
@@ -32,11 +31,7 @@ import { IconButton } from "@/components/ui/icon-button";
 import { ProjectHeaderCard } from "@/components/project/project-header-card";
 import { ProjectPropertiesSection } from "@/components/project/project-properties-section";
 import { ProjectRelatedIssues } from "@/components/project/project-related-issues";
-import { ProjectResourcesSection } from "@/components/project/project-resources-section";
-import {
-  projectDetailOptions,
-  projectResourcesOptions,
-} from "@/data/queries/projects";
+import { projectDetailOptions } from "@/data/queries/projects";
 import { issueKeys } from "@/data/queries/issue-keys";
 import { useDeleteProject } from "@/data/mutations/projects";
 import { pinListOptions } from "@/data/queries/pins";
@@ -62,7 +57,6 @@ export default function ProjectDetail() {
   const onRefresh = useCallback(async () => {
     await Promise.all([
       detail.refetch(),
-      qc.invalidateQueries({ queryKey: projectResourcesOptions(wsId, id).queryKey }),
       qc.invalidateQueries({
         queryKey: [...issueKeys.list(wsId), "byProject", id],
       }),
@@ -228,16 +222,6 @@ export default function ProjectDetail() {
               if (wsSlug)
                 router.push({
                   pathname: "/[workspace]/project/[id]/picker/lead",
-                  params: { workspace: wsSlug, id },
-                });
-            }}
-          />
-          <ProjectResourcesSection
-            projectId={id}
-            onAdd={() => {
-              if (wsSlug)
-                router.push({
-                  pathname: "/[workspace]/project/[id]/add-resource",
                   params: { workspace: wsSlug, id },
                 });
             }}

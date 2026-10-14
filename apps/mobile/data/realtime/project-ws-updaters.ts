@@ -14,7 +14,6 @@
  * Cache shapes:
  *   - Project list    (projectKeys.list)         → `Project[]`
  *   - Project detail  (projectKeys.detail)       → `Project`
- *   - Resources       (projectKeys.resources)    → `ProjectResource[]`
  */
 import type { QueryClient } from "@tanstack/react-query";
 import type { Project } from "@multica/core/types";
@@ -78,5 +77,4 @@ export function clearProjectDetail(
   projectId: string,
 ) {
   qc.removeQueries({ queryKey: projectKeys.detail(wsId, projectId) });
-  qc.removeQueries({ queryKey: projectKeys.resources(wsId, projectId) });
 }

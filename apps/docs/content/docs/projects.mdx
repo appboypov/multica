@@ -7,7 +7,7 @@ import { Callout } from "fumadocs-ui/components/callout";
 
 Projects organize work that takes multiple [issues](/issues) to finish — a product launch, a migration, or a feature delivered in stages.
 
-Work that a single issue can describe does not need a project. Projects fit a group of work that shares a goal, needs its progress tracked together, or needs shared repositories and working directories.
+Work that a single issue can describe does not need a project. Projects fit a group of work that shares a goal, needs its progress tracked together, or works in the same repositories.
 
 ## Parts of a project
 
@@ -18,7 +18,7 @@ Work that a single issue can describe does not need a project. Projects fit a gr
 | **Priority** | `urgent`, `high`, `medium`, `low`, or `none`. |
 | **Lead** | A member or an agent — who coordinates the project. |
 | **Issues and progress** | The work in the project and how much of it is finished. |
-| **Resources** | Linked GitHub repositories or local directories on specific computers. |
+| **Repositories** | The GitHub repositories the project works in, each with its checkout and its worklanes. |
 
 ![Project detail: issues grouped by status, progress, and the project description](/images/docs/project-detail.webp)
 
@@ -49,14 +49,14 @@ progress = issues in done or cancelled ÷ all issues in the project
 
 When an agent runs an issue inside a project, the project's name and description are added to that run's context. The description is the place for information every related issue needs: the goal, technical boundaries, delivery conventions. Requirements that apply to only one issue belong in that issue.
 
-## Add resources
+## Repositories
 
-Project resources tell agents which code and working directories to use:
+A project holds the GitHub repositories it works in. Its page shows the number of repositories in its header and one card per repository, by `owner/name`: its default branch and its worklanes, starting with `main` in the repository's checkout. Click a card's header to fold it. On **Projects** and an organisation's page, a project's row folds open to one row per repository.
 
-- **GitHub repositories**: provide a repo the runtime can check out, with an optional ref.
-- **Local directories**: let the runtime on a specific computer work in an existing directory, whose contents the agent modifies directly.
-
-See [Project resources](/project-resources) for how to choose and for the safety boundaries.
+- **Repository** opens **Add repository**. It lists every repository the workspace's [GitHub App](/github-integration) can see, with Private or Public and its default branch. A repository is in at most one project: one that is already in a project shows that project's name and can't be picked. **Missing one? Give Multica access on GitHub** opens the App's installation page.
+- **Checkout** picks a machine and the folder of the repository's normal checkout, `~/Repos/{name}` to start with. Multica checks the folder on that machine: it must be a git checkout of the repository, on its default branch. With no folder there, **Clone it there** clones it.
+- **Releases** picks where the repository's version comes from: a version file found in the checkout (`pubspec.yaml`, `Cargo.toml`, `pyproject.toml` or `package.json`), **Tags only**, or **This repository does not release**.
+- A card's menu has **Edit repository**, which changes the checkout and the releases but not the repository, and **Remove repository**, which removes the repository and its worklane `main` from Multica. The checkout folder stays on the machine, unchanged. A repository with worklanes besides `main` can't be removed until they are.
 
 ## Project lead
 
@@ -125,11 +125,11 @@ A pinned project appears in your sidebar. Pinning is a personal preference and d
 Any workspace member can create and edit projects; only `owner` and `admin` can delete them.
 
 <Callout type="warning">
-Deleting a project does not delete its issues: they detach and stay in the workspace. The project's description and resources are permanently deleted.
+Deleting a project does not delete its issues: they detach and stay in the workspace. The project's description is permanently deleted.
 </Callout>
 
 ## Next steps
 
-- [Project resources](/project-resources) — link GitHub repositories or local directories.
+- [GitHub integration](/github-integration) — give the GitHub App access to the repositories a project works in.
 - [Issues](/issues) — create and organize the concrete work in a project.
 - [Agents](/agents) — learn about agent identity, configuration, and Access.

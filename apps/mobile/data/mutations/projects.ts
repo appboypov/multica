@@ -7,7 +7,6 @@
  * Cache shapes touched:
  *   - projectKeys.list(wsId)      → `Project[]`     (patch in place)
  *   - projectKeys.detail(wsId,id) → `Project`       (replace fully)
- *   - projectKeys.resources(...)  → `ProjectResource[]` (append / filter)
  *
  * No realtime-driven `project:*` updaters exist on web yet (see
  * apps/mobile/CLAUDE.md realtime section) so mobile mirrors the design
@@ -17,9 +16,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type {
   CreateProjectRequest,
-  CreateProjectResourceRequest,
   Project,
-  ProjectResource,
   UpdateProjectRequest,
 } from "@multica/core/types";
 import { api } from "@/data/api";
@@ -122,82 +119,6 @@ export function useDeleteProject(projectId: string) {
     },
     onSettled: () => {
       qc.removeQueries({ queryKey: projectKeys.detail(wsId, projectId) });
-      qc.removeQueries({ queryKey: projectKeys.resources(wsId, projectId) });
-    },
-  });
-}
-
-export function useCreateProjectResource(projectId: string) {
-  const qc = useQueryClient();
-  const wsId = useWorkspaceStore((s) => s.currentWorkspaceId);
-
-  return useMutation({
-    mutationKey: ["createProjectResource", projectId] as const,
-    mutationFn: (body: CreateProjectResourceRequest) =>
-      api.createProjectResource(projectId, body),
-    onSuccess: (resource) => {
-      qc.setQueryData<ProjectResource[]>(
-        projectKeys.resources(wsId, projectId),
-        (old) =>
-          old
-            ? [...old.filter((r) => r.id !== resource.id), resource]
-            : [resource],
-      );
-      // Bump the parent's resource_count so the chip on detail/list
-      // increments without a refetch.
-      const bumpCount = (p: Project): Project => ({
-        ...p,
-        resource_count: p.resource_count + 1,
-      });
-      qc.setQueryData<Project>(
-        projectKeys.detail(wsId, projectId),
-        (old) => (old ? bumpCount(old) : old),
-      );
-      qc.setQueryData<Project[]>(projectKeys.list(wsId), (old) =>
-        old
-          ? old.map((p) => (p.id === projectId ? bumpCount(p) : p))
-          : old,
-      );
-    },
-  });
-}
-
-export function useDeleteProjectResource(projectId: string) {
-  const qc = useQueryClient();
-  const wsId = useWorkspaceStore((s) => s.currentWorkspaceId);
-
-  return useMutation({
-    mutationKey: ["deleteProjectResource", projectId] as const,
-    mutationFn: (resourceId: string) =>
-      api.deleteProjectResource(projectId, resourceId).then(() => resourceId),
-    onMutate: async (resourceId) => {
-      const key = projectKeys.resources(wsId, projectId);
-      await qc.cancelQueries({ queryKey: key });
-      const prev = qc.getQueryData<ProjectResource[]>(key);
-      qc.setQueryData<ProjectResource[]>(key, (old) =>
-        old ? old.filter((r) => r.id !== resourceId) : old,
-      );
-      return { prev, key };
-    },
-    onError: (_err, _vars, ctx) => {
-      if (ctx?.prev !== undefined) {
-        qc.setQueryData(ctx.key, ctx.prev);
-      }
-    },
-    onSuccess: () => {
-      const dropCount = (p: Project): Project => ({
-        ...p,
-        resource_count: Math.max(0, p.resource_count - 1),
-      });
-      qc.setQueryData<Project>(
-        projectKeys.detail(wsId, projectId),
-        (old) => (old ? dropCount(old) : old),
-      );
-      qc.setQueryData<Project[]>(projectKeys.list(wsId), (old) =>
-        old
-          ? old.map((p) => (p.id === projectId ? dropCount(p) : p))
-          : old,
-      );
     },
   });
 }
