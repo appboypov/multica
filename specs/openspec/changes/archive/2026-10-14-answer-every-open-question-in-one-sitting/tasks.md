@@ -122,7 +122,7 @@ Every group builds on UJ-1's and UJ-2's code (changes `answer-an-agents-question
 ## 14. J11 Acceptance test and archive: acceptance test and archive
 
 - [ ] 14.1 `e2e/questions-page.spec.ts` -- the journey's acceptance test through `TestApiClient`: agent tasks ask Brian six questions over four issues; the sidebar shows 6; Brian answers two Yes / No rows inline; the sidebar shows 4; **Answer all** in One page answers the other four; a Wake bar per agent with unseen answers; pressing **Wake Pieter** queues Pieter's run with his answers; the sidebar shows no count -- DAS-433's acceptance test.
-- [ ] 14.2 `specs/openspec/changes/answer-every-open-question-in-one-sitting/` -- run `openspec validate answer-every-open-question-in-one-sitting --type change --strict`, sync the specs and archive the change -- the journey closes on its J11 pull request.
+- [x] 14.2 `specs/openspec/changes/answer-every-open-question-in-one-sitting/` -- run `openspec validate answer-every-open-question-in-one-sitting --type change --strict`, sync the specs and archive the change -- the journey closes on its J11 pull request.
 
 ## Implementation Notes
 
