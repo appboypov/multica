@@ -71,7 +71,7 @@ import { useFormatRelativeDate } from "./labels";
 import { ProjectPriorityBadge } from "./project-badge";
 import { ProjectLeadPicker } from "./project-lead-picker";
 import { WORK_TREE_INDENT } from "./work-tree";
-import { WorklaneTreeRow } from "../../worklanes/components/worklane-tree-row";
+import { WORKLANE_TREE_COLS, WorklaneTreeRow } from "../../worklanes/components/worklane-tree-row";
 import { useWorklaneCounts } from "../../worklanes/use-worklane-counts";
 
 const EMPTY_REPOSITORIES: Repository[] = [];
@@ -621,6 +621,30 @@ function ProjectTableHeader({
   );
 }
 
+/**
+ * The column heading of an open repository's worklane rows, on the rows' own
+ * template so "Last · Next · Planned releases" sits over their chips. The
+ * table's header can't carry it: its tracks are the project columns.
+ */
+function WorklaneRowsHeader() {
+  const { t } = useT("releases");
+  return (
+    <div
+      role="row"
+      className={cn(
+        "col-span-full grid h-8 items-center gap-x-3 border-b pr-3 text-caption font-medium text-muted-foreground",
+        WORKLANE_TREE_COLS,
+        WORK_TREE_INDENT.rows,
+      )}
+    >
+      <span aria-hidden="true" />
+      <span role="columnheader" className="min-w-0 truncate">
+        {t(($) => $.chips.column)}
+      </span>
+    </div>
+  );
+}
+
 /** The fold key of a group in `collapsedOrganisations`. */
 export function organisationFoldKey(group: ProjectOrganisationGroup): string {
   return group.organisation?.id ?? NO_ORGANISATION_KEY;
@@ -857,14 +881,18 @@ export function ProjectTable({
                   open={repositoryOpen}
                   onToggle={toggleRepository}
                 />
-                {repositoryOpen &&
-                  sortWorklanes(repositoryWorklanes).map((worklane) => (
-                    <WorklaneTreeRow
-                      key={worklane.id}
-                      worklane={worklane}
-                      indent={WORK_TREE_INDENT.rows}
-                    />
-                  ))}
+                {repositoryOpen && repositoryWorklanes.length > 0 && (
+                  <>
+                    <WorklaneRowsHeader />
+                    {sortWorklanes(repositoryWorklanes).map((worklane) => (
+                      <WorklaneTreeRow
+                        key={worklane.id}
+                        worklane={worklane}
+                        indent={WORK_TREE_INDENT.rows}
+                      />
+                    ))}
+                  </>
+                )}
               </Fragment>
             );
           })}
