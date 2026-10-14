@@ -129,7 +129,7 @@ Every group builds on UJ-1's code (change `answer-an-agents-question-and-wake-it
 ## 17. J11 Acceptance test and archive: acceptance test and archive
 
 - [ ] 17.1 `e2e/questions-set.spec.ts` -- the journey's acceptance test through `TestApiClient`: an agent task token asks three questions of squad Finance (three members, two agents) under Any one on WORK-412; the issue shows one card and "3 open · blocks work"; Brian sends one answer; the agent reads it through the API at once; the card shows "1 of 3 answered"; the question is not open for the other members; no task is queued until Brian presses **Wake Pieter** -- DAS-434's acceptance test.
-- [ ] 17.2 `specs/openspec/changes/agent-asks-several-questions-at-once/` -- run `openspec validate agent-asks-several-questions-at-once --type change --strict`, sync the specs and archive the change -- the journey closes on its J11 pull request.
+- [x] 17.2 `specs/openspec/changes/agent-asks-several-questions-at-once/` -- run `openspec validate agent-asks-several-questions-at-once --type change --strict`, sync the specs and archive the change -- the journey closes on its J11 pull request.
 
 ## Implementation Notes
 
