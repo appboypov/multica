@@ -2036,8 +2036,8 @@ func TestStartTask_AutopilotRunOnlyTask_ResolvesWorkspace(t *testing.T) {
 	}
 }
 
-// ClaimTaskByRuntime must surface the issue's project github_repo resources
-// as resp.Repos and hide the workspace-bound repos. Without this the agent
+// ClaimTaskByRuntime must surface the issue's project repositories as
+// resp.Repos and hide workspace-bound repos. Without this the agent
 // would see two repo lists in the meta-skill and have no signal about which
 // belongs to the current issue.
 func TestClaimTask_ProjectGithubReposOverrideWorkspaceRepos(t *testing.T) {
@@ -2051,17 +2051,18 @@ func TestClaimTask_ProjectGithubReposOverrideWorkspaceRepos(t *testing.T) {
 		{"url": "https://github.com/example/workspace-repo-b", "description": "ws b"},
 	})
 
-	// Project + project_resource(github_repo) with a URL that is NOT in the
-	// workspace's repos list.
+	// A project repository absent from the workspace's repos list.
 	projectID := dbfx.Project(t, "Claim project repo override")
 
 	const projectRepoURL = "https://github.com/example/project-only-repo"
 	const projectRepoRef = "release/v2"
-	dbfx.Exec(t, `
-		INSERT INTO project_resource (
-			project_id, workspace_id, resource_type, resource_ref, position
-		) VALUES ($1, $2, 'github_repo', $3::jsonb, 0)
-	`, projectID, testWorkspaceID, `{"url":"`+projectRepoURL+`","ref":"`+projectRepoRef+`"}`)
+	dbfx.Insert(t, "repository", testutil.Cols{
+		"project_id": projectID, "workspace_id": testWorkspaceID,
+		"github_repo_id": 99010, "full_name": "example/project-only-repo",
+		"private": false, "default_branch": projectRepoRef,
+		"checkout_daemon_id": "test-claim-project-repos", "checkout_path": "/srv/project-only-repo",
+		"version_policy": "tags",
+	})
 
 	// Agent + runtime + queued task in this project.
 	var agentID, runtimeID string
@@ -2089,7 +2090,7 @@ func TestClaimTask_ProjectGithubReposOverrideWorkspaceRepos(t *testing.T) {
 		Task *struct {
 			Repos            []RepoData            `json:"repos"`
 			ProjectID        string                `json:"project_id"`
-			ProjectResources []ProjectResourceData `json:"project_resources"`
+			Repositories []protocol.ClaimRepository `json:"repositories"`
 		} `json:"task"`
 	}
 	w.JSON(&resp)
@@ -2102,16 +2103,13 @@ func TestClaimTask_ProjectGithubReposOverrideWorkspaceRepos(t *testing.T) {
 	if len(resp.Task.Repos) != 1 || resp.Task.Repos[0].URL != projectRepoURL {
 		t.Fatalf("expected resp.Repos to contain only the project repo URL, got %+v", resp.Task.Repos)
 	}
-	if resp.Task.Repos[0].Ref != projectRepoRef {
-		t.Fatalf("project repo ref = %q, want %q", resp.Task.Repos[0].Ref, projectRepoRef)
+	if len(resp.Task.Repositories) != 1 || resp.Task.Repositories[0].DefaultBranch != projectRepoRef {
+		t.Fatalf("repositories = %+v, want project's default branch %q", resp.Task.Repositories, projectRepoRef)
 	}
 	for _, r := range resp.Task.Repos {
 		if strings.HasSuffix(r.URL, "workspace-repo-a") || strings.HasSuffix(r.URL, "workspace-repo-b") {
 			t.Errorf("workspace repo %q leaked into resp.Repos despite project override", r.URL)
 		}
-	}
-	if len(resp.Task.ProjectResources) != 1 {
-		t.Errorf("expected 1 project_resources entry, got %d", len(resp.Task.ProjectResources))
 	}
 }
 
@@ -2270,24 +2268,17 @@ func TestClaimTask_AutopilotRunOnly_PopulatesWorkspaceAndProjectContext(t *testi
 		SELECT a.id, a.runtime_id FROM agent a WHERE a.workspace_id = $1 LIMIT 1
 	`, testWorkspaceID).Scan(&agentID, &runtimeID)
 
-	const projectDescription = "Use only the bound project resources."
+	const projectDescription = "Use only the bound project repositories."
 	projectID := dbfx.Project(t, "Run-only autopilot project", testutil.Cols{
 		"description": projectDescription,
 	})
 	const projectRepoURL = "https://github.com/example/run-only-project"
-	dbfx.Insert(t, "project_resource", testutil.Cols{
-		"project_id":    projectID,
-		"workspace_id":  testWorkspaceID,
-		"resource_type": "github_repo",
-		"resource_ref":  `{"url":"` + projectRepoURL + `"}`,
-		"position":      0,
-	})
-	dbfx.Insert(t, "project_resource", testutil.Cols{
-		"project_id":    projectID,
-		"workspace_id":  testWorkspaceID,
-		"resource_type": "local_directory",
-		"resource_ref":  `{"daemon_id":"test-daemon-claim","local_path":"/srv/run-only-project","execution_mode":"in_place"}`,
-		"position":      1,
+	dbfx.Insert(t, "repository", testutil.Cols{
+		"project_id": projectID, "workspace_id": testWorkspaceID,
+		"github_repo_id": 99011, "full_name": "example/run-only-project",
+		"private": false, "default_branch": "main",
+		"checkout_daemon_id": "test-daemon-claim", "checkout_path": "/srv/run-only-project",
+		"version_policy": "tags",
 	})
 
 	autopilotID := dbfx.Insert(t, "autopilot", testutil.Cols{
@@ -2335,7 +2326,7 @@ func TestClaimTask_AutopilotRunOnly_PopulatesWorkspaceAndProjectContext(t *testi
 			ProjectID          string                `json:"project_id"`
 			ProjectTitle       string                `json:"project_title"`
 			ProjectDescription string                `json:"project_description"`
-			ProjectResources   []ProjectResourceData `json:"project_resources"`
+			Repositories       []protocol.ClaimRepository `json:"repositories"`
 		} `json:"task"`
 	}
 	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
@@ -2362,31 +2353,11 @@ func TestClaimTask_AutopilotRunOnly_PopulatesWorkspaceAndProjectContext(t *testi
 	if resp.Task.ProjectDescription != projectDescription {
 		t.Errorf("project_description = %q, want %q", resp.Task.ProjectDescription, projectDescription)
 	}
-	if len(resp.Task.ProjectResources) != 2 {
-		t.Fatalf("project_resources count = %d, want 2", len(resp.Task.ProjectResources))
+	if len(resp.Task.Repositories) != 1 {
+		t.Fatalf("repositories count = %d, want 1", len(resp.Task.Repositories))
 	}
-	var localDirectory struct {
-		DaemonID      string `json:"daemon_id"`
-		LocalPath     string `json:"local_path"`
-		ExecutionMode string `json:"execution_mode"`
-	}
-	foundLocalDirectory := false
-	for _, resource := range resp.Task.ProjectResources {
-		if resource.ResourceType != "local_directory" {
-			continue
-		}
-		foundLocalDirectory = true
-		if err := json.Unmarshal(resource.ResourceRef, &localDirectory); err != nil {
-			t.Fatalf("decode local_directory resource: %v", err)
-		}
-	}
-	if !foundLocalDirectory {
-		t.Fatal("local_directory project resource missing from claim")
-	}
-	if localDirectory.DaemonID != "test-daemon-claim" ||
-		localDirectory.LocalPath != "/srv/run-only-project" ||
-		localDirectory.ExecutionMode != "in_place" {
-		t.Fatalf("local_directory = %+v, want bound daemon/path/in_place", localDirectory)
+	if repository := resp.Task.Repositories[0]; repository.CheckoutDaemonID != "test-daemon-claim" || repository.CheckoutPath != "/srv/run-only-project" {
+		t.Fatalf("repository = %+v, want bound daemon/path", repository)
 	}
 	if len(resp.Task.Repos) != 1 || resp.Task.Repos[0].URL != projectRepoURL {
 		t.Fatalf("repos = %+v, want only project repo %q", resp.Task.Repos, projectRepoURL)

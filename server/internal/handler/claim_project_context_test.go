@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/multica-ai/multica/server/internal/testutil"
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
+	"github.com/multica-ai/multica/server/pkg/protocol"
 )
 
 // The claim path resolves project context from a SOFT reference: issue.project_id,
@@ -19,7 +20,7 @@ import (
 // columns with no foreign key behind them (see the repo's no-FK rule). These
 // tests pin the tenant boundary that resolveClaimProjectContext is responsible
 // for, using the only states that can actually produce a cross-tenant read:
-// a dangling reference to a project in another workspace, and a project_resource
+// a dangling reference to a project in another workspace, and a repository
 // row whose own workspace_id disagrees with its project's.
 //
 // Both were reachable before MUL-6547: the issue and quick-create branches read
@@ -42,19 +43,11 @@ func foreignWorkspaceWithProject(t *testing.T, slug, prefix string) (string, str
 		"workspace_id": foreignWorkspaceID,
 		"description":  foreignProjectDescription,
 	})
-	dbfx.Insert(t, "project_resource", testutil.Cols{
-		"project_id":    foreignProjectID,
-		"workspace_id":  foreignWorkspaceID,
-		"resource_type": "github_repo",
-		"resource_ref":  `{"url":"` + foreignRepoURL + `"}`,
-		"position":      0,
-	})
-	dbfx.Insert(t, "project_resource", testutil.Cols{
-		"project_id":    foreignProjectID,
-		"workspace_id":  foreignWorkspaceID,
-		"resource_type": "local_directory",
-		"resource_ref":  `{"daemon_id":"foreign-daemon","local_path":"` + foreignLocalPath + `","execution_mode":"in_place"}`,
-		"position":      1,
+	dbfx.Insert(t, "repository", testutil.Cols{
+		"project_id": foreignProjectID, "workspace_id": foreignWorkspaceID,
+		"github_repo_id": 99001, "full_name": strings.TrimPrefix(foreignRepoURL, "https://github.com/"),
+		"private": false, "default_branch": "main", "checkout_daemon_id": "foreign-daemon",
+		"checkout_path": foreignLocalPath, "version_policy": "tags",
 	})
 	return foreignWorkspaceID, foreignProjectID
 }
@@ -92,7 +85,7 @@ type claimProjectFields struct {
 	ProjectID          string                `json:"project_id"`
 	ProjectTitle       string                `json:"project_title"`
 	ProjectDescription string                `json:"project_description"`
-	ProjectResources   []ProjectResourceData `json:"project_resources"`
+	Repositories       []protocol.ClaimRepository `json:"repositories"`
 }
 
 // An issue whose project_id points at another workspace's project must degrade
@@ -142,8 +135,8 @@ func TestClaimTask_IssueProjectInForeignWorkspace_DegradesToWorkspaceRepos(t *te
 	if resp.Task.ProjectID != "" {
 		t.Errorf("project_id = %q, want empty for an out-of-workspace project reference", resp.Task.ProjectID)
 	}
-	if len(resp.Task.ProjectResources) != 0 {
-		t.Errorf("project_resources = %+v, want none", resp.Task.ProjectResources)
+	if len(resp.Task.Repositories) != 0 {
+		t.Errorf("repositories = %+v, want none", resp.Task.Repositories)
 	}
 	if len(resp.Task.Repos) != 1 || resp.Task.Repos[0].URL != localFallbackRepoURL {
 		t.Fatalf("repos = %+v, want only the local workspace fallback", resp.Task.Repos)
@@ -195,19 +188,17 @@ func TestClaimTask_QuickCreateProjectInForeignWorkspace_DegradesToWorkspaceRepos
 	if resp.Task.ProjectID != "" {
 		t.Errorf("quick-create project_id = %q, want empty for an out-of-workspace project", resp.Task.ProjectID)
 	}
-	if len(resp.Task.ProjectResources) != 0 {
-		t.Errorf("quick-create project_resources = %+v, want none", resp.Task.ProjectResources)
+	if len(resp.Task.Repositories) != 0 {
+		t.Errorf("quick-create repositories = %+v, want none", resp.Task.Repositories)
 	}
 	if len(resp.Task.Repos) != 1 || resp.Task.Repos[0].URL != localFallbackRepoURL {
 		t.Fatalf("quick-create repos = %+v, want only the local workspace fallback", resp.Task.Repos)
 	}
 }
 
-// A project_resource row carries its own workspace_id, so a resource can
-// disagree with the project it hangs off. Listing by project_id alone — which
-// every claim branch did before MUL-6547 — serialized that row anyway. The
-// in-workspace resource on the same project must still come through, proving the
-// new predicate filters rather than just emptying the list.
+// A repository row carries its own workspace_id, so it can disagree with the
+// project it belongs to. The in-workspace repository on the same project must
+// still come through, proving the tenant predicate filters rather than emptying the list.
 func TestClaimTask_ProjectResourceFromForeignWorkspace_IsFilteredOut(t *testing.T) {
 	if testHandler == nil {
 		t.Skip("database not available")
@@ -217,28 +208,19 @@ func TestClaimTask_ProjectResourceFromForeignWorkspace_IsFilteredOut(t *testing.
 
 	const localRepoURL = "https://github.com/example/local-project-repo"
 	projectID := dbfx.Project(t, "Project with a mismatched resource row")
-	dbfx.Insert(t, "project_resource", testutil.Cols{
-		"project_id":    projectID,
-		"workspace_id":  testWorkspaceID,
-		"resource_type": "github_repo",
-		"resource_ref":  `{"url":"` + localRepoURL + `"}`,
-		"position":      0,
+	dbfx.Insert(t, "repository", testutil.Cols{
+		"project_id": projectID, "workspace_id": testWorkspaceID,
+		"github_repo_id": 99002, "full_name": strings.TrimPrefix(localRepoURL, "https://github.com/"),
+		"private": false, "default_branch": "main", "checkout_daemon_id": "local-daemon",
+		"checkout_path": "/srv/local-project", "version_policy": "tags",
 	})
 	// Same project, foreign workspace_id: only reachable through corrupt data,
 	// which is exactly the case the predicate exists for.
-	dbfx.Insert(t, "project_resource", testutil.Cols{
-		"project_id":    projectID,
-		"workspace_id":  foreignWorkspaceID,
-		"resource_type": "github_repo",
-		"resource_ref":  `{"url":"` + foreignRepoURL + `"}`,
-		"position":      1,
-	})
-	dbfx.Insert(t, "project_resource", testutil.Cols{
-		"project_id":    projectID,
-		"workspace_id":  foreignWorkspaceID,
-		"resource_type": "local_directory",
-		"resource_ref":  `{"daemon_id":"foreign-daemon","local_path":"` + foreignLocalPath + `","execution_mode":"in_place"}`,
-		"position":      2,
+	dbfx.Insert(t, "repository", testutil.Cols{
+		"project_id": projectID, "workspace_id": foreignWorkspaceID,
+		"github_repo_id": 99003, "full_name": strings.TrimPrefix(foreignRepoURL, "https://github.com/")+"-corrupt",
+		"private": false, "default_branch": "main", "checkout_daemon_id": "foreign-daemon",
+		"checkout_path": foreignLocalPath, "version_policy": "tags",
 	})
 
 	var agentID, runtimeID string
@@ -274,9 +256,9 @@ func TestClaimTask_ProjectResourceFromForeignWorkspace_IsFilteredOut(t *testing.
 	if resp.Task.ProjectID != projectID {
 		t.Errorf("project_id = %q, want %q", resp.Task.ProjectID, projectID)
 	}
-	if len(resp.Task.ProjectResources) != 1 {
-		t.Fatalf("project_resources count = %d, want only the in-workspace row: %+v",
-			len(resp.Task.ProjectResources), resp.Task.ProjectResources)
+	if len(resp.Task.Repositories) != 1 {
+		t.Fatalf("repositories count = %d, want only the in-workspace row: %+v",
+			len(resp.Task.Repositories), resp.Task.Repositories)
 	}
 	if len(resp.Task.Repos) != 1 || resp.Task.Repos[0].URL != localRepoURL {
 		t.Fatalf("repos = %+v, want only the in-workspace project repo", resp.Task.Repos)
@@ -395,12 +377,11 @@ func TestBuildClaimedTaskResponse_SourceLoadFailure_PreservesTaskAndEmitsNoConte
 	).Scan(&agentID, &runtimeID)
 
 	projectID := dbfx.Project(t, "Source load failure project")
-	dbfx.Insert(t, "project_resource", testutil.Cols{
-		"project_id":    projectID,
-		"workspace_id":  testWorkspaceID,
-		"resource_type": "github_repo",
-		"resource_ref":  `{"url":"https://github.com/example/must-not-appear"}`,
-		"position":      0,
+	dbfx.Insert(t, "repository", testutil.Cols{
+		"project_id": projectID, "workspace_id": testWorkspaceID,
+		"github_repo_id": 99004, "full_name": "example/must-not-appear",
+		"private": false, "default_branch": "main", "checkout_daemon_id": "local-daemon",
+		"checkout_path": "/srv/must-not-appear", "version_policy": "tags",
 	})
 	issueID := dbfx.Issue(t, "source load failure issue", testutil.Cols{
 		"project_id": projectID,
@@ -472,9 +453,9 @@ func TestBuildClaimedTaskResponse_SourceLoadFailure_PreservesTaskAndEmitsNoConte
 			if resp.ThreadName != "" {
 				t.Errorf("thread_name = %q, want empty on a failed source read", resp.ThreadName)
 			}
-			if resp.ProjectID != "" || len(resp.ProjectResources) != 0 || len(resp.Repos) != 0 {
-				t.Errorf("project context leaked into a failed claim: project_id=%q resources=%d repos=%d",
-					resp.ProjectID, len(resp.ProjectResources), len(resp.Repos))
+			if resp.ProjectID != "" || len(resp.Repositories) != 0 || len(resp.Repos) != 0 {
+				t.Errorf("project context leaked into a failed claim: project_id=%q repositories=%d repos=%d",
+					resp.ProjectID, len(resp.Repositories), len(resp.Repos))
 			}
 
 			// A transient failure preserves the task for the reclaim path.

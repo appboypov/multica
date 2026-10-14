@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/multica-ai/multica/server/pkg/protocol"
 )
 
 func createChatProjectTestProject(t *testing.T, workspaceID, title, description string) string {
@@ -296,11 +297,13 @@ func TestClaimTaskByRuntime_ChatProjectContext(t *testing.T) {
 	const projectRepoURL = "https://github.com/example/chat-project-repo"
 	const projectRepoRef = "release/chat-context"
 	if _, err := testPool.Exec(ctx, `
-		INSERT INTO project_resource (
-			project_id, workspace_id, resource_type, resource_ref, label, position
-		) VALUES ($1, $2, 'github_repo', $3::jsonb, 'Chat repository', 0)
-	`, projectID, testWorkspaceID, `{"url":"`+projectRepoURL+`","ref":"`+projectRepoRef+`"}`); err != nil {
-		t.Fatalf("create project resource: %v", err)
+		INSERT INTO repository (
+			project_id, workspace_id, github_repo_id, full_name, private,
+			default_branch, checkout_daemon_id, checkout_path, version_policy
+		) VALUES ($1, $2, 99012, 'example/chat-project-repo', false, $3,
+			'chat-daemon', '/srv/chat-project-repo', 'tags')
+	`, projectID, testWorkspaceID, projectRepoRef); err != nil {
+		t.Fatalf("create project repository: %v", err)
 	}
 
 	agentID := createHandlerTestAgent(t, "ChatProjectClaimAgent", []byte("[]"))
@@ -346,7 +349,7 @@ func TestClaimTaskByRuntime_ChatProjectContext(t *testing.T) {
 			ProjectID          string                `json:"project_id"`
 			ProjectTitle       string                `json:"project_title"`
 			ProjectDescription string                `json:"project_description"`
-			ProjectResources   []ProjectResourceData `json:"project_resources"`
+			Repositories       []protocol.ClaimRepository `json:"repositories"`
 			Repos              []RepoData            `json:"repos"`
 		} `json:"task"`
 	}
@@ -365,10 +368,10 @@ func TestClaimTaskByRuntime_ChatProjectContext(t *testing.T) {
 	if response.Task.ProjectDescription != "Use the project design system and release branch." {
 		t.Fatalf("project_description = %q", response.Task.ProjectDescription)
 	}
-	if len(response.Task.ProjectResources) != 1 || response.Task.ProjectResources[0].Label != "Chat repository" {
-		t.Fatalf("project_resources = %+v", response.Task.ProjectResources)
+	if len(response.Task.Repositories) != 1 || response.Task.Repositories[0].FullName != "example/chat-project-repo" || response.Task.Repositories[0].DefaultBranch != projectRepoRef {
+		t.Fatalf("repositories = %+v", response.Task.Repositories)
 	}
-	if len(response.Task.Repos) != 1 || response.Task.Repos[0].URL != projectRepoURL || response.Task.Repos[0].Ref != projectRepoRef {
+	if len(response.Task.Repos) != 1 || response.Task.Repos[0].URL != projectRepoURL {
 		t.Fatalf("repos = %+v, want project repo only", response.Task.Repos)
 	}
 }

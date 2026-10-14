@@ -378,33 +378,7 @@ func fetchProjectCandidates(ctx context.Context, client *cli.APIClient) ([]idCan
 	return candidates, nil
 }
 
-func resolveProjectResourceID(ctx context.Context, client *cli.APIClient, projectID, input string) (resolvedID, error) {
-	fetch := func(ctx context.Context, client *cli.APIClient) ([]idCandidate, error) {
-		var result map[string]any
-		if err := client.GetJSON(ctx, "/api/projects/"+url.PathEscape(projectID)+"/resources", &result); err != nil {
-			return nil, err
-		}
-		resourcesRaw, _ := result["resources"].([]any)
-		candidates := make([]idCandidate, 0, len(resourcesRaw))
-		for _, raw := range resourcesRaw {
-			r, ok := raw.(map[string]any)
-			if !ok {
-				continue
-			}
-			display := strVal(r, "label")
-			if display == "" {
-				display = strVal(r, "resource_type")
-			}
-			candidates = append(candidates, idCandidate{
-				ID:      strVal(r, "id"),
-				Display: display,
-				Detail:  summarizeResourceRef(r["resource_ref"]),
-			})
-		}
-		return candidates, nil
-	}
-	return resolveIDByPrefix(ctx, client, "project resource", input, fetch)
-}
+
 
 func resolveLabelID(ctx context.Context, client *cli.APIClient, input, resourceType string) (resolvedID, error) {
 	return resolveIDByPrefix(ctx, client, "label", input, func(ctx context.Context, client *cli.APIClient) ([]idCandidate, error) {
