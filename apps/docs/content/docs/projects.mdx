@@ -63,7 +63,7 @@ A project holds the GitHub repositories it works in. Its page shows the number o
 
 A worklane is a lane of work in a repository, with its own git worktree on one machine. Every repository has `main`, which works in the repository's checkout.
 
-- **Add worklane** on a repository's card, or **+ Worklane** on its row on Projects and an organisation's page, opens **New worklane · {owner/name}**. The **Name** is unique in the repository. **Folder** fills in from the name, in lowercase with dashes, and is unique among the repository's worklanes. **Runtime** lists the online machines that hold the repository's checkout and can make worktrees. **Worktree** shows where the worktree goes, `~/Worktrees/{organisation key}/{repository}/{folder}`, the branch it starts from and the install command.
+- **Add worklane** on a repository's card, or **+ Worklane** on its row on Projects and an organisation's page, opens **New worklane · \{owner/name\}**. The **Name** is unique in the repository. **Folder** fills in from the name, in lowercase with dashes, and is unique among the repository's worklanes. **Runtime** lists the online machines that hold the repository's checkout and can make worktrees. **Worktree** shows where the worktree goes, `~/Worktrees/{organisation key}/{repository}/{folder}`, the branch it starts from and the install command.
 - **Create worklane** runs each step on the machine: fetch the default branch, add the worktree, install the dependencies. A failed step keeps its error with **Try again**, and no worklane is saved until every step passes. Then the worklane's page opens.
 - A worklane's page shows its repository, Busy or Free, its Timeline and its activity: who created it on which machine, each rename and the changes to its repository's releases.
 - A worklane's menu has **Rename**, which keeps the folder and the worktree, and **Remove**, which deletes the worktree on its machine and removes the worklane from Multica. Remove refuses, and says why, while the machine is offline or the worktree holds uncommitted changes or commits that are not on the default branch. `main` can't be renamed or removed.
@@ -89,8 +89,8 @@ The **Type** filter in the header picks one or more of the eight types, or **No 
 
 A worklane is **Busy** while one of its issues that is In Progress or In Review holds its worktree's branch, and **Free** otherwise. The header says what it works on:
 
-- **now: {ID} {title}** while Busy, for the issue that holds the branch.
-- **next: {ID} {title}** while Free, for the first issue that is not Done or Cancelled: the releases in line order, then No release, and within each the issue created first.
+- **now: \{ID\} \{title\}** while Busy, for the issue that holds the branch.
+- **next: \{ID\} \{title\}** while Free, for the first issue that is not Done or Cancelled: the releases in line order, then No release, and within each the issue created first.
 - Neither, when every issue of the worklane is Done or Cancelled.
 
 ### Agents in a worklane's worktree
@@ -101,7 +101,7 @@ When the pull request of the issue that holds the branch merges into the default
 
 ## Releases
 
-A repository's releases form one line, in the order they ship. Every worklane of the repository shows the same line on its **Timeline**: the first unshipped release is **Next release** and the ones after it are **Planned**. The worklane's header says **last shipped v{version}**, **nothing shipped yet** or **does not release**. On Projects and on an organisation's page, each worklane row shows its repository's last and next release under **Last · Next · Planned releases**; click a release to open it on the worklane's Timeline.
+A repository's releases form one line, in the order they ship. Every worklane of the repository shows the same line on its **Timeline**: the first unshipped release is **Next release** and the ones after it are **Planned**. The worklane's header says **last shipped v\{version\}**, **nothing shipped yet** or **does not release**. On Projects and on an organisation's page, each worklane row shows its repository's last and next release under **Last · Next · Planned releases**; click a release to open it on the worklane's Timeline.
 
 - **Plan release**, at the end of the Timeline, adds a release after the last one. Pick **Patch**, **Minor** or **Major** to bump the version of the release before it, or of the last tag for the first release, or **Custom** to set the version by hand. Every version must be higher than the one before it: while it is not, the dialog says why and **Plan release** stays disabled.
 - A version set by hand shows **Set by hand** and keeps its number when the line changes. A bumped version follows the release before it.
@@ -112,20 +112,20 @@ A release has no date and no goal before it ships.
 
 ### Repositories that do not release
 
-Set **Releases** to **This repository does not release** in **Edit repository**, and its worklanes show "{owner/name} does not release, so its worklanes plan no releases." in place of Plan release. A repository can't stop releasing while its line holds unshipped releases: Edit repository names them and asks you to remove them first. Pick **Tags only** or a version file again, and Plan release starts from the last tag.
+Set **Releases** to **This repository does not release** in **Edit repository**, and its worklanes show "\{owner/name\} does not release, so its worklanes plan no releases." in place of Plan release. A repository can't stop releasing while its line holds unshipped releases: Edit repository names them and asks you to remove them first. Pick **Tags only** or a version file again, and Plan release starts from the last tag.
 
 ## Worklanes and Releases
 
 **Worklanes** and **Releases** sit under Work in the sidebar, after Organisations. Both list the workspace's work by organisation, project and repository, in the order Projects shows them, and leave out anything that holds nothing to list. Every group opens unfolded; click a chevron or a group's row to fold it. An organisation's or a project's name opens its page.
 
-- **Worklanes** lists every worklane, `main` first under each repository. Each repository shows its default branch and **+ Worklane**, which opens New worklane for it. A worklane row shows what the worklane works on and its releases: the last shipped one, the next one with "{done}/{total}" over this worklane's issues in it, and up to two planned releases after it. The row opens the worklane's Timeline.
-- **Releases** lists every repository's releases that have not shipped, in line order: the version with **Next release** or **Planned**, the title, **Set by hand** for a version set by hand, a progress bar with "{done}/{total}" over every issue in the release, and the worklanes that hold its issues, or **No issues yet**. The row opens the Timeline of the first of those worklanes, or of `main`, with the release in view. A repository set to not release shows **This repository does not release**.
+- **Worklanes** lists every worklane, `main` first under each repository. Each repository shows its default branch and **+ Worklane**, which opens New worklane for it. A worklane row shows what the worklane works on and its releases: the last shipped one, the next one with "\{done\}/\{total\}" over this worklane's issues in it, and up to two planned releases after it. The row opens the worklane's Timeline.
+- **Releases** lists every repository's releases that have not shipped, in line order: the version with **Next release** or **Planned**, the title, **Set by hand** for a version set by hand, a progress bar with "\{done\}/\{total\}" over every issue in the release, and the worklanes that hold its issues, or **No issues yet**. The row opens the Timeline of the first of those worklanes, or of `main`, with the release in view. A repository set to not release shows **This repository does not release**.
 
 Neither page plans, edits or moves releases: do that from a worklane's Timeline.
 
 ### The line under a worklane's name
 
-Every worklane row, on Projects, an organisation's page, a project's repositories and Worklanes, shows one line under the worklane's name: the status and "{ID} {title}" of the issue it works on while Busy, "Next: {ID} {title}" while Free, or **Nothing queued** when no issue is left.
+Every worklane row, on Projects, an organisation's page, a project's repositories and Worklanes, shows one line under the worklane's name: the status and "\{ID\} \{title\}" of the issue it works on while Busy, "Next: \{ID\} \{title\}" while Free, or **Nothing queued** when no issue is left.
 
 ## Pin to the sidebar
 

@@ -63,7 +63,7 @@ Un projet contient les dépôts GitHub dans lesquels il travaille. Sa page affic
 
 Un worklane est une ligne de travail d'un dépôt, avec son propre worktree git sur une machine. Chaque dépôt a `main`, qui travaille dans le checkout du dépôt.
 
-- **Ajouter un worklane** sur la carte d'un dépôt, ou **+ Worklane** sur sa ligne dans Projets et sur la page d'une organisation, ouvre **Nouveau worklane · {owner/name}**. Le **Nom** est unique dans le dépôt. Le **Dossier** se remplit à partir du nom, en minuscules avec des tirets, et est unique parmi les worklanes du dépôt. **Runtime** liste les machines en ligne qui détiennent le checkout du dépôt et peuvent créer des worktrees. **Worktree** indique où va le worktree, `~/Worktrees/{organisation key}/{repository}/{folder}`, la branche dont il part et la commande d'installation.
+- **Ajouter un worklane** sur la carte d'un dépôt, ou **+ Worklane** sur sa ligne dans Projets et sur la page d'une organisation, ouvre **Nouveau worklane · \{owner/name\}**. Le **Nom** est unique dans le dépôt. Le **Dossier** se remplit à partir du nom, en minuscules avec des tirets, et est unique parmi les worklanes du dépôt. **Runtime** liste les machines en ligne qui détiennent le checkout du dépôt et peuvent créer des worktrees. **Worktree** indique où va le worktree, `~/Worktrees/{organisation key}/{repository}/{folder}`, la branche dont il part et la commande d'installation.
 - **Créer le worklane** exécute chaque étape sur la machine : récupérer la branche par défaut, ajouter le worktree, installer les dépendances. Une étape échouée garde son erreur avec **Réessayer**, et aucun worklane n'est enregistré tant que toutes les étapes n'ont pas réussi. Ensuite, la page du worklane s'ouvre.
 - La page d'un worklane montre son dépôt, Occupé ou Libre, sa Chronologie et son activité : qui l'a créé sur quelle machine, chaque renommage et les changements des versions de son dépôt.
 - Le menu d'un worklane propose **Renommer**, qui garde le dossier et le worktree, et **Retirer**, qui supprime le worktree sur sa machine et retire le worklane de Multica. Retirer refuse, en disant pourquoi, tant que la machine est hors ligne ou que le worktree contient des modifications non commitées ou des commits absents de la branche par défaut. `main` ne peut être ni renommé ni retiré.
@@ -89,8 +89,8 @@ Le filtre **Type** de l’en-tête choisit un ou plusieurs des huit types, ou **
 
 Un worklane est **Occupé** tant qu’une de ses tâches In Progress ou In Review tient la branche de son worktree, et **Libre** sinon. L’en-tête indique sur quoi il travaille :
 
-- **maintenant : {ID} {titre}** quand il est Occupé, pour la tâche qui tient la branche.
-- **ensuite : {ID} {titre}** quand il est Libre, pour la première tâche ni terminée ni annulée : les versions dans l’ordre de la ligne, puis Sans version, et dans chacune la tâche créée en premier.
+- **maintenant : \{ID\} \{titre\}** quand il est Occupé, pour la tâche qui tient la branche.
+- **ensuite : \{ID\} \{titre\}** quand il est Libre, pour la première tâche ni terminée ni annulée : les versions dans l’ordre de la ligne, puis Sans version, et dans chacune la tâche créée en premier.
 - Ni l’un ni l’autre quand toutes les tâches du worklane sont terminées ou annulées.
 
 ### Les agents dans le worktree d’un worklane
@@ -101,7 +101,7 @@ Quand la pull request de la tâche qui tient la branche est fusionnée dans la b
 
 ## Versions
 
-Les versions d’un dépôt forment une seule ligne, dans l’ordre de leur publication. Chaque worklane du dépôt affiche la même ligne sur sa **Chronologie** : la première version non publiée est la **Prochaine version**, les suivantes sont **Planifiées**. L’en-tête du worklane indique **dernière version publiée v{version}**, **rien de publié pour l’instant** ou **ne publie pas de versions**. Sur Projets et sur la page d’une organisation, chaque ligne de worklane affiche la dernière et la prochaine version de son dépôt sous **Dernière · Prochaine · Versions planifiées** ; cliquez sur une version pour l’ouvrir sur la Chronologie du worklane.
+Les versions d’un dépôt forment une seule ligne, dans l’ordre de leur publication. Chaque worklane du dépôt affiche la même ligne sur sa **Chronologie** : la première version non publiée est la **Prochaine version**, les suivantes sont **Planifiées**. L’en-tête du worklane indique **dernière version publiée v\{version\}**, **rien de publié pour l’instant** ou **ne publie pas de versions**. Sur Projets et sur la page d’une organisation, chaque ligne de worklane affiche la dernière et la prochaine version de son dépôt sous **Dernière · Prochaine · Versions planifiées** ; cliquez sur une version pour l’ouvrir sur la Chronologie du worklane.
 
 - **Planifier une version**, à la fin de la Chronologie, ajoute une version après la dernière. Choisissez **Correctif**, **Mineure** ou **Majeure** pour incrémenter le numéro de la version précédente, ou du dernier tag pour la première version, ou **Personnalisé** pour fixer le numéro à la main. Chaque numéro doit être supérieur au précédent : tant que ce n’est pas le cas, la boîte de dialogue en donne la raison et **Planifier une version** reste désactivé.
 - Un numéro fixé à la main affiche **Fixé à la main** et le garde quand la ligne change. Un numéro incrémenté suit la version qui le précède.
@@ -112,20 +112,20 @@ Une version n’a ni date ni objectif avant sa publication.
 
 ### Les dépôts qui ne publient pas de versions
 
-Choisissez **Ce dépôt ne publie pas de versions** pour **Versions** dans **Modifier le dépôt**, et ses worklanes affichent « {owner/name} ne publie pas de versions, donc ses worklanes n’en planifient pas. » à la place de Planifier une version. Un dépôt ne peut pas arrêter de publier tant que sa ligne contient des versions non publiées : Modifier le dépôt les nomme et vous demande de les retirer d’abord. Choisissez de nouveau **Tags uniquement** ou un fichier de version, et Planifier une version repart du dernier tag.
+Choisissez **Ce dépôt ne publie pas de versions** pour **Versions** dans **Modifier le dépôt**, et ses worklanes affichent « \{owner/name\} ne publie pas de versions, donc ses worklanes n’en planifient pas. » à la place de Planifier une version. Un dépôt ne peut pas arrêter de publier tant que sa ligne contient des versions non publiées : Modifier le dépôt les nomme et vous demande de les retirer d’abord. Choisissez de nouveau **Tags uniquement** ou un fichier de version, et Planifier une version repart du dernier tag.
 
 ## Worklanes et Versions
 
 **Worklanes** et **Versions** se trouvent sous Travail dans la barre latérale, après Organisations. Les deux pages listent le travail de l’espace de travail par organisation, projet et dépôt, dans l’ordre de la page Projets, et omettent ce qui n’a rien à lister. Chaque groupe s’ouvre déplié ; cliquez sur un chevron ou sur la ligne d’un groupe pour le replier. Le nom d’une organisation ou d’un projet ouvre sa page.
 
-- **Worklanes** liste chaque worklane, `main` en premier sous chaque dépôt. Chaque dépôt affiche sa branche par défaut et **+ Worklane**, qui ouvre Nouveau worklane pour ce dépôt. La ligne d’un worklane montre ce sur quoi il travaille et ses versions : la dernière publiée, la prochaine avec « {done}/{total} » sur les tâches de ce worklane qu’elle contient, et jusqu’à deux versions planifiées après elle. La ligne ouvre la frise du worklane.
-- **Versions** liste les versions non publiées de chaque dépôt, dans l’ordre de sa ligne : le numéro avec **Prochaine version** ou **Planifiée**, le titre, **Définie à la main** pour un numéro saisi à la main, une barre de progression avec « {done}/{total} » sur toutes les tâches de la version, et les worklanes qui en contiennent les tâches, ou **Aucune tâche pour l’instant**. La ligne ouvre la frise du premier de ces worklanes, ou de `main`, sur cette version. Un dépôt réglé pour ne pas publier affiche **Ce dépôt ne publie pas de versions**.
+- **Worklanes** liste chaque worklane, `main` en premier sous chaque dépôt. Chaque dépôt affiche sa branche par défaut et **+ Worklane**, qui ouvre Nouveau worklane pour ce dépôt. La ligne d’un worklane montre ce sur quoi il travaille et ses versions : la dernière publiée, la prochaine avec « \{done\}/\{total\} » sur les tâches de ce worklane qu’elle contient, et jusqu’à deux versions planifiées après elle. La ligne ouvre la frise du worklane.
+- **Versions** liste les versions non publiées de chaque dépôt, dans l’ordre de sa ligne : le numéro avec **Prochaine version** ou **Planifiée**, le titre, **Définie à la main** pour un numéro saisi à la main, une barre de progression avec « \{done\}/\{total\} » sur toutes les tâches de la version, et les worklanes qui en contiennent les tâches, ou **Aucune tâche pour l’instant**. La ligne ouvre la frise du premier de ces worklanes, ou de `main`, sur cette version. Un dépôt réglé pour ne pas publier affiche **Ce dépôt ne publie pas de versions**.
 
 Aucune des deux pages ne planifie, ne modifie ni ne déplace de versions : faites-le depuis la frise d’un worklane.
 
 ### La ligne sous le nom d’un worklane
 
-Chaque ligne de worklane, sur Projets, la page d’une organisation, les dépôts d’un projet et Worklanes, affiche une ligne sous le nom du worklane : le statut et « {ID} {titre} » de la tâche en cours quand il est Occupé, « Ensuite : {ID} {titre} » quand il est Libre, ou **Rien en attente** quand il ne reste aucune tâche.
+Chaque ligne de worklane, sur Projets, la page d’une organisation, les dépôts d’un projet et Worklanes, affiche une ligne sous le nom du worklane : le statut et « \{ID\} \{titre\} » de la tâche en cours quand il est Occupé, « Ensuite : \{ID\} \{titre\} » quand il est Libre, ou **Rien en attente** quand il ne reste aucune tâche.
 
 ## Épingler à la barre latérale
 
