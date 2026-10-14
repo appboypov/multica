@@ -132,6 +132,7 @@ type NavKey =
 // icons derived from the destination path via routeIconForPath.
 type NavLabelKey =
   | "inbox"
+  | "questions"
   | "chat"
   | "my_issues"
   | "issues"
