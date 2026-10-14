@@ -33,6 +33,15 @@ func (d *Daemon) prepareIssueWorktrees(ctx context.Context, task *Task, logger *
 	if task.IssueID == "" { return nil }
 	for i := range task.Repositories {
 		repo := &task.Repositories[i]
+		if repo.Worklane != nil {
+			if repo.Worklane.DaemonID != d.cfg.DaemonID {
+				return fmt.Errorf("worklane %s lives on another machine", repo.Worklane.Name)
+			}
+			if err := d.prepareWorklaneTask(ctx, task, repo, logger); err != nil {
+				return err
+			}
+			continue
+		}
 		if repo.CheckoutDaemonID != d.cfg.DaemonID { continue }
 		path, err := issueWorktreePath(*task, repo.FullName, repo.WorktreePath, repo.WorklanePaths)
 		if err != nil { return err }
@@ -53,8 +62,13 @@ func (d *Daemon) prepareIssueWorktrees(ctx context.Context, task *Task, logger *
 	return nil
 }
 
-func taskIssueWorkdir(task Task, daemonID string) string {
+func primaryIssueWorktree(task Task, daemonID string) string {
 	if task.IssueID == "" { return "" }
+	for _, repo := range task.Repositories {
+		if repo.Worklane != nil && repo.Worklane.DaemonID == daemonID {
+			return repo.WorktreePath
+		}
+	}
 	path := ""
 	for _, repo := range task.Repositories {
 		if repo.CheckoutDaemonID != daemonID { continue }
@@ -76,8 +90,12 @@ func (d *Daemon) acquireIssueWorktreeLocks(ctx context.Context, task Task, logge
 	var paths []string
 	if task.IssueID != "" {
 		for _, repo := range task.Repositories {
-			if repo.CheckoutDaemonID != d.cfg.DaemonID { continue }
-			path, err := issueWorktreePath(task, repo.FullName, repo.WorktreePath, repo.WorklanePaths)
+			recorded := repo.WorktreePath
+			if repo.Worklane != nil {
+				if repo.Worklane.DaemonID != d.cfg.DaemonID { continue }
+				recorded = repo.Worklane.Path
+			} else if repo.CheckoutDaemonID != d.cfg.DaemonID { continue }
+			path, err := issueWorktreePath(task, repo.FullName, recorded, repo.WorklanePaths)
 			if err != nil { d.reportTerminalTask(ctx, terminalTaskReport{kind: terminalTaskReportFail, taskID: task.ID, errorMessage: err.Error(), failureReason: "environment_prepare_failed"}); return nil, true }
 			path, err = resolveRealPath(path)
 			if err != nil { d.reportTerminalTask(ctx, terminalTaskReport{kind: terminalTaskReportFail, taskID: task.ID, errorMessage: err.Error(), failureReason: "environment_prepare_failed"}); return nil, true }

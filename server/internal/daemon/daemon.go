@@ -5805,7 +5805,7 @@ func (d *Daemon) handleTask(ctx context.Context, task Task, slot int) {
 		defer localRelease()
 	}
 	if err := d.prepareIssueWorktrees(ctx, &task, taskLog); err != nil {
-		d.reportTerminalTask(ctx, terminalTaskReport{kind: terminalTaskReportFail, taskID: task.ID, errorMessage: err.Error(), failureReason: "environment_prepare_failed"})
+		d.reportTerminalTask(ctx, terminalTaskReport{kind: terminalTaskReportFail, taskID: task.ID, errorMessage: err.Error(), failureReason: taskRunFailureReason(asEnvironmentSetupFailure(err))})
 		return
 	}
 
@@ -8393,6 +8393,7 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, slot i
 		WorkspaceID: task.WorkspaceID,
 		TaskID:      task.ID,
 		AgentID:     task.AgentID,
+		Task:        &task,
 		AgentName:   task.Agent.Name,
 		WorkDir:     env.WorkDir,
 	})
