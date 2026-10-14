@@ -78,9 +78,10 @@ type IssueResponse struct {
 	// groups (null = unstaged). See service/issue_wakeup_system.go for how a
 	// closed stage wakes the parent's assignee.
 	Stage *int32 `json:"stage"`
-	// AgentQuestions is the issue's own Agent questions setting; absent means
-	// Workspace default. Withheld from task tokens: agents never see it.
-	AgentQuestions *bool   `json:"agent_questions,omitempty"`
+	// AgentQuestions is the issue's own Agent questions setting; null means
+	// Workspace default. Members always get the key; responses to task tokens
+	// leave it out (withholdAgentQuestions): agents never see it.
+	AgentQuestions **bool  `json:"agent_questions,omitempty"`
 	StartDate      *string `json:"start_date"`
 	DueDate        *string `json:"due_date"`
 	CreatedAt      string  `json:"created_at"`
@@ -478,6 +479,22 @@ func (h *Handler) fillDuplicateOf(ctx context.Context, wsID pgtype.UUID, resp *I
 	}
 }
 
+// agentQuestionsToResponse renders an issue's Agent questions for members:
+// the key is always present, null for Workspace default, so a snapshot that
+// returns to Workspace default clears a cached On or Off.
+func agentQuestionsToResponse(v pgtype.Bool) **bool {
+	setting := boolToPtr(v)
+	return &setting
+}
+
+// withholdAgentQuestions leaves an issue's Agent questions out of a response
+// to a task token: the setting is people's, so agents never see it.
+func withholdAgentQuestions(r *http.Request, resp *IssueResponse) {
+	if isTaskTokenActor(r) {
+		resp.AgentQuestions = nil
+	}
+}
+
 func issueToResponse(i db.Issue, issuePrefix string) IssueResponse {
 	identifier := issuePrefix + "-" + strconv.Itoa(int(i.Number))
 	// Built-ins map to public categories without a catalog lookup. A custom
@@ -505,7 +522,7 @@ func issueToResponse(i db.Issue, issuePrefix string) IssueResponse {
 		ProjectID:          uuidToPtr(i.ProjectID),
 		Position:           i.Position,
 		Stage:              int4ToPtr(i.Stage),
-		AgentQuestions:     boolToPtr(i.AgentQuestions),
+		AgentQuestions:     agentQuestionsToResponse(i.AgentQuestions),
 		StartDate:          dateToPtr(i.StartDate),
 		DueDate:            dateToPtr(i.DueDate),
 		CreatedAt:          timestampToString(i.CreatedAt),
@@ -544,7 +561,7 @@ func issueListRowToResponse(i db.ListIssuesRow, issuePrefix string) IssueRespons
 		ProjectID:          uuidToPtr(i.ProjectID),
 		Position:           i.Position,
 		Stage:              int4ToPtr(i.Stage),
-		AgentQuestions:     boolToPtr(i.AgentQuestions),
+		AgentQuestions:     agentQuestionsToResponse(i.AgentQuestions),
 		StartDate:          dateToPtr(i.StartDate),
 		DueDate:            dateToPtr(i.DueDate),
 		CreatedAt:          timestampToString(i.CreatedAt),
@@ -615,7 +632,7 @@ func openIssueRowToResponse(i db.ListOpenIssuesRow, issuePrefix string) IssueRes
 		ProjectID:          uuidToPtr(i.ProjectID),
 		Position:           i.Position,
 		Stage:              int4ToPtr(i.Stage),
-		AgentQuestions:     boolToPtr(i.AgentQuestions),
+		AgentQuestions:     agentQuestionsToResponse(i.AgentQuestions),
 		StartDate:          dateToPtr(i.StartDate),
 		DueDate:            dateToPtr(i.DueDate),
 		CreatedAt:          timestampToString(i.CreatedAt),
@@ -1106,7 +1123,7 @@ func buildSearchQuery(phrase string, terms []string, queryNum int, hasNum bool, 
 		i.assignee_type, i.assignee_id, i.creator_type, i.creator_id,
 		i.parent_issue_id, i.acceptance_criteria, i.context_refs, i.position,
 		i.start_date, i.due_date, i.created_at, i.updated_at, i.last_activity_at, i.number, i.project_id,
-		i.revision, i.duplicate_of_issue_id, i.type, i.worklane_id, i.release_id, i.done_at,
+		i.revision, i.duplicate_of_issue_id, i.agent_questions, i.type, i.worklane_id, i.release_id, i.done_at,
 		pc.match_source,
 		COALESCE(c.content, '') AS matched_comment_content
 	FROM page_candidates pc
@@ -1203,6 +1220,7 @@ func (h *Handler) SearchIssues(w http.ResponseWriter, r *http.Request) {
 				&sr.issue.ProjectID,
 				&sr.issue.Revision,
 				&sr.issue.DuplicateOfIssueID,
+				&sr.issue.AgentQuestions,
 				&sr.issue.Type,
 				&sr.issue.WorklaneID,
 				&sr.issue.ReleaseID,
@@ -1248,6 +1266,7 @@ func (h *Handler) SearchIssues(w http.ResponseWriter, r *http.Request) {
 			MatchSource:   sr.matchSource,
 		}
 		fillSearch(&sir.IssueResponse)
+		withholdAgentQuestions(r, &sir.IssueResponse)
 		// Always populate comment snippet when a matching comment exists
 		if sr.matchedCommentContent != "" {
 			snippet := extractSnippet(sr.matchedCommentContent, q)
@@ -1419,6 +1438,7 @@ func (h *Handler) ListIssues(w http.ResponseWriter, r *http.Request) {
 		for i, issue := range issues {
 			resp[i] = openIssueRowToResponse(issue, prefix)
 			fillOpen(&resp[i])
+			withholdAgentQuestions(r, &resp[i])
 			labels := labelsMap[resp[i].ID]
 			if labels == nil {
 				labels = []LabelResponse{}
@@ -1760,7 +1780,7 @@ func (h *Handler) ListIssues(w http.ResponseWriter, r *http.Request) {
 	query := fmt.Sprintf(`SELECT i.id, i.workspace_id, i.title, i.description, i.status, i.priority,
        i.assignee_type, i.assignee_id, i.creator_type, i.creator_id,
        i.parent_issue_id, i.position, i.start_date, i.due_date, i.created_at, i.updated_at, i.last_activity_at, i.number, i.project_id, i.metadata, i.stage, i.properties,
-	   i.revision, i.duplicate_of_issue_id, i.type, i.worklane_id, i.release_id, i.done_at
+	   i.revision, i.duplicate_of_issue_id, i.agent_questions, i.type, i.worklane_id, i.release_id, i.done_at
 FROM issue i
 WHERE %s
 ORDER BY %s
@@ -1802,6 +1822,7 @@ LIMIT %s OFFSET %s`, whereSql, orderBy, limitRef, offsetRef)
 			&row.Properties,
 			&row.Revision,
 			&row.DuplicateOfIssueID,
+			&row.AgentQuestions,
 			&row.Type,
 			&row.WorklaneID,
 			&row.ReleaseID,
@@ -1839,6 +1860,7 @@ LIMIT %s OFFSET %s`, whereSql, orderBy, limitRef, offsetRef)
 	resp := make([]IssueResponse, len(issues))
 	for i, issue := range issues {
 		resp[i] = issueListRowToResponse(issue, prefix)
+		withholdAgentQuestions(r, &resp[i])
 		labels := labelsMap[resp[i].ID]
 		if labels == nil {
 			labels = []LabelResponse{}
@@ -2364,7 +2386,7 @@ WITH ranked AS (
 		i.id, i.workspace_id, i.title, i.description, i.status, i.priority,
 		i.assignee_type, i.assignee_id, i.creator_type, i.creator_id,
 		i.parent_issue_id, i.position, i.start_date, i.due_date, i.created_at, i.updated_at, i.last_activity_at,
-		i.number, i.project_id, i.metadata, i.stage, i.properties, i.revision, i.duplicate_of_issue_id,
+		i.number, i.project_id, i.metadata, i.stage, i.properties, i.revision, i.duplicate_of_issue_id, i.agent_questions,
 		i.type, i.worklane_id, i.release_id, i.done_at,
 		COUNT(*) OVER (PARTITION BY i.assignee_type, i.assignee_id) AS group_total,
 		ROW_NUMBER() OVER (
@@ -2378,7 +2400,7 @@ SELECT
 	id, workspace_id, title, description, status, priority,
 	assignee_type, assignee_id, creator_type, creator_id,
 	parent_issue_id, position, start_date, due_date, created_at, updated_at, last_activity_at,
-	number, project_id, metadata, stage, properties, revision, duplicate_of_issue_id,
+	number, project_id, metadata, stage, properties, revision, duplicate_of_issue_id, agent_questions,
 	type, worklane_id, release_id, done_at, group_total
 FROM ranked
 WHERE rn > %s AND rn <= %s + %s
@@ -2429,6 +2451,7 @@ ORDER BY
 			&row.Properties,
 			&row.Revision,
 			&row.DuplicateOfIssueID,
+			&row.AgentQuestions,
 			&row.Type,
 			&row.WorklaneID,
 			&row.ReleaseID,
@@ -2478,6 +2501,7 @@ ORDER BY
 
 		issue := issueListRowToResponse(row.ListIssuesRow, prefix)
 		fillGrouped(&issue)
+		withholdAgentQuestions(r, &issue)
 		labels := labelsMap[issue.ID]
 		if labels == nil {
 			labels = []LabelResponse{}
@@ -2537,10 +2561,7 @@ func (h *Handler) GetIssue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Agents never see an issue's Agent questions.
-	if isTaskTokenActor(r) {
-		resp.AgentQuestions = nil
-	}
+	withholdAgentQuestions(r, &resp)
 	writeJSON(w, http.StatusOK, resp)
 }
 
@@ -2570,6 +2591,7 @@ func (h *Handler) ListChildIssues(w http.ResponseWriter, r *http.Request) {
 	resp := make([]IssueResponse, len(children))
 	for i, child := range children {
 		resp[i] = issueToResponse(child, prefix)
+		withholdAgentQuestions(r, &resp[i])
 		resp[i].StatusCategory = issuestatus.WireCategory(child.Status, statusResolver.Category(r.Context(), h.Queries, child.Status))
 		labels := labelsMap[resp[i].ID]
 		if labels == nil {
@@ -2656,6 +2678,7 @@ func (h *Handler) ListChildrenByParents(w http.ResponseWriter, r *http.Request) 
 	resp := make([]IssueResponse, len(children))
 	for i, child := range children {
 		resp[i] = issueToResponse(child, prefix)
+		withholdAgentQuestions(r, &resp[i])
 		resp[i].StatusCategory = issuestatus.WireCategory(child.Status, statusResolver.Category(r.Context(), h.Queries, child.Status))
 		labels := labelsMap[resp[i].ID]
 		if labels == nil {
@@ -3470,6 +3493,7 @@ func (h *Handler) CreateIssue(w http.ResponseWriter, r *http.Request) {
 		dup := *res.DuplicateIssue
 		existing := issueToResponse(dup, h.getIssuePrefix(r.Context(), dup.WorkspaceID))
 		h.fillStatusCategory(r.Context(), dup.WorkspaceID, &existing)
+		withholdAgentQuestions(r, &existing)
 		writeJSON(w, http.StatusConflict, map[string]any{
 			"code":  "active_duplicate_issue",
 			"error": duplicateIssueMessage(existing),
@@ -3511,6 +3535,7 @@ func (h *Handler) CreateIssue(w http.ResponseWriter, r *http.Request) {
 
 	resp := issueToResponse(issue, prefix)
 	fillCreated(&resp)
+	withholdAgentQuestions(r, &resp)
 	resp.Attachments = buildAttachmentResponses(res.Attachments)
 	// Echo the authoritative labels attached in the create transaction. Always
 	// non-nil (empty slice when none) so a newer client can tell the backend
@@ -4137,9 +4162,7 @@ func (h *Handler) UpdateIssue(w http.ResponseWriter, r *http.Request) {
 		h.processChildEvents(r.Context(), issue.ParentIssueID, prevIssue.ParentIssueID)
 	}
 
-	if isTaskTokenActor(r) {
-		resp.AgentQuestions = nil
-	}
+	withholdAgentQuestions(r, &resp)
 	writeJSON(w, http.StatusOK, resp)
 }
 

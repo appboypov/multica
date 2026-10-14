@@ -7740,7 +7740,7 @@ func resolveDuplicateOf(ctx context.Context, q IssueMapQuerier, issue db.Issue, 
 }
 
 func IssueToMap(issue db.Issue, issuePrefix string) map[string]any {
-	m := map[string]any{
+	return map[string]any{
 		"id":           util.UUIDToString(issue.ID),
 		"workspace_id": util.UUIDToString(issue.WorkspaceID),
 		"number":       issue.Number,
@@ -7777,13 +7777,10 @@ func IssueToMap(issue db.Issue, issuePrefix string) map[string]any {
 		"revision":         issue.Revision,
 		"metadata":         util.JSONObjectOrEmpty(issue.Metadata),
 		"properties":       util.JSONObjectOrEmpty(issue.Properties),
+		// Mirrors handler.IssueResponse.AgentQuestions: null on Workspace
+		// default, so the snapshot clears a cached On or Off.
+		"agent_questions": util.BoolToPtr(issue.AgentQuestions),
 	}
-	// Mirrors handler.IssueResponse.AgentQuestions: absent on Workspace
-	// default.
-	if issue.AgentQuestions.Valid {
-		m["agent_questions"] = issue.AgentQuestions.Bool
-	}
-	return m
 }
 
 // IssueIdentifier renders the human-facing issue key ("MUL-42"). Callers that

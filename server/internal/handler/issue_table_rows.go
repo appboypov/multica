@@ -393,7 +393,7 @@ SELECT i.id, i.workspace_id, i.title, i.description, i.status, i.priority,
        i.assignee_type, i.assignee_id, i.creator_type, i.creator_id,
        i.parent_issue_id, i.position, i.start_date, i.due_date, i.created_at,
 	       i.updated_at, i.last_activity_at, i.number, i.project_id, i.metadata, i.stage, i.properties,
-	       i.revision, i.duplicate_of_issue_id, i.type, i.worklane_id, i.release_id, i.done_at,
+	       i.revision, i.duplicate_of_issue_id, i.agent_questions, i.type, i.worklane_id, i.release_id, i.done_at,
 	       %s AS direct_child_count, i.table_sort_key
 	FROM page i
 	ORDER BY %s`, cte, childCountExpr, resolvedSort.orderBy())
@@ -439,6 +439,7 @@ SELECT i.id, i.workspace_id, i.title, i.description, i.status, i.priority,
 			&row.issue.Properties,
 			&row.issue.Revision,
 			&row.issue.DuplicateOfIssueID,
+			&row.issue.AgentQuestions,
 			&row.issue.Type,
 			&row.issue.WorklaneID,
 			&row.issue.ReleaseID,
@@ -518,6 +519,7 @@ SELECT i.id, i.workspace_id, i.title, i.description, i.status, i.priority,
 	for index, row := range scanned {
 		issue := issueListRowToResponse(row.issue, prefix)
 		fillTableRow(&issue)
+		withholdAgentQuestions(r, &issue)
 		labels := labelsByIssue[issue.ID]
 		if labels == nil {
 			labels = []LabelResponse{}

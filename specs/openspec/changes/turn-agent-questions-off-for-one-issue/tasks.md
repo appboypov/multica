@@ -82,11 +82,11 @@ Every group builds on UJ-1's code (change `answer-an-agents-question-and-wake-it
 ## 8. J8 Backend and agent tooling: endpoints
 
 - [x] 8.1 `server/internal/handler/agent_questions.go`, `server/cmd/server/router.go` -- `GET /api/agent-questions` (workspace member) and `PUT /api/agent-questions` (`{enabled}`, `DisallowUnknownFields`, `systemWakeupHuman`, owner or admin else 403), both returning `{enabled, own_setting_count, brief_section: execenv.QuestionsSection}`; PUT publishes `protocol.EventWorkspaceUpdated` with `workspaceToResponse` -- design.md decision 2.
-- [x] 8.2 `server/internal/handler/issue.go` -- `IssueResponse.AgentQuestions *bool` (`omitempty`) filled by `issueToResponse`; `UpdateIssueRequest.AgentQuestions` with `rawFields` presence as `stage` has; for `X-Actor-Source: task_token`, `GetIssue` and `UpdateIssue` responses clear it and a body with the key is 403 "only members can change this setting" -- design.md decision 3.
+- [x] 8.2 `server/internal/handler/issue.go` -- `IssueResponse.AgentQuestions` filled by every issue converter and selected by every handwritten issue query, present for members with `null` on Workspace default; `UpdateIssueRequest.AgentQuestions` with `rawFields` presence as `stage` has; for `X-Actor-Source: task_token`, every issue response leaves it out and a body with the key is 403 "only members can change this setting" -- design.md decision 3.
 - [x] 8.3 `server/internal/handler/agent.go`, `server/internal/handler/daemon.go` -- `AgentTaskResponse.QuestionsEnabled` (`json:"questions_enabled"`); `buildClaimedTaskResponse` resolves it with `GetIssueAgentQuestions` before loading skills (no issue → false; a load error → `rejectClaimSourceLoad`), passes it to `LoadAgentSkillBundles` and `BuiltinSkills`, and returns it for `FinalizeTaskClaim` in both claim paths -- design.md decision 4.
 - [x] 8.4 `server/internal/handler/question.go` -- `POST /api/questions`, after UJ-1's 422 for a task without an issue, loads the task by `X-Task-ID` and returns 403 "questions are off for this issue" when `questions_enabled` is false, writing nothing -- the `agent-question-tooling` "Asking refuses while off" requirement.
 - [ ] 8.5 `server/internal/handler/agent_questions_test.go` -- an owner turns the default off and GET reads false; a plain member's PUT is 403 and a task token's PUT is 403; two open issues Off, one open On and one done Off count 3; PUT publishes `workspace:updated` -- the `agent-questions-setting` "Workspace Questions default" scenarios.
-- [ ] 8.6 `server/internal/handler/issue_test.go` -- `agent_questions: false` sets Off, `null` returns to Workspace default and is absent in the response, a body without the key keeps it; a task token's GET has no `agent_questions` and its PUT with the key is 403 -- decision 3's contract.
+- [ ] 8.6 `server/internal/handler/issue_test.go` -- `agent_questions: false` sets Off, `null` returns to Workspace default and reads `null` in the response, a body without the key keeps it; a task token's GET has no `agent_questions` and its PUT with the key is 403 -- decision 3's contract.
 - [ ] 8.7 `server/internal/handler/daemon_test.go`, `question_test.go` -- a claim on an issue on Workspace default follows the workspace (On and Off), an Off issue claims `questions_enabled` false with the `@core` skill ref and stores false, a task without an issue claims false; changing the issue after the claim leaves the stored value; an ask from a task claimed Off is 403 with no question row, and from a task claimed On is 201 -- the "A change applies from the next run" and "Back to the default" scenarios.
 
 ## 9. J8 Backend and agent tooling: daemon and CLI
@@ -126,7 +126,7 @@ Every group builds on UJ-1's code (change `answer-an-agents-question-and-wake-it
 ## Implementation Notes
 
 - Built in one pull request (WORK-410): groups 1-2 and 6-12 without their test tasks, by Brian's rule for the questions parts (no prototypes, no new tests, no screen proof); groups 3-5 and 13 are not built here.
-- `Issue.agent_questions` is optional in `packages/core/types/issue.ts`: the server omits it on Workspace default and for agents, and the schema reads absent as `null`.
+- `Issue.agent_questions` is optional in `packages/core/types/issue.ts`: the server leaves it out for agents, and the schema reads absent as `null`.
 
 ## Plan Change Log
 

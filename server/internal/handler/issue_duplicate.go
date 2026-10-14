@@ -155,6 +155,7 @@ func (h *Handler) ListIssueDuplicates(w http.ResponseWriter, r *http.Request) {
 		case err == nil:
 			resp := issueToResponse(original, prefix)
 			fill(&resp)
+			withholdAgentQuestions(r, &resp)
 			duplicateOf = &resp
 		case !isNotFound(err):
 			slog.Warn("load duplicate original failed", append(logger.RequestAttrs(r), "error", err, "issue_id", uuidToString(issue.ID))...)
@@ -176,6 +177,7 @@ func (h *Handler) ListIssueDuplicates(w http.ResponseWriter, r *http.Request) {
 	for _, row := range rows {
 		resp := issueToResponse(row, prefix)
 		fill(&resp)
+		withholdAgentQuestions(r, &resp)
 		duplicates = append(duplicates, resp)
 	}
 
