@@ -53,8 +53,12 @@ import type {
   AgentQuestionsSettings,
   AnswerType,
   Question,
+  QuestionOpenCount,
+  QuestionRow,
+  QuestionRowPage,
   QuestionWakeResult,
   UnreadableQuestion,
+  UnreadableQuestionRow,
   Label,
   MemberWithUser,
   IssueProperty,
@@ -4687,4 +4691,101 @@ export const QuestionWakeResultSchema = z.object({
 export const EMPTY_QUESTION_WAKE_RESULT: QuestionWakeResult = {
   task_id: "",
   answer_count: 0,
+};
+
+// ---------------------------------------------------------------------------
+// Question rows (`GET /api/questions`, `GET /api/questions/open-count`).
+//
+// A row reads as leniently as a question: an unknown `status` reads as
+// `closed`, a row without its ask fields as its own one-question ask, a
+// missing or unknown `answer_policy` as `any_one`, and an answer type or
+// settings this client cannot read as `answer_type: "unknown"`. A row must
+// carry its ids, prompt and issue link with the link's `id` and
+// `identifier`; a page drops a row without them instead of hiding the
+// others. A page without `rows` reads as empty, a missing `next_cursor` as
+// the last page, a missing or malformed `my_answer` as not answered, and a
+// count that is not a number as 0.
+// ---------------------------------------------------------------------------
+
+const QuestionRowLinkSchema = z.object({
+  type: z.enum(["issue", "task"]),
+  id: z.string().min(1),
+  identifier: z.string().min(1),
+  title: z.string().catch(""),
+  status: z.string().catch(""),
+}).loose();
+
+const QuestionRowAnswerSchema = z.object({
+  display: z.string().catch(""),
+  updated_at: z.string().catch(""),
+}).loose();
+
+const QuestionRowWireSchema = z.object({
+  id: z.string(),
+  ask_id: z.string().min(1).nullish().catch(null),
+  ask_position: z.number().int().nonnegative().catch(0),
+  ask_title: z.string().nullish().catch(null).transform((value) => value ?? null),
+  prompt: z.string(),
+  answer_type: z.string(),
+  settings: z.unknown(),
+  status: z.enum(["open", "partly_answered", "answered", "closed", "withdrawn"]).catch("closed"),
+  answer_policy: z.enum(["any_one", "each"]).catch("any_one"),
+  asker_agent_id: z.string(),
+  answerer_ids: z.array(z.string()).default([]),
+  due_date: z.string().nullish().catch(null).transform((value) => value ?? null),
+  blocks_work: BooleanWithDefaultSchema(false),
+  created_at: z.string(),
+  link: QuestionRowLinkSchema,
+  my_answer: QuestionRowAnswerSchema.nullish().catch(null).transform((value) => value ?? null),
+}).loose();
+
+// Types `settings` when they fit the row's answer type, else reads the row
+// as "unknown", as `readQuestion` does.
+function readQuestionRow({
+  ask_id,
+  answer_type,
+  settings,
+  ...wire
+}: z.output<typeof QuestionRowWireSchema>): QuestionRow {
+  const rest = { ...wire, ask_id: ask_id ?? wire.id };
+  if (isAnswerType(answer_type)) {
+    const schemas: AnswerTypeSchemas = ANSWER_TYPE_SCHEMAS[answer_type];
+    const parsedSettings = schemas.settings.safeParse(settings);
+    if (parsedSettings.success) {
+      // The settings schema fits AnswerSettingsByType of `answer_type`; TS
+      // cannot correlate the lookup with the union.
+      return { ...rest, answer_type, settings: parsedSettings.data } as QuestionRow;
+    }
+  }
+  const unreadable: UnreadableQuestionRow = {
+    ...rest,
+    answer_type: "unknown",
+    settings:
+      typeof settings === "object" && settings !== null && !Array.isArray(settings)
+        ? (settings as Record<string, unknown>)
+        : {},
+  };
+  return unreadable;
+}
+
+export const QuestionRowSchema = QuestionRowWireSchema.transform(readQuestionRow);
+
+// 200 of `GET /api/questions`.
+export const QuestionRowPageSchema = z.object({
+  rows: listDroppingUnreadable(QuestionRowSchema),
+  next_cursor: z.string().min(1).nullish().catch(null).transform((value) => value ?? null),
+});
+
+export const EMPTY_QUESTION_ROW_PAGE: QuestionRowPage = {
+  rows: [],
+  next_cursor: null,
+};
+
+// 200 of `GET /api/questions/open-count`.
+export const QuestionOpenCountSchema = z.object({
+  count: z.number().int().nonnegative().catch(0),
+});
+
+export const EMPTY_QUESTION_OPEN_COUNT: QuestionOpenCount = {
+  count: 0,
 };
