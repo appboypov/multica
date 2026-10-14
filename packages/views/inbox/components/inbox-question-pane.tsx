@@ -5,7 +5,7 @@ import { ArrowUpRight } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useWorkspaceId } from "@multica/core/hooks";
 import { issueDetailOptions, issueTasksOptions } from "@multica/core/issues/queries";
-import { useQuestion } from "@multica/core/questions";
+import { groupQuestionCards, issueQuestionsOptions, useQuestion } from "@multica/core/questions";
 import type { InboxItem, Question } from "@multica/core/types";
 import { Button } from "@multica/ui/components/ui/button";
 import { Skeleton } from "@multica/ui/components/ui/skeleton";
@@ -21,7 +21,8 @@ const ANSWERED_IN_PLACE: ReadonlySet<Question["answer_type"]> = new Set(["yes_no
 /**
  * The detail pane of a question's inbox item: the question's card, answerable
  * in place for Yes / No, Single choice and Approval, and for any other type
- * the way to its card on the issue.
+ * the way to its card on the issue. A set's item shows the set's title and
+ * each of its questions.
  */
 export function InboxQuestionPane({
   item,
@@ -35,8 +36,8 @@ export function InboxQuestionPane({
   item: InboxItem;
   issueId: string;
   questionId: string;
-  /** Opens the issue at the question's card. */
-  onOpenIssue: () => void;
+  /** Opens the issue at the question's card, with `questionId` active when given. */
+  onOpenIssue: (questionId?: string) => void;
   /** The compact layout's way back to the list. */
   leadingAction?: ReactNode;
   /** The item's own actions, such as Archive. */
@@ -57,13 +58,27 @@ export function InboxQuestionPane({
   );
 
   const shown = question && question.id !== "" ? question : null;
+  const isSet = !!shown && shown.ask_title !== null;
+  const { data: issueQuestions } = useQuery({ ...issueQuestionsOptions(wsId, issueId), enabled: isSet && !!wsId && !!issueId });
+  const setQuestions = useMemo(
+    () => (isSet && issueQuestions ? groupQuestionCards(issueQuestions).find((card) => card.askId === shown?.ask_id)?.questions ?? null : null),
+    [isSet, issueQuestions, shown],
+  );
   const inPlace = !!shown && ANSWERED_IN_PLACE.has(shown.answer_type);
   const openLabel = t(($) => $.question_pane.open_on, { identifier: issue?.identifier ?? item.title });
-  const openButton = (
-    <Button type="button" size="sm" className="ml-auto shrink-0" onClick={onOpenIssue}>
+  const openButton = (activeQuestionId?: string) => (
+    <Button type="button" size="sm" className="ml-auto shrink-0" onClick={() => onOpenIssue(activeQuestionId)}>
       <ArrowUpRight />
       {openLabel}
     </Button>
+  );
+  const answeredOnIssue = (q: Question) => (
+    <div className="flex items-center gap-3">
+      <p className="text-caption text-muted-foreground">
+        {t(($) => $.question_pane.answered_on_issue, { type: tQuestions(($) => $.types[q.answer_type]) })}
+      </p>
+      {openButton(q.id)}
+    </div>
   );
 
   return (
@@ -73,8 +88,8 @@ export function InboxQuestionPane({
         <span className="truncate text-body font-medium">{typeLabels[item.type]}</span>
         <span className="shrink-0 text-caption text-muted-foreground">· {timeAgo(item.created_at)}</span>
         <span className="ml-auto flex shrink-0 items-center gap-1">
-          {inPlace && (
-            <Button type="button" variant="ghost" size="sm" className="text-muted-foreground" onClick={onOpenIssue}>
+          {(inPlace || isSet) && (
+            <Button type="button" variant="ghost" size="sm" className="text-muted-foreground" onClick={() => onOpenIssue()}>
               <ArrowUpRight />
               {openLabel}
             </Button>
@@ -88,26 +103,33 @@ export function InboxQuestionPane({
             {issue?.identifier && <span className="text-caption text-muted-foreground">{issue.identifier}</span>}
             <h2 className="text-title font-semibold">{issue?.title ?? item.title}</h2>
           </div>
-          {isPending ? (
+          {isPending || (isSet && !setQuestions && !issueQuestions) ? (
             <Skeleton className="h-40 w-full rounded-xl" />
+          ) : setQuestions ? (
+            <div className="flex flex-col gap-3">
+              <p className="text-title-sm font-semibold">{shown?.ask_title}</p>
+              {setQuestions.map((q) => (
+                <QuestionCard
+                  key={q.id}
+                  question={q}
+                  issueId={issueId}
+                  runNumber={runNumber}
+                  inSet
+                  answerElsewhere={ANSWERED_IN_PLACE.has(q.answer_type) ? undefined : answeredOnIssue(q)}
+                />
+              ))}
+            </div>
           ) : shown ? (
             <QuestionCard
               question={shown}
               issueId={issueId}
               runNumber={runNumber}
-              answerElsewhere={inPlace ? undefined : (
-                <div className="flex items-center gap-3">
-                  <p className="text-caption text-muted-foreground">
-                    {t(($) => $.question_pane.answered_on_issue, { type: tQuestions(($) => $.types[shown.answer_type]) })}
-                  </p>
-                  {openButton}
-                </div>
-              )}
+              answerElsewhere={inPlace ? undefined : answeredOnIssue(shown)}
             />
           ) : (
             <div className="flex items-center gap-3 rounded-xl border bg-card p-3.5">
               <p className="text-caption text-muted-foreground">{t(($) => $.question_pane.unavailable)}</p>
-              {openButton}
+              {openButton()}
             </div>
           )}
         </div>

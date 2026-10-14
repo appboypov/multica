@@ -48,6 +48,19 @@
     "ask_back_failed": "되묻지 못했습니다",
     "wake_failed": "{{name}}을(를) 깨우지 못했습니다"
   },
+  "set": {
+    "for_you": "나에게 온 질문 묶음",
+    "label": "질문 묶음",
+    "count_other": "질문 {{count}}개",
+    "tabs_label": "묶음의 질문",
+    "progress": "{{total}}개 중 {{answered}}개 답변됨",
+    "change": "변경"
+  },
+  "each": {
+    "answered": "{{total}}명 중 {{answered}}명 답변",
+    "waiting": "대기 중",
+    "line": "{{name}}은(는) 답변이 올 때마다 확인하고, 충분히 모이면 질문을 닫습니다."
+  },
   "hints": {
     "text": "멘션, 링크, 첨부 파일은 댓글과 같이 작동합니다.",
     "yes_no": "아니요를 고르면 한 줄 이유를 적어야 합니다.",

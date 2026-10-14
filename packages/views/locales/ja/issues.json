@@ -1,7 +1,7 @@
 {
   "inline_run": {
     "label": "{{name}} の実行",
-    "ended_with_question": "質問を残して実行 #{{number}} を終了",
+    "ended_with_questions_other": "質問 {{count}} 件を残して実行 #{{number}} を終了",
     "waiting_for_answer": "回答待ち",
     "stop": "停止",
     "stopping": "停止中...",

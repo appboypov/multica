@@ -48,6 +48,19 @@
     "ask_back_failed": "反问发送失败",
     "wake_failed": "无法唤醒 {{name}}"
   },
+  "set": {
+    "for_you": "给你的问题组",
+    "label": "问题组",
+    "count_other": "{{count}} 个问题",
+    "tabs_label": "问题组中的问题",
+    "progress": "已回答 {{answered}}/{{total}}",
+    "change": "修改"
+  },
+  "each": {
+    "answered": "{{answered}}/{{total}} 人已回答",
+    "waiting": "等待中",
+    "line": "每收到一个回答，{{name}} 都会立即看到，回答足够时会关闭问题。"
+  },
   "hints": {
     "text": "提及、链接和附件的用法与评论相同。",
     "yes_no": "选择“否”时需要写一句理由。",

@@ -1,7 +1,7 @@
 {
   "inline_run": {
     "label": "{{name}} 실행",
-    "ended_with_question": "질문을 남기고 #{{number}} 실행을 마침",
+    "ended_with_questions_other": "질문 {{count}}개를 남기고 #{{number}} 실행을 마침",
     "waiting_for_answer": "답변 대기 중",
     "stop": "중지",
     "stopping": "중지 중...",

@@ -104,7 +104,9 @@
     "created_with_agent": "Created with agent: {{identifier}}",
     "failed_with_detail": "Failed: {{detail}}",
     "autopilot_quota_blocked": "Run blocked because the limit was reached",
-    "children_done_stage": "Stage {{stage}}'s sub-issues finished"
+    "children_done_stage": "Stage {{stage}}'s sub-issues finished",
+    "asked_you_questions_one": "{{name}} asked you {{count}} question",
+    "asked_you_questions_other": "{{name}} asked you {{count}} questions"
   },
   "toasts": {
     "source_context_retry_started": "Retry started with the original context",

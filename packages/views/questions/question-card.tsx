@@ -11,6 +11,8 @@ import { formatDateOnly, isPastDateOnly, todayDateOnly } from "@multica/core/iss
 import { createLogger } from "@multica/core/logger";
 import {
   EMPTY_QUESTION_DRAFT,
+  isOpen,
+  isOpenFor,
   questionDraftKey,
   questionMutationKeys,
   useAnswerQuestion,
@@ -27,6 +29,7 @@ import { Textarea } from "@multica/ui/components/ui/textarea";
 import { cn } from "@multica/ui/lib/utils";
 import { ActorAvatar } from "../common/actor-avatar";
 import { useLocale, useT, useTimeAgo } from "../i18n";
+import { AnswerCountPill, AnswererProgress, showsAnswererProgress } from "./answerer-progress";
 import { AnswerControl, handleAnswerKey, useAnswerControlLink } from "./answer-controls/answer-control";
 import { controlShowsNote, draftError, valueToSend, type AnswerDraft, type AnswerableQuestion } from "./answer-controls/draft";
 import { useSuggestionShown } from "./answer-controls/person-control";
@@ -49,6 +52,11 @@ export interface QuestionCardProps {
    * type it does not answer in place.
    */
   answerElsewhere?: ReactNode;
+  /**
+   * The card shows one question of a set outside the set's card: it has no
+   * Wake of its own, and folds once the viewer has answered.
+   */
+  inSet?: boolean;
 }
 
 /**
@@ -56,7 +64,7 @@ export interface QuestionCardProps {
  * holds its answer type's control for an answerer and a summary for anyone
  * else; once answered, closed or withdrawn it folds to one line.
  */
-export function QuestionCard({ question, issueId, runNumber, answerElsewhere }: QuestionCardProps) {
+export function QuestionCard({ question, issueId, runNumber, answerElsewhere, inSet = false }: QuestionCardProps) {
   const userId = useAuthStore((s) => s.user?.id);
   const wsId = useWorkspaceId();
   const draftKey = questionDraftKey(wsId, question.id);
@@ -70,17 +78,21 @@ export function QuestionCard({ question, issueId, runNumber, answerElsewhere }: 
   // The server takes an edit only on an answered question, from a current
   // answerer who has an answer of their own. With several answerers the first
   // answer settles the question for all of them, so the others have none to edit.
-  const canEdit = isAnswerer && ownAnswer !== null && question.status === "answered" && question.answer_type !== "unknown";
+  const canEdit =
+    isAnswerer &&
+    ownAnswer !== null &&
+    (question.status === "answered" || question.status === "partly_answered") &&
+    question.answer_type !== "unknown";
   // A live update that takes the edit away (closed, withdrawn, reassigned) folds the card.
   const editing = draftEditing && canEdit;
   // A draft outlives the card, not its chance to be sent: one for a question no
   // longer open to this answerer, or an edit no longer allowed, is dropped.
-  const stale = hasDraft && !!userId && (draftEditing ? !canEdit : question.status !== "open" || !isAnswerer);
+  const stale = hasDraft && !!userId && (draftEditing ? !canEdit : !isOpenFor(question, userId));
   useEffect(() => {
     if (stale) clearDraft(draftKey);
   }, [stale, draftKey, clearDraft]);
 
-  if (question.status !== "open" && !editing) {
+  if ((!isOpen(question) || (inSet && ownAnswer !== null)) && !editing) {
     const startEdit = () =>
       setDraft(draftKey, {
         editing: true,
@@ -90,7 +102,7 @@ export function QuestionCard({ question, issueId, runNumber, answerElsewhere }: 
         askBackOpen: false,
         askBackText: "",
       });
-    return <FoldedQuestion question={question} issueId={issueId} onEdit={canEdit ? startEdit : undefined} />;
+    return <FoldedQuestion question={question} issueId={issueId} inSet={inSet} onEdit={canEdit ? startEdit : undefined} />;
   }
   return (
     <OpenQuestion
@@ -98,7 +110,7 @@ export function QuestionCard({ question, issueId, runNumber, answerElsewhere }: 
       issueId={issueId}
       runNumber={runNumber}
       answerElsewhere={answerElsewhere}
-      isAnswerer={isAnswerer}
+      isAnswerer={isAnswerer && (editing || isOpenFor(question, userId))}
       draftKey={draftKey}
       editing={editing}
       onDone={() => clearDraft(draftKey)}
@@ -110,7 +122,7 @@ export function QuestionCard({ question, issueId, runNumber, answerElsewhere }: 
 // Folded: prompt → answer · who · when, Edit answer, Wake <agent>
 // ---------------------------------------------------------------------------
 
-function FoldedQuestion({ question, issueId, onEdit }: { question: Question; issueId: string; onEdit?: () => void }) {
+function FoldedQuestion({ question, issueId, inSet, onEdit }: { question: Question; issueId: string; inSet: boolean; onEdit?: () => void }) {
   const { t } = useT("questions");
   const timeAgo = useTimeAgo();
   const { getActorName } = useActorName();
@@ -143,7 +155,7 @@ function FoldedQuestion({ question, issueId, onEdit }: { question: Question; iss
             {t(($) => $.card.edit_answer)}
           </Button>
         )}
-        {question.wake_available && <WakeButton question={question} issueId={issueId} />}
+        {question.wake_available && !inSet && <WakeButton question={question} issueId={issueId} />}
       </span>
     </div>
   );
@@ -224,6 +236,8 @@ function OpenQuestion({
 
       <QuestionHistory events={question.events} />
 
+      {showsAnswererProgress(question) && <AnswererProgress question={question} />}
+
       {answerElsewhere ?? (controls ? (
         <AnswerForm
           key={editing ? "editing" : "open"}
@@ -249,9 +263,10 @@ function OpenQuestion({
 function QuestionBadges({ question }: { question: Question }) {
   const { t } = useT("questions");
   const locale = useLocale();
-  const overdue = question.status === "open" && isPastDateOnly(question.due_date);
+  const overdue = isOpen(question) && isPastDateOnly(question.due_date);
   return (
     <span className="ml-auto flex shrink-0 items-center gap-1.5">
+      {showsAnswererProgress(question) && <AnswerCountPill question={question} />}
       {question.blocks_work && (
         <Badge variant="destructive" className="border-destructive">
           <CirclePause />
@@ -276,7 +291,7 @@ function QuestionBadges({ question }: { question: Question }) {
 }
 
 /** The question's thread: ask-backs and reassignments, oldest first. */
-function QuestionHistory({ events }: { events: QuestionEvent[] }) {
+export function QuestionHistory({ events }: { events: QuestionEvent[] }) {
   const { t } = useT("questions");
   const timeAgo = useTimeAgo();
   const { getActorName } = useActorName();
@@ -576,7 +591,7 @@ function validateSuggestion(question: AnswerableQuestion, note: string): AnswerV
 }
 
 /** The line above the footer: why Send is held back, else the type's hint. */
-function AnswerLine({
+export function AnswerLine({
   question,
   error,
   serverError,

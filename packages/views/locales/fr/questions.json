@@ -48,6 +48,20 @@
     "ask_back_failed": "Impossible de demander en retour",
     "wake_failed": "Impossible de réveiller {{name}}"
   },
+  "set": {
+    "for_you": "Série de questions pour vous",
+    "label": "Série de questions",
+    "count_one": "{{count}} question",
+    "count_other": "{{count}} questions",
+    "tabs_label": "Questions de la série",
+    "progress": "{{answered}} sur {{total}} répondues",
+    "change": "Modifier"
+  },
+  "each": {
+    "answered": "{{answered}} sur {{total}} ont répondu",
+    "waiting": "en attente",
+    "line": "{{name}} voit chaque réponse dès son arrivée et clôt la question quand il y en a assez."
+  },
   "hints": {
     "text": "Les mentions, liens et pièces jointes fonctionnent comme dans les commentaires.",
     "yes_no": "Choisir Non demande une raison en une ligne.",

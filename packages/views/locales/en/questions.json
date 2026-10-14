@@ -48,6 +48,20 @@
     "ask_back_failed": "Could not ask back",
     "wake_failed": "Could not wake {{name}}"
   },
+  "set": {
+    "for_you": "Question set for you",
+    "label": "Question set",
+    "count_one": "{{count}} question",
+    "count_other": "{{count}} questions",
+    "tabs_label": "Questions of the set",
+    "progress": "{{answered}} of {{total}} answered",
+    "change": "Change"
+  },
+  "each": {
+    "answered": "{{answered}} of {{total}} answered",
+    "waiting": "waiting",
+    "line": "{{name}} sees each answer as it arrives and closes the question when he has enough."
+  },
   "hints": {
     "text": "Mentions, links and attachments work as in comments.",
     "yes_no": "Choosing No asks for a one-line reason.",

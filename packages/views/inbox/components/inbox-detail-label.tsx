@@ -146,6 +146,14 @@ export function InboxDetailLabel({ item }: { item: InboxItem }) {
       if (stage) return <span>{t(($) => $.labels.children_done_stage, { stage })}</span>;
       return <span>{typeLabels[item.type]}</span>;
     }
+    case "question_asked": {
+      // The count arrives as a JSON number; details are typed as strings.
+      const count = Number(details.question_count ?? 1);
+      if (count > 1 && item.actor_id) {
+        return <span>{t(($) => $.labels.asked_you_questions, { name: getActorName("agent", item.actor_id), count })}</span>;
+      }
+      return <span>{typeLabels[item.type]}</span>;
+    }
     default:
       return <span>{typeLabels[item.type] ?? item.type}</span>;
   }

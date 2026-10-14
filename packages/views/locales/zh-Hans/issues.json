@@ -1,7 +1,7 @@
 {
   "inline_run": {
     "label": "{{name}} 的运行",
-    "ended_with_question": "以一个问题结束了第 {{number}} 次运行",
+    "ended_with_questions_other": "以 {{count}} 个问题结束了第 {{number}} 次运行",
     "waiting_for_answer": "等待回答",
     "stop": "停止",
     "stopping": "正在停止...",

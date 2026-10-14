@@ -340,8 +340,11 @@ export function InboxPage() {
   // The question item whose issue the reader opened from its pane; any row
   // click returns a question item to its pane.
   const [openedQuestionItemId, setOpenedQuestionItemId] = useState<string | null>(null);
+  // The question of a set the reader opened the issue at, active in its card.
+  const [openedQuestionId, setOpenedQuestionId] = useState<string | null>(null);
   const handleSelect = (item: InboxItem) => {
     setOpenedQuestionItemId(null);
+    setOpenedQuestionId(null);
     const nextKey = item.issue_id ?? item.id;
     // Every click on a notification row is a fresh deep-link intent: clear
     // the "highlight already landed" memento entry so the comment jump runs
@@ -704,8 +707,9 @@ export function InboxPage() {
           issueId={detailItem.issue_id}
           questionId={questionId}
           leadingAction={compactBackAction}
-          onOpenIssue={() => {
+          onOpenIssue={(activeQuestionId) => {
             writeViewState(issueHighlightMementoKey(detailItem.issue_id!), undefined);
+            setOpenedQuestionId(activeQuestionId ?? null);
             setOpenedQuestionItemId(detailItem.id);
           }}
           actions={isArchivedView ? (
@@ -727,7 +731,7 @@ export function InboxPage() {
           defaultSidebarOpen={false}
           layoutId="multica_inbox_issue_detail_layout"
           highlightCommentId={questionId ? undefined : detailItem.details?.comment_id ?? undefined}
-          highlightQuestionId={questionId}
+          highlightQuestionId={questionId ? openedQuestionId ?? questionId : undefined}
           highlightRequestToken={highlightRequestToken}
           // The split layout already has a nav trigger in the list header.
           // Explicit false suppresses the detail header's fallback trigger.

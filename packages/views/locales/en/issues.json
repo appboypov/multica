@@ -1,7 +1,8 @@
 {
   "inline_run": {
     "label": "{{name}} run",
-    "ended_with_question": "ended run #{{number}} with a question",
+    "ended_with_questions_one": "ended run #{{number}} with a question",
+    "ended_with_questions_other": "ended run #{{number}} with {{count}} questions",
     "waiting_for_answer": "Waiting for answer",
     "stop": "Stop",
     "stopping": "Stopping...",

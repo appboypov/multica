@@ -72,8 +72,8 @@ import { PropRow } from "../../common/prop-row";
 import { PropertyIcon } from "../../common/property-icon";
 import type { Attachment, Issue, IssueProperty, IssueStatus, IssueStatusCategory, IssuePriority, Question, TimelineEntry, UpdateIssueRequest } from "@multica/core/types";
 import { EMPTY_QUESTION_LIST } from "@multica/core/api/schemas";
-import { useIssueQuestions } from "@multica/core/questions";
-import { QuestionCard } from "../../questions";
+import { countOpen, groupQuestionCards, isOpen, useIssueQuestions, type QuestionCardGroup } from "@multica/core/questions";
+import { QuestionCard, QuestionSetCard } from "../../questions";
 import { contentReferencesAttachment } from "@multica/core/types";
 import { isBuiltInIssueStatus } from "@multica/core/issue-statuses";
 import { commentLandingTarget, isDeletedComment } from "@multica/core/issues/comment-deletion";
@@ -580,12 +580,12 @@ type TimelineItem =
   | { kind: "comment"; id: string; entry: TimelineEntry }
   | { kind: "resolved-bar"; id: string; entry: TimelineEntry }
   | { kind: "activity-group"; id: string; entries: TimelineEntry[] }
-  | { kind: "question"; id: string; question: Question };
+  | { kind: "question"; id: string; card: QuestionCardGroup };
 
 type RawTimelineGroup = {
   type: "comment" | "activities";
   entries: TimelineEntry[];
-} | { type: "run"; run: CommentRun; entry?: TimelineEntry } | { type: "question"; question: Question };
+} | { type: "run"; run: CommentRun; entry?: TimelineEntry } | { type: "question"; card: QuestionCardGroup };
 
 function flattenGroups(
   groups: ReadonlyArray<RawTimelineGroup>,
@@ -596,7 +596,7 @@ function flattenGroups(
     if (group.type === "run") {
       out.push({ kind: "run", id: group.entry?.id ?? group.run.task.id, run: group.run, entry: group.entry });
     } else if (group.type === "question") {
-      out.push({ kind: "question", id: questionAnchor(group.question.id), question: group.question });
+      out.push({ kind: "question", id: questionAnchor(group.card.questions[0]!.id), card: group.card });
     } else if (group.type === "comment") {
       const entry = group.entries[0]!;
       const isResolved = !!entry.resolved_at;
@@ -1321,9 +1321,6 @@ export function IssueDetailSkeleton({
 
 export function IssueDetail({ issueId, onDelete, onDone, defaultSidebarOpen = true, layoutId = "multica_issue_detail_layout", highlightCommentId, highlightQuestionId, highlightRequestToken, leadingAction, variant = "page", trailingActions }: IssueDetailProps) {
   const isPeek = variant === "peek";
-  // The timeline row a deep link lands on: a question card is a row like a
-  // comment, so both share one landing, keyed by the row id.
-  const highlightTargetId = highlightQuestionId ? questionAnchor(highlightQuestionId) : highlightCommentId;
   const { t } = useT("issues");
   const locale = useLocale();
   const timeAgo = useTimeAgo();
@@ -1641,18 +1638,29 @@ export function IssueDetail({ issueId, onDelete, onDone, defaultSidebarOpen = tr
 
   const { data: questions = EMPTY_QUESTION_LIST } = useIssueQuestions(wsId, id);
   const runNumbers = useMemo(() => runNumbersByTask(commentTasks ?? []), [commentTasks]);
-  // The Questions row: how many are open, whether one blocks work, and the
-  // card a click on the row jumps to — the first open one in the timeline.
+  const questionCards = useMemo(() => groupQuestionCards(questions), [questions]);
+  // The timeline row a deep link lands on: a question card is a row like a
+  // comment, so both share one landing, keyed by the row id. A question of a
+  // set lands on its set's card.
+  const highlightCard = highlightQuestionId
+    ? questionCards.find((card) => card.questions.some((question) => question.id === highlightQuestionId))
+    : undefined;
+  const highlightTargetId = highlightQuestionId
+    ? questionAnchor(highlightCard?.questions[0]!.id ?? highlightQuestionId)
+    : highlightCommentId;
+  // The question the Questions row last jumped to; its set card opens at it.
+  const [jumpedQuestionId, setJumpedQuestionId] = useState<string | null>(null);
+  // The Questions row: how many questions are open, whether one blocks work,
+  // and the first open one in the timeline, which a click on the row opens.
   const openQuestions = useMemo(() => {
-    const open = questions
-      .filter((question) => question.status === "open")
-      .sort((a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id));
+    const first = questionCards.flatMap((card) => card.questions.filter(isOpen).map((question) => ({ card, question })))[0];
     return {
-      count: open.length,
-      blocksWork: open.some((question) => question.blocks_work),
-      firstAnchor: open[0] ? questionAnchor(open[0].id) : null,
+      count: countOpen(questions),
+      blocksWork: questions.some((question) => isOpen(question) && question.blocks_work),
+      firstAnchor: first ? questionAnchor(first.card.questions[0]!.id) : null,
+      firstId: first?.question.id ?? null,
     };
-  }, [questions]);
+  }, [questionCards, questions]);
 
   // Resolve / unresolve must always clear the per-session expand entry so
   // re-resolving an already-expanded thread folds it back to the bar (the
@@ -1740,7 +1748,9 @@ export function IssueDetail({ issueId, onDelete, onDone, defaultSidebarOpen = tr
     // the published reply's time or the run's end time. Question cards sit
     // where they were asked and never coalesce.
     const entryById = new Map(displayTimeline.map((entry) => [entry.id, entry]));
-    const chronological = orderTimelineWithRuns(topLevel, standaloneRuns, entryById, questions);
+    // A card sits where its first question was asked.
+    const cardByAsk = new Map(questionCards.map((card) => [card.askId, card]));
+    const chronological = orderTimelineWithRuns(topLevel, standaloneRuns, entryById, questionCards.map((card) => card.questions[0]!));
     const coalesced: (TimelineEntry | CommentRun | Question)[] = [];
     for (const entry of chronological) {
       if ("task" in entry || "asker_agent_id" in entry) {
@@ -1771,7 +1781,7 @@ export function IssueDetail({ issueId, onDelete, onDone, defaultSidebarOpen = tr
       if ("task" in entry) {
         groups.push({ type: "run", run: entry, entry: entry.hasReply && entry.commentId ? entryById.get(entry.commentId) : undefined });
       } else if ("asker_agent_id" in entry) {
-        groups.push({ type: "question", question: entry });
+        groups.push({ type: "question", card: cardByAsk.get(entry.ask_id)! });
       } else if (entry.type === "activity") {
         const last = groups[groups.length - 1];
         if (last?.type === "activities") {
@@ -1785,7 +1795,7 @@ export function IssueDetail({ issueId, onDelete, onDone, defaultSidebarOpen = tr
     }
 
     return { threadReplies, groups };
-  }, [displayTimeline, standaloneRuns, questions]);
+  }, [displayTimeline, standaloneRuns, questionCards]);
 
   // Flat array consumed by <Virtuoso>. Recomputed when timelineView.groups
   // changes (timeline events) or expandedResolved flips (user toggles a
@@ -2754,7 +2764,10 @@ export function IssueDetail({ issueId, onDelete, onDone, defaultSidebarOpen = tr
                 <button
                   type="button"
                   className="flex min-w-0 items-center gap-1.5 truncate"
-                  onClick={() => jumpToThread(openQuestions.firstAnchor!)}
+                  onClick={() => {
+                    setJumpedQuestionId(openQuestions.firstId);
+                    jumpToThread(openQuestions.firstAnchor!);
+                  }}
                 >
                   <CircleHelp aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
                   <span className="text-brand">{t(($) => $.detail.questions_open, { count: openQuestions.count })}</span>
@@ -3107,7 +3120,16 @@ export function IssueDetail({ issueId, onDelete, onDone, defaultSidebarOpen = tr
             className={cn("rounded-xl transition-shadow duration-700", highlighted && "ring-2 ring-brand/40")}
             data-highlighted={highlighted || undefined}
           >
-            <QuestionCard question={item.question} issueId={id} runNumber={runNumbers.get(item.question.asked_in_task_id)} />
+            {item.card.questions.length === 1 ? (
+              <QuestionCard question={item.card.questions[0]!} issueId={id} runNumber={runNumbers.get(item.card.questions[0]!.asked_in_task_id)} />
+            ) : (
+              <QuestionSetCard
+                questions={item.card.questions}
+                issueId={id}
+                runNumber={runNumbers.get(item.card.questions[0]!.asked_in_task_id)}
+                activeQuestionId={[jumpedQuestionId, highlightQuestionId].find((qid) => item.card.questions.some((q) => q.id === qid)) ?? undefined}
+              />
+            )}
           </div>
         </div>
       );
