@@ -79,7 +79,7 @@ Success signal: Brian adds appboypov/rebl-admin to the project Rebl by picking i
 
 ### Modified Capabilities
 
-None in `specs/openspec/specs/`. This change builds on the unarchived change `projects-by-organisation` (UJ-1): `brain-repository-sync` extends its `brain-project-sync`, and `issue-worktrees` uses the organisation key its `organisations` adds.
+- `brain-project-sync`: loses "The repository project of a Product with one repository merges into its project" and "The repository projects of a Product with several repositories stay". `brain-repository-sync` adds a Product's repositories to its project and merges the projects UJ-1 kept, and takes over the scenario "A repository without a Product". `issue-worktrees` uses the organisation key `organisations` adds.
 
 ## Impact
 

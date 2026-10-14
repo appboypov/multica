@@ -21,7 +21,7 @@ The brain sync SHALL add each Repository object a Product links to that Product'
 - **THEN** it writes nothing
 
 ### Requirement: A repository the sync cannot add is reported and left alone
-The brain sync SHALL leave out and print on every run each repository it cannot add, with the reason: the GitHub App cannot see it, it has no checkout or more than one, its checkout fails a check, or it is already a repository of another project. It SHALL add the repository on the first run where none of these holds.
+The brain sync SHALL leave out and print on every run each repository it cannot add, with the reason: it links no Product, the GitHub App cannot see it, it has no checkout or more than one, its checkout fails a check, or it is already a repository of another project. It SHALL add the repository on the first run where none of these holds.
 
 #### Scenario: Not on the default branch
 - **GIVEN** `~/Repos/rebl` is a git checkout of appboypov/rebl on feature/login
@@ -40,6 +40,12 @@ The brain sync SHALL leave out and print on every run each repository it cannot 
 - **WHEN** the sync runs
 - **THEN** appboypov/rebl-admin stays in Rebl, and no issue moves out of Rebl
 - **AND** the sync prints that appboypov/rebl-admin is in Rebl
+
+#### Scenario: A repository without a Product
+- **GIVEN** the repository appboypov/das-duckmd-brain links no Product
+- **WHEN** the sync runs
+- **THEN** it prints that appboypov/das-duckmd-brain has no Product
+- **AND** it adds no repository appboypov/das-duckmd-brain
 
 ### Requirement: What Brian set on a repository stays
 The brain sync MUST NOT change a repository's checkout or version policy once the repository exists in Multica.
