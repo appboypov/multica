@@ -336,6 +336,10 @@ func RemoveWorklaneWorktree(ctx context.Context, p RemoveWorklaneWorktreeParams,
 	} else if err != nil {
 		return &WorklaneError{Code: WorklaneCodeRemoveFailed, Detail: fmt.Sprintf("cannot read %s", path), Output: err.Error()}
 	}
+	top, err := runGitTrimmed(path, "rev-parse", "--show-toplevel")
+	if err != nil || !sameWorklanePath(top, path) || sameWorklanePath(path, p.CheckoutPath) {
+		return &WorklaneError{Code: WorklaneCodePathNotCheckout, Detail: fmt.Sprintf("%s is not a separate worklane checkout", path)}
+	}
 
 	status, err := runGitStdout(path, "status", "--porcelain")
 	if err != nil {
