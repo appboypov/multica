@@ -214,6 +214,7 @@ func daemonCommonCapabilities() []string {
 		protocol.DaemonCapabilityPlatformSkillV1,
 		protocol.DaemonCapabilityCheckoutKeepsWorkV1,
 		protocol.DaemonCapabilityJoinedWakeupsV1,
+		protocol.DaemonCapabilityWorklaneWorktreeV1,
 	}
 }
 
@@ -741,6 +742,7 @@ type (
 	PendingLocalSkills      = protocol.DaemonHeartbeatPendingLocalSkills
 	PendingLocalSkillImport = protocol.DaemonHeartbeatPendingLocalSkillImport
 	PendingDirectoryListing = protocol.DaemonHeartbeatPendingDirectoryListing
+	PendingWorklaneRequest  = protocol.DaemonHeartbeatPendingWorklaneRequest
 )
 
 func (c *Client) SendHeartbeat(ctx context.Context, runtimeID string) (*HeartbeatResponse, error) {
@@ -777,6 +779,12 @@ func (c *Client) ReportLocalSkillImportResult(ctx context.Context, runtimeID, re
 // ReportDirectoryListingResult sends the runtime's folder entries back to the server.
 func (c *Client) ReportDirectoryListingResult(ctx context.Context, runtimeID, requestID string, result map[string]any) error {
 	return c.postJSON(ctx, fmt.Sprintf("/api/daemon/runtimes/%s/directory-listings/%s/result", runtimeID, requestID), result, nil)
+}
+
+// ReportWorklaneRequestProgress sends a worklane request's whole step list,
+// and for a remove its outcome, after each step change.
+func (c *Client) ReportWorklaneRequestProgress(ctx context.Context, runtimeID, requestID string, progress map[string]any) error {
+	return c.postJSON(ctx, fmt.Sprintf("/api/daemon/runtimes/%s/worklane-requests/%s/progress", runtimeID, requestID), progress, nil)
 }
 
 // WorkspaceInfo holds minimal workspace metadata returned by the API.

@@ -1199,6 +1199,9 @@ func (h *Handler) DaemonHeartbeat(w http.ResponseWriter, r *http.Request) {
 	if ack.PendingDirectoryListing != nil {
 		resp["pending_directory_listing"] = ack.PendingDirectoryListing
 	}
+	if ack.PendingWorklaneRequest != nil {
+		resp["pending_worklane_request"] = ack.PendingWorklaneRequest
+	}
 	if ack.PendingLocalSkillImport != nil {
 		resp["pending_local_skill_import"] = ack.PendingLocalSkillImport
 	}
@@ -1477,6 +1480,23 @@ func (h *Handler) processHeartbeat(ctx context.Context, runtimeID string, suppor
 		}
 	case probeDirectoryErr != nil:
 		slog.Warn("directory listing HasPending failed", "error", probeDirectoryErr, "runtime_id", runtimeID)
+	}
+
+	// One worklane create or remove request per heartbeat; the daemon runs it
+	// in a goroutine and reports each step.
+	probeWorklaneCtx, cancelProbeWorklane := context.WithTimeout(ctx, heartbeatHasPendingTimeout)
+	hasWorklane, probeWorklaneErr := h.WorklaneRequestStore.HasPending(probeWorklaneCtx, runtimeID)
+	cancelProbeWorklane()
+	switch {
+	case probeWorklaneErr == nil && hasWorklane:
+		pendingWorklane, popErr := h.WorklaneRequestStore.PopPending(ctx, runtimeID)
+		if popErr != nil {
+			slog.Warn("worklane request PopPending failed", "error", popErr, "runtime_id", runtimeID)
+		} else if pendingWorklane != nil {
+			ack.PendingWorklaneRequest = pendingWorklaneRequestItem(pendingWorklane)
+		}
+	case probeWorklaneErr != nil:
+		slog.Warn("worklane request HasPending failed", "error", probeWorklaneErr, "runtime_id", runtimeID)
 	}
 
 	probeImportStart := time.Now()

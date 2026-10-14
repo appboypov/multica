@@ -4574,7 +4574,7 @@ func (d *Daemon) handleHeartbeatActions(ctx context.Context, runtimeID string, r
 	if resp == nil {
 		return
 	}
-	if resp.PendingUpdate != nil || resp.PendingModelList != nil || resp.PendingLocalSkills != nil || resp.PendingLocalSkillImport != nil || resp.PendingDirectoryListing != nil {
+	if resp.PendingUpdate != nil || resp.PendingModelList != nil || resp.PendingLocalSkills != nil || resp.PendingLocalSkillImport != nil || resp.PendingDirectoryListing != nil || resp.PendingWorklaneRequest != nil {
 		d.logger.Debug("heartbeat: pending actions",
 			"runtime_id", runtimeID,
 			"update", resp.PendingUpdate != nil,
@@ -4582,6 +4582,7 @@ func (d *Daemon) handleHeartbeatActions(ctx context.Context, runtimeID string, r
 			"local_skills", resp.PendingLocalSkills != nil,
 			"local_skill_import", resp.PendingLocalSkillImport != nil,
 			"directory_listing", resp.PendingDirectoryListing != nil,
+			"worklane_request", resp.PendingWorklaneRequest != nil,
 		)
 	}
 	if resp.PendingUpdate != nil {
@@ -4600,6 +4601,11 @@ func (d *Daemon) handleHeartbeatActions(ctx context.Context, runtimeID string, r
 	if resp.PendingDirectoryListing != nil {
 		if rt := d.findRuntime(runtimeID); rt != nil {
 			go d.handleDirectoryListing(ctx, *rt, resp.PendingDirectoryListing.ID, resp.PendingDirectoryListing.Path)
+		}
+	}
+	if resp.PendingWorklaneRequest != nil {
+		if rt := d.findRuntime(runtimeID); rt != nil {
+			go d.handleWorklaneRequest(ctx, *rt, *resp.PendingWorklaneRequest)
 		}
 	}
 	// Prefer the batch field (new backend); fall back to singular (old backend).

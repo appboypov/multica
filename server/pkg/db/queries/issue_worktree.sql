@@ -54,6 +54,20 @@ WHERE iw.daemon_id = sqlc.arg('daemon_id')
   AND iw.state = 'removing'
 ORDER BY iw.created_at ASC;
 
+-- name: ListIssueWorktreePathsForDaemon :many
+-- The issue worktrees of a repository on one daemon, so a new worklane never
+-- takes an issue's worktree as its own (ADR-0009).
+SELECT
+    iw.path,
+    (w.issue_prefix || '-' || i.number)::text AS issue_identifier
+FROM issue_worktree iw
+JOIN issue i ON i.id = iw.issue_id AND i.workspace_id = iw.workspace_id
+JOIN workspace w ON w.id = iw.workspace_id
+WHERE iw.workspace_id = sqlc.arg('workspace_id')
+  AND iw.repository_id = sqlc.arg('repository_id')
+  AND iw.daemon_id = sqlc.arg('daemon_id')
+ORDER BY iw.created_at ASC;
+
 -- name: DeleteIssueWorktree :one
 -- The daemon removed the worktree. Only the daemon that holds it resolves it.
 DELETE FROM issue_worktree

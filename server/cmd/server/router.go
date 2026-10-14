@@ -511,6 +511,7 @@ func NewRouterWithOptions(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus
 		h.ModelCatalogCache = handler.NewRedisModelCatalogCache(rdb)
 		h.LocalSkillListStore = handler.NewRedisLocalSkillListStore(rdb)
 		h.LocalSkillImportStore = handler.NewRedisLocalSkillImportStore(rdb)
+		h.WorklaneRequestStore = handler.NewRedisWorklaneRequestStore(rdb)
 		h.LivenessStore = handler.NewRedisLivenessStore(rdb)
 		h.WebhookRateLimiter = handler.NewRedisWebhookRateLimiter(rdb, handler.DefaultWebhookRateLimit())
 		h.WebhookIPRateLimiter = handler.NewRedisWebhookIPRateLimiter(rdb, handler.DefaultWebhookIPRateLimit())
@@ -1585,6 +1586,7 @@ func NewRouterWithOptions(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus
 		r.Post("/runtimes/{runtimeId}/local-skills/{requestId}/result", h.ReportLocalSkillListResult)
 		r.Post("/runtimes/{runtimeId}/local-skills/import/{requestId}/result", h.ReportLocalSkillImportResult)
 		r.Post("/runtimes/{runtimeId}/directory-listings/{requestId}/result", h.ReportDirectoryListingResult)
+		r.Post("/runtimes/{runtimeId}/worklane-requests/{requestId}/progress", h.ReportWorklaneRequestProgress)
 
 		r.Get("/tasks/{taskId}/status", h.GetTaskStatus)
 		r.Post("/tasks/{taskId}/start", h.StartTask)
@@ -2175,6 +2177,24 @@ func NewRouterWithOptions(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus
 					r.Patch("/", h.EditRelease)
 					r.Delete("/", h.RemoveRelease)
 					r.Post("/move", h.MoveRelease)
+				})
+			})
+
+			// Worklanes and the requests that make and remove their worktrees
+			r.Route("/api/worklanes", func(r chi.Router) {
+				r.Get("/", h.ListWorklanes)
+				r.Route("/{id}", func(r chi.Router) {
+					r.Get("/", h.GetWorklane)
+					r.Patch("/", h.RenameWorklane)
+					r.Delete("/", h.RemoveWorklane)
+					r.Get("/activity", h.ListWorklaneActivity)
+				})
+			})
+			r.Route("/api/worklane-requests", func(r chi.Router) {
+				r.Post("/", h.CreateWorklaneRequest)
+				r.Route("/{id}", func(r chi.Router) {
+					r.Get("/", h.GetWorklaneRequest)
+					r.Post("/retry", h.RetryWorklaneRequest)
 				})
 			})
 

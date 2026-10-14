@@ -571,6 +571,26 @@ func (l *LocalPathLocker) Acquire(ctx context.Context, realPath, taskID string, 
 	}
 }
 
+// TryAcquire takes the lock for realPath on behalf of ownerID only when it
+// is free. ok is false when another holder has it; the caller then refuses
+// rather than waits (a worklane remove answers busy).
+func (l *LocalPathLocker) TryAcquire(realPath, ownerID string) (release func(), ok bool) {
+	l.mu.Lock()
+	entry, found := l.locks[realPath]
+	if !found {
+		entry = &pathLockEntry{}
+		l.locks[realPath] = entry
+	}
+	l.mu.Unlock()
+	if !entry.mu.TryLock() {
+		return nil, false
+	}
+	entry.mu2.Lock()
+	entry.holderID = ownerID
+	entry.mu2.Unlock()
+	return l.releaser(realPath, entry), true
+}
+
 // releaser returns the unlock callback. Idempotent via a once flag so a
 // deferred release is safe even when the caller has already explicitly
 // released after task completion.
