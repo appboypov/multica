@@ -134,10 +134,13 @@ import type {
   CreateProjectRequest,
   UpdateProjectRequest,
   ListProjectsResponse,
-  ProjectResource,
-  CreateProjectResourceRequest,
-  UpdateProjectResourceRequest,
-  ListProjectResourcesResponse,
+  Repository,
+  ListRepositoriesResponse,
+  ListAvailableRepositoriesResponse,
+  CreateRepositoryRequest,
+  UpdateRepositoryRequest,
+  CreateRepositoryCheckoutRequest,
+  RepositoryCheckoutRequest,
   Label,
   IssueProperty,
   IssuePropertyValue,
@@ -500,6 +503,14 @@ import {
   MALFORMED_RUNTIME_MODEL_LIST_REQUEST,
   RuntimeDirectoryListingRequestSchema,
   MALFORMED_RUNTIME_DIRECTORY_LISTING_REQUEST,
+  RepositorySchema,
+  EMPTY_REPOSITORY,
+  ListRepositoriesResponseSchema,
+  EMPTY_LIST_REPOSITORIES_RESPONSE,
+  AvailableRepositoriesResponseSchema,
+  EMPTY_AVAILABLE_REPOSITORIES_RESPONSE,
+  RepositoryCheckoutRequestSchema,
+  MALFORMED_REPOSITORY_CHECKOUT_REQUEST,
   SkillSchema,
   EMPTY_SKILL,
   SkillSummaryListSchema,
@@ -2844,6 +2855,43 @@ export class ApiClient {
     );
   }
 
+  // A checkout check, or a clone then the check, of a repository's normal
+  // checkout on a runtime. Polled like a directory listing (ADR-0007).
+  async initiateRepositoryCheckout(
+    runtimeId: string,
+    data: CreateRepositoryCheckoutRequest,
+  ): Promise<RepositoryCheckoutRequest> {
+    const raw = await this.fetch<unknown>(
+      `/api/runtimes/${runtimeId}/repository-checkouts`,
+      { method: "POST", body: JSON.stringify(data) },
+    );
+    return parseWithFallback<RepositoryCheckoutRequest>(
+      raw,
+      RepositoryCheckoutRequestSchema,
+      { ...MALFORMED_REPOSITORY_CHECKOUT_REQUEST, runtime_id: runtimeId },
+      { endpoint: "POST /api/runtimes/{id}/repository-checkouts" },
+    );
+  }
+
+  async getRepositoryCheckout(
+    runtimeId: string,
+    requestId: string,
+  ): Promise<RepositoryCheckoutRequest> {
+    const raw = await this.fetch<unknown>(
+      `/api/runtimes/${runtimeId}/repository-checkouts/${requestId}`,
+    );
+    return parseWithFallback<RepositoryCheckoutRequest>(
+      raw,
+      RepositoryCheckoutRequestSchema,
+      {
+        ...MALFORMED_REPOSITORY_CHECKOUT_REQUEST,
+        id: requestId,
+        runtime_id: runtimeId,
+      },
+      { endpoint: "GET /api/runtimes/{id}/repository-checkouts/{requestId}" },
+    );
+  }
+
   async initiateListLocalSkills(
     runtimeId: string,
   ): Promise<RuntimeLocalSkillListRequest> {
@@ -4415,41 +4463,46 @@ export class ApiClient {
     await this.fetch(`/api/projects/${id}`, { method: "DELETE" });
   }
 
-  // Project resources
-  async listProjectResources(
-    projectId: string,
-  ): Promise<ListProjectResourcesResponse> {
-    return this.fetch(`/api/projects/${projectId}/resources`);
+  // Repositories of a project (ADR-0006)
+  async listRepositories(): Promise<ListRepositoriesResponse> {
+    const raw = await this.fetch<unknown>("/api/repositories");
+    return parseWithFallback(raw, ListRepositoriesResponseSchema, EMPTY_LIST_REPOSITORIES_RESPONSE, {
+      endpoint: "GET /api/repositories",
+    });
   }
 
-  async createProjectResource(
-    projectId: string,
-    data: CreateProjectResourceRequest,
-  ): Promise<ProjectResource> {
-    return this.fetch(`/api/projects/${projectId}/resources`, {
+  async listAvailableRepositories(): Promise<ListAvailableRepositoriesResponse> {
+    const raw = await this.fetch<unknown>("/api/repositories/available");
+    return parseWithFallback(
+      raw,
+      AvailableRepositoriesResponseSchema,
+      EMPTY_AVAILABLE_REPOSITORIES_RESPONSE,
+      { endpoint: "GET /api/repositories/available" },
+    );
+  }
+
+  async createRepository(data: CreateRepositoryRequest): Promise<Repository> {
+    const raw = await this.fetch<unknown>("/api/repositories", {
       method: "POST",
       body: JSON.stringify(data),
     });
+    return parseWithFallback(raw, RepositorySchema, EMPTY_REPOSITORY, {
+      endpoint: "POST /api/repositories",
+    });
   }
 
-  async updateProjectResource(
-    projectId: string,
-    resourceId: string,
-    data: UpdateProjectResourceRequest,
-  ): Promise<ProjectResource> {
-    return this.fetch(`/api/projects/${projectId}/resources/${resourceId}`, {
+  async updateRepository(id: string, data: UpdateRepositoryRequest): Promise<Repository> {
+    const raw = await this.fetch<unknown>(`/api/repositories/${id}`, {
       method: "PUT",
       body: JSON.stringify(data),
     });
+    return parseWithFallback(raw, RepositorySchema, EMPTY_REPOSITORY, {
+      endpoint: "PUT /api/repositories/:id",
+    });
   }
 
-  async deleteProjectResource(
-    projectId: string,
-    resourceId: string,
-  ): Promise<void> {
-    await this.fetch(`/api/projects/${projectId}/resources/${resourceId}`, {
-      method: "DELETE",
-    });
+  async deleteRepository(id: string): Promise<void> {
+    await this.fetch(`/api/repositories/${id}`, { method: "DELETE" });
   }
 
   // Labels
