@@ -153,6 +153,7 @@ var concurrentIndexCleanups = map[string]string{
 	"592_repository_project_index":                              "repository_project_idx",
 	"591_repository_full_name_index":                            "repository_workspace_full_name_unique",
 	"584_issue_agent_questions_index":                           "idx_issue_agent_questions",
+	"577_question_overdue_index_v2":                             "idx_question_overdue_v2",
 	"576_question_ask_index":                                    "idx_question_ask",
 	"574_organisation_key_index":                                "organisation_workspace_key_unique",
 	"573_organisation_name_index":                               "organisation_workspace_name_unique",
@@ -399,6 +400,7 @@ var concurrentDownIndexCleanups = map[string]string{
 	"455_drop_comment_content_trgm_index":                   "idx_comment_content_trgm",
 	"463_drop_issue_description_bigm_index":                 "idx_issue_description_bigm",
 	"464_drop_issue_description_trgm_index":                 "idx_issue_description_trgm",
+	"578_drop_question_overdue_index":                       "idx_question_overdue",
 	"473_drop_agent_task_queue_chat_with_session_index":     "idx_agent_task_queue_chat_with_session_created_at",
 }
 
