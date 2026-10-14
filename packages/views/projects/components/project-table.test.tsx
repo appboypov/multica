@@ -161,12 +161,12 @@ describe("ProjectTable", () => {
       "href",
       "/acme/organisations/org-das",
     );
-    expect(within(das).getByText("1 project")).toBeInTheDocument();
-    expect(within(groupRow("Rebl Records")).getByText("2 projects")).toBeInTheDocument();
+    expect(within(das).getByText(/^1 project · /)).toBeInTheDocument();
+    expect(within(groupRow("Rebl Records")).getByText(/^2 projects · /)).toBeInTheDocument();
 
     const none = groupRow("No organisation");
     expect(within(none).queryByRole("link")).not.toBeInTheDocument();
-    expect(within(none).getByText("1 project")).toBeInTheDocument();
+    expect(within(none).getByText(/^1 project · /)).toBeInTheDocument();
   });
 
   it("renders the groups in the order given, each above its projects", () => {
@@ -199,7 +199,7 @@ describe("ProjectTable", () => {
     expect(screen.queryByText("Fan app")).not.toBeInTheDocument();
     expect(screen.queryByText("Rebl")).not.toBeInTheDocument();
     expect(screen.getByText("Multica")).toBeInTheDocument();
-    expect(within(groupRow("Rebl Records")).getByText("2 projects")).toBeInTheDocument();
+    expect(within(groupRow("Rebl Records")).getByText(/^2 projects · /)).toBeInTheDocument();
 
     await user.click(within(groupRow("Rebl Records")).getByRole("button", { expanded: false }));
     expect(mocks.viewStore.getState().collapsedOrganisations).toEqual([]);
