@@ -6010,6 +6010,9 @@ func (e *environmentSetupError) Unwrap() error { return e.err }
 func asEnvironmentSetupFailure(err error) error { return &environmentSetupError{err: err} }
 
 func taskRunFailureReason(err error) string {
+	if errors.Is(err, errWorklaneBranchHeld) {
+		return taskfailure.ReasonWorklaneBranchHeld.String()
+	}
 	if errors.Is(err, errInvalidTaskIdentity) {
 		return taskfailure.ReasonInvalidTaskIdentity.String()
 	}
