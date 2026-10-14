@@ -110,10 +110,10 @@ Its J2 starts once UJ-4's J2 is merged.
 
 ## 8. J8 Backend and agent tooling: util
 
-- [ ] 8.1 `server/internal/issuetemplate/templates.go` -- the eight templates ported from `TEMPLATES` in `prototypes/web/src/components/generated/model.ts` L381 to L745, without `name`, `hint` and `example` -- design.md decision 3.
-- [ ] 8.2 `server/internal/issuetemplate/markdown.go` -- `Markdown(t, fields)` as the prototype's `templateMarkdown` (L755 to L805), and `ByType(type)`.
+- [x] 8.1 `server/internal/issuetemplate/templates.go` -- the eight templates ported from `TEMPLATES` in `prototypes/web/src/components/generated/model.ts` L381 to L745, without `name`, `hint` and `example` -- design.md decision 3.
+- [x] 8.2 `server/internal/issuetemplate/markdown.go` -- `Markdown(t, fields)` as the prototype's `templateMarkdown` (L755 to L805), and `ByType(type)`.
 - [ ] 8.3 `server/internal/issuetemplate/testdata/cases.json`, `markdown_test.go` -- one case per template with every field empty, and cases for each format with list marks typed in, empty lines and several scenarios. The test runs every case.
-- [ ] 8.4 `server/internal/issueplacement/placement.go` -- `Resolve(current, want, worklane, release)` returning the placement, the project, the entries or a refusal -- design.md decision 5.
+- [x] 8.4 `server/internal/issueplacement/placement.go` -- `Resolve(current, want, worklane, release)` returning the placement, the project, the entries or a refusal -- design.md decision 5.
 - [ ] 8.5 `server/internal/issueplacement/placement_test.go` -- table tests: no worklane with a release, a release of another repository, a shipped release, leaving a shipped release, a worklane of the same repository keeping the release, a worklane of another repository with the release cleared by the caller, No worklane, a placement that changes nothing, and the entries each writes.
 
 ## 9. J8 Backend and agent tooling: endpoint
