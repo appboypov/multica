@@ -24,6 +24,7 @@ const listData: { active: InboxItem[]; archived: InboxItem[]; lookup?: InboxItem
 
 const queryCalls: Array<{ queryKey: readonly unknown[]; enabled?: boolean }> = [];
 const lookupState = { isLoading: false, isError: false, refetch: vi.fn() };
+const pagesState = { isLoading: false };
 vi.mock("@tanstack/react-query", () => ({
   queryOptions: (options: unknown) => options,
   useQuery: (options: { queryKey: readonly unknown[]; enabled?: boolean }) => {
@@ -38,8 +39,8 @@ vi.mock("@tanstack/react-query", () => ({
   useInfiniteQuery: (options: { queryKey: readonly unknown[]; enabled?: boolean }) => {
     queryCalls.push(options);
     return ({
-    data: { pages: [{ items: listData.archived, hasMore: false, nextCursor: null }] },
-    isLoading: false, isError: false, hasNextPage: false,
+    data: pagesState.isLoading ? undefined : { pages: [{ items: listData.archived, hasMore: false, nextCursor: null }] },
+    isLoading: pagesState.isLoading, isError: false, hasNextPage: false,
     isFetchingNextPage: false, isFetchNextPageError: false,
     fetchNextPage: vi.fn(), refetch: vi.fn(),
   }); },
@@ -282,6 +283,7 @@ function reset() {
   lookupState.isLoading = false;
   lookupState.isError = false;
   lookupState.refetch.mockClear();
+  pagesState.isLoading = false;
   queryCalls.length = 0;
   searchParams = new URLSearchParams();
   replace.mockClear();
@@ -376,6 +378,64 @@ describe("InboxPage", () => {
 
     expect(screen.getAllByTestId("row")).toHaveLength(1);
     expect(screen.getByTestId("row")).toHaveTextContent("unread-row");
+  });
+
+  it("keeps the opened row open once reading it hides it from the unread list", () => {
+    reset();
+    layout.width = DESKTOP;
+    listData.active = [
+      item({ id: "inbox-a", issue_id: "issue-a", read: false }),
+      item({ id: "inbox-b", issue_id: "issue-b", read: false }),
+    ];
+    useInboxFilterStore.getState().toggleUnreadOnly("workspace-1");
+    // The mutation flips `read` in the cache, so the next render reads the row as read.
+    markReadMutate.mockImplementationOnce((id: string) => {
+      listData.active = listData.active.map((i) => (i.id === id ? { ...i, read: true } : i));
+    });
+
+    const { rerender } = render(<InboxPage />);
+    fireEvent.click(screen.getAllByTestId("row")[0]!);
+    rerender(<InboxPage />);
+
+    expect(screen.getAllByTestId("row").map((row) => row.textContent)).toEqual(["inbox-b"]);
+    expect(issueDetailProps.at(-1)).toMatchObject({ issueId: "issue-a" });
+    expect(replace).toHaveBeenLastCalledWith("/acme/inbox?issue=issue-a");
+  });
+
+  it("closes the open row when a newly applied filter hides it", () => {
+    reset();
+    layout.width = DESKTOP;
+    listData.active = [
+      item({ id: "inbox-a", issue_id: "issue-a", read: true }),
+      item({ id: "inbox-b", issue_id: "issue-b", read: false }),
+    ];
+
+    render(<InboxPage />);
+    fireEvent.click(screen.getAllByTestId("row")[0]!);
+    act(() => useInboxFilterStore.getState().toggleUnreadOnly("workspace-1"));
+
+    expect(replace).toHaveBeenLastCalledWith("/acme/inbox");
+  });
+
+  it("closes the open archived row once the archive refetched for a filter that hides it", () => {
+    reset();
+    layout.width = DESKTOP;
+    searchParams = new URLSearchParams("view=archived");
+    listData.archived = [item({ id: "archived-a", issue_id: "issue-a", archived: true, read: true })];
+
+    const { rerender } = render(<InboxPage />);
+    fireEvent.click(screen.getByTestId("row"));
+    // The archive pages are keyed by the filters: applying one refetches them,
+    // and the open row is unresolved until the lookup finds it again.
+    pagesState.isLoading = true;
+    listData.lookup = [];
+    act(() => useInboxFilterStore.getState().toggleUnreadOnly("workspace-1"));
+    pagesState.isLoading = false;
+    listData.archived = [];
+    listData.lookup = [item({ id: "archived-a", issue_id: "issue-a", archived: true, read: true })];
+    rerender(<InboxPage />);
+
+    expect(replace).toHaveBeenLastCalledWith("/acme/inbox?view=archived");
   });
 
   it("filters by the actor the row carries", () => {

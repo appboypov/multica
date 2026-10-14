@@ -170,9 +170,15 @@ export function InboxPage() {
     if (!isArchivedView || selectedOnPage) return visibleItems;
     return [...visibleItems, ...filterInboxItems(lookupItems, effectiveFilters)];
   }, [isArchivedView, selectedOnPage, visibleItems, lookupItems, effectiveFilters]);
-  const selected = selectionItems.find((i) => (i.issue_id ?? i.id) === selectedKey) ?? null;
-  const selectedInView = selectedOnPage ?? (isArchivedView ? lookupItems.find((i) => (i.issue_id ?? i.id) === selectedKey) : null);
-  const selectionFilteredOut = !!selectedKey && !!selectedInView && !selected;
+  // Filters shape the list, not the open row: it resolves against every row of
+  // the view, so it stays open after it stops matching them on its own, such
+  // as an unread row that opening it marks read while only unread rows show.
+  const detailItems = useMemo(() => {
+    if (!isArchivedView || selectedOnPage) return viewItems;
+    return [...viewItems, ...lookupItems];
+  }, [isArchivedView, selectedOnPage, viewItems, lookupItems]);
+  const selected = detailItems.find((i) => (i.issue_id ?? i.id) === selectedKey) ?? null;
+  const selectedListed = selectionItems.some((i) => (i.issue_id ?? i.id) === selectedKey);
 
   // What the DETAIL pane shows, one React transition behind the click.
   //
@@ -185,7 +191,7 @@ export function InboxPage() {
   // painting — and the previous issue stays on screen until it is ready.
   const detailKey = useDeferredValue(selectedKey);
   const detailSwapping = detailKey !== selectedKey;
-  const detailItem = resolveDetailItem(selectionItems, selectedKey, detailKey);
+  const detailItem = resolveDetailItem(detailItems, selectedKey, detailKey);
 
   // The gap above is invisible to the navigation adapter — the inbox stays on
   // the same route and only rewrites `?issue=` — so report it explicitly and
@@ -235,11 +241,17 @@ export function InboxPage() {
   const openArchived = useCallback(() => setView("archived"), [setView]);
 
   // Applying a filter can remove the open row from the list. Clear that local
-  // selection instead of treating it as a broken deep link and redirecting to
-  // the issue page; the notification still exists, it is simply filtered out.
+  // selection instead of leaving a detail the list no longer offers; the
+  // notification still exists, it is simply filtered out. The archive refetches
+  // per filter set, so the open row can be unresolved for a moment: the new
+  // filters count as applied only once it resolves again.
+  const appliedFiltersRef = useRef(effectiveFilters);
   useEffect(() => {
-    if (selectionFilteredOut) setSelectedKey("");
-  }, [selectionFilteredOut, setSelectedKey]);
+    if (appliedFiltersRef.current === effectiveFilters) return;
+    if (selectedKey && !selected) return;
+    appliedFiltersRef.current = effectiveFilters;
+    if (selected && !selectedListed) setSelectedKey("");
+  }, [effectiveFilters, selectedKey, selected, selectedListed, setSelectedKey]);
 
   // A targeted lookup must not hide pages that have already loaded. Its
   // pending/error states only block resolution of the off-page selection.
@@ -258,7 +270,6 @@ export function InboxPage() {
     if (viewLoading || lookupLoading || lookupError || (isArchivedView && archivedError)) return;
     if (!selectedKey) return;
     if (selected) return;
-    if (selectionFilteredOut) return;
     if (lastResolvedKeyRef.current === selectedKey) {
       setSelectedKey("");
       return;
@@ -272,7 +283,6 @@ export function InboxPage() {
     lookupError,
     selectedKey,
     selected,
-    selectionFilteredOut,
     replace,
     wsPaths,
     setSelectedKey,

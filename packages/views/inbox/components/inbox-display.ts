@@ -77,12 +77,12 @@ export function getQuickCreateOutcomeDetail(item: InboxItem): string {
  * selection instead.
  */
 export function resolveDetailItem(
-  visibleItems: InboxItem[],
+  items: InboxItem[],
   selectedKey: string,
   detailKey: string,
 ): InboxItem | null {
   const byKey = (key: string) =>
-    visibleItems.find((i) => (i.issue_id ?? i.id) === key) ?? null;
+    items.find((i) => (i.issue_id ?? i.id) === key) ?? null;
   const deferred = detailKey ? byKey(detailKey) : null;
   if (deferred) return deferred;
   // No stale row to hold: either the pane is empty (nothing selected yet) or
