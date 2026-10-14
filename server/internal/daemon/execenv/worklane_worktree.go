@@ -456,11 +456,11 @@ func WorklaneBranch(path string) (string, error) {
 // commits that are missing from every remote. Detached worktrees do not hold
 // an issue branch.
 func CanLeave(path string) error {
-	dirty, err := worktreeIsDirty(path)
+	status, err := runGitTrimmed(path, "status", "--porcelain")
 	if err != nil {
 		return err
 	}
-	if dirty {
+	if status != "" {
 		return &WorklaneError{Code: WorklaneCodeUncommitted, Detail: "the worktree holds uncommitted changes"}
 	}
 	branch, err := WorklaneBranch(path)
