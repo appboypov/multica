@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useMemo, useState } from "react";
-import { Building2, FolderKanban, GitBranch, Plus } from "lucide-react";
+import { Building2, FolderGit2, FolderKanban, GitBranch, Plus } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { clientErrorMessage } from "@multica/core/api";
 import { useAuthStore } from "@multica/core/auth";
@@ -15,6 +15,7 @@ import {
 import { useWorkspacePaths } from "@multica/core/paths";
 import { pinListOptions } from "@multica/core/pins";
 import { projectListOptions, sortProjects, useProjectViewStore } from "@multica/core/projects";
+import { repositoryListOptions } from "@multica/core/repositories";
 import type { MemberWithUser, Organisation } from "@multica/core/types";
 import { memberListOptions } from "@multica/core/workspace/queries";
 import { Input } from "@multica/ui/components/ui/input";
@@ -41,7 +42,9 @@ export function OrganisationPage() {
   const { t } = useT("organisations");
   const { t: tWorklanes } = useT("worklanes");
   const worklaneCounts = useWorklaneCounts();
+  const { t: tRepositories } = useT("repositories");
   const wsId = useWorkspaceId();
+  const { data: repositories = [] } = useQuery(repositoryListOptions(wsId));
   const paths = useWorkspacePaths();
   const { pathname } = useNavigation();
   const organisationId = pathname.split("/").pop() ?? "";
@@ -80,6 +83,10 @@ export function OrganisationPage() {
       ),
     [projects, organisationId, sortField, sortDirection],
   );
+  const repositoryCount = useMemo(() => {
+    const ids = new Set(organisationProjects.map((project) => project.id));
+    return repositories.filter((repository) => ids.has(repository.project_id)).length;
+  }, [repositories, organisationProjects]);
   const selectedProjects = organisationProjects.filter((p) => selectedIds.has(p.id));
 
   const breadcrumb = [{ href: paths.organisations(), label: t(($) => $.page.title) }];
@@ -152,6 +159,10 @@ export function OrganisationPage() {
             <span className="inline-flex items-center gap-1.5">
               <FolderKanban aria-hidden="true" className="size-3.5" />
               {t(($) => $.project_count, { count: organisationProjects.length })}
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <FolderGit2 aria-hidden="true" className="size-3.5" />
+              {tRepositories(($) => $.count, { count: repositoryCount })}
             </span>
             <span className="inline-flex items-center gap-1.5">
               <GitBranch aria-hidden="true" className="size-3.5" />

@@ -8,6 +8,7 @@ import { useWorkspacePaths } from "@multica/core/paths";
 import { useModalStore } from "@multica/core/modals";
 import { useOrganisations } from "@multica/core/organisations";
 import { projectListOptions } from "@multica/core/projects";
+import { countRepositoriesByProject, repositoryListOptions } from "@multica/core/repositories";
 import { Button } from "@multica/ui/components/ui/button";
 import { Skeleton } from "@multica/ui/components/ui/skeleton";
 import {
@@ -42,15 +43,21 @@ export function OrganisationsPage() {
   const rowLink = useRowLink();
   const { data: organisations = [], isLoading } = useOrganisations(wsId);
   const { data: projects = [] } = useQuery(projectListOptions(wsId));
+  const { data: repositories = [] } = useQuery(repositoryListOptions(wsId));
+  const { t: tRepositories } = useT("repositories");
 
-  const projectCounts = useMemo(() => {
-    const counts = new Map<string, number>();
+  const { projectCounts, repositoryCounts } = useMemo(() => {
+    const byProject = countRepositoriesByProject(repositories);
+    const projectCounts = new Map<string, number>();
+    const repositoryCounts = new Map<string, number>();
     for (const project of projects) {
       if (!project.organisation_id) continue;
-      counts.set(project.organisation_id, (counts.get(project.organisation_id) ?? 0) + 1);
+      const id = project.organisation_id;
+      projectCounts.set(id, (projectCounts.get(id) ?? 0) + 1);
+      repositoryCounts.set(id, (repositoryCounts.get(id) ?? 0) + (byProject.get(project.id) ?? 0));
     }
-    return counts;
-  }, [projects]);
+    return { projectCounts, repositoryCounts };
+  }, [projects, repositories]);
 
   const rows = useMemo(
     () =>
@@ -112,6 +119,8 @@ export function OrganisationsPage() {
                 </ListGridCell>
                 <ListGridCell className="text-caption tabular-nums text-muted-foreground">
                   {t(($) => $.project_count, { count: projectCounts.get(organisation.id) ?? 0 })}
+                  {" · "}
+                  {tRepositories(($) => $.count, { count: repositoryCounts.get(organisation.id) ?? 0 })}
                 </ListGridCell>
                 <ListGridCell className="justify-end px-0 text-muted-foreground">
                   <ChevronRight aria-hidden="true" className="size-4" />
