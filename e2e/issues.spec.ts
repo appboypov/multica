@@ -338,6 +338,7 @@ test.describe("Issues", () => {
     await titleInput.fill(title);
     await expect(create).toBeEnabled();
     await expect(create).not.toHaveAttribute("aria-disabled");
+    await expect(dialog.getByText(/^(Required|Optional)$/i)).toHaveCount(0);
 
     const createdResponse = page.waitForResponse(
       (response) =>
