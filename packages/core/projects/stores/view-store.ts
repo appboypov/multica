@@ -52,6 +52,8 @@ export interface ProjectViewState {
   collapsedOrganisations: string[];
   /** Repository rows folded open to their worklanes, on Projects and an organisation's page. */
   expandedRepositories: string[];
+  /** Project rows folded open to their repositories, on Projects and an organisation's page. */
+  expandedProjects: string[];
   setViewMode: (mode: ProjectViewMode) => void;
   toggleSort: (field: ProjectSortField) => void;
   setSortField: (field: ProjectSortField) => void;
@@ -59,6 +61,7 @@ export interface ProjectViewState {
   toggleColumn: (key: ProjectColumnKey) => void;
   toggleOrganisation: (id: string) => void;
   toggleRepository: (id: string) => void;
+  toggleProject: (id: string) => void;
   toggleFilter: (key: keyof ProjectListFilters, value: string) => void;
   clearFilters: () => void;
 }
@@ -71,6 +74,7 @@ const DEFAULTS = {
   filters: EMPTY_PROJECT_FILTERS,
   collapsedOrganisations: [] as string[],
   expandedRepositories: [] as string[],
+  expandedProjects: [] as string[],
 };
 
 export const useProjectViewStore = create<ProjectViewState>()(
@@ -115,6 +119,12 @@ export const useProjectViewStore = create<ProjectViewState>()(
             ? state.expandedRepositories.filter((value) => value !== id)
             : [...state.expandedRepositories, id],
         })),
+      toggleProject: (id) =>
+        set((state) => ({
+          expandedProjects: state.expandedProjects.includes(id)
+            ? state.expandedProjects.filter((value) => value !== id)
+            : [...state.expandedProjects, id],
+        })),
       toggleFilter: (key, value) =>
         set((state) => {
           const list = state.filters[key] as string[];
@@ -136,6 +146,7 @@ export const useProjectViewStore = create<ProjectViewState>()(
         filters: state.filters,
         collapsedOrganisations: state.collapsedOrganisations,
         expandedRepositories: state.expandedRepositories,
+        expandedProjects: state.expandedProjects,
       }),
       // Keep only supported filters and sorts when loading saved preferences.
       merge: (persisted, current) => {
@@ -153,6 +164,10 @@ export const useProjectViewStore = create<ProjectViewState>()(
             : DEFAULTS.sortDirection,
           collapsedOrganisations: p.collapsedOrganisations ?? DEFAULTS.collapsedOrganisations,
           expandedRepositories: p.expandedRepositories ?? DEFAULTS.expandedRepositories,
+          // A payload saved before the repository rows has none open.
+          expandedProjects: Array.isArray(p.expandedProjects)
+            ? p.expandedProjects
+            : DEFAULTS.expandedProjects,
           filters: {
             priorities: p.filters?.priorities ?? [],
             leads: p.filters?.leads ?? [],

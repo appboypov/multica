@@ -46,6 +46,8 @@ describe("useProjectViewStore", () => {
     const parsed = JSON.parse(raw as string);
     expect(Object.keys(parsed.state).sort()).toEqual([
       "collapsedOrganisations",
+      "expandedProjects",
+      "expandedRepositories",
       "filters",
       "hiddenColumns",
       "sortDirection",
