@@ -75,7 +75,7 @@ export function onIssueReachMaybeChanged(
     || (issue.project_id !== undefined && issue.project_id !== cached.project_id)
     || (issue.assignee_type !== undefined && issue.assignee_type !== cached.assignee_type)
     || (issue.assignee_id !== undefined && issue.assignee_id !== cached.assignee_id);
-  if (changed) return invalidateQuestionReach(qc, wsId);
+  return changed ? invalidateQuestionReach(qc, wsId) : Promise.resolve();
 }
 
 /** Deleted issues and any project change move what reaches what. */
