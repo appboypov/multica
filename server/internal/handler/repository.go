@@ -63,16 +63,29 @@ func repositoryToResponse(r db.Repository) RepositoryResponse {
 	return resp
 }
 
+// CreateRepositoryRequest's InstallCommand is '' for None; absent, the
+// repository takes the check's first found command, or ''.
 type CreateRepositoryRequest struct {
-	ProjectID       string `json:"project_id"`
-	FullName        string `json:"full_name"`
-	CheckoutCheckID string `json:"checkout_check_id"`
-	VersionPolicy   string `json:"version_policy"`
+	ProjectID       string  `json:"project_id"`
+	FullName        string  `json:"full_name"`
+	CheckoutCheckID string  `json:"checkout_check_id"`
+	VersionPolicy   string  `json:"version_policy"`
+	InstallCommand  *string `json:"install_command"`
 }
 
 type UpdateRepositoryRequest struct {
 	CheckoutCheckID *string `json:"checkout_check_id"`
 	VersionPolicy   *string `json:"version_policy"`
+	InstallCommand  *string `json:"install_command"`
+}
+
+// foundInstallCommand is the first install command a passed check found, or
+// '' (None) when it found none.
+func foundInstallCommand(result *protocol.RepositoryCheckoutResult) string {
+	if result == nil || len(result.InstallCommands) == 0 {
+		return ""
+	}
+	return result.InstallCommands[0].Command
 }
 
 // ListRepositories returns the workspace's repositories by full_name.
@@ -246,6 +259,10 @@ func (h *Handler) CreateRepository(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	installCommand := foundInstallCommand(check.Result)
+	if req.InstallCommand != nil {
+		installCommand = strings.TrimSpace(*req.InstallCommand)
+	}
 
 	tx, err := h.TxStarter.Begin(r.Context())
 	if err != nil {
@@ -266,6 +283,7 @@ func (h *Handler) CreateRepository(w http.ResponseWriter, r *http.Request) {
 		CheckoutPath:     check.Result.ResolvedPath,
 		VersionPolicy:    req.VersionPolicy,
 		LastTag:          checkLastTag(*check.Result),
+		InstallCommand:   pgtype.Text{String: installCommand, Valid: true},
 		CreatedBy:        parseUUID(userID),
 	})
 	if err != nil {
@@ -410,6 +428,16 @@ func (h *Handler) UpdateRepository(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	if req.InstallCommand != nil {
+		if updated, err = qtx.UpdateRepositoryInstallCommand(r.Context(), db.UpdateRepositoryInstallCommandParams{
+			InstallCommand: pgtype.Text{String: strings.TrimSpace(*req.InstallCommand), Valid: true},
+			ID:             repository.ID,
+			WorkspaceID:    repository.WorkspaceID,
+		}); err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to update repository install command")
+			return
+		}
+	}
 	if err := tx.Commit(r.Context()); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to update repository")
 		return
@@ -423,9 +451,10 @@ func (h *Handler) UpdateRepository(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, resp)
 }
 
-// DeleteRepository removes the repository and its worklanes in one
-// transaction. Its issue worktrees stay recorded, so they are still removed
-// when their issue closes.
+// DeleteRepository removes the repository, its main worklane and its activity
+// in one transaction. It refuses with 409 has_worklanes, naming them, while
+// the repository has a worklane besides main. Its issue worktrees stay
+// recorded, so they are still removed when their issue closes.
 func (h *Handler) DeleteRepository(w http.ResponseWriter, r *http.Request) {
 	repository, ok := h.loadRepositoryInWorkspace(w, r)
 	if !ok {
@@ -444,6 +473,40 @@ func (h *Handler) DeleteRepository(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback(r.Context())
 	qtx := h.Queries.WithTx(tx)
+	others, err := qtx.CountOtherWorklanes(r.Context(), db.CountOtherWorklanesParams{
+		RepositoryID: repository.ID,
+		WorkspaceID:  repository.WorkspaceID,
+	})
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to count worklanes")
+		return
+	}
+	if others > 0 {
+		all, err := qtx.ListWorklanes(r.Context(), repository.WorkspaceID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to list worklanes")
+			return
+		}
+		names := make([]string, 0, others)
+		for _, wl := range all {
+			if wl.RepositoryID == repository.ID && !wl.IsMain {
+				names = append(names, wl.Name)
+			}
+		}
+		writeJSON(w, http.StatusConflict, map[string]any{
+			"error":     "remove the repository's worklanes first: " + strings.Join(names, ", "),
+			"code":      "has_worklanes",
+			"worklanes": names,
+		})
+		return
+	}
+	if err := qtx.DeleteActivitiesByRepository(r.Context(), db.DeleteActivitiesByRepositoryParams{
+		RepositoryID: repository.ID,
+		WorkspaceID:  repository.WorkspaceID,
+	}); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to delete repository activity")
+		return
+	}
 	if _, err := qtx.ClearPlacementOfRepositoryIssues(r.Context(), db.ClearPlacementOfRepositoryIssuesParams{
 		WorkspaceID:  repository.WorkspaceID,
 		RepositoryID: repository.ID,

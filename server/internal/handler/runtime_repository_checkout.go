@@ -11,7 +11,9 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	obsmetrics "github.com/multica-ai/multica/server/internal/metrics"
+	db "github.com/multica-ai/multica/server/pkg/db/generated"
 	"github.com/multica-ai/multica/server/pkg/protocol"
 )
 
@@ -355,7 +357,32 @@ func (h *Handler) ReportRepositoryCheckoutResult(w http.ResponseWriter, r *http.
 	}
 	if body.Status == "completed" && body.Passed && body.ResolvedPath != "" {
 		h.backfillRepositoryLastTag(r.Context(), req, body.RepositoryCheckoutResult)
+		h.backfillRepositoryInstallCommand(r.Context(), req, &body.RepositoryCheckoutResult)
 	}
 	slog.Debug("runtime repository checkout report", "runtime_id", runtimeID, "request_id", requestID, "status", body.Status, "passed", body.Passed)
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+// backfillRepositoryInstallCommand gives a repository from before install
+// commands the first command a passed check found, or '' (None), when the
+// check names its checkout and its command is still NULL (design.md
+// decision 7). Each row it sets publishes repository:updated.
+func (h *Handler) backfillRepositoryInstallCommand(ctx context.Context, req *RuntimeRepositoryCheckoutRequest, result *protocol.RepositoryCheckoutResult) {
+	rows, err := h.Queries.BackfillRepositoryInstallCommand(ctx, db.BackfillRepositoryInstallCommandParams{
+		InstallCommand:   pgtype.Text{String: foundInstallCommand(result), Valid: true},
+		WorkspaceID:      parseUUID(req.WorkspaceID),
+		FullName:         req.FullName,
+		CheckoutDaemonID: req.DaemonID,
+		CheckoutPath:     result.ResolvedPath,
+	})
+	if err != nil {
+		slog.Error("repository install command backfill failed", "error", err, "request_id", req.ID, "full_name", req.FullName)
+		return
+	}
+	for _, row := range rows {
+		h.publish(protocol.EventRepositoryUpdated, req.WorkspaceID, "system", "", protocol.RepositoryEventPayload{
+			RepositoryID: uuidToString(row.ID),
+			ProjectID:    uuidToString(row.ProjectID),
+		})
+	}
 }

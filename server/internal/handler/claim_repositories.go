@@ -158,6 +158,10 @@ func (h *Handler) buildClaimRepositories(ctx context.Context, workspaceID, proje
 	out := make([]protocol.ClaimRepository, 0, len(rows))
 	for _, row := range rows {
 		id := uuidToString(row.ID)
+		worklanePaths, err := h.claimWorklanePaths(ctx, workspaceID, row.ID, daemonID)
+		if err != nil {
+			return nil, err
+		}
 		out = append(out, protocol.ClaimRepository{
 			ID:               id,
 			FullName:         row.FullName,
@@ -165,7 +169,31 @@ func (h *Handler) buildClaimRepositories(ctx context.Context, workspaceID, proje
 			CheckoutDaemonID: row.CheckoutDaemonID,
 			CheckoutPath:     row.CheckoutPath,
 			WorktreePath:     worktreePaths[id],
+			WorklanePaths:    worklanePaths,
 		})
 	}
 	return out, nil
+}
+
+// claimWorklanePaths are the worktree paths of the repository's worklanes on
+// the claiming daemon, so its issue worktree never takes one (ADR-0009).
+func (h *Handler) claimWorklanePaths(ctx context.Context, workspaceID, repositoryID pgtype.UUID, daemonID string) ([]string, error) {
+	if daemonID == "" {
+		return nil, nil
+	}
+	worklanes, err := h.Queries.ListWorklanePathsForDaemon(ctx, db.ListWorklanePathsForDaemonParams{
+		WorkspaceID:  workspaceID,
+		RepositoryID: repositoryID,
+		DaemonID:     pgtype.Text{String: daemonID, Valid: true},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list worklane paths: %w", err)
+	}
+	var paths []string
+	for _, wl := range worklanes {
+		if wl.Path.Valid && wl.Path.String != "" {
+			paths = append(paths, wl.Path.String)
+		}
+	}
+	return paths, nil
 }
