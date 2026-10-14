@@ -106,7 +106,7 @@ This change builds on UJ-1 (`projects-by-organisation`, DAS-450): its `organisat
   - A check on another member's runtime is refused; an offline runtime is 503.
   - Done sets `removing`, reopening sets `active`; a `kept` result adds one system comment.
   - The spec scenarios at their canonical layer.
-- [ ] 7.13 `server/migrations/597_drop_project_resource.up.sql`, `.down.sql` -- `DROP TABLE project_resource`. The down migration recreates the empty table and the two indexes of `065_project_resources.up.sql` with plain `CREATE INDEX`. Run `make sqlc` and commit the output: `project_resource.sql.go` and the `ProjectResource` model go.
+- [x] 7.13 `server/migrations/597_drop_project_resource.up.sql`, `.down.sql` -- `DROP TABLE project_resource`. The down migration recreates the empty table and the two indexes of `065_project_resources.up.sql` with plain `CREATE INDEX`. Run `make sqlc` and commit the output: `project_resource.sql.go` and the `ProjectResource` model go.
 
 ## 8. J8 Backend and agent tooling: integration
 
