@@ -6,8 +6,8 @@ sequenceDiagram
   participant M as Multica (web or desktop)
   actor A as Agent (multica CLI)
   B->>M: New issue on the Timeline of Fan accounts and push
-  M-->>B: eight templates with Story picked, Worklane Fan accounts and push, Release v1.0.0 First production release
-  B->>M: title "A fan changes their display name", fills User story and Acceptance criteria
+  M-->>B: No template picked above the eight templates, Worklane Fan accounts and push, Release v1.0.0 First production release
+  B->>M: picks Story, title "A fan changes their display name", fills User story and Acceptance criteria
   M-->>B: the Markdown tab shows the Story template's Markdown with what he typed in its sections
   B->>M: Create story
   M-->>B: REBL-21 in Todo, under v1.0.0 on the Timeline with "0 of 1 done"
@@ -25,7 +25,7 @@ sequenceDiagram
 |---|---|---|---|
 | Concept | Issue type: Epic, Journey, Story, Bug, Enhancement, Refactor, Chore or Spike, or none | new | `packages/core/types/issue.ts` |
 | Concept | Issue template: its sections, its fields and the one Markdown they fill | new | `packages/core/issues/` |
-| Dialog | New issue: the eight templates, Fields and Markdown, the Type, Worklane, Release and Priority chips next to Multica's other properties | changed | `packages/views/modals/create-issue.tsx`, `designs/screens/steer-all-work.pen` (screen 5) |
+| Dialog | New issue: No template and the eight templates, Fields and Markdown, the Type, Worklane, Release and Priority chips next to Multica's other properties | changed | `packages/views/modals/create-issue.tsx`, `designs/screens/steer-all-work.pen` (screen 5) |
 | Page | Issue page: type and ID, the description as Preview or Markdown, Type, Worklane and Release, the release card, the activity entries | changed | `packages/views/issues/components/issue-detail.tsx` |
 | Icon | The eight type icons and No type, wherever an issue shows | new | `packages/views/issues/components/` |
 | Section | Worklane Timeline: each release's issues of the worklane with their progress, No release, + Add issue to release, Remove from release | changed | `packages/views/projects/`, `designs/screens/steer-all-work.pen` (screen 3) |
@@ -39,13 +39,13 @@ New issue from a Board column, the Board, List and the issue preview come with U
 
 ## Why
 
-Brian wants every issue he makes to be one of his eight types, shaped by its template, with no room for implementation details (brief). Multica's New issue has a free title and description, no types, and no way to place an issue in a worklane or a release, so the release line UJ-4 builds holds no work and shows no progress. Agents create issues too, and must keep working without a template.
+Brian wants to make issues as one of his eight types, shaped by its template, with no room for implementation details (brief), next to issues without a template, which stay the default. Multica's New issue has a free title and description, no types, and no way to place an issue in a worklane or a release, so the release line UJ-4 builds holds no work and shows no progress. Agents create issues too, and must keep working without a template.
 
 Success signal: from the Timeline of Fan accounts and push Brian creates the story "A fan changes their display name" from the Story template; it shows as REBL-21 in Todo under v1.0.0 First production release with "0 of 1 done", its page shows Story, its template's Markdown with what he typed, links to Fan accounts and push and v1.0.0, and "Brian created this story from the Story template"; an agent creates a bug with `multica issue create --type bug` and no description and it gets the Bug template's Markdown.
 
 ## What Changes
 
-- New issue offers the eight templates, Story picked, each with its type icon and hint. The picked template sets the type, the fields and the button, such as "Create story". Its fields, each Required or Optional, fill the template's one Markdown description, shown on the Markdown tab; the issue keeps only that Markdown. No template has a field for implementation details. Create stays disabled until the title and every required field are filled.
+- New issue offers No template, picked when it opens, and the eight templates, each with its type icon and hint. No template gives a title and a free description, no type and "Create Issue". A picked template sets the type, the fields and the button, such as "Create story". Its fields, each Required or Optional, fill the template's one Markdown description, shown on the Markdown tab; the issue keeps only that Markdown. No template has a field for implementation details. Create stays disabled until the title and every required field are filled.
 - New issue gets Type, Worklane, Release and Priority chips next to Multica's other properties. From a worklane, its worklane and the repository's next release are filled in; from a project, its first repository's `main`. Picking a worklane fills in the next release. The release offers the unshipped releases of the worklane's repository and "No release", or "Pick a worklane first" without a worklane. A new issue starts in Todo with a release and in Backlog without, unless Brian picks a status. An issue without a worklane is kept under "No worklane".
 - Every issue shows its type icon, or the No type icon, wherever it shows. An issue without a type gets its type once on its page; its description stays as it is. A type never changes once set.
 - The issue page shows the type and ID, the description as Preview or Markdown with "Code and technical design go in the change, not in the issue.", Type, Worklane and Release, where Worklane and Release are pickers with New issue's rules and links to the worklane's Timeline, and a release card with the release's state, title, description, worklane, repository and progress.
@@ -61,7 +61,7 @@ Success signal: from the Timeline of Fan accounts and push Brian creates the sto
 
 ### New Capabilities
 
-- `issue-templates`: lets Brian create an issue in New issue only from one of eight templates, filling its fields into the template's one Markdown description.
+- `issue-templates`: lets Brian create an issue in New issue with No template or from one of eight templates, filling a template's fields into its one Markdown description.
 - `new-issue-placement`: lets Brian put a new issue in a worklane and one of its repository's unshipped releases, or in none, with the status that follows.
 - `issue-types`: lets Brian tell an issue's type by its icon, see "No type" on an issue without one, and set that type once.
 - `issue-page-worklane-and-release`: lets Brian see on an issue's page its description as Preview or Markdown, change its worklane and release, follow them to the worklane's Timeline, and see the release card.
@@ -88,7 +88,7 @@ None in `specs/openspec/specs/`. This change builds on the unarchived changes `w
 
 ## Constraints
 
-- New issue creates an issue only from one of the eight templates; the issue keeps only the one Markdown description its fields fill.
+- New issue creates an issue with No template or from one of the eight templates; an issue from a template keeps only the one Markdown description its fields fill.
 - No template, issue view or creation flow has a field for implementation details; code and technical design go in the change.
 - An issue's release is an unshipped release of its worklane's repository; an issue without a worklane has no release.
 - An issue's type is one of the eight or none, and once set it never changes.
