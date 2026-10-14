@@ -1,0 +1,108 @@
+{
+  "dialog": {
+    "plan_title": "Plan release · {{repository}}",
+    "edit_title": "Edit release · {{repository}}",
+    "version_label": "Version",
+    "bump": {
+      "patch": "Patch",
+      "minor": "Minor",
+      "major": "Major",
+      "custom": "Custom"
+    },
+    "custom_note": "Set by hand",
+    "custom_label": "Custom version",
+    "hint_follows_release": "Follows {{version}} {{title}}. Moving it renumbers it.",
+    "hint_follows_tag": "Follows {{tag}}, the last tag. Moving it renumbers it.",
+    "hint_first": "The first release of this repository.",
+    "hint_set_by_hand": "Set by hand: it keeps this number when the release moves, and must stay higher than the release before it.",
+    "hint_set_by_hand_first": "Set by hand: it keeps this number when the release moves.",
+    "renumber": "Later releases renumber: {{changes}}.",
+    "renumber_change": "{{from}} → {{to}}",
+    "error_form": "Use the form v1.4.0.",
+    "error_after_release": "Must be higher than {{version}} {{title}}, the release before it.",
+    "error_after_tag": "Must be higher than {{tag}}, the last tag.",
+    "error_later": "Then {{version}} {{title}} is not higher than {{before}}, the release before it. Set a different version.",
+    "error_later_tag": "Then {{version}} {{title}} is not higher than {{tag}}, the last tag. Set a different version.",
+    "title_label": "Title",
+    "title_placeholder": "Account and profile",
+    "required": "Required",
+    "description_label": "Description",
+    "description_placeholder": "What this release brings",
+    "optional": "Optional",
+    "ships": "When its issues are done and merged, Multica tags {{version}} on {{branch}}, writes the release note and publishes the GitHub release. It gets its date when it ships.",
+    "finding_tag": "Finding the last tag",
+    "cancel": "Cancel",
+    "submit_plan": "Plan {{version}}",
+    "submit_plan_empty": "Plan release",
+    "submit_save": "Save release",
+    "saving": "Saving…",
+    "not_found": "This release is no longer on the line.",
+    "toast_planned": "Planned {{version}} {{title}}",
+    "toast_saved": "Saved {{version}} {{title}}",
+    "failed": "Could not save the release. Try again."
+  },
+  "refusal": {
+    "title_required": "A release needs a title.",
+    "version_or_bump": "Pick Patch, Minor, Major or Custom.",
+    "version_invalid": "Use the form v1.4.0.",
+    "does_not_release": "{{repository}} does not release, so its worklanes plan no releases.",
+    "last_tag_unknown": "The last tag of this repository is not known yet. Try again once it is found.",
+    "first_release": "It is the first release",
+    "last_release": "It is the last release"
+  },
+  "menu": {
+    "trigger": "Release actions",
+    "edit": "Edit release",
+    "move_earlier": "Move earlier",
+    "move_later": "Move later",
+    "remove": "Remove release",
+    "first_release": "It is the first release",
+    "last_release": "It is the last release",
+    "too_low": "Then {{version}} {{title}} is not higher than {{before}}, the release before it",
+    "too_low_tag": "Then {{version}} {{title}} is not higher than {{tag}}, the last tag",
+    "finding_tag": "Finding the last tag",
+    "toast_moved": "Moved {{version}} {{title}} {{direction}}",
+    "direction": {
+      "earlier": "earlier",
+      "later": "later"
+    },
+    "move_failed": "Could not move the release. Try again."
+  },
+  "remove": {
+    "title": "Remove {{version}} {{title}}?",
+    "description": "It leaves the line of {{repository}} and the Timeline of each of its worklanes.",
+    "renumber": "Later releases renumber: {{changes}}.",
+    "cancel": "Cancel",
+    "confirm": "Remove release",
+    "removing": "Removing…",
+    "toast_removed": "Removed {{version}} {{title}}",
+    "failed": "Could not remove the release. Try again."
+  },
+  "column": {
+    "state": {
+      "shipped": "Shipped",
+      "next": "Next release",
+      "planned": "Planned"
+    },
+    "set_by_hand": "Set by hand",
+    "set_by_hand_tooltip": "Version set by hand: it keeps this number when the release moves",
+    "no_issues": "No issues of this worklane",
+    "plan": "Plan release"
+  },
+  "chips": {
+    "nothing_shipped": "nothing shipped",
+    "none_planned": "No releases planned",
+    "does_not_release": "Does not release",
+    "column": "Last · Next · Planned releases",
+    "open": "Open {{version}} on the Timeline"
+  },
+  "activity": {
+    "planned": "{{actor}} planned {{version}} {{title}}",
+    "edited": "{{actor}} edited {{version}} {{title}}",
+    "moved_earlier": "{{actor}} moved {{version}} {{title}} earlier",
+    "moved_later": "{{actor}} moved {{version}} {{title}} later",
+    "moved": "{{actor}} moved {{version}} {{title}}",
+    "removed": "{{actor}} removed {{version}} {{title}}",
+    "change": "{{title}} {{from}} → {{to}}"
+  }
+}

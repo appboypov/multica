@@ -1,0 +1,108 @@
+{
+  "dialog": {
+    "plan_title": "Planifier une version · {{repository}}",
+    "edit_title": "Modifier la version · {{repository}}",
+    "version_label": "Numéro de version",
+    "bump": {
+      "patch": "Correctif",
+      "minor": "Mineure",
+      "major": "Majeure",
+      "custom": "Personnalisé"
+    },
+    "custom_note": "Fixé à la main",
+    "custom_label": "Numéro personnalisé",
+    "hint_follows_release": "Suit {{version}} {{title}}. La déplacer la renumérote.",
+    "hint_follows_tag": "Suit {{tag}}, le dernier tag. La déplacer la renumérote.",
+    "hint_first": "La première version de ce dépôt.",
+    "hint_set_by_hand": "Fixé à la main : elle garde ce numéro quand elle est déplacée, et doit rester supérieure à la version qui la précède.",
+    "hint_set_by_hand_first": "Fixé à la main : elle garde ce numéro quand elle est déplacée.",
+    "renumber": "Les versions suivantes sont renumérotées : {{changes}}.",
+    "renumber_change": "{{from}} → {{to}}",
+    "error_form": "Utilisez la forme v1.4.0.",
+    "error_after_release": "Doit être supérieure à {{version}} {{title}}, la version qui la précède.",
+    "error_after_tag": "Doit être supérieure à {{tag}}, le dernier tag.",
+    "error_later": "Alors {{version}} {{title}} n’est pas supérieure à {{before}}, la version qui la précède. Choisissez un autre numéro.",
+    "error_later_tag": "Alors {{version}} {{title}} n’est pas supérieure à {{tag}}, le dernier tag. Choisissez un autre numéro.",
+    "title_label": "Titre",
+    "title_placeholder": "Compte et profil",
+    "required": "Obligatoire",
+    "description_label": "Description",
+    "description_placeholder": "Ce que cette version apporte",
+    "optional": "Facultatif",
+    "ships": "Quand ses tâches sont terminées et fusionnées, Multica pose le tag {{version}} sur {{branch}}, rédige les notes de version et publie la release GitHub. Elle reçoit sa date à sa sortie.",
+    "finding_tag": "Recherche du dernier tag",
+    "cancel": "Annuler",
+    "submit_plan": "Planifier {{version}}",
+    "submit_plan_empty": "Planifier une version",
+    "submit_save": "Enregistrer la version",
+    "saving": "Enregistrement…",
+    "not_found": "Cette version n’est plus sur la ligne.",
+    "toast_planned": "{{version}} {{title}} planifiée",
+    "toast_saved": "{{version}} {{title}} enregistrée",
+    "failed": "Impossible d’enregistrer la version. Réessayez."
+  },
+  "refusal": {
+    "title_required": "Une version a besoin d’un titre.",
+    "version_or_bump": "Choisissez Correctif, Mineure, Majeure ou Personnalisé.",
+    "version_invalid": "Utilisez la forme v1.4.0.",
+    "does_not_release": "{{repository}} ne publie pas de versions, donc ses worklanes n’en planifient pas.",
+    "last_tag_unknown": "Le dernier tag de ce dépôt n’est pas encore connu. Réessayez quand il aura été trouvé.",
+    "first_release": "C’est la première version",
+    "last_release": "C’est la dernière version"
+  },
+  "menu": {
+    "trigger": "Actions de la version",
+    "edit": "Modifier la version",
+    "move_earlier": "Avancer",
+    "move_later": "Reculer",
+    "remove": "Retirer la version",
+    "first_release": "C’est la première version",
+    "last_release": "C’est la dernière version",
+    "too_low": "Alors {{version}} {{title}} n’est pas supérieure à {{before}}, la version qui la précède",
+    "too_low_tag": "Alors {{version}} {{title}} n’est pas supérieure à {{tag}}, le dernier tag",
+    "finding_tag": "Recherche du dernier tag",
+    "toast_moved": "{{version}} {{title}} : {{direction}}",
+    "direction": {
+      "earlier": "avancée",
+      "later": "reculée"
+    },
+    "move_failed": "Impossible de déplacer la version. Réessayez."
+  },
+  "remove": {
+    "title": "Retirer {{version}} {{title}} ?",
+    "description": "Elle quitte la ligne de {{repository}} et la frise de chacun de ses worklanes.",
+    "renumber": "Les versions suivantes sont renumérotées : {{changes}}.",
+    "cancel": "Annuler",
+    "confirm": "Retirer la version",
+    "removing": "Retrait…",
+    "toast_removed": "{{version}} {{title}} retirée",
+    "failed": "Impossible de retirer la version. Réessayez."
+  },
+  "column": {
+    "state": {
+      "shipped": "Publiée",
+      "next": "Prochaine version",
+      "planned": "Planifiée"
+    },
+    "set_by_hand": "Fixé à la main",
+    "set_by_hand_tooltip": "Numéro fixé à la main : la version le garde quand elle est déplacée",
+    "no_issues": "Aucune tâche de ce worklane",
+    "plan": "Planifier une version"
+  },
+  "chips": {
+    "nothing_shipped": "rien de publié",
+    "none_planned": "Aucune version planifiée",
+    "does_not_release": "Ne publie pas de versions",
+    "column": "Dernière · Prochaine · Versions planifiées",
+    "open": "Ouvrir {{version}} sur la frise"
+  },
+  "activity": {
+    "planned": "{{actor}} a planifié {{version}} {{title}}",
+    "edited": "{{actor}} a modifié {{version}} {{title}}",
+    "moved_earlier": "{{actor}} a avancé {{version}} {{title}}",
+    "moved_later": "{{actor}} a reculé {{version}} {{title}}",
+    "moved": "{{actor}} a déplacé {{version}} {{title}}",
+    "removed": "{{actor}} a retiré {{version}} {{title}}",
+    "change": "{{title}} {{from}} → {{to}}"
+  }
+}

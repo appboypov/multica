@@ -1,0 +1,108 @@
+{
+  "dialog": {
+    "plan_title": "릴리스 계획 · {{repository}}",
+    "edit_title": "릴리스 편집 · {{repository}}",
+    "version_label": "버전",
+    "bump": {
+      "patch": "패치",
+      "minor": "마이너",
+      "major": "메이저",
+      "custom": "직접 입력"
+    },
+    "custom_note": "직접 설정",
+    "custom_label": "직접 입력한 버전",
+    "hint_follows_release": "{{version}} {{title}} 다음입니다. 옮기면 번호가 다시 매겨집니다.",
+    "hint_follows_tag": "마지막 태그 {{tag}} 다음입니다. 옮기면 번호가 다시 매겨집니다.",
+    "hint_first": "이 저장소의 첫 번째 릴리스입니다.",
+    "hint_set_by_hand": "직접 설정: 릴리스를 옮겨도 이 번호를 유지하며, 앞의 릴리스보다 높아야 합니다.",
+    "hint_set_by_hand_first": "직접 설정: 릴리스를 옮겨도 이 번호를 유지합니다.",
+    "renumber": "이후 릴리스 번호 변경: {{changes}}.",
+    "renumber_change": "{{from}} → {{to}}",
+    "error_form": "v1.4.0 형식을 사용하세요.",
+    "error_after_release": "앞의 릴리스 {{version}} {{title}}보다 높아야 합니다.",
+    "error_after_tag": "마지막 태그 {{tag}}보다 높아야 합니다.",
+    "error_later": "그러면 {{version}} {{title}}이(가) 앞의 릴리스 {{before}}보다 높지 않습니다. 다른 버전을 설정하세요.",
+    "error_later_tag": "그러면 {{version}} {{title}}이(가) 마지막 태그 {{tag}}보다 높지 않습니다. 다른 버전을 설정하세요.",
+    "title_label": "제목",
+    "title_placeholder": "계정과 프로필",
+    "required": "필수",
+    "description_label": "설명",
+    "description_placeholder": "이 릴리스가 가져오는 것",
+    "optional": "선택",
+    "ships": "태스크가 완료되고 병합되면 Multica가 {{branch}}에 {{version}} 태그를 달고, 릴리스 노트를 작성하고, GitHub 릴리스를 게시합니다. 날짜는 출시할 때 정해집니다.",
+    "finding_tag": "마지막 태그를 찾는 중",
+    "cancel": "취소",
+    "submit_plan": "{{version}} 계획",
+    "submit_plan_empty": "릴리스 계획",
+    "submit_save": "릴리스 저장",
+    "saving": "저장 중…",
+    "not_found": "이 릴리스는 더 이상 라인에 없습니다.",
+    "toast_planned": "{{version}} {{title}}을(를) 계획했습니다",
+    "toast_saved": "{{version}} {{title}}을(를) 저장했습니다",
+    "failed": "릴리스를 저장할 수 없습니다. 다시 시도하세요."
+  },
+  "refusal": {
+    "title_required": "릴리스에는 제목이 필요합니다.",
+    "version_or_bump": "패치, 마이너, 메이저 또는 직접 입력을 선택하세요.",
+    "version_invalid": "v1.4.0 형식을 사용하세요.",
+    "does_not_release": "{{repository}}은(는) 릴리스하지 않으므로 해당 worklane은 릴리스를 계획하지 않습니다.",
+    "last_tag_unknown": "이 저장소의 마지막 태그를 아직 모릅니다. 찾은 뒤 다시 시도하세요.",
+    "first_release": "첫 번째 릴리스입니다",
+    "last_release": "마지막 릴리스입니다"
+  },
+  "menu": {
+    "trigger": "릴리스 작업",
+    "edit": "릴리스 편집",
+    "move_earlier": "앞으로 이동",
+    "move_later": "뒤로 이동",
+    "remove": "릴리스 제거",
+    "first_release": "첫 번째 릴리스입니다",
+    "last_release": "마지막 릴리스입니다",
+    "too_low": "그러면 {{version}} {{title}}이(가) 앞의 릴리스 {{before}}보다 높지 않습니다",
+    "too_low_tag": "그러면 {{version}} {{title}}이(가) 마지막 태그 {{tag}}보다 높지 않습니다",
+    "finding_tag": "마지막 태그를 찾는 중",
+    "toast_moved": "{{version}} {{title}}을(를) {{direction}}했습니다",
+    "direction": {
+      "earlier": "앞으로 이동",
+      "later": "뒤로 이동"
+    },
+    "move_failed": "릴리스를 이동할 수 없습니다. 다시 시도하세요."
+  },
+  "remove": {
+    "title": "{{version}} {{title}}을(를) 제거할까요?",
+    "description": "{{repository}}의 라인과 각 worklane의 타임라인에서 사라집니다.",
+    "renumber": "이후 릴리스 번호 변경: {{changes}}.",
+    "cancel": "취소",
+    "confirm": "릴리스 제거",
+    "removing": "제거 중…",
+    "toast_removed": "{{version}} {{title}}을(를) 제거했습니다",
+    "failed": "릴리스를 제거할 수 없습니다. 다시 시도하세요."
+  },
+  "column": {
+    "state": {
+      "shipped": "출시됨",
+      "next": "다음 릴리스",
+      "planned": "계획됨"
+    },
+    "set_by_hand": "직접 설정",
+    "set_by_hand_tooltip": "직접 설정한 버전: 릴리스를 옮겨도 이 번호를 유지합니다",
+    "no_issues": "이 worklane의 태스크 없음",
+    "plan": "릴리스 계획"
+  },
+  "chips": {
+    "nothing_shipped": "출시 없음",
+    "none_planned": "계획된 릴리스 없음",
+    "does_not_release": "릴리스하지 않음",
+    "column": "마지막 · 다음 · 계획된 릴리스",
+    "open": "타임라인에서 {{version}} 열기"
+  },
+  "activity": {
+    "planned": "{{actor}}님이 {{version}} {{title}}을(를) 계획했습니다",
+    "edited": "{{actor}}님이 {{version}} {{title}}을(를) 편집했습니다",
+    "moved_earlier": "{{actor}}님이 {{version}} {{title}}을(를) 앞으로 옮겼습니다",
+    "moved_later": "{{actor}}님이 {{version}} {{title}}을(를) 뒤로 옮겼습니다",
+    "moved": "{{actor}}님이 {{version}} {{title}}을(를) 옮겼습니다",
+    "removed": "{{actor}}님이 {{version}} {{title}}을(를) 제거했습니다",
+    "change": "{{title}} {{from}} → {{to}}"
+  }
+}

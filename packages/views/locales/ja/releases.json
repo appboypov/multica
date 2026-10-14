@@ -1,0 +1,108 @@
+{
+  "dialog": {
+    "plan_title": "リリースを計画 · {{repository}}",
+    "edit_title": "リリースを編集 · {{repository}}",
+    "version_label": "バージョン",
+    "bump": {
+      "patch": "パッチ",
+      "minor": "マイナー",
+      "major": "メジャー",
+      "custom": "カスタム"
+    },
+    "custom_note": "手動で設定",
+    "custom_label": "カスタムバージョン",
+    "hint_follows_release": "{{version}} {{title}} の次です。移動すると番号が振り直されます。",
+    "hint_follows_tag": "最新のタグ {{tag}} の次です。移動すると番号が振り直されます。",
+    "hint_first": "このリポジトリの最初のリリースです。",
+    "hint_set_by_hand": "手動で設定：リリースを移動してもこの番号のままで、前のリリースより高くなければなりません。",
+    "hint_set_by_hand_first": "手動で設定：リリースを移動してもこの番号のままです。",
+    "renumber": "後のリリースの番号が変わります：{{changes}}。",
+    "renumber_change": "{{from}} → {{to}}",
+    "error_form": "v1.4.0 の形式で入力してください。",
+    "error_after_release": "前のリリース {{version}} {{title}} より高くしてください。",
+    "error_after_tag": "最新のタグ {{tag}} より高くしてください。",
+    "error_later": "そうすると {{version}} {{title}} が前のリリース {{before}} より高くなりません。別のバージョンを設定してください。",
+    "error_later_tag": "そうすると {{version}} {{title}} が最新のタグ {{tag}} より高くなりません。別のバージョンを設定してください。",
+    "title_label": "タイトル",
+    "title_placeholder": "アカウントとプロフィール",
+    "required": "必須",
+    "description_label": "説明",
+    "description_placeholder": "このリリースでできること",
+    "optional": "任意",
+    "ships": "タスクが完了してマージされると、Multica は {{branch}} に {{version}} のタグを付け、リリースノートを書き、GitHub リリースを公開します。日付はリリース時に決まります。",
+    "finding_tag": "最新のタグを確認中",
+    "cancel": "キャンセル",
+    "submit_plan": "{{version}} を計画",
+    "submit_plan_empty": "リリースを計画",
+    "submit_save": "リリースを保存",
+    "saving": "保存中…",
+    "not_found": "このリリースはもうラインにありません。",
+    "toast_planned": "{{version}} {{title}} を計画しました",
+    "toast_saved": "{{version}} {{title}} を保存しました",
+    "failed": "リリースを保存できませんでした。もう一度お試しください。"
+  },
+  "refusal": {
+    "title_required": "リリースにはタイトルが必要です。",
+    "version_or_bump": "パッチ、マイナー、メジャー、カスタムのいずれかを選んでください。",
+    "version_invalid": "v1.4.0 の形式で入力してください。",
+    "does_not_release": "{{repository}} はリリースしないため、その worklane はリリースを計画しません。",
+    "last_tag_unknown": "このリポジトリの最新のタグがまだ分かりません。見つかってからもう一度お試しください。",
+    "first_release": "最初のリリースです",
+    "last_release": "最後のリリースです"
+  },
+  "menu": {
+    "trigger": "リリースの操作",
+    "edit": "リリースを編集",
+    "move_earlier": "前へ移動",
+    "move_later": "後ろへ移動",
+    "remove": "リリースを削除",
+    "first_release": "最初のリリースです",
+    "last_release": "最後のリリースです",
+    "too_low": "そうすると {{version}} {{title}} が前のリリース {{before}} より高くなりません",
+    "too_low_tag": "そうすると {{version}} {{title}} が最新のタグ {{tag}} より高くなりません",
+    "finding_tag": "最新のタグを確認中",
+    "toast_moved": "{{version}} {{title}} を{{direction}}しました",
+    "direction": {
+      "earlier": "前へ移動",
+      "later": "後ろへ移動"
+    },
+    "move_failed": "リリースを移動できませんでした。もう一度お試しください。"
+  },
+  "remove": {
+    "title": "{{version}} {{title}} を削除しますか？",
+    "description": "{{repository}} のラインと、その各 worklane のタイムラインから外れます。",
+    "renumber": "後のリリースの番号が変わります：{{changes}}。",
+    "cancel": "キャンセル",
+    "confirm": "リリースを削除",
+    "removing": "削除中…",
+    "toast_removed": "{{version}} {{title}} を削除しました",
+    "failed": "リリースを削除できませんでした。もう一度お試しください。"
+  },
+  "column": {
+    "state": {
+      "shipped": "リリース済み",
+      "next": "次のリリース",
+      "planned": "計画中"
+    },
+    "set_by_hand": "手動で設定",
+    "set_by_hand_tooltip": "手動で設定したバージョン：リリースを移動してもこの番号のままです",
+    "no_issues": "この worklane のタスクはありません",
+    "plan": "リリースを計画"
+  },
+  "chips": {
+    "nothing_shipped": "リリースなし",
+    "none_planned": "計画中のリリースなし",
+    "does_not_release": "リリースしない",
+    "column": "前回 · 次回 · 計画中のリリース",
+    "open": "タイムラインで {{version}} を開く"
+  },
+  "activity": {
+    "planned": "{{actor}} が {{version}} {{title}} を計画しました",
+    "edited": "{{actor}} が {{version}} {{title}} を編集しました",
+    "moved_earlier": "{{actor}} が {{version}} {{title}} を前へ移動しました",
+    "moved_later": "{{actor}} が {{version}} {{title}} を後ろへ移動しました",
+    "moved": "{{actor}} が {{version}} {{title}} を移動しました",
+    "removed": "{{actor}} が {{version}} {{title}} を削除しました",
+    "change": "{{title}} {{from}} → {{to}}"
+  }
+}

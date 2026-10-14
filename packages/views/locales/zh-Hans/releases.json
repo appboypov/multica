@@ -1,0 +1,108 @@
+{
+  "dialog": {
+    "plan_title": "规划版本 · {{repository}}",
+    "edit_title": "编辑版本 · {{repository}}",
+    "version_label": "版本号",
+    "bump": {
+      "patch": "补丁",
+      "minor": "次要",
+      "major": "主要",
+      "custom": "自定义"
+    },
+    "custom_note": "手动设定",
+    "custom_label": "自定义版本号",
+    "hint_follows_release": "接在 {{version}} {{title}} 之后。移动它会重新编号。",
+    "hint_follows_tag": "接在最新标签 {{tag}} 之后。移动它会重新编号。",
+    "hint_first": "这是该仓库的第一个版本。",
+    "hint_set_by_hand": "手动设定：移动版本时保留此版本号，且必须高于它之前的版本。",
+    "hint_set_by_hand_first": "手动设定：移动版本时保留此版本号。",
+    "renumber": "后续版本重新编号：{{changes}}。",
+    "renumber_change": "{{from}} → {{to}}",
+    "error_form": "请使用 v1.4.0 的格式。",
+    "error_after_release": "必须高于它之前的版本 {{version}} {{title}}。",
+    "error_after_tag": "必须高于最新标签 {{tag}}。",
+    "error_later": "这样 {{version}} {{title}} 将不高于它之前的版本 {{before}}。请设定其他版本号。",
+    "error_later_tag": "这样 {{version}} {{title}} 将不高于最新标签 {{tag}}。请设定其他版本号。",
+    "title_label": "标题",
+    "title_placeholder": "账户与个人资料",
+    "required": "必填",
+    "description_label": "描述",
+    "description_placeholder": "这个版本带来什么",
+    "optional": "可选",
+    "ships": "当它的任务完成并合并后，Multica 会在 {{branch}} 上打 {{version}} 标签，撰写发布说明并发布 GitHub release。它在发布时获得日期。",
+    "finding_tag": "正在查找最新标签",
+    "cancel": "取消",
+    "submit_plan": "规划 {{version}}",
+    "submit_plan_empty": "规划版本",
+    "submit_save": "保存版本",
+    "saving": "正在保存…",
+    "not_found": "这个版本已不在版本线上。",
+    "toast_planned": "已规划 {{version}} {{title}}",
+    "toast_saved": "已保存 {{version}} {{title}}",
+    "failed": "无法保存版本，请重试。"
+  },
+  "refusal": {
+    "title_required": "版本需要一个标题。",
+    "version_or_bump": "请选择补丁、次要、主要或自定义。",
+    "version_invalid": "请使用 v1.4.0 的格式。",
+    "does_not_release": "{{repository}} 不发布版本，因此它的 worklane 不规划版本。",
+    "last_tag_unknown": "尚不知道该仓库的最新标签。找到后请重试。",
+    "first_release": "它是第一个版本",
+    "last_release": "它是最后一个版本"
+  },
+  "menu": {
+    "trigger": "版本操作",
+    "edit": "编辑版本",
+    "move_earlier": "提前",
+    "move_later": "推后",
+    "remove": "移除版本",
+    "first_release": "它是第一个版本",
+    "last_release": "它是最后一个版本",
+    "too_low": "这样 {{version}} {{title}} 将不高于它之前的版本 {{before}}",
+    "too_low_tag": "这样 {{version}} {{title}} 将不高于最新标签 {{tag}}",
+    "finding_tag": "正在查找最新标签",
+    "toast_moved": "已将 {{version}} {{title}}{{direction}}",
+    "direction": {
+      "earlier": "提前",
+      "later": "推后"
+    },
+    "move_failed": "无法移动版本，请重试。"
+  },
+  "remove": {
+    "title": "移除 {{version}} {{title}}？",
+    "description": "它将离开 {{repository}} 的版本线以及其每个 worklane 的时间线。",
+    "renumber": "后续版本重新编号：{{changes}}。",
+    "cancel": "取消",
+    "confirm": "移除版本",
+    "removing": "正在移除…",
+    "toast_removed": "已移除 {{version}} {{title}}",
+    "failed": "无法移除版本，请重试。"
+  },
+  "column": {
+    "state": {
+      "shipped": "已发布",
+      "next": "下一个版本",
+      "planned": "已规划"
+    },
+    "set_by_hand": "手动设定",
+    "set_by_hand_tooltip": "版本号为手动设定：移动版本时保留此版本号",
+    "no_issues": "没有此 worklane 的任务",
+    "plan": "规划版本"
+  },
+  "chips": {
+    "nothing_shipped": "尚未发布",
+    "none_planned": "没有规划的版本",
+    "does_not_release": "不发布版本",
+    "column": "上一个 · 下一个 · 已规划版本",
+    "open": "在时间线上打开 {{version}}"
+  },
+  "activity": {
+    "planned": "{{actor}} 规划了 {{version}} {{title}}",
+    "edited": "{{actor}} 编辑了 {{version}} {{title}}",
+    "moved_earlier": "{{actor}} 将 {{version}} {{title}} 提前",
+    "moved_later": "{{actor}} 将 {{version}} {{title}} 推后",
+    "moved": "{{actor}} 移动了 {{version}} {{title}}",
+    "removed": "{{actor}} 移除了 {{version}} {{title}}",
+    "change": "{{title}} {{from}} → {{to}}"
+  }
+}
