@@ -2257,7 +2257,7 @@ func TestPromptCarriesJoinedWakeups(t *testing.T) {
 }
 
 func TestQuestionWakePromptAppendsAnswersAfterRunContext(t *testing.T) {
-	task := Task{IssueID: "issue-1", InitiatorName: "Brian", InitiatorEmail: "brian@example.com"}
+	task := Task{IssueID: "issue-1", InitiatorName: "Brian", InitiatorEmail: "brian@example.com", QuestionsEnabled: true}
 	without := BuildPrompt(task, "codex")
 	task.QuestionAnswers = &protocol.QuestionAnswers{
 		WakerName: "Brian", AnswerCount: 2,

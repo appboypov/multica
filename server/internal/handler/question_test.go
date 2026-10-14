@@ -21,7 +21,7 @@ func newQuestionAPIFixture(t *testing.T) questionAPIFixture {
 	runtime := dbfx.Runtime(t, t.Name())
 	agent := dbfx.Agent(t, t.Name()+"-"+runtime, runtime)
 	issue := dbfx.Issue(t, t.Name())
-	task := dbfx.Task(t, agent, testutil.Cols{"runtime_id": runtime, "issue_id": issue, "status": "running", "started_at": testutil.Raw("now()-interval '1 hour'")})
+	task := dbfx.Task(t, agent, testutil.Cols{"runtime_id": runtime, "issue_id": issue, "status": "running", "started_at": testutil.Raw("now()-interval '1 hour'"), "questions_enabled": true})
 	// Task tokens and activity rows are run-owned, without database cascades.
 	dbfx.Cleanup(t, "DELETE FROM task_token WHERE task_id IN (SELECT id FROM agent_task_queue WHERE agent_id=$1)", agent)
 	dbfx.Cleanup(t, "DELETE FROM agent_task_queue WHERE agent_id=$1", agent)

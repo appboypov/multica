@@ -14,9 +14,9 @@ func TestQuestionsSectionForIssueRuns(t *testing.T) {
 		ctx  TaskContextForEnv
 		want bool
 	}{
-		{"assignment", TaskContextForEnv{IssueID: "issue-1"}, true},
-		{"comment", TaskContextForEnv{IssueID: "issue-1", TriggerCommentID: "comment-1"}, true},
-		{"autopilot on issue", TaskContextForEnv{IssueID: "issue-1", AutopilotRunID: "run-1"}, true},
+		{"assignment", TaskContextForEnv{IssueID: "issue-1", QuestionsEnabled: true}, true},
+		{"comment", TaskContextForEnv{IssueID: "issue-1", TriggerCommentID: "comment-1", QuestionsEnabled: true}, true},
+		{"autopilot on issue", TaskContextForEnv{IssueID: "issue-1", AutopilotRunID: "run-1", QuestionsEnabled: true}, true},
 		{"autopilot without issue", TaskContextForEnv{AutopilotRunID: "run-1"}, false},
 		{"chat", TaskContextForEnv{ChatSessionID: "chat-1"}, false},
 		{"chat with linked issue", TaskContextForEnv{IssueID: "issue-1", ChatSessionID: "chat-1"}, false},

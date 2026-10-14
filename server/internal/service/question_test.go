@@ -40,7 +40,7 @@ func newQuestionFixture(t *testing.T) *questionFixture {
 	runtime := fx.Runtime(t, "question-runtime")
 	agent := fx.Agent(t, "Pieter", runtime)
 	issue := fx.Issue(t, "Invoice rules", testutil.Cols{"assignee_type": "agent", "assignee_id": agent, "status": "in_progress"})
-	task := fx.Task(t, agent, testutil.Cols{"runtime_id": runtime, "issue_id": issue, "status": "running", "started_at": testutil.Raw("clock_timestamp() - interval '1 hour'")})
+	task := fx.Task(t, agent, testutil.Cols{"runtime_id": runtime, "issue_id": issue, "status": "running", "started_at": testutil.Raw("clock_timestamp() - interval '1 hour'"), "questions_enabled": true})
 	// Service writes have no cascading deletes. Remove dependents before the
 	// fixture-owned issue, task, agent and workspace rows are cleaned up.
 	fx.Cleanup(t, `DELETE FROM agent_task_queue WHERE issue_id = $1 AND id <> $2`, issue, task)
