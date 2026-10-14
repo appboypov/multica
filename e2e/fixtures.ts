@@ -90,6 +90,18 @@ export interface TestRepository {
   checkout_daemon_id: string;
   checkout_path: string;
   version_policy: string;
+  /** "" means None, and null means not found yet. */
+  install_command: string | null;
+}
+
+export interface TestWorklane {
+  id: string;
+  repository_id: string;
+  name: string;
+  folder: string | null;
+  path: string | null;
+  is_main: boolean;
+  state: string;
 }
 
 export interface TestRepositoryCheckout {
@@ -120,6 +132,41 @@ export interface TestDirectoryListingResult {
   path: string;
   entries: { name: string; path: string; kind: "folder" | "file"; hidden: boolean }[];
 }
+
+/** A worklane request the heartbeat hands the daemon (`pending_worklane_request`). */
+export interface TestWorklaneRequest {
+  id: string;
+  kind: "create" | "remove" | "switch";
+  full_name: string;
+  default_branch: string;
+  checkout_path: string;
+  path: string;
+  install_command?: string;
+  from_step?: string;
+  worklane_id?: string;
+}
+
+export interface TestWorklaneStep {
+  key: "fetch" | "add_worktree" | "install" | "open";
+  state: "pending" | "running" | "done" | "skipped" | "failed";
+  detail: string;
+  output: string;
+  duration_ms: number;
+}
+
+/** What the daemon posts to a worklane request's progress route. */
+export interface TestWorklaneProgress {
+  steps?: TestWorklaneStep[];
+  path?: string;
+  outcome?: "removed" | "refused" | "failed";
+  reason?: { code: string; detail: string };
+}
+
+export type TestWorklaneAnswer = (
+  request: TestWorklaneRequest,
+  report: (progress: TestWorklaneProgress) => Promise<void>,
+  signal: AbortSignal,
+) => Promise<void>;
 
 export class TestApiClient {
   private token: string | null = null;
@@ -575,21 +622,27 @@ export class TestApiClient {
     }
   }
 
-  /** User JWT registration makes this local runtime owned by the viewer. */
+  /**
+   * User JWT registration makes this local runtime owned by the viewer.
+   * Capabilities go in `X-Client-Capabilities`, as a daemon sends them.
+   */
   async registerRepositoryRuntime(
     deviceName: string,
     status: "online" | "offline" = "online",
+    capabilities: string[] = [],
   ): Promise<{ id: string; daemon_id: string }> {
     if (!this.workspaceId) throw new Error("Select a workspace before registering a runtime");
     const body = await this.repositoryRequest<{ runtimes: { id: string; daemon_id: string }[] }>(
       "/api/daemon/register",
       {
         method: "POST",
+        headers: capabilities.length > 0 ? { "X-Client-Capabilities": capabilities.join(",") } : undefined,
         body: JSON.stringify({
           workspace_id: this.workspaceId,
           daemon_id: randomUUID(),
           device_name: deviceName,
-          runtimes: [{ name: "E2E checkout", type: "codex", status }],
+          // Named as the daemon names its runtimes: `{provider} ({device})`.
+          runtimes: [{ name: `Codex (${deviceName})`, type: "codex", status }],
         }),
       },
     );
@@ -599,7 +652,10 @@ export class TestApiClient {
     return runtime;
   }
 
-  /** Poll the real daemon queue; no browser route interception replaces checkout checks. */
+  /**
+   * Poll the real daemon queue. No browser route interception replaces checkout
+   * checks or worklane requests. A worklane answer posts its own progress.
+   */
   async startRepositoryCheckoutAnswerer(
     runtimeId: string,
     answer: (
@@ -607,12 +663,14 @@ export class TestApiClient {
       signal: AbortSignal,
     ) => TestRepositoryCheckoutResult | Promise<TestRepositoryCheckoutResult>,
     answerDirectory?: (request: TestDirectoryListing) => TestDirectoryListingResult,
+    answerWorklane?: TestWorklaneAnswer,
   ): Promise<() => Promise<void>> {
     const controller = new AbortController();
     const tick = async () => {
       const heartbeat = await this.repositoryRequest<{
         pending_repository_checkout?: TestRepositoryCheckout | null;
         pending_directory_listing?: TestDirectoryListing | null;
+        pending_worklane_request?: TestWorklaneRequest | null;
       }>("/api/daemon/heartbeat", {
         method: "POST",
         body: JSON.stringify({ runtime_id: runtimeId }),
@@ -632,6 +690,17 @@ export class TestApiClient {
           `/api/daemon/runtimes/${runtimeId}/directory-listings/${directory.id}/result`,
           { method: "POST", body: JSON.stringify(answerDirectory(directory)), signal: controller.signal },
         );
+      }
+      const worklane = heartbeat.pending_worklane_request;
+      if (worklane) {
+        if (!answerWorklane) throw new Error(`Unexpected worklane request: ${worklane.kind} ${worklane.path}`);
+        const report = async (progress: TestWorklaneProgress) => {
+          await this.repositoryRequest<unknown>(
+            `/api/daemon/runtimes/${runtimeId}/worklane-requests/${worklane.id}/progress`,
+            { method: "POST", body: JSON.stringify(progress), signal: controller.signal },
+          );
+        };
+        await answerWorklane(worklane, report, controller.signal);
       }
     };
     await tick();
@@ -681,12 +750,17 @@ export class TestApiClient {
     throw new Error(`Timed out waiting for checkout ${path}`);
   }
 
-  async createRepository(projectId: string, fullName: string, checkId: string): Promise<TestRepository> {
+  async createRepository(
+    projectId: string,
+    fullName: string,
+    checkId: string,
+    installCommand = "",
+  ): Promise<TestRepository> {
     const repository = await this.repositoryRequest<TestRepository>("/api/repositories", {
       method: "POST",
       body: JSON.stringify({
         project_id: projectId, full_name: fullName, checkout_check_id: checkId,
-        version_policy: "package.json", install_command: "",
+        version_policy: "package.json", install_command: installCommand,
       }),
     });
     this.createdRepositoryIds.push(repository.id);
@@ -699,11 +773,60 @@ export class TestApiClient {
     });
   }
 
-  async listRepositoryWorklanes(repositoryId: string): Promise<{ id: string; name: string; state: string }[]> {
-    const body = await this.repositoryRequest<{
-      worklanes: { id: string; name: string; state: string; repository_id: string }[];
-    }>("/api/worklanes");
+  async listRepositoryWorklanes(repositoryId: string): Promise<TestWorklane[]> {
+    const body = await this.repositoryRequest<{ worklanes: TestWorklane[] }>("/api/worklanes");
     return body.worklanes.filter((worklane) => worklane.repository_id === repositoryId);
+  }
+
+  /**
+   * Create a worklane through the real request flow: the runtime's answerer
+   * must answer create requests. Returns the saved worklane's id.
+   */
+  async createWorklane(repositoryId: string, name: string, folder: string, daemonId: string): Promise<string> {
+    const created = await this.repositoryRequest<{ id: string }>("/api/worklane-requests", {
+      method: "POST",
+      body: JSON.stringify({ repository_id: repositoryId, name, folder, daemon_id: daemonId }),
+    });
+    const deadline = Date.now() + 15000;
+    while (Date.now() < deadline) {
+      const request = await this.repositoryRequest<{ status: string; worklane_id: string | null; reason: unknown }>(
+        `/api/worklane-requests/${created.id}`,
+      );
+      if (request.status === "completed" && request.worklane_id) return request.worklane_id;
+      if (request.status !== "running") {
+        throw new Error(`Worklane ${name} ${request.status}: ${JSON.stringify(request.reason)}`);
+      }
+      await delay(100);
+    }
+    throw new Error(`Timed out creating worklane ${name}`);
+  }
+
+  async updateOrganisationKey(id: string, key: string): Promise<void> {
+    await this.repositoryRequest<unknown>(`/api/organisations/${id}`, {
+      method: "PUT", body: JSON.stringify({ key }),
+    });
+  }
+
+  /** A runtime goes offline or online as its daemon's heartbeat would set it. */
+  async setRuntimeStatus(runtimeId: string, status: "online" | "offline"): Promise<void> {
+    const client = new pg.Client(DATABASE_URL);
+    await client.connect();
+    try {
+      await client.query("UPDATE agent_runtime SET status = $1 WHERE id = $2", [status, runtimeId]);
+    } finally {
+      await client.end();
+    }
+  }
+
+  /** A repository added before repositories had an install command. */
+  async clearRepositoryInstallCommand(repositoryId: string): Promise<void> {
+    const client = new pg.Client(DATABASE_URL);
+    await client.connect();
+    try {
+      await client.query("UPDATE repository SET install_command = NULL WHERE id = $1", [repositoryId]);
+    } finally {
+      await client.end();
+    }
   }
 
   async planRepositoryRelease(repositoryId: string, title: string): Promise<{ id: string }> {
@@ -736,6 +859,7 @@ export class TestApiClient {
     if (!response.ok) {
       throw new Error(`${init?.method ?? "GET"} ${path}: ${response.status} ${await response.text()}`);
     }
+    if (response.status === 204) return undefined as T;
     return response.json();
   }
 
@@ -776,6 +900,25 @@ export class TestApiClient {
     if (projectIds.size > 0 || repositoryIds.size > 0) {
       for (const repository of await this.listRepositories()) {
         if (projectIds.has(repository.project_id)) repositoryIds.add(repository.id);
+      }
+      // Remove repository refuses while a worklane besides main exists, and a
+      // worklane's own Remove needs a daemon: its rows go from the database.
+      if (repositoryIds.size > 0 && this.workspaceId) {
+        const client = new pg.Client(DATABASE_URL);
+        await client.connect();
+        try {
+          await client.query(
+            `DELETE FROM activity_log WHERE workspace_id = $1 AND worklane_id IN
+              (SELECT id FROM worklane WHERE workspace_id = $1 AND repository_id = ANY($2::uuid[]) AND NOT is_main)`,
+            [this.workspaceId, [...repositoryIds]],
+          );
+          await client.query(
+            `DELETE FROM worklane WHERE workspace_id = $1 AND repository_id = ANY($2::uuid[]) AND NOT is_main`,
+            [this.workspaceId, [...repositoryIds]],
+          );
+        } finally {
+          await client.end();
+        }
       }
       for (const id of repositoryIds) {
         const response = await this.authedFetch(`/api/repositories/${id}`, { method: "DELETE" });
