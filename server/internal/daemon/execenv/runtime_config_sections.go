@@ -268,7 +268,16 @@ func writeAvailableCommands(b *strings.Builder, ctx TaskContextForEnv) {
 	b.WriteString("- `multica issue wakeup <create|list|get|update|disable|trigger|delete|runs|events>` — persist an event, condition or time wakeup on this issue, then finish the current run. When the platform can check the fact itself, use a condition (`--until-status`, `--until-pr checks`, `--until-children-done`, `--until-issue`) so no run starts before it holds. Use `--event comment.created --filter-actor-type member --filter-actor-id USER_ID` to wait for a specific member to comment. See `multica issue wakeup --help` and the multica-platform issues reference.\n")
 	b.WriteString("- `multica issue children <id> [--output json]` — list a parent's sub-issues grouped by stage.\n")
 	b.WriteString("- `multica issue comment add <issue-id> [--content \"...\" | --content-file <path> | --content-stdin] [--parent <comment-id>] [--attachment <path>]` — post a comment. Agent-authored bodies MUST use `--content-file`; see `## Comment Formatting` for why. `multica issue comment add --help` for full flags.\n")
-	if ctx.IssueID != "" && len(ctx.Repositories) > 0 {
+	hasIssueWorktree := false
+	if ctx.IssueID != "" {
+		for _, repo := range ctx.Repositories {
+			if repo.WorktreePath != "" {
+				hasIssueWorktree = true
+				break
+			}
+		}
+	}
+	if hasIssueWorktree {
 		b.WriteString("\nWorktree Rule: work in the issue worktree listed for the repository, on its branch. Commit and push there; never change code in the repository's normal checkout. `multica repo checkout owner/name` reuses this issue worktree and prints its path.\n\n")
 	} else {
 		b.WriteString("\n" + worktreeRule)
@@ -420,10 +429,26 @@ func writeCommentFormatting(b *strings.Builder) {
 	b.WriteString(commentReceiptRule)
 }
 
-// writeRepositories emits the Repositories section when at least one repo
-// is configured. The closing paragraph from the legacy version is dropped
-// (it re-stated the opening); intro is tightened into one line.
+// writeRepositories lists project repositories and their paths on this runtime,
+// or the workspace repositories when the task has no project repositories.
 func writeRepositories(b *strings.Builder, ctx TaskContextForEnv) {
+	if len(ctx.Repositories) > 0 {
+		b.WriteString("## Repositories\n\n")
+		b.WriteString("Project repositories (also in `.multica/project/repositories.json`):\n\n")
+		for _, repo := range ctx.Repositories {
+			fmt.Fprintf(b, "- **%s** — default branch `%s`", repo.FullName, repo.DefaultBranch)
+			if ctx.IssueID != "" && repo.WorktreePath != "" {
+				fmt.Fprintf(b, "; issue worktree `%s`", repo.WorktreePath)
+			} else if repo.CheckoutPath != "" {
+				fmt.Fprintf(b, "; checkout `%s`", repo.CheckoutPath)
+			} else {
+				b.WriteString("; on another runtime")
+			}
+			b.WriteString("\n")
+		}
+		b.WriteString("\n")
+		return
+	}
 	if len(ctx.Repos) == 0 {
 		return
 	}
@@ -500,21 +525,7 @@ func writeProjectContext(b *strings.Builder, ctx TaskContextForEnv) {
 		b.WriteString(desc)
 		b.WriteString("\n\n")
 	}
-	if len(ctx.Repositories) > 0 {
-		b.WriteString("Project repositories (also in `.multica/project/repositories.json`):\n\n")
-		for _, repo := range ctx.Repositories {
-			fmt.Fprintf(b, "- **%s** — default branch `%s`", repo.FullName, repo.DefaultBranch)
-			if repo.WorktreePath != "" {
-				fmt.Fprintf(b, "; issue worktree `%s`", repo.WorktreePath)
-			} else if repo.CheckoutPath != "" {
-				fmt.Fprintf(b, "; checkout `%s`", repo.CheckoutPath)
-			} else {
-				b.WriteString("; on another runtime")
-			}
-			b.WriteString("\n")
-		}
-		b.WriteString("\n")
-	} else {
+	if len(ctx.Repositories) == 0 {
 		b.WriteString("This project has no repositories yet.\n\n")
 	}
 }

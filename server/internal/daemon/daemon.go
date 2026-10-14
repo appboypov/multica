@@ -5786,12 +5786,9 @@ func (d *Daemon) handleTask(ctx context.Context, task Task, slot int) {
 		"reuse_workdir", task.PriorWorkDir != "",
 	)
 
-	// If the task targets a project_resource of type local_directory that
-	// is pinned to this daemon, acquire the path mutex before runner.run
-	// so the server-side state machine is dispatched →
-	// waiting_local_directory → running rather than backwards-transitioning
-	// from running into the wait state. The release is deferred so a panic
-	// or early return always frees the lock for the next waiter.
+	// Lock each local issue worktree before preparation and runner.run, so a
+	// contending task waits before it enters running. The deferred release
+	// also frees every path on panic or early return.
 	//
 	// StartTask itself now lives in runTask (see issue #3999 race A) and
 	// fires only after execenv.Prepare/Reuse has put env.WorkDir on disk,
@@ -8469,7 +8466,7 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, slot i
 				execOpts.SystemPrompt = runtimeBrief
 			}
 		}
-		freshPrompt := BuildPrompt(task, provider, promptOptions...)
+		freshPrompt := BuildPrompt(task, provider)
 
 		retryResult, retryTools, retryErr := d.executeAndDrain(ctx, backend, freshPrompt, execOpts, taskLog, task.ID, env.CodexHome, &msgSeq)
 		if retryErr != nil {

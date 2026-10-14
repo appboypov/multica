@@ -17,7 +17,8 @@ The chain is:
 2. the task points at an agent and runtime;
 3. the server wakes the runtime over the daemon websocket when possible;
 4. the daemon polls and claims the task;
-5. the server returns task context, repos, project resources, prior
+5. the server returns task context, project repositories with local checkout or
+   recorded issue-worktree paths, organisation and issue keys, prior
    session/workdir hints, and a task token;
 6. the daemon prepares a workdir and launches the provider CLI;
 7. `multica repo checkout` talks to the local daemon, not directly to GitHub.
@@ -30,6 +31,7 @@ multica runtime usage <runtime-id> --output json
 multica runtime activity <runtime-id> --output json
 multica runtime update <runtime-id> --target-version <version> --output json
 multica runtime delete <runtime-id>
+multica repo checkout owner/name
 multica repo checkout <url>
 multica repo checkout <url> --ref <branch-or-sha>
 multica repo checkout <url> --fresh
@@ -61,9 +63,15 @@ clears the agent's runtime binding; an unbound agent cannot run until it is
 bound again (`multica agent update <id> --runtime-id <runtime-id>`), and every
 trigger path refuses it with `agent_runtime_required`.
 
-In this fork, agents do not use `repo checkout` for code work: the task brief
-has them create their own git worktree, as the `madspec-git` skill says. What
-follows describes the command itself.
+For an issue task's project repository, `repo checkout owner/name` makes or
+reuses the issue worktree on this daemon, records it on the server and prints
+its path. It never redirects code work into the repository's normal checkout.
+The brief lists each local issue worktree; repositories on another runtime are
+listed without a local path. Work, commit and push in the issue worktree on its
+branch. With one local repository the task starts there; with several it starts
+in its task folder. Chat tasks receive checkout paths but no issue worktrees.
+
+The bare-cache path below remains for URLs that are not project repositories.
 
 `repo checkout` creates a dedicated branch in the task working directory. Most
 runtimes use a linked worktree; Linux and Windows Codex use task-local Git
@@ -102,10 +110,12 @@ that includes the change; older daemons always start over.
 that task's workdir (or a descendant). The local daemon authenticates the token
 against its active-task registry, derives workspace/task/agent identity itself,
 and rejects a caller-supplied workdir outside that task. If either variable is
-absent, you are not in the normal agent checkout path. When a project
-`github_repo` resource has `resource_ref.ref`, `repo checkout <url>` uses that
-ref by default for the current task; an explicit
-`repo checkout <url> --ref <branch-or-sha>` overrides it.
+absent, you are not in the normal agent checkout path. Project repositories use
+the recorded issue-worktree path even after the issue key changes, or prepare
+a missing worktree from the fetched repository default branch. `--ref` and
+`--fresh` do not replace that persistent issue worktree. For a URL outside the
+project repositories, `--ref <branch-or-sha>` chooses the bare-cache checkout's
+starting point.
 
 ## Task CLI boundary
 
@@ -156,25 +166,20 @@ Check in this order:
 3. Is the agent archived or bound to a runtime the actor cannot use?
 4. Is the runtime online? `multica runtime list --output json`.
 5. Did the daemon heartbeat recently? Runtime `last_seen_at` is the visible clue.
-6. Did the task get claimed or is it stuck pending/running/waiting for local directory?
+6. Did the task get claimed or is it stuck pending/running/waiting for a worktree?
 7. If repo checkout failed, classify it after checking whether repo context was
    present in the task/project context.
 
 ## Repos
 
-The runtime brief lists repos available to this task. Treat that list as the
-authority for agent checkout unless the user explicitly asks to bind a new
-project resource.
+The runtime brief lists repositories available to this task. Project repositories
+replace workspace repository metadata for tasks in that project; a project
+without repositories falls back to workspace repositories. The brief and
+`.multica/project/repositories.json` carry each project repository's identity,
+default branch and local paths. A repository on another runtime is named without
+a usable path.
 
-Workspace repos and project resources are not the same thing:
-
-- workspace repo metadata can appear in workspace context;
-- `github_repo` project resources are durable project context and can affect
-  future tasks; optional `resource_ref.ref` pins the default checkout ref for
-  tasks in that project;
-- `local_directory` resources point at a path owned by a daemon and carry
-  local-machine assumptions.
-
-Do not add a project resource just because `repo checkout` failed. First
-determine whether the user asked for durable project context or just a task
-checkout.
+Repository membership and checkout changes are durable project mutations;
+`repo checkout owner/name` is a task operation that reuses the issue worktree,
+not a way to add a project repository. [Projects and repositories](projects.md)
+describes the checked checkout flow and the cleanup when an issue closes.
