@@ -231,7 +231,8 @@
     },
     "template_note": "These fields fill the {{template}} template's Markdown. The issue keeps only that Markdown as its description; code and technical design go in the change.",
     "submit_type": "Create {{type}}",
-    "required_missing": "Fill the title and every required field to create"
+    "required_missing": "Fill the title and every required field to create",
+    "project_from_worklane": "The project follows the worklane"
   },
   "mark_duplicate": {
     "title": "Mark as duplicate",

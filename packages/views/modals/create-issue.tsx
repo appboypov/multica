@@ -31,9 +31,16 @@ import type {
   IssuePriority,
   IssueAssigneeType,
   IssuePropertyValue,
+  IssueType,
   SourceContextPreview,
 } from "@multica/core/types";
-import { contentReferencesAttachment } from "@multica/core/types";
+import { issueTemplatesOptions, requiredFilled, templateMarkdown } from "@multica/core/issues/templates";
+import {
+  defaultStatus,
+  openedFrom,
+  releaseForWorklane,
+  type NewIssueOrigin,
+} from "@multica/core/issues/placement";
 import {
   DialogContent,
   DialogTitle,
@@ -49,13 +56,18 @@ import {
   DropdownMenuTrigger,
 } from "@multica/ui/components/ui/dropdown-menu";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@multica/ui/components/ui/tooltip";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@multica/ui/components/ui/tabs";
 import { Button } from "@multica/ui/components/ui/button";
 import { Switch } from "@multica/ui/components/ui/switch";
-import { ContentEditor, type ContentEditorRef, TitleEditor, type TitleEditorRef, useFileDropZone, FileDropOverlay, useUploadGate, useComposerSubmit } from "../editor";
-import { useIssueCreateUploads } from "./use-issue-create-uploads";
+import { TitleEditor, type TitleEditorRef, type ContentEditorRef, useFileDropZone, FileDropOverlay, useUploadGate, useComposerSubmit } from "../editor";
+import { manualAttachmentMarkdown, useIssueCreateUploads } from "./use-issue-create-uploads";
 import { useShortcut } from "@multica/core/shortcuts";
 import { ShortcutKeycaps } from "../common/shortcut-keycaps";
-import { StatusIcon, StatusPicker, PriorityIcon, PriorityPicker, StagePicker, AssigneePicker, StartDatePicker, DueDatePicker, LabelPicker } from "../issues/components";
+import { StatusIcon, StatusPicker, PriorityIcon, PriorityPicker, StagePicker, AssigneePicker, StartDatePicker, DueDatePicker, LabelPicker, TypeIcon, WorklanePicker, ReleasePicker } from "../issues/components";
+import { usePlacementData } from "../issues/components/pickers";
+import { TemplateList } from "../issues/components/templates/template-list";
+import { TemplateFields } from "../issues/components/templates/template-fields";
+import { TemplateAttachments } from "../issues/components/templates/template-attachments";
 import { maxSiblingStage } from "../issues/components/pickers/stage-picker";
 import { ProjectPicker } from "../projects/components/project-picker";
 import { useIssueTriggerPreview } from "../issues/hooks/use-issue-trigger-preview";
@@ -249,11 +261,29 @@ export function ManualCreatePanel({
   const [title, setTitle] = useState(draft.manual.title);
   const [formResetKey, setFormResetKey] = useState(0);
   const titleEditorRef = useRef<TitleEditorRef>(null);
-  const descEditorRef = useRef<ContentEditorRef>(null);
+  // The manual form has no description editor: the template's fields fill the
+  // description. The upload engine takes an editor ref, and this one stays empty.
+  const uploadEditorRef = useRef<ContentEditorRef>(null);
   const { isDragOver: descDragOver, dropZoneProps: descDropZoneProps } = useFileDropZone({
-    onDrop: (files) => files.forEach((f) => descEditorRef.current?.uploadFile(f)),
+    onDrop: (files) => files.forEach((f) => void handleUpload(f)),
   });
   const [status, setStatus] = useState<IssueStatus>((data?.status as IssueStatus) || draft.manual.status);
+  // Whether Brian picked the status; otherwise it follows the release.
+  const [statusPicked, setStatusPicked] = useState(
+    typeof data?.status === "string" || draft.manual.statusPicked,
+  );
+  const [type, setType] = useState<IssueType>(draft.manual.type);
+  const [fields, setFields] = useState<Record<string, string>>(draft.manual.fields);
+  const [pane, setPane] = useState<"fields" | "markdown">("fields");
+  // Where New issue opened: a worklane (and a release) or a project fills in
+  // the placement; from elsewhere the draft keeps its own.
+  const [origin] = useState(() => newIssueOrigin(data));
+  const [worklaneId, setWorklaneId] = useState<string | null>(
+    origin && "worklaneId" in origin ? origin.worklaneId : draft.manual.worklaneId,
+  );
+  const [releaseId, setReleaseId] = useState<string | null>(
+    origin && "worklaneId" in origin ? (origin.releaseId ?? null) : draft.manual.releaseId,
+  );
   const [priority, setPriority] = useState<IssuePriority>(
     (data?.priority as IssuePriority | undefined) ?? draft.shared.priority,
   );
@@ -341,45 +371,58 @@ export function ManualCreatePanel({
     setActiveMode("manual");
   }, [setActiveMode]);
 
-  // Prune completed uploads whose markdown reference was deleted in an
-  // earlier editing session. Runs once on mount: at that point the persisted
-  // manual description / agent prompt ARE the draft bodies (no editor edits
-  // have happened yet), so dropping `uploaded` records referenced by neither
-  // is safe. Placeholders (uploading / failed / interrupted) are always kept —
-  // they have no body reference yet and the status chips are their only UI.
-  // Don't prune on description updates — an onUpdate flush can race a
-  // just-finished upload whose markdown link hasn't been inserted yet, and
-  // pruning there would drop a live attachment.
-  useEffect(() => {
-    const { draft: current } = useIssueDraftStore.getState();
-    const uploads = current.shared.attachments ?? [];
-    const kept = uploads.filter(
-      (u) =>
-        u.status !== "uploaded" ||
-        contentReferencesAttachment(current.manual.description, u.attachment) ||
-        contentReferencesAttachment(current.agent.prompt, u.attachment),
-    );
-    if (kept.length !== uploads.length) setShared({ attachments: kept });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   // Gate every action that fixes this draft: Create and the switch to agent
   // mode (which assist-inits the agent prompt from the description and would
   // carry a stripped body across).
-  const uploadGate = useUploadGate(descEditorRef);
+  const uploadGate = useUploadGate(uploadEditorRef);
   // Coordinator-owned uploads in the shared pool (MUL-5181, L2): a file picked
   // here survives dialog close, aborts on logout, and is dropped after a
   // reload. `gate` widens the editor gate with the pool's placeholders.
   const {
+    uploads,
     attachments: draftAttachments,
     handleUpload,
+    removeUpload,
     gate,
-  } = useIssueCreateUploads("manual", uploadGate, descEditorRef);
+  } = useIssueCreateUploads("manual", uploadGate, uploadEditorRef);
+
+  const { data: templates = [] } = useQuery(issueTemplatesOptions());
+  const template = templates.find((candidate) => candidate.type === type);
+  const typeName = tIssues(($) => $.types[type].name);
+  const placementData = usePlacementData();
+  // The opened-from placement fills in as the worklanes and releases load,
+  // until Brian picks one himself.
+  const placementTouched = useRef(false);
+  useEffect(() => {
+    if (!origin || placementTouched.current) return;
+    const placed = openedFrom(origin, placementData);
+    setWorklaneId(placed.worklaneId);
+    setReleaseId(placed.releaseId);
+    setManual({ worklaneId: placed.worklaneId, releaseId: placed.releaseId });
+  }, [origin, placementData, setManual]);
+  const worklane = worklaneId
+    ? placementData.worklanes.find((candidate) => candidate.id === worklaneId)
+    : undefined;
+  // The project follows the worklane's repository while a worklane is picked.
+  const worklaneProjectId = worklane
+    ? (placementData.repositories.find((r) => r.id === worklane.repository_id)?.project_id ?? null)
+    : null;
+  const submitProjectId = worklane ? (worklaneProjectId ?? undefined) : projectId;
+  const effectiveStatus = defaultStatus(releaseId, statusPicked ? status : null);
+  const fieldsMarkdown = template ? templateMarkdown(template, fields) : "";
+  // The issue's description: the template's Markdown, then the files' links.
+  const description = [fieldsMarkdown, manualAttachmentMarkdown(uploads)]
+    .filter((part) => part !== "")
+    .join("\n\n");
 
   // Sync field changes to the draft store — manual-only fields to the manual
   // slot, project / priority / due date to the shared slot.
   const updateTitle = (v: string) => { setTitle(v); setManual({ title: v }); };
-  const updateStatus = (v: IssueStatus) => { setStatus(v); setManual({ status: v }); };
+  const updateStatus = (v: IssueStatus) => {
+    setStatus(v);
+    setStatusPicked(true);
+    setManual({ status: v, statusPicked: true });
+  };
   const updatePriority = (v: IssuePriority) => { setPriority(v); setShared({ priority: v }); };
   const updateAssignee = (type?: IssueAssigneeType, id?: string) => {
     setAssigneeType(type); setAssigneeId(id);
@@ -397,13 +440,31 @@ export function ManualCreatePanel({
     setManual({ propertyValues: next });
     if (propertyErrorId === propertyId) setPropertyErrorId(null);
   };
+  const pickTemplate = (next: IssueType) => { setType(next); setManual({ type: next }); };
+  const updateField = (key: string, value: string) => {
+    const next = { ...fields, [key]: value };
+    setFields(next);
+    setManual({ fields: next });
+  };
+  const pickWorklane = (id: string | null) => {
+    placementTouched.current = true;
+    const release = releaseForWorklane(id, placementData);
+    setWorklaneId(id);
+    setReleaseId(release);
+    setManual({ worklaneId: id, releaseId: release });
+  };
+  const pickRelease = (id: string | null) => {
+    placementTouched.current = true;
+    setReleaseId(id);
+    setManual({ releaseId: id });
+  };
 
   // Inline pill reveal per toolbar field: kept by Settings → Preferences → Issue creation, holding a
   // non-default value (a hidden field with a value must stay visible — the
   // draft or a mode-switch carry may have set it), or just opened from the ⋯
   // overflow (the picker popover needs the inline pill as its anchor).
   const showField = {
-    status: manualFields.includes("status") || status !== "todo" || fieldPickerOpen === "status",
+    status: manualFields.includes("status") || statusPicked || fieldPickerOpen === "status",
     priority: manualFields.includes("priority") || priority !== "none" || fieldPickerOpen === "priority",
     assignee: manualFields.includes("assignee") || assigneeId != null || fieldPickerOpen === "assignee",
     labels: manualFields.includes("labels") || labelIds.length > 0 || fieldPickerOpen === "labels",
@@ -418,7 +479,9 @@ export function ManualCreatePanel({
   const attachLabelMutation = useAttachLabelToIssue();
   const resetForNextIssue = () => {
     setTitle("");
-    setStatus("todo");
+    setStatus("backlog");
+    setStatusPicked(false);
+    setFields({});
     setPriority("none");
     setStartDate(null);
     setDueDate(null);
@@ -435,8 +498,9 @@ export function ManualCreatePanel({
     // everything else across the manual + shared slots.
     setManual({
       title: "",
-      description: "",
-      status: "todo",
+      fields: {},
+      status: "backlog",
+      statusPicked: false,
       assigneeType,
       assigneeId,
       startDate: null,
@@ -449,7 +513,6 @@ export function ManualCreatePanel({
       dueDate: null,
       attachments: [],
     });
-    descEditorRef.current?.clearContent();
     setFormResetKey((key) => key + 1);
   };
 
@@ -473,22 +536,21 @@ export function ManualCreatePanel({
   const submittedDraftRef = useRef<IssueCreateDraft | null>(null);
 
   const composer = useComposerSubmit({
-    editorRef: descEditorRef,
+    editorRef: uploadEditorRef,
     uploadGate: gate,
     normalize: () => title.trim(),
     onSubmit: async (): Promise<boolean> => {
       setUnavailablePropertyRemoved(false);
-      // Flush the description editor's pending debounce into the store BEFORE
-      // snapshotting, so a late flush of pre-submit typing cannot masquerade
-      // as an edit made during the request.
-      const pendingDesc = descEditorRef.current?.flushPendingUpdate?.();
-      if (pendingDesc != null) setManual({ description: pendingDesc });
       submittedDraftRef.current = useIssueDraftStore.getState().draft;
       try {
-      const description = descEditorRef.current?.getMarkdown()?.trim() || undefined;
-      const activeAttachmentIds = draftAttachments
-        .filter((a) => contentReferencesAttachment(description ?? "", a))
-        .map((a) => a.id);
+      // Every finished file is linked after the template's Markdown.
+      const activeAttachmentIds = draftAttachments.map((a) => a.id);
+      const placement = {
+        type,
+        from_template: true,
+        worklane_id: worklaneId,
+        release_id: releaseId,
+      };
       let issue: Issue;
       if (anchorCommentId && sourcePreview) {
         issue = await createCommentSubIssueMutation.mutateAsync({
@@ -498,8 +560,8 @@ export function ManualCreatePanel({
             capture_token: sourcePreview.capture_token,
             issue: {
               title: title.trim(),
-              description,
-              status,
+              description: description || undefined,
+              status: effectiveStatus,
               priority,
               assignee_type: assigneeType,
               assignee_id: assigneeId,
@@ -509,15 +571,16 @@ export function ManualCreatePanel({
               label_ids: labelIds.length > 0 ? labelIds : undefined,
               ...(Object.keys(propertyValues).length > 0 ? { properties: propertyValues } : {}),
               stage: parentIssueId && stage != null ? stage : undefined,
-              project_id: projectId,
+              project_id: submitProjectId,
+              ...placement,
             },
           },
         });
       } else {
         issue = await createIssueMutation.mutateAsync({
           title: title.trim(),
-          description,
-          status,
+          description: description || undefined,
+          status: effectiveStatus,
           priority,
           assignee_type: assigneeType,
           assignee_id: assigneeId,
@@ -534,7 +597,8 @@ export function ManualCreatePanel({
           parent_issue_id: parentIssueId,
           // Stage is only meaningful for a sub-issue (relative to its siblings).
           stage: parentIssueId && stage != null ? stage : undefined,
-          project_id: projectId,
+          project_id: submitProjectId,
+          ...placement,
         });
       }
 
@@ -764,11 +828,7 @@ export function ManualCreatePanel({
       // Success may only consume the draft it submitted (MUL-5181 P0): any
       // edit after the submit snapshot — typing while the request is in
       // flight, or a reopened dialog — survives, and the dialog then stays
-      // open on the newer draft instead of closing/resetting over it. Flush
-      // the editor's pending debounce first so mid-flight typing still inside
-      // the debounce window is judged correctly.
-      const lateDesc = descEditorRef.current?.flushPendingUpdate?.();
-      if (lateDesc != null) setManual({ description: lateDesc });
+      // open on the newer draft instead of closing/resetting over it.
       const untouched =
         useIssueDraftStore.getState().draft === submittedDraftRef.current;
       if (untouched) clearDraft();
@@ -791,6 +851,7 @@ export function ManualCreatePanel({
       titleEditorRef.current?.focus();
       return;
     }
+    if (!template || !requiredFilled(template, title, fields)) return;
     void composer.submit();
   };
   const submitting = composer.submitting;
@@ -817,7 +878,10 @@ export function ManualCreatePanel({
     setShared({ projectId, priority, dueDate });
     const existingPrompt = draft.agent.prompt;
     if (!existingPrompt.trim()) {
-      const desc = descEditorRef.current?.getMarkdown()?.trim() ?? "";
+      const filled = Object.values(fields).some((value) => value.trim() !== "");
+      const desc = [filled ? fieldsMarkdown : "", manualAttachmentMarkdown(uploads)]
+        .filter((part) => part !== "")
+        .join("\n\n");
       const seeded = [title.trim(), desc].filter(Boolean).join("\n\n");
       if (seeded) setAgent({ prompt: seeded });
     }
@@ -846,7 +910,13 @@ export function ManualCreatePanel({
 
   // One state for the button and the keyboard paths, so a rendered affordance
   // can never disagree with what `handleSubmit` will actually do.
-  const submitState: "submitting" | "uploading" | "missing_title" | "source_unavailable" | "ready" =
+  const submitState:
+    | "submitting"
+    | "uploading"
+    | "missing_title"
+    | "missing_required"
+    | "source_unavailable"
+    | "ready" =
     submitting
       ? "submitting"
       : gate.uploading
@@ -855,7 +925,9 @@ export function ManualCreatePanel({
           ? "source_unavailable"
           : !title.trim()
             ? "missing_title"
-            : "ready";
+            : !template || !requiredFilled(template, title, fields)
+              ? "missing_required"
+              : "ready";
   const submitBusy = submitState === "submitting" || submitState === "uploading";
 
   // Built once and reused by both footer branches: rendering a separate Button
@@ -869,7 +941,12 @@ export function ManualCreatePanel({
       // keyboard and screen-reader users could never reach the tooltip that
       // explains why nothing happens. `handleSubmit` is the real gate either way.
       disabled={submitBusy}
-      aria-disabled={submitState === "missing_title" || submitState === "source_unavailable" || undefined}
+      aria-disabled={
+        submitState === "missing_title" ||
+        submitState === "missing_required" ||
+        submitState === "source_unavailable" ||
+        undefined
+      }
       aria-busy={submitBusy || undefined}
       // The Button base only dims/blocks on native `disabled`, so aria-disabled
       // would otherwise stay a fully lit, pressable-looking primary button.
@@ -883,7 +960,7 @@ export function ManualCreatePanel({
         tEditor(($) => $.upload.in_progress)
       ) : (
         <>
-          {t(($) => $.create_issue.submit)}
+          {t(($) => $.create_issue.submit_type, { type: typeName.toLowerCase() })}
           {/* Decorative: the accessible name must stay "Create Issue", not
               "Create Issue Command Enter". Absent when `send` is unbound.
               Hidden on phones — no ⌘ key there, and the footer row is at its
@@ -948,35 +1025,60 @@ export function ManualCreatePanel({
               </div>
             </div>
 
-            {/* Title */}
-            <div className="px-5 pb-2 shrink-0">
-              <TitleEditor
-                key={formResetKey}
-                ref={titleEditorRef}
-                autoFocus
-                defaultValue={draft.manual.title}
-                placeholder={t(($) => $.create_issue.title_placeholder)}
-                className="text-title font-semibold"
-                onChange={(v) => updateTitle(v)}
-                // Chord only — plain Enter still just ends title editing (#5532).
-                onSubmitShortcut={handleSubmit}
-              />
-            </div>
+            <div className="flex min-h-0 flex-1 flex-col sm:flex-row">
+              {/* Templates — New issue starts only from one of them. */}
+              <div className="max-h-36 shrink-0 overflow-y-auto border-b px-2 pb-2 sm:max-h-none sm:w-56 sm:border-r sm:border-b-0">
+                <TemplateList templates={templates} type={type} onPick={pickTemplate} />
+              </div>
 
-            {/* Description — takes remaining space */}
-            <div {...descDropZoneProps} className="relative flex flex-1 min-h-0 overflow-y-auto px-5">
-              <ContentEditor
-                ref={descEditorRef}
-                defaultValue={draft.manual.description}
-                placeholder={t(($) => $.create_issue.description_placeholder)}
-                onUpdate={(md) => setManual({ description: md })}
-                onSubmit={handleSubmit}
-                onUploadFile={handleUpload}
-                onUploadingChange={uploadGate.onUploadingChange}
-                debounceMs={500}
-                attachments={draftAttachments}
-              />
-              {descDragOver && <FileDropOverlay />}
+              <div {...descDropZoneProps} className="relative flex min-h-0 min-w-0 flex-1 flex-col">
+                {/* Title */}
+                <div className="px-5 pb-2 shrink-0">
+                  <TitleEditor
+                    key={formResetKey}
+                    ref={titleEditorRef}
+                    autoFocus
+                    defaultValue={draft.manual.title}
+                    placeholder={t(($) => $.create_issue.title_placeholder)}
+                    className="text-title font-semibold"
+                    onChange={(v) => updateTitle(v)}
+                    // Chord only — plain Enter still just ends title editing (#5532).
+                    onSubmitShortcut={handleSubmit}
+                  />
+                </div>
+
+                {/* The template's fields fill the description; Markdown shows it read-only. */}
+                <Tabs
+                  value={pane}
+                  onValueChange={(value) => setPane(value === "markdown" ? "markdown" : "fields")}
+                  className="flex min-h-0 flex-1 flex-col gap-2 px-5"
+                >
+                  <TabsList variant="line">
+                    <TabsTrigger value="fields">{tIssues(($) => $.templates.fields_tab)}</TabsTrigger>
+                    <TabsTrigger value="markdown">{tIssues(($) => $.templates.markdown_tab)}</TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="fields" className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pb-3">
+                    {template && (
+                      <>
+                        <p className="text-caption text-muted-foreground">
+                          {t(($) => $.create_issue.template_note, { template: typeName })}
+                        </p>
+                        <TemplateFields template={template} fields={fields} onChange={updateField} />
+                      </>
+                    )}
+                    <TemplateAttachments uploads={uploads} onRemove={removeUpload} />
+                  </TabsContent>
+                  <TabsContent value="markdown" className="min-h-0 flex-1 overflow-y-auto pb-3">
+                    <pre
+                      aria-label={tIssues(($) => $.templates.markdown_aria)}
+                      className="whitespace-pre-wrap break-words font-mono text-caption text-muted-foreground"
+                    >
+                      {description}
+                    </pre>
+                  </TabsContent>
+                </Tabs>
+                {descDragOver && <FileDropOverlay />}
+              </div>
             </div>
 
             {anchorCommentId && (
@@ -994,15 +1096,36 @@ export function ManualCreatePanel({
 
             {/* Pre-trigger preview — a passive caption above the toolbar; reveals
                 when an agent assignee will pick the issue up. */}
-            <CreateRunHint assigneeType={assigneeType} assigneeId={assigneeId} status={status} />
+            <CreateRunHint assigneeType={assigneeType} assigneeId={assigneeId} status={effectiveStatus} />
 
             {/* Property toolbar — each field renders per the Settings → Preferences → Issue creation
                 selection (see showField above). */}
             <div className="flex items-center gap-1.5 px-4 py-2 shrink-0 flex-wrap">
+              {/* Type — from the template */}
+              <span className="inline-flex min-w-0 max-w-56 items-center gap-1.5 overflow-hidden rounded-full border px-2.5 py-1 text-caption">
+                <TypeIcon type={type} />
+                <span className="truncate">{typeName}</span>
+              </span>
+
+              {/* Worklane and Release */}
+              <WorklanePicker
+                worklaneId={worklaneId}
+                onPick={pickWorklane}
+                align="start"
+                triggerRender={<PillButton />}
+              />
+              <ReleasePicker
+                worklaneId={worklaneId}
+                releaseId={releaseId}
+                onPick={pickRelease}
+                align="start"
+                triggerRender={<PillButton />}
+              />
+
               {/* Status */}
               {showField.status && (
                 <StatusPicker
-                  status={status}
+                  status={effectiveStatus}
                   onUpdate={(u) => { if (u.status) updateStatus(u.status); }}
                   triggerRender={<PillButton />}
                   align="start"
@@ -1055,15 +1178,21 @@ export function ManualCreatePanel({
               )}
 
               {/* Project */}
-              {showField.project && (
+              {(showField.project || worklane) && (
                 <ProjectPicker
-                  projectId={projectId ?? null}
+                  projectId={worklane ? worklaneProjectId : (projectId ?? null)}
                   onUpdate={(u) => updateProject(u.project_id ?? undefined)}
+                  // Read-only while a worklane is picked: the project follows it.
+                  disabled={!!worklane}
                   triggerRender={
-                    <ClearablePillButton
-                      onClear={projectId ? () => updateProject(undefined) : undefined}
-                      clearLabel={tProjects(($) => $.picker.clear_aria)}
-                    />
+                    worklane ? (
+                      <PillButton title={t(($) => $.create_issue.project_from_worklane)} />
+                    ) : (
+                      <ClearablePillButton
+                        onClear={projectId ? () => updateProject(undefined) : undefined}
+                        clearLabel={tProjects(($) => $.picker.clear_aria)}
+                      />
+                    )
                   }
                   align="start"
                   open={fieldPickerOpen === "project" ? true : undefined}
@@ -1407,7 +1536,7 @@ export function ManualCreatePanel({
                 <FileUploadButton
                   size="sm"
                   multiple
-                  onSelect={(file) => descEditorRef.current?.uploadFile(file)}
+                  onSelect={(file) => void handleUpload(file)}
                 />
               </div>
               <button
@@ -1431,14 +1560,18 @@ export function ManualCreatePanel({
                 />
                 {t(($) => $.create_issue.create_another)}
               </label>
-              {submitState === "missing_title" ? (
+              {submitState === "missing_title" || submitState === "missing_required" ? (
                 <TooltipProvider delay={200}>
                   <Tooltip>
                     {/* No `<span>` wrapper needed now: aria-disabled leaves the
                         button focusable and hoverable, so it can anchor its own
                         tooltip. */}
                     <TooltipTrigger render={createButton} />
-                    <TooltipContent side="top">{t(($) => $.create_issue.title_required)}</TooltipContent>
+                    <TooltipContent side="top">
+                      {submitState === "missing_title"
+                        ? t(($) => $.create_issue.title_required)
+                        : t(($) => $.create_issue.required_missing)}
+                    </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
               ) : (
@@ -1447,6 +1580,20 @@ export function ManualCreatePanel({
             </div>
     </>
   );
+}
+
+/** Where New issue opened, from the modal's `data`: a worklane (and its
+ *  release, when one was given) or a project; null from anywhere else. */
+function newIssueOrigin(data?: Record<string, unknown> | null): NewIssueOrigin | null {
+  if (typeof data?.worklane_id === "string") {
+    if (!("release_id" in data)) return { worklaneId: data.worklane_id };
+    return {
+      worklaneId: data.worklane_id,
+      releaseId: typeof data.release_id === "string" ? data.release_id : null,
+    };
+  }
+  if (typeof data?.project_id === "string") return { projectId: data.project_id };
+  return null;
 }
 
 /** className for DialogContent in manual mode — depends on isExpanded.
@@ -1464,8 +1611,8 @@ export function manualDialogContentClass(isExpanded: boolean) {
     // phone we support.
     "!w-full !max-w-[calc(100vw-1.5rem)]",
     isExpanded
-      ? "!h-5/6 !-translate-y-1/2 sm:!max-w-4xl"
-      : "!h-96 !-translate-y-1/2 sm:!max-w-2xl",
+      ? "!h-5/6 !-translate-y-1/2 sm:!max-w-5xl"
+      : "!h-[36rem] !max-h-[calc(100vh-2rem)] !-translate-y-1/2 sm:!max-w-4xl",
   );
 }
 

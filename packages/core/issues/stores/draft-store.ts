@@ -5,7 +5,9 @@ import type {
   IssuePriority,
   IssueAssigneeType,
   IssuePropertyValues,
+  IssueType,
 } from "../../types";
+import { ISSUE_TYPES } from "../../types/issue";
 import type { CreateMode } from "./create-mode-store";
 import type { QuickCreateActorType } from "./quick-create-store";
 import { createWorkspaceAwareStorage, registerForWorkspaceRehydration } from "../../platform/workspace-storage";
@@ -18,8 +20,9 @@ import { normalizeStoredUploads, type DraftUpload } from "../../drafts/draft-upl
 //
 //   shared  — belongs to the issue no matter how it is filed: project,
 //             priority, due date, attachments.
-//   manual  — the manual form's own state: title, description, status, start
-//             date, assignee, labels, custom properties.
+//   manual  — the manual form's own state: title, the template's type and
+//             fields, worklane, release, status, start date, assignee,
+//             labels, custom properties.
 //   agent   — the agent form's own state: the free-text prompt and the picked
 //             actor (agent or squad).
 //   activeMode — which form the draft is currently being edited in.
@@ -46,8 +49,15 @@ export interface IssueCreateShared {
 
 export interface IssueCreateManual {
   title: string;
-  description: string;
+  /** The template picked; its fields fill the issue's Markdown description. */
+  type: IssueType;
+  /** The template's field values by field key, kept per key so switching templates keeps shared keys. */
+  fields: Record<string, string>;
+  worklaneId: string | null;
+  releaseId: string | null;
   status: IssueStatus;
+  /** Whether Brian picked the status; otherwise it follows the release. */
+  statusPicked: boolean;
   startDate: string | null;
   assigneeType?: IssueAssigneeType;
   assigneeId?: string;
@@ -80,8 +90,12 @@ const emptyShared = (): IssueCreateShared => ({
 
 const emptyManual = (): IssueCreateManual => ({
   title: "",
-  description: "",
-  status: "todo",
+  type: "story",
+  fields: {},
+  worklaneId: null,
+  releaseId: null,
+  status: "backlog",
+  statusPicked: false,
   startDate: null,
   assigneeType: undefined,
   assigneeId: undefined,
@@ -125,6 +139,23 @@ function isLegacyFlatDraft(d: Record<string, unknown>): boolean {
   );
 }
 
+// A manual slot from before templates kept a free description; templates
+// replace it, so it is dropped, and fields missing from an older build or of
+// the wrong shape fall back to their defaults.
+function migrateManual(raw: unknown): IssueCreateManual {
+  const { description: _legacyDescription, ...m } =
+    (raw && typeof raw === "object" ? raw : {}) as Partial<IssueCreateManual> & { description?: unknown };
+  const manual = { ...emptyManual(), ...m };
+  return {
+    ...manual,
+    type: ISSUE_TYPES.includes(manual.type) ? manual.type : "story",
+    fields: manual.fields && typeof manual.fields === "object" ? manual.fields : {},
+    worklaneId: typeof manual.worklaneId === "string" ? manual.worklaneId : null,
+    releaseId: typeof manual.releaseId === "string" ? manual.releaseId : null,
+    statusPicked: manual.statusPicked === true,
+  };
+}
+
 // Drafts persisted by older builds either predate a later-added sub-field or
 // use the pre-MUL-5181 flat shape. Backfill defaults so every read site can
 // rely on the declared IssueCreateDraft shape instead of re-defending, and lift
@@ -147,8 +178,6 @@ function migrateDraft(raw: unknown): IssueCreateDraft {
       manual: {
         ...emptyManual(),
         title: (d.title as string) ?? "",
-        description: (d.description as string) ?? "",
-        status: (d.status as IssueStatus) ?? "todo",
         startDate: (d.startDate as string | null) ?? null,
         assigneeType: d.assigneeType as IssueAssigneeType | undefined,
         assigneeId: d.assigneeId as string | undefined,
@@ -172,7 +201,7 @@ function migrateDraft(raw: unknown): IssueCreateDraft {
       // drops `uploading` placeholders (bytes are gone).
       attachments: normalizeStoredUploads(sharedRaw.attachments),
     },
-    manual: { ...emptyManual(), ...((d.manual as Partial<IssueCreateManual>) ?? {}) },
+    manual: migrateManual(d.manual),
     agent: { ...emptyAgent(), ...((d.agent as Partial<IssueCreateAgent>) ?? {}) },
     activeMode: d.activeMode === "agent" ? "agent" : "manual",
   };
@@ -232,7 +261,7 @@ export const useIssueDraftStore = create<IssueDraftStore>()(
         const { manual, agent, shared } = get().draft;
         return !!(
           manual.title ||
-          manual.description ||
+          Object.values(manual.fields).some((value) => value.trim() !== "") ||
           agent.prompt ||
           Object.keys(manual.propertyValues).length > 0 ||
           // Recoverable uploads only: a failed/interrupted remnant the user

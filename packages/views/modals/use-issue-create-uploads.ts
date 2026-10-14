@@ -5,23 +5,25 @@
  *
  * Both create panels (manual form and agent prompt) share ONE upload pool —
  * `draft.shared.attachments` — so a file survives a mode switch from either
- * side. What differs per mode is the BODY the upload's link belongs to: the
- * manual description or the agent prompt. The binding captures the mode that
- * started the upload, so a settle that arrives after the dialog closed (or
- * after the user flipped modes) writes the link back into the body it was
- * pasted into, never the other side's.
+ * side. What differs per mode is the BODY the upload's link belongs to. The
+ * agent prompt holds its links as written. The manual form has no free body:
+ * its template's fields fill the description, and the links of the finished
+ * uploads follow that Markdown (`manualAttachmentMarkdown`), so the manual body
+ * is derived from the pool and nothing is appended to it.
  *
  * Uploads here carry no issue/comment context — the issue does not exist yet;
  * the server binds attachments at create time from `attachment_ids`.
  */
 
 import { useMemo, type RefObject } from "react";
+import type { Attachment } from "@multica/core/types";
 import { attachmentToDraftUpload, type DraftUpload } from "@multica/core/drafts";
 import { useIssueDraftStore } from "@multica/core/issues/stores";
 import type { CreateMode } from "@multica/core/issues/stores";
 import type { UploadGate } from "../editor/use-upload-gate";
 import type { ContentEditorRef } from "../editor/content-editor";
 import {
+  attachmentMarkdown,
   useCoordinatedUploads,
   type CoordinatedUploads,
   type UploadDraftBinding,
@@ -37,6 +39,20 @@ function sharedUploads(): DraftUpload[] {
 
 function setSharedUploads(next: DraftUpload[]): void {
   useIssueDraftStore.getState().setShared({ attachments: next });
+}
+
+/** The finished uploads of the pool, which the manual form's issue keeps. */
+export function uploadedAttachments(uploads: readonly DraftUpload[]): Attachment[] {
+  const done: Attachment[] = [];
+  for (const u of uploads) {
+    if (u.status === "uploaded") done.push(u.attachment);
+  }
+  return done;
+}
+
+/** The links of the finished uploads, as they follow the template's Markdown. */
+export function manualAttachmentMarkdown(uploads: readonly DraftUpload[]): string {
+  return uploadedAttachments(uploads).map(attachmentMarkdown).join("\n\n");
 }
 
 export function useIssueCreateUploads(
@@ -90,17 +106,15 @@ export function useIssueCreateUploads(
         if (!cur.some((u) => u.clientUploadId === id)) return;
         setSharedUploads(cur.filter((u) => u.clientUploadId !== id));
       },
-      getBody: () => {
-        const { draft } = useIssueDraftStore.getState();
-        return mode === "agent" ? draft.agent.prompt : draft.manual.description;
-      },
+      getBody: () =>
+        mode === "agent"
+          ? useIssueDraftStore.getState().draft.agent.prompt
+          : manualAttachmentMarkdown(sharedUploads()),
       appendToBody: (md) => {
+        // The manual body is derived from the pool; a settled upload is in it.
+        if (mode !== "agent") return;
         const state = useIssueDraftStore.getState();
-        if (mode === "agent") {
-          state.setAgent({ prompt: appendMarkdown(state.draft.agent.prompt, md) });
-        } else {
-          state.setManual({ description: appendMarkdown(state.draft.manual.description, md) });
-        }
+        state.setAgent({ prompt: appendMarkdown(state.draft.agent.prompt, md) });
       },
     }),
     [mode],

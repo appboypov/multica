@@ -230,7 +230,8 @@
     },
     "template_note": "これらの項目は{{template}}テンプレートの Markdown を埋めます。タスクはその Markdown だけを説明として保持します。コードと技術設計は変更に書きます。",
     "submit_type": "{{type}}を作成",
-    "required_missing": "作成するにはタイトルとすべての必須項目を入力してください"
+    "required_missing": "作成するにはタイトルとすべての必須項目を入力してください",
+    "project_from_worklane": "プロジェクトは worklane に従います"
   },
   "mark_duplicate": {
     "title": "重複としてマーク",

@@ -37,8 +37,12 @@ const RESET_STATE = {
     },
     manual: {
       title: "",
-      description: "",
-      status: "todo" as const,
+      type: "story" as const,
+      fields: {},
+      worklaneId: null,
+      releaseId: null,
+      status: "backlog" as const,
+      statusPicked: false,
       startDate: null,
       assigneeType: undefined,
       assigneeId: undefined,
@@ -186,14 +190,14 @@ describe("issue draft store — mode switch preserves both sides", () => {
   it("keeps the manual slot untouched when the agent slot is filled and vice versa", () => {
     const { setManual, setAgent, setShared } = useIssueDraftStore.getState();
 
-    setManual({ title: "Manual title", description: "Manual body" });
+    setManual({ title: "Manual title", fields: { story: "Manual body" } });
     setShared({ projectId: "project-1", priority: "high" });
     // Switching to agent seeds the agent slot but must not clear manual.
     setAgent({ prompt: "Agent prompt", actorType: "agent", actorId: "agent-1" });
 
     const { draft } = useIssueDraftStore.getState();
     expect(draft.manual.title).toBe("Manual title");
-    expect(draft.manual.description).toBe("Manual body");
+    expect(draft.manual.fields).toEqual({ story: "Manual body" });
     expect(draft.agent.prompt).toBe("Agent prompt");
     expect(draft.agent.actorId).toBe("agent-1");
     // Shared fields are visible to both sides.
@@ -241,8 +245,7 @@ describe("issue draft store — legacy rehydrate", () => {
     const { draft } = useIssueDraftStore.getState();
     // Manual-only fields land in the manual slot.
     expect(draft.manual.title).toBe("legacy");
-    expect(draft.manual.description).toBe("body");
-    expect(draft.manual.status).toBe("todo");
+    expect(draft.manual.fields).toEqual({});
     expect(draft.manual.labelIds).toEqual(["label-1"]);
     expect(draft.manual.propertyValues).toEqual({ "property-1": "option-1" });
     // Shared fields land in the shared slot, with attachments backfilled.
