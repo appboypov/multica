@@ -6,6 +6,8 @@
 
 import "./env";
 import pg from "pg";
+import { randomUUID } from "node:crypto";
+import { setTimeout as delay } from "node:timers/promises";
 
 // `||` (not `??`) so an empty `NEXT_PUBLIC_API_URL=` in .env still falls
 // back to localhost. dotenv sets unset-vs-empty both as "" — treating them
@@ -80,6 +82,45 @@ export interface TestClaimedTask {
   };
 }
 
+export interface TestRepository {
+  id: string;
+  project_id: string;
+  full_name: string;
+  default_branch: string;
+  checkout_daemon_id: string;
+  checkout_path: string;
+  version_policy: string;
+}
+
+export interface TestRepositoryCheckout {
+  id: string;
+  full_name: string;
+  default_branch: string;
+  path: string;
+  clone: boolean;
+}
+
+export interface TestRepositoryCheckoutResult {
+  status: "completed";
+  resolved_path: string;
+  passed: boolean;
+  failures: { code: "not_git" | "wrong_branch" | "origin_mismatch" | "not_found" | "clone_failed"; detail?: string }[];
+  version_files: string[];
+  last_tag: string;
+  install_commands: { file: string; command: string }[];
+}
+
+export interface TestDirectoryListing {
+  id: string;
+  path: string;
+}
+
+export interface TestDirectoryListingResult {
+  status: "completed";
+  path: string;
+  entries: { name: string; path: string; kind: "folder" | "file"; hidden: boolean }[];
+}
+
 export class TestApiClient {
   private token: string | null = null;
   private workspaceSlug: string | null = null;
@@ -89,6 +130,10 @@ export class TestApiClient {
   private createdProjectIds: string[] = [];
   private createdOrganisationIds: string[] = [];
   private seededIssueIds: string[] = [];
+  private createdRepositoryIds: string[] = [];
+  private createdRuntimeIds: string[] = [];
+  private createdInstallationIds: string[] = [];
+  private checkoutAnswerers = new Set<() => Promise<void>>();
 
   async login(email: string, name: string) {
     const client = new pg.Client(DATABASE_URL);
@@ -509,7 +554,192 @@ export class TestApiClient {
     return res.json();
   }
 
-  /** Clean up all issues created during this test. */
+  /** Bind a fake GitHub App installation only to this client's workspace. */
+  async seedGitHubInstallation(installationId: number): Promise<void> {
+    if (!this.workspaceId || !this.email) throw new Error("Login and select a workspace first");
+    const client = new pg.Client(DATABASE_URL);
+    await client.connect();
+    try {
+      const result = await client.query<{ id: string }>(
+        `INSERT INTO github_installation
+          (workspace_id, installation_id, account_login, account_type, connected_by_id)
+         SELECT $1, $2, 'appboypov', 'User', id FROM "user" WHERE email = $3
+         RETURNING id`,
+        [this.workspaceId, installationId, this.email],
+      );
+      const row = result.rows[0];
+      if (!row) throw new Error("Could not seed GitHub installation for the E2E user");
+      this.createdInstallationIds.push(row.id);
+    } finally {
+      await client.end();
+    }
+  }
+
+  /** User JWT registration makes this local runtime owned by the viewer. */
+  async registerRepositoryRuntime(
+    deviceName: string,
+    status: "online" | "offline" = "online",
+  ): Promise<{ id: string; daemon_id: string }> {
+    if (!this.workspaceId) throw new Error("Select a workspace before registering a runtime");
+    const body = await this.repositoryRequest<{ runtimes: { id: string; daemon_id: string }[] }>(
+      "/api/daemon/register",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          workspace_id: this.workspaceId,
+          daemon_id: randomUUID(),
+          device_name: deviceName,
+          runtimes: [{ name: "E2E checkout", type: "codex", status }],
+        }),
+      },
+    );
+    this.createdRuntimeIds.push(...body.runtimes.map((runtime) => runtime.id));
+    const runtime = body.runtimes[0];
+    if (!runtime) throw new Error("Daemon registration returned no runtime");
+    return runtime;
+  }
+
+  /** Poll the real daemon queue; no browser route interception replaces checkout checks. */
+  async startRepositoryCheckoutAnswerer(
+    runtimeId: string,
+    answer: (
+      request: TestRepositoryCheckout,
+      signal: AbortSignal,
+    ) => TestRepositoryCheckoutResult | Promise<TestRepositoryCheckoutResult>,
+    answerDirectory?: (request: TestDirectoryListing) => TestDirectoryListingResult,
+  ): Promise<() => Promise<void>> {
+    const controller = new AbortController();
+    const tick = async () => {
+      const heartbeat = await this.repositoryRequest<{
+        pending_repository_checkout?: TestRepositoryCheckout | null;
+        pending_directory_listing?: TestDirectoryListing | null;
+      }>("/api/daemon/heartbeat", {
+        method: "POST",
+        body: JSON.stringify({ runtime_id: runtimeId }),
+        signal: controller.signal,
+      });
+      const request = heartbeat.pending_repository_checkout;
+      if (request) {
+        await this.repositoryRequest<{ status: string }>(
+          `/api/daemon/runtimes/${runtimeId}/repository-checkouts/${request.id}/result`,
+          { method: "POST", body: JSON.stringify(await answer(request, controller.signal)), signal: controller.signal },
+        );
+      }
+      const directory = heartbeat.pending_directory_listing;
+      if (directory) {
+        if (!answerDirectory) throw new Error(`Unexpected directory listing: ${directory.path}`);
+        await this.repositoryRequest<{ status: string }>(
+          `/api/daemon/runtimes/${runtimeId}/directory-listings/${directory.id}/result`,
+          { method: "POST", body: JSON.stringify(answerDirectory(directory)), signal: controller.signal },
+        );
+      }
+    };
+    await tick();
+    let failure: unknown;
+    const running = (async () => {
+      while (!controller.signal.aborted) {
+        await delay(100, undefined, { signal: controller.signal });
+        await tick();
+      }
+    })().catch((error: unknown) => {
+      if (!controller.signal.aborted) failure = error;
+    });
+    const stop = async () => {
+      controller.abort();
+      await running;
+      this.checkoutAnswerers.delete(stop);
+      if (failure) throw failure;
+    };
+    this.checkoutAnswerers.add(stop);
+    return stop;
+  }
+
+  async listRepositories(): Promise<TestRepository[]> {
+    const body = await this.repositoryRequest<{ repositories: TestRepository[] }>("/api/repositories");
+    return body.repositories;
+  }
+
+  async checkRepositoryCheckout(runtimeId: string, fullName: string, path: string): Promise<string> {
+    const check = await this.repositoryRequest<{ id: string }>(
+      `/api/runtimes/${runtimeId}/repository-checkouts`,
+      { method: "POST", body: JSON.stringify({ full_name: fullName, default_branch: "main", path }) },
+    );
+    const deadline = Date.now() + 15000;
+    while (Date.now() < deadline) {
+      const result = await this.repositoryRequest<{ status: string; passed: boolean }>(
+        `/api/runtimes/${runtimeId}/repository-checkouts/${check.id}`,
+      );
+      if (result.status === "completed") {
+        if (!result.passed) throw new Error(`Checkout failed for ${path}`);
+        return check.id;
+      }
+      if (result.status === "failed" || result.status === "timeout") {
+        throw new Error(`Checkout ${result.status} for ${path}`);
+      }
+      await delay(100);
+    }
+    throw new Error(`Timed out waiting for checkout ${path}`);
+  }
+
+  async createRepository(projectId: string, fullName: string, checkId: string): Promise<TestRepository> {
+    const repository = await this.repositoryRequest<TestRepository>("/api/repositories", {
+      method: "POST",
+      body: JSON.stringify({
+        project_id: projectId, full_name: fullName, checkout_check_id: checkId,
+        version_policy: "package.json", install_command: "",
+      }),
+    });
+    this.createdRepositoryIds.push(repository.id);
+    return repository;
+  }
+
+  async updateRepository(id: string, versionPolicy: "package.json" | "none"): Promise<TestRepository> {
+    return this.repositoryRequest<TestRepository>(`/api/repositories/${id}`, {
+      method: "PUT", body: JSON.stringify({ version_policy: versionPolicy }),
+    });
+  }
+
+  async listRepositoryWorklanes(repositoryId: string): Promise<{ id: string; name: string; state: string }[]> {
+    const body = await this.repositoryRequest<{
+      worklanes: { id: string; name: string; state: string; repository_id: string }[];
+    }>("/api/worklanes");
+    return body.worklanes.filter((worklane) => worklane.repository_id === repositoryId);
+  }
+
+  async planRepositoryRelease(repositoryId: string, title: string): Promise<{ id: string }> {
+    const body = await this.repositoryRequest<{ releases: { id: string; title: string }[] }>(
+      `/api/repositories/${repositoryId}/releases`,
+      { method: "POST", body: JSON.stringify({ title, version: "0.4.3" }) },
+    );
+    const release = body.releases.find((item) => item.title === title);
+    if (!release) throw new Error(`Planned release ${title} was not returned`);
+    return release;
+  }
+
+  async addIssueToRelease(releaseId: string, issueId: string): Promise<void> {
+    await this.repositoryRequest<unknown>(`/api/releases/${releaseId}/issues`, {
+      method: "POST", body: JSON.stringify({ issue_ids: [issueId] }),
+    });
+  }
+
+  async getIssue(id: string): Promise<{ id: string; status: string; release_id: string | null }> {
+    return this.repositoryRequest(`/api/issues/${id}`);
+  }
+
+  private async repositoryRequest<T>(path: string, init?: RequestInit): Promise<T> {
+    const response = await this.authedFetch(path, {
+      ...init,
+      signal: init?.signal
+        ? AbortSignal.any([init.signal, AbortSignal.timeout(10000)])
+        : AbortSignal.timeout(10000),
+    });
+    if (!response.ok) {
+      throw new Error(`${init?.method ?? "GET"} ${path}: ${response.status} ${await response.text()}`);
+    }
+    return response.json();
+  }
+
+  /** Clean up this client's rows, removing repositories through their API first. */
   async cleanup() {
     if (this.seededIssueIds.length > 0 && this.workspaceId) {
       const client = new pg.Client(DATABASE_URL);
@@ -532,6 +762,49 @@ export class TestApiClient {
       }
     }
     this.createdIssueIds = [];
+    const answererErrors: unknown[] = [];
+    for (const stop of this.checkoutAnswerers) {
+      try {
+        await stop();
+      } catch (error: unknown) {
+        answererErrors.push(error);
+      }
+    }
+    // Include repositories created in the UI, but never another spec's projects.
+    const projectIds = new Set(this.createdProjectIds);
+    const repositoryIds = new Set(this.createdRepositoryIds);
+    if (projectIds.size > 0 || repositoryIds.size > 0) {
+      for (const repository of await this.listRepositories()) {
+        if (projectIds.has(repository.project_id)) repositoryIds.add(repository.id);
+      }
+      for (const id of repositoryIds) {
+        const response = await this.authedFetch(`/api/repositories/${id}`, { method: "DELETE" });
+        if (!response.ok && response.status !== 404) {
+          throw new Error(`Cleanup repository ${id}: ${response.status} ${await response.text()}`);
+        }
+      }
+      this.createdRepositoryIds = [];
+    }
+    for (const id of this.createdRuntimeIds) {
+      const response = await this.authedFetch(`/api/runtimes/${id}`, { method: "DELETE" });
+      if (!response.ok && response.status !== 404) {
+        throw new Error(`Cleanup runtime ${id}: ${response.status} ${await response.text()}`);
+      }
+    }
+    this.createdRuntimeIds = [];
+    if (this.createdInstallationIds.length > 0 && this.workspaceId) {
+      const client = new pg.Client(DATABASE_URL);
+      await client.connect();
+      try {
+        await client.query(
+          "DELETE FROM github_installation WHERE workspace_id = $1 AND id = ANY($2::uuid[])",
+          [this.workspaceId, this.createdInstallationIds],
+        );
+        this.createdInstallationIds = [];
+      } finally {
+        await client.end();
+      }
+    }
     // Projects last: an issue delete leaves no project reference behind, and
     // dropping the project first would strand the issues in the list.
     for (const id of this.createdProjectIds) {
@@ -562,6 +835,9 @@ export class TestApiClient {
         await client.end();
       }
       this.createdOrganisationIds = [];
+    }
+    if (answererErrors.length > 0) {
+      throw new AggregateError(answererErrors, "Repository checkout answerer failed");
     }
   }
 

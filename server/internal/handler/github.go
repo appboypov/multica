@@ -32,9 +32,14 @@ import (
 	"github.com/multica-ai/multica/server/pkg/protocol"
 )
 
-// githubAPIBase is the base URL for GitHub's REST API. Mutable so tests can
-// point App-authenticated calls at an httptest server without touching GitHub.
-var githubAPIBase = "https://api.github.com"
+// githubAPIBase uses GITHUB_API_URL when non-empty, otherwise GitHub's REST API.
+// It remains mutable so Go tests can point App calls at an httptest server.
+var githubAPIBase = func() string {
+	if base := os.Getenv("GITHUB_API_URL"); base != "" {
+		return base
+	}
+	return "https://api.github.com"
+}()
 
 const (
 	githubReturnToGitHub       = "github"
