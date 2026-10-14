@@ -1,0 +1,3 @@
+DROP TABLE IF EXISTS issue_worktree;
+DROP TABLE IF EXISTS worklane;
+DROP TABLE IF EXISTS repository;
