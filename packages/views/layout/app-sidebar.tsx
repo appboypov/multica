@@ -69,6 +69,7 @@ import { workspaceListOptions, myInvitationListOptions, workspaceKeys } from "@m
 import { resolvePublicFileUrl } from "@multica/core/workspace/avatar-url";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { inboxUnreadSummaryOptions, useInboxUnreadCount, hasOtherWorkspaceUnread, unreadWorkspaceIds } from "@multica/core/inbox/queries";
+import { useQuestionsOpenCount } from "@multica/core/questions";
 import { chatSessionsOptions } from "@multica/core/chat/queries";
 import { countUnreadChatMessages } from "@multica/core/chat/unread";
 import { useChatStore } from "@multica/core/chat";
@@ -113,6 +114,7 @@ const PINNED_PREVIEW_LIMIT = 5;
 // Only parameterless paths are valid nav destinations.
 type NavKey =
   | "inbox"
+  | "questions"
   | "chat"
   | "myIssues"
   | "issues"
@@ -148,6 +150,7 @@ type NavLabelKey =
 // always agree. See route-icon-components.tsx.
 const personalNav: { key: NavKey; labelKey: NavLabelKey }[] = [
   { key: "inbox", labelKey: "inbox" },
+  { key: "questions", labelKey: "questions" },
   { key: "myIssues", labelKey: "my_issues" },
   { key: "chat", labelKey: "chat" },
 ];
@@ -464,6 +467,8 @@ export function AppSidebar({ topSlot, searchSlot, headerClassName, headerStyle }
   // for the switcher dot, so the count costs no request of its own — it used
   // to download the whole inbox list here just to count it (MUL-6967).
   const unreadCount = useInboxUnreadCount(wsId);
+  // The questions open for the viewer, as the Questions page's For me holds them.
+  const questionsOpenCount = useQuestionsOpenCount(wsId ?? "");
   // Chat tab unread badge: IM-style total of unread *messages* across chat
   // threads (countUnreadChatMessages is the shared definition — mobile's tab
   // badge derives from the same function, keeping the platforms in agreement).
@@ -792,6 +797,13 @@ export function AppSidebar({ topSlot, searchSlot, headerClassName, headerStyle }
                         {item.key === "inbox" && unreadCount > 0 && (
                           <CappedNumberFlow
                             value={unreadCount}
+                            animated={false}
+                            className="ml-auto text-caption"
+                          />
+                        )}
+                        {item.key === "questions" && questionsOpenCount > 0 && (
+                          <CappedNumberFlow
+                            value={questionsOpenCount}
                             animated={false}
                             className="ml-auto text-caption"
                           />

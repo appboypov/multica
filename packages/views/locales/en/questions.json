@@ -149,5 +149,80 @@
     "note_placeholder": "Why is this theirs to answer?",
     "submit": "Reassign",
     "failed": "Could not reassign the question"
+  },
+  "badges": {
+    "policy_any_one": "any one of {{count}}",
+    "policy_each": "each of {{count}}"
+  },
+  "row": {
+    "send_no": "Send No"
+  },
+  "page": {
+    "title": "Questions",
+    "loading": "Loading questions",
+    "load_failed": "Could not load the questions",
+    "retry": "Try again",
+    "empty_for_me": "No questions waiting for you",
+    "empty_all_open": "No open questions",
+    "empty_answered": "You have not answered a question yet",
+    "empty_filtered": "No questions match these filters",
+    "latest_answered": "Your last answer",
+    "load_more": "Load more",
+    "answer_all": "Answer all ({{count}})",
+    "tabs": {
+      "for_me": "For me",
+      "all_open": "All open",
+      "answered": "Answered"
+    },
+    "filters": {
+      "label": "Filter",
+      "answer_type": "Answer type",
+      "asker": "Asked by",
+      "answerer": "Asked to",
+      "link": "Link",
+      "blocking": "Only blocking",
+      "clear": "Clear filters"
+    },
+    "grouping": {
+      "label": "Group by",
+      "link": "Link",
+      "due": "Due date",
+      "asker": "Asker"
+    },
+    "due": {
+      "overdue": "Overdue",
+      "today": "Today",
+      "this_week": "This week",
+      "later": "Later",
+      "no_date": "No date"
+    }
+  },
+  "answer_all": {
+    "title": "Answer all",
+    "back": "Questions",
+    "leave": "Leave",
+    "view_label": "View",
+    "view_one": "One by one",
+    "view_page": "One page",
+    "progress": "{{current}} of {{total}}",
+    "summary": "{{answered}} answered · {{skipped}} skipped",
+    "skip": "Skip",
+    "next": "Next",
+    "previous": "Previous",
+    "up_next": "Up next",
+    "set_position": "{{position}} of {{total}}",
+    "asked_by": "Asked by {{name}} · {{time}}",
+    "done_one": "{{count}} answered",
+    "done_other": "All {{count}} answered",
+    "back_to_questions": "Back to Questions",
+    "loading": "Loading your questions",
+    "load_failed": "Could not load your questions",
+    "nothing": "No questions waiting for you",
+    "open_issue": "Open {{identifier}}"
+  },
+  "wake_bar": {
+    "unseen_one": "{{name}} has {{count}} answer from you on {{identifier}}",
+    "unseen_other": "{{name}} has {{count}} answers from you on {{identifier}}",
+    "woken": "{{name}} was woken with your answers"
   }
 }

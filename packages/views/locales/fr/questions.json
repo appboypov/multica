@@ -149,5 +149,80 @@
     "note_placeholder": "Pourquoi est-ce à cette personne de répondre ?",
     "submit": "Réattribuer",
     "failed": "Impossible de réattribuer la question"
+  },
+  "badges": {
+    "policy_any_one": "n'importe lequel des {{count}}",
+    "policy_each": "chacun des {{count}}"
+  },
+  "row": {
+    "send_no": "Envoyer Non"
+  },
+  "page": {
+    "title": "Questions",
+    "loading": "Chargement des questions",
+    "load_failed": "Impossible de charger les questions",
+    "retry": "Réessayer",
+    "empty_for_me": "Aucune question ne vous attend",
+    "empty_all_open": "Aucune question ouverte",
+    "empty_answered": "Vous n'avez encore répondu à aucune question",
+    "empty_filtered": "Aucune question ne correspond à ces filtres",
+    "latest_answered": "Votre dernière réponse",
+    "load_more": "Charger plus",
+    "answer_all": "Tout répondre ({{count}})",
+    "tabs": {
+      "for_me": "Pour moi",
+      "all_open": "Toutes ouvertes",
+      "answered": "Répondues"
+    },
+    "filters": {
+      "label": "Filtrer",
+      "answer_type": "Type de réponse",
+      "asker": "Posée par",
+      "answerer": "Posée à",
+      "link": "Lien",
+      "blocking": "Seulement bloquantes",
+      "clear": "Effacer les filtres"
+    },
+    "grouping": {
+      "label": "Grouper par",
+      "link": "Lien",
+      "due": "Échéance",
+      "asker": "Auteur"
+    },
+    "due": {
+      "overdue": "En retard",
+      "today": "Aujourd'hui",
+      "this_week": "Cette semaine",
+      "later": "Plus tard",
+      "no_date": "Sans date"
+    }
+  },
+  "answer_all": {
+    "title": "Tout répondre",
+    "back": "Questions",
+    "leave": "Quitter",
+    "view_label": "Vue",
+    "view_one": "Une par une",
+    "view_page": "Une page",
+    "progress": "{{current}} sur {{total}}",
+    "summary": "{{answered}} répondues · {{skipped}} passées",
+    "skip": "Passer",
+    "next": "Suivante",
+    "previous": "Précédente",
+    "up_next": "À suivre",
+    "set_position": "{{position}} sur {{total}}",
+    "asked_by": "Posée par {{name}} · {{time}}",
+    "done_one": "{{count}} répondue",
+    "done_other": "Les {{count}} répondues",
+    "back_to_questions": "Retour aux questions",
+    "loading": "Chargement de vos questions",
+    "load_failed": "Impossible de charger vos questions",
+    "nothing": "Aucune question ne vous attend",
+    "open_issue": "Ouvrir {{identifier}}"
+  },
+  "wake_bar": {
+    "unseen_one": "{{name}} a {{count}} réponse de vous sur {{identifier}}",
+    "unseen_other": "{{name}} a {{count}} réponses de vous sur {{identifier}}",
+    "woken": "{{name}} a été réveillé avec vos réponses"
   }
 }

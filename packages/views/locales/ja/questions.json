@@ -146,5 +146,78 @@
     "note_placeholder": "なぜこの人が回答すべきですか？",
     "submit": "再割り当て",
     "failed": "質問を再割り当てできませんでした"
+  },
+  "badges": {
+    "policy_any_one": "{{count}} 人のうち誰か 1 人",
+    "policy_each": "{{count}} 人それぞれ"
+  },
+  "row": {
+    "send_no": "いいえを送信"
+  },
+  "page": {
+    "title": "質問",
+    "loading": "質問を読み込み中",
+    "load_failed": "質問を読み込めませんでした",
+    "retry": "再試行",
+    "empty_for_me": "あなたを待っている質問はありません",
+    "empty_all_open": "未回答の質問はありません",
+    "empty_answered": "まだ質問に回答していません",
+    "empty_filtered": "このフィルターに合う質問はありません",
+    "latest_answered": "最近の回答",
+    "load_more": "さらに読み込む",
+    "answer_all": "すべて回答 ({{count}})",
+    "tabs": {
+      "for_me": "自分宛て",
+      "all_open": "すべての未回答",
+      "answered": "回答済み"
+    },
+    "filters": {
+      "label": "フィルター",
+      "answer_type": "回答の種類",
+      "asker": "質問者",
+      "answerer": "回答者",
+      "link": "リンク",
+      "blocking": "ブロック中のみ",
+      "clear": "フィルターをクリア"
+    },
+    "grouping": {
+      "label": "グループ化",
+      "link": "リンク",
+      "due": "期限",
+      "asker": "質問者"
+    },
+    "due": {
+      "overdue": "期限切れ",
+      "today": "今日",
+      "this_week": "今週",
+      "later": "後で",
+      "no_date": "期限なし"
+    }
+  },
+  "answer_all": {
+    "title": "すべて回答",
+    "back": "質問",
+    "leave": "終了",
+    "view_label": "表示",
+    "view_one": "1 問ずつ",
+    "view_page": "1 ページ",
+    "progress": "{{current}} / {{total}}",
+    "summary": "{{answered}} 件回答 · {{skipped}} 件スキップ",
+    "skip": "スキップ",
+    "next": "次へ",
+    "previous": "前へ",
+    "up_next": "次の質問",
+    "set_position": "{{position}} / {{total}}",
+    "asked_by": "{{name}} が質問 · {{time}}",
+    "done_other": "{{count}} 件すべて回答しました",
+    "back_to_questions": "質問に戻る",
+    "loading": "質問を読み込み中",
+    "load_failed": "質問を読み込めませんでした",
+    "nothing": "あなたを待っている質問はありません",
+    "open_issue": "{{identifier}} を開く"
+  },
+  "wake_bar": {
+    "unseen_other": "{{name}} に {{identifier}} であなたの回答が {{count}} 件あります",
+    "woken": "{{name}} をあなたの回答で起こしました"
   }
 }

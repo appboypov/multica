@@ -146,5 +146,78 @@
     "note_placeholder": "为什么应由对方回答？",
     "submit": "转给他人",
     "failed": "问题转交失败"
+  },
+  "badges": {
+    "policy_any_one": "{{count}} 人中任一人",
+    "policy_each": "{{count}} 人各自"
+  },
+  "row": {
+    "send_no": "发送否"
+  },
+  "page": {
+    "title": "问题",
+    "loading": "正在加载问题",
+    "load_failed": "无法加载问题",
+    "retry": "重试",
+    "empty_for_me": "没有等待你回答的问题",
+    "empty_all_open": "没有未回答的问题",
+    "empty_answered": "你还没有回答过问题",
+    "empty_filtered": "没有符合这些筛选条件的问题",
+    "latest_answered": "你最近的回答",
+    "load_more": "加载更多",
+    "answer_all": "全部回答（{{count}}）",
+    "tabs": {
+      "for_me": "给我的",
+      "all_open": "全部未答",
+      "answered": "已回答"
+    },
+    "filters": {
+      "label": "筛选",
+      "answer_type": "回答类型",
+      "asker": "提问者",
+      "answerer": "回答者",
+      "link": "链接",
+      "blocking": "仅阻塞的",
+      "clear": "清除筛选"
+    },
+    "grouping": {
+      "label": "分组方式",
+      "link": "链接",
+      "due": "截止日期",
+      "asker": "提问者"
+    },
+    "due": {
+      "overdue": "已逾期",
+      "today": "今天",
+      "this_week": "本周",
+      "later": "以后",
+      "no_date": "无日期"
+    }
+  },
+  "answer_all": {
+    "title": "全部回答",
+    "back": "问题",
+    "leave": "离开",
+    "view_label": "视图",
+    "view_one": "逐个",
+    "view_page": "单页",
+    "progress": "{{current}} / {{total}}",
+    "summary": "已回答 {{answered}} · 已跳过 {{skipped}}",
+    "skip": "跳过",
+    "next": "下一个",
+    "previous": "上一个",
+    "up_next": "接下来",
+    "set_position": "{{position}} / {{total}}",
+    "asked_by": "{{name}} 提问 · {{time}}",
+    "done_other": "{{count}} 个全部回答",
+    "back_to_questions": "返回问题",
+    "loading": "正在加载你的问题",
+    "load_failed": "无法加载你的问题",
+    "nothing": "没有等待你回答的问题",
+    "open_issue": "打开 {{identifier}}"
+  },
+  "wake_bar": {
+    "unseen_other": "{{name}} 在 {{identifier}} 上有你的 {{count}} 个回答",
+    "woken": "已用你的回答唤醒 {{name}}"
   }
 }

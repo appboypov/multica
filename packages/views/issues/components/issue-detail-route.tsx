@@ -56,7 +56,7 @@ export function parseQuestionHighlightHash(hash: string): string | undefined {
   return match?.[1];
 }
 
-function useCommentHighlightHash(): { hash: string; commentId?: string; questionId?: string } {
+function useCommentHighlightHash(): { hash: string; commentId?: string } {
   const read = () => typeof window === "undefined" ? "" : window.location.hash;
   const [hash, setHash] = useState(read);
 
@@ -66,7 +66,7 @@ function useCommentHighlightHash(): { hash: string; commentId?: string; question
     return () => window.removeEventListener("hashchange", onHashChange);
   }, []);
 
-  return { hash, commentId: parseCommentHighlightHash(hash), questionId: parseQuestionHighlightHash(hash) };
+  return { hash, commentId: parseCommentHighlightHash(hash) };
 }
 
 /**
@@ -84,6 +84,8 @@ export function IssueDetailRoute({ routeId, onDelete }: IssueDetailRouteProps) {
   const wsId = useWorkspaceId();
   const { canonicalId, issue, isResolving, notFound } = useCanonicalIssue(wsId, routeId);
   const highlight = useCommentHighlightHash();
+  // The adapter's hash, not `window.location`: the desktop renderer's router keeps it in memory.
+  const highlightQuestionId = parseQuestionHighlightHash(useNavigation().hash);
 
   useCanonicalIssueUrl(routeId, issue?.identifier, highlight.hash);
 
@@ -100,7 +102,7 @@ export function IssueDetailRoute({ routeId, onDelete }: IssueDetailRouteProps) {
       issueId={canonicalId}
       onDelete={onDelete}
       highlightCommentId={highlight.commentId}
-      highlightQuestionId={highlight.questionId}
+      highlightQuestionId={highlightQuestionId}
     />
   );
 }

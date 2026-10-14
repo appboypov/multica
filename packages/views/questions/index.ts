@@ -5,3 +5,7 @@ export { ReassignPicker } from "./reassign-picker";
 export { WakeButton } from "./wake-button";
 export { AnswerControl, handleAnswerKey, type AnswerControlInput } from "./answer-controls/answer-control";
 export type { AnswerableQuestion, AnswerDraft } from "./answer-controls/draft";
+export { QuestionBadges, type QuestionBadgesProps } from "./question-badges";
+export { QuestionListRow, type QuestionListRowProps } from "./question-row";
+export { WakeBars, type WakeBarsProps } from "./wake-bar";
+export { QuestionsPage } from "./questions-page";
