@@ -13,6 +13,7 @@ import { getCurrentWsId, getCurrentSlug } from "../platform/workspace-storage";
 import { issueKeys } from "../issues/queries";
 import { projectKeys } from "../projects/queries";
 import { organisationKeys } from "../organisations/queries";
+import { releaseKeys } from "../releases/queries";
 import { handleQuestionEvent, invalidateQuestionReach, onIssueReachMaybeChanged } from "../questions/ws-updaters";
 import { questionKeys } from "../questions/queries";
 import { agentQuestionsKeys } from "../questions/agent-questions";
@@ -661,6 +662,7 @@ function invalidateWorkspaceScopedQueries(qc: QueryClient): void {
     qc.invalidateQueries({ queryKey: workspaceKeys.invitations(wsId) });
     qc.invalidateQueries({ queryKey: projectKeys.all(wsId) });
     qc.invalidateQueries({ queryKey: organisationKeys.all(wsId) });
+    qc.invalidateQueries({ queryKey: releaseKeys.all(wsId) });
     qc.invalidateQueries({ queryKey: runtimeKeys.all(wsId) });
     qc.invalidateQueries({ queryKey: autopilotKeys.all(wsId) });
     qc.invalidateQueries({ queryKey: agentTaskSnapshotKeys.all(wsId) });
@@ -842,6 +844,12 @@ export function useRealtimeSync(
       organisation: () => {
         const wsId = getCurrentWsId();
         if (wsId) qc.invalidateQueries({ queryKey: organisationKeys.all(wsId) });
+      },
+      // A repository's release line changed (ADR-0010): refetch the
+      // workspace's releases.
+      release_line: () => {
+        const wsId = getCurrentWsId();
+        if (wsId) qc.invalidateQueries({ queryKey: releaseKeys.list(wsId) });
       },
       squad: () => {
         const wsId = getCurrentWsId();

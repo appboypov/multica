@@ -192,6 +192,11 @@ import type {
   IssuePullRequestsResponse,
   ListGitHubInstallationsResponse,
   ListGitHubRepositoriesResponse,
+  ListReleasesResponse,
+  ReleaseLineResponse,
+  PlanReleaseRequest,
+  EditReleaseRequest,
+  MoveReleaseRequest,
   GitHubConnectResponse,
   ListVCSConnectionsResponse,
   ConnectVCSRequest,
@@ -471,6 +476,10 @@ import {
   EMPTY_GITHUB_CONNECT_RESPONSE,
   EMPTY_LIST_GITHUB_INSTALLATIONS_RESPONSE,
   EMPTY_LIST_GITHUB_REPOSITORIES_RESPONSE,
+  ReleasesResponseSchema,
+  ReleaseLineResponseSchema,
+  EMPTY_RELEASES_RESPONSE,
+  EMPTY_RELEASE_LINE_RESPONSE,
   RuntimeModelListRequestSchema,
   MALFORMED_RUNTIME_MODEL_LIST_REQUEST,
   RuntimeDirectoryListingRequestSchema,
@@ -4346,6 +4355,52 @@ export class ApiClient {
 
   async deleteLabel(id: string): Promise<void> {
     await this.fetch(`/api/labels/${id}`, { method: "DELETE" });
+  }
+
+  // Release lines of repositories (ADR-0010). Every write answers with the
+  // repository's whole line.
+  async listReleases(): Promise<ListReleasesResponse> {
+    const raw = await this.fetch<unknown>(`/api/releases`);
+    return parseWithFallback(raw, ReleasesResponseSchema, EMPTY_RELEASES_RESPONSE, {
+      endpoint: "GET /api/releases",
+    });
+  }
+
+  async planRelease(repositoryId: string, data: PlanReleaseRequest): Promise<ReleaseLineResponse> {
+    const raw = await this.fetch<unknown>(`/api/repositories/${repositoryId}/releases`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+    return parseWithFallback(raw, ReleaseLineResponseSchema, EMPTY_RELEASE_LINE_RESPONSE, {
+      endpoint: "POST /api/repositories/{id}/releases",
+    });
+  }
+
+  async editRelease(id: string, data: EditReleaseRequest): Promise<ReleaseLineResponse> {
+    const raw = await this.fetch<unknown>(`/api/releases/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+    return parseWithFallback(raw, ReleaseLineResponseSchema, EMPTY_RELEASE_LINE_RESPONSE, {
+      endpoint: "PATCH /api/releases/{id}",
+    });
+  }
+
+  async moveRelease(id: string, data: MoveReleaseRequest): Promise<ReleaseLineResponse> {
+    const raw = await this.fetch<unknown>(`/api/releases/${id}/move`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+    return parseWithFallback(raw, ReleaseLineResponseSchema, EMPTY_RELEASE_LINE_RESPONSE, {
+      endpoint: "POST /api/releases/{id}/move",
+    });
+  }
+
+  async removeRelease(id: string): Promise<ReleaseLineResponse> {
+    const raw = await this.fetch<unknown>(`/api/releases/${id}`, { method: "DELETE" });
+    return parseWithFallback(raw, ReleaseLineResponseSchema, EMPTY_RELEASE_LINE_RESPONSE, {
+      endpoint: "DELETE /api/releases/{id}",
+    });
   }
 
   // Issue status catalog (MUL-6243). Reads are open to any workspace member;

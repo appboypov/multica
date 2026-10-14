@@ -69,6 +69,7 @@ export type WSEventType =
   | "project:created"
   | "project:updated"
   | "project:deleted"
+  | "release_line:updated"
   | "squad:created"
   | "squad:updated"
   | "squad:deleted"
