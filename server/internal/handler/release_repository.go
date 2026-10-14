@@ -18,7 +18,7 @@ import (
 const repositoryCodeHasUnshippedReleases = "has_unshipped_releases"
 
 // checkLastTag is a passed check's last tag as repository.last_tag stores it:
-// without the `v`, or '' when the check found no tag (design.md decision 5).
+// without the `v`, or an empty string when the check found no tag (design.md decision 5).
 func checkLastTag(result protocol.RepositoryCheckoutResult) pgtype.Text {
 	tag := ""
 	if v, ok := releaseline.ParseVersion(result.LastTag); ok {
