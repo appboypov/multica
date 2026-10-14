@@ -1,0 +1,86 @@
+{
+  "count_one": "{{count}} repository",
+  "count_other": "{{count}} repositories",
+  "add": {
+    "title": "Add repository · {{project}}",
+    "submit": "Add repository",
+    "submitting": "Adding…",
+    "cancel": "Cancel",
+    "toast_added": "{{name}} added to {{project}}",
+    "failed": "Could not add the repository"
+  },
+  "edit": {
+    "title": "Edit repository",
+    "repository": "Repository",
+    "submit": "Save",
+    "submitting": "Saving…",
+    "cancel": "Cancel",
+    "toast_saved": "{{name}} saved",
+    "failed": "Could not save the repository"
+  },
+  "picker": {
+    "label": "Repository",
+    "search_placeholder": "Search repositories",
+    "private": "Private",
+    "public": "Public",
+    "meta": "{{visibility}} · {{branch}}",
+    "in_project": "In {{project}}",
+    "no_match": "No repository matches “{{query}}”",
+    "empty": "The GitHub App cannot see a repository yet",
+    "load_failed": "GitHub could not be read",
+    "missing": "Missing one? Give Multica access on GitHub"
+  },
+  "checkout": {
+    "label": "Checkout",
+    "runtime": "Runtime",
+    "runtime_placeholder": "Pick a runtime",
+    "runtime_online": "{{name}} · online",
+    "runtime_offline": "{{name}} · offline",
+    "no_runtimes": "Start the Multica daemon on the machine that holds the checkout.",
+    "path": "Path",
+    "choose": "Choose",
+    "pick_repository_first": "Pick a repository first",
+    "checking": "Checking {{path}}",
+    "passed": "Git checkout of {{name}}",
+    "passed_detail": "on {{branch}} · origin matches",
+    "not_found": "No folder at {{path}}",
+    "clone": "Clone it there",
+    "cloning": "Cloning {{name}}",
+    "check_again": "Check again",
+    "error": "The check could not run: {{message}}",
+    "failure": {
+      "not_git": "{{path}} is not a git checkout",
+      "not_git_fix": "Choose the folder of a git checkout of {{name}}, or a path without a folder to clone it there.",
+      "origin_mismatch": "The folder's origin is {{origin}}, not {{name}}",
+      "origin_mismatch_fix": "Choose your checkout of {{name}}.",
+      "wrong_branch": "The folder is on {{branch}}, not {{default_branch}}",
+      "wrong_branch_fix": "Switch it to {{default_branch}}, then check again.",
+      "clone_failed": "The clone failed: {{detail}}",
+      "clone_failed_fix": "Make sure this machine can reach GitHub over SSH, then clone again.",
+      "unknown": "The check failed: {{detail}}",
+      "unknown_fix": "Check the folder, then check again."
+    }
+  },
+  "releases": {
+    "label": "Releases",
+    "version_file": "Version in {{file}} · tags v{version}",
+    "tags": "Tags only · tags v{version}",
+    "none": "This repository does not release",
+    "last_tag": "Last tag {{tag}}",
+    "no_tags": "No tags yet",
+    "none_note": "Its worklanes plan no releases.",
+    "pick_repository_first": "Pick a repository first"
+  },
+  "card": {
+    "toggle": "Fold or unfold {{name}}",
+    "default_branch": "Default branch {{branch}}",
+    "menu": "Repository actions",
+    "edit": "Edit repository",
+    "remove": "Remove repository",
+    "removing": "Removing…",
+    "toast_removed": "{{name}} removed",
+    "remove_failed": "Could not remove {{name}}",
+    "worklane_free": "Free",
+    "worklane_busy": "Busy"
+  }
+}

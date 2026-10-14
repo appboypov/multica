@@ -1,0 +1,85 @@
+{
+  "count_other": "{{count}} 件のリポジトリ",
+  "add": {
+    "title": "リポジトリを追加 · {{project}}",
+    "submit": "リポジトリを追加",
+    "submitting": "追加中…",
+    "cancel": "キャンセル",
+    "toast_added": "{{name}} を {{project}} に追加しました",
+    "failed": "リポジトリを追加できませんでした"
+  },
+  "edit": {
+    "title": "リポジトリを編集",
+    "repository": "リポジトリ",
+    "submit": "保存",
+    "submitting": "保存中…",
+    "cancel": "キャンセル",
+    "toast_saved": "{{name}} を保存しました",
+    "failed": "リポジトリを保存できませんでした"
+  },
+  "picker": {
+    "label": "リポジトリ",
+    "search_placeholder": "リポジトリを検索",
+    "private": "プライベート",
+    "public": "パブリック",
+    "meta": "{{visibility}} · {{branch}}",
+    "in_project": "{{project}} に追加済み",
+    "no_match": "「{{query}}」に一致するリポジトリはありません",
+    "empty": "GitHub App からはまだリポジトリが見えません",
+    "load_failed": "GitHub を読み込めませんでした",
+    "missing": "見つかりませんか？GitHub で Multica にアクセスを許可する"
+  },
+  "checkout": {
+    "label": "チェックアウト",
+    "runtime": "ランタイム",
+    "runtime_placeholder": "ランタイムを選択",
+    "runtime_online": "{{name}} · オンライン",
+    "runtime_offline": "{{name}} · オフライン",
+    "no_runtimes": "チェックアウトがあるマシンで Multica デーモンを起動してください。",
+    "path": "パス",
+    "choose": "選択",
+    "pick_repository_first": "先にリポジトリを選択してください",
+    "checking": "{{path}} を確認中",
+    "passed": "{{name}} の Git チェックアウト",
+    "passed_detail": "{{branch}} 上 · origin が一致",
+    "not_found": "{{path}} にフォルダがありません",
+    "clone": "ここにクローン",
+    "cloning": "{{name}} をクローン中",
+    "check_again": "もう一度確認",
+    "error": "確認を実行できませんでした: {{message}}",
+    "failure": {
+      "not_git": "{{path}} は Git チェックアウトではありません",
+      "not_git_fix": "{{name}} の Git チェックアウトのフォルダを選ぶか、フォルダのないパスを選んでそこにクローンしてください。",
+      "origin_mismatch": "フォルダの origin は {{name}} ではなく {{origin}} です",
+      "origin_mismatch_fix": "{{name}} のチェックアウトを選択してください。",
+      "wrong_branch": "フォルダは {{default_branch}} ではなく {{branch}} 上にあります",
+      "wrong_branch_fix": "{{default_branch}} に切り替えてから、もう一度確認してください。",
+      "clone_failed": "クローンに失敗しました: {{detail}}",
+      "clone_failed_fix": "このマシンが SSH で GitHub に接続できることを確認してから、もう一度クローンしてください。",
+      "unknown": "確認に失敗しました: {{detail}}",
+      "unknown_fix": "フォルダを確認してから、もう一度確認してください。"
+    }
+  },
+  "releases": {
+    "label": "リリース",
+    "version_file": "{{file}} のバージョン · タグ v{version}",
+    "tags": "タグのみ · タグ v{version}",
+    "none": "このリポジトリはリリースしない",
+    "last_tag": "最新タグ {{tag}}",
+    "no_tags": "タグはまだありません",
+    "none_note": "その worklane ではリリースを計画しません。",
+    "pick_repository_first": "先にリポジトリを選択してください"
+  },
+  "card": {
+    "toggle": "{{name}} を折りたたむ・展開する",
+    "default_branch": "デフォルトブランチ {{branch}}",
+    "menu": "リポジトリの操作",
+    "edit": "リポジトリを編集",
+    "remove": "リポジトリを削除",
+    "removing": "削除中…",
+    "toast_removed": "{{name}} を削除しました",
+    "remove_failed": "{{name}} を削除できませんでした",
+    "worklane_free": "空き",
+    "worklane_busy": "作業中"
+  }
+}

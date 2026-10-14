@@ -27,6 +27,7 @@ import enOrganisations from "./en/organisations.json";
 import enReleases from "./en/releases.json";
 import enBilling from "./en/billing.json";
 import enQuestions from "./en/questions.json";
+import enRepositories from "./en/repositories.json";
 import zhHansCommon from "./zh-Hans/common.json";
 import zhHansAuth from "./zh-Hans/auth.json";
 import zhHansSettings from "./zh-Hans/settings.json";
@@ -55,6 +56,7 @@ import zhHansOrganisations from "./zh-Hans/organisations.json";
 import zhHansReleases from "./zh-Hans/releases.json";
 import zhHansBilling from "./zh-Hans/billing.json";
 import zhHansQuestions from "./zh-Hans/questions.json";
+import zhHansRepositories from "./zh-Hans/repositories.json";
 import koCommon from "./ko/common.json";
 import koAuth from "./ko/auth.json";
 import koSettings from "./ko/settings.json";
@@ -83,6 +85,7 @@ import koOrganisations from "./ko/organisations.json";
 import koReleases from "./ko/releases.json";
 import koBilling from "./ko/billing.json";
 import koQuestions from "./ko/questions.json";
+import koRepositories from "./ko/repositories.json";
 import jaCommon from "./ja/common.json";
 import jaAuth from "./ja/auth.json";
 import jaSettings from "./ja/settings.json";
@@ -111,6 +114,7 @@ import jaOrganisations from "./ja/organisations.json";
 import jaReleases from "./ja/releases.json";
 import jaBilling from "./ja/billing.json";
 import jaQuestions from "./ja/questions.json";
+import jaRepositories from "./ja/repositories.json";
 import frCommon from "./fr/common.json";
 import frAuth from "./fr/auth.json";
 import frSettings from "./fr/settings.json";
@@ -139,6 +143,7 @@ import frOrganisations from "./fr/organisations.json";
 import frReleases from "./fr/releases.json";
 import frBilling from "./fr/billing.json";
 import frQuestions from "./fr/questions.json";
+import frRepositories from "./fr/repositories.json";
 
 // Single source of truth for the resource bundle. Both apps (web layout +
 // desktop App.tsx) import from here so adding a locale or namespace happens
@@ -173,6 +178,7 @@ export const RESOURCES: Record<SupportedLocale, LocaleResources> = {
     releases: enReleases,
     billing: enBilling,
     questions: enQuestions,
+    repositories: enRepositories,
   },
   "zh-Hans": {
     common: zhHansCommon,
@@ -203,6 +209,7 @@ export const RESOURCES: Record<SupportedLocale, LocaleResources> = {
     releases: zhHansReleases,
     billing: zhHansBilling,
     questions: zhHansQuestions,
+    repositories: zhHansRepositories,
   },
   ko: {
     common: koCommon,
@@ -233,6 +240,7 @@ export const RESOURCES: Record<SupportedLocale, LocaleResources> = {
     releases: koReleases,
     billing: koBilling,
     questions: koQuestions,
+    repositories: koRepositories,
   },
   ja: {
     common: jaCommon,
@@ -263,6 +271,7 @@ export const RESOURCES: Record<SupportedLocale, LocaleResources> = {
     releases: jaReleases,
     billing: jaBilling,
     questions: jaQuestions,
+    repositories: jaRepositories,
   },
   fr: {
     common: frCommon,
@@ -293,5 +302,6 @@ export const RESOURCES: Record<SupportedLocale, LocaleResources> = {
     releases: frReleases,
     billing: frBilling,
     questions: frQuestions,
+    repositories: frRepositories,
   },
 };

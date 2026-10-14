@@ -30,6 +30,7 @@ import type organisations from "../locales/en/organisations.json";
 import type releases from "../locales/en/releases.json";
 import type billing from "../locales/en/billing.json";
 import type questions from "../locales/en/questions.json";
+import type repositories from "../locales/en/repositories.json";
 
 // Module augmentation enables i18next v26 selector API across the monorepo:
 // `t($ => $.signin.title)` resolves to the value in en/auth.json.
@@ -74,6 +75,7 @@ declare global {
     releases: typeof releases;
     billing: typeof billing;
     questions: typeof questions;
+    repositories: typeof repositories;
   }
 }
 

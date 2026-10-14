@@ -1,0 +1,86 @@
+{
+  "count_one": "{{count}} dépôt",
+  "count_other": "{{count}} dépôts",
+  "add": {
+    "title": "Ajouter un dépôt · {{project}}",
+    "submit": "Ajouter le dépôt",
+    "submitting": "Ajout…",
+    "cancel": "Annuler",
+    "toast_added": "{{name}} ajouté à {{project}}",
+    "failed": "Impossible d'ajouter le dépôt"
+  },
+  "edit": {
+    "title": "Modifier le dépôt",
+    "repository": "Dépôt",
+    "submit": "Enregistrer",
+    "submitting": "Enregistrement…",
+    "cancel": "Annuler",
+    "toast_saved": "{{name}} enregistré",
+    "failed": "Impossible d'enregistrer le dépôt"
+  },
+  "picker": {
+    "label": "Dépôt",
+    "search_placeholder": "Rechercher des dépôts",
+    "private": "Privé",
+    "public": "Public",
+    "meta": "{{visibility}} · {{branch}}",
+    "in_project": "Dans {{project}}",
+    "no_match": "Aucun dépôt ne correspond à « {{query}} »",
+    "empty": "L'App GitHub ne voit encore aucun dépôt",
+    "load_failed": "Impossible de lire GitHub",
+    "missing": "Il en manque un ? Donnez accès à Multica sur GitHub"
+  },
+  "checkout": {
+    "label": "Checkout",
+    "runtime": "Runtime",
+    "runtime_placeholder": "Choisir un runtime",
+    "runtime_online": "{{name}} · en ligne",
+    "runtime_offline": "{{name}} · hors ligne",
+    "no_runtimes": "Démarrez le démon Multica sur la machine qui contient le checkout.",
+    "path": "Chemin",
+    "choose": "Choisir",
+    "pick_repository_first": "Choisissez d'abord un dépôt",
+    "checking": "Vérification de {{path}}",
+    "passed": "Checkout Git de {{name}}",
+    "passed_detail": "sur {{branch}} · origin correspond",
+    "not_found": "Aucun dossier à {{path}}",
+    "clone": "Le cloner ici",
+    "cloning": "Clonage de {{name}}",
+    "check_again": "Vérifier à nouveau",
+    "error": "La vérification n'a pas pu s'exécuter : {{message}}",
+    "failure": {
+      "not_git": "{{path}} n'est pas un checkout Git",
+      "not_git_fix": "Choisissez le dossier d'un checkout Git de {{name}}, ou un chemin sans dossier pour le cloner ici.",
+      "origin_mismatch": "L'origin du dossier est {{origin}}, pas {{name}}",
+      "origin_mismatch_fix": "Choisissez votre checkout de {{name}}.",
+      "wrong_branch": "Le dossier est sur {{branch}}, pas sur {{default_branch}}",
+      "wrong_branch_fix": "Passez-le sur {{default_branch}}, puis vérifiez à nouveau.",
+      "clone_failed": "Le clonage a échoué : {{detail}}",
+      "clone_failed_fix": "Vérifiez que cette machine peut joindre GitHub en SSH, puis clonez à nouveau.",
+      "unknown": "La vérification a échoué : {{detail}}",
+      "unknown_fix": "Vérifiez le dossier, puis vérifiez à nouveau."
+    }
+  },
+  "releases": {
+    "label": "Versions",
+    "version_file": "Version dans {{file}} · tags v{version}",
+    "tags": "Tags uniquement · tags v{version}",
+    "none": "Ce dépôt ne publie pas de versions",
+    "last_tag": "Dernier tag {{tag}}",
+    "no_tags": "Aucun tag pour l'instant",
+    "none_note": "Ses worklanes ne planifient pas de versions.",
+    "pick_repository_first": "Choisissez d'abord un dépôt"
+  },
+  "card": {
+    "toggle": "Replier ou déplier {{name}}",
+    "default_branch": "Branche par défaut {{branch}}",
+    "menu": "Actions du dépôt",
+    "edit": "Modifier le dépôt",
+    "remove": "Retirer le dépôt",
+    "removing": "Retrait…",
+    "toast_removed": "{{name}} retiré",
+    "remove_failed": "Impossible de retirer {{name}}",
+    "worklane_free": "Libre",
+    "worklane_busy": "Occupé"
+  }
+}
