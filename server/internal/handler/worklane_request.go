@@ -241,11 +241,11 @@ func (s *InMemoryWorklaneRequestStore) Save(_ context.Context, req *WorklaneRequ
 func (s *InMemoryWorklaneRequestStore) Get(_ context.Context, id string) (*WorklaneRequest, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.sweep(time.Now())
 	req := s.requests[id]
 	if req == nil {
 		return nil, nil
 	}
-	applyWorklaneRequestLost(req, time.Now())
 	return cloneWorklaneRequest(req), nil
 }
 

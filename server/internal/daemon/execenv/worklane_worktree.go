@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -229,28 +230,40 @@ func isCheckoutOfRepository(path, fullName string) bool {
 	return strings.EqualFold(GitHubFullNameFromURL(origin), fullName)
 }
 
-// GitHubFullNameFromURL reads `owner/repo` from an https, ssh or scp-style
-// remote URL, without a trailing .git; "" when it names no repository.
-func GitHubFullNameFromURL(url string) string {
-	u := strings.TrimSpace(url)
-	u = strings.TrimSuffix(strings.TrimSuffix(u, "/"), ".git")
-	if i := strings.Index(u, "://"); i >= 0 {
-		u = u[i+3:]
-		if slash := strings.Index(u, "/"); slash >= 0 {
-			u = u[slash+1:]
-		} else {
+// GitHubFullNameFromURL reads owner/repo from a GitHub HTTPS, SSH or
+// scp-style remote, ignoring case and a trailing .git. Other hosts and
+// malformed repository paths do not identify a GitHub repository.
+func GitHubFullNameFromURL(remote string) string {
+	remote = strings.TrimSpace(remote)
+	var host, path string
+	if strings.Contains(remote, "://") {
+		u, err := url.Parse(remote)
+		if err != nil || (u.Scheme != "https" && u.Scheme != "ssh") || u.RawQuery != "" || u.Fragment != "" {
 			return ""
 		}
-	} else if colon := strings.Index(u, ":"); colon >= 0 {
-		u = u[colon+1:]
+		host, path = u.Hostname(), u.Path
 	} else {
+		var ok bool
+		host, path, ok = strings.Cut(remote, ":")
+		if !ok {
+			return ""
+		}
+		if _, hostname, ok := strings.Cut(host, "@"); ok {
+			host = hostname
+		}
+	}
+	if !strings.EqualFold(host, "github.com") {
 		return ""
 	}
-	parts := strings.Split(strings.Trim(u, "/"), "/")
-	if len(parts) < 2 || parts[len(parts)-2] == "" || parts[len(parts)-1] == "" {
+	path = strings.Trim(strings.TrimSpace(path), "/")
+	if len(path) >= 4 && strings.EqualFold(path[len(path)-4:], ".git") {
+		path = path[:len(path)-4]
+	}
+	owner, repo, ok := strings.Cut(path, "/")
+	if !ok || owner == "" || repo == "" || strings.Contains(repo, "/") {
 		return ""
 	}
-	return parts[len(parts)-2] + "/" + parts[len(parts)-1]
+	return owner + "/" + repo
 }
 
 func sameWorklanePath(a, b string) bool {
