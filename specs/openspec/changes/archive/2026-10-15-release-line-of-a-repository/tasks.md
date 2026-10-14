@@ -172,7 +172,7 @@ Its J2 starts once UJ-3's J2 is merged.
 
 ## 13. J11 Acceptance test and archive: acceptance test and archive
 
-- [x] 13.1 `e2e/releases.spec.ts` -- the journey's acceptance test through `TestApiClient`, on appboypov/rebl with worklanes `main`, Fan accounts and push, and Agenda and publication:
+- [ ] 13.1 `e2e/releases.spec.ts` -- the journey's acceptance test through `TestApiClient`, on appboypov/rebl with worklanes `main`, Fan accounts and push, and Agenda and publication:
   - On Fan accounts and push, Brian plans Major v1.0.0 First production release, Patch v1.0.1 Membership hardening, Minor v1.1.0 Account and profile and Minor v1.2.0 Notifications.
   - He moves Notifications earlier, so it becomes v1.1.0, and Account and profile becomes v1.2.0. He then sets Account and profile by hand to v1.2.5.
   - `main` and Agenda and publication show the same four releases in that order.
@@ -186,4 +186,4 @@ Its J2 starts once UJ-3's J2 is merged.
 
 ## Plan Change Log
 
-- 2026-10-15, J11: the change is archived with open tasks. 2.5, 8.2, 8.3, 9.8, 10.3, 11.7 and 12.6 stay unticked, because Brian's rule shipped the lanes layer pull requests #29, #31 and #32 without tests. Groups 4, 5, 6 and 7 stay unticked, because the Gate Request dropped J3, J5, J6 and J7. Task 13.2 ran on Brian's Mac with a worklane made for it and removed afterwards, as Decision `bafyreiacuj4r4zvetjzhuc5h7xpbg6tyaluy5rhvu2o7xey3szn7dnf4gq` says. Task 13.1 ran on the Mac against the worktree's test stack instead of Crabbox, as Decision `bafyreia2mmt7l55ohjewhquapxii7r5qq3kno3i7qsk5ycmueeefttdecm` says.
+- 2026-10-15, J11: the change is archived with open tasks. 2.5, 8.2, 8.3, 9.8, 10.3, 11.7 and 12.6 stay unticked, because Brian's rule shipped the lanes layer pull requests #29, #31 and #32 without tests. Groups 4, 5, 6 and 7 stay unticked, because the Gate Request dropped J3, J5, J6 and J7. Task 13.2 ran on Brian's Mac with a worklane made for it and removed afterwards, as Decision `bafyreiacuj4r4zvetjzhuc5h7xpbg6tyaluy5rhvu2o7xey3szn7dnf4gq` says. Task 13.1 ran on the Mac against the worktree's test stack instead of Crabbox, as Decision `bafyreia2mmt7l55ohjewhquapxii7r5qq3kno3i7qsk5ycmueeefttdecm` says. Task 13.1 stays unticked: the e2e tests of UJ-2 to UJ-4 are removed, because e2e tests are made only on an explicit request of the user.
