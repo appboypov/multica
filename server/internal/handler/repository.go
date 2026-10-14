@@ -265,6 +265,7 @@ func (h *Handler) CreateRepository(w http.ResponseWriter, r *http.Request) {
 		CheckoutDaemonID: check.DaemonID,
 		CheckoutPath:     check.Result.ResolvedPath,
 		VersionPolicy:    req.VersionPolicy,
+		LastTag:          checkLastTag(*check.Result),
 		CreatedBy:        parseUUID(userID),
 	})
 	if err != nil {
@@ -374,6 +375,9 @@ func (h *Handler) UpdateRepository(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback(r.Context())
 	qtx := h.Queries.WithTx(tx)
+	if req.VersionPolicy != nil && *req.VersionPolicy == versionPolicyNone && !refuseStopReleasing(r.Context(), w, qtx, repository) {
+		return
+	}
 
 	updated, err := qtx.UpdateRepositoryGithub(r.Context(), db.UpdateRepositoryGithubParams{
 		Private:       github.Private,
@@ -445,6 +449,13 @@ func (h *Handler) DeleteRepository(w http.ResponseWriter, r *http.Request) {
 		RepositoryID: repository.ID,
 	}); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to clear issue placement")
+		return
+	}
+	if err := qtx.DeleteReleasesByRepository(r.Context(), db.DeleteReleasesByRepositoryParams{
+		RepositoryID: repository.ID,
+		WorkspaceID:  repository.WorkspaceID,
+	}); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to delete releases")
 		return
 	}
 

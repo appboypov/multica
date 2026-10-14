@@ -2204,6 +2204,7 @@ func NewRouterWithOptions(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus
 				r.Post("/", h.CreateRepository)
 				r.Put("/{id}", h.UpdateRepository)
 				r.Delete("/{id}", h.DeleteRepository)
+				r.Post("/{id}/releases", h.PlanRelease)
 			})
 
 			// Squads

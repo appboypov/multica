@@ -353,6 +353,9 @@ func (h *Handler) ReportRepositoryCheckoutResult(w http.ResponseWriter, r *http.
 		writeError(w, http.StatusInternalServerError, "failed to persist result")
 		return
 	}
+	if body.Status == "completed" && body.Passed && body.ResolvedPath != "" {
+		h.backfillRepositoryLastTag(r.Context(), req, body.RepositoryCheckoutResult)
+	}
 	slog.Debug("runtime repository checkout report", "runtime_id", runtimeID, "request_id", requestID, "status", body.Status, "passed", body.Passed)
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
