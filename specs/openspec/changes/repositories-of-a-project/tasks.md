@@ -40,7 +40,7 @@ This change builds on UJ-1 (`projects-by-organisation`, DAS-450): its `organisat
 - [x] 1.2 `server/migrations/591_repository_full_name_index.up.sql`, `.down.sql` -- `CREATE UNIQUE INDEX CONCURRENTLY repository_workspace_full_name_unique ON repository (workspace_id, LOWER(full_name))` -- a repository is in at most one project.
 - [x] 1.3 `server/migrations/592_repository_project_index.up.sql`, `.down.sql` -- `CREATE INDEX CONCURRENTLY repository_project_idx ON repository (project_id)`.
 - [x] 1.4 `server/migrations/593_worklane_name_index.up.sql`, `.down.sql` -- `CREATE UNIQUE INDEX CONCURRENTLY worklane_repository_name_unique ON worklane (repository_id, LOWER(name))`.
-- [ ] 1.5 `server/migrations/594_worklane_main_index.up.sql`, `.down.sql` -- `CREATE UNIQUE INDEX CONCURRENTLY worklane_repository_main_unique ON worklane (repository_id) WHERE is_main`.
+- [x] 1.5 `server/migrations/594_worklane_main_index.up.sql`, `.down.sql` -- `CREATE UNIQUE INDEX CONCURRENTLY worklane_repository_main_unique ON worklane (repository_id) WHERE is_main`.
 - [ ] 1.6 `server/migrations/595_issue_worktree_issue_index.up.sql`, `.down.sql` -- `CREATE UNIQUE INDEX CONCURRENTLY issue_worktree_issue_repository_unique ON issue_worktree (issue_id, repository_id)`.
 - [ ] 1.7 `server/migrations/596_issue_worktree_removing_index.up.sql`, `.down.sql` -- `CREATE INDEX CONCURRENTLY issue_worktree_removing_idx ON issue_worktree (daemon_id) WHERE state = 'removing'`.
 - [ ] 1.8 `server/cmd/migrate/main.go` -- add 591 to 596 to the concurrent index cleanups -- `TestEveryConcurrentUpBuildHasCleanup` requires it. When `main` has taken any of 590 to 597, take the next free numbers and rename every reference.
