@@ -224,5 +224,13 @@
     "unseen_one": "{{name}} a {{count}} réponse de vous sur {{identifier}}",
     "unseen_other": "{{name}} a {{count}} réponses de vous sur {{identifier}}",
     "woken": "{{name}} a été réveillé avec vos réponses"
+  },
+  "via": {
+    "issue": "via la tâche {{identifier}}",
+    "sub_issue": "via la sous-tâche {{identifier}}",
+    "comment": "via un commentaire",
+    "comment_on": "via un commentaire sur {{identifier}}",
+    "task": "via une exécution",
+    "task_on": "via une exécution sur {{identifier}}"
   }
 }

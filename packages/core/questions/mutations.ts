@@ -60,10 +60,12 @@ export function useReassignQuestion(wsId: string, issueId: string) {
 export function useWakeQuestionAgent(wsId: string, issueId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id }: { id: string }) => api.wakeQuestionAgent(id),
-    onSettled: (_data, _error, { id }) => Promise.all([
+    // `target` is one of the question's wake targets; without it the asking agent wakes on this issue.
+    mutationFn: ({ id, target }: { id: string; target?: { agentId: string; issueId: string } }) =>
+      api.wakeQuestionAgent(id, target?.agentId),
+    onSettled: (_data, _error, { id, target }) => Promise.all([
       invalidateIssueQuestions(qc, wsId, issueId, id),
-      qc.invalidateQueries({ queryKey: issueKeys.timeline(issueId) }),
+      qc.invalidateQueries({ queryKey: issueKeys.timeline(target?.issueId ?? issueId) }),
     ]),
   });
 }

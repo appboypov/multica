@@ -219,5 +219,13 @@
   "wake_bar": {
     "unseen_other": "{{name}}에게 {{identifier}}에서 내 답변 {{count}}개가 있습니다",
     "woken": "{{name}}을(를) 내 답변으로 깨웠습니다"
+  },
+  "via": {
+    "issue": "태스크 {{identifier}} 경유",
+    "sub_issue": "하위 태스크 {{identifier}} 경유",
+    "comment": "댓글 경유",
+    "comment_on": "{{identifier}}의 댓글 경유",
+    "task": "실행 경유",
+    "task_on": "{{identifier}}의 실행 경유"
   }
 }

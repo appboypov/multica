@@ -3743,8 +3743,12 @@ export class ApiClient {
     });
   }
 
-  async wakeQuestionAgent(id: string): Promise<QuestionWakeResult> {
-    const raw: unknown = await this.fetch(`/api/questions/${id}/wake`, { method: "POST" });
+  /** Wakes `agentId`, one of the question's wake targets; without it, the asking agent. */
+  async wakeQuestionAgent(id: string, agentId?: string): Promise<QuestionWakeResult> {
+    const raw: unknown = await this.fetch(`/api/questions/${id}/wake`, {
+      method: "POST",
+      ...(agentId ? { body: JSON.stringify({ agent_id: agentId }) } : {}),
+    });
     return parseWithFallback(raw, QuestionWakeResultSchema, EMPTY_QUESTION_WAKE_RESULT, {
       endpoint: "POST /api/questions/:id/wake",
     });

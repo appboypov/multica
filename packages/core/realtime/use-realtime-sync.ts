@@ -13,7 +13,7 @@ import { getCurrentWsId, getCurrentSlug } from "../platform/workspace-storage";
 import { issueKeys } from "../issues/queries";
 import { projectKeys } from "../projects/queries";
 import { organisationKeys } from "../organisations/queries";
-import { handleQuestionEvent } from "../questions/ws-updaters";
+import { handleQuestionEvent, invalidateQuestionReach, onIssueReachMaybeChanged } from "../questions/ws-updaters";
 import { questionKeys } from "../questions/queries";
 import { agentQuestionsKeys } from "../questions/agent-questions";
 import { pinKeys } from "../pins/queries";
@@ -835,6 +835,8 @@ export function useRealtimeSync(
           qc.invalidateQueries({ queryKey: projectKeys.all(wsId) });
           // Project deletion changes issue membership in project-scoped windows.
           qc.invalidateQueries({ queryKey: issueKeys.tableAll(wsId) });
+          // A project's issues and lead decide which questions reach it.
+          void invalidateQuestionReach(qc, wsId);
         }
       },
       organisation: () => {
@@ -1097,6 +1099,10 @@ export function useRealtimeSync(
       if (!issue?.id) return;
       const wsId = getCurrentWsId();
       if (wsId) {
+        void onIssueReachMaybeChanged(qc, wsId, issue, {
+          assigneeChanged: payload.assignee_changed,
+          projectChanged: payload.project_changed,
+        });
         onIssueUpdated(qc, wsId, issue, {
           assigneeChanged: payload.assignee_changed,
           statusChanged: payload.status_changed,
@@ -1127,6 +1133,7 @@ export function useRealtimeSync(
       if (!issue_id) return;
       const wsId = getCurrentWsId();
       if (wsId) {
+        void invalidateQuestionReach(qc, wsId);
         onIssueDeleted(qc, wsId, issue_id);
         void onInboxIssueDeleted(qc, wsId, issue_id);
       }

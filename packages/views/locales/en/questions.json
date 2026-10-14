@@ -224,5 +224,13 @@
     "unseen_one": "{{name}} has {{count}} answer from you on {{identifier}}",
     "unseen_other": "{{name}} has {{count}} answers from you on {{identifier}}",
     "woken": "{{name}} was woken with your answers"
+  },
+  "via": {
+    "issue": "via issue {{identifier}}",
+    "sub_issue": "via sub-issue {{identifier}}",
+    "comment": "via comment",
+    "comment_on": "via comment on {{identifier}}",
+    "task": "via run",
+    "task_on": "via run on {{identifier}}"
   }
 }
