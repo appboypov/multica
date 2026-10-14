@@ -15,6 +15,8 @@ interface ReleasePickerProps {
   onPick: (releaseId: string | null) => void;
   align?: "start" | "center" | "end";
   trigger?: React.ReactNode;
+  /** The element the trigger renders as, such as New issue's pill. */
+  triggerRender?: React.ReactElement;
 }
 
 /**
@@ -22,7 +24,14 @@ interface ReleasePickerProps {
  * worklane's repository by version and title, then "No release". Without a
  * worklane it says "Pick a worklane first".
  */
-export function ReleasePicker({ worklaneId, releaseId, onPick, align, trigger }: ReleasePickerProps) {
+export function ReleasePicker({
+  worklaneId,
+  releaseId,
+  onPick,
+  align,
+  trigger,
+  triggerRender,
+}: ReleasePickerProps) {
   const [open, setOpen] = useState(false);
   const { t } = useT("issues");
   const data = usePlacementData();
@@ -42,6 +51,7 @@ export function ReleasePicker({ worklaneId, releaseId, onPick, align, trigger }:
       onOpenChange={setOpen}
       width="w-72"
       align={align}
+      triggerRender={triggerRender}
       trigger={
         trigger ?? (
           <>

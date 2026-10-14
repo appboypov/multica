@@ -15,6 +15,8 @@ interface WorklanePickerProps {
   align?: "start" | "center" | "end";
   /** Overrides the default trigger (icon, worklane and repository). */
   trigger?: React.ReactNode;
+  /** The element the trigger renders as, such as New issue's pill. */
+  triggerRender?: React.ReactElement;
 }
 
 /**
@@ -22,7 +24,13 @@ interface WorklanePickerProps {
  * workspace grouped by organisation, project and repository, with
  * "No worklane" first.
  */
-export function WorklanePicker({ worklaneId, onPick, align, trigger }: WorklanePickerProps) {
+export function WorklanePicker({
+  worklaneId,
+  onPick,
+  align,
+  trigger,
+  triggerRender,
+}: WorklanePickerProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const { t } = useT("issues");
@@ -72,6 +80,7 @@ export function WorklanePicker({ worklaneId, onPick, align, trigger }: WorklaneP
       }}
       width="w-80"
       align={align}
+      triggerRender={triggerRender}
       searchable
       searchPlaceholder={t(($) => $.pickers.worklane.search_placeholder)}
       onSearchChange={setQuery}
