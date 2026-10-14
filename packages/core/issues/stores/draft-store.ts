@@ -21,8 +21,9 @@ import { normalizeStoredUploads, type DraftUpload } from "../../drafts/draft-upl
 //   shared  — belongs to the issue no matter how it is filed: project,
 //             priority, due date, attachments.
 //   manual  — the manual form's own state: title, the template's type and
-//             fields, worklane, release, status, start date, assignee,
-//             labels, custom properties.
+//             fields (no type and a free description with No template),
+//             worklane, release, status, start date, assignee, labels,
+//             custom properties.
 //   agent   — the agent form's own state: the free-text prompt and the picked
 //             actor (agent or squad).
 //   activeMode — which form the draft is currently being edited in.
@@ -49,8 +50,10 @@ export interface IssueCreateShared {
 
 export interface IssueCreateManual {
   title: string;
-  /** The template picked; its fields fill the issue's Markdown description. */
-  type: IssueType;
+  /** The template picked, or null for No template; a template's fields fill the issue's Markdown description. */
+  type: IssueType | null;
+  /** The free Markdown description, used only with No template. */
+  description: string;
   /** The template's field values by field key, kept per key so switching templates keeps shared keys. */
   fields: Record<string, string>;
   worklaneId: string | null;
@@ -90,7 +93,8 @@ const emptyShared = (): IssueCreateShared => ({
 
 const emptyManual = (): IssueCreateManual => ({
   title: "",
-  type: "story",
+  type: null,
+  description: "",
   fields: {},
   worklaneId: null,
   releaseId: null,
@@ -139,17 +143,25 @@ function isLegacyFlatDraft(d: Record<string, unknown>): boolean {
   );
 }
 
-// A manual slot from before templates kept a free description; templates
-// replace it, so it is dropped, and fields missing from an older build or of
-// the wrong shape fall back to their defaults.
+// Fields missing from an older build or of the wrong shape fall back to their
+// defaults, and an unknown type means No template. A draft with no title and
+// no field text has no pick of its own (the template-only build saved Story
+// as its default), so it opens on No template.
 function migrateManual(raw: unknown): IssueCreateManual {
-  const { description: _legacyDescription, ...m } =
-    (raw && typeof raw === "object" ? raw : {}) as Partial<IssueCreateManual> & { description?: unknown };
+  const m = (raw && typeof raw === "object" ? raw : {}) as Partial<IssueCreateManual>;
   const manual = { ...emptyManual(), ...m };
+  const fields: Record<string, string> =
+    manual.fields && typeof manual.fields === "object" ? manual.fields : {};
+  const hasText =
+    (typeof manual.title === "string" && manual.title.trim() !== "") ||
+    Object.values(fields).some((value) => typeof value === "string" && value.trim() !== "");
+  const knownType =
+    manual.type != null && ISSUE_TYPES.includes(manual.type) ? manual.type : null;
   return {
     ...manual,
-    type: ISSUE_TYPES.includes(manual.type) ? manual.type : "story",
-    fields: manual.fields && typeof manual.fields === "object" ? manual.fields : {},
+    type: hasText ? knownType : null,
+    description: typeof manual.description === "string" ? manual.description : "",
+    fields,
     worklaneId: typeof manual.worklaneId === "string" ? manual.worklaneId : null,
     releaseId: typeof manual.releaseId === "string" ? manual.releaseId : null,
     statusPicked: manual.statusPicked === true,
@@ -178,6 +190,7 @@ function migrateDraft(raw: unknown): IssueCreateDraft {
       manual: {
         ...emptyManual(),
         title: (d.title as string) ?? "",
+        description: typeof d.description === "string" ? d.description : "",
         startDate: (d.startDate as string | null) ?? null,
         assigneeType: d.assigneeType as IssueAssigneeType | undefined,
         assigneeId: d.assigneeId as string | undefined,
@@ -261,6 +274,7 @@ export const useIssueDraftStore = create<IssueDraftStore>()(
         const { manual, agent, shared } = get().draft;
         return !!(
           manual.title ||
+          manual.description.trim() ||
           Object.values(manual.fields).some((value) => value.trim() !== "") ||
           agent.prompt ||
           Object.keys(manual.propertyValues).length > 0 ||

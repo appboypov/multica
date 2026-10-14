@@ -574,10 +574,10 @@ export function AgentCreatePanel({
   // slot (prompt + actor) is left untouched so a later manual→agent flip
   // restores it verbatim. Project / priority / due date already live in the
   // shared slot and carry across for free. Two one-time assist-inits run only
-  // when the manual slot is still empty: seed the picked template's first
-  // field from the prompt and the assignee from the picked actor. The
-  // parent-issue context is not persisted (a per-invocation intent) so it
-  // rides the carry channel.
+  // when the manual slot is still empty: seed the free description (No
+  // template) or the picked template's first field from the prompt, and the
+  // assignee from the picked actor. The parent-issue context is not persisted
+  // (a per-invocation intent) so it rides the carry channel.
   const switchToManual = () => {
     // The prompt is copied into the manual form on assist-init; mid-upload
     // that body has already lost the pending image (see switchToAgent).
@@ -586,12 +586,19 @@ export function AgentCreatePanel({
     // there — local state can hold a value seeded from `data` that was never
     // written through a picker.
     setShared({ projectId: projectId ?? undefined, priority, dueDate });
-    const firstField = templates
-      .find((template) => template.type === draft.manual.type)
-      ?.sections.find((section) => section.field)?.field;
-    if (firstField && Object.values(draft.manual.fields).every((value) => !value.trim())) {
-      const md = editorRef.current?.getMarkdown() ?? "";
-      if (md) setManual({ fields: { ...draft.manual.fields, [firstField.key]: md } });
+    if (draft.manual.type === null) {
+      if (!draft.manual.description.trim()) {
+        const md = editorRef.current?.getMarkdown() ?? "";
+        if (md) setManual({ description: md });
+      }
+    } else {
+      const firstField = templates
+        .find((template) => template.type === draft.manual.type)
+        ?.sections.find((section) => section.field)?.field;
+      if (firstField && Object.values(draft.manual.fields).every((value) => !value.trim())) {
+        const md = editorRef.current?.getMarkdown() ?? "";
+        if (md) setManual({ fields: { ...draft.manual.fields, [firstField.key]: md } });
+      }
     }
     if (!draft.manual.assigneeId && actor) {
       setManual({ assigneeType: actor.type, assigneeId: actor.id });

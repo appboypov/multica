@@ -821,15 +821,18 @@ export function InboxPage() {
               // candidate (still editable).
               const prompt = detailItem.details?.original_prompt ?? "";
               const agentId = detailItem.details?.agent_id;
-              // The prompt fills the first field of the draft's template.
+              // The prompt fills the first field of the draft's template, or
+              // the free description with No template.
               const { manual } = useIssueDraftStore.getState().draft;
               const firstField = templates
                 .find((template) => template.type === manual.type)
                 ?.sections.find((section) => section.field)?.field;
               useIssueDraftStore.getState().setManual({
-                ...(firstField && prompt
-                  ? { fields: { ...manual.fields, [firstField.key]: prompt } }
-                  : {}),
+                ...(manual.type === null
+                  ? { description: prompt }
+                  : firstField && prompt
+                    ? { fields: { ...manual.fields, [firstField.key]: prompt } }
+                    : {}),
                 ...(agentId
                   ? { assigneeType: "agent" as const, assigneeId: agentId }
                   : {}),

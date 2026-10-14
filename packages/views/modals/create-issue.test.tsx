@@ -51,6 +51,27 @@ const mockShowIssueLimitUpgradePrompt = vi.hoisted(() => vi.fn());
 // `api.uploadFile(file, ctx, signal)` (MUL-5181 L2). Tests drive uploads by
 // mocking that call; it resolves a plain server Attachment row.
 const mockApiUploadFile = vi.hoisted(() => vi.fn());
+const mockListIssueTemplates = vi.hoisted(() => vi.fn());
+
+// One template with one required field, enough to tell picking a template
+// apart from No template.
+const STORY_TEMPLATE = {
+  type: "story" as const,
+  sections: [
+    {
+      heading: "## Story",
+      question: "Who wants what?",
+      field: {
+        key: "story",
+        label: "Story",
+        required: true,
+        placeholder: "",
+        rows: 3,
+        format: "text" as const,
+      },
+    },
+  ],
+};
 
 const sourceContextPanelData = () => ({
   anchor_comment_id: "comment-source",
@@ -127,7 +148,7 @@ const emptyIssueDraft = () => ({
   manual: {
     title: "",
     description: "",
-    type: "story" as const,
+    type: null as "story" | "bug" | null,
     fields: {} as Record<string, string>,
     worklaneId: null as string | null,
     releaseId: null as string | null,
@@ -333,6 +354,7 @@ vi.mock("@multica/core/api", async () => {
       listProperties: mockListProperties,
       setIssueProperty: mockSetIssueProperty,
       uploadFile: mockApiUploadFile,
+      listIssueTemplates: mockListIssueTemplates,
     },
     ApiError,
     parseWithFallback,
@@ -674,6 +696,7 @@ describe("CreateIssueModal", () => {
       size_bytes: 123,
       created_at: "2026-06-12T00:00:00Z",
     });
+    mockListIssueTemplates.mockResolvedValue([STORY_TEMPLATE]);
     mockCreateIssue.mockResolvedValue({
       id: "issue-123",
       identifier: "TES-123",
@@ -738,7 +761,7 @@ describe("CreateIssueModal", () => {
       expect(mockCreateIssue).toHaveBeenCalledWith({
         title: "Ship create issue regression coverage",
         description: undefined,
-        status: "todo",
+        status: "backlog",
         priority: "none",
         assignee_type: undefined,
         assignee_id: undefined,
@@ -747,6 +770,9 @@ describe("CreateIssueModal", () => {
         attachment_ids: undefined,
         parent_issue_id: undefined,
         project_id: undefined,
+        from_template: false,
+        worklane_id: null,
+        release_id: null,
       });
     });
 
@@ -768,6 +794,56 @@ describe("CreateIssueModal", () => {
 
     expect(mockPush).toHaveBeenCalledWith("/ws-test/issues/issue-123");
     expect(mockToastDismiss).toHaveBeenCalledWith("toast-1");
+  });
+
+  it("opens on No template and creates an issue with no type and the typed description", async () => {
+    const user = userEvent.setup();
+    renderModal(<CreateIssueModal onClose={vi.fn()} />);
+
+    expect(screen.getByRole("radio", { name: /No template/ })).toHaveAttribute("aria-checked", "true");
+    expect(await screen.findByRole("radio", { name: /Story/ })).toHaveAttribute("aria-checked", "false");
+    expect(screen.queryByRole("tab", { name: "Fields" })).not.toBeInTheDocument();
+    expect(screen.getByText("No type")).toBeInTheDocument();
+
+    await user.type(screen.getByPlaceholderText("Issue title"), "Free issue");
+    await user.type(screen.getByPlaceholderText("Add description..."), "A free body");
+    await user.click(screen.getByRole("button", { name: "Create Issue" }));
+
+    await waitFor(() => expect(mockCreateIssue).toHaveBeenCalledTimes(1));
+    const payload = mockCreateIssue.mock.calls[0]?.[0];
+    expect(payload).toMatchObject({
+      title: "Free issue",
+      description: "A free body",
+      from_template: false,
+      worklane_id: null,
+      release_id: null,
+    });
+    expect(payload).not.toHaveProperty("type");
+  });
+
+  it("creates a Story from the Story template once its required field is filled", async () => {
+    const user = userEvent.setup();
+    renderModal(<CreateIssueModal onClose={vi.fn()} />);
+
+    await user.click(await screen.findByRole("radio", { name: /Story/ }));
+    expect(mockSetManual).toHaveBeenCalledWith({ type: "story" });
+    expect(screen.queryByPlaceholderText("Add description...")).not.toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Fields" })).toBeInTheDocument();
+
+    await user.type(screen.getByPlaceholderText("Issue title"), "Story issue");
+    expect(screen.getByRole("button", { name: "Create story" })).toHaveAttribute("aria-disabled", "true");
+    await user.type(screen.getByRole("textbox", { name: /Story/ }), "Brian wants a story");
+    const create = screen.getByRole("button", { name: "Create story" });
+    expect(create).not.toHaveAttribute("aria-disabled");
+    await user.click(create);
+
+    await waitFor(() => expect(mockCreateIssue).toHaveBeenCalledTimes(1));
+    expect(mockCreateIssue.mock.calls[0]?.[0]).toMatchObject({
+      title: "Story issue",
+      type: "story",
+      from_template: true,
+      description: expect.stringContaining("Brian wants a story"),
+    });
   });
 
   it("forwards selected labels in the create payload so they attach in the same transaction", async () => {
@@ -850,7 +926,7 @@ describe("CreateIssueModal", () => {
       expect(mockCreateIssue).toHaveBeenCalledWith({
         title: "First follow-up issue",
         description: "Description to clear",
-        status: "todo",
+        status: "backlog",
         priority: "none",
         assignee_type: undefined,
         assignee_id: undefined,
@@ -859,6 +935,9 @@ describe("CreateIssueModal", () => {
         attachment_ids: undefined,
         parent_issue_id: undefined,
         project_id: undefined,
+        from_template: false,
+        worklane_id: null,
+        release_id: null,
       });
     });
 
@@ -867,8 +946,11 @@ describe("CreateIssueModal", () => {
     expect(screen.getByPlaceholderText("Add description...")).toHaveValue("");
     expect(mockSetManual).toHaveBeenCalledWith({
       title: "",
+      type: null,
       description: "",
-      status: "todo",
+      fields: {},
+      status: "backlog",
+      statusPicked: false,
       assigneeType: undefined,
       assigneeId: undefined,
       startDate: null,
@@ -1036,7 +1118,7 @@ describe("CreateIssueModal", () => {
         description: "Keep this body",
         assignee_type: "member",
         assignee_id: "user-1",
-        status: "todo",
+        status: "backlog",
         priority: "high",
         properties: remainingProperties,
       });
@@ -1554,7 +1636,6 @@ describe("CreateIssueModal", () => {
     const sourceContext = document.querySelector<HTMLElement>('[data-slot="source-context-preview"]');
 
     expect(description).toHaveClass(
-      "relative",
       "flex",
       "flex-1",
       "min-h-0",
@@ -1562,8 +1643,8 @@ describe("CreateIssueModal", () => {
       "px-5",
     );
     expect(sourceContext).toHaveClass("shrink-0");
-    expect(description?.parentElement).toBe(sourceContext?.parentElement);
-    expect(description?.nextElementSibling).toBe(sourceContext);
+    // The context follows the template list and body row, outside the scroller.
+    expect(sourceContext?.previousElementSibling).toContainElement(description ?? null);
     expect(description).not.toContainElement(sourceContext);
   });
 

@@ -1533,6 +1533,10 @@
   },
   "templates": {
     "label": "Modèle",
+    "none": {
+      "name": "Aucun modèle",
+      "hint": "Un titre et une description libre"
+    },
     "required": "Obligatoire",
     "optional": "Facultatif",
     "fields_tab": "Champs",

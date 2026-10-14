@@ -1,10 +1,11 @@
 ## ADDED Requirements
 
-### Requirement: New issue starts only from one of eight templates
-New issue SHALL list the eight templates on the left, each with its type icon, its name and its hint, with Story picked when it opens, and SHALL create an issue only from the picked template. The picked template SHALL set the issue's type, its fields and the button "Create {template}" in lowercase.
+### Requirement: New issue starts from No template or one of eight templates
+New issue SHALL list No template first and then the eight templates on the left, each with its type icon, its name and its hint, with No template picked when it opens. With No template the issue SHALL have no type and a free description, and the button SHALL say "Create Issue". A picked template SHALL set the issue's type, its fields and the button "Create {template}" in lowercase.
 
 | Template | Hint |
 |---|---|
+| No template | A title and a free description |
 | Epic | An outcome made of stories |
 | Journey | One user journey, one change |
 | Story | One slice toward an epic |
@@ -16,8 +17,13 @@ New issue SHALL list the eight templates on the left, each with its type icon, i
 
 #### Scenario: New issue opens
 - **WHEN** Brian clicks New Issue in the sidebar
-- **THEN** New issue lists Epic, Journey, Story, Bug, Enhancement, Refactor, Chore and Spike, each with its icon and hint
-- **AND** Story is picked, the type chip says Story and the button says "Create story"
+- **THEN** New issue lists No template, Epic, Journey, Story, Bug, Enhancement, Refactor, Chore and Spike, each with its icon and hint
+- **AND** No template is picked, the type chip says "No type" and the button says "Create Issue"
+
+#### Scenario: Creating an issue with No template
+- **GIVEN** New issue is open with No template picked
+- **WHEN** Brian types the title "Check the guest list export" and the description "It misses the last row" and clicks "Create Issue"
+- **THEN** the issue is created with no type and the description "It misses the last row"
 
 #### Scenario: Picking Bug
 - **WHEN** Brian picks Bug in New issue

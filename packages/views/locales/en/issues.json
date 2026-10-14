@@ -1533,6 +1533,10 @@
   },
   "templates": {
     "label": "Template",
+    "none": {
+      "name": "No template",
+      "hint": "A title and a free description"
+    },
     "required": "Required",
     "optional": "Optional",
     "fields_tab": "Fields",

@@ -6,10 +6,11 @@
  * Both create panels (manual form and agent prompt) share ONE upload pool —
  * `draft.shared.attachments` — so a file survives a mode switch from either
  * side. What differs per mode is the BODY the upload's link belongs to. The
- * agent prompt holds its links as written. The manual form has no free body:
- * its template's fields fill the description, and the links of the finished
- * uploads follow that Markdown (`manualAttachmentMarkdown`), so the manual body
- * is derived from the pool and nothing is appended to it.
+ * agent prompt holds its links as written, and so does the manual form's free
+ * description with No template. With a template the manual form has no free
+ * body: its fields fill the description, and the links of the finished
+ * uploads follow that Markdown (`manualAttachmentMarkdown`), so that body is
+ * derived from the pool and nothing is appended to it.
  *
  * Uploads here carry no issue/comment context — the issue does not exist yet;
  * the server binds attachments at create time from `attachment_ids`.
@@ -106,15 +107,22 @@ export function useIssueCreateUploads(
         if (!cur.some((u) => u.clientUploadId === id)) return;
         setSharedUploads(cur.filter((u) => u.clientUploadId !== id));
       },
-      getBody: () =>
-        mode === "agent"
-          ? useIssueDraftStore.getState().draft.agent.prompt
-          : manualAttachmentMarkdown(sharedUploads()),
+      getBody: () => {
+        const { draft } = useIssueDraftStore.getState();
+        if (mode === "agent") return draft.agent.prompt;
+        return draft.manual.type === null
+          ? draft.manual.description
+          : manualAttachmentMarkdown(sharedUploads());
+      },
       appendToBody: (md) => {
-        // The manual body is derived from the pool; a settled upload is in it.
-        if (mode !== "agent") return;
         const state = useIssueDraftStore.getState();
-        state.setAgent({ prompt: appendMarkdown(state.draft.agent.prompt, md) });
+        if (mode === "agent") {
+          state.setAgent({ prompt: appendMarkdown(state.draft.agent.prompt, md) });
+          return;
+        }
+        // With a template the body is derived from the pool; a settled upload is in it.
+        if (state.draft.manual.type !== null) return;
+        state.setManual({ description: appendMarkdown(state.draft.manual.description, md) });
       },
     }),
     [mode],

@@ -1483,6 +1483,10 @@
   },
   "templates": {
     "label": "템플릿",
+    "none": {
+      "name": "템플릿 없음",
+      "hint": "제목과 자유로운 설명"
+    },
     "required": "필수",
     "optional": "선택",
     "fields_tab": "필드",
