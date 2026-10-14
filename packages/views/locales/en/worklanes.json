@@ -119,5 +119,35 @@
     "unpushed": "{{name}}'s worktree holds commits that are not on {{base}}",
     "stashed": "{{name}}'s worktree holds stashed changes",
     "unknown": "{{detail}}"
+  },
+  "views": {
+    "label": "View",
+    "timeline": "Timeline",
+    "board": "Board",
+    "list": "List"
+  },
+  "type_filter": {
+    "label": "Type",
+    "picked_one": "{{count}} type",
+    "picked_other": "{{count}} types",
+    "clear": "Show every type"
+  },
+  "head": {
+    "now": "now:",
+    "next": "next:",
+    "open": "Open {{identifier}}"
+  },
+  "list": {
+    "issue_count_one": "{{count}} issue",
+    "issue_count_other": "{{count}} issues",
+    "no_releases": "No releases planned for this worklane yet."
+  },
+  "branch": {
+    "switched": "The worktree switched from {{from}} to {{to}}",
+    "detached": "detached",
+    "kept": "The worktree stayed on {{branch}}",
+    "kept_uncommitted": "The worktree stayed on {{branch}} because it holds uncommitted changes",
+    "kept_unpushed_one": "The worktree stayed on {{branch}} because it holds {{count}} commit that is not pushed",
+    "kept_unpushed_other": "The worktree stayed on {{branch}} because it holds {{count}} commits that are not pushed"
   }
 }

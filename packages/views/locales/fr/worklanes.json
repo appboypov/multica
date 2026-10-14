@@ -119,5 +119,35 @@
     "unpushed": "Le worktree de {{name}} contient des commits absents de {{base}}",
     "stashed": "Le worktree de {{name}} contient des modifications mises de côté (stash)",
     "unknown": "{{detail}}"
+  },
+  "views": {
+    "label": "Vue",
+    "timeline": "Chronologie",
+    "board": "Tableau",
+    "list": "Liste"
+  },
+  "type_filter": {
+    "label": "Type",
+    "picked_one": "{{count}} type",
+    "picked_other": "{{count}} types",
+    "clear": "Afficher tous les types"
+  },
+  "head": {
+    "now": "maintenant :",
+    "next": "ensuite :",
+    "open": "Ouvrir {{identifier}}"
+  },
+  "list": {
+    "issue_count_one": "{{count}} tâche",
+    "issue_count_other": "{{count}} tâches",
+    "no_releases": "Aucune version planifiée pour ce worklane pour l’instant."
+  },
+  "branch": {
+    "switched": "Le worktree est passé de {{from}} à {{to}}",
+    "detached": "détaché",
+    "kept": "Le worktree est resté sur {{branch}}",
+    "kept_uncommitted": "Le worktree est resté sur {{branch}} car il contient des modifications non commitées",
+    "kept_unpushed_one": "Le worktree est resté sur {{branch}} car il contient {{count}} commit non poussé",
+    "kept_unpushed_other": "Le worktree est resté sur {{branch}} car il contient {{count}} commits non poussés"
   }
 }

@@ -118,5 +118,32 @@
     "unpushed": "{{name}} の worktree に {{base}} にないコミットがあります",
     "stashed": "{{name}} の worktree に stash された変更があります",
     "unknown": "{{detail}}"
+  },
+  "views": {
+    "label": "ビュー",
+    "timeline": "タイムライン",
+    "board": "ボード",
+    "list": "リスト"
+  },
+  "type_filter": {
+    "label": "種類",
+    "picked_other": "{{count}} 種類",
+    "clear": "すべての種類を表示"
+  },
+  "head": {
+    "now": "作業中：",
+    "next": "次：",
+    "open": "{{identifier}} を開く"
+  },
+  "list": {
+    "issue_count_other": "{{count}} 件のタスク",
+    "no_releases": "この worklane にはまだ計画中のリリースがありません。"
+  },
+  "branch": {
+    "switched": "worktree が {{from}} から {{to}} に切り替わりました",
+    "detached": "detached",
+    "kept": "worktree は {{branch}} にとどまりました",
+    "kept_uncommitted": "コミットしていない変更があるため、worktree は {{branch}} にとどまりました",
+    "kept_unpushed_other": "プッシュしていないコミットが {{count}} 件あるため、worktree は {{branch}} にとどまりました"
   }
 }

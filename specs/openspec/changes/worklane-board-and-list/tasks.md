@@ -147,7 +147,7 @@ This change builds on UJ-5 (`issues-from-templates`, DAS-456), which builds on U
 - [x] 13.4 `packages/views/issues/surface/peek-context.tsx`, `packages/views/issues/components/issue-peek.tsx` -- `openMode` on `IssuePeekHost` read by `useIssuePeekClick`, and the open button labelled "Open issue".
 - [x] 13.5 `packages/views/issues/surface/issue-surface.tsx`, `types.ts`, `use-issue-surface-actions.ts` -- `openMode` passed to the surface's peek host, and `announceMoves` with the toast "{identifier} moved to {status}" after the server accepts a status change.
 - [ ] 13.6 `packages/views/worklanes/components/worklane-type-filter.tsx` -- the Type filter with the eight types and No type, their icons and counts.
-- [ ] 13.7 `packages/views/worklanes/components/worklane-state.tsx` -- Busy or Free with "now: {ID} {title}" or "next: {ID} {title}", the issue opening its preview.
+- [x] 13.7 `packages/views/worklanes/components/worklane-state.tsx` -- Busy or Free with "now: {ID} {title}" or "next: {ID} {title}", the issue opening its preview.
 - [ ] 13.8 `packages/views/issues/components/issue-peek-summary.test.tsx`, `packages/views/issues/surface/issue-surface.test.tsx` -- the header with and without a worklane and a release, the status menu changing the status, the worklane link; the move toast with `announceMoves` and none without it; a click opening the preview with `openMode` `peek` while the device's mode is `page`.
 
 ## 14. J9 Frontend: screen
@@ -156,9 +156,9 @@ This change builds on UJ-5 (`issues-from-templates`, DAS-456), which builds on U
 - [ ] 14.2 `packages/views/worklanes/components/worklane-board.tsx` -- `IssueSurface` with the worklane scope, `modes: ["board"]`, `surfaceKey` `worklane:{id}`, `createDefaults` from `openedFrom`, `announceMoves` and `openMode` `peek` -- the `worklane-board` spec delta.
 - [ ] 14.3 `packages/views/worklanes/components/worklane-list.tsx` -- the sections of `listSections` with UJ-4's release menu and description, `ListRow` rows in a `ViewStoreProvider` of the `worklane:{id}` store, "No issues of this worklane", "No release", and the two empty states -- the `worklane-list` spec delta.
 - [ ] 14.4 `packages/views/worklanes/components/worklane-timeline.tsx`, `packages/views/releases/components/release-issue-row.tsx` -- the Type filter on the Timeline's issues, and rows opening the preview -- the `worklane-views` and `issue-preview` spec deltas.
-- [ ] 14.5 `packages/views/worklanes/components/worklane-activity.tsx` -- "The worktree switched from {from} to {to}" and "The worktree stayed on {branch} because it holds uncommitted changes" or "... {count} commits that are not pushed".
+- [x] 14.5 `packages/views/worklanes/components/worklane-activity.tsx` -- "The worktree switched from {from} to {to}" and "The worktree stayed on {branch} because it holds uncommitted changes" or "... {count} commits that are not pushed".
 - [x] 14.6 `packages/views/agents/components/tabs/task-failure.ts` -- `worklane_elsewhere` and `worklane_branch_held` as actionable, with their labels.
-- [ ] 14.7 `packages/views/locales/{en,zh-Hans,ko,ja,fr}/` -- `issues` (the move toast, Open issue, No worklane), `worklanes` (the views, Type, No type, Busy, Free, now, next, the List's empty states, the two activity sentences), `agents` (the two failure labels) -- design.md decision 9.
+- [x] 14.7 `packages/views/locales/{en,zh-Hans,ko,ja,fr}/` -- `issues` (the move toast, Open issue, No worklane), `worklanes` (the views, Type, No type, Busy, Free, now, next, the List's empty states, the two activity sentences), `agents` (the two failure labels) -- design.md decision 9.
 - [ ] 14.8 `packages/views/worklanes/components/worklane-page.test.tsx`, `worklane-list.test.tsx` -- the page opening on Timeline, switching views keeping the Type filter, the header Busy and Free; the List's sections, "No release" and the empty states.
 - [x] 14.9 `apps/docs/content/docs/projects.mdx`, `projects.zh.mdx`, `projects.ko.mdx`, `projects.ja.mdx`, `projects.fr.mdx` -- a worklane's views, the Type filter, Busy and Free with now and next, and how agents work a worklane's issues in its worktree.
 

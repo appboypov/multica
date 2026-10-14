@@ -118,5 +118,32 @@
     "unpushed": "{{name}}의 worktree에 {{base}}에 없는 커밋이 있습니다",
     "stashed": "{{name}}의 worktree에 stash된 변경이 있습니다",
     "unknown": "{{detail}}"
+  },
+  "views": {
+    "label": "보기",
+    "timeline": "타임라인",
+    "board": "보드",
+    "list": "리스트"
+  },
+  "type_filter": {
+    "label": "유형",
+    "picked_other": "유형 {{count}}개",
+    "clear": "모든 유형 보기"
+  },
+  "head": {
+    "now": "지금:",
+    "next": "다음:",
+    "open": "{{identifier}} 열기"
+  },
+  "list": {
+    "issue_count_other": "태스크 {{count}}개",
+    "no_releases": "이 worklane에 계획된 릴리스가 아직 없습니다."
+  },
+  "branch": {
+    "switched": "worktree가 {{from}}에서 {{to}}(으)로 전환되었습니다",
+    "detached": "분리됨",
+    "kept": "worktree가 {{branch}}에 머물렀습니다",
+    "kept_uncommitted": "커밋하지 않은 변경이 있어 worktree가 {{branch}}에 머물렀습니다",
+    "kept_unpushed_other": "푸시하지 않은 커밋 {{count}}개가 있어 worktree가 {{branch}}에 머물렀습니다"
   }
 }

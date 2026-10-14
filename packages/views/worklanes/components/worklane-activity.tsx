@@ -65,6 +65,20 @@ function WorklaneActivityRow({ entry }: { entry: WorklaneActivityEntry }) {
         to: entry.details.to,
       });
       break;
+    case "worklane_switched":
+      sentence = t(($) => $.branch.switched, {
+        from: entry.details.from || t(($) => $.branch.detached),
+        to: entry.details.to || t(($) => $.branch.detached),
+      });
+      break;
+    case "worklane_kept":
+      sentence =
+        entry.details.reason === "uncommitted"
+          ? t(($) => $.branch.kept_uncommitted, { branch: entry.details.branch })
+          : entry.details.reason === "unpushed"
+            ? t(($) => $.branch.kept_unpushed, { branch: entry.details.branch, count: entry.details.count })
+            : t(($) => $.branch.kept, { branch: entry.details.branch });
+      break;
     default:
       return null;
   }

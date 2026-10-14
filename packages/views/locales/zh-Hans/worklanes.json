@@ -118,5 +118,32 @@
     "unpushed": "{{name}} 的 worktree 中有不在 {{base}} 上的提交",
     "stashed": "{{name}} 的 worktree 中有暂存的更改",
     "unknown": "{{detail}}"
+  },
+  "views": {
+    "label": "视图",
+    "timeline": "时间线",
+    "board": "看板",
+    "list": "列表"
+  },
+  "type_filter": {
+    "label": "类型",
+    "picked_other": "{{count}} 种类型",
+    "clear": "显示所有类型"
+  },
+  "head": {
+    "now": "正在做：",
+    "next": "下一个：",
+    "open": "打开 {{identifier}}"
+  },
+  "list": {
+    "issue_count_other": "{{count}} 个任务",
+    "no_releases": "此 worklane 还没有规划版本。"
+  },
+  "branch": {
+    "switched": "工作树已从 {{from}} 切换到 {{to}}",
+    "detached": "分离状态",
+    "kept": "工作树留在了 {{branch}}",
+    "kept_uncommitted": "工作树留在了 {{branch}}，因为其中有未提交的更改",
+    "kept_unpushed_other": "工作树留在了 {{branch}}，因为其中有 {{count}} 个未推送的提交"
   }
 }
