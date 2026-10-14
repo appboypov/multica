@@ -9,12 +9,15 @@ import type {
   ReleaseLineResponse,
   ReleaseRefusal,
 } from "../types";
+import { worklaneKeys } from "../worklanes/queries";
 import { releaseKeys } from "./queries";
 import { invalidatePlacementReads } from "../issues/placement/queries";
 
 /**
  * Every write answers with the repository's whole line: it replaces that
- * repository's releases in the workspace list without a second read.
+ * repository's releases in the workspace list without a second read. Each
+ * write also adds an entry to the activity of every worklane of the
+ * repository.
  */
 function settleLine(
   qc: QueryClient,
@@ -33,6 +36,7 @@ function settleLine(
         }
       : old,
   );
+  qc.invalidateQueries({ queryKey: worklaneKeys.activityAll(wsId) });
 }
 
 /** The structured refusal of a failed release write, or null for any other error. */

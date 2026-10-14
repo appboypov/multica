@@ -133,12 +133,12 @@ Its J2 starts once UJ-3's J2 is merged.
 ## 10. J9 Frontend: flow
 
 - [ ] 10.1 `packages/core/api/client.ts` -- `listReleases`, `planRelease`, `editRelease`, `moveRelease` and `removeRelease`, and `last_tag` on the repository calls, each through `parseWithFallback`.
-- [ ] 10.2 `packages/core/releases/` (`queries.ts`, `mutations.ts`, `line.ts`, `index.ts`) -- design.md decision 7:
+- [x] 10.2 `packages/core/releases/` (`queries.ts`, `mutations.ts`, `line.ts`, `index.ts`) -- design.md decision 7:
   - `releaseKeys.list(wsId)`, `releaseListOptions` and a memoised `selectLine`.
   - The four mutations, each awaiting the server, replacing the repository's releases in the list cache with the answered line and invalidating the worklane activity.
   - `line.ts`: `parseVersion`, `formatVersion`, `bumpOptions`, `previewPlan`, `previewEdit`, `previewMove`, `previewRemove` and `lineStates`.
 - [ ] 10.3 `packages/core/releases/line.test.ts` (`// @vitest-environment node`) -- runs every case of `server/internal/releaseline/testdata/cases.json`.
-- [ ] 10.4 `packages/core/realtime/use-realtime-sync.ts` -- `release_line:updated` invalidates `releaseKeys.list(wsId)` and the worklane activity of the workspace.
+- [x] 10.4 `packages/core/realtime/use-realtime-sync.ts` -- `release_line:updated` invalidates `releaseKeys.list(wsId)` and the worklane activity of the workspace.
 
 ## 11. J9 Frontend: component
 

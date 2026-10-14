@@ -864,11 +864,13 @@ export function useRealtimeSync(
         if (wsId) qc.invalidateQueries({ queryKey: organisationKeys.all(wsId) });
       },
       // A repository's release line changed (ADR-0010): refetch the
-      // workspace's releases, and the issues and progress that follow them.
+      // workspace's releases, the activity of its worklanes, which records
+      // each change, and the issues and progress that follow them.
       release_line: () => {
         const wsId = getCurrentWsId();
         if (!wsId) return;
         qc.invalidateQueries({ queryKey: releaseKeys.list(wsId) });
+        qc.invalidateQueries({ queryKey: worklaneKeys.activityAll(wsId) });
         invalidatePlacementReads(qc, wsId);
       },
       // worklane:created, :updated and :deleted refresh the list, the
