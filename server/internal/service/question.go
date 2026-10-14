@@ -90,28 +90,37 @@ type QuestionEventDTO struct {
 	CreatedAt string          `json:"created_at"`
 }
 
+// QuestionWakeTargetDTO is an agent/issue pair offered Wake, with its unseen answers.
+type QuestionWakeTargetDTO struct {
+	AgentID           string `json:"agent_id"`
+	IssueID           string `json:"issue_id"`
+	UnseenAnswerCount int64  `json:"unseen_answer_count"`
+	WakeAvailable     bool   `json:"wake_available"`
+}
+
 // QuestionDTO is the aggregate wire shape shared with core/types/question.ts.
 type QuestionDTO struct {
-	ID                string                `json:"id"`
-	WorkspaceID       string                `json:"workspace_id"`
-	AskerAgentID      string                `json:"asker_agent_id"`
-	AskedInTaskID     string                `json:"asked_in_task_id"`
-	Prompt            string                `json:"prompt"`
-	ContextLine       *string               `json:"context_line"`
-	AnswerType        string                `json:"answer_type"`
-	Settings          json.RawMessage       `json:"settings"`
-	SuggestedAnswer   json.RawMessage       `json:"suggested_answer"`
-	Status            string                `json:"status"`
-	DueDate           *string               `json:"due_date"`
-	BlocksWork        bool                  `json:"blocks_work"`
-	Links             []QuestionLinkDTO     `json:"links"`
-	Answerers         []QuestionAnswererDTO `json:"answerers"`
-	Answers           []QuestionAnswerDTO   `json:"answers"`
-	Events            []QuestionEventDTO    `json:"events"`
-	UnseenAnswerCount int64                 `json:"unseen_answer_count"`
-	WakeAvailable     bool                  `json:"wake_available"`
-	CreatedAt         string                `json:"created_at"`
-	UpdatedAt         string                `json:"updated_at"`
+	ID                string                  `json:"id"`
+	WorkspaceID       string                  `json:"workspace_id"`
+	AskerAgentID      string                  `json:"asker_agent_id"`
+	AskedInTaskID     string                  `json:"asked_in_task_id"`
+	Prompt            string                  `json:"prompt"`
+	ContextLine       *string                 `json:"context_line"`
+	AnswerType        string                  `json:"answer_type"`
+	Settings          json.RawMessage         `json:"settings"`
+	SuggestedAnswer   json.RawMessage         `json:"suggested_answer"`
+	Status            string                  `json:"status"`
+	DueDate           *string                 `json:"due_date"`
+	BlocksWork        bool                    `json:"blocks_work"`
+	Links             []QuestionLinkDTO       `json:"links"`
+	Answerers         []QuestionAnswererDTO   `json:"answerers"`
+	Answers           []QuestionAnswerDTO     `json:"answers"`
+	Events            []QuestionEventDTO      `json:"events"`
+	UnseenAnswerCount int64                   `json:"unseen_answer_count"`
+	WakeAvailable     bool                    `json:"wake_available"`
+	WakeTargets       []QuestionWakeTargetDTO `json:"wake_targets"`
+	CreatedAt         string                  `json:"created_at"`
+	UpdatedAt         string                  `json:"updated_at"`
 }
 
 type QuestionService struct {

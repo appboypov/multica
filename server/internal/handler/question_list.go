@@ -6,14 +6,28 @@ import "encoding/json"
 // QuestionRow, QuestionRowPage and QuestionOpenCount in
 // packages/core/types/question.ts.
 
-// QuestionRowLinkResponse is the issue a row belongs to: the question's link
-// at position 0, where it was asked.
+// QuestionRowLinkResponse is the first link's page object; comments and runs
+// use their issue, while other object types use the object itself.
 type QuestionRowLinkResponse struct {
-	Type       string `json:"type"`
+	Type       string  `json:"type"`
+	ID         string  `json:"id"`
+	Identifier *string `json:"identifier"`
+	Title      string  `json:"title"`
+	Status     *string `json:"status"`
+}
+
+// QuestionViaResponse identifies the first link that reaches the page's object.
+type QuestionViaResponse struct {
+	Type            string  `json:"type"`
+	ID              string  `json:"id"`
+	Identifier      *string `json:"identifier"`
+	IssueIdentifier *string `json:"issue_identifier"`
+}
+
+// QuestionOpenIssueResponse is where the row's question card opens.
+type QuestionOpenIssueResponse struct {
 	ID         string `json:"id"`
 	Identifier string `json:"identifier"`
-	Title      string `json:"title"`
-	Status     string `json:"status"`
 }
 
 // QuestionRowAnswerResponse is the viewer's own answer to the row's question.
@@ -40,6 +54,8 @@ type QuestionRowResponse struct {
 	BlocksWork   bool                       `json:"blocks_work"`
 	CreatedAt    string                     `json:"created_at"`
 	Link         QuestionRowLinkResponse    `json:"link"`
+	Via          *QuestionViaResponse       `json:"via"`
+	OpenIssue    QuestionOpenIssueResponse  `json:"open_issue"`
 	MyAnswer     *QuestionRowAnswerResponse `json:"my_answer"`
 }
 
@@ -50,8 +66,9 @@ type QuestionRowPageResponse struct {
 	NextCursor *string               `json:"next_cursor"`
 }
 
-// QuestionOpenCountResponse is the 200 body of GET /api/questions/open-count:
-// the viewer's for_me count without filters.
+// QuestionOpenCountResponse is the 200 body of GET /api/questions/open-count,
+// scoped by tab and an optional parent.
 type QuestionOpenCountResponse struct {
-	Count int64 `json:"count"`
+	Count         int64 `json:"count"`
+	BlockingCount int64 `json:"blocking_count"`
 }

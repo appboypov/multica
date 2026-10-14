@@ -12,6 +12,35 @@ import (
 	"github.com/multica-ai/multica/server/internal/service"
 )
 
+// QuestionLinkRequest references an object in the question's workspace.
+type QuestionLinkRequest struct {
+	Type string `json:"type"`
+	ID   string `json:"id"`
+}
+
+// AskRequest is the wire body of POST /api/questions.
+type AskRequest struct {
+	Prompt          string                `json:"prompt"`
+	ContextLine     string                `json:"context_line"`
+	AnswerType      string                `json:"answer_type"`
+	Settings        json.RawMessage       `json:"settings"`
+	SuggestedAnswer json.RawMessage       `json:"suggested_answer"`
+	AnswererIDs     []string              `json:"answerer_ids"`
+	DueDate         string                `json:"due_date"`
+	BlocksWork      bool                  `json:"blocks_work"`
+	Links           []QuestionLinkRequest `json:"links,omitempty"`
+}
+
+// AddLinksRequest is the wire body of POST /api/questions/{id}/links.
+type AddLinksRequest struct {
+	Links []QuestionLinkRequest `json:"links"`
+}
+
+// WakeRequest selects a target agent; an absent agent_id means the asker.
+type WakeRequest struct {
+	AgentID *string `json:"agent_id,omitempty"`
+}
+
 func (h *Handler) questionActor(w http.ResponseWriter, r *http.Request, agentOnly, humanOnly bool) (pgtype.UUID, service.QuestionActor, bool) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -73,16 +102,7 @@ func (h *Handler) AskQuestion(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	var body struct {
-		Prompt          string          `json:"prompt"`
-		ContextLine     string          `json:"context_line"`
-		AnswerType      string          `json:"answer_type"`
-		Settings        json.RawMessage `json:"settings"`
-		SuggestedAnswer json.RawMessage `json:"suggested_answer"`
-		AnswererIDs     []string        `json:"answerer_ids"`
-		DueDate         string          `json:"due_date"`
-		BlocksWork      bool            `json:"blocks_work"`
-	}
+	var body AskRequest
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
