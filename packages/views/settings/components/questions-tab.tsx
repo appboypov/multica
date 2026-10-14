@@ -19,7 +19,9 @@ export function QuestionsTab() {
   const { t } = useT("settings");
   const wsId = useWorkspaceId();
   const id = useId();
-  const { data: settings, isError } = useQuery(agentQuestionsOptions(wsId));
+  // The count of issues with their own setting changes with issue edits that
+  // emit no workspace event, so the tab reads it fresh each time it opens.
+  const { data: settings, isError } = useQuery({ ...agentQuestionsOptions(wsId), refetchOnMount: "always" });
   const { data: members = [] } = useQuery(memberListOptions(wsId));
   const currentUser = useAuthStore((s) => s.user);
   const canManage = useMemo(() => {
