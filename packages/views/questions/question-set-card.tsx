@@ -1,12 +1,23 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useIsMutating } from "@tanstack/react-query";
 import { Check, CircleCheck, CirclePause, CircleSlash, CornerUpLeft, ListTodo, Send } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthStore } from "@multica/core/auth";
+import { hasUploadingDraft } from "@multica/core/drafts";
 import { useWorkspaceId } from "@multica/core/hooks";
 import { createLogger } from "@multica/core/logger";
-import { isOpen, isOpenFor, setProgress, useAnswerQuestion, useAskBackQuestion, useUploadQuestionFile } from "@multica/core/questions";
+import {
+  isOpen,
+  isOpenFor,
+  questionDraftKey,
+  questionMutationKeys,
+  setProgress,
+  useAnswerQuestion,
+  useAskBackQuestion,
+  useQuestionDraftStore,
+} from "@multica/core/questions";
 import type { AnswerValue, Question, QuestionAnswer } from "@multica/core/types";
 import { useActorName } from "@multica/core/workspace/hooks";
 import { Badge } from "@multica/ui/components/ui/badge";
@@ -15,7 +26,7 @@ import { Textarea } from "@multica/ui/components/ui/textarea";
 import { cn } from "@multica/ui/lib/utils";
 import { ActorAvatar } from "../common/actor-avatar";
 import { useT, useTimeAgo } from "../i18n";
-import { AnswerControl, handleAnswerKey } from "./answer-controls/answer-control";
+import { AnswerControl, handleAnswerKey, useAnswerControlLink } from "./answer-controls/answer-control";
 import { draftError, valueToSend, type AnswerDraft } from "./answer-controls/draft";
 import { AnswerCountPill, AnswererProgress, showsAnswererProgress } from "./answerer-progress";
 import { AnswerLine, QuestionCard, QuestionHistory } from "./question-card";
@@ -92,9 +103,6 @@ function TabbedQuestionSet({ questions, issueId, runNumber, activeQuestionId }: 
   const { getActorName } = useActorName();
   const userId = useAuthStore((s) => s.user?.id);
   const wsId = useWorkspaceId();
-  const answer = useAnswerQuestion(wsId, issueId);
-  const askBack = useAskBackQuestion(wsId, issueId);
-  const upload = useUploadQuestionFile(wsId, issueId);
 
   const first = questions[0]!;
   const agentName = getActorName("agent", first.asker_agent_id);
@@ -109,14 +117,27 @@ function TabbedQuestionSet({ questions, issueId, runNumber, activeQuestionId }: 
   const [serverError, setServerError] = useState<string | null>(null);
 
   const current = questions[Math.min(active, questions.length - 1)]!;
+  const answer = useAnswerQuestion(wsId, issueId, current.id);
+  const askBack = useAskBackQuestion(wsId, issueId, current.id);
+  // Read from the query client, not the hook's observer: switching tabs rebinds the hooks to another question.
+  const pending = useIsMutating({ mutationKey: questionMutationKeys.answer(wsId, current.id) }) > 0;
+  const askingBack = useIsMutating({ mutationKey: questionMutationKeys.askBack(wsId, current.id) }) > 0;
+  // File and Text keep the answer's uploads in the question's draft; Send waits while one runs.
+  const draftKey = questionDraftKey(wsId, current.id);
+  const uploading = useQuestionDraftStore((s) => hasUploadingDraft(s.drafts[draftKey]?.uploads ?? []));
+  const clearDraft = useQuestionDraftStore((s) => s.clearDraft);
+  const control = useAnswerControlLink();
   const answerable = current.answer_type === "unknown" ? null : current;
   const canAnswer = answerable !== null && (isOpenFor(current, userId) || editingId === current.id);
   const isCurrentAnswerer = !!userId && current.answerers.some((a) => a.user_id === userId);
   const { draft, note } = composing[current.id] ?? { draft: null, note: "" };
-  const accepting = draft === null && answerable?.suggested_answer != null;
-  const value: AnswerValue | null = !answerable ? null : accepting ? answerable.suggested_answer : valueToSend(answerable, draft);
-  const error = !answerable ? null : draftError(answerable, accepting ? (answerable.suggested_answer as AnswerDraft) : draft, note);
-  const pending = answer.isPending;
+  const toSend = (shown: AnswerDraft) => {
+    const accepting = shown === null && answerable?.suggested_answer != null;
+    const value: AnswerValue | null = !answerable ? null : accepting ? answerable.suggested_answer : valueToSend(answerable, shown);
+    const error = !answerable ? null : draftError(answerable, accepting ? (answerable.suggested_answer as AnswerDraft) : shown, note);
+    return { accepting, value, error };
+  };
+  const { accepting, value, error } = toSend(draft);
   const forYou = questions.some((q) => isOpenFor(q, userId));
   const blocksWork = questions.some((q) => isOpen(q) && q.blocks_work);
   const progress = setProgress(questions);
@@ -133,18 +154,23 @@ function TabbedQuestionSet({ questions, issueId, runNumber, activeQuestionId }: 
   };
 
   /** Drops a question's draft once it is sent or its edit is cancelled. */
-  const discard = (id: string) =>
+  const discard = (id: string) => {
     setComposing((all) => {
       const rest = { ...all };
       delete rest[id];
       return rest;
     });
+    clearDraft(questionDraftKey(wsId, id));
+  };
 
   const send = () => {
-    if (!canAnswer || value === null || error !== null || pending) return;
+    if (!canAnswer || pending || uploading || control.isUploading()) return;
+    // The Text editor reports typing after its debounce; read what it holds now.
+    const { value, error: sendError } = toSend(control.currentDraft(draft));
+    if (value === null || sendError !== null) return;
     const sentId = current.id;
     answer.mutate(
-      { id: sentId, value, ...(note.trim() ? { note: note.trim() } : {}) },
+      { value, ...(note.trim() ? { note: note.trim() } : {}) },
       {
         onSuccess: () => {
           discard(sentId);
@@ -164,9 +190,9 @@ function TabbedQuestionSet({ questions, issueId, runNumber, activeQuestionId }: 
 
   const sendAskBack = () => {
     const text = askBackText?.trim();
-    if (!text || askBack.isPending) return;
+    if (!text || askingBack) return;
     askBack.mutate(
-      { id: current.id, text },
+      { text },
       {
         onSuccess: () => setAskBackText(null),
         onError: (err) => {
@@ -275,15 +301,16 @@ function TabbedQuestionSet({ questions, issueId, runNumber, activeQuestionId }: 
                   note={note}
                   onNoteChange={(next) => compose({ note: next })}
                   onSubmit={send}
-                  uploadFile={(file) => upload.mutateAsync({ id: question.id, file })}
+                  draftKey={draftKey}
+                  handle={control.handle}
                   disabled={pending}
                 />
-                <AnswerLine question={answerable} error={error} serverError={serverError} />
+                <AnswerLine question={answerable} error={error} serverError={serverError} uploading={uploading} />
                 {askBackText !== null && (
                   <AskBackField
                     agentName={agentName}
                     text={askBackText}
-                    pending={askBack.isPending}
+                    pending={askingBack}
                     onChange={setAskBackText}
                     onCancel={() => setAskBackText(null)}
                     onSend={sendAskBack}

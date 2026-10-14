@@ -43,7 +43,7 @@ export function QuestionListRow({ row, onOpen }: QuestionListRowProps) {
   const timeAgo = useTimeAgo();
   const userId = useAuthStore((s) => s.user?.id);
   const wsId = useWorkspaceId();
-  const answer = useAnswerQuestion(wsId, row.open_issue.id);
+  const answer = useAnswerQuestion(wsId, row.open_issue.id, row.id);
   const [noteOpen, setNoteOpen] = useState(false);
   const [note, setNote] = useState("");
 
@@ -58,7 +58,7 @@ export function QuestionListRow({ row, onOpen }: QuestionListRowProps) {
   const send = (choice: YesNoAnswerValue["choice"], why?: string) => {
     if (!answersInPlace || pending) return;
     answer.mutate(
-      { id: row.id, value: { choice }, ...(why ? { note: why } : {}) },
+      { value: { choice }, ...(why ? { note: why } : {}) },
       {
         onSuccess: () => {
           setNoteOpen(false);
