@@ -36,6 +36,7 @@
     "send": "送信",
     "cancel": "キャンセル",
     "edit_answer": "回答を編集",
+    "decline": "回答を辞退",
     "wake": "{{name}}を起こす",
     "answered_by": "{{name}} · {{time}}",
     "closed": "クローズ済み",

@@ -16,6 +16,9 @@ func Display(answerType string, settings, value json.RawMessage) string {
 	if !ok {
 		return ""
 	}
+	if Declined(value) {
+		return "Declined to answer"
+	}
 	return def.display(settings, value)
 }
 

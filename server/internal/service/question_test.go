@@ -454,6 +454,24 @@ func TestQuestionWakeRefusesUnavailableAgent(t *testing.T) {
 	}
 }
 
+func TestQuestionDeclinedAnswerWithWakeSettlesAndWakesTheAsker(t *testing.T) {
+	ctx := context.Background()
+	f := newQuestionFixture(t)
+	row := f.ask(t)
+	id := util.MustParseUUID(row.ID)
+	f.finishAskingRun(t)
+	row, err := f.svc.Answer(ctx, f.workspace, id, f.answerer, AnswerQuestionInput{Value: json.RawMessage(`{"declined":true}`), Note: "Not my call", Wake: true})
+	if err != nil || row.Status != "answered" || len(row.Answers) != 1 || row.Answers[0].DisplayText != "Declined to answer" {
+		t.Fatalf("declined answer = %+v, %v", row, err)
+	}
+	if n := f.fx.Count(t, `SELECT count(*) FROM agent_task_queue WHERE issue_id = $1 AND agent_id = $2 AND status = 'queued' AND trigger_evidence_kind = $3`, f.issue, f.agent, string(attribution.EvidenceQuestionWake)); n != 1 {
+		t.Fatalf("wake runs = %d, want 1", n)
+	}
+	if n := f.fx.Count(t, `SELECT count(*) FROM question_event WHERE question_id = $1 AND kind = 'woken'`, id); n != 1 {
+		t.Fatalf("woken events = %d, want 1", n)
+	}
+}
+
 func TestQuestionAskBackWakesTheAsker(t *testing.T) {
 	ctx := context.Background()
 	f := newQuestionFixture(t)

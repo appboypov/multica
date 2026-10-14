@@ -129,6 +129,10 @@ func TestValidateAnswer(t *testing.T) {
 		name, answerType, settings, value, note string
 		wantError                               bool
 	}{
+		{"declined in any type", TypeNumber, `{"min":1}`, `{"declined":true}`, "", false},
+		{"declined with its reason", TypePerson, `{"allow":"members"}`, `{"declined":true}`, "Not my area", false},
+		{"declined false is no answer", TypeNumber, `{}`, `{"declined":false}`, "", true},
+		{"declined with an answer", TypeNumber, `{}`, `{"declined":true,"number":2}`, "", true},
 		{"text with attachment", TypeText, `{"length":"long"}`, `{"text":"Hello @Brian\nDetails","attachment_ids":["` + testAttachmentID + `"]}`, "", false},
 		{"short text", TypeText, `{"length":"short"}`, `{"text":"Per line"}`, "", false},
 		{"blank text", TypeText, `{"length":"short"}`, `{"text":" \n\t"}`, "", true},
@@ -293,6 +297,7 @@ func TestAcceptsFile(t *testing.T) {
 
 func TestDisplay(t *testing.T) {
 	cases := []struct{ name, answerType, settings, value, want string }{
+		{"declined in any type", TypeRanking, `{"items":["A","B"]}`, `{"declined":true}`, "Declined to answer"},
 		{"text is one line", TypeText, `{"length":"long"}`, `{"text":"First\nsecond\tthird"}`, "First second third"},
 		{"yes", TypeYesNo, `{"why_on_no":false}`, `{"choice":"yes"}`, "Yes"},
 		{"no without its separate note", TypeYesNo, `{"why_on_no":true}`, `{"choice":"no"}`, "No"},

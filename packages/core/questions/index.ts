@@ -23,3 +23,4 @@ export {
   countOpen, groupQuestionCards, isOpen, isOpenFor, setProgress, wakeOffers, type QuestionCardGroup, type WakeOffer,
 } from "./cards";
 export { viaLabel, type ViaLabelKey, type ViaTranslate } from "./via";
+export { DECLINED_ANSWER, isDeclined } from "./validate";

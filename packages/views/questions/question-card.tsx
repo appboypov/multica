@@ -10,7 +10,9 @@ import { useWorkspaceId } from "@multica/core/hooks";
 import { isPortalLayerShortcutTarget, shortcutMatchesEvent, useShortcut } from "@multica/core/shortcuts";
 import { createLogger } from "@multica/core/logger";
 import {
+  DECLINED_ANSWER,
   EMPTY_QUESTION_DRAFT,
+  isDeclined,
   isOpen,
   isOpenFor,
   questionDraftKey,
@@ -21,10 +23,11 @@ import {
   type AnswerValidationError,
   type QuestionDraftPatch,
 } from "@multica/core/questions";
-import type { AnswerValue, Question, QuestionAnswer, QuestionEvent } from "@multica/core/types";
+import type { AnswerValue, DeclinedAnswerValue, Question, QuestionAnswer, QuestionEvent } from "@multica/core/types";
 import { useActorName } from "@multica/core/workspace/hooks";
 import { Badge } from "@multica/ui/components/ui/badge";
 import { Button } from "@multica/ui/components/ui/button";
+import { Checkbox } from "@multica/ui/components/ui/checkbox";
 import { Textarea } from "@multica/ui/components/ui/textarea";
 import { cn } from "@multica/ui/lib/utils";
 import { ActorAvatar } from "../common/actor-avatar";
@@ -101,7 +104,7 @@ export function QuestionCard({ question, issueId, runNumber, answerElsewhere, hi
     const startEdit = () =>
       setDraft(draftKey, {
         editing: true,
-        answer: ownAnswer?.value ?? null,
+        answer: ownAnswer && !isDeclined(ownAnswer.value) ? ownAnswer.value : null,
         note: ownAnswer?.note ?? "",
         noteOpen: !!ownAnswer?.note,
         askBackOpen: false,
@@ -120,6 +123,7 @@ export function QuestionCard({ question, issueId, runNumber, answerElsewhere, hi
       editing={editing}
       onDone={() => clearDraft(draftKey)}
       focused={focused}
+      offersWake={!hideWake}
     />
   );
 }
@@ -191,6 +195,7 @@ function OpenQuestion({
   editing,
   onDone,
   focused,
+  offersWake,
 }: {
   question: Question;
   issueId: string;
@@ -201,6 +206,8 @@ function OpenQuestion({
   editing: boolean;
   onDone: () => void;
   focused: boolean;
+  /** A one-question ask outside a set or page: Send offers to wake its asker. */
+  offersWake: boolean;
 }) {
   const { t } = useT("questions");
   const timeAgo = useTimeAgo();
@@ -258,6 +265,7 @@ function OpenQuestion({
           draftKey={draftKey}
           editing={editing}
           onDone={onDone}
+          offersWake={offersWake && !editing}
           focused={focused}
         />
       ) : (
@@ -391,6 +399,7 @@ function AnswerForm({
   editing,
   onDone,
   focused,
+  offersWake,
 }: {
   question: AnswerableQuestion;
   issueId: string;
@@ -400,6 +409,8 @@ function AnswerForm({
   editing: boolean;
   onDone: () => void;
   focused: boolean;
+  /** Offers **Wake {agent}**, checked by default, to wake the asker once the answer is sent. */
+  offersWake: boolean;
 }) {
   const { t } = useT("questions");
   const wsId = useWorkspaceId();
@@ -423,6 +434,7 @@ function AnswerForm({
   const shown = draft ?? (question.suggested_answer as AnswerDraft);
   const { note, noteOpen, askBackOpen, askBackText } = stored;
   const [serverError, setServerError] = useState<string | null>(null);
+  const [wakeAfter, setWakeAfter] = useState(true);
 
   const changeDraft = (next: AnswerDraft) => {
     update({ answer: next });
@@ -437,15 +449,9 @@ function AnswerForm({
   // The question's uploads outlive the control that started them, so a card mounted again still waits for them.
   const uploading = hasUploadingDraft(stored.uploads);
 
-  const send = () => {
-    // What the card shows can trail: `⌘↵` bypasses the button, an upload can
-    // still be in flight, and the editor reports typing after its debounce.
-    const uploads = useQuestionDraftStore.getState().drafts[draftKey]?.uploads ?? EMPTY_QUESTION_DRAFT.uploads;
-    if (queryClient.isMutating({ mutationKey: answerKey }) > 0 || hasUploadingDraft(uploads) || control.isUploading()) return;
-    const now = toSend(question, control.currentDraft(draft), note);
-    if (now.value === null || now.error !== null || (now.accepting && !suggestionShown)) return;
+  const submit = (value: AnswerValue | DeclinedAnswerValue) =>
     answer.mutate(
-      { value: now.value, ...(note.trim() ? { note: note.trim() } : {}) },
+      { value, ...(note.trim() ? { note: note.trim() } : {}), ...(offersWake && wakeAfter ? { wake: true } : {}) },
       // A success clears what it sent from the question's draft in `useAnswerQuestion`, ending an edit too.
       {
         onError: (err) => {
@@ -455,6 +461,21 @@ function AnswerForm({
         },
       },
     );
+
+  const send = () => {
+    // What the card shows can trail: `⌘↵` bypasses the button, an upload can
+    // still be in flight, and the editor reports typing after its debounce.
+    const uploads = useQuestionDraftStore.getState().drafts[draftKey]?.uploads ?? EMPTY_QUESTION_DRAFT.uploads;
+    if (queryClient.isMutating({ mutationKey: answerKey }) > 0 || hasUploadingDraft(uploads) || control.isUploading()) return;
+    const now = toSend(question, control.currentDraft(draft), note);
+    if (now.value === null || now.error !== null || (now.accepting && !suggestionShown)) return;
+    submit(now.value);
+  };
+
+  const decline = () => {
+    if (queryClient.isMutating({ mutationKey: answerKey }) > 0) return;
+    logger.info("declining question", { questionId: question.id });
+    submit(DECLINED_ANSWER);
   };
 
   // The focused card owns the send shortcut. A control that already sent on the
@@ -560,6 +581,10 @@ function AnswerForm({
               <CornerUpLeft />
               {t(($) => $.card.ask_back)}
             </Button>
+            <Button type="button" variant="ghost" size="sm" className="text-muted-foreground" disabled={pending} onClick={decline}>
+              <CircleSlash />
+              {t(($) => $.card.decline)}
+            </Button>
             <ReassignPicker question={question} issueId={issueId} disabled={pending} />
           </>
         )}
@@ -570,6 +595,12 @@ function AnswerForm({
             <Button type="button" variant="ghost" size="sm" onClick={onDone}>
               {t(($) => $.card.cancel)}
             </Button>
+          )}
+          {offersWake && (
+            <label className="flex items-center gap-1.5 text-caption text-muted-foreground">
+              <Checkbox checked={wakeAfter} disabled={pending} onCheckedChange={(checked) => setWakeAfter(checked === true)} />
+              {t(($) => $.card.wake, { name: agentName })}
+            </label>
           )}
           <Button type="button" disabled={value === null || error !== null || (accepting && !suggestionShown) || pending || uploading} onClick={send}>
             {accepting ? <Check /> : <Send />}

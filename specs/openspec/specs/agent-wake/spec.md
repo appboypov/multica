@@ -2,17 +2,30 @@
 
 ## Purpose
 
-Lets a person start an agent with the answers it has not seen; asking and answering questions never start a run, and an ask back wakes the asking agent.
+Lets a person start an agent with the answers it has not seen: by pressing **Wake**, by sending the last open question of an ask with **Wake {agent}** checked, or by asking back.
 
 ## Requirements
 
-### Requirement: Answers never start a run
-Sending, partly sending or editing an answer MUST NOT queue or start any agent run; only a person pressing **Wake** or asking back SHALL start one.
+### Requirement: An answer starts a run only with Wake checked
+Sending or editing an answer MUST NOT queue or start any agent run unless it is sent with **Wake {agent}** checked; besides that, only a person pressing **Wake** or asking back SHALL start one.
 
 #### Scenario: Brian answers and nothing starts
-- **GIVEN** Pieter asked Brian a question on WORK-412, assigned to Pieter
-- **WHEN** Brian sends his answer
+- **GIVEN** Pieter asked Brian two questions in one set on WORK-412, assigned to Pieter
+- **WHEN** Brian sends his answer to the first one
 - **THEN** no run is queued for Pieter or any other agent
+
+### Requirement: Sending the last open question offers Wake
+When Brian sends the last question of an ask still open for him, or the only question of a one-question ask, the card SHALL show **Wake {agent}** as a checkbox beside Send, checked by default. Sent checked, the answer wakes the asking agent with every answer it has not seen; when the agent cannot be woken now, such as while it still runs on the issue, the answer is saved and rides along in its next woken run.
+
+#### Scenario: Brian answers the last question
+- **GIVEN** Brian answered the first of Pieter's two questions on WORK-412 and Pieter's run has ended
+- **WHEN** Brian sends the second one with **Wake Pieter** checked
+- **THEN** a new run of Pieter on WORK-412 starts with both answers in its input
+
+#### Scenario: Brian unchecks Wake
+- **GIVEN** Pieter's one question on WORK-412 is open for Brian
+- **WHEN** Brian unchecks **Wake Pieter** and sends his answer
+- **THEN** no run is queued and the folded card offers **Wake Pieter**
 
 ### Requirement: Ask back wakes the asking agent
 An ask back SHALL wake the asking agent with the reply when it has no queued, dispatched or running task on the question's issue; otherwise the reply stays unseen and rides along in its next woken run.

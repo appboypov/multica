@@ -182,6 +182,11 @@ export interface AnswerValueByType {
 
 export type AnswerValue<T extends AnswerType = AnswerType> = AnswerValueByType[T];
 
+/** The answer of an answerer who declines to answer, in every answer type; the note is the optional reason. */
+export interface DeclinedAnswerValue {
+  declined: true;
+}
+
 // ---------------------------------------------------------------------------
 // The question aggregate.
 // ---------------------------------------------------------------------------
@@ -323,7 +328,7 @@ export interface TypedQuestion<T extends AnswerType> extends QuestionBase {
   answer_type: T;
   settings: AnswerSettingsByType[T];
   suggested_answer: AnswerValueByType[T] | null;
-  answers: QuestionAnswer<AnswerValueByType[T]>[];
+  answers: QuestionAnswer<AnswerValueByType[T] | DeclinedAnswerValue>[];
 }
 
 /**
@@ -347,8 +352,10 @@ export type Question = { [T in AnswerType]: TypedQuestion<T> }[AnswerType] | Unr
 
 /** Body of `POST /api/questions/{id}/answer`: a first answer or an edit. */
 export interface AnswerQuestionRequest {
-  value: AnswerValue;
+  value: AnswerValue | DeclinedAnswerValue;
   note?: string;
+  /** Wakes the asking agent once the answer is saved. */
+  wake?: boolean;
 }
 
 /** Body of `POST /api/questions/{id}/ask-back`. */

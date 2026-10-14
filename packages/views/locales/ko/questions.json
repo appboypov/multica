@@ -36,6 +36,7 @@
     "send": "보내기",
     "cancel": "취소",
     "edit_answer": "답변 편집",
+    "decline": "답변 거절",
     "wake": "{{name}} 깨우기",
     "answered_by": "{{name}} · {{time}}",
     "closed": "닫힘",

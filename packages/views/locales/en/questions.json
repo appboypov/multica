@@ -36,6 +36,7 @@
     "send": "Send",
     "cancel": "Cancel",
     "edit_answer": "Edit answer",
+    "decline": "Decline to answer",
     "wake": "Wake {{name}}",
     "answered_by": "{{name}} · {{time}}",
     "closed": "Closed",

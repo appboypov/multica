@@ -59,6 +59,8 @@ type QuestionAskResult struct {
 type AnswerQuestionInput struct {
 	Value json.RawMessage
 	Note  string
+	// Wake wakes the asking agent once the answer is saved.
+	Wake bool
 }
 
 type QuestionWakeResult struct {
@@ -222,6 +224,9 @@ func (s *QuestionService) validateAnswerer(ctx context.Context, q *db.Queries, w
 }
 
 func (s *QuestionService) validateReferences(ctx context.Context, q *db.Queries, row db.Question, actorID pgtype.UUID, value json.RawMessage) error {
+	if question.Declined(value) {
+		return nil
+	}
 	if row.AnswerType == "person" {
 		var person question.PersonAnswerValue
 		if err := json.Unmarshal(value, &person); err != nil {
@@ -657,8 +662,12 @@ func (s *QuestionService) recomputeStatus(ctx context.Context, q *db.Queries, ro
 	return q.SetQuestionStatus(ctx, db.SetQuestionStatusParams{ID: row.ID, WorkspaceID: row.WorkspaceID, Status: question.DeriveStatus(row.AnswerPolicy, answererIDs, answeredIDs), FromStatuses: []string{row.Status}})
 }
 
+// Answer saves the actor's answer, or their edit of it. With input.Wake it then
+// wakes the asking agent; when the asker cannot be woken now, such as while it
+// still runs on the issue, the answer stays unseen and rides along in its next
+// woken run.
 func (s *QuestionService) Answer(ctx context.Context, workspaceID, questionID pgtype.UUID, actor QuestionActor, input AnswerQuestionInput) (QuestionDTO, error) {
-	return s.mutate(ctx, workspaceID, questionID, actor, false, func(q *db.Queries, row db.Question) (db.Question, string, any, error) {
+	result, err := s.mutate(ctx, workspaceID, questionID, actor, false, func(q *db.Queries, row db.Question) (db.Question, string, any, error) {
 		if !question.IsOpen(row.Status) && row.Status != "answered" {
 			return row, "", nil, questionRefusal(422, "this question no longer accepts answers")
 		}
@@ -695,6 +704,13 @@ func (s *QuestionService) Answer(ctx context.Context, workspaceID, questionID pg
 		}
 		return row, reason, nil, err
 	})
+	if err != nil || !input.Wake {
+		return result, err
+	}
+	if _, err := s.Wake(ctx, workspaceID, questionID, actor, pgtype.UUID{}); err != nil {
+		slog.Info("answer did not wake the asker", "question_id", util.UUIDToString(questionID), "error", err)
+	}
+	return result, nil
 }
 
 // AskBack replies in the question's thread, keeps the question open and wakes

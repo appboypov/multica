@@ -69,6 +69,15 @@ Every question card SHALL offer **Add a note** to send with the answer and **Ask
 - **AND** the question is still open and waiting for Brian
 - **AND** Pieter is woken with the reply
 
+### Requirement: Decline to answer
+Every open question card SHALL offer **Decline to answer**, which sends a declined answer, with the note as its optional reason; it counts as the answerer's answer and reads "Declined to answer".
+
+#### Scenario: Brian declines
+- **GIVEN** Pieter's question is open for Brian
+- **WHEN** Brian uses **Decline to answer**
+- **THEN** the card folds to the prompt → "Declined to answer"
+- **AND** Pieter reads "Declined to answer" as Brian's answer
+
 ### Requirement: A sent answer reaches the asker at once
 A sent answer SHALL be readable by the asker at once, and the card SHALL fold to one line: prompt → answer · who · when, with **Edit answer**.
 

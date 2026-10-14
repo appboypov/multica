@@ -9,6 +9,8 @@ import { hasUploadingDraft } from "@multica/core/drafts";
 import { useWorkspaceId } from "@multica/core/hooks";
 import { createLogger } from "@multica/core/logger";
 import {
+  DECLINED_ANSWER,
+  isDeclined,
   isOpen,
   isOpenFor,
   questionDraftKey,
@@ -18,10 +20,11 @@ import {
   useAskBackQuestion,
   useQuestionDraftStore,
 } from "@multica/core/questions";
-import type { AnswerValue, Question, QuestionAnswer } from "@multica/core/types";
+import type { AnswerValue, DeclinedAnswerValue, Question, QuestionAnswer } from "@multica/core/types";
 import { useActorName } from "@multica/core/workspace/hooks";
 import { Badge } from "@multica/ui/components/ui/badge";
 import { Button } from "@multica/ui/components/ui/button";
+import { Checkbox } from "@multica/ui/components/ui/checkbox";
 import { Textarea } from "@multica/ui/components/ui/textarea";
 import { cn } from "@multica/ui/lib/utils";
 import { ActorAvatar } from "../common/actor-avatar";
@@ -116,6 +119,7 @@ function TabbedQuestionSet({ questions, issueId, runNumber, activeQuestionId }: 
   const [composing, setComposing] = useState<Record<string, Composing>>({});
   const [askBackText, setAskBackText] = useState<string | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
+  const [wakeAfter, setWakeAfter] = useState(true);
 
   const current = questions[Math.min(active, questions.length - 1)]!;
   const answer = useAnswerQuestion(wsId, issueId, current.id);
@@ -142,6 +146,8 @@ function TabbedQuestionSet({ questions, issueId, runNumber, activeQuestionId }: 
   const forYou = questions.some((q) => isOpenFor(q, userId));
   const blocksWork = questions.some((q) => isOpen(q) && q.blocks_work);
   const progress = setProgress(questions);
+  // Sending the viewer's last open question of the set offers to wake the asker.
+  const offersWake = canAnswer && editingId !== current.id && questions.every((q) => q.id === current.id || !isOpenFor(q, userId));
 
   const activate = (index: number) => {
     setActive(index);
@@ -164,14 +170,10 @@ function TabbedQuestionSet({ questions, issueId, runNumber, activeQuestionId }: 
     clearDraft(questionDraftKey(wsId, id));
   };
 
-  const send = () => {
-    if (!canAnswer || pending || uploading || control.isUploading()) return;
-    // The Text editor reports typing after its debounce; read what it holds now.
-    const { value, error: sendError } = toSend(control.currentDraft(draft));
-    if (value === null || sendError !== null) return;
+  const submit = (value: AnswerValue | DeclinedAnswerValue) => {
     const sentId = current.id;
     answer.mutate(
-      { value, ...(note.trim() ? { note: note.trim() } : {}) },
+      { value, ...(note.trim() ? { note: note.trim() } : {}), ...(offersWake && wakeAfter ? { wake: true } : {}) },
       {
         onSuccess: () => {
           discard(sentId);
@@ -187,6 +189,20 @@ function TabbedQuestionSet({ questions, issueId, runNumber, activeQuestionId }: 
         },
       },
     );
+  };
+
+  const send = () => {
+    if (!canAnswer || pending || uploading || control.isUploading()) return;
+    // The Text editor reports typing after its debounce; read what it holds now.
+    const { value, error: sendError } = toSend(control.currentDraft(draft));
+    if (value === null || sendError !== null) return;
+    submit(value);
+  };
+
+  const decline = () => {
+    if (!canAnswer || pending) return;
+    logger.info("declining question", { questionId: current.id, askId: first.ask_id });
+    submit(DECLINED_ANSWER);
   };
 
   const sendAskBack = () => {
@@ -210,7 +226,7 @@ function TabbedQuestionSet({ questions, issueId, runNumber, activeQuestionId }: 
     if (!own) return;
     activate(index);
     setEditingId(question.id);
-    setComposing((all) => ({ ...all, [question.id]: { draft: own.value as AnswerDraft, note: own.note ?? "" } }));
+    setComposing((all) => ({ ...all, [question.id]: { draft: isDeclined(own.value) ? null : (own.value as AnswerDraft), note: own.note ?? "" } }));
   };
 
   const cancelEdit = () => {
@@ -391,12 +407,25 @@ function TabbedQuestionSet({ questions, issueId, runNumber, activeQuestionId }: 
               <CornerUpLeft />
               {t(($) => $.card.ask_back)}
             </Button>
+            {canAnswer && (
+              <Button type="button" variant="ghost" size="sm" className="text-muted-foreground" disabled={pending} onClick={decline}>
+                <CircleSlash />
+                {t(($) => $.card.decline)}
+              </Button>
+            )}
             <ReassignPicker question={current} issueId={issueId} disabled={pending} />
           </>
         )}
         <span className="ml-auto flex items-center gap-2">
           <span className="text-caption text-muted-foreground">{t(($) => $.set.progress, progress)}</span>
-          <WakeButtons questions={questions} issueId={issueId} />
+          {offersWake ? (
+            <label className="flex items-center gap-1.5 text-caption text-muted-foreground">
+              <Checkbox checked={wakeAfter} disabled={pending} onCheckedChange={(checked) => setWakeAfter(checked === true)} />
+              {t(($) => $.card.wake, { name: agentName })}
+            </label>
+          ) : (
+            <WakeButtons questions={questions} issueId={issueId} />
+          )}
           {editingId === current.id && (
             <Button type="button" variant="ghost" size="sm" onClick={cancelEdit}>
               {t(($) => $.card.cancel)}

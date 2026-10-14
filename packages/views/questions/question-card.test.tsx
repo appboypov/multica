@@ -9,6 +9,7 @@ import type { Attachment, Question, TypedQuestion } from "@multica/core/types";
 import type { UploadResult } from "@multica/core/hooks/use-file-upload";
 import { renderWithI18n } from "../test/i18n";
 import { QuestionCard } from "./question-card";
+import { QuestionSetCard } from "./question-set-card";
 
 const answerMutate = vi.fn();
 const wakeMutate = vi.fn();
@@ -301,7 +302,7 @@ describe("QuestionCard", () => {
     expect(screen.getByText("Question for you")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Accept suggestion" }));
     expect(answerMutate).toHaveBeenCalledWith(
-      { value: { option: "Per invoice line" } },
+      { value: { option: "Per invoice line" }, wake: true },
       expect.anything(),
     );
   });
@@ -312,7 +313,7 @@ describe("QuestionCard", () => {
     expect(screen.queryByRole("button", { name: "Accept suggestion" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
     expect(answerMutate).toHaveBeenCalledWith(
-      { value: { option: "On the invoice total" } },
+      { value: { option: "On the invoice total" }, wake: true },
       expect.anything(),
     );
   });
@@ -352,12 +353,10 @@ describe("QuestionCard", () => {
       answers: [],
     });
     fireEvent.click(screen.getByRole("checkbox", { name: /21% standard/ }));
-    for (const box of screen.getAllByRole("checkbox").filter((b) => b.getAttribute("aria-checked") === "true")) {
-      fireEvent.click(box);
-    }
+    for (const name of [/21% standard/, /9% reduced/]) fireEvent.click(screen.getByRole("checkbox", { name }));
     expect(screen.queryByRole("button", { name: "Accept suggestion" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
-    expect(answerMutate).toHaveBeenCalledWith({ value: { options: [] } }, expect.anything());
+    expect(answerMutate).toHaveBeenCalledWith({ value: { options: [] }, wake: true }, expect.anything());
   });
 
   it("shows a suggested Ranking order before Accept suggestion sends it", () => {
@@ -372,14 +371,14 @@ describe("QuestionCard", () => {
     const shown = rows.map((row) => row.textContent?.match(/Speed|Cost|Quality/)?.[0]);
     expect(shown).toEqual(["Quality", "Speed", "Cost"]);
     fireEvent.click(screen.getByRole("button", { name: "Accept suggestion" }));
-    expect(answerMutate).toHaveBeenCalledWith({ value: { order: shown } }, expect.anything());
+    expect(answerMutate).toHaveBeenCalledWith({ value: { order: shown }, wake: true }, expect.anything());
   });
 
   it("shows a suggested Number in its input before Accept suggestion sends it", () => {
     renderCard({ ...base(), answer_type: "number", settings: { unit: "%" }, suggested_answer: { number: 21 }, answers: [] });
     expect(screen.getByRole("spinbutton", { name: "Number" })).toHaveValue(21);
     fireEvent.click(screen.getByRole("button", { name: "Accept suggestion" }));
-    expect(answerMutate).toHaveBeenCalledWith({ value: { number: 21 } }, expect.anything());
+    expect(answerMutate).toHaveBeenCalledWith({ value: { number: 21 }, wake: true }, expect.anything());
   });
 
   it("keeps a suggested Person on top as picked while a search hides it, without listing it twice", async () => {
@@ -413,7 +412,7 @@ describe("QuestionCard", () => {
     expect(await screen.findByRole("option", { name: /Anouk/ })).toHaveAttribute("aria-selected", "true");
     await waitFor(() => expect(accept).toBeEnabled());
     fireEvent.click(accept);
-    expect(answerMutate).toHaveBeenCalledWith({ value: { type: "member", id: ANOUK_ID } }, expect.anything());
+    expect(answerMutate).toHaveBeenCalledWith({ value: { type: "member", id: ANOUK_ID }, wake: true }, expect.anything());
   });
 
   it("keeps Accept suggestion held back when the suggested Person is in neither list", async () => {
@@ -444,7 +443,7 @@ describe("QuestionCard", () => {
     fireEvent.change(until, { target: { value: "2026-10-24" } });
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
     expect(answerMutate).toHaveBeenCalledWith(
-      { value: { start: day("2026-10-20", "00:00:00"), end: day("2026-10-24", "23:59:59") } },
+      { value: { start: day("2026-10-20", "00:00:00"), end: day("2026-10-24", "23:59:59") }, wake: true },
       expect.anything(),
     );
   });
@@ -461,7 +460,7 @@ describe("QuestionCard", () => {
     fireEvent.change(screen.getByRole("textbox", { name: /What needs to change/ }), { target: { value: "Split the VAT line" } });
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
     expect(answerMutate).toHaveBeenCalledWith(
-      { value: { decision: "request_changes" }, note: "Split the VAT line" },
+      { value: { decision: "request_changes" }, note: "Split the VAT line", wake: true },
       expect.anything(),
     );
   });
@@ -472,7 +471,7 @@ describe("QuestionCard", () => {
     fireEvent.click(screen.getByRole("radio", { name: /^Other/ }));
     fireEvent.change(screen.getByRole("textbox", { name: "Your answer for Other" }), { target: { value: "per invoice" } });
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
-    expect(answerMutate).toHaveBeenCalledWith({ value: { other: "per invoice" } }, expect.anything());
+    expect(answerMutate).toHaveBeenCalledWith({ value: { other: "per invoice" }, wake: true }, expect.anything());
   });
 
   // Scenario: Confirm facts with a correction
@@ -490,7 +489,7 @@ describe("QuestionCard", () => {
     fireEvent.change(screen.getByRole("textbox", { name: /Correction of/ }), { target: { value: "They share the invoice" } });
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
     expect(answerMutate).toHaveBeenCalledWith(
-      { value: { facts: [{ correct: true }, { correct: true }, { correct: false, correction: "They share the invoice" }] } },
+      { value: { facts: [{ correct: true }, { correct: true }, { correct: false, correction: "They share the invoice" }] }, wake: true },
       expect.anything(),
     );
   });
@@ -554,6 +553,43 @@ describe("QuestionCard", () => {
     );
   });
 
+  // Scenario: Brian declines
+  it("declines with the note as its reason, waking Pieter", () => {
+    renderCard(singleChoice());
+    fireEvent.click(screen.getByRole("button", { name: "Add a note" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Note to your answer" }), { target: { value: "Not my area" } });
+    fireEvent.click(screen.getByRole("button", { name: "Decline to answer" }));
+    expect(answerMutate).toHaveBeenCalledWith({ value: { declined: true }, note: "Not my area", wake: true }, expect.anything());
+  });
+
+  // Scenario: Brian unchecks Wake
+  it("sends without waking Pieter once Brian unchecks Wake Pieter", () => {
+    renderCard(singleChoice());
+    const wake = screen.getByRole("checkbox", { name: "Wake Pieter" });
+    expect(wake).toHaveAttribute("aria-checked", "true");
+    fireEvent.click(wake);
+    fireEvent.click(screen.getByRole("button", { name: "Accept suggestion" }));
+    expect(answerMutate).toHaveBeenCalledWith({ value: { option: "Per invoice line" } }, expect.anything());
+  });
+
+  // Scenario: Brian answers the last question
+  it("offers Wake Pieter in a set only on the last question still open for Brian", () => {
+    const second = (first: Question) => [first, singleChoice({ id: "q-2", ask_id: "q-1", ask_position: 1, ask_title: "VAT", prompt: "Which VAT rate applies?" })];
+    const set = (questions: Question[]) => (
+      <QueryClientProvider client={client}>
+        <QuestionSetCard questions={questions} issueId="issue-412" runNumber={3} />
+      </QueryClientProvider>
+    );
+    const { rerender } = renderWithI18n(set(second(singleChoice({ ask_title: "VAT" }))));
+    expect(screen.queryByRole("checkbox", { name: "Wake Pieter" })).not.toBeInTheDocument();
+
+    rerender(set(second(answered({ ask_title: "VAT" }))));
+    fireEvent.click(screen.getByRole("tab", { name: /Which VAT rate applies/ }));
+    expect(screen.getByRole("checkbox", { name: "Wake Pieter" })).toHaveAttribute("aria-checked", "true");
+    fireEvent.click(screen.getByRole("button", { name: "Accept suggestion" }));
+    expect(answerMutate).toHaveBeenCalledWith({ value: { option: "Per invoice line" }, wake: true }, expect.anything());
+  });
+
   it("keeps the unsent answer, note and ask back when the card unmounts, and drops them once sent", async () => {
     const first = renderCard(singleChoice());
     fireEvent.click(screen.getByRole("radio", { name: /On the invoice total/ }));
@@ -572,7 +608,7 @@ describe("QuestionCard", () => {
     // Closing the ask-back box keeps its text; sending the answer drops it with the rest.
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
-    await waitFor(() => expect(answerQuestion).toHaveBeenCalledWith("q-1", { value: { option: "On the invoice total" }, note: "Totals match the ledger" }));
+    await waitFor(() => expect(answerQuestion).toHaveBeenCalledWith("q-1", { value: { option: "On the invoice total" }, note: "Totals match the ledger", wake: true }));
     await waitFor(() => expect(screen.getByRole("radio", { name: /On the invoice total/ })).toHaveAttribute("aria-checked", "false"));
     second.unmount();
 
@@ -663,7 +699,7 @@ describe("QuestionCard", () => {
     submit();
 
     expect(answerMutate).toHaveBeenCalledTimes(1);
-    expect(answerMutate).toHaveBeenCalledWith({ value: { text: "Round per line, then on the total" } }, expect.anything());
+    expect(answerMutate).toHaveBeenCalledWith({ value: { text: "Round per line, then on the total" }, wake: true }, expect.anything());
   });
 
   it("keeps the text typed just before the card scrolls out of the timeline", () => {
@@ -694,7 +730,7 @@ describe("QuestionCard", () => {
     await settleSecond(upload(bId, "b.pdf"));
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
-    expect(answerMutate).toHaveBeenCalledWith({ value: { attachment_ids: [aId, bId] } }, expect.anything());
+    expect(answerMutate).toHaveBeenCalledWith({ value: { attachment_ids: [aId, bId] }, wake: true }, expect.anything());
   });
 
   it("waits for a file uploading into the text before Send or ⌘↵ sends it", async () => {
@@ -713,7 +749,7 @@ describe("QuestionCard", () => {
     await settle(upload(PLAN_ID, "plan.pdf"));
     fireEvent.keyDown(editor, { key: "Enter", metaKey: true });
     expect(answerMutate).toHaveBeenCalledWith(
-      { value: { text: `The plan: ${PLAN_LINK}`, attachment_ids: [PLAN_ID] } },
+      { value: { text: `The plan: ${PLAN_LINK}`, attachment_ids: [PLAN_ID] }, wake: true },
       expect.anything(),
     );
   });
@@ -741,7 +777,7 @@ describe("QuestionCard", () => {
     expect(screen.getByRole("button", { name: "Remove a.pdf" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Remove b.pdf" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
-    expect(answerMutate).toHaveBeenCalledWith({ value: { attachment_ids: [bId, aId] } }, expect.anything());
+    expect(answerMutate).toHaveBeenCalledWith({ value: { attachment_ids: [bId, aId] }, wake: true }, expect.anything());
   });
 
   it("waits after a remount for a file the earlier card still uploads into the text", async () => {
@@ -762,7 +798,7 @@ describe("QuestionCard", () => {
     await settle(upload(PLAN_ID, "plan.pdf"));
     fireEvent.keyDown(editor, { key: "Enter", metaKey: true });
     expect(answerMutate).toHaveBeenCalledWith(
-      { value: { text: `The plan: ${PLAN_LINK}`, attachment_ids: [PLAN_ID] } },
+      { value: { text: `The plan: ${PLAN_LINK}`, attachment_ids: [PLAN_ID] }, wake: true },
       expect.anything(),
     );
   });

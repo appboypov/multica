@@ -58,12 +58,26 @@ func ValidateSettings(answerType string, settings json.RawMessage) error {
 
 // ValidateAnswer validates the shape, settings and note rules. The service must
 // additionally resolve person membership and attachment ownership/acceptance.
+// The decline answer is valid for every answer type.
 func ValidateAnswer(answerType string, settings, value json.RawMessage, note string) error {
 	def, ok := answerTypes[answerType]
 	if !ok {
 		return fmt.Errorf("unknown answer type %q", answerType)
 	}
+	if Declined(value) {
+		return nil
+	}
 	return def.answer(settings, value, note)
+}
+
+// Declined reports whether value is the decline answer, `{"declined": true}`:
+// the answerer declines to answer, with the note as the optional reason.
+func Declined(value json.RawMessage) bool {
+	var fields map[string]json.RawMessage
+	if json.Unmarshal(value, &fields) != nil || len(fields) != 1 {
+		return false
+	}
+	return string(fields["declined"]) == "true"
 }
 
 // ValidateSuggested requires a value that can be sent as an answer without a

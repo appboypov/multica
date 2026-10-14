@@ -36,6 +36,7 @@
     "send": "发送",
     "cancel": "取消",
     "edit_answer": "编辑回答",
+    "decline": "拒绝回答",
     "wake": "唤醒 {{name}}",
     "answered_by": "{{name}} · {{time}}",
     "closed": "已关闭",

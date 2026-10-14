@@ -454,6 +454,7 @@ export type {
   FileAnswerValue,
   ApprovalDecision,
   ApprovalAnswerValue,
+  DeclinedAnswerValue,
   QuestionStatus,
   AnswerPolicy,
   QuestionLinkType,

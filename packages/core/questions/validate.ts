@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { AnswerType, Question } from "../types/question";
+import type { AnswerType, DeclinedAnswerValue, Question } from "../types/question";
 
 export interface AnswerValidationError {
   key: `validation.${string}`;
@@ -70,9 +70,18 @@ function timestamp(value: string): bigint | null {
   return BigInt(seconds) * 1_000_000n + BigInt((match[5] ?? "").padEnd(9, "0").slice(0, 9));
 }
 
+/** The answer that declines to answer, valid in every answer type; the note is the optional reason. */
+export const DECLINED_ANSWER: DeclinedAnswerValue = { declined: true };
+
+/** Whether `value` is the decline answer, mirroring the server's `Declined`. */
+export function isDeclined(value: unknown): value is DeclinedAnswerValue {
+  return typeof value === "object" && value !== null && "declined" in value && value.declined === true && Object.keys(value).length === 1;
+}
+
 /** Mirrors ValidateAnswer; membership and attachment ownership stay server-side. */
 export function validateAnswer(question: Question, value: unknown, note = ""): AnswerValidationError | null {
   if (question.answer_type === "unknown") return { key: "validation.unknownType" };
+  if (isDeclined(value)) return null;
   if (!settingsSchemas[question.answer_type].safeParse(question.settings).success) return { key: "validation.invalidSettings" };
   if (!valueSchemas[question.answer_type].safeParse(value).success) return { key: "validation.invalidAnswer" };
   const v = value as Record<string, unknown>;
