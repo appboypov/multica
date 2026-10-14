@@ -135,7 +135,7 @@ Every group builds on UJ-1's, UJ-2's and UJ-3's code (changes `answer-an-agents-
 ## 15. J11 Acceptance test and archive: acceptance test and archive
 
 - [ ] 15.1 `e2e/questions-parents.spec.ts` -- the journey's acceptance test through `TestApiClient`: WORK-415 is a sub-issue of WORK-410 (assigned to Brian) in project Agent runtime; an agent task token on WORK-415 asks Anouk a question on WORK-415; Brian sees it on WORK-410's Questions property and on the project's, marked "via sub-issue WORK-415", and under On my work without answer controls; the agent adds project Agent runtime with `multica question link`'s endpoint; WORK-410 is reassigned to agent Joeri; Anouk answers; the card offers **Wake Pieter** and **Wake Joeri**; **Wake Joeri** queues Joeri's run on WORK-410 and no run of Pieter -- DAS-430's acceptance test.
-- [ ] 15.2 `specs/openspec/changes/question-reaches-the-owner-of-the-work-above/` -- run `openspec validate question-reaches-the-owner-of-the-work-above --type change --strict`, sync the specs and archive the change -- the journey closes on its J11 pull request.
+- [x] 15.2 `specs/openspec/changes/question-reaches-the-owner-of-the-work-above/` -- run `openspec validate question-reaches-the-owner-of-the-work-above --type change --strict`, sync the specs and archive the change -- the journey closes on its J11 pull request.
 
 ## Implementation Notes
 

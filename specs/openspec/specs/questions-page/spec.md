@@ -64,3 +64,12 @@ A row on the Questions page SHALL show an overdue badge while its question is op
 - **GIVEN** Brian's open question had due date 2026-10-14
 - **WHEN** Brian opens For me on 2026-10-15
 - **THEN** its row shows an overdue badge
+
+### Requirement: On my work
+The Questions page SHALL have a tab **On my work** listing the open questions whose links or parents have the viewer as member assignee, also when the viewer is not an answerer.
+
+#### Scenario: Brian follows a question below his issue
+- **GIVEN** Brian is the assignee of WORK-410 and Pieter asked Anouk a question on its sub-issue WORK-415
+- **WHEN** Brian opens On my work
+- **THEN** it lists the question, marked "via sub-issue WORK-415"
+- **AND** the question is not under Brian's For me and offers Brian no answer controls
