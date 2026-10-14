@@ -68,7 +68,7 @@ Its J2 starts once UJ-4's J2 is merged.
 
 - [ ] 4.1 `prototypes/web/issues-from-templates/data-flow/` -- an interactive prototype without UI that runs design.md "Journey sequence and data flow". It covers:
   - New issue opened from the sidebar, a project and a worklane, and from + Add issue to release: the worklane, release and status it fills in, "Pick a worklane first", "This worklane has no releases planned", a worklane of another repository.
-  - Each template's Markdown from its fields, with the formats `text`, `bullets`, `checks` and `scenarios`, and Create disabled until the title and required fields are filled.
+  - Each template's Markdown from its fields, with the formats `text`, `bullets`, `checks` and `scenarios`, and Create disabled until the title is filled.
   - Creation with and without a worklane, release and status, the project following the worklane, and the `created` and `planned_in_release` entries.
   - The CLI: `--type` with and without a description, `--worklane` by id, by `owner/name/worklane` and by bare name, `--release` of another repository, `--release none`.
   - The issue page pickers, Set type once and `type_fixed`, Plan release with issues, Add issue to release, Remove from release, a release moved, a release removed, each with its entries.
@@ -145,8 +145,8 @@ Its J2 starts once UJ-4's J2 is merged.
 ## 11. J9 Frontend: flow
 
 - [x] 11.1 `packages/core/api/client.ts` -- `listIssueTemplates`, `setIssueType`, `setIssuePlacement`, `addIssuesToRelease`, `listWorklaneIssues`, `listReleaseProgress`, and the new fields on `createIssue` and `planRelease`, each through `parseWithFallback`.
-- [x] 11.2 `packages/core/issues/templates/` (`queries.ts`, `markdown.ts`, `index.ts`) -- `issueTemplateKeys`, `issueTemplatesOptions` (account-level, `staleTime: Infinity`), `templateMarkdown(t, fields)` and `requiredFilled(t, title, fields)` -- design.md decisions 3 and 11.
-- [ ] 11.3 `packages/core/issues/templates/markdown.test.ts` (`// @vitest-environment node`) -- runs every case of `server/internal/issuetemplate/testdata/cases.json`, and `requiredFilled` with spaces-only fields.
+- [x] 11.2 `packages/core/issues/templates/` (`queries.ts`, `markdown.ts`, `index.ts`) -- `issueTemplateKeys`, `issueTemplatesOptions` (account-level, `staleTime: Infinity`) and `templateMarkdown(t, fields)` -- design.md decisions 3 and 11.
+- [ ] 11.3 `packages/core/issues/templates/markdown.test.ts` (`// @vitest-environment node`) -- runs every case of `server/internal/issuetemplate/testdata/cases.json`.
 - [x] 11.4 `packages/core/issues/placement/` (`queries.ts`, `mutations.ts`, `defaults.ts`, `index.ts`) -- `worklaneIssueKeys`, `releaseProgressKeys`, `useSetIssueType`, `useSetIssuePlacement`, `useAddIssuesToRelease`, `nextRelease`, `openedFrom` and `defaultStatus` -- design.md decision 11.
 - [ ] 11.5 `packages/core/issues/placement/defaults.test.ts` (`// @vitest-environment node`) -- New issue from the sidebar, a project with and without repositories, a worklane without releases, + Add issue to release, and the status with and without a release or a picked status.
 - [x] 11.6 `packages/core/issues/mutations.ts`, `packages/core/releases/mutations.ts` -- `useCreateIssue` sends `type`, `from_template`, `worklane_id` and `release_id`. `usePlanRelease` sends `issue_ids`. Both invalidate the worklane issues and the progress on settle.
@@ -156,7 +156,7 @@ Its J2 starts once UJ-4's J2 is merged.
 ## 12. J9 Frontend: component
 
 - [x] 12.1 `packages/views/issues/components/type-icon.tsx` -- `TypeIcon` with the eight lucide icons of the prototype's `TYPE_ICON` in `--type-*`, and No type, each with its type name as accessible name.
-- [x] 12.2 `packages/views/issues/components/templates/template-list.tsx`, `template-fields.tsx` -- the eight templates with icon, name and hint as a radio group, and the fields with Required or Optional, from `issueTemplatesOptions`.
+- [x] 12.2 `packages/views/issues/components/templates/template-list.tsx`, `template-fields.tsx` -- the eight templates with icon, name and hint as a radio group, and the fields, from `issueTemplatesOptions`.
 - [x] 12.3 `packages/views/issues/components/pickers/type-picker.tsx`, `worklane-picker.tsx`, `release-picker.tsx` -- Type offering the eight once. Worklane grouped by organisation, project and repository, with "No worklane". Release with the worklane's repository's unshipped releases by version and title, "No release", "Pick a worklane first" and "This worklane has no releases planned" -- the `new-issue-placement` and `issue-page-worklane-and-release` spec deltas.
 - [x] 12.4 `packages/views/releases/components/issue-release-card.tsx` -- the release card of design.md decision 11.
 - [x] 12.5 `packages/views/releases/components/release-issue-row.tsx`, `no-release-column.tsx` -- the Timeline's issue row with Remove from release for an issue in a release, and the "No release" column with its count.
@@ -165,7 +165,7 @@ Its J2 starts once UJ-4's J2 is merged.
 
 ## 13. J9 Frontend: screen
 
-- [x] 13.1 `packages/views/modals/create-issue.tsx` -- New issue from a template as design.md decision 11 sets out: the template list, the fields with a Markdown toggle to edit the Markdown by hand and a copy button, the chips with Type, Worklane, Release and Priority beside Multica's other properties, Project read-only with a worklane, the status that follows, and "Create {type}" disabled until the title is filled and `requiredFilled` holds or the Markdown is edited by hand -- the `issue-templates` and `new-issue-placement` spec deltas. "Create with agent" stays as it is.
+- [x] 13.1 `packages/views/modals/create-issue.tsx` -- New issue from a template as design.md decision 11 sets out: the template list, the fields with a Markdown toggle to edit the Markdown by hand and a copy button, the chips with Type, Worklane, Release and Priority beside Multica's other properties, Project read-only with a worklane, the status that follows, and "Create {type}" disabled until the title is filled -- the `issue-templates` and `new-issue-placement` spec deltas. "Create with agent" stays as it is.
 - [x] 13.2 `packages/views/issues/components/issue-detail.tsx` -- "{Type} {identifier}" above the title, the description with the Markdown toggle to edit it and a copy button, Type, Worklane and Release rows linking to the worklane's Timeline, the release card, Project read-only with a worklane, and the seven activity sentences in `formatActivity` -- the `issue-types`, `issue-page-worklane-and-release` and `issue-activity-entries` spec deltas.
 - [x] 13.3 `packages/views/issues/components/list-row.tsx`, `board-card.tsx`, `table-view.tsx`, `swimlane-view.tsx`, `issue-hover-card.tsx`, `issue-mention-card.tsx` -- `TypeIcon` beside the identifier -- the `issue-types` spec delta.
 - [x] 13.4 `packages/views/search/search-command.tsx` -- the type icon, and the worklane's name or "No worklane" on each issue result.
@@ -203,7 +203,7 @@ Source: `specs/openspec/changes/issues-from-templates/specs/`.
 Two Playwright Chromium tests in `e2e/issues.spec.ts`, using the existing `TestApiClient` and issue-navigation helpers:
 
 - **The issue page shows the type, the ID and the description, editable as Markdown / An edit in the Markdown** — edits the description in the Markdown textarea, saves by toggling back, checks the rendered list item, reloads, and checks both the rendered item and saved Markdown.
-- **Brian edits New issue's Markdown by hand / A hand edit; Create stays disabled until the title and the description are complete / A hand-edited Markdown** — edits the Story Markdown, checks every template textarea is disabled while required Acceptance criteria is empty, checks Create story is enabled, and checks the created API response and issue page contain exactly the hand-edited Markdown.
+- **Brian edits New issue's Markdown by hand / A hand edit** — picks Story, edits its Markdown, checks every template textarea is disabled while Acceptance criteria is empty, checks Create story is enabled, and checks the created API response and issue page contain exactly the hand-edited Markdown.
 
 No additional API-only tests or edge/error-flow tests were added; the two UI tests assert the save/create responses themselves.
 

@@ -29,27 +29,27 @@ New issue SHALL list No template first and then the eight templates on the left,
 - **WHEN** Brian picks Bug in New issue
 - **THEN** the type chip says Bug, the fields are Bug's and the button says "Create bug"
 
-### Requirement: The template's fields are Required or Optional
-Each template SHALL show its fields, each marked Required or Optional, as in this table.
+### Requirement: The template's fields
+Each template SHALL show its fields, as in this table, and every field SHALL be optional.
 
-| Template | Required | Optional |
-|---|---|---|
-| Epic | What we are doing, Abilities, Acceptance criteria | User stories |
-| Journey | User journey, Scenarios | |
-| Story | User story, Acceptance criteria | Currently, Should |
-| Bug | Expected result, Actual result | Steps to reproduce, Environment |
-| Enhancement | Enhancement, Acceptance criteria | Current behavior, Desired behavior |
-| Refactor | Refactor, Behavioral contract | Acceptance criteria |
-| Chore | Chore, Acceptance criteria | Baseline, Target state |
-| Spike | Spike objective, Time box | Research questions |
+| Template | Fields |
+|---|---|
+| Epic | What we are doing, User stories, Abilities, Acceptance criteria |
+| Journey | User journey, Scenarios |
+| Story | User story, Currently, Should, Acceptance criteria |
+| Bug | Expected result, Actual result, Steps to reproduce, Environment |
+| Enhancement | Enhancement, Current behavior, Desired behavior, Acceptance criteria |
+| Refactor | Refactor, Behavioral contract, Acceptance criteria |
+| Chore | Chore, Baseline, Target state, Acceptance criteria |
+| Spike | Spike objective, Research questions, Time box |
 
 #### Scenario: Story's fields
 - **WHEN** Brian picks Story
-- **THEN** the fields are User story (Required), Currently (Optional), Should (Optional) and Acceptance criteria (Required)
+- **THEN** the fields are User story, Currently, Should and Acceptance criteria
 
 #### Scenario: Spike's fields
 - **WHEN** Brian picks Spike
-- **THEN** the fields are Spike objective (Required), Research questions (Optional) and Time box (Required)
+- **THEN** the fields are Spike objective, Research questions and Time box
 
 ### Requirement: The fields fill the template's one Markdown description
 New issue SHALL show the fields, and a Markdown toggle SHALL show the picked template's Markdown instead, each section with its emoji heading and its question as a quote, with what Brian typed in each field placed in its section: a text field as written, a list field one line per item as `- {item}`, a checklist field one line per item as `- [ ] {item}`, and Journey's Scenarios one scenario section per line. A section whose field is empty, or that has no field, SHALL keep only its heading and question. A copy button SHALL copy that Markdown. The created issue SHALL keep only that Markdown as its description and keep no separate fields.
@@ -76,27 +76,19 @@ New issue's Markdown SHALL be editable. Once Brian changes it by hand, that Mark
 - **THEN** the fields lock
 - **AND** the created issue's description is that Markdown with the added line
 
-### Requirement: Create stays disabled until the title and the description are complete
-New issue SHALL keep its Create button disabled while the title is empty or only spaces, or while the Markdown has no hand edit and any Required field of the picked template is empty or only spaces.
+### Requirement: Create stays disabled until the title is filled
+New issue SHALL keep its Create button disabled while the title is empty or only spaces, and SHALL enable it once the title is filled, whatever the template's fields hold.
 
-#### Scenario: A required field empty
-- **GIVEN** Brian picked Story and typed the title "A fan changes their display name" and User story
-- **WHEN** Acceptance criteria is empty
-- **THEN** "Create story" is disabled
-
-#### Scenario: Optional fields empty
-- **GIVEN** Brian picked Story, typed the title, User story and Acceptance criteria, and left Currently and Should empty
-- **THEN** "Create story" is enabled
+#### Scenario: Only the title filled
+- **GIVEN** Brian picked Chore and typed the title "Renew the TLS certificate"
+- **WHEN** Chore, Baseline, Target state and Acceptance criteria are empty
+- **THEN** "Create chore" is enabled
+- **AND** clicking it creates the chore with the Chore template's Markdown as its description
 
 #### Scenario: No title
 - **GIVEN** Brian picked Bug and filled Expected result and Actual result
 - **WHEN** the title is empty
 - **THEN** "Create bug" is disabled
-
-#### Scenario: A hand-edited Markdown
-- **GIVEN** Brian picked Story, typed the title and changed the Markdown by hand
-- **WHEN** Acceptance criteria is empty
-- **THEN** "Create story" is enabled
 
 ### Requirement: No template asks for implementation details
 No template, field, issue view or creation flow MUST ask for implementation details, code or technical design.
