@@ -35,7 +35,7 @@ export function OptionRow({
       disabled={disabled}
       onClick={onSelect}
       className={cn(
-        "flex h-10 w-full items-center gap-3 rounded-lg border px-3 text-left text-body transition-colors outline-none",
+        "flex min-h-10 w-full items-center gap-3 rounded-lg border px-3 py-2 text-left text-body transition-colors outline-none",
         "focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50",
         selected ? "border-foreground bg-muted" : "border-border hover:bg-muted/50",
       )}
@@ -61,7 +61,7 @@ export function OptionRow({
           {selected && <Check className="size-3" />}
         </span>
       )}
-      <span className="min-w-0 flex-1 truncate">{children}</span>
+      <span className="min-w-0 flex-1 break-words">{children}</span>
       {suggested && <SuggestedBadge />}
       {shortcut !== undefined && <Kbd className="border bg-transparent">{shortcut}</Kbd>}
     </button>

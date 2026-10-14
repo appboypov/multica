@@ -88,7 +88,7 @@ function RankingRow({
       onKeyDown={disabled ? undefined : onKeyDown}
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={cn(
-        "flex h-10 items-center gap-3 rounded-lg border border-border bg-card px-3 text-body outline-none motion-reduce:transition-none!",
+        "flex min-h-10 items-center gap-3 rounded-lg border border-border bg-card px-3 py-2 text-body outline-none motion-reduce:transition-none!",
         "focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",
         isDragging && "z-10 shadow-[var(--surface-shadow)]",
       )}
@@ -104,7 +104,7 @@ function RankingRow({
         <GripVertical className="size-4" />
       </span>
       <Kbd className="border bg-transparent">{position}</Kbd>
-      <span className="min-w-0 flex-1 truncate">{item}</span>
+      <span className="min-w-0 flex-1 break-words">{item}</span>
       <ArrowUpDown aria-hidden className="size-4 shrink-0 text-muted-foreground" />
     </li>
   );
