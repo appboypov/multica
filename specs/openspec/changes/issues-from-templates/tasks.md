@@ -53,10 +53,10 @@ Its J2 starts once UJ-4's J2 is merged.
 
 ## 2. J2 Data models: DTO
 
-- [ ] 2.1 `packages/core/types/issue.ts` -- `IssueType` (the eight), `ISSUE_TYPES`, and `type: IssueType | null`, `worklane_id: string | null`, `release_id: string | null` on `Issue` -- design.md decision 1.
-- [ ] 2.2 `packages/core/types/issue-template.ts`, `index.ts` -- `IssueTemplate`, `IssueTemplateSection`, `IssueTemplateField`, `IssueTemplateFieldFormat`, `SetIssuePlacementRequest`, `AddIssuesToReleaseRequest`, `ReleaseProgressRow` and the placement refusal codes of design.md decision 2.
-- [ ] 2.3 `packages/core/types/activity.ts` -- the details of the seven issue actions of design.md decision 6.
-- [ ] 2.4 `packages/core/api/schemas.ts` -- `IssueSchema` gains `type` (outside the eight falls back to `null`), `worklane_id` and `release_id` (default `null`). `IssueTemplatesResponseSchema` (unknown `format` falls back to `text`, unknown `type` drops the template), `WorklaneIssuesResponseSchema`, `ReleaseProgressResponseSchema` (`rows` defaulting to `[]`) and the refusal body with `issues` defaulting to `[]` -- AGENTS.md "API Compatibility".
+- [x] 2.1 `packages/core/types/issue.ts` -- `IssueType` (the eight), `ISSUE_TYPES`, and `type: IssueType | null`, `worklane_id: string | null`, `release_id: string | null` on `Issue` -- design.md decision 1.
+- [x] 2.2 `packages/core/types/issue-template.ts`, `index.ts` -- `IssueTemplate`, `IssueTemplateSection`, `IssueTemplateField`, `IssueTemplateFieldFormat`, `SetIssuePlacementRequest`, `AddIssuesToReleaseRequest`, `ReleaseProgressRow` and the placement refusal codes of design.md decision 2.
+- [x] 2.3 `packages/core/types/activity.ts` -- the details of the seven issue actions of design.md decision 6.
+- [x] 2.4 `packages/core/api/schemas.ts` -- `IssueSchema` gains `type` (outside the eight falls back to `null`), `worklane_id` and `release_id` (default `null`). `IssueTemplatesResponseSchema` (unknown `format` falls back to `text`, unknown `type` drops the template), `WorklaneIssuesResponseSchema`, `ReleaseProgressResponseSchema` (`rows` defaulting to `[]`) and the refusal body with `issues` defaulting to `[]` -- AGENTS.md "API Compatibility".
 - [ ] 2.5 `packages/core/api/schemas.test.ts` -- malformed-response cases: an issue without the three fields, an unknown type, a template with an unknown format and one with an unknown type, a progress answer without `rows`, a refusal with an unknown code.
 
 ## 3. J2 Data models: action names

@@ -1,6 +1,8 @@
 export type { Issue, IssueStatus, BuiltInIssueStatus, IssuePriority, IssueAssigneeType, IssueMetadata, IssueMetadataValue, IssueReaction, SourceContextAttachment, SourceContextAuthor, SourceContextIssueSnapshot, SourceContextCommentSnapshot, SourceContextSnapshot, SourceContextLimitUsage, SourceContextPreview, SourceContextAuthorState, IssueSourceContext,
   IssueDuplicateOf,
 } from "./issue";
+export { ISSUE_TYPES } from "./issue";
+export type { IssueType } from "./issue";
 export type {
   IssueStatusCategory,
   IssueStatusEntry,
@@ -141,6 +143,10 @@ export {
 export type {
   TimelineEntry,
   AssigneeFrequencyEntry,
+  IssueReleaseActivityDetails,
+  IssueActivityDetailsByAction,
+  IssuePlacementActivityAction,
+  IssuePlacementActivityEntry,
 } from "./activity";
 export type { IssueSubscriber } from "./subscriber";
 export type * from "./events";
@@ -251,6 +257,21 @@ export type {
   ReleaseMovedDetails,
   ReleaseRemovedDetails,
 } from "./release";
+export type {
+  IssueTemplateFieldFormat,
+  IssueTemplateField,
+  IssueTemplateSection,
+  IssueTemplate,
+  IssueTemplatesResponse,
+  SetIssueTypeRequest,
+  SetIssuePlacementRequest,
+  AddIssuesToReleaseRequest,
+  WorklaneIssuesResponse,
+  ReleaseProgressRow,
+  ReleaseProgressResponse,
+  IssuePlacementRefusalCode,
+  IssuePlacementRefusal,
+} from "./issue-template";
 export type { PinnedItem, PinnedItemType, CreatePinRequest, ReorderPinsRequest } from "./pin";
 export type {
   GitHubInstallation,

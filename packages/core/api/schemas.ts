@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { normalizeIssueStatusCategory } from "../issues/config/status";
+import { ISSUE_TYPES } from "../types/issue";
 import type {
   AgentBuilderRuntimeSwitch,
   AgentBuilderSession,
@@ -114,6 +115,11 @@ import type {
   ListReleasesResponse,
   ReleaseRefusal,
   RepositoryRefusal,
+  IssueTemplate,
+  IssueTemplatesResponse,
+  WorklaneIssuesResponse,
+  ReleaseProgressResponse,
+  IssuePlacementRefusal,
 } from "../types";
 import type { CloudRuntimeNode } from "../runtimes/cloud-runtime";
 import type { CreateFeedbackResponse } from "../feedback/types";
@@ -1355,6 +1361,9 @@ export const IssueSchema = z.object({
     .optional()
     .catch(undefined),
   project_id: z.string().nullable(),
+  type: z.enum(ISSUE_TYPES).nullable().catch(null),
+  worklane_id: z.string().nullable().default(null),
+  release_id: z.string().nullable().default(null),
   position: z.number(),
   // Older backends predate `stage`; default to null so a missing field parses
   // cleanly into the non-optional Issue.stage (number | null).
@@ -1939,6 +1948,71 @@ export const RepositoryRefusalSchema: z.ZodType<RepositoryRefusal> = z.object({
 }).loose();
 
 export const UNKNOWN_REPOSITORY_REFUSAL: RepositoryRefusal = { code: "unknown", releases: [] };
+
+const IssueTemplateFieldSchema = z.object({
+  key: z.string(),
+  label: z.string().default(""),
+  required: z.boolean().default(false),
+  placeholder: z.string().default(""),
+  rows: z.number().default(1),
+  format: z.enum(["text", "bullets", "checks", "scenarios"]).catch("text"),
+}).loose();
+
+const IssueTemplateSchema: z.ZodType<IssueTemplate> = z.object({
+  // Unknown types invalidate only this template, never the whole catalogue.
+  type: z.enum(ISSUE_TYPES),
+  sections: z.array(z.object({
+    heading: z.string().default(""),
+    question: z.string().default(""),
+    field: IssueTemplateFieldSchema.nullable().optional(),
+  }).loose()).default([]),
+}).loose();
+
+export const IssueTemplatesResponseSchema = z.object({
+  templates: z.array(IssueTemplateSchema.nullable().catch(null))
+    .transform((templates) => templates.filter((template): template is IssueTemplate => template !== null))
+    .default([]),
+}).loose();
+
+export const EMPTY_ISSUE_TEMPLATES_RESPONSE: IssueTemplatesResponse = { templates: [] };
+
+export const WorklaneIssuesResponseSchema = z.object({
+  issues: z.array(IssueSchema).default([]),
+}).loose();
+
+export const EMPTY_WORKLANE_ISSUES_RESPONSE: WorklaneIssuesResponse = { issues: [] };
+
+const ReleaseProgressRowSchema = z.object({
+  worklane_id: z.string(),
+  release_id: z.string(),
+  done: z.number().default(0),
+  total: z.number().default(0),
+}).loose();
+
+export const ReleaseProgressResponseSchema = z.object({
+  rows: z.array(ReleaseProgressRowSchema).default([]),
+}).loose();
+
+export const EMPTY_RELEASE_PROGRESS_RESPONSE: ReleaseProgressResponse = { rows: [] };
+
+export const IssuePlacementRefusalSchema: z.ZodType<IssuePlacementRefusal> = z.object({
+  code: z.enum([
+    "type_invalid", "type_fixed", "release_needs_worklane", "release_not_of_repository",
+    "release_shipped", "issue_not_in_repository", "issue_in_release",
+    "project_follows_worklane", "worklane_has_open_issues", "unknown",
+  ]).catch("unknown"),
+  error: z.string().optional(),
+  version: z.string().optional(),
+  title: z.string().optional(),
+  repository: z.string().optional(),
+  issues: z.array(z.object({
+    id: z.string(),
+    identifier: z.string(),
+    title: z.string().optional(),
+  }).loose()).default([]),
+}).loose();
+
+export const UNKNOWN_ISSUE_PLACEMENT_REFUSAL: IssuePlacementRefusal = { code: "unknown", issues: [] };
 
 // Local search index sync (MUL-7754). Callers reject a response that fails
 // these schemas instead of degrading to an empty value: an empty snapshot page

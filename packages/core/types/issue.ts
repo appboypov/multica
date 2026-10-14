@@ -32,6 +32,10 @@ export type IssueStatus = BuiltInIssueStatus | (string & {});
 
 export type IssuePriority = "urgent" | "high" | "medium" | "low" | "none";
 
+export const ISSUE_TYPES = ["epic", "journey", "story", "bug", "enhancement", "refactor", "chore", "spike"] as const;
+
+export type IssueType = (typeof ISSUE_TYPES)[number];
+
 export type IssueAssigneeType = "member" | "agent" | "squad";
 
 export interface IssueReaction {
@@ -203,6 +207,10 @@ export interface Issue {
    */
   duplicate_of?: IssueDuplicateOf | null;
   project_id: string | null;
+  /** Additive fields stay optional for existing cached/literal issues. API schemas default them to null. */
+  type?: IssueType | null;
+  worklane_id?: string | null;
+  release_id?: string | null;
   position: number;
   // Ordered barrier group among sibling sub-issues (null = unstaged). The
   // parent assignee is woken when a stage closes while a later one waits;

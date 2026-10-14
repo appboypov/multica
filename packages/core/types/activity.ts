@@ -1,5 +1,6 @@
 import type { CommentAuthorType, CommentSupplementReceipt, Reaction } from "./comment";
 import type { Attachment } from "./attachment";
+import type { IssueType } from "./issue";
 
 export interface AssigneeFrequencyEntry {
   assignee_type: string;
@@ -49,3 +50,30 @@ export interface TimelineEntry {
   /** Set by frontend coalescing when consecutive identical activities are merged. */
   coalesced_count?: number;
 }
+
+/** Placement activity keeps names and versions as they were at the write. */
+export interface IssueReleaseActivityDetails {
+  release_id: string;
+  version: string;
+  title: string;
+}
+
+export interface IssueActivityDetailsByAction {
+  created: { type?: IssueType; template?: boolean };
+  planned_in_release: IssueReleaseActivityDetails & { worklane_id: string; worklane_name: string };
+  type_set: { type: IssueType };
+  added_to_release: IssueReleaseActivityDetails;
+  removed_from_release: IssueReleaseActivityDetails;
+  worklane_changed: { worklane_id: string | null; worklane_name: string | null };
+  release_gone: IssueReleaseActivityDetails;
+}
+
+export type IssuePlacementActivityAction = keyof IssueActivityDetailsByAction;
+
+export type IssuePlacementActivityEntry = {
+  [Action in IssuePlacementActivityAction]: Omit<TimelineEntry, "type" | "action" | "details"> & {
+    type: "activity";
+    action: Action;
+    details: IssueActivityDetailsByAction[Action];
+  };
+}[IssuePlacementActivityAction];
