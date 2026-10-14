@@ -5,6 +5,8 @@ import { useModalStore } from "@multica/core/modals";
 import { CreateIssueDialog } from "./create-issue-dialog";
 import { CreateProjectModal } from "./create-project";
 import { CreateOrganisationModal } from "./create-organisation";
+import { AddRepositoryDialog } from "../repositories/components/add-repository-dialog";
+import { EditRepositoryDialog } from "../repositories/components/edit-repository-dialog";
 import { CreateSquadModal } from "./create-squad";
 import { FeedbackModal } from "./feedback";
 import { SetParentIssueModal } from "./set-parent-issue";
@@ -46,6 +48,12 @@ export function ModalRegistry() {
       break;
     case "create-organisation":
       activeModal = <CreateOrganisationModal onClose={close} />;
+      break;
+    case "add-repository":
+      activeModal = <AddRepositoryDialog onClose={close} data={data} />;
+      break;
+    case "edit-repository":
+      activeModal = <EditRepositoryDialog onClose={close} data={data} />;
       break;
     case "create-squad":
       activeModal = <CreateSquadModal onClose={close} />;
