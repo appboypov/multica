@@ -25,6 +25,7 @@ import enUi from "./en/ui.json";
 import enSquads from "./en/squads.json";
 import enOrganisations from "./en/organisations.json";
 import enReleases from "./en/releases.json";
+import enWorklanes from "./en/worklanes.json";
 import enBilling from "./en/billing.json";
 import enQuestions from "./en/questions.json";
 import enRepositories from "./en/repositories.json";
@@ -54,6 +55,7 @@ import zhHansUi from "./zh-Hans/ui.json";
 import zhHansSquads from "./zh-Hans/squads.json";
 import zhHansOrganisations from "./zh-Hans/organisations.json";
 import zhHansReleases from "./zh-Hans/releases.json";
+import zhHansWorklanes from "./zh-Hans/worklanes.json";
 import zhHansBilling from "./zh-Hans/billing.json";
 import zhHansQuestions from "./zh-Hans/questions.json";
 import zhHansRepositories from "./zh-Hans/repositories.json";
@@ -83,6 +85,7 @@ import koUi from "./ko/ui.json";
 import koSquads from "./ko/squads.json";
 import koOrganisations from "./ko/organisations.json";
 import koReleases from "./ko/releases.json";
+import koWorklanes from "./ko/worklanes.json";
 import koBilling from "./ko/billing.json";
 import koQuestions from "./ko/questions.json";
 import koRepositories from "./ko/repositories.json";
@@ -112,6 +115,7 @@ import jaUi from "./ja/ui.json";
 import jaSquads from "./ja/squads.json";
 import jaOrganisations from "./ja/organisations.json";
 import jaReleases from "./ja/releases.json";
+import jaWorklanes from "./ja/worklanes.json";
 import jaBilling from "./ja/billing.json";
 import jaQuestions from "./ja/questions.json";
 import jaRepositories from "./ja/repositories.json";
@@ -141,6 +145,7 @@ import frUi from "./fr/ui.json";
 import frSquads from "./fr/squads.json";
 import frOrganisations from "./fr/organisations.json";
 import frReleases from "./fr/releases.json";
+import frWorklanes from "./fr/worklanes.json";
 import frBilling from "./fr/billing.json";
 import frQuestions from "./fr/questions.json";
 import frRepositories from "./fr/repositories.json";
@@ -176,6 +181,7 @@ export const RESOURCES: Record<SupportedLocale, LocaleResources> = {
     squads: enSquads,
     organisations: enOrganisations,
     releases: enReleases,
+    worklanes: enWorklanes,
     billing: enBilling,
     questions: enQuestions,
     repositories: enRepositories,
@@ -207,6 +213,7 @@ export const RESOURCES: Record<SupportedLocale, LocaleResources> = {
     squads: zhHansSquads,
     organisations: zhHansOrganisations,
     releases: zhHansReleases,
+    worklanes: zhHansWorklanes,
     billing: zhHansBilling,
     questions: zhHansQuestions,
     repositories: zhHansRepositories,
@@ -238,6 +245,7 @@ export const RESOURCES: Record<SupportedLocale, LocaleResources> = {
     squads: koSquads,
     organisations: koOrganisations,
     releases: koReleases,
+    worklanes: koWorklanes,
     billing: koBilling,
     questions: koQuestions,
     repositories: koRepositories,
@@ -269,6 +277,7 @@ export const RESOURCES: Record<SupportedLocale, LocaleResources> = {
     squads: jaSquads,
     organisations: jaOrganisations,
     releases: jaReleases,
+    worklanes: jaWorklanes,
     billing: jaBilling,
     questions: jaQuestions,
     repositories: jaRepositories,
@@ -300,6 +309,7 @@ export const RESOURCES: Record<SupportedLocale, LocaleResources> = {
     squads: frSquads,
     organisations: frOrganisations,
     releases: frReleases,
+    worklanes: frWorklanes,
     billing: frBilling,
     questions: frQuestions,
     repositories: frRepositories,

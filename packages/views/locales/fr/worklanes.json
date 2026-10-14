@@ -1,0 +1,122 @@
+{
+  "worklane_count_one": "{{count}} worklane",
+  "worklane_count_other": "{{count}} worklanes",
+  "state": {
+    "free": "Libre",
+    "busy": "Occupé"
+  },
+  "page": {
+    "projects": "Projets",
+    "loading": "Chargement du worklane",
+    "not_found": "Worklane introuvable",
+    "not_found_description": "Vérifiez le lien, ou ouvrez le worklane depuis son dépôt.",
+    "repository": "Dépôt",
+    "state_label": "État"
+  },
+  "timeline": {
+    "title": "Chronologie",
+    "no_releases": "Aucune version pour l'instant"
+  },
+  "activity": {
+    "title": "Activité",
+    "empty": "Aucune activité pour l'instant",
+    "worklane_created": "{{actor}} a créé {{name}} sur {{runtime}}",
+    "worklane_renamed": "{{actor}} a renommé {{from}} en {{to}}"
+  },
+  "rows": {
+    "add": "Worklane",
+    "add_label": "Nouveau worklane dans {{repository}}",
+    "fold_open": "Afficher les worklanes de {{repository}}",
+    "fold_close": "Masquer les worklanes de {{repository}}"
+  },
+  "menu": {
+    "label": "Actions du worklane",
+    "rename": "Renommer",
+    "remove": "Retirer"
+  },
+  "new": {
+    "title": "Nouveau worklane · {{repository}}",
+    "description": "Un worklane a son propre worktree sur le runtime qui détient le checkout du dépôt.",
+    "name_label": "Nom",
+    "name_placeholder": "Fan app",
+    "name_taken": "{{repository}} a déjà un worklane {{name}}",
+    "folder_label": "Dossier",
+    "folder_hint": "Unique parmi les worklanes de {{repository}}",
+    "folder_invalid": "Un seul nom de dossier : lettres minuscules, chiffres et tirets",
+    "folder_in_use": "Déjà utilisé par {{name}}",
+    "runtime_label": "Runtime",
+    "runtime_placeholder": "Choisir un runtime",
+    "runtime_hint": "Runtimes en ligne qui peuvent créer des worktrees",
+    "runtime_online": "{{name}} · en ligne",
+    "runtime_offline": "{{name}} · hors ligne",
+    "runtime_reason": {
+      "no_checkout": "Aucun checkout de {{repository}}",
+      "offline": "Hors ligne",
+      "cannot_make_worktrees": "Ne peut pas créer de worktrees"
+    },
+    "worktree_label": "Worktree",
+    "worktree_base": "depuis {{base}}",
+    "install_none": "N'installe rien",
+    "finding_install": "Recherche de la commande d'installation",
+    "creating_on": "Création sur {{runtime}}",
+    "failed_note": "Aucun worklane n'est enregistré tant que toutes les étapes n'ont pas réussi.",
+    "cancel": "Annuler",
+    "create": "Créer le worklane",
+    "creating": "Création du worklane",
+    "try_again": "Réessayer",
+    "failed": "Impossible de créer le worklane"
+  },
+  "steps": {
+    "fetch": "Récupérer {{base}}",
+    "add_worktree": "Ajouter le worktree",
+    "install": "Installer les dépendances",
+    "open": "Ouvrir le worklane",
+    "unknown": "Étape inconnue",
+    "skipped": "Ignorée",
+    "took": "{{seconds}} s",
+    "state": {
+      "pending": "En attente",
+      "running": "En cours",
+      "done": "Terminée",
+      "skipped": "Ignorée",
+      "failed": "Échouée"
+    }
+  },
+  "rename": {
+    "title": "Renommer le worklane",
+    "description": "Le dossier et le worktree restent tels quels.",
+    "name_label": "Nom",
+    "cancel": "Annuler",
+    "submit": "Renommer",
+    "submitting": "Renommage",
+    "failed": "Impossible de renommer le worklane"
+  },
+  "remove": {
+    "title": "Retirer {{name}} ?",
+    "description": "Cela supprime {{path}} sur {{runtime}} et retire le worklane de Multica. Rien n'est retiré tant que le worktree contient des modifications non commitées ou des commits absents de {{base}}.",
+    "cancel": "Annuler",
+    "submit": "Retirer",
+    "submitting": "Retrait",
+    "failed": "Impossible de retirer le worklane"
+  },
+  "errors": {
+    "name_required": "Saisissez un nom",
+    "name_taken": "{{repository}} a déjà un worklane {{name}}",
+    "folder_invalid": "Un seul nom de dossier : lettres minuscules, chiffres et tirets",
+    "folder_taken": "Déjà utilisé par {{name}}",
+    "runtime_no_checkout": "Ce runtime ne détient aucun checkout de {{repository}}",
+    "runtime_offline": "{{name}} est hors ligne",
+    "runtime_cannot_make_worktrees": "{{name}} ne peut pas encore créer de worktrees : mettez à jour son Multica",
+    "install_command_unknown": "La commande d'installation n'est pas encore trouvée",
+    "request_running": "Ce worklane est déjà en cours de création",
+    "main_fixed": "main ne peut être ni renommé ni retiré",
+    "path_issue_worktree": "{{detail}}",
+    "path_not_checkout": "{{detail}}",
+    "lost": "{{runtime}} ne répond plus",
+    "busy": "Le worktree de {{name}} est en cours d'utilisation. Réessayez quand son travail est terminé.",
+    "uncommitted": "Le worktree de {{name}} contient des modifications non commitées",
+    "unpushed": "Le worktree de {{name}} contient des commits absents de {{base}}",
+    "stashed": "Le worktree de {{name}} contient des modifications mises de côté (stash)",
+    "unknown": "{{detail}}"
+  }
+}

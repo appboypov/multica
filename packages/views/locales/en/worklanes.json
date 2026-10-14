@@ -1,0 +1,122 @@
+{
+  "worklane_count_one": "{{count}} worklane",
+  "worklane_count_other": "{{count}} worklanes",
+  "state": {
+    "free": "Free",
+    "busy": "Busy"
+  },
+  "page": {
+    "projects": "Projects",
+    "loading": "Loading worklane",
+    "not_found": "Worklane not found",
+    "not_found_description": "Check the link, or open the worklane from its repository.",
+    "repository": "Repository",
+    "state_label": "State"
+  },
+  "timeline": {
+    "title": "Timeline",
+    "no_releases": "No releases yet"
+  },
+  "activity": {
+    "title": "Activity",
+    "empty": "No activity yet",
+    "worklane_created": "{{actor}} created {{name}} on {{runtime}}",
+    "worklane_renamed": "{{actor}} renamed {{from}} to {{to}}"
+  },
+  "rows": {
+    "add": "Worklane",
+    "add_label": "New worklane in {{repository}}",
+    "fold_open": "Show the worklanes of {{repository}}",
+    "fold_close": "Hide the worklanes of {{repository}}"
+  },
+  "menu": {
+    "label": "Worklane actions",
+    "rename": "Rename",
+    "remove": "Remove"
+  },
+  "new": {
+    "title": "New worklane · {{repository}}",
+    "description": "A worklane gets its own worktree on the runtime that holds the repository's checkout.",
+    "name_label": "Name",
+    "name_placeholder": "Fan app",
+    "name_taken": "{{repository}} already has a worklane {{name}}",
+    "folder_label": "Folder",
+    "folder_hint": "Unique among {{repository}}'s worklanes",
+    "folder_invalid": "One folder name: lowercase letters, digits and dashes",
+    "folder_in_use": "Already used by {{name}}",
+    "runtime_label": "Runtime",
+    "runtime_placeholder": "Pick a runtime",
+    "runtime_hint": "Online runtimes that can make worktrees",
+    "runtime_online": "{{name}} · online",
+    "runtime_offline": "{{name}} · offline",
+    "runtime_reason": {
+      "no_checkout": "No checkout of {{repository}}",
+      "offline": "Offline",
+      "cannot_make_worktrees": "Cannot make worktrees"
+    },
+    "worktree_label": "Worktree",
+    "worktree_base": "from {{base}}",
+    "install_none": "Installs nothing",
+    "finding_install": "Finding the install command",
+    "creating_on": "Creating on {{runtime}}",
+    "failed_note": "No worklane is saved until every step passes.",
+    "cancel": "Cancel",
+    "create": "Create worklane",
+    "creating": "Creating worklane",
+    "try_again": "Try again",
+    "failed": "Could not create the worklane"
+  },
+  "steps": {
+    "fetch": "Fetch {{base}}",
+    "add_worktree": "Add worktree",
+    "install": "Install dependencies",
+    "open": "Open the worklane",
+    "unknown": "Unknown step",
+    "skipped": "Skipped",
+    "took": "{{seconds}} s",
+    "state": {
+      "pending": "Pending",
+      "running": "Running",
+      "done": "Done",
+      "skipped": "Skipped",
+      "failed": "Failed"
+    }
+  },
+  "rename": {
+    "title": "Rename worklane",
+    "description": "The folder and the worktree stay as they are.",
+    "name_label": "Name",
+    "cancel": "Cancel",
+    "submit": "Rename",
+    "submitting": "Renaming",
+    "failed": "Could not rename the worklane"
+  },
+  "remove": {
+    "title": "Remove {{name}}?",
+    "description": "This deletes {{path}} on {{runtime}} and removes the worklane from Multica. Nothing is removed while the worktree holds uncommitted changes or commits that are not on {{base}}.",
+    "cancel": "Cancel",
+    "submit": "Remove",
+    "submitting": "Removing",
+    "failed": "Could not remove the worklane"
+  },
+  "errors": {
+    "name_required": "Enter a name",
+    "name_taken": "{{repository}} already has a worklane {{name}}",
+    "folder_invalid": "One folder name: lowercase letters, digits and dashes",
+    "folder_taken": "Already used by {{name}}",
+    "runtime_no_checkout": "This runtime holds no checkout of {{repository}}",
+    "runtime_offline": "{{name}} is offline",
+    "runtime_cannot_make_worktrees": "{{name}} cannot make worktrees yet: update its Multica",
+    "install_command_unknown": "The install command is not found yet",
+    "request_running": "This worklane is already being created",
+    "main_fixed": "main cannot be renamed or removed",
+    "path_issue_worktree": "{{detail}}",
+    "path_not_checkout": "{{detail}}",
+    "lost": "{{runtime}} stopped answering",
+    "busy": "{{name}}'s worktree is in use. Try again when its work ends.",
+    "uncommitted": "{{name}}'s worktree holds uncommitted changes",
+    "unpushed": "{{name}}'s worktree holds commits that are not on {{base}}",
+    "stashed": "{{name}}'s worktree holds stashed changes",
+    "unknown": "{{detail}}"
+  }
+}

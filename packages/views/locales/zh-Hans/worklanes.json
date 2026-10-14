@@ -1,0 +1,121 @@
+{
+  "worklane_count_other": "{{count}} 个 worklane",
+  "state": {
+    "free": "空闲",
+    "busy": "忙碌"
+  },
+  "page": {
+    "projects": "项目",
+    "loading": "正在加载 worklane",
+    "not_found": "找不到 worklane",
+    "not_found_description": "请检查链接，或从它的仓库打开 worklane。",
+    "repository": "仓库",
+    "state_label": "状态"
+  },
+  "timeline": {
+    "title": "时间线",
+    "no_releases": "还没有版本"
+  },
+  "activity": {
+    "title": "动态",
+    "empty": "还没有动态",
+    "worklane_created": "{{actor}} 在 {{runtime}} 上创建了 {{name}}",
+    "worklane_renamed": "{{actor}} 将 {{from}} 重命名为 {{to}}"
+  },
+  "rows": {
+    "add": "Worklane",
+    "add_label": "在 {{repository}} 中新建 worklane",
+    "fold_open": "显示 {{repository}} 的 worklane",
+    "fold_close": "隐藏 {{repository}} 的 worklane"
+  },
+  "menu": {
+    "label": "Worklane 操作",
+    "rename": "重命名",
+    "remove": "移除"
+  },
+  "new": {
+    "title": "新建 worklane · {{repository}}",
+    "description": "worklane 在持有仓库检出的运行时上拥有自己的 worktree。",
+    "name_label": "名称",
+    "name_placeholder": "Fan app",
+    "name_taken": "{{repository}} 已有 worklane {{name}}",
+    "folder_label": "文件夹",
+    "folder_hint": "在 {{repository}} 的 worklane 中唯一",
+    "folder_invalid": "一个文件夹名：小写字母、数字和连字符",
+    "folder_in_use": "已被 {{name}} 使用",
+    "runtime_label": "运行时",
+    "runtime_placeholder": "选择运行时",
+    "runtime_hint": "可以创建 worktree 的在线运行时",
+    "runtime_online": "{{name}} · 在线",
+    "runtime_offline": "{{name}} · 离线",
+    "runtime_reason": {
+      "no_checkout": "没有 {{repository}} 的检出",
+      "offline": "离线",
+      "cannot_make_worktrees": "无法创建 worktree"
+    },
+    "worktree_label": "Worktree",
+    "worktree_base": "基于 {{base}}",
+    "install_none": "不安装任何内容",
+    "finding_install": "正在查找安装命令",
+    "creating_on": "正在 {{runtime}} 上创建",
+    "failed_note": "所有步骤通过之前不会保存 worklane。",
+    "cancel": "取消",
+    "create": "创建 worklane",
+    "creating": "正在创建 worklane",
+    "try_again": "重试",
+    "failed": "无法创建 worklane"
+  },
+  "steps": {
+    "fetch": "获取 {{base}}",
+    "add_worktree": "添加 worktree",
+    "install": "安装依赖",
+    "open": "打开 worklane",
+    "unknown": "未知步骤",
+    "skipped": "已跳过",
+    "took": "{{seconds}} 秒",
+    "state": {
+      "pending": "等待中",
+      "running": "运行中",
+      "done": "完成",
+      "skipped": "已跳过",
+      "failed": "失败"
+    }
+  },
+  "rename": {
+    "title": "重命名 worklane",
+    "description": "文件夹和 worktree 保持不变。",
+    "name_label": "名称",
+    "cancel": "取消",
+    "submit": "重命名",
+    "submitting": "正在重命名",
+    "failed": "无法重命名 worklane"
+  },
+  "remove": {
+    "title": "移除 {{name}}？",
+    "description": "这会删除 {{runtime}} 上的 {{path}}，并从 Multica 中移除该 worklane。只要 worktree 中有未提交的更改或不在 {{base}} 上的提交，就不会移除任何内容。",
+    "cancel": "取消",
+    "submit": "移除",
+    "submitting": "正在移除",
+    "failed": "无法移除 worklane"
+  },
+  "errors": {
+    "name_required": "请输入名称",
+    "name_taken": "{{repository}} 已有 worklane {{name}}",
+    "folder_invalid": "一个文件夹名：小写字母、数字和连字符",
+    "folder_taken": "已被 {{name}} 使用",
+    "runtime_no_checkout": "该运行时没有 {{repository}} 的检出",
+    "runtime_offline": "{{name}} 已离线",
+    "runtime_cannot_make_worktrees": "{{name}} 还无法创建 worktree：请更新它的 Multica",
+    "install_command_unknown": "还没有找到安装命令",
+    "request_running": "这个 worklane 正在创建中",
+    "main_fixed": "main 不能重命名或移除",
+    "path_issue_worktree": "{{detail}}",
+    "path_not_checkout": "{{detail}}",
+    "lost": "{{runtime}} 已停止响应",
+    "busy": "{{name}} 的 worktree 正在使用中。请在其工作结束后重试。",
+    "uncommitted": "{{name}} 的 worktree 中有未提交的更改",
+    "unpushed": "{{name}} 的 worktree 中有不在 {{base}} 上的提交",
+    "stashed": "{{name}} 的 worktree 中有暂存的更改",
+    "unknown": "{{detail}}"
+  }
+}

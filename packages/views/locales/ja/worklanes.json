@@ -1,0 +1,121 @@
+{
+  "worklane_count_other": "{{count}} 件の worklane",
+  "state": {
+    "free": "空き",
+    "busy": "作業中"
+  },
+  "page": {
+    "projects": "プロジェクト",
+    "loading": "worklane を読み込み中",
+    "not_found": "worklane が見つかりません",
+    "not_found_description": "リンクを確認するか、リポジトリから worklane を開いてください。",
+    "repository": "リポジトリ",
+    "state_label": "状態"
+  },
+  "timeline": {
+    "title": "タイムライン",
+    "no_releases": "まだリリースはありません"
+  },
+  "activity": {
+    "title": "アクティビティ",
+    "empty": "まだアクティビティはありません",
+    "worklane_created": "{{actor}} が {{runtime}} で {{name}} を作成しました",
+    "worklane_renamed": "{{actor}} が {{from}} を {{to}} に名前変更しました"
+  },
+  "rows": {
+    "add": "Worklane",
+    "add_label": "{{repository}} に新しい worklane",
+    "fold_open": "{{repository}} の worklane を表示",
+    "fold_close": "{{repository}} の worklane を非表示"
+  },
+  "menu": {
+    "label": "worklane の操作",
+    "rename": "名前を変更",
+    "remove": "削除"
+  },
+  "new": {
+    "title": "新しい worklane · {{repository}}",
+    "description": "worklane は、リポジトリのチェックアウトがあるランタイム上に専用の worktree を持ちます。",
+    "name_label": "名前",
+    "name_placeholder": "Fan app",
+    "name_taken": "{{repository}} にはすでに worklane {{name}} があります",
+    "folder_label": "フォルダー",
+    "folder_hint": "{{repository}} の worklane の中で一意",
+    "folder_invalid": "フォルダー名は 1 つ：小文字、数字、ハイフン",
+    "folder_in_use": "{{name}} がすでに使用しています",
+    "runtime_label": "ランタイム",
+    "runtime_placeholder": "ランタイムを選択",
+    "runtime_hint": "worktree を作成できるオンラインのランタイム",
+    "runtime_online": "{{name}} · オンライン",
+    "runtime_offline": "{{name}} · オフライン",
+    "runtime_reason": {
+      "no_checkout": "{{repository}} のチェックアウトがありません",
+      "offline": "オフライン",
+      "cannot_make_worktrees": "worktree を作成できません"
+    },
+    "worktree_label": "Worktree",
+    "worktree_base": "{{base}} から",
+    "install_none": "何もインストールしません",
+    "finding_install": "インストールコマンドを探しています",
+    "creating_on": "{{runtime}} で作成中",
+    "failed_note": "すべてのステップが通るまで worklane は保存されません。",
+    "cancel": "キャンセル",
+    "create": "worklane を作成",
+    "creating": "worklane を作成中",
+    "try_again": "再試行",
+    "failed": "worklane を作成できませんでした"
+  },
+  "steps": {
+    "fetch": "{{base}} を取得",
+    "add_worktree": "worktree を追加",
+    "install": "依存関係をインストール",
+    "open": "worklane を開く",
+    "unknown": "不明なステップ",
+    "skipped": "スキップ",
+    "took": "{{seconds}} 秒",
+    "state": {
+      "pending": "待機中",
+      "running": "実行中",
+      "done": "完了",
+      "skipped": "スキップ",
+      "failed": "失敗"
+    }
+  },
+  "rename": {
+    "title": "worklane の名前を変更",
+    "description": "フォルダーと worktree はそのままです。",
+    "name_label": "名前",
+    "cancel": "キャンセル",
+    "submit": "名前を変更",
+    "submitting": "名前を変更中",
+    "failed": "worklane の名前を変更できませんでした"
+  },
+  "remove": {
+    "title": "{{name}} を削除しますか？",
+    "description": "{{runtime}} の {{path}} を削除し、Multica から worklane を削除します。worktree にコミットされていない変更や {{base}} にないコミットがある間は、何も削除されません。",
+    "cancel": "キャンセル",
+    "submit": "削除",
+    "submitting": "削除中",
+    "failed": "worklane を削除できませんでした"
+  },
+  "errors": {
+    "name_required": "名前を入力してください",
+    "name_taken": "{{repository}} にはすでに worklane {{name}} があります",
+    "folder_invalid": "フォルダー名は 1 つ：小文字、数字、ハイフン",
+    "folder_taken": "{{name}} がすでに使用しています",
+    "runtime_no_checkout": "このランタイムには {{repository}} のチェックアウトがありません",
+    "runtime_offline": "{{name}} はオフラインです",
+    "runtime_cannot_make_worktrees": "{{name}} はまだ worktree を作成できません：Multica を更新してください",
+    "install_command_unknown": "インストールコマンドがまだ見つかっていません",
+    "request_running": "この worklane はすでに作成中です",
+    "main_fixed": "main は名前変更も削除もできません",
+    "path_issue_worktree": "{{detail}}",
+    "path_not_checkout": "{{detail}}",
+    "lost": "{{runtime}} が応答しなくなりました",
+    "busy": "{{name}} の worktree は使用中です。作業が終わってから再試行してください。",
+    "uncommitted": "{{name}} の worktree にコミットされていない変更があります",
+    "unpushed": "{{name}} の worktree に {{base}} にないコミットがあります",
+    "stashed": "{{name}} の worktree に stash された変更があります",
+    "unknown": "{{detail}}"
+  }
+}
