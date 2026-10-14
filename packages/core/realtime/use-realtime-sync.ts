@@ -16,6 +16,7 @@ import { organisationKeys } from "../organisations/queries";
 import { releaseKeys } from "../releases/queries";
 import { invalidatePlacementReads } from "../issues/placement/queries";
 import { worklaneKeys } from "../worklanes/queries";
+import { repositoryKeys } from "../repositories/queries";
 import { handleQuestionEvent, invalidateQuestionReach, onIssueReachMaybeChanged } from "../questions/ws-updaters";
 import { questionKeys } from "../questions/queries";
 import { agentQuestionsKeys } from "../questions/agent-questions";
@@ -666,6 +667,7 @@ function invalidateWorkspaceScopedQueries(qc: QueryClient): void {
     qc.invalidateQueries({ queryKey: organisationKeys.all(wsId) });
     qc.invalidateQueries({ queryKey: releaseKeys.all(wsId) });
     invalidatePlacementReads(qc, wsId);
+    qc.invalidateQueries({ queryKey: repositoryKeys.all(wsId) });
     qc.invalidateQueries({ queryKey: runtimeKeys.all(wsId) });
     qc.invalidateQueries({ queryKey: autopilotKeys.all(wsId) });
     qc.invalidateQueries({ queryKey: agentTaskSnapshotKeys.all(wsId) });
@@ -878,6 +880,12 @@ export function useRealtimeSync(
       worklane: () => {
         const wsId = getCurrentWsId();
         if (wsId) qc.invalidateQueries({ queryKey: worklaneKeys.all(wsId) });
+      },
+      // repository:created / updated / deleted. The counts on Projects and
+      // Organisations read the same list, so they follow.
+      repository: () => {
+        const wsId = getCurrentWsId();
+        if (wsId) qc.invalidateQueries({ queryKey: repositoryKeys.all(wsId) });
       },
       squad: () => {
         const wsId = getCurrentWsId();
