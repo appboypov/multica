@@ -68,8 +68,11 @@ import type {
   ListGitHubInstallationsResponse,
   ListGitHubRepositoriesResponse,
   ListLabelsResponse,
+  ListAvailableRepositoriesResponse,
   ListOrganisationsResponse,
   ListProjectsResponse,
+  ListRepositoriesResponse,
+  ListWorklanesResponse,
   ListWebhookDeliveriesResponse,
   IssueStatusEntry,
   ListIssueStatusesResponse,
@@ -82,6 +85,9 @@ import type {
   PluginPreview,
   PluginSurfaceLaunch,
   Project,
+  AvailableRepository,
+  Repository,
+  RepositoryCheckoutRequest,
   ResourceLabelsResponse,
   RuntimeModelListRequest,
   RuntimeDirectoryListingRequest,
@@ -97,6 +103,8 @@ import type {
   User,
   WebhookDelivery,
   WorkspaceMcpServer,
+  VersionPolicy,
+  Worklane,
 } from "../types";
 import type { CloudRuntimeNode } from "../runtimes/cloud-runtime";
 import type { CreateFeedbackResponse } from "../feedback/types";
@@ -1506,6 +1514,177 @@ export const ListOrganisationsResponseSchema = z.object({
 
 export const EMPTY_LIST_ORGANISATIONS_RESPONSE: ListOrganisationsResponse = {
   organisations: [],
+  total: 0,
+};
+
+// Repositories of a project (ADR-0006). The identity fields and `full_name`
+// stay required, since a repository without them cannot be shown or linked: a
+// malformed row is dropped from the list without hiding the others. Every
+// other field has a default, and an unknown `version_policy` from a newer
+// server reads as `none`, so the UI never offers a release flow it cannot read.
+const VERSION_POLICIES = [
+  "pubspec.yaml",
+  "Cargo.toml",
+  "pyproject.toml",
+  "package.json",
+  "tags",
+  "none",
+] as const satisfies readonly VersionPolicy[];
+
+export const RepositorySchema: z.ZodType<Repository> = z.object({
+  id: z.string(),
+  workspace_id: z.string(),
+  project_id: z.string(),
+  created_by: z.string().nullable().default(null),
+  created_at: z.string().default(""),
+  updated_at: z.string().default(""),
+  github_repo_id: z.number().default(0),
+  full_name: z.string(),
+  private: z.boolean().default(false),
+  default_branch: z.string().default(""),
+  checkout_daemon_id: z.string().default(""),
+  checkout_path: z.string().default(""),
+  version_policy: z.enum(VERSION_POLICIES).catch("none"),
+}).loose();
+
+export const EMPTY_REPOSITORY: Repository = {
+  id: "",
+  workspace_id: "",
+  project_id: "",
+  created_by: null,
+  created_at: "",
+  updated_at: "",
+  github_repo_id: 0,
+  full_name: "",
+  private: false,
+  default_branch: "",
+  checkout_daemon_id: "",
+  checkout_path: "",
+  version_policy: "none",
+};
+
+export const ListRepositoriesResponseSchema = z.object({
+  repositories: z
+    .array(RepositorySchema.catch(EMPTY_REPOSITORY))
+    .transform((repositories) => repositories.filter((repository) => repository.id !== ""))
+    .default([]),
+  total: z.number().default(0),
+}).loose();
+
+export const EMPTY_LIST_REPOSITORIES_RESPONSE: ListRepositoriesResponse = {
+  repositories: [],
+  total: 0,
+};
+
+const EMPTY_AVAILABLE_REPOSITORY: AvailableRepository = {
+  github_repo_id: 0,
+  full_name: "",
+  private: false,
+  default_branch: "",
+};
+
+const AvailableRepositorySchema: z.ZodType<AvailableRepository> = z.object({
+  github_repo_id: z.number().default(0),
+  full_name: z.string(),
+  private: z.boolean().default(false),
+  default_branch: z.string().default(""),
+}).loose();
+
+// A malformed entry is dropped, and a missing list reads as empty, so the Add
+// repository dialog still offers "Missing one? Give Multica access on GitHub".
+export const AvailableRepositoriesResponseSchema = z.object({
+  repositories: z
+    .array(AvailableRepositorySchema.catch(EMPTY_AVAILABLE_REPOSITORY))
+    .transform((repositories) => repositories.filter((repository) => repository.full_name !== ""))
+    .default([]),
+  install_url: z.string().default(""),
+}).loose();
+
+export const EMPTY_AVAILABLE_REPOSITORIES_RESPONSE: ListAvailableRepositoriesResponse = {
+  repositories: [],
+  install_url: "",
+};
+
+const RepositoryCheckoutFailureSchema = z.object({
+  code: z
+    .enum(["not_found", "not_git", "origin_mismatch", "wrong_branch", "clone_failed", "unknown"])
+    .catch("unknown"),
+  detail: z.string().catch(""),
+}).loose();
+
+// The checkout check is polled like a runtime directory listing: every field
+// degrades on its own, an unknown failure code is kept as `unknown` (a failed
+// check the dialog still explains with the server's detail), and a missing
+// `failures` reads as none.
+export const RepositoryCheckoutRequestSchema = z.object({
+  id: z.string().catch(""),
+  runtime_id: z.string().catch(""),
+  status: z.enum(["pending", "running", "completed", "failed", "timeout"]).catch("failed"),
+  resolved_path: z.string().catch(""),
+  passed: z.boolean().catch(false),
+  failures: z.array(RepositoryCheckoutFailureSchema).catch([]),
+  version_files: z.array(z.string()).catch([]),
+  last_tag: z.string().catch(""),
+  error: z.string().catch(""),
+  created_at: z.string().catch(""),
+  updated_at: z.string().catch(""),
+}).loose();
+
+// `failed` is the honest fallback for an unparseable check: `completed` without
+// `passed` would read as a check that ran and failed for no reason, and
+// `pending` would poll until the client-side timeout.
+export const MALFORMED_REPOSITORY_CHECKOUT_REQUEST: RepositoryCheckoutRequest = {
+  id: "",
+  runtime_id: "",
+  status: "failed",
+  resolved_path: "",
+  passed: false,
+  failures: [],
+  version_files: [],
+  last_tag: "",
+  error: "invalid repository checkout response",
+  created_at: "",
+  updated_at: "",
+};
+
+// Worklanes of a repository. A malformed row is dropped from the list, as for
+// repositories.
+export const WorklaneSchema: z.ZodType<Worklane> = z.object({
+  id: z.string(),
+  workspace_id: z.string(),
+  repository_id: z.string(),
+  name: z.string(),
+  folder: z.string().nullable().default(null),
+  daemon_id: z.string().nullable().default(null),
+  is_main: z.boolean().default(false),
+  position: z.number().default(0),
+  created_at: z.string().default(""),
+  updated_at: z.string().default(""),
+}).loose();
+
+export const EMPTY_WORKLANE: Worklane = {
+  id: "",
+  workspace_id: "",
+  repository_id: "",
+  name: "",
+  folder: null,
+  daemon_id: null,
+  is_main: false,
+  position: 0,
+  created_at: "",
+  updated_at: "",
+};
+
+export const ListWorklanesResponseSchema = z.object({
+  worklanes: z
+    .array(WorklaneSchema.catch(EMPTY_WORKLANE))
+    .transform((worklanes) => worklanes.filter((worklane) => worklane.id !== ""))
+    .default([]),
+  total: z.number().default(0),
+}).loose();
+
+export const EMPTY_LIST_WORKLANES_RESPONSE: ListWorklanesResponse = {
+  worklanes: [],
   total: 0,
 };
 

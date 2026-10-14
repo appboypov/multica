@@ -52,15 +52,15 @@ This change builds on UJ-1 (`projects-by-organisation`, DAS-450): its `organisat
 
 ## 2. J2 Data models: model change
 
-- [ ] 2.1 `packages/core/types/repository.ts`, `worklane.ts`, `index.ts` -- `Repository`, `VersionPolicy` (the six values), `AvailableRepository`, `ListRepositoriesResponse`, `ListAvailableRepositoriesResponse {repositories, install_url}`, `CreateRepositoryRequest`, `UpdateRepositoryRequest`, `RepositoryCheckoutRequest` and its result with `failures: {code, detail}[]`, `version_files`, `last_tag`; `Worklane` and `ListWorklanesResponse`.
-- [ ] 2.2 `packages/core/api/schemas.ts` -- `RepositorySchema`, `AvailableRepositoriesResponseSchema`, `WorklaneSchema`, `RepositoryCheckoutRequestSchema` with defaults and an unknown `version_policy` falling back to `none`, an unknown failure `code` kept as `unknown` -- AGENTS.md "API Compatibility".
+- [x] 2.1 `packages/core/types/repository.ts`, `worklane.ts`, `index.ts` -- `Repository`, `VersionPolicy` (the six values), `AvailableRepository`, `ListRepositoriesResponse`, `ListAvailableRepositoriesResponse {repositories, install_url}`, `CreateRepositoryRequest`, `UpdateRepositoryRequest`, `RepositoryCheckoutRequest` and its result with `failures: {code, detail}[]`, `version_files`, `last_tag`; `Worklane` and `ListWorklanesResponse`.
+- [x] 2.2 `packages/core/api/schemas.ts` -- `RepositorySchema`, `AvailableRepositoriesResponseSchema`, `WorklaneSchema`, `RepositoryCheckoutRequestSchema` with defaults and an unknown `version_policy` falling back to `none`, an unknown failure `code` kept as `unknown` -- AGENTS.md "API Compatibility".
 - [ ] 2.3 `packages/core/api/schemas.test.ts` -- malformed-response cases: missing `repositories`, a repository without `default_branch`, an unknown `version_policy`, a check result without `failures`.
 
 ## 3. J2 Data models: action names
 
 - [x] 3.1 `server/pkg/protocol/events.go` -- `EventRepositoryCreated`, `EventRepositoryUpdated`, `EventRepositoryDeleted`, `EventWorklaneCreated`, `EventWorklaneDeleted` with the payloads of design.md decision 2.
 - [x] 3.2 `server/pkg/protocol/messages.go` -- `PendingWorkKindRepositoryCheckout`, `PendingWorkKindIssueWorktrees` and the heartbeat response's `issue_worktree_removals`.
-- [ ] 3.3 `packages/core/modals/store.ts` -- `"add-repository"` and `"edit-repository"` in `ModalType`.
+- [x] 3.3 `packages/core/modals/store.ts` -- `"add-repository"` and `"edit-repository"` in `ModalType`.
 
 ## 4. J3 Data-flow prototype: data-flow prototype
 

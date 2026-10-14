@@ -198,6 +198,22 @@ export type {
   UpdateOrganisationRequest,
   ListOrganisationsResponse,
 } from "./organisation";
+export type {
+  VersionPolicy,
+  Repository,
+  ListRepositoriesResponse,
+  AvailableRepository,
+  ListAvailableRepositoriesResponse,
+  CreateRepositoryRequest,
+  UpdateRepositoryRequest,
+  CreateRepositoryCheckoutRequest,
+  RepositoryCheckoutStatus,
+  RepositoryCheckoutFailureCode,
+  RepositoryCheckoutFailure,
+  RepositoryCheckoutResult,
+  RepositoryCheckoutRequest,
+} from "./repository";
+export type { Worklane, ListWorklanesResponse } from "./worklane";
 export type { PinnedItem, PinnedItemType, CreatePinRequest, ReorderPinsRequest } from "./pin";
 export type {
   GitHubInstallation,
