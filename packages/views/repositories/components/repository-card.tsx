@@ -140,7 +140,7 @@ export function RepositoryCard({
             <span className="min-w-0 truncate font-mono text-body font-medium">
               {repository.full_name}
             </span>
-            <span className="flex min-w-0 items-center gap-1 text-caption text-muted-foreground">
+            <span className="flex min-w-0 flex-wrap items-center gap-x-2 text-caption text-muted-foreground">
               <span
                 className="flex min-w-0 items-center gap-1 font-mono"
                 title={t(($) => $.card.default_branch, { branch: repository.default_branch })}
@@ -148,7 +148,6 @@ export function RepositoryCard({
                 <GitBranch aria-hidden className="size-3 shrink-0" />
                 <span className="truncate">{repository.default_branch}</span>
               </span>
-              <span aria-hidden="true">·</span>
               <span className="shrink-0">
                 {tWorklanes(($) => $.worklane_count, { count: worklanes.length })}
               </span>

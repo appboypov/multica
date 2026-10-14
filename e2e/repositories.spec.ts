@@ -267,9 +267,9 @@ test.describe("Repositories of a project / UJ-2", () => {
     await expect(add.getByLabel("Path", { exact: true })).toHaveValue("/home/e2e/Code/rebl-admin");
     await passed(add);
 
-    // add-repository: Origin is another repository, including the daemon's raw origin detail and fix.
+    // add-repository: Origin is another repository, shown as its owner/name, and its fix.
     await commitPath(add, `/home/e2e/${suffix}/wrong-origin`);
-    await expect(add.getByText(`The folder's origin is git@github.com:appboypov/rebl.git, not ${ADMIN}`, { exact: true })).toBeVisible({ timeout: 15000 });
+    await expect(add.getByText(`The folder's origin is appboypov/rebl, not ${ADMIN}`, { exact: true })).toBeVisible({ timeout: 15000 });
     await expect(add.getByText(`Choose your checkout of ${ADMIN}.`, { exact: true })).toBeVisible();
     await expect(add.getByRole("button", { name: "Add repository", exact: true })).toBeDisabled();
 
