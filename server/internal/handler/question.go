@@ -21,15 +21,14 @@ type QuestionLinkRequest struct {
 
 // AskRequest is the wire body of POST /api/questions.
 type AskRequest struct {
-	Prompt          string                `json:"prompt"`
-	ContextLine     string                `json:"context_line"`
-	AnswerType      string                `json:"answer_type"`
-	Settings        json.RawMessage       `json:"settings"`
-	SuggestedAnswer json.RawMessage       `json:"suggested_answer"`
-	AnswererIDs     []string              `json:"answerer_ids"`
-	DueDate         string                `json:"due_date"`
-	BlocksWork      bool                  `json:"blocks_work"`
-	Links           []QuestionLinkRequest `json:"links,omitempty"`
+	Title       string                 `json:"title"`
+	Questions   []question.AskQuestion `json:"questions"`
+	AnswererIDs []string               `json:"answerer_ids"`
+	SquadID     string                 `json:"squad_id"`
+	Policy      string                 `json:"answer_policy"`
+	DueDate     string                 `json:"due_date"`
+	BlocksWork  *bool                  `json:"blocks_work"`
+	Links       []QuestionLinkRequest  `json:"links,omitempty"`
 }
 
 // AddLinksRequest is the wire body of POST /api/questions/{id}/links.
@@ -103,15 +102,7 @@ func (h *Handler) AskQuestion(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	var body struct {
-		Title       string                 `json:"title"`
-		Questions   []question.AskQuestion `json:"questions"`
-		AnswererIDs []string               `json:"answerer_ids"`
-		SquadID     string                 `json:"squad_id"`
-		Policy      string                 `json:"answer_policy"`
-		DueDate     string                 `json:"due_date"`
-		BlocksWork  *bool                  `json:"blocks_work"`
-	}
+	var body AskRequest
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return

@@ -360,7 +360,7 @@ func (s *QuestionService) Ask(ctx context.Context, workspaceID pgtype.UUID, acto
 	// Decided at claim (ADR-0005): a run claimed while questions were off
 	// never asks, whatever the setting says now.
 	if !task.QuestionsEnabled {
-		return QuestionDTO{}, questionRefusal(403, "questions are off for this issue")
+		return QuestionAskResult{}, questionRefusal(403, "questions are off for this issue")
 	}
 	if !task.StartedAt.Valid {
 		return QuestionAskResult{}, questionRefusal(422, "questions are asked during a started issue run")
