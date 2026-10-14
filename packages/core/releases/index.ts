@@ -40,3 +40,5 @@ export type {
   VersionBefore,
   BumpOption,
 } from "./line";
+export { releaseOverview } from "./overview";
+export type { ReleaseOverview, ReleaseOverviewRepository, ReleaseOverviewRow } from "./overview";

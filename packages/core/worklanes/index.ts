@@ -28,3 +28,5 @@ export {
 export type { WorklaneFolderProblem } from "./folder";
 export { sortWorklanes, countWorklanes } from "./counts";
 export type { WorklaneCounts } from "./counts";
+export { worklaneOverview } from "./overview";
+export type { WorklaneOverview, WorklaneOverviewRepository } from "./overview";

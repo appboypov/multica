@@ -81,8 +81,8 @@ This change builds on UJ-6 (`worklane-board-and-list`, DAS-459), which builds on
 ## 7. J9 Frontend: flow
 
 - [x] 7.1 `packages/core/projects/sort.ts`, `index.ts`, `packages/views/projects/components/projects-page.tsx` -- `sortProjects(projects, sortField, sortDirection)`, the comparator moved out of `projects-page.tsx`, which calls it -- design.md decision 1.
-- [ ] 7.2 `packages/core/worklanes/overview.ts`, `index.ts` -- `worklaneOverview` -- design.md decision 1.
-- [ ] 7.3 `packages/core/releases/overview.ts`, `index.ts` -- `releaseOverview` with each row's `state`, `setByHand`, `done`, `total`, `worklanes` and `target`, and `doesNotRelease` -- design.md decision 1.
+- [x] 7.2 `packages/core/worklanes/overview.ts`, `index.ts` -- `worklaneOverview` -- design.md decision 1.
+- [x] 7.3 `packages/core/releases/overview.ts`, `index.ts` -- `releaseOverview` with each row's `state`, `setByHand`, `done`, `total`, `worklanes` and `target`, and `doesNotRelease` -- design.md decision 1.
 - [ ] 7.4 `packages/core/projects/sort.test.ts`, `packages/core/worklanes/overview.test.ts`, `packages/core/releases/overview.test.ts` (`// @vitest-environment node`) -- each sort field and direction; organisation, project, repository and worklane order; groups with nothing to list left out; "No organisation" last; the counts; shipped releases left out; a release's worklanes and target with and without issues; totals with a worklane-less issue; a repository that does not release; no repositories at all.
 - [x] 7.5 `packages/core/paths/paths.ts`, `route-icons.ts`, `tab-subject.ts`, `consistency.test.ts`, `paths.test.ts`, `packages/views/editor/utils/link-handler.ts` -- `paths.worklanes()`, `paths.releases()`, `WORKSPACE_PAGES.worklanes` (`GitBranch`) and `.releases` (`Tag`), the page subjects `worklanes` and `releases` beside UJ-3's worklane subject, and both segments -- design.md decision 5.
 

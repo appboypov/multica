@@ -4,6 +4,13 @@ export { useProjectDraftStore } from "./draft-store";
 export { groupProjectsByOrganisation, type ProjectOrganisationGroup } from "./group";
 export { sortProjects } from "./sort";
 export {
+  buildWorkTree,
+  type WorkTree,
+  type WorkTreeGroup,
+  type WorkTreeOrder,
+  type WorkTreeProject,
+} from "./work-tree";
+export {
   useProjectViewStore,
   PROJECT_SORT_DEFAULT_DIRECTION,
   PROJECT_DEFAULT_HIDDEN_COLUMNS,
