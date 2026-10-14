@@ -84,7 +84,7 @@ async function chooseOption(page: Page, trigger: Locator, name: string) {
 async function openEditRepository(page: Page, projectUrl: string, fullName: string): Promise<Locator> {
   await page.goto(projectUrl, { waitUntil: "domcontentloaded" });
   const card = await openCard(page, fullName);
-  await card.getByRole("button", { name: "Repository actions", exact: true }).click();
+  await card.getByRole("button", { name: `Actions of ${fullName}`, exact: true }).click();
   await page.getByRole("menuitem", { name: "Edit repository", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Edit repository", exact: true });
   await expect(dialog).toBeVisible();
@@ -138,7 +138,7 @@ function openedMenu(page: Page): Locator {
 }
 
 async function openMenu(page: Page, release: string) {
-  await column(page, release).getByRole("button", { name: "Release actions", exact: true }).click();
+  await column(page, release).getByRole("button", { name: new RegExp(`^Actions of v${release}$`) }).click();
   await expect(openedMenu(page)).toBeVisible();
 }
 
@@ -430,10 +430,10 @@ test.describe("Release line of a repository / UJ-4", () => {
     await page.goto(context.projectUrl, { waitUntil: "domcontentloaded" });
     const card = await openCard(page, REBL);
     await expect(card.getByText("nothing shipped", { exact: true })).toHaveCount(3);
-    await expect(card.getByRole("link", { name: "Open v1.0.0 on the Timeline", exact: true })).toHaveCount(3);
+    await expect(card.getByRole("link", { name: /^Open v1\.0\.0 on the Timeline of / })).toHaveCount(3);
     // worklane-release-chips: Opening the Timeline from a release.
     await worklaneRow(card, "Fan accounts and push")
-      .getByRole("link", { name: "Open v1.0.0 on the Timeline", exact: true })
+      .getByRole("link", { name: "Open v1.0.0 on the Timeline of Fan accounts and push", exact: true })
       .click();
     await expect(page.getByRole("heading", { name: "Fan accounts and push", level: 1 })).toBeVisible();
     await expect(page).toHaveURL(new RegExp(`/worklanes/${fan}\\?release=`));
@@ -450,7 +450,7 @@ test.describe("Release line of a repository / UJ-4", () => {
     const projectsFold = page.getByRole("button", { name: new RegExp(`^(Show|Hide) the worklanes of ${REBL}$`) });
     if ((await projectsFold.getAttribute("aria-expanded")) !== "true") await projectsFold.click();
     await expect(page.getByRole("columnheader", { name: "Last · Next · Planned releases" }).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: "Open v1.0.0 on the Timeline", exact: true })).toHaveCount(3);
+    await expect(page.getByRole("link", { name: /^Open v1\.0\.0 on the Timeline of / })).toHaveCount(3);
     await expect(page.getByText("nothing shipped", { exact: true })).toHaveCount(3);
 
     // worklane-release-chips: appboypov/rebl with releases, on Rebl's page.
@@ -464,7 +464,7 @@ test.describe("Release line of a repository / UJ-4", () => {
     const repositoryFold = page.getByRole("button", { name: new RegExp(`^(Show|Hide) the worklanes of ${REBL}$`) });
     if ((await repositoryFold.getAttribute("aria-expanded")) !== "true") await repositoryFold.click();
     await expect(page.getByRole("columnheader", { name: "Last · Next · Planned releases" }).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: "Open v1.0.0 on the Timeline", exact: true })).toHaveCount(3);
+    await expect(page.getByRole("link", { name: /^Open v1\.0\.0 on the Timeline of / })).toHaveCount(3);
     await expect(page.getByText("nothing shipped", { exact: true })).toHaveCount(3);
 
     // release-line-activity: A worklane created later.
