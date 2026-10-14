@@ -4805,7 +4805,7 @@ function readQuestionRow({
   return unreadable;
 }
 
-export const QuestionRowSchema = QuestionRowWireSchema.transform(readQuestionRow);
+export const QuestionRowSchema: z.ZodType<QuestionRow> = QuestionRowWireSchema.transform(readQuestionRow);
 
 // 200 of `GET /api/questions`.
 export const QuestionRowPageSchema = z.object({

@@ -308,7 +308,7 @@ func TestQuestionAnyOneAndWithdrawal(t *testing.T) {
 			}
 			_, err = f.svc.Answer(ctx, f.workspace, id, f.answerer, AnswerQuestionInput{Value: json.RawMessage(`{"option":"per line"}`)})
 			wantQuestionRefusal(t, err, 422)
-			_, err = f.svc.Wake(ctx, f.workspace, id, f.answerer)
+			_, err = f.svc.Wake(ctx, f.workspace, id, f.answerer, pgtype.UUID{})
 			if !errors.Is(err, ErrDuplicatePendingTask) {
 				t.Fatalf("withdrawn wake must retain the active-task guard: %v", err)
 			}
@@ -377,7 +377,7 @@ func TestQuestionUnseenTracksClaimsAndAnswerEdits(t *testing.T) {
 	if err != nil || row.UnseenAnswerCount != 0 || row.WakeAvailable {
 		t.Fatalf("after claimed run = %+v, %v", row, err)
 	}
-	_, err = f.svc.Wake(ctx, f.workspace, util.MustParseUUID(row.ID), f.answerer)
+	_, err = f.svc.Wake(ctx, f.workspace, util.MustParseUUID(row.ID), f.answerer, pgtype.UUID{})
 	wantQuestionRefusal(t, err, 422)
 	row = f.answer(t, row, f.answerer, "per total")
 	if row.UnseenAnswerCount != 1 || !row.WakeAvailable {
@@ -416,7 +416,7 @@ func TestQuestionWakeRefusesEveryActiveTask(t *testing.T) {
 			if err != nil || row.WakeAvailable {
 				t.Fatalf("active card = %+v, %v", row, err)
 			}
-			_, err = f.svc.Wake(context.Background(), f.workspace, util.MustParseUUID(row.ID), f.answerer)
+			_, err = f.svc.Wake(context.Background(), f.workspace, util.MustParseUUID(row.ID), f.answerer, pgtype.UUID{})
 			if !errors.Is(err, ErrDuplicatePendingTask) {
 				t.Fatalf("wake with %s = %v, want duplicate", status, err)
 			}
@@ -447,7 +447,7 @@ func TestQuestionWakeRefusesUnavailableAgent(t *testing.T) {
 			if row.WakeAvailable || row.UnseenAnswerCount != 1 {
 				t.Errorf("unavailable agent card = %+v", row)
 			}
-			_, err = f.svc.Wake(context.Background(), f.workspace, id, f.answerer)
+			_, err = f.svc.Wake(context.Background(), f.workspace, id, f.answerer, pgtype.UUID{})
 			wantQuestionRefusal(t, err, 422)
 			f.wantNoNewTask(t)
 		})
@@ -484,7 +484,7 @@ func TestQuestionWakeCommitsOneAttributedTaskActivityAndEvent(t *testing.T) {
 		}
 	})
 	// Any workspace member may wake, not just a current answerer.
-	result, err := f.svc.Wake(ctx, f.workspace, id, f.other)
+	result, err := f.svc.Wake(ctx, f.workspace, id, f.other, pgtype.UUID{})
 	if err != nil || result.AnswerCount != 1 {
 		t.Fatalf("wake = %+v, %v", result, err)
 	}
@@ -515,7 +515,7 @@ func TestQuestionWakeCommitsOneAttributedTaskActivityAndEvent(t *testing.T) {
 	if actorID != util.UUIDToString(f.anouk) || activity.AgentID != util.UUIDToString(f.agent) || activity.TaskID != result.TaskID || activity.AnswerCount != 1 {
 		t.Fatalf("wake activity actor=%s details=%+v", actorID, activity)
 	}
-	_, err = f.svc.Wake(ctx, f.workspace, id, f.other)
+	_, err = f.svc.Wake(ctx, f.workspace, id, f.other, pgtype.UUID{})
 	if !errors.Is(err, ErrDuplicatePendingTask) {
 		t.Fatalf("second wake = %v", err)
 	}
@@ -544,7 +544,7 @@ func TestQuestionConcurrentWakesAcrossCardsDeduplicate(t *testing.T) {
 	for _, row := range []QuestionDTO{first, second} {
 		go func(id string) {
 			<-start
-			result, err := f.svc.Wake(ctx, f.workspace, util.MustParseUUID(id), f.answerer)
+			result, err := f.svc.Wake(ctx, f.workspace, util.MustParseUUID(id), f.answerer, pgtype.UUID{})
 			results <- outcome{result, err}
 		}(row.ID)
 	}
@@ -626,7 +626,7 @@ func TestQuestionWakeRollsBackWithoutPublishingOrNotifying(t *testing.T) {
 			f.svc.Bus.Subscribe(protocol.EventTaskQueued, func(events.Event) { published++ })
 			recorder := &questionWakeRecorder{}
 			f.svc.Tasks.Wakeup = recorder
-			_, err := f.svc.Wake(context.Background(), f.workspace, util.MustParseUUID(row.ID), f.answerer)
+			_, err := f.svc.Wake(context.Background(), f.workspace, util.MustParseUUID(row.ID), f.answerer, pgtype.UUID{})
 			if err == nil {
 				t.Fatal("wake should fail at injected write")
 			}
@@ -1087,7 +1087,7 @@ func TestQuestionSetWakeFromAnyStatusKeepsStatusAndGetsAllUnseenAnswers(t *testi
 				t.Fatalf("wake must be offered from %s: %+v, %v", status, row, err)
 			}
 			f.wantNoNewTask(t)
-			wake, err := f.svc.Wake(ctx, f.workspace, id, f.other)
+			wake, err := f.svc.Wake(ctx, f.workspace, id, f.other, pgtype.UUID{})
 			if err != nil || wake.AnswerCount != row.UnseenAnswerCount {
 				t.Fatalf("wake from %s = %+v, %v", status, wake, err)
 			}
@@ -1103,7 +1103,7 @@ func TestQuestionSetWakeFromAnyStatusKeepsStatusAndGetsAllUnseenAnswers(t *testi
 			if err != nil || row.Status != status || row.WakeAvailable {
 				t.Fatalf("wake must not change question status: %+v, %v", row, err)
 			}
-			_, err = f.svc.Wake(ctx, f.workspace, util.MustParseUUID(result.Questions[0].ID), f.answerer)
+			_, err = f.svc.Wake(ctx, f.workspace, util.MustParseUUID(result.Questions[0].ID), f.answerer, pgtype.UUID{})
 			if !errors.Is(err, ErrDuplicatePendingTask) {
 				t.Fatalf("wake active guard = %v", err)
 			}
@@ -1171,7 +1171,7 @@ func TestQuestionOpenWakeStillRequiresUnseenAnswers(t *testing.T) {
 	f := newQuestionFixture(t)
 	row := f.ask(t)
 	f.finishAskingRun(t)
-	_, err := f.svc.Wake(ctx, f.workspace, util.MustParseUUID(row.ID), f.answerer)
+	_, err := f.svc.Wake(ctx, f.workspace, util.MustParseUUID(row.ID), f.answerer, pgtype.UUID{})
 	wantQuestionRefusal(t, err, 422)
 	row, err = f.svc.Get(ctx, f.workspace, util.MustParseUUID(row.ID))
 	if err != nil || row.Status != "open" || row.UnseenAnswerCount != 0 || row.WakeAvailable {

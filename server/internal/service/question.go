@@ -787,11 +787,28 @@ func (s *QuestionService) hydrate(ctx context.Context, q *db.Queries, workspaceI
 			return nil, err
 		}
 		result[i].WakeTargets = targets
+		asker := util.UUIDToString(row.AskerAgentID)
+		found := false
 		for _, target := range targets {
-			if target.AgentID == util.UUIDToString(row.AskerAgentID) {
+			if target.AgentID == asker {
 				result[i].UnseenAnswerCount = target.UnseenAnswerCount
 				result[i].WakeAvailable = target.WakeAvailable
+				found = true
 				break
+			}
+		}
+		if !found && (row.Status == "open" || row.Status == "partly_answered" || row.Status == "answered") {
+			// An archived asker is no Wake target, but the card still counts the
+			// answers it has not seen on its run's issue.
+			asking, err := q.GetAgentTaskInWorkspace(ctx, db.GetAgentTaskInWorkspaceParams{ID: row.AskedInTaskID, WorkspaceID: workspaceID})
+			if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+				return nil, err
+			}
+			if asking.IssueID.Valid {
+				result[i].UnseenAnswerCount, err = s.countUnseenAnswers(ctx, q, workspaceID, row.AskerAgentID, asking.IssueID, pgtype.UUID{})
+				if err != nil {
+					return nil, err
+				}
 			}
 		}
 	}
@@ -849,8 +866,8 @@ func (s *QuestionService) Wake(ctx context.Context, workspaceID, questionID pgty
 	if err != nil {
 		return QuestionWakeResult{}, err
 	}
-	if !agent.RuntimeID.Valid {
-		return QuestionWakeResult{}, questionRefusal(422, "agent must have a runtime")
+	if agent.ArchivedAt.Valid || !agent.RuntimeID.Valid {
+		return QuestionWakeResult{}, questionRefusal(422, "agent must be active and have a runtime")
 	}
 	// One issue lock serializes wakes even when they came from different cards.
 	// The pending-task unique index also arbitrates against other enqueue paths.
