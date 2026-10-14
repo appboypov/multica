@@ -60,6 +60,54 @@ func (r *RuntimeRepositoryCheckoutRequest) passedFor(workspaceID, fullName, defa
 		r.Result.ResolvedPath != ""
 }
 
+// RepositoryCheckoutResponse is the UI's view of a check: the request's
+// status with the daemon's result flattened in, as design.md §3 names it.
+// LastTag is a bare version, as a repository's last_tag is.
+type RepositoryCheckoutResponse struct {
+	ID              string                               `json:"id"`
+	RuntimeID       string                               `json:"runtime_id"`
+	Status          RuntimeLocalSkillRequestStatus       `json:"status"`
+	ResolvedPath    string                               `json:"resolved_path"`
+	Passed          bool                                 `json:"passed"`
+	Failures        []protocol.RepositoryCheckoutFailure `json:"failures"`
+	VersionFiles    []string                             `json:"version_files"`
+	LastTag         string                               `json:"last_tag"`
+	InstallCommands []protocol.RepositoryInstallCommand  `json:"install_commands"`
+	Error           string                               `json:"error"`
+	CreatedAt       time.Time                            `json:"created_at"`
+	UpdatedAt       time.Time                            `json:"updated_at"`
+}
+
+func repositoryCheckoutToResponse(req *RuntimeRepositoryCheckoutRequest) RepositoryCheckoutResponse {
+	resp := RepositoryCheckoutResponse{
+		ID:              req.ID,
+		RuntimeID:       req.RuntimeID,
+		Status:          req.Status,
+		Failures:        []protocol.RepositoryCheckoutFailure{},
+		VersionFiles:    []string{},
+		InstallCommands: []protocol.RepositoryInstallCommand{},
+		Error:           req.Error,
+		CreatedAt:       req.CreatedAt,
+		UpdatedAt:       req.UpdatedAt,
+	}
+	if req.Result == nil {
+		return resp
+	}
+	resp.ResolvedPath = req.Result.ResolvedPath
+	resp.Passed = req.Result.Passed
+	resp.LastTag = checkLastTag(*req.Result).String
+	if req.Result.Failures != nil {
+		resp.Failures = req.Result.Failures
+	}
+	if req.Result.VersionFiles != nil {
+		resp.VersionFiles = req.Result.VersionFiles
+	}
+	if req.Result.InstallCommands != nil {
+		resp.InstallCommands = req.Result.InstallCommands
+	}
+	return resp
+}
+
 type RepositoryCheckoutStore interface {
 	Create(ctx context.Context, req RuntimeRepositoryCheckoutRequest) (*RuntimeRepositoryCheckoutRequest, error)
 	Get(ctx context.Context, id string) (*RuntimeRepositoryCheckoutRequest, error)
@@ -298,7 +346,7 @@ func (h *Handler) InitiateRepositoryCheckout(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	h.requestDaemonPendingWork(rt.runtimeID, protocol.PendingWorkKindRepositoryCheckout)
-	writeJSON(w, http.StatusOK, req)
+	writeJSON(w, http.StatusOK, repositoryCheckoutToResponse(req))
 }
 
 // GetRepositoryCheckout is the UI's poll of one check.
@@ -317,7 +365,7 @@ func (h *Handler) GetRepositoryCheckout(w http.ResponseWriter, r *http.Request) 
 		writeError(w, http.StatusNotFound, "request not found")
 		return
 	}
-	writeJSON(w, http.StatusOK, req)
+	writeJSON(w, http.StatusOK, repositoryCheckoutToResponse(req))
 }
 
 // ReportRepositoryCheckoutResult is the daemon's answer to a claimed check.
