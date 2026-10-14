@@ -529,81 +529,92 @@ export function InboxPage() {
 
   const listHeader = (
     <PageHeader>
-      <div className="flex flex-1 items-center gap-2">
-        <h1 className="text-body font-semibold">{t(($) => $.page.title)}</h1>
+      <div className="flex min-w-0 items-center gap-2">
+        <h1 className="truncate text-body font-semibold">{t(($) => $.page.title)}</h1>
         {unreadCount > 0 && (
           <NumberFlow
             value={unreadCount}
             animated={false}
             format={{ maximumFractionDigits: 0 }}
             aria-label={String(unreadCount)}
-            className="text-caption text-muted-foreground"
+            className="shrink-0 text-caption text-muted-foreground"
           />
         )}
       </div>
-      <InboxFilterMenu
-        wsId={wsId}
-        items={viewItems}
-        priorityFilterSupport={priorityFilterSupport}
-        archived={isArchivedView}
-      />
-      {/* Batch actions are main-view only. Every entry archives from the MAIN
-          inbox, so offering them while the archived list is on screen reads as
-          "archive all of these" and does the opposite of what it looks like. */}
-      {!isArchivedView && (
-      <>
-      {batchActions.map(({ key, label, Icon, onClick }) => (
-        <Tooltip key={key}>
-          <TooltipTrigger
-            render={
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                className="text-muted-foreground"
-                aria-label={label}
-                onClick={onClick}
-              />
-            }
-          >
-            <Icon className="h-4 w-4" />
-          </TooltipTrigger>
-          <TooltipContent side="top">{label}</TooltipContent>
-        </Tooltip>
-      ))}
-      <DropdownMenu>
-        <DropdownMenuTrigger
-          render={
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              className="text-muted-foreground"
-            />
-          }
-        >
-          <MoreHorizontal className="h-4 w-4" />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-auto">
-          <DropdownMenuItem onClick={handleMarkAllRead}>
-            <CheckCheck className="h-4 w-4" />
-            {t(($) => $.menu.mark_all_read)}
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={handleArchiveAll}>
-            <Archive className="h-4 w-4" />
-            {t(($) => $.menu.archive_all)}
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={handleArchiveAllRead}>
-            <BookCheck className="h-4 w-4" />
-            {t(($) => $.menu.archive_all_read)}
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={handleArchiveCompleted}>
-            <ListChecks className="h-4 w-4" />
-            {t(($) => $.menu.archive_completed)}
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-      </>
-      )}
+      <div className="flex flex-1 items-center gap-0.5">
+        {/* The batch icon buttons sit in the header's free space: this slot is
+            what is left after the title, its unread count, the sidebar toggle,
+            the filter and the menu, at any panel width and in any locale. The
+            buttons show only when all four (4 × 1.5rem) fit in it; otherwise
+            they stay in the "..." menu. */}
+        <div className="@container/batch-actions flex min-w-0 flex-1 justify-end">
+          {/* Batch actions are main-view only. Every entry archives from the MAIN
+              inbox, so offering them while the archived list is on screen reads as
+              "archive all of these" and does the opposite of what it looks like. */}
+          {!isArchivedView && (
+            <div className="hidden @min-[6rem]/batch-actions:flex">
+              {batchActions.map(({ key, label, Icon, onClick }) => (
+                <Tooltip key={key}>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        variant="ghost"
+                        size="icon-xs"
+                        className="text-muted-foreground"
+                        aria-label={label}
+                        onClick={onClick}
+                      />
+                    }
+                  >
+                    <Icon className="size-4" />
+                  </TooltipTrigger>
+                  <TooltipContent side="top">{label}</TooltipContent>
+                </Tooltip>
+              ))}
+            </div>
+          )}
+        </div>
+        <InboxFilterMenu
+          wsId={wsId}
+          items={viewItems}
+          priorityFilterSupport={priorityFilterSupport}
+          archived={isArchivedView}
+        />
+        {!isArchivedView && (
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className="text-muted-foreground"
+                />
+              }
+            >
+              <MoreHorizontal className="h-4 w-4" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-auto">
+              <DropdownMenuItem onClick={handleMarkAllRead}>
+                <CheckCheck className="h-4 w-4" />
+                {t(($) => $.menu.mark_all_read)}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleArchiveAll}>
+                <Archive className="h-4 w-4" />
+                {t(($) => $.menu.archive_all)}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleArchiveAllRead}>
+                <BookCheck className="h-4 w-4" />
+                {t(($) => $.menu.archive_all_read)}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleArchiveCompleted}>
+                <ListChecks className="h-4 w-4" />
+                {t(($) => $.menu.archive_completed)}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+      </div>
     </PageHeader>
   );
 
