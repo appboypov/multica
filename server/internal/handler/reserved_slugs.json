@@ -72,6 +72,8 @@
         "issues",
         "projects",
         "organisations",
+        "worklanes",
+        "releases",
         "autopilots",
         "agents",
         "squads",
