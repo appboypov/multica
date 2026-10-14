@@ -36,7 +36,7 @@ Every group builds on UJ-1's, UJ-2's and UJ-3's code (changes `answer-an-agents-
 
 ## 1. J2 Data models: model change
 
-- [ ] 1.1 `server/migrations/575_question_link_types.up.sql`, `.down.sql` -- drop UJ-1's `CHECK` constraints on `question_link.link_type` and `question_event.kind` and add them back `NOT VALID`, then `VALIDATE CONSTRAINT`: `link_type` in `issue`, `task`, `comment`, `project`, `agent`, `squad`, `autopilot`, `skill`; `kind` UJ-1's and UJ-2's kinds plus `linked`. Down deletes `question_link` rows of the six new types and `linked` events, then restores the previous constraints -- design.md decision 1 and "Migration Plan"; the number is the next free one when J2 starts.
+- [ ] 1.1 `server/migrations/710_question_link_types.up.sql`, `.down.sql` -- drop UJ-1's `CHECK` constraints on `question_link.link_type` and `question_event.kind` and add them back `NOT VALID`, then `VALIDATE CONSTRAINT`: `link_type` in `issue`, `task`, `comment`, `project`, `agent`, `squad`, `autopilot`, `skill`; `kind` UJ-1's and UJ-2's kinds plus `linked`. Down deletes `question_link` rows of the six new types and `linked` events, then restores the previous constraints -- design.md decision 1 and "Migration Plan".
 - [ ] 1.2 `server/internal/question/links.go` -- `LinkType` constants for the eight types, `ValidLinkType`, `ParseLinkRef("project:01J…")` returning `{Type, Ref}` where a bare value is an issue and `run:` maps to `task`, and `MaxLinksPerAsk = 10` -- design.md decision 1 and 2; one registry the handler, service and CLI read.
 - [ ] 1.3 `server/internal/question/links_test.go` -- `ParseLinkRef` cases: `WORK-415`, `issue:WORK-415`, `run:<uuid>`, `comment:abc12`, an unknown prefix and an empty ref are refused -- the CLI's input rules.
 
@@ -139,7 +139,7 @@ Every group builds on UJ-1's, UJ-2's and UJ-3's code (changes `answer-an-agents-
 
 ## Implementation Notes
 
-- Migration `575` is the next free number after UJ-1 (564-571), UJ-3 (572-574) and UJ-5 (572-574 on its own branch); J2 takes whatever is free when it starts.
+- This change owns migrations 710 to 719 (Brian, WORK-366 comment `01a13915-3db8`) and uses 710; it never takes a number outside that range.
 - No index is added: `question_link (link_type, link_id)` (UJ-1), `idx_issue_parent`, `idx_issue_project`, `idx_issue_assignee`, `idx_comment_issue` and `idx_agent_task_queue_issue_id` serve both forms of decision 3.
 - No brief or skill text changes: UJ-1's brief section is fixed word for word by its spec, and `multica-platform` points to `multica question --help`, which lists `--on`, `--link` and `link`.
 - The upward and downward forms live in one file, `question_reach.sql`, next to each other, so a change to one is seen beside the other.

@@ -36,9 +36,9 @@ Every group builds on UJ-1's and UJ-2's code (changes `answer-an-agents-question
 
 ## 1. J2 Data models: model change
 
-- [ ] 1.1 `server/migrations/572_question_answerer_user_index.up.sql`, `.down.sql` -- `CREATE INDEX CONCURRENTLY IF NOT EXISTS` on `question_answerer (user_id, question_id)`; down drops it `CONCURRENTLY IF EXISTS` -- the viewer's answerer rows for For me and the count (design.md "Models"); one concurrent index per file (AGENTS.md).
-- [ ] 1.2 `server/migrations/573_question_open_workspace_index.up.sql`, `.down.sql` -- partial `CREATE INDEX CONCURRENTLY` on `question (workspace_id, created_at, id) WHERE status IN ('open', 'partly_answered')` -- All open in its order with its cursor.
-- [ ] 1.3 `server/migrations/574_question_answer_answerer_time_index.up.sql`, `.down.sql` -- `CREATE INDEX CONCURRENTLY` on `question_answer (answerer_user_id, updated_at, question_id)` -- Answered newest first with its cursor.
+- [ ] 1.1 `server/migrations/700_question_answerer_user_index.up.sql`, `.down.sql` -- `CREATE INDEX CONCURRENTLY IF NOT EXISTS` on `question_answerer (user_id, question_id)`; down drops it `CONCURRENTLY IF EXISTS` -- the viewer's answerer rows for For me and the count (design.md "Models"); one concurrent index per file (AGENTS.md).
+- [ ] 1.2 `server/migrations/701_question_open_workspace_index.up.sql`, `.down.sql` -- partial `CREATE INDEX CONCURRENTLY` on `question (workspace_id, created_at, id) WHERE status IN ('open', 'partly_answered')` -- All open in its order with its cursor.
+- [ ] 1.3 `server/migrations/702_question_answer_answerer_time_index.up.sql`, `.down.sql` -- `CREATE INDEX CONCURRENTLY` on `question_answer (answerer_user_id, updated_at, question_id)` -- Answered newest first with its cursor.
 
 ## 2. J2 Data models: DTOs
 
@@ -126,7 +126,7 @@ Every group builds on UJ-1's and UJ-2's code (changes `answer-an-agents-question
 
 ## Implementation Notes
 
-- UJ-1 and UJ-2 are built and merged before this change's J2. `main` already holds migrations 564 and 565, and UJ-1, UJ-2 and UJ-5 take numbers too; 572 to 574 take the next free numbers when this journey's J2 starts.
+- `main` already holds migrations 564 and 565. This change owns migrations 700 to 709 (Brian, WORK-366 comment `01a13915-3db8`) and uses 700 to 702; it never takes a number outside that range.
 - The list reads UJ-1's per-question data for nothing but the row: opening a question and every answer beyond Yes / No go through UJ-1's card and endpoints.
 - UJ-4 adds its tab `on_my_work`, parents and the indirect audience to `GET /api/questions` as ADR-0006 says; this change leaves the `tab` parameter open to that by refusing unknown values with 400 rather than ignoring them.
 

@@ -341,7 +341,7 @@ UJ-1's `QuestionCard` renders the same `WakeBar` for its own Wake, so the bar lo
 
 ## Migration Plan
 
-Three additive concurrent indexes, `572` to `574` (or the next free numbers at merge), one per file; no data changes and no backfill. Rollback runs the `.down.sql` files (`DROP INDEX CONCURRENTLY IF EXISTS`) in reverse order. `make local-release` deploys. Installed desktop clients that do not know the new routes keep working: the new endpoints are only called by the new pages.
+Three additive concurrent indexes, `700` to `702`, one per file, inside this change's range 700 to 709; no data changes and no backfill. Rollback runs the `.down.sql` files (`DROP INDEX CONCURRENTLY IF EXISTS`) in reverse order. `make local-release` deploys. Installed desktop clients that do not know the new routes keep working: the new endpoints are only called by the new pages.
 
 ## Open Questions
 

@@ -369,7 +369,7 @@ The handler publishes `question:updated` for those after commit. Sub-issues whos
 - [`via` and `link` change the meaning of UJ-3's `QuestionRow.link` for questions not asked on an issue] -> before this change every question's first link was an issue, so existing rows read the same. The schema falls back to `issue` for an unknown `link.type`.
 - [Invalidating every question query on a hierarchy change] -> such changes are rare next to status changes, which do not trigger it.
 - [The down migration deletes links of the new types and `linked` events] -> it must, to restore the narrower constraints. Rollback loses those links. Their questions keep their `issue` and `task` links.
-- [Migration number `575` can be taken first] -> J2 takes the next free number; nothing refers to it.
+- [Another change takes migration `710`] -> it cannot: this change owns 710 to 719 (Brian, WORK-366 comment `01a13915-3db8`).
 
 ## Migration Plan
 
