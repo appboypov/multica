@@ -127,16 +127,16 @@ describe("useRealtimeSync — ws instance change", () => {
     rerender({ ws: ws2 });
 
     // Should have called invalidateQueries for all workspace-scoped keys
-    // (18 workspace-scoped [incl. property definitions, organisations and
-    // questions] + 6
-    // per-issue prefixes + the workspace working-agents projection + 5
-    // per-chat prefixes + 1 workspaceKeys.list() + 1 cross-workspace inbox
-    // unread summary = 33 calls).
+    // (23 workspace-scoped [incl. property definitions, organisations,
+    // questions, repositories, worklanes, worklane issues, releases and
+    // release progress] + 6 per-issue prefixes + the workspace working-agents
+    // projection + 5 per-chat prefixes + 1 workspaceKeys.list() + 1
+    // cross-workspace inbox unread summary = 38 calls).
     //
     // Awaited rather than counted synchronously: the inbox unread summary
     // refresh cancels any in-flight request before invalidating (see
     // onInboxSummaryInvalidate), so that one lands after the synchronous ones.
-    await waitFor(() => expect(invalidateSpy).toHaveBeenCalledTimes(33));
+    await waitFor(() => expect(invalidateSpy).toHaveBeenCalledTimes(38));
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: questionKeys.all("ws-1") });
   });
 

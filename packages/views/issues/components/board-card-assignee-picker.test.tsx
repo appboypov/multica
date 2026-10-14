@@ -213,7 +213,8 @@ describe("BoardCardContent assignee picker", () => {
       </NavigationProvider>,
     );
 
-    expect(container.querySelector("svg")).toBeNull();
+    // The type icon always shows, No type included; nothing else may.
+    expect(container.querySelector('svg:not([role="img"])')).toBeNull();
     expect(screen.queryByText("Translated")).not.toBeInTheDocument();
     viewState.cardProperties.priority = false;
   });

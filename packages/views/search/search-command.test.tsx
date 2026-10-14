@@ -263,6 +263,7 @@ function resolveIssue(key: readonly unknown[]) {
 }
 
 vi.mock("@tanstack/react-query", () => ({
+  queryOptions: (options: unknown) => options,
   useQuery: (opts: { queryKey: readonly unknown[]; enabled?: boolean }) => {
     const key = opts.queryKey;
     if (key[0] === "workspaces" && key[2] === "members") {

@@ -285,7 +285,7 @@ describe("issue draft store — legacy rehydrate", () => {
     expect(draft.shared.dueDate).toBeNull();
     expect(draft.shared.attachments).toEqual([]);
     expect(draft.manual.title).toBe("kept");
-    expect(draft.manual.status).toBe("todo");
+    expect(draft.manual.status).toBe("backlog");
     expect(draft.agent.prompt).toBe("keep me");
     expect(draft.activeMode).toBe("agent");
   });

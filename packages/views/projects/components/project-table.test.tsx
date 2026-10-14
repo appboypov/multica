@@ -22,7 +22,11 @@ vi.mock("@multica/core/projects", async () => {
     sortDirection: "asc",
     hiddenColumns: [],
     collapsedOrganisations: [] as string[],
+    expandedProjects: [] as string[],
+    expandedRepositories: [] as string[],
     toggleSort: vi.fn(),
+    toggleProject: vi.fn(),
+    toggleRepository: vi.fn(),
     toggleOrganisation: (id: string) =>
       set((state) => {
         const collapsed = state.collapsedOrganisations as string[];
@@ -42,6 +46,16 @@ vi.mock("@multica/core/projects", async () => {
     useDeleteProject: () => ({ mutate: vi.fn() }),
   };
 });
+
+// Repository and worklane rows have their own tests; here no project has any.
+vi.mock("@tanstack/react-query", () => ({
+  queryOptions: (options: unknown) => options,
+  useQuery: () => ({ data: undefined, isLoading: false }),
+}));
+
+vi.mock("@multica/core/hooks", () => ({
+  useWorkspaceId: () => "workspace-1",
+}));
 
 vi.mock("@multica/core/pins", () => ({
   useCreatePin: () => ({ mutate: vi.fn() }),

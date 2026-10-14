@@ -26,6 +26,8 @@ const mocks = vi.hoisted(() => ({
     hiddenColumns: [] as string[],
     filters: { priorities: [], leads: [] },
     collapsedOrganisations: [] as string[],
+    expandedProjects: [] as string[],
+    expandedRepositories: [] as string[],
     setViewMode: vi.fn(),
     toggleSort: vi.fn(),
     setSortField: vi.fn(),
@@ -34,10 +36,13 @@ const mocks = vi.hoisted(() => ({
     toggleFilter: vi.fn(),
     clearFilters: vi.fn(),
     toggleOrganisation: vi.fn(),
+    toggleProject: vi.fn(),
+    toggleRepository: vi.fn(),
   },
 }));
 
 vi.mock("@tanstack/react-query", () => ({
+  queryOptions: (options: unknown) => options,
   useQuery: (options: { queryKey?: readonly unknown[] }) => {
     const key = options.queryKey?.[0];
     if (key === "projects") {
@@ -58,10 +63,11 @@ vi.mock("@tanstack/react-query", () => ({
 
 vi.mock("@multica/core/projects", async () => {
   // The real grouping, so the page's order and No organisation are tested.
-  const { groupProjectsByOrganisation } =
+  const { groupProjectsByOrganisation, sortProjects } =
     await vi.importActual<typeof CoreProjects>("@multica/core/projects");
   return {
     groupProjectsByOrganisation,
+    sortProjects,
     projectListOptions: () => ({ queryKey: ["projects"] }),
     useUpdateProject: () => ({ mutate: mocks.updateProject }),
     useDeleteProject: () => ({ mutate: mocks.deleteProject }),

@@ -476,6 +476,9 @@ vi.mock("../issues/components", () => ({
       onClick={() => onOpenChange?.(false)}
     />
   ),
+  TypeIcon: () => null,
+  WorklanePicker: () => <div data-testid="worklane-picker" />,
+  ReleasePicker: () => <div data-testid="release-picker" />,
 }));
 
 vi.mock("../issues/components/pickers/custom-property-picker", () => ({
