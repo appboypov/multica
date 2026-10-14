@@ -1754,6 +1754,7 @@ const WORKLANE_REQUEST_REASON_CODES = [
   "uncommitted",
   "unpushed",
   "stashed",
+  "worklane_has_open_issues",
   "unknown",
 ] as const satisfies readonly WorklaneRequestReasonCode[];
 

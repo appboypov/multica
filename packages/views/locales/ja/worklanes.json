@@ -124,7 +124,8 @@
     "uncommitted": "{{name}} の worktree にコミットされていない変更があります",
     "unpushed": "{{name}} の worktree に {{base}} にないコミットがあります",
     "stashed": "{{name}} の worktree に stash された変更があります",
-    "unknown": "{{detail}}"
+    "unknown": "{{detail}}",
+    "worklane_has_open_issues": "{{name}} にはまだ未完了のタスクがあります: {{issues}}。先に閉じるか、別の worklane に移してください。"
   },
   "views": {
     "label": "ビュー",

@@ -124,7 +124,8 @@
     "uncommitted": "{{name}} 的 worktree 中有未提交的更改",
     "unpushed": "{{name}} 的 worktree 中有不在 {{base}} 上的提交",
     "stashed": "{{name}} 的 worktree 中有暂存的更改",
-    "unknown": "{{detail}}"
+    "unknown": "{{detail}}",
+    "worklane_has_open_issues": "{{name}} 仍有未关闭的任务：{{issues}}。请先关闭它们或移到其他 worklane。"
   },
   "views": {
     "label": "视图",

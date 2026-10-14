@@ -48,6 +48,12 @@ export function useWorklaneReasonText() {
           return t(($) => $.errors[reason.code], { name: context.name });
         case "unpushed":
           return t(($) => $.errors.unpushed, { name: context.name, base: context.base });
+        case "worklane_has_open_issues":
+          // The server's detail ends with the identifiers of the open issues.
+          return t(($) => $.errors.worklane_has_open_issues, {
+            name: context.name,
+            issues: detail.replace(/^.*open issues\s*/, ""),
+          });
         case "path_issue_worktree":
         case "path_not_checkout":
         case "unknown":

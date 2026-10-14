@@ -126,7 +126,8 @@
     "uncommitted": "{{name}}'s worktree holds uncommitted changes",
     "unpushed": "{{name}}'s worktree holds commits that are not on {{base}}",
     "stashed": "{{name}}'s worktree holds stashed changes",
-    "unknown": "{{detail}}"
+    "unknown": "{{detail}}",
+    "worklane_has_open_issues": "{{name}} still has open issues: {{issues}}. Close them or move them to another worklane first."
   },
   "views": {
     "label": "View",

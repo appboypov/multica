@@ -103,6 +103,7 @@ export type WorklaneRequestReasonCode =
   | "uncommitted"
   | "unpushed"
   | "stashed"
+  | "worklane_has_open_issues"
   | "unknown";
 
 export interface WorklaneRequestReason {

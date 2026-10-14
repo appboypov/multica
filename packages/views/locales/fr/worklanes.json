@@ -126,7 +126,8 @@
     "uncommitted": "Le worktree de {{name}} contient des modifications non commitées",
     "unpushed": "Le worktree de {{name}} contient des commits absents de {{base}}",
     "stashed": "Le worktree de {{name}} contient des modifications mises de côté (stash)",
-    "unknown": "{{detail}}"
+    "unknown": "{{detail}}",
+    "worklane_has_open_issues": "{{name}} a encore des tâches ouvertes : {{issues}}. Fermez-les ou déplacez-les d'abord vers un autre worklane."
   },
   "views": {
     "label": "Vue",

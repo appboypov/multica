@@ -97,6 +97,17 @@ import { LabelChip } from "../../labels/label-chip";
 import { IssueAgentActivityIndicator } from "./issue-agent-activity-indicator";
 import { SubIssuesAgentWorkingChip } from "./sub-issues-agent-working-chip";
 import { ProjectPicker } from "../../projects/components/project-picker";
+import type { IssueType } from "@multica/core/types";
+import {
+  placementRefusalOf,
+  releaseForWorklane,
+  useSetIssuePlacement,
+  useSetIssueType,
+} from "@multica/core/issues/placement";
+import { formatVersion } from "@multica/core/releases";
+import { TypeIcon } from "./type-icon";
+import { TypePicker, WorklanePicker, ReleasePicker, usePlacementData } from "./pickers";
+import { IssueReleaseCard } from "../../releases/components/issue-release-card";
 import { IssuePropertyPills } from "./issue-property-pills";
 import { IssuePeekSummary } from "./issue-peek-summary";
 import { useNewRunIds } from "./use-run-comment-motion";
@@ -2487,6 +2498,24 @@ export function IssueDetail({ issueId, onDelete, onDone, defaultSidebarOpen = tr
   // Called before the `if (!issue)` early return so hook order stays stable.
   const actions = useIssueActions(issue);
   const handleUpdateField = actions.updateField;
+  const setIssueType = useSetIssueType();
+  const setIssuePlacement = useSetIssuePlacement();
+  const placementData = usePlacementData();
+  // A refused type or placement write says why, by the server's code.
+  const showPlacementRefusal = (err: unknown) => {
+    const refusal = placementRefusalOf(err);
+    if (!refusal || refusal.code === "worklane_has_open_issues") {
+      toast.error(t(($) => $.placement_refusal.unknown));
+      return;
+    }
+    toast.error(
+      t(($) => $.placement_refusal[refusal.code], {
+        version: refusal.version ? formatVersion(refusal.version) : "",
+        title: refusal.title ?? "",
+        issues: refusal.issues.map((entry) => entry.identifier).join(", "),
+      }),
+    );
+  };
 
   // Labels live in their own query (not on the issue body) — fetch the count
   // here so seeding can decide whether the "Labels" optional row should be
@@ -2735,11 +2764,58 @@ export function IssueDetail({ issueId, onDelete, onDone, defaultSidebarOpen = tr
           <PropRow label={t(($) => $.detail.prop_assignee)}>
             <AssigneePicker assigneeType={issue.assignee_type} assigneeId={issue.assignee_id} onUpdate={handleUpdateField} align="start" />
           </PropRow>
-          <PropRow label={t(($) => $.detail.prop_project)}>
-            <ProjectPicker
-              projectId={issue.project_id}
-              onUpdate={handleUpdateField}
+          <PropRow label={t(($) => $.detail.prop_type)}>
+            <TypePicker
+              type={issue.type ?? null}
+              align="start"
+              onPick={(type) =>
+                setIssueType.mutate({ id: issue.id, type }, { onError: showPlacementRefusal })
+              }
             />
+          </PropRow>
+          <PropRow label={t(($) => $.detail.prop_worklane)}>
+            <WorklanePicker
+              worklaneId={issue.worklane_id ?? null}
+              align="start"
+              onPick={(worklaneId) =>
+                setIssuePlacement.mutate(
+                  {
+                    id: issue.id,
+                    worklane_id: worklaneId,
+                    release_id: releaseForWorklane(worklaneId, placementData),
+                  },
+                  { onError: showPlacementRefusal },
+                )
+              }
+            />
+          </PropRow>
+          <PropRow label={t(($) => $.detail.prop_release)}>
+            <ReleasePicker
+              worklaneId={issue.worklane_id ?? null}
+              releaseId={issue.release_id ?? null}
+              align="start"
+              onPick={(releaseId) =>
+                setIssuePlacement.mutate(
+                  { id: issue.id, worklane_id: issue.worklane_id ?? null, release_id: releaseId },
+                  { onError: showPlacementRefusal },
+                )
+              }
+            />
+          </PropRow>
+          {issue.release_id && (
+            <div className="col-span-2 py-2">
+              <IssueReleaseCard issue={issue} />
+            </div>
+          )}
+          <PropRow label={t(($) => $.detail.prop_project)}>
+            {/* Read-only while the issue is in a worklane: the project follows it. */}
+            <span title={issue.worklane_id ? t(($) => $.detail.project_follows_worklane) : undefined}>
+              <ProjectPicker
+                projectId={issue.project_id}
+                onUpdate={handleUpdateField}
+                disabled={!!issue.worklane_id}
+              />
+            </span>
           </PropRow>
 
           {/* Optional props — rendered only when set on the issue OR added
@@ -3370,6 +3446,12 @@ export function IssueDetail({ issueId, onDelete, onDone, defaultSidebarOpen = tr
               )
             }
           />
+          {/* "{Type} {identifier}" above the title, in every variant. */}
+          <p className="mb-1 flex items-center gap-1.5 text-caption text-muted-foreground">
+            <TypeIcon type={issue.type ?? null} />
+            {issue.type && <span>{t(($) => $.types[issue.type as IssueType].name)}</span>}
+            <span className="tabular-nums">{issue.identifier}</span>
+          </p>
           {titleLazy.active && (
             <div className={titleLazy.ready ? undefined : "hidden"}>
               <TitleEditor

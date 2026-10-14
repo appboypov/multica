@@ -124,7 +124,8 @@
     "uncommitted": "{{name}}의 worktree에 커밋하지 않은 변경이 있습니다",
     "unpushed": "{{name}}의 worktree에 {{base}}에 없는 커밋이 있습니다",
     "stashed": "{{name}}의 worktree에 stash된 변경이 있습니다",
-    "unknown": "{{detail}}"
+    "unknown": "{{detail}}",
+    "worklane_has_open_issues": "{{name}}에 아직 열린 태스크가 있습니다: {{issues}}. 먼저 닫거나 다른 worklane으로 옮기세요."
   },
   "views": {
     "label": "보기",
