@@ -137,7 +137,7 @@ Every group builds on UJ-1's code (change `answer-an-agents-question-and-wake-it
 - The ask's request and response change together with `multica question ask` (group 12); no web or desktop code posts questions.
 - J8 exposes transactional asks through the service, API and CLI; notifications and overdue sweeps group by ask, and policy transitions count current answerers. Set rendering remains in J9.
 - The overdue read includes `partly_answered`; J2's `idx_question_overdue_v2` covers both open states with no overdue notice.
-- J8 verification on Crabbox: question rules, service, handler, inbox, overdue and CLI tests pass. A real server/CLI smoke creates three squad questions, reads the first answer immediately, exercises Each, and queues exactly one run only through explicit Wake. Lint and typecheck pass; Go, docs, web and desktop builds pass. UI Lab reports a completed Vite build, followed by a Crabbox ownership-cleanup transport failure. The combined frontend build hit exit 137 and was split by application. Full-suite verification and browser acceptance belong to Sarkout.
+- J8 verification on Crabbox: question rules, service, handler, inbox, overdue and CLI tests pass. A real server/CLI smoke creates three squad questions, reads the first answer immediately, exercises Each, and queues exactly one run only through explicit Wake. Lint and typecheck pass; Go, docs, web, desktop and UI Lab builds pass. The combined frontend build hit exit 137 and was split by application. After restacking on J2, the pure rules pass and the resolved server and scheduler test packages compile. Full-suite verification and browser acceptance belong to Sarkout.
 
 ## Plan Change Log
 
