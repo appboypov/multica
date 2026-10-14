@@ -19,7 +19,7 @@ import {
 } from "@multica/ui/components/ui/dropdown-menu";
 import { useModalStore } from "@multica/core/modals";
 import { useConfigStore } from "@multica/core/config";
-import { isDesktopShell } from "../platform/local-directory";
+import { isDesktopShell } from "../platform/desktop-shell";
 import { DISCORD_URL, DiscordIcon } from "./discord";
 import { useT } from "../i18n";
 import { docsLocalePrefix } from "../common/docs-locale";

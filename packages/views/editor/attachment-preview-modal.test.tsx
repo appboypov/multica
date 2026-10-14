@@ -17,7 +17,7 @@ vi.mock("../platform", () => ({
   openExternal: openExternalMock,
 }));
 
-vi.mock("../platform/local-directory", () => ({
+vi.mock("../platform/desktop-shell", () => ({
   isDesktopShell: isDesktopShellMock,
 }));
 

@@ -3,13 +3,13 @@ import { render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { configStore } from "@multica/core/config";
 import enLayout from "../locales/en/layout.json";
-import { isDesktopShell } from "../platform/local-directory";
+import { isDesktopShell } from "../platform/desktop-shell";
 import { HelpLauncher } from "./help-launcher";
 
 // The download entry is gated on the desktop-shell probe, which reads a
 // preload-injected bridge that jsdom never has. Mock it so both platforms are
 // reachable from the same suite.
-vi.mock("../platform/local-directory", () => ({
+vi.mock("../platform/desktop-shell", () => ({
   isDesktopShell: vi.fn(() => false),
 }));
 

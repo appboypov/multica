@@ -70,6 +70,11 @@
     "none_note": "它的 worklane 不规划版本。",
     "pick_repository_first": "请先选择仓库"
   },
+  "section": {
+    "title": "仓库",
+    "add": "仓库",
+    "load_failed": "无法加载仓库"
+  },
   "card": {
     "toggle": "折叠或展开 {{name}}",
     "default_branch": "默认分支 {{branch}}",

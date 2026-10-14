@@ -71,6 +71,11 @@
     "none_note": "Its worklanes plan no releases.",
     "pick_repository_first": "Pick a repository first"
   },
+  "section": {
+    "title": "Repositories",
+    "add": "Repository",
+    "load_failed": "Could not load the repositories"
+  },
   "card": {
     "toggle": "Fold or unfold {{name}}",
     "default_branch": "Default branch {{branch}}",

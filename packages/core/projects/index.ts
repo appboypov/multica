@@ -21,10 +21,3 @@ export {
   type ProjectColumnKey,
   type ProjectListFilters,
 } from "./stores/view-store";
-export {
-  projectResourceKeys,
-  projectResourcesOptions,
-  useCreateProjectResource,
-  useUpdateProjectResource,
-  useDeleteProjectResource,
-} from "./resource-queries";

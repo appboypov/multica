@@ -120,7 +120,6 @@ function project(id: string, title: string, organisationId: string | null): Proj
     updated_at: "",
     issue_count: 0,
     done_count: 0,
-    resource_count: 0,
   };
 }
 

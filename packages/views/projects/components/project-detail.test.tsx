@@ -228,10 +228,6 @@ vi.mock("../../issues/components/priority-icon", () => ({
   PriorityIcon: () => null,
 }));
 
-vi.mock("./project-resources-section", () => ({
-  ProjectResourcesSection: () => null,
-}));
-
 vi.mock("../../issues/surface/issue-surface", () => ({
   IssueSurface: () => null,
 }));
@@ -275,7 +271,6 @@ const PROJECT: Project = {
   updated_at: "2026-06-01T00:00:00Z",
   issue_count: 3,
   done_count: 1,
-  resource_count: 0,
 };
 
 function renderProjectDetail() {

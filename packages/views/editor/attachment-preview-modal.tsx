@@ -103,7 +103,7 @@ import {
 import { useT } from "../i18n";
 import { useNavigation } from "../navigation";
 import { openExternal } from "../platform";
-import { isDesktopShell } from "../platform/local-directory";
+import { isDesktopShell } from "../platform/desktop-shell";
 import { useImmersiveMode } from "../platform/use-immersive-mode";
 import { ReadonlyContent } from "./readonly-content";
 import {

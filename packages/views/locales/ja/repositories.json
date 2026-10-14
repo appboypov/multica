@@ -70,6 +70,11 @@
     "none_note": "その worklane ではリリースを計画しません。",
     "pick_repository_first": "先にリポジトリを選択してください"
   },
+  "section": {
+    "title": "リポジトリ",
+    "add": "リポジトリ",
+    "load_failed": "リポジトリを読み込めませんでした"
+  },
   "card": {
     "toggle": "{{name}} を折りたたむ・展開する",
     "default_branch": "デフォルトブランチ {{branch}}",

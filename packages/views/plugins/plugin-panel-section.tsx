@@ -7,7 +7,7 @@ import { useCurrentWorkspace } from "@multica/core/paths";
 import { useFeatureEnabled } from "@multica/core/config";
 import { PLUGINS_V1_FLAG } from "@multica/core/feature-flags";
 import { useT } from "../i18n";
-import { isDesktopShell } from "../platform/local-directory";
+import { isDesktopShell } from "../platform/desktop-shell";
 import { PluginSurfaceFrame } from "./plugin-surface-frame";
 
 /**

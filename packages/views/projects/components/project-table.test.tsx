@@ -81,7 +81,6 @@ function project(id: string, title: string, overrides: Partial<Project> = {}): P
     updated_at: "2026-10-01T00:00:00Z",
     issue_count: 0,
     done_count: 0,
-    resource_count: 0,
     ...overrides,
   };
 }

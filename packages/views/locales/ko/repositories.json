@@ -70,6 +70,11 @@
     "none_note": "이 저장소의 worklane은 릴리스를 계획하지 않습니다.",
     "pick_repository_first": "먼저 저장소를 선택하세요"
   },
+  "section": {
+    "title": "저장소",
+    "add": "저장소",
+    "load_failed": "저장소를 불러오지 못했습니다"
+  },
   "card": {
     "toggle": "{{name}} 접기 또는 펼치기",
     "default_branch": "기본 브랜치 {{branch}}",

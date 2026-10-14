@@ -25,7 +25,8 @@ import { ActorAvatar } from "../../common/actor-avatar";
 import { currentPath, useNavigation } from "../../navigation";
 import { TitleEditor, ContentEditor, type ContentEditorRef } from "../../editor";
 import { PriorityIcon } from "../../issues/components/priority-icon";
-import { ProjectResourcesSection } from "./project-resources-section";
+import { ProjectRepositoriesSection } from "../../repositories/components/project-repositories-section";
+import { repositoriesOfProject, repositoryListOptions } from "@multica/core/repositories";
 import { OrganisationPicker } from "./organisation-picker";
 import { IssueSurface } from "../../issues/surface/issue-surface";
 import { Skeleton } from "@multica/ui/components/ui/skeleton";
@@ -101,12 +102,18 @@ function PropRow({
 
 export function ProjectDetail({ projectId }: { projectId: string }) {
   const { t } = useT("projects");
+  const { t: tRepositories } = useT("repositories");
   const priorityLabels = useProjectPriorityLabels();
   const wsId = useWorkspaceId();
   const wsPaths = useWorkspacePaths();
   const router = useNavigation();
   const userId = useAuthStore((s) => s.user?.id);
   const { data: project, isLoading } = useQuery(projectDetailOptions(wsId, projectId));
+  const { data: repositories = [] } = useQuery(repositoryListOptions(wsId));
+  const repositoryCount = useMemo(
+    () => repositoriesOfProject(repositories, projectId).length,
+    [repositories, projectId],
+  );
   const recordRecentContext = useRecentContextStore((s) => s.recordVisit);
   useEffect(() => {
     if (project) {
@@ -448,8 +455,8 @@ export function ProjectDetail({ projectId }: { projectId: string }) {
         </div>}
       </div>
 
-      {/* Resources */}
-      <ProjectResourcesSection projectId={projectId} />
+      {/* Repositories */}
+      <ProjectRepositoriesSection wsId={wsId} projectId={projectId} />
     </div>
   );
 
@@ -460,7 +467,14 @@ export function ProjectDetail({ projectId }: { projectId: string }) {
         <div ref={rightSidebarShortcutTargetRef} className="flex h-full flex-col">
           <BreadcrumbHeader
             segments={[{ href: wsPaths.projects(), label: t(($) => $.detail.breadcrumb_fallback) }]}
-            leaf={<span className="truncate font-medium text-foreground">{project.title}</span>}
+            leaf={
+              <span className="flex min-w-0 items-center gap-2">
+                <span className="truncate font-medium text-foreground">{project.title}</span>
+                <span className="shrink-0 text-caption text-muted-foreground">
+                  {tRepositories(($) => $.count, { count: repositoryCount })}
+                </span>
+              </span>
+            }
             actions={
               <>
               <Button

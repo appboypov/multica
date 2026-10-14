@@ -71,6 +71,11 @@
     "none_note": "Ses worklanes ne planifient pas de versions.",
     "pick_repository_first": "Choisissez d'abord un dépôt"
   },
+  "section": {
+    "title": "Dépôts",
+    "add": "Dépôt",
+    "load_failed": "Impossible de charger les dépôts"
+  },
   "card": {
     "toggle": "Replier ou déplier {{name}}",
     "default_branch": "Branche par défaut {{branch}}",

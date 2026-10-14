@@ -31,7 +31,7 @@ vi.mock("@multica/core/plugins", () => ({
 }));
 vi.mock("@multica/core/paths", () => ({ useCurrentWorkspace: () => ({ id: "workspace-1", name: "Acme", slug: "acme" }) }));
 vi.mock("@multica/core/config", () => ({ useFeatureEnabled: () => data.flagEnabled }));
-vi.mock("../platform/local-directory", () => ({ isDesktopShell: () => false }));
+vi.mock("../platform/desktop-shell", () => ({ isDesktopShell: () => false }));
 
 import { PluginPanelSection } from "./plugin-panel-section";
 

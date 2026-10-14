@@ -1286,29 +1286,6 @@ describe("AppConfigSchema comment_delete_keep_replies_supported drift", () => {
   });
 });
 
-describe("AppConfigSchema local_worktree_supported drift", () => {
-  it("defaults to false when the server predates the signal", () => {
-    const parsed = AppConfigSchema.parse({ cdn_domain: "cdn.example.com" });
-    expect(parsed.local_worktree_supported).toBe(false);
-  });
-
-  it("coerces a malformed value to false rather than trusting it", () => {
-    const parsed = AppConfigSchema.parse({
-      cdn_domain: "cdn.example.com",
-      local_worktree_supported: "yes",
-    });
-    expect(parsed.local_worktree_supported).toBe(false);
-  });
-
-  it("carries a genuine true through", () => {
-    const parsed = AppConfigSchema.parse({
-      cdn_domain: "cdn.example.com",
-      local_worktree_supported: true,
-    });
-    expect(parsed.local_worktree_supported).toBe(true);
-  });
-});
-
 describe("AppConfigSchema agent_conversation_starters_supported drift", () => {
   it("defaults to false when the server predates the persistence contract", () => {
     expect(AppConfigSchema.parse({}).agent_conversation_starters_supported).toBe(false);
@@ -1551,7 +1528,6 @@ describe("SearchProjectsResponseSchema drift", () => {
     updated_at: "2026-01-01T00:00:00Z",
     issue_count: 0,
     done_count: 0,
-    resource_count: 0,
     match_source: "title",
   };
 

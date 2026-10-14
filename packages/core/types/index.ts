@@ -190,15 +190,6 @@ export type {
   CreateProjectRequest,
   UpdateProjectRequest,
   ListProjectsResponse,
-  ProjectResource,
-  ProjectResourceType,
-  ProjectResourceRef,
-  GithubRepoResourceRef,
-  LocalDirectoryResourceRef,
-  LocalDirectoryExecutionMode,
-  CreateProjectResourceRequest,
-  UpdateProjectResourceRequest,
-  ListProjectResourcesResponse,
 } from "./project";
 export type {
   Organisation,

@@ -511,7 +511,6 @@ describe("project progress invalidation", () => {
         lead_id: null,
         issue_count: 1,
         done_count: 0,
-        resource_count: 0,
         created_at: "2025-01-01T00:00:00Z",
         updated_at: "2025-01-01T00:00:00Z",
       },
