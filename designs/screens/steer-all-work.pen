@@ -8637,6 +8637,43 @@
                           "fontWeight": "500"
                         },
                         {
+                          "id": "VR30j",
+                          "type": "ref",
+                          "ref": "L:R2pPT",
+                          "name": "Template No template",
+                          "width": "fill_container",
+                          "descendants": {
+                            "L:tJCEV": {
+                              "type": "frame",
+                              "id": "VbZjP",
+                              "name": "Type",
+                              "width": 16,
+                              "height": 16,
+                              "justifyContent": "center",
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "icon",
+                                  "id": "L1bOC",
+                                  "name": "Icon",
+                                  "width": 15,
+                                  "height": 15,
+                                  "icon": "circle-dashed",
+                                  "library": "lucide",
+                                  "weight": 500,
+                                  "fill": "$L:faint-foreground"
+                                }
+                              ]
+                            },
+                            "L:rGnr4": {
+                              "content": "No template"
+                            },
+                            "L:gNrt5": {
+                              "content": "A title and a free description"
+                            }
+                          }
+                        },
+                        {
                           "id": "crw7w",
                           "type": "ref",
                           "ref": "L:R2pPT",
