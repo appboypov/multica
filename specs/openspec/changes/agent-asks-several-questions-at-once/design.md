@@ -312,7 +312,7 @@ The text output prints the ask id and one line per question id and prompt; `--ou
 
 ## Migration Plan
 
-`575` adds four columns, backfills existing questions as one-question asks, sets `NOT NULL` on `ask_id` and `ask_position` and swaps the status `CHECK` for one with `partly_answered`; `576` adds the concurrent index. Rollback runs the `.down.sql` files in reverse; `575`'s down refuses while a question is `partly_answered`, since UJ-1's `CHECK` cannot hold it. `make local-release` deploys.
+`575` adds four columns, backfills existing questions as one-question asks, sets `NOT NULL` on `ask_id` and `ask_position` and swaps the status `CHECK` for one with `partly_answered`; `576` adds the concurrent index; `577` adds the overdue sweep's index over open and partly answered questions and `578` drops UJ-1's open-only one. Rollback runs the `.down.sql` files in reverse; `575`'s down refuses while a question is `partly_answered`, since UJ-1's `CHECK` cannot hold it. `make local-release` deploys.
 
 ## Open Questions
 

@@ -40,6 +40,7 @@ Every group builds on UJ-1's code (change `answer-an-agents-question-and-wake-it
 - [x] 1.2 `server/migrations/576_question_ask_index.up.sql`, `.down.sql` -- `CREATE INDEX CONCURRENTLY` on `question (ask_id, ask_position)` -- loads a set's questions in order; one concurrent index per file (AGENTS.md).
 - [x] 1.3 `server/pkg/db/queries/question.sql` -- `CreateQuestion` takes the four new columns; add `ListQuestionsByAsk` (workspace-filtered, by `ask_position`) and `ListCurrentAnswers` (the answers of the question's current answerers, joined on `question_answerer`); the overdue sweep returns `ask_id`; the status update takes `partly_answered` -- the reads the policy rule and the per-ask inbox need.
 - [x] 1.4 `server/pkg/db/generated/` -- run `make sqlc` and commit the output -- generated code stays in step with the queries.
+- [x] 1.5 `server/migrations/577_question_overdue_index_v2.up.sql`, `.down.sql` and `578_drop_question_overdue_index.up.sql`, `.down.sql` -- `CREATE INDEX CONCURRENTLY` on `question (due_date) WHERE status IN ('open', 'partly_answered') AND overdue_notified_at IS NULL`, then drop UJ-1's open-only `idx_question_overdue` -- the overdue sweep reads partly answered questions too; one concurrent index per file (AGENTS.md).
 
 ## 2. J2 Data models: DTOs
 
@@ -132,10 +133,9 @@ Every group builds on UJ-1's code (change `answer-an-agents-question-and-wake-it
 
 ## Implementation Notes
 
-- J2 builds on UJ-1's open J11 pull request; group 1 edits UJ-1's tables and group 9 UJ-1's service. The ask migrations use 575 and 576 because UJ-1 uses 566 to 571 and the organisation migrations use 572 to 574.
+- J2 builds on UJ-1's open J11 pull request; group 1 edits UJ-1's tables and group 9 UJ-1's service. The ask migrations use 575 to 578 because UJ-1 uses 566 to 571 and the organisation migrations use 572 to 574.
 - The ask's request and response change together with `multica question ask` (group 12); no web or desktop code posts questions.
 - J2 keeps the single-question service creation path valid under the required ask columns. The grouped service, handler response, notification producers and policy transitions remain in J8; set rendering remains in J9.
-- The overdue read includes `partly_answered`; the existing partial `idx_question_overdue` covers only `open`, so the wider read cannot use that index's predicate.
 
 ## Plan Change Log
 
