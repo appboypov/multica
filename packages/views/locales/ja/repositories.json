@@ -89,7 +89,7 @@
   "card": {
     "toggle": "{{name}} を折りたたむ・展開する",
     "default_branch": "デフォルトブランチ {{branch}}",
-    "menu": "リポジトリの操作",
+    "menu": "{{name}} の操作",
     "edit": "リポジトリを編集",
     "remove": "リポジトリを削除",
     "removing": "削除中…",

@@ -347,7 +347,7 @@ test.describe("Repositories of a project / UJ-2", () => {
     await page.goto(context.projectUrl, { waitUntil: "domcontentloaded" });
 
     // project-repositories: The repository is fixed; A failed check; A moved checkout; Stop releasing.
-    await card.getByRole("button", { name: "Repository actions", exact: true }).click();
+    await card.getByRole("button", { name: `Actions of ${ADMIN}`, exact: true }).click();
     await page.getByRole("menuitem", { name: "Edit repository", exact: true }).click();
     const edit = page.getByRole("dialog", { name: "Edit repository", exact: true });
     await expect(edit.getByText(ADMIN, { exact: true })).toBeVisible();
@@ -368,7 +368,7 @@ test.describe("Repositories of a project / UJ-2", () => {
     expect(edited?.checkout_path).toBe(movedPath);
     expect(edited?.version_policy).toBe("none");
     // Cards show neither field: reopening Edit is their visible persisted readback.
-    await card.getByRole("button", { name: "Repository actions", exact: true }).click();
+    await card.getByRole("button", { name: `Actions of ${ADMIN}`, exact: true }).click();
     await page.getByRole("menuitem", { name: "Edit repository", exact: true }).click();
     await expect(edit.getByLabel("Path", { exact: true })).toHaveValue(movedPath);
     await expect(edit.getByLabel("Releases", { exact: true })).toContainText(NONE);
@@ -392,7 +392,7 @@ test.describe("Repositories of a project / UJ-2", () => {
     expect((await client.getIssue(issue.id)).release_id).toBe(release.id);
     expect((await client.getIssue(issue.id)).status).toBe("done");
     await page.goto(context.projectUrl, { waitUntil: "domcontentloaded" });
-    await card.getByRole("button", { name: "Repository actions", exact: true }).click();
+    await card.getByRole("button", { name: `Actions of ${ADMIN}`, exact: true }).click();
     await page.getByRole("menuitem", { name: "Remove repository", exact: true }).click();
     await expect(toggle).toHaveCount(0);
     await expect(page.getByText(/^0 repositories ·/)).toBeVisible();

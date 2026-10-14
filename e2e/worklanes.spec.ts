@@ -212,7 +212,7 @@ async function chooseOption(page: Page, trigger: Locator, name: string) {
 
 async function openRepositoryMenuItem(page: Page, fullName: string, item: string) {
   const { card } = cardOf(page, fullName);
-  await card.getByRole("button", { name: "Repository actions", exact: true }).click();
+  await card.getByRole("button", { name: `Actions of ${fullName}`, exact: true }).click();
   await page.getByRole("menuitem", { name: item, exact: true }).click();
 }
 

@@ -95,7 +95,8 @@
     "none_planned": "計画中のリリースなし",
     "does_not_release": "リリースしない",
     "column": "前回 · 次回 · 計画中のリリース",
-    "open": "タイムラインで {{version}} を開く"
+    "open": "タイムラインで {{version}} を開く",
+    "open_on_worklane": "{{worklane}} のタイムラインで {{version}} を開く"
   },
   "activity": {
     "planned": "{{actor}} が {{version}} {{title}} を計画しました",

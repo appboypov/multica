@@ -95,7 +95,8 @@
     "none_planned": "没有规划的版本",
     "does_not_release": "不发布版本",
     "column": "上一个 · 下一个 · 已规划版本",
-    "open": "在时间线上打开 {{version}}"
+    "open": "在时间线上打开 {{version}}",
+    "open_on_worklane": "在 {{worklane}} 的时间线上打开 {{version}}"
   },
   "activity": {
     "planned": "{{actor}} 规划了 {{version}} {{title}}",

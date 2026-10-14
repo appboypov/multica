@@ -13,7 +13,7 @@ import {
 } from "@multica/core/releases";
 import { repositoryListOptions } from "@multica/core/repositories";
 import { releaseProgressOptions } from "@multica/core/issues/placement";
-import type { Repository } from "@multica/core/types";
+import type { Repository, Worklane } from "@multica/core/types";
 import { cn } from "@multica/ui/lib/utils";
 import { useT } from "../../i18n";
 import { AppLink } from "../../navigation";
@@ -29,34 +29,35 @@ const STATE_CLASS: Record<ReleaseState, string> = {
 
 /**
  * A release's version as a chip, coloured by its state on the line. With
- * `href` it is a link, as on worklane rows and the Releases page.
+ * `link` it opens that worklane's Timeline at the release, as on worklane rows.
  */
 export function ReleaseChip({
   version,
   state,
-  href,
+  link,
   className,
 }: {
   /** Without the `v`. */
   version: string;
   state: ReleaseState;
-  href?: string;
+  /** The Timeline the chip opens, and the worklane's name, which tells the chips of several rows apart. */
+  link?: { href: string; worklane: string };
   className?: string;
 }) {
   const { t } = useT("releases");
   const classes = cn(
     "inline-flex h-5 shrink-0 items-center rounded-full border px-2 font-mono text-caption font-medium whitespace-nowrap",
     STATE_CLASS[state],
-    href && "transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring",
+    link && "transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring",
     className,
   );
   const label = formatVersion(version);
-  if (href) {
+  if (link) {
     return (
       <AppLink
-        href={href}
+        href={link.href}
         className={classes}
-        aria-label={t(($) => $.chips.open, { version: label })}
+        aria-label={t(($) => $.chips.open_on_worklane, { version: label, worklane: link.worklane })}
         onClick={(e) => e.stopPropagation()}
       >
         {label}
@@ -78,25 +79,23 @@ function Muted({ children }: { children: React.ReactNode }) {
  * Timeline at that release.
  */
 export function ReleaseChips({
-  repositoryId,
-  worklaneId,
+  worklane,
   className,
 }: {
-  repositoryId: string;
-  worklaneId: string;
+  worklane: Pick<Worklane, "id" | "name" | "repository_id">;
   className?: string;
 }) {
   const { t } = useT("releases");
   const wsId = useWorkspaceId();
   const paths = useWorkspacePaths();
   const { data: repositories = NO_REPOSITORIES } = useQuery(repositoryListOptions(wsId));
-  const repository = repositories.find((r) => r.id === repositoryId);
-  const { line, isLoading } = useReleaseLine(repositoryId, repository?.last_tag ?? null);
+  const repository = repositories.find((r) => r.id === worklane.repository_id);
+  const { line, isLoading } = useReleaseLine(worklane.repository_id, repository?.last_tag ?? null);
 
   const { data: progress } = useQuery(releaseProgressOptions(wsId));
   // The worklane's done and total issues in a release, or null when it holds none.
   const progressOf = (releaseId: string) => {
-    const row = progress?.rows.find((r) => r.release_id === releaseId && r.worklane_id === worklaneId);
+    const row = progress?.rows.find((r) => r.release_id === releaseId && r.worklane_id === worklane.id);
     return row && row.total > 0 ? row : null;
   };
   const wrap = (children: React.ReactNode) => (
@@ -122,13 +121,15 @@ export function ReleaseChips({
   const states = lineStates(line);
   const shipped = lastShipped(line);
   const next = nextRelease(line);
-  const hrefOf = (releaseId: string) =>
-    `${paths.worklaneDetail(worklaneId)}?release=${encodeURIComponent(releaseId)}`;
+  const linkOf = (releaseId: string) => ({
+    href: `${paths.worklaneDetail(worklane.id)}?release=${encodeURIComponent(releaseId)}`,
+    worklane: worklane.name,
+  });
 
   return wrap(
     <>
       {shipped ? (
-        <ReleaseChip version={shipped.version} state="shipped" href={hrefOf(shipped.id)} />
+        <ReleaseChip version={shipped.version} state="shipped" link={linkOf(shipped.id)} />
       ) : (
         <Muted>{t(($) => $.chips.nothing_shipped)}</Muted>
       )}
@@ -140,7 +141,7 @@ export function ReleaseChips({
           <ReleaseChip
             version={next.version}
             state={states.get(next.id) ?? "next"}
-            href={hrefOf(next.id)}
+            link={linkOf(next.id)}
           />
         </>
       ) : null}
@@ -153,7 +154,7 @@ export function ReleaseChips({
         .filter((release) => states.get(release.id) === "planned" && progressOf(release.id))
         .slice(0, 2)
         .map((release) => (
-          <ReleaseChip key={release.id} version={release.version} state="planned" href={hrefOf(release.id)} />
+          <ReleaseChip key={release.id} version={release.version} state="planned" link={linkOf(release.id)} />
         ))}
     </>,
   );

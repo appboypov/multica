@@ -95,7 +95,8 @@
     "none_planned": "No releases planned",
     "does_not_release": "Does not release",
     "column": "Last · Next · Planned releases",
-    "open": "Open {{version}} on the Timeline"
+    "open": "Open {{version}} on the Timeline",
+    "open_on_worklane": "Open {{version}} on the Timeline of {{worklane}}"
   },
   "activity": {
     "planned": "{{actor}} planned {{version}} {{title}}",

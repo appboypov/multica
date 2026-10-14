@@ -48,11 +48,7 @@ function WorklaneRow({ worklane }: { worklane: Worklane }) {
             <WorklaneRowWork worklane={worklane} />
           </span>
         </AppLink>
-        <ReleaseChips
-          repositoryId={worklane.repository_id}
-          worklaneId={worklane.id}
-          className="flex-wrap pl-5.5"
-        />
+        <ReleaseChips worklane={worklane} className="flex-wrap pl-5.5" />
       </div>
       {worklane.is_main ? (
         <span aria-hidden className="size-7 shrink-0" />
@@ -170,7 +166,7 @@ export function RepositoryCard({
               <Button
                 variant="ghost"
                 size="icon-sm"
-                aria-label={t(($) => $.card.menu)}
+                aria-label={t(($) => $.card.menu, { name: repository.full_name })}
                 disabled={deleteRepository.isPending}
                 aria-busy={deleteRepository.isPending || undefined}
               />

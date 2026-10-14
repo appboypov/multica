@@ -90,7 +90,7 @@
   "card": {
     "toggle": "Replier ou déplier {{name}}",
     "default_branch": "Branche par défaut {{branch}}",
-    "menu": "Actions du dépôt",
+    "menu": "Actions de {{name}}",
     "edit": "Modifier le dépôt",
     "remove": "Retirer le dépôt",
     "removing": "Retrait…",

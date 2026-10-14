@@ -56,7 +56,7 @@ export function WorklaneTreeRow({
         <WorklaneRowWork worklane={worklane} className="pl-5" />
       </div>
       <div role="cell" className="flex min-w-0 items-center" {...rowLinkInteractiveProps}>
-        <ReleaseChips repositoryId={worklane.repository_id} worklaneId={worklane.id} />
+        <ReleaseChips worklane={worklane} />
       </div>
     </div>
   );

@@ -90,7 +90,7 @@
   "card": {
     "toggle": "Fold or unfold {{name}}",
     "default_branch": "Default branch {{branch}}",
-    "menu": "Repository actions",
+    "menu": "Actions of {{name}}",
     "edit": "Edit repository",
     "remove": "Remove repository",
     "removing": "Removing…",

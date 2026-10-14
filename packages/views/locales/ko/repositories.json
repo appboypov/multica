@@ -89,7 +89,7 @@
   "card": {
     "toggle": "{{name}} 접기 또는 펼치기",
     "default_branch": "기본 브랜치 {{branch}}",
-    "menu": "저장소 작업",
+    "menu": "{{name}} 작업",
     "edit": "저장소 편집",
     "remove": "저장소 제거",
     "removing": "제거 중…",

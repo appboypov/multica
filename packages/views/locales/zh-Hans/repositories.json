@@ -89,7 +89,7 @@
   "card": {
     "toggle": "折叠或展开 {{name}}",
     "default_branch": "默认分支 {{branch}}",
-    "menu": "仓库操作",
+    "menu": "{{name}} 的操作",
     "edit": "编辑仓库",
     "remove": "移除仓库",
     "removing": "正在移除…",

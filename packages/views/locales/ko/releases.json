@@ -95,7 +95,8 @@
     "none_planned": "계획된 릴리스 없음",
     "does_not_release": "릴리스하지 않음",
     "column": "마지막 · 다음 · 계획된 릴리스",
-    "open": "타임라인에서 {{version}} 열기"
+    "open": "타임라인에서 {{version}} 열기",
+    "open_on_worklane": "{{worklane}} 타임라인에서 {{version}} 열기"
   },
   "activity": {
     "planned": "{{actor}}님이 {{version}} {{title}}을(를) 계획했습니다",
