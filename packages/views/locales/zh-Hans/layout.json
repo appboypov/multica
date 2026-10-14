@@ -1,6 +1,7 @@
 {
   "nav": {
     "inbox": "收件箱",
+    "questions": "问题",
     "chat": "聊天",
     "my_issues": "我的任务",
     "issues": "任务",
@@ -26,6 +27,7 @@
     "machine": "机器",
     "runtime": "运行时",
     "attachment": "附件",
+    "answer_all": "全部回答",
     "create_agent": "创建智能体",
     "unknown": "未知页面"
   },

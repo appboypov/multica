@@ -51,6 +51,7 @@ export type TabLabelKey =
   | "machine"
   | "runtime"
   | "attachment"
+  | "answer_all"
   | "create_agent"
   | "unknown";
 
@@ -234,6 +235,11 @@ export function resolveTabPresentation(
           : { kind: "nav", navKey: "chat" };
       return { visual: { kind: "icon", icon: "MessageSquare" }, title };
     }
+    case "answerAll":
+      return {
+        visual: { kind: "icon", icon: WORKSPACE_PAGES.questions.icon },
+        title: { kind: "tab", tabKey: "answer_all" },
+      };
     case "flow":
       return {
         visual: { kind: "icon", icon: "Bot" },

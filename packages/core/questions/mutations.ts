@@ -2,12 +2,16 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { EMPTY_QUESTION_DRAFT, questionDraftKey, useQuestionDraftStore, type QuestionDraft } from "./draft-store";
 import { api } from "../api";
 import type { AnswerQuestionRequest, AskBackQuestionRequest, ReassignQuestionRequest } from "../types/question";
-import { invalidateIssueQuestions } from "./ws-updaters";
+import { invalidateIssueQuestions, invalidateQuestionRows } from "./ws-updaters";
 import { issueKeys } from "../issues/queries";
 
-function useQuestionInvalidation(wsId: string, issueId: string) {
+/** Answers, ask-backs and reassignments also move the Questions page's rows and count. */
+function useAnsweringInvalidation(wsId: string, issueId: string) {
   const qc = useQueryClient();
-  return (id: string) => invalidateIssueQuestions(qc, wsId, issueId, id);
+  return (id: string) => Promise.all([
+    invalidateIssueQuestions(qc, wsId, issueId, id),
+    invalidateQuestionRows(qc, wsId),
+  ]);
 }
 
 /**
@@ -20,7 +24,7 @@ export const questionMutationKeys = {
 };
 
 export function useAnswerQuestion(wsId: string, issueId: string, questionId: string) {
-  const invalidate = useQuestionInvalidation(wsId, issueId);
+  const invalidate = useAnsweringInvalidation(wsId, issueId);
   const draftKey = questionDraftKey(wsId, questionId);
   return useMutation({
     mutationKey: questionMutationKeys.answer(wsId, questionId),
@@ -35,7 +39,7 @@ export function useAnswerQuestion(wsId: string, issueId: string, questionId: str
 }
 
 export function useAskBackQuestion(wsId: string, issueId: string, questionId: string) {
-  const invalidate = useQuestionInvalidation(wsId, issueId);
+  const invalidate = useAnsweringInvalidation(wsId, issueId);
   const draftKey = questionDraftKey(wsId, questionId);
   return useMutation({
     mutationKey: questionMutationKeys.askBack(wsId, questionId),
@@ -46,7 +50,7 @@ export function useAskBackQuestion(wsId: string, issueId: string, questionId: st
 }
 
 export function useReassignQuestion(wsId: string, issueId: string) {
-  const invalidate = useQuestionInvalidation(wsId, issueId);
+  const invalidate = useAnsweringInvalidation(wsId, issueId);
   return useMutation({
     mutationFn: ({ id, ...data }: { id: string } & ReassignQuestionRequest) => api.reassignQuestion(id, data),
     onSettled: (_data, _error, { id }) => invalidate(id),

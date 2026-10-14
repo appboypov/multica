@@ -1,6 +1,7 @@
 {
   "nav": {
     "inbox": "Boîte de réception",
+    "questions": "Questions",
     "chat": "Discussion",
     "my_issues": "Mes tâches",
     "issues": "Tâches",
@@ -26,6 +27,7 @@
     "machine": "Machine",
     "runtime": "Runtime",
     "attachment": "Pièce jointe",
+    "answer_all": "Tout répondre",
     "create_agent": "Créer un agent",
     "unknown": "Page inconnue"
   },

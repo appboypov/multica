@@ -280,6 +280,10 @@
         "label": "받은 편지함으로 이동",
         "description": "워크스페이스 받은 편지함을 엽니다."
       },
+      "goQuestions": {
+        "label": "질문으로 이동",
+        "description": "내 답변을 기다리는 질문을 엽니다."
+      },
       "goChat": {
         "label": "채팅으로 이동",
         "description": "워크스페이스 채팅을 엽니다."

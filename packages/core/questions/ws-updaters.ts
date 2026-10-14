@@ -23,13 +23,24 @@ export async function invalidateIssueQuestions(qc: QueryClient, wsId: string, is
   await Promise.all(filters.map((filter) => qc.invalidateQueries(filter)));
 }
 
+/** The Questions page's rows and the sidebar count: refetched, never patched. */
+export function invalidateQuestionRows(qc: QueryClient, wsId: string) {
+  return Promise.all([
+    qc.invalidateQueries({ queryKey: questionKeys.rowsAll(wsId) }),
+    qc.invalidateQueries({ queryKey: questionKeys.openCount(wsId) }),
+  ]);
+}
+
 /** Question and task events carry identities, not authoritative question data. */
 export function handleQuestionEvent(qc: QueryClient, wsId: string, type: string, payload: unknown) {
   if (type !== "question:created" && type !== "question:updated" && !type.startsWith("task:")) return;
   if (!wsId || !payload || typeof payload !== "object") return;
+  // Events are workspace-wide; every question event may move the viewer's rows.
+  const rows = type.startsWith("question:") ? invalidateQuestionRows(qc, wsId) : undefined;
   const fields = payload as Record<string, unknown>;
-  if (typeof fields.issue_id !== "string" || !fields.issue_id) return;
+  if (typeof fields.issue_id !== "string" || !fields.issue_id) return rows;
   return Promise.all([
+    rows,
     invalidateIssueQuestions(qc, wsId, fields.issue_id,
       typeof fields.question_id === "string" ? fields.question_id : undefined),
     // Wake writes activity without publishing activity:created. Question

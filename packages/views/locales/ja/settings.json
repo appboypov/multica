@@ -280,6 +280,10 @@
         "label": "受信トレイへ移動",
         "description": "ワークスペースの受信トレイを開きます。"
       },
+      "goQuestions": {
+        "label": "質問へ移動",
+        "description": "あなたの回答を待っている質問を開きます。"
+      },
       "goChat": {
         "label": "チャットへ移動",
         "description": "ワークスペースのチャットを開きます。"

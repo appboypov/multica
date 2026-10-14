@@ -280,6 +280,10 @@
         "label": "前往收件箱",
         "description": "打开工作区收件箱。"
       },
+      "goQuestions": {
+        "label": "前往问题",
+        "description": "打开等待你回答的问题。"
+      },
       "goChat": {
         "label": "前往聊天",
         "description": "打开工作区聊天。"

@@ -282,6 +282,10 @@
         "label": "Aller à la boîte de réception",
         "description": "Ouvrir la boîte de réception de l'espace de travail."
       },
+      "goQuestions": {
+        "label": "Aller aux questions",
+        "description": "Ouvrir les questions qui vous attendent."
+      },
       "goChat": {
         "label": "Aller aux discussions",
         "description": "Ouvrir les discussions de l'espace de travail."

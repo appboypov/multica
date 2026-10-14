@@ -45,6 +45,8 @@ export type TabSubject =
   | { kind: "inbox"; selectedKey: string | null; archived: boolean }
   /** The Chat container; `sessionId` is the `?session=` selection or null. */
   | { kind: "chat"; sessionId: string | null }
+  /** Answer all, the one-sitting flow over the viewer's open questions. */
+  | { kind: "answerAll" }
   /** A creation flow that has not produced a resource yet. */
   | { kind: "flow"; flow: "create-agent" }
   /** An unrecognized URL. Never impersonate a real page. */
@@ -102,6 +104,8 @@ export function parseTabSubject(url: string): TabSubject {
         : { kind: "page", page: "squads" };
     case "usage":
       return { kind: "page", page: "usage" };
+    case "questions":
+      return id === "answer" ? { kind: "answerAll" } : { kind: "page", page: "questions" };
     case "inbox":
       return {
         kind: "inbox",
@@ -167,6 +171,8 @@ export function tabSubjectKey(subject: TabSubject): string {
       return `inbox:${subject.archived ? "archived" : "inbox"}:${subject.selectedKey ?? ""}`;
     case "chat":
       return `chat:${subject.sessionId ?? ""}`;
+    case "answerAll":
+      return "answerAll";
     case "flow":
       return `flow:${subject.flow}`;
     case "unknown":

@@ -1,11 +1,17 @@
 import { queryOptions, useQuery } from "@tanstack/react-query";
 import { api } from "../api";
+import type { QuestionRowFilters, QuestionTab } from "../types/question";
 
 export const questionKeys = {
   all: (wsId: string) => ["questions", wsId] as const,
   byIssue: (wsId: string, issueId: string) => [...questionKeys.all(wsId), "issue", issueId] as const,
   details: (wsId: string) => [...questionKeys.all(wsId), "detail"] as const,
   detail: (wsId: string, id: string) => [...questionKeys.details(wsId), id] as const,
+  /** Every row list of the Questions page, for invalidation. */
+  rowsAll: (wsId: string) => [...questionKeys.all(wsId), "rows"] as const,
+  rows: (wsId: string, tab: QuestionTab, filters: QuestionRowFilters) =>
+    [...questionKeys.rowsAll(wsId), tab, filters] as const,
+  openCount: (wsId: string) => [...questionKeys.all(wsId), "open-count"] as const,
 };
 
 export function issueQuestionsOptions(wsId: string, issueId: string) {

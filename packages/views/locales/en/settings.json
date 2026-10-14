@@ -282,6 +282,10 @@
         "label": "Go to Inbox",
         "description": "Open the workspace inbox."
       },
+      "goQuestions": {
+        "label": "Go to Questions",
+        "description": "Open the questions waiting for you."
+      },
       "goChat": {
         "label": "Go to Chat",
         "description": "Open workspace chat."

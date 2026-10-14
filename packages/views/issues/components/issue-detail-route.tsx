@@ -50,7 +50,13 @@ export function parseCommentHighlightHash(hash: string): string | undefined {
   return match?.[1];
 }
 
-function useCommentHighlightHash(): { hash: string; commentId?: string } {
+/** `#question-<id>`, the anchor of a question's card, as the Questions page links it. */
+export function parseQuestionHighlightHash(hash: string): string | undefined {
+  const match = /^#question-([A-Za-z0-9_-]+)$/.exec(hash);
+  return match?.[1];
+}
+
+function useCommentHighlightHash(): { hash: string; commentId?: string; questionId?: string } {
   const read = () => typeof window === "undefined" ? "" : window.location.hash;
   const [hash, setHash] = useState(read);
 
@@ -60,7 +66,7 @@ function useCommentHighlightHash(): { hash: string; commentId?: string } {
     return () => window.removeEventListener("hashchange", onHashChange);
   }, []);
 
-  return { hash, commentId: parseCommentHighlightHash(hash) };
+  return { hash, commentId: parseCommentHighlightHash(hash), questionId: parseQuestionHighlightHash(hash) };
 }
 
 /**
@@ -94,6 +100,7 @@ export function IssueDetailRoute({ routeId, onDelete }: IssueDetailRouteProps) {
       issueId={canonicalId}
       onDelete={onDelete}
       highlightCommentId={highlight.commentId}
+      highlightQuestionId={highlight.questionId}
     />
   );
 }

@@ -1,6 +1,7 @@
 {
   "nav": {
     "inbox": "インボックス",
+    "questions": "質問",
     "chat": "チャット",
     "my_issues": "マイタスク",
     "issues": "タスク",
@@ -26,6 +27,7 @@
     "machine": "マシン",
     "runtime": "ランタイム",
     "attachment": "添付ファイル",
+    "answer_all": "すべて回答",
     "create_agent": "エージェントを作成",
     "unknown": "不明なページ"
   },

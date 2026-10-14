@@ -10,6 +10,10 @@ import type {
   AnswerQuestionRequest,
   AskBackQuestionRequest,
   Question,
+  QuestionOpenCount,
+  QuestionRowFilters,
+  QuestionRowPage,
+  QuestionTab,
   QuestionWakeResult,
   ReassignQuestionRequest,
 } from "../types/question";
@@ -277,6 +281,10 @@ import {
   EMPTY_QUESTION_LIST,
   EMPTY_QUESTION_WAKE_RESULT,
   EMPTY_AGENT_QUESTIONS_SETTINGS,
+  QuestionRowPageSchema,
+  QuestionOpenCountSchema,
+  EMPTY_QUESTION_ROW_PAGE,
+  EMPTY_QUESTION_OPEN_COUNT,
   RuntimeProfileSchema,
   RuntimeProfileListSchema,
   AgentTaskListSchema,
@@ -3739,6 +3747,34 @@ export class ApiClient {
     const raw: unknown = await this.fetch(`/api/questions/${id}/wake`, { method: "POST" });
     return parseWithFallback(raw, QuestionWakeResultSchema, EMPTY_QUESTION_WAKE_RESULT, {
       endpoint: "POST /api/questions/:id/wake",
+    });
+  }
+
+  /** One page of the viewer's question rows on a tab of the Questions page (ADR-0006). */
+  async listQuestionRows(
+    tab: QuestionTab,
+    filters: QuestionRowFilters,
+    cursor: string | null,
+    signal?: AbortSignal,
+  ): Promise<QuestionRowPage> {
+    const params = new URLSearchParams({ tab });
+    for (const type of filters.answer_types) params.append("answer_type", type);
+    for (const id of filters.asker_ids) params.append("asker_id", id);
+    for (const id of filters.answerer_ids) params.append("answerer_id", id);
+    for (const id of filters.link_ids) params.append("link_id", id);
+    if (filters.blocks_work) params.set("blocks_work", "true");
+    if (cursor) params.set("cursor", cursor);
+    const raw: unknown = await this.fetch(`/api/questions?${params}`, { signal });
+    return parseWithFallback(raw, QuestionRowPageSchema, EMPTY_QUESTION_ROW_PAGE, {
+      endpoint: "GET /api/questions",
+    });
+  }
+
+  /** The number of questions open for the viewer, as the sidebar shows it. */
+  async getOpenQuestionCount(signal?: AbortSignal): Promise<QuestionOpenCount> {
+    const raw: unknown = await this.fetch("/api/questions/open-count", { signal });
+    return parseWithFallback(raw, QuestionOpenCountSchema, EMPTY_QUESTION_OPEN_COUNT, {
+      endpoint: "GET /api/questions/open-count",
     });
   }
 

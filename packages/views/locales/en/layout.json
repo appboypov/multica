@@ -1,6 +1,7 @@
 {
   "nav": {
     "inbox": "Inbox",
+    "questions": "Questions",
     "chat": "Chat",
     "my_issues": "My Issues",
     "issues": "Issues",
@@ -26,6 +27,7 @@
     "machine": "Machine",
     "runtime": "Runtime",
     "attachment": "Attachment",
+    "answer_all": "Answer all",
     "create_agent": "Create Agent",
     "unknown": "Unknown page"
   },
