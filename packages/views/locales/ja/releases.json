@@ -30,6 +30,7 @@
     "description_placeholder": "このリリースでできること",
     "optional": "任意",
     "ships": "タスクが完了してマージされると、Multica は {{branch}} に {{version}} のタグを付け、リリースノートを書き、GitHub リリースを公開します。日付はリリース時に決まります。",
+    "its_version": "そのバージョン",
     "finding_tag": "最新のタグを確認中",
     "cancel": "キャンセル",
     "submit_plan": "{{version}} を計画",

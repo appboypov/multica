@@ -5,7 +5,9 @@ import { FolderGit2, GitBranch } from "lucide-react";
 import { useWorkspaceId } from "@multica/core/hooks";
 import { useWorkspacePaths } from "@multica/core/paths";
 import { projectDetailOptions } from "@multica/core/projects/queries";
+import { lastShipped, formatVersion } from "@multica/core/releases";
 import { repositoryListOptions } from "@multica/core/repositories";
+import type { Repository } from "@multica/core/types";
 import { useWorklane } from "@multica/core/worklanes";
 import { Skeleton } from "@multica/ui/components/ui/skeleton";
 import { cn } from "@multica/ui/lib/utils";
@@ -13,6 +15,7 @@ import { BreadcrumbHeader } from "../../layout/breadcrumb-header";
 import { CollectionPageState } from "../../layout/collection-page";
 import { PAGE_GUTTER } from "../../layout/page-header";
 import { useT } from "../../i18n";
+import { useReleaseLine } from "../../releases/use-release-line";
 import { WorklaneActivity } from "./worklane-activity";
 import { WorklaneMenu } from "./worklane-menu";
 import { WorklaneStateLabel } from "./worklane-state";
@@ -103,6 +106,7 @@ export function WorklanePage({ worklaneId }: { worklaneId: string }) {
                   {repository.full_name}
                 </span>
                 <WorklaneStateLabel state={worklane.state} />
+                <WorklaneReleaseStatus repository={repository} />
               </div>
             </div>
           </header>
@@ -111,5 +115,26 @@ export function WorklanePage({ worklaneId }: { worklaneId: string }) {
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * The header's release status: "does not release", "last shipped
+ * v{version}" or "nothing shipped yet" while the repository has shipped no
+ * release. A release shows no date or goal until it ships.
+ */
+function WorklaneReleaseStatus({ repository }: { repository: Repository }) {
+  const { t } = useT("worklanes");
+  const { line, isLoading } = useReleaseLine(repository.id, repository.last_tag);
+  if (isLoading) return null;
+  const shipped = lastShipped(line);
+  return (
+    <span className="text-caption text-muted-foreground">
+      {repository.version_policy === "none"
+        ? t(($) => $.page.does_not_release)
+        : shipped
+          ? t(($) => $.page.last_shipped, { version: formatVersion(shipped.version) })
+          : t(($) => $.page.nothing_shipped)}
+    </span>
   );
 }

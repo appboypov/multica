@@ -69,6 +69,7 @@
     "last_tag": "Dernier tag {{tag}}",
     "no_tags": "Aucun tag pour l'instant",
     "none_note": "Ses worklanes ne planifient pas de versions.",
+    "unshipped": "Retirez d’abord ses versions non publiées : {{releases}}.",
     "pick_repository_first": "Choisissez d'abord un dépôt"
   },
   "section": {

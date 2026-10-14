@@ -30,6 +30,7 @@
     "description_placeholder": "Ce que cette version apporte",
     "optional": "Facultatif",
     "ships": "Quand ses tâches sont terminées et fusionnées, Multica pose le tag {{version}} sur {{branch}}, rédige les notes de version et publie la release GitHub. Elle reçoit sa date à sa sortie.",
+    "its_version": "sa version",
     "finding_tag": "Recherche du dernier tag",
     "cancel": "Annuler",
     "submit_plan": "Planifier {{version}}",

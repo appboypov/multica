@@ -68,6 +68,7 @@
     "last_tag": "最新标签 {{tag}}",
     "no_tags": "还没有标签",
     "none_note": "它的 worklane 不规划版本。",
+    "unshipped": "请先移除它未发布的版本：{{releases}}。",
     "pick_repository_first": "请先选择仓库"
   },
   "section": {

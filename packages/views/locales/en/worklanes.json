@@ -11,7 +11,10 @@
     "not_found": "Worklane not found",
     "not_found_description": "Check the link, or open the worklane from its repository.",
     "repository": "Repository",
-    "state_label": "State"
+    "state_label": "State",
+    "nothing_shipped": "nothing shipped yet",
+    "last_shipped": "last shipped {{version}}",
+    "does_not_release": "does not release"
   },
   "timeline": {
     "title": "Timeline",

@@ -6,14 +6,17 @@ import { releaseListOptions, selectLine } from "@multica/core/releases";
 import type { Repository, Worklane } from "@multica/core/types";
 import { Skeleton } from "@multica/ui/components/ui/skeleton";
 import { useT } from "../../i18n";
+import { PlanReleaseButton, ReleaseLine } from "../../releases/components/release-line";
 
 const EMPTY: never[] = [];
 
 /**
- * The worklane's Timeline: its repository's release line, or "No releases
- * yet" while the repository has none.
+ * The worklane's Timeline: its repository's release line followed by Plan
+ * release, or "No releases yet" and Plan release while the repository has
+ * none. A repository that does not release says so in place of both.
  */
 export function WorklaneTimeline({
+  worklane,
   repository,
 }: {
   worklane: Worklane;
@@ -31,11 +34,18 @@ export function WorklaneTimeline({
       </h2>
       {isLoading ? (
         <Skeleton className="h-16 w-full" />
-      ) : line.length === 0 ? (
-        <p className="rounded-lg border border-dashed px-4 py-6 text-center text-body text-muted-foreground">
-          {t(($) => $.timeline.no_releases)}
-        </p>
-      ) : null}
+      ) : line.length > 0 ? (
+        <ReleaseLine repository={repository} worklane={worklane} />
+      ) : repository.version_policy === "none" ? (
+        <PlanReleaseButton repository={repository} worklane={worklane} />
+      ) : (
+        <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed px-4 py-6">
+          <p className="text-center text-body text-muted-foreground">
+            {t(($) => $.timeline.no_releases)}
+          </p>
+          <PlanReleaseButton repository={repository} worklane={worklane} />
+        </div>
+      )}
     </section>
   );
 }

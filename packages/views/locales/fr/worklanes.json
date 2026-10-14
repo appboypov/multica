@@ -11,7 +11,10 @@
     "not_found": "Worklane introuvable",
     "not_found_description": "Vérifiez le lien, ou ouvrez le worklane depuis son dépôt.",
     "repository": "Dépôt",
-    "state_label": "État"
+    "state_label": "État",
+    "nothing_shipped": "rien de publié pour l’instant",
+    "last_shipped": "dernière version publiée {{version}}",
+    "does_not_release": "ne publie pas de versions"
   },
   "timeline": {
     "title": "Chronologie",

@@ -25,6 +25,8 @@ const VERSION_FILES: readonly VersionPolicy[] = [
  * release. The first option is picked when the value is not one of them, so
  * a repository without a version file starts on Tags only. `keep` stays
  * offered even when the check did not find it, so Edit shows the saved policy.
+ * Picking This repository does not release while `unshipped` names releases
+ * says to remove them first (the `repository-stops-releasing` delta).
  */
 export function ReleasesField({
   versionFiles,
@@ -33,6 +35,7 @@ export function ReleasesField({
   onChange,
   keep,
   disabled,
+  unshipped,
 }: {
   /** The version files of the check; null before a repository is picked and checked. */
   versionFiles: readonly string[] | null;
@@ -42,6 +45,8 @@ export function ReleasesField({
   onChange: (value: VersionPolicy) => void;
   keep?: VersionPolicy;
   disabled?: boolean;
+  /** The repository's unshipped releases, versions without `v`; it cannot stop releasing while any remain. */
+  unshipped?: readonly { version: string; title: string }[];
 }) {
   const { t } = useT("repositories");
 
@@ -90,7 +95,13 @@ export function ReleasesField({
           ))}
         </SelectContent>
       </Select>
-      {value === "none" ? (
+      {value === "none" && unshipped && unshipped.length > 0 ? (
+        <p role="alert" className="text-caption text-destructive">
+          {t(($) => $.releases.unshipped, {
+            releases: unshipped.map((r) => `v${r.version} ${r.title}`).join(", "),
+          })}
+        </p>
+      ) : value === "none" ? (
         <p className="text-caption text-muted-foreground">{t(($) => $.releases.none_note)}</p>
       ) : value !== null && lastTag !== null ? (
         <p className="text-caption text-muted-foreground">

@@ -7,7 +7,12 @@ import { FolderGit2 } from "lucide-react";
 import type { Repository, RepositoryCheckoutRequest, VersionPolicy } from "@multica/core/types";
 import { clientErrorMessage } from "@multica/core/api";
 import { useWorkspaceId } from "@multica/core/hooks";
-import { repositoryListOptions, useUpdateRepository } from "@multica/core/repositories";
+import { releaseListOptions, selectLine } from "@multica/core/releases";
+import {
+  repositoryListOptions,
+  repositoryRefusalOf,
+  useUpdateRepository,
+} from "@multica/core/repositories";
 import { Button } from "@multica/ui/components/ui/button";
 import {
   Dialog,
@@ -64,19 +69,28 @@ function EditRepositoryForm({
   const [check, setCheck] = useState<RepositoryCheckoutRequest | null>(null);
   const [policy, setPolicy] = useState<VersionPolicy | null>(repository.version_policy);
   const [serverError, setServerError] = useState<string | null>(null);
+  const wsId = useWorkspaceId();
+  const { data: releases } = useQuery(releaseListOptions(wsId));
+  const lineUnshipped = selectLine(releases ?? [], repository.id).filter((r) => r.shipped_at === null);
+  // The server's has_unshipped_releases answer wins over the cached line.
+  const [refusedReleases, setRefusedReleases] = useState<{ version: string; title: string }[] | null>(null);
+  const unshipped = refusedReleases ?? lineUnshipped;
 
   const checkoutChanged =
     checkout.daemonId !== repository.checkout_daemon_id ||
     checkout.path.trim() !== repository.checkout_path;
   const policyChanged = policy !== null && policy !== repository.version_policy;
+  const stopsReleasingTooEarly = policy === "none" && unshipped.length > 0;
   const canSave =
     (checkoutChanged ? !!check?.passed : policyChanged) &&
     policy !== null &&
+    !stopsReleasingTooEarly &&
     !updateRepository.isPending;
 
   const handleSave = async () => {
     if (!canSave || !policy) return;
     setServerError(null);
+    setRefusedReleases(null);
     try {
       await updateRepository.mutateAsync({
         id: repository.id,
@@ -86,6 +100,11 @@ function EditRepositoryForm({
       onClose();
       toast.success(t(($) => $.edit.toast_saved, { name: repository.full_name }));
     } catch (err) {
+      const refusal = repositoryRefusalOf(err);
+      if (refusal?.code === "has_unshipped_releases") {
+        setRefusedReleases(refusal.releases);
+        return;
+      }
       setServerError(clientErrorMessage(err) ?? t(($) => $.edit.failed));
     }
   };
@@ -128,8 +147,12 @@ function EditRepositoryForm({
             versionFiles={check ? check.version_files : null}
             lastTag={check ? check.last_tag : repository.last_tag}
             value={policy}
-            onChange={setPolicy}
+            onChange={(next) => {
+              setPolicy(next);
+              setRefusedReleases(null);
+            }}
             keep={repository.version_policy}
+            unshipped={unshipped}
           />
 
           {serverError ? (

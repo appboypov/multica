@@ -68,6 +68,7 @@
     "last_tag": "마지막 태그 {{tag}}",
     "no_tags": "아직 태그가 없습니다",
     "none_note": "이 저장소의 worklane은 릴리스를 계획하지 않습니다.",
+    "unshipped": "먼저 출시되지 않은 릴리스를 제거하세요: {{releases}}.",
     "pick_repository_first": "먼저 저장소를 선택하세요"
   },
   "section": {

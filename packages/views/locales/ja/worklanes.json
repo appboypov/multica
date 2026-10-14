@@ -10,7 +10,10 @@
     "not_found": "worklane が見つかりません",
     "not_found_description": "リンクを確認するか、リポジトリから worklane を開いてください。",
     "repository": "リポジトリ",
-    "state_label": "状態"
+    "state_label": "状態",
+    "nothing_shipped": "まだリリースなし",
+    "last_shipped": "最終リリース {{version}}",
+    "does_not_release": "リリースしない"
   },
   "timeline": {
     "title": "タイムライン",

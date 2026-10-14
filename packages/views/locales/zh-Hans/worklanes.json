@@ -10,7 +10,10 @@
     "not_found": "找不到 worklane",
     "not_found_description": "请检查链接，或从它的仓库打开 worklane。",
     "repository": "仓库",
-    "state_label": "状态"
+    "state_label": "状态",
+    "nothing_shipped": "尚未发布任何版本",
+    "last_shipped": "最近发布 {{version}}",
+    "does_not_release": "不发布版本"
   },
   "timeline": {
     "title": "时间线",

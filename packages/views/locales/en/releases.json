@@ -30,6 +30,7 @@
     "description_placeholder": "What this release brings",
     "optional": "Optional",
     "ships": "When its issues are done and merged, Multica tags {{version}} on {{branch}}, writes the release note and publishes the GitHub release. It gets its date when it ships.",
+    "its_version": "its version",
     "finding_tag": "Finding the last tag",
     "cancel": "Cancel",
     "submit_plan": "Plan {{version}}",

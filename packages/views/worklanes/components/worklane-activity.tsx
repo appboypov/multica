@@ -1,9 +1,10 @@
 "use client";
 
 import { useWorkspaceId } from "@multica/core/hooks";
+import { formatVersion } from "@multica/core/releases";
 import { useActorName } from "@multica/core/workspace/hooks";
 import { useWorklaneActivity } from "@multica/core/worklanes";
-import type { Worklane, WorklaneActivityEntry } from "@multica/core/types";
+import type { ReleaseVersionChange, Worklane, WorklaneActivityEntry } from "@multica/core/types";
 import { Skeleton } from "@multica/ui/components/ui/skeleton";
 import { ActorAvatar } from "../../common/actor-avatar";
 import { useLocale, useT } from "../../i18n";
@@ -44,12 +45,14 @@ export function WorklaneActivity({ worklane }: { worklane: Worklane }) {
 
 function WorklaneActivityRow({ entry }: { entry: WorklaneActivityEntry }) {
   const { t } = useT("worklanes");
+  const { t: tReleases } = useT("releases");
   const locale = useLocale();
   const { getActorName } = useActorName();
   const actorId = entry.actor_id ?? "";
   const actor = getActorName(entry.actor_type, actorId);
 
   let sentence: string;
+  let changes: ReleaseVersionChange[] = [];
   switch (entry.action) {
     case "worklane_created":
       sentence = t(($) => $.activity.worklane_created, {
@@ -79,6 +82,46 @@ function WorklaneActivityRow({ entry }: { entry: WorklaneActivityEntry }) {
             ? t(($) => $.branch.kept_unpushed, { branch: entry.details.branch, count: entry.details.count })
             : t(($) => $.branch.kept, { branch: entry.details.branch });
       break;
+    // Release sentences name the release by its version after the change,
+    // and list each changed version (the `release-line-activity` delta).
+    case "release_planned":
+      sentence = tReleases(($) => $.activity.planned, {
+        actor,
+        version: formatVersion(entry.details.version),
+        title: entry.details.title,
+      });
+      break;
+    case "release_edited":
+      sentence = tReleases(($) => $.activity.edited, {
+        actor,
+        version: formatVersion(entry.details.version),
+        title: entry.details.title,
+      });
+      changes = entry.details.changes;
+      break;
+    case "release_moved": {
+      const values = {
+        actor,
+        version: formatVersion(entry.details.version),
+        title: entry.details.title,
+      };
+      sentence =
+        entry.details.direction === "earlier"
+          ? tReleases(($) => $.activity.moved_earlier, values)
+          : entry.details.direction === "later"
+            ? tReleases(($) => $.activity.moved_later, values)
+            : tReleases(($) => $.activity.moved, values);
+      changes = entry.details.changes;
+      break;
+    }
+    case "release_removed":
+      sentence = tReleases(($) => $.activity.removed, {
+        actor,
+        version: formatVersion(entry.details.version),
+        title: entry.details.title,
+      });
+      changes = entry.details.changes;
+      break;
     default:
       return null;
   }
@@ -91,6 +134,19 @@ function WorklaneActivityRow({ entry }: { entry: WorklaneActivityEntry }) {
         <time dateTime={entry.created_at} className="text-caption text-muted-foreground">
           {new Date(entry.created_at).toLocaleString(locale, { dateStyle: "long", timeStyle: "short" })}
         </time>
+        {changes.length > 0 ? (
+          <ul className="basis-full space-y-0.5">
+            {changes.map((change) => (
+              <li key={change.release_id} className="text-caption text-muted-foreground">
+                {tReleases(($) => $.activity.change, {
+                  title: change.title,
+                  from: formatVersion(change.from),
+                  to: formatVersion(change.to),
+                })}
+              </li>
+            ))}
+          </ul>
+        ) : null}
       </div>
     </li>
   );

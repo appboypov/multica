@@ -30,6 +30,7 @@
     "description_placeholder": "이 릴리스가 가져오는 것",
     "optional": "선택",
     "ships": "태스크가 완료되고 병합되면 Multica가 {{branch}}에 {{version}} 태그를 달고, 릴리스 노트를 작성하고, GitHub 릴리스를 게시합니다. 날짜는 출시할 때 정해집니다.",
+    "its_version": "해당 버전",
     "finding_tag": "마지막 태그를 찾는 중",
     "cancel": "취소",
     "submit_plan": "{{version}} 계획",

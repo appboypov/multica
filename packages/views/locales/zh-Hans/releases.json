@@ -30,6 +30,7 @@
     "description_placeholder": "这个版本带来什么",
     "optional": "可选",
     "ships": "当它的任务完成并合并后，Multica 会在 {{branch}} 上打 {{version}} 标签，撰写发布说明并发布 GitHub release。它在发布时获得日期。",
+    "its_version": "它的版本",
     "finding_tag": "正在查找最新标签",
     "cancel": "取消",
     "submit_plan": "规划 {{version}}",

@@ -69,6 +69,7 @@
     "last_tag": "Last tag {{tag}}",
     "no_tags": "No tags yet",
     "none_note": "Its worklanes plan no releases.",
+    "unshipped": "Remove its unshipped releases first: {{releases}}.",
     "pick_repository_first": "Pick a repository first"
   },
   "section": {

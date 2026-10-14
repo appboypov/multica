@@ -68,6 +68,7 @@
     "last_tag": "最新タグ {{tag}}",
     "no_tags": "タグはまだありません",
     "none_note": "その worklane ではリリースを計画しません。",
+    "unshipped": "先に未リリースのリリースを削除してください：{{releases}}。",
     "pick_repository_first": "先にリポジトリを選択してください"
   },
   "section": {
