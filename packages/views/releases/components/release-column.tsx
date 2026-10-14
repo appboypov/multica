@@ -27,6 +27,7 @@ export function ReleaseColumn({
   line,
   findingTag = false,
   highlighted = false,
+  worklaneId,
   children,
 }: {
   repository: Repository;
@@ -36,6 +37,8 @@ export function ReleaseColumn({
   findingTag?: boolean;
   /** The release `?release={id}` points at. */
   highlighted?: boolean;
+  /** The worklane whose Timeline shows the column: its menu adds issues. */
+  worklaneId?: string;
   children?: React.ReactNode;
 }) {
   const { t } = useT("releases");
@@ -68,7 +71,13 @@ export function ReleaseColumn({
             {release.bump === null && state !== "shipped" ? <SetByHand /> : null}
             <div className="flex-1" />
             {state !== "shipped" ? (
-              <ReleaseMenu repository={repository} release={release} line={line} findingTag={findingTag} />
+              <ReleaseMenu
+                repository={repository}
+                release={release}
+                line={line}
+                findingTag={findingTag}
+                worklaneId={worklaneId}
+              />
             ) : null}
           </div>
           <h3 className="mt-2 text-body-lg font-medium">{release.title}</h3>

@@ -12,6 +12,7 @@ import {
   type ReleaseState,
 } from "@multica/core/releases";
 import { repositoryListOptions } from "@multica/core/repositories";
+import { releaseProgressOptions } from "@multica/core/issues/placement";
 import type { Repository } from "@multica/core/types";
 import { cn } from "@multica/ui/lib/utils";
 import { useT } from "../../i18n";
@@ -92,6 +93,12 @@ export function ReleaseChips({
   const repository = repositories.find((r) => r.id === repositoryId);
   const { line, isLoading } = useReleaseLine(repositoryId, repository?.last_tag ?? null);
 
+  const { data: progress } = useQuery(releaseProgressOptions(wsId));
+  // The worklane's done and total issues in a release, or null when it holds none.
+  const progressOf = (releaseId: string) => {
+    const row = progress?.rows.find((r) => r.release_id === releaseId && r.worklane_id === worklaneId);
+    return row && row.total > 0 ? row : null;
+  };
   const wrap = (children: React.ReactNode) => (
     <span className={cn("inline-flex min-w-0 items-center gap-1.5", className)}>{children}</span>
   );
@@ -137,6 +144,17 @@ export function ReleaseChips({
           />
         </>
       ) : null}
+      {next && progressOf(next.id) ? (
+        <span className="shrink-0 text-caption tabular-nums text-muted-foreground">
+          {progressOf(next.id)?.done}/{progressOf(next.id)?.total}
+        </span>
+      ) : null}
+      {line.releases
+        .filter((release) => states.get(release.id) === "planned" && progressOf(release.id))
+        .slice(0, 2)
+        .map((release) => (
+          <ReleaseChip key={release.id} version={release.version} state="planned" href={hrefOf(release.id)} />
+        ))}
     </>,
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { toast } from "sonner";
-import { ArrowDown, ArrowUp, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, ListPlus, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { clientErrorMessage } from "@multica/core/api";
 import { useModalStore } from "@multica/core/modals";
 import {
@@ -35,12 +35,15 @@ export function ReleaseMenu({
   release,
   line,
   findingTag = false,
+  worklaneId,
 }: {
   repository: Repository;
   release: Release;
   line: Line;
   /** The repository's last tag is being found; moves wait for it. */
   findingTag?: boolean;
+  /** On a worklane: Add issue to release ticks its issues in no release. */
+  worklaneId?: string;
 }) {
   const { t } = useT("releases");
   const open = useModalStore((s) => s.open);
@@ -99,6 +102,14 @@ export function ReleaseMenu({
           <Pencil className="size-3.5" aria-hidden="true" />
           {t(($) => $.menu.edit)}
         </DropdownMenuItem>
+        {worklaneId ? (
+          <DropdownMenuItem
+            onClick={() => open("add-issues-to-release", { releaseId: release.id, worklaneId })}
+          >
+            <ListPlus className="size-3.5" aria-hidden="true" />
+            {t(($) => $.issues.add_issue)}
+          </DropdownMenuItem>
+        ) : null}
         <MoveItem
           label={t(($) => $.menu.move_earlier)}
           icon={<ArrowUp className="size-3.5" aria-hidden="true" />}

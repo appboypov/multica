@@ -55,9 +55,10 @@ export function AddIssuesDialog({
       onClose();
     } catch (err) {
       const refusal = placementRefusalOf(err);
+      const code = refusal?.code;
       setError(
-        refusal && refusal.code !== "worklane_has_open_issues"
-          ? tIssues(($) => $.placement_refusal[refusal.code], {
+        refusal && code && code !== "worklane_has_open_issues"
+          ? tIssues(($) => $.placement_refusal[code], {
               version: refusal.version ? formatVersion(refusal.version) : version,
               title: refusal.title ?? release.title,
               issues: refusal.issues.map((entry) => entry.identifier).join(", "),

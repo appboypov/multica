@@ -2550,8 +2550,9 @@ export function IssueDetail({ issueId, onDelete, onDone, defaultSidebarOpen = tr
       toast.error(t(($) => $.placement_refusal.unknown));
       return;
     }
+    const code = refusal.code;
     toast.error(
-      t(($) => $.placement_refusal[refusal.code], {
+      t(($) => $.placement_refusal[code], {
         version: refusal.version ? formatVersion(refusal.version) : "",
         title: refusal.title ?? "",
         issues: refusal.issues.map((entry) => entry.identifier).join(", "),
