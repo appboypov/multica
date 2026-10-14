@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { issueDetailOptions } from "@multica/core/issues/queries";
 import { issueStatusListOptions } from "@multica/core/issue-statuses/queries";
 import { projectDetailOptions } from "@multica/core/projects/queries";
+import { organisationDetailOptions } from "@multica/core/organisations";
 import { chatSessionsOptions } from "@multica/core/chat/queries";
 import {
   inboxListOptions,
@@ -66,6 +67,11 @@ function seed(qc: QueryClient) {
     id: "p1",
     icon: "🚀",
     title: "Apollo",
+  } as never);
+  qc.setQueryData(organisationDetailOptions("ws1", "o1").queryKey, {
+    id: "o1",
+    name: "Rebl Records",
+    key: "rebl",
   } as never);
   qc.setQueryData(chatSessionsOptions("ws1").queryKey, [
     { id: "s1", title: "Deploy plan", status: "active" },
@@ -156,6 +162,13 @@ describe("useTabPresentation — live from cache", () => {
     expect(presentationOf("/acme/projects/p1")).toEqual({
       visual: { kind: "project-icon", icon: "🚀" },
       title: "Apollo",
+    });
+  });
+
+  it("organisation: building icon + name", () => {
+    expect(presentationOf("/acme/organisations/o1")).toEqual({
+      visual: { kind: "icon", icon: "Building2" },
+      title: "Rebl Records",
     });
   });
 

@@ -20,6 +20,7 @@ vi.mock("@tanstack/react-query", () => ({
 const createProjectMock = vi.hoisted(() => vi.fn().mockResolvedValue({ id: "p1" }));
 // The draft's organisation; each test starts from Rebl Records.
 const draftState = vi.hoisted(() => ({ organisationId: "org-rebl" as string | undefined }));
+const setDraftMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@multica/core/projects/mutations", () => ({
   useCreateProject: () => ({ mutateAsync: createProjectMock }),
@@ -37,7 +38,7 @@ vi.mock("@multica/core/projects", () => ({
         icon: undefined,
         organisationId: draftState.organisationId,
       },
-      setDraft: vi.fn(),
+      setDraft: setDraftMock,
       clearDraft: vi.fn(),
     }),
 }));
@@ -283,6 +284,8 @@ describe("CreateProjectModal", () => {
     await user.click(screen.getByRole("button", { name: /^create project$/i }));
 
     expect(createProjectMock.mock.calls[0]?.[0]).toMatchObject({ organisation_id: "org-das" });
+    // The draft keeps it, so a draft resumed from Projects returns to it.
+    expect(setDraftMock).toHaveBeenCalledWith({ organisationId: "org-das" });
   });
 
   it("cannot create without an organisation, until one is picked", async () => {

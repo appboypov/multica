@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { ChevronRight, FolderOpen, GitBranch, Maximize2, Minimize2, Pencil, Search, X as XIcon, UserMinus } from "lucide-react";
 
 /**
@@ -158,10 +158,16 @@ export function CreateProjectModal({
 
   const [title, setTitle] = useState(draft.title);
   const descEditorRef = useRef<ContentEditorRef>(null);
-  // Opened from an organisation's page, New project starts in it.
+  // Opened from an organisation's page, New project starts in it, and the
+  // draft keeps it, so a resumed draft returns to that organisation.
+  const presetOrganisationId =
+    typeof data?.organisationId === "string" ? data.organisationId : undefined;
   const [organisationId, setOrganisationId] = useState<string | undefined>(
-    typeof data?.organisationId === "string" ? data.organisationId : draft.organisationId,
+    presetOrganisationId ?? draft.organisationId,
   );
+  useEffect(() => {
+    if (presetOrganisationId) setDraft({ organisationId: presetOrganisationId });
+  }, [presetOrganisationId, setDraft]);
   const [priority, setPriority] = useState<ProjectPriority>(draft.priority);
   const [leadType, setLeadType] = useState<"member" | "agent" | undefined>(draft.leadType);
   const [leadId, setLeadId] = useState<string | undefined>(draft.leadId);
