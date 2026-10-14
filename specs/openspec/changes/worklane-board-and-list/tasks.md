@@ -160,7 +160,7 @@ This change builds on UJ-5 (`issues-from-templates`, DAS-456), which builds on U
 - [x] 14.6 `packages/views/agents/components/tabs/task-failure.ts` -- `worklane_elsewhere` and `worklane_branch_held` as actionable, with their labels.
 - [ ] 14.7 `packages/views/locales/{en,zh-Hans,ko,ja,fr}/` -- `issues` (the move toast, Open issue, No worklane), `worklanes` (the views, Type, No type, Busy, Free, now, next, the List's empty states, the two activity sentences), `agents` (the two failure labels) -- design.md decision 9.
 - [ ] 14.8 `packages/views/worklanes/components/worklane-page.test.tsx`, `worklane-list.test.tsx` -- the page opening on Timeline, switching views keeping the Type filter, the header Busy and Free; the List's sections, "No release" and the empty states.
-- [ ] 14.9 `apps/docs/content/docs/projects.mdx`, `projects.zh.mdx`, `projects.ko.mdx`, `projects.ja.mdx`, `projects.fr.mdx` -- a worklane's views, the Type filter, Busy and Free with now and next, and how agents work a worklane's issues in its worktree.
+- [x] 14.9 `apps/docs/content/docs/projects.mdx`, `projects.zh.mdx`, `projects.ko.mdx`, `projects.ja.mdx`, `projects.fr.mdx` -- a worklane's views, the Type filter, Busy and Free with now and next, and how agents work a worklane's issues in its worktree.
 
 ## 15. J11 Acceptance test and archive: acceptance test and archive
 

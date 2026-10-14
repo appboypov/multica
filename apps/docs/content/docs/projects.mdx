@@ -62,6 +62,32 @@ See [Project resources](/project-resources) for how to choose and for the safety
 
 The lead can be a member or an agent, and marks who coordinates the project. It is not a permission setting: it does not auto-assign the project's issues, and making an agent the lead does not automatically run it. Starting a run still takes an issue assignment, an @mention, or an automation trigger.
 
+## Work in a worklane
+
+A worklane's page shows its issues in three views. Pick one in the page's header; the page opens on **Timeline**.
+
+- **Timeline** shows the releases of the repository's line in order, with this worklane's issues in each.
+- **Board** shows the worklane's issues in a column per status, with **Cancelled** hidden. Drag a card to another column to change its status: Multica confirms with "REBL-76 moved to In Review", and puts the card back if the change fails. A column's **+** opens **New issue** with that status, the worklane and its repository's next release.
+- **List** shows a section per release, in line order: its version and state, its title, **Set by hand** for a version set by hand, "1 of 3 done" over this worklane's issues in it or **No issues of this worklane**, the release menu and its description, then the issues. **No release** follows with the worklane's issues in no release, while there are any.
+
+Click an issue in any view to open its preview beside the view. The preview starts with the type, the ID, the title, the status, the worklane, the release and the assignee, then the description. **Open issue** opens the issue's own page.
+
+The **Type** filter in the header picks one or more of the eight types, or **No type** for issues without one. Every view then shows only the picked types, and switching views keeps them.
+
+### Busy and Free
+
+A worklane is **Busy** while one of its issues that is In Progress or In Review holds its worktree's branch, and **Free** otherwise. The header says what it works on:
+
+- **now: {ID} {title}** while Busy, for the issue that holds the branch.
+- **next: {ID} {title}** while Free, for the first issue that is not Done or Cancelled: the releases in line order, then No release, and within each the issue created first.
+- Neither, when every issue of the worklane is Done or Cancelled.
+
+### Agents in a worklane's worktree
+
+An agent's task on an issue of a worklane runs in that worklane's worktree, on the issue's branch; for `main`, in the repository's checkout. A worklane runs one task at a time. A task from an agent whose runtime is on another machine than the worklane is refused, and the task says so.
+
+When the pull request of the issue that holds the branch merges into the default branch, the worktree switches to the next issue's branch, cut from the fetched default branch, or is left detached when no issue is left. It switches only when nothing would be lost: with uncommitted changes or commits that are not pushed, it stays on its branch and the worklane's activity says why.
+
 ## Pin to the sidebar
 
 A pinned project appears in your sidebar. Pinning is a personal preference and does not affect other members.

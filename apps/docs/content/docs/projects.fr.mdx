@@ -62,6 +62,32 @@ Voir [Ressources de projet](/project-resources) pour savoir comment choisir et c
 
 Le responsable peut être un membre ou un agent, et indique qui coordonne le projet. Ce n'est pas un paramètre de permission : il n'assigne pas automatiquement les tâches du projet, et désigner un agent comme responsable ne le lance pas automatiquement. Démarrer une exécution nécessite toujours l'assignation d'une tâche, une @mention ou un déclencheur d'automatisation.
 
+## Travailler dans un worklane
+
+La page d’un worklane affiche ses tâches dans trois vues. Choisissez-en une dans l’en-tête de la page ; la page s’ouvre sur la **Frise**.
+
+- La **Frise** affiche les versions de la ligne du dépôt dans l’ordre, avec les tâches de ce worklane dans chacune.
+- Le **Tableau** affiche les tâches du worklane dans une colonne par statut, la colonne **Annulé** étant masquée. Faites glisser une carte vers une autre colonne pour changer son statut : Multica le confirme par « REBL-76 déplacée vers In Review », et remet la carte en place si le changement échoue. Le **+** d’une colonne ouvre **Nouvelle tâche** avec ce statut, ce worklane et la prochaine version de son dépôt.
+- La **Liste** affiche une section par version, dans l’ordre de la ligne : son numéro et son état, son titre, **Fixé à la main** pour un numéro fixé à la main, l’avancement des tâches de ce worklane (par exemple « 1 sur 3 terminée ») ou **Aucune tâche de ce worklane**, le menu de la version et sa description, puis les tâches. **Sans version** suit avec les tâches du worklane qui ne sont dans aucune version, s’il y en a.
+
+Cliquez sur une tâche dans n’importe quelle vue pour ouvrir son aperçu à côté de la vue. L’aperçu commence par le type, l’ID, le titre, le statut, le worklane, la version et l’assigné, puis la description. **Ouvrir la tâche** ouvre la page de la tâche.
+
+Le filtre **Type** de l’en-tête choisit un ou plusieurs des huit types, ou **Sans type** pour les tâches qui n’en ont pas. Chaque vue n’affiche alors que les types choisis, et changer de vue les conserve.
+
+### Occupé et Libre
+
+Un worklane est **Occupé** tant qu’une de ses tâches In Progress ou In Review tient la branche de son worktree, et **Libre** sinon. L’en-tête indique sur quoi il travaille :
+
+- **now: {ID} {titre}** quand il est Occupé, pour la tâche qui tient la branche.
+- **next: {ID} {titre}** quand il est Libre, pour la première tâche ni terminée ni annulée : les versions dans l’ordre de la ligne, puis Sans version, et dans chacune la tâche créée en premier.
+- Ni l’un ni l’autre quand toutes les tâches du worklane sont terminées ou annulées.
+
+### Les agents dans le worktree d’un worklane
+
+La tâche d’un agent sur une tâche d’un worklane s’exécute dans le worktree de ce worklane, sur la branche de la tâche ; pour `main`, dans le checkout du dépôt. Un worklane exécute une seule tâche à la fois. Une tâche d’un agent dont le runtime est sur une autre machine que le worklane est refusée, avec ce motif.
+
+Quand la pull request de la tâche qui tient la branche est fusionnée dans la branche par défaut, le worktree passe sur la branche de la tâche suivante, créée à partir de la branche par défaut récupérée, ou reste détaché quand il ne reste aucune tâche. Il ne change de branche que si rien ne serait perdu : avec des modifications non commitées ou des commits non poussés, il reste sur sa branche et l’activité du worklane en donne la raison.
+
 ## Épingler à la barre latérale
 
 Un projet épinglé apparaît dans votre barre latérale. L'épinglage est une préférence personnelle et n'affecte pas les autres membres.
