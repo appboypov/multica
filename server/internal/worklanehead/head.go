@@ -79,21 +79,20 @@ func Head(branch string, issues []Issue) Result {
 		for i := range issues {
 			issue := &issues[i]
 			if Branch(issue.Identifier) == branch && isWorking(issue) {
-				active := *issue
-				return Result{State: StateBusy, Active: &active}
+				return Result{State: StateBusy, Active: issue}
 			}
 		}
 	}
 	if len(issues) == 0 {
 		return Result{State: StateFree}
 	}
-	next := issues[0]
+	next := &issues[0]
 	for i := 1; i < len(issues); i++ {
-		if before(&issues[i], &next) {
-			next = issues[i]
+		if before(&issues[i], next) {
+			next = &issues[i]
 		}
 	}
-	return Result{State: StateFree, Next: &next}
+	return Result{State: StateFree, Next: next}
 }
 
 // Without returns issues without the issues of the given ids, as the switch

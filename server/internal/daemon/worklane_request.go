@@ -332,13 +332,34 @@ func (d *Daemon) runWorklaneSwitch(ctx context.Context, rt Runtime, req PendingW
 		answer(worklaneOutcomeFailed, worklaneReasonOf(err))
 		return
 	}
-	release, err := d.localPathLocks.Acquire(ctx, realPath, "worklane:"+req.ID, nil)
+	check, started := run.start("check")
+	// A running task can hold this path for hours. Keep the stable running
+	// check alive during that wait, then join before mutating the step list.
+	release, err := func() (func(), error) {
+		stop, stopped := make(chan struct{}), make(chan struct{})
+		go func() {
+			defer close(stopped)
+			ticker := time.NewTicker(time.Minute)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-stop:
+					return
+				case <-ctx.Done():
+					return
+				case <-ticker.C:
+					run.post(nil)
+				}
+			}
+		}()
+		defer func() { close(stop); <-stopped }()
+		return d.localPathLocks.Acquire(ctx, realPath, "worklane:"+req.ID, nil)
+	}()
 	if err != nil {
 		answer(worklaneOutcomeFailed, worklaneReasonOf(err))
 		return
 	}
 	defer release()
-	check, started := run.start("check")
 	branch, err := execenv.WorklaneBranch(path)
 	if err == nil && branch != req.FromBranch && branch != req.ToBranch {
 		err = fmt.Errorf("the worktree changed from %q to %q before the switch", req.FromBranch, branch)
