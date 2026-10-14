@@ -9,6 +9,7 @@ import {
 import { api } from "../api";
 import { issueKeys } from "./queries";
 import { projectKeys } from "../projects/queries";
+import { invalidatePlacementReads } from "./placement/queries";
 import { inboxKeys, type ArchivedInboxCache } from "../inbox/queries";
 import {
   cancelInboxLists,
@@ -169,6 +170,7 @@ function useIssueCreateMutation<TVariables>(
       qc.invalidateQueries({ queryKey: issueKeys.myAssigneeGroupsAll(wsId) });
       qc.invalidateQueries({ queryKey: issueKeys.projectGanttAll(wsId) });
       qc.invalidateQueries({ queryKey: projectKeys.all(wsId) });
+      invalidatePlacementReads(qc, wsId);
     },
   });
 }

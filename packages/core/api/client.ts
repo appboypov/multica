@@ -2,6 +2,8 @@ import type { ZodType } from "zod";
 import type { IssueWakeup, IssueWakeupInput, IssueWakeupSummaryRow, PausedWakeup, SystemWakeup, WakeupRun, WorkspaceSystemWakeup } from "../types/issue-wakeup";
 import type { WorkspaceWakeupPage, WorkspaceWakeupFilters } from "../types/issue-wakeup";
 import { WorkspaceWakeupPageSchema, IssueWakeupSchema, IssueWakeupSummaryRowSchema, PausedWakeupSchema, SystemWakeupSchema, WakeupRunSchema, WorkspaceSystemWakeupSchema } from "./schemas";
+import type { IssueTemplate, IssueType, SetIssuePlacementRequest, ReleaseProgressResponse } from "../types";
+import { IssueTemplatesResponseSchema, EMPTY_ISSUE_TEMPLATES_RESPONSE, WorklaneIssuesResponseSchema, EMPTY_WORKLANE_ISSUES_RESPONSE, ReleaseProgressResponseSchema, EMPTY_RELEASE_PROGRESS_RESPONSE } from "./schemas";
 import type { InboxFilters } from "../inbox/filter-store";
 import type { ArchivedInboxPage, ArchivedInboxFacets } from "../types/inbox";
 import { configStore } from "../config";
@@ -1616,6 +1618,59 @@ export class ApiClient {
     return this.fetch(`/api/issues/${id}/move`, {
       method: "POST",
       body: JSON.stringify(data),
+    });
+  }
+
+  async listIssueTemplates(): Promise<IssueTemplate[]> {
+    const raw = await this.fetch<unknown>("/api/issue-templates");
+    return parseWithFallback(raw, IssueTemplatesResponseSchema, EMPTY_ISSUE_TEMPLATES_RESPONSE, {
+      endpoint: "GET /api/issue-templates",
+    }).templates;
+  }
+
+  /** Sets the type once; a set type answers 409 `type_fixed`. */
+  async setIssueType(id: string, type: IssueType): Promise<Issue> {
+    const raw = await this.fetch<unknown>(`/api/issues/${encodeURIComponent(id)}/type`, {
+      method: "PUT",
+      body: JSON.stringify({ type }),
+    });
+    const issue = parseWithFallback<Issue | null>(raw, IssueSchema, null, { endpoint: "PUT /api/issues/:id/type" });
+    if (!issue) throw new Error("PUT /api/issues/:id/type returned a malformed issue");
+    return issue;
+  }
+
+  /** Sends both pointers; null clears one. */
+  async setIssuePlacement(id: string, data: SetIssuePlacementRequest): Promise<Issue> {
+    const raw = await this.fetch<unknown>(`/api/issues/${encodeURIComponent(id)}/placement`, {
+      method: "PUT",
+      body: JSON.stringify({ worklane_id: data.worklane_id, release_id: data.release_id }),
+    });
+    const issue = parseWithFallback<Issue | null>(raw, IssueSchema, null, { endpoint: "PUT /api/issues/:id/placement" });
+    if (!issue) throw new Error("PUT /api/issues/:id/placement returned a malformed issue");
+    return issue;
+  }
+
+  async addIssuesToRelease(releaseId: string, issueIds: string[]): Promise<Issue[]> {
+    const raw = await this.fetch<unknown>(`/api/releases/${encodeURIComponent(releaseId)}/issues`, {
+      method: "POST",
+      body: JSON.stringify({ issue_ids: issueIds }),
+    });
+    return parseWithFallback(raw, WorklaneIssuesResponseSchema, EMPTY_WORKLANE_ISSUES_RESPONSE, {
+      endpoint: "POST /api/releases/:id/issues",
+    }).issues;
+  }
+
+  async listWorklaneIssues(worklaneId: string): Promise<Issue[]> {
+    const raw = await this.fetch<unknown>(`/api/worklanes/${encodeURIComponent(worklaneId)}/issues`);
+    return parseWithFallback(raw, WorklaneIssuesResponseSchema, EMPTY_WORKLANE_ISSUES_RESPONSE, {
+      endpoint: "GET /api/worklanes/:id/issues",
+    }).issues;
+  }
+
+  async listReleaseProgress(): Promise<ReleaseProgressResponse> {
+    const raw = await this.fetch<unknown>("/api/release-progress");
+    return parseWithFallback(raw, ReleaseProgressResponseSchema, EMPTY_RELEASE_PROGRESS_RESPONSE, {
+      endpoint: "GET /api/release-progress",
     });
   }
 

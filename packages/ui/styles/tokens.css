@@ -35,6 +35,14 @@
     --color-warning: var(--warning);
     --color-info: var(--info);
     --color-brand: var(--brand);
+    --color-type-epic: var(--type-epic);
+    --color-type-journey: var(--type-journey);
+    --color-type-story: var(--type-story);
+    --color-type-bug: var(--type-bug);
+    --color-type-enhancement: var(--type-enhancement);
+    --color-type-refactor: var(--type-refactor);
+    --color-type-chore: var(--type-chore);
+    --color-type-spike: var(--type-spike);
     --color-brand-foreground: var(--brand-foreground);
     --color-accent-foreground: var(--accent-foreground);
     --color-accent: var(--accent);
@@ -235,6 +243,15 @@
     --success: oklch(0.55 0.16 145);
     --warning: oklch(0.75 0.16 85);
     --info: oklch(0.55 0.18 250);
+    /* Issue types, the library's values. Light mode only. */
+    --type-epic: #864ad2;
+    --type-journey: #4d53d9;
+    --type-story: #05893e;
+    --type-bug: #dc2627;
+    --type-enhancement: #0076cc;
+    --type-refactor: #008888;
+    --type-chore: #686774;
+    --type-spike: #d37900;
     --scrollbar-thumb: oklch(0 0 0 / 10%);
     --scrollbar-thumb-hover: oklch(0 0 0 / 18%);
     --scrollbar-track: transparent;

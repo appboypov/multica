@@ -3,6 +3,7 @@ import type { QueryClient } from "@tanstack/react-query";
 import { issueKeys } from "./queries";
 import { labelKeys } from "../labels/queries";
 import { projectKeys } from "../projects/queries";
+import { invalidatePlacementReads } from "./placement/queries";
 import {
   applyIssueChange,
   bucketedListEntries,
@@ -411,6 +412,7 @@ export function onIssueCreated(
     qc.invalidateQueries({ queryKey: issueKeys.children(wsId, issue.parent_issue_id) });
     qc.invalidateQueries({ queryKey: issueKeys.childProgress(wsId) });
   }
+  invalidatePlacementReads(qc, wsId);
 }
 
 export function onIssueUpdated(
@@ -428,6 +430,8 @@ export function onIssueUpdated(
     projectChanged?: boolean;
   } = {},
 ) {
+  // Type, status, worklane and release all show on the Timeline and in progress.
+  invalidatePlacementReads(qc, wsId);
   // Look up the OLD parent + cached entity before mutating cache state, so we
   // can keep the parent's children cache in sync (powers the sub-issues list
   // shown on the parent issue page) and diff-fallback the change flags.
@@ -781,4 +785,5 @@ export function onIssueDeleted(
   qc.invalidateQueries({ queryKey: issueKeys.assigneeGroupsAll(wsId) });
   qc.invalidateQueries({ queryKey: issueKeys.myAssigneeGroupsAll(wsId) });
   qc.invalidateQueries({ queryKey: projectKeys.all(wsId) });
+  invalidatePlacementReads(qc, wsId);
 }

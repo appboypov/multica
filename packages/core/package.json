@@ -53,6 +53,8 @@
     "./issues/stores": "./issues/stores/index.ts",
     "./issues/stores/view-store-context": "./issues/stores/view-store-context.tsx",
     "./issues/stores/*": "./issues/stores/*.ts",
+    "./issues/templates": "./issues/templates/index.ts",
+    "./issues/placement": "./issues/placement/index.ts",
     "./inbox": "./inbox/index.ts",
     "./questions": "./questions/index.ts",
     "./inbox/queries": "./inbox/queries.ts",
