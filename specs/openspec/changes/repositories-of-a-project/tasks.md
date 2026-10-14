@@ -39,7 +39,7 @@ This change builds on UJ-1 (`projects-by-organisation`, DAS-450): its `organisat
 - [x] 1.1 `server/migrations/590_repository.up.sql`, `.down.sql` -- create `repository`, `worklane` and `issue_worktree` with the columns and `CHECK`s of design.md decision 1, without foreign keys. The down migration drops the three tables.
 - [x] 1.2 `server/migrations/591_repository_full_name_index.up.sql`, `.down.sql` -- `CREATE UNIQUE INDEX CONCURRENTLY repository_workspace_full_name_unique ON repository (workspace_id, LOWER(full_name))` -- a repository is in at most one project.
 - [x] 1.3 `server/migrations/592_repository_project_index.up.sql`, `.down.sql` -- `CREATE INDEX CONCURRENTLY repository_project_idx ON repository (project_id)`.
-- [ ] 1.4 `server/migrations/593_worklane_name_index.up.sql`, `.down.sql` -- `CREATE UNIQUE INDEX CONCURRENTLY worklane_repository_name_unique ON worklane (repository_id, LOWER(name))`.
+- [x] 1.4 `server/migrations/593_worklane_name_index.up.sql`, `.down.sql` -- `CREATE UNIQUE INDEX CONCURRENTLY worklane_repository_name_unique ON worklane (repository_id, LOWER(name))`.
 - [ ] 1.5 `server/migrations/594_worklane_main_index.up.sql`, `.down.sql` -- `CREATE UNIQUE INDEX CONCURRENTLY worklane_repository_main_unique ON worklane (repository_id) WHERE is_main`.
 - [ ] 1.6 `server/migrations/595_issue_worktree_issue_index.up.sql`, `.down.sql` -- `CREATE UNIQUE INDEX CONCURRENTLY issue_worktree_issue_repository_unique ON issue_worktree (issue_id, repository_id)`.
 - [ ] 1.7 `server/migrations/596_issue_worktree_removing_index.up.sql`, `.down.sql` -- `CREATE INDEX CONCURRENTLY issue_worktree_removing_idx ON issue_worktree (daemon_id) WHERE state = 'removing'`.
