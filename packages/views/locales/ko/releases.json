@@ -52,7 +52,7 @@
     "last_release": "마지막 릴리스입니다"
   },
   "menu": {
-    "trigger": "릴리스 작업",
+    "trigger": "{{version}} {{title}} 작업",
     "edit": "릴리스 편집",
     "move_earlier": "앞으로 이동",
     "move_later": "뒤로 이동",

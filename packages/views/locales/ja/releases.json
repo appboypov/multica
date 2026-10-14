@@ -52,7 +52,7 @@
     "last_release": "最後のリリースです"
   },
   "menu": {
-    "trigger": "リリースの操作",
+    "trigger": "{{version}} {{title}} の操作",
     "edit": "リリースを編集",
     "move_earlier": "前へ移動",
     "move_later": "後ろへ移動",

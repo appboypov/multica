@@ -52,7 +52,7 @@
     "last_release": "它是最后一个版本"
   },
   "menu": {
-    "trigger": "版本操作",
+    "trigger": "{{version}} {{title}} 的操作",
     "edit": "编辑版本",
     "move_earlier": "提前",
     "move_later": "推后",

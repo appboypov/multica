@@ -90,7 +90,7 @@ export function ReleaseMenu({
           <Button
             variant="ghost"
             size="icon-sm"
-            aria-label={t(($) => $.menu.trigger)}
+            aria-label={t(($) => $.menu.trigger, { version: formatVersion(release.version), title: release.title })}
             className="text-muted-foreground"
           >
             <MoreHorizontal className="size-4" aria-hidden="true" />

@@ -52,7 +52,7 @@
     "last_release": "It is the last release"
   },
   "menu": {
-    "trigger": "Release actions",
+    "trigger": "Actions of {{version}} {{title}}",
     "edit": "Edit release",
     "move_earlier": "Move earlier",
     "move_later": "Move later",

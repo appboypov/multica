@@ -52,7 +52,7 @@
     "last_release": "C’est la dernière version"
   },
   "menu": {
-    "trigger": "Actions de la version",
+    "trigger": "Actions de {{version}} {{title}}",
     "edit": "Modifier la version",
     "move_earlier": "Avancer",
     "move_later": "Reculer",
