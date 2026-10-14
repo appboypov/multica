@@ -2,7 +2,8 @@ package protocol
 
 // Event types for WebSocket communication between server, web clients, and daemon.
 const (
-	// Issue events
+	// Issue events. issue:created carries from_template when created from a
+	// template. Type and placement changes use issue:updated, not new events.
 	EventIssueCreated            = "issue:created"
 	EventIssueUpdated            = "issue:updated"
 	EventIssueDeleted            = "issue:deleted"

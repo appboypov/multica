@@ -42,13 +42,13 @@ Its J2 starts once UJ-4's J2 is merged.
 
 ## 1. J2 Data models: model change
 
-- [ ] 1.1 `server/migrations/589_issue_type_and_placement.up.sql`, `.down.sql` -- `issue.type` with the check of the eight, `issue.worklane_id`, `issue.release_id`, all nullable, without foreign keys -- design.md decision 1. The down migration deletes the `activity_log` rows with the actions `planned_in_release`, `type_set`, `added_to_release`, `removed_from_release`, `worklane_changed` and `release_gone`, then drops the columns.
-- [ ] 1.2 `server/migrations/590_issue_worklane_index.up.sql`, `.down.sql` -- `CREATE INDEX CONCURRENTLY idx_issue_worklane ON issue (worklane_id) WHERE worklane_id IS NOT NULL`.
-- [ ] 1.3 `server/migrations/591_issue_release_index.up.sql`, `.down.sql` -- `CREATE INDEX CONCURRENTLY idx_issue_release ON issue (release_id) WHERE release_id IS NOT NULL`.
-- [ ] 1.4 `server/cmd/migrate/main.go` -- add 590 and 591 to the concurrent index cleanups that `TestEveryConcurrentUpBuildHasCleanup` requires. When `main` has taken 589 to 591, take the next free numbers and rename every reference.
-- [ ] 1.5 `server/pkg/db/queries/issue.sql` -- `CreateIssue` and `CreateIssueWithOrigin` take `type`, `worklane_id` and `release_id` as nullable args. `ListIssues`, `ListOpenIssues` and every other query that names issue columns for a response select `type`, `worklane_id` and `release_id`.
-- [ ] 1.6 `server/pkg/db/queries/issue_placement.sql` -- `SetIssueTypeOnce` (`WHERE type IS NULL`, `revision = revision + 1`, `RETURNING *`), `UpdateIssuePlacement` (`worklane_id`, `release_id`, `project_id`, `revision = revision + 1`), `ListWorklaneIssues` (the list row columns, by `created_at`, `id`), `ListReleaseProgress` (by `worklane_id` and `release_id`, `total` and `done` over `terminal_status_keys`), `ListIssuesForRelease` (`id`, `identifier`, `worklane_id`, `release_id` by ids, `FOR UPDATE`), `SetReleaseOfIssues`, `ClearReleaseOfIssues` (`RETURNING id`), `ListOpenIssuesOfWorklane` (status keys not terminal, `id`, number, title), `ClearWorklaneOfIssues`, `ClearPlacementOfRepositoryIssues` and `ClearPlacementOfProjectIssues`, each filtered by `workspace_id`.
-- [ ] 1.7 `server/internal/handler/issue_table_query.go` -- select `type`, `worklane_id` and `release_id` in the dynamic issue reads and in `SearchIssues`.
+- [x] 1.1 `server/migrations/589_issue_type_and_placement.up.sql`, `.down.sql` -- `issue.type` with the check of the eight, `issue.worklane_id`, `issue.release_id`, all nullable, without foreign keys -- design.md decision 1. The down migration deletes the `activity_log` rows with the actions `planned_in_release`, `type_set`, `added_to_release`, `removed_from_release`, `worklane_changed` and `release_gone`, then drops the columns.
+- [x] 1.2 `server/migrations/590_issue_worklane_index.up.sql`, `.down.sql` -- `CREATE INDEX CONCURRENTLY idx_issue_worklane ON issue (worklane_id) WHERE worklane_id IS NOT NULL`.
+- [x] 1.3 `server/migrations/591_issue_release_index.up.sql`, `.down.sql` -- `CREATE INDEX CONCURRENTLY idx_issue_release ON issue (release_id) WHERE release_id IS NOT NULL`.
+- [x] 1.4 `server/cmd/migrate/main.go` -- add 590 and 591 to the concurrent index cleanups that `TestEveryConcurrentUpBuildHasCleanup` requires. When `main` has taken 589 to 591, take the next free numbers and rename every reference.
+- [x] 1.5 `server/pkg/db/queries/issue.sql` -- `CreateIssue` and `CreateIssueWithOrigin` take `type`, `worklane_id` and `release_id` as nullable args. `ListIssues`, `ListOpenIssues` and every other query that names issue columns for a response select `type`, `worklane_id` and `release_id`.
+- [x] 1.6 `server/pkg/db/queries/issue_placement.sql` -- `SetIssueTypeOnce` (`WHERE type IS NULL`, `revision = revision + 1`, `RETURNING *`), `UpdateIssuePlacement` (`worklane_id`, `release_id`, `project_id`, `revision = revision + 1`), `ListWorklaneIssues` (the list row columns, by `created_at`, `id`), `ListReleaseProgress` (by `worklane_id` and `release_id`, `total` and `done` over `terminal_status_keys`), `ListIssuesForRelease` (`id`, `identifier`, `worklane_id`, `release_id` by ids, `FOR UPDATE`), `SetReleaseOfIssues`, `ClearReleaseOfIssues` (`RETURNING id`), `ListOpenIssuesOfWorklane` (status keys not terminal, `id`, number, title), `ClearWorklaneOfIssues`, `ClearPlacementOfRepositoryIssues` and `ClearPlacementOfProjectIssues`, each filtered by `workspace_id`.
+- [x] 1.7 `server/internal/handler/issue_table_query.go` -- select `type`, `worklane_id` and `release_id` in the dynamic issue reads and in `SearchIssues`.
 - [ ] 1.8 `server/pkg/db/generated/` -- run `make sqlc` and commit the output.
 
 ## 2. J2 Data models: DTO
@@ -61,8 +61,8 @@ Its J2 starts once UJ-4's J2 is merged.
 
 ## 3. J2 Data models: action names
 
-- [ ] 3.1 `server/internal/handler/issue_placement.go` -- the constants `issueActionPlannedInRelease`, `issueActionTypeSet`, `issueActionAddedToRelease`, `issueActionRemovedFromRelease`, `issueActionWorklaneChanged` and `issueActionReleaseGone`, and the refusal codes of design.md decision 2.
-- [ ] 3.2 `server/pkg/protocol/events.go` -- document `from_template` in the `issue:created` payload. No new event: placement and type publish `issue:updated`.
+- [x] 3.1 `server/internal/handler/issue_placement.go` -- the constants `issueActionPlannedInRelease`, `issueActionTypeSet`, `issueActionAddedToRelease`, `issueActionRemovedFromRelease`, `issueActionWorklaneChanged` and `issueActionReleaseGone`, and the refusal codes of design.md decision 2.
+- [x] 3.2 `server/pkg/protocol/events.go` -- document `from_template` in the `issue:created` payload. No new event: placement and type publish `issue:updated`.
 
 ## 4. J3 Data-flow prototype: data-flow prototype
 
