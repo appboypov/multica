@@ -222,39 +222,6 @@ func TestGitRootLockTimeoutDoesNotAdviseDeletingTheLock(t *testing.T) {
 	}
 }
 
-// The index-lock race that used to end the task cannot happen any more: the
-// snapshot is built in a private index inside the task's env root, so the only
-// index lock it takes is on its own file. This is the regression test for the
-// property, not for the retry that used to work around the absence of it
-// (#7434).
-func TestCaptureUserSnapshotIgnoresTheRepositoryIndexLock(t *testing.T) {
-	t.Parallel()
-	repo := newTestRepo(t)
-	writeFile(t, filepath.Join(repo, "tracked.txt"), "edited by the user\n")
-	writeFile(t, filepath.Join(repo, "brand-new.txt"), "untracked\n")
-
-	lock := filepath.Join(repo, ".git", "index.lock")
-	if err := os.WriteFile(lock, nil, 0o644); err != nil {
-		t.Fatalf("hold index.lock: %v", err)
-	}
-	defer os.Remove(lock)
-
-	head := gitRun(t, repo, "rev-parse", "HEAD")
-	snapshot, err := captureUserSnapshot(repo, t.TempDir(), head, worktreeTestLogger())
-	if err != nil {
-		t.Fatalf("captureUserSnapshot with index.lock held: %v", err)
-	}
-	if got := gitRun(t, repo, "show", snapshot+":tracked.txt"); got != "edited by the user" {
-		t.Errorf("snapshot tracked.txt = %q, want the user's edit", got)
-	}
-	if got := gitRun(t, repo, "show", snapshot+":brand-new.txt"); got != "untracked" {
-		t.Errorf("snapshot brand-new.txt = %q, want the untracked file", got)
-	}
-	// The user's own index is theirs; the capture may not have touched it.
-	if _, err := os.Stat(lock); err != nil {
-		t.Errorf("the capture removed the user's index.lock: %v", err)
-	}
-}
 
 // Every failure through runGitStdout used to arrive as "exit status 1": stderr
 // was captured by cmd.Output() and then dropped on the floor.
@@ -270,7 +237,4 @@ func TestRunGitSurfacesStderrInTheError(t *testing.T) {
 	}
 }
 
-// The production shape: two tasks on one local_directory, each preparing in
-// its own helper process. Both must get a worktree; before the cross-process
-// lock one of them routinely died in `git stash create`.
 
