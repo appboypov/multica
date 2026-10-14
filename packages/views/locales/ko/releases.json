@@ -104,5 +104,19 @@
     "moved": "{{actor}}님이 {{version}} {{title}}을(를) 옮겼습니다",
     "removed": "{{actor}}님이 {{version}} {{title}}을(를) 제거했습니다",
     "change": "{{title}} {{from}} → {{to}}"
+  },
+  "overview": {
+    "title": "릴리스",
+    "empty": "아직 릴리스가 없습니다.",
+    "column_name": "이름",
+    "column_issues": "이슈",
+    "column_worklanes": "worklanes",
+    "release_count_other": "릴리스 {{count}}개",
+    "repository_count_other": "저장소 {{count}}개",
+    "project_meta": "{{repositories}} · {{releases}}",
+    "set_by_hand": "직접 설정",
+    "progress_aria": "이슈 {{total}}개 중 {{done}}개 완료",
+    "no_issues": "아직 이슈 없음",
+    "does_not_release": "이 저장소는 릴리스하지 않습니다"
   }
 }

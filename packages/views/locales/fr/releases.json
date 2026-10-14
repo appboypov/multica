@@ -104,5 +104,21 @@
     "moved": "{{actor}} a déplacé {{version}} {{title}}",
     "removed": "{{actor}} a retiré {{version}} {{title}}",
     "change": "{{title}} {{from}} → {{to}}"
+  },
+  "overview": {
+    "title": "Versions",
+    "empty": "Aucune version pour l’instant.",
+    "column_name": "Nom",
+    "column_issues": "Tâches",
+    "column_worklanes": "Worklanes",
+    "release_count_one": "{{count}} version",
+    "release_count_other": "{{count}} versions",
+    "repository_count_one": "{{count}} dépôt",
+    "repository_count_other": "{{count}} dépôts",
+    "project_meta": "{{repositories}} · {{releases}}",
+    "set_by_hand": "Définie à la main",
+    "progress_aria": "{{done}} tâches terminées sur {{total}}",
+    "no_issues": "Aucune tâche pour l’instant",
+    "does_not_release": "Ce dépôt ne publie pas de versions"
   }
 }

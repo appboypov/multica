@@ -104,5 +104,19 @@
     "moved": "{{actor}} が {{version}} {{title}} を移動しました",
     "removed": "{{actor}} が {{version}} {{title}} を削除しました",
     "change": "{{title}} {{from}} → {{to}}"
+  },
+  "overview": {
+    "title": "リリース",
+    "empty": "まだリリースがありません。",
+    "column_name": "名前",
+    "column_issues": "タスク",
+    "column_worklanes": "worklanes",
+    "release_count_other": "{{count}} 件のリリース",
+    "repository_count_other": "{{count}} 件のリポジトリ",
+    "project_meta": "{{repositories}} · {{releases}}",
+    "set_by_hand": "手動で設定",
+    "progress_aria": "{{total}} 件中 {{done}} 件のタスクが完了",
+    "no_issues": "まだタスクなし",
+    "does_not_release": "このリポジトリはリリースしません"
   }
 }

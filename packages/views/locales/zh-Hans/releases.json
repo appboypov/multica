@@ -104,5 +104,19 @@
     "moved": "{{actor}} 移动了 {{version}} {{title}}",
     "removed": "{{actor}} 移除了 {{version}} {{title}}",
     "change": "{{title}} {{from}} → {{to}}"
+  },
+  "overview": {
+    "title": "版本",
+    "empty": "还没有版本。",
+    "column_name": "名称",
+    "column_issues": "任务",
+    "column_worklanes": "worklanes",
+    "release_count_other": "{{count}} 个版本",
+    "repository_count_other": "{{count}} 个仓库",
+    "project_meta": "{{repositories}} · {{releases}}",
+    "set_by_hand": "手动设置",
+    "progress_aria": "{{total}} 个任务中已完成 {{done}} 个",
+    "no_issues": "还没有任务",
+    "does_not_release": "此仓库不发布版本"
   }
 }

@@ -104,5 +104,21 @@
     "moved": "{{actor}} moved {{version}} {{title}}",
     "removed": "{{actor}} removed {{version}} {{title}}",
     "change": "{{title}} {{from}} → {{to}}"
+  },
+  "overview": {
+    "title": "Releases",
+    "empty": "No releases yet.",
+    "column_name": "Name",
+    "column_issues": "Issues",
+    "column_worklanes": "Worklanes",
+    "release_count_one": "{{count}} release",
+    "release_count_other": "{{count}} releases",
+    "repository_count_one": "{{count}} repository",
+    "repository_count_other": "{{count}} repositories",
+    "project_meta": "{{repositories}} · {{releases}}",
+    "set_by_hand": "Set by hand",
+    "progress_aria": "{{done}} of {{total}} issues done",
+    "no_issues": "No issues yet",
+    "does_not_release": "This repository does not release"
   }
 }
