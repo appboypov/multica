@@ -2163,7 +2163,7 @@ function NewIssueDialog({ api, draft, onClose, onCreate }: { api: AppApi; draft:
   const inputs = templateInputs(tpl);
   // The fields only fill the template's Markdown; the issue keeps that Markdown alone.
   const markdown = edited ?? templateMarkdown(tpl, fields);
-  const valid = title.trim() !== '' && (edited !== null || inputs.every((s) => !s.required || (fields[s.key] ?? '').trim() !== ''));
+  const valid = title.trim() !== '';
   const submit = () => valid && onCreate(d, title.trim(), markdown, priority);
 
   return (
@@ -2308,12 +2308,7 @@ function NewIssueDialog({ api, draft, onClose, onCreate }: { api: AppApi; draft:
               <div className="mt-4 space-y-4">
                 {inputs.map((s) => (
                   <label key={`${d.type}-${s.key}`} className="block">
-                    <span className="flex items-baseline gap-2">
-                      <span className="text-[13px] font-medium">{s.label}</span>
-                      <span className="text-[11px]" style={{ color: 'var(--muted-foreground)' }}>
-                        {s.required ? 'Required' : 'Optional'}
-                      </span>
-                    </span>
+                    <span className="text-[13px] font-medium">{s.label}</span>
                     <textarea
                       rows={s.rows}
                       value={fields[s.key] ?? ''}

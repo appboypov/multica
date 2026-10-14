@@ -354,7 +354,6 @@ export type InputFormat = 'text' | 'bullets' | 'checks' | 'scenarios';
 export interface TemplateInput {
   key: string;
   label: string;
-  required: boolean;
   placeholder: string;
   rows: number;
   format: InputFormat;
@@ -378,10 +377,9 @@ export interface Template {
   example: { title: string; fields: Record<string, string>; priority: Priority };
 }
 
-const input = (key: string, label: string, format: InputFormat, placeholder: string, rows = 3, required = true): TemplateInput => ({
+const input = (key: string, label: string, format: InputFormat, placeholder: string, rows = 3): TemplateInput => ({
   key,
   label,
-  required,
   placeholder,
   rows,
   format,
@@ -433,7 +431,7 @@ export const TEMPLATES: Template[] = [
       {
         heading: '## 👤 User stories',
         question: 'Which user stories comprise this work, in delivery order?',
-        input: input('stories', 'User stories', 'checks', `${ONE_PER_LINE}, in delivery order`, 3, false),
+        input: input('stories', 'User stories', 'checks', `${ONE_PER_LINE}, in delivery order`),
       },
       {
         heading: '## 🎯 Abilities',
@@ -511,12 +509,12 @@ export const TEMPLATES: Template[] = [
       {
         heading: '## 📍 Currently',
         question: 'What is the current state?',
-        input: input('currently', 'Currently', 'bullets', 'The current state', 2, false),
+        input: input('currently', 'Currently', 'bullets', 'The current state', 2),
       },
       {
         heading: '## 🎯 Should',
         question: 'What should the state be?',
-        input: input('should', 'Should', 'bullets', 'The state it should be in', 2, false),
+        input: input('should', 'Should', 'bullets', 'The state it should be in', 2),
       },
       { heading: '## 🗺️ User Journey', question: 'What is this journey about in one sentence?' },
       { heading: '## ✨ Scenarios', question: 'What scenarios make up this journey (each with a mermaid sequence diagram for its flow)?' },
@@ -562,12 +560,12 @@ export const TEMPLATES: Template[] = [
       {
         heading: '## 👣 Steps to Reproduce',
         question: 'Which steps can we take to reproduce the problem?',
-        input: input('steps', 'Steps to reproduce', 'checks', ONE_PER_LINE, 3, false),
+        input: input('steps', 'Steps to reproduce', 'checks', ONE_PER_LINE),
       },
       {
         heading: '## 🌍 Environment',
         question: 'Where did the bug occur (OS, browser, app version, device, authentication state, etc.)?',
-        input: input('environment', 'Environment', 'bullets', 'OS, browser, app version, device, signed in or not', 2, false),
+        input: input('environment', 'Environment', 'bullets', 'OS, browser, app version, device, signed in or not', 2),
       },
       { heading: '## ✅ Acceptance Criteria', question: 'How do we measure the successful fix of the bug?' },
       REFERENCES,
@@ -600,12 +598,12 @@ export const TEMPLATES: Template[] = [
       {
         heading: '## 📍 Current behavior',
         question: 'How does it work today?',
-        input: input('current', 'Current behavior', 'bullets', 'How it works today', 2, false),
+        input: input('current', 'Current behavior', 'bullets', 'How it works today', 2),
       },
       {
         heading: '## 🎯 Desired behavior',
         question: 'How should it work after this enhancement?',
-        input: input('desired', 'Desired behavior', 'bullets', 'How it should work', 2, false),
+        input: input('desired', 'Desired behavior', 'bullets', 'How it should work', 2),
       },
       {
         heading: '## ⚠️ Constraints',
@@ -651,7 +649,7 @@ export const TEMPLATES: Template[] = [
       {
         heading: '## ✅ Acceptance criteria',
         question: 'How do we know the refactor is complete and safe?',
-        input: input('acceptance', 'Acceptance criteria', 'checks', ONE_PER_LINE, 3, false),
+        input: input('acceptance', 'Acceptance criteria', 'checks', ONE_PER_LINE),
       },
       REFERENCES,
     ],
@@ -682,12 +680,12 @@ export const TEMPLATES: Template[] = [
       {
         heading: '## 📍 Baseline',
         question: 'What exists before this chore?',
-        input: input('baseline', 'Baseline', 'bullets', 'What exists before', 2, false),
+        input: input('baseline', 'Baseline', 'bullets', 'What exists before', 2),
       },
       {
         heading: '## 🎯 Target state',
         question: 'What exists after this chore?',
-        input: input('target', 'Target state', 'bullets', 'What exists after', 2, false),
+        input: input('target', 'Target state', 'bullets', 'What exists after', 2),
       },
       { heading: '## ⚠️ Blast radius & safety', question: 'What could break, who is affected, and how to roll back or verify nothing regressed?' },
       {
@@ -721,7 +719,7 @@ export const TEMPLATES: Template[] = [
       {
         heading: '## ❓ Research Questions',
         question: 'What specific unknowns need to be resolved?',
-        input: input('questions', 'Research questions', 'checks', ONE_PER_LINE, 3, false),
+        input: input('questions', 'Research questions', 'checks', ONE_PER_LINE),
       },
       { heading: '## 🎯 Success Criteria', question: 'How do we know the spike is complete?' },
       {

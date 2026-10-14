@@ -325,8 +325,18 @@ test.describe("Issues", () => {
     const create = dialog.getByRole("button", { name: "Create chore", exact: true });
     await expect(create).toHaveAttribute("aria-disabled", "true");
 
-    const title = `Renew the TLS certificate ${Date.now()}`;
-    await dialog.getByRole("textbox", { name: "Issue title" }).fill(title);
+    for (const field of ["Chore", "Baseline", "Target state", "Acceptance criteria"]) {
+      await expect(dialog.getByRole("textbox", { name: field, exact: true })).toHaveValue("");
+    }
+    await expect(dialog.getByText(/^(Required|Optional)$/i)).toHaveCount(0);
+
+    const titleInput = dialog.getByRole("textbox", { name: "Issue title" });
+    await titleInput.fill("   ");
+    await expect(create).toHaveAttribute("aria-disabled", "true");
+
+    const title = "Renew the TLS certificate";
+    await titleInput.fill(title);
+    await expect(create).toBeEnabled();
     await expect(create).not.toHaveAttribute("aria-disabled");
 
     const createdResponse = page.waitForResponse(
@@ -340,13 +350,56 @@ test.describe("Issues", () => {
     expect(response.ok()).toBe(true);
     const created = await response.json();
     try {
+      await expect(page.getByText("Issue created", { exact: true })).toBeVisible();
       const issue = await api.getIssue(created.id);
+      expect(issue).toHaveProperty("title", title);
       expect(issue).toHaveProperty("type", "chore");
-      expect(issue).toHaveProperty("description", expect.stringContaining("Acceptance criteria"));
+      expect(issue).toHaveProperty("description", [
+        "## 🔗 Dependencies\n> Which issues must be completed first?",
+        "## 🔀 Related Issues\n> Which related issues provide context (non-blocking)?",
+        "## 🧹 Chore\n> What maintenance or housekeeping is this, and why now (not a user-facing feature or bug fix)?",
+        "## 📦 Scope",
+        "### In scope",
+        "### Out of scope",
+        "## 📍 Baseline\n> What exists before this chore?",
+        "## 🎯 Target state\n> What exists after this chore?",
+        "## ⚠️ Blast radius & safety\n> What could break, who is affected, and how to roll back or verify nothing regressed?",
+        "## ✅ Acceptance criteria\n> How do we know this chore is done?",
+        "## 📚 References",
+      ].join("\n\n"));
     } finally {
       await api.deleteIssue(created.id);
     }
   });
+
+  for (const { template, fields } of [
+    { template: "Epic", fields: ["What we are doing", "User stories", "Abilities", "Acceptance criteria"] },
+    { template: "Journey", fields: ["User journey", "Scenarios"] },
+    { template: "Story", fields: ["User story", "Currently", "Should", "Acceptance criteria"] },
+    { template: "Bug", fields: ["Expected result", "Actual result", "Steps to reproduce", "Environment"] },
+    { template: "Enhancement", fields: ["Enhancement", "Current behavior", "Desired behavior", "Acceptance criteria"] },
+    { template: "Refactor", fields: ["Refactor", "Behavioral contract", "Acceptance criteria"] },
+    { template: "Spike", fields: ["Spike objective", "Research questions", "Time box"] },
+  ]) {
+    test(`Create stays disabled until the title is filled / Only the title filled (${template})`, async ({ page }) => {
+      await preferManualCreateMode(page);
+      await page.getByRole("button", { name: "New Issue", exact: true }).click();
+
+      const dialog = page.getByRole("dialog", { name: "New Issue", exact: true });
+      await dialog.getByRole("radio", { name: new RegExp(`\\b${template}\\b`) }).click();
+      const create = dialog.getByRole("button", { name: `Create ${template.toLowerCase()}`, exact: true });
+      await expect(create).toHaveAttribute("aria-disabled", "true");
+      for (const field of fields) {
+        await expect(dialog.getByRole("textbox", { name: field, exact: true })).toHaveValue("");
+      }
+      await expect(dialog.getByText(/^(Required|Optional)$/i)).toHaveCount(0);
+
+      await dialog.getByRole("textbox", { name: "Issue title" }).fill(`Title-only ${template}`);
+      await expect(create).toBeEnabled();
+      await expect(create).not.toHaveAttribute("aria-disabled");
+      await expect(dialog.getByText(/^(Required|Optional)$/i)).toHaveCount(0);
+    });
+  }
 
   test("can navigate to issue detail page", async ({ page }) => {
     // Create a known issue via API so the test controls its own fixture
