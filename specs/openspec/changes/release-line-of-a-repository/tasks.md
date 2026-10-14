@@ -107,13 +107,13 @@ Its J2 starts once UJ-3's J2 is merged.
 
 ## 8. J8 Backend and agent tooling: util
 
-- [ ] 8.1 `server/internal/releaseline/line.go` -- `Line`, `Release`, `Problem`, `Renumber`, `Check`, `Plan`, `Edit`, `Move`, `Remove`, `Changes`, and `ParseVersion` (accepting `v1.4.0` and `1.4.0`) -- design.md decision 3. The package has no database or HTTP imports.
+- [x] 8.1 `server/internal/releaseline/line.go` -- `Line`, `Release`, `Problem`, `Renumber`, `Check`, `Plan`, `Edit`, `Move`, `Remove`, `Changes`, and `ParseVersion` (accepting `v1.4.0` and `1.4.0`) -- design.md decision 3. The package has no database or HTTP imports.
 - [ ] 8.2 `server/internal/releaseline/testdata/cases.json` -- one case per scenario of the `plan-release`, `edit-release`, `move-release` and `remove-release` spec deltas, with `last_tag`, the line, the operation and the wanted line or problem, written without the `v`.
 - [ ] 8.3 `server/internal/releaseline/line_test.go` -- runs every case in `cases.json`, plus the `Changes` lists of the `release-line-activity` scenarios.
 
 ## 9. J8 Backend and agent tooling: endpoint
 
-- [ ] 9.1 `server/internal/handler/release.go` -- `ListReleases`, `PlanRelease`, `EditRelease`, `MoveRelease` and `RemoveRelease`, as design.md decisions 2 to 4 set out:
+- [x] 9.1 `server/internal/handler/release.go` -- `ListReleases`, `PlanRelease`, `EditRelease`, `MoveRelease` and `RemoveRelease`, as design.md decisions 2 to 4 set out:
   - One transaction: `LockRepositoryForLine`, the refusals in table order, `ListReleaseLine`, the `releaseline` operation, the writes of changed positions and versions, and one `CreateRepositoryActivity` row with the actor from `resolveActor`.
   - After commit, publish `release_line:updated` and answer with the line.
   - `line_not_increasing` carries `{release_id, version, title, before}`.
@@ -121,8 +121,8 @@ Its J2 starts once UJ-3's J2 is merged.
 - [ ] 9.3 `server/internal/handler/repository.go` -- store `last_tag` from the passed check on create; in `UpdateRepository`, under `LockRepositoryForLine`, refuse `version_policy: none` while `ListUnshippedReleaseHeads` is not empty with 409 `has_unshipped_releases`; `DeleteRepository` deletes its releases in its transaction -- the `repository-stops-releasing` spec delta, design.md decision 6.
 - [ ] 9.4 `server/internal/handler/runtime_repository_checkout.go` -- on a passed check, run `BackfillRepositoryLastTag` beside the install-command backfill, and publish `repository:updated` when a row changed -- design.md decision 5.
 - [ ] 9.5 `server/internal/handler/worklane.go` -- `ListWorklaneActivity` passes the worklane's `created_at` -- ADR-0011.
-- [ ] 9.6 `server/internal/handler/project.go` -- project delete deletes the releases of its repositories in its transaction.
-- [ ] 9.7 `server/cmd/server/listeners.go` -- forward `release_line:updated` to the workspace.
+- [x] 9.6 `server/internal/handler/project.go` -- project delete deletes the releases of its repositories in its transaction.
+- [x] 9.7 `server/cmd/server/listeners.go` -- forward `release_line:updated` to the workspace.
 - [ ] 9.8 Handler tests beside the code, with `testutil` fixtures and `testutil.Call`:
   - Each refusal code.
   - Plan, edit, move and remove answering the renumbered line and writing one entry with its `changes`.

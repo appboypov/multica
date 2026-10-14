@@ -2167,6 +2167,17 @@ func NewRouterWithOptions(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus
 				})
 			})
 
+			// Release lines of repositories (ADR-0010). Plan release is
+			// POST /api/repositories/{id}/releases, in the repositories routes.
+			r.Route("/api/releases", func(r chi.Router) {
+				r.Get("/", h.ListReleases)
+				r.Route("/{id}", func(r chi.Router) {
+					r.Patch("/", h.EditRelease)
+					r.Delete("/", h.RemoveRelease)
+					r.Post("/move", h.MoveRelease)
+				})
+			})
+
 			// Squads
 			r.Route("/api/squads", func(r chi.Router) {
 				r.Get("/", h.ListSquads)

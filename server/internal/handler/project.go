@@ -701,6 +701,15 @@ func (h *Handler) DeleteProject(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to remove project question links")
 		return
 	}
+	// Releases reference their repository, never the project, so they go
+	// before the project's repositories, in the same transaction.
+	if err := qtx.DeleteReleasesByProject(r.Context(), db.DeleteReleasesByProjectParams{
+		WorkspaceID: project.WorkspaceID,
+		ProjectID:   project.ID,
+	}); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to delete project releases")
+		return
+	}
 	if err := qtx.DeleteProject(r.Context(), db.DeleteProjectParams{
 		ID:          project.ID,
 		WorkspaceID: project.WorkspaceID,
