@@ -53,7 +53,7 @@ flowchart LR
   lst["cmd/server listeners<br/>issue status moves issue worktrees"]:::changed
   projh["handler/project.go<br/>delete removes repositories and worklanes"]:::changed
   q["queries/repository.sql, worklane.sql,<br/>issue_worktree.sql"]:::new
-  mig["migrations 575 to 582"]:::new
+  mig["migrations 590 to 597"]:::new
   pg[("PostgreSQL")]
 
   router --> repoh --> q --> pg
@@ -269,14 +269,14 @@ sequenceDiagram
 
 | Kind | Name | Change | Path |
 |---|---|---|---|
-| Migration | `repository`, `worklane`, `issue_worktree` tables | new | `server/migrations/575_repository.up.sql`, `.down.sql` |
-| Migration | Unique repository per workspace, ignoring case | new | `server/migrations/576_repository_full_name_index.up.sql`, `.down.sql` |
-| Migration | Repositories by project | new | `server/migrations/577_repository_project_index.up.sql`, `.down.sql` |
-| Migration | Unique worklane name per repository | new | `server/migrations/578_worklane_name_index.up.sql`, `.down.sql` |
-| Migration | One `main` per repository | new | `server/migrations/579_worklane_main_index.up.sql`, `.down.sql` |
-| Migration | One issue worktree per issue and repository | new | `server/migrations/580_issue_worktree_issue_index.up.sql`, `.down.sql` |
-| Migration | Removals per daemon | new | `server/migrations/581_issue_worktree_removing_index.up.sql`, `.down.sql` |
-| Migration | `project_resource` dropped | new | `server/migrations/582_drop_project_resource.up.sql`, `.down.sql` |
+| Migration | `repository`, `worklane`, `issue_worktree` tables | new | `server/migrations/590_repository.up.sql`, `.down.sql` |
+| Migration | Unique repository per workspace, ignoring case | new | `server/migrations/591_repository_full_name_index.up.sql`, `.down.sql` |
+| Migration | Repositories by project | new | `server/migrations/592_repository_project_index.up.sql`, `.down.sql` |
+| Migration | Unique worklane name per repository | new | `server/migrations/593_worklane_name_index.up.sql`, `.down.sql` |
+| Migration | One `main` per repository | new | `server/migrations/594_worklane_main_index.up.sql`, `.down.sql` |
+| Migration | One issue worktree per issue and repository | new | `server/migrations/595_issue_worktree_issue_index.up.sql`, `.down.sql` |
+| Migration | Removals per daemon | new | `server/migrations/596_issue_worktree_removing_index.up.sql`, `.down.sql` |
+| Migration | `project_resource` dropped | new | `server/migrations/597_drop_project_resource.up.sql`, `.down.sql` |
 | Migrator | Cleanups for the six concurrent indexes | changed | `server/cmd/migrate/main.go` |
 | Queries | Repository, worklane and issue worktree queries | new | `server/pkg/db/queries/repository.sql`, `worklane.sql`, `issue_worktree.sql` |
 | Queries | Project resource queries | removed | `server/pkg/db/queries/project_resource.sql` |
@@ -340,7 +340,7 @@ sequenceDiagram
 
 ## Context
 
-Journey UJ-2 of [PRD: Multica: steer projects, repositories, worklanes and releases](anytype://object?objectId=bafyreiew63xw2dncss52jdx4qk4o6aktkklhqroclvs3cvjxcyztx7h5um). It builds on UJ-1, `projects-by-organisation` (DAS-450), whose design is committed on branch `das-450-uj-1-brian-sees-his-projects-by-organisation`: its `organisation` table and key, its migrations 572 to 574, its brain-sync mark file and ADR-0004 and ADR-0005. This change's migrations start at 575. The later changes build on its model: `worklanes-of-a-repository` (UJ-3) adds worklanes, their worktrees and the install command; `release-line-of-a-repository` (UJ-4) adds releases on a repository's line; `issues-from-templates` (UJ-5) places issues in a worklane and a release; `worklane-board-and-list` (UJ-6) works a worklane's issue in its worktree and makes it Busy; `worklanes-and-releases-pages` (UJ-7) and `release-ships` (UJ-8) read the repository's default branch and version policy.
+Journey UJ-2 of [PRD: Multica: steer projects, repositories, worklanes and releases](anytype://object?objectId=bafyreiew63xw2dncss52jdx4qk4o6aktkklhqroclvs3cvjxcyztx7h5um). It builds on UJ-1, `projects-by-organisation` (DAS-450), whose design is committed on branch `das-450-uj-1-brian-sees-his-projects-by-organisation`: its `organisation` table and key, its migrations 572 to 574, its brain-sync mark file and ADR-0004 and ADR-0005. This change's migrations start at 590. The later changes build on its model: `worklanes-of-a-repository` (UJ-3) adds worklanes, their worktrees and the install command; `release-line-of-a-repository` (UJ-4) adds releases on a repository's line; `issues-from-templates` (UJ-5) places issues in a worklane and a release; `worklane-board-and-list` (UJ-6) works a worklane's issue in its worktree and makes it Busy; `worklanes-and-releases-pages` (UJ-7) and `release-ships` (UJ-8) read the repository's default branch and version policy.
 
 **Journey steps.** The investigation finds nothing for four steps, and no `Keep:` Request names them. Each gets its `Skip:` Request once the journey exists in the brain:
 
@@ -423,19 +423,19 @@ The model is ADR-0006, which supersedes ADR-0004: it keeps the organisation and 
 - `github_repo_id bigint`, `full_name text` (`owner/name` as GitHub returns it), `private bool`, `default_branch text`. The server reads them from GitHub on create and on every edit.
 - `checkout_daemon_id text` and `checkout_path text`: the machine and the absolute path of the normal checkout. The daemon id is the machine, as the `local_directory` resources had it, so a machine's runtimes for different agent providers share it.
 - `version_policy text NOT NULL CHECK (version_policy IN ('pubspec.yaml', 'Cargo.toml', 'pyproject.toml', 'package.json', 'tags', 'none'))`. The tag pattern is always `v{version}`, so it has no column. `none` is "This repository does not release".
-- A repository is in at most one project of the workspace: `UNIQUE (workspace_id, LOWER(full_name))` (576). `project_id` is indexed (577), because the project page and project delete read by it.
+- A repository is in at most one project of the workspace: `UNIQUE (workspace_id, LOWER(full_name))` (591). `project_id` is indexed (592), because the project page and project delete read by it.
 
 `worklane`:
 
 - `id`, `workspace_id`, `repository_id`, `name`, `folder` (nullable), `daemon_id` (nullable), `is_main bool`, `position int`, `created_at`, `updated_at`.
 - `main` is `is_main = true`, named `main`, with `folder` and `daemon_id` NULL: its worktree is the repository's checkout, read through the repository, so an edited checkout moves `main` with it. UJ-3's lanes fill `folder` and `daemon_id`.
-- `UNIQUE (repository_id, LOWER(name))` (578) and `UNIQUE (repository_id) WHERE is_main` (579).
+- `UNIQUE (repository_id, LOWER(name))` (593) and `UNIQUE (repository_id) WHERE is_main` (594).
 - State is not stored. UJ-6 makes a worklane Busy from its active issue.
 
 `issue_worktree`:
 
 - `id`, `workspace_id`, `issue_id`, `repository_id`, `daemon_id`, `path`, `branch`, `state text CHECK (state IN ('active', 'removing', 'kept'))`, `kept_reason` (nullable), `created_at`, `updated_at`.
-- `UNIQUE (issue_id, repository_id)` (580), and `(daemon_id) WHERE state = 'removing'` (581) for the heartbeat's read.
+- `UNIQUE (issue_id, repository_id)` (595), and `(daemon_id) WHERE state = 'removing'` (596) for the heartbeat's read.
 - The row is the authority for where an issue's worktree is. A later key change does not move it: the next task on the issue reads the stored path (spec "A changed organisation key").
 
 Deletes, in application code inside one transaction:
@@ -445,7 +445,7 @@ Deletes, in application code inside one transaction:
 - Deleting an issue deletes its issue worktree rows; the folders stay on disk, as a removed repository's checkout does.
 - Workspace delete deletes the three tables in the step that deletes projects.
 
-`582_drop_project_resource` drops `project_resource`. Its down migration recreates the empty table with the two indexes of 065 in plain `CREATE INDEX`, since a rollback rebuilds them on an empty table.
+`597_drop_project_resource` drops `project_resource`. Its down migration recreates the empty table with the two indexes of 065 in plain `CREATE INDEX`, since a rollback rebuilds them on an empty table.
 
 ### 2. Repository endpoints
 
@@ -545,9 +545,9 @@ Then each project recorded under `repository_projects` merges, as UJ-1 merged a 
 
 ## Risks / Trade-offs
 
-- **Migration numbers.** 575 to 582 can be taken on `main` before J2. The builder takes the next free numbers and renames the cleanup entries with them.
-- **The kept projects need UJ-1's run.** The repository projects UJ-1 kept are found through its mark file, not through the checkout labels 582 drops. Without UJ-1's sync run before 582, they are not recorded and stay with their issues. The Migration Plan orders them.
-- **The brain-project-sync spec still names the single-repository merge and the kept projects** after this change removes the checkout step. Their subject, a project carrying a checkout mark, no longer exists after 582, and this change's `brain-repository-sync` merges the projects UJ-1 kept. Both requirements need retiring at this change's J11 through `madspec-revise-plan` (Open Questions).
+- **Migration numbers.** The questions journeys keep 575 to 589 and the lanes journeys take 590 onward, so this change takes 590 to 597 and each later lanes change goes on from the highest lanes number. When `main` has taken any of them before J2, the builder takes the next free numbers and renames the cleanup entries with them.
+- **The kept projects need UJ-1's run.** The repository projects UJ-1 kept are found through its mark file, not through the checkout labels 597 drops. Without UJ-1's sync run before 597, they are not recorded and stay with their issues. The Migration Plan orders them.
+- **The brain-project-sync spec still names the single-repository merge and the kept projects** after this change removes the checkout step. Their subject, a project carrying a checkout mark, no longer exists after 597, and this change's `brain-repository-sync` merges the projects UJ-1 kept. Both requirements need retiring at this change's J11 through `madspec-revise-plan` (Open Questions).
 - **`madspec-git`'s Core Rule** still puts worktrees at `~/Worktrees/{team}/{lane folder}/{repo}`. Agents read both; the brief's issue rule names the path the daemon made, so the agent has one place to work. The skill's text is out of this repository.
 - **A check is a snapshot.** Brian can switch the checkout's branch after adding it. The issue worktree is cut from `origin/{default_branch}` after a fetch, so the checkout's current branch does not matter to a task.
 - **Mobile loses Resources.** The PRD keeps mobile out of scope, but the endpoints it calls go, so its section goes rather than failing.
@@ -556,7 +556,7 @@ Then each project recorded under `repository_projects` merges, as UJ-1 merged a 
 ## Migration Plan
 
 1. Release UJ-1 and run its brain sync once. It merges the repository project of each Product with one repository and records each repository project it keeps for a Product with several (UJ-1 Migration Plan).
-2. Apply the migrations 575 to 582. `project_resource` and its 32 rows go; issues of the projects keep running with workspace repos until step 4.
+2. Apply the migrations 590 to 597. `project_resource` and its 32 rows go; issues of the projects keep running with workspace repos until step 4.
 3. Release with `make local-release`.
 4. Run `uv run madspec-sync/multica_projects.py` once by hand. It adds each Product's repositories with worklane `main`, moves the issues of each project UJ-1 kept into its Product's project once its repository is added there, deletes the emptied projects, and prints every repository it cannot add.
 
