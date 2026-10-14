@@ -41,6 +41,7 @@ vi.mock("@multica/core/projects", async () => {
   return {
     sortProjects: (await vi.importActual<{ sortProjects: typeof sortProjects }>("@multica/core/projects"))
       .sortProjects,
+    projectListOptions: () => ({ queryKey: ["projects"] }),
     useProjectViewStore: store,
     useUpdateProject: () => ({ mutate: vi.fn() }),
     useDeleteProject: () => ({ mutate: vi.fn() }),

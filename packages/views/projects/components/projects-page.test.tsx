@@ -385,10 +385,11 @@ const REBL: Project = { ...PROJECT, id: "project-rebl", title: "Rebl", organisat
 const MULTICA: Project = { ...PROJECT, id: "project-multica", title: "Multica", organisation_id: DE_APP_SPECIALIST.id };
 const DAS_OVERVIEW: Project = { ...PROJECT, id: "project-das-overview", title: "das-overview", organisation_id: null };
 
-// The group headings in page order, by their fold buttons.
+// The group headings in page order, by their fold buttons; a project row's
+// own fold button names "the repositories of" its project.
 function groupNames(): string[] {
   return screen
-    .getAllByRole("button", { name: /^Fold or unfold / })
+    .getAllByRole("button", { name: /^Fold or unfold (?!the repositories of )/ })
     .map((button) => button.getAttribute("aria-label")!.replace("Fold or unfold ", ""));
 }
 
@@ -415,7 +416,7 @@ describe("ProjectsPage by organisation", () => {
   it("shows each group's count and no group for an organisation without projects", () => {
     renderProjects();
 
-    expect(within(groupRow("Rebl Records")).getByText("1 project")).toBeInTheDocument();
+    expect(within(groupRow("Rebl Records")).getByText(/^1 project · /)).toBeInTheDocument();
     expect(groupNames()).not.toContain("Buttler");
   });
 

@@ -155,14 +155,14 @@ beforeEach(() => {
 });
 
 describe("OrganisationsPage", () => {
-  it("lists every organisation by name with its number of projects, and counts the organisations", () => {
+  it("lists every organisation by name with its number of projects and repositories, and counts the organisations", () => {
     render(<OrganisationsPage />, "/test-workspace/organisations");
 
     const rows = screen.getAllByRole("row").slice(1);
     expect(rows.map((row) => row.textContent)).toEqual([
-      "Buttler0 projects",
-      "De App Specialist13 projects",
-      "Rebl Records1 project",
+      "Buttler0 projects · 0 repositories",
+      "De App Specialist13 projects · 0 repositories",
+      "Rebl Records1 project · 0 repositories",
     ]);
     const heading = screen.getByRole("heading", { name: "Organisations" });
     expect(heading.parentElement).toHaveTextContent("3");
