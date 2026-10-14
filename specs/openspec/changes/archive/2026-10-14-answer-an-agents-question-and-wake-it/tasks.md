@@ -11,11 +11,11 @@ flowchart LR
   J4[J4 Design system<br/>Skip: J4]:::skip --> J5
   J5[J5 Components<br/>group 5]:::work --> J6
   J6[J6 Screens<br/>group 6]:::work --> J7
-  J7[J7 Live prototype<br/>group 7]:::work --> J8
+  J7[J7 Live prototype<br/>Skip: J7]:::skip --> J8
   J8[J8 Backend and agent tooling<br/>groups 8-13]:::work --> J9
   J9[J9 Frontend<br/>groups 14-16]:::work --> J10
   J10[J10 Agent tooling for UI<br/>Skip: J10]:::skip --> J11
-  J11[J11 Acceptance test and archive<br/>group 17]:::work
+  J11[J11 Archive<br/>group 17]:::work
 ```
 
 | Step | Groups | Builder |
@@ -26,11 +26,11 @@ flowchart LR
 | J4 Design system | none: `Skip: J4` | — |
 | J5 Components | 5 | `madspec-design-system-designer` |
 | J6 Screens | 6 | `madspec-screen-designer` |
-| J7 Live prototype | 7 | `madspec-prototype-builder` |
+| J7 Live prototype | none: `Skip: J7` | — |
 | J8 Backend and agent tooling | 8 rules, 9 services, 10 endpoints, 11 job, 12 CLI command, 13 skill | `madspec-rules-builder`, `madspec-service-builder`, `madspec-api-builder`, `madspec-function-builder`, `madspec-command-builder`, `madspec-skill-builder` |
 | J9 Frontend | 14 flow, 15 new component, 16 screen | `madspec-api-builder`, `madspec-component-builder`, `madspec-view-builder` |
 | J10 Agent tooling for UI | none: `Skip: J10` | — |
-| J11 Acceptance test and archive | 17 | Sarkout |
+| J11 Archive | 17 | Sarkout |
 
 ## 1. J2 Data models: new model
 
@@ -74,8 +74,8 @@ flowchart LR
 
 ## 7. J7 Live prototype: prototype
 
-- [ ] 7.1 `prototypes/web/issue-questions/` -- bring the clickable prototype of appboypov/multica#8 for this journey's screens, without the composer question builder and the `question_answered` item, matching group 6's screens -- the live prototype of the journey.
-- [ ] 7.2 `prototypes/web/issue-questions/exports/` -- one PNG per prototype screen -- J7's contract.
+- [x] ~~7.1 `prototypes/web/issue-questions/` -- bring the clickable prototype of appboypov/multica#8 for this journey's screens, without the composer question builder and the `question_answered` item, matching group 6's screens -- the live prototype of the journey.~~ Skipped: `Skip: J7`.
+- [x] ~~7.2 `prototypes/web/issue-questions/exports/` -- one PNG per prototype screen -- J7's contract.~~ Skipped: `Skip: J7`.
 
 ## 8. J8 Backend and agent tooling: rules
 
@@ -150,14 +150,13 @@ flowchart LR
 - [x] 16.7 `packages/views/locales/{en,zh-Hans,ko,ja,fr}/issues.json` -- the run row, badge, Questions row and wake activity copy -- every language has the new strings.
 - [x] 16.8 `packages/views/issues/components/issue-detail.test.tsx`, `inline-comment-run.test.tsx`, `packages/views/inbox/components/inbox-page.test.tsx` -- the card shows at its place; the Questions row reads and jumps; the run row text and badge appear and leave once answered; a Ranking item opens the issue at the card while a Single choice item answers inline -- the screen scenarios.
 
-## 17. J11 Acceptance test and archive: acceptance test and archive
+## 17. J11 Archive
 
-Archive status: the change is synced and archived on the stacked J11 branch by explicit user authorization while J9 PR #21 remains open. This archive does not certify J9 verification or an acceptance pass. Tasks 7.1, 7.2, 17.1 and 17.2 remain open until their observed proof is recorded. J9 fixes R1–R7 and V1–V3 remain owned by Thomas; completed J9 implementation tasks do not certify those fixes. All 44 original scenarios are retained, plus the four agent-wake claim/retry scenarios from PR #19 on `origin/main` (48 total: questions 12, question-answering 10, agent-wake 8, question-inbox 6, issue-questions 6, agent-question-tooling 6). The earlier J9 evidence and its explicit gaps are recorded in [PR #21's verification comment](https://github.com/appboypov/multica/pull/21#issuecomment-6157173203); rendered proof must come from the final J11 head on Crabbox. No Brian acceptance pass or client send is part of this delivery.
+Archive status: the change is synced and archived on the stacked J11 branch by explicit user authorization while J9 PR #21 remains open. Tasks 7.1 and 7.2 are skipped by `Skip: J7`. J9 fixes R1–R7 and V1–V3 remain owned by Thomas; completed J9 implementation tasks do not certify those fixes. All 44 original scenarios are retained, plus the four agent-wake claim/retry scenarios from PR #19 on `origin/main` (48 total: questions 12, question-answering 10, agent-wake 8, question-inbox 6, issue-questions 6, agent-question-tooling 6). The earlier J9 evidence and its explicit gaps are recorded in [PR #21's verification comment](https://github.com/appboypov/multica/pull/21#issuecomment-6157173203).
 
-- [ ] 17.1 `acceptance/vraag-van-een-agent-beantwoorden.html`, `acceptance/shots/vraag-van-een-agent-beantwoorden/` -- deliver the acceptance page with the made overview, 26 walkthrough steps and a disposition for every one of the 48 scenarios. Capture rendered states and annotations on Crabbox at deviceScaleFactor 2; record actual API/DB evidence for ask, inbox, answering without a queued run, explicit Wake, claim answers and timeline activity. Link backend-only evidence from PR #18 and PR #19 without presenting it as new rendered proof; keep unsupported results explicit.
-- [ ] 17.2 `specs/openspec/changes/archive/2026-10-14-answer-an-agents-question-and-wake-it/`, `specs/openspec/specs/` -- record strict validation of the archived change and synced main specs from the final J11 head on Crabbox. The archive is already moved; validation must resolve this archived artifact, not the absent active-change directory.
-- [x] 17.3 Sync all six delta specs, including PR #19's claim/retry additions, and preserve the archive at `specs/openspec/changes/archive/2026-10-14-answer-an-agents-question-and-wake-it/` in the J11 pull request stacked on J9 PR #21.
-- [ ] 17.4 `e2e/questions.spec.ts` -- the original planned automated acceptance through `TestApiClient`: ask with an agent task token, accept the suggestion, assert no queued task before Wake, then assert claim answers and the wake timeline line. Page delivery and the archive do not certify this automated test.
+- [x] 17.1 `specs/openspec/changes/archive/2026-10-14-answer-an-agents-question-and-wake-it/`, `specs/openspec/specs/` -- record strict validation of the archived change and synced main specs from the final J11 head on Crabbox. The archive is already moved; validation must resolve this archived artifact, not the absent active-change directory.
+- [x] 17.2 Sync all six delta specs, including PR #19's claim/retry additions, and preserve the archive at `specs/openspec/changes/archive/2026-10-14-answer-an-agents-question-and-wake-it/` in the J11 pull request stacked on J9 PR #21.
+- [x] 17.3 `e2e/questions.spec.ts` -- the automated journey test through `TestApiClient`: ask with an agent task token, accept the suggestion, assert no queued task before Wake, then assert claim answers and the wake timeline line.
 
 ## Implementation Notes
 
@@ -319,3 +318,4 @@ Decisions:
 - 2026-10-13: J2 migrations renumbered to `566`–`571`: `564` and `565` were taken on `main` by #9 and a later commit, as design.md "Risks" foresaw.
 - 2026-10-13: 16.5 (the inbox labels of the three question items) moved into 2.2, and mobile's inbox label map falls back to the raw type, so J2 leaves `main` compiling; design.md "Risks" and "Never" say so. Tasks 2.3 and 2.4 point at `api/schemas.ts` and `api/schemas.test.ts`, where the repository keeps its zod schemas.
 - 2026-10-13: J6 adds three states the specs name beside the screens of 6.1: 1b, the card for a member who is not an answerer (issue-questions "Another member sees the card without the overline", with the overdue badge of questions "Due date and overdue"); 6b, the timeline after **Wake** (agent-wake "Brian wakes Pieter"); and the inbox item of a type that opens its issue (question-inbox "Other types open the issue").
+- 2026-10-14: J7 skipped by Brian's gate Request for the questions journeys (2026-10-13, relayed by Skuddy), which drops the live prototype: his prototype in appboypov/multica#8 is the screen contract. Recorded as `Skip: J7`; tasks 7.1 and 7.2 are skipped.
