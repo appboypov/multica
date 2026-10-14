@@ -195,9 +195,9 @@ test.describe("Issues", () => {
     await preferManualCreateMode(page);
     await page.getByRole("button", { name: "New Issue", exact: true }).click();
     const dialog = page.getByRole("dialog", { name: "New Issue", exact: true });
-    await expect(dialog.getByRole("radio", { name: /^Story\b/ })).toHaveAttribute(
-      "aria-checked", "true",
-    );
+    const story = dialog.getByRole("radio", { name: /^Story\b/ });
+    await story.click();
+    await expect(story).toHaveAttribute("aria-checked", "true");
     const title = `E2E Hand-edited story ${Date.now()}`;
     await dialog.getByRole("textbox", { name: "Issue title", exact: true }).fill(title);
     await dialog.getByRole("textbox", { name: /^User story\b/i }).fill(
@@ -249,6 +249,72 @@ test.describe("Issues", () => {
       await api.deleteIssue(issue.id);
     }
     // END THEN
+  });
+
+  test("New issue starts from No template or one of eight templates / New issue opens", async ({ page }) => {
+    await preferManualCreateMode(page);
+    await page.getByRole("button", { name: "New Issue", exact: true }).click();
+
+    const dialog = page.getByRole("dialog", { name: "New Issue", exact: true });
+    const templates = dialog.getByRole("radiogroup", { name: "Template", exact: true });
+    const names = [
+      "No template",
+      "Epic",
+      "Journey",
+      "Story",
+      "Bug",
+      "Enhancement",
+      "Refactor",
+      "Chore",
+      "Spike",
+    ];
+    await expect(templates.getByRole("radio")).toHaveText(
+      names.map((name) => new RegExp(`^${name}`)),
+    );
+    for (const name of names) {
+      await expect(templates.getByRole("radio", { name: new RegExp(`\\b${name}\\b`) })).toBeVisible();
+    }
+    await expect(templates.getByRole("radio", { name: /\bNo template\b/ })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
+    await expect(templates.getByRole("radio", { checked: true })).toHaveCount(1);
+    await expect(dialog.getByText("No type", { exact: true })).toBeVisible();
+    await expect(dialog.getByRole("button", { name: "Create Issue", exact: true })).toBeVisible();
+  });
+
+  test("New issue starts from No template or one of eight templates / Creating an issue with No template", async ({ page }) => {
+    await preferManualCreateMode(page);
+    await page.getByRole("button", { name: "New Issue", exact: true }).click();
+
+    const dialog = page.getByRole("dialog", { name: "New Issue", exact: true });
+    await expect(dialog.getByRole("radio", { name: /\bNo template\b/ })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
+    const title = `Check the guest list export ${Date.now()}`;
+    const description = "It misses the last row";
+    await dialog.getByRole("textbox", { name: "Issue title" }).fill(title);
+    await dialog.locator('.rich-text-editor[contenteditable="true"]').fill(description);
+
+    const createdResponse = page.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname === "/api/issues" &&
+        response.request().method() === "POST" &&
+        response.request().postDataJSON()?.title === title,
+    );
+    await dialog.getByRole("button", { name: "Create Issue", exact: true }).click();
+    const response = await createdResponse;
+    expect(response.ok()).toBe(true);
+    const created = await response.json();
+    try {
+      await expect(page.getByText("Issue created", { exact: true })).toBeVisible();
+      const issue = await api.getIssue(created.id);
+      expect(issue).toHaveProperty("type", null);
+      expect(issue).toHaveProperty("description", expect.stringContaining(description));
+    } finally {
+      await api.deleteIssue(created.id);
+    }
   });
 
   test("can navigate to issue detail page", async ({ page }) => {
