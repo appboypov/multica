@@ -891,9 +891,9 @@ func (h *Handler) finishWorklaneRemove(ctx context.Context, req *WorklaneRequest
 	case worklaneOutcomeRemoved:
 		if err := h.deleteRemovedWorklane(ctx, req); err != nil {
 			var open *worklaneOpenIssuesError
-			if errors.As(err,&open) {
+			if errors.As(err, &open) {
 				req.Status = worklaneRequestRefused
-				req.Reason = &WorklaneRequestReason{Code:"worklane_has_open_issues",Detail:open.Error()}
+				req.Reason = &WorklaneRequestReason{Code: "worklane_has_open_issues", Detail: open.Error()}
 				return
 			}
 			slog.Error("worklane delete after removal failed", "error", err, "request_id", req.ID)
@@ -924,17 +924,29 @@ func (h *Handler) deleteRemovedWorklane(ctx context.Context, req *WorklaneReques
 	}
 	defer tx.Rollback(ctx)
 	qtx := h.Queries.WithTx(tx)
-	if _,err := qtx.LockRepositoryForLine(ctx,db.LockRepositoryForLineParams{ID:parseUUID(req.RepositoryID),WorkspaceID:wsUUID}); err != nil { return err }
-	rows,err := qtx.ListWorklaneIssues(ctx,db.ListWorklaneIssuesParams{WorkspaceID:wsUUID,WorklaneID:wlUUID})
-	if err != nil { return err }
-	sort.Slice(rows,func(i,j int) bool { return uuidToString(rows[i].ID)<uuidToString(rows[j].ID) })
-	for _,row := range rows {
-		if _,err := qtx.LockIssueForDescriptionUpdate(ctx,db.LockIssueForDescriptionUpdateParams{ID:row.ID,WorkspaceID:wsUUID}); err != nil { return err }
+	if _, err := qtx.LockRepositoryForLine(ctx, db.LockRepositoryForLineParams{ID: parseUUID(req.RepositoryID), WorkspaceID: wsUUID}); err != nil {
+		return err
 	}
-	open,err := h.openWorklaneIssues(ctx,qtx,wsUUID,wlUUID)
-	if err != nil { return err }
-	if len(open)>0 { return &worklaneOpenIssuesError{issues:open} }
-	if _,err := clearClosedWorklaneIssues(ctx,qtx,wsUUID,wlUUID); err != nil { return err }
+	rows, err := qtx.ListWorklaneIssues(ctx, db.ListWorklaneIssuesParams{WorkspaceID: wsUUID, WorklaneID: wlUUID})
+	if err != nil {
+		return err
+	}
+	sort.Slice(rows, func(i, j int) bool { return uuidToString(rows[i].ID) < uuidToString(rows[j].ID) })
+	for _, row := range rows {
+		if _, err := qtx.LockIssueForDescriptionUpdate(ctx, db.LockIssueForDescriptionUpdateParams{ID: row.ID, WorkspaceID: wsUUID}); err != nil {
+			return err
+		}
+	}
+	open, err := h.openWorklaneIssues(ctx, qtx, wsUUID, wlUUID)
+	if err != nil {
+		return err
+	}
+	if len(open) > 0 {
+		return &worklaneOpenIssuesError{issues: open}
+	}
+	if _, err := clearClosedWorklaneIssues(ctx, qtx, wsUUID, wlUUID); err != nil {
+		return err
+	}
 	if err := qtx.DeleteActivitiesByWorklane(ctx, db.DeleteActivitiesByWorklaneParams{WorklaneID: wlUUID, WorkspaceID: wsUUID}); err != nil {
 		return err
 	}

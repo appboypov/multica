@@ -298,9 +298,13 @@ func (h *Handler) updateIssueWithStatusGuard(ctx context.Context, workspaceID pg
 			}
 		}
 		var innerErr error
-		current, err := q.LockIssueForDescriptionUpdate(ctx,db.LockIssueForDescriptionUpdateParams{ID:params.ID,WorkspaceID:workspaceID})
-		if err != nil { return err }
-		if err := checkProjectFollowsWorklane(ctx,q,current,params.ProjectID); err != nil { return err }
+		current, err := q.LockIssueForDescriptionUpdate(ctx, db.LockIssueForDescriptionUpdateParams{ID: params.ID, WorkspaceID: workspaceID})
+		if err != nil {
+			return err
+		}
+		if err := checkProjectFollowsWorklane(ctx, q, current, params.ProjectID); err != nil {
+			return err
+		}
 		issue, cancelledWakeups, innerErr = updateIssueStoppingWakeups(ctx, q, params)
 		return innerErr
 	})
@@ -3289,9 +3293,13 @@ func (h *Handler) CreateIssue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	worklaneID, ok := optionalPlacementUUID(w, req.WorklaneID, "worklane_id")
-	if !ok { return }
+	if !ok {
+		return
+	}
 	releaseID, ok := optionalPlacementUUID(w, req.ReleaseID, "release_id")
-	if !ok { return }
+	if !ok {
+		return
+	}
 
 	var assigneeType pgtype.Text
 	var assigneeID pgtype.UUID
@@ -3480,10 +3488,10 @@ func (h *Handler) CreateIssue(w http.ResponseWriter, r *http.Request) {
 		CreatorID:      parseUUID(actualCreatorID),
 		ParentIssueID:  parentIssueID,
 		ProjectID:      projectID,
-		Type:          ptrToText(req.Type),
-		FromTemplate:  req.FromTemplate,
-		WorklaneID:    worklaneID,
-		ReleaseID:     releaseID,
+		Type:           ptrToText(req.Type),
+		FromTemplate:   req.FromTemplate,
+		WorklaneID:     worklaneID,
+		ReleaseID:      releaseID,
 		StartDate:      startDate,
 		DueDate:        dueDate,
 		OriginType:     originType,
@@ -3516,7 +3524,9 @@ func (h *Handler) CreateIssue(w http.ResponseWriter, r *http.Request) {
 		},
 	})
 
-	if writePlacementError(w, err) { return }
+	if writePlacementError(w, err) {
+		return
+	}
 	if errors.Is(err, service.ErrActiveDuplicate) {
 		dup := *res.DuplicateIssue
 		existing := issueToResponse(dup, h.getIssuePrefix(r.Context(), dup.WorkspaceID))
@@ -3776,7 +3786,9 @@ func (h *Handler) updateIssueAtomically(ctx context.Context, workspaceID pgtype.
 		}
 	}
 	refreshUntouchedNullableIssueParams(&params, current, rawFields)
-	if err := checkProjectFollowsWorklane(ctx,qtx,current,params.ProjectID); err != nil { return db.Issue{},current,false,err }
+	if err := checkProjectFollowsWorklane(ctx, qtx, current, params.ProjectID); err != nil {
+		return db.Issue{}, current, false, err
+	}
 
 	issue, cancelledWakeups, err := updateIssueStoppingWakeups(ctx, qtx, params)
 	if err != nil {
@@ -4072,7 +4084,9 @@ func (h *Handler) UpdateIssue(w http.ResponseWriter, r *http.Request) {
 		issue, err = h.updateIssueWithStatusGuard(r.Context(), prevIssue.WorkspaceID, statusKeyForGuard, params)
 	}
 	if err != nil {
-		if writePlacementError(w, err) { return }
+		if writePlacementError(w, err) {
+			return
+		}
 		if writeIssueStatusRaceError(w, err) {
 			return
 		}
@@ -4709,12 +4723,21 @@ func (h *Handler) BatchUpdateIssues(w http.ResponseWriter, r *http.Request) {
 	if _, touched := rawUpdates["project_id"]; touched {
 		for _, issueID := range req.IssueIDs {
 			id, err := util.ParseUUID(issueID)
-			if err != nil { continue }
-			current, err := h.Queries.GetIssueInWorkspace(r.Context(),db.GetIssueInWorkspaceParams{ID:id,WorkspaceID:wsUUID})
-			if errors.Is(err,pgx.ErrNoRows) { continue }
-			if err != nil { writeError(w,500,"failed to load issue"); return }
-			if err := checkProjectFollowsWorklane(r.Context(),h.Queries,current,batchProjectID); err != nil {
-				if !writePlacementError(w,err) { writeError(w,500,"failed to validate worklane project") }
+			if err != nil {
+				continue
+			}
+			current, err := h.Queries.GetIssueInWorkspace(r.Context(), db.GetIssueInWorkspaceParams{ID: id, WorkspaceID: wsUUID})
+			if errors.Is(err, pgx.ErrNoRows) {
+				continue
+			}
+			if err != nil {
+				writeError(w, 500, "failed to load issue")
+				return
+			}
+			if err := checkProjectFollowsWorklane(r.Context(), h.Queries, current, batchProjectID); err != nil {
+				if !writePlacementError(w, err) {
+					writeError(w, 500, "failed to validate worklane project")
+				}
 				return
 			}
 		}
@@ -4897,7 +4920,9 @@ func (h *Handler) BatchUpdateIssues(w http.ResponseWriter, r *http.Request) {
 			issue, err = h.updateIssueWithStatusGuard(r.Context(), wsUUID, batchStatusKey, params)
 		}
 		if err != nil {
-			if writePlacementError(w, err) { return }
+			if writePlacementError(w, err) {
+				return
+			}
 			// The archive race is a property of the batch's shared target
 			// status, not of one issue, so every remaining item would fail the
 			// same way. Abort with 409 instead of reporting a partial update.

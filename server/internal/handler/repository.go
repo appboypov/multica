@@ -63,8 +63,8 @@ func repositoryToResponse(r db.Repository) RepositoryResponse {
 	return resp
 }
 
-// CreateRepositoryRequest's InstallCommand is '' for None; absent, the
-// repository takes the check's first found command, or ''.
+// CreateRepositoryRequest's InstallCommand is ” for None; absent, the
+// repository takes the check's first found command, or ”.
 type CreateRepositoryRequest struct {
 	ProjectID       string  `json:"project_id"`
 	FullName        string  `json:"full_name"`
@@ -80,7 +80,7 @@ type UpdateRepositoryRequest struct {
 }
 
 // foundInstallCommand is the first install command a passed check found, or
-// '' (None) when it found none.
+// ” (None) when it found none.
 func foundInstallCommand(result *protocol.RepositoryCheckoutResult) string {
 	if result == nil || len(result.InstallCommands) == 0 {
 		return ""
@@ -473,9 +473,15 @@ func (h *Handler) DeleteRepository(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback(r.Context())
 	qtx := h.Queries.WithTx(tx)
-	repository, err = qtx.LockRepositoryForLine(r.Context(),db.LockRepositoryForLineParams{ID:repository.ID,WorkspaceID:repository.WorkspaceID})
-	if errors.Is(err,pgx.ErrNoRows) { writeError(w,404,"repository not found"); return }
-	if err != nil { writeError(w,500,"failed to lock repository"); return }
+	repository, err = qtx.LockRepositoryForLine(r.Context(), db.LockRepositoryForLineParams{ID: repository.ID, WorkspaceID: repository.WorkspaceID})
+	if errors.Is(err, pgx.ErrNoRows) {
+		writeError(w, 404, "repository not found")
+		return
+	}
+	if err != nil {
+		writeError(w, 500, "failed to lock repository")
+		return
+	}
 	others, err := qtx.CountOtherWorklanes(r.Context(), db.CountOtherWorklanesParams{
 		RepositoryID: repository.ID,
 		WorkspaceID:  repository.WorkspaceID,
@@ -517,7 +523,10 @@ func (h *Handler) DeleteRepository(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to clear issue placement")
 		return
 	}
-	if err := clearRepositoryIssueReleases(r.Context(),qtx,repository.WorkspaceID,repository.ID); err != nil { writeError(w,500,"failed to clear repository releases from issues"); return }
+	if err := clearRepositoryIssueReleases(r.Context(), qtx, repository.WorkspaceID, repository.ID); err != nil {
+		writeError(w, 500, "failed to clear repository releases from issues")
+		return
+	}
 	if err := qtx.DeleteReleasesByRepository(r.Context(), db.DeleteReleasesByRepositoryParams{
 		RepositoryID: repository.ID,
 		WorkspaceID:  repository.WorkspaceID,

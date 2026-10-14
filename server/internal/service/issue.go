@@ -101,7 +101,7 @@ type IssueCreateParams struct {
 	SourceContext *SourceContextCapture
 	// Type is one of the eight issue types (NULL = No type). A typed issue
 	// without a description gets its template's Markdown (FR-51).
-	Type pgtype.Text
+	Type         pgtype.Text
 	FromTemplate bool
 	// WorklaneID and ReleaseID place the new issue (ADR-0013). A worklane
 	// sets the project to its repository's project, whatever ProjectID says.

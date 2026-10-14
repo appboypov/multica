@@ -55,8 +55,12 @@ func resolveCreatePlacement(ctx context.Context, qtx *db.Queries, p IssueCreateP
 		}
 		// A removal may have committed while this create waited for the line lock.
 		wl, err = qtx.GetWorklaneInWorkspace(ctx, db.GetWorklaneInWorkspaceParams{ID: p.WorklaneID, WorkspaceID: p.WorkspaceID})
-		if errors.Is(err, pgx.ErrNoRows) { return createPlacement{}, ErrWorklaneNotFound }
-		if err != nil { return createPlacement{}, fmt.Errorf("reload worklane: %w", err) }
+		if errors.Is(err, pgx.ErrNoRows) {
+			return createPlacement{}, ErrWorklaneNotFound
+		}
+		if err != nil {
+			return createPlacement{}, fmt.Errorf("reload worklane: %w", err)
+		}
 		projectID = repo.ProjectID
 		in.Worklane = &issueplacement.Worklane{
 			ID:           util.UUIDToString(wl.ID),
@@ -72,7 +76,9 @@ func resolveCreatePlacement(ctx context.Context, qtx *db.Queries, p IssueCreateP
 		}
 		in.Release = rel
 	}
-	if err := validateCreateIssueType(p); err != nil { return createPlacement{},err }
+	if err := validateCreateIssueType(p); err != nil {
+		return createPlacement{}, err
+	}
 	result, refusal := issueplacement.Resolve(in)
 	if refusal != nil {
 		return createPlacement{}, &IssuePlacementRefusal{Refusal: *refusal}
@@ -212,6 +218,8 @@ func PublishIssueActivities(bus *events.Bus, workspaceID pgtype.UUID, actorType,
 }
 
 func validateCreateIssueType(p IssueCreateParams) error {
- if (p.Type.Valid && !issuetemplate.IsType(p.Type.String)) || (p.FromTemplate && !p.Type.Valid) { return ErrIssueTypeInvalid }
- return nil
+	if (p.Type.Valid && !issuetemplate.IsType(p.Type.String)) || (p.FromTemplate && !p.Type.Valid) {
+		return ErrIssueTypeInvalid
+	}
+	return nil
 }

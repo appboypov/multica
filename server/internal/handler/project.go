@@ -524,15 +524,27 @@ func (h *Handler) DeleteProject(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to lock project")
 		return
 	}
-	repositories, err := qtx.ListRepositoriesByProject(r.Context(),db.ListRepositoriesByProjectParams{WorkspaceID:project.WorkspaceID,ProjectID:project.ID})
-	if err != nil { writeError(w,500,"failed to list project repositories"); return }
-	sort.Slice(repositories,func(i,j int) bool { return uuidToString(repositories[i].ID)<uuidToString(repositories[j].ID) })
-	for _,repo := range repositories {
-		if _,err := qtx.LockRepositoryForLine(r.Context(),db.LockRepositoryForLineParams{ID:repo.ID,WorkspaceID:project.WorkspaceID}); err != nil { writeError(w,500,"failed to lock project repository"); return }
+	repositories, err := qtx.ListRepositoriesByProject(r.Context(), db.ListRepositoriesByProjectParams{WorkspaceID: project.WorkspaceID, ProjectID: project.ID})
+	if err != nil {
+		writeError(w, 500, "failed to list project repositories")
+		return
 	}
-	if _,err := qtx.ClearPlacementOfProjectIssues(r.Context(),db.ClearPlacementOfProjectIssuesParams{WorkspaceID:project.WorkspaceID,ProjectID:project.ID}); err != nil { writeError(w,500,"failed to clear project issue placement"); return }
-	for _,repo := range repositories {
-		if err := clearRepositoryIssueReleases(r.Context(),qtx,project.WorkspaceID,repo.ID); err != nil { writeError(w,500,"failed to clear project releases from issues"); return }
+	sort.Slice(repositories, func(i, j int) bool { return uuidToString(repositories[i].ID) < uuidToString(repositories[j].ID) })
+	for _, repo := range repositories {
+		if _, err := qtx.LockRepositoryForLine(r.Context(), db.LockRepositoryForLineParams{ID: repo.ID, WorkspaceID: project.WorkspaceID}); err != nil {
+			writeError(w, 500, "failed to lock project repository")
+			return
+		}
+	}
+	if _, err := qtx.ClearPlacementOfProjectIssues(r.Context(), db.ClearPlacementOfProjectIssuesParams{WorkspaceID: project.WorkspaceID, ProjectID: project.ID}); err != nil {
+		writeError(w, 500, "failed to clear project issue placement")
+		return
+	}
+	for _, repo := range repositories {
+		if err := clearRepositoryIssueReleases(r.Context(), qtx, project.WorkspaceID, repo.ID); err != nil {
+			writeError(w, 500, "failed to clear project releases from issues")
+			return
+		}
 	}
 	// The activity of the project's repositories and worklanes is reached
 	// through repository, so it goes before the repositories do.

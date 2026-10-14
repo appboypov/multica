@@ -1450,11 +1450,15 @@ func runIssueCreate(cmd *cobra.Command, _ []string) error {
 		}
 	}
 
-	if err := validateIssueTypeFlag(cmd); err != nil { return err }
+	if err := validateIssueTypeFlag(cmd); err != nil {
+		return err
+	}
 	if cmd.Flags().Changed("release") {
-		release,_ := cmd.Flags().GetString("release")
-		worklane,_ := cmd.Flags().GetString("worklane")
-		if release != "none" && (worklane == "" || worklane == "none") { return errors.New("a release needs a worklane") }
+		release, _ := cmd.Flags().GetString("release")
+		worklane, _ := cmd.Flags().GetString("worklane")
+		if release != "none" && (worklane == "" || worklane == "none") {
+			return errors.New("a release needs a worklane")
+		}
 	}
 	client, err := newAPIClient(cmd)
 	if err != nil {
@@ -1471,11 +1475,18 @@ func runIssueCreate(cmd *cobra.Command, _ []string) error {
 	defer cancel()
 
 	body := map[string]any{"title": title}
-	if cmd.Flags().Changed("type") { value,_:=cmd.Flags().GetString("type"); body["type"]=value }
+	if cmd.Flags().Changed("type") {
+		value, _ := cmd.Flags().GetString("type")
+		body["type"] = value
+	}
 	if cmd.Flags().Changed("worklane") || cmd.Flags().Changed("release") {
-		placement,err := issuePlacementBody(cmd,ctx,client,nil,nil)
-		if err != nil { return err }
-		for key,value := range placement { body[key]=value }
+		placement, err := issuePlacementBody(cmd, ctx, client, nil, nil)
+		if err != nil {
+			return err
+		}
+		for key, value := range placement {
+			body[key] = value
+		}
 	}
 	propertyFlags, _ := cmd.Flags().GetStringArray("property")
 	var createProperties map[string]json.RawMessage
@@ -1725,8 +1736,10 @@ func runIssueUpdate(cmd *cobra.Command, args []string) error {
 	var placement map[string]any
 	var currentPlacement map[string]any
 	if placementChanged {
-		currentPlacement,err = fetchIssue(ctx,client,issueRef.ID)
-		if err != nil { return err }
+		currentPlacement, err = fetchIssue(ctx, client, issueRef.ID)
+		if err != nil {
+			return err
+		}
 	}
 	body := map[string]any{}
 	if cmd.Flags().Changed("title") {
@@ -1811,8 +1824,10 @@ func runIssueUpdate(cmd *cobra.Command, args []string) error {
 		body["position"] = v
 	}
 	if placementChanged {
-		placement,err = issuePlacementBody(cmd,ctx,client,currentPlacement,body)
-		if err != nil { return err }
+		placement, err = issuePlacementBody(cmd, ctx, client, currentPlacement, body)
+		if err != nil {
+			return err
+		}
 	}
 
 	if len(body) == 0 && len(attachmentPaths) == 0 && !placementChanged {
@@ -1829,7 +1844,9 @@ func runIssueUpdate(cmd *cobra.Command, args []string) error {
 	}
 	var result map[string]any
 	if placementChanged {
-		if err := client.PutJSON(ctx,"/api/issues/"+issueRef.ID+"/placement",placement,&result); err != nil { return issuePlacementCommandError(err) }
+		if err := client.PutJSON(ctx, "/api/issues/"+issueRef.ID+"/placement", placement, &result); err != nil {
+			return issuePlacementCommandError(err)
+		}
 	}
 	desc, changed := body["description"].(string)
 	if len(pending) > 0 && !changed {
@@ -1858,17 +1875,17 @@ func runIssueUpdate(cmd *cobra.Command, args []string) error {
 		body["description"] = appendAttachmentReferences(desc, attachmentRefs)
 		body["attachment_ids"] = attachmentIDs
 	}
-	if noStart && len(body)>0 {
+	if noStart && len(body) > 0 {
 		body["suppress_run"] = true
 	}
 
-	if len(body)>0 {
-	if err := client.PutJSON(ctx, "/api/issues/"+issueRef.ID, body, &result); err != nil {
-		if len(attachmentIDs) > 0 {
-			return fmt.Errorf("update issue (uploaded IDs: %v): %w", attachmentIDs, err)
+	if len(body) > 0 {
+		if err := client.PutJSON(ctx, "/api/issues/"+issueRef.ID, body, &result); err != nil {
+			if len(attachmentIDs) > 0 {
+				return fmt.Errorf("update issue (uploaded IDs: %v): %w", attachmentIDs, err)
+			}
+			return fmt.Errorf("update issue: %w", issuePlacementCommandError(err))
 		}
-		return fmt.Errorf("update issue: %w", issuePlacementCommandError(err))
-	}
 	}
 	if duplicateOf != "" {
 		if _, err := recordedDuplicateOf(result, duplicateOf); err != nil {
