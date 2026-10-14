@@ -1202,6 +1202,12 @@ func (h *Handler) DaemonHeartbeat(w http.ResponseWriter, r *http.Request) {
 	if ack.PendingWorklaneRequest != nil {
 		resp["pending_worklane_request"] = ack.PendingWorklaneRequest
 	}
+	if ack.PendingRepositoryCheckout != nil {
+		resp["pending_repository_checkout"] = ack.PendingRepositoryCheckout
+	}
+	if len(ack.IssueWorktreeRemovals) > 0 {
+		resp["issue_worktree_removals"] = ack.IssueWorktreeRemovals
+	}
 	if ack.PendingLocalSkillImport != nil {
 		resp["pending_local_skill_import"] = ack.PendingLocalSkillImport
 	}
