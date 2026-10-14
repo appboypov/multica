@@ -89,7 +89,7 @@ This change builds on UJ-6 (`worklane-board-and-list`, DAS-459), which builds on
 ## 8. J9 Frontend: component
 
 - [x] 8.1 `packages/views/worklanes/components/worklane-row-work.tsx` -- Busy with the status icon and "{identifier} {title}", Free with the status icon and "Next: {identifier} {title}", else "Nothing queued", truncated to one line -- the `worklane-row-work` spec delta.
-- [ ] 8.2 `packages/views/worklanes/components/worklane-tree-row.tsx`, `packages/views/projects/components/project-table.tsx` -- the worklane row moved out of `project-table.tsx`, with `worklane-row-work.tsx` under the name and `release-chips.tsx`, opening the worklane page; `project-table.tsx` renders it -- design.md decision 4.
+- [x] 8.2 `packages/views/worklanes/components/worklane-tree-row.tsx`, `packages/views/projects/components/project-table.tsx` -- the worklane row moved out of `project-table.tsx`, with `worklane-row-work.tsx` under the name and `release-chips.tsx`, opening the worklane page; `project-table.tsx` renders it -- design.md decision 4.
 - [x] 8.3 `packages/views/repositories/components/repository-card.tsx` -- `worklane-row-work.tsx` under each worklane's name -- the `worklane-row-work` spec delta.
 - [x] 8.4 `packages/views/projects/components/work-tree.tsx` -- the header row, organisation, project and repository rows with chevrons, links, meta and the repository action slot, folding through the page's closed keys -- design.md decision 4.
 - [x] 8.5 `packages/views/releases/components/release-row.tsx` -- chip, title, "Set by hand", progress "{done}/{total}", worklane chips or "No issues yet", the row a link to the target's Timeline with `?release={id}`, no menu -- design.md decision 4.
