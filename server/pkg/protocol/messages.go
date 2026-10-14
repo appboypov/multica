@@ -71,6 +71,11 @@ const (
 	// It is persisted when this exact task enters running; absence always means
 	// unsupported so mixed server/daemon versions fail closed.
 	DaemonCapabilityTaskSupplementV1 = "task-supplement-v1"
+	// DaemonCapabilityWorklaneWorktreeV1 advertises that the daemon makes and
+	// removes worklane worktrees on the server's worklane requests
+	// (ADR-0006). The server refuses to create a worklane on a runtime whose
+	// newest row lacks it, with runtime_cannot_make_worktrees.
+	DaemonCapabilityWorklaneWorktreeV1 = "worklane-worktree-v1"
 
 	TaskSupplementFailureTurnNotStarted   = "turn_not_started"
 	TaskSupplementFailureProviderRejected = "provider_rejected"
@@ -170,6 +175,7 @@ const (
 	PendingWorkKindDirectoryListing   = "directory_listing"
 	PendingWorkKindRepositoryCheckout = "repository_checkout"
 	PendingWorkKindIssueWorktrees     = "issue_worktrees"
+	PendingWorkKindWorklaneRequest    = "worklane_request"
 )
 
 // PendingWorkPayload is sent from server to daemon as a wakeup hint when a
@@ -436,6 +442,10 @@ type DaemonHeartbeatAckPayload struct {
 	// `removing`: their issue is Done or Cancelled, so the daemon removes
 	// each one that holds no unsaved work (ADR-0007).
 	IssueWorktreeRemovals []DaemonHeartbeatIssueWorktreeRemoval `json:"issue_worktree_removals,omitempty"`
+	// PendingWorklaneRequest is the runtime's next worklane create or remove
+	// request. The daemon runs it in a goroutine and posts the whole step
+	// list after every step change.
+	PendingWorklaneRequest *DaemonHeartbeatPendingWorklaneRequest `json:"pending_worklane_request,omitempty"`
 }
 
 // HeartbeatStatusRuntimeGone is the ack Status used when the runtime row no
@@ -481,4 +491,75 @@ type DaemonHeartbeatIssueWorktreeRemoval struct {
 	Path            string `json:"path"`
 	Branch          string `json:"branch"`
 	IssueIdentifier string `json:"issue_identifier"`
+}
+
+// Kinds of a worklane request.
+const (
+	WorklaneRequestKindCreate = "create"
+	WorklaneRequestKindRemove = "remove"
+)
+
+// DaemonHeartbeatPendingWorklaneRequest asks the daemon to make or remove a
+// worklane's worktree. Path is the worktree path the server computed (create)
+// or recorded (remove); the daemon expands `~` and answers the absolute path.
+// FromStep is set on a retry: the steps before it are done.
+type DaemonHeartbeatPendingWorklaneRequest struct {
+	ID                 string                         `json:"id"`
+	Kind               string                         `json:"kind"`
+	FullName           string                         `json:"full_name"`
+	DefaultBranch      string                         `json:"default_branch"`
+	CheckoutPath       string                         `json:"checkout_path"`
+	Path               string                         `json:"path"`
+	InstallCommand     string                         `json:"install_command,omitempty"`
+	FromStep           string                         `json:"from_step,omitempty"`
+	IssueWorktreePaths []WorklaneRequestIssueWorktree `json:"issue_worktree_paths,omitempty"`
+}
+
+// WorklaneRequestIssueWorktree is an issue worktree of the repository on the
+// request's daemon. A worklane never takes its folder (ADR-0009).
+type WorklaneRequestIssueWorktree struct {
+	Path     string `json:"path"`
+	IssueKey string `json:"issue_key"`
+}
+
+// ClaimRepository is one repository of the issue's project in a task claim
+// (ADR-0006, ADR-0007). WorktreePath is the recorded issue worktree path, or
+// empty. WorklanePaths are the worktree paths of the repository's worklanes
+// on the claiming daemon, so the issue worktree never takes one of them
+// (ADR-0009).
+type ClaimRepository struct {
+	ID               string   `json:"id"`
+	FullName         string   `json:"full_name"`
+	DefaultBranch    string   `json:"default_branch"`
+	CheckoutDaemonID string   `json:"checkout_daemon_id"`
+	CheckoutPath     string   `json:"checkout_path"`
+	WorktreePath     string   `json:"worktree_path"`
+	WorklanePaths    []string `json:"worklane_paths,omitempty"`
+}
+
+// RepositoryCheckoutFailure is one failed part of a checkout check: code is
+// not_found, not_git, origin_mismatch, wrong_branch or clone_failed.
+type RepositoryCheckoutFailure struct {
+	Code   string `json:"code"`
+	Detail string `json:"detail,omitempty"`
+}
+
+// RepositoryInstallCommand is an install command found from a file on the
+// default branch, in the spec's table order.
+type RepositoryInstallCommand struct {
+	File    string `json:"file"`
+	Command string `json:"command"`
+}
+
+// RepositoryCheckoutResult is the daemon's answer to a checkout check or
+// clone. ResolvedPath is absolute. VersionFiles, LastTag and InstallCommands
+// are read only from what is on the machine, after a passed check.
+type RepositoryCheckoutResult struct {
+	Status          string                      `json:"status"`
+	ResolvedPath    string                      `json:"resolved_path"`
+	Passed          bool                        `json:"passed"`
+	Failures        []RepositoryCheckoutFailure `json:"failures"`
+	VersionFiles    []string                    `json:"version_files"`
+	LastTag         string                      `json:"last_tag,omitempty"`
+	InstallCommands []RepositoryInstallCommand  `json:"install_commands"`
 }

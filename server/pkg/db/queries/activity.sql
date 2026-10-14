@@ -58,3 +58,55 @@ WHERE workspace_id = $1
   AND details->>'to_type' IS NOT NULL
   AND details->>'to_id' IS NOT NULL
 GROUP BY details->>'to_type', details->>'to_id';
+
+-- name: CreateWorklaneActivity :one
+-- A worklane entry (ADR-0008): issue_id NULL, the worklane and its repository
+-- set, so deleting the repository or its project deletes it too.
+INSERT INTO activity_log (
+    workspace_id, worklane_id, repository_id, actor_type, actor_id, action, details
+) VALUES (
+    sqlc.arg('workspace_id'), sqlc.arg('worklane_id'), sqlc.arg('repository_id'),
+    sqlc.arg('actor_type'), sqlc.narg('actor_id'), sqlc.arg('action'),
+    sqlc.arg('details')
+)
+RETURNING *;
+
+-- name: ListActivitiesForWorklane :many
+-- The NEWEST 200 entries of a worklane, returned in chronological order, as
+-- ListActivitiesForIssue: the worklane's own entries and its repository's
+-- repository-wide entries (worklane_id NULL), which show on every worklane.
+-- activity_log_worklane_keyset_idx and activity_log_repository_keyset_idx
+-- serve the two sides.
+SELECT * FROM (
+    SELECT * FROM activity_log
+    WHERE workspace_id = sqlc.arg('workspace_id')
+      AND issue_id IS NULL
+      AND (
+        worklane_id = sqlc.arg('worklane_id')
+        OR (repository_id = sqlc.arg('repository_id') AND worklane_id IS NULL)
+      )
+    ORDER BY created_at DESC, id DESC
+    LIMIT 200
+) AS recent
+ORDER BY created_at ASC, id ASC;
+
+-- name: DeleteActivitiesByWorklane :exec
+DELETE FROM activity_log
+WHERE worklane_id = $1 AND workspace_id = $2 AND issue_id IS NULL;
+
+-- name: DeleteActivitiesByRepository :exec
+-- The repository's worklane entries and its repository-wide entries.
+DELETE FROM activity_log
+WHERE repository_id = $1 AND workspace_id = $2 AND issue_id IS NULL;
+
+-- name: DeleteActivitiesByProject :exec
+-- Activity references its repository, never the project, so project delete
+-- reaches it through repository; it runs before DeleteRepositoriesByProject.
+DELETE FROM activity_log
+WHERE activity_log.workspace_id = sqlc.arg('workspace_id')
+  AND activity_log.issue_id IS NULL
+  AND activity_log.repository_id IN (
+    SELECT repository.id FROM repository
+    WHERE repository.project_id = sqlc.arg('project_id')
+      AND repository.workspace_id = sqlc.arg('workspace_id')
+  );

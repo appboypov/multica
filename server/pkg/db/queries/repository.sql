@@ -19,16 +19,18 @@ WHERE id = $1 AND workspace_id = $2;
 -- A repository already in a project fails on
 -- repository_workspace_full_name_unique; the handler answers 409 with that
 -- project. The GitHub fields come from GitHub and the checkout from a passed
--- check, never from the client.
+-- check, never from the client. install_command is NULL while not found yet,
+-- '' for None.
 INSERT INTO repository (
     workspace_id, project_id, github_repo_id, full_name, private,
     default_branch, checkout_daemon_id, checkout_path, version_policy,
-    created_by
+    install_command, created_by
 ) VALUES (
     sqlc.arg('workspace_id'), sqlc.arg('project_id'), sqlc.arg('github_repo_id'),
     sqlc.arg('full_name'), sqlc.arg('private'), sqlc.arg('default_branch'),
     sqlc.arg('checkout_daemon_id'), sqlc.arg('checkout_path'),
-    sqlc.arg('version_policy'), sqlc.narg('created_by')
+    sqlc.arg('version_policy'), sqlc.narg('install_command'),
+    sqlc.narg('created_by')
 )
 RETURNING *;
 
@@ -57,6 +59,28 @@ UPDATE repository SET
     version_policy = sqlc.arg('version_policy'),
     updated_at = now()
 WHERE id = sqlc.arg('id') AND workspace_id = sqlc.arg('workspace_id')
+RETURNING *;
+
+-- name: UpdateRepositoryInstallCommand :one
+-- The command a new worklane runs in its worktree: '' is None.
+UPDATE repository SET
+    install_command = sqlc.arg('install_command'),
+    updated_at = now()
+WHERE id = sqlc.arg('id') AND workspace_id = sqlc.arg('workspace_id')
+RETURNING *;
+
+-- name: BackfillRepositoryInstallCommand :many
+-- A passed check fills the install command of a repository from before this
+-- column, when it names that repository and its checkout. Returns the rows it
+-- set so the handler publishes repository:updated for each.
+UPDATE repository SET
+    install_command = sqlc.arg('install_command'),
+    updated_at = now()
+WHERE workspace_id = sqlc.arg('workspace_id')
+  AND LOWER(full_name) = LOWER(sqlc.arg('full_name'))
+  AND checkout_daemon_id = sqlc.arg('checkout_daemon_id')
+  AND checkout_path = sqlc.arg('checkout_path')
+  AND install_command IS NULL
 RETURNING *;
 
 -- name: DeleteRepository :exec

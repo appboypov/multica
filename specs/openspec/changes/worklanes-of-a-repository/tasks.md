@@ -36,14 +36,14 @@ This change builds on UJ-2 (`repositories-of-a-project`, DAS-451): its `reposito
 
 ## 1. J2 Data models: model change
 
-- [ ] 1.1 `server/migrations/583_worklane_worktrees.up.sql`, `.down.sql` -- add the nullable columns `repository.install_command text`, `worklane.path text`, `activity_log.worklane_id uuid` and `activity_log.repository_id uuid`, without defaults or foreign keys -- design.md decision 1. The down migration drops the four columns.
-- [ ] 1.2 `server/migrations/584_worklane_folder_index.up.sql`, `.down.sql` -- `CREATE UNIQUE INDEX CONCURRENTLY worklane_repository_folder_unique ON worklane (repository_id, folder) WHERE folder IS NOT NULL`.
-- [ ] 1.3 `server/migrations/585_activity_log_worklane_index.up.sql`, `.down.sql` -- `CREATE INDEX CONCURRENTLY activity_log_worklane_keyset_idx ON activity_log (worklane_id, created_at DESC, id DESC) WHERE worklane_id IS NOT NULL`.
-- [ ] 1.4 `server/migrations/586_activity_log_repository_index.up.sql`, `.down.sql` -- `CREATE INDEX CONCURRENTLY activity_log_repository_keyset_idx ON activity_log (repository_id, created_at DESC, id DESC) WHERE repository_id IS NOT NULL AND worklane_id IS NULL`.
-- [ ] 1.5 `server/cmd/migrate/main.go` -- add 584 to 586 to the concurrent index cleanups -- `TestEveryConcurrentUpBuildHasCleanup` requires it. When `main` has taken any of 583 to 586, take the next free numbers and rename every reference.
-- [ ] 1.6 `server/pkg/db/queries/worklane.sql` -- `GetWorklaneInWorkspace`, `CreateWorklaneWithPath` (taking `path`, `daemon_id`, `folder` and the next `position` in one statement), `RenameWorklane`, `DeleteWorklane`, `ListWorklanePathsForDaemon` (by repository and daemon, `path IS NOT NULL`), `CountOtherWorklanes` (by repository, `NOT is_main`), each filtered by `workspace_id`.
-- [ ] 1.7 `server/pkg/db/queries/repository.sql` -- `install_command` in `CreateRepository` and `UpdateRepository*`; `BackfillRepositoryInstallCommand` (workspace, `LOWER(full_name)`, checkout daemon and path, `install_command IS NULL`).
-- [ ] 1.8 `server/pkg/db/queries/activity.sql` -- `CreateWorklaneActivity`; `ListActivitiesForWorklane` (`worklane_id = $1 OR (repository_id = $2 AND worklane_id IS NULL)`, newest 200 in keyset order, re-sorted ascending as `ListActivitiesForIssue`); `DeleteActivitiesByWorklane`; `DeleteActivitiesByRepository` and `DeleteActivitiesByProject` (through `repository`), each with `issue_id IS NULL`.
+- [x] 1.1 `server/migrations/583_worklane_worktrees.up.sql`, `.down.sql` -- add the nullable columns `repository.install_command text`, `worklane.path text`, `activity_log.worklane_id uuid` and `activity_log.repository_id uuid`, without defaults or foreign keys -- design.md decision 1. The down migration drops the four columns.
+- [x] 1.2 `server/migrations/584_worklane_folder_index.up.sql`, `.down.sql` -- `CREATE UNIQUE INDEX CONCURRENTLY worklane_repository_folder_unique ON worklane (repository_id, folder) WHERE folder IS NOT NULL`.
+- [x] 1.3 `server/migrations/585_activity_log_worklane_index.up.sql`, `.down.sql` -- `CREATE INDEX CONCURRENTLY activity_log_worklane_keyset_idx ON activity_log (worklane_id, created_at DESC, id DESC) WHERE worklane_id IS NOT NULL`.
+- [x] 1.4 `server/migrations/586_activity_log_repository_index.up.sql`, `.down.sql` -- `CREATE INDEX CONCURRENTLY activity_log_repository_keyset_idx ON activity_log (repository_id, created_at DESC, id DESC) WHERE repository_id IS NOT NULL AND worklane_id IS NULL`.
+- [x] 1.5 `server/cmd/migrate/main.go` -- add 584 to 586 to the concurrent index cleanups -- `TestEveryConcurrentUpBuildHasCleanup` requires it. When `main` has taken any of 583 to 586, take the next free numbers and rename every reference.
+- [x] 1.6 `server/pkg/db/queries/worklane.sql` -- `GetWorklaneInWorkspace`, `CreateWorklaneWithPath` (taking `path`, `daemon_id`, `folder` and the next `position` in one statement), `RenameWorklane`, `DeleteWorklane`, `ListWorklanePathsForDaemon` (by repository and daemon, `path IS NOT NULL`), `CountOtherWorklanes` (by repository, `NOT is_main`), each filtered by `workspace_id`.
+- [x] 1.7 `server/pkg/db/queries/repository.sql` -- `install_command` in `CreateRepository` and `UpdateRepository*`; `BackfillRepositoryInstallCommand` (workspace, `LOWER(full_name)`, checkout daemon and path, `install_command IS NULL`).
+- [x] 1.8 `server/pkg/db/queries/activity.sql` -- `CreateWorklaneActivity`; `ListActivitiesForWorklane` (`worklane_id = $1 OR (repository_id = $2 AND worklane_id IS NULL)`, newest 200 in keyset order, re-sorted ascending as `ListActivitiesForIssue`); `DeleteActivitiesByWorklane`; `DeleteActivitiesByRepository` and `DeleteActivitiesByProject` (through `repository`), each with `issue_id IS NULL`.
 - [ ] 1.9 `server/pkg/db/generated/` -- run `make sqlc` and commit the output.
 
 ## 2. J2 Data models: model change
@@ -55,9 +55,9 @@ This change builds on UJ-2 (`repositories-of-a-project`, DAS-451): its `reposito
 
 ## 3. J2 Data models: action names
 
-- [ ] 3.1 `server/pkg/protocol/events.go` -- `EventWorklaneUpdated` with the worklane's id and repository id.
-- [ ] 3.2 `server/pkg/protocol/messages.go` -- `PendingWorkKindWorklaneRequest`; `DaemonHeartbeatPendingWorklaneRequest` and the heartbeat response's `pending_worklane_request`; `DaemonCapabilityWorklaneWorktreeV1 = "worklane-worktree-v1"`; the claim's `worklane_paths` per repository; the check result's `install_commands`.
-- [ ] 3.3 `server/internal/handler/worklane.go` -- the constants `worklaneActionCreated = "worklane_created"` and `worklaneActionRenamed = "worklane_renamed"`; issue actions stay string literals in their listeners.
+- [x] 3.1 `server/pkg/protocol/events.go` -- `EventWorklaneUpdated` with the worklane's id and repository id.
+- [x] 3.2 `server/pkg/protocol/messages.go` -- `PendingWorkKindWorklaneRequest`; `DaemonHeartbeatPendingWorklaneRequest` and the heartbeat response's `pending_worklane_request`; `DaemonCapabilityWorklaneWorktreeV1 = "worklane-worktree-v1"`; the claim's `worklane_paths` per repository; the check result's `install_commands`.
+- [x] 3.3 `server/internal/handler/worklane.go` -- the constants `worklaneActionCreated = "worklane_created"` and `worklaneActionRenamed = "worklane_renamed"`; issue actions stay string literals in their listeners.
 - [ ] 3.4 `packages/core/modals/store.ts` -- `"new-worklane"`, `"rename-worklane"` and `"remove-worklane"` in `ModalType`.
 
 ## 4. J3 Data-flow prototype: data-flow prototype

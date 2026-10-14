@@ -108,8 +108,9 @@ const (
 	EventRepositoryUpdated = "repository:updated"
 	EventRepositoryDeleted = "repository:deleted"
 
-	// Worklane events. Both carry WorklaneEventPayload.
+	// Worklane events. All three carry WorklaneEventPayload.
 	EventWorklaneCreated = "worklane:created"
+	EventWorklaneUpdated = "worklane:updated"
 	EventWorklaneDeleted = "worklane:deleted"
 
 	// Organisation events. Both carry OrganisationEventPayload; there is no
@@ -271,8 +272,8 @@ type RepositoryEventPayload struct {
 	ProjectID    string `json:"project_id"`
 }
 
-// WorklaneEventPayload is the payload of worklane:created and
-// worklane:deleted.
+// WorklaneEventPayload is the payload of worklane:created, worklane:updated
+// and worklane:deleted.
 type WorklaneEventPayload struct {
 	WorklaneID   string `json:"worklane_id"`
 	RepositoryID string `json:"repository_id"`
