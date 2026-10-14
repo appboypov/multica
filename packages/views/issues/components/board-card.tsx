@@ -30,6 +30,8 @@ import { LabelChip } from "../../labels/label-chip";
 import { IssueAgentActivityIndicator } from "./issue-agent-activity-indicator";
 import { CustomStatusChip, useIsCustomStatus } from "./custom-status-chip";
 import { IssueDuplicateOfMarker } from "./issue-duplicates";
+import { TypeIcon } from "./type-icon";
+import { IssueReleaseChip } from "../../releases/components/issue-release-chip";
 import { useIssueSurfaceActionsOptional } from "../surface/actions-context";
 import {
   PEEK_TARGET_ATTR,
@@ -202,7 +204,9 @@ export const BoardCardContent = memo(function BoardCardContent({
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5 min-w-0">
           {priorityIconNode}
+          {issue.type && <TypeIcon type={issue.type} />}
           <p className="text-caption text-muted-foreground truncate">{issue.identifier}</p>
+          {issue.release_id && <IssueReleaseChip releaseId={issue.release_id} />}
           <IssueDuplicateOfMarker issue={issue} insideLink />
         </div>
         <IssueAgentActivityIndicator issueId={issue.id} />

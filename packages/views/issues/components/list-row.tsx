@@ -24,6 +24,8 @@ import { IssueActionsContextMenu } from "../actions";
 import { LabelChip } from "../../labels/label-chip";
 import { CustomStatusChip } from "./custom-status-chip";
 import { IssueDuplicateOfMarker } from "./issue-duplicates";
+import { TypeIcon } from "./type-icon";
+import { IssueReleaseChip } from "../../releases/components/issue-release-chip";
 import { IssueAgentActivityIndicator } from "./issue-agent-activity-indicator";
 import { useIssueSurfaceSelection } from "../surface/selection-context";
 import {
@@ -125,9 +127,11 @@ function ListRowContent({
           className={`flex flex-1 items-center gap-2 min-w-0 ${isDragging ? "pointer-events-none" : ""}`}
           {...peekLinkProps}
         >
+          {issue.type && <TypeIcon type={issue.type} />}
           <span className="min-w-16 shrink-0 text-caption text-muted-foreground">
             {issue.identifier}
           </span>
+          {issue.release_id && <IssueReleaseChip releaseId={issue.release_id} />}
           <IssueAgentActivityIndicator issueId={issue.id} />
 
           <span className="flex min-w-0 flex-1 items-center gap-1.5">

@@ -98,6 +98,7 @@ import { IssueAgentActivityIndicator } from "./issue-agent-activity-indicator";
 import { SubIssuesAgentWorkingChip } from "./sub-issues-agent-working-chip";
 import { ProjectPicker } from "../../projects/components/project-picker";
 import { IssuePropertyPills } from "./issue-property-pills";
+import { IssuePeekSummary } from "./issue-peek-summary";
 import { useNewRunIds } from "./use-run-comment-motion";
 import { AgentRunComment, CommentCard } from "./comment-card";
 import { EMPTY_COMMENT_RUNS, buildCommentRunView, orderTimelineWithRuns, questionAnchor, type CommentRun } from "./comment-runs";
@@ -3505,13 +3506,14 @@ export function IssueDetail({ issueId, onDelete, onDone, defaultSidebarOpen = tr
           )}
 
           {isPeek && (
-            <div className="mt-3">
-              <IssuePropertyPills
+            <div className="mt-3 space-y-1.5">
+              <IssuePeekSummary
                 issue={issue}
                 onUpdate={handleUpdateField}
                 onMarkDuplicate={actions.openMarkDuplicate}
                 isDuplicate={isDuplicateIssue(issue)}
               />
+              <IssuePropertyPills issue={issue} onUpdate={handleUpdateField} />
             </div>
           )}
 

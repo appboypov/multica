@@ -141,9 +141,9 @@ This change builds on UJ-5 (`issues-from-templates`, DAS-456), which builds on U
 
 ## 13. J9 Frontend: component
 
-- [ ] 13.1 `packages/views/releases/components/issue-release-chip.tsx` -- the release's version in its state's colour from `lineStates` -- design.md decision 5.
-- [ ] 13.2 `packages/views/issues/components/board-card.tsx`, `list-row.tsx` -- the release chip after the type icon when `release_id` is set.
-- [ ] 13.3 `packages/views/issues/components/issue-peek-summary.tsx`, `issue-detail.tsx` -- the preview's header of design.md decision 5 at the top of `variant="peek"`.
+- [x] 13.1 `packages/views/releases/components/issue-release-chip.tsx` -- the release's version in its state's colour from `lineStates` -- design.md decision 5.
+- [x] 13.2 `packages/views/issues/components/board-card.tsx`, `list-row.tsx` -- the release chip after the type icon when `release_id` is set.
+- [x] 13.3 `packages/views/issues/components/issue-peek-summary.tsx`, `issue-detail.tsx` -- the preview's header of design.md decision 5 at the top of `variant="peek"`.
 - [x] 13.4 `packages/views/issues/surface/peek-context.tsx`, `packages/views/issues/components/issue-peek.tsx` -- `openMode` on `IssuePeekHost` read by `useIssuePeekClick`, and the open button labelled "Open issue".
 - [x] 13.5 `packages/views/issues/surface/issue-surface.tsx`, `types.ts`, `use-issue-surface-actions.ts` -- `openMode` passed to the surface's peek host, and `announceMoves` with the toast "{identifier} moved to {status}" after the server accepts a status change.
 - [x] 13.6 `packages/views/worklanes/components/worklane-type-filter.tsx` -- the Type filter with the eight types and No type, their icons and counts.
@@ -152,10 +152,10 @@ This change builds on UJ-5 (`issues-from-templates`, DAS-456), which builds on U
 
 ## 14. J9 Frontend: screen
 
-- [ ] 14.1 `packages/views/worklanes/components/worklane-page.tsx` -- the header's Timeline, Board and List switch opening on Timeline, the Type filter held across views, `worklane-state.tsx`, and an `IssuePeekHost` with `openMode` `peek` around the views -- the `worklane-views` and `worklane-state` spec deltas.
-- [ ] 14.2 `packages/views/worklanes/components/worklane-board.tsx` -- `IssueSurface` with the worklane scope, `modes: ["board"]`, `surfaceKey` `worklane:{id}`, `createDefaults` from `openedFrom`, `announceMoves` and `openMode` `peek` -- the `worklane-board` spec delta.
-- [ ] 14.3 `packages/views/worklanes/components/worklane-list.tsx` -- the sections of `listSections` with UJ-4's release menu and description, `ListRow` rows in a `ViewStoreProvider` of the `worklane:{id}` store, "No issues of this worklane", "No release", and the two empty states -- the `worklane-list` spec delta.
-- [ ] 14.4 `packages/views/worklanes/components/worklane-timeline.tsx`, `packages/views/releases/components/release-issue-row.tsx` -- the Type filter on the Timeline's issues, and rows opening the preview -- the `worklane-views` and `issue-preview` spec deltas.
+- [x] 14.1 `packages/views/worklanes/components/worklane-page.tsx` -- the header's Timeline, Board and List switch opening on Timeline, the Type filter held across views, `worklane-state.tsx`, and an `IssuePeekHost` with `openMode` `peek` around the views -- the `worklane-views` and `worklane-state` spec deltas.
+- [x] 14.2 `packages/views/worklanes/components/worklane-board.tsx` -- `IssueSurface` with the worklane scope, `modes: ["board"]`, `surfaceKey` `worklane:{id}`, `createDefaults` from `openedFrom`, `announceMoves` and `openMode` `peek` -- the `worklane-board` spec delta.
+- [x] 14.3 `packages/views/worklanes/components/worklane-list.tsx` -- the sections of `listSections` with UJ-4's release menu and description, `ListRow` rows in a `ViewStoreProvider` of the `worklane:{id}` store, "No issues of this worklane", "No release", and the two empty states -- the `worklane-list` spec delta.
+- [x] 14.4 `packages/views/worklanes/components/worklane-timeline.tsx`, `packages/views/releases/components/release-issue-row.tsx` -- the Type filter on the Timeline's issues, and rows opening the preview -- the `worklane-views` and `issue-preview` spec deltas.
 - [x] 14.5 `packages/views/worklanes/components/worklane-activity.tsx` -- "The worktree switched from {from} to {to}" and "The worktree stayed on {branch} because it holds uncommitted changes" or "... {count} commits that are not pushed".
 - [x] 14.6 `packages/views/agents/components/tabs/task-failure.ts` -- `worklane_elsewhere` and `worklane_branch_held` as actionable, with their labels.
 - [x] 14.7 `packages/views/locales/{en,zh-Hans,ko,ja,fr}/` -- `issues` (the move toast, Open issue, No worklane), `worklanes` (the views, Type, No type, Busy, Free, now, next, the List's empty states, the two activity sentences), `agents` (the two failure labels) -- design.md decision 9.
