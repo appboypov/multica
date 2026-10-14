@@ -120,7 +120,7 @@ Its J2 starts once UJ-3's J2 is merged.
 - [ ] 9.2 `server/cmd/server/router.go` -- `GET /api/releases`, `POST /api/repositories/{id}/releases`, `PATCH /api/releases/{id}`, `POST /api/releases/{id}/move`, `DELETE /api/releases/{id}` behind the workspace member gate.
 - [ ] 9.3 `server/internal/handler/repository.go` -- store `last_tag` from the passed check on create; in `UpdateRepository`, under `LockRepositoryForLine`, refuse `version_policy: none` while `ListUnshippedReleaseHeads` is not empty with 409 `has_unshipped_releases`; `DeleteRepository` deletes its releases in its transaction -- the `repository-stops-releasing` spec delta, design.md decision 6.
 - [ ] 9.4 `server/internal/handler/runtime_repository_checkout.go` -- on a passed check, run `BackfillRepositoryLastTag` beside the install-command backfill, and publish `repository:updated` when a row changed -- design.md decision 5.
-- [ ] 9.5 `server/internal/handler/worklane.go` -- `ListWorklaneActivity` passes the worklane's `created_at` -- ADR-0011.
+- [x] 9.5 `server/internal/handler/worklane.go` -- `ListWorklaneActivity` passes the worklane's `created_at` -- ADR-0011.
 - [x] 9.6 `server/internal/handler/project.go` -- project delete deletes the releases of its repositories in its transaction.
 - [x] 9.7 `server/cmd/server/listeners.go` -- forward `release_line:updated` to the workspace.
 - [ ] 9.8 Handler tests beside the code, with `testutil` fixtures and `testutil.Call`:
