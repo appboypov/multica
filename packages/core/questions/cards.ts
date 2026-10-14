@@ -1,4 +1,4 @@
-import type { Question } from "../types";
+import type { Question, QuestionWakeTarget } from "../types";
 
 // The client mirror of ADR-0004: a question set groups the questions of one
 // ask, and "open" is decided per question and per answerer. The server's
@@ -65,4 +65,26 @@ export function groupQuestionCards(questions: readonly Question[]): QuestionCard
     const right = b.questions[0]!;
     return left.created_at.localeCompare(right.created_at) || left.id.localeCompare(right.id);
   });
+}
+
+/** An agent offered Wake on an issue, with a question that offers it. */
+export interface WakeOffer {
+  question: Question;
+  target: QuestionWakeTarget;
+}
+
+/**
+ * Each (agent, issue) wake target of the questions that can be woken now, once,
+ * in question order and the asking agent first within a question (design.md
+ * decision 6 of UJ-4): one Wake bar or button each.
+ */
+export function wakeOffers(questions: readonly Question[]): WakeOffer[] {
+  const offers = new Map<string, WakeOffer>();
+  for (const question of questions) {
+    for (const target of question.wake_targets) {
+      const key = `${target.agent_id}:${target.issue_id}`;
+      if (target.wake_available && !offers.has(key)) offers.set(key, { question, target });
+    }
+  }
+  return [...offers.values()];
 }

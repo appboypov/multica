@@ -2,10 +2,12 @@
 
 import { useState } from "react";
 import { AlarmClock, Check } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useWorkspaceId } from "@multica/core/hooks";
+import { issueDetailOptions } from "@multica/core/issues/queries";
 import { createLogger } from "@multica/core/logger";
-import { useWakeQuestionAgent } from "@multica/core/questions";
+import { useWakeQuestionAgent, wakeOffers, type WakeOffer } from "@multica/core/questions";
 import type { Question } from "@multica/core/types";
 import { useActorName } from "@multica/core/workspace/hooks";
 import { Button } from "@multica/ui/components/ui/button";
@@ -15,51 +17,50 @@ import { useT } from "../i18n";
 const logger = createLogger("questions.wake-bar");
 
 export interface WakeBarsProps {
-  /** The issue the questions are on; Wake starts the asking agent's run there. */
+  /** The issue the questions are on. */
   issueId: string;
   /** The issue's identifier, such as WORK-412. */
   identifier: string;
-  /** The issue's questions the bars are about; one bar per asking agent. */
+  /** The issue's questions the bars are about; one bar per wake target. */
   questions: readonly Question[];
 }
 
 /**
- * One bar per agent with `wake_available` among the questions: "Pieter has 1
- * answer from you on WORK-412" and **Wake Pieter**. After a Wake the bar reads
- * "Pieter was woken with your answers" until the agent has a new answer to wake on.
+ * One bar per wake target that can be woken among the questions, the asking
+ * agent first: "Pieter has 1 answer from you on WORK-412" and **Wake Pieter**.
+ * After a Wake the bar reads "Pieter was woken with your answers" until the
+ * agent has a new answer to wake on.
  */
 export function WakeBars({ issueId, identifier, questions }: WakeBarsProps) {
-  const [woken, setWoken] = useState<ReadonlySet<string>>(() => new Set());
-  const agentIds = [...new Set(questions.map((q) => q.asker_agent_id))];
+  const [woken, setWoken] = useState<readonly string[]>([]);
+  const offers = wakeOffers(questions);
+  const offered = new Set(offers.map((offer) => offer.target.agent_id));
 
   return (
     <>
-      {agentIds.map((agentId) => {
-        const target = questions.find((q) => q.asker_agent_id === agentId && q.wake_available);
-        if (target) {
-          return (
-            <WakeBar
-              key={agentId}
-              question={target}
-              issueId={issueId}
-              identifier={identifier}
-              onWoken={() => setWoken((current) => new Set(current).add(agentId))}
-            />
-          );
-        }
-        return woken.has(agentId) ? <WokenBar key={agentId} agentId={agentId} /> : null;
-      })}
+      {offers.map((offer) => (
+        <WakeBar
+          key={`${offer.target.agent_id}:${offer.target.issue_id}`}
+          offer={offer}
+          issueId={issueId}
+          identifier={identifier}
+          onWoken={() => setWoken((current) => [...current, offer.target.agent_id])}
+        />
+      ))}
+      {[...new Set(woken)].filter((agentId) => !offered.has(agentId)).map((agentId) => (
+        <WokenBar key={agentId} agentId={agentId} />
+      ))}
     </>
   );
 }
 
 function WakeBar({
-  question,
+  offer: { question, target },
   issueId,
   identifier,
   onWoken,
 }: {
-  question: Question;
+  offer: WakeOffer;
   issueId: string;
   identifier: string;
   onWoken: () => void;
@@ -68,13 +69,16 @@ function WakeBar({
   const wsId = useWorkspaceId();
   const { getActorName } = useActorName();
   const wake = useWakeQuestionAgent(wsId, issueId);
-  const name = getActorName("agent", question.asker_agent_id);
+  // A target on another issue (an assignee above, a project lead) names that issue.
+  const otherIssue = useQuery({ ...issueDetailOptions(wsId, target.issue_id), enabled: target.issue_id !== issueId });
+  const targetIdentifier = target.issue_id === issueId ? identifier : (otherIssue.data?.identifier ?? "");
+  const name = getActorName("agent", target.agent_id);
 
   return (
-    <div className="flex min-h-11 items-center gap-2 rounded-lg border border-brand/40 bg-brand/5 px-3 py-1.5 text-body" data-wake-agent={question.asker_agent_id}>
-      <ActorAvatar actorType="agent" actorId={question.asker_agent_id} size="sm" />
+    <div className="flex min-h-11 items-center gap-2 rounded-lg border border-brand/40 bg-brand/5 px-3 py-1.5 text-body" data-wake-agent={target.agent_id}>
+      <ActorAvatar actorType="agent" actorId={target.agent_id} size="sm" />
       <span className="min-w-0 truncate">
-        {t(($) => $.wake_bar.unseen, { name, count: question.unseen_answer_count, identifier })}
+        {t(($) => $.wake_bar.unseen, { name, count: target.unseen_answer_count, identifier: targetIdentifier })}
       </span>
       <Button
         type="button"
@@ -83,11 +87,11 @@ function WakeBar({
         disabled={wake.isPending}
         onClick={() =>
           wake.mutate(
-            { id: question.id },
+            { id: question.id, target: { agentId: target.agent_id, issueId: target.issue_id } },
             {
               onSuccess: onWoken,
               onError: (error) => {
-                logger.error("wake failed", { questionId: question.id, issueId, error });
+                logger.error("wake failed", { questionId: question.id, agentId: target.agent_id, issueId: target.issue_id, error });
                 toast.error(t(($) => $.card.wake_failed, { name }), { description: error.message });
               },
             },

@@ -163,6 +163,7 @@
     "load_failed": "Impossible de charger les questions",
     "retry": "Réessayer",
     "empty_for_me": "Aucune question ne vous attend",
+    "empty_on_my_work": "Rien n'attend sur votre travail",
     "empty_all_open": "Aucune question ouverte",
     "empty_answered": "Vous n'avez encore répondu à aucune question",
     "empty_filtered": "Aucune question ne correspond à ces filtres",
@@ -171,6 +172,7 @@
     "answer_all": "Tout répondre ({{count}})",
     "tabs": {
       "for_me": "Pour moi",
+      "on_my_work": "Sur mon travail",
       "all_open": "Toutes ouvertes",
       "answered": "Répondues"
     },

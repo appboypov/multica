@@ -43,9 +43,10 @@ import { StatusIcon } from "../issues/components/status-icon";
 import { CollectionPageHeader, CollectionPageState } from "../layout/collection-page";
 import { useNavigation } from "../navigation";
 import { QuestionListRow } from "./question-row";
+import { LinkIcon } from "./type-icon";
 
 /** The tabs of the page, in order; `for_me` is the default and leaves `?tab=` out. */
-const TABS = ["for_me", "all_open", "answered"] as const satisfies readonly QuestionTab[];
+const TABS = ["for_me", "on_my_work", "all_open", "answered"] as const satisfies readonly QuestionTab[];
 type PageTab = (typeof TABS)[number];
 
 const ANSWER_TYPES: readonly AnswerType[] = [
@@ -71,8 +72,9 @@ export function questionCardHref(issueHref: string, questionId: string): string 
 
 /**
  * The Questions page: every question waiting on the viewer (For me), every
- * open one in the workspace (All open) and the viewer's answers (Answered),
- * grouped by link, due date or asker, with Answer all over For me.
+ * open one on the viewer's work and below it (On my work), every open one in
+ * the workspace (All open) and the viewer's answers (Answered), grouped by
+ * link, due date or asker, with Answer all over For me.
  */
 export function QuestionsPage() {
   const { t } = useT("questions");
@@ -85,11 +87,12 @@ export function QuestionsPage() {
   const openCount = useQuestionsOpenCount(wsId);
   const listRef = useRef<HTMLDivElement>(null);
 
-  // For me and All open stay loaded for their tab counts; Answered loads when shown.
+  // For me, On my work and All open stay loaded for their tab counts; Answered loads when shown.
   const forMe = useInfiniteQuery(questionRowsOptions(wsId, "for_me", filters));
+  const onMyWork = useInfiniteQuery(questionRowsOptions(wsId, "on_my_work", filters));
   const allOpen = useInfiniteQuery(questionRowsOptions(wsId, "all_open", filters));
   const answered = useInfiniteQuery({ ...questionRowsOptions(wsId, "answered", filters), enabled: !!wsId && tab === "answered" });
-  const active = tab === "for_me" ? forMe : tab === "all_open" ? allOpen : answered;
+  const active = tab === "for_me" ? forMe : tab === "on_my_work" ? onMyWork : tab === "all_open" ? allOpen : answered;
   const rows = useMemo(() => loadedRows(active.data?.pages), [active.data]);
   const groups = useMemo(() => groupQuestionRows(rows, grouping), [rows, grouping]);
 
@@ -130,7 +133,7 @@ export function QuestionsPage() {
 
   const tabCount = (value: PageTab): number | null => {
     if (value === "answered") return null;
-    const query = value === "for_me" ? forMe : allOpen;
+    const query = value === "for_me" ? forMe : value === "on_my_work" ? onMyWork : allOpen;
     return query.data ? loadedRows(query.data.pages).length : null;
   };
 
@@ -162,9 +165,11 @@ export function QuestionsPage() {
               ? t(($) => $.page.empty_filtered)
               : tab === "for_me"
                 ? t(($) => $.page.empty_for_me)
-                : tab === "all_open"
-                  ? t(($) => $.page.empty_all_open)
-                  : t(($) => $.page.empty_answered)
+                : tab === "on_my_work"
+                  ? t(($) => $.page.empty_on_my_work)
+                  : tab === "all_open"
+                    ? t(($) => $.page.empty_all_open)
+                    : t(($) => $.page.empty_answered)
           }
         />
         {tab === "for_me" && latestAnsweredRow && (
@@ -247,6 +252,7 @@ export function GroupHeading({ group }: { group: QuestionRowGroup }) {
       {group.kind === "link" && (
         <>
           {group.link.status && <StatusIcon status={group.link.status} className="size-3.5" />}
+          {group.link.type !== "issue" && <LinkIcon type={group.link.type} />}
           {group.link.identifier && <span className="shrink-0 font-medium text-muted-foreground">{group.link.identifier}</span>}
           <span className="min-w-0 truncate font-medium">{group.link.title}</span>
         </>

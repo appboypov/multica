@@ -36,7 +36,7 @@ import { controlShowsNote, draftError, valueToSend, type AnswerDraft, type Answe
 import { useSuggestionShown } from "./answer-controls/person-control";
 import { ReassignPicker } from "./reassign-picker";
 import { TYPE_ICONS } from "./type-icon";
-import { WakeButton } from "./wake-button";
+import { WakeButtons } from "./wake-button";
 import type questionsCopy from "../locales/en/questions.json";
 
 const logger = createLogger("questions.card");
@@ -160,7 +160,7 @@ function FoldedQuestion({ question, issueId, hideWake, onEdit }: { question: Que
             {t(($) => $.card.edit_answer)}
           </Button>
         )}
-        {question.wake_available && !hideWake && <WakeButton question={question} issueId={issueId} />}
+        {!hideWake && <WakeButtons questions={[question]} issueId={issueId} />}
       </span>
     </div>
   );

@@ -160,6 +160,7 @@
     "load_failed": "无法加载问题",
     "retry": "重试",
     "empty_for_me": "没有等待你回答的问题",
+    "empty_on_my_work": "你的工作上没有待回答的问题",
     "empty_all_open": "没有未回答的问题",
     "empty_answered": "你还没有回答过问题",
     "empty_filtered": "没有符合这些筛选条件的问题",
@@ -168,6 +169,7 @@
     "answer_all": "全部回答（{{count}}）",
     "tabs": {
       "for_me": "给我的",
+      "on_my_work": "我的工作",
       "all_open": "全部未答",
       "answered": "已回答"
     },

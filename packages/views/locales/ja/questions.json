@@ -160,6 +160,7 @@
     "load_failed": "質問を読み込めませんでした",
     "retry": "再試行",
     "empty_for_me": "あなたを待っている質問はありません",
+    "empty_on_my_work": "あなたの作業で待っている質問はありません",
     "empty_all_open": "未回答の質問はありません",
     "empty_answered": "まだ質問に回答していません",
     "empty_filtered": "このフィルターに合う質問はありません",
@@ -168,6 +169,7 @@
     "answer_all": "すべて回答 ({{count}})",
     "tabs": {
       "for_me": "自分宛て",
+      "on_my_work": "自分の作業",
       "all_open": "すべての未回答",
       "answered": "回答済み"
     },

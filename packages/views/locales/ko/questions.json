@@ -160,6 +160,7 @@
     "load_failed": "질문을 불러올 수 없습니다",
     "retry": "다시 시도",
     "empty_for_me": "기다리는 질문이 없습니다",
+    "empty_on_my_work": "내 작업에서 기다리는 질문이 없습니다",
     "empty_all_open": "열린 질문이 없습니다",
     "empty_answered": "아직 답한 질문이 없습니다",
     "empty_filtered": "이 필터에 맞는 질문이 없습니다",
@@ -168,6 +169,7 @@
     "answer_all": "모두 답하기 ({{count}})",
     "tabs": {
       "for_me": "나에게",
+      "on_my_work": "내 작업",
       "all_open": "모든 열린 질문",
       "answered": "답함"
     },

@@ -112,7 +112,7 @@ Every group builds on UJ-1's, UJ-2's and UJ-3's code (changes `answer-an-agents-
 - [x] 11.3 `packages/core/questions/via.ts`, `via.test.ts` -- `viaLabel(via, pageIssueId, t)`: "via sub-issue WORK-415", "via issue WORK-416", "via comment" on its own issue, "via comment on WORK-415", "via run", "via run on WORK-415"; null for null -- design.md decision 3; the only label rule.
 - [x] 11.4 `packages/core/questions/ws-updaters.ts`, `packages/core/realtime/use-realtime-sync.ts` -- `question:*` invalidates `byIssue` for each of `issue_ids`; `issue:updated` with a changed `parent_issue_id`, `project_id` or assignee (or an uncached issue), `issue:deleted` and `project:*` invalidate `questionKeys.all(wsId)` -- design.md decision 8.
 - [ ] 11.5 `packages/core/questions/ws-updaters.test.ts` -- a status-only `issue:updated` leaves question queries alone; a parent change invalidates them; `issue_ids` of two issues invalidate both pages -- the invalidation rule.
-- [ ] 11.6 `packages/views/locales/{en,zh-Hans,ko,ja,fr}/questions.json`, `projects.json` -- via labels, "On my work", "Nothing waits on your work", the Questions property label and count -- every supported language.
+- [x] 11.6 `packages/views/locales/{en,zh-Hans,ko,ja,fr}/questions.json`, `projects.json` -- via labels, "On my work", "Nothing waits on your work", the Questions property label and count -- every supported language.
 
 ## 12. J9 Frontend: new components
 
@@ -121,15 +121,15 @@ Every group builds on UJ-1's, UJ-2's and UJ-3's code (changes `answer-an-agents-
 
 ## 13. J9 Frontend: changed components
 
-- [ ] 13.1 `packages/views/questions/question-card.tsx`, `question-set-card.tsx`, `wake-bar.tsx` -- one `WakeBar` per `wake_targets` entry with `wake_available`, asker first, each calling `wakeQuestion(id, agent_id)` -- design.md decision 6.
-- [ ] 13.2 `packages/views/questions/question-row.tsx` -- the via line from `viaLabel`; a row whose `link.type` is not `issue` shows the object's icon and name; opening goes to `open_issue` -- design.md decision 5.
+- [x] 13.1 `packages/views/questions/question-card.tsx`, `question-set-card.tsx`, `wake-bar.tsx` -- one `WakeBar` per `wake_targets` entry with `wake_available`, asker first, each calling `wakeQuestion(id, agent_id)` -- design.md decision 6.
+- [x] 13.2 `packages/views/questions/question-row.tsx` -- the via line from `viaLabel`; a row whose `link.type` is not `issue` shows the object's icon and name; opening goes to `open_issue` -- design.md decision 5.
 - [ ] 13.3 `packages/views/questions/question-card.test.tsx` -- an answered card with Pieter and Joeri as targets shows **Wake Pieter** and **Wake Joeri**; pressing **Wake Joeri** calls Wake with Joeri's id -- the `agent-wake` spec.
 
 ## 14. J9 Frontend: screens
 
 - [x] 14.1 `packages/views/issues/components/issue-detail.tsx` -- UJ-1's Questions row reads `QuestionsProperty` with `parent={type: "issue", id}` -- design.md decision 4.
 - [x] 14.2 `packages/views/projects/components/project-detail.tsx` -- a **Questions** property with `QuestionsProperty` for the project -- design.md decision 4.
-- [ ] 14.3 `packages/views/questions/questions-page.tsx` -- the tab **On my work** after For me in `?tab=on_my_work`, rows with the via line, Yes / No only where the viewer answers, the empty state -- design.md decision 5.
+- [x] 14.3 `packages/views/questions/questions-page.tsx` -- the tab **On my work** after For me in `?tab=on_my_work`, rows with the via line, Yes / No only where the viewer answers, the empty state -- design.md decision 5.
 - [ ] 14.4 `packages/views/questions/questions-page.test.tsx` -- On my work lists the question below Brian's WORK-410 with "via sub-issue WORK-415" and no Yes / No; For me does not list it -- the `questions-page` spec.
 
 ## 15. J11 Acceptance test and archive: acceptance test and archive

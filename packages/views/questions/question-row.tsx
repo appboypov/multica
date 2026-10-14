@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { useAuthStore } from "@multica/core/auth";
 import { useWorkspaceId } from "@multica/core/hooks";
 import { createLogger } from "@multica/core/logger";
-import { useAnswerQuestion } from "@multica/core/questions";
+import { useAnswerQuestion, viaLabel } from "@multica/core/questions";
 import type { QuestionRow, YesNoAnswerValue } from "@multica/core/types";
 import { Button } from "@multica/ui/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@multica/ui/components/ui/popover";
@@ -15,7 +15,7 @@ import { cn } from "@multica/ui/lib/utils";
 import { ActorAvatar } from "../common/actor-avatar";
 import { useT, useTimeAgo } from "../i18n";
 import { QuestionBadges } from "./question-badges";
-import { TYPE_ICONS } from "./type-icon";
+import { LinkIcon, TYPE_ICONS } from "./type-icon";
 
 const logger = createLogger("questions.row");
 
@@ -31,9 +31,12 @@ function isOpenRow(row: QuestionRow): boolean {
 
 /**
  * One question of the Questions page: type glyph, prompt, badges, asker and
- * age, or "prompt → answer · when" once the viewer answered. An open Yes / No
- * question of the viewer answers in place: Yes and No on hover or focus, `Y`
- * and `N` on the focused row, and a note popover when No needs a why.
+ * age, or "prompt → answer · when" once the viewer answered. A question that
+ * belongs to a project, agent, squad, autopilot or skill names that object, and
+ * a question that reached the viewer's work from below reads how ("via
+ * sub-issue WORK-415"). An open Yes / No question of the viewer answers in
+ * place: Yes and No on hover or focus, `Y` and `N` on the focused row, and a
+ * note popover when No needs a why.
  */
 export function QuestionListRow({ row, onOpen }: QuestionListRowProps) {
   const { t } = useT("questions");
@@ -50,6 +53,7 @@ export function QuestionListRow({ row, onOpen }: QuestionListRowProps) {
     yesNo !== null && open && row.my_answer === null && !!userId && row.answerer_ids.includes(userId);
   const pending = answer.isPending;
   const TypeIcon = TYPE_ICONS[row.answer_type];
+  const via = viaLabel(row.via, null, (key, params) => t(($) => $.via[key], params));
 
   const send = (choice: YesNoAnswerValue["choice"], why?: string) => {
     if (!answersInPlace || pending) return;
@@ -113,6 +117,8 @@ export function QuestionListRow({ row, onOpen }: QuestionListRowProps) {
       ) : (
         <span className="min-w-0 truncate" title={row.prompt}>{row.prompt}</span>
       )}
+      {row.link.type !== "issue" && <LinkObject link={row.link} />}
+      {via && <span className="shrink-0 text-caption text-muted-foreground">{via}</span>}
 
       <span className="ml-auto flex shrink-0 items-center gap-2">
         {answersInPlace && (
@@ -176,5 +182,15 @@ export function QuestionListRow({ row, onOpen }: QuestionListRowProps) {
         )}
       </span>
     </div>
+  );
+}
+
+/** The object a question belongs to when it is no issue: its kind's icon and its name. */
+function LinkObject({ link }: { link: QuestionRow["link"] }) {
+  return (
+    <span className="flex min-w-0 shrink items-center gap-1 text-caption text-muted-foreground">
+      <LinkIcon type={link.type} />
+      <span className="truncate">{link.title}</span>
+    </span>
   );
 }

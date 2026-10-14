@@ -21,7 +21,7 @@ import { AnswerCountPill, AnswererProgress, showsAnswererProgress } from "./answ
 import { AnswerLine, QuestionCard, QuestionHistory } from "./question-card";
 import { ReassignPicker } from "./reassign-picker";
 import { TYPE_ICONS } from "./type-icon";
-import { WakeButton } from "./wake-button";
+import { WakeButtons } from "./wake-button";
 
 const logger = createLogger("questions.set-card");
 
@@ -120,7 +120,6 @@ function TabbedQuestionSet({ questions, issueId, runNumber, activeQuestionId }: 
   const forYou = questions.some((q) => isOpenFor(q, userId));
   const blocksWork = questions.some((q) => isOpen(q) && q.blocks_work);
   const progress = setProgress(questions);
-  const wakeQuestion = questions.find((q) => q.wake_available);
 
   const activate = (index: number) => {
     setActive(index);
@@ -366,7 +365,7 @@ function TabbedQuestionSet({ questions, issueId, runNumber, activeQuestionId }: 
         )}
         <span className="ml-auto flex items-center gap-2">
           <span className="text-caption text-muted-foreground">{t(($) => $.set.progress, progress)}</span>
-          {wakeQuestion && <WakeButton question={wakeQuestion} issueId={issueId} />}
+          <WakeButtons questions={questions} issueId={issueId} />
           {editingId === current.id && (
             <Button type="button" variant="ghost" size="sm" onClick={cancelEdit}>
               {t(($) => $.card.cancel)}

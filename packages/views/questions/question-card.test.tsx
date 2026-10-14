@@ -542,9 +542,16 @@ describe("QuestionCard", () => {
     expect(screen.queryByRole("button", { name: "Wake Pieter" })).not.toBeInTheDocument();
     unmount();
 
-    renderCard(answered({ wake_available: true, unseen_answer_count: 1 }));
+    renderCard(answered({
+      wake_available: true,
+      unseen_answer_count: 1,
+      wake_targets: [{ agent_id: "agent-pieter", issue_id: "issue-412", unseen_answer_count: 1, wake_available: true }],
+    }));
     fireEvent.click(screen.getByRole("button", { name: "Wake Pieter" }));
-    expect(wakeMutate).toHaveBeenCalledWith({ id: "q-1" }, expect.anything());
+    expect(wakeMutate).toHaveBeenCalledWith(
+      { id: "q-1", target: { agentId: "agent-pieter", issueId: "issue-412" } },
+      expect.anything(),
+    );
   });
 
   it("keeps the unsent answer, note and ask back when the card unmounts, and drops them once sent", async () => {

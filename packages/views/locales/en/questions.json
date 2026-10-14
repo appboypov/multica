@@ -163,6 +163,7 @@
     "load_failed": "Could not load the questions",
     "retry": "Try again",
     "empty_for_me": "No questions waiting for you",
+    "empty_on_my_work": "Nothing waits on your work",
     "empty_all_open": "No open questions",
     "empty_answered": "You have not answered a question yet",
     "empty_filtered": "No questions match these filters",
@@ -171,6 +172,7 @@
     "answer_all": "Answer all ({{count}})",
     "tabs": {
       "for_me": "For me",
+      "on_my_work": "On my work",
       "all_open": "All open",
       "answered": "Answered"
     },
