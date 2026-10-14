@@ -7,11 +7,11 @@ flowchart LR
   P5[P5 Technical design] --> J1
   J1[J1 Project structure<br/>Skip: J1]:::skip --> J2
   J2[J2 Data models<br/>groups 1-3]:::work --> J3
-  J3[J3 Data-flow prototype<br/>group 4]:::work --> J4
+  J3[J3 Data-flow prototype<br/>group 4 dropped]:::skip --> J4
   J4[J4 Design system<br/>Skip: J4]:::skip --> J5
   J5[J5 Components<br/>Skip: J5]:::skip --> J6
-  J6[J6 Screens<br/>group 5]:::work --> J7
-  J7[J7 Live prototype<br/>group 6]:::work --> J8
+  J6[J6 Screens<br/>group 5 dropped]:::skip --> J7
+  J7[J7 Live prototype<br/>group 6 dropped]:::skip --> J8
   J8[J8 Backend and agent tooling<br/>groups 7-8]:::work --> J9
   J9[J9 Frontend<br/>groups 9-11]:::work --> J10
   J10[J10 Agent tooling for UI<br/>Skip: J10]:::skip --> J11
@@ -22,11 +22,11 @@ flowchart LR
 |---|---|---|
 | J1 Project structure | none: `Skip: J1` | — |
 | J2 Data models | 1 new model, 2 model change, 3 action names | `madspec-model-builder`, `madspec-dto-builder` |
-| J3 Data-flow prototype | 4 | `madspec-prototype-builder` |
+| J3 Data-flow prototype | 4, dropped by the gate Request | — |
 | J4 Design system | none: `Skip: J4` | — |
 | J5 Components | none: `Skip: J5` | — |
-| J6 Screens | 5 | `madspec-screen-designer` |
-| J7 Live prototype | 6 | `madspec-prototype-builder` |
+| J6 Screens | 5, dropped by the gate Request | — |
+| J7 Live prototype | 6, dropped by the gate Request | — |
 | J8 Backend and agent tooling | 7 endpoint, 8 integration | `madspec-api-builder` |
 | J9 Frontend | 9 flow, 10 component change, 11 screen | `madspec-api-builder`, `madspec-component-builder`, `madspec-view-builder` |
 | J10 Agent tooling for UI | none: `Skip: J10` | — |
@@ -187,15 +187,15 @@ flowchart LR
 
 ## 12. J11 Acceptance test and archive: acceptance test and archive
 
-- [ ] 12.1 `e2e/organisations.spec.ts` -- the journey's acceptance test through `TestApiClient`:
+- [x] 12.1 `e2e/organisations.spec.ts` -- the journey's acceptance test through `TestApiClient`:
   - Create the organisations Rebl Records and De App Specialist, and projects in each, plus one without an organisation.
   - Projects shows De App Specialist, then Rebl Records, then No organisation.
   - New organisation refuses "rebl records".
   - New project in Rebl Records shows on its page.
   - Moving the project to De App Specialist moves it on both pages.
   - No status or date control is on Projects, the project page or New project.
-- [ ] 12.2 The brain sync run -- run `uv run madspec-sync/multica_projects.py` once against the local release and record its printed lines in the J11 pull request -- the PRD's success signal: the brain's products, under their organisations.
-- [ ] 12.3 `specs/openspec/changes/projects-by-organisation/` -- run `openspec validate projects-by-organisation --type change --strict`, sync the specs and archive the change -- the journey closes on its J11 pull request.
+- [x] 12.2 The brain sync run -- run `uv run madspec-sync/multica_projects.py` once against the local release and record its printed lines in the J11 pull request -- the PRD's success signal: the brain's products, under their organisations.
+- [x] 12.3 `specs/openspec/changes/projects-by-organisation/` -- run `openspec validate projects-by-organisation --type change --strict`, sync the specs and archive the change -- the journey closes on its J11 pull request.
 
 ## Implementation Notes
 
@@ -296,6 +296,12 @@ flowchart LR
 - 11.8 (built, unticked until `locales/parity.test.ts` runs green): `packages/views/locales/{en,fr,ja,ko,zh-Hans}/projects.json` lose `table.status`, the `status` block, `detail.prop_start_date`, `prop_due_date`, `no_start_date`, `no_due_date` and `toolbar.section_status`; `modals.json` loses `create_project.set_start_date`, `set_due_date` and `more_options_aria`. A grep found no remaining reader in `packages/views` or the apps. The issues project-status filter key had already gone with 10.5. The `organisations` namespace, `layout.json`, `modals.json` and `projects.json` organisation copy landed with 11.2 and 11.4 to 11.6.
 - 11.9 (written, unticked until it runs): `projects-page.test.tsx` mocks organisations and the fold state through the real `groupProjectsByOrganisation` and adds grouping, No organisation last, folding and no-status/date cases. `create-project.test.tsx` drops the date-picker mocks and the overflow test and adds the organisation preset, the `data.organisationId` start and Create staying disabled without an organisation. `project-detail.test.tsx` drops the deleted picker mocks and adds the Organisation row and no-status/date cases. New `create-organisation.test.tsx` covers create, a taken name ignoring case, a taken key, a bad key, empties and a server refusal. New `organisations-page.test.tsx` covers counts, the header count, row navigation, New organisation, own projects only, New project in the organisation, not found and the key field. None of these has run yet.
 - 11.10 files touched: `apps/docs/content/docs/projects{,.zh,.ko,.ja,.fr}.mdx`. In "Parts of a project", the Status row gives way to an Organisation row and the dates row is gone. A new "Organisations" section, before "Projects and issues", covers the required organisation in New project, the property row, Projects grouped with No organisation last and folding, the Organisations page in the sidebar, the organisation's page with New project, New organisation's unique name ignoring case, the key rule and where to change it, and that organisations can't be renamed or deleted (design Non-Goals). The progress paragraph keeps only the `cancelled` sentence, and the delete callout no longer names the status. The UI terms in each language are the views locale strings (for example 无组织, 조직 없음, 組織なし, 新規プロジェクト, Aucune organisation, Clé). The screenshot alt text still says the issues are grouped by status, which is issue status and stays.
+
+### Group 12. J11 Acceptance test and archive: acceptance test and archive
+
+- 12.1 files touched: new `e2e/organisations.spec.ts`, `e2e/fixtures.ts`. `TestApiClient` gains `createOrganisation(name, key)` and `listProjects()`. Organisations have no delete endpoint (a design Non-Goal), so `cleanup()` deletes every project inside an organisation the client made through the API, then the organisation rows straight from the database, as it does for seeded issues. The spec shares its workspace with the other specs, so its names carry a run suffix and the order check reads only its own groups and No organisation. It also folds a group and checks the new project's page names its organisation. On Crabbox through the slot gate, against this checkout's API and production web build on a temporary Postgres: 1 passed.
+- 12.2: the sync ran once against the local release (`main` at `11e8e0741`), after a `pg_dump` of its database. It created 14 organisations and 33 Product projects, moved 35 issues into Product projects, deleted 14 emptied repository projects, printed 15 repository projects that stay for MadSpec (3 repositories) and SuperMarty (12), and 4 repositories without a Product. A second run wrote nothing and printed only those 19 lines. The printed lines are in the J11 pull request.
+- 12.3: the change validates strict and is archived with its three specs synced into `specs/openspec/specs/`. Groups 4, 5 and 6 stay unticked: their steps J3, J6 and J7 were dropped by the gate Request.
 
 ## Plan Change Log
 
