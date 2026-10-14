@@ -161,9 +161,9 @@ func TestClaim_QuestionWakeRetryKeepsAnswersAcrossRetryChain(t *testing.T) {
 	testutil.Call(t, testHandler.AskBackQuestion, withURLParam(newRequest("POST", "/", map[string]any{
 		"text": "Does this include credits?",
 	}), "id", id)).Want(200)
-	var wake service.QuestionWakeResult
-	testutil.Call(t, testHandler.WakeQuestion, withURLParam(newRequest("POST", "/", nil), "id", id)).Want(202).JSON(&wake)
-	parentID := wake.TaskID
+	// The ask back itself wakes the asker.
+	var parentID string
+	dbfx.QueryRow(t, `SELECT id::text FROM agent_task_queue WHERE issue_id=$1 AND status='queued' AND trigger_evidence_kind=$2`, fx.IssueID, service.ActivityQuestionWake).Scan(&parentID)
 	for attempt := 1; attempt <= 3; attempt++ {
 		r := withURLParam(newDaemonTokenRequest("POST", "/", nil, testWorkspaceID, "question-retry-chain"), "runtimeId", fx.RuntimeID)
 		var out struct {

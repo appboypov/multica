@@ -2,17 +2,25 @@
 
 ## Purpose
 
-Lets a person start an agent with the answers it has not seen; asking and answering questions never start a run.
+Lets a person start an agent with the answers it has not seen; asking and answering questions never start a run, and an ask back wakes the asking agent.
 
 ## Requirements
 
 ### Requirement: Answers never start a run
-Sending, partly sending or editing an answer MUST NOT queue or start any agent run; only a person pressing **Wake** SHALL start one.
+Sending, partly sending or editing an answer MUST NOT queue or start any agent run; only a person pressing **Wake** or asking back SHALL start one.
 
 #### Scenario: Brian answers and nothing starts
 - **GIVEN** Pieter asked Brian a question on WORK-412, assigned to Pieter
 - **WHEN** Brian sends his answer
 - **THEN** no run is queued for Pieter or any other agent
+
+### Requirement: Ask back wakes the asking agent
+An ask back SHALL wake the asking agent with the reply when it has no queued, dispatched or running task on the question's issue; otherwise the reply stays unseen and rides along in its next woken run.
+
+#### Scenario: Brian asks back
+- **GIVEN** Pieter asked Brian a question on WORK-412 and Pieter's run has ended
+- **WHEN** Brian asks back "Which customer is this for?"
+- **THEN** a new run of Pieter on WORK-412 starts with the ask back in its input
 
 ### Requirement: Wake the asking agent from the answered card
 Once a question has an answer its asking agent has not seen, its answered card SHALL offer **Wake** for that agent, named after it, such as **Wake Pieter**. An answer the agent marked ✅ in a run that received it counts as seen.

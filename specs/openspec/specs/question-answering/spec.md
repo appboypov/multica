@@ -60,13 +60,14 @@ While nothing is picked or typed, a question with a suggested answer SHALL offer
 - **THEN** the primary action reads **Send**
 
 ### Requirement: Note and ask back
-Every question card SHALL offer **Add a note** to send with the answer and **Ask back**, which replies in the question's thread and keeps the question open.
+Every question card SHALL offer **Add a note** to send with the answer and **Ask back**, which replies in the question's thread, keeps the question open and wakes the asking agent.
 
 #### Scenario: Brian asks back
 - **GIVEN** Pieter's question is open for Brian
 - **WHEN** Brian uses **Ask back** with "Which customer is this for?"
 - **THEN** the reply shows in the question's thread
 - **AND** the question is still open and waiting for Brian
+- **AND** Pieter is woken with the reply
 
 ### Requirement: A sent answer reaches the asker at once
 A sent answer SHALL be readable by the asker at once, and the card SHALL fold to one line: prompt → answer · who · when, with **Edit answer**.

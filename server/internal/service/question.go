@@ -697,8 +697,12 @@ func (s *QuestionService) Answer(ctx context.Context, workspaceID, questionID pg
 	})
 }
 
+// AskBack replies in the question's thread, keeps the question open and wakes
+// the asking agent so it reads the reply. When the asker cannot be woken now,
+// such as while it still runs on the issue, the reply stays unseen and rides
+// along in its next woken run.
 func (s *QuestionService) AskBack(ctx context.Context, workspaceID, questionID pgtype.UUID, actor QuestionActor, text string) (QuestionDTO, error) {
-	return s.mutate(ctx, workspaceID, questionID, actor, false, func(q *db.Queries, row db.Question) (db.Question, string, any, error) {
+	result, err := s.mutate(ctx, workspaceID, questionID, actor, false, func(q *db.Queries, row db.Question) (db.Question, string, any, error) {
 		if !question.IsOpen(row.Status) && row.Status != "answered" {
 			return row, "", nil, questionRefusal(422, "this question no longer accepts replies")
 		}
@@ -710,6 +714,13 @@ func (s *QuestionService) AskBack(ctx context.Context, workspaceID, questionID p
 			Text string `json:"text"`
 		}{text}, err
 	})
+	if err != nil {
+		return result, err
+	}
+	if _, err := s.Wake(ctx, workspaceID, questionID, actor, pgtype.UUID{}); err != nil {
+		slog.Info("ask back did not wake the asker", "question_id", util.UUIDToString(questionID), "error", err)
+	}
+	return result, nil
 }
 
 func (s *QuestionService) Reassign(ctx context.Context, workspaceID, questionID pgtype.UUID, actor QuestionActor, userID pgtype.UUID, note string) (QuestionDTO, error) {
@@ -950,7 +961,13 @@ func (s *QuestionService) Wake(ctx context.Context, workspaceID, questionID pgty
 		return QuestionWakeResult{}, err
 	}
 	if count == 0 {
-		return QuestionWakeResult{}, questionRefusal(422, "there are no unseen answers")
+		askBacks, err := s.hasUnseenAskBacks(ctx, q, workspaceID, agentID, issue.ID)
+		if err != nil {
+			return QuestionWakeResult{}, err
+		}
+		if !askBacks {
+			return QuestionWakeResult{}, questionRefusal(422, "there are no unseen answers")
+		}
 	}
 	task, err := s.Tasks.EnqueueTaskForQuestionWake(ctx, tx, issue, agentID, actor.ID, row.ID, count)
 	if err != nil {

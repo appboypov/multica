@@ -80,6 +80,19 @@ func (s *QuestionService) countUnseenAnswers(ctx context.Context, q *db.Queries,
 	})
 }
 
+// hasUnseenAskBacks tells whether the agent has ask-backs on the issue it has
+// not seen, against the same scope and anchor as claim delivery.
+func (s *QuestionService) hasUnseenAskBacks(ctx context.Context, q *db.Queries, workspaceID, agentID, issueID pgtype.UUID) (bool, error) {
+	ids, err := s.wakeScope(ctx, q, workspaceID, agentID, issueID)
+	if err != nil || len(ids) == 0 {
+		return false, err
+	}
+	askBacks, err := q.ListUnseenQuestionAskBacks(ctx, db.ListUnseenQuestionAskBacksParams{
+		WorkspaceID: workspaceID, QuestionIds: ids, AgentID: agentID, IssueID: issueID,
+	})
+	return len(askBacks) > 0, err
+}
+
 func (s *QuestionService) WakeTargets(ctx context.Context, workspaceID pgtype.UUID, row db.Question) ([]QuestionWakeTargetDTO, error) {
 	return s.wakeTargets(ctx, s.Queries, workspaceID, row)
 }

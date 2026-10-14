@@ -454,6 +454,34 @@ func TestQuestionWakeRefusesUnavailableAgent(t *testing.T) {
 	}
 }
 
+func TestQuestionAskBackWakesTheAsker(t *testing.T) {
+	ctx := context.Background()
+	f := newQuestionFixture(t)
+	row := f.ask(t)
+	id := util.MustParseUUID(row.ID)
+	f.finishAskingRun(t)
+	row, err := f.svc.AskBack(ctx, f.workspace, id, f.answerer, "Which customer is this for?")
+	if err != nil || row.Status != "open" {
+		t.Fatalf("ask back = %+v, %v", row, err)
+	}
+	var taskID pgtype.UUID
+	f.fx.QueryRow(t, `SELECT id FROM agent_task_queue WHERE issue_id = $1 AND agent_id = $2 AND status = 'queued' AND trigger_evidence_kind = $3`, f.issue, f.agent, string(attribution.EvidenceQuestionWake)).Scan(&taskID)
+	replies, err := f.svc.Queries.ListUnseenQuestionAskBacks(ctx, db.ListUnseenQuestionAskBacksParams{IssueID: f.issue, WorkspaceID: f.workspace, AgentID: f.agent, ExcludeTaskID: taskID, QuestionIds: []pgtype.UUID{id}})
+	if err != nil || len(replies) != 1 {
+		t.Fatalf("woken run must carry the ask back: %+v, %v", replies, err)
+	}
+	if n := f.fx.Count(t, `SELECT count(*) FROM question_event WHERE question_id = $1 AND kind = 'woken'`, id); n != 1 {
+		t.Fatalf("woken events = %d, want 1", n)
+	}
+	// A second ask back while that run waits queues nothing more.
+	if _, err := f.svc.AskBack(ctx, f.workspace, id, f.answerer, "And which invoice?"); err != nil {
+		t.Fatal(err)
+	}
+	if n := f.fx.Count(t, `SELECT count(*) FROM agent_task_queue WHERE issue_id = $1`, f.issue); n != 2 {
+		t.Fatalf("task count = %d, want asking run plus one wake", n)
+	}
+}
+
 func TestQuestionWakeCommitsOneAttributedTaskActivityAndEvent(t *testing.T) {
 	ctx := context.Background()
 	f := newQuestionFixture(t)
@@ -461,10 +489,6 @@ func TestQuestionWakeCommitsOneAttributedTaskActivityAndEvent(t *testing.T) {
 	id := util.MustParseUUID(row.ID)
 	f.finishAskingRun(t)
 	row = f.answer(t, row, f.answerer, "per line")
-	_, err := f.svc.AskBack(ctx, f.workspace, id, f.answerer, "Also apply this to credits?")
-	if err != nil {
-		t.Fatal(err)
-	}
 	published := 0
 	f.svc.Bus.Subscribe(protocol.EventQuestionUpdated, func(event events.Event) {
 		payload, ok := event.Payload.(protocol.QuestionEventPayload)
