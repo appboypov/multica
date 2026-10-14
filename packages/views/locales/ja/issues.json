@@ -494,10 +494,9 @@
     "prop_type": "タイプ",
     "prop_worklane": "worklane",
     "prop_release": "リリース",
-    "description_preview": "プレビュー",
     "description_markdown": "Markdown",
     "description_markdown_aria": "Markdown の説明",
-    "description_note": "コードと技術設計はタスクではなく変更に書きます。",
+    "description_copy_markdown": "Markdown をコピー",
     "project_follows_worklane": "worklane に従います",
     "worklane_of": "{{repository}} の {{worklane}}"
   },
@@ -1485,8 +1484,6 @@
     "label": "テンプレート",
     "required": "必須",
     "optional": "任意",
-    "fields_tab": "項目",
-    "markdown_tab": "Markdown",
     "markdown_aria": "テンプレートの Markdown"
   },
   "placement_refusal": {

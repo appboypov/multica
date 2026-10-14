@@ -70,7 +70,7 @@ import {
   templateMarkdown,
 } from './model';
 import { AddRepositoryDialog, NewWorklaneDialog, ReleaseDialog } from './creation';
-import { Avatar, Button, Chip, IconButton, Markdown, Menu, MenuItem, Overlay, Progress, ReleaseChip, Segmented, StatusIcon, TypeIcon } from './ui';
+import { Avatar, Button, Chip, IconButton, Markdown, MarkdownBar, Menu, MenuItem, Overlay, Progress, ReleaseChip, Segmented, StatusIcon, TypeIcon } from './ui';
 
 // ---------------------------------------------------------------------------
 // Routing and app state
@@ -1849,8 +1849,6 @@ function BoardCard({ api, issue }: { api: AppApi; issue: Issue }) {
 // An issue holds what and why only, read from its template's sections
 // ---------------------------------------------------------------------------
 
-const RULE = 'Code and technical design go in the change, not in the issue.';
-
 function StatusMenu({ api, issue, trigger }: { api: AppApi; issue: Issue; trigger: (status: Status, toggle: () => void) => ReactNode }) {
   const status = api.statusOf(issue);
   return (
@@ -1875,7 +1873,7 @@ function StatusMenu({ api, issue, trigger }: { api: AppApi; issue: Issue; trigge
 }
 
 function IssueDescription({ api, issue, size }: { api: AppApi; issue: Issue; size: 'peek' | 'page' }) {
-  const [mode, setMode] = useState<'preview' | 'markdown'>('preview');
+  const [showMarkdown, setShowMarkdown] = useState(false);
   const md = api.descriptionOf(issue);
   const empty = (
     <p className="text-[14px]" style={{ color: 'var(--faint-foreground)' }}>
@@ -1889,16 +1887,9 @@ function IssueDescription({ api, issue, size }: { api: AppApi; issue: Issue; siz
         <span className="text-[12px] font-medium" style={{ color: 'var(--muted-foreground)' }}>
           Description
         </span>
-        <Segmented
-          value={mode}
-          options={[
-            { value: 'preview', label: 'Preview' },
-            { value: 'markdown', label: 'Markdown' },
-          ]}
-          onChange={setMode}
-        />
+        <MarkdownBar on={showMarkdown} onToggle={() => setShowMarkdown(!showMarkdown)} text={md} />
       </div>
-      {mode === 'markdown' ? (
+      {showMarkdown ? (
         <textarea
           aria-label="Description Markdown"
           value={md}
@@ -1957,9 +1948,6 @@ function IssuePeek({ api, issue, onClose }: { api: AppApi; issue: Issue; onClose
         <div className="mt-5">
           <IssueDescription api={api} issue={issue} size="peek" />
         </div>
-      </div>
-      <div className="border-t px-4 py-2 text-[12px]" style={{ borderColor: 'var(--border)', color: 'var(--muted-foreground)' }}>
-        {RULE}
       </div>
     </aside>
   );
@@ -2050,9 +2038,6 @@ function IssuePage({ api, id }: { api: AppApi; id: string }) {
             <div className="mt-8">
               <IssueDescription api={api} issue={issue} size="page" />
             </div>
-            <p className="mt-8 text-[12px]" style={{ color: 'var(--muted-foreground)' }}>
-              {RULE}
-            </p>
             <div className="mt-8 border-t pt-6" style={{ borderColor: 'var(--border)' }}>
               <h2 className="text-[16px] font-semibold">Activity</h2>
               {issue.created ? (
@@ -2172,11 +2157,13 @@ function NewIssueDialog({ api, draft, onClose, onCreate }: { api: AppApi; draft:
   const found = d.lane ? findLane(api.orgs, d.lane) : null;
   const laneObj = found?.lane;
   const relStates = found ? releaseStates(found.repo, api.statusOf) : [];
-  const [pane, setPane] = useState<'fields' | 'markdown'>('fields');
+  const [showMarkdown, setShowMarkdown] = useState(false);
+  // Markdown Brian edited by hand; it is the description from then on and the fields lock.
+  const [edited, setEdited] = useState<string | null>(null);
   const inputs = templateInputs(tpl);
   // The fields only fill the template's Markdown; the issue keeps that Markdown alone.
-  const markdown = templateMarkdown(tpl, fields);
-  const valid = title.trim() !== '' && inputs.every((s) => !s.required || (fields[s.key] ?? '').trim() !== '');
+  const markdown = edited ?? templateMarkdown(tpl, fields);
+  const valid = title.trim() !== '' && (edited !== null || inputs.every((s) => !s.required || (fields[s.key] ?? '').trim() !== ''));
   const submit = () => valid && onCreate(d, title.trim(), markdown, priority);
 
   return (
@@ -2315,16 +2302,9 @@ function NewIssueDialog({ api, draft, onClose, onCreate }: { api: AppApi; draft:
               </Menu>
             </div>
             <div className="mt-5">
-              <Segmented
-                value={pane}
-                options={[
-                  { value: 'fields', label: 'Fields' },
-                  { value: 'markdown', label: 'Markdown' },
-                ]}
-                onChange={setPane}
-              />
+              <MarkdownBar on={showMarkdown} onToggle={() => setShowMarkdown(!showMarkdown)} text={markdown} />
             </div>
-            {pane === 'fields' ? (
+            {!showMarkdown ? (
               <div className="mt-4 space-y-4">
                 {inputs.map((s) => (
                   <label key={`${d.type}-${s.key}`} className="block">
@@ -2339,24 +2319,24 @@ function NewIssueDialog({ api, draft, onClose, onCreate }: { api: AppApi; draft:
                       value={fields[s.key] ?? ''}
                       onChange={(e) => setFields({ ...fields, [s.key]: e.target.value })}
                       placeholder={s.placeholder}
-                      className="mt-1.5 block w-full resize-none rounded-[8px] border px-2.5 py-2 text-[14px] outline-none placeholder:text-[var(--faint-foreground)] focus:border-[var(--ring)]"
+                      disabled={edited !== null}
+                      className="mt-1.5 block w-full resize-none rounded-[8px] border px-2.5 py-2 text-[14px] outline-none placeholder:text-[var(--faint-foreground)] focus:border-[var(--ring)] disabled:opacity-60"
                       style={{ borderColor: 'var(--input)' }}
                     />
                   </label>
                 ))}
               </div>
             ) : (
-              <pre
+              <textarea
                 aria-label="Description Markdown"
-                className="mc-mono mt-4 whitespace-pre-wrap rounded-[8px] border px-3 py-2.5 text-[12px] leading-[19px]"
-                style={{ borderColor: 'var(--surface-border)', background: 'var(--page-canvas)' }}
-              >
-                {markdown}
-              </pre>
+                value={markdown}
+                onChange={(e) => setEdited(e.target.value)}
+                rows={Math.max(8, markdown.split('\n').length + 1)}
+                spellCheck={false}
+                className="mc-mono mt-4 block w-full resize-none rounded-[8px] border px-3 py-2.5 text-[12px] leading-[19px] outline-none focus:border-[var(--ring)]"
+                style={{ borderColor: 'var(--input)', background: 'var(--surface)' }}
+              />
             )}
-            <p className="mt-4 text-[12px]" style={{ color: 'var(--muted-foreground)' }}>
-              These fields fill the {tpl.name} template's Markdown. The issue keeps only that Markdown as its description; code and technical design go in the change.
-            </p>
           </div>
         </div>
         <div className="flex h-14 shrink-0 items-center justify-end gap-2 border-t px-4" style={{ borderColor: 'var(--border)' }}>

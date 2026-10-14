@@ -39,6 +39,7 @@ const RESET_STATE = {
       title: "",
       type: "story" as const,
       fields: {},
+      markdown: null,
       worklaneId: null,
       releaseId: null,
       status: "backlog" as const,

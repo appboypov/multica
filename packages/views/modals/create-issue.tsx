@@ -56,7 +56,7 @@ import {
   DropdownMenuTrigger,
 } from "@multica/ui/components/ui/dropdown-menu";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@multica/ui/components/ui/tooltip";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@multica/ui/components/ui/tabs";
+import { Textarea } from "@multica/ui/components/ui/textarea";
 import { Button } from "@multica/ui/components/ui/button";
 import { Switch } from "@multica/ui/components/ui/switch";
 import { TitleEditor, type TitleEditorRef, type ContentEditorRef, useFileDropZone, FileDropOverlay, useUploadGate, useComposerSubmit } from "../editor";
@@ -64,6 +64,7 @@ import { manualAttachmentMarkdown, useIssueCreateUploads } from "./use-issue-cre
 import { useShortcut } from "@multica/core/shortcuts";
 import { ShortcutKeycaps } from "../common/shortcut-keycaps";
 import { StatusIcon, StatusPicker, PriorityIcon, PriorityPicker, StagePicker, AssigneePicker, StartDatePicker, DueDatePicker, LabelPicker, TypeIcon, WorklanePicker, ReleasePicker } from "../issues/components";
+import { DescriptionMarkdownBar } from "../issues/components/description-markdown-bar";
 import { usePlacementData } from "../issues/components/pickers";
 import { TemplateList } from "../issues/components/templates/template-list";
 import { TemplateFields } from "../issues/components/templates/template-fields";
@@ -274,7 +275,11 @@ export function ManualCreatePanel({
   );
   const [type, setType] = useState<IssueType>(draft.manual.type);
   const [fields, setFields] = useState<Record<string, string>>(draft.manual.fields);
-  const [pane, setPane] = useState<"fields" | "markdown">("fields");
+  // The Markdown edited by hand: while set, it is the description and the
+  // fields no longer write it.
+  const [handMarkdown, setHandMarkdown] = useState<string | null>(draft.manual.markdown);
+  // The fields show by default; the Markdown toggle swaps in their Markdown.
+  const [markdownView, setMarkdownView] = useState(false);
   // Where New issue opened: a worklane (and a release) or a project fills in
   // the placement; from elsewhere the draft keeps its own.
   const [origin] = useState(() => newIssueOrigin(data));
@@ -410,8 +415,10 @@ export function ManualCreatePanel({
   const submitProjectId = worklane ? (worklaneProjectId ?? undefined) : projectId;
   const effectiveStatus = defaultStatus(releaseId, statusPicked ? status : null);
   const fieldsMarkdown = template ? templateMarkdown(template, fields) : "";
-  // The issue's description: the template's Markdown, then the files' links.
-  const description = [fieldsMarkdown, manualAttachmentMarkdown(uploads)]
+  // The template's Markdown: what the fields write, unless edited by hand.
+  const markdown = handMarkdown ?? fieldsMarkdown;
+  // The issue's description: that Markdown, then the files' links.
+  const description = [markdown, manualAttachmentMarkdown(uploads)]
     .filter((part) => part !== "")
     .join("\n\n");
 
@@ -445,6 +452,12 @@ export function ManualCreatePanel({
     const next = { ...fields, [key]: value };
     setFields(next);
     setManual({ fields: next });
+  };
+  // Markdown typed back to what the fields write is no longer a hand edit.
+  const updateMarkdown = (value: string) => {
+    const next = value === fieldsMarkdown ? null : value;
+    setHandMarkdown(next);
+    setManual({ markdown: next });
   };
   const pickWorklane = (id: string | null) => {
     placementTouched.current = true;
@@ -482,6 +495,7 @@ export function ManualCreatePanel({
     setStatus("backlog");
     setStatusPicked(false);
     setFields({});
+    setHandMarkdown(null);
     setPriority("none");
     setStartDate(null);
     setDueDate(null);
@@ -499,6 +513,7 @@ export function ManualCreatePanel({
     setManual({
       title: "",
       fields: {},
+      markdown: null,
       status: "backlog",
       statusPicked: false,
       assigneeType,
@@ -851,7 +866,8 @@ export function ManualCreatePanel({
       titleEditorRef.current?.focus();
       return;
     }
-    if (!template || !requiredFilled(template, title, fields)) return;
+    // Markdown edited by hand replaces the fields, so they gate nothing.
+    if (handMarkdown === null && (!template || !requiredFilled(template, title, fields))) return;
     void composer.submit();
   };
   const submitting = composer.submitting;
@@ -879,7 +895,7 @@ export function ManualCreatePanel({
     const existingPrompt = draft.agent.prompt;
     if (!existingPrompt.trim()) {
       const filled = Object.values(fields).some((value) => value.trim() !== "");
-      const desc = [filled ? fieldsMarkdown : "", manualAttachmentMarkdown(uploads)]
+      const desc = [handMarkdown ?? (filled ? fieldsMarkdown : ""), manualAttachmentMarkdown(uploads)]
         .filter((part) => part !== "")
         .join("\n\n");
       const seeded = [title.trim(), desc].filter(Boolean).join("\n\n");
@@ -925,7 +941,7 @@ export function ManualCreatePanel({
           ? "source_unavailable"
           : !title.trim()
             ? "missing_title"
-            : !template || !requiredFilled(template, title, fields)
+            : handMarkdown === null && (!template || !requiredFilled(template, title, fields))
               ? "missing_required"
               : "ready";
   const submitBusy = submitState === "submitting" || submitState === "uploading";
@@ -1047,36 +1063,35 @@ export function ManualCreatePanel({
                   />
                 </div>
 
-                {/* The template's fields fill the description; Markdown shows it read-only. */}
-                <Tabs
-                  value={pane}
-                  onValueChange={(value) => setPane(value === "markdown" ? "markdown" : "fields")}
-                  className="flex min-h-0 flex-1 flex-col gap-2 px-5"
-                >
-                  <TabsList variant="line">
-                    <TabsTrigger value="fields">{tIssues(($) => $.templates.fields_tab)}</TabsTrigger>
-                    <TabsTrigger value="markdown">{tIssues(($) => $.templates.markdown_tab)}</TabsTrigger>
-                  </TabsList>
-                  <TabsContent value="fields" className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pb-3">
-                    {template && (
-                      <>
-                        <p className="text-caption text-muted-foreground">
-                          {t(($) => $.create_issue.template_note, { template: typeName })}
-                        </p>
-                        <TemplateFields template={template} fields={fields} onChange={updateField} />
-                      </>
+                {/* The template's fields fill the description; the Markdown toggle shows it to edit by hand. */}
+                <div className="flex min-h-0 flex-1 flex-col gap-2 px-5">
+                  <DescriptionMarkdownBar
+                    markdown={markdownView}
+                    onMarkdownChange={setMarkdownView}
+                    getMarkdown={() => markdown}
+                  />
+                  <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pb-3">
+                    {markdownView ? (
+                      <Textarea
+                        value={markdown}
+                        onChange={(event) => updateMarkdown(event.target.value)}
+                        aria-label={tIssues(($) => $.templates.markdown_aria)}
+                        spellCheck={false}
+                        className="resize-none font-mono text-caption md:text-caption"
+                      />
+                    ) : (
+                      template && (
+                        <TemplateFields
+                          template={template}
+                          fields={fields}
+                          onChange={updateField}
+                          disabled={handMarkdown !== null}
+                        />
+                      )
                     )}
                     <TemplateAttachments uploads={uploads} onRemove={removeUpload} />
-                  </TabsContent>
-                  <TabsContent value="markdown" className="min-h-0 flex-1 overflow-y-auto pb-3">
-                    <pre
-                      aria-label={tIssues(($) => $.templates.markdown_aria)}
-                      className="whitespace-pre-wrap break-words font-mono text-caption text-muted-foreground"
-                    >
-                      {description}
-                    </pre>
-                  </TabsContent>
-                </Tabs>
+                  </div>
+                </div>
                 {descDragOver && <FileDropOverlay />}
               </div>
             </div>

@@ -494,10 +494,9 @@
     "prop_type": "类型",
     "prop_worklane": "worklane",
     "prop_release": "版本",
-    "description_preview": "预览",
     "description_markdown": "Markdown",
     "description_markdown_aria": "Markdown 格式的描述",
-    "description_note": "代码和技术设计放在变更中，而不是任务中。",
+    "description_copy_markdown": "复制 Markdown",
     "project_follows_worklane": "跟随其 worklane",
     "worklane_of": "{{repository}} 的 {{worklane}}"
   },
@@ -1485,8 +1484,6 @@
     "label": "模板",
     "required": "必填",
     "optional": "选填",
-    "fields_tab": "字段",
-    "markdown_tab": "Markdown",
     "markdown_aria": "模板的 Markdown"
   },
   "placement_refusal": {

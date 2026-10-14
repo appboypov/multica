@@ -112,7 +112,7 @@ import { Callout } from "fumadocs-ui/components/callout";
 
 ## 模板和类型
 
-**新建任务**从八个模板之一开始:Epic、Journey、Story、Bug、Enhancement、Refactor、Chore 和 Spike。打开时默认选中 Story。模板决定任务的类型,其字段会填写成一份 Markdown 描述;**Markdown** 标签页显示保存后的内容。标题和所有必填字段填写完之前,**创建**按钮不可用。代码和技术设计写在变更中,而不是任务里。
+**新建任务**从八个模板之一开始:Epic、Journey、Story、Bug、Enhancement、Refactor、Chore 和 Spike。打开时默认选中 Story。模板决定任务的类型,其字段会填写成一份 Markdown 描述。**Markdown** 显示这份描述供手动编辑,复制按钮可复制它;手动编辑后,它就是描述,字段随之锁定。填写标题,并填完所有必填字段或手动编辑 Markdown 之前,**创建**按钮不可用。
 
 类型以图标的形式显示在列表、看板、搜索结果和任务页面中任务编号的旁边。类型只能设置一次:没有类型的任务可以在其页面上设置,但已设置的类型不会再改变。
 
@@ -120,7 +120,7 @@ import { Callout } from "fumadocs-ui/components/callout";
 
 任务可以放在一个 **worklane**(仓库中的一条工作线)中,并放入该仓库尚未发布的某个**版本**。从 worklane 或项目打开新建任务时,两者会自动填好;否则不选 worklane 也不选版本。选中 worklane 会填入其仓库的下一个版本,状态随之确定:有版本时为 `todo`,没有时为 `backlog`,除非你自己选了状态。任务在 worklane 中时,其项目跟随该 worklane。
 
-在任务页面上,**Worklane** 和**版本**两行可以修改这两项,版本卡片显示版本号、标题、进度以及打开该 worklane 时间线的链接。任务页面可以以**预览**或 **Markdown** 显示描述。
+在任务页面上,**Worklane** 和**版本**两行可以修改这两项,版本卡片显示版本号、标题、进度以及打开该 worklane 时间线的链接。任务页面显示渲染后的描述;**Markdown** 切换到可编辑的 Markdown,复制按钮可复制它。
 
 worklane 的**时间线**按版本列出该 worklane 的任务,显示“已完成 \{done\} / \{total\}”,最后是**无版本**。**+ 添加任务到版本**会在该版本中打开新建任务,版本菜单中的**添加任务到版本**可以勾选尚无版本的任务,**规划版本**时也可以一并加入任务。**从版本中移除**会把任务放回无版本。版本移动时,其任务随之移动;版本被删除时,任务回到无版本。worklane 中还有未关闭的任务时,不能删除该 worklane。
 

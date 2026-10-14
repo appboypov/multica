@@ -53,6 +53,8 @@ export interface IssueCreateManual {
   type: IssueType;
   /** The template's field values by field key, kept per key so switching templates keeps shared keys. */
   fields: Record<string, string>;
+  /** The Markdown as edited by hand; it is the description in place of the fields' Markdown. Null while the fields write it. */
+  markdown: string | null;
   worklaneId: string | null;
   releaseId: string | null;
   status: IssueStatus;
@@ -92,6 +94,7 @@ const emptyManual = (): IssueCreateManual => ({
   title: "",
   type: "story",
   fields: {},
+  markdown: null,
   worklaneId: null,
   releaseId: null,
   status: "backlog",
@@ -150,6 +153,7 @@ function migrateManual(raw: unknown): IssueCreateManual {
     ...manual,
     type: ISSUE_TYPES.includes(manual.type) ? manual.type : "story",
     fields: manual.fields && typeof manual.fields === "object" ? manual.fields : {},
+    markdown: typeof manual.markdown === "string" ? manual.markdown : null,
     worklaneId: typeof manual.worklaneId === "string" ? manual.worklaneId : null,
     releaseId: typeof manual.releaseId === "string" ? manual.releaseId : null,
     statusPicked: manual.statusPicked === true,
@@ -262,6 +266,7 @@ export const useIssueDraftStore = create<IssueDraftStore>()(
         return !!(
           manual.title ||
           Object.values(manual.fields).some((value) => value.trim() !== "") ||
+          manual.markdown !== null ||
           agent.prompt ||
           Object.keys(manual.propertyValues).length > 0 ||
           // Recoverable uploads only: a failed/interrupted remnant the user

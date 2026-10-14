@@ -119,6 +119,9 @@ import { issueTasksOptions } from "@multica/core/issues/queries";
 import { SourceContextBadge } from "./source-context-viewer";
 import { RevisionConflictCompare } from "./revision-conflict-compare";
 import { CommentInput } from "./comment-input";
+import { DescriptionMarkdownBar } from "./description-markdown-bar";
+import { DescriptionMarkdownEditor, type DescriptionMarkdownEditorRef } from "./description-markdown-editor";
+import { attachmentMarkdown } from "../../editor/use-coordinated-uploads";
 import { useCommentAnnotations } from "./use-comment-annotations";
 import { CurrentIssueRenderContextProvider } from "../current-issue-render-context";
 import { ResolvedThreadBar } from "./resolved-thread-bar";
@@ -2350,8 +2353,16 @@ export function IssueDetail({ issueId, onDelete, onDone, defaultSidebarOpen = tr
   }, [highlightTargetId, highlightRequestToken, id, writeViewState, items, targetIdx, scrollContainerEl, replyToRoot, expandedResolved, timelineView, toggleResolvedExpand]);
 
   const descEditorRef = useRef<ContentEditorRef>(null);
-  // The description shows as Preview (the editor) or as its Markdown, read-only.
-  const [descriptionView, setDescriptionView] = useState<"preview" | "markdown">("preview");
+  const descMarkdownRef = useRef<DescriptionMarkdownEditorRef>(null);
+  // The description shows rendered (the editor) or, toggled, as editable
+  // Markdown opened with `initialMarkdown`. Kept per issue, so another issue
+  // opens rendered.
+  const [descriptionMarkdownView, setDescriptionMarkdownView] = useState<{
+    issueId: string;
+    initialMarkdown: string;
+  } | null>(null);
+  const descriptionMarkdownInitial =
+    descriptionMarkdownView?.issueId === id ? descriptionMarkdownView.initialMarkdown : null;
   const descriptionEditingRef = useRef(false);
   const descriptionSaveInFlightRef = useRef(false);
   const descriptionSaveIssueIdRef = useRef(id);
@@ -2381,7 +2392,7 @@ export function IssueDetail({ issueId, onDelete, onDone, defaultSidebarOpen = tr
   }, [id]);
   const titleLazy = useLazyEditor({ editorRef: titleEditorRef, resetKey: id });
   const { isDragOver: descDragOver, dropZoneProps: descDropZoneProps } = useFileDropZone({
-    onDrop: (files) => files.forEach((file) => descEditorRef.current?.uploadFile(file)),
+    onDrop: (files) => files.forEach((file) => uploadDescriptionFile(file)),
   });
   // Pending uploads in the description editor. We don't pass `issueId` on
   // upload (to avoid orphaning attachments when the user deletes the file
@@ -2531,6 +2542,32 @@ export function IssueDetail({ issueId, onDelete, onDone, defaultSidebarOpen = tr
     },
     [uploadWithToast],
   );
+
+  // In the Markdown view a file's link joins the textarea; otherwise the
+  // editor draws it. A finished upload's link lands in whichever view shows
+  // this issue's description by then; after a switch to another issue, the
+  // closed textarea still saves it, as its own save outlives it.
+  const uploadDescriptionFile = (file: File) => {
+    const markdownEditor = descMarkdownRef.current;
+    if (!markdownEditor) {
+      descEditorRef.current?.uploadFile(file);
+      return;
+    }
+    const uploadIssueId = id;
+    void handleDescriptionUpload(file).then((attachment) => {
+      if (!attachment) return;
+      const link = attachmentMarkdown(attachment);
+      if (descriptionSaveIssueIdRef.current === uploadIssueId) {
+        const openMarkdownEditor = descMarkdownRef.current;
+        if (openMarkdownEditor) {
+          openMarkdownEditor.append(link);
+          return;
+        }
+        if (descEditorRef.current?.insertMarkdownAtEnd(link)) return;
+      }
+      markdownEditor.append(link);
+    });
+  };
 
   useEffect(() => {
     descPendingAttachmentsRef.current = [];
@@ -2780,6 +2817,52 @@ export function IssueDetail({ issueId, onDelete, onDone, defaultSidebarOpen = tr
       return;
     }
     persistDescriptionSave(draft);
+  };
+
+  // A description save from the editor or the Markdown textarea. Binds any
+  // pending uploads still referenced in the markdown so they appear in
+  // `issueAttachments` after refresh and the editor's text/code preview keeps
+  // working past reload.
+  //
+  // Match with `contentReferencesAttachment`, NOT `md.includes(a.url)`: the
+  // editor persists the durable `markdownLink` (`/api/attachments/<id>/download`
+  // / `markdown_url`) into the body, never the raw storage `a.url`. A bare
+  // `md.includes(a.url)` therefore never matches, so the upload is never
+  // linked via `attachment_ids`. After reload it's absent from
+  // `issueAttachments`, the renderer can't resolve it to a freshly-signed
+  // `download_url`, and the persisted auth-gated download endpoint fails to
+  // load as a native <img> on clients whose origin isn't the API host
+  // (Desktop/Electron, mobile webview) — while still working on web via the
+  // cookie/proxy. This mirrors the comment/reply/chat composers, which already
+  // bind via `contentReferencesAttachment` (MUL-3130 / MUL-3192).
+  const saveDescription = (markdown: string, baseMarkdown: string) => {
+    queueDescriptionSave({
+      markdown,
+      baseMarkdown,
+      attachmentIds: descPendingAttachmentsRef.current
+        .filter((a) => contentReferencesAttachment(markdown, a))
+        .map((a) => a.id),
+    });
+  };
+
+  const toggleDescriptionMarkdown = (markdown: boolean) => {
+    if (markdown) {
+      // An upload still landing in the editor would be lost under the textarea.
+      if (descEditorRef.current?.hasActiveUploads()) return;
+      // Typing the editor has not saved yet goes out now, and the textarea
+      // opens with it. While a save is in flight the cached description is
+      // still the old one, so the textarea opens with the editor's text.
+      const description = issue.description ?? "";
+      const pending = descEditorRef.current?.flushPendingUpdate() ?? null;
+      if (pending !== null) saveDescription(pending, description);
+      const saving = descriptionSaveInFlightRef.current ? descEditorRef.current?.getMarkdown() : undefined;
+      setDescriptionMarkdownView({ issueId: id, initialMarkdown: pending ?? saving ?? description });
+      return;
+    }
+    // The textarea saves what it holds as it unmounts; the editor shows it now.
+    const typed = descMarkdownRef.current?.getMarkdown();
+    if (typed !== undefined) descEditorRef.current?.adoptContent(typed);
+    setDescriptionMarkdownView(null);
   };
 
   const sidebarContent = (
@@ -3694,28 +3777,14 @@ export function IssueDetail({ issueId, onDelete, onDone, defaultSidebarOpen = tr
             />
           )}
 
-          <div className="mt-5 flex items-center justify-between gap-3">
-            <div role="tablist" className="inline-flex rounded-md border p-0.5 text-caption">
-              {(["preview", "markdown"] as const).map((view) => (
-                <button
-                  key={view}
-                  type="button"
-                  role="tab"
-                  aria-selected={descriptionView === view}
-                  onClick={() => setDescriptionView(view)}
-                  className={cn(
-                    "rounded px-2 py-0.5 transition-colors",
-                    descriptionView === view ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  {view === "preview"
-                    ? t(($) => $.detail.description_preview)
-                    : t(($) => $.detail.description_markdown)}
-                </button>
-              ))}
-            </div>
-            <p className="truncate text-caption text-muted-foreground">{t(($) => $.detail.description_note)}</p>
-          </div>
+          <DescriptionMarkdownBar
+            className="mt-5"
+            markdown={descriptionMarkdownInitial !== null}
+            onMarkdownChange={toggleDescriptionMarkdown}
+            getMarkdown={() =>
+              descMarkdownRef.current?.getMarkdown() ?? descEditorRef.current?.getMarkdown() ?? issue.description ?? ""
+            }
+          />
           <div
             {...descDropZoneProps}
             {...descriptionAnnotations.captureProps}
@@ -3733,39 +3802,13 @@ export function IssueDetail({ issueId, onDelete, onDone, defaultSidebarOpen = tr
             }}
           >
             {descriptionAnnotations.popup}
-            <div data-comment-content={descriptionSourceId} className={descriptionView === "markdown" ? "hidden" : undefined}>
+            <div data-comment-content={descriptionSourceId} className={descriptionMarkdownInitial !== null ? "hidden" : undefined}>
               <ContentEditor
                 ref={descEditorRef}
                 key={id}
                 value={issue.description ?? ""}
                 placeholder={t(($) => $.detail.desc_placeholder)}
-                onUpdate={(md, baseMarkdown) => {
-                  // Bind any pending uploads still referenced in the markdown
-                  // so they appear in `issueAttachments` after refresh and the
-                  // editor's text/code preview keeps working past reload.
-                  //
-                  // Match with `contentReferencesAttachment`, NOT `md.includes(a.url)`:
-                  // the editor persists the durable `markdownLink`
-                  // (`/api/attachments/<id>/download` / `markdown_url`) into the
-                  // body, never the raw storage `a.url`. A bare `md.includes(a.url)`
-                  // therefore never matches, so the upload is never linked via
-                  // `attachment_ids`. After reload it's absent from
-                  // `issueAttachments`, the renderer can't resolve it to a
-                  // freshly-signed `download_url`, and the persisted auth-gated
-                  // download endpoint fails to load as a native <img> on clients
-                  // whose origin isn't the API host (Desktop/Electron, mobile
-                  // webview) — while still working on web via the cookie/proxy.
-                  // This mirrors the comment/reply/chat composers, which already
-                  // bind via `contentReferencesAttachment` (MUL-3130 / MUL-3192).
-                  const ids = descPendingAttachmentsRef.current
-                    .filter((a) => contentReferencesAttachment(md, a))
-                    .map((a) => a.id);
-                  queueDescriptionSave({
-                    markdown: md,
-                    baseMarkdown,
-                    attachmentIds: ids,
-                  });
-                }}
+                onUpdate={saveDescription}
                 onUploadFile={handleDescriptionUpload}
                 debounceMs={1500}
                 // Closing the issue modal must save what the user last saw —
@@ -3777,13 +3820,14 @@ export function IssueDetail({ issueId, onDelete, onDone, defaultSidebarOpen = tr
                 attachments={descEditorAttachments}
               />
             </div>
-            {descriptionView === "markdown" && (
-              <pre
-                aria-label={t(($) => $.detail.description_markdown_aria)}
-                className="whitespace-pre-wrap break-words rounded-md bg-muted/50 p-3 font-mono text-caption"
-              >
-                {issue.description ?? ""}
-              </pre>
+            {descriptionMarkdownInitial !== null && (
+              <DescriptionMarkdownEditor
+                ref={descMarkdownRef}
+                initialMarkdown={descriptionMarkdownInitial}
+                value={issue.description ?? ""}
+                onSave={saveDescription}
+                ariaLabel={t(($) => $.detail.description_markdown_aria)}
+              />
             )}
 
             <div className="flex items-center gap-1 mt-3">
@@ -3796,7 +3840,7 @@ export function IssueDetail({ issueId, onDelete, onDone, defaultSidebarOpen = tr
               <FileUploadButton
                 size="sm"
                 multiple
-                onSelect={(file) => descEditorRef.current?.uploadFile(file)}
+                onSelect={uploadDescriptionFile}
               />
             </div>
             {descDragOver && <FileDropOverlay />}

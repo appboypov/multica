@@ -229,7 +229,6 @@
       "error_unknown": "Failed to submit. Try again.",
       "sub_issue_of": "Sub-issue of {{identifier}}"
     },
-    "template_note": "These fields fill the {{template}} template's Markdown. The issue keeps only that Markdown as its description; code and technical design go in the change.",
     "submit_type": "Create {{type}}",
     "required_missing": "Fill the title and every required field to create",
     "project_from_worklane": "The project follows the worklane"

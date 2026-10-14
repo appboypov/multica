@@ -494,10 +494,9 @@
     "prop_type": "유형",
     "prop_worklane": "worklane",
     "prop_release": "릴리스",
-    "description_preview": "미리보기",
     "description_markdown": "Markdown",
     "description_markdown_aria": "Markdown 설명",
-    "description_note": "코드와 기술 설계는 태스크가 아니라 변경에 둡니다.",
+    "description_copy_markdown": "Markdown 복사",
     "project_follows_worklane": "worklane을 따릅니다",
     "worklane_of": "{{repository}}의 {{worklane}}"
   },
@@ -1485,8 +1484,6 @@
     "label": "템플릿",
     "required": "필수",
     "optional": "선택",
-    "fields_tab": "필드",
-    "markdown_tab": "Markdown",
     "markdown_aria": "템플릿의 Markdown"
   },
   "placement_refusal": {

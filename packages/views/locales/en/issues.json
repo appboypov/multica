@@ -501,10 +501,9 @@
     "prop_type": "Type",
     "prop_worklane": "Worklane",
     "prop_release": "Release",
-    "description_preview": "Preview",
     "description_markdown": "Markdown",
     "description_markdown_aria": "Description as Markdown",
-    "description_note": "Code and technical design go in the change, not in the issue.",
+    "description_copy_markdown": "Copy Markdown",
     "project_follows_worklane": "Follows its worklane",
     "worklane_of": "{{worklane}} of {{repository}}"
   },
@@ -1535,8 +1534,6 @@
     "label": "Template",
     "required": "Required",
     "optional": "Optional",
-    "fields_tab": "Fields",
-    "markdown_tab": "Markdown",
     "markdown_aria": "The template's Markdown"
   },
   "placement_refusal": {

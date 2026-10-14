@@ -1,14 +1,23 @@
 ## ADDED Requirements
 
-### Requirement: The issue page shows the type, the ID and the description as Preview or Markdown
-An issue's page SHALL show its type icon and name with its ID above its title, its description as Preview, the rendered Markdown, or as Markdown, its text, and under it "Code and technical design go in the change, not in the issue."
+### Requirement: The issue page shows the type, the ID and the description, editable as Markdown
+An issue's page SHALL show its type icon and name with its ID above its title, and its description rendered. A Markdown toggle SHALL switch the description to its Markdown text, editable and saved as the description, and back. A copy button SHALL copy the description's Markdown.
 
 #### Scenario: REBL-21
 - **GIVEN** Brian created REBL-21 "A fan changes their display name" from the Story template
 - **WHEN** he opens its page
-- **THEN** it shows Story REBL-21 above the title and the description as Preview with "👤 User Story" as a heading
+- **THEN** it shows Story REBL-21 above the title and the description rendered with "👤 User Story" as a heading
 - **AND** Markdown shows "## 👤 User Story" as text
-- **AND** under it says "Code and technical design go in the change, not in the issue."
+
+#### Scenario: An edit in the Markdown
+- **GIVEN** REBL-21's description shows as Markdown
+- **WHEN** Brian adds "- Shows in guest lists" under "## 🎯 Should"
+- **THEN** REBL-21's description keeps that line
+- **AND** turning Markdown off shows it rendered as a list item
+
+#### Scenario: Copy the Markdown
+- **WHEN** Brian clicks the copy button on REBL-21's description
+- **THEN** the clipboard holds the description's Markdown, starting with "## 👤 User Story"
 
 ### Requirement: The issue page shows Type, Worklane and Release next to Multica's other properties
 An issue's page SHALL show Type, Worklane and Release next to Multica's other properties of the issue. Worklane SHALL show the worklane with its repository, or "No worklane", and Release the release's version and title, or "No release"; each SHALL link to the worklane's Timeline.

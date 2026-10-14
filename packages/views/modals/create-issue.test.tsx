@@ -51,6 +51,8 @@ const mockShowIssueLimitUpgradePrompt = vi.hoisted(() => vi.fn());
 // `api.uploadFile(file, ctx, signal)` (MUL-5181 L2). Tests drive uploads by
 // mocking that call; it resolves a plain server Attachment row.
 const mockApiUploadFile = vi.hoisted(() => vi.fn());
+const mockListIssueTemplates = vi.hoisted(() => vi.fn());
+const mockCopyText = vi.hoisted(() => vi.fn());
 
 const sourceContextPanelData = () => ({
   anchor_comment_id: "comment-source",
@@ -129,6 +131,7 @@ const emptyIssueDraft = () => ({
     description: "",
     type: "story" as const,
     fields: {} as Record<string, string>,
+    markdown: null as string | null,
     worklaneId: null as string | null,
     releaseId: null as string | null,
     statusPicked: false,
@@ -333,6 +336,7 @@ vi.mock("@multica/core/api", async () => {
       listProperties: mockListProperties,
       setIssueProperty: mockSetIssueProperty,
       uploadFile: mockApiUploadFile,
+      listIssueTemplates: mockListIssueTemplates,
     },
     ApiError,
     parseWithFallback,
@@ -605,6 +609,11 @@ vi.mock("@multica/ui/components/common/file-upload-button", () => ({
 
 vi.mock("@multica/ui/lib/utils", () => ({
   cn: (...values: Array<string | false | null | undefined>) => values.filter(Boolean).join(" "),
+}));
+
+vi.mock("@multica/ui/lib/clipboard", () => ({
+  copyText: mockCopyText,
+  copyImage: vi.fn(),
 }));
 
 vi.mock("sonner", () => ({
@@ -2109,6 +2118,86 @@ describe("CreateIssueModal", () => {
       expect(footer?.className).toContain("sm:flex");
       expect(create.parentElement).toBe(footer);
       expect(create.className).toContain("justify-self-end");
+    });
+  });
+
+  describe("template Markdown", () => {
+    const storyTemplate = {
+      type: "story" as const,
+      sections: [
+        {
+          heading: "## Goal",
+          question: "What should change?",
+          field: { key: "goal", label: "Goal", required: true, placeholder: "", rows: 3, format: "text" as const },
+        },
+      ],
+    };
+
+    beforeEach(() => {
+      mockListIssueTemplates.mockResolvedValue([storyTemplate]);
+      mockCopyText.mockResolvedValue(true);
+    });
+
+    const openMarkdown = async () => {
+      renderModal(<CreateIssueModal onClose={vi.fn()} />);
+      await screen.findByLabelText(/^Goal/);
+      fireEvent.click(screen.getByRole("button", { name: "Markdown" }));
+      return screen.getByLabelText("The template's Markdown");
+    };
+
+    it("shows the fields by default and their Markdown, editable, behind the toggle", async () => {
+      renderModal(<CreateIssueModal onClose={vi.fn()} />);
+      fireEvent.change(await screen.findByLabelText(/^Goal/), { target: { value: "Ship it" } });
+
+      const toggle = screen.getByRole("button", { name: "Markdown" });
+      expect(toggle).toHaveAttribute("aria-pressed", "false");
+      fireEvent.click(toggle);
+
+      expect(toggle).toHaveAttribute("aria-pressed", "true");
+      const markdown = screen.getByLabelText("The template's Markdown");
+      expect(markdown.tagName).toBe("TEXTAREA");
+      expect(markdown).toHaveValue("## Goal\n> What should change?\n\nShip it");
+      expect(screen.queryByLabelText(/^Goal/)).toBeNull();
+      expect(screen.queryByText(/technical design/i)).toBeNull();
+
+      fireEvent.click(toggle);
+      expect(screen.getByLabelText(/^Goal/)).toHaveValue("Ship it");
+    });
+
+    it("creates the issue with the hand-edited Markdown once the title is filled", async () => {
+      const markdown = await openMarkdown();
+      fireEvent.change(screen.getByPlaceholderText("Issue title"), { target: { value: "Hand written" } });
+
+      const create = () => screen.getByRole("button", { name: /^Create story/i });
+      expect(create()).toHaveAttribute("aria-disabled", "true");
+
+      fireEvent.change(markdown, { target: { value: "## Goal\n\nMy own Markdown" } });
+      expect(mockSetManual).toHaveBeenLastCalledWith({ markdown: "## Goal\n\nMy own Markdown" });
+      expect(create()).not.toHaveAttribute("aria-disabled");
+
+      fireEvent.click(screen.getByRole("button", { name: "Markdown" }));
+      expect(screen.getByLabelText(/^Goal/)).toBeDisabled();
+
+      fireEvent.click(create());
+      await waitFor(() =>
+        expect(mockCreateIssue).toHaveBeenCalledWith(
+          expect.objectContaining({ title: "Hand written", description: "## Goal\n\nMy own Markdown" }),
+        ),
+      );
+    });
+
+    it("opens on the hand-edited Markdown kept in the draft", async () => {
+      mockDraftStore.draft.manual.markdown = "Kept by hand";
+      const markdown = await openMarkdown();
+      expect(markdown).toHaveValue("Kept by hand");
+    });
+
+    it("copies the Markdown shown", async () => {
+      const markdown = await openMarkdown();
+      fireEvent.change(markdown, { target: { value: "Copy me" } });
+
+      fireEvent.click(screen.getByRole("button", { name: "Copy Markdown" }));
+      await waitFor(() => expect(mockCopyText).toHaveBeenCalledWith("Copy me"));
     });
   });
 });

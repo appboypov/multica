@@ -501,10 +501,9 @@
     "prop_type": "Type",
     "prop_worklane": "Worklane",
     "prop_release": "Version",
-    "description_preview": "Aperçu",
     "description_markdown": "Markdown",
     "description_markdown_aria": "Description en Markdown",
-    "description_note": "Le code et la conception technique vont dans le changement, pas dans la tâche.",
+    "description_copy_markdown": "Copier le Markdown",
     "project_follows_worklane": "Suit son worklane",
     "worklane_of": "{{worklane}} de {{repository}}"
   },
@@ -1535,8 +1534,6 @@
     "label": "Modèle",
     "required": "Obligatoire",
     "optional": "Facultatif",
-    "fields_tab": "Champs",
-    "markdown_tab": "Markdown",
     "markdown_aria": "Le Markdown du modèle"
   },
   "placement_refusal": {

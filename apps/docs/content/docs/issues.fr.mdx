@@ -110,7 +110,7 @@ Les sous-tâches peuvent recevoir une **Étape** pour avancer par lots — 1, 2,
 
 ## Modèles et types
 
-**Nouvelle tâche** part de l'un des huit modèles : Epic, Journey, Story, Bug, Enhancement, Refactor, Chore et Spike. Story est choisi à l'ouverture. Le modèle fixe le type de la tâche, et ses champs remplissent une seule description en Markdown ; l'onglet **Markdown** la montre telle qu'elle sera enregistrée. **Créer** reste désactivé tant que le titre et chaque champ obligatoire ne sont pas remplis. Le code et la conception technique vont dans le changement, pas dans la tâche.
+**Nouvelle tâche** part de l'un des huit modèles : Epic, Journey, Story, Bug, Enhancement, Refactor, Chore et Spike. Story est choisi à l'ouverture. Le modèle fixe le type de la tâche, et ses champs remplissent une seule description en Markdown. **Markdown** montre cette description à modifier à la main, et le bouton de copie la copie ; une fois modifiée à la main, elle devient la description et les champs se verrouillent. **Créer** reste désactivé tant que le titre n'est pas rempli et que chaque champ obligatoire n'est pas rempli ou le Markdown modifié à la main.
 
 Le type s'affiche en icône à côté du numéro de la tâche dans les listes, les tableaux, les résultats de recherche et la page de la tâche. Il se fixe une seule fois : une tâche sans type peut en recevoir un sur sa page, mais un type fixé ne change plus.
 
@@ -118,7 +118,7 @@ Le type s'affiche en icône à côté du numéro de la tâche dans les listes, l
 
 Une tâche peut se trouver dans un **worklane**, une ligne de travail d'un dépôt, et dans l'une des **versions** non livrées de ce dépôt. Nouvelle tâche remplit les deux quand on l'ouvre depuis un worklane ou un projet ; sinon, aucun worklane ni aucune version n'est choisi. Choisir un worklane remplit la prochaine version de son dépôt, et le statut suit : `todo` avec une version, `backlog` sans, sauf si vous en choisissez un. Tant qu'une tâche est dans un worklane, son projet suit le worklane.
 
-Sur la page de la tâche, les lignes **Worklane** et **Version** changent les deux, et la carte de version montre la version, son titre, sa progression et un lien vers la chronologie du worklane. La description s'affiche en **Aperçu** ou en **Markdown**.
+Sur la page de la tâche, les lignes **Worklane** et **Version** changent les deux, et la carte de version montre la version, son titre, sa progression et un lien vers la chronologie du worklane. La description s'affiche rendue ; **Markdown** la bascule vers son Markdown à modifier, et le bouton de copie la copie.
 
 La **chronologie** d'un worklane liste les tâches de ce worklane dans chaque version avec « \{done\} sur \{total\} terminées », puis **Sans version**. **+ Ajouter une tâche à la version** ouvre Nouvelle tâche dans cette version, **Ajouter une tâche à la version** dans le menu d'une version coche des tâches sans version, et **Planifier une version** peut aussi en reprendre. **Retirer de la version** remet une tâche dans Sans version. Quand une version est déplacée, ses tâches la suivent ; quand elle est supprimée, elles reviennent dans Sans version. Un worklane ne peut pas être supprimé tant qu'il contient des tâches ouvertes.
 

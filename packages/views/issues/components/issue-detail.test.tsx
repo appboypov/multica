@@ -22,6 +22,7 @@ import enQuestions from "../../locales/en/questions.json";
 const TEST_RESOURCES = { en: { agents: enAgents, common: enCommon, issues: enIssues, questions: enQuestions } };
 
 const mockViewport = vi.hoisted(() => ({ isMobile: false }));
+const mockCopyText = vi.hoisted(() => vi.fn());
 
 // Counts MockContentEditor mounts. This pins the description to exactly one
 // eager editor per issue and catches stale editor reuse across issue switches.
@@ -45,6 +46,11 @@ vi.mock("@multica/ui/hooks/use-mobile", () => ({
 // directly so the bridge hook returns the test UUID.
 vi.mock("@multica/core/hooks", () => ({
   useWorkspaceId: () => "ws-1",
+}));
+
+vi.mock("@multica/ui/lib/clipboard", () => ({
+  copyText: mockCopyText,
+  copyImage: vi.fn(),
 }));
 
 // ---------------------------------------------------------------------------
@@ -234,6 +240,8 @@ vi.mock("../../editor", async () => ({
         dirtyRef.current = false;
         setEditorValue(markdown);
       },
+      // The mock emits every keystroke at once, so nothing is ever pending.
+      flushPendingUpdate: () => null,
       focus: () => {},
       focusAtCoords: () => {},
       // The top-level composer blurs after a posted comment (afterAccepted).
@@ -2783,6 +2791,91 @@ describe("IssueDetail (shared)", () => {
       });
       expect(useCommentCollapseStore.getState().isCollapsed("issue-1", "comment-1")).toBe(false);
     });
+  });
+
+  it("edits the description as Markdown and shows the edit rendered after toggling back", async () => {
+    renderIssueDetail();
+    await screen.findByDisplayValue("Add JWT auth to the backend");
+
+    const toggle = screen.getByRole("button", { name: "Markdown" });
+    expect(toggle).toHaveAttribute("aria-pressed", "false");
+    expect(screen.queryByRole("textbox", { name: "Description as Markdown" })).not.toBeInTheDocument();
+
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-pressed", "true");
+    const markdown = screen.getByRole("textbox", { name: "Description as Markdown" });
+    expect(markdown).toHaveValue("Add JWT auth to the backend");
+
+    fireEvent.change(markdown, { target: { value: "Add **JWT** auth to the backend" } });
+    fireEvent.blur(markdown);
+    await waitFor(() =>
+      expect(mockApiObj.updateIssue).toHaveBeenCalledWith(
+        "issue-1",
+        expect.objectContaining({
+          description: "Add **JWT** auth to the backend",
+          description_base: "Add JWT auth to the backend",
+        }),
+      ),
+    );
+
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-pressed", "false");
+    expect(screen.queryByRole("textbox", { name: "Description as Markdown" })).not.toBeInTheDocument();
+    expect(screen.getByDisplayValue("Add **JWT** auth to the backend")).toHaveAttribute(
+      "data-testid",
+      "rich-text-editor",
+    );
+  });
+
+  it("saves typed Markdown when toggling back before the debounce fires", async () => {
+    renderIssueDetail();
+    await screen.findByDisplayValue("Add JWT auth to the backend");
+
+    fireEvent.click(screen.getByRole("button", { name: "Markdown" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Description as Markdown" }), {
+      target: { value: "Typed right before toggling" },
+    });
+    expect(mockApiObj.updateIssue).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Markdown" }));
+
+    await waitFor(() =>
+      expect(mockApiObj.updateIssue).toHaveBeenCalledWith(
+        "issue-1",
+        expect.objectContaining({ description: "Typed right before toggling" }),
+      ),
+    );
+  });
+
+  it("copies the description's Markdown in either view", async () => {
+    mockCopyText.mockResolvedValue(true);
+    renderIssueDetail();
+    await screen.findByDisplayValue("Add JWT auth to the backend");
+
+    fireEvent.click(screen.getByRole("button", { name: "Copy Markdown" }));
+    await waitFor(() => expect(mockCopyText).toHaveBeenLastCalledWith("Add JWT auth to the backend"));
+
+    fireEvent.click(screen.getByRole("button", { name: "Markdown" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Description as Markdown" }), {
+      target: { value: "Typed, not saved yet" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Copy Markdown" }));
+    await waitFor(() => expect(mockCopyText).toHaveBeenLastCalledWith("Typed, not saved yet"));
+  });
+
+  it("copies and opens the editor's text while its save is in flight", async () => {
+    mockCopyText.mockResolvedValue(true);
+    mockApiObj.updateIssue.mockReturnValueOnce(new Promise(() => {}));
+    renderIssueDetail();
+
+    const editor = await screen.findByDisplayValue("Add JWT auth to the backend");
+    fireEvent.change(editor, { target: { value: "Typed in the editor" } });
+    await waitFor(() => expect(mockApiObj.updateIssue).toHaveBeenCalled());
+
+    fireEvent.click(screen.getByRole("button", { name: "Copy Markdown" }));
+    await waitFor(() => expect(mockCopyText).toHaveBeenLastCalledWith("Typed in the editor"));
+
+    fireEvent.click(screen.getByRole("button", { name: "Markdown" }));
+    expect(screen.getByRole("textbox", { name: "Description as Markdown" })).toHaveValue("Typed in the editor");
   });
 
   it("sends empty description when editor is cleared", async () => {

@@ -46,11 +46,11 @@ Each template SHALL show its fields, each marked Required or Optional, as in thi
 - **THEN** the fields are Spike objective (Required), Research questions (Optional) and Time box (Required)
 
 ### Requirement: The fields fill the template's one Markdown description
-The Markdown tab SHALL show the picked template's Markdown, each section with its emoji heading and its question as a quote, with what Brian typed in each field placed in its section: a text field as written, a list field one line per item as `- {item}`, a checklist field one line per item as `- [ ] {item}`, and Journey's Scenarios one scenario section per line. A section whose field is empty, or that has no field, SHALL keep only its heading and question. The created issue SHALL keep only that Markdown as its description and keep no separate fields.
+New issue SHALL show the fields, and a Markdown toggle SHALL show the picked template's Markdown instead, each section with its emoji heading and its question as a quote, with what Brian typed in each field placed in its section: a text field as written, a list field one line per item as `- {item}`, a checklist field one line per item as `- [ ] {item}`, and Journey's Scenarios one scenario section per line. A section whose field is empty, or that has no field, SHALL keep only its heading and question. A copy button SHALL copy that Markdown. The created issue SHALL keep only that Markdown as its description and keep no separate fields.
 
 #### Scenario: A story's Markdown
 - **GIVEN** Brian picked Story, typed User story "As a fan, I want to change my display name, so that friends recognise me in guest lists." and the Acceptance criteria "Given a signed-in fan on their profile, when they change their display name and save, then the new name shows on their profile"
-- **WHEN** he opens the Markdown tab
+- **WHEN** he turns on Markdown
 - **THEN** it shows "## 👤 User Story", "> Who benefits and what do they want to achieve?" and "- As a fan, I want to change my display name, so that friends recognise me in guest lists."
 - **AND** under "## ✅ Acceptance Criteria" it shows "- [ ] Given a signed-in fan on their profile, when they change their display name and save, then the new name shows on their profile"
 - **AND** "## 📍 Currently" and "## 🎯 Should" show only their questions
@@ -58,11 +58,20 @@ The Markdown tab SHALL show the picked template's Markdown, each section with it
 #### Scenario: The issue keeps only the Markdown
 - **GIVEN** Brian created REBL-21 from the Story template with User story and Acceptance criteria filled
 - **WHEN** he opens REBL-21's description as Markdown
-- **THEN** it is the Markdown the Markdown tab showed before Create
+- **THEN** it is the Markdown New issue showed before Create
 - **AND** REBL-21 shows no User story or Acceptance criteria field
 
-### Requirement: Create stays disabled until the title and every required field are filled
-New issue SHALL keep its Create button disabled while the title or any Required field of the picked template is empty or only spaces.
+### Requirement: Brian edits New issue's Markdown by hand
+New issue's Markdown SHALL be editable. Once Brian changes it by hand, that Markdown SHALL be the description: the fields SHALL lock, and New issue SHALL keep the edited Markdown until the issue is created.
+
+#### Scenario: A hand edit
+- **GIVEN** Brian picked Story, typed the title and User story, and turned on Markdown
+- **WHEN** he adds "- Shows in guest lists" under "## 🎯 Should"
+- **THEN** the fields lock
+- **AND** the created issue's description is that Markdown with the added line
+
+### Requirement: Create stays disabled until the title and the description are complete
+New issue SHALL keep its Create button disabled while the title is empty or only spaces, or while the Markdown has no hand edit and any Required field of the picked template is empty or only spaces.
 
 #### Scenario: A required field empty
 - **GIVEN** Brian picked Story and typed the title "A fan changes their display name" and User story
@@ -78,10 +87,14 @@ New issue SHALL keep its Create button disabled while the title or any Required 
 - **WHEN** the title is empty
 - **THEN** "Create bug" is disabled
 
+#### Scenario: A hand-edited Markdown
+- **GIVEN** Brian picked Story, typed the title and changed the Markdown by hand
+- **WHEN** Acceptance criteria is empty
+- **THEN** "Create story" is enabled
+
 ### Requirement: No template asks for implementation details
-No template, field, issue view or creation flow MUST ask for implementation details, code or technical design, and New issue SHALL say under the fields "These fields fill the {template} template's Markdown. The issue keeps only that Markdown as its description; code and technical design go in the change."
+No template, field, issue view or creation flow MUST ask for implementation details, code or technical design.
 
 #### Scenario: Story in New issue
 - **WHEN** Brian picks Story
 - **THEN** no field asks for implementation, code or technical design
-- **AND** under the fields it says "These fields fill the Story template's Markdown. The issue keeps only that Markdown as its description; code and technical design go in the change."

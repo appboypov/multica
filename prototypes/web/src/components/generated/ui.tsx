@@ -4,6 +4,7 @@ import {
   Bug,
   Check,
   CircleDashed,
+  Copy,
   FlaskConical,
   Flag,
   GitCompareArrows,
@@ -295,6 +296,37 @@ export function IconButton({ label, icon, onClick }: { label: string; icon: Reac
     <button aria-label={label} title={label} onClick={onClick} className="flex size-7 items-center justify-center rounded-[6px] hover:bg-[var(--surface-hover)]" style={{ color: 'var(--muted-foreground)' }}>
       {icon}
     </button>
+  );
+}
+
+/** The Markdown toggle and the copy button over a description. */
+export function MarkdownBar({ on, onToggle, text }: { on: boolean; onToggle: () => void; text: string }) {
+  const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    if (!copied) return;
+    const t = setTimeout(() => setCopied(false), 2000);
+    return () => clearTimeout(t);
+  }, [copied]);
+  return (
+    <div className="flex items-center gap-1">
+      <button
+        aria-pressed={on}
+        onClick={onToggle}
+        className="h-7 rounded-[6px] px-2.5 text-[13px] transition-colors"
+        style={
+          on
+            ? { background: 'var(--surface)', color: 'var(--foreground)', boxShadow: 'var(--surface-shadow)', fontWeight: 500 }
+            : { color: 'var(--muted-foreground)' }
+        }
+      >
+        Markdown
+      </button>
+      <IconButton
+        label="Copy Markdown"
+        icon={copied ? <Check size={15} /> : <Copy size={15} />}
+        onClick={() => void navigator.clipboard.writeText(text).then(() => setCopied(true))}
+      />
+    </div>
   );
 }
 

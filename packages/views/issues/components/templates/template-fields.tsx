@@ -9,6 +9,8 @@ interface TemplateFieldsProps {
   template: IssueTemplate;
   fields: TemplateFieldValues;
   onChange: (key: string, value: string) => void;
+  /** Markdown edited by hand replaced what the fields write. */
+  disabled?: boolean;
 }
 
 /**
@@ -16,7 +18,7 @@ interface TemplateFieldsProps {
  * Optional. Labels and placeholders are the template's own text: they become
  * the issue's Markdown, so they stay as written in every language.
  */
-export function TemplateFields({ template, fields, onChange }: TemplateFieldsProps) {
+export function TemplateFields({ template, fields, onChange, disabled }: TemplateFieldsProps) {
   const { t } = useT("issues");
   return (
     <div className="flex flex-col gap-4">
@@ -39,6 +41,7 @@ export function TemplateFields({ template, fields, onChange }: TemplateFieldsPro
               placeholder={field.placeholder}
               rows={field.rows}
               aria-required={field.required}
+              disabled={disabled}
               className="resize-none"
             />
           </div>
