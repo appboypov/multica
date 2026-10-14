@@ -83,7 +83,7 @@ Every group builds on UJ-1's and UJ-2's code (changes `answer-an-agents-question
 
 - [x] 9.1 `server/internal/handler/question_list.go` -- `ListQuestions` parses `tab` (default `for_me`, anything else 400), `answer_type` (one of UJ-1's 12 keys, else 400), `asker_id`, `answerer_id` and repeated `link_id` with `parseUUIDOrBadRequest`, `blocks_work`, `limit` 1-100 (default 50) and the base64 JSON cursor `{scope, time, id}` tied to tab and filters as `inbox_archive.go` makes it (a cursor of another scope is 400); `CountOpenQuestions` returns `{count}` -- design.md decision 1.
 - [x] 9.2 `server/cmd/server/router.go` -- `GET /api/questions` and `GET /api/questions/open-count` in the `RequireWorkspaceMember` group beside UJ-1's question routes, the static `open-count` segment before `/{id}` -- reachable to members only.
-- [ ] 9.3 `server/internal/handler/reserved_slugs.json`, `packages/core/paths/reserved-slugs.ts` -- reserve `questions` among the workspace route segments, run `pnpm generate:reserved-slugs` and commit the output -- AGENTS.md "Change and Delivery Rules".
+- [x] 9.3 `server/internal/handler/reserved_slugs.json`, `packages/core/paths/reserved-slugs.ts` -- reserve `questions` among the workspace route segments, run `pnpm generate:reserved-slugs` and commit the output -- AGENTS.md "Change and Delivery Rules".
 - [ ] 9.4 `server/internal/handler/question_list_test.go` -- with `testutil.Call(h, req).Want(status).JSON(&out)`: 200 with rows and `next_cursor` for For me; 400 for an unknown tab, an unknown answer type, a malformed `link_id`, `limit=0` and a cursor from another tab; a non-member gets 403; `open-count` returns 6 for Brian's six open questions -- the endpoint's contract.
 
 ## 10. J9 Frontend: flow
@@ -154,6 +154,7 @@ Every group builds on UJ-1's and UJ-2's code (changes `answer-an-agents-question
 - 9.2: `server/cmd/server/router.go` adds `r.Get("/", h.ListQuestions)` and `r.Get("/open-count", h.CountOpenQuestions)` inside UJ-1's `r.Route("/api/questions", …)`, which sits in the `RequireWorkspaceMember` group; `open-count` is registered before `r.Route("/{id}", …)`. No `RequireHumanActor`: like the inbox, the list is the authenticated member's own, and the task asks only for membership.
 - 9.3 (source only, unticked): `server/internal/handler/reserved_slugs.json` reserves `questions` in "Workspace route segments", after `inbox` as the sidebar orders them. By Brian's scope the generator did not run here: the team lead runs `pnpm generate:reserved-slugs` on Crabbox and commits `packages/core/paths/reserved-slugs.ts`, then ticks 9.3. Until then CI's generator diff check fails on this branch.
 - Group 9 delivery: 9.1 and 9.2 are complete; 9.3 waits only on the generator; 9.4 is a test task and stays unticked under Brian's scope. No tests were written or run, and no typecheck, lint, formatter, build, install or generator ran; the team lead compiles and runs the handler checks on Crabbox.
+- 9.3: `pnpm generate:reserved-slugs` ran on Crabbox; `packages/core/paths/reserved-slugs.ts` gains only `questions`.
 
 ## Plan Change Log
 
