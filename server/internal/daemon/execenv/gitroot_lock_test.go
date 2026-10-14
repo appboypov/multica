@@ -1,7 +1,6 @@
 package execenv
 
 import (
-	"context"
 	"errors"
 	"os"
 	"os/exec"
