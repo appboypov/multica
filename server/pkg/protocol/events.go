@@ -254,16 +254,19 @@ const (
 	QuestionReasonWithdrawn    = "withdrawn"
 	QuestionReasonOverdue      = "overdue"
 	QuestionReasonWoken        = "woken"
+	QuestionReasonLinked       = "linked"
 )
 
 // QuestionEventPayload is the payload of question:created and
 // question:updated. Reason is empty on question:created. AskID and QuestionIDs
 // identify the ask on creation and overdue updates; QuestionID is its first question.
+// IssueIDs are the issues whose pages show the card; IssueID remains the first.
 type QuestionEventPayload struct {
 	QuestionID  string   `json:"question_id"`
 	AskID       string   `json:"ask_id,omitempty"`
 	QuestionIDs []string `json:"question_ids,omitempty"`
 	IssueID     string   `json:"issue_id"`
+	IssueIDs    []string `json:"issue_ids,omitempty"`
 	Reason      string   `json:"reason,omitempty"`
 	EventID     string   `json:"event_id,omitempty"`
 }

@@ -46,7 +46,7 @@ Every group builds on UJ-1's, UJ-2's and UJ-3's code (changes `answer-an-agents-
 - [x] 2.2 `packages/core/api/schema.ts` -- extend the zod schemas: `wake_targets` defaults to `[]`, `via` to null, `open_issue` falls back to `link` when absent, an unknown `link.type` or `via.type` falls back to `issue`, `blocking_count` to 0 -- AGENTS.md "API Compatibility".
 - [ ] 2.3 `packages/core/api/schema.test.ts` -- malformed-response cases: a question without `wake_targets`, a wake target without `agent_id` dropped, a row with an unknown link type, a row without `open_issue`, a count without `blocking_count` -- AGENTS.md requires them for a changed endpoint.
 - [x] 2.4 `server/internal/handler/question.go`, `server/internal/handler/question_list.go` -- response structs: `QuestionWakeTargetResponse` and `QuestionResponse.WakeTargets`; `QuestionRowResponse.Via` (`QuestionViaResponse`), `QuestionRowResponse.OpenIssue`; `QuestionOpenCountResponse.BlockingCount`; request structs `QuestionLinkRequest {type, id}`, `AskRequest.Links`, `AddLinksRequest`, `WakeRequest.AgentID` -- the Go side of 2.1, field for field.
-- [ ] 2.5 `server/pkg/protocol/events.go` -- `QuestionEventPayload.IssueIDs []string` beside `IssueID`, and the reason `linked` -- design.md decision 8.
+- [x] 2.5 `server/pkg/protocol/events.go` -- `QuestionEventPayload.IssueIDs []string` beside `IssueID`, and the reason `linked` -- design.md decision 8.
 
 ## 3. J3 Data-flow prototype: data-flow prototype
 
@@ -154,6 +154,7 @@ Every group builds on UJ-1's, UJ-2's and UJ-3's code (changes `answer-an-agents-
 - 2.2: an absent opening issue uses the legacy issue link's id and identifier. A non-issue row may have null identifier/status but must provide its opening issue if its link cannot supply an issue identifier; an unopenable malformed row is dropped rather than inventing an issue identifier. UJ-3's requirement that an issue row has an identifier remains intact. Schema parsing stays in the existing `readQuestion` / `readQuestionRow` boundary.
 - 2.4 adaptation (approved by Main): the existing aggregate wire response is `service.QuestionDTO`, not a handler `QuestionResponse`. Extended that response with `WakeTargets` and `QuestionWakeTargetDTO` in `server/internal/service/question.go`; no duplicate response or alias. Extended the existing row/count structs in `server/internal/handler/question_list.go` with nullable link identifier/status, `QuestionViaResponse`, `QuestionOpenIssueResponse` and `BlockingCount`.
 - 2.4: added named `QuestionLinkRequest`, `AskRequest`, `AddLinksRequest` and `WakeRequest` in `server/internal/handler/question.go`; the ask handler decodes its existing fields through `AskRequest`. `WakeRequest.AgentID` is a pointer to distinguish an absent id from an explicitly empty id. Link resolution, target computation and endpoint behavior remain tasks 8.1–8.4 / 9.1–9.3, not this contract group. No changes to those tasks or to tests.
+- 2.5: added `QuestionEventPayload.IssueIDs` next to the retained `IssueID`, and `QuestionReasonLinked = "linked"` in `server/pkg/protocol/events.go`. Updated the matching client event contract in `packages/core/types/events.ts` with optional `issue_ids` (older servers omit it) and the `linked` reason. Event publication and query invalidation remain tasks 8.3 and 11.4.
 
 ## Plan Change Log
 

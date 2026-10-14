@@ -130,7 +130,9 @@ export interface QuestionEventPayload {
   ask_id?: string;
   question_ids?: string[];
   issue_id: string;
-  reason?: "answered" | "answer_edited" | "ask_back" | "reassigned" | "closed" | "withdrawn" | "overdue" | "woken";
+  /** Every issue whose page shows the card; issue_id stays the first. */
+  issue_ids?: string[];
+  reason?: "answered" | "answer_edited" | "ask_back" | "reassigned" | "closed" | "withdrawn" | "overdue" | "woken" | "linked";
   event_id?: string;
 }
 
