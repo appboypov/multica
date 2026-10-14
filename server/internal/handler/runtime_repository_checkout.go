@@ -127,7 +127,8 @@ func (s *InMemoryRepositoryCheckoutStore) Create(_ context.Context, in RuntimeRe
 
 	now := time.Now()
 	for id, req := range s.requests {
-		if now.Sub(req.CreatedAt) > repositoryCheckoutStoreRetention {
+		applyRepositoryCheckoutTimeout(req, now)
+		if runtimeLocalSkillRequestTerminal(req.Status) && now.Sub(req.UpdatedAt) > repositoryCheckoutStoreRetention {
 			delete(s.requests, id)
 		}
 	}
@@ -154,7 +155,12 @@ func (s *InMemoryRepositoryCheckoutStore) Get(_ context.Context, id string) (*Ru
 
 	req := s.requests[id]
 	if req != nil {
-		applyRepositoryCheckoutTimeout(req, time.Now())
+		now := time.Now()
+		applyRepositoryCheckoutTimeout(req, now)
+		if runtimeLocalSkillRequestTerminal(req.Status) && now.Sub(req.UpdatedAt) > repositoryCheckoutStoreRetention {
+			delete(s.requests, id)
+			return nil, nil
+		}
 	}
 	return cloneRepositoryCheckoutRequest(req), nil
 }
