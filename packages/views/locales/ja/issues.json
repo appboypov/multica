@@ -1487,8 +1487,6 @@
       "name": "テンプレートなし",
       "hint": "タイトルと自由な説明"
     },
-    "required": "必須",
-    "optional": "任意",
     "fields_tab": "項目",
     "markdown_tab": "Markdown",
     "markdown_aria": "テンプレートの Markdown"

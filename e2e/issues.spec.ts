@@ -222,6 +222,38 @@ test.describe("Issues", () => {
     }
   });
 
+  test("Create stays disabled until the title is filled / Only the title filled", async ({ page }) => {
+    await preferManualCreateMode(page);
+    await page.getByRole("button", { name: "New Issue", exact: true }).click();
+
+    const dialog = page.getByRole("dialog", { name: "New Issue", exact: true });
+    await dialog.getByRole("radio", { name: /\bChore\b/ }).click();
+    const create = dialog.getByRole("button", { name: "Create chore", exact: true });
+    await expect(create).toHaveAttribute("aria-disabled", "true");
+
+    const title = `Renew the TLS certificate ${Date.now()}`;
+    await dialog.getByRole("textbox", { name: "Issue title" }).fill(title);
+    await expect(create).not.toHaveAttribute("aria-disabled");
+
+    const createdResponse = page.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname === "/api/issues" &&
+        response.request().method() === "POST" &&
+        response.request().postDataJSON()?.title === title,
+    );
+    await create.click();
+    const response = await createdResponse;
+    expect(response.ok()).toBe(true);
+    const created = await response.json();
+    try {
+      const issue = await api.getIssue(created.id);
+      expect(issue).toHaveProperty("type", "chore");
+      expect(issue).toHaveProperty("description", expect.stringContaining("Acceptance criteria"));
+    } finally {
+      await api.deleteIssue(created.id);
+    }
+  });
+
   test("can navigate to issue detail page", async ({ page }) => {
     // Create a known issue via API so the test controls its own fixture
     const issue = await api.createIssue("E2E Detail Test " + Date.now());

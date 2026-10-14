@@ -1487,8 +1487,6 @@
       "name": "无模板",
       "hint": "标题和自由描述"
     },
-    "required": "必填",
-    "optional": "选填",
     "fields_tab": "字段",
     "markdown_tab": "Markdown",
     "markdown_aria": "模板的 Markdown"

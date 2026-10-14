@@ -5,7 +5,6 @@ export type IssueTemplateFieldFormat = "text" | "bullets" | "checks" | "scenario
 export interface IssueTemplateField {
   key: string;
   label: string;
-  required: boolean;
   placeholder: string;
   rows: number;
   format: IssueTemplateFieldFormat;

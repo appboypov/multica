@@ -1993,7 +1993,6 @@ export const UNKNOWN_REPOSITORY_REFUSAL: RepositoryRefusal = { code: "unknown", 
 const IssueTemplateFieldSchema = z.object({
   key: z.string(),
   label: z.string().default(""),
-  required: z.boolean().default(false),
   placeholder: z.string().default(""),
   rows: z.number().default(1),
   format: z.enum(["text", "bullets", "checks", "scenarios"]).catch("text"),

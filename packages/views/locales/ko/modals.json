@@ -230,7 +230,6 @@
     },
     "template_note": "이 필드는 {{template}} 템플릿의 Markdown을 채웁니다. 태스크는 그 Markdown만 설명으로 보관하며, 코드와 기술 설계는 변경에 둡니다.",
     "submit_type": "{{type}} 만들기",
-    "required_missing": "만들려면 제목과 모든 필수 필드를 채우세요",
     "project_from_worklane": "프로젝트는 worklane을 따릅니다"
   },
   "mark_duplicate": {

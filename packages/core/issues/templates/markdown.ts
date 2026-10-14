@@ -38,12 +38,6 @@ export function templateMarkdown(t: IssueTemplate, fields: TemplateFields): stri
   return t.sections.map((s) => sectionMarkdown(s, fields)).join("\n\n");
 }
 
-/** Whether the title and every required field hold more than whitespace. */
-export function requiredFilled(t: IssueTemplate, title: string, fields: TemplateFields): boolean {
-  if (title.trim() === "") return false;
-  return t.sections.every((s) => !s.field?.required || (fields[s.field.key] ?? "").trim() !== "");
-}
-
 function sectionMarkdown(s: IssueTemplateSection, fields: TemplateFields): string {
   const field = s.field;
   if (!field) return section(s, "");

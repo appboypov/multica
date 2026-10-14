@@ -230,7 +230,6 @@
     },
     "template_note": "这些字段填入{{template}}模板的 Markdown。任务只保留该 Markdown 作为描述；代码和技术设计放在变更中。",
     "submit_type": "创建{{type}}",
-    "required_missing": "填写标题和所有必填字段后才能创建",
     "project_from_worklane": "项目跟随 worklane"
   },
   "mark_duplicate": {
