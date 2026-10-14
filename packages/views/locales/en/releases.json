@@ -120,5 +120,30 @@
     "progress_aria": "{{done}} of {{total}} issues done",
     "no_issues": "No issues yet",
     "does_not_release": "This repository does not release"
+  },
+  "issue_card": {
+    "open_timeline": "Open timeline",
+    "aria": "Release {{version}} {{title}}"
+  },
+  "issues": {
+    "no_release": "No release",
+    "progress": "{{done}} of {{total}} done",
+    "add_issue": "Add issue to release",
+    "remove": "Remove from release",
+    "toast_removed": "Removed {{identifier}} from {{version}}",
+    "remove_failed": "Could not remove the issue from the release. Try again.",
+    "row_menu": "Issue actions",
+    "field_label": "Issues",
+    "field_empty": "Every issue of this worklane is in a release.",
+    "field_later": "Add issues later from the timeline.",
+    "add_title": "Add issues to {{version}} {{title}}",
+    "add_submit_one": "Add {{count}} issue",
+    "add_submit_other": "Add {{count}} issues",
+    "add_submit_none": "Add issues",
+    "adding": "Adding…",
+    "toast_added_one": "Added {{count}} issue to {{version}}",
+    "toast_added_other": "Added {{count}} issues to {{version}}",
+    "add_failed": "Could not add the issues. Try again.",
+    "cancel": "Cancel"
   }
 }

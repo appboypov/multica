@@ -33,5 +33,6 @@
   },
   "trigger": {
     "label": "Rechercher..."
-  }
+  },
+  "no_worklane": "Aucun worklane"
 }

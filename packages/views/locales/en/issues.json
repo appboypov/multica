@@ -496,7 +496,17 @@
     "project_directory_path_copied_with_branch": "Project directory path copied — work is on {{branch}}",
     "workdir_path_copy_failed": "Failed to copy workdir path",
     "workdir_path_unavailable": "No local workdir yet — issue has not been run by a local agent",
-    "pull_requests_empty_title": "No linked pull requests."
+    "pull_requests_empty_title": "No linked pull requests.",
+    "type_identifier": "{{type}} {{identifier}}",
+    "prop_type": "Type",
+    "prop_worklane": "Worklane",
+    "prop_release": "Release",
+    "description_preview": "Preview",
+    "description_markdown": "Markdown",
+    "description_markdown_aria": "Description as Markdown",
+    "description_note": "Code and technical design go in the change, not in the issue.",
+    "project_follows_worklane": "Follows its worklane",
+    "worklane_of": "{{worklane}} of {{repository}}"
   },
   "timeline": {
     "loading": "Loading..."
@@ -562,7 +572,15 @@
     "wakeup_checkin_coalesced_one": "{{count}} silent check · latest: {{note}}",
     "wakeup_checkin_coalesced_other": "{{count}} silent checks · latest: {{note}}",
     "wakeup_chip_created_by": "{{name}}'s wakeup",
-    "wakeup_chip_system": "System rule"
+    "wakeup_chip_system": "System rule",
+    "created_from_template": "created this {{type}} from the {{template}} template",
+    "planned_in_release": "planned it in {{version}} {{title}} on {{worklane}}",
+    "type_set": "set the type to {{type}}",
+    "added_to_release": "added this to {{version}} {{title}}",
+    "removed_from_release": "removed this from {{version}} {{title}}",
+    "worklane_changed": "moved this to {{worklane}}",
+    "worklane_cleared": "moved this to No worklane",
+    "release_gone": "{{version}} {{title}} was removed, this went back to No release"
   },
   "comment": {
     "add_reaction": "Add reaction",
@@ -923,6 +941,22 @@
     "status": {
       "mark_duplicate": "Mark as duplicate",
       "change_original": "Change original"
+    },
+    "type": {
+      "trigger_label": "Type",
+      "fixed": "The type is set once and does not change"
+    },
+    "worklane": {
+      "trigger_label": "Worklane",
+      "none": "No worklane",
+      "search_placeholder": "Find a worklane…",
+      "no_organisation": "No organisation"
+    },
+    "release": {
+      "trigger_label": "Release",
+      "none": "No release",
+      "pick_worklane_first": "Pick a worklane first",
+      "no_releases": "This worklane has no releases planned"
     }
   },
   "labels_panel": {
@@ -1453,5 +1487,67 @@
     "overview_close": "Close",
     "overview_empty": "No deliverables of this type.",
     "group_comment_by": "Comment by {{name}}"
+  },
+  "types": {
+    "none": "No type",
+    "epic": {
+      "name": "Epic",
+      "lower": "epic",
+      "hint": "An outcome made of stories"
+    },
+    "journey": {
+      "name": "Journey",
+      "lower": "journey",
+      "hint": "One user journey, one change"
+    },
+    "story": {
+      "name": "Story",
+      "lower": "story",
+      "hint": "One slice toward an epic"
+    },
+    "bug": {
+      "name": "Bug",
+      "lower": "bug",
+      "hint": "Something broken to reproduce"
+    },
+    "enhancement": {
+      "name": "Enhancement",
+      "lower": "enhancement",
+      "hint": "Make a capability better"
+    },
+    "refactor": {
+      "name": "Refactor",
+      "lower": "refactor",
+      "hint": "Same behaviour, better shape"
+    },
+    "chore": {
+      "name": "Chore",
+      "lower": "chore",
+      "hint": "Upkeep that keeps things running"
+    },
+    "spike": {
+      "name": "Spike",
+      "lower": "spike",
+      "hint": "A question to answer in a time box"
+    }
+  },
+  "templates": {
+    "label": "Template",
+    "required": "Required",
+    "optional": "Optional",
+    "fields_tab": "Fields",
+    "markdown_tab": "Markdown",
+    "markdown_aria": "The template's Markdown"
+  },
+  "placement_refusal": {
+    "type_invalid": "That is not one of the eight types.",
+    "type_fixed": "This issue's type is already set.",
+    "release_needs_worklane": "A release needs a worklane.",
+    "release_not_of_repository": "{{version}} {{title}} is not a release of this worklane's repository.",
+    "release_shipped": "{{version}} {{title}} has shipped.",
+    "issue_not_in_repository": "{{issues}} is not in a worklane of this repository.",
+    "issue_in_release": "{{issues}} is already in a release.",
+    "project_follows_worklane": "The project follows the issue's worklane.",
+    "unknown": "Could not save. Try again."
   }
 }

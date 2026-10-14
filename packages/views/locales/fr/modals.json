@@ -253,7 +253,10 @@
       "error_daemon_version": "Le CLI du daemon de cet agent ({{current}}) est inférieur au minimum requis {{min}}. Mettez le daemon à jour pour utiliser la création avec un agent.",
       "error_unknown": "Échec de l'envoi. Réessayez.",
       "sub_issue_of": "Sous-tâche de {{identifier}}"
-    }
+    },
+    "template_note": "Ces champs remplissent le Markdown du modèle {{template}}. La tâche ne garde que ce Markdown comme description ; le code et la conception technique vont dans le changement.",
+    "submit_type": "Créer : {{type}}",
+    "required_missing": "Remplissez le titre et chaque champ obligatoire pour créer"
   },
   "mark_duplicate": {
     "title": "Marquer comme doublon",

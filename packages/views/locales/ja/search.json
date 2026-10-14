@@ -33,5 +33,6 @@
   },
   "trigger": {
     "label": "検索..."
-  }
+  },
+  "no_worklane": "worklane なし"
 }

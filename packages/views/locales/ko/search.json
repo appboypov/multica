@@ -33,5 +33,6 @@
   },
   "trigger": {
     "label": "검색..."
-  }
+  },
+  "no_worklane": "worklane 없음"
 }

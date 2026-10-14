@@ -251,7 +251,10 @@
       "error_daemon_version": "이 에이전트의 데몬 CLI({{current}})가 필요한 버전 {{min}}보다 낮습니다. 에이전트로 만들기를 사용하려면 데몬을 업그레이드하세요.",
       "error_unknown": "제출하지 못했습니다. 다시 시도하세요.",
       "sub_issue_of": "{{identifier}}의 하위 태스크"
-    }
+    },
+    "template_note": "이 필드는 {{template}} 템플릿의 Markdown을 채웁니다. 태스크는 그 Markdown만 설명으로 보관하며, 코드와 기술 설계는 변경에 둡니다.",
+    "submit_type": "{{type}} 만들기",
+    "required_missing": "만들려면 제목과 모든 필수 필드를 채우세요"
   },
   "mark_duplicate": {
     "title": "중복으로 표시",

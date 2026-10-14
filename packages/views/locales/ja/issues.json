@@ -489,7 +489,17 @@
     "project_directory_path_copied_with_branch": "プロジェクトディレクトリのパスをコピーしました — 作業は {{branch}} ブランチにあります",
     "workdir_path_copy_failed": "作業ディレクトリのパスをコピーできませんでした",
     "workdir_path_unavailable": "まだローカルの作業ディレクトリがありません。ローカルエージェントがこのタスクを実行していません",
-    "pull_requests_empty_title": "関連する PR はありません。"
+    "pull_requests_empty_title": "関連する PR はありません。",
+    "type_identifier": "{{type}} {{identifier}}",
+    "prop_type": "タイプ",
+    "prop_worklane": "worklane",
+    "prop_release": "リリース",
+    "description_preview": "プレビュー",
+    "description_markdown": "Markdown",
+    "description_markdown_aria": "Markdown の説明",
+    "description_note": "コードと技術設計はタスクではなく変更に書きます。",
+    "project_follows_worklane": "worklane に従います",
+    "worklane_of": "{{repository}} の {{worklane}}"
   },
   "timeline": {
     "loading": "読み込み中..."
@@ -547,7 +557,15 @@
     "wakeup_checkin": "サイレントチェック：{{note}}",
     "wakeup_checkin_coalesced_other": "サイレントチェック {{count}} 回 · 最新：{{note}}",
     "wakeup_chip_created_by": "{{name}} が作成",
-    "wakeup_chip_system": "システムルール"
+    "wakeup_chip_system": "システムルール",
+    "created_from_template": "{{template}}テンプレートからこの{{type}}を作成しました",
+    "planned_in_release": "{{worklane}} の {{version}} {{title}} に計画しました",
+    "type_set": "タイプを{{type}}に設定しました",
+    "added_to_release": "{{version}} {{title}} に追加しました",
+    "removed_from_release": "{{version}} {{title}} から外しました",
+    "worklane_changed": "{{worklane}} に移動しました",
+    "worklane_cleared": "worklane なしに移動しました",
+    "release_gone": "{{version}} {{title}} が削除され、リリースなしに戻りました"
   },
   "comment": {
     "add_reaction": "リアクションを追加",
@@ -881,6 +899,22 @@
     "status": {
       "mark_duplicate": "重複としてマーク",
       "change_original": "元のタスクを変更"
+    },
+    "type": {
+      "trigger_label": "タイプ",
+      "fixed": "タイプは一度だけ設定でき、変更できません"
+    },
+    "worklane": {
+      "trigger_label": "worklane",
+      "none": "worklane なし",
+      "search_placeholder": "worklane を検索…",
+      "no_organisation": "組織なし"
+    },
+    "release": {
+      "trigger_label": "リリース",
+      "none": "リリースなし",
+      "pick_worklane_first": "先に worklane を選んでください",
+      "no_releases": "この worklane には計画中のリリースがありません"
     }
   },
   "labels_panel": {
@@ -1403,5 +1437,67 @@
     "overview_close": "閉じる",
     "overview_empty": "この種類の成果物はありません。",
     "group_comment_by": "{{name}} のコメント"
+  },
+  "types": {
+    "none": "タイプなし",
+    "epic": {
+      "name": "エピック",
+      "lower": "エピック",
+      "hint": "ストーリーで構成される成果"
+    },
+    "journey": {
+      "name": "ジャーニー",
+      "lower": "ジャーニー",
+      "hint": "1つのユーザージャーニー、1つの変更"
+    },
+    "story": {
+      "name": "ストーリー",
+      "lower": "ストーリー",
+      "hint": "エピックに向けた1つのスライス"
+    },
+    "bug": {
+      "name": "バグ",
+      "lower": "バグ",
+      "hint": "再現すべき不具合"
+    },
+    "enhancement": {
+      "name": "改善",
+      "lower": "改善",
+      "hint": "機能をより良くする"
+    },
+    "refactor": {
+      "name": "リファクタリング",
+      "lower": "リファクタリング",
+      "hint": "振る舞いは同じ、より良い形に"
+    },
+    "chore": {
+      "name": "雑務",
+      "lower": "雑務",
+      "hint": "物事を動かし続けるための保守作業"
+    },
+    "spike": {
+      "name": "スパイク",
+      "lower": "スパイク",
+      "hint": "期限内に答えを出す問い"
+    }
+  },
+  "templates": {
+    "label": "テンプレート",
+    "required": "必須",
+    "optional": "任意",
+    "fields_tab": "項目",
+    "markdown_tab": "Markdown",
+    "markdown_aria": "テンプレートの Markdown"
+  },
+  "placement_refusal": {
+    "type_invalid": "8つのタイプのいずれでもありません。",
+    "type_fixed": "このタスクのタイプはすでに設定されています。",
+    "release_needs_worklane": "リリースには worklane が必要です。",
+    "release_not_of_repository": "{{version}} {{title}} はこの worklane のリポジトリのリリースではありません。",
+    "release_shipped": "{{version}} {{title}} はリリース済みです。",
+    "issue_not_in_repository": "{{issues}} はこのリポジトリの worklane にありません。",
+    "issue_in_release": "{{issues}} はすでにリリースに含まれています。",
+    "project_follows_worklane": "プロジェクトはタスクの worklane に従います。",
+    "unknown": "保存できませんでした。もう一度お試しください。"
   }
 }

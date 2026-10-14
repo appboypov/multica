@@ -118,5 +118,28 @@
     "progress_aria": "{{total}} 个任务中已完成 {{done}} 个",
     "no_issues": "还没有任务",
     "does_not_release": "此仓库不发布版本"
+  },
+  "issue_card": {
+    "open_timeline": "打开时间线",
+    "aria": "版本 {{version}} {{title}}"
+  },
+  "issues": {
+    "no_release": "无版本",
+    "progress": "已完成 {{done}} / {{total}}",
+    "add_issue": "添加任务到版本",
+    "remove": "移出版本",
+    "toast_removed": "已将 {{identifier}} 移出 {{version}}",
+    "remove_failed": "无法将任务移出版本，请重试。",
+    "row_menu": "任务操作",
+    "field_label": "任务",
+    "field_empty": "此 worklane 的所有任务都已在版本中。",
+    "field_later": "之后可从时间线添加任务。",
+    "add_title": "向 {{version}} {{title}} 添加任务",
+    "add_submit_other": "添加 {{count}} 个任务",
+    "add_submit_none": "添加任务",
+    "adding": "添加中…",
+    "toast_added_other": "已向 {{version}} 添加 {{count}} 个任务",
+    "add_failed": "无法添加任务，请重试。",
+    "cancel": "取消"
   }
 }

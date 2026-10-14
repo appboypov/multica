@@ -120,5 +120,30 @@
     "progress_aria": "{{done}} tâches terminées sur {{total}}",
     "no_issues": "Aucune tâche pour l’instant",
     "does_not_release": "Ce dépôt ne publie pas de versions"
+  },
+  "issue_card": {
+    "open_timeline": "Ouvrir la chronologie",
+    "aria": "Version {{version}} {{title}}"
+  },
+  "issues": {
+    "no_release": "Aucune version",
+    "progress": "{{done}} sur {{total}} terminées",
+    "add_issue": "Ajouter une tâche à la version",
+    "remove": "Retirer de la version",
+    "toast_removed": "{{identifier}} retirée de {{version}}",
+    "remove_failed": "Impossible de retirer la tâche de la version. Réessayez.",
+    "row_menu": "Actions de la tâche",
+    "field_label": "Tâches",
+    "field_empty": "Chaque tâche de ce worklane est dans une version.",
+    "field_later": "Ajoutez des tâches plus tard depuis la chronologie.",
+    "add_title": "Ajouter des tâches à {{version}} {{title}}",
+    "add_submit_one": "Ajouter {{count}} tâche",
+    "add_submit_other": "Ajouter {{count}} tâches",
+    "add_submit_none": "Ajouter des tâches",
+    "adding": "Ajout…",
+    "toast_added_one": "{{count}} tâche ajoutée à {{version}}",
+    "toast_added_other": "{{count}} tâches ajoutées à {{version}}",
+    "add_failed": "Impossible d'ajouter les tâches. Réessayez.",
+    "cancel": "Annuler"
   }
 }

@@ -251,7 +251,10 @@
       "error_daemon_version": "このエージェントのデーモン CLI（{{current}}）が必要なバージョン {{min}} を下回っています。エージェントで作成を使用するには、デーモンをアップグレードしてください。",
       "error_unknown": "送信できませんでした。再試行してください。",
       "sub_issue_of": "{{identifier}} のサブタスク"
-    }
+    },
+    "template_note": "これらの項目は{{template}}テンプレートの Markdown を埋めます。タスクはその Markdown だけを説明として保持します。コードと技術設計は変更に書きます。",
+    "submit_type": "{{type}}を作成",
+    "required_missing": "作成するにはタイトルとすべての必須項目を入力してください"
   },
   "mark_duplicate": {
     "title": "重複としてマーク",

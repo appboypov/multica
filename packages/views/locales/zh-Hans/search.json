@@ -33,5 +33,6 @@
   },
   "trigger": {
     "label": "搜索..."
-  }
+  },
+  "no_worklane": "无 worklane"
 }

@@ -118,5 +118,28 @@
     "progress_aria": "{{total}} 件中 {{done}} 件のタスクが完了",
     "no_issues": "まだタスクなし",
     "does_not_release": "このリポジトリはリリースしません"
+  },
+  "issue_card": {
+    "open_timeline": "タイムラインを開く",
+    "aria": "リリース {{version}} {{title}}"
+  },
+  "issues": {
+    "no_release": "リリースなし",
+    "progress": "{{total}} 件中 {{done}} 件完了",
+    "add_issue": "リリースにタスクを追加",
+    "remove": "リリースから外す",
+    "toast_removed": "{{identifier}} を {{version}} から外しました",
+    "remove_failed": "タスクをリリースから外せませんでした。もう一度お試しください。",
+    "row_menu": "タスクの操作",
+    "field_label": "タスク",
+    "field_empty": "この worklane のタスクはすべてリリースに含まれています。",
+    "field_later": "タスクは後からタイムラインで追加できます。",
+    "add_title": "{{version}} {{title}} にタスクを追加",
+    "add_submit_other": "{{count}} 件のタスクを追加",
+    "add_submit_none": "タスクを追加",
+    "adding": "追加中…",
+    "toast_added_other": "{{version}} に {{count}} 件のタスクを追加しました",
+    "add_failed": "タスクを追加できませんでした。もう一度お試しください。",
+    "cancel": "キャンセル"
   }
 }

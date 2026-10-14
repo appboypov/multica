@@ -489,7 +489,17 @@
     "project_directory_path_copied_with_branch": "프로젝트 디렉터리 경로를 복사했습니다 — 작업은 {{branch}} 브랜치에 있습니다",
     "workdir_path_copy_failed": "작업 디렉터리 경로를 복사하지 못했습니다",
     "workdir_path_unavailable": "아직 로컬 작업 디렉터리가 없습니다. 로컬 에이전트가 이 태스크를 실행하지 않았습니다",
-    "pull_requests_empty_title": "연결된 PR이 없습니다."
+    "pull_requests_empty_title": "연결된 PR이 없습니다.",
+    "type_identifier": "{{type}} {{identifier}}",
+    "prop_type": "유형",
+    "prop_worklane": "worklane",
+    "prop_release": "릴리스",
+    "description_preview": "미리보기",
+    "description_markdown": "Markdown",
+    "description_markdown_aria": "Markdown 설명",
+    "description_note": "코드와 기술 설계는 태스크가 아니라 변경에 둡니다.",
+    "project_follows_worklane": "worklane을 따릅니다",
+    "worklane_of": "{{repository}}의 {{worklane}}"
   },
   "timeline": {
     "loading": "불러오는 중..."
@@ -547,7 +557,15 @@
     "wakeup_checkin": "조용한 확인: {{note}}",
     "wakeup_checkin_coalesced_other": "조용한 확인 {{count}}회 · 최근: {{note}}",
     "wakeup_chip_created_by": "{{name}} 생성",
-    "wakeup_chip_system": "시스템 규칙"
+    "wakeup_chip_system": "시스템 규칙",
+    "created_from_template": "{{template}} 템플릿으로 이 {{type}}을(를) 만들었습니다",
+    "planned_in_release": "{{worklane}}의 {{version}} {{title}}에 계획했습니다",
+    "type_set": "유형을 {{type}}(으)로 정했습니다",
+    "added_to_release": "{{version}} {{title}}에 추가했습니다",
+    "removed_from_release": "{{version}} {{title}}에서 뺐습니다",
+    "worklane_changed": "{{worklane}}(으)로 옮겼습니다",
+    "worklane_cleared": "worklane 없음으로 옮겼습니다",
+    "release_gone": "{{version}} {{title}}이(가) 제거되어 릴리스 없음으로 돌아갔습니다"
   },
   "comment": {
     "add_reaction": "반응 추가",
@@ -881,6 +899,22 @@
     "status": {
       "mark_duplicate": "중복으로 표시",
       "change_original": "원본 변경"
+    },
+    "type": {
+      "trigger_label": "유형",
+      "fixed": "유형은 한 번만 정하며 바뀌지 않습니다"
+    },
+    "worklane": {
+      "trigger_label": "worklane",
+      "none": "worklane 없음",
+      "search_placeholder": "worklane 찾기…",
+      "no_organisation": "조직 없음"
+    },
+    "release": {
+      "trigger_label": "릴리스",
+      "none": "릴리스 없음",
+      "pick_worklane_first": "먼저 worklane을 고르세요",
+      "no_releases": "이 worklane에는 계획된 릴리스가 없습니다"
     }
   },
   "labels_panel": {
@@ -1403,5 +1437,67 @@
     "overview_close": "닫기",
     "overview_empty": "이 유형의 산출물이 없습니다.",
     "group_comment_by": "{{name}}의 댓글"
+  },
+  "types": {
+    "none": "유형 없음",
+    "epic": {
+      "name": "에픽",
+      "lower": "에픽",
+      "hint": "스토리로 이루어진 성과"
+    },
+    "journey": {
+      "name": "여정",
+      "lower": "여정",
+      "hint": "하나의 사용자 여정, 하나의 변경"
+    },
+    "story": {
+      "name": "스토리",
+      "lower": "스토리",
+      "hint": "에픽을 향한 한 조각"
+    },
+    "bug": {
+      "name": "버그",
+      "lower": "버그",
+      "hint": "재현해야 할 고장"
+    },
+    "enhancement": {
+      "name": "개선",
+      "lower": "개선",
+      "hint": "기능을 더 낫게"
+    },
+    "refactor": {
+      "name": "리팩터링",
+      "lower": "리팩터링",
+      "hint": "같은 동작, 더 나은 구조"
+    },
+    "chore": {
+      "name": "잡무",
+      "lower": "잡무",
+      "hint": "계속 돌아가게 하는 유지 작업"
+    },
+    "spike": {
+      "name": "스파이크",
+      "lower": "스파이크",
+      "hint": "정해진 시간 안에 답할 질문"
+    }
+  },
+  "templates": {
+    "label": "템플릿",
+    "required": "필수",
+    "optional": "선택",
+    "fields_tab": "필드",
+    "markdown_tab": "Markdown",
+    "markdown_aria": "템플릿의 Markdown"
+  },
+  "placement_refusal": {
+    "type_invalid": "여덟 가지 유형 중 하나가 아닙니다.",
+    "type_fixed": "이 태스크의 유형은 이미 정해졌습니다.",
+    "release_needs_worklane": "릴리스에는 worklane이 필요합니다.",
+    "release_not_of_repository": "{{version}} {{title}}은(는) 이 worklane 저장소의 릴리스가 아닙니다.",
+    "release_shipped": "{{version}} {{title}}은(는) 이미 출시되었습니다.",
+    "issue_not_in_repository": "{{issues}}은(는) 이 저장소의 worklane에 없습니다.",
+    "issue_in_release": "{{issues}}은(는) 이미 릴리스에 있습니다.",
+    "project_follows_worklane": "프로젝트는 태스크의 worklane을 따릅니다.",
+    "unknown": "저장하지 못했습니다. 다시 시도하세요."
   }
 }

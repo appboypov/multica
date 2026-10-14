@@ -496,7 +496,17 @@
     "project_directory_path_copied_with_branch": "Chemin du répertoire du projet copié — le travail se trouve sur {{branch}}",
     "workdir_path_copy_failed": "Échec de la copie du chemin du répertoire de travail",
     "workdir_path_unavailable": "Aucun répertoire de travail local — cette tâche n'a pas encore été traitée par un agent local",
-    "pull_requests_empty_title": "Aucune pull request associée."
+    "pull_requests_empty_title": "Aucune pull request associée.",
+    "type_identifier": "{{type}} {{identifier}}",
+    "prop_type": "Type",
+    "prop_worklane": "Worklane",
+    "prop_release": "Version",
+    "description_preview": "Aperçu",
+    "description_markdown": "Markdown",
+    "description_markdown_aria": "Description en Markdown",
+    "description_note": "Le code et la conception technique vont dans le changement, pas dans la tâche.",
+    "project_follows_worklane": "Suit son worklane",
+    "worklane_of": "{{worklane}} de {{repository}}"
   },
   "timeline": {
     "loading": "Chargement..."
@@ -562,7 +572,15 @@
     "wakeup_checkin_coalesced_one": "{{count}} vérification silencieuse · dernière : {{note}}",
     "wakeup_checkin_coalesced_other": "{{count}} vérifications silencieuses · dernière : {{note}}",
     "wakeup_chip_created_by": "Réveil de {{name}}",
-    "wakeup_chip_system": "Règle système"
+    "wakeup_chip_system": "Règle système",
+    "created_from_template": "a créé cette tâche ({{type}}) à partir du modèle {{template}}",
+    "planned_in_release": "l'a prévue dans {{version}} {{title}} sur {{worklane}}",
+    "type_set": "a fixé le type à {{type}}",
+    "added_to_release": "l'a ajoutée à {{version}} {{title}}",
+    "removed_from_release": "l'a retirée de {{version}} {{title}}",
+    "worklane_changed": "l'a déplacée vers {{worklane}}",
+    "worklane_cleared": "l'a déplacée vers Aucun worklane",
+    "release_gone": "{{version}} {{title}} a été supprimée, cette tâche est revenue à Aucune version"
   },
   "comment": {
     "add_reaction": "Ajouter une réaction",
@@ -923,6 +941,22 @@
     "status": {
       "mark_duplicate": "Marquer comme doublon",
       "change_original": "Changer la tâche d'origine"
+    },
+    "type": {
+      "trigger_label": "Type",
+      "fixed": "Le type se fixe une fois et ne change plus"
+    },
+    "worklane": {
+      "trigger_label": "Worklane",
+      "none": "Aucun worklane",
+      "search_placeholder": "Trouver un worklane…",
+      "no_organisation": "Sans organisation"
+    },
+    "release": {
+      "trigger_label": "Version",
+      "none": "Aucune version",
+      "pick_worklane_first": "Choisissez d'abord un worklane",
+      "no_releases": "Ce worklane n'a aucune version prévue"
     }
   },
   "labels_panel": {
@@ -1453,5 +1487,67 @@
     "overview_close": "Fermer",
     "overview_empty": "Aucun livrable de ce type.",
     "group_comment_by": "Commentaire de {{name}}"
+  },
+  "types": {
+    "none": "Sans type",
+    "epic": {
+      "name": "Épopée",
+      "lower": "épopée",
+      "hint": "Un résultat fait de stories"
+    },
+    "journey": {
+      "name": "Parcours",
+      "lower": "parcours",
+      "hint": "Un parcours utilisateur, un changement"
+    },
+    "story": {
+      "name": "Story",
+      "lower": "story",
+      "hint": "Une tranche vers une épopée"
+    },
+    "bug": {
+      "name": "Bug",
+      "lower": "bug",
+      "hint": "Un dysfonctionnement à reproduire"
+    },
+    "enhancement": {
+      "name": "Amélioration",
+      "lower": "amélioration",
+      "hint": "Rendre une capacité meilleure"
+    },
+    "refactor": {
+      "name": "Refactorisation",
+      "lower": "refactorisation",
+      "hint": "Même comportement, meilleure forme"
+    },
+    "chore": {
+      "name": "Maintenance",
+      "lower": "maintenance",
+      "hint": "L'entretien qui fait tourner les choses"
+    },
+    "spike": {
+      "name": "Exploration",
+      "lower": "exploration",
+      "hint": "Une question à résoudre en un temps limité"
+    }
+  },
+  "templates": {
+    "label": "Modèle",
+    "required": "Obligatoire",
+    "optional": "Facultatif",
+    "fields_tab": "Champs",
+    "markdown_tab": "Markdown",
+    "markdown_aria": "Le Markdown du modèle"
+  },
+  "placement_refusal": {
+    "type_invalid": "Ce n'est pas l'un des huit types.",
+    "type_fixed": "Le type de cette tâche est déjà fixé.",
+    "release_needs_worklane": "Une version a besoin d'un worklane.",
+    "release_not_of_repository": "{{version}} {{title}} n'est pas une version du dépôt de ce worklane.",
+    "release_shipped": "{{version}} {{title}} est déjà livrée.",
+    "issue_not_in_repository": "{{issues}} n'est pas dans un worklane de ce dépôt.",
+    "issue_in_release": "{{issues}} est déjà dans une version.",
+    "project_follows_worklane": "Le projet suit le worklane de la tâche.",
+    "unknown": "Enregistrement impossible. Réessayez."
   }
 }

@@ -7,3 +7,7 @@ export { AssigneePicker, canAssignAgent } from "./assignee-picker";
 export { StartDatePicker } from "./start-date-picker";
 export { DueDatePicker } from "./due-date-picker";
 export { LabelPicker } from "./label-picker";
+export { TypePicker } from "./type-picker";
+export { WorklanePicker } from "./worklane-picker";
+export { ReleasePicker } from "./release-picker";
+export { usePlacementData, type PlacementReads } from "./use-placement-data";

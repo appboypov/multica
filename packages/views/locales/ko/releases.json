@@ -118,5 +118,28 @@
     "progress_aria": "이슈 {{total}}개 중 {{done}}개 완료",
     "no_issues": "아직 이슈 없음",
     "does_not_release": "이 저장소는 릴리스하지 않습니다"
+  },
+  "issue_card": {
+    "open_timeline": "타임라인 열기",
+    "aria": "릴리스 {{version}} {{title}}"
+  },
+  "issues": {
+    "no_release": "릴리스 없음",
+    "progress": "{{total}}개 중 {{done}}개 완료",
+    "add_issue": "릴리스에 태스크 추가",
+    "remove": "릴리스에서 빼기",
+    "toast_removed": "{{identifier}}을(를) {{version}}에서 뺐습니다",
+    "remove_failed": "태스크를 릴리스에서 빼지 못했습니다. 다시 시도하세요.",
+    "row_menu": "태스크 작업",
+    "field_label": "태스크",
+    "field_empty": "이 worklane의 모든 태스크가 릴리스에 있습니다.",
+    "field_later": "태스크는 나중에 타임라인에서 추가할 수 있습니다.",
+    "add_title": "{{version}} {{title}}에 태스크 추가",
+    "add_submit_other": "태스크 {{count}}개 추가",
+    "add_submit_none": "태스크 추가",
+    "adding": "추가 중…",
+    "toast_added_other": "{{version}}에 태스크 {{count}}개를 추가했습니다",
+    "add_failed": "태스크를 추가하지 못했습니다. 다시 시도하세요.",
+    "cancel": "취소"
   }
 }

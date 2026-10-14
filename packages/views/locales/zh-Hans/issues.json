@@ -489,7 +489,17 @@
     "workdir_path_unavailable": "暂无本地 workdir — 这个任务还没被本地智能体运行过",
     "unsubscribe_subtree_succeeded": "已取消订阅此任务及其子任务。",
     "subscription_update_failed": "无法更新订阅状态，请重试。",
-    "pull_requests_empty_title": "暂无关联 PR。"
+    "pull_requests_empty_title": "暂无关联 PR。",
+    "type_identifier": "{{type}} {{identifier}}",
+    "prop_type": "类型",
+    "prop_worklane": "worklane",
+    "prop_release": "版本",
+    "description_preview": "预览",
+    "description_markdown": "Markdown",
+    "description_markdown_aria": "Markdown 格式的描述",
+    "description_note": "代码和技术设计放在变更中，而不是任务中。",
+    "project_follows_worklane": "跟随其 worklane",
+    "worklane_of": "{{repository}} 的 {{worklane}}"
   },
   "timeline": {
     "loading": "加载中…"
@@ -547,7 +557,15 @@
     "wakeup_checkin": "静默检查：{{note}}",
     "wakeup_checkin_coalesced_other": "静默检查 {{count}} 次 · 最近一次：{{note}}",
     "wakeup_chip_created_by": "{{name}} 创建",
-    "wakeup_chip_system": "系统规则"
+    "wakeup_chip_system": "系统规则",
+    "created_from_template": "从{{template}}模板创建了这个{{type}}",
+    "planned_in_release": "将其计划在 {{worklane}} 的 {{version}} {{title}} 中",
+    "type_set": "将类型设为{{type}}",
+    "added_to_release": "将其加入 {{version}} {{title}}",
+    "removed_from_release": "将其移出 {{version}} {{title}}",
+    "worklane_changed": "将其移到 {{worklane}}",
+    "worklane_cleared": "将其移到无 worklane",
+    "release_gone": "{{version}} {{title}} 已被移除，此任务回到无版本"
   },
   "comment": {
     "add_reaction": "添加表情回应",
@@ -881,6 +899,22 @@
     "status": {
       "mark_duplicate": "标记为重复",
       "change_original": "更改原始任务"
+    },
+    "type": {
+      "trigger_label": "类型",
+      "fixed": "类型只能设置一次，之后不会改变"
+    },
+    "worklane": {
+      "trigger_label": "worklane",
+      "none": "无 worklane",
+      "search_placeholder": "查找 worklane…",
+      "no_organisation": "无组织"
+    },
+    "release": {
+      "trigger_label": "版本",
+      "none": "无版本",
+      "pick_worklane_first": "请先选择 worklane",
+      "no_releases": "此 worklane 没有计划中的版本"
     }
   },
   "labels_panel": {
@@ -1403,5 +1437,67 @@
     "overview_close": "关闭",
     "overview_empty": "没有这类产物。",
     "group_comment_by": "{{name}} 的评论"
+  },
+  "types": {
+    "none": "无类型",
+    "epic": {
+      "name": "史诗",
+      "lower": "史诗",
+      "hint": "由多个故事组成的成果"
+    },
+    "journey": {
+      "name": "旅程",
+      "lower": "旅程",
+      "hint": "一个用户旅程，一次变更"
+    },
+    "story": {
+      "name": "故事",
+      "lower": "故事",
+      "hint": "朝着史诗推进的一个切片"
+    },
+    "bug": {
+      "name": "缺陷",
+      "lower": "缺陷",
+      "hint": "需要复现的故障"
+    },
+    "enhancement": {
+      "name": "改进",
+      "lower": "改进",
+      "hint": "让一项能力变得更好"
+    },
+    "refactor": {
+      "name": "重构",
+      "lower": "重构",
+      "hint": "行为不变，结构更好"
+    },
+    "chore": {
+      "name": "杂务",
+      "lower": "杂务",
+      "hint": "让一切持续运转的维护工作"
+    },
+    "spike": {
+      "name": "探索",
+      "lower": "探索",
+      "hint": "在限定时间内回答一个问题"
+    }
+  },
+  "templates": {
+    "label": "模板",
+    "required": "必填",
+    "optional": "选填",
+    "fields_tab": "字段",
+    "markdown_tab": "Markdown",
+    "markdown_aria": "模板的 Markdown"
+  },
+  "placement_refusal": {
+    "type_invalid": "这不是八种类型之一。",
+    "type_fixed": "此任务的类型已经设置。",
+    "release_needs_worklane": "版本需要一个 worklane。",
+    "release_not_of_repository": "{{version}} {{title}} 不是此 worklane 所在仓库的版本。",
+    "release_shipped": "{{version}} {{title}} 已经发布。",
+    "issue_not_in_repository": "{{issues}} 不在此仓库的 worklane 中。",
+    "issue_in_release": "{{issues}} 已在某个版本中。",
+    "project_follows_worklane": "项目跟随任务的 worklane。",
+    "unknown": "无法保存，请重试。"
   }
 }
