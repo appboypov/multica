@@ -4,16 +4,20 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/multica-ai/multica/server/internal/question"
 	"github.com/multica-ai/multica/server/internal/service"
+	db "github.com/multica-ai/multica/server/pkg/db/generated"
 )
 
 // The row list of the Questions page (ADR-0006): the wire shape shared with
@@ -162,6 +166,56 @@ func parseQuestionRowFilters(w http.ResponseWriter, q url.Values) (service.Quest
 	return filters, true
 }
 
+// parseQuestionParent resolves a page object before it becomes part of the
+// cursor scope; an issue identifier and its UUID therefore share one scope.
+func (h *Handler) parseQuestionParent(w http.ResponseWriter, r *http.Request, q url.Values, workspaceID pgtype.UUID, tab string) (*service.QuestionPageObject, bool) {
+	values, present := q["parent"]
+	if !present {
+		return nil, true
+	}
+	if tab != "all_open" {
+		writeError(w, http.StatusBadRequest, "parent requires tab=all_open")
+		return nil, false
+	}
+	if len(values) != 1 {
+		writeError(w, http.StatusBadRequest, "invalid parent")
+		return nil, false
+	}
+	parentType, id, found := strings.Cut(values[0], ":")
+	if !found || id == "" {
+		writeError(w, http.StatusBadRequest, "parent must be issue:{id} or project:{id}")
+		return nil, false
+	}
+	switch parentType {
+	case "issue":
+		issue, ok := h.loadIssueForUser(w, r, id)
+		if !ok {
+			return nil, false
+		}
+		return &service.QuestionPageObject{Type: "issue", ID: issue.ID}, true
+	case "project":
+		projectID, ok := parseUUIDOrBadRequest(w, id, "project id")
+		if !ok {
+			return nil, false
+		}
+		project, err := h.Queries.GetProjectInWorkspace(r.Context(), db.GetProjectInWorkspaceParams{
+			ID: projectID, WorkspaceID: workspaceID,
+		})
+		if errors.Is(err, pgx.ErrNoRows) {
+			writeError(w, http.StatusNotFound, "project not found")
+			return nil, false
+		}
+		if err != nil {
+			writeQuestionError(w, err)
+			return nil, false
+		}
+		return &service.QuestionPageObject{Type: "project", ID: project.ID}, true
+	default:
+		writeError(w, http.StatusBadRequest, "parent must be issue:{id} or project:{id}")
+		return nil, false
+	}
+}
+
 // ListQuestions serves GET /api/questions: one page of the viewer's question
 // rows for a tab, filtered, after an optional cursor (design.md decision 1).
 func (h *Handler) ListQuestions(w http.ResponseWriter, r *http.Request) {
@@ -174,12 +228,16 @@ func (h *Handler) ListQuestions(w http.ResponseWriter, r *http.Request) {
 	switch tab {
 	case "":
 		tab = "for_me"
-	case "for_me", "all_open", "answered":
+	case "for_me", "on_my_work", "all_open", "answered":
 	default:
 		writeError(w, http.StatusBadRequest, "invalid tab")
 		return
 	}
 	filters, ok := parseQuestionRowFilters(w, q)
+	if !ok {
+		return
+	}
+	filters.Parent, ok = h.parseQuestionParent(w, r, q, workspaceID, tab)
 	if !ok {
 		return
 	}
@@ -238,9 +296,8 @@ func (h *Handler) ListQuestions(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, resp)
 }
 
-// questionRowResponse maps the service projection onto the wire row. The list
-// projects the issue link at position 0, so the card opens on that issue and
-// no via applies.
+// questionRowResponse maps the service projection onto the wire row, preserving
+// the page object, its reach path and the issue where the card opens.
 func questionRowResponse(row *service.QuestionRowDTO) QuestionRowResponse {
 	resp := QuestionRowResponse{
 		ID: row.ID, AskID: row.AskID, AskPosition: row.AskPosition, AskTitle: row.AskTitle,
@@ -249,10 +306,27 @@ func questionRowResponse(row *service.QuestionRowDTO) QuestionRowResponse {
 		AnswererIDs: row.AnswererIDs, DueDate: row.DueDate, BlocksWork: row.BlocksWork,
 		CreatedAt: row.CreatedAt,
 		Link: QuestionRowLinkResponse{
-			Type: row.Link.Type, ID: row.Link.ID, Identifier: &row.Link.Identifier,
-			Title: row.Link.Title, Status: &row.Link.Status,
+			Type: row.Link.Type, ID: row.Link.ID,
+			Title: row.Link.Title,
 		},
-		OpenIssue: QuestionOpenIssueResponse{ID: row.Link.ID, Identifier: row.Link.Identifier},
+	}
+	if row.Link.Identifier != "" {
+		resp.Link.Identifier = &row.Link.Identifier
+	}
+	if row.Link.Status != "" {
+		resp.Link.Status = &row.Link.Status
+	}
+	if row.Via != nil {
+		resp.Via = &QuestionViaResponse{
+			Type: row.Via.Type, ID: row.Via.ID,
+			Identifier: row.Via.Identifier, IssueIdentifier: row.Via.IssueIdentifier,
+		}
+	}
+	if row.OpenIssue != nil {
+		resp.OpenIssue.ID = row.OpenIssue.ID
+		if row.OpenIssue.Identifier != nil {
+			resp.OpenIssue.Identifier = *row.OpenIssue.Identifier
+		}
 	}
 	if row.MyAnswer != nil {
 		resp.MyAnswer = &QuestionRowAnswerResponse{Display: row.MyAnswer.Display, UpdatedAt: row.MyAnswer.UpdatedAt}
@@ -260,17 +334,31 @@ func questionRowResponse(row *service.QuestionRowDTO) QuestionRowResponse {
 	return resp
 }
 
-// CountOpenQuestions serves GET /api/questions/open-count: the viewer's For me
-// count without filters, from the same rule as the For me tab (ADR-0006).
+// CountOpenQuestions serves GET /api/questions/open-count: open and blocking
+// counts for the viewer's tab and optional parent, without list filters.
 func (h *Handler) CountOpenQuestions(w http.ResponseWriter, r *http.Request) {
 	workspaceID, viewerID, ok := questionViewer(w, r)
 	if !ok {
 		return
 	}
-	count, err := h.QuestionService.CountOpenForMember(r.Context(), workspaceID, viewerID)
+	q := r.URL.Query()
+	tab := q.Get("tab")
+	switch tab {
+	case "":
+		tab = "for_me"
+	case "for_me", "on_my_work", "all_open":
+	default:
+		writeError(w, http.StatusBadRequest, "invalid tab")
+		return
+	}
+	parent, ok := h.parseQuestionParent(w, r, q, workspaceID, tab)
+	if !ok {
+		return
+	}
+	count, err := h.QuestionService.CountOpen(r.Context(), workspaceID, viewerID, tab, parent)
 	if err != nil {
 		writeQuestionError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, QuestionOpenCountResponse{Count: count})
+	writeJSON(w, http.StatusOK, QuestionOpenCountResponse{Count: count.Count, BlockingCount: count.BlockingCount})
 }

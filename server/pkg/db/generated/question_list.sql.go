@@ -11,8 +11,81 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countQuestionsBelow = `-- name: CountQuestionsBelow :one
+WITH RECURSIVE subtree AS (
+    SELECT i.id FROM issue i
+    WHERE i.workspace_id = $1::uuid
+      AND (i.id = ANY($2::uuid[])
+           OR i.project_id = ANY($3::uuid[]))
+    UNION
+    SELECT child.id FROM issue child JOIN subtree parent ON child.parent_issue_id = parent.id
+    WHERE child.workspace_id = $1::uuid
+), below AS (
+    SELECT l.question_id FROM question_link l
+    WHERE l.workspace_id = $1::uuid AND (
+        (l.link_type = 'issue' AND l.link_id IN (SELECT id FROM subtree))
+        OR (l.link_type = 'comment' AND EXISTS (
+            SELECT 1 FROM comment c
+            WHERE c.id = l.link_id AND c.workspace_id = l.workspace_id
+              AND c.deleted_at IS NULL AND c.issue_id IN (SELECT id FROM subtree)
+        ))
+        OR (l.link_type = 'task' AND EXISTS (
+            SELECT 1 FROM agent_task_queue t
+            JOIN agent ag ON ag.id = t.agent_id AND ag.workspace_id = l.workspace_id
+            WHERE t.id = l.link_id AND t.issue_id IN (SELECT id FROM subtree)
+        ))
+        OR (l.link_type = 'project' AND l.link_id = ANY($3::uuid[]))
+    )
+)
+SELECT count(*)::bigint AS count,
+       count(*) FILTER (WHERE q.blocks_work)::bigint AS blocking_count
+FROM question q
+WHERE q.workspace_id = $1::uuid
+  AND q.status IN ('open', 'partly_answered')
+  AND q.id IN (SELECT question_id FROM below)
+`
+
+type CountQuestionsBelowParams struct {
+	WorkspaceID pgtype.UUID   `json:"workspace_id"`
+	IssueIds    []pgtype.UUID `json:"issue_ids"`
+	ProjectIds  []pgtype.UUID `json:"project_ids"`
+}
+
+type CountQuestionsBelowRow struct {
+	Count         int64 `json:"count"`
+	BlockingCount int64 `json:"blocking_count"`
+}
+
+func (q *Queries) CountQuestionsBelow(ctx context.Context, arg CountQuestionsBelowParams) (CountQuestionsBelowRow, error) {
+	row := q.db.QueryRow(ctx, countQuestionsBelow, arg.WorkspaceID, arg.IssueIds, arg.ProjectIds)
+	var i CountQuestionsBelowRow
+	err := row.Scan(&i.Count, &i.BlockingCount)
+	return i, err
+}
+
+const countQuestionsOpen = `-- name: CountQuestionsOpen :one
+SELECT count(*)::bigint AS count,
+       count(*) FILTER (WHERE q.blocks_work)::bigint AS blocking_count
+FROM question q
+WHERE q.workspace_id = $1::uuid
+  AND q.status IN ('open', 'partly_answered')
+`
+
+type CountQuestionsOpenRow struct {
+	Count         int64 `json:"count"`
+	BlockingCount int64 `json:"blocking_count"`
+}
+
+func (q *Queries) CountQuestionsOpen(ctx context.Context, workspaceID pgtype.UUID) (CountQuestionsOpenRow, error) {
+	row := q.db.QueryRow(ctx, countQuestionsOpen, workspaceID)
+	var i CountQuestionsOpenRow
+	err := row.Scan(&i.Count, &i.BlockingCount)
+	return i, err
+}
+
 const countQuestionsOpenForMember = `-- name: CountQuestionsOpenForMember :one
-SELECT count(*)::bigint AS count
+SELECT count(*)::bigint AS count,
+       count(*) FILTER (WHERE q.blocks_work)::bigint AS blocking_count
 FROM question q
 WHERE q.workspace_id = $1::uuid
   AND q.status IN ('open', 'partly_answered')
@@ -35,12 +108,17 @@ type CountQuestionsOpenForMemberParams struct {
 	ViewerID    pgtype.UUID `json:"viewer_id"`
 }
 
+type CountQuestionsOpenForMemberRow struct {
+	Count         int64 `json:"count"`
+	BlockingCount int64 `json:"blocking_count"`
+}
+
 // The sidebar counts all questions open for the member, without list filters.
-func (q *Queries) CountQuestionsOpenForMember(ctx context.Context, arg CountQuestionsOpenForMemberParams) (int64, error) {
+func (q *Queries) CountQuestionsOpenForMember(ctx context.Context, arg CountQuestionsOpenForMemberParams) (CountQuestionsOpenForMemberRow, error) {
 	row := q.db.QueryRow(ctx, countQuestionsOpenForMember, arg.WorkspaceID, arg.ViewerID)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
+	var i CountQuestionsOpenForMemberRow
+	err := row.Scan(&i.Count, &i.BlockingCount)
+	return i, err
 }
 
 const listOpenQuestionRows = `-- name: ListOpenQuestionRows :many
@@ -54,7 +132,6 @@ WITH selected AS (
     JOIN question_link l
       ON l.question_id = q.id
      AND l.workspace_id = q.workspace_id
-     AND l.link_type = 'issue'
      AND l.position = 0
     LEFT JOIN question_answer a
       ON a.question_id = q.id
@@ -192,7 +269,6 @@ WITH selected AS (
     JOIN question_link l
       ON l.question_id = q.id
      AND l.workspace_id = q.workspace_id
-     AND l.link_type = 'issue'
      AND l.position = 0
     WHERE a.workspace_id = $1::uuid
       AND a.answerer_user_id = $2::uuid
@@ -312,6 +388,173 @@ func (q *Queries) ListQuestionRowsAnsweredBy(ctx context.Context, arg ListQuesti
 	return items, nil
 }
 
+const listQuestionRowsBelow = `-- name: ListQuestionRowsBelow :many
+
+WITH RECURSIVE subtree AS (
+    SELECT i.id FROM issue i
+    WHERE i.workspace_id = $1::uuid
+      AND (i.id = ANY($2::uuid[])
+           OR i.project_id = ANY($3::uuid[]))
+    UNION
+    SELECT child.id FROM issue child JOIN subtree parent ON child.parent_issue_id = parent.id
+    WHERE child.workspace_id = $1::uuid
+), below AS (
+    SELECT l.question_id FROM question_link l
+    WHERE l.workspace_id = $1::uuid AND (
+        (l.link_type = 'issue' AND l.link_id IN (SELECT id FROM subtree))
+        OR (l.link_type = 'comment' AND EXISTS (
+            SELECT 1 FROM comment c
+            WHERE c.id = l.link_id AND c.workspace_id = l.workspace_id
+              AND c.deleted_at IS NULL AND c.issue_id IN (SELECT id FROM subtree)
+        ))
+        OR (l.link_type = 'task' AND EXISTS (
+            SELECT 1 FROM agent_task_queue t
+            JOIN agent ag ON ag.id = t.agent_id AND ag.workspace_id = l.workspace_id
+            WHERE t.id = l.link_id AND t.issue_id IN (SELECT id FROM subtree)
+        ))
+        OR (l.link_type = 'project' AND l.link_id = ANY($3::uuid[]))
+    )
+), selected AS (
+    SELECT q.id, q.ask_id, q.ask_position, q.ask_title, q.prompt,
+           q.answer_type, q.settings, q.status, q.answer_policy,
+           q.asker_agent_id, q.due_date, q.blocks_work, q.created_at,
+           l.link_type, l.link_id,
+           a.value AS my_answer_value, a.updated_at AS my_answer_updated_at
+    FROM question q
+    JOIN question_link l
+      ON l.question_id = q.id
+     AND l.workspace_id = q.workspace_id
+     AND l.position = 0
+    LEFT JOIN question_answer a
+      ON a.question_id = q.id
+     AND a.workspace_id = q.workspace_id
+     AND a.answerer_user_id = $4::uuid
+    WHERE q.workspace_id = $1::uuid
+      AND q.status IN ('open', 'partly_answered')
+      AND q.id IN (SELECT question_id FROM below)
+      AND (COALESCE(cardinality($5::text[]), 0) = 0
+           OR q.answer_type = ANY($5::text[]))
+      AND (COALESCE(cardinality($6::uuid[]), 0) = 0
+           OR q.asker_agent_id = ANY($6::uuid[]))
+      AND (COALESCE(cardinality($7::uuid[]), 0) = 0
+           OR EXISTS (
+               SELECT 1 FROM question_answerer r
+               WHERE r.question_id = q.id
+                 AND r.workspace_id = q.workspace_id
+                 AND r.user_id = ANY($7::uuid[])
+           ))
+      AND (COALESCE(cardinality($8::uuid[]), 0) = 0
+           OR l.link_id = ANY($8::uuid[]))
+      AND ($9::boolean IS NULL
+           OR NOT $9::boolean OR q.blocks_work)
+      AND ($10::timestamptz IS NULL
+           OR (q.created_at, q.id) >
+              ($10::timestamptz, $11::uuid))
+    ORDER BY q.created_at ASC, q.id ASC
+    LIMIT $12::int
+)
+SELECT selected.id, selected.ask_id, selected.ask_position, selected.ask_title, selected.prompt, selected.answer_type, selected.settings, selected.status, selected.answer_policy, selected.asker_agent_id, selected.due_date, selected.blocks_work, selected.created_at, selected.link_type, selected.link_id, selected.my_answer_value, selected.my_answer_updated_at,
+       ARRAY(
+           SELECT r.user_id FROM question_answerer r
+           WHERE r.workspace_id = $1::uuid
+             AND r.question_id = selected.id
+           ORDER BY r.assigned_at ASC, r.user_id ASC
+       )::uuid[] AS answerer_ids
+FROM selected
+ORDER BY selected.created_at ASC, selected.id ASC
+`
+
+type ListQuestionRowsBelowParams struct {
+	WorkspaceID    pgtype.UUID        `json:"workspace_id"`
+	IssueIds       []pgtype.UUID      `json:"issue_ids"`
+	ProjectIds     []pgtype.UUID      `json:"project_ids"`
+	ViewerID       pgtype.UUID        `json:"viewer_id"`
+	AnswerType     []string           `json:"answer_type"`
+	AskerAgentID   []pgtype.UUID      `json:"asker_agent_id"`
+	AnswererUserID []pgtype.UUID      `json:"answerer_user_id"`
+	LinkIds        []pgtype.UUID      `json:"link_ids"`
+	BlocksWork     pgtype.Bool        `json:"blocks_work"`
+	CursorTime     pgtype.Timestamptz `json:"cursor_time"`
+	CursorID       pgtype.UUID        `json:"cursor_id"`
+	Limit          int32              `json:"limit"`
+}
+
+type ListQuestionRowsBelowRow struct {
+	ID                pgtype.UUID        `json:"id"`
+	AskID             pgtype.UUID        `json:"ask_id"`
+	AskPosition       int32              `json:"ask_position"`
+	AskTitle          pgtype.Text        `json:"ask_title"`
+	Prompt            string             `json:"prompt"`
+	AnswerType        string             `json:"answer_type"`
+	Settings          []byte             `json:"settings"`
+	Status            string             `json:"status"`
+	AnswerPolicy      string             `json:"answer_policy"`
+	AskerAgentID      pgtype.UUID        `json:"asker_agent_id"`
+	DueDate           pgtype.Date        `json:"due_date"`
+	BlocksWork        bool               `json:"blocks_work"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	LinkType          string             `json:"link_type"`
+	LinkID            pgtype.UUID        `json:"link_id"`
+	MyAnswerValue     []byte             `json:"my_answer_value"`
+	MyAnswerUpdatedAt pgtype.Timestamptz `json:"my_answer_updated_at"`
+	AnswererIds       []pgtype.UUID      `json:"answerer_ids"`
+}
+
+// The downward form of a question's reach (ADR-0007): the open questions
+// below the seed issues and projects, the same set QuestionIDsBelow reads.
+// The seeds are the viewer's work for On my work, or one page object for parent.
+func (q *Queries) ListQuestionRowsBelow(ctx context.Context, arg ListQuestionRowsBelowParams) ([]ListQuestionRowsBelowRow, error) {
+	rows, err := q.db.Query(ctx, listQuestionRowsBelow,
+		arg.WorkspaceID,
+		arg.IssueIds,
+		arg.ProjectIds,
+		arg.ViewerID,
+		arg.AnswerType,
+		arg.AskerAgentID,
+		arg.AnswererUserID,
+		arg.LinkIds,
+		arg.BlocksWork,
+		arg.CursorTime,
+		arg.CursorID,
+		arg.Limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListQuestionRowsBelowRow{}
+	for rows.Next() {
+		var i ListQuestionRowsBelowRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.AskID,
+			&i.AskPosition,
+			&i.AskTitle,
+			&i.Prompt,
+			&i.AnswerType,
+			&i.Settings,
+			&i.Status,
+			&i.AnswerPolicy,
+			&i.AskerAgentID,
+			&i.DueDate,
+			&i.BlocksWork,
+			&i.CreatedAt,
+			&i.LinkType,
+			&i.LinkID,
+			&i.MyAnswerValue,
+			&i.MyAnswerUpdatedAt,
+			&i.AnswererIds,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listQuestionRowsForMember = `-- name: ListQuestionRowsForMember :many
 
 WITH selected AS (
@@ -324,7 +567,6 @@ WITH selected AS (
     JOIN question_link l
       ON l.question_id = q.id
      AND l.workspace_id = q.workspace_id
-     AND l.link_type = 'issue'
      AND l.position = 0
     LEFT JOIN question_answer a
       ON a.question_id = q.id
@@ -407,8 +649,10 @@ type ListQuestionRowsForMemberRow struct {
 
 // Viewer row projections (ADR-0006). For me and its unfiltered count repeat
 // ADR-0004: open, a current answerer, and no answer from that member.
-// Filters accept repeated values; NULL or empty arrays leave a filter unset.
-// Only blocks_work = true filters. Cursor time and id are supplied together.
+// A row carries its first link, of any type; the service turns it into the
+// page object. Filters accept repeated values; NULL or empty arrays leave a
+// filter unset. Only blocks_work = true filters. Cursor time and id are
+// supplied together.
 func (q *Queries) ListQuestionRowsForMember(ctx context.Context, arg ListQuestionRowsForMemberParams) ([]ListQuestionRowsForMemberRow, error) {
 	rows, err := q.db.Query(ctx, listQuestionRowsForMember,
 		arg.WorkspaceID,

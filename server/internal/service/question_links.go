@@ -85,6 +85,18 @@ type QuestionPageObject struct {
 	MemberID pgtype.UUID
 }
 
+type QuestionViaDTO struct {
+	Type            string  `json:"type"`
+	ID              string  `json:"id"`
+	Identifier      *string `json:"identifier"`
+	IssueIdentifier *string `json:"issue_identifier"`
+}
+
+type QuestionOpenIssueDTO struct {
+	ID         string  `json:"id"`
+	Identifier *string `json:"identifier"`
+}
+
 // Via selects the first link that reaches this page, not the first ancestor.
 // Pass only one question's reach. A directly linked/owned object has no via.
 func Via(reach []QuestionReach, page QuestionPageObject) *QuestionViaDTO {

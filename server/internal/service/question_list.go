@@ -20,6 +20,7 @@ type QuestionRowFilters struct {
 	AnswererIDs []pgtype.UUID
 	LinkIDs     []pgtype.UUID
 	BlocksWork  bool
+	Parent      *QuestionPageObject
 }
 
 // QuestionRowCursor is the last returned row's sort key. The handler binds it
@@ -61,6 +62,8 @@ type QuestionRowDTO struct {
 	CreatedAt    string                `json:"created_at"`
 	Link         QuestionRowLinkDTO    `json:"link"`
 	MyAnswer     *QuestionRowAnswerDTO `json:"my_answer"`
+	Via          *QuestionViaDTO       `json:"via"`
+	OpenIssue    *QuestionOpenIssueDTO `json:"open_issue"`
 }
 
 // QuestionRowPageDTO keeps the cursor typed; the handler encodes it for the
@@ -89,8 +92,42 @@ func (s *QuestionService) ListRows(ctx context.Context, workspaceID, viewerID pg
 	}
 
 	var page QuestionRowPageDTO
-	var issueIDs []pgtype.UUID
-	switch tab {
+	var questionIDs []pgtype.UUID
+	rowTab := tab
+	if filters.Parent != nil {
+		if tab != "all_open" {
+			return page, questionRefusal(400, "parent requires tab=all_open")
+		}
+		rowTab = "on_my_work"
+	}
+	switch rowTab {
+	case "on_my_work":
+		issueIDs, projectIDs, err := s.questionWorkSeeds(ctx, workspaceID, viewerID, filters.Parent)
+		if err != nil {
+			return page, err
+		}
+		rows, err := s.Queries.ListQuestionRowsBelow(ctx, db.ListQuestionRowsBelowParams{
+			WorkspaceID: workspaceID, ViewerID: viewerID,
+			IssueIds: issueIDs, ProjectIds: projectIDs,
+			AnswerType: params.AnswerType, AskerAgentID: params.AskerAgentID,
+			AnswererUserID: params.AnswererUserID, LinkIds: params.LinkIds,
+			BlocksWork: params.BlocksWork, CursorTime: params.CursorTime,
+			CursorID: params.CursorID, Limit: params.Limit,
+		})
+		if err != nil {
+			return page, fmt.Errorf("list questions below work: %w", err)
+		}
+		if len(rows) > limit {
+			rows = rows[:limit]
+			last := rows[len(rows)-1]
+			page.NextCursor = &QuestionRowCursor{Time: last.CreatedAt.Time, ID: last.ID}
+		}
+		page.Rows = make([]QuestionRowDTO, len(rows))
+		questionIDs = make([]pgtype.UUID, len(rows))
+		for i, row := range rows {
+			page.Rows[i] = questionRowDTO(db.ListQuestionRowsForMemberRow(row))
+			questionIDs[i] = row.ID
+		}
 	case "for_me":
 		rows, err := s.Queries.ListQuestionRowsForMember(ctx, params)
 		if err != nil {
@@ -102,10 +139,10 @@ func (s *QuestionService) ListRows(ctx context.Context, workspaceID, viewerID pg
 			page.NextCursor = &QuestionRowCursor{Time: last.CreatedAt.Time, ID: last.ID}
 		}
 		page.Rows = make([]QuestionRowDTO, len(rows))
-		issueIDs = make([]pgtype.UUID, len(rows))
+		questionIDs = make([]pgtype.UUID, len(rows))
 		for i, row := range rows {
 			page.Rows[i] = questionRowDTO(row)
-			issueIDs[i] = row.LinkID
+			questionIDs[i] = row.ID
 		}
 	case "all_open":
 		rows, err := s.Queries.ListOpenQuestionRows(ctx, db.ListOpenQuestionRowsParams(params))
@@ -118,10 +155,10 @@ func (s *QuestionService) ListRows(ctx context.Context, workspaceID, viewerID pg
 			page.NextCursor = &QuestionRowCursor{Time: last.CreatedAt.Time, ID: last.ID}
 		}
 		page.Rows = make([]QuestionRowDTO, len(rows))
-		issueIDs = make([]pgtype.UUID, len(rows))
+		questionIDs = make([]pgtype.UUID, len(rows))
 		for i, row := range rows {
 			page.Rows[i] = questionRowDTO(db.ListQuestionRowsForMemberRow(row))
-			issueIDs[i] = row.LinkID
+			questionIDs[i] = row.ID
 		}
 	case "answered":
 		rows, err := s.Queries.ListQuestionRowsAnsweredBy(ctx, db.ListQuestionRowsAnsweredByParams(params))
@@ -134,10 +171,10 @@ func (s *QuestionService) ListRows(ctx context.Context, workspaceID, viewerID pg
 			page.NextCursor = &QuestionRowCursor{Time: last.MyAnswerUpdatedAt.Time, ID: last.ID}
 		}
 		page.Rows = make([]QuestionRowDTO, len(rows))
-		issueIDs = make([]pgtype.UUID, len(rows))
+		questionIDs = make([]pgtype.UUID, len(rows))
 		for i, row := range rows {
 			page.Rows[i] = questionRowDTO(db.ListQuestionRowsForMemberRow(row))
-			issueIDs[i] = row.LinkID
+			questionIDs[i] = row.ID
 		}
 	default:
 		return page, questionRefusal(400, "invalid question tab")
@@ -146,27 +183,53 @@ func (s *QuestionService) ListRows(ctx context.Context, workspaceID, viewerID pg
 		return page, nil
 	}
 
-	refs, err := s.Queries.ListIssueRefsInWorkspace(ctx, db.ListIssueRefsInWorkspaceParams{WorkspaceID: workspaceID, Ids: issueIDs})
+	reach, err := s.Reach(ctx, workspaceID, questionIDs)
 	if err != nil {
-		return QuestionRowPageDTO{}, fmt.Errorf("load question issue references: %w", err)
+		return QuestionRowPageDTO{}, fmt.Errorf("load question row reach: %w", err)
 	}
-	workspace, err := s.Queries.GetWorkspace(ctx, workspaceID)
-	if err != nil {
-		return QuestionRowPageDTO{}, fmt.Errorf("load question workspace: %w", err)
+	byQuestion := make(map[pgtype.UUID][]QuestionReach, len(page.Rows))
+	for start := 0; start < len(reach); {
+		end := start + 1
+		for end < len(reach) && reach[end].QuestionID == reach[start].QuestionID {
+			end++
+		}
+		byQuestion[reach[start].QuestionID] = reach[start:end]
+		start = end
 	}
-	issues := make(map[pgtype.UUID]db.ListIssueRefsInWorkspaceRow, len(refs))
-	for _, ref := range refs {
-		issues[ref.ID] = ref
+	pageObject := QuestionPageObject{}
+	if filters.Parent != nil {
+		pageObject = *filters.Parent
+	} else if tab == "on_my_work" {
+		pageObject.MemberID = viewerID
 	}
 	for i := range page.Rows {
-		link := &page.Rows[i].Link
-		issue, ok := issues[issueIDs[i]]
-		if !ok {
-			return QuestionRowPageDTO{}, fmt.Errorf("question %s links to missing issue %s in workspace", page.Rows[i].ID, link.ID)
+		row := &page.Rows[i]
+		links := byQuestion[questionIDs[i]]
+		row.OpenIssue = OpenIssue(links)
+		if row.OpenIssue == nil {
+			return QuestionRowPageDTO{}, fmt.Errorf("question %s has no issue-bearing link", row.ID)
 		}
-		link.Identifier = IssueIdentifier(workspace.IssuePrefix, issue.Number)
-		link.Title = issue.Title
-		link.Status = issue.Status
+		row.Via = Via(links, pageObject)
+		for j := range links {
+			link := &links[j]
+			if link.Position != links[0].Position {
+				break
+			}
+			direct := link.ObjectType == link.LinkType && link.ObjectID == link.LinkID
+			if link.LinkType == "issue" || link.LinkType == "comment" || link.LinkType == "task" {
+				direct = link.ObjectType == "issue" && link.ObjectID == link.IssueID
+			}
+			if direct {
+				row.Link = QuestionRowLinkDTO{
+					Type: link.ObjectType, ID: util.UUIDToString(link.ObjectID),
+					Identifier: link.Identifier, Title: link.ObjectTitle, Status: link.ObjectStatus,
+				}
+				if link.ObjectType == "issue" {
+					row.Link.Identifier = link.IssueIdentifier
+				}
+				break
+			}
+		}
 	}
 	return page, nil
 }
@@ -198,12 +261,69 @@ func questionRowDTO(row db.ListQuestionRowsForMemberRow) QuestionRowDTO {
 	return result
 }
 
-// CountOpenForMember returns the unfiltered For me count, one per question,
-// using the same SQL eligibility rule as ListRows("for_me").
-func (s *QuestionService) CountOpenForMember(ctx context.Context, workspaceID, viewerID pgtype.UUID) (int64, error) {
-	count, err := s.Queries.CountQuestionsOpenForMember(ctx, db.CountQuestionsOpenForMemberParams{WorkspaceID: workspaceID, ViewerID: viewerID})
-	if err != nil {
-		return 0, fmt.Errorf("count open questions for member: %w", err)
+type QuestionOpenCountDTO struct {
+	Count         int64
+	BlockingCount int64
+}
+
+// CountOpen uses the same eligibility and work seeds as the corresponding tab.
+func (s *QuestionService) CountOpen(ctx context.Context, workspaceID, viewerID pgtype.UUID, tab string, parent *QuestionPageObject) (QuestionOpenCountDTO, error) {
+	if parent != nil && tab != "all_open" {
+		return QuestionOpenCountDTO{}, questionRefusal(400, "parent requires tab=all_open")
 	}
-	return count, nil
+	if tab == "on_my_work" || parent != nil {
+		issueIDs, projectIDs, err := s.questionWorkSeeds(ctx, workspaceID, viewerID, parent)
+		if err != nil {
+			return QuestionOpenCountDTO{}, err
+		}
+		count, err := s.Queries.CountQuestionsBelow(ctx, db.CountQuestionsBelowParams{
+			WorkspaceID: workspaceID, IssueIds: issueIDs, ProjectIds: projectIDs,
+		})
+		if err != nil {
+			return QuestionOpenCountDTO{}, fmt.Errorf("count questions below work: %w", err)
+		}
+		return QuestionOpenCountDTO{Count: count.Count, BlockingCount: count.BlockingCount}, nil
+	}
+	switch tab {
+	case "for_me":
+		count, err := s.Queries.CountQuestionsOpenForMember(ctx, db.CountQuestionsOpenForMemberParams{WorkspaceID: workspaceID, ViewerID: viewerID})
+		if err != nil {
+			return QuestionOpenCountDTO{}, fmt.Errorf("count open questions for member: %w", err)
+		}
+		return QuestionOpenCountDTO{Count: count.Count, BlockingCount: count.BlockingCount}, nil
+	case "all_open":
+		count, err := s.Queries.CountQuestionsOpen(ctx, workspaceID)
+		if err != nil {
+			return QuestionOpenCountDTO{}, fmt.Errorf("count open questions: %w", err)
+		}
+		return QuestionOpenCountDTO{Count: count.Count, BlockingCount: count.BlockingCount}, nil
+	default:
+		return QuestionOpenCountDTO{}, questionRefusal(400, "invalid question tab")
+	}
+}
+
+func (s *QuestionService) questionWorkSeeds(ctx context.Context, workspaceID, viewerID pgtype.UUID, parent *QuestionPageObject) ([]pgtype.UUID, []pgtype.UUID, error) {
+	if parent != nil {
+		switch parent.Type {
+		case "issue":
+			return []pgtype.UUID{parent.ID}, nil, nil
+		case "project":
+			return nil, []pgtype.UUID{parent.ID}, nil
+		default:
+			return nil, nil, questionRefusal(400, "invalid question parent")
+		}
+	}
+	seeds, err := s.Queries.WorkSeedsForMember(ctx, db.WorkSeedsForMemberParams{WorkspaceID: workspaceID, UserID: viewerID})
+	if err != nil {
+		return nil, nil, fmt.Errorf("load member work seeds: %w", err)
+	}
+	var issues, projects []pgtype.UUID
+	for _, seed := range seeds {
+		if seed.ObjectType == "issue" {
+			issues = append(issues, seed.ObjectID)
+		} else {
+			projects = append(projects, seed.ObjectID)
+		}
+	}
+	return issues, projects, nil
 }
