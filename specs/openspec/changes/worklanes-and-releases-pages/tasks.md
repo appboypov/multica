@@ -33,7 +33,7 @@ This change builds on UJ-6 (`worklane-board-and-list`, DAS-459), which builds on
 ## 1. J2 Data models: model change
 
 - [x] 1.1 `server/pkg/db/queries/issue_placement.sql` -- `ListReleaseTotals(workspace_id)`: the workspace's issues with a `release_id` grouped by `release_id`, `total` every issue and `done` by the terminal status rule of `ListReleaseProgress` -- design.md decision 3.
-- [ ] 1.2 `server/pkg/db/generated/` -- run `make sqlc` and commit the output.
+- [x] 1.2 `server/pkg/db/generated/` -- run `make sqlc` and commit the output.
 
 ## 2. J2 Data models: DTO
 

@@ -44,7 +44,7 @@ This change builds on UJ-2 (`repositories-of-a-project`, DAS-451): its `reposito
 - [x] 1.6 `server/pkg/db/queries/worklane.sql` -- `GetWorklaneInWorkspace`, `CreateWorklaneWithPath` (taking `path`, `daemon_id`, `folder` and the next `position` in one statement), `RenameWorklane`, `DeleteWorklane`, `ListWorklanePathsForDaemon` (by repository and daemon, `path IS NOT NULL`), `CountOtherWorklanes` (by repository, `NOT is_main`), each filtered by `workspace_id`.
 - [x] 1.7 `server/pkg/db/queries/repository.sql` -- `install_command` in `CreateRepository` and `UpdateRepository*`; `BackfillRepositoryInstallCommand` (workspace, `LOWER(full_name)`, checkout daemon and path, `install_command IS NULL`).
 - [x] 1.8 `server/pkg/db/queries/activity.sql` -- `CreateWorklaneActivity`; `ListActivitiesForWorklane` (`worklane_id = $1 OR (repository_id = $2 AND worklane_id IS NULL)`, newest 200 in keyset order, re-sorted ascending as `ListActivitiesForIssue`); `DeleteActivitiesByWorklane`; `DeleteActivitiesByRepository` and `DeleteActivitiesByProject` (through `repository`), each with `issue_id IS NULL`.
-- [ ] 1.9 `server/pkg/db/generated/` -- run `make sqlc` and commit the output.
+- [x] 1.9 `server/pkg/db/generated/` -- run `make sqlc` and commit the output.
 
 ## 2. J2 Data models: model change
 

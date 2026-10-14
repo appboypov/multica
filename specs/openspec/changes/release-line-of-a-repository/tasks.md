@@ -48,7 +48,7 @@ Its J2 starts once UJ-3's J2 is merged.
 - [x] 1.5 `server/pkg/db/queries/repository.sql` -- `LockRepositoryForLine` (`FOR UPDATE`, by id and workspace); `last_tag` in `CreateRepository`; `BackfillRepositoryLastTag` (workspace, `LOWER(full_name)`, checkout daemon and path, `last_tag IS NULL`).
 - [x] 1.6 `server/pkg/db/queries/activity.sql` -- `CreateRepositoryActivity` (`repository_id` set, `worklane_id` and `issue_id` NULL); `ListActivitiesForWorklane` gains `created_at >= $3` on its repository part -- ADR-0011.
 - [x] 1.7 `server/pkg/db/queries/workspace_delete.sql` -- `deleted_releases AS (DELETE FROM release WHERE workspace_id = $1)` beside `deleted_activity`.
-- [ ] 1.8 `server/pkg/db/generated/` -- run `make sqlc` and commit the output.
+- [x] 1.8 `server/pkg/db/generated/` -- run `make sqlc` and commit the output.
 
 ## 2. J2 Data models: model change
 

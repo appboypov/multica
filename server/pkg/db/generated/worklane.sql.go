@@ -11,6 +11,25 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countOtherWorklanes = `-- name: CountOtherWorklanes :one
+SELECT COUNT(*)::bigint FROM worklane
+WHERE repository_id = $1 AND workspace_id = $2 AND NOT is_main
+`
+
+type CountOtherWorklanesParams struct {
+	RepositoryID pgtype.UUID `json:"repository_id"`
+	WorkspaceID  pgtype.UUID `json:"workspace_id"`
+}
+
+// The worklanes of a repository besides main: a repository that has any
+// cannot be deleted.
+func (q *Queries) CountOtherWorklanes(ctx context.Context, arg CountOtherWorklanesParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countOtherWorklanes, arg.RepositoryID, arg.WorkspaceID)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const createWorklane = `-- name: CreateWorklane :one
 INSERT INTO worklane (
     workspace_id, repository_id, name, folder, daemon_id, is_main, position
@@ -19,7 +38,7 @@ INSERT INTO worklane (
     $4, $5, $6,
     $7
 )
-RETURNING id, workspace_id, repository_id, name, folder, daemon_id, is_main, position, created_at, updated_at
+RETURNING id, workspace_id, repository_id, name, folder, daemon_id, is_main, position, created_at, updated_at, path, branch
 `
 
 type CreateWorklaneParams struct {
@@ -57,8 +76,82 @@ func (q *Queries) CreateWorklane(ctx context.Context, arg CreateWorklaneParams) 
 		&i.Position,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Path,
+		&i.Branch,
 	)
 	return i, err
+}
+
+const createWorklaneWithPath = `-- name: CreateWorklaneWithPath :one
+INSERT INTO worklane (
+    workspace_id, repository_id, name, folder, daemon_id, path, is_main, position
+) VALUES (
+    $1, $2, $3,
+    $4, $5, $6, false,
+    (
+        SELECT COALESCE(MAX(w.position), 0) + 1 FROM worklane w
+        WHERE w.repository_id = $2
+          AND w.workspace_id = $1
+    )
+)
+RETURNING id, workspace_id, repository_id, name, folder, daemon_id, is_main, position, created_at, updated_at, path, branch
+`
+
+type CreateWorklaneWithPathParams struct {
+	WorkspaceID  pgtype.UUID `json:"workspace_id"`
+	RepositoryID pgtype.UUID `json:"repository_id"`
+	Name         string      `json:"name"`
+	Folder       pgtype.Text `json:"folder"`
+	DaemonID     pgtype.Text `json:"daemon_id"`
+	Path         pgtype.Text `json:"path"`
+}
+
+// A worklane besides main, saved by the create request's last step once its
+// worktree is made. It goes after the repository's other worklanes: its
+// position is the highest plus one, taken in this statement. A taken name
+// fails on worklane_repository_name_unique, a taken folder on
+// worklane_repository_folder_unique.
+func (q *Queries) CreateWorklaneWithPath(ctx context.Context, arg CreateWorklaneWithPathParams) (Worklane, error) {
+	row := q.db.QueryRow(ctx, createWorklaneWithPath,
+		arg.WorkspaceID,
+		arg.RepositoryID,
+		arg.Name,
+		arg.Folder,
+		arg.DaemonID,
+		arg.Path,
+	)
+	var i Worklane
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.RepositoryID,
+		&i.Name,
+		&i.Folder,
+		&i.DaemonID,
+		&i.IsMain,
+		&i.Position,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Path,
+		&i.Branch,
+	)
+	return i, err
+}
+
+const deleteWorklane = `-- name: DeleteWorklane :exec
+DELETE FROM worklane WHERE id = $1 AND workspace_id = $2
+`
+
+type DeleteWorklaneParams struct {
+	ID          pgtype.UUID `json:"id"`
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
+}
+
+// Runs once the daemon removed the worklane's worktree, with its activity rows
+// in the same transaction.
+func (q *Queries) DeleteWorklane(ctx context.Context, arg DeleteWorklaneParams) error {
+	_, err := q.db.Exec(ctx, deleteWorklane, arg.ID, arg.WorkspaceID)
+	return err
 }
 
 const deleteWorklanesByProject = `-- name: DeleteWorklanesByProject :exec
@@ -86,7 +179,7 @@ func (q *Queries) DeleteWorklanesByProject(ctx context.Context, arg DeleteWorkla
 const deleteWorklanesByRepository = `-- name: DeleteWorklanesByRepository :many
 DELETE FROM worklane
 WHERE repository_id = $1 AND workspace_id = $2
-RETURNING id, workspace_id, repository_id, name, folder, daemon_id, is_main, position, created_at, updated_at
+RETURNING id, workspace_id, repository_id, name, folder, daemon_id, is_main, position, created_at, updated_at, path, branch
 `
 
 type DeleteWorklanesByRepositoryParams struct {
@@ -115,6 +208,157 @@ func (q *Queries) DeleteWorklanesByRepository(ctx context.Context, arg DeleteWor
 			&i.Position,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Path,
+			&i.Branch,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getWorklaneInWorkspace = `-- name: GetWorklaneInWorkspace :one
+SELECT id, workspace_id, repository_id, name, folder, daemon_id, is_main, position, created_at, updated_at, path, branch FROM worklane
+WHERE id = $1 AND workspace_id = $2
+`
+
+type GetWorklaneInWorkspaceParams struct {
+	ID          pgtype.UUID `json:"id"`
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
+}
+
+func (q *Queries) GetWorklaneInWorkspace(ctx context.Context, arg GetWorklaneInWorkspaceParams) (Worklane, error) {
+	row := q.db.QueryRow(ctx, getWorklaneInWorkspace, arg.ID, arg.WorkspaceID)
+	var i Worklane
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.RepositoryID,
+		&i.Name,
+		&i.Folder,
+		&i.DaemonID,
+		&i.IsMain,
+		&i.Position,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Path,
+		&i.Branch,
+	)
+	return i, err
+}
+
+const listOpenWorklaneIssues = `-- name: ListOpenWorklaneIssues :many
+SELECT i.id, i.worklane_id, i.title, i.status, i.created_at,
+       w.issue_prefix, (w.issue_prefix || '-' || i.number)::text AS identifier,
+       r.position AS release_position,
+       CASE
+           WHEN i.status IN ('backlog', 'todo') THEN 'unstarted'
+           WHEN i.status IN ('in_progress', 'in_review', 'blocked') THEN 'started'
+           WHEN i.status = 'done' THEN 'done'
+           WHEN i.status = 'cancelled' THEN 'closed'
+           ELSE COALESCE(s.category, 'unstarted')
+       END::text AS status_category
+FROM issue i
+JOIN workspace w ON w.id = i.workspace_id
+LEFT JOIN release r ON r.id = i.release_id AND r.workspace_id = i.workspace_id
+LEFT JOIN issue_status s ON s.key = i.status AND s.workspace_id = i.workspace_id
+WHERE i.workspace_id = $1
+  AND i.worklane_id = ANY($2::uuid[])
+  AND issue_effective_status(i.workspace_id, i.status) NOT IN ('done', 'cancelled')
+ORDER BY i.worklane_id, r.position ASC NULLS LAST, i.created_at ASC, i.id ASC
+`
+
+type ListOpenWorklaneIssuesParams struct {
+	WorkspaceID pgtype.UUID   `json:"workspace_id"`
+	WorklaneIds []pgtype.UUID `json:"worklane_ids"`
+}
+
+type ListOpenWorklaneIssuesRow struct {
+	ID              pgtype.UUID        `json:"id"`
+	WorklaneID      pgtype.UUID        `json:"worklane_id"`
+	Title           string             `json:"title"`
+	Status          string             `json:"status"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	IssuePrefix     string             `json:"issue_prefix"`
+	Identifier      string             `json:"identifier"`
+	ReleasePosition pgtype.Int4        `json:"release_position"`
+	StatusCategory  string             `json:"status_category"`
+}
+
+// Fixed built-ins do not inherit mutable catalogue categories. Archived
+// custom statuses still resolve their category for the terminal check.
+func (q *Queries) ListOpenWorklaneIssues(ctx context.Context, arg ListOpenWorklaneIssuesParams) ([]ListOpenWorklaneIssuesRow, error) {
+	rows, err := q.db.Query(ctx, listOpenWorklaneIssues, arg.WorkspaceID, arg.WorklaneIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListOpenWorklaneIssuesRow{}
+	for rows.Next() {
+		var i ListOpenWorklaneIssuesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorklaneID,
+			&i.Title,
+			&i.Status,
+			&i.CreatedAt,
+			&i.IssuePrefix,
+			&i.Identifier,
+			&i.ReleasePosition,
+			&i.StatusCategory,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listWorklanePathsForDaemon = `-- name: ListWorklanePathsForDaemon :many
+SELECT id, name, path, branch FROM worklane
+WHERE workspace_id = $1
+  AND repository_id = $2
+  AND daemon_id = $3
+  AND path IS NOT NULL
+ORDER BY position ASC
+`
+
+type ListWorklanePathsForDaemonParams struct {
+	WorkspaceID  pgtype.UUID `json:"workspace_id"`
+	RepositoryID pgtype.UUID `json:"repository_id"`
+	DaemonID     pgtype.Text `json:"daemon_id"`
+}
+
+type ListWorklanePathsForDaemonRow struct {
+	ID     pgtype.UUID `json:"id"`
+	Name   string      `json:"name"`
+	Path   pgtype.Text `json:"path"`
+	Branch pgtype.Text `json:"branch"`
+}
+
+// The worktree paths of a repository's worklanes on one daemon, so an issue
+// worktree never takes a worklane's folder (ADR-0009).
+func (q *Queries) ListWorklanePathsForDaemon(ctx context.Context, arg ListWorklanePathsForDaemonParams) ([]ListWorklanePathsForDaemonRow, error) {
+	rows, err := q.db.Query(ctx, listWorklanePathsForDaemon, arg.WorkspaceID, arg.RepositoryID, arg.DaemonID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListWorklanePathsForDaemonRow{}
+	for rows.Next() {
+		var i ListWorklanePathsForDaemonRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Path,
+			&i.Branch,
 		); err != nil {
 			return nil, err
 		}
@@ -128,7 +372,7 @@ func (q *Queries) DeleteWorklanesByRepository(ctx context.Context, arg DeleteWor
 
 const listWorklanes = `-- name: ListWorklanes :many
 
-SELECT id, workspace_id, repository_id, name, folder, daemon_id, is_main, position, created_at, updated_at FROM worklane
+SELECT id, workspace_id, repository_id, name, folder, daemon_id, is_main, position, created_at, updated_at, path, branch FROM worklane
 WHERE workspace_id = $1
 ORDER BY repository_id, is_main DESC, position ASC, LOWER(name) ASC
 `
@@ -156,6 +400,8 @@ func (q *Queries) ListWorklanes(ctx context.Context, workspaceID pgtype.UUID) ([
 			&i.Position,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Path,
+			&i.Branch,
 		); err != nil {
 			return nil, err
 		}
@@ -165,4 +411,72 @@ func (q *Queries) ListWorklanes(ctx context.Context, workspaceID pgtype.UUID) ([
 		return nil, err
 	}
 	return items, nil
+}
+
+const renameWorklane = `-- name: RenameWorklane :one
+UPDATE worklane SET
+    name = $1,
+    updated_at = now()
+WHERE id = $2 AND workspace_id = $3
+RETURNING id, workspace_id, repository_id, name, folder, daemon_id, is_main, position, created_at, updated_at, path, branch
+`
+
+type RenameWorklaneParams struct {
+	Name        string      `json:"name"`
+	ID          pgtype.UUID `json:"id"`
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
+}
+
+// Only the name changes: the folder and the worktree stay where they are.
+func (q *Queries) RenameWorklane(ctx context.Context, arg RenameWorklaneParams) (Worklane, error) {
+	row := q.db.QueryRow(ctx, renameWorklane, arg.Name, arg.ID, arg.WorkspaceID)
+	var i Worklane
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.RepositoryID,
+		&i.Name,
+		&i.Folder,
+		&i.DaemonID,
+		&i.IsMain,
+		&i.Position,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Path,
+		&i.Branch,
+	)
+	return i, err
+}
+
+const setWorklaneBranch = `-- name: SetWorklaneBranch :one
+UPDATE worklane SET branch = $1, updated_at = now()
+WHERE id = $2 AND workspace_id = $3
+RETURNING id, workspace_id, repository_id, name, folder, daemon_id, is_main, position, created_at, updated_at, path, branch
+`
+
+type SetWorklaneBranchParams struct {
+	Branch      pgtype.Text `json:"branch"`
+	ID          pgtype.UUID `json:"id"`
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
+}
+
+// NULL means detached. Only a daemon report sets the recorded branch.
+func (q *Queries) SetWorklaneBranch(ctx context.Context, arg SetWorklaneBranchParams) (Worklane, error) {
+	row := q.db.QueryRow(ctx, setWorklaneBranch, arg.Branch, arg.ID, arg.WorkspaceID)
+	var i Worklane
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.RepositoryID,
+		&i.Name,
+		&i.Folder,
+		&i.DaemonID,
+		&i.IsMain,
+		&i.Position,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Path,
+		&i.Branch,
+	)
+	return i, err
 }

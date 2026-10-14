@@ -12,14 +12,16 @@ import (
 )
 
 type ActivityLog struct {
-	ID          pgtype.UUID        `json:"id"`
-	WorkspaceID pgtype.UUID        `json:"workspace_id"`
-	IssueID     pgtype.UUID        `json:"issue_id"`
-	ActorType   pgtype.Text        `json:"actor_type"`
-	ActorID     pgtype.UUID        `json:"actor_id"`
-	Action      string             `json:"action"`
-	Details     []byte             `json:"details"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	ID           pgtype.UUID        `json:"id"`
+	WorkspaceID  pgtype.UUID        `json:"workspace_id"`
+	IssueID      pgtype.UUID        `json:"issue_id"`
+	ActorType    pgtype.Text        `json:"actor_type"`
+	ActorID      pgtype.UUID        `json:"actor_id"`
+	Action       string             `json:"action"`
+	Details      []byte             `json:"details"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	WorklaneID   pgtype.UUID        `json:"worklane_id"`
+	RepositoryID pgtype.UUID        `json:"repository_id"`
 }
 
 type Agent struct {
@@ -828,6 +830,10 @@ type Issue struct {
 	LastActivityAt     pgtype.Timestamptz `json:"last_activity_at"`
 	TriageState        pgtype.Text        `json:"triage_state"`
 	DuplicateOfIssueID pgtype.UUID        `json:"duplicate_of_issue_id"`
+	Type               pgtype.Text        `json:"type"`
+	WorklaneID         pgtype.UUID        `json:"worklane_id"`
+	ReleaseID          pgtype.UUID        `json:"release_id"`
+	DoneAt             pgtype.Timestamptz `json:"done_at"`
 }
 
 type IssueChildEvent struct {
@@ -1426,6 +1432,21 @@ type QuickAction struct {
 	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
 }
 
+type Release struct {
+	ID           pgtype.UUID        `json:"id"`
+	WorkspaceID  pgtype.UUID        `json:"workspace_id"`
+	RepositoryID pgtype.UUID        `json:"repository_id"`
+	Position     int32              `json:"position"`
+	Version      string             `json:"version"`
+	Bump         pgtype.Text        `json:"bump"`
+	Title        string             `json:"title"`
+	Description  string             `json:"description"`
+	ShippedAt    pgtype.Timestamptz `json:"shipped_at"`
+	CreatedBy    pgtype.UUID        `json:"created_by"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+}
+
 type Repository struct {
 	ID               pgtype.UUID        `json:"id"`
 	WorkspaceID      pgtype.UUID        `json:"workspace_id"`
@@ -1440,6 +1461,8 @@ type Repository struct {
 	CreatedBy        pgtype.UUID        `json:"created_by"`
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+	InstallCommand   pgtype.Text        `json:"install_command"`
+	LastTag          pgtype.Text        `json:"last_tag"`
 }
 
 type RuntimeProfile struct {
@@ -1808,6 +1831,8 @@ type Worklane struct {
 	Position     int32              `json:"position"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	Path         pgtype.Text        `json:"path"`
+	Branch       pgtype.Text        `json:"branch"`
 }
 
 type Workspace struct {

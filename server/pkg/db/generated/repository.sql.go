@@ -11,18 +11,150 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const backfillRepositoryInstallCommand = `-- name: BackfillRepositoryInstallCommand :many
+UPDATE repository SET
+    install_command = $1,
+    updated_at = now()
+WHERE workspace_id = $2
+  AND LOWER(full_name) = LOWER($3)
+  AND checkout_daemon_id = $4
+  AND checkout_path = $5
+  AND install_command IS NULL
+RETURNING id, workspace_id, project_id, github_repo_id, full_name, private, default_branch, checkout_daemon_id, checkout_path, version_policy, created_by, created_at, updated_at, install_command, last_tag
+`
+
+type BackfillRepositoryInstallCommandParams struct {
+	InstallCommand   pgtype.Text `json:"install_command"`
+	WorkspaceID      pgtype.UUID `json:"workspace_id"`
+	FullName         string      `json:"full_name"`
+	CheckoutDaemonID string      `json:"checkout_daemon_id"`
+	CheckoutPath     string      `json:"checkout_path"`
+}
+
+// A passed check fills the install command of a repository from before this
+// column, when it names that repository and its checkout. Returns the rows it
+// set so the handler publishes repository:updated for each.
+func (q *Queries) BackfillRepositoryInstallCommand(ctx context.Context, arg BackfillRepositoryInstallCommandParams) ([]Repository, error) {
+	rows, err := q.db.Query(ctx, backfillRepositoryInstallCommand,
+		arg.InstallCommand,
+		arg.WorkspaceID,
+		arg.FullName,
+		arg.CheckoutDaemonID,
+		arg.CheckoutPath,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Repository{}
+	for rows.Next() {
+		var i Repository
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.ProjectID,
+			&i.GithubRepoID,
+			&i.FullName,
+			&i.Private,
+			&i.DefaultBranch,
+			&i.CheckoutDaemonID,
+			&i.CheckoutPath,
+			&i.VersionPolicy,
+			&i.CreatedBy,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.InstallCommand,
+			&i.LastTag,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const backfillRepositoryLastTag = `-- name: BackfillRepositoryLastTag :many
+UPDATE repository SET
+    last_tag = $1,
+    updated_at = now()
+WHERE workspace_id = $2
+  AND LOWER(full_name) = LOWER($3)
+  AND checkout_daemon_id = $4
+  AND checkout_path = $5
+  AND last_tag IS NULL
+RETURNING id, workspace_id, project_id, github_repo_id, full_name, private, default_branch, checkout_daemon_id, checkout_path, version_policy, created_by, created_at, updated_at, install_command, last_tag
+`
+
+type BackfillRepositoryLastTagParams struct {
+	LastTag          pgtype.Text `json:"last_tag"`
+	WorkspaceID      pgtype.UUID `json:"workspace_id"`
+	FullName         string      `json:"full_name"`
+	CheckoutDaemonID string      `json:"checkout_daemon_id"`
+	CheckoutPath     string      `json:"checkout_path"`
+}
+
+// A passed check fills the last tag of a repository from before this column,
+// when it names that repository and its checkout: without the `v`, ” when the
+// check found none. Returns the rows it set so the handler publishes
+// repository:updated for each.
+func (q *Queries) BackfillRepositoryLastTag(ctx context.Context, arg BackfillRepositoryLastTagParams) ([]Repository, error) {
+	rows, err := q.db.Query(ctx, backfillRepositoryLastTag,
+		arg.LastTag,
+		arg.WorkspaceID,
+		arg.FullName,
+		arg.CheckoutDaemonID,
+		arg.CheckoutPath,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Repository{}
+	for rows.Next() {
+		var i Repository
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.ProjectID,
+			&i.GithubRepoID,
+			&i.FullName,
+			&i.Private,
+			&i.DefaultBranch,
+			&i.CheckoutDaemonID,
+			&i.CheckoutPath,
+			&i.VersionPolicy,
+			&i.CreatedBy,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.InstallCommand,
+			&i.LastTag,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const createRepository = `-- name: CreateRepository :one
 INSERT INTO repository (
     workspace_id, project_id, github_repo_id, full_name, private,
     default_branch, checkout_daemon_id, checkout_path, version_policy,
-    created_by
+    install_command, last_tag, created_by
 ) VALUES (
     $1, $2, $3,
     $4, $5, $6,
     $7, $8,
-    $9, $10
+    $9, $10,
+    $11, $12
 )
-RETURNING id, workspace_id, project_id, github_repo_id, full_name, private, default_branch, checkout_daemon_id, checkout_path, version_policy, created_by, created_at, updated_at
+RETURNING id, workspace_id, project_id, github_repo_id, full_name, private, default_branch, checkout_daemon_id, checkout_path, version_policy, created_by, created_at, updated_at, install_command, last_tag
 `
 
 type CreateRepositoryParams struct {
@@ -35,13 +167,17 @@ type CreateRepositoryParams struct {
 	CheckoutDaemonID string      `json:"checkout_daemon_id"`
 	CheckoutPath     string      `json:"checkout_path"`
 	VersionPolicy    string      `json:"version_policy"`
+	InstallCommand   pgtype.Text `json:"install_command"`
+	LastTag          pgtype.Text `json:"last_tag"`
 	CreatedBy        pgtype.UUID `json:"created_by"`
 }
 
 // A repository already in a project fails on
 // repository_workspace_full_name_unique; the handler answers 409 with that
 // project. The GitHub fields come from GitHub and the checkout from a passed
-// check, never from the client.
+// check, never from the client. install_command is NULL while not found yet,
+// ” for None. last_tag is the check's last tag without the `v`, ” when it
+// found none.
 func (q *Queries) CreateRepository(ctx context.Context, arg CreateRepositoryParams) (Repository, error) {
 	row := q.db.QueryRow(ctx, createRepository,
 		arg.WorkspaceID,
@@ -53,6 +189,8 @@ func (q *Queries) CreateRepository(ctx context.Context, arg CreateRepositoryPara
 		arg.CheckoutDaemonID,
 		arg.CheckoutPath,
 		arg.VersionPolicy,
+		arg.InstallCommand,
+		arg.LastTag,
 		arg.CreatedBy,
 	)
 	var i Repository
@@ -70,6 +208,8 @@ func (q *Queries) CreateRepository(ctx context.Context, arg CreateRepositoryPara
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.InstallCommand,
+		&i.LastTag,
 	)
 	return i, err
 }
@@ -107,7 +247,7 @@ func (q *Queries) DeleteRepository(ctx context.Context, arg DeleteRepositoryPara
 }
 
 const getRepositoryInWorkspace = `-- name: GetRepositoryInWorkspace :one
-SELECT id, workspace_id, project_id, github_repo_id, full_name, private, default_branch, checkout_daemon_id, checkout_path, version_policy, created_by, created_at, updated_at FROM repository
+SELECT id, workspace_id, project_id, github_repo_id, full_name, private, default_branch, checkout_daemon_id, checkout_path, version_policy, created_by, created_at, updated_at, install_command, last_tag FROM repository
 WHERE id = $1 AND workspace_id = $2
 `
 
@@ -133,13 +273,15 @@ func (q *Queries) GetRepositoryInWorkspace(ctx context.Context, arg GetRepositor
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.InstallCommand,
+		&i.LastTag,
 	)
 	return i, err
 }
 
 const listRepositories = `-- name: ListRepositories :many
 
-SELECT id, workspace_id, project_id, github_repo_id, full_name, private, default_branch, checkout_daemon_id, checkout_path, version_policy, created_by, created_at, updated_at FROM repository
+SELECT id, workspace_id, project_id, github_repo_id, full_name, private, default_branch, checkout_daemon_id, checkout_path, version_policy, created_by, created_at, updated_at, install_command, last_tag FROM repository
 WHERE workspace_id = $1
 ORDER BY LOWER(full_name) ASC
 `
@@ -169,6 +311,8 @@ func (q *Queries) ListRepositories(ctx context.Context, workspaceID pgtype.UUID)
 			&i.CreatedBy,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.InstallCommand,
+			&i.LastTag,
 		); err != nil {
 			return nil, err
 		}
@@ -181,7 +325,7 @@ func (q *Queries) ListRepositories(ctx context.Context, workspaceID pgtype.UUID)
 }
 
 const listRepositoriesByProject = `-- name: ListRepositoriesByProject :many
-SELECT id, workspace_id, project_id, github_repo_id, full_name, private, default_branch, checkout_daemon_id, checkout_path, version_policy, created_by, created_at, updated_at FROM repository
+SELECT id, workspace_id, project_id, github_repo_id, full_name, private, default_branch, checkout_daemon_id, checkout_path, version_policy, created_by, created_at, updated_at, install_command, last_tag FROM repository
 WHERE project_id = $1 AND workspace_id = $2
 ORDER BY LOWER(full_name) ASC
 `
@@ -214,6 +358,8 @@ func (q *Queries) ListRepositoriesByProject(ctx context.Context, arg ListReposit
 			&i.CreatedBy,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.InstallCommand,
+			&i.LastTag,
 		); err != nil {
 			return nil, err
 		}
@@ -225,13 +371,49 @@ func (q *Queries) ListRepositoriesByProject(ctx context.Context, arg ListReposit
 	return items, nil
 }
 
+const lockRepositoryForLine = `-- name: LockRepositoryForLine :one
+SELECT id, workspace_id, project_id, github_repo_id, full_name, private, default_branch, checkout_daemon_id, checkout_path, version_policy, created_by, created_at, updated_at, install_command, last_tag FROM repository
+WHERE id = $1 AND workspace_id = $2
+FOR UPDATE
+`
+
+type LockRepositoryForLineParams struct {
+	ID          pgtype.UUID `json:"id"`
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
+}
+
+// Every release line write takes the repository row first, inside its
+// transaction, so two writes to one line run one after the other (ADR-0010).
+func (q *Queries) LockRepositoryForLine(ctx context.Context, arg LockRepositoryForLineParams) (Repository, error) {
+	row := q.db.QueryRow(ctx, lockRepositoryForLine, arg.ID, arg.WorkspaceID)
+	var i Repository
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.ProjectID,
+		&i.GithubRepoID,
+		&i.FullName,
+		&i.Private,
+		&i.DefaultBranch,
+		&i.CheckoutDaemonID,
+		&i.CheckoutPath,
+		&i.VersionPolicy,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.InstallCommand,
+		&i.LastTag,
+	)
+	return i, err
+}
+
 const updateRepositoryCheckout = `-- name: UpdateRepositoryCheckout :one
 UPDATE repository SET
     checkout_daemon_id = $1,
     checkout_path = $2,
     updated_at = now()
 WHERE id = $3 AND workspace_id = $4
-RETURNING id, workspace_id, project_id, github_repo_id, full_name, private, default_branch, checkout_daemon_id, checkout_path, version_policy, created_by, created_at, updated_at
+RETURNING id, workspace_id, project_id, github_repo_id, full_name, private, default_branch, checkout_daemon_id, checkout_path, version_policy, created_by, created_at, updated_at, install_command, last_tag
 `
 
 type UpdateRepositoryCheckoutParams struct {
@@ -265,6 +447,8 @@ func (q *Queries) UpdateRepositoryCheckout(ctx context.Context, arg UpdateReposi
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.InstallCommand,
+		&i.LastTag,
 	)
 	return i, err
 }
@@ -275,7 +459,7 @@ UPDATE repository SET
     default_branch = $2,
     updated_at = now()
 WHERE id = $3 AND workspace_id = $4
-RETURNING id, workspace_id, project_id, github_repo_id, full_name, private, default_branch, checkout_daemon_id, checkout_path, version_policy, created_by, created_at, updated_at
+RETURNING id, workspace_id, project_id, github_repo_id, full_name, private, default_branch, checkout_daemon_id, checkout_path, version_policy, created_by, created_at, updated_at, install_command, last_tag
 `
 
 type UpdateRepositoryGithubParams struct {
@@ -309,6 +493,46 @@ func (q *Queries) UpdateRepositoryGithub(ctx context.Context, arg UpdateReposito
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.InstallCommand,
+		&i.LastTag,
+	)
+	return i, err
+}
+
+const updateRepositoryInstallCommand = `-- name: UpdateRepositoryInstallCommand :one
+UPDATE repository SET
+    install_command = $1,
+    updated_at = now()
+WHERE id = $2 AND workspace_id = $3
+RETURNING id, workspace_id, project_id, github_repo_id, full_name, private, default_branch, checkout_daemon_id, checkout_path, version_policy, created_by, created_at, updated_at, install_command, last_tag
+`
+
+type UpdateRepositoryInstallCommandParams struct {
+	InstallCommand pgtype.Text `json:"install_command"`
+	ID             pgtype.UUID `json:"id"`
+	WorkspaceID    pgtype.UUID `json:"workspace_id"`
+}
+
+// The command a new worklane runs in its worktree: ” is None.
+func (q *Queries) UpdateRepositoryInstallCommand(ctx context.Context, arg UpdateRepositoryInstallCommandParams) (Repository, error) {
+	row := q.db.QueryRow(ctx, updateRepositoryInstallCommand, arg.InstallCommand, arg.ID, arg.WorkspaceID)
+	var i Repository
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.ProjectID,
+		&i.GithubRepoID,
+		&i.FullName,
+		&i.Private,
+		&i.DefaultBranch,
+		&i.CheckoutDaemonID,
+		&i.CheckoutPath,
+		&i.VersionPolicy,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.InstallCommand,
+		&i.LastTag,
 	)
 	return i, err
 }
@@ -318,7 +542,7 @@ UPDATE repository SET
     version_policy = $1,
     updated_at = now()
 WHERE id = $2 AND workspace_id = $3
-RETURNING id, workspace_id, project_id, github_repo_id, full_name, private, default_branch, checkout_daemon_id, checkout_path, version_policy, created_by, created_at, updated_at
+RETURNING id, workspace_id, project_id, github_repo_id, full_name, private, default_branch, checkout_daemon_id, checkout_path, version_policy, created_by, created_at, updated_at, install_command, last_tag
 `
 
 type UpdateRepositoryVersionPolicyParams struct {
@@ -344,6 +568,8 @@ func (q *Queries) UpdateRepositoryVersionPolicy(ctx context.Context, arg UpdateR
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.InstallCommand,
+		&i.LastTag,
 	)
 	return i, err
 }

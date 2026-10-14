@@ -62,7 +62,7 @@ const createActivity = `-- name: CreateActivity :one
 INSERT INTO activity_log (
     workspace_id, issue_id, actor_type, actor_id, action, details, id
 ) VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7::uuid, gen_random_uuid()))
-RETURNING id, workspace_id, issue_id, actor_type, actor_id, action, details, created_at
+RETURNING id, workspace_id, issue_id, actor_type, actor_id, action, details, created_at, worklane_id, repository_id
 `
 
 type CreateActivityParams struct {
@@ -95,12 +95,164 @@ func (q *Queries) CreateActivity(ctx context.Context, arg CreateActivityParams) 
 		&i.Action,
 		&i.Details,
 		&i.CreatedAt,
+		&i.WorklaneID,
+		&i.RepositoryID,
 	)
 	return i, err
 }
 
+const createRepositoryActivity = `-- name: CreateRepositoryActivity :one
+INSERT INTO activity_log (
+    workspace_id, repository_id, actor_type, actor_id, action, details
+) VALUES (
+    $1, $2, $3,
+    $4, $5, $6
+)
+RETURNING id, workspace_id, issue_id, actor_type, actor_id, action, details, created_at, worklane_id, repository_id
+`
+
+type CreateRepositoryActivityParams struct {
+	WorkspaceID  pgtype.UUID `json:"workspace_id"`
+	RepositoryID pgtype.UUID `json:"repository_id"`
+	ActorType    pgtype.Text `json:"actor_type"`
+	ActorID      pgtype.UUID `json:"actor_id"`
+	Action       string      `json:"action"`
+	Details      []byte      `json:"details"`
+}
+
+// A repository-wide entry, such as a release line write (ADR-0008): the
+// repository set, worklane_id and issue_id NULL. It shows on every worklane
+// of the repository made before it.
+func (q *Queries) CreateRepositoryActivity(ctx context.Context, arg CreateRepositoryActivityParams) (ActivityLog, error) {
+	row := q.db.QueryRow(ctx, createRepositoryActivity,
+		arg.WorkspaceID,
+		arg.RepositoryID,
+		arg.ActorType,
+		arg.ActorID,
+		arg.Action,
+		arg.Details,
+	)
+	var i ActivityLog
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.IssueID,
+		&i.ActorType,
+		&i.ActorID,
+		&i.Action,
+		&i.Details,
+		&i.CreatedAt,
+		&i.WorklaneID,
+		&i.RepositoryID,
+	)
+	return i, err
+}
+
+const createWorklaneActivity = `-- name: CreateWorklaneActivity :one
+INSERT INTO activity_log (
+    workspace_id, worklane_id, repository_id, actor_type, actor_id, action, details
+) VALUES (
+    $1, $2, $3,
+    $4, $5, $6,
+    $7
+)
+RETURNING id, workspace_id, issue_id, actor_type, actor_id, action, details, created_at, worklane_id, repository_id
+`
+
+type CreateWorklaneActivityParams struct {
+	WorkspaceID  pgtype.UUID `json:"workspace_id"`
+	WorklaneID   pgtype.UUID `json:"worklane_id"`
+	RepositoryID pgtype.UUID `json:"repository_id"`
+	ActorType    pgtype.Text `json:"actor_type"`
+	ActorID      pgtype.UUID `json:"actor_id"`
+	Action       string      `json:"action"`
+	Details      []byte      `json:"details"`
+}
+
+// A worklane entry (ADR-0008): issue_id NULL, the worklane and its repository
+// set, so deleting the repository or its project deletes it too.
+func (q *Queries) CreateWorklaneActivity(ctx context.Context, arg CreateWorklaneActivityParams) (ActivityLog, error) {
+	row := q.db.QueryRow(ctx, createWorklaneActivity,
+		arg.WorkspaceID,
+		arg.WorklaneID,
+		arg.RepositoryID,
+		arg.ActorType,
+		arg.ActorID,
+		arg.Action,
+		arg.Details,
+	)
+	var i ActivityLog
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.IssueID,
+		&i.ActorType,
+		&i.ActorID,
+		&i.Action,
+		&i.Details,
+		&i.CreatedAt,
+		&i.WorklaneID,
+		&i.RepositoryID,
+	)
+	return i, err
+}
+
+const deleteActivitiesByProject = `-- name: DeleteActivitiesByProject :exec
+DELETE FROM activity_log
+WHERE activity_log.workspace_id = $1
+  AND activity_log.issue_id IS NULL
+  AND activity_log.repository_id IN (
+    SELECT repository.id FROM repository
+    WHERE repository.project_id = $2
+      AND repository.workspace_id = $1
+  )
+`
+
+type DeleteActivitiesByProjectParams struct {
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
+	ProjectID   pgtype.UUID `json:"project_id"`
+}
+
+// Activity references its repository, never the project, so project delete
+// reaches it through repository; it runs before DeleteRepositoriesByProject.
+func (q *Queries) DeleteActivitiesByProject(ctx context.Context, arg DeleteActivitiesByProjectParams) error {
+	_, err := q.db.Exec(ctx, deleteActivitiesByProject, arg.WorkspaceID, arg.ProjectID)
+	return err
+}
+
+const deleteActivitiesByRepository = `-- name: DeleteActivitiesByRepository :exec
+DELETE FROM activity_log
+WHERE repository_id = $1 AND workspace_id = $2 AND issue_id IS NULL
+`
+
+type DeleteActivitiesByRepositoryParams struct {
+	RepositoryID pgtype.UUID `json:"repository_id"`
+	WorkspaceID  pgtype.UUID `json:"workspace_id"`
+}
+
+// The repository's worklane entries and its repository-wide entries.
+func (q *Queries) DeleteActivitiesByRepository(ctx context.Context, arg DeleteActivitiesByRepositoryParams) error {
+	_, err := q.db.Exec(ctx, deleteActivitiesByRepository, arg.RepositoryID, arg.WorkspaceID)
+	return err
+}
+
+const deleteActivitiesByWorklane = `-- name: DeleteActivitiesByWorklane :exec
+DELETE FROM activity_log
+WHERE worklane_id = $1 AND workspace_id = $2 AND issue_id IS NULL
+`
+
+type DeleteActivitiesByWorklaneParams struct {
+	WorklaneID  pgtype.UUID `json:"worklane_id"`
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
+}
+
+func (q *Queries) DeleteActivitiesByWorklane(ctx context.Context, arg DeleteActivitiesByWorklaneParams) error {
+	_, err := q.db.Exec(ctx, deleteActivitiesByWorklane, arg.WorklaneID, arg.WorkspaceID)
+	return err
+}
+
 const getActivity = `-- name: GetActivity :one
-SELECT id, workspace_id, issue_id, actor_type, actor_id, action, details, created_at FROM activity_log
+SELECT id, workspace_id, issue_id, actor_type, actor_id, action, details, created_at, worklane_id, repository_id FROM activity_log
 WHERE id = $1
 `
 
@@ -116,6 +268,8 @@ func (q *Queries) GetActivity(ctx context.Context, id pgtype.UUID) (ActivityLog,
 		&i.Action,
 		&i.Details,
 		&i.CreatedAt,
+		&i.WorklaneID,
+		&i.RepositoryID,
 	)
 	return i, err
 }
@@ -147,8 +301,8 @@ func (q *Queries) HasSquadLeaderNoActionEvaluationForTask(ctx context.Context, a
 }
 
 const listActivitiesForIssue = `-- name: ListActivitiesForIssue :many
-SELECT id, workspace_id, issue_id, actor_type, actor_id, action, details, created_at FROM (
-    SELECT id, workspace_id, issue_id, actor_type, actor_id, action, details, created_at FROM activity_log
+SELECT id, workspace_id, issue_id, actor_type, actor_id, action, details, created_at, worklane_id, repository_id FROM (
+    SELECT id, workspace_id, issue_id, actor_type, actor_id, action, details, created_at, worklane_id, repository_id FROM activity_log
     WHERE issue_id = $1
     ORDER BY created_at DESC, id DESC
     LIMIT $2
@@ -194,6 +348,77 @@ func (q *Queries) ListActivitiesForIssue(ctx context.Context, arg ListActivities
 			&i.Action,
 			&i.Details,
 			&i.CreatedAt,
+			&i.WorklaneID,
+			&i.RepositoryID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listActivitiesForWorklane = `-- name: ListActivitiesForWorklane :many
+SELECT id, workspace_id, issue_id, actor_type, actor_id, action, details, created_at, worklane_id, repository_id FROM (
+    SELECT id, workspace_id, issue_id, actor_type, actor_id, action, details, created_at, worklane_id, repository_id FROM activity_log
+    WHERE workspace_id = $1
+      AND issue_id IS NULL
+      AND (
+        worklane_id = $2
+        OR (
+          repository_id = $3
+          AND worklane_id IS NULL
+          AND created_at >= $4
+        )
+      )
+    ORDER BY created_at DESC, id DESC
+    LIMIT 200
+) AS recent
+ORDER BY created_at ASC, id ASC
+`
+
+type ListActivitiesForWorklaneParams struct {
+	WorkspaceID       pgtype.UUID        `json:"workspace_id"`
+	WorklaneID        pgtype.UUID        `json:"worklane_id"`
+	RepositoryID      pgtype.UUID        `json:"repository_id"`
+	WorklaneCreatedAt pgtype.Timestamptz `json:"worklane_created_at"`
+}
+
+// The NEWEST 200 entries of a worklane, returned in chronological order, as
+// ListActivitiesForIssue: the worklane's own entries and its repository's
+// repository-wide entries (worklane_id NULL) from the worklane's creation on
+// (ADR-0011), which show on every worklane. worklane_created_at is the
+// worklane's created_at; main is made with its repository, so it shows every
+// entry. activity_log_worklane_keyset_idx and
+// activity_log_repository_keyset_idx serve the two sides.
+func (q *Queries) ListActivitiesForWorklane(ctx context.Context, arg ListActivitiesForWorklaneParams) ([]ActivityLog, error) {
+	rows, err := q.db.Query(ctx, listActivitiesForWorklane,
+		arg.WorkspaceID,
+		arg.WorklaneID,
+		arg.RepositoryID,
+		arg.WorklaneCreatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ActivityLog{}
+	for rows.Next() {
+		var i ActivityLog
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.IssueID,
+			&i.ActorType,
+			&i.ActorID,
+			&i.Action,
+			&i.Details,
+			&i.CreatedAt,
+			&i.WorklaneID,
+			&i.RepositoryID,
 		); err != nil {
 			return nil, err
 		}

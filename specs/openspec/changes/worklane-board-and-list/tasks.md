@@ -33,7 +33,7 @@ This change builds on UJ-5 (`issues-from-templates`, DAS-456), which builds on U
 - [x] 1.1 `server/migrations/592_worklane_branch_and_issue_done_at.up.sql`, `.down.sql` -- `worklane.branch text` and `issue.done_at timestamptz`, both nullable, the backfill of `done_at`, the function `issue_done_at()` and the trigger `trg_issue_done_at` -- design.md decisions 1 and 4. The down migration drops the trigger, the function and both columns, and deletes the `worklane_switched` and `worklane_kept` entries. When `main` has taken 592, take the next free number.
 - [x] 1.2 `server/pkg/db/queries/worklane.sql` -- `SetWorklaneBranch` (`branch`, `updated_at`, `RETURNING *`) and `ListOpenWorklaneIssues` (`workspace_id`, `worklane_ids`: the open issues with `release.position`, the status category with built-ins by their fixed category, and the workspace's issue prefix) -- design.md decision 2. Every worklane read selects `branch`.
 - [x] 1.3 `server/pkg/db/queries/issue.sql`, `server/internal/handler/issue_table_query.go` -- select `done_at` wherever issue columns are named for a response.
-- [ ] 1.4 `server/pkg/db/generated/` -- run `make sqlc` and commit the output.
+- [x] 1.4 `server/pkg/db/generated/` -- run `make sqlc` and commit the output.
 
 ## 2. J2 Data models: DTO
 

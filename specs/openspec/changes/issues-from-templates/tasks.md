@@ -49,7 +49,7 @@ Its J2 starts once UJ-4's J2 is merged.
 - [x] 1.5 `server/pkg/db/queries/issue.sql` -- `CreateIssue` and `CreateIssueWithOrigin` take `type`, `worklane_id` and `release_id` as nullable args. `ListIssues`, `ListOpenIssues` and every other query that names issue columns for a response select `type`, `worklane_id` and `release_id`.
 - [x] 1.6 `server/pkg/db/queries/issue_placement.sql` -- `SetIssueTypeOnce` (`WHERE type IS NULL`, `revision = revision + 1`, `RETURNING *`), `UpdateIssuePlacement` (`worklane_id`, `release_id`, `project_id`, `revision = revision + 1`), `ListWorklaneIssues` (the list row columns, by `created_at`, `id`), `ListReleaseProgress` (by `worklane_id` and `release_id`, `total` and `done` over `terminal_status_keys`), `ListIssuesForRelease` (`id`, `identifier`, `worklane_id`, `release_id` by ids, `FOR UPDATE`), `SetReleaseOfIssues`, `ClearReleaseOfIssues` (`RETURNING id`), `ListOpenIssuesOfWorklane` (status keys not terminal, `id`, number, title), `ClearWorklaneOfIssues`, `ClearPlacementOfRepositoryIssues` and `ClearPlacementOfProjectIssues`, each filtered by `workspace_id`.
 - [x] 1.7 `server/internal/handler/issue_table_query.go` -- select `type`, `worklane_id` and `release_id` in the dynamic issue reads and in `SearchIssues`.
-- [ ] 1.8 `server/pkg/db/generated/` -- run `make sqlc` and commit the output.
+- [x] 1.8 `server/pkg/db/generated/` -- run `make sqlc` and commit the output.
 
 ## 2. J2 Data models: DTO
 
