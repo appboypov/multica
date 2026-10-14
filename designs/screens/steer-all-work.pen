@@ -8928,21 +8928,42 @@
                           ]
                         },
                         {
-                          "id": "lWe8h",
-                          "type": "ref",
-                          "ref": "L:s6381",
-                          "name": "Description mode",
-                          "descendants": {
-                            "L:a4Q6x": {
-                              "content": "Fields"
+                          "type": "frame",
+                          "id": "RRVe9",
+                          "name": "Description bar",
+                          "gap": 4,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "id": "mZFY0",
+                              "type": "ref",
+                              "ref": "L:GlbnA",
+                              "name": "Markdown toggle",
+                              "descendants": {
+                                "L:jrrID": {
+                                  "enabled": false
+                                },
+                                "L:zc0if": {
+                                  "content": "Markdown"
+                                }
+                              }
                             },
-                            "L:DIs3i": {
-                              "content": "Markdown"
-                            },
-                            "L:J9i6d2": {
-                              "enabled": false
+                            {
+                              "id": "zWZnu",
+                              "type": "ref",
+                              "ref": "L:QcsvX",
+                              "name": "Copy Markdown",
+                              "width": 28,
+                              "height": 28,
+                              "descendants": {
+                                "L:NT6ST": {
+                                  "icon": "copy",
+                                  "width": 15,
+                                  "height": 15
+                                }
+                              }
                             }
-                          }
+                          ]
                         },
                         {
                           "id": "cI9dl",
@@ -9027,19 +9048,6 @@
                               "content": "Given … when … then …. One per line"
                             }
                           }
-                        },
-                        {
-                          "type": "text",
-                          "id": "LwKsL",
-                          "name": "Markdown note",
-                          "fill": "$L:muted-foreground",
-                          "textGrowth": "fixed-width",
-                          "width": "fill_container",
-                          "content": "These fields fill the Story template's Markdown. The issue keeps only that Markdown as its description; code and technical design go in the change.",
-                          "lineHeight": 1.45,
-                          "fontFamily": "$L:font-sans",
-                          "fontSize": "$L:text-caption",
-                          "fontWeight": "normal"
                         }
                       ]
                     }
