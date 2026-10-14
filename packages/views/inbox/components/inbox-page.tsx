@@ -83,6 +83,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@multica/ui/components/ui/dropdown-menu";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@multica/ui/components/ui/tooltip";
 import { useIsCompact } from "@multica/ui/hooks/use-mobile";
 import { cn } from "@multica/ui/lib/utils";
 import { PAGE_GUTTER, PageHeader } from "../../layout/page-header";
@@ -517,6 +518,13 @@ export function InboxPage() {
     });
   };
 
+  const batchActions = [
+    { key: "mark_all_read", label: t(($) => $.menu.mark_all_read), Icon: CheckCheck, onClick: handleMarkAllRead },
+    { key: "archive_all", label: t(($) => $.menu.archive_all), Icon: Archive, onClick: handleArchiveAll },
+    { key: "archive_all_read", label: t(($) => $.menu.archive_all_read), Icon: BookCheck, onClick: handleArchiveAllRead },
+    { key: "archive_completed", label: t(($) => $.menu.archive_completed), Icon: ListChecks, onClick: handleArchiveCompleted },
+  ];
+
   // -- Shared sub-components --------------------------------------------------
 
   const listHeader = (
@@ -543,6 +551,25 @@ export function InboxPage() {
           inbox, so offering them while the archived list is on screen reads as
           "archive all of these" and does the opposite of what it looks like. */}
       {!isArchivedView && (
+      <>
+      {batchActions.map(({ key, label, Icon, onClick }) => (
+        <Tooltip key={key}>
+          <TooltipTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="text-muted-foreground"
+                aria-label={label}
+                onClick={onClick}
+              />
+            }
+          >
+            <Icon className="h-4 w-4" />
+          </TooltipTrigger>
+          <TooltipContent side="top">{label}</TooltipContent>
+        </Tooltip>
+      ))}
       <DropdownMenu>
         <DropdownMenuTrigger
           render={
@@ -575,6 +602,7 @@ export function InboxPage() {
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+      </>
       )}
     </PageHeader>
   );
