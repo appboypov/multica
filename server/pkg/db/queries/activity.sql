@@ -71,19 +71,37 @@ INSERT INTO activity_log (
 )
 RETURNING *;
 
+-- name: CreateRepositoryActivity :one
+-- A repository-wide entry, such as a release line write (ADR-0008): the
+-- repository set, worklane_id and issue_id NULL. It shows on every worklane
+-- of the repository made before it.
+INSERT INTO activity_log (
+    workspace_id, repository_id, actor_type, actor_id, action, details
+) VALUES (
+    sqlc.arg('workspace_id'), sqlc.arg('repository_id'), sqlc.arg('actor_type'),
+    sqlc.narg('actor_id'), sqlc.arg('action'), sqlc.arg('details')
+)
+RETURNING *;
+
 -- name: ListActivitiesForWorklane :many
 -- The NEWEST 200 entries of a worklane, returned in chronological order, as
 -- ListActivitiesForIssue: the worklane's own entries and its repository's
--- repository-wide entries (worklane_id NULL), which show on every worklane.
--- activity_log_worklane_keyset_idx and activity_log_repository_keyset_idx
--- serve the two sides.
+-- repository-wide entries (worklane_id NULL) from the worklane's creation on
+-- (ADR-0011), which show on every worklane. worklane_created_at is the
+-- worklane's created_at; main is made with its repository, so it shows every
+-- entry. activity_log_worklane_keyset_idx and
+-- activity_log_repository_keyset_idx serve the two sides.
 SELECT * FROM (
     SELECT * FROM activity_log
     WHERE workspace_id = sqlc.arg('workspace_id')
       AND issue_id IS NULL
       AND (
         worklane_id = sqlc.arg('worklane_id')
-        OR (repository_id = sqlc.arg('repository_id') AND worklane_id IS NULL)
+        OR (
+          repository_id = sqlc.arg('repository_id')
+          AND worklane_id IS NULL
+          AND created_at >= sqlc.arg('worklane_created_at')
+        )
       )
     ORDER BY created_at DESC, id DESC
     LIMIT 200

@@ -121,6 +121,7 @@ var workspaceDeletionManifest = map[string]workspaceDeleteAction{
 	"question_answerer":                  workspaceDelete,
 	"question_event":                     workspaceDelete,
 	"question_link":                      workspaceDelete,
+	"release":                            workspaceDelete,
 	"repository":                         workspaceDelete,
 	"runtime_profile":                    workspaceDelete,
 	"schema_migrations":                  workspaceDeleteKeep,

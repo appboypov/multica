@@ -15,22 +15,30 @@ ORDER BY LOWER(full_name) ASC;
 SELECT * FROM repository
 WHERE id = $1 AND workspace_id = $2;
 
+-- name: LockRepositoryForLine :one
+-- Every release line write takes the repository row first, inside its
+-- transaction, so two writes to one line run one after the other (ADR-0010).
+SELECT * FROM repository
+WHERE id = $1 AND workspace_id = $2
+FOR UPDATE;
+
 -- name: CreateRepository :one
 -- A repository already in a project fails on
 -- repository_workspace_full_name_unique; the handler answers 409 with that
 -- project. The GitHub fields come from GitHub and the checkout from a passed
 -- check, never from the client. install_command is NULL while not found yet,
--- '' for None.
+-- '' for None. last_tag is the check's last tag without the `v`, '' when it
+-- found none.
 INSERT INTO repository (
     workspace_id, project_id, github_repo_id, full_name, private,
     default_branch, checkout_daemon_id, checkout_path, version_policy,
-    install_command, created_by
+    install_command, last_tag, created_by
 ) VALUES (
     sqlc.arg('workspace_id'), sqlc.arg('project_id'), sqlc.arg('github_repo_id'),
     sqlc.arg('full_name'), sqlc.arg('private'), sqlc.arg('default_branch'),
     sqlc.arg('checkout_daemon_id'), sqlc.arg('checkout_path'),
     sqlc.arg('version_policy'), sqlc.narg('install_command'),
-    sqlc.narg('created_by')
+    sqlc.narg('last_tag'), sqlc.narg('created_by')
 )
 RETURNING *;
 
@@ -81,6 +89,21 @@ WHERE workspace_id = sqlc.arg('workspace_id')
   AND checkout_daemon_id = sqlc.arg('checkout_daemon_id')
   AND checkout_path = sqlc.arg('checkout_path')
   AND install_command IS NULL
+RETURNING *;
+
+-- name: BackfillRepositoryLastTag :many
+-- A passed check fills the last tag of a repository from before this column,
+-- when it names that repository and its checkout: without the `v`, '' when the
+-- check found none. Returns the rows it set so the handler publishes
+-- repository:updated for each.
+UPDATE repository SET
+    last_tag = sqlc.arg('last_tag'),
+    updated_at = now()
+WHERE workspace_id = sqlc.arg('workspace_id')
+  AND LOWER(full_name) = LOWER(sqlc.arg('full_name'))
+  AND checkout_daemon_id = sqlc.arg('checkout_daemon_id')
+  AND checkout_path = sqlc.arg('checkout_path')
+  AND last_tag IS NULL
 RETURNING *;
 
 -- name: DeleteRepository :exec

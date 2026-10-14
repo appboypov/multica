@@ -113,6 +113,11 @@ const (
 	EventWorklaneUpdated = "worklane:updated"
 	EventWorklaneDeleted = "worklane:deleted"
 
+	// Release line events (ADR-0010). Every write to a repository's release
+	// line publishes release_line:updated with ReleaseLineEventPayload; the
+	// client reads the line again.
+	EventReleaseLineUpdated = "release_line:updated"
+
 	// Organisation events. Both carry OrganisationEventPayload; there is no
 	// organisation:deleted because organisations go only with their workspace.
 	EventOrganisationCreated = "organisation:created"
@@ -276,5 +281,10 @@ type RepositoryEventPayload struct {
 // and worklane:deleted.
 type WorklaneEventPayload struct {
 	WorklaneID   string `json:"worklane_id"`
+	RepositoryID string `json:"repository_id"`
+}
+
+// ReleaseLineEventPayload is the payload of release_line:updated.
+type ReleaseLineEventPayload struct {
 	RepositoryID string `json:"repository_id"`
 }

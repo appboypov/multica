@@ -41,13 +41,13 @@ Its J2 starts once UJ-3's J2 is merged.
 
 ## 1. J2 Data models: model change
 
-- [ ] 1.1 `server/migrations/587_release_line.up.sql`, `.down.sql` -- `repository.last_tag text` (nullable, no default) and the `release` table with its checks, without foreign keys -- design.md decision 1. The down migration deletes the `activity_log` rows with the four release actions, then drops `release` and `repository.last_tag`.
-- [ ] 1.2 `server/migrations/588_release_line_index.up.sql`, `.down.sql` -- `CREATE INDEX CONCURRENTLY idx_release_line ON release (workspace_id, repository_id, position)`.
-- [ ] 1.3 `server/cmd/migrate/main.go` -- add 588 to the concurrent index cleanups -- `TestEveryConcurrentUpBuildHasCleanup` requires it. When `main` has taken 587 or 588, take the next free numbers and rename every reference.
-- [ ] 1.4 `server/pkg/db/queries/release.sql` -- `ListReleasesInWorkspace` (by repository and position), `ListReleaseLine` (by workspace and repository, by position), `GetReleaseInWorkspace`, `CreateRelease`, `UpdateReleaseFields` (title, description, version, bump), `UpdateReleasePositionAndVersion`, `DeleteRelease`, `DeleteReleasesByRepository`, `DeleteReleasesByProject` (through `repository`), `ListUnshippedReleaseHeads` (version and title, `shipped_at IS NULL`), each filtered by `workspace_id`.
-- [ ] 1.5 `server/pkg/db/queries/repository.sql` -- `LockRepositoryForLine` (`FOR UPDATE`, by id and workspace); `last_tag` in `CreateRepository`; `BackfillRepositoryLastTag` (workspace, `LOWER(full_name)`, checkout daemon and path, `last_tag IS NULL`).
-- [ ] 1.6 `server/pkg/db/queries/activity.sql` -- `CreateRepositoryActivity` (`repository_id` set, `worklane_id` and `issue_id` NULL); `ListActivitiesForWorklane` gains `created_at >= $3` on its repository part -- ADR-0011.
-- [ ] 1.7 `server/pkg/db/queries/workspace_delete.sql` -- `deleted_releases AS (DELETE FROM release WHERE workspace_id = $1)` beside `deleted_activity`.
+- [x] 1.1 `server/migrations/587_release_line.up.sql`, `.down.sql` -- `repository.last_tag text` (nullable, no default) and the `release` table with its checks, without foreign keys -- design.md decision 1. The down migration deletes the `activity_log` rows with the four release actions, then drops `release` and `repository.last_tag`.
+- [x] 1.2 `server/migrations/588_release_line_index.up.sql`, `.down.sql` -- `CREATE INDEX CONCURRENTLY idx_release_line ON release (workspace_id, repository_id, position)`.
+- [x] 1.3 `server/cmd/migrate/main.go` -- add 588 to the concurrent index cleanups -- `TestEveryConcurrentUpBuildHasCleanup` requires it. When `main` has taken 587 or 588, take the next free numbers and rename every reference.
+- [x] 1.4 `server/pkg/db/queries/release.sql` -- `ListReleasesInWorkspace` (by repository and position), `ListReleaseLine` (by workspace and repository, by position), `GetReleaseInWorkspace`, `CreateRelease`, `UpdateReleaseFields` (title, description, version, bump), `UpdateReleasePositionAndVersion`, `DeleteRelease`, `DeleteReleasesByRepository`, `DeleteReleasesByProject` (through `repository`), `ListUnshippedReleaseHeads` (version and title, `shipped_at IS NULL`), each filtered by `workspace_id`.
+- [x] 1.5 `server/pkg/db/queries/repository.sql` -- `LockRepositoryForLine` (`FOR UPDATE`, by id and workspace); `last_tag` in `CreateRepository`; `BackfillRepositoryLastTag` (workspace, `LOWER(full_name)`, checkout daemon and path, `last_tag IS NULL`).
+- [x] 1.6 `server/pkg/db/queries/activity.sql` -- `CreateRepositoryActivity` (`repository_id` set, `worklane_id` and `issue_id` NULL); `ListActivitiesForWorklane` gains `created_at >= $3` on its repository part -- ADR-0011.
+- [x] 1.7 `server/pkg/db/queries/workspace_delete.sql` -- `deleted_releases AS (DELETE FROM release WHERE workspace_id = $1)` beside `deleted_activity`.
 - [ ] 1.8 `server/pkg/db/generated/` -- run `make sqlc` and commit the output.
 
 ## 2. J2 Data models: model change
@@ -60,8 +60,8 @@ Its J2 starts once UJ-3's J2 is merged.
 
 ## 3. J2 Data models: action names
 
-- [ ] 3.1 `server/pkg/protocol/events.go` -- `EventReleaseLineUpdated = "release_line:updated"` with the repository's id.
-- [ ] 3.2 `server/internal/handler/release.go` -- the constants `releaseActionPlanned`, `releaseActionEdited`, `releaseActionMoved` and `releaseActionRemoved`.
+- [x] 3.1 `server/pkg/protocol/events.go` -- `EventReleaseLineUpdated = "release_line:updated"` with the repository's id.
+- [x] 3.2 `server/internal/handler/release.go` -- the constants `releaseActionPlanned`, `releaseActionEdited`, `releaseActionMoved` and `releaseActionRemoved`.
 - [ ] 3.3 `packages/core/modals/store.ts` -- `"plan-release"`, `"edit-release"` and `"remove-release"` in `ModalType`.
 
 ## 4. J3 Data-flow prototype: data-flow prototype
