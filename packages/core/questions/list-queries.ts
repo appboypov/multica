@@ -1,7 +1,7 @@
 import { infiniteQueryOptions, queryOptions, useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { api } from "../api";
 import type { QuestionRowFilters, QuestionTab } from "../types/question";
-import { questionKeys } from "./queries";
+import { questionKeys, type QuestionParent } from "./queries";
 
 export const EMPTY_QUESTION_ROW_FILTERS: QuestionRowFilters = {
   answer_types: [],
@@ -50,4 +50,23 @@ export function useQuestionRows(wsId: string, tab: QuestionTab, filters: Questio
 export function useQuestionsOpenCount(wsId: string): number {
   const { data } = useQuery(questionsOpenCountOptions(wsId));
   return data?.count ?? 0;
+}
+
+/** The first page of open rows below a parent issue or project, for its Questions property. */
+export function questionParentRowsOptions(wsId: string, parent: QuestionParent) {
+  return queryOptions({
+    queryKey: questionKeys.parent(wsId, parent),
+    queryFn: ({ signal }) =>
+      api.listQuestionRows("all_open", { ...EMPTY_QUESTION_ROW_FILTERS, parent }, null, signal),
+    enabled: !!wsId && !!parent.id,
+  });
+}
+
+/** The open count below a parent issue or project, with how many block work. */
+export function questionParentCountOptions(wsId: string, parent: QuestionParent) {
+  return queryOptions({
+    queryKey: questionKeys.parentCount(wsId, parent),
+    queryFn: ({ signal }) => api.getOpenQuestionCount(signal, { tab: "all_open", parent }),
+    enabled: !!wsId && !!parent.id,
+  });
 }

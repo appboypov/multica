@@ -60,6 +60,7 @@
     "section_properties": "Properties",
     "section_progress": "Progress",
     "section_description": "Description",
+    "prop_questions": "Questions",
     "description_placeholder": "Add description...",
     "description_hint": "Shared with agents as context for every run in this project.",
     "empty_issues_title": "No issues linked",

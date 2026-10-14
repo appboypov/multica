@@ -1,8 +1,9 @@
 export {
-  questionKeys, issueQuestionsOptions, questionDetailOptions, useIssueQuestions, useQuestion,
+  questionKeys, issueQuestionsOptions, questionDetailOptions, useIssueQuestions, useQuestion, type QuestionParent,
 } from "./queries";
 export {
   EMPTY_QUESTION_ROW_FILTERS, questionRowsOptions, questionsOpenCountOptions, useQuestionRows, useQuestionsOpenCount,
+  questionParentRowsOptions, questionParentCountOptions,
 } from "./list-queries";
 export {
   questionMutationKeys, useAnswerQuestion, useAskBackQuestion, useReassignQuestion, useWakeQuestionAgent,

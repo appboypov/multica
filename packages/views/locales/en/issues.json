@@ -441,7 +441,6 @@
     "questions_open_one": "{{count}} open",
     "questions_open_other": "{{count}} open",
     "questions_blocks_work": "blocks work",
-    "questions_none_open": "None open",
     "prop_agent_questions": "Agent questions",
     "agent_questions_workspace_default": "Workspace default ({{value}})",
     "agent_questions_on": "On",

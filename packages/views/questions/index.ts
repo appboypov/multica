@@ -10,3 +10,4 @@ export { QuestionListRow, type QuestionListRowProps } from "./question-row";
 export { WakeBars, type WakeBarsProps } from "./wake-bar";
 export { QuestionsPage } from "./questions-page";
 export { AnswerAllPage } from "./answer-all/answer-all-page";
+export { QuestionsProperty, type QuestionsPropertyProps } from "./questions-property";

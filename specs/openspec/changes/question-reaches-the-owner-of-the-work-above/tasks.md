@@ -107,8 +107,8 @@ Every group builds on UJ-1's, UJ-2's and UJ-3's code (changes `answer-an-agents-
 
 ## 11. J9 Frontend: flow
 
-- [ ] 11.1 `packages/core/api/client.ts` -- `listQuestionRows` takes `parent`; `getOpenQuestionCount({tab, parent})`; `wakeQuestion(id, agentId?)` -- through the schemas of 2.2.
-- [ ] 11.2 `packages/core/questions/list-queries.ts` -- `questionKeys.parent(wsId, parent)` and `questionKeys.parentCount(wsId, parent)` under UJ-3's `rowsAll` and `openCount` prefixes; `questionParentRowsOptions`, `questionParentCountOptions`, `onMyWork` in the tab options -- design.md decision 8.
+- [x] 11.1 `packages/core/api/client.ts` -- `listQuestionRows` takes `parent`; `getOpenQuestionCount({tab, parent})`; `wakeQuestion(id, agentId?)` -- through the schemas of 2.2.
+- [x] 11.2 `packages/core/questions/list-queries.ts` -- `questionKeys.parent(wsId, parent)` and `questionKeys.parentCount(wsId, parent)` under UJ-3's `rowsAll` and `openCount` prefixes; `questionParentRowsOptions`, `questionParentCountOptions`, `onMyWork` in the tab options -- design.md decision 8.
 - [x] 11.3 `packages/core/questions/via.ts`, `via.test.ts` -- `viaLabel(via, pageIssueId, t)`: "via sub-issue WORK-415", "via issue WORK-416", "via comment" on its own issue, "via comment on WORK-415", "via run", "via run on WORK-415"; null for null -- design.md decision 3; the only label rule.
 - [x] 11.4 `packages/core/questions/ws-updaters.ts`, `packages/core/realtime/use-realtime-sync.ts` -- `question:*` invalidates `byIssue` for each of `issue_ids`; `issue:updated` with a changed `parent_issue_id`, `project_id` or assignee (or an uncached issue), `issue:deleted` and `project:*` invalidate `questionKeys.all(wsId)` -- design.md decision 8.
 - [ ] 11.5 `packages/core/questions/ws-updaters.test.ts` -- a status-only `issue:updated` leaves question queries alone; a parent change invalidates them; `issue_ids` of two issues invalidate both pages -- the invalidation rule.
@@ -116,7 +116,7 @@ Every group builds on UJ-1's, UJ-2's and UJ-3's code (changes `answer-an-agents-
 
 ## 12. J9 Frontend: new components
 
-- [ ] 12.1 `packages/views/questions/questions-property.tsx` -- `QuestionsProperty({parent})`: the count row ("2 open · blocks work") and the via rows from 11.2, each a type glyph, prompt and `viaLabel`, opening `open_issue` with `highlightQuestionId`; hidden at count 0 -- design.md decision 4.
+- [x] 12.1 `packages/views/questions/questions-property.tsx` -- `QuestionsProperty({parent})`: the count row ("2 open · blocks work") and the via rows from 11.2, each a type glyph, prompt and `viaLabel`, opening `open_issue` with `highlightQuestionId`; hidden at count 0 -- design.md decision 4.
 - [ ] 12.2 `packages/views/questions/questions-property.test.tsx` -- WORK-410 lists the WORK-415 question as "via sub-issue WORK-415" and counts it; a comment question on WORK-412 reads "via comment"; count 0 renders nothing -- the `issue-questions` spec scenarios.
 
 ## 13. J9 Frontend: changed components
@@ -127,8 +127,8 @@ Every group builds on UJ-1's, UJ-2's and UJ-3's code (changes `answer-an-agents-
 
 ## 14. J9 Frontend: screens
 
-- [ ] 14.1 `packages/views/issues/components/issue-detail.tsx` -- UJ-1's Questions row reads `QuestionsProperty` with `parent={type: "issue", id}` -- design.md decision 4.
-- [ ] 14.2 `packages/views/projects/components/project-detail.tsx` -- a **Questions** property with `QuestionsProperty` for the project -- design.md decision 4.
+- [x] 14.1 `packages/views/issues/components/issue-detail.tsx` -- UJ-1's Questions row reads `QuestionsProperty` with `parent={type: "issue", id}` -- design.md decision 4.
+- [x] 14.2 `packages/views/projects/components/project-detail.tsx` -- a **Questions** property with `QuestionsProperty` for the project -- design.md decision 4.
 - [ ] 14.3 `packages/views/questions/questions-page.tsx` -- the tab **On my work** after For me in `?tab=on_my_work`, rows with the via line, Yes / No only where the viewer answers, the empty state -- design.md decision 5.
 - [ ] 14.4 `packages/views/questions/questions-page.test.tsx` -- On my work lists the question below Brian's WORK-410 with "via sub-issue WORK-415" and no Yes / No; For me does not list it -- the `questions-page` spec.
 

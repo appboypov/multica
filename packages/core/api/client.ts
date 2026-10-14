@@ -3767,6 +3767,7 @@ export class ApiClient {
     for (const id of filters.answerer_ids) params.append("answerer_id", id);
     for (const id of filters.link_ids) params.append("link_id", id);
     if (filters.blocks_work) params.set("blocks_work", "true");
+    if (filters.parent) params.set("parent", `${filters.parent.type}:${filters.parent.id}`);
     if (cursor) params.set("cursor", cursor);
     const raw: unknown = await this.fetch(`/api/questions?${params}`, { signal });
     return parseWithFallback(raw, QuestionRowPageSchema, EMPTY_QUESTION_ROW_PAGE, {
@@ -3774,9 +3775,19 @@ export class ApiClient {
     });
   }
 
-  /** The number of questions open for the viewer, as the sidebar shows it. */
-  async getOpenQuestionCount(signal?: AbortSignal): Promise<QuestionOpenCount> {
-    const raw: unknown = await this.fetch("/api/questions/open-count", { signal });
+  /**
+   * The number of open questions: without a scope those open for the viewer,
+   * as the sidebar shows it; with one, the tab's and the parent's.
+   */
+  async getOpenQuestionCount(
+    signal?: AbortSignal,
+    scope?: { tab?: QuestionTab; parent?: QuestionRowFilters["parent"] },
+  ): Promise<QuestionOpenCount> {
+    const params = new URLSearchParams();
+    if (scope?.tab) params.set("tab", scope.tab);
+    if (scope?.parent) params.set("parent", `${scope.parent.type}:${scope.parent.id}`);
+    const query = params.toString();
+    const raw: unknown = await this.fetch(`/api/questions/open-count${query ? `?${query}` : ""}`, { signal });
     return parseWithFallback(raw, QuestionOpenCountSchema, EMPTY_QUESTION_OPEN_COUNT, {
       endpoint: "GET /api/questions/open-count",
     });

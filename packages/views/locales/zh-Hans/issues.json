@@ -434,7 +434,6 @@
     "prop_questions": "问题",
     "questions_open_other": "{{count}} 个待回答",
     "questions_blocks_work": "阻塞工作",
-    "questions_none_open": "无待回答",
     "prop_agent_questions": "智能体提问",
     "agent_questions_workspace_default": "工作区默认 ({{value}})",
     "agent_questions_on": "开启",

@@ -434,7 +434,6 @@
     "prop_questions": "質問",
     "questions_open_other": "未回答 {{count}} 件",
     "questions_blocks_work": "作業をブロック",
-    "questions_none_open": "未回答なし",
     "prop_agent_questions": "エージェントの質問",
     "agent_questions_workspace_default": "ワークスペースの既定 ({{value}})",
     "agent_questions_on": "オン",

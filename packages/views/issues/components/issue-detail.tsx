@@ -22,7 +22,6 @@ import {
   ChevronLeft,
   ChevronRight,
   CircleCheck,
-  CircleHelp,
   Milestone,
   MoreHorizontal,
   PanelRight,
@@ -72,8 +71,8 @@ import { PropRow } from "../../common/prop-row";
 import { PropertyIcon } from "../../common/property-icon";
 import type { Attachment, Issue, IssueProperty, IssueStatus, IssueStatusCategory, IssuePriority, Question, TimelineEntry, UpdateIssueRequest } from "@multica/core/types";
 import { EMPTY_QUESTION_LIST } from "@multica/core/api/schemas";
-import { countOpen, groupQuestionCards, isOpen, useIssueQuestions, type QuestionCardGroup } from "@multica/core/questions";
-import { QuestionCard, QuestionSetCard } from "../../questions";
+import { groupQuestionCards, isOpen, useIssueQuestions, type QuestionCardGroup } from "@multica/core/questions";
+import { QuestionCard, QuestionSetCard, QuestionsProperty } from "../../questions";
 import { contentReferencesAttachment } from "@multica/core/types";
 import { isBuiltInIssueStatus } from "@multica/core/issue-statuses";
 import { commentLandingTarget, isDeletedComment } from "@multica/core/issues/comment-deletion";
@@ -1650,17 +1649,15 @@ export function IssueDetail({ issueId, onDelete, onDone, defaultSidebarOpen = tr
     : highlightCommentId;
   // The question the Questions row last jumped to; its set card opens at it.
   const [jumpedQuestionId, setJumpedQuestionId] = useState<string | null>(null);
-  // The Questions row: how many questions are open, whether one blocks work,
-  // and the first open one in the timeline, which a click on the row opens.
+  // The Questions row's jump: the first open question in the timeline, which a
+  // click on the row's count opens.
   const openQuestions = useMemo(() => {
     const first = questionCards.flatMap((card) => card.questions.filter(isOpen).map((question) => ({ card, question })))[0];
     return {
-      count: countOpen(questions),
-      blocksWork: questions.some((question) => isOpen(question) && question.blocks_work),
       firstAnchor: first ? questionAnchor(first.card.questions[0]!.id) : null,
       firstId: first?.question.id ?? null,
     };
-  }, [questionCards, questions]);
+  }, [questionCards]);
 
   // Resolve / unresolve must always clear the per-session expand entry so
   // re-resolving an already-expanded thread folds it back to the bar (the
@@ -2758,31 +2755,20 @@ export function IssueDetail({ issueId, onDelete, onDone, defaultSidebarOpen = tr
               />
             </PropRow>
           )}
-          {questions.length > 0 && (
-            <PropRow label={t(($) => $.detail.prop_questions)} interactive={!!openQuestions.firstAnchor}>
-              {openQuestions.firstAnchor ? (
-                <button
-                  type="button"
-                  className="flex min-w-0 items-center gap-1.5 truncate"
-                  onClick={() => {
-                    setJumpedQuestionId(openQuestions.firstId);
-                    jumpToThread(openQuestions.firstAnchor!);
-                  }}
-                >
-                  <CircleHelp aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
-                  <span className="text-brand">{t(($) => $.detail.questions_open, { count: openQuestions.count })}</span>
-                  {openQuestions.blocksWork && (
-                    <span className="text-destructive">· {t(($) => $.detail.questions_blocks_work)}</span>
-                  )}
-                </button>
-              ) : (
-                <span className="flex min-w-0 items-center gap-1.5 truncate text-muted-foreground">
-                  <CircleHelp aria-hidden className="size-3.5 shrink-0" />
-                  {t(($) => $.detail.questions_none_open)}
-                </span>
-              )}
-            </PropRow>
-          )}
+          <QuestionsProperty
+            parent={{ type: "issue", id }}
+            pageIssueIdentifier={issue.identifier}
+            onCountClick={openQuestions.firstAnchor ? () => {
+              setJumpedQuestionId(openQuestions.firstId);
+              jumpToThread(openQuestions.firstAnchor!);
+            } : undefined}
+          >
+            {(value) => (
+              <PropRow label={t(($) => $.detail.prop_questions)} interactive={!!openQuestions.firstAnchor}>
+                {value}
+              </PropRow>
+            )}
+          </QuestionsProperty>
           <PropRow label={t(($) => $.detail.prop_agent_questions)}>
             <AgentQuestionsPicker value={issue.agent_questions ?? null} onUpdate={handleUpdateField} align="start" />
           </PropRow>

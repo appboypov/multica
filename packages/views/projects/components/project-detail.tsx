@@ -70,6 +70,7 @@ import {
   AlertDialogTitle,
 } from "@multica/ui/components/ui/alert-dialog";
 import { useT } from "../../i18n";
+import { QuestionsProperty } from "../../questions";
 import { useProjectPriorityLabels } from "./labels";
 import { matchesPinyin } from "../../editor/extensions/pinyin-match";
 
@@ -388,6 +389,9 @@ export function ProjectDetail({ projectId }: { projectId: string }) {
               </PopoverContent>
             </Popover>
           </PropRow>
+          <QuestionsProperty parent={{ type: "project", id: project.id }}>
+            {(value) => <PropRow label={t(($) => $.detail.prop_questions)}>{value}</PropRow>}
+          </QuestionsProperty>
         </div>}
       </div>
 

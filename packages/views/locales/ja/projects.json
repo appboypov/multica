@@ -59,6 +59,7 @@
     "section_properties": "プロパティ",
     "section_progress": "進捗",
     "section_description": "説明",
+    "prop_questions": "質問",
     "description_placeholder": "説明を追加...",
     "description_hint": "このプロジェクトのすべての実行で、コンテキストとしてエージェントに共有されます。",
     "empty_issues_title": "リンクされたタスクはありません",
