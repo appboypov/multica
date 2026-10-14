@@ -25,26 +25,35 @@ import { WorklaneMenu } from "../../worklanes/components/worklane-menu";
 import { WorklaneStateLabel } from "../../worklanes/components/worklane-state";
 
 /**
- * One worklane of the card, opening its page, with the issue it works on or
- * takes next, its repository's last and next release, its state and its menu.
- * The chips sit outside the row's link, because each chip is a link of its own.
+ * One worklane of the card, opening its page: its name and state, the issue
+ * it works on or takes next, and under them its repository's last and next
+ * release, so the row fits the project page's side panel. The chips sit
+ * outside the row's link, because each chip is a link of its own.
  */
 function WorklaneRow({ worklane }: { worklane: Worklane }) {
   const paths = useWorkspacePaths();
   return (
-    <li className="group/row flex min-h-11 items-center gap-2 py-1 pr-2 pl-10 hover:bg-accent/40">
-      <AppLink
-        href={paths.worklaneDetail(worklane.id)}
-        className="flex h-full min-w-0 flex-1 items-center gap-2"
-      >
-        <GitBranch aria-hidden className="mt-0.5 size-3.5 shrink-0 self-start text-muted-foreground" />
-        <span className="flex min-w-0 flex-col gap-0.5">
-          <span className="min-w-0 truncate font-mono text-body">{worklane.name}</span>
-          <WorklaneRowWork worklane={worklane} />
-        </span>
-      </AppLink>
-      <ReleaseChips repositoryId={worklane.repository_id} worklaneId={worklane.id} />
-      <WorklaneStateLabel state={worklane.state} />
+    <li className="group/row flex min-h-11 items-start gap-2 py-1.5 pr-2 pl-10 hover:bg-accent/40">
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <AppLink
+          href={paths.worklaneDetail(worklane.id)}
+          className="flex min-w-0 items-start gap-2"
+        >
+          <GitBranch aria-hidden className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+          <span className="flex min-w-0 flex-col gap-0.5">
+            <span className="flex min-w-0 items-center gap-2">
+              <span className="min-w-0 truncate font-mono text-body">{worklane.name}</span>
+              <WorklaneStateLabel state={worklane.state} />
+            </span>
+            <WorklaneRowWork worklane={worklane} />
+          </span>
+        </AppLink>
+        <ReleaseChips
+          repositoryId={worklane.repository_id}
+          worklaneId={worklane.id}
+          className="flex-wrap pl-5.5"
+        />
+      </div>
       {worklane.is_main ? (
         <span aria-hidden className="size-7 shrink-0" />
       ) : (
@@ -110,14 +119,14 @@ export function RepositoryCard({
 
   return (
     <section className="overflow-hidden rounded-lg border bg-card">
-      <div className="flex h-11 items-center gap-2 pr-2">
+      <div className="flex min-h-11 items-center gap-2 pr-2">
         <button
           type="button"
           aria-expanded={open}
           aria-controls={bodyId}
           aria-label={t(($) => $.card.toggle, { name: repository.full_name })}
           onClick={() => onOpenChange(!open)}
-          className="flex h-full min-w-0 flex-1 items-center gap-2 pl-3 text-left hover:bg-accent/40"
+          className="flex min-h-11 min-w-0 flex-1 items-center gap-2 self-stretch py-1.5 pl-3 text-left hover:bg-accent/40"
         >
           <ChevronRight
             aria-hidden
@@ -127,18 +136,23 @@ export function RepositoryCard({
             )}
           />
           <FolderGit2 aria-hidden className="size-4 shrink-0 text-muted-foreground" />
-          <span className="min-w-0 truncate font-mono text-body font-medium">
-            {repository.full_name}
-          </span>
-          <span
-            className="flex shrink-0 items-center gap-1 font-mono text-caption text-muted-foreground"
-            title={t(($) => $.card.default_branch, { branch: repository.default_branch })}
-          >
-            <GitBranch aria-hidden className="size-3" />
-            {repository.default_branch}
-          </span>
-          <span className="ml-auto shrink-0 text-caption text-muted-foreground">
-            {tWorklanes(($) => $.worklane_count, { count: worklanes.length })}
+          <span className="flex min-w-0 flex-col">
+            <span className="min-w-0 truncate font-mono text-body font-medium">
+              {repository.full_name}
+            </span>
+            <span className="flex min-w-0 items-center gap-1 text-caption text-muted-foreground">
+              <span
+                className="flex min-w-0 items-center gap-1 font-mono"
+                title={t(($) => $.card.default_branch, { branch: repository.default_branch })}
+              >
+                <GitBranch aria-hidden className="size-3 shrink-0" />
+                <span className="truncate">{repository.default_branch}</span>
+              </span>
+              <span aria-hidden="true">·</span>
+              <span className="shrink-0">
+                {tWorklanes(($) => $.worklane_count, { count: worklanes.length })}
+              </span>
+            </span>
           </span>
         </button>
         <Button
