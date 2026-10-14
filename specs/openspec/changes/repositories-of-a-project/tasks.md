@@ -123,7 +123,7 @@ This change builds on UJ-1 (`projects-by-organisation`, DAS-450): its `organisat
 
 ## 9. J8 Backend and agent tooling: integration
 
-- [ ] 9.1 `madspec-sync/multica_projects.py` -- design.md decision 7:
+- [x] 9.1 `madspec-sync/multica_projects.py` -- design.md decision 7:
   - Remove the checkout step, UJ-1's single-repository merge step and the checkout mark from take-over.
   - Read `GET /api/repositories` and `/api/repositories/available`.
   - For each Repository of each Product: skip one already in Multica (print "in {project}" when in another project), report one the App cannot see, with no checkout or with several, run a check on the sync's runtime and report a failure, else `POST /api/repositories` with the first found version file or `tags`.
@@ -131,7 +131,7 @@ This change builds on UJ-1 (`projects-by-organisation`, DAS-450): its `organisat
   - Merge each project recorded under `repository_projects` in the mark file once its Repository is a repository of its Product's project: issues through `POST /api/issues/batch-update` in pages of 100, delete it only after a fresh read shows `issue_count` 0, then drop its entry. One whose repository is not added there stays. One that no longer exists leaves the mark file.
   - A failed read writes nothing.
 - [ ] 9.2 `madspec-sync/tests/test_multica_projects.py` -- `plan()` cases per scenario of the `brain-repository-sync` spec delta: MadSpec's three repositories, the version policy, a second run writing nothing, not on the default branch then added after the switch, the App cannot see it, in another project Brian chose, an edited checkout and policy kept, removed in Multica and added again, deleted from the brain, MadSpec takes in its kept projects' 13 issues, and a repository the sync cannot add keeps its project. Drop UJ-1's checkout and single-repository merge cases.
-- [ ] 9.3 `madspec-sync/specs/multica-projects.md`, `madspec-sync/README.md` -- rewrite the spec to the new rules (repositories in place of checkout resources, the merge of the projects UJ-1 kept, the repository marks) and update the README -- `madspec-sync/README.md` says the spec is the sync's contract.
+- [x] 9.3 `madspec-sync/specs/multica-projects.md`, `madspec-sync/README.md` -- rewrite the spec to the new rules (repositories in place of checkout resources, the merge of the projects UJ-1 kept, the repository marks) and update the README -- `madspec-sync/README.md` says the spec is the sync's contract.
 
 ## 10. J9 Frontend: flow
 

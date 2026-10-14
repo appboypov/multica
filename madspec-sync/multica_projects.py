@@ -5,9 +5,9 @@
 # ///
 """Fill Multica's organisations and Product projects from the brain, by hand.
 
-Read, plan, then write: organisations, projects, checkout resources, issue
-merges and guarded project deletes. Identity lives in brain-sync.json; checkout
-labels remain madspec:<owner/name>. See specs/multica-projects.md for the contract.
+Read, plan, then write: organisations, projects, repositories and guarded
+merges of the repository projects UJ-1 kept. Identity lives in brain-sync.json.
+See specs/multica-projects.md for the contract.
 
 Usage from the Multica checkout: uv run madspec-sync/multica_projects.py
 """
@@ -19,9 +19,9 @@ import importlib.util
 import json
 import os
 import re
-import subprocess
 import sys
 import tempfile
+import time
 from copy import deepcopy
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -30,11 +30,8 @@ from urllib.parse import urlencode
 
 sys.dont_write_bytecode = True
 
-MARKER_PREFIX = "madspec:"
-LOCAL_DIRECTORY = "local_directory"
-WORKTREE = "worktree"
-GITHUB_READ_TIMEOUT = 60
 PAGE_SIZE = 100
+CHECKOUT_WAIT_SECONDS = 120
 MARK_FILE = Path.home() / ".local/state/madspec/multica/brain-sync.json"
 KEYS = {"Marvelous K": "mk", "Mens & Maatwerk": "mnm", "InclusiTalent": "incl", "Buttler": "btlr", "Whitebird": "wb"}
 
@@ -68,17 +65,6 @@ class Brain:
     repositories: tuple[Repository, ...]
 
 
-@dataclass(frozen=True)
-class LocalDirectory:
-    local_path: str
-    daemon_id: str
-    label: str
-    execution_mode: str = WORKTREE
-
-    def ref(self) -> dict[str, str]:
-        return {"local_path": self.local_path, "daemon_id": self.daemon_id,
-                "label": self.label, "execution_mode": self.execution_mode}
-
 
 @dataclass(frozen=True)
 class PlaceOrganisation:
@@ -103,11 +89,13 @@ class SetOrganisation:
 
 
 @dataclass(frozen=True)
-class ResourceWrite:
-    key: str
+class RepositoryWrite:
+    brain_id: str
     product: str
-    resource: LocalDirectory
-    resource_id: str | None = None
+    full_name: str
+    checkout_check_id: str
+    version_policy: str
+    install_command: str
 
 
 @dataclass(frozen=True)
@@ -116,7 +104,7 @@ class Merge:
     title: str
     product: str
     issue_ids: tuple[str, ...]
-    keys: tuple[str, ...]
+    repositories: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -124,22 +112,22 @@ class Plan:
     organisations: tuple[PlaceOrganisation, ...] = ()
     projects: tuple[PlaceProject, ...] = ()
     assignments: tuple[SetOrganisation, ...] = ()
-    resources: tuple[ResourceWrite, ...] = ()
+    repositories: tuple[RepositoryWrite, ...] = ()
     merges: tuple[Merge, ...] = ()
     reports: tuple[str, ...] = ()
     organisation_ids: dict[str, str] = field(default_factory=dict)
     project_ids: dict[str, str] = field(default_factory=dict)
-    repository_projects: dict[str, str] = field(default_factory=dict)
+    forget_repository_projects: tuple[str, ...] = ()
 
     @property
     def writes(self) -> tuple:
-        return (*self.organisations, *self.projects, *self.assignments, *self.resources, *self.merges)
+        return (*self.organisations, *self.projects, *self.assignments, *self.repositories, *self.merges)
 
 
-def plan(brain: Brain, archived: dict[str, bool | None], organisations: list[dict],
-         projects: list[dict], resources: dict[str, list[dict]],
-         issues: dict[str, tuple[str, ...]], daemon: str, marks: dict) -> Plan:
-    """Pure plan; only Products with one Repository place checkouts and merge."""
+def plan(brain: Brain, organisations: list[dict], projects: list[dict],
+         repositories: list[dict], available: list[dict], checks: dict[str, dict],
+         issues: dict[str, tuple[str, ...]], marks: dict) -> Plan:
+    """Pure plan from a complete read, with no changes to existing repositories."""
     reports = []
     org_by_id = {org.id: org for org in brain.organisations}
     product_by_id = {product.id: product for product in brain.products}
@@ -186,10 +174,6 @@ def plan(brain: Brain, archived: dict[str, bool | None], organisations: list[dic
 
     ordered = sorted(projects, key=lambda value: (value.get("created_at") or "", value["id"]))
     project_placements, project_ids, assignments = [], {}, []
-    counts = repository_counts(brain.repositories)
-    # A merged Product project holds its only Repository's checkout mark, so a lost mark file still finds it.
-    only_key = {repository.products[0]: repository.key.lower() for repository in brain.repositories
-                if len(repository.products) == 1 and counts[repository.products[0]] == 1}
     # A marked identity belongs to its Product even when that Product has left.
     claimed = set(product_marks.values()) & set(current_projects)
     for product in valid_products.values():
@@ -199,9 +183,7 @@ def plan(brain: Brain, archived: dict[str, bool | None], organisations: list[dic
         current = current_projects.get(product_marks.get(product.id))
         if current is None:
             current = next((value for value in ordered
-                            if value["id"] not in claimed and value["title"] == product.name
-                            and all(marker_key(resource) in (None, only_key.get(product.id))
-                                    for resource in resources.get(value["id"], []))), None)
+                            if value["id"] not in claimed and value["title"] == product.name), None)
         if current is not None:
             claimed.add(current["id"])
             project_ids[product.id] = current["id"]
@@ -210,115 +192,96 @@ def plan(brain: Brain, archived: dict[str, bool | None], organisations: list[dic
         if current is None or product_marks.get(product.id) != current["id"]:
             project_placements.append(PlaceProject(product.id, product.name, org_id, None if current is None else current["id"]))
     available_products = set(project_ids) | {value.brain_id for value in project_placements}
-    repositories_by_key = {}
-    for repository in brain.repositories:
-        repositories_by_key.setdefault(repository.key.lower(), []).append(repository)
+    brain_repos = {repo.id: repo for repo in brain.repositories}
+    current_repos = {repo["full_name"].lower(): repo for repo in repositories}
+    visible = {repo["full_name"].lower(): repo for repo in available}
+    by_key = {}
+    for repo in brain.repositories:
+        by_key.setdefault(repo.key.lower(), []).append(repo)
+    for brain_id, repository_id in sorted(marks.get("repositories", {}).items()):
+        if brain_id not in brain_repos:
+            current = next((repo for repo in repositories if repo["id"] == repository_id), None)
+            if current is not None:
+                reports.append(f"{current['full_name']}: has no Repository in the brain")
 
-    counting, repository_products = {}, {}
-    for repository in sorted(brain.repositories, key=lambda value: value.key.lower()):
-        key = repository.key.lower()
-        if len(repository.products) != 1:
-            reason = "has more than one Product" if repository.products else "has no Product"
-            reports.append(f"{repository.key}: {reason}")
+    repository_writes, placed_repositories = [], {}
+    for repo in brain.repositories:
+        key = repo.key.lower()
+        if len(repo.products) != 1:
+            reason = "has more than one Product" if repo.products else "has no Product"
+            reports.append(f"{repo.key}: {reason}")
             continue
-        product_id = repository.products[0]
-        if any(other.products != repository.products for other in repositories_by_key[key]):
-            reports.append(f"{repository.key}: checkout mark does not identify one Product")
+        product_id = repo.products[0]
+        if any(other.products != repo.products for other in by_key[key]):
+            reports.append(f"{repo.key}: links more than one Product")
             continue
         if product_id not in available_products:
-            reports.append(f"{repository.key}: has no placed Product")
+            reports.append(f"{repo.key}: has no placed Product")
             continue
-        repository_products[key] = product_id
-        state = archived.get(key)
-        if state is True:
-            reports.append(f"{repository.key}: is archived on GitHub")
-        elif not repository.checkouts:
-            reports.append(f"{repository.key}: has no checkout")
-        elif len(repository.checkouts) > 1:
-            reports.append(f"{repository.key}: has more than one checkout: {', '.join(sorted(map(str, repository.checkouts)))}")
-        elif state is None:
-            reports.append(f"{repository.key}: is unknown to GitHub")
+        current = current_repos.get(key)
+        if current is not None:
+            if current["project_id"] != project_ids.get(product_id):
+                project = current_projects.get(current["project_id"])
+                reports.append(f"{repo.key}: in {project['title'] if project else current['project_id']}")
+            else:
+                placed_repositories[repo.id] = product_id
+            continue
+        if key not in visible:
+            reports.append(f"{repo.key}: the GitHub App cannot see it")
+            continue
+        if not repo.checkouts:
+            reports.append(f"{repo.key}: has no checkout")
+            continue
+        if len(repo.checkouts) != 1:
+            reports.append(f"{repo.key}: has {len(repo.checkouts)} checkouts")
+            continue
+        check = checks[key]
+        result = check.get("result") or {}
+        if check["status"] != "completed" or result.get("passed") is not True:
+            failures = result.get("failures") or []
+            detail = "; ".join(f"{failure['code']}: {failure.get('detail', '')}" for failure in failures)
+            reports.append(f"{repo.key}: checkout failed: {detail or check.get('error') or check['status']}")
+            continue
+        files = result["version_files"]
+        commands = result["install_commands"]
+        repository_writes.append(RepositoryWrite(
+            repo.id, product_id, visible[key]["full_name"], check["id"],
+            files[0] if files else "tags", commands[0]["command"] if commands else "",
+        ))
+        placed_repositories[repo.id] = product_id
+
+    # One retained project can have multiple marks. It is deleted only when
+    # all of them identify repositories placed on the same Product project.
+    kept = {}
+    forgotten = []
+    for brain_id, project_id in sorted(marks.get("repository_projects", {}).items()):
+        if project_id not in current_projects:
+            forgotten.append(brain_id)
         else:
-            counting[key] = repository.checkouts[0]
-    by_name = {}
-    for key in counting:
-        by_name.setdefault(name_of(key).lower(), []).append(key)
-    for key in list(counting):
-        sharing = by_name[name_of(key).lower()]
-        if len(sharing) > 1:
-            reports.append(f"{key}: shares its name {name_of(key)} with {', '.join(other for other in sharing if other != key)}")
-            del counting[key]
-
-    resource_writes = []
-    for key, checkout in sorted(counting.items()):
-        product_id = repository_products[key]
-        if counts[product_id] != 1:
+            kept.setdefault(project_id, []).append(brain_id)
+    merges = []
+    for project_id, repository_brain_ids in kept.items():
+        project = current_projects[project_id]
+        products = {placed_repositories.get(brain_id) for brain_id in repository_brain_ids}
+        if None in products or len(products) != 1:
+            reports.append(f"{project['title']}: kept until its repositories are in their Product's project")
             continue
-        target_resources = resources.get(project_ids.get(product_id), [])
-        current = next((resource for resource in target_resources if marker_key(resource) == key), None)
-        wanted = LocalDirectory(str(checkout), daemon, MARKER_PREFIX + key)
-        if current is None or any(resource_ref(current).get(field) != value for field, value in wanted.ref().items()):
-            resource_writes.append(ResourceWrite(key, product_id, wanted, None if current is None else current["id"]))
-
-    merges, kept_projects = [], {}
-    present = {repository.key.lower() for repository in brain.repositories}
-    for project in ordered:
-        keys = sorted({key for resource in resources.get(project["id"], []) if (key := marker_key(resource))})
-        for key in keys:
-            if key not in present:
-                reports.append(f"{key}: has no Repository in the brain")
-        candidates = {repository_products[key] for key in keys if key in repository_products}
-        if not candidates:
+        (product_id,) = products
+        if project_id == project_ids.get(product_id):
+            forgotten.extend(repository_brain_ids)
             continue
-        if len(candidates) > 1 or any(key not in repository_products for key in keys):
-            reports.append(f"{project['title']}: checkout marks do not identify one Product; project left alone")
-            continue
-        (product_id,) = candidates
-        if project["id"] == project_ids.get(product_id):
-            continue
-        if project["id"] in claimed:
+        if project_id in claimed:
             reports.append(f"{project['title']}: is a marked Product project; project left alone")
             continue
-        if counts[product_id] > 1:
-            reports.append(f"{project['title']} stays for {product_by_id[product_id].name}, which has {counts[product_id]} repositories")
-            for key in keys:
-                for repository in repositories_by_key[key]:
-                    kept_projects[repository.id] = project["id"]
-            continue
-        merges.append(Merge(project["id"], project["title"], product_id, issues[project["id"]], tuple(keys)))
-    for key in sorted(counting):
-        product_id = repository_products[key]
-        if counts[product_id] > 1 and not any(repository.id in kept_projects for repository in repositories_by_key[key]):
-            reports.append(f"{key}: gets no checkout, because {product_by_id[product_id].name} has {counts[product_id]} repositories")
-    return Plan(tuple(org_placements), tuple(project_placements), tuple(assignments),
-                tuple(resource_writes), tuple(merges), tuple(reports), org_ids, project_ids, kept_projects)
-
-
-def repository_counts(repositories: tuple[Repository, ...]) -> dict[str, int]:
-    counts = {}
-    for repository in repositories:
-        for product_id in repository.products:
-            counts[product_id] = counts.get(product_id, 0) + 1
-    return counts
-
-
-def name_of(key: str) -> str:
-    return key.rsplit("/", 1)[-1]
-
-
-def resource_ref(resource: dict) -> dict:
-    ref = resource.get("resource_ref")
-    return ref if isinstance(ref, dict) else {}
-
-
-def marker_key(resource: dict) -> str | None:
-    """Resource column or ref label marks the same lowercase GitHub key."""
-    if resource.get("resource_type") != LOCAL_DIRECTORY:
-        return None
-    for label in (resource.get("label"), resource_ref(resource).get("label")):
-        if isinstance(label, str) and label.startswith(MARKER_PREFIX) and len(label) > len(MARKER_PREFIX):
-            return label[len(MARKER_PREFIX):].lower()
-    return None
+        merges.append(Merge(project_id, project["title"], product_id,
+                            issues[project_id], tuple(repository_brain_ids)))
+    return Plan(
+        organisations=tuple(org_placements), projects=tuple(project_placements),
+        assignments=tuple(assignments), repositories=tuple(repository_writes),
+        merges=tuple(merges), reports=tuple(reports), organisation_ids=org_ids,
+        project_ids=project_ids,
+        forget_repository_projects=tuple(forgotten),
+    )
 
 
 # --- Reads ---
@@ -371,36 +334,6 @@ def read_brain(team_state: ModuleType) -> Brain:
                  tuple(sorted(found, key=lambda value: (value.key.lower(), value.id))))
 
 
-def read_archived(repositories: tuple[Repository, ...]) -> dict[str, bool | None]:
-    """One aliased GitHub query; NOT_FOUND leaves only that key unknown."""
-    if not repositories:
-        return {}
-    aliases = {f"r{index}": key for index, key in enumerate(sorted({repository.key.lower() for repository in repositories}))}
-    fields = []
-    for alias, key in aliases.items():
-        owner, name = key.split("/", 1)
-        fields.append(f"{alias}: repository(owner: {json.dumps(owner)}, name: {json.dumps(name)}) {{ isArchived }}")
-    result = subprocess.run(["gh", "api", "graphql", "-f", "query=query { " + " ".join(fields) + " }"],
-                            capture_output=True, text=True, timeout=GITHUB_READ_TIMEOUT)
-    try:
-        response = json.loads(result.stdout)
-        errors = [error for error in response.get("errors", []) if error.get("type") != "NOT_FOUND"]
-        if errors:
-            raise ValueError(json.dumps(errors))
-        data = response["data"]
-        archived = {}
-        for alias, key in aliases.items():
-            repository = data[alias]
-            value = None if repository is None else repository["isArchived"]
-            if value is not None and not isinstance(value, bool):
-                raise ValueError(f"{key}: invalid isArchived")
-            archived[key.lower()] = value
-        return archived
-    except (ValueError, KeyError, TypeError, AttributeError) as error:
-        detail = result.stderr.strip() if not result.stdout.strip() else str(error)
-        raise ValueError(f"cannot read GitHub: {detail}") from error
-
-
 def read_issue_ids(api, project_id: str) -> tuple[str, ...]:
     ids = []
     while True:
@@ -414,22 +347,42 @@ def read_issue_ids(api, project_id: str) -> tuple[str, ...]:
             raise ValueError(f"{project_id}: incomplete issue read")
 
 
-def read_multica(api, multica_sync: ModuleType, brain: Brain) -> tuple:
-    runtimes = api.call("GET", "/api/runtimes")
-    runtime_id = multica_sync.omp_runtime(runtimes)
-    daemon = next(runtime["daemon_id"] for runtime in runtimes if runtime["id"] == runtime_id)
-    if not daemon:
-        raise ValueError("the local omp runtime has no daemon_id")
+def read_multica(api, multica_sync: ModuleType, brain: Brain, marks: dict) -> tuple:
     organisations = api.call("GET", "/api/organisations")["organisations"]
     projects = api.call("GET", "/api/projects")["projects"]
-    resources = {project["id"]: api.call("GET", f"/api/projects/{project['id']}/resources")["resources"]
-                 if project["resource_count"] > 0 else [] for project in projects}
-    counts = repository_counts(brain.repositories)
-    linked = {repository.key.lower() for repository in brain.repositories
-              if len(repository.products) == 1 and counts[repository.products[0]] == 1}
+    repositories = api.call("GET", "/api/repositories")["repositories"]
+    available = api.call("GET", "/api/repositories/available")["repositories"]
+    kept_projects = set(marks.get("repository_projects", {}).values())
     issues = {project["id"]: read_issue_ids(api, project["id"]) for project in projects
-              if any(marker_key(resource) in linked for resource in resources[project["id"]])}
-    return organisations, projects, resources, issues, daemon
+              if project["id"] in kept_projects}
+    current = {repo["full_name"].lower() for repo in repositories}
+    visible = {repo["full_name"].lower(): repo for repo in available}
+    candidates = {repo.key.lower(): repo for repo in brain.repositories
+                  if repo.key.lower() not in current and repo.key.lower() in visible
+                  and len(repo.products) == 1 and len(repo.checkouts) == 1}
+    checks = {}
+    if candidates:
+        runtimes = api.call("GET", "/api/runtimes")
+        runtime_id = multica_sync.omp_runtime(runtimes)
+        runtime = next(runtime for runtime in runtimes if runtime["id"] == runtime_id)
+        if not runtime.get("daemon_id"):
+            raise ValueError("the local omp runtime has no daemon_id")
+        path = f"/api/runtimes/{runtime_id}/repository-checkouts"
+        for key, repo in candidates.items():
+            check = api.call("POST", path, {
+                "full_name": visible[key]["full_name"],
+                "default_branch": visible[key]["default_branch"],
+                "path": str(repo.checkouts[0]), "clone": False,
+            })
+            deadline = time.monotonic() + CHECKOUT_WAIT_SECONDS
+            while check["status"] in ("pending", "running"):
+                if time.monotonic() >= deadline:
+                    check = {**check, "status": "timeout", "error": "checkout check timed out"}
+                    break
+                time.sleep(0.5)
+                check = api.call("GET", f"{path}/{check['id']}")
+            checks[key] = check
+    return organisations, projects, repositories, available, checks, issues
 
 
 class Marks:
@@ -446,7 +399,7 @@ class Marks:
             for scope in workspaces.values():
                 if not isinstance(scope, dict):
                     raise ValueError("invalid brain-sync workspace marks")
-                for kind in ("organisations", "products", "repository_projects"):
+                for kind in ("organisations", "products", "repository_projects", "repositories"):
                     entries = scope.get(kind, {})
                     if not isinstance(entries, dict) or any(not isinstance(key, str) or not isinstance(value, str) for key, value in entries.items()):
                         raise ValueError("invalid brain-sync identity map")
@@ -455,13 +408,17 @@ class Marks:
     def scope(self) -> dict:
         return self.data.get(self.server, {}).get(self.workspace, {})
 
-    def record(self, kind: str, brain_id: str, multica_id: str) -> None:
+    def record(self, kind: str, brain_id: str, multica_id: str | None) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         # Other profiles share the file, not their profile's projects.lock.
         with self.path.with_suffix(".lock").open("a") as lock:
             fcntl.flock(lock, fcntl.LOCK_EX)
             updated = deepcopy(Marks(self.path, self.server, self.workspace).data)
-            updated.setdefault(self.server, {}).setdefault(self.workspace, {}).setdefault(kind, {})[brain_id] = multica_id
+            entries = updated.setdefault(self.server, {}).setdefault(self.workspace, {}).setdefault(kind, {})
+            if multica_id is None:
+                entries.pop(brain_id, None)
+            else:
+                entries[brain_id] = multica_id
             temporary = None
             try:
                 with tempfile.NamedTemporaryFile(mode="w", dir=self.path.parent, prefix=".brain-sync-", delete=False) as stream:
@@ -483,7 +440,7 @@ class Marks:
 def write_plan(api, desired: Plan, multica_sync: ModuleType, marks: Marks) -> int:
     failed = False
     org_ids, project_ids = dict(desired.organisation_ids), dict(desired.project_ids)
-    failed_orgs, failed_products, failed_resources = set(), set(), set()
+    failed_orgs, failed_products, failed_repositories = set(), set(), set()
     errors = (multica_sync.ApiError, OSError, ValueError, KeyError, TypeError)
     for report in desired.reports:
         print(report, flush=True)
@@ -526,32 +483,37 @@ def write_plan(api, desired: Plan, multica_sync: ModuleType, marks: Marks) -> in
             failed = True
             failed_products.add(assignment.product)
             print(f"failed: project {assignment.product}: {error}", file=sys.stderr, flush=True)
-    for brain_id, project_id in sorted(desired.repository_projects.items()):
-        if marks.scope.get("repository_projects", {}).get(brain_id) == project_id:
+    added_by_name = {}
+    for repository in desired.repositories:
+        if repository.product in failed_products or repository.product not in project_ids:
+            failed_repositories.add(repository.brain_id)
             continue
         try:
-            marks.record("repository_projects", brain_id, project_id)
-            print(f"mark repository project {brain_id}: {project_id}", flush=True)
+            repository_id = added_by_name.get(repository.full_name.lower())
+            if repository_id is None:
+                repository_id = api.call("POST", "/api/repositories", {
+                    "project_id": project_ids[repository.product],
+                    "full_name": repository.full_name,
+                    "checkout_check_id": repository.checkout_check_id,
+                    "version_policy": repository.version_policy,
+                    "install_command": repository.install_command,
+                })["id"]
+                added_by_name[repository.full_name.lower()] = repository_id
+                print(f"add repository {repository.full_name}: {repository_id}", flush=True)
+            marks.record("repositories", repository.brain_id, repository_id)
         except errors as error:
             failed = True
-            print(f"failed: repository project mark {brain_id}: {error}", file=sys.stderr, flush=True)
-    for resource in desired.resources:
-        if resource.product in failed_products or resource.product not in project_ids:
-            continue
+            failed_repositories.add(repository.brain_id)
+            print(f"failed: repository {repository.full_name}: {error}", file=sys.stderr, flush=True)
+    for brain_id in desired.forget_repository_projects:
         try:
-            path = f"/api/projects/{project_ids[resource.product]}/resources"
-            if resource.resource_id is None:
-                api.call("POST", path, {"resource_type": LOCAL_DIRECTORY, "resource_ref": resource.resource.ref()})
-                print(f"add resource {resource.key}: {resource.resource.local_path}", flush=True)
-            else:
-                api.call("PUT", f"{path}/{resource.resource_id}", {"resource_ref": resource.resource.ref(), "label": resource.resource.label})
-                print(f"update resource {resource.key}: {resource.resource.local_path}", flush=True)
+            marks.record("repository_projects", brain_id, None)
         except errors as error:
             failed = True
-            failed_resources.add(resource.key)
-            print(f"failed: resource {resource.key}: {error}", file=sys.stderr, flush=True)
+            print(f"failed: remove repository project mark {brain_id}: {error}", file=sys.stderr, flush=True)
     for merge in desired.merges:
-        if merge.product in failed_products or merge.product not in project_ids or any(key in failed_resources for key in merge.keys):
+        if (merge.product in failed_products or merge.product not in project_ids
+                or any(brain_id in failed_repositories for brain_id in merge.repositories)):
             continue
         try:
             for offset in range(0, len(merge.issue_ids), PAGE_SIZE):
@@ -566,6 +528,8 @@ def write_plan(api, desired: Plan, multica_sync: ModuleType, marks: Marks) -> in
                 raise ValueError(f"{remaining} issues remain; repository project kept")
             api.call("DELETE", f"/api/projects/{merge.project_id}")
             print(f"delete emptied project {merge.title}: {merge.project_id}", flush=True)
+            for brain_id in merge.repositories:
+                marks.record("repository_projects", brain_id, None)
         except errors as error:
             failed = True
             print(f"failed: merge {merge.title}: {error}", file=sys.stderr, flush=True)
@@ -585,11 +549,10 @@ def main() -> int:
             marks = Marks(MARK_FILE, config["server_url"], config["workspace_id"])
             api = multica_sync.Multica(config)
             brain = read_brain(team_state)
-            archived = read_archived(brain.repositories)
-            organisations, projects, resources, issues, daemon = read_multica(api, multica_sync, brain)
-            desired = plan(brain, archived, organisations, projects, resources, issues, daemon, marks.scope)
+            organisations, projects, repositories, available, checks, issues = read_multica(api, multica_sync, brain, marks.scope)
+            desired = plan(brain, organisations, projects, repositories, available, checks, issues, marks.scope)
             return write_plan(api, desired, multica_sync, marks)
-    except (multica_sync.ApiError, OSError, ValueError, KeyError, TypeError, subprocess.TimeoutExpired) as error:
+    except (multica_sync.ApiError, OSError, ValueError, KeyError, TypeError) as error:
         print(f"failed: project sync read: {error}", file=sys.stderr, flush=True)
         return 1
 
