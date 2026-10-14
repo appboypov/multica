@@ -191,6 +191,7 @@ function base(): Omit<TypedQuestion<"single_choice">, "answer_type" | "settings"
     events: [],
     unseen_answer_count: 0,
     wake_available: false,
+    wake_targets: [],
     created_at: "2026-10-13T10:00:00Z",
     updated_at: "2026-10-13T10:00:00Z",
   };

@@ -464,6 +464,8 @@ export type {
   AnswerPolicy,
   QuestionLinkType,
   QuestionLink,
+  QuestionVia,
+  QuestionWakeTarget,
   QuestionAnswerer,
   QuestionAnswer,
   QuestionEventKind,

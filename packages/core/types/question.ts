@@ -198,13 +198,37 @@ export type QuestionStatus = "open" | "partly_answered" | "answered" | "closed" 
  */
 export type AnswerPolicy = "any_one" | "each";
 
-export type QuestionLinkType = "issue" | "task";
+export type QuestionLinkType =
+  | "issue"
+  | "task"
+  | "comment"
+  | "project"
+  | "agent"
+  | "squad"
+  | "autopilot"
+  | "skill";
 
 /** Where a question belongs; position 0 is where it was asked. */
 export interface QuestionLink {
   link_type: QuestionLinkType;
   link_id: string;
   position: number;
+}
+
+/** The first link that reaches the page's object or the viewer's work. */
+export interface QuestionVia {
+  type: "issue" | "sub_issue" | "comment" | "task";
+  id: string;
+  identifier: string | null;
+  issue_identifier: string | null;
+}
+
+/** One agent offered Wake on its own issue; the asking agent is first. */
+export interface QuestionWakeTarget {
+  agent_id: string;
+  issue_id: string;
+  unseen_answer_count: number;
+  wake_available: boolean;
 }
 
 /** A current answerer: always a member. */
@@ -287,6 +311,7 @@ interface QuestionBase {
   unseen_answer_count: number;
   /** True while there are unseen answers and the asking agent has no active task on the issue. */
   wake_available: boolean;
+  wake_targets: QuestionWakeTarget[];
   created_at: string;
   updated_at: string;
 }
@@ -361,20 +386,21 @@ export interface QuestionAskResult {
 // ---------------------------------------------------------------------------
 
 /**
- * Which rows the list holds: `for_me` the questions open for the viewer
- * (ADR-0004), `all_open` every open question in the workspace, `answered`
- * the questions the viewer answered, newest answer first.
+ * `for_me` holds the questions open for the viewer (ADR-0004).
+ * `on_my_work` holds open questions on the viewer's work even when
+ * they are not an answerer, `all_open` every open question in the workspace,
+ * `answered` the questions the viewer answered, newest answer first.
  */
-export type QuestionTab = "for_me" | "all_open" | "answered";
+export type QuestionTab = "for_me" | "on_my_work" | "all_open" | "answered";
 
-/** The issue a row belongs to: the question's link at position 0, where it was asked. */
+/** The first link's page object: comments and runs use their issue. */
 export interface QuestionRowLink {
-  type: QuestionLinkType;
+  type: Exclude<QuestionLinkType, "comment" | "task">;
   id: string;
-  /** The issue's identifier, such as WORK-412. */
-  identifier: string;
+  /** The issue's identifier, such as WORK-412; null for objects without one. */
+  identifier: string | null;
   title: string;
-  status: IssueStatus;
+  status: IssueStatus | null;
 }
 
 /** The viewer's own answer to the row's question. */
@@ -403,6 +429,10 @@ interface QuestionRowBase {
   blocks_work: boolean;
   created_at: string;
   link: QuestionRowLink;
+  /** Null for a direct link or outside a parent list and On my work. */
+  via: QuestionVia | null;
+  /** The issue where the question's card opens, regardless of the first link's type. */
+  open_issue: { id: string; identifier: string };
   /** Null while the viewer has not answered. */
   my_answer: QuestionRowAnswer | null;
 }
@@ -439,9 +469,11 @@ export interface QuestionRowFilters {
   readonly answerer_ids: readonly string[];
   readonly link_ids: readonly string[];
   readonly blocks_work: boolean;
+  readonly parent?: { type: "issue" | "project"; id: string };
 }
 
-/** 200 body of `GET /api/questions/open-count`: the viewer's `for_me` count without filters. */
+/** 200 body of `GET /api/questions/open-count`, scoped by tab and optional parent. */
 export interface QuestionOpenCount {
   count: number;
+  blocking_count: number;
 }
