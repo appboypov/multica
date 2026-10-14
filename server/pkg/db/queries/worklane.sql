@@ -76,7 +76,7 @@ DELETE FROM worklane WHERE id = $1 AND workspace_id = $2;
 -- name: ListWorklanePathsForDaemon :many
 -- The worktree paths of a repository's worklanes on one daemon, so an issue
 -- worktree never takes a worklane's folder (ADR-0009).
-SELECT id, name, path FROM worklane
+SELECT id, name, path, branch FROM worklane
 WHERE workspace_id = sqlc.arg('workspace_id')
   AND repository_id = sqlc.arg('repository_id')
   AND daemon_id = sqlc.arg('daemon_id')
@@ -88,3 +88,31 @@ ORDER BY position ASC;
 -- cannot be deleted.
 SELECT COUNT(*)::bigint FROM worklane
 WHERE repository_id = $1 AND workspace_id = $2 AND NOT is_main;
+
+-- name: SetWorklaneBranch :one
+-- NULL means detached. Only a daemon report sets the recorded branch.
+UPDATE worklane SET branch = sqlc.narg('branch'), updated_at = now()
+WHERE id = sqlc.arg('id') AND workspace_id = sqlc.arg('workspace_id')
+RETURNING *;
+
+-- name: ListOpenWorklaneIssues :many
+-- Fixed built-ins do not inherit mutable catalogue categories. Archived
+-- custom statuses still resolve their category for the terminal check.
+SELECT i.id, i.worklane_id, i.title, i.status, i.created_at,
+       w.issue_prefix, (w.issue_prefix || '-' || i.number)::text AS identifier,
+       r.position AS release_position,
+       CASE
+           WHEN i.status IN ('backlog', 'todo') THEN 'unstarted'
+           WHEN i.status IN ('in_progress', 'in_review', 'blocked') THEN 'started'
+           WHEN i.status = 'done' THEN 'done'
+           WHEN i.status = 'cancelled' THEN 'closed'
+           ELSE COALESCE(s.category, 'unstarted')
+       END::text AS status_category
+FROM issue i
+JOIN workspace w ON w.id = i.workspace_id
+LEFT JOIN release r ON r.id = i.release_id AND r.workspace_id = i.workspace_id
+LEFT JOIN issue_status s ON s.key = i.status AND s.workspace_id = i.workspace_id
+WHERE i.workspace_id = sqlc.arg('workspace_id')
+  AND i.worklane_id = ANY(sqlc.arg('worklane_ids')::uuid[])
+  AND issue_effective_status(i.workspace_id, i.status) NOT IN ('done', 'cancelled')
+ORDER BY i.worklane_id, r.position ASC NULLS LAST, i.created_at ASC, i.id ASC;

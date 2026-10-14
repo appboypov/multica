@@ -497,10 +497,12 @@ type DaemonHeartbeatIssueWorktreeRemoval struct {
 const (
 	WorklaneRequestKindCreate = "create"
 	WorklaneRequestKindRemove = "remove"
+	WorklaneRequestKindSwitch = "switch"
 )
 
-// DaemonHeartbeatPendingWorklaneRequest asks the daemon to make or remove a
-// worklane's worktree. Path is the worktree path the server computed (create)
+// DaemonHeartbeatPendingWorklaneRequest asks the daemon to make, remove or
+// switch a worklane's worktree.
+// Path is the worktree path the server computed (create)
 // or recorded (remove); the daemon expands `~` and answers the absolute path.
 // FromStep is set on a retry: the steps before it are done.
 type DaemonHeartbeatPendingWorklaneRequest struct {
@@ -513,6 +515,9 @@ type DaemonHeartbeatPendingWorklaneRequest struct {
 	InstallCommand     string                         `json:"install_command,omitempty"`
 	FromStep           string                         `json:"from_step,omitempty"`
 	IssueWorktreePaths []WorklaneRequestIssueWorktree `json:"issue_worktree_paths,omitempty"`
+	WorklaneID         string                         `json:"worklane_id,omitempty"`
+	FromBranch         string                         `json:"from_branch,omitempty"`
+	ToBranch           string                         `json:"to_branch,omitempty"`
 }
 
 // WorklaneRequestIssueWorktree is an issue worktree of the repository on the
@@ -528,13 +533,26 @@ type WorklaneRequestIssueWorktree struct {
 // on the claiming daemon, so the issue worktree never takes one of them
 // (ADR-0009).
 type ClaimRepository struct {
-	ID               string   `json:"id"`
-	FullName         string   `json:"full_name"`
-	DefaultBranch    string   `json:"default_branch"`
-	CheckoutDaemonID string   `json:"checkout_daemon_id"`
-	CheckoutPath     string   `json:"checkout_path"`
-	WorktreePath     string   `json:"worktree_path"`
-	WorklanePaths    []string `json:"worklane_paths,omitempty"`
+	ID               string         `json:"id"`
+	FullName         string         `json:"full_name"`
+	DefaultBranch    string         `json:"default_branch"`
+	CheckoutDaemonID string         `json:"checkout_daemon_id"`
+	CheckoutPath     string         `json:"checkout_path"`
+	WorktreePath     string         `json:"worktree_path"`
+	WorklanePaths    []string       `json:"worklane_paths,omitempty"`
+	Worklane         *ClaimWorklane `json:"worklane,omitempty"`
+}
+
+// ClaimWorklane is the issue's worklane in its repository. For main, the
+// path and daemon are the repository's checkout. Branch nil means detached.
+type ClaimWorklane struct {
+	ID            string  `json:"id"`
+	Name          string  `json:"name"`
+	Path          string  `json:"path"`
+	DaemonID      string  `json:"daemon_id"`
+	DaemonName    string  `json:"daemon_name"`
+	Branch        *string `json:"branch"`
+	DefaultBranch string  `json:"default_branch"`
 }
 
 // RepositoryCheckoutFailure is one failed part of a checkout check: code is

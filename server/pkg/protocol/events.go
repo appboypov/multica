@@ -278,8 +278,10 @@ type RepositoryEventPayload struct {
 	ProjectID    string `json:"project_id"`
 }
 
-// WorklaneEventPayload is the payload of worklane:created, worklane:updated
-// and worklane:deleted.
+// WorklaneEventPayload identifies the worklane for worklane:created,
+// worklane:updated and worklane:deleted. The updated event also carries the
+// worklane response with branch (nullable), state (busy or free), active_issue
+// and next_issue (nullable issue refs with id, identifier and title).
 type WorklaneEventPayload struct {
 	WorklaneID   string `json:"worklane_id"`
 	RepositoryID string `json:"repository_id"`

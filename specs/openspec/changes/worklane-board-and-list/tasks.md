@@ -30,9 +30,9 @@ This change builds on UJ-5 (`issues-from-templates`, DAS-456), which builds on U
 
 ## 1. J2 Data models: model change
 
-- [ ] 1.1 `server/migrations/592_worklane_branch_and_issue_done_at.up.sql`, `.down.sql` -- `worklane.branch text` and `issue.done_at timestamptz`, both nullable, the backfill of `done_at`, the function `issue_done_at()` and the trigger `trg_issue_done_at` -- design.md decisions 1 and 4. The down migration drops the trigger, the function and both columns, and deletes the `worklane_switched` and `worklane_kept` entries. When `main` has taken 592, take the next free number.
-- [ ] 1.2 `server/pkg/db/queries/worklane.sql` -- `SetWorklaneBranch` (`branch`, `updated_at`, `RETURNING *`) and `ListOpenWorklaneIssues` (`workspace_id`, `worklane_ids`: the open issues with `release.position`, the status category with built-ins by their fixed category, and the workspace's issue prefix) -- design.md decision 2. Every worklane read selects `branch`.
-- [ ] 1.3 `server/pkg/db/queries/issue.sql`, `server/internal/handler/issue_table_query.go` -- select `done_at` wherever issue columns are named for a response.
+- [x] 1.1 `server/migrations/592_worklane_branch_and_issue_done_at.up.sql`, `.down.sql` -- `worklane.branch text` and `issue.done_at timestamptz`, both nullable, the backfill of `done_at`, the function `issue_done_at()` and the trigger `trg_issue_done_at` -- design.md decisions 1 and 4. The down migration drops the trigger, the function and both columns, and deletes the `worklane_switched` and `worklane_kept` entries. When `main` has taken 592, take the next free number.
+- [x] 1.2 `server/pkg/db/queries/worklane.sql` -- `SetWorklaneBranch` (`branch`, `updated_at`, `RETURNING *`) and `ListOpenWorklaneIssues` (`workspace_id`, `worklane_ids`: the open issues with `release.position`, the status category with built-ins by their fixed category, and the workspace's issue prefix) -- design.md decision 2. Every worklane read selects `branch`.
+- [x] 1.3 `server/pkg/db/queries/issue.sql`, `server/internal/handler/issue_table_query.go` -- select `done_at` wherever issue columns are named for a response.
 - [ ] 1.4 `server/pkg/db/generated/` -- run `make sqlc` and commit the output.
 
 ## 2. J2 Data models: DTO
@@ -46,10 +46,10 @@ This change builds on UJ-5 (`issues-from-templates`, DAS-456), which builds on U
 
 ## 3. J2 Data models: action names
 
-- [ ] 3.1 `server/internal/handler/worklane_branch.go` -- the constants `worklaneActionSwitched` and `worklaneActionKept` -- design.md decisions 6 and 7.
-- [ ] 3.2 `server/pkg/taskfailure/failure.go` -- `ReasonWorklaneElsewhere = "worklane_elsewhere"` and `ReasonWorklaneBranchHeld = "worklane_branch_held"` among the platform-side reasons and in `AllReasons()`.
-- [ ] 3.3 `server/pkg/protocol/messages.go`, `server/internal/daemon/types.go` -- the claim's `worklane` block per repository (`id`, `name`, `path`, `daemon_id`, `daemon_name`, `branch`, `default_branch`), and the worklane request's kind `switch` with `from_branch` and `to_branch`.
-- [ ] 3.4 `server/pkg/protocol/events.go` -- document `branch`, `state`, `active_issue` and `next_issue` in the `worklane:updated` payload. No new event.
+- [x] 3.1 `server/internal/handler/worklane_branch.go` -- the constants `worklaneActionSwitched` and `worklaneActionKept` -- design.md decisions 6 and 7.
+- [x] 3.2 `server/pkg/taskfailure/failure.go` -- `ReasonWorklaneElsewhere = "worklane_elsewhere"` and `ReasonWorklaneBranchHeld = "worklane_branch_held"` among the platform-side reasons and in `AllReasons()`.
+- [x] 3.3 `server/pkg/protocol/messages.go`, `server/internal/daemon/types.go` -- the claim's `worklane` block per repository (`id`, `name`, `path`, `daemon_id`, `daemon_name`, `branch`, `default_branch`), and the worklane request's kind `switch` with `from_branch` and `to_branch`.
+- [x] 3.4 `server/pkg/protocol/events.go` -- document `branch`, `state`, `active_issue` and `next_issue` in the `worklane:updated` payload. No new event.
 
 ## 4. J3 Data-flow prototype: data-flow prototype
 

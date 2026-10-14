@@ -192,6 +192,14 @@ const (
 	// settlement failures surface the same recovery guidance.
 	ReasonRuntimeAccessDenied Reason = "runtime_access_denied"
 
+	// ReasonWorklaneElsewhere: the claiming runtime is not on the machine
+	// that holds the issue's worklane. No agent process is launched.
+	ReasonWorklaneElsewhere Reason = "worklane_elsewhere"
+
+	// ReasonWorklaneBranchHeld: switching the worklane would lose
+	// uncommitted changes or commits not pushed to a remote.
+	ReasonWorklaneBranchHeld Reason = "worklane_branch_held"
+
 	// Agent process side: failure surfaced by the agent CLI / SDK as
 	// an error string. Classify(rawError) is responsible for picking
 	// the right sub-reason from the string. IsAgentError returns true
@@ -291,6 +299,8 @@ var allReasons = []Reason{
 	ReasonEnvironmentPrepareFailed,
 	ReasonInvalidTaskIdentity,
 	ReasonRuntimeAccessDenied,
+	ReasonWorklaneElsewhere,
+	ReasonWorklaneBranchHeld,
 
 	// Agent process side: provider errors.
 	ReasonAgentProviderAuthOrAccess,
