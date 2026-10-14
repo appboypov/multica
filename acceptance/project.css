@@ -1,0 +1,10 @@
+/* Stijl van het klantproject: Multica (packages/ui/styles/tokens.css, lichte modus). */
+:root{
+  --bg:oklch(0.964435 0.001327 286.375);--text:oklch(0.141 0.005 285.823);--muted:oklch(0.505 0.016 285.938);--muted2:oklch(0.606 0.016 285.938);
+  --surface:oklch(1 0 0);--surface2:oklch(0.967 0.001 286.375);--border:oklch(0.92 0.004 286.32);
+  --accent:oklch(0.56079497 0.19449888 256.41258418);--accentSoft:oklch(0.56079497 0.19449888 256.41258418 / .14);--danger:oklch(0.577 0.245 27.325);
+  --okBg:oklch(0.55 0.16 145 / .14);--okLine:oklch(0.55 0.16 145 / .40);--okText:oklch(0.55 0.16 145);
+  --badBg:oklch(0.577 0.245 27.325 / .08);--badLine:oklch(0.577 0.245 27.325 / .28);--badText:oklch(0.577 0.245 27.325);
+  --warnBg:oklch(0.75 0.16 85 / .18);--warnText:color-mix(in oklch, oklch(0.75 0.16 85) 50%, oklch(0.141 0.005 285.823));
+  --shadow:0 16px 40px rgb(15 23 42 / 0.14), 0 3px 10px rgb(15 23 42 / 0.08);--mark:oklch(0.56079497 0.19449888 256.41258418);
+}
