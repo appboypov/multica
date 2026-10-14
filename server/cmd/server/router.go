@@ -2074,7 +2074,9 @@ func NewRouterWithOptions(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus
 			})
 
 			r.Route("/api/questions", func(r chi.Router) {
+				r.Get("/", h.ListQuestions)
 				r.Post("/", h.AskQuestion)
+				r.Get("/open-count", h.CountOpenQuestions)
 				r.Route("/{id}", func(r chi.Router) {
 					r.Get("/", h.GetQuestion)
 					r.Post("/close", h.CloseQuestion)
