@@ -1,7 +1,7 @@
 # answer-all Specification
 
 ## Purpose
-TBD - created by archiving change answer-every-open-question-in-one-sitting. Update Purpose after archive.
+Lets a member answer all their open questions in one flow, one at a time or on one page.
 
 ## Requirements
 

@@ -1,7 +1,7 @@
 # questions-page Specification
 
 ## Purpose
-TBD - created by archiving change answer-every-open-question-in-one-sitting. Update Purpose after archive.
+Lets a member see and filter every question that concerns them in one place, including the questions on work they are assigned to under On my work, and answer Yes / No questions there.
 
 ## Requirements
 
