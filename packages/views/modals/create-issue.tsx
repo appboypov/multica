@@ -479,6 +479,9 @@ export function ManualCreatePanel({
     if (propertyErrorId === propertyId) setPropertyErrorId(null);
   };
   const pickTemplate = (next: IssueType | null) => {
+    // Picking a template unmounts the free description editor; mid-upload that
+    // drops the pending file and leaves the upload gate stuck, so wait.
+    if (type === null && gate.isBlocked()) return;
     // The free description editor unmounts when a template is picked; keep
     // its typing that is still inside the debounce window.
     const pendingDesc = descEditorRef.current?.flushPendingUpdate?.();
@@ -1108,7 +1111,12 @@ export function ManualCreatePanel({
             <div className="flex min-h-0 flex-1 flex-col sm:flex-row">
               {/* Templates — No template, or one of the eight. */}
               <div className="max-h-36 shrink-0 overflow-y-auto border-b px-2 pb-2 sm:max-h-none sm:w-56 sm:border-r sm:border-b-0">
-                <TemplateList templates={templates} type={type} onPick={pickTemplate} />
+                <TemplateList
+                  templates={templates}
+                  type={type}
+                  onPick={pickTemplate}
+                  disabled={type === null && gate.uploading}
+                />
               </div>
 
               <div {...descDropZoneProps} className="relative flex min-h-0 min-w-0 flex-1 flex-col">
