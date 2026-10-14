@@ -88,6 +88,21 @@ An agent's task on an issue of a worklane runs in that worklane's worktree, on t
 
 When the pull request of the issue that holds the branch merges into the default branch, the worktree switches to the next issue's branch, cut from the fetched default branch, or is left detached when no issue is left. It switches only when nothing would be lost: with uncommitted changes or commits that are not pushed, it stays on its branch and the worklane's activity says why.
 
+## Releases
+
+A repository's releases form one line, in the order they ship. Every worklane of the repository shows the same line on its **Timeline**: the first unshipped release is **Next release** and the ones after it are **Planned**. The worklane's header says **last shipped v{version}**, **nothing shipped yet** or **does not release**. On Projects and on an organisation's page, each worklane row shows its repository's last and next release under **Last · Next · Planned releases**; click a release to open it on the worklane's Timeline.
+
+- **Plan release**, at the end of the Timeline, adds a release after the last one. Pick **Patch**, **Minor** or **Major** to bump the version of the release before it, or of the last tag for the first release, or **Custom** to set the version by hand. Every version must be higher than the one before it: while it is not, the dialog says why and **Plan release** stays disabled.
+- A version set by hand shows **Set by hand** and keeps its number when the line changes. A bumped version follows the release before it.
+- The menu of an unshipped release offers **Edit release**, **Move earlier**, **Move later** and **Remove release**. **Edit release** changes the version, title and description. Moving or removing a release renumbers the bumped releases after it; a move that would leave a version not higher than the one before it is disabled, with the reason.
+- Each change appears in the activity of every worklane of the repository, with one line for each version it changed, such as "Notifications v1.2.0 -> v1.1.0".
+
+A release has no date and no goal before it ships.
+
+### Repositories that do not release
+
+Set **Releases** to **This repository does not release** in **Edit repository**, and its worklanes show "{owner/name} does not release, so its worklanes plan no releases." in place of Plan release. A repository can't stop releasing while its line holds unshipped releases: Edit repository names them and asks you to remove them first. Pick **Tags only** or a version file again, and Plan release starts from the last tag.
+
 ## Pin to the sidebar
 
 A pinned project appears in your sidebar. Pinning is a personal preference and does not affect other members.

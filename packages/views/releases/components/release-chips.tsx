@@ -92,11 +92,11 @@ export function ReleaseChips({
   const repository = repositories.find((r) => r.id === repositoryId);
   const { line, isLoading } = useReleaseLine(repositoryId, repository?.last_tag ?? null);
 
-  if (!repository || isLoading) return null;
-
   const wrap = (children: React.ReactNode) => (
     <span className={cn("inline-flex min-w-0 items-center gap-1.5", className)}>{children}</span>
   );
+
+  if (!repository || isLoading) return wrap(null);
 
   if (repository.version_policy === "none") {
     return wrap(

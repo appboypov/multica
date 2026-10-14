@@ -19,10 +19,15 @@ import {
 } from "@multica/ui/components/ui/dropdown-menu";
 import { AppLink } from "../../navigation";
 import { useLocale, useT } from "../../i18n";
+import { ReleaseChips } from "../../releases/components/release-chips";
 import { WorklaneMenu } from "../../worklanes/components/worklane-menu";
 import { WorklaneStateLabel } from "../../worklanes/components/worklane-state";
 
-/** One worklane of the card, with its state and menu, opening its page. */
+/**
+ * One worklane of the card, opening its page, with its repository's last and
+ * next release, its state and its menu. The chips sit outside the row's link,
+ * because each chip is a link of its own.
+ */
 function WorklaneRow({ worklane }: { worklane: Worklane }) {
   const paths = useWorkspacePaths();
   return (
@@ -33,8 +38,9 @@ function WorklaneRow({ worklane }: { worklane: Worklane }) {
       >
         <GitBranch aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
         <span className="min-w-0 truncate font-mono text-body">{worklane.name}</span>
-        <WorklaneStateLabel state={worklane.state} className="ml-auto" />
       </AppLink>
+      <ReleaseChips repositoryId={worklane.repository_id} worklaneId={worklane.id} />
+      <WorklaneStateLabel state={worklane.state} />
       {worklane.is_main ? (
         <span aria-hidden className="size-7 shrink-0" />
       ) : (

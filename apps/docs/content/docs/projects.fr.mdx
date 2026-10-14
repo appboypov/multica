@@ -88,6 +88,21 @@ La tâche d’un agent sur une tâche d’un worklane s’exécute dans le workt
 
 Quand la pull request de la tâche qui tient la branche est fusionnée dans la branche par défaut, le worktree passe sur la branche de la tâche suivante, créée à partir de la branche par défaut récupérée, ou reste détaché quand il ne reste aucune tâche. Il ne change de branche que si rien ne serait perdu : avec des modifications non commitées ou des commits non poussés, il reste sur sa branche et l’activité du worklane en donne la raison.
 
+## Versions
+
+Les versions d’un dépôt forment une seule ligne, dans l’ordre de leur publication. Chaque worklane du dépôt affiche la même ligne sur sa **Chronologie** : la première version non publiée est la **Prochaine version**, les suivantes sont **Planifiées**. L’en-tête du worklane indique **dernière version publiée v{version}**, **rien de publié pour l’instant** ou **ne publie pas de versions**. Sur Projets et sur la page d’une organisation, chaque ligne de worklane affiche la dernière et la prochaine version de son dépôt sous **Dernière · Prochaine · Versions planifiées** ; cliquez sur une version pour l’ouvrir sur la Chronologie du worklane.
+
+- **Planifier une version**, à la fin de la Chronologie, ajoute une version après la dernière. Choisissez **Correctif**, **Mineure** ou **Majeure** pour incrémenter le numéro de la version précédente, ou du dernier tag pour la première version, ou **Personnalisé** pour fixer le numéro à la main. Chaque numéro doit être supérieur au précédent : tant que ce n’est pas le cas, la boîte de dialogue en donne la raison et **Planifier une version** reste désactivé.
+- Un numéro fixé à la main affiche **Fixé à la main** et le garde quand la ligne change. Un numéro incrémenté suit la version qui le précède.
+- Le menu d’une version non publiée propose **Modifier la version**, **Avancer**, **Reculer** et **Retirer la version**. **Modifier la version** change le numéro, le titre et la description. Déplacer ou retirer une version renumérote les versions incrémentées qui la suivent ; un déplacement qui laisserait un numéro non supérieur au précédent est désactivé, avec sa raison.
+- Chaque changement apparaît dans l’activité de chaque worklane du dépôt, avec une ligne par numéro modifié, par exemple « Notifications v1.2.0 -> v1.1.0 ».
+
+Une version n’a ni date ni objectif avant sa publication.
+
+### Les dépôts qui ne publient pas de versions
+
+Choisissez **Ce dépôt ne publie pas de versions** pour **Versions** dans **Modifier le dépôt**, et ses worklanes affichent « {owner/name} ne publie pas de versions, donc ses worklanes n’en planifient pas. » à la place de Planifier une version. Un dépôt ne peut pas arrêter de publier tant que sa ligne contient des versions non publiées : Modifier le dépôt les nomme et vous demande de les retirer d’abord. Choisissez de nouveau **Tags uniquement** ou un fichier de version, et Planifier une version repart du dernier tag.
+
 ## Épingler à la barre latérale
 
 Un projet épinglé apparaît dans votre barre latérale. L'épinglage est une préférence personnelle et n'affecte pas les autres membres.

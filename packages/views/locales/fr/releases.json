@@ -95,7 +95,7 @@
     "none_planned": "Aucune version planifiée",
     "does_not_release": "Ne publie pas de versions",
     "column": "Dernière · Prochaine · Versions planifiées",
-    "open": "Ouvrir {{version}} sur la frise"
+    "open": "Ouvrir {{version}} sur la chronologie"
   },
   "activity": {
     "planned": "{{actor}} a planifié {{version}} {{title}}",
