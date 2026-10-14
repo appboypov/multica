@@ -36,7 +36,7 @@ Every group builds on UJ-1's and UJ-2's code (changes `answer-an-agents-question
 
 ## 1. J2 Data models: model change
 
-- [ ] 1.1 `server/migrations/700_question_answerer_user_index.up.sql`, `.down.sql` -- `CREATE INDEX CONCURRENTLY IF NOT EXISTS` on `question_answerer (user_id, question_id)`; down drops it `CONCURRENTLY IF EXISTS` -- the viewer's answerer rows for For me and the count (design.md "Models"); one concurrent index per file (AGENTS.md).
+- [x] 1.1 `server/migrations/700_question_answerer_user_index.up.sql`, `.down.sql` -- `CREATE INDEX CONCURRENTLY IF NOT EXISTS` on `question_answerer (user_id, question_id)`; down drops it `CONCURRENTLY IF EXISTS` -- the viewer's answerer rows for For me and the count (design.md "Models"); one concurrent index per file (AGENTS.md).
 - [ ] 1.2 `server/migrations/701_question_open_workspace_index.up.sql`, `.down.sql` -- partial `CREATE INDEX CONCURRENTLY` on `question (workspace_id, created_at, id) WHERE status IN ('open', 'partly_answered')` -- All open in its order with its cursor.
 - [ ] 1.3 `server/migrations/702_question_answer_answerer_time_index.up.sql`, `.down.sql` -- `CREATE INDEX CONCURRENTLY` on `question_answer (answerer_user_id, updated_at, question_id)` -- Answered newest first with its cursor.
 
@@ -129,6 +129,8 @@ Every group builds on UJ-1's and UJ-2's code (changes `answer-an-agents-question
 - `main` already holds migrations 564 and 565. This change owns migrations 700 to 709 (Brian, WORK-366 comment `01a13915-3db8`) and uses 700 to 702; it never takes a number outside that range.
 - The list reads UJ-1's per-question data for nothing but the row: opening a question and every answer beyond Yes / No go through UJ-1's card and endpoints.
 - UJ-4 adds its tab `on_my_work`, parents and the indirect audience to `GET /api/questions` as ADR-0006 says; this change leaves the `tab` parameter open to that by refusing unknown values with 400 rather than ignoring them.
+- 1.1: migration 700 builds `idx_question_answerer_user`; its `concurrentIndexCleanups` entry in `server/cmd/migrate/main.go` sits at the top of the map, newest first like the question entries below it. The down file only drops, so `concurrentDownIndexCleanups` gets no entry.
+- design.md's change table still names the migrations `572` to `574`; its Migration Plan, the tasks and the last spec commit say `700` to `702`, and `main` already uses `572` to `578`, so the build follows `700` to `702`.
 
 ## Plan Change Log
 
