@@ -83,3 +83,13 @@ WHERE workspace_id = sqlc.arg('workspace_id')
                      JOIN repository r ON r.id = wl.repository_id AND r.workspace_id = wl.workspace_id
                      WHERE wl.workspace_id = sqlc.arg('workspace_id') AND r.project_id = sqlc.arg('project_id'))
 RETURNING id;
+
+-- name: ListReleaseTotals :many
+-- Closed issues of a removed worklane keep their release, so totals cannot
+-- be derived by summing the worklane progress rows.
+SELECT release_id, COUNT(*)::bigint AS total,
+       COUNT(*) FILTER (WHERE status = ANY(sqlc.arg('terminal_status_keys')::text[]))::bigint AS done
+FROM issue
+WHERE workspace_id = sqlc.arg('workspace_id') AND release_id IS NOT NULL
+GROUP BY release_id
+ORDER BY release_id;
