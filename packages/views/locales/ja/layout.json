@@ -7,6 +7,8 @@
     "issues": "タスク",
     "projects": "プロジェクト",
     "organisations": "組織",
+    "worklanes": "worklanes",
+    "releases": "リリース",
     "autopilots": "オートパイロット",
     "agents": "エージェント",
     "squads": "スクワッド",

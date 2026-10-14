@@ -94,6 +94,8 @@ const PAGE_KEYWORDS: Record<WorkspacePageKey, string[]> = {
   issues: ["issues", "tasks", "bugs", "任务"],
   projects: ["projects", "kanban", "项目"],
   organisations: ["organisations", "organizations", "companies", "clients", "组织"],
+  worklanes: ["worklanes", "lanes", "branches", "worktrees"],
+  releases: ["releases", "versions", "release line", "版本"],
   autopilots: ["autopilot", "autopilots", "automation", "schedule", "cron", "webhook", "自动化", "定时"],
   agents: ["agents", "bots", "ai", "智能体"],
   squads: ["squads", "teams", "小队", "团队"],
