@@ -3,6 +3,8 @@
 // server's `internal/question` registry is the authority on answer types, and
 // `api/schemas.ts` reads these shapes leniently.
 
+import type { IssueStatus } from "./issue";
+
 /** The twelve answer types; each has its own settings and value shape. */
 export type AnswerType =
   | "text"
@@ -351,4 +353,95 @@ export interface AgentQuestionsSettings {
 export interface QuestionAskResult {
   ask_id: string;
   questions: Question[];
+}
+
+// ---------------------------------------------------------------------------
+// The row list of the Questions page (`GET /api/questions`, ADR-0006): one
+// projection of a question per row, listed for the viewer by tab.
+// ---------------------------------------------------------------------------
+
+/**
+ * Which rows the list holds: `for_me` the questions open for the viewer
+ * (ADR-0004), `all_open` every open question in the workspace, `answered`
+ * the questions the viewer answered, newest answer first.
+ */
+export type QuestionTab = "for_me" | "all_open" | "answered";
+
+/** The issue a row belongs to: the question's link at position 0, where it was asked. */
+export interface QuestionRowLink {
+  type: QuestionLinkType;
+  id: string;
+  /** The issue's identifier, such as WORK-412. */
+  identifier: string;
+  title: string;
+  status: IssueStatus;
+}
+
+/** The viewer's own answer to the row's question. */
+export interface QuestionRowAnswer {
+  /** The server's one-line text of the value, as the folded card shows it. */
+  display: string;
+  updated_at: string;
+}
+
+interface QuestionRowBase {
+  id: string;
+  /** The id of the first question of its ask; a one-question ask has `ask_id = id`. */
+  ask_id: string;
+  /** 0-based place in its ask. */
+  ask_position: number;
+  /** The set's title, set only when the ask holds several questions. */
+  ask_title: string | null;
+  prompt: string;
+  status: QuestionStatus;
+  answer_policy: AnswerPolicy;
+  asker_agent_id: string;
+  /** The current answerers' user ids. */
+  answerer_ids: string[];
+  /** Date-only, YYYY-MM-DD, as issue due dates are. */
+  due_date: string | null;
+  blocks_work: boolean;
+  created_at: string;
+  link: QuestionRowLink;
+  /** Null while the viewer has not answered. */
+  my_answer: QuestionRowAnswer | null;
+}
+
+export interface TypedQuestionRow<T extends AnswerType> extends QuestionRowBase {
+  answer_type: T;
+  settings: AnswerSettingsByType[T];
+}
+
+/** A row whose answer type or settings this client cannot read; it offers no answer controls. */
+export interface UnreadableQuestionRow extends QuestionRowBase {
+  answer_type: "unknown";
+  settings: Record<string, unknown>;
+}
+
+/** Narrow on `answer_type` to read `settings`. */
+export type QuestionRow = { [T in AnswerType]: TypedQuestionRow<T> }[AnswerType] | UnreadableQuestionRow;
+
+/** 200 body of `GET /api/questions`: one page of rows; `next_cursor` is null on the last page. */
+export interface QuestionRowPage {
+  rows: QuestionRow[];
+  next_cursor: string | null;
+}
+
+/**
+ * The filters of `GET /api/questions`. Each list sends one repeated query
+ * parameter per entry (`answer_type`, `asker_id`, `answerer_id`, `link_id`);
+ * an empty list filters nothing. `blocks_work` true keeps only the questions
+ * that block work.
+ */
+export interface QuestionRowFilters {
+  readonly answer_types: readonly AnswerType[];
+  readonly asker_ids: readonly string[];
+  readonly answerer_ids: readonly string[];
+  readonly link_ids: readonly string[];
+  readonly blocks_work: boolean;
+}
+
+/** 200 body of `GET /api/questions/open-count`: the viewer's `for_me` count without filters. */
+export interface QuestionOpenCount {
+  count: number;
 }

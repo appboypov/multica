@@ -478,4 +478,13 @@ export type {
   QuestionWakeResult,
   AgentQuestionsSettings,
   QuestionAskResult,
+  QuestionTab,
+  QuestionRowLink,
+  QuestionRowAnswer,
+  TypedQuestionRow,
+  UnreadableQuestionRow,
+  QuestionRow,
+  QuestionRowPage,
+  QuestionRowFilters,
+  QuestionOpenCount,
 } from "./question";
