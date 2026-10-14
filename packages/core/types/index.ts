@@ -212,8 +212,28 @@ export type {
   RepositoryCheckoutFailure,
   RepositoryCheckoutResult,
   RepositoryCheckoutRequest,
+  RepositoryInstallCommand,
 } from "./repository";
-export type { Worklane, ListWorklanesResponse } from "./worklane";
+export type {
+  WorklaneState,
+  Worklane,
+  ListWorklanesResponse,
+  CreateWorklaneRequest,
+  RenameWorklaneRequest,
+  WorklaneRequestKind,
+  WorklaneRequestStatus,
+  WorklaneRequestStepKey,
+  WorklaneRequestStepState,
+  WorklaneRequestStep,
+  WorklaneRequestReasonCode,
+  WorklaneRequestReason,
+  WorklaneRequest,
+  WorklaneActivityAction,
+  WorklaneCreatedDetails,
+  WorklaneRenamedDetails,
+  WorklaneActivityEntry,
+  WorklaneActivityResponse,
+} from "./worklane";
 export type { PinnedItem, PinnedItemType, CreatePinRequest, ReorderPinsRequest } from "./pin";
 export type {
   GitHubInstallation,

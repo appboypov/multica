@@ -48,9 +48,9 @@ This change builds on UJ-2 (`repositories-of-a-project`, DAS-451): its `reposito
 
 ## 2. J2 Data models: model change
 
-- [ ] 2.1 `packages/core/types/worklane.ts` -- `Worklane` gains `path` and `state: "free" | "busy"`; `WorklaneRequest`, `WorklaneRequestStep`, `WorklaneRequestStepKey`, `WorklaneRequestStepState`, `WorklaneRequestStatus`, `WorklaneRequestReason`, `CreateWorklaneRequest`, `RenameWorklaneRequest`, `WorklaneActivityEntry` and `WorklaneActivityAction` -- design.md decisions 2 and 6.
-- [ ] 2.2 `packages/core/types/repository.ts` -- `Repository.install_command: string | null`; `install_command` on create and update; `install_commands: {file, command}[]` on the check result.
-- [ ] 2.3 `packages/core/api/schemas.ts` -- `WorklaneSchema` with `state` falling back to `free`; `WorklaneRequestSchema` with unknown step keys, states, statuses and reason codes kept as `unknown`; `WorklaneActivityResponseSchema` with an unknown action kept as `unknown`; `install_command` nullable with default null and `install_commands` defaulting to `[]` -- AGENTS.md "API Compatibility".
+- [x] 2.1 `packages/core/types/worklane.ts` -- `Worklane` gains `path` and `state: "free" | "busy"`; `WorklaneRequest`, `WorklaneRequestStep`, `WorklaneRequestStepKey`, `WorklaneRequestStepState`, `WorklaneRequestStatus`, `WorklaneRequestReason`, `CreateWorklaneRequest`, `RenameWorklaneRequest`, `WorklaneActivityEntry` and `WorklaneActivityAction` -- design.md decisions 2 and 6.
+- [x] 2.2 `packages/core/types/repository.ts` -- `Repository.install_command: string | null`; `install_command` on create and update; `install_commands: {file, command}[]` on the check result.
+- [x] 2.3 `packages/core/api/schemas.ts` -- `WorklaneSchema` with `state` falling back to `free`; `WorklaneRequestSchema` with unknown step keys, states, statuses and reason codes kept as `unknown`; `WorklaneActivityResponseSchema` with an unknown action kept as `unknown`; `install_command` nullable with default null and `install_commands` defaulting to `[]` -- AGENTS.md "API Compatibility".
 - [ ] 2.4 `packages/core/api/schemas.test.ts` -- malformed-response cases: a worklane without `state` or `path`, a request with an unknown step key and state, a request without `steps`, an activity entry with an unknown action, a repository without `install_command`, a check result without `install_commands`.
 
 ## 3. J2 Data models: action names
@@ -58,7 +58,7 @@ This change builds on UJ-2 (`repositories-of-a-project`, DAS-451): its `reposito
 - [x] 3.1 `server/pkg/protocol/events.go` -- `EventWorklaneUpdated` with the worklane's id and repository id.
 - [x] 3.2 `server/pkg/protocol/messages.go` -- `PendingWorkKindWorklaneRequest`; `DaemonHeartbeatPendingWorklaneRequest` and the heartbeat response's `pending_worklane_request`; `DaemonCapabilityWorklaneWorktreeV1 = "worklane-worktree-v1"`; the claim's `worklane_paths` per repository; the check result's `install_commands`.
 - [x] 3.3 `server/internal/handler/worklane.go` -- the constants `worklaneActionCreated = "worklane_created"` and `worklaneActionRenamed = "worklane_renamed"`; issue actions stay string literals in their listeners.
-- [ ] 3.4 `packages/core/modals/store.ts` -- `"new-worklane"`, `"rename-worklane"` and `"remove-worklane"` in `ModalType`.
+- [x] 3.4 `packages/core/modals/store.ts` -- `"new-worklane"`, `"rename-worklane"` and `"remove-worklane"` in `ModalType`.
 
 ## 4. J3 Data-flow prototype: data-flow prototype
 

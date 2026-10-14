@@ -105,6 +105,10 @@ import type {
   WorkspaceMcpServer,
   VersionPolicy,
   Worklane,
+  WorklaneActivityEntry,
+  WorklaneActivityResponse,
+  WorklaneRequest,
+  WorklaneRequestReasonCode,
 } from "../types";
 import type { CloudRuntimeNode } from "../runtimes/cloud-runtime";
 import type { CreateFeedbackResponse } from "../feedback/types";
@@ -1545,6 +1549,9 @@ export const RepositorySchema: z.ZodType<Repository> = z.object({
   checkout_daemon_id: z.string().default(""),
   checkout_path: z.string().default(""),
   version_policy: z.enum(VERSION_POLICIES).catch("none"),
+  // null while not found yet, so a repository from a server before install
+  // commands starts the check that finds it.
+  install_command: z.string().nullable().default(null),
 }).loose();
 
 export const EMPTY_REPOSITORY: Repository = {
@@ -1561,6 +1568,7 @@ export const EMPTY_REPOSITORY: Repository = {
   checkout_daemon_id: "",
   checkout_path: "",
   version_policy: "none",
+  install_command: null,
 };
 
 export const ListRepositoriesResponseSchema = z.object({
@@ -1625,6 +1633,9 @@ export const RepositoryCheckoutRequestSchema = z.object({
   failures: z.array(RepositoryCheckoutFailureSchema).catch([]),
   version_files: z.array(z.string()).catch([]),
   last_tag: z.string().catch(""),
+  install_commands: z
+    .array(z.object({ file: z.string().catch(""), command: z.string().catch("") }).loose())
+    .catch([]),
   error: z.string().catch(""),
   created_at: z.string().catch(""),
   updated_at: z.string().catch(""),
@@ -1642,6 +1653,7 @@ export const MALFORMED_REPOSITORY_CHECKOUT_REQUEST: RepositoryCheckoutRequest = 
   failures: [],
   version_files: [],
   last_tag: "",
+  install_commands: [],
   error: "invalid repository checkout response",
   created_at: "",
   updated_at: "",
@@ -1656,8 +1668,11 @@ export const WorklaneSchema: z.ZodType<Worklane> = z.object({
   name: z.string(),
   folder: z.string().nullable().default(null),
   daemon_id: z.string().nullable().default(null),
+  path: z.string().nullable().default(null),
   is_main: z.boolean().default(false),
   position: z.number().default(0),
+  // `free` is the fallback: an unknown state never reads as work in progress.
+  state: z.enum(["free", "busy"]).catch("free"),
   created_at: z.string().default(""),
   updated_at: z.string().default(""),
 }).loose();
@@ -1669,8 +1684,10 @@ export const EMPTY_WORKLANE: Worklane = {
   name: "",
   folder: null,
   daemon_id: null,
+  path: null,
   is_main: false,
   position: 0,
+  state: "free",
   created_at: "",
   updated_at: "",
 };
@@ -1686,6 +1703,133 @@ export const ListWorklanesResponseSchema = z.object({
 export const EMPTY_LIST_WORKLANES_RESPONSE: ListWorklanesResponse = {
   worklanes: [],
   total: 0,
+};
+
+const WorklaneRequestStepSchema = z.object({
+  key: z.enum(["fetch", "add_worktree", "install", "open", "unknown"]).catch("unknown"),
+  state: z.enum(["pending", "running", "done", "skipped", "failed", "unknown"]).catch("unknown"),
+  detail: z.string().catch(""),
+  output: z.string().catch(""),
+  duration_ms: z.number().catch(0),
+}).loose();
+
+const WORKLANE_REQUEST_REASON_CODES = [
+  "name_required",
+  "name_taken",
+  "folder_invalid",
+  "folder_taken",
+  "runtime_no_checkout",
+  "runtime_offline",
+  "runtime_cannot_make_worktrees",
+  "install_command_unknown",
+  "request_running",
+  "main_fixed",
+  "path_issue_worktree",
+  "path_not_checkout",
+  "lost",
+  "busy",
+  "uncommitted",
+  "unpushed",
+  "stashed",
+  "unknown",
+] as const satisfies readonly WorklaneRequestReasonCode[];
+
+const WorklaneRequestReasonSchema = z.object({
+  code: z.enum(WORKLANE_REQUEST_REASON_CODES).catch("unknown"),
+  detail: z.string().catch(""),
+}).loose();
+
+// A worklane request is polled every second while it runs. Every field
+// degrades on its own: an unknown step key, step state, status or reason code
+// from a newer server is kept as `unknown`, which the dialog shows as a failed
+// step with the server's detail, and a missing `steps` reads as none.
+export const WorklaneRequestSchema: z.ZodType<WorklaneRequest> = z.object({
+  id: z.string().catch(""),
+  kind: z.enum(["create", "remove", "unknown"]).catch("unknown"),
+  repository_id: z.string().catch(""),
+  worklane_id: z.string().nullable().catch(null),
+  name: z.string().catch(""),
+  folder: z.string().catch(""),
+  path: z.string().catch(""),
+  base: z.string().catch(""),
+  install_command: z.string().catch(""),
+  daemon_id: z.string().catch(""),
+  runtime_name: z.string().catch(""),
+  status: z.enum(["running", "failed", "completed", "refused", "unknown"]).catch("unknown"),
+  steps: z.array(WorklaneRequestStepSchema).catch([]),
+  reason: WorklaneRequestReasonSchema.nullable().catch(null),
+  created_by: z.string().nullable().catch(null),
+}).loose();
+
+// `failed` is the honest fallback for an unparseable request: the dialog stops
+// polling and offers Try again instead of spinning or claiming success.
+export const MALFORMED_WORKLANE_REQUEST: WorklaneRequest = {
+  id: "",
+  kind: "unknown",
+  repository_id: "",
+  worklane_id: null,
+  name: "",
+  folder: "",
+  path: "",
+  base: "",
+  install_command: "",
+  daemon_id: "",
+  runtime_name: "",
+  status: "failed",
+  steps: [],
+  reason: { code: "unknown", detail: "invalid worklane request response" },
+  created_by: null,
+};
+
+const WorklaneActivityShape = {
+  id: z.string().catch(""),
+  actor_type: z.string().catch(""),
+  actor_id: z.string().nullable().catch(null),
+  created_at: z.string().catch(""),
+};
+
+const UNKNOWN_WORKLANE_ACTIVITY_ENTRY: WorklaneActivityEntry = {
+  id: "",
+  actor_type: "",
+  actor_id: null,
+  created_at: "",
+  action: "unknown",
+  details: {},
+};
+
+// An entry of a known action parses its details, each field with a default.
+// Any other action, from a newer server, is kept as `unknown` and not
+// rendered, so an older desktop app ignores the entries it cannot word.
+const WorklaneActivityEntrySchema: z.ZodType<WorklaneActivityEntry> = z.union([
+  z.object({
+    ...WorklaneActivityShape,
+    action: z.literal("worklane_created"),
+    details: z
+      .object({ name: z.string().catch(""), runtime_name: z.string().catch("") })
+      .loose()
+      .catch({ name: "", runtime_name: "" }),
+  }).loose(),
+  z.object({
+    ...WorklaneActivityShape,
+    action: z.literal("worklane_renamed"),
+    details: z
+      .object({ from: z.string().catch(""), to: z.string().catch("") })
+      .loose()
+      .catch({ from: "", to: "" }),
+  }).loose(),
+  z.object({
+    ...WorklaneActivityShape,
+    action: z.unknown().transform(() => "unknown" as const),
+    details: z.record(z.string(), z.unknown()).catch({}),
+  }).loose(),
+]);
+
+export const WorklaneActivityResponseSchema = z.object({
+  entries: z.array(WorklaneActivityEntrySchema.catch(UNKNOWN_WORKLANE_ACTIVITY_ENTRY)).default([]),
+}).loose();
+
+export const EMPTY_WORKLANE_ACTIVITY_RESPONSE: WorklaneActivityResponse = {
+  entries: [],
 };
 
 // Local search index sync (MUL-7754). Callers reject a response that fails

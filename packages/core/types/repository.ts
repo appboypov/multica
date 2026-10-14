@@ -36,6 +36,11 @@ export interface Repository {
   /** The absolute path of the normal checkout, as the daemon resolved it. */
   checkout_path: string;
   version_policy: VersionPolicy;
+  /**
+   * The command that installs the dependencies of a new worktree: null while
+   * not found yet, "" for None, anything else is the command.
+   */
+  install_command: string | null;
 }
 
 export interface ListRepositoriesResponse {
@@ -63,12 +68,15 @@ export interface CreateRepositoryRequest {
   /** A completed, passed checkout check for the same `full_name`. */
   checkout_check_id: string;
   version_policy: VersionPolicy;
+  /** "" means None. Omit it to use the check's first found command. */
+  install_command?: string;
 }
 
 /** Omit `checkout_check_id` to keep the checkout. */
 export interface UpdateRepositoryRequest {
   checkout_check_id?: string;
   version_policy?: VersionPolicy;
+  install_command?: string;
 }
 
 /** Starts a checkout check, or a clone then the check, on a runtime. */
@@ -105,6 +113,13 @@ export interface RepositoryCheckoutResult {
   version_files: string[];
   /** The highest local `v{major}.{minor}.{patch}` tag, or "" for none. */
   last_tag: string;
+  /** The install commands of the files found on the default branch, in table order. */
+  install_commands: RepositoryInstallCommand[];
+}
+
+export interface RepositoryInstallCommand {
+  file: string;
+  command: string;
 }
 
 /** A checkout check as the UI polls it, like a runtime directory listing. */
