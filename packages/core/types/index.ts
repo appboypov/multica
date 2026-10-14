@@ -213,6 +213,7 @@ export type {
   RepositoryCheckoutResult,
   RepositoryCheckoutRequest,
   RepositoryInstallCommand,
+  RepositoryRefusal,
 } from "./repository";
 export type {
   WorklaneState,
@@ -234,6 +235,22 @@ export type {
   WorklaneActivityEntry,
   WorklaneActivityResponse,
 } from "./worklane";
+export type {
+  ReleaseBump,
+  Release,
+  ListReleasesResponse,
+  ReleaseLineResponse,
+  PlanReleaseRequest,
+  EditReleaseRequest,
+  MoveReleaseRequest,
+  ReleaseVersionChange,
+  ReleaseRefusalCode,
+  ReleaseRefusal,
+  ReleaseActivityDetails,
+  ReleaseEditedDetails,
+  ReleaseMovedDetails,
+  ReleaseRemovedDetails,
+} from "./release";
 export type { PinnedItem, PinnedItemType, CreatePinRequest, ReorderPinsRequest } from "./pin";
 export type {
   GitHubInstallation,

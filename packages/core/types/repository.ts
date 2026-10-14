@@ -41,6 +41,8 @@ export interface Repository {
    * not found yet, "" for None, anything else is the command.
    */
   install_command: string | null;
+  /** null while not known, "" for no tag, otherwise a version without `v`. */
+  last_tag: string | null;
 }
 
 export interface ListRepositoriesResponse {
@@ -130,4 +132,12 @@ export interface RepositoryCheckoutRequest extends RepositoryCheckoutResult {
   error: string;
   created_at: string;
   updated_at: string;
+}
+
+/** A repository cannot stop releasing while its line has unshipped releases. */
+export interface RepositoryRefusal {
+  code: "has_unshipped_releases" | "has_worklanes" | "unknown";
+  error?: string;
+  releases: { version: string; title: string }[];
+  worklanes?: string[];
 }

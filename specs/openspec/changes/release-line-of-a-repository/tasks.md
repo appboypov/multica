@@ -52,17 +52,17 @@ Its J2 starts once UJ-3's J2 is merged.
 
 ## 2. J2 Data models: model change
 
-- [ ] 2.1 `packages/core/types/release.ts`, `index.ts` -- `Release`, `ReleaseBump`, `ListReleasesResponse`, `ReleaseLineResponse`, `PlanReleaseRequest`, `EditReleaseRequest`, `MoveReleaseRequest`, `ReleaseVersionChange {release_id, title, from, to}` and `ReleaseRefusalCode` -- design.md decisions 1 and 2.
-- [ ] 2.2 `packages/core/types/repository.ts` -- `Repository.last_tag: string | null`; `has_unshipped_releases` refusal with `{version, title}[]`.
-- [ ] 2.3 `packages/core/types/worklane.ts` -- `WorklaneActivityAction` gains `release_planned`, `release_edited`, `release_moved` and `release_removed`, with their details -- design.md decision 4.
-- [ ] 2.4 `packages/core/api/schemas.ts` -- `ReleaseSchema` with `bump` unknown falling back to `null`, `description` defaulting to `''` and `shipped_at` to `null`; `ReleasesResponseSchema` and `ReleaseLineResponseSchema` with `releases` defaulting to `[]`; the release refusal body with an unknown code kept as `unknown`; `last_tag` nullable with default null; the four activity actions with `changes` defaulting to `[]` -- AGENTS.md "API Compatibility".
+- [x] 2.1 `packages/core/types/release.ts`, `index.ts` -- `Release`, `ReleaseBump`, `ListReleasesResponse`, `ReleaseLineResponse`, `PlanReleaseRequest`, `EditReleaseRequest`, `MoveReleaseRequest`, `ReleaseVersionChange {release_id, title, from, to}` and `ReleaseRefusalCode` -- design.md decisions 1 and 2.
+- [x] 2.2 `packages/core/types/repository.ts` -- `Repository.last_tag: string | null`; `has_unshipped_releases` refusal with `{version, title}[]`.
+- [x] 2.3 `packages/core/types/worklane.ts` -- `WorklaneActivityAction` gains `release_planned`, `release_edited`, `release_moved` and `release_removed`, with their details -- design.md decision 4.
+- [x] 2.4 `packages/core/api/schemas.ts` -- `ReleaseSchema` with `bump` unknown falling back to `null`, `description` defaulting to `''` and `shipped_at` to `null`; `ReleasesResponseSchema` and `ReleaseLineResponseSchema` with `releases` defaulting to `[]`; the release refusal body with an unknown code kept as `unknown`; `last_tag` nullable with default null; the four activity actions with `changes` defaulting to `[]` -- AGENTS.md "API Compatibility".
 - [ ] 2.5 `packages/core/api/schemas.test.ts` -- malformed-response cases: a release without `bump`, with an unknown `bump`, without `shipped_at`; a list without `releases`; a repository without `last_tag`; a release entry without `changes`; a refusal with an unknown code.
 
 ## 3. J2 Data models: action names
 
 - [x] 3.1 `server/pkg/protocol/events.go` -- `EventReleaseLineUpdated = "release_line:updated"` with the repository's id.
 - [x] 3.2 `server/internal/handler/release.go` -- the constants `releaseActionPlanned`, `releaseActionEdited`, `releaseActionMoved` and `releaseActionRemoved`.
-- [ ] 3.3 `packages/core/modals/store.ts` -- `"plan-release"`, `"edit-release"` and `"remove-release"` in `ModalType`.
+- [x] 3.3 `packages/core/modals/store.ts` -- `"plan-release"`, `"edit-release"` and `"remove-release"` in `ModalType`.
 
 ## 4. J3 Data-flow prototype: data-flow prototype
 

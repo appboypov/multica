@@ -109,6 +109,11 @@ import type {
   WorklaneActivityResponse,
   WorklaneRequest,
   WorklaneRequestReasonCode,
+  Release,
+  ReleaseLineResponse,
+  ListReleasesResponse,
+  ReleaseRefusal,
+  RepositoryRefusal,
 } from "../types";
 import type { CloudRuntimeNode } from "../runtimes/cloud-runtime";
 import type { CreateFeedbackResponse } from "../feedback/types";
@@ -1552,6 +1557,7 @@ export const RepositorySchema: z.ZodType<Repository> = z.object({
   // null while not found yet, so a repository from a server before install
   // commands starts the check that finds it.
   install_command: z.string().nullable().default(null),
+  last_tag: z.string().nullable().default(null),
 }).loose();
 
 export const EMPTY_REPOSITORY: Repository = {
@@ -1569,6 +1575,7 @@ export const EMPTY_REPOSITORY: Repository = {
   checkout_path: "",
   version_policy: "none",
   install_command: null,
+  last_tag: null,
 };
 
 export const ListRepositoriesResponseSchema = z.object({
@@ -1797,6 +1804,21 @@ const UNKNOWN_WORKLANE_ACTIVITY_ENTRY: WorklaneActivityEntry = {
   details: {},
 };
 
+const ReleaseVersionChangeSchema = z.object({
+  release_id: z.string().catch(""),
+  title: z.string().catch(""),
+  from: z.string().catch(""),
+  to: z.string().catch(""),
+}).loose();
+
+const ReleaseActivityDetailsShape = {
+  release_id: z.string().catch(""),
+  version: z.string().catch(""),
+  title: z.string().catch(""),
+};
+
+const EmptyReleaseActivityDetails = { release_id: "", version: "", title: "" };
+
 // An entry of a known action parses its details, each field with a default.
 // Any other action, from a newer server, is kept as `unknown` and not
 // rendered, so an older desktop app ignores the entries it cannot word.
@@ -1819,6 +1841,28 @@ const WorklaneActivityEntrySchema: z.ZodType<WorklaneActivityEntry> = z.union([
   }).loose(),
   z.object({
     ...WorklaneActivityShape,
+    action: z.literal("release_planned"),
+    details: z.object(ReleaseActivityDetailsShape).loose().catch(EmptyReleaseActivityDetails),
+  }).loose(),
+  z.object({
+    ...WorklaneActivityShape,
+    action: z.literal(["release_edited", "release_removed"]),
+    details: z.object({
+      ...ReleaseActivityDetailsShape,
+      changes: z.array(ReleaseVersionChangeSchema).catch([]),
+    }).loose().catch({ ...EmptyReleaseActivityDetails, changes: [] }),
+  }).loose(),
+  z.object({
+    ...WorklaneActivityShape,
+    action: z.literal("release_moved"),
+    details: z.object({
+      ...ReleaseActivityDetailsShape,
+      direction: z.enum(["earlier", "later", "unknown"]).catch("unknown"),
+      changes: z.array(ReleaseVersionChangeSchema).catch([]),
+    }).loose().catch({ ...EmptyReleaseActivityDetails, direction: "unknown", changes: [] }),
+  }).loose(),
+  z.object({
+    ...WorklaneActivityShape,
     action: z.unknown().transform(() => "unknown" as const),
     details: z.record(z.string(), z.unknown()).catch({}),
   }).loose(),
@@ -1831,6 +1875,70 @@ export const WorklaneActivityResponseSchema = z.object({
 export const EMPTY_WORKLANE_ACTIVITY_RESPONSE: WorklaneActivityResponse = {
   entries: [],
 };
+
+export const ReleaseSchema: z.ZodType<Release> = z.object({
+  id: z.string(),
+  repository_id: z.string(),
+  position: z.number().default(0),
+  version: z.string(),
+  bump: z.enum(["patch", "minor", "major"]).nullable().catch(null),
+  title: z.string(),
+  description: z.string().default(""),
+  shipped_at: z.string().nullable().default(null),
+  created_at: z.string().default(""),
+  updated_at: z.string().default(""),
+}).loose();
+
+export const EMPTY_RELEASE: Release = {
+  id: "",
+  repository_id: "",
+  position: 0,
+  version: "",
+  bump: null,
+  title: "",
+  description: "",
+  shipped_at: null,
+  created_at: "",
+  updated_at: "",
+};
+
+const ReleaseListSchema = z.array(ReleaseSchema.catch(EMPTY_RELEASE))
+  .transform((releases) => releases.filter((release) => release.id !== ""))
+  .default([]);
+
+export const ReleasesResponseSchema = z.object({ releases: ReleaseListSchema }).loose();
+export const ReleaseLineResponseSchema = z.object({ releases: ReleaseListSchema }).loose();
+export const EMPTY_RELEASES_RESPONSE: ListReleasesResponse = { releases: [] };
+export const EMPTY_RELEASE_LINE_RESPONSE: ReleaseLineResponse = { releases: [] };
+
+export const ReleaseRefusalSchema: z.ZodType<ReleaseRefusal> = z.object({
+  code: z.enum([
+    "title_required", "version_or_bump", "version_invalid", "does_not_release",
+    "last_tag_unknown", "first_release", "last_release", "line_not_increasing", "unknown",
+  ]).catch("unknown"),
+  error: z.string().optional(),
+  release_id: z.string().optional(),
+  version: z.string().optional(),
+  title: z.string().optional(),
+  before: z.union([
+    z.object({ version: z.string(), title: z.string() }).loose(),
+    z.object({ last_tag: z.string() }).loose(),
+  ]).optional().catch(undefined),
+}).loose();
+
+export const UNKNOWN_RELEASE_REFUSAL: ReleaseRefusal = { code: "unknown" };
+
+export const RepositoryRefusalSchema: z.ZodType<RepositoryRefusal> = z.object({
+  code: z.enum(["has_unshipped_releases", "has_worklanes", "unknown"]).catch("unknown"),
+  error: z.string().optional(),
+  releases: z.array(z.object({
+    version: z.string().catch(""),
+    title: z.string().catch(""),
+  }).loose()).catch([]),
+  worklanes: z.array(z.string()).optional().catch(undefined),
+}).loose();
+
+export const UNKNOWN_REPOSITORY_REFUSAL: RepositoryRefusal = { code: "unknown", releases: [] };
 
 // Local search index sync (MUL-7754). Callers reject a response that fails
 // these schemas instead of degrading to an empty value: an empty snapshot page

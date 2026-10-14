@@ -1,3 +1,10 @@
+import type {
+  ReleaseActivityDetails,
+  ReleaseEditedDetails,
+  ReleaseMovedDetails,
+  ReleaseRemovedDetails,
+} from "./release";
+
 /**
  * Worklanes — the lanes of work of a repository (ADR-0006).
  *
@@ -118,7 +125,14 @@ export interface WorklaneRequest {
  * repository-wide rows that show on every worklane of the repository
  * (ADR-0008). An action from a newer server is `unknown` and not rendered.
  */
-export type WorklaneActivityAction = "worklane_created" | "worklane_renamed" | "unknown";
+export type WorklaneActivityAction =
+  | "worklane_created"
+  | "worklane_renamed"
+  | "release_planned"
+  | "release_edited"
+  | "release_moved"
+  | "release_removed"
+  | "unknown";
 
 export interface WorklaneCreatedDetails {
   name: string;
@@ -141,6 +155,10 @@ export type WorklaneActivityEntry = WorklaneActivityEntryBase &
   (
     | { action: "worklane_created"; details: WorklaneCreatedDetails }
     | { action: "worklane_renamed"; details: WorklaneRenamedDetails }
+    | { action: "release_planned"; details: ReleaseActivityDetails }
+    | { action: "release_edited"; details: ReleaseEditedDetails }
+    | { action: "release_moved"; details: ReleaseMovedDetails }
+    | { action: "release_removed"; details: ReleaseRemovedDetails }
     | { action: "unknown"; details: Record<string, unknown> }
   );
 
