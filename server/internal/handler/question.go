@@ -70,7 +70,7 @@ func (h *Handler) questionActor(w http.ResponseWriter, r *http.Request, role que
 		return ws, service.QuestionActor{}, false
 	}
 	if role == questionRoleMember && (actorType != "member" || isMachineCredentialActor(r)) {
-		writeError(w, http.StatusForbidden, "only members answer, ask back, reassign or wake questions")
+		writeError(w, http.StatusForbidden, "only members answer, cancel, ask back, reassign or wake questions")
 		return ws, service.QuestionActor{}, false
 	}
 	if role == questionRoleAsker {
@@ -203,6 +203,28 @@ func (h *Handler) AnswerQuestion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.writeQuestionResponse(w, r, ws, result)
+}
+
+func (h *Handler) CancelQuestion(w http.ResponseWriter, r *http.Request) {
+	ws, actor, ok := h.questionActor(w, r, false, true)
+	if !ok {
+		return
+	}
+	id, ok := questionID(w, r)
+	if !ok {
+		return
+	}
+	var body service.CancelQuestionInput
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	result, err := h.QuestionService.Cancel(r.Context(), ws, id, actor, body)
+	if err != nil {
+		writeQuestionError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
 }
 
 func (h *Handler) AskBackQuestion(w http.ResponseWriter, r *http.Request) {

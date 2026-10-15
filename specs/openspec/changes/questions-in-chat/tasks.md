@@ -53,7 +53,7 @@ The branch is stacked on `ask-back-wakes-the-asker` (pull request 34); the Wake 
 
 ## 4. Backend and agent tooling: endpoints
 
-- [ ] 4.1 `server/internal/handler/question.go`, `server/cmd/server/router.go` -- `CancelQuestion`: `POST /api/questions/{id}/cancel` with `{note?: string, wake?: bool}` in the human member group beside answer and ask-back, returning the question -- Decision 5.
+- [x] 4.1 `server/internal/handler/question.go`, `server/cmd/server/router.go` -- `CancelQuestion`: `POST /api/questions/{id}/cancel` with `{note?: string, wake?: bool}` in the human member group beside answer and ask-back, returning the question -- Decision 5.
 - [ ] 4.2 `server/internal/handler/chat.go`, `server/cmd/server/router.go` -- `ListChatQuestions`: `GET /api/chat/sessions/{sessionId}/questions` behind `gatePublicChatSessionForUser`, through `ListForLink(chat)` -- Decision 7.
 - [ ] 4.3 `server/internal/handler/chat.go` `DeleteChatSession` -- call `DropLinksOfChat` inside the delete transaction before the session row goes, and publish the affected questions after commit -- Decision 8.
 - [ ] 4.4 `server/internal/handler/daemon.go` claim (`:2644-2655`) -- a chat task without channel context resolves `questions_enabled` from the workspace settings with `ResolveAgentQuestions(nil, settings)`; every other task without an issue stays off -- ADR-0017.
@@ -97,6 +97,8 @@ The branch is stacked on `ask-back-wakes-the-asker` (pull request 34); the Wake 
 - [ ] 9.1 `specs/openspec/changes/questions-in-chat/` -- run `openspec validate questions-in-chat --type change --strict`, sync the specs and archive the change -- own work has no acceptance test.
 
 ## Implementation Notes
+
+- 4.1: `handler/question.go` adds the thin current-member cancellation endpoint using `CancelQuestionInput` and the existing UUID, actor and question-error boundaries; `cmd/server/router.go` mounts it inside `RequireHumanActor` beside Answer. It returns the hydrated question with 200. The shared member-only refusal text includes cancellation. No checks run; endpoint regression coverage belongs to 4.6 and verification to the main agent.
 
 - 3.1: `service/question_links.go` validates chat links and chat-turn run links against their workspace. `service/question.go` hydrates only the chat creator's `member_id`, caching repeat chat lookups within an aggregate batch; `OpenChat` returns that private-safe chat identity in the shared link metadata DTO. Chat links have no parent reach, so they do not manufacture a Via on issue or work pages. No checks run; the main agent owns verification.
 - 3.2: `service/question.go` accepts a started, questions-enabled chat turn, inserts its chat first by default or immediately after the supplied first link, and retains link deduplication and the run link. Quick-create still refuses before any question write; off and not-started error copy now refers to the run rather than claiming every run is on an issue. No checks run.

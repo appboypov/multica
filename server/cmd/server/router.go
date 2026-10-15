@@ -2101,6 +2101,7 @@ func NewRouterWithOptions(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus
 					r.Group(func(r chi.Router) {
 						r.Use(handler.RequireHumanActor)
 						r.Post("/answer", h.AnswerQuestion)
+						r.Post("/cancel", h.CancelQuestion)
 						r.Post("/ask-back", h.AskBackQuestion)
 						r.Post("/reassign", h.ReassignQuestion)
 						r.Post("/wake", h.WakeQuestion)
