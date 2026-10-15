@@ -6470,16 +6470,13 @@ func delegatedFailureRecoveryAttribution(target *delegatedFailureRecoveryTarget)
 }
 
 // exhaustDelegatedFailureRecovery atomically settles the recovery outbox after
-// its bounded automatic attempts, creates one visible system explanation, and
-// notifies the responsible human. The bool reports whether this caller created
-// that terminal outcome. Updating the newest attempt first serializes
-// concurrent sweepers; the second caller then observes the explanation written
-// by the first and does not report another exhaustion.
+// its bounded automatic attempts and creates one visible system explanation.
+// Failed-run to-dos are owned by the task lifecycle listener.
+// Updating the newest attempt first serializes concurrent sweepers; the bool
+// reports whether this caller created the terminal explanation.
 func (s *TaskService) exhaustDelegatedFailureRecovery(ctx context.Context, target *delegatedFailureRecoveryTarget) (bool, error) {
 	var exhaustedComment db.Comment
-	var exhaustedInbox db.InboxItem
 	created := false
-	inboxCreated := false
 	if err := s.runInTx(ctx, func(qtx *db.Queries) error {
 		if _, err := qtx.AcknowledgeExhaustedDelegatedFailureRecovery(ctx, db.AcknowledgeExhaustedDelegatedFailureRecoveryParams{
 			CommentID:    target.comment.ID,
@@ -6528,51 +6525,6 @@ func (s *TaskService) exhaustDelegatedFailureRecovery(ctx context.Context, targe
 		exhaustedComment = createdComment.Comment()
 		created = true
 
-		// Exhaustion deliberately does not @mention the coordinator agent: doing
-		// so would enqueue a fourth recovery run and defeat the attempt bound.
-		// Instead, create one durable action-required inbox item for the human
-		// who originated (or is accountable for) the delegated work.
-		_, recipient := delegatedFailureRecoveryAttribution(target)
-		if recipient.Valid {
-			_, err = qtx.GetMemberByUserAndWorkspace(ctx, db.GetMemberByUserAndWorkspaceParams{
-				UserID:      recipient,
-				WorkspaceID: target.issue.WorkspaceID,
-			})
-			if errors.Is(err, pgx.ErrNoRows) {
-				return nil
-			}
-			if err != nil {
-				return fmt.Errorf("validate delegated failure exhaustion recipient: %w", err)
-			}
-
-			details, err := json.Marshal(map[string]any{
-				"failed_task_id":       util.UUIDToString(target.failed.ID),
-				"source_task_id":       util.UUIDToString(target.source.ID),
-				"coordinator_agent_id": util.UUIDToString(target.agent.ID),
-				"max_attempts":         delegatedFailureRecoveryMaxTaskAttempts,
-			})
-			if err != nil {
-				return fmt.Errorf("encode delegated failure exhaustion details: %w", err)
-			}
-			exhaustedInbox, err = qtx.CreateInboxItem(ctx, db.CreateInboxItemParams{
-				ID:            dbid.NewV7(),
-				WorkspaceID:   target.issue.WorkspaceID,
-				RecipientType: "member",
-				RecipientID:   recipient,
-				Type:          "task_failed",
-				Severity:      "action_required",
-				IssueID:       target.issue.ID,
-				Title:         target.issue.Title,
-				Body:          pgtype.Text{String: exhaustedComment.Content, Valid: true},
-				ActorType:     pgtype.Text{String: "system", Valid: true},
-				ActorID:       pgtype.UUID{},
-				Details:       details,
-			})
-			if err != nil {
-				return fmt.Errorf("create delegated failure exhaustion inbox item: %w", err)
-			}
-			inboxCreated = true
-		}
 		return nil
 	}); err != nil {
 		return false, err
@@ -6589,32 +6541,6 @@ func (s *TaskService) exhaustDelegatedFailureRecovery(ctx context.Context, targe
 				"issue_title":  target.issue.Title,
 				"issue_status": target.issue.Status,
 			},
-		})
-	}
-	if inboxCreated && s.Bus != nil {
-		s.Bus.Publish(events.Event{
-			Type:        protocol.EventInboxNew,
-			WorkspaceID: util.UUIDToString(target.issue.WorkspaceID),
-			ActorType:   "system",
-			ActorID:     "",
-			Payload: map[string]any{"item": map[string]any{
-				"id":             util.UUIDToString(exhaustedInbox.ID),
-				"workspace_id":   util.UUIDToString(exhaustedInbox.WorkspaceID),
-				"recipient_type": exhaustedInbox.RecipientType,
-				"recipient_id":   util.UUIDToString(exhaustedInbox.RecipientID),
-				"type":           exhaustedInbox.Type,
-				"severity":       exhaustedInbox.Severity,
-				"issue_id":       util.UUIDToPtr(exhaustedInbox.IssueID),
-				"title":          exhaustedInbox.Title,
-				"body":           util.TextToPtr(exhaustedInbox.Body),
-				"read":           exhaustedInbox.Read,
-				"archived":       exhaustedInbox.Archived,
-				"created_at":     util.TimestampToString(exhaustedInbox.CreatedAt),
-				"actor_type":     util.TextToPtr(exhaustedInbox.ActorType),
-				"actor_id":       util.UUIDToPtr(exhaustedInbox.ActorID),
-				"details":        json.RawMessage(exhaustedInbox.Details),
-				"issue_status":   target.issue.Status,
-			}},
 		})
 	}
 	return created, nil
