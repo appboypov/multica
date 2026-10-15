@@ -948,6 +948,7 @@ export function ChatWindow() {
                 })
               : undefined
           }
+          chat={activeSessionId ? { wsId, sessionId: activeSessionId } : undefined}
           quickActionsPendingMessageId={quickActionsPending?.message_id ?? null}
         />
       ) : (

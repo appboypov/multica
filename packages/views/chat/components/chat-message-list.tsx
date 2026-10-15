@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { useScrollFade } from "@multica/ui/hooks/use-scroll-fade";
 import { isTaskMessageTaskId, taskMessagesOptions } from "@multica/core/chat/queries";
+import { chatQuestionsOptions, groupQuestionCards } from "@multica/core/questions";
 import { RichContent } from "../../rich-content";
 import { RichContentScrollRootProvider } from "../../rich-content/scroll-root";
 import { copyText } from "@multica/ui/lib/clipboard";
@@ -47,6 +48,7 @@ import { buildTimeline } from "../../common/task-transcript";
 import { traceToolArgSummary } from "../../common/task-transcript/trace-event-presenter";
 import { OnboardingStarterCards } from "./onboarding-starter-cards";
 import { TaskStatusPill } from "./task-status-pill";
+import { ChatQuestionCards } from "./chat-question-cards";
 import { CHAT_COLUMN, CHAT_GUTTER } from "./chat-column";
 import { FOLLOW_EDGE_THRESHOLD } from "../../common/task-transcript/transcript-follow";
 import { LIVE_END_ROW_ATTR, useStickToBottom } from "./stick-to-bottom";
@@ -57,6 +59,7 @@ import {
   splitTimeline,
 } from "../lib/copy-text";
 import { stripChatQuickActionsProtocol } from "../lib/quick-actions";
+import { placeQuestionCards } from "../lib/question-placement";
 import { useT } from "../../i18n";
 
 // ─── Public component ────────────────────────────────────────────────────
@@ -92,6 +95,12 @@ interface ChatMessageListProps {
    * that reply until chat:quick_actions resolves it.
    */
   quickActionsPendingMessageId?: string | null;
+  /**
+   * The member's chat these messages belong to: its questions show as cards
+   * after the turn that asked them. Omitted where the messages are no
+   * member's chat.
+   */
+  chat?: { wsId: string; sessionId: string };
 }
 
 // ─── Virtuoso chrome ─────────────────────────────────────────────────────
@@ -188,6 +197,7 @@ export function ChatMessageList({
   quickActionsDisabled = false,
   onRegenerateQuickActions,
   quickActionsPendingMessageId = null,
+  chat,
 }: ChatMessageListProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [scrollContainerEl, setScrollContainerEl] = useState<HTMLDivElement | null>(null);
@@ -276,6 +286,23 @@ export function ChatMessageList({
     }
     return items;
   }, [messages, hasLive, pendingTaskId]);
+
+  // The chat's questions as cards, each group after the row of the turn that
+  // asked it (Decision 7). Live and persisted rows of a turn share one key,
+  // so a card asked mid-stream stays put when the reply persists.
+  const { data: questions } = useQuery(chatQuestionsOptions(chat?.wsId ?? "", chat?.sessionId ?? ""));
+  const cardsByRow = useMemo(
+    () =>
+      placeQuestionCards(
+        renderItems.map((item) => ({
+          key: item.key,
+          createdAt: item.kind === "message" ? item.message.created_at : null,
+        })),
+        groupQuestionCards(questions ?? []),
+        hasOlderMessages,
+      ),
+    [renderItems, questions, hasOlderMessages],
+  );
 
   const firstIndex = renderItems.length > 0 ? firstItemIndex : 0;
   const liveEndKey = renderItems[renderItems.length - 1]?.key ?? null;
@@ -372,24 +399,30 @@ export function ChatMessageList({
         computeItemKey={(_, item) => item.key}
         context={listContext}
         components={LIST_COMPONENTS}
-        itemContent={(_, item) => (
-          <div
-            className={cn(CHAT_COLUMN, "py-2")}
-            {...(item.key === liveEndKey ? { [LIVE_END_ROW_ATTR]: "" } : {})}
-          >
-            <MessageBubble
-              item={item}
-              isPending={!!pendingTaskId && item.taskId === pendingTaskId}
-              transformContent={transformContent}
-              onQuickAction={onQuickAction}
-              quickActionsDisabled={quickActionsDisabled}
-              onRegenerateQuickActions={onRegenerateQuickActions}
-              latestAssistantMessageId={latestAssistantMessageId}
-              quickActionsPendingMessageId={quickActionsPendingMessageId}
-              starterCardsMessageId={starterCardsMessageId}
-            />
-          </div>
-        )}
+        itemContent={(_, item) => {
+          const cards = chat ? cardsByRow.get(item.key) : undefined;
+          return (
+            <div
+              className={cn(CHAT_COLUMN, "py-2")}
+              {...(item.key === liveEndKey ? { [LIVE_END_ROW_ATTR]: "" } : {})}
+            >
+              <MessageBubble
+                item={item}
+                isPending={!!pendingTaskId && item.taskId === pendingTaskId}
+                transformContent={transformContent}
+                onQuickAction={onQuickAction}
+                quickActionsDisabled={quickActionsDisabled}
+                onRegenerateQuickActions={onRegenerateQuickActions}
+                latestAssistantMessageId={latestAssistantMessageId}
+                quickActionsPendingMessageId={quickActionsPendingMessageId}
+                starterCardsMessageId={starterCardsMessageId}
+              />
+              {chat && cards ? (
+                <ChatQuestionCards cards={cards} chatSessionId={chat.sessionId} highlightedQuestionId={null} />
+              ) : null}
+            </div>
+          );
+        }}
       />
       </RichContentScrollRootProvider>
       )}
