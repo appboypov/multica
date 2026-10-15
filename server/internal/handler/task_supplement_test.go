@@ -267,7 +267,7 @@ func TestTaskSupplementCompletionDoesNotReplayBoundComments(t *testing.T) {
 					testutil.Call(t, testHandler.CompleteTask, withURLParam(req, "taskId", fixture.taskID)).Want(http.StatusOK)
 					if status == "pending" || status == "delivering" {
 						receipt, err := testHandler.Queries.GetTaskSupplementForRun(t.Context(), db.GetTaskSupplementForRunParams{
-							CommentID: parseUUID(supplement.ID), TaskID: parseUUID(fixture.taskID), WorkspaceID: parseUUID(testWorkspaceID),
+							ItemID: parseUUID(supplement.ID), TaskID: parseUUID(fixture.taskID), WorkspaceID: parseUUID(testWorkspaceID),
 						})
 						if err != nil || receipt.Status != "failed" || receipt.FailureReason.String != protocol.TaskSupplementFailureTurnEnded {
 							t.Fatalf("completion did not settle pending delivery: %#v: %v", receipt, err)
@@ -335,7 +335,7 @@ func TestTaskSupplementConcurrentClaimsKeepUniqueReceipts(t *testing.T) {
 		}
 		seen[id] = true
 		if _, err := testHandler.Queries.AckTaskSupplementDelivered(context.Background(), db.AckTaskSupplementDeliveredParams{
-			TaskID: parseUUID(fixture.taskID), CommentID: claimed.CommentID,
+			TaskID: parseUUID(fixture.taskID), ItemID: claimed.ItemID,
 		}); err != nil {
 			t.Fatalf("ack %s: %v", id, err)
 		}
@@ -394,7 +394,7 @@ func TestTaskSupplementConcurrentDuplicateSubmissionsAndRetries(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := testHandler.Queries.AckTaskSupplementFailed(context.Background(), db.AckTaskSupplementFailedParams{
-		TaskID: parseUUID(fixture.taskID), CommentID: claim.CommentID,
+		TaskID: parseUUID(fixture.taskID), ItemID: claim.ItemID,
 		FailureReason: pgtype.Text{String: protocol.TaskSupplementFailureProviderRejected, Valid: true},
 	}); err != nil {
 		t.Fatal(err)
@@ -421,7 +421,7 @@ func TestTaskSupplementConcurrentDuplicateSubmissionsAndRetries(t *testing.T) {
 	if _, err := testHandler.Queries.ClaimNextTaskSupplement(context.Background(), parseUUID(fixture.taskID)); !errors.Is(err, pgx.ErrNoRows) {
 		t.Fatalf("duplicate retry left another claim: %v", err)
 	}
-	ack := db.AckTaskSupplementDeliveredParams{TaskID: parseUUID(fixture.taskID), CommentID: claim.CommentID}
+	ack := db.AckTaskSupplementDeliveredParams{TaskID: parseUUID(fixture.taskID), ItemID: claim.ItemID}
 	firstAck, err := testHandler.Queries.AckTaskSupplementDelivered(context.Background(), ack)
 	if err != nil || firstAck.Status != "delivered" || !firstAck.DeliveredAt.Valid {
 		t.Fatalf("delivery receipt = %#v: %v", firstAck, err)
@@ -531,7 +531,7 @@ func TestTaskSupplementStopRemainsIndependent(t *testing.T) {
 		"id", fixture.issueID, "taskId", fixture.taskID)
 	testutil.Call(t, testHandler.CancelTask, cancelReq).Want(http.StatusOK)
 	receipt, err := testHandler.Queries.GetTaskSupplementForRun(context.Background(), db.GetTaskSupplementForRunParams{
-		CommentID: parseUUID(comment.ID), TaskID: parseUUID(fixture.taskID), WorkspaceID: parseUUID(testWorkspaceID),
+		ItemID: parseUUID(comment.ID), TaskID: parseUUID(fixture.taskID), WorkspaceID: parseUUID(testWorkspaceID),
 	})
 	if err != nil || receipt.Status != "failed" || receipt.FailureReason.String != "turn_ended" {
 		t.Fatalf("stop receipt = %#v, err %v", receipt, err)
@@ -552,7 +552,7 @@ func TestTaskSupplementFailureSettlesPendingReceipt(t *testing.T) {
 		t.Fatalf("fail task: status %d: %s", w.Code, w.Body.String())
 	}
 	receipt, err := testHandler.Queries.GetTaskSupplementForRun(t.Context(), db.GetTaskSupplementForRunParams{
-		CommentID: parseUUID(comment.ID), TaskID: parseUUID(fixture.taskID), WorkspaceID: parseUUID(testWorkspaceID),
+		ItemID: parseUUID(comment.ID), TaskID: parseUUID(fixture.taskID), WorkspaceID: parseUUID(testWorkspaceID),
 	})
 	if err != nil || receipt.Status != "failed" || receipt.FailureReason.String != protocol.TaskSupplementFailureTurnEnded {
 		t.Fatalf("failed task receipt = %#v, err %v", receipt, err)

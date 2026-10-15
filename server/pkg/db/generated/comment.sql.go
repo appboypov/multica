@@ -1350,28 +1350,37 @@ func (q *Queries) ListRecentThreadCommentsForIssue(ctx context.Context, arg List
 }
 
 const listReconcilableCommentsForIssueSince = `-- name: ListReconcilableCommentsForIssueSince :many
+WITH received_comments AS MATERIALIZED (
+    SELECT s.comment_id
+    FROM task_supplement s
+    WHERE s.task_id = $6
+      AND s.item_kind IN ('comment', 'comment_edit')
+)
 SELECT c.id, c.issue_id, c.author_type, c.author_id, c.content, c.type, c.created_at, c.updated_at, c.parent_id, c.workspace_id, c.resolved_at, c.resolved_by_type, c.resolved_by_id, c.source_task_id, c.quick_action_id, c.via_plugin_id, c.revision, c.recovery_settled_at, c.deleted_at, c.suppressed_agent_ids FROM comment c
 WHERE c.issue_id = $1
   AND (c.id = ANY($2::uuid[])
-       OR comment_thread_root_id(c.id) = $3::uuid)
+       OR comment_thread_root_id(c.id) = $3::uuid
+       OR c.id IN (SELECT comment_id FROM received_comments))
   -- A deleted comment is no longer input, even when replies keep its row.
   AND c.deleted_at IS NULL
-  -- A comment that steered this agent's running turn belongs to that turn,
-  -- regardless of delivery status: failed delivery must not become an automatic
-  -- new run. The same comment still reconciles normally for any other agent
-  -- it addressed without steering.
-  AND NOT EXISTS (
-      SELECT 1 FROM task_supplement s
+  -- Only the newest received version's handled mark suppresses follow-up.
+  AND NOT COALESCE((
+      SELECT s.handled_at IS NOT NULL
+      FROM task_supplement s
       JOIN agent_task_queue bound ON bound.id = s.task_id
       WHERE s.comment_id = c.id AND s.workspace_id = c.workspace_id
+        AND s.item_kind IN ('comment', 'comment_edit')
         AND bound.agent_id = $4
-  )
+      ORDER BY s.created_at DESC, s.item_id DESC, s.task_id DESC
+      LIMIT 1
+  ), false)
   -- Nor does a comment whose author chose not to start this agent for it.
   AND NOT COALESCE($4::uuid = ANY(c.suppressed_agent_ids), false)
   AND (
       (
           c.author_type IN ('member', 'agent')
-          AND (c.created_at > $5 OR c.id = ANY($2::uuid[]))
+          AND (c.created_at > $5 OR c.id = ANY($2::uuid[])
+               OR c.id IN (SELECT comment_id FROM received_comments))
       )
       OR (
           c.author_type = 'system'
@@ -1389,11 +1398,12 @@ type ListReconcilableCommentsForIssueSinceParams struct {
 	CommentThreadID   pgtype.UUID        `json:"comment_thread_id"`
 	AgentID           pgtype.UUID        `json:"agent_id"`
 	Since             pgtype.Timestamptz `json:"since"`
+	TaskID            pgtype.UUID        `json:"task_id"`
 }
 
-// MUL-4195 / MUL-4304 completion reconciliation: every MEMBER- or AGENT-authored
-// comment on an issue created strictly after @since (the completing run's
-// created_at anchor), plus every id in its planned trigger/coalesced batch.
+// Completion reconciliation includes member/agent comments created after the
+// run's created_at anchor, planned trigger/coalesced inputs, and comments the
+// completing task received (including edits of comments older than the run).
 // The one platform-authored exception is a delegated-failure recovery signal:
 // author_type=system, type=progress_update, source_task_id set. Such a signal
 // can be registered after a coordinator was claimed and must be replayed when
@@ -1424,6 +1434,7 @@ func (q *Queries) ListReconcilableCommentsForIssueSince(ctx context.Context, arg
 		arg.CommentThreadID,
 		arg.AgentID,
 		arg.Since,
+		arg.TaskID,
 	)
 	if err != nil {
 		return nil, err

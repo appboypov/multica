@@ -73,6 +73,24 @@ WHERE a.workspace_id = $1
         AND t.started_at IS NOT NULL
         AND t.id NOT IN (SELECT id FROM excluded_tasks)
   ), '-infinity'::timestamptz)
+  AND NOT EXISTS (
+      SELECT 1 FROM task_supplement s
+      JOIN agent_task_queue handled_run ON handled_run.id = s.task_id
+      WHERE s.workspace_id = a.workspace_id
+        AND s.item_kind = 'answer'
+        AND s.handled_at IS NOT NULL
+        AND handled_run.agent_id = $4
+        AND s.item_id = (
+            SELECT e.id FROM question_event e
+            WHERE e.workspace_id = a.workspace_id
+              AND e.question_id = a.question_id
+              AND e.actor_type = 'member'
+              AND e.actor_id = a.answerer_user_id
+              AND e.kind IN ('answered', 'answer_edited')
+            ORDER BY e.created_at DESC, e.id DESC
+            LIMIT 1
+        )
+  )
 `
 
 type CountUnseenQuestionAnswersParams struct {
@@ -875,6 +893,24 @@ WHERE a.workspace_id = $1
         AND t.started_at IS NOT NULL
         AND t.id NOT IN (SELECT id FROM excluded_tasks)
   ), '-infinity'::timestamptz)
+  AND NOT EXISTS (
+      SELECT 1 FROM task_supplement s
+      JOIN agent_task_queue handled_run ON handled_run.id = s.task_id
+      WHERE s.workspace_id = a.workspace_id
+        AND s.item_kind = 'answer'
+        AND s.handled_at IS NOT NULL
+        AND handled_run.agent_id = $4
+        AND s.item_id = (
+            SELECT e.id FROM question_event e
+            WHERE e.workspace_id = a.workspace_id
+              AND e.question_id = a.question_id
+              AND e.actor_type = 'member'
+              AND e.actor_id = a.answerer_user_id
+              AND e.kind IN ('answered', 'answer_edited')
+            ORDER BY e.created_at DESC, e.id DESC
+            LIMIT 1
+        )
+  )
 ORDER BY a.updated_at ASC, a.id ASC
 `
 

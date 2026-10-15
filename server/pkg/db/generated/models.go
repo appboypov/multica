@@ -1624,6 +1624,11 @@ type TaskSupplement struct {
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
 	DeliveredAt     pgtype.Timestamptz `json:"delivered_at"`
+	ItemKind        string             `json:"item_kind"`
+	ItemID          pgtype.UUID        `json:"item_id"`
+	Content         pgtype.Text        `json:"content"`
+	SeenAt          pgtype.Timestamptz `json:"seen_at"`
+	HandledAt       pgtype.Timestamptz `json:"handled_at"`
 }
 
 type TaskSupplementCapability struct {

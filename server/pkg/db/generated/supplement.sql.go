@@ -22,21 +22,21 @@ SET status = 'delivered',
     updated_at = now()
 FROM task t
 WHERE s.task_id = t.id
-  AND s.comment_id = $1
+  AND s.item_id = $1
   AND (s.status IN ('delivering', 'delivered')
        OR (s.status = 'failed' AND s.failure_reason = 'turn_ended' AND s.attempt_count > 0))
-RETURNING s.task_id, s.workspace_id, s.issue_id, s.comment_id, s.author_id, s.client_request_id, s.status, s.failure_reason, s.attempt_count, s.created_at, s.updated_at, s.delivered_at
+RETURNING s.task_id, s.workspace_id, s.issue_id, s.comment_id, s.author_id, s.client_request_id, s.status, s.failure_reason, s.attempt_count, s.created_at, s.updated_at, s.delivered_at, s.item_kind, s.item_id, s.content, s.seen_at, s.handled_at
 `
 
 type AckTaskSupplementDeliveredParams struct {
-	CommentID pgtype.UUID `json:"comment_id"`
-	TaskID    pgtype.UUID `json:"task_id"`
+	ItemID pgtype.UUID `json:"item_id"`
+	TaskID pgtype.UUID `json:"task_id"`
 }
 
 // The provider can accept input before completion while its HTTP acknowledgement
 // arrives afterward. Serialize with settlement and preserve that successful write.
 func (q *Queries) AckTaskSupplementDelivered(ctx context.Context, arg AckTaskSupplementDeliveredParams) (TaskSupplement, error) {
-	row := q.db.QueryRow(ctx, ackTaskSupplementDelivered, arg.CommentID, arg.TaskID)
+	row := q.db.QueryRow(ctx, ackTaskSupplementDelivered, arg.ItemID, arg.TaskID)
 	var i TaskSupplement
 	err := row.Scan(
 		&i.TaskID,
@@ -51,6 +51,11 @@ func (q *Queries) AckTaskSupplementDelivered(ctx context.Context, arg AckTaskSup
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeliveredAt,
+		&i.ItemKind,
+		&i.ItemID,
+		&i.Content,
+		&i.SeenAt,
+		&i.HandledAt,
 	)
 	return i, err
 }
@@ -61,19 +66,19 @@ SET status = 'failed',
     failure_reason = $1,
     updated_at = now()
 WHERE task_id = $2
-  AND comment_id = $3
+  AND item_id = $3
   AND status = 'delivering'
-RETURNING task_id, workspace_id, issue_id, comment_id, author_id, client_request_id, status, failure_reason, attempt_count, created_at, updated_at, delivered_at
+RETURNING task_id, workspace_id, issue_id, comment_id, author_id, client_request_id, status, failure_reason, attempt_count, created_at, updated_at, delivered_at, item_kind, item_id, content, seen_at, handled_at
 `
 
 type AckTaskSupplementFailedParams struct {
 	FailureReason pgtype.Text `json:"failure_reason"`
 	TaskID        pgtype.UUID `json:"task_id"`
-	CommentID     pgtype.UUID `json:"comment_id"`
+	ItemID        pgtype.UUID `json:"item_id"`
 }
 
 func (q *Queries) AckTaskSupplementFailed(ctx context.Context, arg AckTaskSupplementFailedParams) (TaskSupplement, error) {
-	row := q.db.QueryRow(ctx, ackTaskSupplementFailed, arg.FailureReason, arg.TaskID, arg.CommentID)
+	row := q.db.QueryRow(ctx, ackTaskSupplementFailed, arg.FailureReason, arg.TaskID, arg.ItemID)
 	var i TaskSupplement
 	err := row.Scan(
 		&i.TaskID,
@@ -88,6 +93,11 @@ func (q *Queries) AckTaskSupplementFailed(ctx context.Context, arg AckTaskSupple
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeliveredAt,
+		&i.ItemKind,
+		&i.ItemID,
+		&i.Content,
+		&i.SeenAt,
+		&i.HandledAt,
 	)
 	return i, err
 }
@@ -104,19 +114,19 @@ WITH locked_task AS MATERIALIZED (
       AND r.workspace_id = $4
       AND t.status = 'running'
       AND cap.capability = 'task-supplement-v1'
-      AND r.provider IN ('codex', 'claude')
+      AND r.provider IN ('codex', 'claude', 'grok', 'omp')
     FOR UPDATE OF t
 ), inserted AS (
     INSERT INTO task_supplement (
-        task_id, workspace_id, issue_id, comment_id, author_id,
+        task_id, workspace_id, issue_id, comment_id, item_id, author_id,
         client_request_id, status
     )
-    SELECT t.id, $4, t.issue_id, $5, $6,
+    SELECT t.id, $4, t.issue_id, $5, $5, $6,
            $7, 'pending'
     FROM locked_task t
-    RETURNING task_id, workspace_id, issue_id, comment_id, author_id, client_request_id, status, failure_reason, attempt_count, created_at, updated_at, delivered_at
+    RETURNING task_id, workspace_id, issue_id, comment_id, author_id, client_request_id, status, failure_reason, attempt_count, created_at, updated_at, delivered_at, item_kind, item_id, content, seen_at, handled_at
 )
-SELECT inserted.task_id, inserted.workspace_id, inserted.issue_id, inserted.comment_id, inserted.author_id, inserted.client_request_id, inserted.status, inserted.failure_reason, inserted.attempt_count, inserted.created_at, inserted.updated_at, inserted.delivered_at, locked_task.runtime_id
+SELECT inserted.task_id, inserted.workspace_id, inserted.issue_id, inserted.comment_id, inserted.author_id, inserted.client_request_id, inserted.status, inserted.failure_reason, inserted.attempt_count, inserted.created_at, inserted.updated_at, inserted.delivered_at, inserted.item_kind, inserted.item_id, inserted.content, inserted.seen_at, inserted.handled_at, locked_task.runtime_id
 FROM inserted
 JOIN locked_task ON locked_task.id = inserted.task_id
 `
@@ -144,6 +154,11 @@ type BindCommentTaskSupplementRow struct {
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
 	DeliveredAt     pgtype.Timestamptz `json:"delivered_at"`
+	ItemKind        string             `json:"item_kind"`
+	ItemID          pgtype.UUID        `json:"item_id"`
+	Content         pgtype.Text        `json:"content"`
+	SeenAt          pgtype.Timestamptz `json:"seen_at"`
+	HandledAt       pgtype.Timestamptz `json:"handled_at"`
 	RuntimeID       pgtype.UUID        `json:"runtime_id"`
 }
 
@@ -176,6 +191,11 @@ func (q *Queries) BindCommentTaskSupplement(ctx context.Context, arg BindComment
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeliveredAt,
+		&i.ItemKind,
+		&i.ItemID,
+		&i.Content,
+		&i.SeenAt,
+		&i.HandledAt,
 		&i.RuntimeID,
 	)
 	return i, err
@@ -183,7 +203,7 @@ func (q *Queries) BindCommentTaskSupplement(ctx context.Context, arg BindComment
 
 const claimNextTaskSupplement = `-- name: ClaimNextTaskSupplement :one
 WITH next AS MATERIALIZED (
-    SELECT s.comment_id, s.task_id
+    SELECT s.item_id, s.task_id
     FROM task_supplement s
     JOIN agent_task_queue t ON t.id = s.task_id
     JOIN task_supplement_capability cap ON cap.task_id = t.id
@@ -191,7 +211,7 @@ WITH next AS MATERIALIZED (
       AND s.status = 'pending'
       AND t.status = 'running'
       AND cap.capability = 'task-supplement-v1'
-    ORDER BY s.created_at, s.comment_id
+    ORDER BY s.created_at, s.item_id
     FOR UPDATE OF s SKIP LOCKED
     LIMIT 1
 ), claimed AS (
@@ -201,18 +221,22 @@ WITH next AS MATERIALIZED (
         failure_reason = NULL,
         updated_at = now()
     FROM next
-    WHERE s.comment_id = next.comment_id
+    WHERE s.item_id = next.item_id
       AND s.task_id = next.task_id
-    RETURNING s.task_id, s.workspace_id, s.issue_id, s.comment_id, s.author_id, s.client_request_id, s.status, s.failure_reason, s.attempt_count, s.created_at, s.updated_at, s.delivered_at
+    RETURNING s.task_id, s.workspace_id, s.issue_id, s.comment_id, s.author_id, s.client_request_id, s.status, s.failure_reason, s.attempt_count, s.created_at, s.updated_at, s.delivered_at, s.item_kind, s.item_id, s.content, s.seen_at, s.handled_at
 )
-SELECT claimed.comment_id, claimed.attempt_count, c.content,
-       COALESCE(NULLIF(btrim(u.name), ''), 'a user')::text AS author_name
+SELECT claimed.item_kind, claimed.item_id, claimed.comment_id, claimed.attempt_count,
+       COALESCE(claimed.content, c.content, '')::text AS content,
+       COALESCE(NULLIF(btrim(u.name), ''), NULLIF(btrim(a.name), ''), 'a user')::text AS author_name
 FROM claimed
-JOIN comment c ON c.id = claimed.comment_id
+LEFT JOIN comment c ON c.id = claimed.comment_id
 LEFT JOIN "user" u ON u.id = claimed.author_id
+LEFT JOIN agent a ON a.id = claimed.author_id AND a.workspace_id = claimed.workspace_id
 `
 
 type ClaimNextTaskSupplementRow struct {
+	ItemKind     string      `json:"item_kind"`
+	ItemID       pgtype.UUID `json:"item_id"`
 	CommentID    pgtype.UUID `json:"comment_id"`
 	AttemptCount int32       `json:"attempt_count"`
 	Content      string      `json:"content"`
@@ -223,6 +247,8 @@ func (q *Queries) ClaimNextTaskSupplement(ctx context.Context, taskID pgtype.UUI
 	row := q.db.QueryRow(ctx, claimNextTaskSupplement, taskID)
 	var i ClaimNextTaskSupplementRow
 	err := row.Scan(
+		&i.ItemKind,
+		&i.ItemID,
 		&i.CommentID,
 		&i.AttemptCount,
 		&i.Content,
@@ -250,6 +276,102 @@ func (q *Queries) CommentHasTaskSupplement(ctx context.Context, arg CommentHasTa
 	return bound, err
 }
 
+const createRunInputSupplement = `-- name: CreateRunInputSupplement :one
+WITH locked_task AS MATERIALIZED (
+    SELECT t.id, t.issue_id, t.runtime_id
+    FROM agent_task_queue t
+    JOIN agent_runtime r ON r.id = t.runtime_id
+    JOIN task_supplement_capability cap ON cap.task_id = t.id
+    WHERE t.id = $1
+      AND t.issue_id = $2
+      AND r.workspace_id = $3
+      AND t.status = 'running'
+      AND cap.capability = 'task-supplement-v1'
+    FOR UPDATE OF t
+), inserted AS (
+    INSERT INTO task_supplement (
+        task_id, workspace_id, issue_id, comment_id, author_id,
+        item_kind, item_id, content, client_request_id, status
+    )
+    SELECT t.id, $3, t.issue_id, $4, $5,
+           $6, $7, $8, $7, 'pending'
+    FROM locked_task t
+    ON CONFLICT (item_id, task_id) DO NOTHING
+    RETURNING task_id, workspace_id, issue_id, comment_id, author_id, client_request_id, status, failure_reason, attempt_count, created_at, updated_at, delivered_at, item_kind, item_id, content, seen_at, handled_at
+)
+SELECT inserted.task_id, inserted.workspace_id, inserted.issue_id, inserted.comment_id, inserted.author_id, inserted.client_request_id, inserted.status, inserted.failure_reason, inserted.attempt_count, inserted.created_at, inserted.updated_at, inserted.delivered_at, inserted.item_kind, inserted.item_id, inserted.content, inserted.seen_at, inserted.handled_at, locked_task.runtime_id
+FROM inserted
+JOIN locked_task ON locked_task.id = inserted.task_id
+`
+
+type CreateRunInputSupplementParams struct {
+	TaskID      pgtype.UUID `json:"task_id"`
+	IssueID     pgtype.UUID `json:"issue_id"`
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
+	CommentID   pgtype.UUID `json:"comment_id"`
+	AuthorID    pgtype.UUID `json:"author_id"`
+	ItemKind    string      `json:"item_kind"`
+	ItemID      pgtype.UUID `json:"item_id"`
+	Content     pgtype.Text `json:"content"`
+}
+
+type CreateRunInputSupplementRow struct {
+	TaskID          pgtype.UUID        `json:"task_id"`
+	WorkspaceID     pgtype.UUID        `json:"workspace_id"`
+	IssueID         pgtype.UUID        `json:"issue_id"`
+	CommentID       pgtype.UUID        `json:"comment_id"`
+	AuthorID        pgtype.UUID        `json:"author_id"`
+	ClientRequestID pgtype.UUID        `json:"client_request_id"`
+	Status          string             `json:"status"`
+	FailureReason   pgtype.Text        `json:"failure_reason"`
+	AttemptCount    int32              `json:"attempt_count"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	DeliveredAt     pgtype.Timestamptz `json:"delivered_at"`
+	ItemKind        string             `json:"item_kind"`
+	ItemID          pgtype.UUID        `json:"item_id"`
+	Content         pgtype.Text        `json:"content"`
+	SeenAt          pgtype.Timestamptz `json:"seen_at"`
+	HandledAt       pgtype.Timestamptz `json:"handled_at"`
+	RuntimeID       pgtype.UUID        `json:"runtime_id"`
+}
+
+// Task-row locking serializes receipt creation against terminal settlement.
+func (q *Queries) CreateRunInputSupplement(ctx context.Context, arg CreateRunInputSupplementParams) (CreateRunInputSupplementRow, error) {
+	row := q.db.QueryRow(ctx, createRunInputSupplement,
+		arg.TaskID,
+		arg.IssueID,
+		arg.WorkspaceID,
+		arg.CommentID,
+		arg.AuthorID,
+		arg.ItemKind,
+		arg.ItemID,
+		arg.Content,
+	)
+	var i CreateRunInputSupplementRow
+	err := row.Scan(
+		&i.TaskID,
+		&i.WorkspaceID,
+		&i.IssueID,
+		&i.CommentID,
+		&i.AuthorID,
+		&i.ClientRequestID,
+		&i.Status,
+		&i.FailureReason,
+		&i.AttemptCount,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeliveredAt,
+		&i.ItemKind,
+		&i.ItemID,
+		&i.Content,
+		&i.SeenAt,
+		&i.HandledAt,
+		&i.RuntimeID,
+	)
+	return i, err
+}
+
 const createTaskSupplement = `-- name: CreateTaskSupplement :one
 WITH locked_task AS MATERIALIZED (
     SELECT t.id, t.issue_id, t.agent_id, t.trigger_comment_id
@@ -261,7 +383,7 @@ WITH locked_task AS MATERIALIZED (
       AND r.workspace_id = $3
       AND t.status = 'running'
       AND cap.capability = 'task-supplement-v1'
-      AND r.provider IN ('codex', 'claude', 'grok')
+      AND r.provider IN ('codex', 'claude', 'grok', 'omp')
     FOR UPDATE OF t
 ), touched_issue AS (
     UPDATE issue i SET
@@ -281,16 +403,16 @@ WITH locked_task AS MATERIALIZED (
     RETURNING id, issue_id, author_type, author_id, content, type, created_at, updated_at, parent_id, workspace_id, resolved_at, resolved_by_type, resolved_by_id, source_task_id, quick_action_id, via_plugin_id, revision, recovery_settled_at, deleted_at, suppressed_agent_ids
 ), inserted_supplement AS (
     INSERT INTO task_supplement (
-        task_id, workspace_id, issue_id, comment_id, author_id,
+        task_id, workspace_id, issue_id, comment_id, item_id, author_id,
         client_request_id, status
     )
-    SELECT t.id, i.workspace_id, i.id, c.id, $4,
+    SELECT t.id, i.workspace_id, i.id, c.id, c.id, $4,
            $6,
            'pending'
     FROM locked_task t
     JOIN touched_issue i ON i.id = t.issue_id
     JOIN inserted_comment c ON c.issue_id = i.id
-    RETURNING task_id, workspace_id, issue_id, comment_id, author_id, client_request_id, status, failure_reason, attempt_count, created_at, updated_at, delivered_at
+    RETURNING task_id, workspace_id, issue_id, comment_id, author_id, client_request_id, status, failure_reason, attempt_count, created_at, updated_at, delivered_at, item_kind, item_id, content, seen_at, handled_at
 )
 SELECT c.id, c.issue_id, c.author_type, c.author_id, c.content, c.type, c.created_at, c.updated_at, c.parent_id, c.workspace_id, c.resolved_at, c.resolved_by_type, c.resolved_by_id, c.source_task_id, c.quick_action_id, c.via_plugin_id, c.revision, c.recovery_settled_at, c.deleted_at, c.suppressed_agent_ids, i.revision AS issue_revision,
        s.task_id AS supplement_task_id, s.status AS supplement_status,
@@ -397,7 +519,7 @@ func (q *Queries) DeleteTaskSupplementByComment(ctx context.Context, arg DeleteT
 }
 
 const getTaskSupplementByRequest = `-- name: GetTaskSupplementByRequest :one
-SELECT s.task_id, s.workspace_id, s.issue_id, s.comment_id, s.author_id, s.client_request_id, s.status, s.failure_reason, s.attempt_count, s.created_at, s.updated_at, s.delivered_at
+SELECT s.task_id, s.workspace_id, s.issue_id, s.comment_id, s.author_id, s.client_request_id, s.status, s.failure_reason, s.attempt_count, s.created_at, s.updated_at, s.delivered_at, s.item_kind, s.item_id, s.content, s.seen_at, s.handled_at
 FROM task_supplement s
 WHERE s.task_id = $1
   AND s.workspace_id = $2
@@ -433,6 +555,11 @@ func (q *Queries) GetTaskSupplementByRequest(ctx context.Context, arg GetTaskSup
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeliveredAt,
+		&i.ItemKind,
+		&i.ItemID,
+		&i.Content,
+		&i.SeenAt,
+		&i.HandledAt,
 	)
 	return i, err
 }
@@ -455,18 +582,18 @@ func (q *Queries) GetTaskSupplementCapability(ctx context.Context, taskID pgtype
 }
 
 const getTaskSupplementForRun = `-- name: GetTaskSupplementForRun :one
-SELECT task_id, workspace_id, issue_id, comment_id, author_id, client_request_id, status, failure_reason, attempt_count, created_at, updated_at, delivered_at FROM task_supplement
-WHERE comment_id = $1 AND task_id = $2 AND workspace_id = $3
+SELECT task_id, workspace_id, issue_id, comment_id, author_id, client_request_id, status, failure_reason, attempt_count, created_at, updated_at, delivered_at, item_kind, item_id, content, seen_at, handled_at FROM task_supplement
+WHERE item_id = $1 AND task_id = $2 AND workspace_id = $3
 `
 
 type GetTaskSupplementForRunParams struct {
-	CommentID   pgtype.UUID `json:"comment_id"`
+	ItemID      pgtype.UUID `json:"item_id"`
 	TaskID      pgtype.UUID `json:"task_id"`
 	WorkspaceID pgtype.UUID `json:"workspace_id"`
 }
 
 func (q *Queries) GetTaskSupplementForRun(ctx context.Context, arg GetTaskSupplementForRunParams) (TaskSupplement, error) {
-	row := q.db.QueryRow(ctx, getTaskSupplementForRun, arg.CommentID, arg.TaskID, arg.WorkspaceID)
+	row := q.db.QueryRow(ctx, getTaskSupplementForRun, arg.ItemID, arg.TaskID, arg.WorkspaceID)
 	var i TaskSupplement
 	err := row.Scan(
 		&i.TaskID,
@@ -481,8 +608,145 @@ func (q *Queries) GetTaskSupplementForRun(ctx context.Context, arg GetTaskSupple
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeliveredAt,
+		&i.ItemKind,
+		&i.ItemID,
+		&i.Content,
+		&i.SeenAt,
+		&i.HandledAt,
 	)
 	return i, err
+}
+
+const listRunInputMarksByItems = `-- name: ListRunInputMarksByItems :many
+SELECT s.task_id, s.workspace_id, s.issue_id, s.comment_id, s.author_id, s.client_request_id, s.status, s.failure_reason, s.attempt_count, s.created_at, s.updated_at, s.delivered_at, s.item_kind, s.item_id, s.content, s.seen_at, s.handled_at, t.agent_id
+FROM task_supplement s
+JOIN agent_task_queue t ON t.id = s.task_id
+WHERE s.workspace_id = $1
+  AND s.item_id = ANY($2::uuid[])
+ORDER BY s.created_at, s.item_id, s.task_id
+`
+
+type ListRunInputMarksByItemsParams struct {
+	WorkspaceID pgtype.UUID   `json:"workspace_id"`
+	ItemIds     []pgtype.UUID `json:"item_ids"`
+}
+
+type ListRunInputMarksByItemsRow struct {
+	TaskID          pgtype.UUID        `json:"task_id"`
+	WorkspaceID     pgtype.UUID        `json:"workspace_id"`
+	IssueID         pgtype.UUID        `json:"issue_id"`
+	CommentID       pgtype.UUID        `json:"comment_id"`
+	AuthorID        pgtype.UUID        `json:"author_id"`
+	ClientRequestID pgtype.UUID        `json:"client_request_id"`
+	Status          string             `json:"status"`
+	FailureReason   pgtype.Text        `json:"failure_reason"`
+	AttemptCount    int32              `json:"attempt_count"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	DeliveredAt     pgtype.Timestamptz `json:"delivered_at"`
+	ItemKind        string             `json:"item_kind"`
+	ItemID          pgtype.UUID        `json:"item_id"`
+	Content         pgtype.Text        `json:"content"`
+	SeenAt          pgtype.Timestamptz `json:"seen_at"`
+	HandledAt       pgtype.Timestamptz `json:"handled_at"`
+	AgentID         pgtype.UUID        `json:"agent_id"`
+}
+
+func (q *Queries) ListRunInputMarksByItems(ctx context.Context, arg ListRunInputMarksByItemsParams) ([]ListRunInputMarksByItemsRow, error) {
+	rows, err := q.db.Query(ctx, listRunInputMarksByItems, arg.WorkspaceID, arg.ItemIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListRunInputMarksByItemsRow{}
+	for rows.Next() {
+		var i ListRunInputMarksByItemsRow
+		if err := rows.Scan(
+			&i.TaskID,
+			&i.WorkspaceID,
+			&i.IssueID,
+			&i.CommentID,
+			&i.AuthorID,
+			&i.ClientRequestID,
+			&i.Status,
+			&i.FailureReason,
+			&i.AttemptCount,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.DeliveredAt,
+			&i.ItemKind,
+			&i.ItemID,
+			&i.Content,
+			&i.SeenAt,
+			&i.HandledAt,
+			&i.AgentID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listRunningSupplementTasksForIssues = `-- name: ListRunningSupplementTasksForIssues :many
+SELECT t.id, t.agent_id, t.issue_id, t.runtime_id
+FROM agent_task_queue t
+JOIN agent_runtime r ON r.id = t.runtime_id
+JOIN task_supplement_capability cap ON cap.task_id = t.id
+WHERE r.workspace_id = $1
+  AND t.issue_id = ANY($2::uuid[])
+  AND t.status = 'running'
+  AND cap.capability = 'task-supplement-v1'
+  AND ($3::uuid IS NULL OR t.agent_id <> $3::uuid)
+  AND NOT (t.id = ANY(COALESCE($4::uuid[], '{}'::uuid[])))
+ORDER BY t.id
+`
+
+type ListRunningSupplementTasksForIssuesParams struct {
+	WorkspaceID    pgtype.UUID   `json:"workspace_id"`
+	IssueIds       []pgtype.UUID `json:"issue_ids"`
+	ExcludeAgentID pgtype.UUID   `json:"exclude_agent_id"`
+	ExcludeTaskIds []pgtype.UUID `json:"exclude_task_ids"`
+}
+
+type ListRunningSupplementTasksForIssuesRow struct {
+	ID        pgtype.UUID `json:"id"`
+	AgentID   pgtype.UUID `json:"agent_id"`
+	IssueID   pgtype.UUID `json:"issue_id"`
+	RuntimeID pgtype.UUID `json:"runtime_id"`
+}
+
+func (q *Queries) ListRunningSupplementTasksForIssues(ctx context.Context, arg ListRunningSupplementTasksForIssuesParams) ([]ListRunningSupplementTasksForIssuesRow, error) {
+	rows, err := q.db.Query(ctx, listRunningSupplementTasksForIssues,
+		arg.WorkspaceID,
+		arg.IssueIds,
+		arg.ExcludeAgentID,
+		arg.ExcludeTaskIds,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListRunningSupplementTasksForIssuesRow{}
+	for rows.Next() {
+		var i ListRunningSupplementTasksForIssuesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.AgentID,
+			&i.IssueID,
+			&i.RuntimeID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listTaskSupplementMetadata = `-- name: ListTaskSupplementMetadata :many
@@ -528,7 +792,7 @@ func (q *Queries) ListTaskSupplementMetadata(ctx context.Context, arg ListTaskSu
 }
 
 const listTaskSupplementsByCommentIDs = `-- name: ListTaskSupplementsByCommentIDs :many
-SELECT s.task_id, s.workspace_id, s.issue_id, s.comment_id, s.author_id, s.client_request_id, s.status, s.failure_reason, s.attempt_count, s.created_at, s.updated_at, s.delivered_at, t.agent_id
+SELECT s.task_id, s.workspace_id, s.issue_id, s.comment_id, s.author_id, s.client_request_id, s.status, s.failure_reason, s.attempt_count, s.created_at, s.updated_at, s.delivered_at, s.item_kind, s.item_id, s.content, s.seen_at, s.handled_at, t.agent_id
 FROM task_supplement s
 LEFT JOIN agent_task_queue t ON t.id = s.task_id
 WHERE s.workspace_id = $1
@@ -554,6 +818,11 @@ type ListTaskSupplementsByCommentIDsRow struct {
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
 	DeliveredAt     pgtype.Timestamptz `json:"delivered_at"`
+	ItemKind        string             `json:"item_kind"`
+	ItemID          pgtype.UUID        `json:"item_id"`
+	Content         pgtype.Text        `json:"content"`
+	SeenAt          pgtype.Timestamptz `json:"seen_at"`
+	HandledAt       pgtype.Timestamptz `json:"handled_at"`
 	AgentID         pgtype.UUID        `json:"agent_id"`
 }
 
@@ -581,6 +850,11 @@ func (q *Queries) ListTaskSupplementsByCommentIDs(ctx context.Context, arg ListT
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.DeliveredAt,
+			&i.ItemKind,
+			&i.ItemID,
+			&i.Content,
+			&i.SeenAt,
+			&i.HandledAt,
 			&i.AgentID,
 		); err != nil {
 			return nil, err
@@ -594,7 +868,7 @@ func (q *Queries) ListTaskSupplementsByCommentIDs(ctx context.Context, arg ListT
 }
 
 const lockTaskSupplementsByComment = `-- name: LockTaskSupplementsByComment :many
-SELECT task_id, workspace_id, issue_id, comment_id, author_id, client_request_id, status, failure_reason, attempt_count, created_at, updated_at, delivered_at FROM task_supplement
+SELECT task_id, workspace_id, issue_id, comment_id, author_id, client_request_id, status, failure_reason, attempt_count, created_at, updated_at, delivered_at, item_kind, item_id, content, seen_at, handled_at FROM task_supplement
 WHERE comment_id = $1 AND workspace_id = $2
 FOR UPDATE
 `
@@ -626,6 +900,11 @@ func (q *Queries) LockTaskSupplementsByComment(ctx context.Context, arg LockTask
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.DeliveredAt,
+			&i.ItemKind,
+			&i.ItemID,
+			&i.Content,
+			&i.SeenAt,
+			&i.HandledAt,
 		); err != nil {
 			return nil, err
 		}
@@ -637,11 +916,87 @@ func (q *Queries) LockTaskSupplementsByComment(ctx context.Context, arg LockTask
 	return items, nil
 }
 
+const markRunInputHandled = `-- name: MarkRunInputHandled :one
+UPDATE task_supplement
+SET handled_at = COALESCE(handled_at, now())
+WHERE task_id = $1 AND item_id = $2 AND status = 'delivered'
+RETURNING task_id, workspace_id, issue_id, comment_id, author_id, client_request_id, status, failure_reason, attempt_count, created_at, updated_at, delivered_at, item_kind, item_id, content, seen_at, handled_at
+`
+
+type MarkRunInputHandledParams struct {
+	TaskID pgtype.UUID `json:"task_id"`
+	ItemID pgtype.UUID `json:"item_id"`
+}
+
+func (q *Queries) MarkRunInputHandled(ctx context.Context, arg MarkRunInputHandledParams) (TaskSupplement, error) {
+	row := q.db.QueryRow(ctx, markRunInputHandled, arg.TaskID, arg.ItemID)
+	var i TaskSupplement
+	err := row.Scan(
+		&i.TaskID,
+		&i.WorkspaceID,
+		&i.IssueID,
+		&i.CommentID,
+		&i.AuthorID,
+		&i.ClientRequestID,
+		&i.Status,
+		&i.FailureReason,
+		&i.AttemptCount,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeliveredAt,
+		&i.ItemKind,
+		&i.ItemID,
+		&i.Content,
+		&i.SeenAt,
+		&i.HandledAt,
+	)
+	return i, err
+}
+
+const markRunInputSeen = `-- name: MarkRunInputSeen :one
+UPDATE task_supplement
+SET seen_at = COALESCE(seen_at, now())
+WHERE task_id = $1 AND item_id = $2 AND status = 'delivered'
+RETURNING task_id, workspace_id, issue_id, comment_id, author_id, client_request_id, status, failure_reason, attempt_count, created_at, updated_at, delivered_at, item_kind, item_id, content, seen_at, handled_at
+`
+
+type MarkRunInputSeenParams struct {
+	TaskID pgtype.UUID `json:"task_id"`
+	ItemID pgtype.UUID `json:"item_id"`
+}
+
+func (q *Queries) MarkRunInputSeen(ctx context.Context, arg MarkRunInputSeenParams) (TaskSupplement, error) {
+	row := q.db.QueryRow(ctx, markRunInputSeen, arg.TaskID, arg.ItemID)
+	var i TaskSupplement
+	err := row.Scan(
+		&i.TaskID,
+		&i.WorkspaceID,
+		&i.IssueID,
+		&i.CommentID,
+		&i.AuthorID,
+		&i.ClientRequestID,
+		&i.Status,
+		&i.FailureReason,
+		&i.AttemptCount,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeliveredAt,
+		&i.ItemKind,
+		&i.ItemID,
+		&i.Content,
+		&i.SeenAt,
+		&i.HandledAt,
+	)
+	return i, err
+}
+
 const retryTaskSupplement = `-- name: RetryTaskSupplement :one
 WITH comment AS MATERIALIZED (
-    SELECT id FROM comment
-    WHERE id = $1 AND workspace_id = $2 AND deleted_at IS NULL
-    FOR UPDATE
+    SELECT c.id FROM comment c
+    JOIN task_supplement s ON s.comment_id = c.id AND s.workspace_id = c.workspace_id
+    WHERE s.item_id = $1 AND s.task_id = $3
+      AND c.workspace_id = $2 AND c.deleted_at IS NULL
+    FOR UPDATE OF c
 ), active_task AS MATERIALIZED (
     SELECT agent_task_queue.id FROM agent_task_queue
     WHERE agent_task_queue.id = $3
@@ -661,14 +1016,14 @@ SET status = 'pending',
     updated_at = now()
 FROM active_task t
 WHERE s.task_id = t.id
-  AND s.comment_id = $1
+  AND s.item_id = $1
   AND s.workspace_id = $2
   AND s.status = 'failed'
-RETURNING s.task_id, s.workspace_id, s.issue_id, s.comment_id, s.author_id, s.client_request_id, s.status, s.failure_reason, s.attempt_count, s.created_at, s.updated_at, s.delivered_at
+RETURNING s.task_id, s.workspace_id, s.issue_id, s.comment_id, s.author_id, s.client_request_id, s.status, s.failure_reason, s.attempt_count, s.created_at, s.updated_at, s.delivered_at, s.item_kind, s.item_id, s.content, s.seen_at, s.handled_at
 `
 
 type RetryTaskSupplementParams struct {
-	CommentID   pgtype.UUID `json:"comment_id"`
+	ItemID      pgtype.UUID `json:"item_id"`
 	WorkspaceID pgtype.UUID `json:"workspace_id"`
 	TaskID      pgtype.UUID `json:"task_id"`
 	IssueID     pgtype.UUID `json:"issue_id"`
@@ -676,7 +1031,7 @@ type RetryTaskSupplementParams struct {
 
 func (q *Queries) RetryTaskSupplement(ctx context.Context, arg RetryTaskSupplementParams) (TaskSupplement, error) {
 	row := q.db.QueryRow(ctx, retryTaskSupplement,
-		arg.CommentID,
+		arg.ItemID,
 		arg.WorkspaceID,
 		arg.TaskID,
 		arg.IssueID,
@@ -695,6 +1050,11 @@ func (q *Queries) RetryTaskSupplement(ctx context.Context, arg RetryTaskSuppleme
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeliveredAt,
+		&i.ItemKind,
+		&i.ItemID,
+		&i.Content,
+		&i.SeenAt,
+		&i.HandledAt,
 	)
 	return i, err
 }
@@ -736,7 +1096,7 @@ WITH candidate AS MATERIALIZED (
     SELECT id, workspace_id, issue_id, 'task-supplement-v1'
     FROM candidate
     WHERE $2::boolean
-      AND provider IN ('codex', 'claude', 'grok')
+      AND provider IN ('codex', 'claude', 'grok', 'omp')
       AND issue_id IS NOT NULL
     ON CONFLICT DO NOTHING
     RETURNING task_id

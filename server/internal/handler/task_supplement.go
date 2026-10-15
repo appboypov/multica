@@ -351,11 +351,11 @@ func (h *Handler) RetryTaskSupplement(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	row, err := h.Queries.RetryTaskSupplement(r.Context(), db.RetryTaskSupplementParams{
-		CommentID: commentID, WorkspaceID: issue.WorkspaceID, TaskID: task.ID, IssueID: issue.ID,
+		ItemID: commentID, WorkspaceID: issue.WorkspaceID, TaskID: task.ID, IssueID: issue.ID,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		existing, loadErr := h.Queries.GetTaskSupplementForRun(r.Context(), db.GetTaskSupplementForRunParams{
-			CommentID: commentID, TaskID: task.ID, WorkspaceID: issue.WorkspaceID,
+			ItemID: commentID, TaskID: task.ID, WorkspaceID: issue.WorkspaceID,
 		})
 		if loadErr == nil && existing.Status == "pending" {
 			row = existing // duplicate retry is an idempotent success
@@ -417,12 +417,12 @@ func (h *Handler) AckTaskSupplement(w http.ResponseWriter, r *http.Request) {
 	var err error
 	if req.Delivered {
 		row, err = h.Queries.AckTaskSupplementDelivered(r.Context(), db.AckTaskSupplementDeliveredParams{
-			TaskID: parseUUID(taskID), CommentID: commentID,
+			TaskID: parseUUID(taskID), ItemID: commentID,
 		})
 	} else {
 		reason := stableTaskSupplementFailureReason(req.Error)
 		row, err = h.Queries.AckTaskSupplementFailed(r.Context(), db.AckTaskSupplementFailedParams{
-			TaskID: parseUUID(taskID), CommentID: commentID,
+			TaskID: parseUUID(taskID), ItemID: commentID,
 			FailureReason: pgtype.Text{String: reason, Valid: true},
 		})
 	}
