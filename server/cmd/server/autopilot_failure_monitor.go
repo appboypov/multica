@@ -15,9 +15,9 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/multica-ai/multica/server/internal/events"
 	"github.com/multica-ai/multica/server/internal/service"
+	"github.com/multica-ai/multica/server/internal/todo"
 	"github.com/multica-ai/multica/server/internal/util"
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
-	"github.com/multica-ai/multica/server/pkg/dbid"
 	"github.com/multica-ai/multica/server/pkg/protocol"
 )
 
@@ -191,8 +191,7 @@ func tickAutopilotFailureMonitor(ctx context.Context, queries *db.Queries, bus *
 	}
 }
 
-// emitAutopilotPausedNotifications creates one inbox_item per relevant
-// recipient and publishes inbox:new events so each lands live. Recipients:
+// emitAutopilotPausedNotifications opens one to-do per relevant recipient:
 //
 //  1. The autopilot creator if a member.
 //  2. If the autopilot creator is an agent, the agent's owner_id (mapped to a
@@ -217,7 +216,6 @@ func emitAutopilotPausedNotifications(
 		return
 	}
 
-	title := fmt.Sprintf("Autopilot paused: %s", autopilot.Title)
 	body := fmt.Sprintf(
 		"Auto-paused after %d of %d runs failed (%.1f%%) in the last %s. Investigate the failures, fix the root cause, then re-enable from the autopilot page.",
 		candidate.FailedRuns, candidate.TotalRuns, failPct, formatLookback(cfg.Lookback),
@@ -234,7 +232,6 @@ func emitAutopilotPausedNotifications(
 		"reason":               "auto_paused_high_failure_rate",
 	})
 
-	workspaceID := util.UUIDToString(autopilot.WorkspaceID)
 	autopilotIDStr := util.UUIDToString(autopilot.ID)
 
 	emitted := make(map[string]bool, len(recipients))
@@ -245,22 +242,13 @@ func emitAutopilotPausedNotifications(
 		}
 		emitted[key] = true
 
-		item, err := queries.CreateInboxItem(ctx, db.CreateInboxItemParams{
-			ID:            dbid.NewV7(),
-			WorkspaceID:   autopilot.WorkspaceID,
-			RecipientType: r.Type,
-			RecipientID:   r.ID,
-			Type:          "autopilot_paused",
-			Severity:      "attention",
-			IssueID:       pgtype.UUID{},
-			Title:         title,
-			Body:          util.StrToText(body),
-			ActorType:     util.StrToText("system"),
-			ActorID:       pgtype.UUID{},
-			Details:       details,
+		err := (todo.Service{Queries: queries, Bus: bus}).Open(ctx, db.OpenTodoParams{
+			WorkspaceID: autopilot.WorkspaceID, MemberID: r.ID,
+			Kind: todo.AutopilotPaused, SourceKey: autopilotIDStr, AutopilotID: autopilot.ID,
+			Title: autopilot.Title, Body: util.StrToText(body), Details: details,
 		})
 		if err != nil {
-			slog.Warn("autopilot failure monitor: inbox write failed",
+			slog.Warn("autopilot failure monitor: todo write failed",
 				"autopilot_id", autopilotIDStr,
 				"recipient_type", r.Type,
 				"recipient_id", util.UUIDToString(r.ID),
@@ -269,13 +257,6 @@ func emitAutopilotPausedNotifications(
 			continue
 		}
 
-		bus.Publish(events.Event{
-			Type:        protocol.EventInboxNew,
-			WorkspaceID: workspaceID,
-			ActorType:   "system",
-			ActorID:     "",
-			Payload:     map[string]any{"item": inboxItemToResponse(item)},
-		})
 	}
 }
 

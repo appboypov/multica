@@ -12,11 +12,10 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/multica-ai/multica/server/internal/entitlement"
-	"github.com/multica-ai/multica/server/internal/events"
+	"github.com/multica-ai/multica/server/internal/todo"
 	"github.com/multica-ai/multica/server/internal/util"
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
 	"github.com/multica-ai/multica/server/pkg/dbid"
-	"github.com/multica-ai/multica/server/pkg/protocol"
 )
 
 const autopilotQuotaFirstRejectionNoticeKey = "rejection_first"
@@ -30,6 +29,7 @@ type autopilotQuotaNoticeFacts struct {
 	Total       int64
 	Limit       int64
 	ResetAt     time.Time
+	SourceKey   string
 }
 
 func (s *AutopilotService) deliverAutopilotQuotaRejectionNotice(
@@ -53,7 +53,7 @@ func (s *AutopilotService) deliverAutopilotQuotaRejectionNotice(
 		)
 		return
 	}
-	s.publishAutopilotQuotaInboxItems(items)
+	s.publishAutopilotQuotaTodos(ctx, items)
 }
 
 func (s *AutopilotService) createAutopilotQuotaRejectionNotice(
@@ -62,7 +62,7 @@ func (s *AutopilotService) createAutopilotQuotaRejectionNotice(
 	workspaceID pgtype.UUID,
 	source string,
 	params db.CreateAutopilotRunParams,
-) ([]db.InboxItem, error) {
+) ([]db.Todo, error) {
 	tx, err := s.TxStarter.Begin(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("begin quota rejection notice: %w", err)
@@ -93,6 +93,7 @@ func (s *AutopilotService) createAutopilotQuotaRejectionNotice(
 		Total:       period.UsedCount + period.ReservedCount,
 		Limit:       policy.limit,
 		ResetAt:     policy.resetAt,
+		SourceKey:   period.PeriodStart.Time.UTC().Format(time.RFC3339) + "/" + period.PeriodEnd.Time.UTC().Format(time.RFC3339),
 	})
 	if err != nil {
 		return nil, err
@@ -122,7 +123,7 @@ func (s *AutopilotService) createAutopilotQuotaInboxItems(
 	ctx context.Context,
 	q *db.Queries,
 	facts autopilotQuotaNoticeFacts,
-) ([]db.InboxItem, error) {
+) ([]db.Todo, error) {
 	autopilotTitle := ""
 	autopilot, err := q.GetAutopilot(ctx, facts.AutopilotID)
 	if err == nil {
@@ -156,42 +157,35 @@ func (s *AutopilotService) createAutopilotQuotaInboxItems(
 		return nil, fmt.Errorf("marshal autopilot quota inbox details: %w", err)
 	}
 
-	items := make([]db.InboxItem, 0, len(recipients))
+	items := make([]db.Todo, 0, len(recipients))
 	for _, recipient := range recipients {
-		item, err := q.CreateInboxItem(ctx, db.CreateInboxItemParams{
-			ID: dbid.NewV7(), WorkspaceID: facts.WorkspaceID,
-			RecipientType: recipient.Type, RecipientID: recipient.ID,
-			Type: "autopilot_quota_exceeded", Severity: "attention", IssueID: pgtype.UUID{},
+		item, err := q.OpenTodo(ctx, db.OpenTodoParams{
+			ID: dbid.NewV7(), WorkspaceID: facts.WorkspaceID, MemberID: recipient.ID,
+			Kind: todo.QuotaReached, SourceKey: facts.SourceKey,
 			Title: "Autopilot run limit reached", Body: pgtype.Text{String: body, Valid: true},
-			ActorType: pgtype.Text{String: "system", Valid: true}, ActorID: pgtype.UUID{},
 			Details: details,
 		})
+		if errors.Is(err, pgx.ErrNoRows) {
+			continue
+		}
 		if err != nil {
-			return nil, fmt.Errorf("create autopilot quota inbox item: %w", err)
+			return nil, fmt.Errorf("create autopilot quota todo: %w", err)
 		}
 		items = append(items, item)
 	}
 	return items, nil
 }
 
-func (s *AutopilotService) publishAutopilotQuotaInboxItems(items []db.InboxItem) {
-	if s.Bus == nil {
-		return
-	}
+func (s *AutopilotService) publishAutopilotQuotaTodos(ctx context.Context, items []db.Todo) {
 	for _, item := range items {
-		s.Bus.Publish(events.Event{
-			Type: protocol.EventInboxNew, WorkspaceID: util.UUIDToString(item.WorkspaceID),
-			ActorType: "system",
-			Payload: map[string]any{"item": map[string]any{
-				"id": util.UUIDToString(item.ID), "workspace_id": util.UUIDToString(item.WorkspaceID),
-				"recipient_type": item.RecipientType, "recipient_id": util.UUIDToString(item.RecipientID),
-				"type": item.Type, "severity": item.Severity, "issue_id": nil,
-				"issue_status": nil, "issue_priority": nil,
-				"title": item.Title, "body": util.TextToPtr(item.Body), "read": item.Read,
-				"archived": item.Archived, "created_at": util.TimestampToString(item.CreatedAt),
-				"actor_type": util.TextToPtr(item.ActorType), "actor_id": nil,
-				"details": json.RawMessage(item.Details),
-			}},
-		})
+		if err := (todo.Service{Queries: s.Queries, Bus: s.Bus}).PublishOpened(ctx, item); err != nil {
+			slog.Error("publish quota todo", "error", err)
+		}
+	}
+}
+
+func (s *AutopilotService) closeAutopilotQuotaTodos(ctx context.Context, workspaceID pgtype.UUID) {
+	if err := (todo.Service{Queries: s.Queries, Bus: s.Bus}).CloseInWorkspace(ctx, db.CloseTodosInWorkspaceParams{WorkspaceID: workspaceID, Kind: todo.QuotaReached}); err != nil {
+		slog.Error("close admitted workspace quota todos", "workspace_id", util.UUIDToString(workspaceID), "error", err)
 	}
 }
