@@ -1,7 +1,7 @@
 schema: intent-driven
 created: 2026-10-15
 build:
-  status: draft
+  status: ready-for-dev
   type: feature
   ticket: WORK-1089
   context:
