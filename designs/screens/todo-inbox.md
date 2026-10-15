@@ -81,7 +81,7 @@ The kinds, their icon and when they leave:
 | Mentioned you | `at-sign` in `brand` | The member posts any comment on that issue after it |
 | Assigned to you · Todo, Back From QA, Blocked or In Review | `user-round-check` | The issue moves to another status |
 | Agent blocked, Run failed | `octagon-pause`, `circle-x`, in `destructive` | The issue is no longer Blocked, or the agent runs again |
-| Autopilot paused, Quota limit reached, Quick create failed | `circle-pause`, `gauge`, `triangle-alert`, in `warning` | It is solved |
+| Autopilot paused, Quota limit reached, Quick create failed | `circle-pause`, `gauge`, `triangle-alert`, in `warning` | It is solved, such as a paused autopilot that is resumed |
 | Waiting for your review: an issue the member created that is In Review, also with a pull request | `git-pull-request` in `info` | The issue leaves In Review |
 
 - One row per to-do, also when several are on the same issue.

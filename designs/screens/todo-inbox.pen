@@ -9377,7 +9377,7 @@
                                   "id": "BDVtJ",
                                   "name": "Text",
                                   "fill": "$S:faint-foreground",
-                                  "content": "Leaves your inbox once the autopilot runs again.",
+                                  "content": "Leaves your inbox once the autopilot is resumed.",
                                   "fontFamily": "$S:font-sans",
                                   "fontSize": "$S:text-caption",
                                   "fontWeight": "normal"
