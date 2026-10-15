@@ -2642,10 +2642,9 @@ func (h *Handler) buildClaimedTaskResponse(r *http.Request, task *db.AgentTaskQu
 	if agent.SystemKey.String == service.MikaSystemKey {
 		resp.Agent.Instructions = service.ComposeMikaInstructions(agent.Name, agent.Instructions)
 	}
-	// Whether this run may ask questions is decided once, here (ADR-0005): it
-	// picks the skill variants below and FinalizeTaskClaim stores it on the
-	// task, so a change to the issue or the default reaches the next run only.
-	// A task without an issue cannot ask.
+	// Whether this run may ask questions is decided once, here (ADR-0017).
+	// Skill variants and FinalizeTaskClaim follow this value; setting changes
+	// reach the next run. In-app chat turns use only the workspace default.
 	if task.IssueID.Valid {
 		setting, settingErr := h.Queries.GetIssueAgentQuestions(r.Context(), task.IssueID)
 		if settingErr != nil {
@@ -2653,6 +2652,13 @@ func (h *Handler) buildClaimedTaskResponse(r *http.Request, task *db.AgentTaskQu
 				h.rejectClaimSourceLoad(r.Context(), task, settingErr, "issue", uuidToString(task.IssueID))
 		}
 		resp.QuestionsEnabled = service.ResolveAgentQuestions(setting.AgentQuestions, setting.Settings)
+	} else if task.ChatSessionID.Valid && !task.ChannelContextRevision.Valid {
+		workspace, settingErr := h.Queries.GetWorkspace(r.Context(), agent.WorkspaceID)
+		if settingErr != nil {
+			return resp, deliveredCommentIDs, issueSnapshot, agentSkillCount, builtinSkillCount,
+				h.rejectClaimSourceLoad(r.Context(), task, settingErr, "workspace", uuidToString(agent.WorkspaceID))
+		}
+		resp.QuestionsEnabled = service.ResolveAgentQuestions(pgtype.Bool{}, workspace.Settings)
 	}
 	if useSkillRefs {
 		_, skillRefs, err := h.TaskService.LoadAgentSkillBundles(r.Context(), task.AgentID, agent.SystemKey.String, legacySkillRedirects, resp.QuestionsEnabled)
