@@ -349,9 +349,9 @@ ORDER BY created_at DESC
 LIMIT 1;
 
 -- name: ListReconcilableCommentsForIssueSince :many
--- MUL-4195 / MUL-4304 completion reconciliation: every MEMBER- or AGENT-authored
--- comment on an issue created strictly after @since (the completing run's
--- created_at anchor), plus every id in its planned trigger/coalesced batch.
+-- Completion reconciliation includes member/agent comments created after the
+-- run's created_at anchor, planned trigger/coalesced inputs, and comments the
+-- completing task received (including edits of comments older than the run).
 -- The one platform-authored exception is a delegated-failure recovery signal:
 -- author_type=system, type=progress_update, source_task_id set. Such a signal
 -- can be registered after a coordinator was claimed and must be replayed when
@@ -375,28 +375,37 @@ LIMIT 1;
 -- recorded in this run's planned inputs. Timestamp-only implicit agent replies
 -- remain excluded. Replays are scoped to the completing agent, never a fan-out.
 -- Ordered ASC so later comments coalesce onto the follow-up created by the first.
+WITH received_comments AS MATERIALIZED (
+    SELECT s.comment_id
+    FROM task_supplement s
+    WHERE s.task_id = @task_id
+      AND s.item_kind IN ('comment', 'comment_edit')
+)
 SELECT c.* FROM comment c
 WHERE c.issue_id = @issue_id
   AND (c.id = ANY(@planned_comment_ids::uuid[])
-       OR comment_thread_root_id(c.id) = sqlc.narg('comment_thread_id')::uuid)
+       OR comment_thread_root_id(c.id) = sqlc.narg('comment_thread_id')::uuid
+       OR c.id IN (SELECT comment_id FROM received_comments))
   -- A deleted comment is no longer input, even when replies keep its row.
   AND c.deleted_at IS NULL
-  -- A comment that steered this agent's running turn belongs to that turn,
-  -- regardless of delivery status: failed delivery must not become an automatic
-  -- new run. The same comment still reconciles normally for any other agent
-  -- it addressed without steering.
-  AND NOT EXISTS (
-      SELECT 1 FROM task_supplement s
+  -- Only the newest received version's handled mark suppresses follow-up.
+  AND NOT COALESCE((
+      SELECT s.handled_at IS NOT NULL
+      FROM task_supplement s
       JOIN agent_task_queue bound ON bound.id = s.task_id
       WHERE s.comment_id = c.id AND s.workspace_id = c.workspace_id
+        AND s.item_kind IN ('comment', 'comment_edit')
         AND bound.agent_id = @agent_id
-  )
+      ORDER BY s.created_at DESC, s.item_id DESC, s.task_id DESC
+      LIMIT 1
+  ), false)
   -- Nor does a comment whose author chose not to start this agent for it.
   AND NOT COALESCE(@agent_id::uuid = ANY(c.suppressed_agent_ids), false)
   AND (
       (
           c.author_type IN ('member', 'agent')
-          AND (c.created_at > @since OR c.id = ANY(@planned_comment_ids::uuid[]))
+          AND (c.created_at > @since OR c.id = ANY(@planned_comment_ids::uuid[])
+               OR c.id IN (SELECT comment_id FROM received_comments))
       )
       OR (
           c.author_type = 'system'
