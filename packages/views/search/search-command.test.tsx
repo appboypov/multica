@@ -401,14 +401,28 @@ describe("SearchCommand", () => {
     const input = screen.getByPlaceholderText("Type a command or search...");
     await user.type(input, "s");
 
-    // Inbox carries the hidden keyword "notifications". Matching keywords by
-    // substring made a bare "s" pull Inbox into the list with nothing on the
-    // row to explain why; keywords match by prefix instead.
+    // Hidden keywords such as Updates' "notifications" once matched by
+    // substring, so a bare "s" pulled pages into the list with nothing on the
+    // row to explain why; keywords match by prefix instead. Inbox has no
+    // label or keyword starting with "s", so it must stay out.
     await waitFor(() => {
       expect(
         screen.getByText((_, el) => el?.textContent === "Settings" && el?.tagName === "SPAN"),
       ).toBeInTheDocument();
     });
+    expect(screen.queryByText("Inbox")).not.toBeInTheDocument();
+  });
+
+  it("finds Updates, not the to-do Inbox, by the old notifications keyword", async () => {
+    const user = userEvent.setup();
+    renderSearch();
+
+    const input = screen.getByPlaceholderText("Type a command or search...");
+    await user.type(input, "notifications");
+
+    expect(
+      await screen.findByText((_, el) => el?.textContent === "Updates" && el?.tagName === "SPAN"),
+    ).toBeInTheDocument();
     expect(screen.queryByText("Inbox")).not.toBeInTheDocument();
   });
 

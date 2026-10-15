@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { ArrowLeft, Bell, Inbox } from "lucide-react";
 import { useWorkspaceId } from "@multica/core/hooks";
 import { useModalStore } from "@multica/core/modals";
-import { useWorkspacePaths } from "@multica/core/paths";
+import { INBOX_TODO_PARAM, useWorkspacePaths } from "@multica/core/paths";
 import {
   getShortcut,
   isEditableShortcutTarget,
@@ -35,9 +35,6 @@ import { TodoListItem } from "./todo-list-item";
 const INBOX_LIST_DEFAULT_SIZE = 260;
 const INBOX_LIST_MIN_SIZE = 240;
 const INBOX_LIST_MAX_SIZE = 400;
-
-/** The URL parameter that holds the selected to-do's id. */
-export const TODO_PARAM = "todo";
 
 /**
  * The row to select once `goneId` leaves `previous`: the next (older) row
@@ -79,7 +76,7 @@ export function InboxPage() {
   const wsId = useWorkspaceId();
   const wsPaths = useWorkspacePaths();
   const { searchParams, replace, push } = useNavigation();
-  const urlTodo = searchParams.get(TODO_PARAM) ?? "";
+  const urlTodo = searchParams.get(INBOX_TODO_PARAM) ?? "";
   const [selectedId, setSelectedIdState] = useState(urlTodo);
   useEffect(() => {
     setSelectedIdState(urlTodo);
@@ -93,7 +90,7 @@ export function InboxPage() {
 
   const setSelectedId = useCallback((id: string) => {
     setSelectedIdState(id);
-    replace(id ? `${wsPaths.inbox()}?${TODO_PARAM}=${encodeURIComponent(id)}` : wsPaths.inbox());
+    replace(id ? wsPaths.inboxTodo(id) : wsPaths.inbox());
   }, [replace, wsPaths]);
 
   // The selected to-do's issue, opened in the pane at the question or comment

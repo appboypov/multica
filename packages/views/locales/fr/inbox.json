@@ -1,7 +1,9 @@
 {
   "page": {
     "title": "Boîte de réception",
-    "back": "Boîte de réception"
+    "back": "Boîte de réception",
+    "updates_title": "Mises à jour",
+    "updates_back": "Mises à jour"
   },
   "menu": {
     "mark_all_read": "Tout marquer comme lu",

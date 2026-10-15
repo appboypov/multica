@@ -149,33 +149,63 @@ describe("resolveTabPresentation — direct resources", () => {
 });
 
 describe("resolveTabPresentation — containers keep their icon, title tracks selection", () => {
-  it("inbox: icon is always Inbox; title is the selected item or Inbox", () => {
+  it("inbox: icon is always Inbox; title is the selected to-do or Inbox", () => {
     expect(present("/acme/inbox")).toEqual({
       visual: { kind: "icon", icon: "Inbox" },
       title: { kind: "nav", navKey: "inbox" },
     });
     // Selected but not yet resolved → still Inbox, never a stale title.
-    expect(present("/acme/inbox?issue=MUL-9")).toEqual({
+    expect(present("/acme/inbox?todo=t1")).toEqual({
       visual: { kind: "icon", icon: "Inbox" },
       title: { kind: "nav", navKey: "inbox" },
     });
-    // Selected issue → Inbox icon + issue title (distinct from a direct issue,
-    // which would show a status icon).
+    // An issue's to-do → Inbox icon + issue title.
     expect(
-      present("/acme/inbox?issue=MUL-9", {
+      present("/acme/inbox?todo=t1", {
         inboxSelection: { kind: "issue", identifier: "MUL-9", title: "Bug" },
       }),
     ).toEqual({
       visual: { kind: "icon", icon: "Inbox" },
       title: { kind: "text", text: "MUL-9: Bug" },
     });
-    // Selected non-issue notification → its display title.
+    // Inbox selects by ?todo=: an ?issue= alone is no selection there.
     expect(
-      present("/acme/inbox?issue=n1", {
-        inboxSelection: { kind: "item", title: "Quick create failed" },
+      present("/acme/inbox?issue=MUL-9", {
+        inboxSelection: { kind: "issue", identifier: "MUL-9", title: "Bug" },
       }),
     ).toEqual({
       visual: { kind: "icon", icon: "Inbox" },
+      title: { kind: "nav", navKey: "inbox" },
+    });
+  });
+
+  it("updates: icon is always Bell; title is the selected notice or Updates", () => {
+    expect(present("/acme/updates")).toEqual({
+      visual: { kind: "icon", icon: "Bell" },
+      title: { kind: "nav", navKey: "updates" },
+    });
+    // Selected but not yet resolved → still Updates, never a stale title.
+    expect(present("/acme/updates?issue=MUL-9")).toEqual({
+      visual: { kind: "icon", icon: "Bell" },
+      title: { kind: "nav", navKey: "updates" },
+    });
+    // Selected issue → Bell icon + issue title (distinct from a direct issue,
+    // which would show a status icon).
+    expect(
+      present("/acme/updates?issue=MUL-9", {
+        inboxSelection: { kind: "issue", identifier: "MUL-9", title: "Bug" },
+      }),
+    ).toEqual({
+      visual: { kind: "icon", icon: "Bell" },
+      title: { kind: "text", text: "MUL-9: Bug" },
+    });
+    // Selected non-issue notice → its display title.
+    expect(
+      present("/acme/updates?view=archived&issue=n1", {
+        inboxSelection: { kind: "item", title: "Quick create failed" },
+      }),
+    ).toEqual({
+      visual: { kind: "icon", icon: "Bell" },
       title: { kind: "text", text: "Quick create failed" },
     });
   });

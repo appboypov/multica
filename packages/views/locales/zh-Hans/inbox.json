@@ -1,7 +1,9 @@
 {
   "page": {
     "title": "收件箱",
-    "back": "收件箱"
+    "back": "收件箱",
+    "updates_title": "动态",
+    "updates_back": "动态"
   },
   "menu": {
     "mark_all_read": "全部标为已读",

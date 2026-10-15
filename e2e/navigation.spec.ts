@@ -16,6 +16,12 @@ test.describe("Navigation", () => {
     // Each destination renames the browser tab after itself (MUL-6222).
     await expect(page).toHaveTitle("Inbox | Multica");
 
+    // Updates sits under Inbox and carries the notices that ask nothing.
+    await page.getByRole("link", { name: "Updates", exact: true }).click();
+    await expect(page).toHaveURL(/\/updates/, { timeout: ROUTE_CHANGE_TIMEOUT });
+    await waitForPageText(page, "Updates");
+    await expect(page).toHaveTitle("Updates | Multica");
+
     await page.getByRole("link", { name: "Agents" }).click();
     await expect(page).toHaveURL(/\/agents/, { timeout: ROUTE_CHANGE_TIMEOUT });
     await waitForPageText(page, "Agents");

@@ -814,6 +814,7 @@ if (!gotTheLock) {
           slug: payload.slug,
           itemId: payload.itemId,
           issueKey: payload.issueKey,
+          destination: payload.destination,
         });
       });
       notification.show();

@@ -114,6 +114,7 @@ const PINNED_PREVIEW_LIMIT = 5;
 // Only parameterless paths are valid nav destinations.
 type NavKey =
   | "inbox"
+  | "updates"
   | "questions"
   | "chat"
   | "myIssues"
@@ -134,6 +135,7 @@ type NavKey =
 // icons derived from the destination path via routeIconForPath.
 type NavLabelKey =
   | "inbox"
+  | "updates"
   | "questions"
   | "chat"
   | "my_issues"
@@ -155,6 +157,8 @@ type NavLabelKey =
 // always agree. See route-icon-components.tsx.
 const personalNav: { key: NavKey; labelKey: NavLabelKey }[] = [
   { key: "inbox", labelKey: "inbox" },
+  // No number: nothing in Updates waits on the member.
+  { key: "updates", labelKey: "updates" },
   { key: "questions", labelKey: "questions" },
   { key: "myIssues", labelKey: "my_issues" },
   { key: "chat", labelKey: "chat" },

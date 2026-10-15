@@ -11,7 +11,7 @@ import {
 import { useDefaultLayout } from "react-resizable-panels";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { useWorkspaceId } from "@multica/core/hooks";
-import { useWorkspacePaths } from "@multica/core/paths";
+import { UPDATES_ITEM_PARAM, useWorkspacePaths } from "@multica/core/paths";
 import { useModalStore } from "@multica/core/modals";
 import {
   getShortcut,
@@ -26,7 +26,6 @@ import {
   archivedInboxLookupOptions,
   deduplicateInboxItems,
   deduplicateArchivedInboxItems,
-  useInboxUnreadCount,
 } from "@multica/core/inbox/queries";
 import {
   useMarkInboxRead,
@@ -71,7 +70,6 @@ import {
   ResizableHandle,
 } from "@multica/ui/components/ui/resizable";
 import { Skeleton } from "@multica/ui/components/ui/skeleton";
-import { NumberFlow } from "@multica/ui/components/ui/number-flow";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -114,7 +112,7 @@ export function UpdatesPage() {
     "autopilot_quota",
   );
   const { searchParams, replace } = useNavigation();
-  const urlIssue = searchParams.get("issue") ?? "";
+  const urlIssue = searchParams.get(UPDATES_ITEM_PARAM) ?? "";
   const urlView: InboxView =
     searchParams.get("view") === ARCHIVED_VIEW_PARAM ? "archived" : "inbox";
   const wsPaths = useWorkspacePaths();
@@ -206,22 +204,22 @@ export function UpdatesPage() {
   // Both the view and the selection live in the URL, so every write has to
   // carry the other one — a bare `?issue=` would silently drop the user out of
   // the archived view on the next selection.
-  const buildInboxUrl = useCallback(
+  const buildUpdatesUrl = useCallback(
     (nextView: InboxView, key: string) => {
       const params = new URLSearchParams();
       if (nextView === "archived") params.set("view", ARCHIVED_VIEW_PARAM);
-      if (key) params.set("issue", key);
+      if (key) params.set(UPDATES_ITEM_PARAM, key);
       const query = params.toString();
-      const inboxPath = wsPaths.inbox();
-      return query ? `${inboxPath}?${query}` : inboxPath;
+      const updatesPath = wsPaths.updates();
+      return query ? `${updatesPath}?${query}` : updatesPath;
     },
     [wsPaths],
   );
 
   const setSelectedKey = useCallback((key: string) => {
     setSelectedKeyState(key);
-    replace(buildInboxUrl(view, key));
-  }, [replace, buildInboxUrl, view]);
+    replace(buildUpdatesUrl(view, key));
+  }, [replace, buildUpdatesUrl, view]);
 
   // Switching views always clears the selection: the two lists are mutually
   // exclusive, so a key carried across would never resolve, and the fallback
@@ -229,8 +227,8 @@ export function UpdatesPage() {
   const setView = useCallback((nextView: InboxView) => {
     setViewState(nextView);
     setSelectedKeyState("");
-    replace(buildInboxUrl(nextView, ""));
-  }, [replace, buildInboxUrl]);
+    replace(buildUpdatesUrl(nextView, ""));
+  }, [replace, buildUpdatesUrl]);
 
   // Stable identity: InboxList memoizes the archive entry on this callback, so
   // an inline arrow here would rebuild (and remount) the entry every render.
@@ -289,7 +287,6 @@ export function UpdatesPage() {
   });
 
   const isCompact = useIsCompact();
-  const unreadCount = useInboxUnreadCount(wsId);
 
   const markReadMutation = useMarkInboxRead();
   const markUnreadMutation = useMarkInboxUnread();
@@ -523,21 +520,13 @@ export function UpdatesPage() {
 
   const listHeader = (
     <PageHeader>
+      {/* Updates carries no number: nothing here waits on the member. */}
       <div className="flex min-w-0 items-center gap-2">
-        <h1 className="truncate text-body font-semibold">{t(($) => $.page.title)}</h1>
-        {unreadCount > 0 && (
-          <NumberFlow
-            value={unreadCount}
-            animated={false}
-            format={{ maximumFractionDigits: 0 }}
-            aria-label={String(unreadCount)}
-            className="shrink-0 text-caption text-muted-foreground"
-          />
-        )}
+        <h1 className="truncate text-body font-semibold">{t(($) => $.page.updates_title)}</h1>
       </div>
       <div className="flex flex-1 items-center gap-0.5">
         {/* The batch icon buttons sit in the header's free space: this slot is
-            what is left after the title, its unread count, the sidebar toggle,
+            what is left after the title, the sidebar toggle,
             the filter and the menu, at any panel width and in any locale. The
             buttons show only when all four (4 × 1.5rem) fit in it; otherwise
             they stay in the "..." menu. */}
@@ -714,8 +703,8 @@ export function UpdatesPage() {
     >
       <ArrowLeft className="h-4 w-4" />
       {/* Back goes to the list the user came FROM, so the label has to
-          name it — "Inbox" here would be a lie about the destination. */}
-      {isArchivedView ? t(($) => $.list.archived_title) : t(($) => $.page.back)}
+          name it — "Updates" here would be a lie about the destination. */}
+      {isArchivedView ? t(($) => $.list.archived_title) : t(($) => $.page.updates_back)}
     </Button>
   ) : undefined;
 

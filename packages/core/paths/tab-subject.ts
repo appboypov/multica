@@ -13,6 +13,7 @@
  * Chat) rides in the query string, so it is parsed too — the URL is the single
  * source of truth for what a tab has open, including which item.
  */
+import { INBOX_TODO_PARAM, UPDATES_ITEM_PARAM } from "./paths";
 import { pageForSegment, type WorkspacePageKey } from "./route-icons";
 
 export type TabActorType = "agent" | "member" | "squad";
@@ -40,11 +41,13 @@ export type TabSubject =
   | { kind: "runtime"; machineId: string; runtimeId: string }
   /** An attachment preview. `filename` is the `?name=` hint, or null. */
   | { kind: "attachment"; id: string; filename: string | null }
+  /** The to-do Inbox; `selectedKey` is the `?todo=` to-do id or null. */
+  | { kind: "inbox"; selectedKey: string | null }
   /**
-   * The Inbox container; `selectedKey` is the `?issue=` selection or null,
+   * The Updates container; `selectedKey` is the `?issue=` selection or null,
    * `archived` is the `?view=archived` sub-list (its own list/cache).
    */
-  | { kind: "inbox"; selectedKey: string | null; archived: boolean }
+  | { kind: "updates"; selectedKey: string | null; archived: boolean }
   /** The Chat container; `sessionId` is the `?session=` selection or null. */
   | { kind: "chat"; sessionId: string | null }
   /** Answer all, the one-sitting flow over the viewer's open questions. */
@@ -111,9 +114,11 @@ export function parseTabSubject(url: string): TabSubject {
     case "questions":
       return id === "answer" ? { kind: "answerAll" } : { kind: "page", page: "questions" };
     case "inbox":
+      return { kind: "inbox", selectedKey: query.get(INBOX_TODO_PARAM) || null };
+    case "updates":
       return {
-        kind: "inbox",
-        selectedKey: query.get("issue") || null,
+        kind: "updates",
+        selectedKey: query.get(UPDATES_ITEM_PARAM) || null,
         archived: query.get("view") === "archived",
       };
     case "chat":
@@ -174,7 +179,9 @@ export function tabSubjectKey(subject: TabSubject): string {
     case "attachment":
       return `attachment:${subject.id}:${subject.filename ?? ""}`;
     case "inbox":
-      return `inbox:${subject.archived ? "archived" : "inbox"}:${subject.selectedKey ?? ""}`;
+      return `inbox:${subject.selectedKey ?? ""}`;
+    case "updates":
+      return `updates:${subject.archived ? "archived" : "inbox"}:${subject.selectedKey ?? ""}`;
     case "chat":
       return `chat:${subject.sessionId ?? ""}`;
     case "answerAll":

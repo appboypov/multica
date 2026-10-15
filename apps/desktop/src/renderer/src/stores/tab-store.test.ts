@@ -66,16 +66,27 @@ describe("resourceKeyForUrl", () => {
 });
 
 describe("browsingHistoryKeyForUrl", () => {
-  it("keeps Inbox selections distinct while ignoring their other view state", () => {
-    expect(browsingHistoryKeyForUrl("/acme/inbox")).toBe("/acme/inbox");
-    expect(browsingHistoryKeyForUrl("/acme/inbox?issue=issue-a")).toBe(
-      "/acme/inbox?issue=issue-a",
+  it("keeps Updates selections distinct while ignoring their other view state", () => {
+    expect(browsingHistoryKeyForUrl("/acme/updates")).toBe("/acme/updates");
+    expect(browsingHistoryKeyForUrl("/acme/updates?issue=issue-a")).toBe(
+      "/acme/updates?issue=issue-a",
     );
     expect(
       browsingHistoryKeyForUrl(
-        "/acme/inbox?view=archived&issue=issue-a#comment-comment-1",
+        "/acme/updates?view=archived&issue=issue-a#comment-comment-1",
       ),
-    ).toBe("/acme/inbox?issue=issue-a");
+    ).toBe("/acme/updates?issue=issue-a");
+  });
+
+  it("keeps Inbox to-do selections distinct by their ?todo= id", () => {
+    expect(browsingHistoryKeyForUrl("/acme/inbox")).toBe("/acme/inbox");
+    expect(browsingHistoryKeyForUrl("/acme/inbox?todo=todo-a")).toBe(
+      "/acme/inbox?todo=todo-a",
+    );
+    // Inbox selects by to-do, so a stray ?issue= is plain view state there.
+    expect(browsingHistoryKeyForUrl("/acme/inbox?issue=issue-a")).toBe(
+      "/acme/inbox",
+    );
   });
 
   it("continues treating ordinary query and hash changes as one resource", () => {
@@ -525,50 +536,75 @@ describe("navigateActiveSession", () => {
     });
   });
 
-  it("records each issue viewed inside Inbox without changing its replace-based session history", () => {
+  it("records each issue viewed inside Updates without changing its replace-based session history", () => {
     const store = useTabStore.getState();
     store.switchWorkspace("acme");
 
-    store.navigateActiveSession("/acme/inbox");
-    store.navigateActiveSession("/acme/inbox?issue=issue-a", {
+    store.navigateActiveSession("/acme/updates");
+    store.navigateActiveSession("/acme/updates?issue=issue-a", {
       replace: true,
     });
-    store.navigateActiveSession("/acme/inbox?issue=issue-b", {
+    store.navigateActiveSession("/acme/updates?issue=issue-b", {
       replace: true,
     });
 
     const state = useTabStore.getState();
     expect(getActiveTab(state)?.history).toEqual({
-      stack: ["/acme/issues", "/acme/inbox?issue=issue-b"],
+      stack: ["/acme/issues", "/acme/updates?issue=issue-b"],
       index: 1,
     });
     expect(state.byWorkspace.acme.browsingHistory).toEqual([
-      "/acme/inbox?issue=issue-b",
-      "/acme/inbox?issue=issue-a",
+      "/acme/updates?issue=issue-b",
+      "/acme/updates?issue=issue-a",
+      "/acme/updates",
+      "/acme/issues",
+    ]);
+  });
+
+  it("records each to-do viewed inside Inbox without changing its replace-based session history", () => {
+    const store = useTabStore.getState();
+    store.switchWorkspace("acme");
+
+    store.navigateActiveSession("/acme/inbox");
+    store.navigateActiveSession("/acme/inbox?todo=todo-a", {
+      replace: true,
+    });
+    store.navigateActiveSession("/acme/inbox?todo=todo-b", {
+      replace: true,
+    });
+
+    const state = useTabStore.getState();
+    expect(getActiveTab(state)?.history).toEqual({
+      stack: ["/acme/issues", "/acme/inbox?todo=todo-b"],
+      index: 1,
+    });
+    expect(state.byWorkspace.acme.browsingHistory).toEqual([
+      "/acme/inbox?todo=todo-b",
+      "/acme/inbox?todo=todo-a",
       "/acme/inbox",
       "/acme/issues",
     ]);
   });
 
-  it("moves a revisited Inbox issue to the front instead of duplicating it", () => {
+  it("moves a revisited Updates issue to the front instead of duplicating it", () => {
     const store = useTabStore.getState();
     store.switchWorkspace("acme");
-    store.navigateActiveSession("/acme/inbox");
-    store.navigateActiveSession("/acme/inbox?issue=issue-a", {
+    store.navigateActiveSession("/acme/updates");
+    store.navigateActiveSession("/acme/updates?issue=issue-a", {
       replace: true,
     });
-    store.navigateActiveSession("/acme/inbox?issue=issue-b", {
+    store.navigateActiveSession("/acme/updates?issue=issue-b", {
       replace: true,
     });
     store.navigateActiveSession(
-      "/acme/inbox?view=archived&issue=issue-a#comment-comment-1",
+      "/acme/updates?view=archived&issue=issue-a#comment-comment-1",
       { replace: true },
     );
 
     expect(useTabStore.getState().byWorkspace.acme.browsingHistory).toEqual([
-      "/acme/inbox?view=archived&issue=issue-a#comment-comment-1",
-      "/acme/inbox?issue=issue-b",
-      "/acme/inbox",
+      "/acme/updates?view=archived&issue=issue-a#comment-comment-1",
+      "/acme/updates?issue=issue-b",
+      "/acme/updates",
       "/acme/issues",
     ]);
   });
@@ -1496,10 +1532,10 @@ describe("mergePersistedTabs (rehydration, MUL-4370)", () => {
             browsingHistory: [
               "/acme/issues/issue-1?tab=activity",
               "/acme/issues/issue-1",
-              "/acme/inbox?view=archived&issue=issue-b",
-              "/acme/inbox?issue=issue-a#comment-comment-1",
-              "/acme/inbox?issue=issue-a",
-              "/acme/inbox",
+              "/acme/updates?view=archived&issue=issue-b",
+              "/acme/updates?issue=issue-a#comment-comment-1",
+              "/acme/updates?issue=issue-a",
+              "/acme/updates",
               "/other/issues/issue-2",
               "/login",
               7,
@@ -1512,9 +1548,9 @@ describe("mergePersistedTabs (rehydration, MUL-4370)", () => {
 
     expect(result.byWorkspace.acme.browsingHistory).toEqual([
       "/acme/issues/issue-1?tab=activity",
-      "/acme/inbox?view=archived&issue=issue-b",
-      "/acme/inbox?issue=issue-a#comment-comment-1",
-      "/acme/inbox",
+      "/acme/updates?view=archived&issue=issue-b",
+      "/acme/updates?issue=issue-a#comment-comment-1",
+      "/acme/updates",
     ]);
   });
 

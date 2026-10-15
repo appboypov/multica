@@ -51,8 +51,9 @@ vi.mock("@multica/core/hooks", () => ({
 }));
 
 vi.mock("@multica/core/paths", () => ({
+  UPDATES_ITEM_PARAM: "issue",
   useWorkspacePaths: () => ({
-    inbox: () => "/acme/inbox",
+    updates: () => "/acme/updates",
     issueDetail: (id: string) => `/acme/issues/${id}`,
   }),
 }));
@@ -317,15 +318,12 @@ describe("UpdatesPage", () => {
     expect(listPanel).toHaveAttribute("data-max-size", "400");
   });
 
-  it("keeps the title unread count static", () => {
+  it("shows no number beside the title, even with unread notices", () => {
     reset();
     const { container } = render(<UpdatesPage />);
-    const titleCount = container.querySelector("h1")?.parentElement?.querySelector(
-      "number-flow-react",
-    ) as (HTMLElement & { animated?: boolean }) | null;
+    const header = container.querySelector("h1")?.parentElement;
 
-    expect(titleCount?.getAttribute("aria-label")).toBe("2");
-    expect(titleCount?.animated).toBe(false);
+    expect(header?.querySelector("number-flow-react")).toBeNull();
   });
 
   it("shows the active list by default", () => {
@@ -399,7 +397,7 @@ describe("UpdatesPage", () => {
 
     expect(screen.getAllByTestId("row").map((row) => row.textContent)).toEqual(["inbox-b"]);
     expect(issueDetailProps.at(-1)).toMatchObject({ issueId: "issue-a" });
-    expect(replace).toHaveBeenLastCalledWith("/acme/inbox?issue=issue-a");
+    expect(replace).toHaveBeenLastCalledWith("/acme/updates?issue=issue-a");
   });
 
   it("closes the open row when a newly applied filter hides it", () => {
@@ -414,7 +412,7 @@ describe("UpdatesPage", () => {
     fireEvent.click(screen.getAllByTestId("row")[0]!);
     act(() => useInboxFilterStore.getState().toggleUnreadOnly("workspace-1"));
 
-    expect(replace).toHaveBeenLastCalledWith("/acme/inbox");
+    expect(replace).toHaveBeenLastCalledWith("/acme/updates");
   });
 
   it("closes the open archived row once the archive refetched for a filter that hides it", () => {
@@ -435,7 +433,7 @@ describe("UpdatesPage", () => {
     listData.lookup = [item({ id: "archived-a", issue_id: "issue-a", archived: true, read: true })];
     rerender(<UpdatesPage />);
 
-    expect(replace).toHaveBeenLastCalledWith("/acme/inbox?view=archived");
+    expect(replace).toHaveBeenLastCalledWith("/acme/updates?view=archived");
   });
 
   it("filters by the actor the row carries", () => {
@@ -645,7 +643,7 @@ describe("UpdatesPage", () => {
     render(<UpdatesPage />);
     fireEvent.click(screen.getByTestId("row"));
 
-    expect(replace).toHaveBeenCalledWith("/acme/inbox?view=archived&issue=issue-9");
+    expect(replace).toHaveBeenCalledWith("/acme/updates?view=archived&issue=issue-9");
   });
 
   it("writes a bare issue param when selecting in the main view", () => {
@@ -655,7 +653,7 @@ describe("UpdatesPage", () => {
     render(<UpdatesPage />);
     fireEvent.click(screen.getByTestId("row"));
 
-    expect(replace).toHaveBeenCalledWith("/acme/inbox?issue=issue-3");
+    expect(replace).toHaveBeenCalledWith("/acme/updates?issue=issue-3");
   });
 
   // `InboxItem.issue_id` is nullable: a quick-create outcome is a notification,
@@ -905,7 +903,7 @@ describe("UpdatesPage", () => {
       replace.mockClear();
       pressArchiveKey();
 
-      expect(replace).toHaveBeenCalledWith("/acme/inbox?issue=issue-b");
+      expect(replace).toHaveBeenCalledWith("/acme/updates?issue=issue-b");
     });
 
     it("does not fire while typing in an editable control", () => {
@@ -1057,6 +1055,6 @@ describe("UpdatesPage", () => {
     render(<UpdatesPage />);
 
     expect(replace).toHaveBeenCalledWith("/acme/issues/issue-404");
-    expect(replace).not.toHaveBeenCalledWith("/acme/inbox");
+    expect(replace).not.toHaveBeenCalledWith("/acme/updates");
   });
 });

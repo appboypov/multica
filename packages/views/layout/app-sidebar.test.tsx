@@ -425,6 +425,20 @@ describe("personal nav — Chat", () => {
     expect(currentChatBadge?.animated).toBe(false);
   });
 
+  it("lists Updates right under Inbox, with no number even when notices are unread", () => {
+    summary.current = [{ workspace_id: "ws-1", count: 4 }];
+    const { container } = render(<AppSidebar />);
+    const hrefs = Array.from(
+      container.querySelectorAll<HTMLElement>("button[data-href]"),
+      (button) => button.dataset.href,
+    );
+    const updatesNav = container.querySelector<HTMLElement>('button[data-href="/acme/updates"]');
+
+    expect(hrefs.indexOf("/acme/updates")).toBe(hrefs.indexOf("/acme/inbox") + 1);
+    expect(updatesNav).not.toBeNull();
+    expect(updatesNav?.querySelector("number-flow-react")).toBeNull();
+  });
+
   it("renders a Chat nav link to the workspace chat route", () => {
     const { container } = render(<AppSidebar />);
     expect(chatNav(container)).not.toBeNull();

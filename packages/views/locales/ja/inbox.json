@@ -1,7 +1,9 @@
 {
   "page": {
     "title": "インボックス",
-    "back": "インボックス"
+    "back": "インボックス",
+    "updates_title": "アップデート",
+    "updates_back": "アップデート"
   },
   "menu": {
     "mark_all_read": "すべて既読にする",

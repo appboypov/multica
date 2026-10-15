@@ -33,6 +33,7 @@ import {
   archivedInboxLookupOptions,
 } from "@multica/core/inbox/queries";
 import { useInboxFilters } from "@multica/core/inbox/filter-store";
+import { todoListOptions } from "@multica/core/todos";
 import { cn } from "@multica/ui/lib/utils";
 import { StatusIcon } from "../issues/components";
 import { ProjectIcon } from "../projects/components/project-icon";
@@ -83,44 +84,52 @@ const PENDING_RESOURCE_KEYS: ReadonlySet<TabLabelKey> = new Set<TabLabelKey>([
 function useTabEntityData(subject: TabSubject, wsId: string): TabEntityData {
   const { t: chatT } = useT("chat");
 
-  // Read both inbox lists cache-only; the archived view keeps its own list, so
-  // an archived selection has to resolve against the archived cache — the same
-  // list the InboxPage populates when `?view=archived` is active.
-  const inboxList = useQuery({ ...inboxListOptions(wsId), enabled: false }).data;
+  // Inbox selects a to-do by its own id; read the open to-dos cache-only.
+  const todoList = useQuery({ ...todoListOptions(wsId), enabled: false }).data;
+  const todo =
+    subject.kind === "inbox" && subject.selectedKey
+      ? (todoList?.find((x) => x.id === subject.selectedKey) ?? null)
+      : null;
+
+  // Read both Updates lists cache-only; the archived view keeps its own list,
+  // so an archived selection has to resolve against the archived cache — the
+  // same list the UpdatesPage populates when `?view=archived` is active.
+  const updatesList = useQuery({ ...inboxListOptions(wsId), enabled: false }).data;
   const inboxFilters = useInboxFilters(wsId);
   const archivedPages = useInfiniteQuery({ ...archivedInboxPagesOptions(wsId, inboxFilters), enabled: false }).data;
   const archivedLookup = useQuery({
-    ...archivedInboxLookupOptions(wsId, subject.kind === "inbox" ? subject.selectedKey ?? "" : ""),
+    ...archivedInboxLookupOptions(wsId, subject.kind === "updates" ? subject.selectedKey ?? "" : ""),
     enabled: false,
   }).data;
-  const archivedInboxList = useMemo(() => [
+  const archivedUpdatesList = useMemo(() => [
     ...(archivedPages?.pages.flatMap((page) => page.items) ?? []),
     ...(archivedLookup?.items ?? []),
   ], [archivedPages, archivedLookup]);
-  const activeInboxList =
-    subject.kind === "inbox" && subject.archived ? archivedInboxList : inboxList;
-  const inboxItem =
-    subject.kind === "inbox" && subject.selectedKey
-      ? (activeInboxList?.find(
+  const activeUpdatesList =
+    subject.kind === "updates" && subject.archived ? archivedUpdatesList : updatesList;
+  const updatesItem =
+    subject.kind === "updates" && subject.selectedKey
+      ? (activeUpdatesList?.find(
           (i) => (i.issue_id ?? i.id) === subject.selectedKey,
         ) ?? null)
       : null;
 
-  // One issue query serves both a direct issue tab and an inbox-selected issue.
+  // One issue query serves a direct issue tab, an Updates-selected issue and
+  // the issue of the selected to-do.
   //
-  // An inbox selection resolves straight from `selectedKey`: it IS the key the
-  // inbox groups by (`issue_id ?? id`), so for an issue-backed notification it
+  // An Updates selection resolves straight from `selectedKey`: it IS the key
+  // the list groups by (`issue_id ?? id`), so for an issue-backed notice it
   // already IS the issue id, and the hop through the list row was redundant.
   // Going direct means a restored tab resolves from the issue cache alone,
-  // instead of silently depending on someone having fetched the whole Inbox
-  // first (MUL-6967). A key that is an issue-less notification's own id simply
+  // instead of silently depending on someone having fetched the whole list
+  // first (MUL-6967). A key that is an issue-less notice's own id simply
   // matches no issue, and falls through to the item branch below.
   const issueId =
     subject.kind === "issue"
       ? subject.id
-      : subject.kind === "inbox"
+      : subject.kind === "updates"
         ? (subject.selectedKey ?? "")
-        : "";
+        : (todo?.issue_id ?? "");
   // An issue tab's URL segment may be a human-readable identifier (`MUL-123`).
   // The route seeds that entry when it resolves, but only the UUID-keyed entry
   // receives realtime patches — so hop through it, or a tab opened by
@@ -219,6 +228,18 @@ function useTabEntityData(subject: TabSubject, wsId: string): TabEntityData {
       }
       break;
     case "inbox":
+      if (todo) {
+        // An issue's to-do titles as its issue, live from the issue cache when
+        // loaded, else from the snapshot the to-do carries; any other to-do
+        // (autopilot, quick create) carries its own title.
+        const identifier = issue?.identifier ?? todo.issue_identifier;
+        const title = issue?.title ?? todo.issue_title;
+        data.inboxSelection = identifier && title
+          ? { kind: "issue", identifier, title }
+          : { kind: "item", title: todo.title };
+      }
+      break;
+    case "updates":
       if (issue) {
         // Issue-backed selection — answered by the issue cache alone.
         data.inboxSelection = {
@@ -226,13 +247,12 @@ function useTabEntityData(subject: TabSubject, wsId: string): TabEntityData {
           identifier: issue.identifier,
           title: issue.title,
         };
-      } else if (inboxItem && !inboxItem.issue_id) {
-        // An issue-less notification (autopilot paused, quota exceeded, …)
-        // carries its title only on the inbox row, so this branch is the one
-        // case that still needs the list cache.
+      } else if (updatesItem && !updatesItem.issue_id) {
+        // An issue-less notice carries its title only on the list row, so this
+        // branch is the one case that still needs the list cache.
         data.inboxSelection = {
           kind: "item",
-          title: getInboxDisplayTitle(inboxItem),
+          title: getInboxDisplayTitle(updatesItem),
         };
       }
       break;
@@ -296,11 +316,13 @@ export function useTabPresentation(
   const statuses = useQuery({ ...issueStatusListOptions(wsId), enabled: false }).data;
   const catalog = useMemo(() => buildIssueStatusCatalog(statuses), [statuses]);
   const { visual, title: titleSpec } = resolveTabPresentation(subject, data);
-  // A selected notification whose identity has not resolved from cache yet is
-  // pending in exactly the sense a not-yet-loaded issue is — keep the tab's
+  // A selected to-do or notice whose identity has not resolved from cache yet
+  // is pending in exactly the sense a not-yet-loaded issue is — keep the tab's
   // persisted title instead of collapsing it to the bare container label.
   const selectionPending =
-    subject.kind === "inbox" && !!subject.selectedKey && !data.inboxSelection;
+    (subject.kind === "inbox" || subject.kind === "updates") &&
+    !!subject.selectedKey &&
+    !data.inboxSelection;
   const title = useTabTitle(titleSpec, fallbackTitle, selectionPending);
 
   // The actor avatar resolves through workspace directory queries and throws

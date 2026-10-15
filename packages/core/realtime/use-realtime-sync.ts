@@ -67,6 +67,7 @@ import { workspaceKeys, workspaceListOptions } from "../workspace/queries";
 import { isWorkspaceDeletePending } from "../workspace/pending-delete";
 import {
   showWebNotification,
+  type SystemNotificationDestination,
   type SystemNotificationPayload,
 } from "../platform/system-notification";
 import type { Workspace } from "../types/workspace";
@@ -583,7 +584,7 @@ export async function handleInboxNew(
   // A new item in ANY workspace can light the workspace-switcher dot, so
   // refresh the cross-workspace summary regardless of the active workspace.
   void onInboxSummaryInvalidate(qc);
-  await showInboxNotification(qc, item);
+  await showInboxNotification(qc, item, "updates");
 }
 
 export async function handleTodoOpened(qc: QueryClient, todo: Todo): Promise<void> {
@@ -601,7 +602,7 @@ export async function handleTodoOpened(qc: QueryClient, todo: Todo): Promise<voi
 async function showInboxNotification(
   qc: QueryClient,
   item: Pick<InboxItem, "workspace_id" | "id" | "issue_id" | "title" | "body">,
-  destination?: "inbox" | "updates",
+  destination: SystemNotificationDestination,
 ): Promise<void> {
   const sourceWsId = item.workspace_id;
   // Fire a native OS notification only when the app isn't focused. When
@@ -639,20 +640,20 @@ async function showInboxNotification(
       // Fall through with default behavior.
     }
   }
-  // `issueKey` matches the inbox page's URL selector (issue id when the
-  // item is attached to an issue, otherwise the inbox item id). `itemId`
-  // is the inbox row's own id, needed to fire markInboxRead on click.
+  // `issueKey` matches the destination page's URL selector: Updates groups by
+  // issue id (else the notice id), Inbox selects the to-do by its own id.
+  // `itemId` is the row's own id, which collapses repeat banners.
   // A null slug (workspace list unavailable / item from a workspace this
   // client can't see) still shows the banner — the user should learn about
-  // the inbox item — but with an empty slug so the click is a no-op
-  // (the inbox bridge ignores empty slugs) instead of routing wrong.
+  // the item — but with an empty slug so the click is a no-op
+  // (the click bridges ignore empty slugs) instead of routing wrong.
   const payload: SystemNotificationPayload = {
     slug: slug ?? "",
     itemId: item.id,
     issueKey: item.issue_id ?? item.id,
     title: item.title,
     body: item.body ?? "",
-    ...(destination ? { destination } : {}),
+    destination,
   };
   const desktopAPI = (
     globalThis as unknown as {

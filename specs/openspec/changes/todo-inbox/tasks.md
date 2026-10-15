@@ -57,7 +57,7 @@ Server checks: `cd server && go test ./...` with the test database, as AGENTS.md
 
 ## 9. Updates (Thomas)
 
-- [ ] 9.1 Today's inbox list on its own Updates route: `paths.ts`, web route, desktop `routes.tsx`, tab presentation, sidebar item with a bell icon and no number. Verify: component tests and the page in the browser.
+- [x] 9.1 Today's inbox list on its own Updates route: `paths.ts`, web route, desktop `routes.tsx`, tab presentation, sidebar item with a bell icon and no number. Verify: component tests and the page in the browser.
 
 ## 10. Badges (Thomas)
 
@@ -116,3 +116,15 @@ Server checks: `cd server && go test ./...` with the test database, as AGENTS.md
 - Question bodies reuse the in-place answering of `inbox-question-pane.tsx`, now split into `InboxQuestionBody` (shared) and `InboxQuestionPane` (Updates). Opening the issue from a question lands on its card via the existing highlight memento. Quick create retry/advanced-form recovery moved into `quick-create-recovery.tsx`, shared by Updates and to-dos; `AutopilotQuotaNotice` accepts a to-do as well as an inbox item.
 - `e2e/questions.spec.ts` now waits for the real `todo` row of the question instead of a `question_asked` notice, opens it from the to-do list, and asserts the to-do closes after answering; fixture cleanup deletes its to-dos. Direct-question anchoring and acceptance flows are unchanged. Not run here: the verifier owns e2e.
 - Tests added: `todo-list-item.test.tsx`, `todo-detail-pane.test.tsx`, `todo-detail-bodies.test.tsx`, `inbox-page.test.tsx` (next-row choice, selection by id, Mark done selecting next, a to-do leaving by itself, stale links, opening the issue at the question, empty state, compact back, load failure), with the shared `packages/views/test/todo-fixture.ts`. Translated `inbox.todos` keys and `errors.resume_autopilot_failed` were added to all five locale bundles. Not run here: Main runs `pnpm typecheck` and `pnpm test`.
+
+### Updates — WORK-449, group 9
+
+- Routes: `/{slug}/updates` renders `UpdatesPage` on web (`apps/web/app/[workspaceSlug]/(dashboard)/updates/page.tsx`) and desktop (`routes.tsx`); `/{slug}/inbox` stays the to-do `InboxPage`. `updates` is reserved in `reserved_slugs.json` and the regenerated `reserved-slugs.ts`, and added to the diagnostics route patterns and the editor link handler's workspace segments.
+- Paths: `packages/core/paths/paths.ts` owns the selection vocabulary, `INBOX_TODO_PARAM` (`?todo=`) and `UPDATES_ITEM_PARAM` (`?issue=`), with `inboxTodo(id)` and `updatesItem(key)`. Group 8's `TODO_PARAM` in views was cut over to the core constant; `UpdatesPage` now reads and writes `/updates?issue=…&view=archived`.
+- Registry and tabs: `WORKSPACE_PAGES.updates` (segment `updates`, `Bell` icon, `nav.updates` label in all five locales) feeds the sidebar, the search palette and the tab bar. `TabSubject` splits into `inbox` (selected to-do) and `updates` (selected notice, archived flag). The tab title of an Inbox to-do is its issue (live, else the to-do's snapshot) or the to-do's own title; Updates keeps the old notice resolution. Desktop browsing history keeps each selection distinct by its page's own param.
+- Sidebar: **Updates** sits right under Inbox with the bell and no number. The Updates header shows "Updates" with no number and its compact back says "Updates" (`inbox.page.updates_title`/`updates_back`). The Inbox number and badges stay group 10.
+- Search: Inbox matches "to-dos"; the old "notifications" keyword now finds Updates.
+- Notification clicks: `destination` is required on the shared payload; `inbox:new` banners send `updates`, `todo:opened` banners `inbox`. The native gate rejects a payload without a known destination, main forwards it on `inbox:open`, preload types carry it, and both click bridges route through the shared `systemNotificationPath` (Inbox `?todo=<id>` or Updates `?issue=<key>`, nothing for an empty slug).
+- Phone: `apps/mobile` is untouched; its Inbox waits on Brian's answer.
+- Tests: path builders and icons (`paths.test.ts`, `route-icons.test.ts`), `tab-subject.test.ts`, core and view `tab-presentation` tests (to-do titles, snapshot fallback, Updates selections and pending titles), `system-notification.test.ts` (`systemNotificationPath`), `notification-gate.test.ts` (destination kept, missing or unknown rejected), `tab-store.test.ts` (Updates and Inbox history keys), `app-sidebar.test.tsx` (Updates under Inbox without a number), `search-command.test.tsx` (notifications finds Updates), `updates-page.test.tsx` (no header number, `/updates` URLs), `document-title.test.tsx`, and an Updates step in `e2e/navigation.spec.ts`. Not run here: Main runs `pnpm typecheck`, `pnpm test` and checks the page in the browser.
+- Not changed: `apps/docs` still describes the single Inbox; documenting the to-do/Updates split is left to the change's docs pass.

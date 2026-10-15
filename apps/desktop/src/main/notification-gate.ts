@@ -22,28 +22,34 @@ export class NotificationGate {
   }
 }
 
+export type NativeNotificationDestination = "inbox" | "updates";
+
 export interface NativeNotificationPayload {
   slug: string;
   itemId: string;
   issueKey: string;
   title: string;
   body: string;
+  /** Inbox for a to-do, Updates for a notice; the click routes on it. */
+  destination: NativeNotificationDestination;
 }
+
+type NativeNotificationTextField = Exclude<keyof NativeNotificationPayload, "destination">;
 
 export function parseNativeNotificationPayload(
   value: unknown,
 ): NativeNotificationPayload | null {
   if (!value || typeof value !== "object") return null;
   const candidate = value as Record<string, unknown>;
-  const limits: Record<keyof NativeNotificationPayload, number> = {
+  const limits: Record<NativeNotificationTextField, number> = {
     slug: 256,
     itemId: 256,
     issueKey: 256,
     title: 512,
     body: 2_000,
   };
-  const result = {} as NativeNotificationPayload;
-  for (const key of Object.keys(limits) as (keyof NativeNotificationPayload)[]) {
+  const text = {} as Pick<NativeNotificationPayload, NativeNotificationTextField>;
+  for (const key of Object.keys(limits) as NativeNotificationTextField[]) {
     const field = candidate[key];
     const mayBeEmpty = key === "slug" || key === "body";
     if (
@@ -53,7 +59,9 @@ export function parseNativeNotificationPayload(
     ) {
       return null;
     }
-    result[key] = field;
+    text[key] = field;
   }
-  return result;
+  const destination = candidate.destination;
+  if (destination !== "inbox" && destination !== "updates") return null;
+  return { ...text, destination };
 }

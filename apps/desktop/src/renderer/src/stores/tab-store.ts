@@ -3,7 +3,11 @@ import { createJSONStorage, persist } from "zustand/middleware";
 import { arrayMove } from "@dnd-kit/sortable";
 import { createPersistStorage, defaultStorage } from "@multica/core/platform";
 import { createSafeId } from "@multica/core/utils";
-import { isReservedSlug } from "@multica/core/paths";
+import {
+  INBOX_TODO_PARAM,
+  UPDATES_ITEM_PARAM,
+  isReservedSlug,
+} from "@multica/core/paths";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -339,9 +343,9 @@ export function resourceKeyForUrl(url: string): string {
  * Dedup identity for the workspace-wide browsing history.
  *
  * Tab sessions intentionally treat search params as view state, but selecting
- * an Inbox row changes the content being viewed without leaving /inbox. Keep
- * those selections distinct in global History while leaving Back/Forward's
- * pathname-based session semantics unchanged.
+ * an Inbox to-do or an Updates row changes the content being viewed without
+ * leaving the page. Keep those selections distinct in global History while
+ * leaving Back/Forward's pathname-based session semantics unchanged.
  */
 export function browsingHistoryKeyForUrl(url: string): string {
   return inboxSelectionKeyForUrl(url) ?? resourceKeyForUrl(url);
@@ -350,15 +354,22 @@ export function browsingHistoryKeyForUrl(url: string): string {
 function inboxSelectionKeyForUrl(url: string): string | null {
   const { pathname, suffix } = splitTabUrl(url);
   const segments = pathname.split("/").filter(Boolean);
-  if (segments.length !== 2 || segments[1] !== "inbox") return null;
-  if (!suffix.startsWith("?")) return null;
+  if (segments.length !== 2) return null;
+  // Each row container keeps its selection in its own param.
+  const param =
+    segments[1] === "inbox"
+      ? INBOX_TODO_PARAM
+      : segments[1] === "updates"
+        ? UPDATES_ITEM_PARAM
+        : null;
+  if (!param || !suffix.startsWith("?")) return null;
 
   const hashIndex = suffix.indexOf("#");
   const search = hashIndex === -1 ? suffix.slice(1) : suffix.slice(1, hashIndex);
-  const selectedKey = new URLSearchParams(search).get("issue");
+  const selectedKey = new URLSearchParams(search).get(param);
   if (!selectedKey) return null;
 
-  return `${pathname}?issue=${encodeURIComponent(selectedKey)}`;
+  return `${pathname}?${param}=${encodeURIComponent(selectedKey)}`;
 }
 
 /**

@@ -47,12 +47,16 @@ describe("parseTabSubject", () => {
       { kind: "runtime", machineId: "machine-1", runtimeId: "rt-2" },
     ],
     // Containers — selection (and archived sub-list) live in the query string
-    ["/acme/inbox", { kind: "inbox", selectedKey: null, archived: false }],
-    ["/acme/inbox?issue=MUL-9", { kind: "inbox", selectedKey: "MUL-9", archived: false }],
-    ["/acme/inbox?view=archived", { kind: "inbox", selectedKey: null, archived: true }],
+    ["/acme/inbox", { kind: "inbox", selectedKey: null }],
+    ["/acme/inbox?todo=todo-1", { kind: "inbox", selectedKey: "todo-1" }],
+    // Inbox selects by to-do: a stray ?issue= is not a selection there
+    ["/acme/inbox?issue=MUL-9", { kind: "inbox", selectedKey: null }],
+    ["/acme/updates", { kind: "updates", selectedKey: null, archived: false }],
+    ["/acme/updates?issue=MUL-9", { kind: "updates", selectedKey: "MUL-9", archived: false }],
+    ["/acme/updates?view=archived", { kind: "updates", selectedKey: null, archived: true }],
     [
-      "/acme/inbox?view=archived&issue=MUL-9",
-      { kind: "inbox", selectedKey: "MUL-9", archived: true },
+      "/acme/updates?view=archived&issue=MUL-9",
+      { kind: "updates", selectedKey: "MUL-9", archived: true },
     ],
     ["/acme/chat", { kind: "chat", sessionId: null }],
     ["/acme/chat?session=sess-1", { kind: "chat", sessionId: "sess-1" }],
@@ -100,12 +104,14 @@ describe("tabSubjectKey", () => {
     ).toBe("actor:member:m1");
   });
 
-  it("distinguishes archived inbox and the attachment filename", () => {
-    expect(tabSubjectKey({ kind: "inbox", selectedKey: "k", archived: false })).toBe(
-      "inbox:inbox:k",
+  it("distinguishes the Inbox to-do, archived Updates and the attachment filename", () => {
+    expect(tabSubjectKey({ kind: "inbox", selectedKey: "t1" })).toBe("inbox:t1");
+    expect(tabSubjectKey({ kind: "inbox", selectedKey: null })).toBe("inbox:");
+    expect(tabSubjectKey({ kind: "updates", selectedKey: "k", archived: false })).toBe(
+      "updates:inbox:k",
     );
-    expect(tabSubjectKey({ kind: "inbox", selectedKey: "k", archived: true })).toBe(
-      "inbox:archived:k",
+    expect(tabSubjectKey({ kind: "updates", selectedKey: "k", archived: true })).toBe(
+      "updates:archived:k",
     );
     expect(
       tabSubjectKey({ kind: "attachment", id: "a1", filename: "x.pdf" }),
