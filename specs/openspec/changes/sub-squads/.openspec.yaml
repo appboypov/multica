@@ -1,0 +1,10 @@
+schema: intent-driven
+created: 2026-10-15
+build:
+  status: ready-for-dev
+  type: feature
+  ticket: 'WORK-1042'
+  context:
+    - '{project-root}/AGENTS.md'
+    - '{project-root}/specs/docs/system-design.md'
+    - '{project-root}/adr/0017-a-squad-holds-squads-and-nesting-is-checked-when-written.md'
