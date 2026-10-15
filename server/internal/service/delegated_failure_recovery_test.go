@@ -934,20 +934,19 @@ func TestDelegatedFailureRecoveryStopsAfterBoundedUndeliveredAttempts(t *testing
 		t.Fatalf("exhaustion comment parent_id = %q, want source trigger %s", exhaustionParentID, f.sourceTrigger)
 	}
 	var inboxItems int
-	var inboxSeverity, inboxBody string
 	if err := f.pool.QueryRow(ctx, `
-		SELECT count(*), COALESCE(max(severity), ''), COALESCE(max(body), '')
+		SELECT count(*)
 		FROM inbox_item
 		WHERE workspace_id = $1
 		  AND recipient_type = 'member'
 		  AND recipient_id = $2
 		  AND issue_id = $3
 		  AND type = 'task_failed'`, f.workspaceID, f.userID, f.issueID).
-		Scan(&inboxItems, &inboxSeverity, &inboxBody); err != nil {
+		Scan(&inboxItems); err != nil {
 		t.Fatalf("read exhaustion inbox item: %v", err)
 	}
-	if inboxItems != 1 || inboxSeverity != "action_required" || inboxBody != exhaustionContent {
-		t.Fatalf("exhaustion inbox = count %d severity %q body %q, want one action-required copy of explanation", inboxItems, inboxSeverity, inboxBody)
+	if inboxItems != 0 {
+		t.Fatalf("exhaustion created %d obsolete failure notices", inboxItems)
 	}
 	if result, err := svc.RecoverPendingDelegatedFailures(ctx, 100); err != nil || result != (DelegatedFailureRecoverySweepResult{}) {
 		t.Fatalf("post-exhaustion recovery sweep = %+v, %v; want zero result, nil", result, err)
@@ -958,8 +957,8 @@ func TestDelegatedFailureRecoveryStopsAfterBoundedUndeliveredAttempts(t *testing
 		  AND type = 'task_failed'`, f.workspaceID, f.userID, f.issueID).Scan(&inboxItems); err != nil {
 		t.Fatalf("recount exhaustion inbox items: %v", err)
 	}
-	if inboxItems != 1 {
-		t.Fatalf("post-exhaustion inbox count = %d, want 1", inboxItems)
+	if inboxItems != 0 {
+		t.Fatalf("post-exhaustion inbox count = %d, want 0", inboxItems)
 	}
 	var finalTasks int
 	if err := f.pool.QueryRow(ctx, `

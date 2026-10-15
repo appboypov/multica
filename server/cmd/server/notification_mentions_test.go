@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"testing"
 
 	"github.com/multica-ai/multica/server/internal/events"
@@ -36,6 +35,7 @@ func TestNotification_MalformedMemberMentionPreservesValidRecipients(t *testing.
 			})
 			issueID := fx.Issue(t, "Malformed mention")
 			fx.Cleanup(t, `DELETE FROM inbox_item WHERE issue_id = $1`, issueID)
+			fx.Cleanup(t, `DELETE FROM todo WHERE issue_id = $1`, issueID)
 			fx.Cleanup(t, `DELETE FROM issue_subscriber WHERE issue_id = $1`, issueID)
 
 			// These IDs match the markdown parser but are not UUIDs. Keep a
@@ -63,6 +63,7 @@ func TestNotification_MalformedMemberMentionPreservesValidRecipients(t *testing.
 
 			queries := db.New(testPool)
 			bus := newNotificationBus(t, queries)
+			registerTodoListeners(bus, queries)
 			var inboxEvents []events.Event
 			bus.Subscribe(protocol.EventInboxNew, func(e events.Event) {
 				inboxEvents = append(inboxEvents, e)
@@ -75,35 +76,25 @@ func TestNotification_MalformedMemberMentionPreservesValidRecipients(t *testing.
 				},
 			})
 
-			items := inboxItemsForRecipient(t, queries, recipientID)
-			if len(items) != 1 {
-				t.Fatalf("valid recipient got %d inbox items, want 1", len(items))
+			for _, member := range []string{recipientID, mutedID} {
+				items, err := queries.ListOpenTodos(t.Context(), db.ListOpenTodosParams{
+					WorkspaceID: parseUUID(testWorkspaceID), MemberID: parseUUID(member),
+				})
+				if err != nil || len(items) != 1 || items[0].Kind != "mention" || util.UUIDToString(items[0].CommentID) != commentID {
+					t.Fatalf("member %s mention to-dos=%+v error=%v", member, items, err)
+				}
 			}
-			if items[0].Type != "mentioned" || util.UUIDToString(items[0].IssueID) != issueID {
-				t.Fatalf("unexpected mention inbox item: %+v", items[0])
+			if count := fx.Count(t, `SELECT count(*) FROM todo WHERE issue_id = $1 AND done_at IS NULL`, issueID); count != 2 {
+				t.Fatalf("issue has %d to-dos, want both recipients regardless of notice preferences", count)
 			}
-			var details map[string]string
-			if err := json.Unmarshal(items[0].Details, &details); err != nil || details["comment_id"] != commentID {
-				t.Fatalf("mention details = %s, error = %v; want comment_id %s", items[0].Details, err, commentID)
+			if count := fx.Count(t, `SELECT count(*) FROM inbox_item WHERE issue_id = $1 AND type='mentioned'`, issueID); count != 0 {
+				t.Fatalf("issue has %d obsolete mention notices", count)
 			}
-			if count := fx.Count(t, `SELECT count(*) FROM inbox_item WHERE issue_id = $1`, issueID); count != 1 {
-				t.Fatalf("issue has %d inbox items, want only the valid, unmuted recipient", count)
-			}
-			if len(inboxEvents) != 1 {
-				t.Fatalf("got %d inbox:new events, want 1", len(inboxEvents))
-			}
-			item := inboxEvents[0].Payload.(map[string]any)["item"].(map[string]any)
-			if item["recipient_id"] != recipientID || item["type"] != "mentioned" || item["issue_status"] != "todo" {
-				t.Fatalf("unexpected inbox:new item: %+v", item)
+			for _, e := range inboxEvents {
+				if item := e.Payload.(map[string]any)["item"].(map[string]any); item["type"] == "mentioned" {
+					t.Fatal("mention emitted an update notice")
+				}
 			}
 		})
 	}
-}
-
-func TestNotifyMentionedMembersOnlyMalformedIDs(t *testing.T) {
-	// Call the boundary directly so the event bus cannot hide a panic. With
-	// no valid recipients, neither the database nor the bus is needed.
-	notifyMentionedMembers(nil, nil, events.Event{},
-		parseMentions("[@Bad](mention://member/deadbeef) [@Bad all](mention://member/all)"),
-		"", "", "", "", nil, nil)
 }

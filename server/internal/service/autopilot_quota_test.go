@@ -86,6 +86,7 @@ func newAutopilotQuotaFixture(t *testing.T, action entitlement.Action, limit int
 	}
 	fixture.setPolicy(action, periodStart, periodEnd, limit)
 	t.Cleanup(func() {
+		pool.Exec(context.Background(), `DELETE FROM todo WHERE workspace_id = $1`, workspaceID)
 		pool.Exec(context.Background(), `DELETE FROM autopilot_quota_reservation WHERE workspace_id = $1`, workspaceID)
 		pool.Exec(context.Background(), `DELETE FROM autopilot_quota_period WHERE workspace_id = $1`, workspaceID)
 	})
@@ -312,8 +313,8 @@ func TestAutopilotQuotaFirstRejectionNotifiesBillingManagersOncePerWorkspacePeri
 	}
 
 	rows, err := fixture.pool.Query(ctx, `
-		SELECT recipient_id FROM inbox_item
-		WHERE workspace_id = $1 AND type = 'autopilot_quota_exceeded'`, fixture.workspaceID)
+		SELECT member_id FROM todo
+		WHERE workspace_id = $1 AND kind = 'quota_reached'`, fixture.workspaceID)
 	if err != nil {
 		t.Fatalf("list quota rejection recipients: %v", err)
 	}
@@ -354,22 +355,19 @@ func TestAutopilotQuotaFirstRejectionNotifiesBillingManagersOncePerWorkspacePeri
 		t.Fatal("first rejection notification marker was not persisted")
 	}
 
-	var title, noticeKey, severity, body string
+	var title, noticeKey, body string
 	var hasThresholdPercent bool
 	if err := fixture.pool.QueryRow(ctx, `
 		SELECT details->>'autopilot_title', details->>'notice_key',
-		       details ? 'threshold_percent', severity, body
-		FROM inbox_item
-		WHERE workspace_id = $1 AND type = 'autopilot_quota_exceeded'
+		       details ? 'threshold_percent', body
+		FROM todo
+		WHERE workspace_id = $1 AND kind = 'quota_reached'
 		LIMIT 1`, fixture.workspaceID,
-	).Scan(&title, &noticeKey, &hasThresholdPercent, &severity, &body); err != nil {
+	).Scan(&title, &noticeKey, &hasThresholdPercent, &body); err != nil {
 		t.Fatalf("load first rejection details: %v", err)
 	}
 	if title == "" || noticeKey != autopilotQuotaFirstRejectionNoticeKey || hasThresholdPercent {
 		t.Fatalf("first rejection details = title %q, key %q, threshold field %v", title, noticeKey, hasThresholdPercent)
-	}
-	if severity != "attention" {
-		t.Fatalf("quota rejection severity = %q, want attention", severity)
 	}
 	if strings.Contains(body, title) {
 		t.Fatalf("workspace-level quota rejection body names one autopilot: %q", body)
@@ -406,20 +404,20 @@ func TestAutopilotQuotaInboxFailurePreservesQuotaRejection(t *testing.T) {
 		CREATE FUNCTION %s() RETURNS trigger LANGUAGE plpgsql AS $$
 		BEGIN
 			IF NEW.workspace_id = '%s'::uuid
-				AND NEW.type = 'autopilot_quota_exceeded'
-				AND NEW.recipient_id = '%s'::uuid THEN
+				AND NEW.kind = 'quota_reached'
+				AND NEW.member_id = '%s'::uuid THEN
 				RAISE EXCEPTION 'injected quota notice failure';
 			END IF;
 			RETURN NEW;
 		END;
 		$$;
-		CREATE TRIGGER %s BEFORE INSERT ON inbox_item
+		CREATE TRIGGER %s BEFORE INSERT ON todo
 		FOR EACH ROW EXECUTE FUNCTION %s();`,
 		functionName, fixture.workspace.String(), util.UUIDToString(adminID), triggerName, functionName)); err != nil {
 		t.Fatalf("install inbox failure trigger: %v", err)
 	}
 	t.Cleanup(func() {
-		fixture.pool.Exec(context.Background(), fmt.Sprintf("DROP TRIGGER IF EXISTS %s ON inbox_item", triggerName))
+		fixture.pool.Exec(context.Background(), fmt.Sprintf("DROP TRIGGER IF EXISTS %s ON todo", triggerName))
 		fixture.pool.Exec(context.Background(), fmt.Sprintf("DROP FUNCTION IF EXISTS %s()", functionName))
 	})
 
@@ -452,8 +450,8 @@ func TestAutopilotQuotaInboxFailurePreservesQuotaRejection(t *testing.T) {
 	}
 	var failedTransactionNotices int
 	if err := fixture.pool.QueryRow(ctx, `
-		SELECT count(*) FROM inbox_item
-		WHERE workspace_id = $1 AND type = 'autopilot_quota_exceeded'`,
+		SELECT count(*) FROM todo
+		WHERE workspace_id = $1 AND kind = 'quota_reached'`,
 		fixture.workspaceID,
 	).Scan(&failedTransactionNotices); err != nil {
 		t.Fatalf("count rolled-back quota notices: %v", err)
@@ -462,7 +460,7 @@ func TestAutopilotQuotaInboxFailurePreservesQuotaRejection(t *testing.T) {
 		t.Fatalf("failed multi-recipient transaction persisted %d notices, want zero", failedTransactionNotices)
 	}
 
-	if _, err := fixture.pool.Exec(ctx, fmt.Sprintf("DROP TRIGGER %s ON inbox_item", triggerName)); err != nil {
+	if _, err := fixture.pool.Exec(ctx, fmt.Sprintf("DROP TRIGGER %s ON todo", triggerName)); err != nil {
 		t.Fatalf("remove inbox failure trigger: %v", err)
 	}
 	_, _, err = fixture.service.createAutopilotRunWithQuota(
@@ -473,8 +471,8 @@ func TestAutopilotQuotaInboxFailurePreservesQuotaRejection(t *testing.T) {
 	}
 	var notices int
 	if err := fixture.pool.QueryRow(ctx, `
-		SELECT count(*) FROM inbox_item
-		WHERE workspace_id = $1 AND type = 'autopilot_quota_exceeded'`,
+		SELECT count(*) FROM todo
+		WHERE workspace_id = $1 AND kind = 'quota_reached'`,
 		fixture.workspaceID,
 	).Scan(&notices); err != nil {
 		t.Fatalf("count retried quota notices: %v", err)
@@ -541,8 +539,8 @@ func TestAutopilotQuotaNoticeDoesNotDependOnCreatorAgentOwner(t *testing.T) {
 	}
 	var recipientID pgtype.UUID
 	if err := fixture.pool.QueryRow(ctx, `
-		SELECT recipient_id FROM inbox_item
-		WHERE workspace_id = $1 AND type = 'autopilot_quota_exceeded'`,
+		SELECT member_id FROM todo
+		WHERE workspace_id = $1 AND kind = 'quota_reached'`,
 		fixture.workspaceID,
 	).Scan(&recipientID); err != nil {
 		t.Fatalf("load ownerless-agent quota notice: %v", err)
@@ -590,8 +588,8 @@ func TestAutopilotQuotaNoticeRetriesAfterWorkspaceManagerIsRestored(t *testing.T
 		t.Helper()
 		var count int
 		if err := fixture.pool.QueryRow(ctx, `
-			SELECT count(*) FROM inbox_item
-			WHERE workspace_id = $1 AND type = 'autopilot_quota_exceeded'`,
+			SELECT count(*) FROM todo
+			WHERE workspace_id = $1 AND kind = 'quota_reached'`,
 			fixture.workspaceID,
 		).Scan(&count); err != nil {
 			t.Fatalf("count quota notices: %v", err)

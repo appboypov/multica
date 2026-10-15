@@ -50,6 +50,7 @@ func seedAutopilot(t *testing.T, queries *db.Queries, title, creatorType string,
 		testPool.Exec(context.Background(),
 			`DELETE FROM inbox_item WHERE workspace_id = $1 AND details->>'autopilot_id' = $2`,
 			testWorkspaceID, util.UUIDToString(ap.ID))
+		testPool.Exec(context.Background(), `DELETE FROM todo WHERE autopilot_id = $1`, ap.ID)
 		testPool.Exec(context.Background(), `DELETE FROM autopilot WHERE id = $1`, ap.ID)
 	})
 	return ap
@@ -109,7 +110,7 @@ func TestAutopilotFailureMonitor_PausesOffenderAndNotifiesCreator(t *testing.T) 
 	seedAutopilotRuns(t, innocent.ID, 5, 5, now.Add(-1*time.Hour))
 
 	var inboxEvents []events.Event
-	bus.Subscribe(protocol.EventInboxNew, func(e events.Event) {
+	bus.Subscribe(protocol.EventTodoOpened, func(e events.Event) {
 		inboxEvents = append(inboxEvents, e)
 	})
 	var updateEvents []events.Event
@@ -134,30 +135,20 @@ func TestAutopilotFailureMonitor_PausesOffenderAndNotifiesCreator(t *testing.T) 
 	}
 
 	if len(inboxEvents) != 1 {
-		t.Fatalf("expected 1 inbox:new event, got %d", len(inboxEvents))
+		t.Fatalf("expected 1 todo:opened event, got %d", len(inboxEvents))
 	}
-	item := inboxEvents[0].Payload.(map[string]any)["item"].(map[string]any)
-	if got := item["type"]; got != "autopilot_paused" {
-		t.Fatalf("expected inbox type autopilot_paused, got %v", got)
+	item := inboxEvents[0].Payload.(map[string]any)["todo"].(map[string]any)
+	if item["kind"] != "autopilot_paused" || inboxEvents[0].Payload.(map[string]any)["member_id"] != testUserID {
+		t.Fatalf("wrong autopilot to-do: %+v", item)
 	}
-	if got := item["severity"]; got != "attention" {
-		t.Fatalf("expected severity attention, got %v", got)
+	var count int
+	if err := testPool.QueryRow(context.Background(), `SELECT count(*) FROM todo WHERE autopilot_id=$1 AND member_id=$2 AND done_at IS NULL`, offender.ID, parseUUID(testUserID)).Scan(&count); err != nil || count != 1 {
+		t.Fatalf("paused to-dos=%d error=%v", count, err)
 	}
-	if got := item["recipient_id"]; got != testUserID {
-		t.Fatalf("expected recipient %s, got %v", testUserID, got)
-	}
-
-	// Confirm the inbox item exists in the DB too.
-	items := inboxItemsForRecipient(t, queries, testUserID)
-	var found bool
-	for _, it := range items {
-		if it.Type == "autopilot_paused" {
-			found = true
-			break
+	for _, notice := range inboxItemsForRecipient(t, queries, testUserID) {
+		if notice.Type == "autopilot_paused" {
+			t.Fatal("paused autopilot created an update notice")
 		}
-	}
-	if !found {
-		t.Fatalf("expected an autopilot_paused inbox_item in DB for user %s", testUserID)
 	}
 }
 
@@ -182,7 +173,7 @@ func TestAutopilotFailureMonitor_LeavesAlreadyPausedAlone(t *testing.T) {
 	}
 
 	var inboxEvents []events.Event
-	bus.Subscribe(protocol.EventInboxNew, func(e events.Event) {
+	bus.Subscribe(protocol.EventTodoOpened, func(e events.Event) {
 		inboxEvents = append(inboxEvents, e)
 	})
 
@@ -209,7 +200,7 @@ func TestAutopilotFailureMonitor_AgentCreatorRoutesToOwner(t *testing.T) {
 	seedAutopilotRuns(t, ap.ID, 11, 10, time.Now().Add(-2*time.Hour))
 
 	var inboxEvents []events.Event
-	bus.Subscribe(protocol.EventInboxNew, func(e events.Event) {
+	bus.Subscribe(protocol.EventTodoOpened, func(e events.Event) {
 		inboxEvents = append(inboxEvents, e)
 	})
 
@@ -219,14 +210,10 @@ func TestAutopilotFailureMonitor_AgentCreatorRoutesToOwner(t *testing.T) {
 		t.Fatalf("expected paused, got %q", got)
 	}
 	if len(inboxEvents) != 1 {
-		t.Fatalf("expected 1 inbox event for the agent's owner, got %d", len(inboxEvents))
+		t.Fatalf("expected 1 to-do event for the agent's owner, got %d", len(inboxEvents))
 	}
-	item := inboxEvents[0].Payload.(map[string]any)["item"].(map[string]any)
-	if got := item["recipient_id"]; got != testUserID {
+	if got := inboxEvents[0].Payload.(map[string]any)["member_id"]; got != testUserID {
 		t.Fatalf("expected recipient owner %s, got %v", testUserID, got)
-	}
-	if got := item["recipient_type"]; got != "member" {
-		t.Fatalf("expected member recipient_type, got %v", got)
 	}
 }
 
@@ -250,7 +237,7 @@ func TestAutopilotFailureMonitor_FormerCreatorFallsBackToWorkspaceManagers(t *te
 	)
 	seedAutopilotRuns(t, autopilot.ID, 11, 10, time.Now().Add(-2*time.Hour))
 	var inboxEvents []events.Event
-	bus.Subscribe(protocol.EventInboxNew, func(e events.Event) {
+	bus.Subscribe(protocol.EventTodoOpened, func(e events.Event) {
 		inboxEvents = append(inboxEvents, e)
 	})
 
@@ -262,12 +249,8 @@ func TestAutopilotFailureMonitor_FormerCreatorFallsBackToWorkspaceManagers(t *te
 	if len(inboxEvents) != 1 {
 		t.Fatalf("paused fallback events = %d, want workspace owner", len(inboxEvents))
 	}
-	item := inboxEvents[0].Payload.(map[string]any)["item"].(map[string]any)
-	if got := item["recipient_id"]; got != testUserID {
+	if got := inboxEvents[0].Payload.(map[string]any)["member_id"]; got != testUserID {
 		t.Fatalf("paused fallback recipient = %s, want workspace owner %s", got, testUserID)
-	}
-	if got := item["recipient_type"]; got != "member" {
-		t.Fatalf("paused fallback recipient type = %q, want member", got)
 	}
 }
 
