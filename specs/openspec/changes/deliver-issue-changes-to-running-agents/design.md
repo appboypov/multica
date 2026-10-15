@@ -233,4 +233,4 @@ What exists and is reused:
 
 ## Migration Plan
 
-Migrations 720 to 722 run with `make migrate`; existing rows get `item_kind = 'comment'` and `item_id = comment_id`. Down migrations restore the `(comment_id, task_id)` key after deleting non-comment rows. A daemon without the new claim fields still delivers comments; answers and changes need the daemon of this change. Release: `make local-release` after merge.
+Migrations 720 to 722 run with `make migrate`; existing rows get `item_kind = 'comment'` and `item_id = comment_id`. The down migrations restore the `(comment_id, task_id)` key in the reverse of `548` and `549`, so every index is still built `CONCURRENTLY` in a single-statement file: 722 down deletes the rows that are not `comment` receipts, drops the item key and sets `comment_id NOT NULL`; 721 down rebuilds `task_supplement_comment_task_uidx` concurrently; 720 down attaches it as the primary key and drops the new columns. A daemon without the new claim fields still delivers comments; answers and changes need the daemon of this change. Release: `make local-release` after merge.
