@@ -138,6 +138,15 @@ type TaskAvailablePayload struct {
 	TaskID    string `json:"task_id,omitempty"`
 }
 
+// TaskSupplementClaimResponse is the durable notice claimed by one run.
+type TaskSupplementClaimResponse struct {
+	ItemKind   string `json:"item_kind,omitempty"`
+	ItemID     string `json:"item_id,omitempty"`
+	CommentID  string `json:"comment_id,omitempty"`
+	AuthorName string `json:"author_name,omitempty"`
+	Content    string `json:"content,omitempty"`
+}
+
 // RuntimeProfilesChangedPayload is sent from server to daemon as a wakeup hint
 // when a workspace custom runtime profile is created, edited, disabled, or
 // deleted. The daemon still fetches profiles and registers runtimes through the

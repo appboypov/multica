@@ -9,6 +9,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
+	"github.com/multica-ai/multica/server/pkg/protocol"
 )
 
 // ReactToRunInput marks only a delivered receipt belonging to the token's run.
@@ -67,12 +68,12 @@ func (h *Handler) ReactToRunInput(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to react to run input")
 		return
 	}
-	payload := map[string]any{
-		"issue_id": uuidToString(receipt.IssueID), "item_kind": receipt.ItemKind, "item_id": uuidToString(receipt.ItemID),
-		"task_id": uuidToString(task.ID), "agent_id": uuidToString(task.AgentID),
-		"seen_at": timestampToPtr(receipt.SeenAt), "handled_at": timestampToPtr(receipt.HandledAt),
+	payload := protocol.RunInputReactedPayload{
+		IssueID: uuidToString(receipt.IssueID), ItemKind: receipt.ItemKind, ItemID: uuidToString(receipt.ItemID),
+		TaskID: uuidToString(task.ID), AgentID: uuidToString(task.AgentID),
+		SeenAt: timestampToPtr(receipt.SeenAt), HandledAt: timestampToPtr(receipt.HandledAt),
 	}
-	h.publish("run_input:reacted", uuidToString(receipt.WorkspaceID), "agent", uuidToString(task.AgentID), payload)
+	h.publish(protocol.EventRunInputReacted, uuidToString(receipt.WorkspaceID), "agent", uuidToString(task.AgentID), payload)
 	slog.Debug("run input reaction recorded", "task_id", uuidToString(task.ID), "item_id", uuidToString(itemID), "emoji", req.Emoji)
 	writeJSON(w, http.StatusOK, payload)
 }

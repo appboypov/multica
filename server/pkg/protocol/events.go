@@ -20,6 +20,7 @@ const (
 	EventReactionRemoved      = "reaction:removed"
 	EventIssueReactionAdded   = "issue_reaction:added"
 	EventIssueReactionRemoved = "issue_reaction:removed"
+	EventRunInputReacted       = "run_input:reacted"
 
 	// Question events (ADR-0002). Both carry QuestionEventPayload; the
 	// reason says what changed on question:updated.
@@ -266,6 +267,17 @@ type QuestionEventPayload struct {
 	IssueIDs    []string `json:"issue_ids,omitempty"`
 	Reason      string   `json:"reason,omitempty"`
 	EventID     string   `json:"event_id,omitempty"`
+}
+
+// RunInputReactedPayload identifies one run's marks on a delivered item.
+type RunInputReactedPayload struct {
+	IssueID   string  `json:"issue_id"`
+	ItemKind  string  `json:"item_kind"`
+	ItemID    string  `json:"item_id"`
+	TaskID    string  `json:"task_id"`
+	AgentID   string  `json:"agent_id"`
+	SeenAt    *string `json:"seen_at"`
+	HandledAt *string `json:"handled_at"`
 }
 
 // OrganisationEventPayload is the payload of organisation:created and
