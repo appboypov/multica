@@ -618,6 +618,8 @@ export interface Agent {
   skills: AgentSkillSummary[];
   /** Runtime-local skills this agent must not inherit. Older servers omit it. */
   disabled_runtime_skills?: DisabledRuntimeSkill[];
+  /** Older servers omit this setting; absent counts as inheriting runtime skills. */
+  inherit_runtime_skills?: boolean;
   created_at: string;
   updated_at: string;
   archived_at: string | null;
@@ -1289,7 +1291,7 @@ export interface RuntimeLocalSkillSummary {
   root?: "provider" | "universal" | "plugin";
   /** Enabled runtime plugin that contributed this skill, when applicable. */
   plugin?: string;
-  /** New daemons set this only when they can enforce per-agent disablement. */
+  /** New daemons enable this for enforceable Claude, Codex and omp runtime skills. */
   can_disable?: boolean;
   file_count: number;
 }

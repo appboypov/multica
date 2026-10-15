@@ -52,7 +52,7 @@ flowchart LR
 
 ## 5. Shared client
 
-- [ ] 5.1 `packages/core/types/agent.ts` -- add `inherit_runtime_skills?: boolean;` to `Agent` after `disabled_runtime_skills` (line 620), with the comment that older servers omit it and absent counts as on; change the `can_disable` comment (line 1292) to name Claude, Codex and omp. `packages/core/api/client.ts` -- add `setAgentRuntimeSkillsInherited(agentId: string, enabled: boolean): Promise<void>` after `setAgentRuntimeSkillEnabled` (line 3778), `PUT /api/agents/{id}/runtime-skills/inherit` with `{ enabled }`. -- the tab can read and write the section. Verify: `pnpm typecheck`.
+- [x] 5.1 `packages/core/types/agent.ts` -- add `inherit_runtime_skills?: boolean;` to `Agent` after `disabled_runtime_skills` (line 620), with the comment that older servers omit it and absent counts as on; change the `can_disable` comment (line 1292) to name Claude, Codex and omp. `packages/core/api/client.ts` -- add `setAgentRuntimeSkillsInherited(agentId: string, enabled: boolean): Promise<void>` after `setAgentRuntimeSkillEnabled` (line 3778), `PUT /api/agents/{id}/runtime-skills/inherit` with `{ enabled }`. -- the tab can read and write the section. Verify: `pnpm typecheck`.
 
 ## 6. Skills tab, copy and docs
 
@@ -63,7 +63,7 @@ flowchart LR
 
 ## Implementation Notes
 
-- Backend groups 1-4 are implemented and verified. Frontend groups 5-6 remain for Thomas in the stacked pull request.
+- Backend groups 1-4 and shared-client group 5 are implemented and verified. Frontend group 6 remains for Thomas in the stacked pull request.
 - Migration 711 and sqlc generation succeeded. The migration smoke confirmed defaults for both existing and new rows and exercised the down migration inside a rolled-back temporary-table transaction.
 - Database-backed inheritance response, claim, section toggle, broadcast, permission and provider tests pass. Fixture corrections use supported permission modes and do not fabricate a runtime missing behind the existing foreign key.
 - The complete daemon and agent package suites pass with run-owned Multica environment variables cleared and the agent CLI guard enabled. The initial inherited environment caused unrelated Reasonix and Dsh path tests to fail; the isolated rerun passed.
@@ -71,3 +71,6 @@ flowchart LR
 - The model diagram rendered with both runtime-skill fields in Mermaid. Screenshot capture was unavailable for the non-visible browser tab.
 - Discovery retains the approved existing listing semantics: errors returned by listRuntimeLocalSkills stop a section-off task; errors suppressed within its best-effort traversal remain outside that returned-error contract.
 - omp reuse without a task-owned root declines preparation at the overlay boundary, avoiding relative settings writes or removal.
+- Group 5 changes `packages/core/types/agent.ts`, `packages/core/api/client.ts` and `packages/core/api/client.test.ts`: the optional field retains the existing unparsed agent-response contract; the new void mutation uses the shared fetch path and sends only `{ enabled }`, without touching per-skill choices.
+- Group 5 verification: `pnpm typecheck` passed all 10 tasks; `pnpm --filter @multica/core exec vitest run api/client.test.ts` passed all 130 tests, including both boolean writes with a 204 response and propagation of a rejected write.
+- Group 5 tooling surprises: the API-builder skill required its absolute repository path rather than `skill://`; OpenSpec commands require the `specs` root; semantic search was unavailable (HTTP 402), so direct file discovery and reads supplied the test patterns.

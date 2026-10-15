@@ -3817,6 +3817,13 @@ export class ApiClient {
     });
   }
 
+  async setAgentRuntimeSkillsInherited(agentId: string, enabled: boolean): Promise<void> {
+    await this.fetch(`/api/agents/${agentId}/runtime-skills/inherit`, {
+      method: "PUT",
+      body: JSON.stringify({ enabled }),
+    });
+  }
+
 	async removeAgentSkill(agentId: string, skillId: string): Promise<void> {
 		await this.fetch(`/api/agents/${agentId}/skills/${skillId}`, {
 			method: "DELETE",
