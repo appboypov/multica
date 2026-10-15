@@ -1,2 +1,11 @@
 schema: intent-driven
 created: 2026-10-15
+build:
+  status: ready-for-dev
+  type: feature
+  ticket: 'WORK-1069'
+  context:
+    - '{project-root}/AGENTS.md'
+    - '{project-root}/specs/docs/system-design.md'
+    - '{project-root}/adr/0017-a-client-account-is-refused-outside-the-session-list.md'
+    - '{project-root}/adr/0004-organisations-hold-projects.md'
