@@ -36,7 +36,7 @@ Success signal: `multica agent sessions mitchel` lists every running Mitchel ses
 - The daemon follows Herdr's events for those sessions: status, branch, and removal when the pane closes or exits, crashes included.
 - A new command `multica agent sessions <agent>` lists them, from any runtime.
 - Each agent's page shows its active sessions.
-- `madspec-sync` gives every agent with an office, Tika excluded, its own runtime profile whose command is the agent's alias, and moves the agent onto it. A run then starts the agent the way its alias does by hand.
+- `madspec-sync` gives every agent with an office, Tika excluded, its own runtime profile whose command is the agent's alias, and moves the agent onto it. A run then starts the agent the way its alias does by hand. Paul gets his profile now; his agent, which WORK-1058 brings, goes onto it once it exists.
 
 ## Capabilities
 
@@ -56,7 +56,7 @@ None.
 - Daemon: subscribes to Herdr's socket events (`pane_agent_status_changed`, `pane_closed`, `pane_exited`).
 - CLI: `multica agent sessions`.
 - Web and desktop: the agent page.
-- `madspec-sync/multica_sync.py` and `madspec-sync/specs/multica-agents.md`; the 12 persona agents' runtimes and `custom_args`.
+- `madspec-sync/multica_sync.py` and `madspec-sync/specs/multica-agents.md`; the 12 existing persona agents' runtimes and `custom_args`, and 13 runtime profiles, Paul's included.
 - Checks for the technical design, from Pieter's open points that Brian passed on: Multica runs inherit the daemon's `HERDR_*` variables, so a run must never be matched to the daemon's pane; whether `persona-agent-selection` still applies once a run starts through the alias that already loads the persona skill.
 
 ## Constraints
@@ -75,5 +75,5 @@ None.
 
 ## Sources
 
-- The Multica issue "Persona repos in ~/Repos/Agents" (WORK-1057): Pieter's discovery result (comment of 15 Oct 16:44) and Brian's approval with active sessions on each agent's page (comment of 15 Oct 18:30).
+- The Multica issue "Persona repos in ~/Repos/Agents" (WORK-1057): Pieter's discovery result (comment of 15 Oct 16:44), Brian's approval with active sessions on each agent's page (comment of 15 Oct 18:30) and Brian's addition of Paul (comment of 15 Oct 18:50).
 - No Intent object in Anytype holds this work.
