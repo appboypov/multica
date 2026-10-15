@@ -8,7 +8,7 @@ import { useAuthStore } from "@multica/core/auth";
 import { useUpdateAutopilot } from "@multica/core/autopilots";
 import { issuePullRequestsOptions } from "@multica/core/github";
 import { useIssueStatuses } from "@multica/core/issue-statuses/hooks";
-import { issueTasksOptions } from "@multica/core/issues/queries";
+import { issueDetailOptions, issueTasksOptions } from "@multica/core/issues/queries";
 import { useWorkspacePaths } from "@multica/core/paths";
 import type { TimelineEntry, Todo } from "@multica/core/types";
 import { useActorName } from "@multica/core/workspace/hooks";
@@ -37,27 +37,108 @@ function visibleComments(timeline: readonly TimelineEntry[]): TimelineEntry[] {
   return timeline.filter((entry) => entry.type === "comment" && !entry.deleted_at && !!entry.content?.trim());
 }
 
-/** One comment, read-only: its author, age and text. `outlined` marks the comment the to-do is about. */
-function TodoComment({ entry, outlined = false }: { entry: TimelineEntry; outlined?: boolean }) {
+/** Who wrote a card's text. A timeline entry carries its name and avatar; a to-do only its actor. */
+interface TodoCardAuthor {
+  type: string;
+  id: string;
+  name?: string;
+  avatarUrl?: string | null;
+}
+
+/** One read-only text: its author, age and content. `outlined` marks the text the to-do is about. */
+function TodoCard({
+  author,
+  createdAt,
+  content,
+  attachments,
+  outlined = false,
+  commentId,
+}: {
+  author: TodoCardAuthor | null;
+  createdAt: string;
+  content: string;
+  attachments?: TimelineEntry["attachments"];
+  outlined?: boolean;
+  commentId?: string;
+}) {
   const timeAgo = useTimeAgo();
   const { getActorName } = useActorName();
   return (
     <div
-      data-comment-id={entry.id}
+      data-comment-id={commentId}
       className={cn("flex flex-col gap-1.5 rounded-xl border bg-card p-3.5", outlined && "border-brand")}
     >
       <div className="flex items-center gap-2">
-        <ActorAvatar actorType={entry.actor_type} actorId={entry.actor_id} name={entry.actor_name} avatarUrl={entry.actor_avatar_url} size="sm" enableHoverCard />
-        <span className="text-body font-medium">{entry.actor_name ?? getActorName(entry.actor_type, entry.actor_id)}</span>
-        <span className="text-caption text-muted-foreground">{timeAgo(entry.created_at)}</span>
+        {author && (
+          <>
+            <ActorAvatar actorType={author.type} actorId={author.id} name={author.name} avatarUrl={author.avatarUrl} size="sm" enableHoverCard />
+            <span className="text-body font-medium">{author.name ?? getActorName(author.type, author.id)}</span>
+          </>
+        )}
+        <span className="text-caption text-muted-foreground">{timeAgo(createdAt)}</span>
       </div>
-      <ReadonlyContent content={entry.content ?? ""} attachments={entry.attachments} className="text-body" />
+      <ReadonlyContent content={content} attachments={attachments} className="text-body" />
     </div>
   );
 }
 
-/** Mention: the comment before it, the mentioning comment outlined, and a reply box. */
+/** One comment, read-only: its author, age and text. `outlined` marks the comment the to-do is about. */
+function TodoComment({ entry, outlined = false }: { entry: TimelineEntry; outlined?: boolean }) {
+  return (
+    <TodoCard
+      author={{ type: entry.actor_type, id: entry.actor_id, name: entry.actor_name, avatarUrl: entry.actor_avatar_url }}
+      createdAt={entry.created_at}
+      content={entry.content ?? ""}
+      attachments={entry.attachments}
+      outlined={outlined}
+      commentId={entry.id}
+    />
+  );
+}
+
+/**
+ * Mention, from a comment or from the issue description. A comment mention
+ * (`comment_id` set) shows the comment before it, the mentioning comment
+ * outlined and a reply box; a description mention (`comment_id` null) shows
+ * the description outlined and a comment box.
+ */
 export function TodoMentionBody({ todo, issueId }: { todo: Todo; issueId: string }) {
+  if (!todo.comment_id) return <TodoDescriptionMention todo={todo} issueId={issueId} />;
+  return <TodoCommentMention todo={todo} issueId={issueId} />;
+}
+
+/**
+ * Mention in the issue description: the description outlined, from who
+ * mentioned the member, and a top-level comment box. Any comment of the
+ * member on the issue closes the to-do.
+ */
+function TodoDescriptionMention({ todo, issueId }: { todo: Todo; issueId: string }) {
+  const { t } = useT("inbox");
+  const userId = useAuthStore((s) => s.user?.id);
+  const { submitComment } = useIssueTimeline(issueId, userId);
+  const { data: issue, isLoading } = useQuery(issueDetailOptions(todo.workspace_id, issueId));
+
+  if (isLoading) return <Skeleton className="h-32 w-full rounded-xl" />;
+  const description = issue?.description?.trim() ? issue.description : null;
+  return (
+    <div className="flex flex-col gap-4">
+      {description ? (
+        <TodoCard
+          author={todo.actor_type && todo.actor_id ? { type: todo.actor_type, id: todo.actor_id } : null}
+          createdAt={todo.created_at}
+          content={description}
+          outlined
+        />
+      ) : (
+        <p className="text-caption text-muted-foreground">{t(($) => $.todos.comment_unavailable)}</p>
+      )}
+      <CommentInput key={issueId} issueId={issueId} onSubmit={submitComment} />
+    </div>
+  );
+}
+
+/** Mention in a comment: the comment before it, the mentioning comment outlined, and a reply box. */
+function TodoCommentMention({ todo, issueId }: { todo: Todo; issueId: string }) {
   const { t } = useT("inbox");
   const userId = useAuthStore((s) => s.user?.id);
   const { getActorName } = useActorName();

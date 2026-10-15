@@ -9,6 +9,7 @@ const state = vi.hoisted(() => ({
   timeline: [] as TimelineEntry[],
   tasks: [] as Array<{ id: string; agent_id: string; created_at: string }>,
   pullRequests: [] as unknown[],
+  issue: null as { id: string; description: string | null } | null,
 }));
 const updateAutopilot = vi.hoisted(() => vi.fn());
 const submitReply = vi.hoisted(() => vi.fn());
@@ -18,7 +19,12 @@ const replyProps = vi.hoisted(() => [] as Array<Record<string, unknown>>);
 
 vi.mock("@tanstack/react-query", () => ({
   useQuery: (options: { queryKey: readonly unknown[] }) => ({
-    data: options.queryKey[0] === "tasks" ? state.tasks : { pull_requests: state.pullRequests },
+    data:
+      options.queryKey[0] === "tasks"
+        ? state.tasks
+        : options.queryKey[0] === "issue"
+          ? state.issue
+          : { pull_requests: state.pullRequests },
   }),
 }));
 vi.mock("@multica/core/auth", () => ({
@@ -29,7 +35,10 @@ vi.mock("@multica/core/github", () => ({ issuePullRequestsOptions: () => ({ quer
 vi.mock("@multica/core/issue-statuses/hooks", () => ({
   useIssueStatuses: () => ({ categoryOf: () => "started", colorOf: () => null, iconOf: () => null }),
 }));
-vi.mock("@multica/core/issues/queries", () => ({ issueTasksOptions: () => ({ queryKey: ["tasks"] }) }));
+vi.mock("@multica/core/issues/queries", () => ({
+  issueTasksOptions: () => ({ queryKey: ["tasks"] }),
+  issueDetailOptions: (wsId: string, id: string) => ({ queryKey: ["issue", wsId, id] }),
+}));
 vi.mock("@multica/core/paths", () => ({
   useWorkspacePaths: () => ({ autopilotDetail: (id: string) => `/acme/autopilots/${id}` }),
 }));
@@ -78,6 +87,7 @@ beforeEach(() => {
   state.timeline = [];
   state.tasks = [];
   state.pullRequests = [];
+  state.issue = null;
   updateAutopilot.mockClear();
   push.mockClear();
   replyProps.length = 0;
@@ -115,6 +125,27 @@ describe("TodoMentionBody", () => {
     renderWithI18n(<TodoMentionBody todo={todoFixture({ kind: "mention", comment_id: "deleted" })} issueId="issue-412" />);
     expect(screen.getByText("This comment can't be shown here.")).toBeInTheDocument();
     expect(screen.queryByTestId("reply-input")).not.toBeInTheDocument();
+  });
+
+  it("shows a mention in the issue description outlined with a comment box", () => {
+    state.issue = { id: "issue-412", description: "@Brian please confirm the VAT rules" };
+    const { container } = renderWithI18n(
+      <TodoMentionBody todo={todoFixture({ kind: "mention", comment_id: null })} issueId="issue-412" />,
+    );
+    const description = screen.getByText("@Brian please confirm the VAT rules");
+    expect(description.closest(".rounded-xl")?.className).toContain("border-brand");
+    expect(container.querySelector("[data-comment-id]")).not.toBeInTheDocument();
+    expect(screen.getByText("Pieter")).toBeInTheDocument();
+    expect(screen.getByTestId("comment-input")).toBeInTheDocument();
+    expect(screen.queryByTestId("reply-input")).not.toBeInTheDocument();
+    expect(screen.queryByText("This comment can't be shown here.")).not.toBeInTheDocument();
+  });
+
+  it("still offers a comment box when the issue description is empty", () => {
+    state.issue = { id: "issue-412", description: null };
+    renderWithI18n(<TodoMentionBody todo={todoFixture({ kind: "mention", comment_id: null })} issueId="issue-412" />);
+    expect(screen.getByText("This comment can't be shown here.")).toBeInTheDocument();
+    expect(screen.getByTestId("comment-input")).toBeInTheDocument();
   });
 });
 
