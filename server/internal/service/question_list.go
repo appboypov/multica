@@ -233,7 +233,45 @@ func (s *QuestionService) ListRows(ctx context.Context, workspaceID, viewerID pg
 			}
 		}
 	}
+	if err := s.linkRowsToTheirChat(ctx, workspaceID, page.Rows, questionIDs); err != nil {
+		return QuestionRowPageDTO{}, err
+	}
 	return page, nil
+}
+
+// linkRowsToTheirChat gives a row without an issue, a chat question asked with
+// --on a run or project, its chat as link, so it opens and groups as the chat
+// it was asked in, like a row whose first link is that chat.
+func (s *QuestionService) linkRowsToTheirChat(ctx context.Context, workspaceID pgtype.UUID, rows []QuestionRowDTO, questionIDs []pgtype.UUID) error {
+	index := make(map[pgtype.UUID]int)
+	for i := range rows {
+		if rows[i].OpenIssue == nil && rows[i].Link.Type != question.LinkTypeChat {
+			index[questionIDs[i]] = i
+		}
+	}
+	if len(index) == 0 {
+		return nil
+	}
+	ids := make([]pgtype.UUID, 0, len(index))
+	for id := range index {
+		ids = append(ids, id)
+	}
+	links, err := s.Queries.ListQuestionLinksByQuestions(ctx, db.ListQuestionLinksByQuestionsParams{WorkspaceID: workspaceID, QuestionIds: ids})
+	if err != nil {
+		return fmt.Errorf("load question row chat links: %w", err)
+	}
+	for _, link := range links {
+		if link.LinkType != question.LinkTypeChat {
+			continue
+		}
+		session, err := s.Queries.GetChatSessionInWorkspace(ctx, db.GetChatSessionInWorkspaceParams{ID: link.LinkID, WorkspaceID: workspaceID})
+		if err != nil {
+			return fmt.Errorf("load question row chat: %w", err)
+		}
+		memberID := util.UUIDToString(session.CreatorID)
+		rows[index[link.QuestionID]].Link = QuestionRowLinkDTO{Type: question.LinkTypeChat, ID: util.UUIDToString(link.LinkID), MemberID: &memberID}
+	}
+	return nil
 }
 
 func questionRowDTO(row db.ListQuestionRowsForMemberRow) QuestionRowDTO {

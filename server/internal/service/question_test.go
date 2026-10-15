@@ -1694,6 +1694,10 @@ func TestQuestionChatRowsWithoutAnIssueLink(t *testing.T) {
 	if err != nil || len(page.Rows) != 1 || page.Rows[0].OpenIssue != nil {
 		t.Fatalf("rows of a chat question with its run first = %+v, %v", page, err)
 	}
+	// The row opens and groups as Brian's chat, not as the run it was asked on.
+	if link := page.Rows[0].Link; link.Type != "chat" || link.ID != util.UUIDToString(chat) || link.MemberID == nil || *link.MemberID != util.UUIDToString(f.brian) || link.Title != "" {
+		t.Fatalf("row link = %+v, want Brian's chat", link)
+	}
 }
 
 func TestQuestionChatLinksRejectForeignSessionsAndQuickCreate(t *testing.T) {
