@@ -115,6 +115,7 @@ export function InboxQuestionPane({
                   issueId={issueId}
                   runNumber={runNumber}
                   hideWake
+                  askQuestions={setQuestions}
                   answerElsewhere={ANSWERED_IN_PLACE.has(q.answer_type) ? undefined : answeredOnIssue(q)}
                 />
               ))}
@@ -124,6 +125,7 @@ export function InboxQuestionPane({
               question={shown}
               issueId={issueId}
               runNumber={runNumber}
+              askQuestions={[shown]}
               answerElsewhere={inPlace ? undefined : answeredOnIssue(shown)}
             />
           ) : (

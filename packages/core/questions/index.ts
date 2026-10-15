@@ -20,7 +20,8 @@ export {
 } from "./draft-store";
 export { agentQuestionsKeys, agentQuestionsOptions, useUpdateAgentQuestionsDefault } from "./agent-questions";
 export {
-  countOpen, groupQuestionCards, isOpen, isOpenFor, setProgress, wakeOffers, type QuestionCardGroup, type WakeOffer,
+  countOpen, groupQuestionCards, isLastOpenFor, isOpen, isOpenFor, setProgress, wakeOffers, type QuestionCardGroup,
+  type WakeOffer,
 } from "./cards";
 export { viaLabel, type ViaLabelKey, type ViaTranslate } from "./via";
 export { DECLINED_ANSWER, isDeclined } from "./validate";

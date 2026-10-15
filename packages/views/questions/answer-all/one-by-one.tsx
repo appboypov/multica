@@ -84,7 +84,16 @@ export function OneByOne({ session, questions, waiting, currentId, onCurrent, sk
             </span>
           </div>
         )}
-        {question && <QuestionCard key={question.id} question={question} issueId={entry.issueId} hideWake focused />}
+        {question && (
+          <QuestionCard
+            key={question.id}
+            question={question}
+            issueId={entry.issueId}
+            hideWake
+            askQuestions={ask.flatMap((other) => questions.get(other.id) ?? [])}
+            focused
+          />
+        )}
         <div className="flex items-center gap-1">
           <Button type="button" variant="ghost" size="sm" onClick={() => step(-1)}>
             <ChevronLeft />

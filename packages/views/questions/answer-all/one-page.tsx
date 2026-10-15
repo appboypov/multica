@@ -99,7 +99,7 @@ export function OnePage({ session, questions, focusedId, onFocus }: OnePageProps
               const question = askQuestions[0];
               return question ? (
                 <div key={question.id} data-question-id={question.id}>
-                  <QuestionCard question={question} issueId={group.issueId} hideWake focused={question.id === focusedId} />
+                  <QuestionCard question={question} issueId={group.issueId} hideWake askQuestions={askQuestions} focused={question.id === focusedId} />
                 </div>
               ) : null;
             })}

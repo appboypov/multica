@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, screen } from "@testing-library/react";
+import { cleanup, fireEvent, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type * as Questions from "@multica/core/questions";
 import type { InboxItem, Issue, Question } from "@multica/core/types";
@@ -8,6 +8,7 @@ import { InboxQuestionPane } from "./inbox-question-pane";
 
 const answerMutate = vi.fn();
 let question: Question | undefined;
+let issueQuestions: Question[] = [];
 
 vi.mock("@multica/core/auth", () => {
   const state = { user: { id: "user-brian" } };
@@ -37,6 +38,7 @@ vi.mock("@multica/core/questions", async (importOriginal) => {
   return {
     ...(await importOriginal<typeof Questions>()),
     useQuestion: () => ({ data: question, isPending: question === undefined }),
+    issueQuestionsOptions: () => ({ queryKey: ["issue-questions"], queryFn: () => issueQuestions }),
     // The hook is bound to its question; the spy records which one with what was sent.
     useAnswerQuestion: (_wsId: string, _issueId: string, questionId: string) => ({
       ...pending,
@@ -128,5 +130,48 @@ describe("InboxQuestionPane", () => {
     expect(screen.queryByRole("button", { name: /Send/ })).not.toBeInTheDocument();
     fireEvent.click(await screen.findByRole("button", { name: /Open on WORK-412/ }));
     expect(onOpenIssue).toHaveBeenCalledOnce();
+  });
+
+  // Scenario: Brian answers the last question of a set in the inbox
+  it("offers Wake Pieter in a set only on the last question still open for Brian", async () => {
+    const single = (overrides: Partial<Question>) => ({
+      ...base(),
+      ask_title: "VAT",
+      answer_type: "single_choice",
+      settings: { options: ["Per invoice line", "On the invoice total"], allow_other: false },
+      suggested_answer: { option: "Per invoice line" },
+      ...overrides,
+    }) as Question;
+    const second = single({ id: "q-2", ask_position: 1, prompt: "Which VAT rate applies?" });
+    question = single({});
+    issueQuestions = [question, second];
+    render();
+    expect(await screen.findByText("Which VAT rate applies?")).toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: "Wake Pieter" })).not.toBeInTheDocument();
+    cleanup();
+
+    question = single({
+      status: "answered",
+      answers: [{
+        id: "a-1",
+        answerer_user_id: "user-brian",
+        value: { option: "Per invoice line" },
+        display_text: "Per invoice line",
+        note: null,
+        created_at: "2026-10-13T10:05:00Z",
+        updated_at: "2026-10-13T10:05:00Z",
+      }],
+    });
+    issueQuestions = [question, second];
+    render();
+    const wake = await screen.findByRole("checkbox", { name: "Wake Pieter" });
+    expect(screen.getAllByRole("checkbox", { name: "Wake Pieter" })).toHaveLength(1);
+    expect(wake).toHaveAttribute("aria-checked", "true");
+    const card = within(screen.getByText("Which VAT rate applies?").closest<HTMLElement>("[data-question-state=open]")!);
+    fireEvent.click(card.getByRole("button", { name: "Accept suggestion" }));
+    expect(answerMutate).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "q-2", value: { option: "Per invoice line" }, wake: true }),
+      expect.anything(),
+    );
   });
 });

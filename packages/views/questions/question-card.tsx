@@ -13,6 +13,7 @@ import {
   DECLINED_ANSWER,
   EMPTY_QUESTION_DRAFT,
   isDeclined,
+  isLastOpenFor,
   isOpen,
   isOpenFor,
   questionDraftKey,
@@ -58,11 +59,16 @@ export interface QuestionCardProps {
    */
   answerElsewhere?: ReactNode;
   /**
-   * The card has no Wake of its own and folds once the viewer has answered:
-   * a question of a set outside the set's card, and Answer all, which shows
-   * its own wake bars.
+   * The card has no Wake buttons of its own and folds once the viewer has
+   * answered: a question of a set outside the set's card, and Answer all,
+   * which shows its own wake bars.
    */
   hideWake?: boolean;
+  /**
+   * The questions of the card's ask this screen holds, the card's own among
+   * them: Send offers **Wake {agent}** on the viewer's last open question of them.
+   */
+  askQuestions: readonly Question[];
   /** The focused card owns the `send` shortcut and sends its draft when its Send is enabled. */
   focused?: boolean;
 }
@@ -72,7 +78,15 @@ export interface QuestionCardProps {
  * holds its answer type's control for an answerer and a summary for anyone
  * else; once answered, closed or withdrawn it folds to one line.
  */
-export function QuestionCard({ question, issueId, runNumber, answerElsewhere, hideWake = false, focused = false }: QuestionCardProps) {
+export function QuestionCard({
+  question,
+  issueId,
+  runNumber,
+  answerElsewhere,
+  hideWake = false,
+  askQuestions,
+  focused = false,
+}: QuestionCardProps) {
   const userId = useAuthStore((s) => s.user?.id);
   const wsId = useWorkspaceId();
   const draftKey = questionDraftKey(wsId, question.id);
@@ -123,7 +137,7 @@ export function QuestionCard({ question, issueId, runNumber, answerElsewhere, hi
       editing={editing}
       onDone={() => clearDraft(draftKey)}
       focused={focused}
-      offersWake={!hideWake}
+      offersWake={isLastOpenFor(askQuestions, question.id, userId)}
     />
   );
 }
@@ -206,7 +220,7 @@ function OpenQuestion({
   editing: boolean;
   onDone: () => void;
   focused: boolean;
-  /** A one-question ask outside a set or page: Send offers to wake its asker. */
+  /** The viewer's last open question of its ask: Send offers to wake its asker. */
   offersWake: boolean;
 }) {
   const { t } = useT("questions");

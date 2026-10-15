@@ -3373,7 +3373,12 @@ export function IssueDetail({ issueId, onDelete, onDone, defaultSidebarOpen = tr
             data-highlighted={highlighted || undefined}
           >
             {item.card.questions.length === 1 ? (
-              <QuestionCard question={item.card.questions[0]!} issueId={id} runNumber={runNumbers.get(item.card.questions[0]!.asked_in_task_id)} />
+              <QuestionCard
+                question={item.card.questions[0]!}
+                issueId={id}
+                runNumber={runNumbers.get(item.card.questions[0]!.asked_in_task_id)}
+                askQuestions={item.card.questions}
+              />
             ) : (
               <QuestionSetCard
                 questions={item.card.questions}

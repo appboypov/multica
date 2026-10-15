@@ -27,6 +27,15 @@ export function isOpenFor(question: Question, userId: string | null | undefined)
   return !question.answers.some((answer) => answer.answerer_user_id === userId);
 }
 
+/**
+ * The member's last open question of a list (an ask's questions): every other
+ * question of the list is not open for the member, so answering this one
+ * answers all the member had open.
+ */
+export function isLastOpenFor(questions: readonly Question[], questionId: string, userId: string | null | undefined): boolean {
+  return questions.every((question) => question.id === questionId || !isOpenFor(question, userId));
+}
+
 /** The number of open questions; a set of three open questions counts 3. */
 export function countOpen(questions: readonly Question[]): number {
   return questions.filter(isOpen).length;

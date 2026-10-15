@@ -11,6 +11,7 @@ import { createLogger } from "@multica/core/logger";
 import {
   DECLINED_ANSWER,
   isDeclined,
+  isLastOpenFor,
   isOpen,
   isOpenFor,
   questionDraftKey,
@@ -52,7 +53,7 @@ export interface QuestionSetCardProps {
   /**
    * `tabs` (the issue page): one question at a time with the set's footer and Wake.
    * `stacked` (Answer all's One page): every question in order with its own
-   * control and Send, and no Wake; the page shows its wake bars instead.
+   * control and Send, and no Wake buttons; the page shows its wake bars instead.
    */
   layout?: "tabs" | "stacked";
   /** Stacked only: the question whose card owns the `send` shortcut. */
@@ -93,6 +94,7 @@ function StackedQuestionSet({
             issueId={issueId}
             runNumber={runNumber}
             hideWake
+            askQuestions={questions}
             focused={question.id === focusedQuestionId}
           />
         </div>
@@ -147,7 +149,7 @@ function TabbedQuestionSet({ questions, issueId, runNumber, activeQuestionId }: 
   const blocksWork = questions.some((q) => isOpen(q) && q.blocks_work);
   const progress = setProgress(questions);
   // Sending the viewer's last open question of the set offers to wake the asker.
-  const offersWake = canAnswer && editingId !== current.id && questions.every((q) => q.id === current.id || !isOpenFor(q, userId));
+  const offersWake = canAnswer && editingId !== current.id && isLastOpenFor(questions, current.id, userId);
 
   const activate = (index: number) => {
     setActive(index);
