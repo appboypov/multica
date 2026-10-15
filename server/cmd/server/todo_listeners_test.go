@@ -273,3 +273,66 @@ func TestTodoAgentFailures(t *testing.T) {
 		t.Fatal("quick create opened run failed")
 	}
 }
+
+func TestTodoReviewLifecycle(t *testing.T) {
+	fx, svc := todoListenerFixture(t)
+	id := fx.Issue(t, "Review", testutil.Cols{"status": "in_review"})
+	response := handler.IssueResponse{ID: id, Status: "in_review", CreatorType: "member", CreatorID: fx.UserID}
+	event := events.Event{Type: protocol.EventIssueCreated, WorkspaceID: fx.WorkspaceID, Payload: map[string]any{"issue": response}}
+	apply := func() {
+		t.Helper()
+		event.Payload.(map[string]any)["issue"] = response
+		if err := reviewTodos(context.Background(), svc, event); err != nil {
+			t.Fatal(err)
+		}
+	}
+	workspace, _ := util.ParseUUID(fx.WorkspaceID)
+	member, _ := util.ParseUUID(fx.UserID)
+	issue, _ := util.ParseUUID(id)
+	visible := func(want int) {
+		t.Helper()
+		rows, err := svc.Queries.ListOpenTodos(context.Background(), db.ListOpenTodosParams{WorkspaceID: workspace, MemberID: member})
+		if err != nil || len(rows) != want {
+			t.Fatalf("visible todos: %v, error %v, want %d", rows, err, want)
+		}
+		counts, err := svc.Queries.CountOpenTodosByWorkspace(context.Background(), member)
+		if err != nil {
+			t.Fatal(err)
+		}
+		total := int64(0)
+		for _, count := range counts {
+			if count.WorkspaceID == workspace {
+				total = count.Count
+			}
+		}
+		if total != int64(want) {
+			t.Fatalf("summary=%d, want %d", total, want)
+		}
+	}
+	apply()
+	visible(1)
+	qid := dbid.NewV7()
+	fx.Insert(t, "question", testutil.Cols{"id": qid, "ask_id": qid, "ask_position": 0, "workspace_id": fx.WorkspaceID, "asker_agent_id": dbid.NewV7(), "asked_in_task_id": dbid.NewV7(), "prompt": "Merge?", "answer_type": "approval"})
+	if err := svc.Open(context.Background(), db.OpenTodoParams{WorkspaceID: workspace, MemberID: member, Kind: todo.Question, SourceKey: util.UUIDToString(qid), IssueID: issue, QuestionID: qid, Title: "Review"}); err != nil {
+		t.Fatal(err)
+	}
+	visible(1)
+	rows, err := svc.Queries.ListOpenTodos(context.Background(), db.ListOpenTodosParams{WorkspaceID: workspace, MemberID: member})
+	if err != nil || rows[0].Kind != todo.Question {
+		t.Fatal("question did not hide review")
+	}
+	if err := svc.Close(context.Background(), db.CloseTodosParams{WorkspaceID: workspace, Kind: todo.Question, SourceKey: util.UUIDToString(qid)}); err != nil {
+		t.Fatal(err)
+	}
+	visible(1)
+	event.Type = protocol.EventIssueUpdated
+	event.Payload.(map[string]any)["status_changed"] = true
+	response.Status = "waiting_for_qa"
+	apply()
+	visible(0)
+	response.Status = "in_review"
+	memberType := "member"
+	response.AssigneeType, response.AssigneeID = &memberType, &fx.UserID
+	apply()
+	visible(0)
+}
