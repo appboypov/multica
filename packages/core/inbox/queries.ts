@@ -85,38 +85,16 @@ export function patchArchivedInboxCaches(qc: QueryClient, wsId: string, patch: (
 }
 
 /**
- * Cross-workspace unread inbox summary. One cache entry shared across all
- * workspaces — the data is account-level, so switching workspaces does not
- * refetch it; only the derived "is this for another workspace" view changes.
+ * Cross-workspace unread notice summary (the Updates meaning). One cache entry
+ * shared across all workspaces — the data is account-level, so switching
+ * workspaces does not refetch it. The Inbox number, workspace switcher dot and
+ * desktop badge read the to-do summary instead (`todos/queries.ts`).
  */
 export function inboxUnreadSummaryOptions() {
   return queryOptions({
     queryKey: inboxKeys.unreadSummary(),
     queryFn: () => api.getInboxUnreadSummary(),
   });
-}
-
-/**
- * Whether any workspace OTHER than `currentWsId` has unread inbox items.
- * Drives the workspace-switcher dot: the active workspace's own unread is
- * already surfaced by the Inbox nav count, so it is excluded here to avoid a
- * duplicate signal.
- */
-export function hasOtherWorkspaceUnread(
-  summary: InboxWorkspaceUnread[],
-  currentWsId: string | null | undefined,
-): boolean {
-  return summary.some((s) => s.workspace_id !== currentWsId && s.count > 0);
-}
-
-/**
- * Set of workspace ids that have unread inbox items. Lets the workspace
- * switcher dropdown mark WHICH workspace a pending message lives in (the
- * aggregate switcher dot only says "somewhere else"). Workspaces with a zero
- * count are excluded.
- */
-export function unreadWorkspaceIds(summary: InboxWorkspaceUnread[]): Set<string> {
-  return new Set(summary.filter((s) => s.count > 0).map((s) => s.workspace_id));
 }
 
 /**
@@ -133,14 +111,11 @@ export function unreadCountForWorkspace(
 }
 
 /**
- * Unread inbox count for the given workspace — the number the sidebar nav
- * badge and the desktop dock badge render.
- *
- * Read from the cross-workspace summary, NOT from the inbox list. The summary
- * is one small server-computed row per workspace and the sidebar already
- * fetches it for the workspace-switcher dot, so the badge costs no request of
- * its own; deriving it from `listInbox()` instead downloaded the entire
- * unbounded inbox on every app start just to render a number (MUL-6967).
+ * Unread notice count for the given workspace, read from the cross-workspace
+ * summary rather than the inbox list, so it costs no list download
+ * (MUL-6967). This is the Updates meaning: web and desktop show no number for
+ * it — the Inbox number counts open to-dos (`useTodoCount`). Mobile's tab
+ * badge mirrors this definition in `apps/mobile/lib/unread-counts.ts`.
  *
  * `GET /api/inbox/unread-count` is deliberately not the source: it counts raw
  * notification rows, while the inbox renders one row per issue. The summary

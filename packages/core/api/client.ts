@@ -3168,20 +3168,20 @@ export class ApiClient {
     return this.fetch(`/api/inbox/${id}/unarchive`, { method: "POST" });
   }
 
-  // Raw unread ROW count — not the number any badge shows. The inbox renders
-  // one row per issue, so a single issue with three unread notifications
-  // counts once there and three times here. `getInboxUnreadSummary` is the
-  // deduplicated, per-workspace count the UI is built on (see
+  // Raw unread ROW count — not the deduplicated notice count. The Updates list
+  // renders one row per issue, so a single issue with three unread
+  // notifications counts once there and three times here.
+  // `getInboxUnreadSummary` is the deduplicated, per-workspace count (see
   // `useInboxUnreadCount`); reach for this one only when raw rows are what
   // you actually mean.
   async getUnreadInboxCount(): Promise<{ count: number }> {
     return this.fetch("/api/inbox/unread-count");
   }
 
-  // Cross-workspace unread summary: one entry per workspace the user belongs
-  // to that has unread inbox items. Backs the workspace-switcher dot for
-  // OTHER workspaces. Schema-guarded so a contract drift hides the dot rather
-  // than crashing the sidebar.
+  // Cross-workspace unread notice summary: one entry per workspace the user
+  // belongs to that has unread Updates. No web/desktop badge reads it; the
+  // Inbox number and switcher dot follow `getTodoSummary`. Schema-guarded so a
+  // contract drift reads as nothing unread rather than throwing.
   async getInboxUnreadSummary(): Promise<InboxWorkspaceUnread[]> {
     const raw = await this.fetch<unknown>("/api/inbox/unread-summary");
     return parseWithFallback(raw, InboxUnreadSummarySchema, EMPTY_INBOX_UNREAD_SUMMARY, {

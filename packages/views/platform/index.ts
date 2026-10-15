@@ -1,5 +1,5 @@
 export { useImmersiveMode } from "./use-immersive-mode";
-export { useDesktopUnreadBadge } from "./use-desktop-unread-badge";
+export { useDesktopTodoBadge } from "./use-desktop-todo-badge";
 export { DragStrip } from "./drag-strip";
 export { openExternal } from "./open-external";
 export { isDesktopShell } from "./desktop-shell";

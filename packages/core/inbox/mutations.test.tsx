@@ -105,7 +105,7 @@ describe("useMarkInboxUnread", () => {
     expect(archivedCache(queryClient)[0]?.read).toBe(false);
   });
 
-  it("refreshes the cross-workspace summary so the switcher dot lights again", async () => {
+  it("refreshes the cross-workspace unread notice summary", async () => {
     queryClient.setQueryData<InboxItem[]>(inboxKeys.list(WORKSPACE_ID), [
       item({ id: "inbox-1", read: true, archived: false }),
     ]);
@@ -174,10 +174,10 @@ describe("useUnarchiveInbox", () => {
 
   it("preserves unread state and refreshes the badge sources, so the badge rises again", async () => {
     // Restoring an item that was archived while unread legitimately RAISES the
-    // unread badge: the count only ever included non-archived items. Two halves
-    // make that work, and this covers the client's half — never touch `read`,
-    // and re-pull both the workspace list (the Inbox nav count) and the
-    // cross-workspace summary (the switcher dot). The server's half — that
+    // unread notice count: the count only ever included non-archived items.
+    // Two halves make that work, and this covers the client's half — never
+    // touch `read`, and re-pull both the workspace list and the
+    // cross-workspace unread notice summary. The server's half — that
     // UnarchiveInboxItem leaves `read` alone — is pinned by
     // TestUnarchiveInboxPreservesUnread in the Go suite.
     queryClient.setQueryData<InboxItem[]>(inboxKeys.archived(WORKSPACE_ID), [

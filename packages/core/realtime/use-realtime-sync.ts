@@ -572,7 +572,7 @@ export async function resolveInboxSourceSlug(
  * Every workspace-scoped read here keys on the ITEM's workspace
  * (`item.workspace_id`), never the currently active one (#3766): the cache
  * invalidation must refresh the source workspace's inbox list / unread
- * count / dock badge, the mute check must honor the source workspace's
+ * notice count, the mute check must honor the source workspace's
  * preference, and the deep link must carry the source workspace's slug.
  */
 export async function handleInboxNew(
@@ -581,8 +581,8 @@ export async function handleInboxNew(
 ): Promise<void> {
   const sourceWsId = item.workspace_id;
   if (sourceWsId) void onInboxNew(qc, sourceWsId, item);
-  // A new item in ANY workspace can light the workspace-switcher dot, so
-  // refresh the cross-workspace summary regardless of the active workspace.
+  // A new notice in ANY workspace changes the cross-workspace unread notice
+  // summary, so refresh it regardless of the active workspace.
   void onInboxSummaryInvalidate(qc);
   await showInboxNotification(qc, item, "updates");
 }
@@ -713,7 +713,8 @@ function invalidateWorkspaceScopedQueries(qc: QueryClient): void {
     qc.invalidateQueries({ queryKey: issueStatusKeys.all(wsId) });
   }
   // Cross-workspace, so outside the wsId guard: a reconnect may have missed
-  // inbox events from any workspace, so re-pull the switcher-dot summary.
+  // inbox or to-do events from any workspace, so re-pull both summaries (the
+  // to-do one backs the Inbox number, switcher dot and dock badge).
   void onInboxSummaryInvalidate(qc);
   void onTodoSummaryInvalidate(qc);
   // Per-issue caches are keyed without wsId, so the issueKeys.all(wsId)
@@ -846,9 +847,7 @@ export function useRealtimeSync(
         // inbox:read / inbox:archived / inbox:unarchived / batch events arrive
         // here. They can originate from a workspace other than the active one
         // (personal events fan out to all the user's connections), so always
-        // refresh the cross-workspace summary — its dot must clear when another
-        // workspace's items are read/archived, and light again when an unread
-        // item is restored from the archive.
+        // refresh the cross-workspace unread notice summary.
         void onInboxSummaryInvalidate(qc);
       },
       agent: () => {
