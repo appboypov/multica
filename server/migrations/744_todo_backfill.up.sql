@@ -1,18 +1,26 @@
 -- Seed current obligations before retiring their notices. The migration runner
 -- sends this file as one implicit transaction, so an insert failure leaves the
 -- notices untouched. Creator migration 743 runs first.
+-- A question's issue is the first issue its links reach, through an issue,
+-- comment or task link, as the live listener reads it; one that reaches none
+-- carries its ask's title or prompt.
 INSERT INTO todo (workspace_id, member_id, kind, source_key, issue_id,
                   question_id, actor_type, actor_id, title, body, created_at)
 SELECT q.workspace_id, qa.user_id, 'question', q.id::text, i.id,
-       q.id, 'agent', q.asker_agent_id, i.title, q.prompt, q.created_at
+       q.id, 'agent', q.asker_agent_id, COALESCE(i.title, q.ask_title, q.prompt), q.prompt, q.created_at
 FROM question q
 JOIN question_answerer qa ON qa.question_id = q.id AND qa.workspace_id = q.workspace_id
 JOIN member m ON m.workspace_id = q.workspace_id AND m.user_id = qa.user_id
-JOIN LATERAL (
+LEFT JOIN LATERAL (
     SELECT i.id, i.title
     FROM question_link l
-    JOIN issue i ON i.id = l.link_id AND i.workspace_id = l.workspace_id
-    WHERE l.question_id = q.id AND l.workspace_id = q.workspace_id AND l.link_type = 'issue'
+    LEFT JOIN comment c ON l.link_type = 'comment' AND c.id = l.link_id
+        AND c.workspace_id = l.workspace_id AND c.deleted_at IS NULL
+    LEFT JOIN agent_task_queue t ON l.link_type = 'task' AND t.id = l.link_id
+        AND EXISTS (SELECT 1 FROM agent a WHERE a.id = t.agent_id AND a.workspace_id = l.workspace_id)
+    JOIN issue i ON i.workspace_id = l.workspace_id AND i.id = CASE l.link_type
+        WHEN 'issue' THEN l.link_id WHEN 'comment' THEN c.issue_id WHEN 'task' THEN t.issue_id END
+    WHERE l.question_id = q.id AND l.workspace_id = q.workspace_id
     ORDER BY l.position, l.link_id
     LIMIT 1
 ) i ON true

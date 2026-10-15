@@ -129,13 +129,23 @@ func questionTodos(ctx context.Context, svc todo.Service, e events.Event) error 
 				reassignedTo = details.UserID
 			}
 		}
-		issueID, err := util.ParseUUID(p.IssueID)
-		if err != nil {
-			return err
+		// A question that reaches no issue still asks the member something; its
+		// to-do carries the ask's title, or the prompt for a single question.
+		var issueID pgtype.UUID
+		title := row.Prompt
+		if row.AskTitle.Valid {
+			title = row.AskTitle.String
 		}
-		issue, err := svc.Queries.GetIssueInWorkspace(ctx, db.GetIssueInWorkspaceParams{ID: issueID, WorkspaceID: workspace})
-		if err != nil {
-			return err
+		if p.IssueID != "" {
+			issueID, err = util.ParseUUID(p.IssueID)
+			if err != nil {
+				return err
+			}
+			issue, err := svc.Queries.GetIssueInWorkspace(ctx, db.GetIssueInWorkspaceParams{ID: issueID, WorkspaceID: workspace})
+			if err != nil {
+				return err
+			}
+			title = issue.Title
 		}
 		for _, answerer := range answerers {
 			if p.Reason == protocol.QuestionReasonReassigned && util.UUIDToString(answerer.UserID) != reassignedTo {
@@ -144,7 +154,7 @@ func questionTodos(ctx context.Context, svc todo.Service, e events.Event) error 
 			if answered[answerer.UserID] {
 				continue
 			}
-			if err := svc.Open(ctx, db.OpenTodoParams{WorkspaceID: workspace, MemberID: answerer.UserID, Kind: todo.Question, SourceKey: id, IssueID: issueID, QuestionID: questionID, ActorType: util.StrToText("agent"), ActorID: row.AskerAgentID, Title: issue.Title, Body: util.StrToText(row.Prompt)}); err != nil {
+			if err := svc.Open(ctx, db.OpenTodoParams{WorkspaceID: workspace, MemberID: answerer.UserID, Kind: todo.Question, SourceKey: id, IssueID: issueID, QuestionID: questionID, ActorType: util.StrToText("agent"), ActorID: row.AskerAgentID, Title: title, Body: util.StrToText(row.Prompt)}); err != nil {
 				return err
 			}
 		}
