@@ -605,6 +605,20 @@ func extractServerMessage(body string) string {
 	return code
 }
 
+// ServerErrorMessage returns the human-readable message a server error body
+// carries, or "" when err is not an HTTP failure or the body has none.
+//
+// It is for a command whose every refusal is worded by the server for the
+// caller, such as `multica issue react`: the generic copy for its 401 and 404
+// would hide the reason the server gave.
+func ServerErrorMessage(err error) string {
+	var httpErr *HTTPError
+	if !errors.As(err, &httpErr) {
+		return ""
+	}
+	return extractServerMessage(httpErr.Body)
+}
+
 // ServerErrorCode returns the stable `code` a server error body carries, or ""
 // when err is not an HTTP failure or the body has no code.
 //

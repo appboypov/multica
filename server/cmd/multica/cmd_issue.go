@@ -457,6 +457,20 @@ var issueCancelTaskCmd = &cobra.Command{
 	RunE: runIssueCancelTask,
 }
 
+var issueReactCmd = &cobra.Command{
+	Use:   "react <item-id> <emoji>",
+	Short: "Mark an item your run received: 👀 seen and handling, ✅ handled",
+	Long: "Mark a comment, comment edit, answer or issue change that reached your running run as a notice.\n\n" +
+		"Use the item id the notice names. 👀 means you saw it and handle it; ✅ means you handled it. " +
+		"Leave an item that is not relevant to your work unmarked. An item for you without ✅ when the run ends " +
+		"gets its normal handling again; marking the same item twice with the same emoji changes nothing.\n\n" +
+		"Works only inside an agent's run: the run is read from MULTICA_TASK_ID, and only the run that received the item can mark it.",
+	Example: `  $ multica issue react <item-id> 👀
+  $ multica issue react <item-id> ✅`,
+	Args: exactArgs(2),
+	RunE: runIssueReact,
+}
+
 var issueSearchCmd = &cobra.Command{
 	Use:   "search <query>",
 	Short: "Search issues by title, description, or comments",
@@ -584,6 +598,7 @@ func init() {
 	issueCmd.AddCommand(issueUsageCmd)
 	issueCmd.AddCommand(issueRerunCmd)
 	issueCmd.AddCommand(issueCancelTaskCmd)
+	issueCmd.AddCommand(issueReactCmd)
 	issueCmd.AddCommand(issueSearchCmd)
 
 	issueCommentCmd.AddCommand(issueCommentListCmd)
@@ -3064,6 +3079,36 @@ func runIssueCancelTask(cmd *cobra.Command, args []string) error {
 	}
 	fmt.Fprintf(os.Stdout, "Run %s -> status=%s\n", taskRef.ID, status)
 	return nil
+}
+
+// runIssueReact marks an item the current run received with 👀 or ✅. The
+// server owns every rule (which run received the item, which emoji are
+// allowed), so a refusal surfaces the server's own message verbatim.
+func runIssueReact(cmd *cobra.Command, args []string) error {
+	taskID := strings.TrimSpace(os.Getenv("MULTICA_TASK_ID"))
+	if taskID == "" {
+		return fmt.Errorf("react works only inside an agent's run")
+	}
+	client, err := newAPIClient(cmd)
+	if err != nil {
+		return err
+	}
+
+	ctx, cancel := cli.APIContext(context.Background())
+	defer cancel()
+
+	itemID, emoji := args[0], args[1]
+	path := "/api/tasks/" + url.PathEscape(taskID) + "/inputs/" + url.PathEscape(itemID) + "/reactions"
+	var result map[string]any
+	if err := client.PostJSON(ctx, path, map[string]string{"emoji": emoji}, &result); err != nil {
+		if msg := cli.ServerErrorMessage(err); msg != "" {
+			return cli.WithUserMessage(msg, err)
+		}
+		return fmt.Errorf("react to item: %w", err)
+	}
+
+	fmt.Fprintf(os.Stderr, "Item %s marked %s.\n", itemID, emoji)
+	return cli.PrintJSON(os.Stdout, result)
 }
 
 func runIssueSearch(cmd *cobra.Command, args []string) error {
