@@ -125,11 +125,10 @@ type IssueCreateOpts struct {
 	// labeled instead of blank until a refetch.
 	BroadcastPayload func(issue db.Issue, attachments []db.Attachment, labels []db.IssueLabel) map[string]any
 
-	// ActorID overrides the actor ID used for broadcast + analytics
-	// when it differs from the creator on the row. Agent-created issues
-	// use the agent UUID here (the creator_id column is the daemon
-	// owner). Empty falls back to CreatorID.
-	ActorID string
+	// ActorType and ActorID identify who filed the issue, independently of
+	// its creator. Empty values use the corresponding creator identity.
+	ActorType string
+	ActorID   string
 
 	// AnalyticsAgentID is the agent associated with the issue for
 	// analytics purposes (assignee agent or, for agent-created issues,
@@ -260,6 +259,11 @@ type IssueCreateResult struct {
 // Caller-owned validation is limited to transport-shaped checks: title
 // required, RFC3339 date format, assignee pair sanity.
 func (s *IssueService) Create(ctx context.Context, p IssueCreateParams, opts IssueCreateOpts) (IssueCreateResult, error) {
+	actorType := opts.ActorType
+	if actorType == "" {
+		actorType = p.CreatorType
+	}
+	actorID := createActorID(p, opts)
 	issueCountPolicy := ResolveIssueCountPolicy(ctx, s.Entitlements, p.WorkspaceID)
 	tx, err := s.TxStarter.Begin(ctx)
 	if err != nil {
@@ -460,7 +464,7 @@ func (s *IssueService) Create(ctx context.Context, p IssueCreateParams, opts Iss
 		return IssueCreateResult{}, fmt.Errorf("create issue: %w", err)
 	}
 
-	activities, err := WriteIssueEntries(ctx, qtx, issue.WorkspaceID, issue.ID, p.CreatorType, createActorID(p, opts), placement.entries)
+	activities, err := WriteIssueEntries(ctx, qtx, issue.WorkspaceID, issue.ID, actorType, actorID, placement.entries)
 	if err != nil {
 		return IssueCreateResult{}, err
 	}
@@ -476,7 +480,7 @@ func (s *IssueService) Create(ctx context.Context, p IssueCreateParams, opts Iss
 		if taskErr != nil {
 			return IssueCreateResult{}, fmt.Errorf("load quick-create origin task: %w", taskErr)
 		}
-		if p.CreatorType != "agent" || !p.CreatorID.Valid || p.CreatorID != task.AgentID {
+		if actorType != "agent" || actorID != util.UUIDToString(task.AgentID) {
 			return IssueCreateResult{}, errors.New("quick-create origin task does not belong to the creating agent")
 		}
 		var quickCreate QuickCreateContext
@@ -555,11 +559,6 @@ func (s *IssueService) Create(ctx context.Context, p IssueCreateParams, opts Iss
 
 	attachments := s.linkAttachments(ctx, issue, p.AttachmentIDs)
 
-	actorID := opts.ActorID
-	if actorID == "" {
-		actorID = util.UUIDToString(issue.CreatorID)
-	}
-
 	var assignedTaskID pgtype.UUID
 	if !opts.AssignedAgentRunFireAt.IsZero() {
 		assignedTaskID = assignedTask.ID
@@ -580,15 +579,15 @@ func (s *IssueService) Create(ctx context.Context, p IssueCreateParams, opts Iss
 			// AssignedAgentRunFireAt currently belongs to channel /issue, which
 			// always resolves an agent assignee. Preserve the ordinary squad path
 			// for any future caller that supplies the option with a squad.
-			s.enqueueSquadLeaderTask(ctx, issue, pgtype.UUID{}, p.CreatorType, actorID)
+			s.enqueueSquadLeaderTask(ctx, issue, pgtype.UUID{}, actorType, actorID)
 		}
 	}
 
-	s.publishIssueCreated(issue, attachments, labels, p.CreatorType, actorID, opts)
-	PublishIssueActivities(s.Bus, issue.WorkspaceID, p.CreatorType, actorID, activities)
-	s.captureCreatedAnalytics(issue, p.CreatorType, actorID, opts)
+	s.publishIssueCreated(issue, attachments, labels, actorType, actorID, opts)
+	PublishIssueActivities(s.Bus, issue.WorkspaceID, actorType, actorID, activities)
+	s.captureCreatedAnalytics(issue, actorType, actorID, opts)
 	if opts.AssignedAgentRunFireAt.IsZero() {
-		assignedTaskID = s.maybeEnqueueOnAssign(ctx, issue, p.CreatorType, actorID, opts.AssignedAgentRunFireAt)
+		assignedTaskID = s.maybeEnqueueOnAssign(ctx, issue, actorType, actorID, opts.AssignedAgentRunFireAt)
 	}
 
 	return IssueCreateResult{Issue: issue, Attachments: attachments, Labels: labels, AssignedTaskID: assignedTaskID}, nil
