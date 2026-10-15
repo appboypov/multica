@@ -37,6 +37,7 @@ type QuestionRowLinkDTO struct {
 	Identifier string `json:"identifier"`
 	Title      string `json:"title"`
 	Status     string `json:"status"`
+	MemberID   *string `json:"member_id,omitempty"`
 }
 
 type QuestionRowAnswerDTO struct {
@@ -205,6 +206,9 @@ func (s *QuestionService) ListRows(ctx context.Context, workspaceID, viewerID pg
 	}
 	for i := range page.Rows {
 		row := &page.Rows[i]
+		if row.Link.Type == question.LinkTypeChat {
+			continue
+		}
 		links := byQuestion[questionIDs[i]]
 		row.OpenIssue = OpenIssue(links)
 		if row.OpenIssue == nil {
@@ -246,6 +250,10 @@ func questionRowDTO(row db.ListQuestionRowsForMemberRow) QuestionRowDTO {
 		AnswererIDs:  make([]string, len(row.AnswererIds)),
 		BlocksWork:   row.BlocksWork, CreatedAt: questionTime(row.CreatedAt),
 		Link: QuestionRowLinkDTO{Type: row.LinkType, ID: util.UUIDToString(row.LinkID)},
+	}
+	if row.LinkMemberID.Valid {
+		memberID := util.UUIDToString(row.LinkMemberID)
+		result.Link.MemberID = &memberID
 	}
 	for i, id := range row.AnswererIds {
 		result.AnswererIDs[i] = util.UUIDToString(id)
