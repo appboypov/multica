@@ -2,7 +2,7 @@
 
 ### Requirement: A runtime profile for each persona agent
 
-The persona sync SHALL give Skuddy, Mitchel, Pieter, Pit, Edwin, Anouk, Joeri, Thomas, Roos, Guus, Sarkout and Hermila each a runtime profile whose command is the agent's alias and whose runtime type is the agent's kind, omp today, and SHALL put each of them on its profile. Tika MUST NOT get a profile, and Herdr, Astra, Fable and Haiku SHALL keep their runtimes.
+The persona sync SHALL give Skuddy, Mitchel, Pieter, Pit, Edwin, Anouk, Joeri, Thomas, Roos, Guus, Sarkout, Hermila and Paul each a runtime profile whose command is the agent's alias and whose runtime type is the agent's kind, omp today, and SHALL put each of them that exists as a Multica agent on its profile. Tika MUST NOT get a profile, and Herdr, Astra, Fable and Haiku SHALL keep their runtimes.
 
 #### Scenario: Mitchel's profile
 
@@ -15,6 +15,18 @@ The persona sync SHALL give Skuddy, Mitchel, Pieter, Pit, Edwin, Anouk, Joeri, T
 - **GIVEN** the profile `guus` was deleted
 - **WHEN** the sync runs
 - **THEN** the profile `guus` exists again and Guus runs on it
+
+#### Scenario: Paul before his agent exists
+
+- **GIVEN** Multica has no agent Paul
+- **WHEN** the sync runs
+- **THEN** a runtime profile with command `paul` and runtime type omp exists
+
+#### Scenario: Paul's agent arrives
+
+- **GIVEN** the profile `paul` exists and Multica now has the agent Paul
+- **WHEN** the sync runs
+- **THEN** the agent Paul runs on the profile `paul`
 
 #### Scenario: The helper agents
 
