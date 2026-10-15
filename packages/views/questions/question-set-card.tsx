@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useIsMutating } from "@tanstack/react-query";
-import { Check, CircleCheck, CirclePause, CircleSlash, CircleX, CornerUpLeft, ListTodo, Send } from "lucide-react";
+import { Check, CircleCheck, CirclePause, CircleSlash, CircleX, CornerUpLeft, ListTodo, NotebookPen, Send } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthStore } from "@multica/core/auth";
 import { hasUploadingDraft } from "@multica/core/drafts";
@@ -33,7 +33,7 @@ import { Textarea } from "@multica/ui/components/ui/textarea";
 import { cn } from "@multica/ui/lib/utils";
 import { useT } from "../i18n";
 import { AnswerControl, handleAnswerKey, useAnswerControlLink } from "./answer-controls/answer-control";
-import { draftError, valueToSend, type AnswerDraft } from "./answer-controls/draft";
+import { controlShowsNote, draftError, valueToSend, type AnswerDraft } from "./answer-controls/draft";
 import { AnswerCountPill, AnswererProgress, showsAnswererProgress } from "./answerer-progress";
 import { AnswerLine, AskedBy, CancelDetails, CancelledBy, QuestionCard, QuestionHistory } from "./question-card";
 import { ReassignPicker } from "./reassign-picker";
@@ -65,6 +65,7 @@ export interface QuestionSetCardProps {
 interface Composing {
   draft: AnswerDraft;
   note: string;
+  noteOpen: boolean;
 }
 
 /**
@@ -143,7 +144,9 @@ function TabbedQuestionSet({ questions, scope, runNumber, activeQuestionId }: Om
   const answerable = current.answer_type === "unknown" ? null : current;
   const canAnswer = answerable !== null && (isOpenFor(current, userId) || editingId === current.id);
   const isCurrentAnswerer = !!userId && current.answerers.some((a) => a.user_id === userId);
-  const { draft, note } = composing[current.id] ?? { draft: null, note: "" };
+  const { draft, note, noteOpen } = composing[current.id] ?? { draft: null, note: "", noteOpen: false };
+  // Most controls have no note of their own; theirs opens with Add a note, so a decline or a cancel can carry a reason.
+  const noteInControl = answerable !== null && controlShowsNote(answerable, draft ?? (answerable.suggested_answer as AnswerDraft));
   const toSend = (shown: AnswerDraft) => {
     const accepting = shown === null && answerable?.suggested_answer != null;
     const value: AnswerValue | null = !answerable ? null : accepting ? answerable.suggested_answer : valueToSend(answerable, shown);
@@ -170,7 +173,7 @@ function TabbedQuestionSet({ questions, scope, runNumber, activeQuestionId }: Om
   };
 
   const compose = (next: Partial<Composing>) => {
-    setComposing((all) => ({ ...all, [current.id]: { draft, note, ...next } }));
+    setComposing((all) => ({ ...all, [current.id]: { draft, note, noteOpen, ...next } }));
     setServerError(null);
   };
 
@@ -255,7 +258,7 @@ function TabbedQuestionSet({ questions, scope, runNumber, activeQuestionId }: Om
     if (!own) return;
     activate(index);
     setEditingId(question.id);
-    setComposing((all) => ({ ...all, [question.id]: { draft: isDeclined(own.value) ? null : (own.value as AnswerDraft), note: own.note ?? "" } }));
+    setComposing((all) => ({ ...all, [question.id]: { draft: isDeclined(own.value) ? null : (own.value as AnswerDraft), note: own.note ?? "", noteOpen: !!own.note } }));
   };
 
   const cancelEdit = () => {
@@ -344,6 +347,16 @@ function TabbedQuestionSet({ questions, scope, runNumber, activeQuestionId }: Om
                   disabled={pending}
                 />
                 <AnswerLine question={answerable} error={error} serverError={serverError} uploading={uploading} />
+                {noteOpen && !noteInControl && (
+                  <Textarea
+                    value={note}
+                    disabled={pending}
+                    aria-label={t(($) => $.card.note_label)}
+                    placeholder={t(($) => $.card.note_placeholder)}
+                    className="min-h-12"
+                    onChange={(event) => compose({ note: event.target.value })}
+                  />
+                )}
                 {askBackText !== null && (
                   <AskBackField
                     askerName={askerName}
@@ -442,6 +455,12 @@ function TabbedQuestionSet({ questions, scope, runNumber, activeQuestionId }: Om
             </Button>
             {canAnswer && (
               <>
+                {!noteInControl && (
+                  <Button type="button" variant="ghost" size="sm" className="text-muted-foreground" aria-expanded={noteOpen} onClick={() => compose({ noteOpen: !noteOpen })}>
+                    <NotebookPen />
+                    {t(($) => $.card.add_note)}
+                  </Button>
+                )}
                 <Button type="button" variant="ghost" size="sm" className="text-muted-foreground" disabled={pending} onClick={decline}>
                   <CircleSlash />
                   {t(($) => $.card.decline)}

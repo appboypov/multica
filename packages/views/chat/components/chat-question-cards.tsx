@@ -16,6 +16,15 @@ interface ChatQuestionCardsProps {
 }
 
 /**
+ * Brings the landed card itself into view once it renders: the list scrolls
+ * to the end of the card's row, and a row with several cards can leave an
+ * earlier one offscreen.
+ */
+function revealCard(node: HTMLDivElement | null) {
+  node?.scrollIntoView?.({ block: "nearest" });
+}
+
+/**
  * The question cards a chat turn ends with: the same card and set card as on
  * an issue, scoped to the chat, so the chat's member answers, cancels and
  * wakes in place and sees every other answerer's sent answer.
@@ -32,6 +41,7 @@ export function ChatQuestionCards({ cards, chatSessionId, landingQuestionId, hig
             key={card.askId}
             className={cn("rounded-xl transition-shadow duration-700", highlighted && "ring-2 ring-brand/40")}
             data-highlighted={highlighted || undefined}
+            ref={highlighted ? revealCard : undefined}
           >
             {card.questions.length === 1 ? (
               <QuestionCard question={card.questions[0]!} scope={scope} />
