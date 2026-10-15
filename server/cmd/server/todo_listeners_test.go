@@ -294,6 +294,52 @@ func TestTodoAgentFailures(t *testing.T) {
 	}
 }
 
+func TestTodoAgentFailureAttribution(t *testing.T) {
+	for _, kind := range []string{todo.RunFailed, todo.AgentBlocked} {
+		for _, first := range []int{0, 1, 2, 3, 4} {
+			t.Run(kind+"/"+[]string{"originator", "accountable", "source-originator", "source-accountable", "unattributed"}[first], func(t *testing.T) {
+				fx, svc := todoListenerFixture(t)
+				runtime := fx.Runtime(t, "Attribution runtime")
+				agent := fx.Agent(t, "Joeri", runtime)
+				issue := fx.Issue(t, "Delegated work")
+				var members [4]any
+				for index := first; index < len(members); index++ {
+					user := fx.User(t, "Member", dbid.NewV7().String()+"@todo.test")
+					fx.Member(t, fx.WorkspaceID, user, "member")
+					members[index] = user
+				}
+				if members[0] != nil {
+					members[1] = members[0]
+				}
+				if members[2] != nil {
+					members[3] = members[2]
+				}
+				source := fx.Task(t, agent, testutil.Cols{"runtime_id": runtime, "originator_user_id": members[2], "accountable_user_id": members[3]})
+				task := fx.Task(t, agent, testutil.Cols{"runtime_id": runtime, "issue_id": issue, "status": "failed", "originator_user_id": members[0], "accountable_user_id": members[1], "delegated_from_task_id": source})
+				event := events.Event{Type: protocol.EventTaskFailed, WorkspaceID: fx.WorkspaceID, ActorType: "agent", ActorID: agent, Payload: map[string]any{"issue_id": issue, "task_id": task}}
+				if kind == todo.AgentBlocked {
+					assignee := "agent"
+					event.Type = protocol.EventIssueUpdated
+					event.Payload = map[string]any{"issue": handler.IssueResponse{ID: issue, Status: "blocked", AssigneeType: &assignee, AssigneeID: &agent}, "status_changed": true, "source_task_id": task}
+				}
+				if err := agentTodos(context.Background(), svc, event); err != nil {
+					t.Fatal(err)
+				}
+				count := fx.Count(t, "SELECT count(*) FROM todo WHERE issue_id=$1 AND kind=$2 AND done_at IS NULL", issue, kind)
+				if first == len(members) {
+					if count != 0 {
+						t.Fatal("unattributed work opened a to-do")
+					}
+					return
+				}
+				if count != 1 || fx.Count(t, "SELECT count(*) FROM todo WHERE issue_id=$1 AND kind=$2 AND member_id=$3 AND task_id=$4 AND done_at IS NULL", issue, kind, members[first], task) != 1 {
+					t.Fatal("to-do did not reach the first attributed member")
+				}
+			})
+		}
+	}
+}
+
 func TestTodoReviewLifecycle(t *testing.T) {
 	fx, svc := todoListenerFixture(t)
 	id := fx.Issue(t, "Review", testutil.Cols{"status": "in_review"})

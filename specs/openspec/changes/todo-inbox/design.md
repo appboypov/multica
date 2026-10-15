@@ -103,8 +103,8 @@ Today's inbox writes one `inbox_item` per notice, kept until archived (`server/c
 | `question` | question id | `question:created`; `question:updated` reason `reassigned` | `question:updated` when the member answered or the question is not open; reassigned away | each current answerer | `question.due_date` |
 | `mention` | comment id | `comment:created`, and issue description mentions on create or edit | `comment:created` by the member on the issue | each mentioned member, not the author | none |
 | `assigned` | issue id | `issue:created` / `issue:updated` when a member assignee and the status is `todo`, `back_from_qa`, `blocked` or `in_review` | `issue:updated` status or assignee change | the member assignee | `issue.due_date` |
-| `agent_blocked` | issue id | `issue:updated` to `blocked` by an agent in a run, assignee agent or squad | `issue:updated` away from `blocked`; `task:dispatched` on the issue | the run's `originator_user_id` | none |
-| `run_failed` | task id | `task:failed` on an issue, not a quick create | same as `agent_blocked` | the task's `originator_user_id` | none |
+| `agent_blocked` | issue id | `issue:updated` to `blocked` by an agent in a run, assignee agent or squad | `issue:updated` away from `blocked`; `task:dispatched` on the issue | [run attribution](../../../docs/system-design.md#to-do-storage-and-flow) | none |
+| `run_failed` | task id | `task:failed` on an issue, not a quick create | same as `agent_blocked` | [run attribution](../../../docs/system-design.md#to-do-storage-and-flow) | none |
 | `autopilot_paused` | autopilot id | the failure monitor pauses it | the autopilot leaves `paused` | today's notice recipients | none |
 | `quota_reached` | the period's start and end, UTC RFC 3339, joined by `/` | the first quota rejection of a period | an autopilot run is admitted in the workspace, which closes every open `quota_reached` row of the workspace | today's notice recipients | none |
 | `quick_create_failed` | task id | quick create failed or unconfirmed | its retry creates the issue | the requester | none |

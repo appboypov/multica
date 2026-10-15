@@ -3,8 +3,10 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/multica-ai/multica/server/internal/events"
 	"github.com/multica-ai/multica/server/internal/handler"
@@ -385,10 +387,30 @@ func agentTodos(ctx context.Context, svc todo.Service, e events.Event) error {
 	if err != nil {
 		return err
 	}
-	if !task.OriginatorUserID.Valid || util.UUIDToString(task.IssueID) != issueID {
+	if util.UUIDToString(task.IssueID) != issueID {
 		return nil
 	}
 	if e.Type == protocol.EventIssueUpdated && util.UUIDToString(task.AgentID) != e.ActorID {
+		return nil
+	}
+	member := task.OriginatorUserID
+	if !member.Valid {
+		member = task.AccountableUserID
+	}
+	if !member.Valid && task.DelegatedFromTaskID.Valid {
+		source, err := svc.Queries.GetAgentTaskInWorkspace(ctx, db.GetAgentTaskInWorkspaceParams{ID: task.DelegatedFromTaskID, WorkspaceID: workspace})
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		member = source.OriginatorUserID
+		if !member.Valid {
+			member = source.AccountableUserID
+		}
+	}
+	if !member.Valid {
 		return nil
 	}
 	issue, err := svc.Queries.GetIssueInWorkspace(ctx, db.GetIssueInWorkspaceParams{ID: task.IssueID, WorkspaceID: workspace})
@@ -399,7 +421,7 @@ func agentTodos(ctx context.Context, svc todo.Service, e events.Event) error {
 	if e.Type == protocol.EventIssueUpdated {
 		kind, source = todo.AgentBlocked, issueID
 	}
-	return svc.Open(ctx, db.OpenTodoParams{WorkspaceID: workspace, MemberID: task.OriginatorUserID, Kind: kind, SourceKey: source, IssueID: task.IssueID, TaskID: task.ID, ActorType: util.StrToText("agent"), ActorID: task.AgentID, Title: issue.Title})
+	return svc.Open(ctx, db.OpenTodoParams{WorkspaceID: workspace, MemberID: member, Kind: kind, SourceKey: source, IssueID: task.IssueID, TaskID: task.ID, ActorType: util.StrToText("agent"), ActorID: task.AgentID, Title: issue.Title})
 }
 
 func reviewTodos(ctx context.Context, svc todo.Service, e events.Event) error {
