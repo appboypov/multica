@@ -1710,6 +1710,27 @@ type TaskUsageHourlyRollupState struct {
 	LastError         pgtype.Text        `json:"last_error"`
 }
 
+type Todo struct {
+	ID          pgtype.UUID        `json:"id"`
+	WorkspaceID pgtype.UUID        `json:"workspace_id"`
+	MemberID    pgtype.UUID        `json:"member_id"`
+	Kind        string             `json:"kind"`
+	SourceKey   string             `json:"source_key"`
+	IssueID     pgtype.UUID        `json:"issue_id"`
+	QuestionID  pgtype.UUID        `json:"question_id"`
+	CommentID   pgtype.UUID        `json:"comment_id"`
+	TaskID      pgtype.UUID        `json:"task_id"`
+	AutopilotID pgtype.UUID        `json:"autopilot_id"`
+	ActorType   pgtype.Text        `json:"actor_type"`
+	ActorID     pgtype.UUID        `json:"actor_id"`
+	Title       string             `json:"title"`
+	Body        pgtype.Text        `json:"body"`
+	Details     []byte             `json:"details"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	DoneAt      pgtype.Timestamptz `json:"done_at"`
+	DoneBy      pgtype.Text        `json:"done_by"`
+}
+
 type User struct {
 	ID                      pgtype.UUID        `json:"id"`
 	Name                    string             `json:"name"`
