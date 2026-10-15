@@ -117,6 +117,20 @@ func TestTodoQuestionReassigned(t *testing.T) {
 	}
 }
 
+func TestTodoQuestionWithoutIssue(t *testing.T) {
+	fx, svc := todoListenerFixture(t)
+	id := dbid.NewV7()
+	fx.Insert(t, "question", testutil.Cols{"id": id, "ask_id": id, "ask_position": 0, "workspace_id": fx.WorkspaceID, "asker_agent_id": dbid.NewV7(), "asked_in_task_id": dbid.NewV7(), "prompt": "Approve?", "answer_type": "approval"})
+	fx.Exec(t, "INSERT INTO question_answerer (question_id, user_id, workspace_id) VALUES ($1, $2, $3)", id, fx.UserID, fx.WorkspaceID)
+	event := events.Event{Type: protocol.EventQuestionCreated, WorkspaceID: fx.WorkspaceID, Payload: protocol.QuestionEventPayload{QuestionID: util.UUIDToString(id)}}
+	if err := questionTodos(context.Background(), svc, event); err != nil {
+		t.Fatal(err)
+	}
+	if fx.Count(t, "SELECT count(*) FROM todo WHERE workspace_id = $1 AND member_id = $2 AND kind = 'question' AND issue_id IS NULL AND title = 'Approve?' AND done_at IS NULL", fx.WorkspaceID, fx.UserID) != 1 {
+		t.Fatal("question without an issue opened no to-do")
+	}
+}
+
 func TestTodoMentionLifecycle(t *testing.T) {
 	fx, svc := todoListenerFixture(t)
 	issue := fx.Issue(t, "Mention")
