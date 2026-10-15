@@ -351,7 +351,9 @@ describe("SkillsTab", () => {
         "agent-1",
         false,
       );
-      expect(toggle).toBeDisabled();
+      expect(toggle).toHaveAttribute("aria-disabled", "true");
+      await user.click(toggle);
+      expect(mockSetAgentRuntimeSkillsInherited).toHaveBeenCalledTimes(1);
       expect(invalidate).not.toHaveBeenCalled();
       finishWrite();
       await waitFor(() =>
@@ -359,7 +361,9 @@ describe("SkillsTab", () => {
           queryKey: workspaceKeys.agents("ws-1"),
         }),
       );
-      await waitFor(() => expect(toggle).toBeEnabled());
+      await waitFor(() =>
+        expect(toggle).not.toHaveAttribute("aria-disabled", "true"),
+      );
       expect(mockSetAgentRuntimeSkillEnabled).not.toHaveBeenCalled();
     });
 
@@ -406,7 +410,7 @@ describe("SkillsTab", () => {
       expect(await sectionSwitch()).not.toBeChecked();
       for (const row of [review, plan]) {
         expect(row).not.toBeChecked();
-        expect(row).toBeDisabled();
+        expect(row).toHaveAttribute("aria-disabled", "true");
         await user.click(row);
       }
       expect(mockSetAgentRuntimeSkillEnabled).not.toHaveBeenCalled();
@@ -418,9 +422,9 @@ describe("SkillsTab", () => {
       );
       updateAgent({ ...savedChoices, inherit_runtime_skills: true });
       expect(review).not.toBeChecked();
-      expect(review).toBeEnabled();
+      expect(review).not.toHaveAttribute("aria-disabled", "true");
       expect(plan).toBeChecked();
-      expect(plan).toBeEnabled();
+      expect(plan).not.toHaveAttribute("aria-disabled", "true");
     });
 
     it("shows section and row switches for controllable omp skills", async () => {
@@ -495,7 +499,9 @@ describe("SkillsTab", () => {
         name: /Toggle inherited Local review/i,
       });
       expect(row).not.toBeChecked();
-      expect(row).toBeDisabled();
+      expect(row).toHaveAttribute("aria-disabled", "true");
+      await user.click(row);
+      expect(mockSetAgentRuntimeSkillEnabled).not.toHaveBeenCalled();
     });
 
     it.each([
@@ -517,7 +523,7 @@ describe("SkillsTab", () => {
         ),
       );
       expect(toggle).toBeChecked();
-      expect(toggle).toBeEnabled();
+      expect(toggle).not.toHaveAttribute("aria-disabled", "true");
       expect(invalidate).not.toHaveBeenCalled();
     });
   });
