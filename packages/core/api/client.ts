@@ -12,6 +12,7 @@ import type {
   AgentQuestionsSettings,
   AnswerQuestionRequest,
   AskBackQuestionRequest,
+  CancelQuestionRequest,
   Question,
   QuestionOpenCount,
   QuestionRowFilters,
@@ -3957,6 +3958,14 @@ export class ApiClient {
     });
   }
 
+  /** The questions linked to a chat; only the chat's member may read them. */
+  async listChatQuestions(sessionId: string): Promise<Question[]> {
+    const raw: unknown = await this.fetch(`/api/chat/sessions/${sessionId}/questions`);
+    return parseWithFallback(raw, QuestionListSchema, EMPTY_QUESTION_LIST, {
+      endpoint: "GET /api/chat/sessions/:id/questions",
+    });
+  }
+
   async getQuestion(id: string): Promise<Question> {
     const raw: unknown = await this.fetch(`/api/questions/${id}`);
     return parseWithFallback(raw, QuestionSchema, EMPTY_QUESTION, {
@@ -3981,6 +3990,16 @@ export class ApiClient {
     });
     return parseWithFallback(raw, QuestionSchema, EMPTY_QUESTION, {
       endpoint: "POST /api/questions/:id/ask-back",
+    });
+  }
+
+  async cancelQuestion(id: string, data: CancelQuestionRequest): Promise<Question> {
+    const raw: unknown = await this.fetch(`/api/questions/${id}/cancel`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+    return parseWithFallback(raw, QuestionSchema, EMPTY_QUESTION, {
+      endpoint: "POST /api/questions/:id/cancel",
     });
   }
 
