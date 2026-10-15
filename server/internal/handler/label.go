@@ -484,10 +484,13 @@ func (h *Handler) AttachLabel(w http.ResponseWriter, r *http.Request) {
 	}
 	resp := labelsToResponse(labels)
 	if attached.Changed {
-		h.publish(protocol.EventIssueLabelsChanged, uuidToString(issue.WorkspaceID), "member", userID, map[string]any{
+		actorType, actorID := h.resolveActor(r, userID, uuidToString(issue.WorkspaceID))
+		h.publish(protocol.EventIssueLabelsChanged, uuidToString(issue.WorkspaceID), actorType, actorID, map[string]any{
 			"issue_id":       uuidToString(issue.ID),
 			"labels":         resp,
 			"issue_revision": attached.IssueRevision,
+			"label":          map[string]any{"id": uuidToString(label.ID), "name": label.Name},
+			"change":         "added",
 		})
 	}
 	payload := map[string]any{"labels": resp}
@@ -556,10 +559,13 @@ func (h *Handler) DetachLabel(w http.ResponseWriter, r *http.Request) {
 	}
 	resp := labelsToResponse(labels)
 	if detached.Changed {
-		h.publish(protocol.EventIssueLabelsChanged, uuidToString(issue.WorkspaceID), "member", userID, map[string]any{
+		actorType, actorID := h.resolveActor(r, userID, uuidToString(issue.WorkspaceID))
+		h.publish(protocol.EventIssueLabelsChanged, uuidToString(issue.WorkspaceID), actorType, actorID, map[string]any{
 			"issue_id":       uuidToString(issue.ID),
 			"labels":         resp,
 			"issue_revision": detached.IssueRevision,
+			"label":          map[string]any{"id": uuidToString(label.ID), "name": label.Name},
+			"change":         "removed",
 		})
 	}
 	payload := map[string]any{"labels": resp}
