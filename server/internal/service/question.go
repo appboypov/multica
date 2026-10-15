@@ -63,6 +63,11 @@ type AnswerQuestionInput struct {
 	Wake bool
 }
 
+type CancelQuestionInput struct {
+	Note string
+	Wake bool
+}
+
 type QuestionWakeResult struct {
 	TaskID      string `json:"task_id"`
 	AnswerCount int64  `json:"answer_count"`
@@ -739,6 +744,30 @@ func (s *QuestionService) Answer(ctx context.Context, workspaceID, questionID pg
 	}
 	if _, err := s.Wake(ctx, workspaceID, questionID, actor, pgtype.UUID{}); err != nil {
 		slog.Info("answer did not wake the asker", "question_id", util.UUIDToString(questionID), "error", err)
+	}
+	return result, nil
+}
+
+// Cancel ends a live question for every answerer, preserving their answers.
+// A refused post-commit wake never rolls back the cancellation.
+func (s *QuestionService) Cancel(ctx context.Context, workspaceID, questionID pgtype.UUID, actor QuestionActor, input CancelQuestionInput) (QuestionDTO, error) {
+	result, err := s.mutate(ctx, workspaceID, questionID, actor, false, func(q *db.Queries, row db.Question) (db.Question, string, any, error) {
+		if !question.IsOpen(row.Status) {
+			return row, "", nil, questionRefusal(422, "only open or partly answered questions can be cancelled")
+		}
+		updated, err := q.SetQuestionStatus(ctx, db.SetQuestionStatusParams{
+			ID: row.ID, WorkspaceID: workspaceID, Status: "cancelled",
+			FromStatuses: []string{"open", "partly_answered"},
+		})
+		return updated, "cancelled", struct {
+			Note string `json:"note"`
+		}{input.Note}, err
+	})
+	if err != nil || !input.Wake {
+		return result, err
+	}
+	if _, err := s.Wake(ctx, workspaceID, questionID, actor, pgtype.UUID{}); err != nil {
+		slog.Info("cancel did not wake the asker", "question_id", util.UUIDToString(questionID), "error", err)
 	}
 	return result, nil
 }
