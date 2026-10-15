@@ -294,6 +294,7 @@ flowchart TB
     pages["issues, agents, runtimes, chat, skills,<br/>squads, projects, organisations,<br/>autopilots, inbox, settings"]
     navigation["navigation<br/>NavigationAdapter, app-link.tsx"]
     instrfield["agents/components<br/>instructions-field.tsx InstructionsField,<br/>runtime-file-browser.tsx RuntimeFileBrowser"]
+    skillstab["agents/components/tabs/skills-tab.tsx<br/>SkillsTab, CapabilitySection<br/>Switch, SkillItem"]
     projtable["projects/components<br/>project-table.tsx ProjectTable,<br/>organisation-picker.tsx OrganisationPicker"]
     questions["questions<br/>question-card.tsx QuestionCard,<br/>answer-controls AnswerControl,<br/>reassign-picker.tsx, wake-button.tsx"]
     composer["issues/components<br/>comment-input.tsx, reply-input.tsx, comment-trigger-chips.tsx;<br/>issues/hooks/use-recipient-actions.ts"]
@@ -301,7 +302,7 @@ flowchart TB
   end
   subgraph core["packages/core"]
     coreprovider["platform/core-provider.tsx<br/>CoreProvider"]
-    api["api/client.ts ApiClient<br/>api/schema.ts parseWithFallback"]
+    api["api/client.ts ApiClient<br/>setAgentRuntimeSkillsInherited,<br/>setAgentRuntimeSkillEnabled<br/>api/schema.ts parseWithFallback"]
     wsclient["api/ws-client.ts<br/>WSClient"]
     features["feature dirs<br/>queries.ts, mutations.ts, ws-updaters.ts"]
     orgs["organisations<br/>queries.ts, mutations.ts"]
@@ -330,6 +331,9 @@ flowchart TB
   pages --> navigation
   pages --> features
   pages --> instrfield
+  pages --> skillstab
+  skillstab --> api
+  skillstab --> ui
   pages --> projtable
   pages --> orgs
   pages --> group
