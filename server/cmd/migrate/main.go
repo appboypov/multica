@@ -142,6 +142,7 @@ var pgBigmOperatorClass = extensionOperatorClass{
 var concurrentIndexCleanups = map[string]string{
 	"721_release_milestone_index":                               "idx_release_milestone_release",
 	"731_issue_lane_order_index":                                "idx_issue_lane_order",
+	"721_task_supplement_item_task_index":                       "task_supplement_item_task_key",
 	"702_question_answer_answerer_time_index":                   "idx_question_answer_answerer_time",
 	"701_question_open_workspace_index":                         "idx_question_open_workspace",
 	"700_question_answerer_user_index":                          "idx_question_answerer_user",
@@ -401,6 +402,7 @@ var concurrentDownIndexCleanups = map[string]string{
 	"450_drop_comment_delegated_failure_pending_index":      "idx_comment_delegated_failure_pending",
 	"453_drop_pending_issue_agent_unique":                   "idx_one_pending_task_per_issue_agent_v2",
 	"548_task_supplement_comment_task_index":                "task_supplement_comment_uidx",
+	"721_task_supplement_item_task_index":                   "task_supplement_comment_task_uidx",
 	"454_drop_comment_content_bigm_index":                   "idx_comment_content_bigm",
 	"455_drop_comment_content_trgm_index":                   "idx_comment_content_trgm",
 	"463_drop_issue_description_bigm_index":                 "idx_issue_description_bigm",
