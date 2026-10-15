@@ -1,6 +1,7 @@
 import type { CommentAuthorType, CommentSupplementReceipt, Reaction } from "./comment";
 import type { Attachment } from "./attachment";
 import type { IssueType } from "./issue";
+import type { RunInputMark } from "./run-input";
 
 export interface AssigneeFrequencyEntry {
   assignee_type: string;
@@ -20,6 +21,8 @@ export interface TimelineEntry {
   // Activity fields
   action?: string;
   details?: Record<string, unknown>;
+  /** Marks on this issue-change item, one per receiving run. */
+  run_marks?: RunInputMark[];
   // Comment fields
   content?: string;
   parent_id?: string | null;
@@ -34,7 +37,7 @@ export interface TimelineEntry {
   resolved_by_type?: CommentAuthorType | null;
   resolved_by_id?: string | null;
   source_task_id?: string | null;
-  /** Every running turn this comment steered, one receipt per run. */
+  /** One receipt per comment version and running turn that received it. */
   supplements?: CommentSupplementReceipt[];
   /** Mirrors the first receipt; servers that predate `supplements` send only these. */
   supplement_task_id?: string;
@@ -66,17 +69,23 @@ export interface IssueActivityDetailsByAction {
   removed_from_release: IssueReleaseActivityDetails;
   worklane_changed: { worklane_id: string | null; worklane_name: string | null };
   release_gone: IssueReleaseActivityDetails;
+  label_added: { label_id: string; label_name: string };
+  label_removed: { label_id: string; label_name: string };
+  attachment_added: { attachment_id: string; filename: string };
+  attachment_removed: { attachment_id: string; filename: string };
+  sub_issue_added: { sub_issue_id: string; sub_issue_identifier: string; sub_issue_title: string };
+  sub_issue_removed: { sub_issue_id: string; sub_issue_identifier: string; sub_issue_title: string };
 }
 
-export type IssuePlacementActivityAction = keyof IssueActivityDetailsByAction;
+export type IssueActivityAction = keyof IssueActivityDetailsByAction;
 
-export type IssuePlacementActivityEntry = {
-  [Action in IssuePlacementActivityAction]: Omit<TimelineEntry, "type" | "action" | "details"> & {
+export type IssueActivityEntry = {
+  [Action in IssueActivityAction]: Omit<TimelineEntry, "type" | "action" | "details"> & {
     type: "activity";
     action: Action;
     details: IssueActivityDetailsByAction[Action];
   };
-}[IssuePlacementActivityAction];
+}[IssueActivityAction];
 
 export interface WorklaneSwitchedDetails {
   /** null or "" means the worktree was detached. */

@@ -4,6 +4,7 @@
 // `api/schemas.ts` reads these shapes leniently.
 
 import type { IssueStatus } from "./issue";
+import type { RunInputMark } from "./run-input";
 
 /** The twelve answer types; each has its own settings and value shape. */
 export type AnswerType =
@@ -247,6 +248,8 @@ export interface QuestionAnswer<V = AnswerValue> {
   note: string | null;
   created_at: string;
   updated_at: string;
+  /** Marks on this answer's latest answered/edited event, one per receiving run. */
+  run_marks?: RunInputMark[];
 }
 
 export type QuestionEventKind =

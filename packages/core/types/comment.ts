@@ -1,3 +1,5 @@
+import type { RunInputItemKind } from "./run-input";
+
 export type CommentType = "comment" | "status_change" | "progress_update" | "system";
 
 // `system` is used by platform-generated rows (e.g. the parent-issue
@@ -47,7 +49,7 @@ export interface Comment {
   // Per-target result of every explicit @agent / @squad mention in this comment
   // (MUL-4525 §2). Present only on create/edit responses; older servers omit it.
   trigger_outcomes?: CommentTriggerOutcome[];
-  /** Every running turn this comment steered, one receipt per run. */
+  /** One receipt per comment version and running turn that received it. */
   supplements?: CommentSupplementReceipt[];
   /** Mirrors the first receipt; servers that predate `supplements` send only these. */
   supplement_task_id?: string;
@@ -58,10 +60,14 @@ export interface Comment {
 
 export type CommentSupplementStatus = "pending" | "delivering" | "delivered" | "failed";
 
-/** Delivery receipt of a comment that steered one agent's running turn. */
+/** Delivery receipt of one comment version that reached an agent's running turn. */
 export interface CommentSupplementReceipt {
   task_id: string;
   agent_id?: string;
+  item_kind?: RunInputItemKind;
+  item_id?: string;
+  seen_at?: string;
+  handled_at?: string;
   status: CommentSupplementStatus;
   failure_reason?: string;
   delivered_at?: string;

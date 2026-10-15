@@ -943,19 +943,37 @@ export const EMPTY_ATTACHMENT: Attachment = {
 // wasn't updated in lock-step. `.loose()` removes that synchronisation
 // hazard — the schema validates the shape it knows about and leaves the
 // rest alone.
-// One receipt per running turn a comment steered. A malformed receipt is
+// One receipt per comment version and receiving run. A malformed receipt is
 // dropped on its own rather than failing the whole comment.
 const CommentSupplementReceiptSchema = z.object({
   task_id: z.string(),
   agent_id: z.string().optional().catch(undefined),
+  item_kind: z.enum(["comment", "comment_edit", "answer", "issue_change"]).optional().catch(undefined),
+  item_id: z.string().optional().catch(undefined),
+  seen_at: z.string().optional().catch(undefined),
+  handled_at: z.string().optional().catch(undefined),
   status: z.enum(["pending", "delivering", "delivered", "failed"]),
   failure_reason: z.string().optional().catch(undefined),
   delivered_at: z.string().optional().catch(undefined),
-});
+}).loose();
 
 const CommentSupplementReceiptsSchema = z.array(z.unknown()).optional().catch(undefined)
   .transform((raw) => raw?.flatMap((item) => {
     const parsed = CommentSupplementReceiptSchema.safeParse(item);
+    return parsed.success ? [parsed.data] : [];
+  }));
+
+// Marks are read-side metadata: a malformed mark cannot hide its item or peers.
+const RunInputMarkSchema = z.object({
+  task_id: z.string(),
+  agent_id: z.string(),
+  seen_at: z.string().optional().catch(undefined),
+  handled_at: z.string().optional().catch(undefined),
+}).loose();
+
+const RunInputMarksSchema = z.array(z.unknown()).optional().catch(undefined)
+  .transform((raw) => raw?.flatMap((item) => {
+    const parsed = RunInputMarkSchema.safeParse(item);
     return parsed.success ? [parsed.data] : [];
   }));
 
@@ -969,6 +987,7 @@ const TimelineEntrySchema = z.object({
   actor_avatar_url: z.string().optional(),
   action: z.string().optional(),
   details: z.record(z.string(), z.unknown()).optional(),
+  run_marks: RunInputMarksSchema,
   content: z.string().optional(),
   parent_id: z.string().nullable().optional(),
   updated_at: z.string().optional(),
@@ -4634,6 +4653,7 @@ const QuestionAnswerWireSchema = z.object({
   note: z.string().nullish().catch(null).transform((value) => value ?? null),
   created_at: z.string(),
   updated_at: z.string(),
+  run_marks: RunInputMarksSchema,
 }).loose();
 
 const QuestionWireSchema = z.object({

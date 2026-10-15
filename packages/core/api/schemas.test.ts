@@ -20,6 +20,7 @@ import {
   AutopilotRunSchema,
   FALLBACK_AUTOPILOT_RUN,
   CommentTriggerPreviewSchema,
+  CommentSchema,
   DashboardAgentRunTimeListSchema,
   DashboardRunTimeDailyListSchema,
   DashboardFailureByAgentListSchema,
@@ -555,6 +556,79 @@ describe("IssueTriggerPreviewSchema", () => {
   it("parseWithFallback returns the fallback for null / non-object bodies", () => {
     expect(parseWithFallback(null, IssueTriggerPreviewSchema, PREVIEW_FALLBACK, PREVIEW_ENDPOINT)).toEqual(PREVIEW_FALLBACK);
     expect(parseWithFallback("oops", IssueTriggerPreviewSchema, PREVIEW_FALLBACK, PREVIEW_ENDPOINT)).toEqual(PREVIEW_FALLBACK);
+  });
+});
+
+describe("run input metadata", () => {
+  const timelineEntry = {
+    type: "comment", id: "comment-1", actor_type: "member", actor_id: "user-1",
+    created_at: "2026-10-15T10:00:00Z", content: "keep the toggle",
+  };
+  const comment = {
+    id: "comment-1", issue_id: "issue-1", author_type: "member", author_id: "user-1",
+    content: "keep the toggle", type: "comment", parent_id: null,
+    created_at: timelineEntry.created_at, updated_at: timelineEntry.created_at,
+  };
+  const receipts = [
+    { task_id: "run-1", agent_id: "thomas", item_kind: "comment", item_id: "comment-1", status: "delivered",
+      seen_at: "2026-10-15T10:01:00Z", handled_at: "2026-10-15T10:02:00Z" },
+    { task_id: "run-1", agent_id: "thomas", item_kind: "comment_edit", item_id: "edit-1", status: "delivered",
+      seen_at: "2026-10-15T10:03:00Z" },
+  ];
+
+  it("preserves original and edited comment receipt identities and marks at both boundaries", () => {
+    expect(CommentSchema.parse({ ...comment, supplements: receipts }).supplements).toEqual(receipts);
+    expect(TimelineEntriesSchema.parse([{ ...timelineEntry, supplements: receipts }])[0]?.supplements).toEqual(receipts);
+  });
+
+  it("keeps comments and valid receipts when metadata is absent, unknown or malformed", () => {
+    const supplements = [
+      receipts[0], null, { task_id: 42, status: "delivered" },
+      { task_id: "run-2", status: "delivered", item_kind: "future_kind", item_id: 3, seen_at: {}, handled_at: null },
+      { task_id: "run-3", status: "delivered" },
+    ];
+    const parsed = CommentSchema.parse({ ...comment, supplements });
+    expect(parsed.id).toBe(comment.id);
+    expect(parsed.supplements).toHaveLength(3);
+    expect(parsed.supplements?.[0]).toEqual(receipts[0]);
+    expect(parsed.supplements?.[1]).toMatchObject({
+      task_id: "run-2", item_kind: undefined, item_id: undefined, seen_at: undefined, handled_at: undefined,
+    });
+    expect(parsed.supplements?.[2]).toMatchObject({ task_id: "run-3", status: "delivered" });
+    expect(CommentSchema.parse(comment).supplements).toBeUndefined();
+  });
+
+  it("preserves per-run activity marks and drops only malformed marks", () => {
+    const marks = [
+      { task_id: "run-1", agent_id: "thomas", seen_at: "2026-10-15T10:01:00Z" },
+      { task_id: "run-2", agent_id: "thomas", handled_at: "2026-10-15T10:02:00Z" },
+    ];
+    const [parsed] = TimelineEntriesSchema.parse([{
+      ...timelineEntry, type: "activity", action: "priority_changed",
+      run_marks: [marks[0], null, { agent_id: "missing-run" }, marks[1],
+        { task_id: "run-3", agent_id: "joeri", seen_at: 3, handled_at: null }],
+    }]);
+    expect(parsed?.run_marks).toEqual([
+      ...marks, { task_id: "run-3", agent_id: "joeri", seen_at: undefined, handled_at: undefined },
+    ]);
+  });
+
+  it.each([undefined, null, "not-a-list", 42])("ignores an unreadable activity marks list: %j", (run_marks) => {
+    const [parsed] = TimelineEntriesSchema.parse([{ ...timelineEntry, type: "activity", run_marks }]);
+    expect(parsed?.id).toBe(timelineEntry.id);
+    expect(parsed?.run_marks).toBeUndefined();
+  });
+
+  it.each([
+    ["label_added", { label_id: "label-1", label_name: "Design" }],
+    ["label_removed", { label_id: "label-1", label_name: "Design" }],
+    ["attachment_added", { attachment_id: "file-1", filename: "flow.pdf" }],
+    ["attachment_removed", { attachment_id: "file-1", filename: "flow.pdf" }],
+    ["sub_issue_added", { sub_issue_id: "child-1", sub_issue_identifier: "WORK-450", sub_issue_title: "Copy button tests" }],
+    ["sub_issue_removed", { sub_issue_id: "child-1", sub_issue_identifier: "WORK-450", sub_issue_title: "Copy button tests" }],
+  ])("preserves the %s activity and its snapshot", (action, details) => {
+    const [parsed] = TimelineEntriesSchema.parse([{ ...timelineEntry, type: "activity", action, details }]);
+    expect(parsed).toMatchObject({ action, details });
   });
 });
 
@@ -2596,6 +2670,22 @@ describe("QuestionSchema", () => {
     expect(question.events.map((event) => event.kind)).toEqual(["asked", "answered"]);
     expect(question.unseen_answer_count).toBe(1);
     expect(question.wake_available).toBe(true);
+  });
+
+  it.each(["single_choice", "future_answer_type"])("preserves answer marks even for %s answers", (answer_type) => {
+    const mark = { task_id: "run-1", agent_id: "thomas", seen_at: "2026-10-15T10:01:00Z", handled_at: "2026-10-15T10:02:00Z" };
+    const question = parse({
+      answer_type,
+      answers: [{ ...wireQuestion.answers[0], run_marks: [mark, null, { task_id: "missing-agent" }] }],
+    });
+    expect(question.id).toBe(wireQuestion.id);
+    expect(question.answers[0]?.run_marks).toEqual([mark]);
+  });
+
+  it.each([undefined, null, "not-a-list"])("keeps an answer with no readable marks list: %j", (run_marks) => {
+    const question = parse({ answers: [{ ...wireQuestion.answers[0], run_marks }] });
+    expect(question.answers[0]?.id).toBe("answer-1");
+    expect(question.answers[0]?.run_marks).toBeUndefined();
   });
 
   it("reads a question of a set with its ask, policy and partly answered status", () => {
