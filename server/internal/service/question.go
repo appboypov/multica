@@ -363,16 +363,16 @@ func (s *QuestionService) Ask(ctx context.Context, workspaceID pgtype.UUID, acto
 		if err != nil {
 			return QuestionAskResult{}, err
 		}
-		if !task.IssueID.Valid {
-			return QuestionAskResult{}, questionRefusal(422, "questions are asked during an issue run")
+		if !task.IssueID.Valid && !task.ChatSessionID.Valid {
+			return QuestionAskResult{}, questionRefusal(422, "questions are asked during an issue run or a chat turn")
 		}
-		// Decided at claim (ADR-0005): a run claimed while questions were off
+		// Decided at claim (ADR-0017): a run claimed while questions were off
 		// never asks, whatever the setting says now.
 		if !task.QuestionsEnabled {
-			return QuestionAskResult{}, questionRefusal(403, "questions are off for this issue")
+			return QuestionAskResult{}, questionRefusal(403, "questions are off for this run")
 		}
 		if !task.StartedAt.Valid {
-			return QuestionAskResult{}, questionRefusal(422, "questions are asked during a started issue run")
+			return QuestionAskResult{}, questionRefusal(422, "questions are asked during a started issue run or chat turn")
 		}
 		askerAgentID = actor.ID
 	case "member":
@@ -456,7 +456,16 @@ func (s *QuestionService) Ask(ctx context.Context, workspaceID pgtype.UUID, acto
 		return QuestionAskResult{}, questionRefusal(422, fmt.Sprintf("at most %d links are allowed", question.MaxLinksPerAsk))
 	}
 	refs := input.Links
-	if len(refs) == 0 && actor.Type == "agent" {
+	if task.ChatSessionID.Valid {
+		chat := question.LinkRef{Type: question.LinkTypeChat, Ref: util.UUIDToString(task.ChatSessionID)}
+		refs = make([]question.LinkRef, 0, len(input.Links)+1)
+		if len(input.Links) > 0 {
+			refs = append(refs, input.Links[0], chat)
+			refs = append(refs, input.Links[1:]...)
+		} else {
+			refs = append(refs, chat)
+		}
+	} else if len(refs) == 0 && actor.Type == "agent" {
 		refs = []question.LinkRef{{Type: question.LinkTypeIssue, Ref: util.UUIDToString(task.IssueID)}}
 	}
 	resolvedLinks, err := s.resolveLinks(ctx, q, workspaceID, refs)
