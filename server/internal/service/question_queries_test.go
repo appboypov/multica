@@ -33,13 +33,13 @@ func TestQuestionQueriesChatUnseenScopeAndRetryChain(t *testing.T) {
 		{"cancelled", `{"note":"already decided in the PRD"}`, time.Date(2026, 10, 15, 10, 2, 0, 0, time.UTC)},
 	} {
 		f.fx.Insert(t, "question_event", testutil.Cols{
-			"workspace_id": f.workspace, "question_id": id, "kind": event.kind,
+			"id": testutil.Raw("gen_random_uuid()"), "workspace_id": f.workspace, "question_id": id, "kind": event.kind,
 			"actor_type": "member", "actor_id": f.brian, "details": event.details, "created_at": event.at,
 		})
 	}
 	// A newer issue run must not advance this chat's cutoff.
 	f.fx.Task(t, util.UUIDToString(f.agent), testutil.Cols{
-		"issue_id": f.issue, "status": "completed",
+		"runtime_id": f.runtime, "issue_id": f.issue, "status": "completed",
 		"dispatched_at": testutil.Raw("'2026-10-15 12:00:00Z'::timestamptz"), "started_at": testutil.Raw("'2026-10-15 12:01:00Z'::timestamptz"),
 	})
 	q := f.svc.Queries
@@ -56,15 +56,15 @@ func TestQuestionQueriesChatUnseenScopeAndRetryChain(t *testing.T) {
 		t.Fatalf("issue unseen count = %d, %v, want 0", count, err)
 	}
 	ancestor := f.fx.Task(t, util.UUIDToString(f.agent), testutil.Cols{
-		"chat_session_id": chat, "status": "failed",
+		"runtime_id": f.runtime, "chat_session_id": chat, "status": "failed",
 		"dispatched_at": testutil.Raw("'2026-10-15 11:00:00Z'::timestamptz"), "started_at": testutil.Raw("'2026-10-15 11:01:00Z'::timestamptz"),
 	})
 	retry := f.fx.Task(t, util.UUIDToString(f.agent), testutil.Cols{
-		"chat_session_id": chat, "status": "failed", "retry_of_task_id": ancestor,
+		"runtime_id": f.runtime, "chat_session_id": chat, "status": "failed", "retry_of_task_id": ancestor,
 		"dispatched_at": testutil.Raw("'2026-10-15 12:00:00Z'::timestamptz"), "started_at": testutil.Raw("'2026-10-15 12:01:00Z'::timestamptz"),
 	})
 	claim := util.MustParseUUID(f.fx.Task(t, util.UUIDToString(f.agent), testutil.Cols{
-		"chat_session_id": chat, "status": "dispatched", "retry_of_task_id": retry, "dispatched_at": testutil.Raw("'2026-10-15 13:00:00Z'::timestamptz"),
+		"runtime_id": f.runtime, "chat_session_id": chat, "status": "dispatched", "retry_of_task_id": retry, "dispatched_at": testutil.Raw("'2026-10-15 13:00:00Z'::timestamptz"),
 	}))
 	count, err = q.CountUnseenQuestionAnswers(ctx, db.CountUnseenQuestionAnswersParams{WorkspaceID: f.workspace, AgentID: f.agent, ChatSessionID: chat, QuestionIds: ids, ExcludeTaskID: claim})
 	if err != nil || count != 1 {

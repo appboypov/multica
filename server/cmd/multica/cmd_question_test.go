@@ -623,8 +623,8 @@ func TestQuestionAnswersShowsTheCancel(t *testing.T) {
 		details string
 		want    string
 	}{
-		{"with a note", `{"note":"already decided in the PRD"}`, "- Cancelled by Brian: already decided in the PRD · 2026-10-15T09:30:00Z\n"},
-		{"without a note", `{}`, "- Cancelled by Brian · 2026-10-15T09:30:00Z\n"},
+		{"with a note", `{"note":"already decided in the PRD"}`, "- Cancelled by member:Brian: already decided in the PRD · 2026-10-15T09:30:00Z\n"},
+		{"without a note", `{}`, "- Cancelled by member:Brian · 2026-10-15T09:30:00Z\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			response := `{"id":"q-1","prompt":"Round?","status":"cancelled","answers":[{"id":"a-1","answerer_user_id":"` + questionTestMember + `","value":{"option":"per line"},"display_text":"per line","note":"","updated_at":"2026-10-15T09:00:00Z"}],"events":[{"kind":"cancelled","actor_type":"member","actor_id":"` + questionTestMember + `","details":` + tc.details + `,"created_at":"2026-10-15T09:30:00Z"}]}`
@@ -648,7 +648,7 @@ func TestQuestionAnswersShowsTheCancel(t *testing.T) {
 			if !strings.Contains(got, tc.want) {
 				t.Fatalf("cancel line missing %q:\n%s", tc.want, got)
 			}
-			if !strings.Contains(got, "- per line · Brian · 2026-10-15T09:00:00Z") {
+			if !strings.Contains(got, "- per line · member:Brian · 2026-10-15T09:00:00Z") {
 				t.Fatalf("earlier answer is no longer readable:\n%s", got)
 			}
 		})

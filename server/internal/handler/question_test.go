@@ -82,7 +82,7 @@ func TestQuestionAPI_MemberNeedsIssueLink(t *testing.T) {
 func newChatQuestionAPIFixture(t *testing.T) (questionAPIFixture, string) {
 	t.Helper()
 	fx := newQuestionAPIFixture(t)
-	sessionID := dbfx.ChatSession(t, fx.AgentID, testutil.Cols{"runtime_id": fx.RuntimeID})
+	sessionID := dbfx.ChatSession(t, fx.AgentID, testutil.Cols{"runtime_id": fx.RuntimeID, "explicitly_created_at": testutil.Raw("now()")})
 	dbfx.Exec(t, `UPDATE agent_task_queue SET issue_id=NULL, chat_session_id=$2,
 		dispatched_at=now()-interval '1 hour' WHERE id=$1`, fx.TaskID, sessionID)
 	return fx, sessionID

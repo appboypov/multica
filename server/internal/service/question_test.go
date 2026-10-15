@@ -1854,7 +1854,7 @@ func TestQuestionChatUnseenServiceCountsCancelAndIgnoresIssueRuns(t *testing.T) 
 		t.Fatal(err)
 	}
 	f.fx.Task(t, util.UUIDToString(f.agent), testutil.Cols{
-		"issue_id": f.issue, "status": "completed",
+		"runtime_id": f.runtime, "issue_id": f.issue, "status": "completed",
 		"dispatched_at": testutil.Raw("clock_timestamp()"), "started_at": testutil.Raw("clock_timestamp()"),
 	})
 	scope := QuestionWakeScope{ChatSessionID: chat}
@@ -1863,7 +1863,7 @@ func TestQuestionChatUnseenServiceCountsCancelAndIgnoresIssueRuns(t *testing.T) 
 		t.Fatalf("chat unseen after issue run = %d, %v, want answer plus cancel", count, err)
 	}
 	f.fx.Task(t, util.UUIDToString(f.agent), testutil.Cols{
-		"chat_session_id": chat, "status": "completed",
+		"runtime_id": f.runtime, "chat_session_id": chat, "status": "completed",
 		"dispatched_at": testutil.Raw("clock_timestamp()"), "started_at": testutil.Raw("clock_timestamp()"),
 	})
 	count, err = f.svc.CountUnseenAnswers(ctx, f.workspace, f.agent, scope, pgtype.UUID{})
