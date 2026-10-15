@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -11,21 +12,23 @@ import (
 	"testing"
 
 	"github.com/spf13/cobra"
+
+	"github.com/multica-ai/multica/server/internal/testutil/testenv"
 )
 
+// TestMain runs the package without daemon task identity and from a temporary
+// working directory with no daemon task marker above it. Tests that exercise
+// the task branch set its variables or chdir under a marker themselves.
 func TestMain(m *testing.M) {
-	for _, key := range []string{
-		"MULTICA_AGENT_ID",
-		"MULTICA_TASK_ID",
-		"MULTICA_TOKEN",
-		"MULTICA_DAEMON_PORT",
-		"MULTICA_WORKSPACE_ID",
-		"MULTICA_SERVER_URL",
-		"MULTICA_TASK_CONFIG_ROOT",
-	} {
-		os.Unsetenv(key)
+	testenv.ClearDaemonTaskEnv()
+	cleanup, err := testenv.LeaveDaemonTaskDir()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
 	}
-	os.Exit(m.Run())
+	code := m.Run()
+	cleanup()
+	os.Exit(code)
 }
 
 // testCmd returns a minimal cobra.Command with the --profile persistent flag

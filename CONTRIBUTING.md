@@ -428,6 +428,14 @@ Notes:
   directory, so synthetic threads never scan the user's Codex rollouts for usage.
 - Dashboard exact-window fixtures share a pinned UTC clock with their requests.
   Their timestamps are bound parameters, independent of PostgreSQL's session date.
+- Go tests ignore the task identity of a daemon-managed agent task: the CLI
+  packages clear the variables the daemon injects, and `cmd/multica` runs from
+  a temporary working directory so the daemon's task marker above a checkout is
+  never found (`server/internal/testutil/testenv`)
+- git-backed daemon fixtures use an empty global git config, so your own
+  settings such as `commit.gpgsign` never reach fixture commits
+- Cursor background-process tests on Linux require kernel 6.9 or newer for
+  pidfd process-group signalling; older kernels reject retained group ownership
 - E2E tests create their own workspace and issue fixtures
 - the check flow starts backend/frontend only if they are not already running
 - Readonly code-copy regressions cover clipboard completion before and after unmount.

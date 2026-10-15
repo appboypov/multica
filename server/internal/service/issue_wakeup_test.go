@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"sync"
@@ -269,21 +270,40 @@ func TestIssueWakeupStatusSourceAndClaimAuthority(t *testing.T) {
 	w := wakeCreate(t, f, s, issue, WakeupInput{AgentID: agent, Kind: "event", Mode: "continuous", EventTypes: []string{"issue.status_changed"}, Instruction: "check state"})
 	f.Exec(t, "UPDATE issue SET status='in_progress',revision=revision+1 WHERE id=$1", issue)
 	wakeDispatch(t, s, w)
-	got, _ := f.q.GetIssueWakeup(ctx, db.GetIssueWakeupParams{ID: w.ID, WorkspaceID: w.WorkspaceID})
-	_, err := f.q.UpdateIssue(ctx, db.UpdateIssueParams{ID: issue, Status: pgtype.Text{String: "in_review", Valid: true}, SourceTaskID: got.LastTaskID})
+	got, err := f.q.GetIssueWakeup(ctx, db.GetIssueWakeupParams{ID: w.ID, WorkspaceID: w.WorkspaceID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !got.LastTaskID.Valid {
+		t.Fatal("status event did not enqueue a wakeup task")
+	}
+	task, err := f.q.GetAgentTask(ctx, got.LastTaskID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if task.OriginatorUserID != parseTestUUID(t, f.UserID) || task.TriggerEvidenceRefID != w.ID {
+		t.Fatalf("wakeup task lost rule authority: %+v", task)
+	}
+	var source struct {
+		ID       string `json:"wakeup_id"`
+		Revision int64  `json:"wakeup_revision"`
+	}
+	if err = json.Unmarshal(task.Context, &source); err != nil || source.ID != util.UUIDToString(w.ID) || source.Revision != w.Revision {
+		t.Fatalf("wakeup task claim source = %s, %v", task.Context, err)
+	}
+	_, err = f.q.UpdateIssue(ctx, db.UpdateIssueParams{ID: issue, Status: pgtype.Text{String: "in_review", Valid: true}, SourceTaskID: task.ID})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if n := f.Count(t, "SELECT count(*) FROM issue_wakeup_receipt WHERE wakeup_id=$1 AND processed_at IS NULL", w.ID); n != 0 {
 		t.Fatal("self status update created a loop")
 	}
-	task, _ := f.q.GetAgentTask(ctx, got.LastTaskID)
 	if err = s.CheckClaim(ctx, task); err != nil {
 		t.Fatal(err)
 	}
 	f.Exec(t, "DELETE FROM member WHERE user_id=$1 AND workspace_id=$2", f.UserID, f.WorkspaceID)
-	if !errors.Is(s.CheckClaim(ctx, task), ErrWakeupForbidden) {
-		t.Fatal("revoked member still claimable")
+	if err = s.CheckClaim(ctx, task); !errors.Is(err, ErrWakeupForbidden) {
+		t.Fatalf("revoked member claim = %v, want ErrWakeupForbidden", err)
 	}
 }
 

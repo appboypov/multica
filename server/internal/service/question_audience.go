@@ -102,6 +102,8 @@ func (s *QuestionService) wakeTargets(ctx context.Context, q *db.Queries, worksp
 	if row.WorkspaceID != workspaceID || !row.AskedInTaskID.Valid {
 		return result, nil
 	}
+	// Any card can wake with unseen answers elsewhere in its target's scope.
+	// The scope query excludes ended questions, not the card used to wake.
 	asking, err := q.GetAgentTaskInWorkspace(ctx, db.GetAgentTaskInWorkspaceParams{ID: row.AskedInTaskID, WorkspaceID: workspaceID})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return result, nil

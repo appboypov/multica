@@ -3172,8 +3172,8 @@ func TestCodexExecuteRetriesAfterSignaledProcessIsReaped(t *testing.T) {
 
 func TestCodexExecuteFirstTurnNoProgressSurfacesDiagnostics(t *testing.T) {
 	// Not t.Parallel(): this test mutates codexGracefulShutdownTimeoutNanos.
-	// The model catalog signal below makes both attempts retry safe, so this
-	// exercises the exhausted-retry path and pays two cleanup windows.
+	// Both attempts must reach the first-turn watchdog, not the competing
+	// semantic timer; the fixture exits on stdin EOF so cleanup is cooperative.
 	if runtime.GOOS == "windows" {
 		t.Skip("shell-script fixture is POSIX-only")
 	}
@@ -3181,6 +3181,10 @@ func TestCodexExecuteFirstTurnNoProgressSurfacesDiagnostics(t *testing.T) {
 	t.Cleanup(func() { codexGracefulShutdownTimeoutNanos.Store(0) })
 
 	fakePath := writeFakeCodexAppServer(t, ""+
+		`STATE="$(dirname "$0")/attempts"`+"\n"+
+		`ATTEMPT=$(cat "$STATE" 2>/dev/null || echo 0)`+"\n"+
+		`ATTEMPT=$((ATTEMPT+1))`+"\n"+
+		`echo "$ATTEMPT" > "$STATE"`+"\n"+
 		`read line`+"\n"+
 		`echo '{"jsonrpc":"2.0","id":1,"result":{}}'`+"\n"+
 		`read line`+"\n"+
@@ -3190,15 +3194,17 @@ func TestCodexExecuteFirstTurnNoProgressSurfacesDiagnostics(t *testing.T) {
 		`echo '{"jsonrpc":"2.0","id":3,"result":{}}'`+"\n"+
 		`echo '{"jsonrpc":"2.0","method":"turn/started","params":{"threadId":"thr-stuck","turn":{"id":"turn-stuck"}}}'`+"\n"+
 		`echo 'ERROR codex_models_manager::manager: failed to refresh available models: timeout waiting for child process to exit' >&2`+"\n"+
-		`sleep 2`+"\n")
+		`while read line; do :; done`+"\n")
 
 	result := executeFakeCodex(t, fakePath, ExecOptions{
-		Timeout:                   5 * time.Second,
-		SemanticInactivityTimeout: 100 * time.Millisecond,
+		Timeout:                    5 * time.Second,
+		SemanticInactivityTimeout:   5 * time.Second,
+		FirstTurnNoProgressTimeout: 100 * time.Millisecond,
 	})
 	if result.Status != "timeout" {
 		t.Fatalf("expected timeout, got status=%q error=%q", result.Status, result.Error)
 	}
+	assertCodexAttemptCount(t, fakePath, "2")
 	for _, want := range []string{
 		CodexFirstTurnNoProgressMarker,
 		"thr-stuck",
@@ -3312,12 +3318,21 @@ func TestCodexExecuteFirstItemWaitLifecycle(t *testing.T) {
 			t.Fatalf("expected completed, got %+v", result)
 		}
 
-		entry := findCodexLifecyclePhase(t, parseJSONLogEntries(t, logs.String()), "first_item_wait")
+		entries := parseJSONLogEntries(t, logs.String())
+		entry := findCodexLifecyclePhase(t, entries, "first_item_wait")
+		spawn := findCodexLifecyclePhase(t, entries, "spawn")
+		// This is a process-wide launch snapshot, not this task's attempt count.
+		// Other sessions may still be completing their lifecycle after a result.
+		active, ok := spawn["active_launches"].(float64)
+		if !ok || active < 1 || active != float64(int64(active)) {
+			t.Fatalf("missing/invalid spawn active_launches: %v", spawn)
+		}
 		for key, want := range map[string]any{
 			"task_id":                     "task-first-item-ok",
 			"runtime_id":                  "runtime-first-item-ok",
 			"attempt":                     float64(1),
-			"active_launches":             float64(1),
+			"active_launches":             active,
+			"pid":                         spawn["pid"],
 			"method":                      "turn/start",
 			"thread_id":                   "thr-first-item-ok",
 			"turn_id":                     "turn-first-item-ok",
@@ -3360,7 +3375,7 @@ func TestCodexExecuteFirstItemWaitLifecycle(t *testing.T) {
 			`echo '{"jsonrpc":"2.0","id":3,"result":{}}'`+"\n"+
 			`echo '{"jsonrpc":"2.0","method":"turn/started","params":{"threadId":"thr-first-item-timeout","turn":{"id":"turn-first-item-timeout"}}}'`+"\n"+
 			`echo 'ERROR codex_models_manager::manager: failed to refresh available models: stream disconnected before completion' >&2`+"\n"+
-			`sleep 2`+"\n")
+			`while read line; do :; done`+"\n")
 
 		var logs bytes.Buffer
 		result, _ := executeFakeCodexCollectingMessagesWithConfig(t, fakePath, Config{
@@ -3370,8 +3385,9 @@ func TestCodexExecuteFirstItemWaitLifecycle(t *testing.T) {
 			DaemonVersion: "daemon-test",
 			CodexVersion:  "codex-test",
 		}, ExecOptions{
-			Timeout:                   5 * time.Second,
-			SemanticInactivityTimeout: 100 * time.Millisecond,
+			Timeout:                    5 * time.Second,
+			SemanticInactivityTimeout:   5 * time.Second,
+			FirstTurnNoProgressTimeout: 100 * time.Millisecond,
 		}, firstItemWaitTestBudget)
 		if result.Status != "timeout" {
 			t.Fatalf("expected timeout after the bounded retry, got %+v", result)
@@ -3867,9 +3883,9 @@ func TestCodexCancellationDuringInitializeStopsProcessImmediately(t *testing.T) 
 	fakePath := writeFakeCodexAppServer(t, ""+
 		`read line`+"\n"+
 		`echo ready > `+marker+"\n"+
-		`sleep 30`+"\n")
+		`exec sleep 30`+"\n")
 
-	result, elapsed := cancelFakeCodexAfterMarker(t, fakePath, marker, ExecOptions{})
+	result, elapsed := cancelFakeCodexAfterMarker(t, fakePath, marker, false, ExecOptions{})
 	if result.Status != "failed" || !strings.Contains(result.Error, "initialize failed") {
 		t.Fatalf("unexpected result: %+v", result)
 	}
@@ -3894,9 +3910,9 @@ func TestCodexCancellationBeforeTurnStartedStopsProcessImmediately(t *testing.T)
 		`echo '{"jsonrpc":"2.0","id":2,"result":{"thread":{"id":"thr-race"}}}'`+"\n"+
 		`read line`+"\n"+
 		`echo ready > `+marker+"\n"+
-		`sleep 30`+"\n")
+		`exec sleep 30`+"\n")
 
-	result, elapsed := cancelFakeCodexAfterMarker(t, fakePath, marker, ExecOptions{})
+	result, elapsed := cancelFakeCodexAfterMarker(t, fakePath, marker, false, ExecOptions{})
 	if result.Status != "aborted" {
 		t.Fatalf("unexpected result: %+v", result)
 	}
@@ -3927,9 +3943,9 @@ func TestCodexNonResponsiveInterruptStopsProcessAtConfiguredDeadline(t *testing.
 		`echo ready > `+marker+"\n"+
 		`read line`+"\n"+
 		`echo interrupt > `+interrupt+"\n"+
-		`sleep 30`+"\n")
+		`exec sleep 30`+"\n")
 
-	result, elapsed := cancelFakeCodexAfterMarker(t, fakePath, marker, ExecOptions{TurnInterruptTimeout: 150 * time.Millisecond})
+	result, elapsed := cancelFakeCodexAfterMarker(t, fakePath, marker, true, ExecOptions{TurnInterruptTimeout: 150 * time.Millisecond})
 	if result.Status != "aborted" {
 		t.Fatalf("unexpected result: %+v", result)
 	}
@@ -3963,7 +3979,7 @@ func TestCodexInterruptCompletesNearConfiguredDeadline(t *testing.T) {
 		`echo '{"jsonrpc":"2.0","method":"thread/tokenUsage/updated","params":{"threadId":"thr-near-deadline","turnId":"turn-near-deadline","tokenUsage":{"total":{"inputTokens":12,"cachedInputTokens":2,"outputTokens":3,"reasoningOutputTokens":0,"totalTokens":15},"last":{"inputTokens":12,"cachedInputTokens":2,"outputTokens":3,"reasoningOutputTokens":0,"totalTokens":15},"modelContextWindow":200000}}}'`+"\n"+
 		`echo '{"jsonrpc":"2.0","method":"turn/completed","params":{"threadId":"thr-near-deadline","turn":{"id":"turn-near-deadline","status":"interrupted"}}}'`+"\n")
 
-	result, elapsed := cancelFakeCodexAfterMarker(t, fakePath, marker, ExecOptions{
+	result, elapsed := cancelFakeCodexAfterMarker(t, fakePath, marker, true, ExecOptions{
 		Model:                "gpt-test",
 		TurnInterruptTimeout: 250 * time.Millisecond,
 	})
@@ -3978,16 +3994,16 @@ func TestCodexInterruptCompletesNearConfiguredDeadline(t *testing.T) {
 	}
 }
 
-func cancelFakeCodexAfterMarker(t *testing.T, fakePath, marker string, opts ExecOptions) (Result, time.Duration) {
+func cancelFakeCodexAfterMarker(t *testing.T, fakePath, marker string, waitForActiveTurn bool, opts ExecOptions) (Result, time.Duration) {
 	t.Helper()
 	backend, err := New("codex", Config{ExecutablePath: fakePath, Logger: slog.Default()})
 	if err != nil {
 		t.Fatalf("new codex backend: %v", err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	session, err := backend.Execute(ctx, "prompt", opts)
 	if err != nil {
-		cancel()
 		t.Fatalf("execute: %v", err)
 	}
 	go func() {
@@ -3995,6 +4011,18 @@ func cancelFakeCodexAfterMarker(t *testing.T, fakePath, marker string, opts Exec
 		}
 	}()
 	waitForCodexMarker(t, marker, 5*time.Second)
+	if waitForActiveTurn {
+		// Writing turn/started and its marker does not mean the SDK reader has
+		// consumed the notification. Cancellation must exercise turn/interrupt,
+		// not the pre-turn fast-kill path.
+		deadline := time.Now().Add(5 * time.Second)
+		for !session.SupplementReady() {
+			if time.Now().After(deadline) {
+				t.Fatal("timeout waiting for SDK to observe the active Codex turn")
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+	}
 	started := time.Now()
 	cancel()
 	select {
@@ -4621,27 +4649,30 @@ func executeFakeCodexCollectingMessagesWithConfig(t *testing.T, fakePath string,
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	var (
-		mu       sync.Mutex
-		messages []Message
-	)
+	var messages []Message
+	messagesDone := make(chan struct{})
 	go func() {
+		defer close(messagesDone)
 		for msg := range session.Messages {
-			mu.Lock()
 			messages = append(messages, msg)
-			mu.Unlock()
 		}
 	}()
+	timer := time.NewTimer(budget)
+	defer timer.Stop()
 	select {
 	case result, ok := <-session.Result:
 		if !ok {
 			t.Fatal("result channel closed without a value")
 		}
-		mu.Lock()
-		collected := append([]Message(nil), messages...)
-		mu.Unlock()
-		return result, collected
-	case <-time.After(budget):
+		// Result delivery and the message-draining goroutine are independent.
+		// Join the closed stream before taking the final transcript snapshot.
+		select {
+		case <-messagesDone:
+		case <-timer.C:
+			t.Fatal("timeout waiting for Codex message stream to close")
+		}
+		return result, messages
+	case <-timer.C:
 		t.Fatal("timeout waiting for result")
 		return Result{}, nil
 	}

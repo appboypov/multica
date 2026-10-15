@@ -41,7 +41,7 @@ func TestCodexInitializeParentDeadlineDoesNotPersistOpaqueEnv(t *testing.T) {
 		`echo "$OPAQUE_AUTH_VALUE" >&2`+"\n"+
 		`touch "`+readyFile+`"`+"\n"+
 		`read line`+"\n"+
-		`sleep 5`+"\n")
+		`exec sleep 5`+"\n")
 
 	var logs strings.Builder
 	backend, err := New("codex", Config{
@@ -85,7 +85,7 @@ func TestCodexInitializeParentCancellationDoesNotPersistOpaqueEnv(t *testing.T) 
 		`read line`+"\n"+
 		`echo "$OPAQUE_AUTH_VALUE" >&2`+"\n"+
 		`touch "`+readyFile+`"`+"\n"+
-		`sleep 5`+"\n")
+		`exec sleep 5`+"\n")
 
 	var logs strings.Builder
 	backend, err := New("codex", Config{

@@ -306,8 +306,8 @@ func TestClaimTaskByRuntime_ChatProjectContext(t *testing.T) {
 		t.Fatalf("create project repository: %v", err)
 	}
 
-	agentID := createHandlerTestAgent(t, "ChatProjectClaimAgent", []byte("[]"))
-	runtimeID := handlerTestRuntimeID(t)
+	runtimeID := dbfx.Runtime(t, "Chat project claim runtime")
+	agentID := dbfx.Agent(t, "ChatProjectClaimAgent", runtimeID)
 	sessionID := createChatSessionWithProjectForTest(t, agentID, projectID)
 	if _, err := testPool.Exec(ctx, `
 		INSERT INTO chat_message (chat_session_id, role, content)

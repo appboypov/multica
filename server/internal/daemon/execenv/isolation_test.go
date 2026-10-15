@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/multica-ai/multica/server/internal/cli"
+	"github.com/multica-ai/multica/server/internal/testutil/testenv"
 )
 
 const preparationHelperTestMode = "execenv-preparation-helper"
@@ -41,14 +42,23 @@ const preparationHelperTestMode = "execenv-preparation-helper"
 // and keeps working for parallel tests, which cannot call t.Setenv. A test
 // that wants the task-local branch sets the variable itself.
 //
+// It also gives git an empty global config, so git fixtures depend only on the
+// settings they write.
+//
 // It also removes the template repository newTestRepo copies from.
 func TestMain(m *testing.M) {
 	os.Setenv("GORACE", strings.TrimSpace(os.Getenv("GORACE")+" atexit_sleep_ms=0"))
 	os.Unsetenv(cli.TaskConfigRootEnv)
+	cleanupGitConfig, err := testenv.IsolateGitConfig()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
 	code := m.Run()
 	if testRepoTemplate.dir != "" {
 		os.RemoveAll(testRepoTemplate.dir)
 	}
+	cleanupGitConfig()
 	os.Exit(code)
 }
 
