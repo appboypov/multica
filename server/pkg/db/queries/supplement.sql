@@ -14,7 +14,7 @@ WITH candidate AS MATERIALIZED (
     SELECT id, workspace_id, issue_id, 'task-supplement-v1'
     FROM candidate
     WHERE @enable_task_supplement::boolean
-      AND provider IN ('codex', 'claude', 'grok')
+      AND provider IN ('codex', 'claude', 'grok', 'omp')
       AND issue_id IS NOT NULL
     ON CONFLICT DO NOTHING
     RETURNING task_id
@@ -45,7 +45,7 @@ WITH locked_task AS MATERIALIZED (
       AND r.workspace_id = @workspace_id
       AND t.status = 'running'
       AND cap.capability = 'task-supplement-v1'
-      AND r.provider IN ('codex', 'claude', 'grok')
+      AND r.provider IN ('codex', 'claude', 'grok', 'omp')
     FOR UPDATE OF t
 ), touched_issue AS (
     UPDATE issue i SET
@@ -65,10 +65,10 @@ WITH locked_task AS MATERIALIZED (
     RETURNING *
 ), inserted_supplement AS (
     INSERT INTO task_supplement (
-        task_id, workspace_id, issue_id, comment_id, author_id,
+        task_id, workspace_id, issue_id, comment_id, item_id, author_id,
         client_request_id, status
     )
-    SELECT t.id, i.workspace_id, i.id, c.id, @author_id,
+    SELECT t.id, i.workspace_id, i.id, c.id, c.id, @author_id,
            @client_request_id,
            'pending'
     FROM locked_task t
@@ -109,14 +109,14 @@ WITH locked_task AS MATERIALIZED (
       AND r.workspace_id = @workspace_id
       AND t.status = 'running'
       AND cap.capability = 'task-supplement-v1'
-      AND r.provider IN ('codex', 'claude')
+      AND r.provider IN ('codex', 'claude', 'grok', 'omp')
     FOR UPDATE OF t
 ), inserted AS (
     INSERT INTO task_supplement (
-        task_id, workspace_id, issue_id, comment_id, author_id,
+        task_id, workspace_id, issue_id, comment_id, item_id, author_id,
         client_request_id, status
     )
-    SELECT t.id, @workspace_id, t.issue_id, @comment_id, @author_id,
+    SELECT t.id, @workspace_id, t.issue_id, @comment_id, @comment_id, @author_id,
            @client_request_id, 'pending'
     FROM locked_task t
     RETURNING *
@@ -127,7 +127,7 @@ JOIN locked_task ON locked_task.id = inserted.task_id;
 
 -- name: GetTaskSupplementForRun :one
 SELECT * FROM task_supplement
-WHERE comment_id = @comment_id AND task_id = @task_id AND workspace_id = @workspace_id;
+WHERE item_id = @item_id AND task_id = @task_id AND workspace_id = @workspace_id;
 
 -- name: CommentHasTaskSupplement :one
 SELECT EXISTS (
@@ -158,6 +158,67 @@ WHERE cap.workspace_id = @workspace_id
   AND cap.task_id = ANY(@task_ids::uuid[])
 GROUP BY cap.task_id, cap.capability;
 
+-- name: ListRunningSupplementTasksForIssues :many
+SELECT t.id, t.agent_id, t.issue_id, t.runtime_id
+FROM agent_task_queue t
+JOIN agent_runtime r ON r.id = t.runtime_id
+JOIN task_supplement_capability cap ON cap.task_id = t.id
+WHERE r.workspace_id = @workspace_id
+  AND t.issue_id = ANY(@issue_ids::uuid[])
+  AND t.status = 'running'
+  AND cap.capability = 'task-supplement-v1'
+  AND (sqlc.narg('exclude_agent_id')::uuid IS NULL OR t.agent_id <> sqlc.narg('exclude_agent_id')::uuid)
+  AND NOT (t.id = ANY(COALESCE(@exclude_task_ids::uuid[], '{}'::uuid[])))
+ORDER BY t.id;
+
+-- name: CreateRunInputSupplement :one
+-- Task-row locking serializes receipt creation against terminal settlement.
+WITH locked_task AS MATERIALIZED (
+    SELECT t.id, t.issue_id, t.runtime_id
+    FROM agent_task_queue t
+    JOIN agent_runtime r ON r.id = t.runtime_id
+    JOIN task_supplement_capability cap ON cap.task_id = t.id
+    WHERE t.id = @task_id
+      AND t.issue_id = @issue_id
+      AND r.workspace_id = @workspace_id
+      AND t.status = 'running'
+      AND cap.capability = 'task-supplement-v1'
+    FOR UPDATE OF t
+), inserted AS (
+    INSERT INTO task_supplement (
+        task_id, workspace_id, issue_id, comment_id, author_id,
+        item_kind, item_id, content, client_request_id, status
+    )
+    SELECT t.id, @workspace_id, t.issue_id, sqlc.narg('comment_id'), @author_id,
+           @item_kind, @item_id, sqlc.narg('content'), @item_id, 'pending'
+    FROM locked_task t
+    ON CONFLICT (item_id, task_id) DO NOTHING
+    RETURNING *
+)
+SELECT inserted.*, locked_task.runtime_id
+FROM inserted
+JOIN locked_task ON locked_task.id = inserted.task_id;
+
+-- name: MarkRunInputSeen :one
+UPDATE task_supplement
+SET seen_at = COALESCE(seen_at, now())
+WHERE task_id = @task_id AND item_id = @item_id AND status = 'delivered'
+RETURNING *;
+
+-- name: MarkRunInputHandled :one
+UPDATE task_supplement
+SET handled_at = COALESCE(handled_at, now())
+WHERE task_id = @task_id AND item_id = @item_id AND status = 'delivered'
+RETURNING *;
+
+-- name: ListRunInputMarksByItems :many
+SELECT s.*, t.agent_id
+FROM task_supplement s
+JOIN agent_task_queue t ON t.id = s.task_id
+WHERE s.workspace_id = @workspace_id
+  AND s.item_id = ANY(@item_ids::uuid[])
+ORDER BY s.created_at, s.item_id, s.task_id;
+
 -- name: SettleTerminalTaskSupplements :execrows
 -- Application terminal transitions call this in the same transaction as the
 -- agent_task_queue update. Re-checking the persisted task status makes an
@@ -175,7 +236,7 @@ WHERE supplement.task_id = task.id
 
 -- name: ClaimNextTaskSupplement :one
 WITH next AS MATERIALIZED (
-    SELECT s.comment_id, s.task_id
+    SELECT s.item_id, s.task_id
     FROM task_supplement s
     JOIN agent_task_queue t ON t.id = s.task_id
     JOIN task_supplement_capability cap ON cap.task_id = t.id
@@ -183,7 +244,7 @@ WITH next AS MATERIALIZED (
       AND s.status = 'pending'
       AND t.status = 'running'
       AND cap.capability = 'task-supplement-v1'
-    ORDER BY s.created_at, s.comment_id
+    ORDER BY s.created_at, s.item_id
     FOR UPDATE OF s SKIP LOCKED
     LIMIT 1
 ), claimed AS (
@@ -193,15 +254,17 @@ WITH next AS MATERIALIZED (
         failure_reason = NULL,
         updated_at = now()
     FROM next
-    WHERE s.comment_id = next.comment_id
+    WHERE s.item_id = next.item_id
       AND s.task_id = next.task_id
     RETURNING s.*
 )
-SELECT claimed.comment_id, claimed.attempt_count, c.content,
-       COALESCE(NULLIF(btrim(u.name), ''), 'a user')::text AS author_name
+SELECT claimed.item_kind, claimed.item_id, claimed.comment_id, claimed.attempt_count,
+       COALESCE(claimed.content, c.content, '')::text AS content,
+       COALESCE(NULLIF(btrim(u.name), ''), NULLIF(btrim(a.name), ''), 'a user')::text AS author_name
 FROM claimed
-JOIN comment c ON c.id = claimed.comment_id
-LEFT JOIN "user" u ON u.id = claimed.author_id;
+LEFT JOIN comment c ON c.id = claimed.comment_id
+LEFT JOIN "user" u ON u.id = claimed.author_id
+LEFT JOIN agent a ON a.id = claimed.author_id AND a.workspace_id = claimed.workspace_id;
 
 -- name: AckTaskSupplementDelivered :one
 -- The provider can accept input before completion while its HTTP acknowledgement
@@ -216,7 +279,7 @@ SET status = 'delivered',
     updated_at = now()
 FROM task t
 WHERE s.task_id = t.id
-  AND s.comment_id = @comment_id
+  AND s.item_id = @item_id
   AND (s.status IN ('delivering', 'delivered')
        OR (s.status = 'failed' AND s.failure_reason = 'turn_ended' AND s.attempt_count > 0))
 RETURNING s.*;
@@ -227,15 +290,17 @@ SET status = 'failed',
     failure_reason = @failure_reason,
     updated_at = now()
 WHERE task_id = @task_id
-  AND comment_id = @comment_id
+  AND item_id = @item_id
   AND status = 'delivering'
 RETURNING *;
 
 -- name: RetryTaskSupplement :one
 WITH comment AS MATERIALIZED (
-    SELECT id FROM comment
-    WHERE id = @comment_id AND workspace_id = @workspace_id AND deleted_at IS NULL
-    FOR UPDATE
+    SELECT c.id FROM comment c
+    JOIN task_supplement s ON s.comment_id = c.id AND s.workspace_id = c.workspace_id
+    WHERE s.item_id = @item_id AND s.task_id = @task_id
+      AND c.workspace_id = @workspace_id AND c.deleted_at IS NULL
+    FOR UPDATE OF c
 ), active_task AS MATERIALIZED (
     SELECT agent_task_queue.id FROM agent_task_queue
     WHERE agent_task_queue.id = @task_id
@@ -255,7 +320,7 @@ SET status = 'pending',
     updated_at = now()
 FROM active_task t
 WHERE s.task_id = t.id
-  AND s.comment_id = @comment_id
+  AND s.item_id = @item_id
   AND s.workspace_id = @workspace_id
   AND s.status = 'failed'
 RETURNING s.*;
