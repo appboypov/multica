@@ -31,4 +31,4 @@ ADR review completed for this change. The design fits every in-force ADR; one ne
 
 ## New Durable ADRs Created
 
-- [ADR-0017 runtime skill switches exist only where the run enforces them](../../../../adr/0017-runtime-skill-switches-exist-only-where-the-run-enforces-them.md)
+- [ADR-0017 runtime skill switches exist only where the run enforces them](../../../../../adr/0017-runtime-skill-switches-exist-only-where-the-run-enforces-them.md)
