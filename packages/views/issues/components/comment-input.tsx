@@ -6,7 +6,7 @@ import { ContentEditor, type ContentEditorRef, useFileDropZone, FileDropOverlay,
 import { FileUploadButton } from "@multica/ui/components/common/file-upload-button";
 import { SubmitButton } from "@multica/ui/components/common/submit-button";
 import { Button } from "@multica/ui/components/ui/button";
-import { contentReferencesAttachment, type AgentTask } from "@multica/core/types";
+import { contentReferencesAttachment } from "@multica/core/types";
 import { formatShortcut, useShortcut } from "@multica/core/shortcuts";
 import { useCommentDraftStore } from "@multica/core/issues/stores";
 import { composeAnnotatedReply, hasReplyIntent } from "@multica/core/drafts/reply-annotation";
@@ -30,12 +30,6 @@ interface CommentInputProps {
   /** Called after the server accepts the comment and the composer is cleared. */
   onAccepted?: (commentId: string) => void;
   onEditAnnotation?: (id: string) => boolean;
-}
-
-// A top-level comment belongs to no thread, so it takes a running turn by
-// default only when that turn has no thread of its own (an assignment run).
-function steerTopLevelByDefault(task: AgentTask): boolean {
-  return !task.trigger_comment_id;
 }
 
 function CommentInput({ issueId, onSubmit, onAccepted, onEditAnnotation }: CommentInputProps) {
@@ -81,7 +75,6 @@ function CommentInput({ issueId, onSubmit, onAccepted, onEditAnnotation }: Comme
     agents: triggerPreview.agents,
     allowSteer: true,
     hasAttachments,
-    steerByDefault: steerTopLevelByDefault,
     resetKey: issueId,
   });
   const stopRunsBeforeSend = useStopRunsBeforeSend(issueId);

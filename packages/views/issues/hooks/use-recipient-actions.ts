@@ -37,7 +37,6 @@ export function useRecipientActions({
   agents,
   allowSteer,
   hasAttachments = false,
-  steerByDefault: steerHere,
   resetKey,
 }: {
   issueId: string;
@@ -45,8 +44,6 @@ export function useRecipientActions({
   /** False for edits: an edit neither steers nor stops a run. */
   allowSteer: boolean;
   hasAttachments?: boolean;
-  /** Whether a running turn takes the message by default from this composer. */
-  steerByDefault: (task: AgentTask) => boolean;
   /** Choices reset when the composer's context changes. */
   resetKey: string;
 }) {
@@ -63,13 +60,9 @@ export function useRecipientActions({
     enabled: !!issueId && agents.length > 0,
     select: selectActive,
   });
-  // The personal default can turn steering off for every composer; it only
-  // decides what happens without a per-message choice.
-  const steerWithoutChoice = useCommentComposerStore((s) => s.runningAgentReply !== "after_run");
-  const steerByDefault = useCallback(
-    (task: AgentTask) => steerWithoutChoice && steerHere(task),
-    [steerWithoutChoice, steerHere],
-  );
+  // A running turn that takes input gets the message by default in every
+  // thread; only the personal preference to start after the run turns that off.
+  const steerByDefault = useCommentComposerStore((s) => s.runningAgentReply !== "after_run");
   const [chosen, setChosen] = useState<Record<string, RecipientAction>>(NO_CHOICES);
 
   useEffect(() => {
@@ -87,23 +80,19 @@ export function useRecipientActions({
 
   const recipients = useMemo<RecipientEntry[]>(() => agents.map((agent) => {
     const state = agentRunState(tasks, agent.id);
-    const opts = {
-      canSteer: allowSteer && !hasAttachments,
-      canRestart: allowSteer,
-      steerByDefault: state.kind === "running" && steerByDefault(state.task),
-    };
+    const opts = { canSteer: allowSteer, canRestart: allowSteer, steerByDefault };
     return {
       agent,
       state,
       action: resolveRecipientAction(state, chosen[agent.id], opts),
       actions: recipientActions(state, opts),
     };
-  }), [agents, tasks, chosen, allowSteer, hasAttachments, steerByDefault]);
+  }), [agents, tasks, chosen, allowSteer, steerByDefault]);
 
   // A recipient would take this in its running turn, but files cannot go there.
   const attachmentsBlockSteer = allowSteer && hasAttachments && recipients.some((r) =>
     r.state.kind === "running" && r.state.steerable
-    && (chosen[r.agent.id] === "steer" || (!chosen[r.agent.id] && steerByDefault(r.state.task))));
+    && (chosen[r.agent.id] === "steer" || (!chosen[r.agent.id] && steerByDefault)));
 
   const setAction = useCallback((agentId: string, action: RecipientAction) => {
     setChosen((prev) => (prev[agentId] === action ? prev : { ...prev, [agentId]: action }));

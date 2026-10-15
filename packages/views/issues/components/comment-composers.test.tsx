@@ -445,7 +445,7 @@ describe("comment composers", () => {
     });
   });
 
-  it("steers the thread's running turn by default, and stops it first to start over", async () => {
+  it("steers a running turn by default, and stops it first to start over", async () => {
     const turn = {
       id: "turn-1", agent_id: "agent-1", issue_id: "issue-1", status: "running", priority: 0,
       created_at: "2026-09-23T00:00:00Z", dispatched_at: null, started_at: "2026-09-23T00:00:01Z",
@@ -459,8 +459,7 @@ describe("comment composers", () => {
     apiCancelTask.mockResolvedValue({ ...turn, status: "cancelled" });
     const onSubmit = vi.fn().mockResolvedValue("reply-new");
     const { container } = renderWithProviders(
-      <ReplyInput issueId="issue-1" parentId="comment-1" avatarType="member" avatarId="user-1"
-        onSubmit={onSubmit} steerByDefault={(task) => task.id === "turn-1"} />,
+      <ReplyInput issueId="issue-1" parentId="comment-1" avatarType="member" avatarId="user-1" onSubmit={onSubmit} />,
     );
 
     activateComposer("reply-composer-shell");
@@ -479,6 +478,25 @@ describe("comment composers", () => {
     expect(apiCancelTask.mock.invocationCallOrder[0]!).toBeLessThan(onSubmit.mock.invocationCallOrder[1]!);
   }, 15_000);
 
+  it("steers a running turn from a top-level comment, also when another thread started it", async () => {
+    const turn = {
+      id: "turn-1", agent_id: "agent-1", issue_id: "issue-1", status: "running", priority: 0,
+      created_at: "2026-09-23T00:00:00Z", dispatched_at: null, started_at: "2026-09-23T00:00:01Z",
+      completed_at: null, result: null, error: null, trigger_comment_id: "comment-9",
+      supplement_capability: "task-supplement-v1", can_supplement: true,
+    };
+    apiListTasksByIssue.mockResolvedValue([turn]);
+    apiPreviewCommentTriggers.mockResolvedValue({ agents: [{ id: "agent-1", name: "Lambda", source: "mention_agent", reason: "" }] });
+    const { container, onSubmit } = renderCommentInput();
+
+    activateComposer("comment-composer-shell");
+    fireEvent.change(screen.getByTestId("editor"), { target: { value: "keep the Markdown toggle" } });
+    await screen.findByRole("button", { name: "Lambda trigger: Add to current run" }, { timeout: 5000 });
+    fireEvent.click(getSubmitButton(container));
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith("keep the Markdown toggle", undefined, undefined,
+      ["turn-1"]), { timeout: 5000 });
+  }, 15_000);
+
   it("starts after the run by default when the personal preference says so", async () => {
     useCommentComposerStore.setState({ runningAgentReply: "after_run" });
     const turn = {
@@ -491,8 +509,7 @@ describe("comment composers", () => {
     apiPreviewCommentTriggers.mockResolvedValue({ agents: [{ id: "agent-1", name: "Lambda", source: "thread_parent", reason: "" }] });
     const onSubmit = vi.fn().mockResolvedValue("reply-new");
     const { container } = renderWithProviders(
-      <ReplyInput issueId="issue-1" parentId="comment-1" avatarType="member" avatarId="user-1"
-        onSubmit={onSubmit} steerByDefault={(task) => task.id === "turn-1"} />,
+      <ReplyInput issueId="issue-1" parentId="comment-1" avatarType="member" avatarId="user-1" onSubmit={onSubmit} />,
     );
 
     activateComposer("reply-composer-shell");
@@ -524,8 +541,7 @@ describe("comment composers", () => {
     ] });
     const onSubmit = vi.fn().mockResolvedValue("reply-new");
     const { container } = renderWithProviders(
-      <ReplyInput issueId="issue-1" parentId="comment-1" avatarType="member" avatarId="user-1"
-        onSubmit={onSubmit} steerByDefault={() => true} />,
+      <ReplyInput issueId="issue-1" parentId="comment-1" avatarType="member" avatarId="user-1" onSubmit={onSubmit} />,
     );
     activateComposer("reply-composer-shell");
     fireEvent.change(screen.getByTestId("editor"), { target: { value: "only fix web" } });
@@ -549,7 +565,7 @@ describe("comment composers", () => {
     apiCancelTask.mockResolvedValue({ ...turn, status: "cancelled" });
     const onSubmit = vi.fn().mockResolvedValue("reply-new");
     renderWithProviders(<ReplyInput issueId="issue-1" parentId="comment-1" avatarType="member" avatarId="user-1"
-      onSubmit={onSubmit} steerByDefault={(task) => task.id === "turn-1"} />);
+      onSubmit={onSubmit} />);
     activateComposer("reply-composer-shell");
     fireEvent.change(screen.getByTestId("editor"), { target: { value: "start over" } });
     await chooseRecipientAction("Lambda trigger: Add to current run", /Stop and start over/);

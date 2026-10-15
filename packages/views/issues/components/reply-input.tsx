@@ -8,7 +8,7 @@ import { FileUploadButton } from "@multica/ui/components/common/file-upload-butt
 import { SubmitButton } from "@multica/ui/components/common/submit-button";
 import { Button } from "@multica/ui/components/ui/button";
 import { ActorAvatar } from "../../common/actor-avatar";
-import { contentReferencesAttachment, type AgentTask } from "@multica/core/types";
+import { contentReferencesAttachment } from "@multica/core/types";
 import { formatShortcut, useShortcut } from "@multica/core/shortcuts";
 import { useCommentDraftStore, type CommentDraftKey } from "@multica/core/issues/stores";
 import { cn } from "@multica/ui/lib/utils";
@@ -44,12 +44,7 @@ interface ReplyInputProps {
   draftKey?: CommentDraftKey;
   targetMissing?: boolean;
   onEditAnnotation?: (id: string) => boolean;
-  /** Whether a running turn takes this reply by default: true for the turn
-   *  that belongs to this thread. Other recipients' turns can still be chosen. */
-  steerByDefault?: (task: AgentTask) => boolean;
 }
-
-const NEVER_STEER_BY_DEFAULT = () => false;
 
 // ---------------------------------------------------------------------------
 // ReplyInput
@@ -67,7 +62,6 @@ function ReplyInput({
   draftKey,
   onEditAnnotation,
   targetMissing = false,
-  steerByDefault = NEVER_STEER_BY_DEFAULT,
 }: ReplyInputProps) {
   const { t } = useT("issues");
   const { t: tEditor } = useT("editor");
@@ -110,7 +104,6 @@ function ReplyInput({
     agents: triggerPreview.agents,
     allowSteer: true,
     hasAttachments,
-    steerByDefault,
     resetKey: `${issueId}:${parentId}`,
   });
   const stopRunsBeforeSend = useStopRunsBeforeSend(issueId);

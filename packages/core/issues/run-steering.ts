@@ -75,11 +75,14 @@ export type RecipientAction =
   | "skip";
 
 export interface RecipientActionOptions {
-  /** False while editing, or when the message carries files: a running turn takes text only. */
+  /** False while editing: an edit never goes into a running turn. Files go with the text. */
   canSteer: boolean;
   /** False while editing: an edit never stops a run. */
   canRestart: boolean;
-  /** Steer by default. The composer sets this for the running turn's own thread. */
+  /**
+   * Steer a running turn that takes input by default, in every thread. Only
+   * the member's preference to start after the run turns it off.
+   */
   steerByDefault: boolean;
 }
 
