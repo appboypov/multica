@@ -37,6 +37,14 @@
     "steer_step": "{{name}} が追加",
     "steer_step_read": "既読"
   },
+  "run_input_marks": {
+    "label": "エージェントのマーク",
+    "seen": "{{name}} が確認して対応中",
+    "handled": "{{name}} が対応済み",
+    "seen_edit": "{{name}} が編集を確認して対応中",
+    "handled_edit": "{{name}} が編集に対応済み",
+    "edit": "編集"
+  },
   "working_filter_error": {
     "title": "エージェントが作業中のタスクを読み込めませんでした"
   },
@@ -564,7 +572,13 @@
     "removed_from_release": "{{version}} {{title}} から外しました",
     "worklane_changed": "{{worklane}} に移動しました",
     "worklane_cleared": "worklane なしに移動しました",
-    "release_gone": "{{version}} {{title}} が削除され、リリースなしに戻りました"
+    "release_gone": "{{version}} {{title}} が削除され、リリースなしに戻りました",
+    "label_added": "ラベル {{label}} を追加しました",
+    "label_removed": "ラベル {{label}} を削除しました",
+    "attachment_added": "{{filename}} を添付しました",
+    "attachment_removed": "ファイル {{filename}} を削除しました",
+    "sub_issue_added": "サブタスク {{identifier}} を追加しました",
+    "sub_issue_removed": "サブタスク {{identifier}} を削除しました"
   },
   "comment": {
     "add_reaction": "リアクションを追加",

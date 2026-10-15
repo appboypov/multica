@@ -35,6 +35,7 @@ import { AnswerControl, handleAnswerKey, useAnswerControlLink } from "./answer-c
 import { controlShowsNote, draftError, valueToSend, type AnswerDraft, type AnswerableQuestion } from "./answer-controls/draft";
 import { useSuggestionShown } from "./answer-controls/person-control";
 import { ReassignPicker } from "./reassign-picker";
+import { RunInputMarks } from "../issues/components/run-input-marks";
 import { TYPE_ICONS } from "./type-icon";
 import { WakeButtons } from "./wake-button";
 import type questionsCopy from "../locales/en/questions.json";
@@ -147,6 +148,7 @@ function FoldedQuestion({ question, issueId, hideWake, onEdit }: { question: Que
           <span className="shrink-0 text-caption text-muted-foreground">
             · {t(($) => $.card.answered_by, { name: getActorName("member", answer.answerer_user_id), time: timeAgo(answer.updated_at) })}
           </span>
+          <RunInputMarks marks={answer.run_marks} className="shrink-0 flex-nowrap" />
         </>
       ) : (
         <span className="min-w-0 truncate font-medium">

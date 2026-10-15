@@ -37,6 +37,14 @@
     "steer_step": "{{name}}이(가) 추가",
     "steer_step_read": "읽음"
   },
+  "run_input_marks": {
+    "label": "에이전트 표시",
+    "seen": "{{name}}이(가) 확인하고 처리 중",
+    "handled": "{{name}}이(가) 처리함",
+    "seen_edit": "{{name}}이(가) 수정 내용을 확인하고 처리 중",
+    "handled_edit": "{{name}}이(가) 수정 내용을 처리함",
+    "edit": "수정"
+  },
   "working_filter_error": {
     "title": "에이전트가 작업 중인 태스크를 불러오지 못했습니다"
   },
@@ -564,7 +572,13 @@
     "removed_from_release": "{{version}} {{title}}에서 뺐습니다",
     "worklane_changed": "{{worklane}}(으)로 옮겼습니다",
     "worklane_cleared": "worklane 없음으로 옮겼습니다",
-    "release_gone": "{{version}} {{title}}이(가) 제거되어 릴리스 없음으로 돌아갔습니다"
+    "release_gone": "{{version}} {{title}}이(가) 제거되어 릴리스 없음으로 돌아갔습니다",
+    "label_added": "{{label}} 레이블을 추가했습니다",
+    "label_removed": "{{label}} 레이블을 제거했습니다",
+    "attachment_added": "{{filename}}을(를) 첨부했습니다",
+    "attachment_removed": "{{filename}} 파일을 삭제했습니다",
+    "sub_issue_added": "하위 태스크 {{identifier}}을(를) 추가했습니다",
+    "sub_issue_removed": "하위 태스크 {{identifier}}을(를) 제거했습니다"
   },
   "comment": {
     "add_reaction": "반응 추가",

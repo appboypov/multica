@@ -49,7 +49,7 @@ export function formatAgentNames(locale: string, names: string[]): string {
 export function SteerBadge({ issueId, entry }: { issueId: string; entry: TimelineEntry }) {
   const { t } = useT("issues");
   const locale = useLocale();
-  const receipts = commentSupplementReceipts(entry);
+  const receipts = latestReceiptPerRun(commentSupplementReceipts(entry));
   const { getActorName } = useActorName();
   if (receipts.length === 0) return null;
   // Every receipt from a current server names its agent; the legacy single
@@ -75,9 +75,19 @@ function BadgeLegacyName({ issueId, receipt }: { issueId: string; receipt: Comme
   return <>{t(($) => $.inline_run.steer_badge, { names: name })}</>;
 }
 
+/**
+ * A run that received the comment and then its edits keeps one receipt per
+ * version, oldest first; the newest one tells where its delivery stands.
+ */
+function latestReceiptPerRun(receipts: CommentSupplementReceipt[]): CommentSupplementReceipt[] {
+  const latest = new Map<string, CommentSupplementReceipt>();
+  for (const receipt of receipts) latest.set(receipt.task_id, receipt);
+  return [...latest.values()];
+}
+
 /** One line per running turn the message steered, following its delivery. */
 export function SteerReceipts({ issueId, entry }: { issueId: string; entry: TimelineEntry }) {
-  const receipts = commentSupplementReceipts(entry);
+  const receipts = latestReceiptPerRun(commentSupplementReceipts(entry));
   if (receipts.length === 0) return null;
   return (
     <div className="mt-1.5 flex flex-col gap-1">
@@ -164,7 +174,7 @@ function SteerReceipt({ issueId, entry, receipt }: {
       </span>
       {canRetry && (
         <Button type="button" size="xs" variant="outline" className="text-foreground" disabled={retry.isPending}
-          onClick={() => retry.mutate({ taskId: receipt.task_id, commentId: entry.id }, {
+          onClick={() => retry.mutate({ taskId: receipt.task_id, commentId: receipt.item_id ?? entry.id }, {
             onError: () => toast.error(t(($) => $.inline_run.supplement_retry_failed)),
           })}>
           {retry.isPending ? <Loader2 className="size-3 motion-safe:animate-spin" /> : <RotateCcw className="size-3" />}

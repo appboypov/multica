@@ -5,6 +5,7 @@ import type { Question } from "@multica/core/types";
 import { useActorName } from "@multica/core/workspace/hooks";
 import { Badge } from "@multica/ui/components/ui/badge";
 import { ActorAvatar } from "../common/actor-avatar";
+import { RunInputMarks } from "../issues/components/run-input-marks";
 import { useT } from "../i18n";
 
 /** True for an Each question with more than one answerer: its card shows each answerer's progress. */
@@ -54,6 +55,7 @@ export function AnswererProgress({ question }: { question: Question }) {
                 <>
                   <Check aria-hidden className="size-3.5 shrink-0 text-success" />
                   <span className="truncate text-caption text-muted-foreground" title={answer.display_text}>{answer.display_text}</span>
+                  <RunInputMarks marks={answer.run_marks} className="shrink-0 flex-nowrap" />
                 </>
               ) : (
                 <>

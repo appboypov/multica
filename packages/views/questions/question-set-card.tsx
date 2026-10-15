@@ -31,6 +31,7 @@ import { draftError, valueToSend, type AnswerDraft } from "./answer-controls/dra
 import { AnswerCountPill, AnswererProgress, showsAnswererProgress } from "./answerer-progress";
 import { AnswerLine, QuestionCard, QuestionHistory } from "./question-card";
 import { ReassignPicker } from "./reassign-picker";
+import { RunInputMarks } from "../issues/components/run-input-marks";
 import { TYPE_ICONS } from "./type-icon";
 import { WakeButtons } from "./wake-button";
 
@@ -334,6 +335,7 @@ function TabbedQuestionSet({ questions, issueId, runNumber, activeQuestionId }: 
                 <span className="min-w-0 truncate text-caption text-muted-foreground">
                   {shown ? shown.display_text : question.status === "withdrawn" ? t(($) => $.card.withdrawn) : t(($) => $.card.closed)}
                 </span>
+                {shown && <RunInputMarks marks={shown.run_marks} className="shrink-0 flex-nowrap" />}
                 {canChange && (
                   <Button type="button" variant="ghost" size="sm" className="ml-auto shrink-0" onClick={() => startEdit(index)}>
                     {t(($) => $.set.change)}

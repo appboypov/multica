@@ -39,6 +39,14 @@
     "steer_step": "{{name}} added",
     "steer_step_read": "Read"
   },
+  "run_input_marks": {
+    "label": "Agent marks",
+    "seen": "{{name}} saw it and is handling it",
+    "handled": "{{name}} handled it",
+    "seen_edit": "{{name}} saw the edit and is handling it",
+    "handled_edit": "{{name}} handled the edit",
+    "edit": "edit"
+  },
   "working_filter_error": {
     "title": "Couldn't load issues with working agents"
   },
@@ -579,7 +587,13 @@
     "removed_from_release": "removed this from {{version}} {{title}}",
     "worklane_changed": "moved this to {{worklane}}",
     "worklane_cleared": "moved this to No worklane",
-    "release_gone": "{{version}} {{title}} was removed, this went back to No release"
+    "release_gone": "{{version}} {{title}} was removed, this went back to No release",
+    "label_added": "added the label {{label}}",
+    "label_removed": "removed the label {{label}}",
+    "attachment_added": "attached {{filename}}",
+    "attachment_removed": "removed the file {{filename}}",
+    "sub_issue_added": "added the sub-issue {{identifier}}",
+    "sub_issue_removed": "removed the sub-issue {{identifier}}"
   },
   "comment": {
     "add_reaction": "Add reaction",

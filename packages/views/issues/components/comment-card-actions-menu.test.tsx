@@ -161,4 +161,28 @@ describe("CommentCard — actions menu layout", () => {
 
     expect(await openMenuLayout(0)).toEqual(["Copy", "Copy link", "Create sub-issue from here"]);
   });
+
+  const received: Pick<TimelineEntry, "supplements"> = {
+    supplements: [{ task_id: "run-1", agent_id: "agent-1", item_kind: "comment", item_id: "x", status: "delivered" }],
+  };
+
+  it("keeps Edit on the author's comment that a running agent received", async () => {
+    renderThread({ ...comment("root", null), ...received }, []);
+
+    expect((await openMenuLayout(0))[0]).toBe("Edit");
+  });
+
+  it("keeps Edit on the author's reply that a running agent received", async () => {
+    renderThread(comment("root", null, agentAuthor), [{ ...comment("reply", "root"), ...received }]);
+
+    expect((await openMenuLayout(1))[0]).toBe("Edit");
+  });
+
+  it("offers no Edit on an agent's received comment the viewer did not write", async () => {
+    renderThread({ ...comment("root", null, agentAuthor), supplements: [
+      { task_id: "run-1", agent_id: "agent-2", item_kind: "comment", item_id: "root", status: "delivered" },
+    ] }, []);
+
+    expect(await openMenuLayout(0)).not.toContain("Edit");
+  });
 });

@@ -39,6 +39,7 @@ import { CommentTriggerChips } from "./comment-trigger-chips";
 import { useCommentTriggerPreview } from "../hooks/use-comment-trigger-preview";
 import { useRecipientActions } from "../hooks/use-recipient-actions";
 import { SteerBadge, SteerReceipts } from "./steer-receipts";
+import { commentRunInputMarks, RunInputMarks } from "./run-input-marks";
 import type { TimelineEntry, Attachment } from "@multica/core/types";
 import { contentReferencesAttachment } from "@multica/core/types";
 import { isDeletedComment } from "@multica/core/issues/comment-deletion";
@@ -673,9 +674,10 @@ function CommentRow({
 
   const isOwn = entry.actor_type === "member" && entry.actor_id === currentUserId;
   // A message that steered a run is part of that run's input: it cannot be
-  // rewritten, and it cannot be removed while a turn is still receiving it.
+  // removed while a turn is still receiving it. An edit reaches the runs
+  // again as an item of its own.
   const receipts = commentSupplementReceipts(entry);
-  const canEditEntry = receipts.length === 0 && (isOwn || (canModerate && entry.actor_type === "member"));
+  const canEditEntry = isOwn || (canModerate && entry.actor_type === "member");
   const canDeleteEntry = !receipts.some(isSupplementInFlight) && (isOwn || canModerate);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -909,6 +911,7 @@ function CommentRow({
           <AttachmentList attachments={entry.attachments} content={entry.content} className="mt-1.5 pl-12 pr-4 max-md:pl-3 max-md:pr-3" />
           <div className="pl-12 pr-4 max-md:pl-3 max-md:pr-3">
             <SteerReceipts issueId={issueId} entry={entry} />
+            <RunInputMarks marks={commentRunInputMarks(receipts)} className="mt-1.5" />
           </div>
           {retryableAgentFailureComment(entry) && (
             <TaskCommentRetryButton
@@ -1058,7 +1061,7 @@ function CommentCardImpl({
 
   const isOwn = entry.actor_type === "member" && entry.actor_id === currentUserId;
   const receipts = commentSupplementReceipts(entry);
-  const canEditEntry = receipts.length === 0 && (isOwn || (canModerate && entry.actor_type === "member"));
+  const canEditEntry = isOwn || (canModerate && entry.actor_type === "member");
   const canDeleteEntry = !receipts.some(isSupplementInFlight) && (isOwn || canModerate);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -1440,6 +1443,7 @@ function CommentCardImpl({
                 <AttachmentList attachments={entry.attachments} content={entry.content} className="mt-1.5 pl-8 max-md:pl-0" />
                 <div className="pl-8 max-md:pl-0">
                   <SteerReceipts issueId={issueId} entry={entry} />
+                  <RunInputMarks marks={commentRunInputMarks(receipts)} className="mt-1.5" />
                 </div>
                 {retryableAgentFailureComment(entry) && (
                   <TaskCommentRetryButton

@@ -39,6 +39,14 @@
     "steer_step": "{{name}} a ajouté",
     "steer_step_read": "Lu"
   },
+  "run_input_marks": {
+    "label": "Marques des agents",
+    "seen": "{{name}} l'a vu et s'en occupe",
+    "handled": "{{name}} l'a traité",
+    "seen_edit": "{{name}} a vu la modification et s'en occupe",
+    "handled_edit": "{{name}} a traité la modification",
+    "edit": "modification"
+  },
   "working_filter_error": {
     "title": "Impossible de charger les tâches en cours de traitement par les agents"
   },
@@ -579,7 +587,13 @@
     "removed_from_release": "l'a retirée de {{version}} {{title}}",
     "worklane_changed": "l'a déplacée vers {{worklane}}",
     "worklane_cleared": "l'a déplacée vers Aucun worklane",
-    "release_gone": "{{version}} {{title}} a été supprimée, cette tâche est revenue à Aucune version"
+    "release_gone": "{{version}} {{title}} a été supprimée, cette tâche est revenue à Aucune version",
+    "label_added": "a ajouté l'étiquette {{label}}",
+    "label_removed": "a retiré l'étiquette {{label}}",
+    "attachment_added": "a joint {{filename}}",
+    "attachment_removed": "a retiré le fichier {{filename}}",
+    "sub_issue_added": "a ajouté la sous-tâche {{identifier}}",
+    "sub_issue_removed": "a retiré la sous-tâche {{identifier}}"
   },
   "comment": {
     "add_reaction": "Ajouter une réaction",

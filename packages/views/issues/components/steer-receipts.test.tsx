@@ -115,6 +115,17 @@ describe("SteerReceipts", () => {
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     await waitFor(() => expect(api.retryTaskSupplement).toHaveBeenCalledWith("issue", turn, "steer"));
   });
+
+  it("follows the newest version a run received and retries that edit", async () => {
+    vi.mocked(api.retryTaskSupplement).mockResolvedValue();
+    render(<SteerReceipts issueId="issue" entry={entry({ supplements: [
+      { task_id: turn, agent_id: "lambda", item_kind: "comment", item_id: "steer", status: "delivered" },
+      { task_id: turn, agent_id: "lambda", item_kind: "comment_edit", item_id: "steer-edit", status: "failed", failure_reason: "provider_rejected" },
+    ] })} />);
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    await waitFor(() => expect(api.retryTaskSupplement).toHaveBeenCalledWith("issue", turn, "steer-edit"));
+  });
 });
 
 describe("formatAgentNames", () => {

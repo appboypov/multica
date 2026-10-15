@@ -113,6 +113,7 @@ import { IssuePropertyPills } from "./issue-property-pills";
 import { IssuePeekSummary } from "./issue-peek-summary";
 import { useNewRunIds } from "./use-run-comment-motion";
 import { AgentRunComment, CommentCard } from "./comment-card";
+import { RunInputMarks } from "./run-input-marks";
 import { EMPTY_COMMENT_RUNS, buildCommentRunView, orderTimelineWithRuns, questionAnchor, type CommentRun } from "./comment-runs";
 import { runNumbersByTask } from "./task-run-labels";
 import { issueTasksOptions } from "@multica/core/issues/queries";
@@ -386,6 +387,18 @@ function formatActivity(
         version: formatVersion(details.version ?? "?"),
         title: details.title ?? "",
       });
+    case "label_added":
+      return t(($) => $.activity.label_added, { label: details.label_name || "?" });
+    case "label_removed":
+      return t(($) => $.activity.label_removed, { label: details.label_name || "?" });
+    case "attachment_added":
+      return t(($) => $.activity.attachment_added, { filename: details.filename || "?" });
+    case "attachment_removed":
+      return t(($) => $.activity.attachment_removed, { filename: details.filename || "?" });
+    case "sub_issue_added":
+      return t(($) => $.activity.sub_issue_added, { identifier: details.sub_issue_identifier || "?" });
+    case "sub_issue_removed":
+      return t(($) => $.activity.sub_issue_removed, { identifier: details.sub_issue_identifier || "?" });
     case "status_changed":
       // PR auto-complete (MUL-7429) says why the status moved.
       if (details.source === "pr_automation") {
@@ -491,11 +504,12 @@ function formatActivity(
 }
 
 /**
- * The issue a duplicate-mark activity (MUL-7349) names, when it can still be
- * opened. A mark removed because its original was deleted has nowhere to
- * link, so it renders as plain text.
+ * The issue an activity names, when it can still be opened: the original or
+ * duplicate of a duplicate mark (MUL-7349), or an added or removed sub-issue.
+ * A mark removed because its original was deleted has nowhere to link, so it
+ * renders as plain text.
  */
-function duplicateActivityLink(entry: TimelineEntry): { id: string; identifier: string } | null {
+function activityIssueLink(entry: TimelineEntry): { id: string; identifier: string } | null {
   const details = (entry.details ?? {}) as Record<string, string>;
   switch (entry.action) {
     case "duplicate_marked":
@@ -509,6 +523,11 @@ function duplicateActivityLink(entry: TimelineEntry): { id: string; identifier: 
       return details.duplicate_id && details.duplicate_identifier
         ? { id: details.duplicate_id, identifier: details.duplicate_identifier }
         : null;
+    case "sub_issue_added":
+    case "sub_issue_removed":
+      return details.sub_issue_id && details.sub_issue_identifier
+        ? { id: details.sub_issue_id, identifier: details.sub_issue_identifier }
+        : null;
     default:
       return null;
   }
@@ -517,7 +536,7 @@ function duplicateActivityLink(entry: TimelineEntry): { id: string; identifier: 
 /** Activity copy with the issue it names turned into a link. */
 function ActivityText({ entry, text }: { entry: TimelineEntry; text: string }) {
   const paths = useWorkspacePaths();
-  const link = duplicateActivityLink(entry);
+  const link = activityIssueLink(entry);
   const at = link ? text.indexOf(link.identifier) : -1;
   if (!link || at < 0) return <>{text}</>;
   return (
@@ -858,6 +877,7 @@ function ActivityBlock({
                   />
                 )}
               </span>
+              <RunInputMarks marks={entry.run_marks} className="shrink-0 flex-nowrap" />
               {chip && (
                 <span className="ml-auto inline-flex max-w-48 shrink-0 items-center gap-1 truncate rounded-xs bg-muted px-1.5 py-0.5 text-micro text-muted-foreground">
                   {chip}
@@ -1782,7 +1802,8 @@ export function IssueDetail({ issueId, onDelete, onDone, defaultSidebarOpen = tr
     // - squad_leader_evaluated: never coalesce; outcome/reason are audit data
     const COALESCE_MS = 2 * 60 * 1000;
     const NO_TIME_LIMIT_ACTIONS = new Set(["task_completed", "task_failed", "wakeup_checkin"]);
-    // Duplicate marks name a different issue on every row.
+    // Duplicate marks, labels, files and sub-issues name a different thing
+    // on every row.
     const NEVER_COALESCE_ACTIONS = new Set([
       "squad_leader_evaluated",
       "wakeup_created",
@@ -1793,6 +1814,12 @@ export function IssueDetail({ issueId, onDelete, onDone, defaultSidebarOpen = tr
       "duplicate_unmarked",
       "duplicate_added",
       "duplicate_removed",
+      "label_added",
+      "label_removed",
+      "attachment_added",
+      "attachment_removed",
+      "sub_issue_added",
+      "sub_issue_removed",
       // Each wake names its agent and answer count.
       QUESTION_WAKE_ACTION,
     ]);
@@ -1814,6 +1841,8 @@ export function IssueDetail({ issueId, onDelete, onDone, defaultSidebarOpen = tr
         if (
           !NEVER_COALESCE_ACTIONS.has(entry.action!) &&
           prev && !("task" in prev) && !("asker_agent_id" in prev) && prev.type === "activity" &&
+          // An agent's 👀 and ✅ belong to the row it received.
+          ![entry, prev].some((row) => row.run_marks?.some((mark) => mark.seen_at || mark.handled_at)) &&
           prev.action === entry.action &&
           prev.actor_type === entry.actor_type &&
           prev.actor_id === entry.actor_id &&

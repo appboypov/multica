@@ -37,6 +37,14 @@
     "steer_step": "{{name}} 插话",
     "steer_step_read": "已读取"
   },
+  "run_input_marks": {
+    "label": "智能体标记",
+    "seen": "{{name}} 已看到并在处理",
+    "handled": "{{name}} 已处理",
+    "seen_edit": "{{name}} 已看到修改并在处理",
+    "handled_edit": "{{name}} 已处理修改",
+    "edit": "修改"
+  },
   "working_filter_error": {
     "title": "无法加载智能体正在处理的任务"
   },
@@ -564,7 +572,13 @@
     "removed_from_release": "将其移出 {{version}} {{title}}",
     "worklane_changed": "将其移到 {{worklane}}",
     "worklane_cleared": "将其移到无 worklane",
-    "release_gone": "{{version}} {{title}} 已被移除，此任务回到无版本"
+    "release_gone": "{{version}} {{title}} 已被移除，此任务回到无版本",
+    "label_added": "添加了标签 {{label}}",
+    "label_removed": "移除了标签 {{label}}",
+    "attachment_added": "附加了 {{filename}}",
+    "attachment_removed": "移除了文件 {{filename}}",
+    "sub_issue_added": "添加了子任务 {{identifier}}",
+    "sub_issue_removed": "移除了子任务 {{identifier}}"
   },
   "comment": {
     "add_reaction": "添加表情回应",
