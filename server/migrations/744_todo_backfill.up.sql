@@ -41,6 +41,7 @@ ON CONFLICT (workspace_id, member_id, kind, source_key) WHERE done_at IS NULL DO
 
 -- Failure notices have no task pointer and were sent to subscribers. Read the
 -- latest run instead, retaining the run's originator rather than its watchers.
+-- A later status change closes the failure, as it does live.
 INSERT INTO todo (workspace_id, member_id, kind, source_key, issue_id, task_id,
                   actor_type, actor_id, title, created_at)
 SELECT i.workspace_id, t.originator_user_id, 'run_failed', t.id::text, i.id, t.id,
@@ -53,6 +54,11 @@ JOIN LATERAL (
     ORDER BY t.created_at DESC, t.id DESC LIMIT 1
 ) t ON t.status = 'failed'
 JOIN member m ON m.workspace_id = i.workspace_id AND m.user_id = t.originator_user_id
+WHERE NOT EXISTS (
+    SELECT 1 FROM activity_log s
+    WHERE s.workspace_id = i.workspace_id AND s.issue_id = i.id AND s.action = 'status_changed'
+      AND s.created_at > COALESCE(t.completed_at, t.created_at)
+)
 ON CONFLICT (workspace_id, member_id, kind, source_key) WHERE done_at IS NULL DO NOTHING;
 
 INSERT INTO todo (workspace_id, member_id, kind, source_key, issue_id, task_id,
