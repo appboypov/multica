@@ -17,7 +17,7 @@ SELECT EXISTS (
     JOIN agent a ON a.id = t.agent_id AND a.workspace_id = $1
     JOIN issue i ON i.id = t.issue_id AND i.workspace_id = $1
     WHERE t.agent_id = $2 AND t.issue_id = $3
-      AND t.status IN ('queued', 'dispatched', 'running')
+      AND t.status IN ('queued', 'dispatched', 'running', 'waiting_local_directory')
 )::boolean AS has_active
 `
 
@@ -199,7 +199,7 @@ SELECT DISTINCT q.id FROM question q
 JOIN agent_task_queue asking ON asking.id = q.asked_in_task_id
 JOIN agent asker ON asker.id = asking.agent_id AND asker.workspace_id = $1
 JOIN issue asking_issue ON asking_issue.id = asking.issue_id AND asking_issue.workspace_id = $1
-JOIN agent target ON target.id = $2 AND target.workspace_id = $1 AND target.archived_at IS NULL
+JOIN agent target ON target.id = $2 AND target.workspace_id = $1
 JOIN issue target_issue ON target_issue.id = $3 AND target_issue.workspace_id = $1
 WHERE q.workspace_id = $1 AND q.status IN ('open', 'partly_answered', 'answered')
   AND (

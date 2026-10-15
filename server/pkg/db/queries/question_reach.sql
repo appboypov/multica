@@ -156,7 +156,7 @@ SELECT DISTINCT q.id FROM question q
 JOIN agent_task_queue asking ON asking.id = q.asked_in_task_id
 JOIN agent asker ON asker.id = asking.agent_id AND asker.workspace_id = @workspace_id
 JOIN issue asking_issue ON asking_issue.id = asking.issue_id AND asking_issue.workspace_id = @workspace_id
-JOIN agent target ON target.id = @agent_id AND target.workspace_id = @workspace_id AND target.archived_at IS NULL
+JOIN agent target ON target.id = @agent_id AND target.workspace_id = @workspace_id
 JOIN issue target_issue ON target_issue.id = @issue_id AND target_issue.workspace_id = @workspace_id
 WHERE q.workspace_id = @workspace_id AND q.status IN ('open', 'partly_answered', 'answered')
   AND (
@@ -182,5 +182,5 @@ SELECT EXISTS (
     JOIN agent a ON a.id = t.agent_id AND a.workspace_id = @workspace_id
     JOIN issue i ON i.id = t.issue_id AND i.workspace_id = @workspace_id
     WHERE t.agent_id = @agent_id AND t.issue_id = @issue_id
-      AND t.status IN ('queued', 'dispatched', 'running')
+      AND t.status IN ('queued', 'dispatched', 'running', 'waiting_local_directory')
 )::boolean AS has_active;

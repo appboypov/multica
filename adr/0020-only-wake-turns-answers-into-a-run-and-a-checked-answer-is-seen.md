@@ -20,4 +20,5 @@ With ADR-0019 an answer reaches the asking agent's running run at its next step,
 
 - An answer the run received and did not mark ✅ is offered by Wake once the run ends, as before.
 - An answer edited after its ✅ is unseen again: the new event has no receipt with `handled_at`.
-- Wake is still not offered while the agent has a queued, dispatched or running task on the issue.
+- Wake is still not offered while the agent has a queued, dispatched, running or waiting-for-local-directory task on the issue.
+- Archived agents and agents without a runtime cannot be woken; an unavailable asker's card still counts its unseen answers.
