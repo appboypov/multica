@@ -89,7 +89,7 @@ func (h *Handler) MarkTodoDone(w http.ResponseWriter, r *http.Request) {
 		}
 	} else if err == nil {
 		row.DoneAt, row.DoneBy = closed.DoneAt, closed.DoneBy
-		todo.Service{Queries: h.Queries, Bus: h.Bus}.PublishClosed([]db.Todo{closed})
+		err = (todo.Service{Queries: h.Queries, Bus: h.Bus}).PublishClosed(r.Context(), []db.Todo{closed})
 	}
 	if err != nil {
 		slog.Error("failed to mark todo done", "todo_id", uuidToString(id), "error", err)
