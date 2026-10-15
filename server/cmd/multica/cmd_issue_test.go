@@ -5858,3 +5858,99 @@ func TestRunIssueCommentDeleteKeepsReplies(t *testing.T) {
 		})
 	}
 }
+
+// setIssueReactRunEnv puts the CLI inside an agent's run on srvURL, the way the
+// daemon injects it, so no owner config on the machine can leak in.
+func setIssueReactRunEnv(t *testing.T, srvURL string) {
+	t.Helper()
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("MULTICA_SERVER_URL", srvURL)
+	t.Setenv("MULTICA_AGENT_ID", "agent-thomas")
+	t.Setenv("MULTICA_TASK_ID", "task-run")
+	t.Setenv("MULTICA_TOKEN", "mat_task_react_sentinel")
+	t.Setenv("MULTICA_WORKSPACE_ID", "ws-task")
+	t.Setenv("MULTICA_TASK_CONFIG_ROOT", t.TempDir())
+}
+
+func TestRunIssueReactRequiresTaskID(t *testing.T) {
+	var requests int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests++
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+	setIssueReactRunEnv(t, srv.URL)
+	t.Setenv("MULTICA_TASK_ID", "")
+
+	err := runIssueReact(&cobra.Command{Use: "react"}, []string{"item-1", "✅"})
+	if err == nil || cli.FormatError(err, false) != "react works only inside an agent's run" {
+		t.Fatalf("runIssueReact error = %v, want the outside-a-run refusal", err)
+	}
+	if requests != 0 {
+		t.Fatalf("requests = %d, want none before the task id check", requests)
+	}
+}
+
+func TestRunIssueReactPostsToTheRunsInput(t *testing.T) {
+	var gotPath, gotEmoji string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Errorf("method = %s, want POST", r.Method)
+		}
+		gotPath = r.URL.Path
+		var body map[string]string
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Errorf("decode body: %v", err)
+		}
+		gotEmoji = body["emoji"]
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{"item_id": "item-1", "seen_at": "2026-10-15T10:00:00Z"})
+	}))
+	defer srv.Close()
+	setIssueReactRunEnv(t, srv.URL)
+
+	out, err := captureStdout(t, func() error {
+		return runIssueReact(&cobra.Command{Use: "react"}, []string{"item-1", "👀"})
+	})
+	if err != nil {
+		t.Fatalf("runIssueReact: %v", err)
+	}
+	if want := "/api/tasks/task-run/inputs/item-1/reactions"; gotPath != want {
+		t.Fatalf("path = %q, want %q", gotPath, want)
+	}
+	if gotEmoji != "👀" {
+		t.Fatalf("emoji = %q, want 👀", gotEmoji)
+	}
+	if !strings.Contains(out, `"item_id": "item-1"`) {
+		t.Fatalf("stdout = %q, want the server's receipt", out)
+	}
+}
+
+func TestRunIssueReactPrintsTheServersMessage(t *testing.T) {
+	for _, tc := range []struct {
+		status  int
+		message string
+	}{
+		{http.StatusNotFound, "this run did not receive that item"},
+		{http.StatusBadRequest, "react takes 👀 or ✅"},
+		{http.StatusUnauthorized, "react works only inside an agent's run"},
+	} {
+		t.Run(strconv.Itoa(tc.status), func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(tc.status)
+				json.NewEncoder(w).Encode(map[string]string{"error": tc.message})
+			}))
+			defer srv.Close()
+			setIssueReactRunEnv(t, srv.URL)
+
+			err := runIssueReact(&cobra.Command{Use: "react"}, []string{"item-1", "✅"})
+			if err == nil {
+				t.Fatal("runIssueReact succeeded, want the server's refusal")
+			}
+			if got := cli.FormatError(err, false); got != tc.message {
+				t.Fatalf("message = %q, want %q", got, tc.message)
+			}
+		})
+	}
+}
