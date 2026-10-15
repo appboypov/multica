@@ -16,17 +16,20 @@ S4[4 To-do inbox - agent blocked]:::new
 S5[5 To-do inbox - system problem]:::new
 S6[6 To-do inbox - empty]:::new
 S7[7 Updates]:::new
+S8[8 To-do inbox - assigned to you]:::new
 B -->|Open Inbox| S1
 B -->|Open Updates| S7
 S1 -->|Select a mention| S2
 S1 -->|Select a review| S3
 S1 -->|Select a blocked agent| S4
 S1 -->|Select a paused autopilot| S5
+S1 -->|Select an assigned issue| S8
 S1 -->|Accept suggestion on the last to-do| S6
 S2 -->|Send a reply| S6
 S3 -->|Move the issue out of In Review| S6
 S4 -->|Wake the agent| S6
 S5 -->|Resume autopilot| S6
+S8 -->|Move the issue to another status| S6
 S1 -->|Mark done on the last to-do| S6
 S6 -->|Open Updates| S7
 ```
@@ -40,12 +43,12 @@ The arrows into screen 6 show the last open to-do leaving; with more to-dos open
 | ![](exports/todo-3-waiting-for-your-review.png) | ![](exports/todo-4-agent-blocked.png) |
 | **5 To-do inbox - system problem** | **6 To-do inbox - empty** |
 | ![](exports/todo-5-system-problem.png) | ![](exports/todo-6-empty.png) |
-| **7 Updates** | |
-| ![](exports/todo-7-updates.png) | |
+| **7 Updates** | **8 To-do inbox - assigned to you** |
+| ![](exports/todo-7-updates.png) | ![](exports/todo-8-assigned-to-you.png) |
 
 | Kind | Name | Change | Path |
 |---|---|---|---|
-| Design | Screens of the to-do inbox and Updates, 7 frames | new | `designs/screens/todo-inbox.pen` |
+| Design | Screens of the to-do inbox and Updates, 8 frames | new | `designs/screens/todo-inbox.pen` |
 | Design | One PNG per screen | new | `designs/screens/exports/` |
 | UX spec | This document | new | `designs/screens/todo-inbox.md` |
 | Component | App sidebar: **Updates** item under Inbox | changed | `designs/systems/multica.lib.pen` |
@@ -106,6 +109,7 @@ Selecting a row opens its detail on the right.
 - **Waiting for your review** (screen 3): the issue's status and that the member created it, the pull request with its checks and **Open pull request**, the latest comment and a comment box.
 - **Agent blocked or run failed** (screen 4): the run row with **Blocked** or **Failed**, the agent's last comment and a comment box.
 - **System problem** (screen 5): what went wrong and the action that solves it, such as **Resume autopilot**.
+- **Assigned to you** (screen 8): the issue's status as a pill that changes it in place, who assigned it, the latest comment and a comment box. The leaves line names the status the issue is in: "Leaves your inbox once WORK-427 moves out of Todo.", and so on for Back From QA, Blocked and In Review. Moving the issue to another status handles the to-do.
 
 ## Mark done
 
