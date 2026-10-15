@@ -48,7 +48,7 @@ C4Container
   Rel(mobile, server, "REST /api, WS /ws")
   Rel(desktop, daemon, "Spawns and supervises", "src/main/daemon-manager.ts")
   Rel(daemon, server, "REST /api/daemon, WS /api/daemon/ws")
-  Rel(daemon, clis, "Launches", "Backend.Execute")
+  Rel(daemon, clis, "Launches, steers notices into running runs", "Backend.Execute, Session.Supplement")
   Rel(clis, server, "Calls back", "multica CLI, MULTICA_TOKEN")
   Rel(madsync, server, "Syncs agents and projects", "REST /api")
   Rel(server, pg, "Reads and writes", "pgxpool")
@@ -104,6 +104,10 @@ flowchart LR
   questionrules["internal/question<br/>answer-type registry, validation, display"]
   questioncli["cmd/multica/cmd_question.go<br/>multica question"]
   questionjob["internal/scheduler/jobs_question_overdue.go<br/>QuestionOverdueJob"]
+  runinput["internal/service/run_input.go<br/>RunInputService.Deliver"]
+  supp["internal/handler/task_supplement.go<br/>steerCommentAgentTriggers,<br/>ClaimTaskSupplement, AckTaskSupplement"]
+  react["internal/handler/run_input.go<br/>ReactToRunInput"]
+  reactcli["cmd/multica/cmd_issue.go<br/>multica issue react, inside a run"]
   orgh["internal/handler<br/>organisation.go, project.go<br/>/api/organisations, organisation_id"]
   projsync["madspec-sync/multica_projects.py<br/>organisations, Product projects,<br/>single-repo merges"]
   marks[("~/.local/state/madspec/multica<br/>brain-sync.json, repository_projects")]
@@ -136,6 +140,19 @@ flowchart LR
   questions -->|"EnqueueTaskForQuestionWake"| services
   daemonapi --> questionrules
   questions --> bus
+  handlers -->|"comment create, text edit"| supp
+  mw --> supp
+  supp --> runinput
+  questions -->|"answered, answer_edited, ask_back"| runinput
+  listeners -->|"issue-change activity rows"| runinput
+  runinput --> sqlc
+  runinput -->|"NotifyTaskSupplementAvailable"| dhub
+  supp --> sqlc
+  reactcli -->|"REST /api/tasks/{taskId}/inputs/{itemId}/reactions"| router
+  mw --> react
+  react --> sqlc
+  react -->|"run_input:reacted"| bus
+  daemonapi -->|"run end: replay comments without handled_at"| sqlc
   handlers --> sqlc
   runtimeh --> reqstores
   daemonapi --> reqstores
@@ -186,13 +203,16 @@ flowchart TB
   update["handleUpdate"]
   poll["daemon.go<br/>pollLoop"]
   task["daemon.go<br/>handleTask, runTask"]
-  execenv["execenv<br/>Prepare, Reuse, InjectRuntimeConfig"]
+  execenv["execenv<br/>Prepare, Reuse, InjectRuntimeConfig,<br/>While you run section with task-supplement-v1"]
   prompt["prompt.go<br/>BuildPrompt, buildQuestionAnswersBlock"]
+  supp["task_supplement.go<br/>runTaskSupplementLoop,<br/>formatTaskSupplementInstruction: [Multica notice] with item id"]
+  version["pkg/agent/version.go<br/>SupportsTaskSupplement: claude, codex, grok, omp"]
   repocache["repocache<br/>Cache, CreateWorktree"]
   skillcache["skill_cache.go<br/>skill bundles"]
   mcp["runtime_mcp.go, remote_mcp_broker.go"]
   agentpkg["pkg/agent<br/>New, NewRuntime, Backend.Execute"]
-  builtin["pkg/agent/builtin_runtimes.go<br/>omp on the pi protocol"]
+  builtin["pkg/agent/builtin_runtimes.go<br/>omp on the pi protocol family"]
+  omprpc["pkg/agent/pi.go omp dialect<br/>--mode rpc --no-ui, wait interrupt mode,<br/>steer frames, stdin closed on session_settled"]
   backends["pkg/agent<br/>claude.go, codex.go, pi.go, cursor.go,<br/>opencode.go, copilot.go, hermes.go, ..."]
   procs["processtree"]
   gc["gc.go<br/>gcLoop"]
@@ -223,6 +243,12 @@ flowchart TB
   task --> agentpkg
   agentpkg --> builtin
   agentpkg --> backends
+  builtin --> omprpc
+  task -->|"capability at StartTask"| version
+  ws -.->|"daemon:task_supplement_available"| supp
+  task --> supp
+  supp -->|"supplements/claim, ack by item id"| client
+  supp -->|"Session.Supplement"| agentpkg
   backends --> procs
   task -->|"StartTask, ReportTaskMessages, CompleteTask"| client
   models --> client
@@ -256,6 +282,8 @@ flowchart TB
     instrfield["agents/components<br/>instructions-field.tsx InstructionsField,<br/>runtime-file-browser.tsx RuntimeFileBrowser"]
     projtable["projects/components<br/>project-table.tsx ProjectTable,<br/>organisation-picker.tsx OrganisationPicker"]
     questions["questions<br/>question-card.tsx QuestionCard,<br/>answer-controls AnswerControl,<br/>reassign-picker.tsx, wake-button.tsx"]
+    composer["issues/components<br/>comment-input.tsx, reply-input.tsx, comment-trigger-chips.tsx;<br/>issues/hooks/use-recipient-actions.ts"]
+    marks["issues/components/run-input-marks.tsx<br/>RunInputMarks: 👀 and ✅ with the agent's name<br/>on comments, answers, activity rows"]
   end
   subgraph core["packages/core"]
     coreprovider["platform/core-provider.tsx<br/>CoreProvider"]
@@ -265,8 +293,10 @@ flowchart TB
     orgs["organisations<br/>queries.ts, mutations.ts"]
     group["projects/group.ts<br/>groupProjectsByOrganisation"]
     dirlisting["runtimes/directory-listing.ts<br/>runtimeDirectoryListingOptions"]
+    steering["issues/run-steering.ts<br/>resolveRecipientAction, recipientRouting:<br/>Add to current run by default"]
+    runinputtypes["types/run-input.ts<br/>RunInputMark, RunInputItemKind"]
     corequestions["questions<br/>queries.ts, mutations.ts,<br/>ws-updaters.ts, validate.ts validateAnswer"]
-    realtime["realtime/use-realtime-sync.ts<br/>useRealtimeSync"]
+    realtime["realtime/use-realtime-sync.ts<br/>useRealtimeSync, run_input:reacted refetches<br/>the timeline and question queries"]
     platform["platform<br/>workspace-storage.ts, persist-storage.ts"]
     qc["query-client.ts<br/>TanStack Query"]
   end
@@ -295,6 +325,12 @@ flowchart TB
   pages --> questions
   questions --> corequestions
   questions --> ui
+  pages --> composer
+  composer --> steering
+  pages --> marks
+  questions --> marks
+  marks --> runinputtypes
+  marks --> ui
   corequestions --> api
   corequestions --> qc
   realtime --> corequestions
@@ -414,6 +450,26 @@ classDiagram
     +uuid squad_id
     +text status
     +text failure_reason
+  }
+  class task_supplement {
+    +uuid task_id
+    +uuid item_id
+    +text item_kind
+    +uuid comment_id
+    +uuid issue_id
+    +uuid author_id
+    +text content
+    +text status
+    +timestamptz seen_at
+    +timestamptz handled_at
+  }
+  class activity_log {
+    +uuid id
+    +uuid issue_id
+    +text actor_type
+    +uuid actor_id
+    +text action
+    +jsonb details
   }
   class task_message {
     +uuid id
@@ -649,6 +705,11 @@ classDiagram
   comment "1" --> "*" agent_task_queue : trigger_comment_id
   squad "1" --> "*" agent_task_queue : squad_id
   agent_task_queue "1" --> "*" task_message : task_id
+  agent_task_queue "1" --> "*" task_supplement : task_id
+  task_supplement ..> comment : item_id or comment_id
+  task_supplement ..> question_event : item_id when answer
+  task_supplement ..> activity_log : item_id when issue_change
+  issue "1" --> "*" activity_log : issue_id
   project "1" --> "*" issue : project_id
   issue "1" --> "*" issue : parent_issue_id
   issue ..> user : assignee_id
@@ -695,6 +756,8 @@ classDiagram
   question "1" --> "*" question_event : question_id
   question "1" --> "*" attachment : question_id
 ```
+
+`task_supplement` holds one receipt per item and run, keyed `(item_id, task_id)`: `item_kind` is `comment`, `comment_edit`, `answer` or `issue_change`, and `comment_id` stays set for comments and their edits only. `RunInputService.Deliver` writes a `pending` receipt for every running run with `task-supplement-v1` on the item's issues, except the actor's own agent's run and runs the composer excluded; `content` snapshots the item's text at delivery, with a comment's file names and ids. `multica issue react` sets `seen_at` (👀) or `handled_at` (✅) once, on a `delivered` receipt of the reacting run only. At run end only `handled_at` counts: a comment or edit for the agent without it replays as a follow-up run, and an answer without it stays unseen for Wake (ADR-0019, ADR-0020). Comment receipts and the `run_marks` of answers and activity entries carry these times to `packages/core/types/run-input.ts`.
 
 ### Question contracts
 
