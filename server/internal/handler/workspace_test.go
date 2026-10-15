@@ -542,6 +542,7 @@ RETURNING id
 		for _, workspaceID := range []string{targetWorkspaceID, neighborWorkspaceID} {
 			_, _ = testPool.Exec(context.Background(), `DELETE FROM workspace WHERE id = $1`, workspaceID)
 			_, _ = testPool.Exec(context.Background(), `DELETE FROM task_usage_hourly_dirty WHERE workspace_id = $1`, workspaceID)
+			_, _ = testPool.Exec(context.Background(), `DELETE FROM todo WHERE workspace_id = $1`, workspaceID)
 			_, _ = testPool.Exec(context.Background(), `DELETE FROM runtime_profile WHERE workspace_id = $1`, workspaceID)
 			_, _ = testPool.Exec(context.Background(), `DELETE FROM channel_media_pending_object WHERE workspace_id = $1`, workspaceID)
 			_, _ = testPool.Exec(context.Background(), `DELETE FROM organisation WHERE workspace_id = $1`, workspaceID)
@@ -579,6 +580,10 @@ INSERT INTO inbox_item (
 VALUES ($1, 'member', $2, 'workspace-delete-test', $3, 'Workspace delete tenant isolation')
 `, fixture.workspaceID, testUserID, fixture.issueID)
 		dbfx.Exec(t, `
+INSERT INTO todo (workspace_id, member_id, kind, source_key, issue_id, title)
+VALUES ($1, $2, 'assigned', $3::text, $3::text::uuid, 'Workspace delete tenant isolation')
+`, fixture.workspaceID, testUserID, fixture.issueID)
+		dbfx.Exec(t, `
 INSERT INTO runtime_profile (
 	workspace_id, display_name, protocol_family, command_name, created_by
 )
@@ -611,6 +616,7 @@ VALUES ($1, 'Workspace delete tenant isolation', 'tenant-isolation')
 		"issue":                        "workspace_id",
 		"comment":                      "workspace_id",
 		"inbox_item":                   "workspace_id",
+		"todo":                         "workspace_id",
 		"runtime_profile":              "workspace_id",
 		"task_usage_hourly_dirty":      "workspace_id",
 		"channel_media_pending_object": "workspace_id",
@@ -630,6 +636,12 @@ SELECT COUNT(*) FROM `+table+` WHERE `+predicate+` = $1
 	dbfx.QueryRow(t, `SELECT COUNT(*) FROM organisation WHERE workspace_id = $1`, targetWorkspaceID).Scan(&targetOrganisations)
 	if targetOrganisations != 0 {
 		t.Fatalf("target organisation rows = %d, want 0", targetOrganisations)
+	}
+
+	var targetTodos int
+	dbfx.QueryRow(t, `SELECT COUNT(*) FROM todo WHERE workspace_id = $1`, targetWorkspaceID).Scan(&targetTodos)
+	if targetTodos != 0 {
+		t.Fatalf("target todo rows = %d, want 0", targetTodos)
 	}
 
 	var neighborMediaState string
