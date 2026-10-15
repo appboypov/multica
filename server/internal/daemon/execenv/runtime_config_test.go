@@ -2404,3 +2404,47 @@ func TestEveryBriefThatTeachesJSONOutputAlsoWarnsAgainstMergingStderr(t *testing
 		}
 	}
 }
+
+// A run that takes input while it runs learns how to mark what reaches it; a
+// run that cannot take input is told nothing about received items (ADR-0019).
+func TestWhileYouRunSectionOnlyWithTaskSupplement(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name string
+		ctx  TaskContextForEnv
+		want bool
+	}{
+		{"assignment with capability", TaskContextForEnv{IssueID: "issue-1", TaskSupplementNegotiated: true}, true},
+		{"comment with capability", TaskContextForEnv{IssueID: "issue-1", TriggerCommentID: "comment-1", TaskSupplementNegotiated: true}, true},
+		{"assignment without capability", TaskContextForEnv{IssueID: "issue-1"}, false},
+		{"comment without capability", TaskContextForEnv{IssueID: "issue-1", TriggerCommentID: "comment-1"}, false},
+	} {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			out := buildMetaSkillContent("omp", tc.ctx)
+			if got := strings.Contains(out, WhileYouRunSection); got != tc.want {
+				t.Fatalf("While you run section present=%v want=%v", got, tc.want)
+			}
+			if tc.want {
+				for _, want := range []string{
+					"Each notice names its item id",
+					"`multica issue react <item> 👀`",
+					"`multica issue react <item> ✅`",
+					"leave it unmarked",
+					"An item for you without ✅ is handled again after the run",
+				} {
+					if !strings.Contains(out, want) {
+						t.Errorf("brief misses %q", want)
+					}
+				}
+				return
+			}
+			for _, leak := range []string{"## While you run", "multica issue react", "[Multica notice]"} {
+				if strings.Contains(out, leak) {
+					t.Errorf("brief of a run without mid-run input mentions %q", leak)
+				}
+			}
+		})
+	}
+}
