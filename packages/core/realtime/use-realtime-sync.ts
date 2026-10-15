@@ -107,6 +107,7 @@ import type {
   ReactionRemovedPayload,
   IssueReactionAddedPayload,
   IssueReactionRemovedPayload,
+  RunInputReactedPayload,
   SubscriberAddedPayload,
   SubscriberRemovedPayload,
   TaskMessagePayload,
@@ -1090,6 +1091,7 @@ export function useRealtimeSync(
       "activity:created",
       "reaction:added", "reaction:removed",
       "issue_reaction:added", "issue_reaction:removed",
+      "run_input:reacted",
       "subscriber:added", "subscriber:removed",
       "daemon:heartbeat",
       // Chat events are handled explicitly below; do not double-invalidate.
@@ -1342,6 +1344,18 @@ export function useRealtimeSync(
     const unsubReactionRemoved = ws.on("reaction:removed", (p) => {
       const { issue_id } = p as ReactionRemovedPayload;
       if (issue_id) invalidateTimeline(issue_id);
+    });
+
+    const unsubRunInputReacted = ws.on("run_input:reacted", (p) => {
+      const { issue_id } = p as RunInputReactedPayload;
+      if (!issue_id) return;
+      // Unlike comment events, no mounted timeline handler patches these marks:
+      // active timelines must refetch as well as becoming stale.
+      qc.invalidateQueries({ queryKey: issueKeys.timeline(issue_id) });
+      const wsId = getCurrentWsId();
+      // An answer may appear through several issue/task links and on the
+      // Questions page. Its marks and Wake projections all come from the server.
+      if (wsId) qc.invalidateQueries({ queryKey: questionKeys.all(wsId) });
     });
 
     // --- Issue-level reactions & subscribers (global fallback) ---
@@ -1908,6 +1922,7 @@ export function useRealtimeSync(
       unsubReactionRemoved();
       unsubIssueReactionAdded();
       unsubIssueReactionRemoved();
+      unsubRunInputReacted();
       unsubSubscriberAdded();
       unsubSubscriberRemoved();
       unsubWsUpdated();

@@ -7,6 +7,7 @@ import type { TimelineEntry } from "./activity";
 import type { Workspace, MemberWithUser, Invitation } from "./workspace";
 import type { Project } from "./project";
 import type { Label } from "./label";
+import type { RunInputItemKind } from "./run-input";
 
 // WebSocket event types (matching Go server protocol/events.go)
 export type WSEventType =
@@ -58,6 +59,7 @@ export type WSEventType =
   | "reaction:removed"
   | "issue_reaction:added"
   | "issue_reaction:removed"
+  | "run_input:reacted"
   | "chat:message"
   | "chat:done"
   | "chat:quick_actions"
@@ -425,6 +427,17 @@ export interface IssueReactionRemovedPayload {
   issue_revision?: number;
 }
 
+/** A receiving run marked one delivered item, not a person's emoji reaction. */
+export interface RunInputReactedPayload {
+  issue_id: string;
+  item_kind: RunInputItemKind;
+  item_id: string;
+  task_id: string;
+  agent_id: string;
+  seen_at: string | null;
+  handled_at: string | null;
+}
+
 export interface ChatMessageEventPayload {
   chat_session_id: string;
   message_id: string;
@@ -594,6 +607,7 @@ export interface WSEventPayloadMap {
   "issue_status:changed": IssueStatusChangedPayload;
   "issue_reaction:added": IssueReactionAddedPayload;
   "issue_reaction:removed": IssueReactionRemovedPayload;
+  "run_input:reacted": RunInputReactedPayload;
   "comment:created": CommentCreatedPayload;
   "comment:updated": CommentUpdatedPayload;
   "comment:deleted": CommentDeletedPayload;
