@@ -112,9 +112,9 @@ func TestEditedCommentCreatesANewRunInput(t *testing.T) {
 	f := newSupplementFixture(t, "codex", "running", true)
 	dbfx.Cleanup(t, `DELETE FROM agent_task_queue WHERE issue_id=$1`, f.issueID)
 	var original CommentResponse
-	testutil.Call(t, testHandler.CreateComment, withURLParam(newRequest(http.MethodPost, "/comments", map[string]any{"content": agentMention("Thomas", f.agentID)+" keep the toggle"}), "id", f.issueID)).Want(http.StatusCreated).JSON(&original)
+	testutil.Call(t, testHandler.CreateComment, withURLParam(newRequest(http.MethodPost, "/comments", map[string]any{"content": agentMention("Thomas", f.agentID) + " keep the toggle"}), "id", f.issueID)).Want(http.StatusCreated).JSON(&original)
 	dbfx.Exec(t, `UPDATE task_supplement SET status='delivered', handled_at=now() WHERE task_id=$1`, f.taskID)
-	body := map[string]any{"content": agentMention("Thomas", f.agentID)+" keep the toggle in the header", "expected_revision": original.Revision}
+	body := map[string]any{"content": agentMention("Thomas", f.agentID) + " keep the toggle in the header", "expected_revision": original.Revision}
 	var edited CommentResponse
 	testutil.Call(t, testHandler.UpdateComment, withURLParam(newRequest(http.MethodPut, "/comments/"+original.ID, body), "commentId", original.ID)).Want(http.StatusOK).JSON(&edited)
 	rows, err := testHandler.Queries.ListTaskSupplementsByCommentIDs(t.Context(), db.ListTaskSupplementsByCommentIDsParams{WorkspaceID: parseUUID(testWorkspaceID), CommentIds: []pgtype.UUID{parseUUID(original.ID)}})

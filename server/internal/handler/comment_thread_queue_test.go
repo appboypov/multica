@@ -2,9 +2,9 @@ package handler
 
 import (
 	"context"
-	"net/http"
 	"errors"
 	"fmt"
+	"net/http"
 	"strings"
 	"testing"
 
@@ -198,7 +198,7 @@ func TestComposerEmptySteeringListExcludesTriggeredRun(t *testing.T) {
 	dbfx.Cleanup(t, `DELETE FROM agent_task_queue WHERE issue_id=$1`, f.issueID)
 	var created CommentResponse
 	testutil.Call(t, testHandler.CreateComment, withURLParam(newRequest(http.MethodPost, "/comments", map[string]any{
-		"content": agentMention("Thomas", f.agentID)+" next round", "steer_task_ids": []string{},
+		"content": agentMention("Thomas", f.agentID) + " next round", "steer_task_ids": []string{},
 	}), "id", f.issueID)).Want(http.StatusCreated).JSON(&created)
 	if len(created.Supplements) != 0 || dbfx.Count(t, `SELECT count(*) FROM task_supplement WHERE comment_id=$1`, created.ID) != 0 {
 		t.Fatalf("explicit empty composer choice delivered a notice: %+v", created.Supplements)

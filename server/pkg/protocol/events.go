@@ -20,7 +20,7 @@ const (
 	EventReactionRemoved      = "reaction:removed"
 	EventIssueReactionAdded   = "issue_reaction:added"
 	EventIssueReactionRemoved = "issue_reaction:removed"
-	EventRunInputReacted       = "run_input:reacted"
+	EventRunInputReacted      = "run_input:reacted"
 
 	// Question events (ADR-0002). Both carry QuestionEventPayload; the
 	// reason says what changed on question:updated.

@@ -28,8 +28,8 @@ type TimelineEntry struct {
 	ActorAvatarURL string `json:"actor_avatar_url,omitempty"`
 
 	// Activity-only fields
-	Action  *string         `json:"action,omitempty"`
-	Details json.RawMessage `json:"details,omitempty"`
+	Action   *string                `json:"action,omitempty"`
+	Details  json.RawMessage        `json:"details,omitempty"`
 	RunMarks []RunInputMarkResponse `json:"run_marks,omitempty"`
 
 	// Comment-only fields
