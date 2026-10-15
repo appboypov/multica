@@ -34,8 +34,9 @@ func TestRunInputReactionsRequireTheReceivingRun(t *testing.T) {
 	other := f
 	other.agentID, other.taskID = runningSteerableTask(t, f, "Other reaction receiver")
 	testutil.Call(t, testHandler.ReactToRunInput, runInputReactionRequest(other, comment.ID, "✅")).Want(http.StatusNotFound)
-	forged := runInputReactionRequest(other, comment.ID, "✅")
-	forged = withURLParam(forged, "taskId", f.taskID)
+	forged := runInputReactionRequest(f, comment.ID, "✅")
+	forged.Header.Set("X-Task-ID", other.taskID)
+	forged.Header.Set("X-Agent-ID", other.agentID)
 	testutil.Call(t, testHandler.ReactToRunInput, forged).Want(http.StatusNotFound)
 	bad := testutil.Call(t, testHandler.ReactToRunInput, runInputReactionRequest(f, comment.ID, "👍")).Want(http.StatusBadRequest).Text()
 	if !strings.Contains(bad, "react takes 👀 or ✅") {
