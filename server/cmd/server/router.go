@@ -1991,6 +1991,9 @@ func NewRouterWithOptions(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus
 			})
 		})
 
+		// Account-level counts, independent of the selected workspace.
+		r.Get("/api/todos/summary", h.TodoSummary)
+
 		// --- Workspace-scoped routes (all require workspace membership) ---
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.RequireWorkspaceMember(queries))
@@ -2529,6 +2532,11 @@ func NewRouterWithOptions(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus
 			// thread (?id for a specific one, else the thread the session is in).
 			r.Get("/api/chat/history", h.GetChatChannelHistory)
 			r.Get("/api/chat/thread", h.GetChatThread)
+
+			r.Route("/api/todos", func(r chi.Router) {
+				r.Get("/", h.ListTodos)
+				r.Post("/{id}/done", h.MarkTodoDone)
+			})
 
 			// Inbox
 			r.Route("/api/inbox", func(r chi.Router) {
