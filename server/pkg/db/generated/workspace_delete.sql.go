@@ -109,9 +109,13 @@ func (q *Queries) DeleteWorkspaceAdministration(ctx context.Context, workspaceID
 }
 
 const deleteWorkspaceAgents = `-- name: DeleteWorkspaceAgents :exec
+WITH deleted_agent_sessions AS (
+    DELETE FROM agent_session WHERE agent_session.workspace_id = $1
+)
 DELETE FROM agent WHERE agent.workspace_id = $1
 `
 
+// Agent sessions have no cascades, so they go with the agents.
 func (q *Queries) DeleteWorkspaceAgents(ctx context.Context, workspaceID pgtype.UUID) error {
 	_, err := q.db.Exec(ctx, deleteWorkspaceAgents, workspaceID)
 	return err

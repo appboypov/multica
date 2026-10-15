@@ -249,6 +249,53 @@ export type WorkspaceWorkingAgentMineRelation =
   | "any";
 
 /**
+ * Where an active session of an agent comes from: `terminal` is a
+ * session started by hand that its machine's daemon registered and follows,
+ * `run` is a dispatched or running task of the queue. `unknown` stands for a
+ * kind from a newer server.
+ */
+export type AgentSessionKind = "terminal" | "run" | "unknown";
+
+/**
+ * Herdr's agent statuses for a terminal session; a run is `starting` while
+ * dispatched and `working` while running. `unknown` also stands for a status
+ * from a newer server.
+ */
+export type AgentSessionStatus =
+  | "idle"
+  | "working"
+  | "blocked"
+  | "done"
+  | "starting"
+  | "unknown";
+
+/** One active session of an agent, as `ListAgentSessions` lists it. */
+export interface AgentSession {
+  id: string;
+  kind: AgentSessionKind;
+  /** omp's process of a terminal session; null for a run. */
+  pid: number | null;
+  /** The Herdr pane; null outside Herdr and for a run. */
+  herdr_pane_id: string | null;
+  /** The runtime of a run; null for a terminal session. */
+  runtime: { id: string; name: string } | null;
+  /** The task of a run; null for a terminal session. */
+  task_id: string | null;
+  /** The issue of a run; null for a terminal session. */
+  issue: { id: string; identifier: string } | null;
+  work_dir: string;
+  /** `owner/name`; null when the folder or the run's worktree names none. */
+  repository: string | null;
+  branch: string | null;
+  status: AgentSessionStatus;
+  started_at: string;
+}
+
+export interface AgentSessionsResponse {
+  sessions: AgentSession[];
+}
+
+/**
  * A departed-member-safe user ref resolved from the global user table. `name` /
  * `email` / `avatar_url` are absent until the server hydrates them (present on
  * user-facing task surfaces). Render defensively — fall back to a generic label

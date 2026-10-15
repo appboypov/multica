@@ -94,7 +94,16 @@ import {
   RepositoryCheckoutRequestSchema,
   MALFORMED_REPOSITORY_CHECKOUT_REQUEST,
 } from "./schemas";
-import type { Question, QuestionWakeResult, RepositoryCheckoutRequest } from "../types";
+import {
+  AgentSessionsResponseSchema,
+  EMPTY_AGENT_SESSIONS_RESPONSE,
+} from "./schemas";
+import type {
+  AgentSessionsResponse,
+  Question,
+  QuestionWakeResult,
+  RepositoryCheckoutRequest,
+} from "../types";
 import { parseWithFallback } from "./schema";
 
 const baseIssue = {
@@ -3075,5 +3084,105 @@ describe("RepositoryCheckoutRequestSchema", () => {
       passed: false,
       failures: [],
     });
+  });
+});
+
+describe("AgentSessionsResponseSchema", () => {
+  const parseSessions = (data: unknown) =>
+    parseWithFallback<AgentSessionsResponse>(
+      data,
+      AgentSessionsResponseSchema,
+      EMPTY_AGENT_SESSIONS_RESPONSE,
+      { endpoint: "GET /api/agents/{id}/sessions" },
+    );
+
+  const terminal = {
+    id: "session-1",
+    kind: "terminal",
+    pid: 4242,
+    herdr_pane_id: "pane-7",
+    runtime: null,
+    task_id: null,
+    issue: null,
+    work_dir: "/Users/brian/Worktrees/das/multica/work-1057",
+    repository: "appboypov/multica",
+    branch: "work-1057",
+    status: "working",
+    started_at: "2026-10-15T16:44:00Z",
+  };
+
+  const run = {
+    id: "task-1",
+    kind: "run",
+    pid: null,
+    herdr_pane_id: null,
+    runtime: { id: "runtime-1", name: "Brian's Mac" },
+    task_id: "task-1",
+    issue: { id: "issue-1", identifier: "WORK-1057" },
+    work_dir: "/Users/brian/multica_workspaces/work-1057/workdir",
+    repository: null,
+    branch: null,
+    status: "starting",
+    started_at: "2026-10-15T16:45:00Z",
+  };
+
+  it("parses a terminal session and a run", () => {
+    expect(parseSessions({ sessions: [terminal, run] })).toEqual({
+      sessions: [terminal, run],
+    });
+  });
+
+  it("reads a response without sessions as none", () => {
+    expect(parseSessions({})).toEqual({ sessions: [] });
+    expect(parseSessions({ sessions: "nope" })).toEqual({ sessions: [] });
+  });
+
+  it("falls back to no sessions on a non-object body", () => {
+    expect(parseSessions(null)).toEqual(EMPTY_AGENT_SESSIONS_RESPONSE);
+  });
+
+  it("keeps a session of an unknown kind as unknown", () => {
+    const parsed = parseSessions({ sessions: [{ ...terminal, kind: "cloud" }] });
+    expect(parsed.sessions).toHaveLength(1);
+    expect(parsed.sessions[0]).toMatchObject({ id: "session-1", kind: "unknown", status: "working" });
+  });
+
+  it("keeps a session of an unknown status as unknown", () => {
+    const parsed = parseSessions({ sessions: [{ ...terminal, status: "sleeping" }] });
+    expect(parsed.sessions).toHaveLength(1);
+    expect(parsed.sessions[0]).toMatchObject({ id: "session-1", kind: "terminal", status: "unknown" });
+  });
+
+  it("keeps a run without a runtime, with the runtime null", () => {
+    const { runtime: _runtime, ...withoutRuntime } = run;
+    const parsed = parseSessions({ sessions: [withoutRuntime, { ...run, id: "task-2", runtime: "rt" }] });
+    expect(parsed.sessions).toHaveLength(2);
+    expect(parsed.sessions[0]).toMatchObject({
+      id: "task-1",
+      kind: "run",
+      runtime: null,
+      issue: { id: "issue-1", identifier: "WORK-1057" },
+    });
+    expect(parsed.sessions[1]?.runtime).toBeNull();
+  });
+
+  it("defaults missing strings to empty and missing nullable values to null", () => {
+    const parsed = parseSessions({ sessions: [{ id: "session-1" }] });
+    expect(parsed.sessions).toEqual([
+      {
+        id: "session-1",
+        kind: "unknown",
+        pid: null,
+        herdr_pane_id: null,
+        runtime: null,
+        task_id: null,
+        issue: null,
+        work_dir: "",
+        repository: null,
+        branch: null,
+        status: "unknown",
+        started_at: "",
+      },
+    ]);
   });
 });

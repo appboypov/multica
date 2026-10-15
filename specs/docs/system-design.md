@@ -503,6 +503,20 @@ classDiagram
     +text provider
     +text status
   }
+  class agent_session {
+    +uuid id
+    +uuid workspace_id
+    +uuid agent_id
+    +text daemon_id
+    +integer pid
+    +timestamptz process_started_at
+    +text herdr_pane_id
+    +text work_dir
+    +text repository
+    +text branch
+    +text status
+    +timestamptz started_at
+  }
   class runtime_profile {
     +uuid id
     +uuid workspace_id
@@ -560,10 +574,34 @@ classDiagram
     +uuid workspace_id
     +uuid project_id
     +uuid parent_issue_id
+    +uuid worklane_id
     +int number
     +text status
     +text assignee_type
     +uuid assignee_id
+  }
+  class worklane {
+    +uuid id
+    +uuid workspace_id
+    +uuid repository_id
+    +bool is_main
+    +text path
+    +text branch
+  }
+  class repository {
+    +uuid id
+    +uuid workspace_id
+    +uuid project_id
+    +text full_name
+  }
+  class issue_worktree {
+    +uuid id
+    +uuid workspace_id
+    +uuid issue_id
+    +uuid repository_id
+    +text path
+    +text branch
+    +text state
   }
   class comment {
     +uuid id
@@ -839,9 +877,20 @@ classDiagram
   agent_runtime "1" --> "*" agent : runtime_id
   runtime_profile "1" --> "*" agent_runtime : profile_id
   daemon_token .. agent_runtime : daemon_id
+  workspace "1" --> "*" agent_session : workspace_id
+  agent "1" --> "*" agent_session : agent_id
+  agent_runtime .. agent_session : daemon_id
   agent "1" --> "*" agent_task_queue : agent_id
   agent_runtime "1" --> "*" agent_task_queue : runtime_id
   issue "1" --> "*" agent_task_queue : issue_id
+  workspace "1" --> "*" worklane : workspace_id
+  workspace "1" --> "*" repository : workspace_id
+  workspace "1" --> "*" issue_worktree : workspace_id
+  project "1" --> "*" repository : project_id
+  repository "1" --> "*" worklane : repository_id
+  worklane "1" --> "*" issue : worklane_id
+  issue "1" --> "*" issue_worktree : issue_id, without lane
+  repository "1" --> "*" issue_worktree : repository_id
   chat_session "1" --> "*" agent_task_queue : chat_session_id
   autopilot_run "1" --> "*" agent_task_queue : autopilot_run_id
   comment "1" --> "*" agent_task_queue : trigger_comment_id
@@ -1123,6 +1172,12 @@ sequenceDiagram
 Check kinds are `data_model`, `data_flow`, `design`, `prototype`, `feature`, `improvement`, `agent_tool` and `release`. A check is a `todo` row of kind `check` whose `details` hold `project_id`, `check_kind`, the work link, the sample flags and the answer. An instruction note is kind `instruction_change` with `source_key` set to its check's id. `project_check_trust` holds one record per project and kind with its recipient, counts and sampling mode; `check_settings` holds the workspace's `sample_every`. The app parts ship in the shared inbox pull request; `ProjectCheckRecord` also renders on the project page.
 
 An answer or Undo request reaches the opening agent in this order: a receipt on its running run with `task-supplement-v1`, the handoff note of its unclaimed queued or deferred run, or a new run with the message. A dispatched run's prompt is already built, so behind it the new run is deferred and `PromoteDueDeferredTasksForRuntime` queues it once the slot frees. Every check read inside a check transaction uses that transaction.
+
+### Agent session contracts
+
+`server/pkg/db/queries/agent_session.sql` owns the registered-session writes and the combined `ListAgentSessions` query. Its inputs are `agent_session`, `agent_runtime`, `agent_task_queue`, `worklane`, `issue_worktree`, `repository`, `agent`, `issue` and `workspace`; sqlc emits `AgentSession` and `ListAgentSessionsRow` in `server/pkg/db/generated/`. Lane runs follow `issue.worklane_id` to the workspace-scoped lane and repository, with branch derived from the workspace prefix and issue number (ADR-0014); non-lane runs follow `issue_worktree` to repository (ADR-0007). Workspace teardown removes registered sessions with the agents.
+
+The client contract `AgentSession` and its `{sessions}` response live in `packages/core/types/agent.ts`, with boundary schemas in `packages/core/api/schemas.ts`. The `agent:sessions` event carries `{agent_id}` in `server/pkg/protocol/events.go` and `packages/core/types/events.ts`. This data layer defines no HTTP route or UI consumer.
 
 ## Absent
 

@@ -33,6 +33,9 @@ const (
 	EventAgentCreated  = "agent:created"
 	EventAgentArchived = "agent:archived"
 	EventAgentRestored = "agent:restored"
+	// An agent's sessions changed. Carries AgentSessionsEventPayload,
+	// no session: a reader lists the agent's sessions again.
+	EventAgentSessions = "agent:sessions"
 
 	// Task events (server <-> daemon).
 	// Each event maps to a status transition on agent_task_queue. Front-end
@@ -318,4 +321,9 @@ type ReleaseLineEventPayload struct {
 type IssueReleaseJoinedPayload struct {
 	IssueID   string `json:"issue_id"`
 	ReleaseID string `json:"release_id"`
+}
+
+// AgentSessionsEventPayload is the payload of agent:sessions.
+type AgentSessionsEventPayload struct {
+	AgentID string `json:"agent_id"`
 }

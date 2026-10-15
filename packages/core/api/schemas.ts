@@ -7,6 +7,10 @@ import type {
   AgentBuilderRuntimeSwitch,
   AgentBuilderSession,
   AgentBuilderSessionSummary,
+  AgentSession,
+  AgentSessionKind,
+  AgentSessionStatus,
+  AgentSessionsResponse,
   Attachment,
   AutopilotRun,
   BillingBalance,
@@ -2646,6 +2650,55 @@ export const AgentTaskPageSchema = z.object({
   tasks: AgentTaskListSchema,
   nextCursor: z.string().min(1).nullable(),
 });
+
+// ---------------------------------------------------------------------------
+// An agent's active sessions: sessions started by hand and runs.
+// Every field degrades on its own, so one drifted field never hides a session:
+// a missing string reads as "", a missing nullable value as null, and a kind or
+// status from a newer server as `unknown`. A missing `sessions` reads as none.
+// ---------------------------------------------------------------------------
+
+const AGENT_SESSION_KINDS = [
+  "terminal",
+  "run",
+  "unknown",
+] as const satisfies readonly AgentSessionKind[];
+
+const AGENT_SESSION_STATUSES = [
+  "idle",
+  "working",
+  "blocked",
+  "done",
+  "starting",
+  "unknown",
+] as const satisfies readonly AgentSessionStatus[];
+
+export const AgentSessionSchema: z.ZodType<AgentSession> = z.object({
+  id: z.string().catch(""),
+  kind: z.enum(AGENT_SESSION_KINDS).catch("unknown"),
+  pid: z.number().nullable().catch(null),
+  herdr_pane_id: z.string().nullable().catch(null),
+  runtime: z.object({
+    id: z.string().catch(""),
+    name: z.string().catch(""),
+  }).loose().nullable().catch(null),
+  task_id: z.string().nullable().catch(null),
+  issue: z.object({
+    id: z.string().catch(""),
+    identifier: z.string().catch(""),
+  }).loose().nullable().catch(null),
+  work_dir: z.string().catch(""),
+  repository: z.string().nullable().catch(null),
+  branch: z.string().nullable().catch(null),
+  status: z.enum(AGENT_SESSION_STATUSES).catch("unknown"),
+  started_at: z.string().catch(""),
+}).loose();
+
+export const AgentSessionsResponseSchema: z.ZodType<AgentSessionsResponse> = z.object({
+  sessions: z.array(AgentSessionSchema).catch([]),
+}).loose();
+
+export const EMPTY_AGENT_SESSIONS_RESPONSE: AgentSessionsResponse = { sessions: [] };
 
 // One row of a run transcript. `output_truncated` gates a completeness claim
 // the UI makes about a tool's output, so it stays `.optional()` with no

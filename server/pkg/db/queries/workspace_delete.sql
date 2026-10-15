@@ -700,6 +700,10 @@ deleted_packages AS (
 DELETE FROM plugin_installation WHERE id IN (SELECT id FROM installations);
 
 -- name: DeleteWorkspaceAgents :exec
+-- Agent sessions have no cascades, so they go with the agents.
+WITH deleted_agent_sessions AS (
+    DELETE FROM agent_session WHERE agent_session.workspace_id = $1
+)
 DELETE FROM agent WHERE agent.workspace_id = $1;
 
 -- name: DeleteWorkspaceRuntimesAndProjects :exec

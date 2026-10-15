@@ -27,6 +27,7 @@ export type WSEventType =
   | "agent:created"
   | "agent:archived"
   | "agent:restored"
+  | "agent:sessions"
   | "task:queued"
   | "task:dispatch"
   | "task:running"
@@ -203,6 +204,11 @@ export interface AgentArchivedPayload {
 
 export interface AgentRestoredPayload {
   agent: Agent;
+}
+
+/** An agent's sessions changed; carries no session, so a reader lists them again. */
+export interface AgentSessionsPayload {
+  agent_id: string;
 }
 
 export interface InboxNewPayload {
@@ -622,6 +628,7 @@ export interface WSEventPayloadMap {
   "agent:created": AgentCreatedPayload;
   "agent:archived": AgentArchivedPayload;
   "agent:restored": AgentRestoredPayload;
+  "agent:sessions": AgentSessionsPayload;
   "task:queued": TaskQueuedPayload;
   "task:dispatch": TaskDispatchPayload;
   "task:running": TaskRunningPayload;

@@ -104,6 +104,22 @@ type AgentRuntime struct {
 	CustomName     pgtype.Text        `json:"custom_name"`
 }
 
+type AgentSession struct {
+	ID               pgtype.UUID        `json:"id"`
+	WorkspaceID      pgtype.UUID        `json:"workspace_id"`
+	AgentID          pgtype.UUID        `json:"agent_id"`
+	DaemonID         string             `json:"daemon_id"`
+	Pid              int32              `json:"pid"`
+	ProcessStartedAt pgtype.Timestamptz `json:"process_started_at"`
+	HerdrPaneID      pgtype.Text        `json:"herdr_pane_id"`
+	WorkDir          string             `json:"work_dir"`
+	Repository       pgtype.Text        `json:"repository"`
+	Branch           pgtype.Text        `json:"branch"`
+	Status           string             `json:"status"`
+	StartedAt        pgtype.Timestamptz `json:"started_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+}
+
 type AgentSkill struct {
 	AgentID   pgtype.UUID        `json:"agent_id"`
 	SkillID   pgtype.UUID        `json:"skill_id"`
