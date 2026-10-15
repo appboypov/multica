@@ -54,23 +54,23 @@ SELECT * FROM question
 WHERE id = @id AND workspace_id = @workspace_id
 FOR UPDATE;
 
--- name: ListQuestionsByIssue :many
--- Direct cards include links to the issue, its live comments and its runs.
+-- name: ListQuestionsLinkedTo :many
+-- Direct cards for any link; issue cards also include live comments and runs.
 SELECT DISTINCT q.* FROM question q
 JOIN question_link l
   ON l.question_id = q.id AND l.workspace_id = q.workspace_id
 WHERE q.workspace_id = @workspace_id
   AND (
-      (l.link_type = 'issue' AND l.link_id = @issue_id)
-      OR (l.link_type = 'comment' AND EXISTS (
+      (l.link_type = @link_type AND l.link_id = @link_id)
+      OR (@link_type = 'issue' AND l.link_type = 'comment' AND EXISTS (
           SELECT 1 FROM comment c
           WHERE c.id = l.link_id AND c.workspace_id = @workspace_id
-            AND c.issue_id = @issue_id AND c.deleted_at IS NULL
+            AND c.issue_id = @link_id AND c.deleted_at IS NULL
       ))
-      OR (l.link_type = 'task' AND EXISTS (
+      OR (@link_type = 'issue' AND l.link_type = 'task' AND EXISTS (
           SELECT 1 FROM agent_task_queue t
           JOIN agent a ON a.id = t.agent_id AND a.workspace_id = @workspace_id
-          WHERE t.id = l.link_id AND t.issue_id = @issue_id
+          WHERE t.id = l.link_id AND t.issue_id = @link_id
       ))
   )
 ORDER BY q.created_at ASC, q.id ASC;
@@ -94,6 +94,14 @@ SELECT EXISTS (
     WHERE t.agent_id = @agent_id AND t.chat_session_id = @chat_session_id
       AND t.status IN ('queued', 'dispatched', 'running')
 )::boolean AS has_active;
+
+-- name: ListChatTaskIDs :many
+-- Chat deletion drops question links to these runs before removing the chat.
+SELECT t.id FROM agent_task_queue t
+JOIN agent a ON a.id = t.agent_id AND a.workspace_id = @workspace_id
+JOIN chat_session c ON c.id = t.chat_session_id AND c.workspace_id = @workspace_id
+WHERE t.chat_session_id = @chat_session_id
+ORDER BY t.id;
 
 -- name: ListQuestionsByAsk :many
 -- An ask's questions in order (idx_question_ask).
