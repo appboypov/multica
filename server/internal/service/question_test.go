@@ -1599,3 +1599,360 @@ func TestQuestionExactlyOneAskerConstraint(t *testing.T) {
 		t.Fatalf("invalid identity writes changed the agent question: %+v, %v", stored, err)
 	}
 }
+
+func newQuestionChatFixture(t *testing.T) (*questionFixture, pgtype.UUID) {
+	t.Helper()
+	f := newQuestionFixture(t)
+	chat := util.MustParseUUID(f.fx.ChatSession(t, util.UUIDToString(f.agent), testutil.Cols{"title": "Private chat title"}))
+	f.fx.Exec(t, `UPDATE agent_task_queue SET issue_id = NULL, chat_session_id = $2,
+		dispatched_at = clock_timestamp() - interval '1 hour' WHERE id = $1`, f.task, chat)
+	f.fx.Cleanup(t, `DELETE FROM agent_task_queue WHERE chat_session_id = $1`, chat)
+	return f, chat
+}
+
+func TestQuestionChatAskLinksAndPrivateRows(t *testing.T) {
+	for _, onIssue := range []bool{false, true} {
+		t.Run(fmt.Sprintf("onIssue=%t", onIssue), func(t *testing.T) {
+			ctx := context.Background()
+			f, chat := newQuestionChatFixture(t)
+			input := questionSetInput(1, f.brian, f.anouk)
+			if onIssue {
+				input.Links = []question.LinkRef{{Type: "issue", Ref: util.UUIDToString(f.issue)}}
+			}
+			var created protocol.QuestionEventPayload
+			f.svc.Bus.Subscribe(protocol.EventQuestionCreated, func(e events.Event) {
+				created = e.Payload.(protocol.QuestionEventPayload)
+			})
+			result, err := f.svc.Ask(ctx, f.workspace, f.asker, input)
+			if err != nil {
+				t.Fatal(err)
+			}
+			row := result.Questions[0]
+			chatPosition := 0
+			if onIssue {
+				chatPosition = 1
+				if row.Links[0].LinkType != "issue" || row.Links[0].LinkID != util.UUIDToString(f.issue) {
+					t.Fatalf("explicit first link = %+v", row.Links)
+				}
+			}
+			if len(row.Links) != chatPosition+2 {
+				t.Fatalf("links = %+v", row.Links)
+			}
+			link := row.Links[chatPosition]
+			if link.LinkType != "chat" || link.LinkID != util.UUIDToString(chat) || link.MemberID == nil || *link.MemberID != util.UUIDToString(f.brian) {
+				t.Fatalf("chat identity = %+v", link)
+			}
+			run := row.Links[chatPosition+1]
+			if run.LinkType != "task" || run.LinkID != util.UUIDToString(f.task) {
+				t.Fatalf("run link = %+v", run)
+			}
+			for i, link := range row.Links {
+				if link.Position != int32(i) {
+					t.Fatalf("link position = %+v", row.Links)
+				}
+			}
+			if created.ChatSessionID != util.UUIDToString(chat) {
+				t.Fatalf("created event = %+v", created)
+			}
+			identity := OpenChat(row.Links)
+			if identity == nil || identity.Type != "chat" || identity.ID != util.UUIDToString(chat) || identity.MemberID == nil || *identity.MemberID != util.UUIDToString(f.brian) {
+				t.Fatalf("open chat = %+v", identity)
+			}
+			cards, err := f.svc.ListForLink(ctx, f.workspace, "chat", chat)
+			if err != nil || len(cards) != 1 || cards[0].ID != row.ID {
+				t.Fatalf("chat cards = %+v, %v", cards, err)
+			}
+			if !onIssue {
+				for _, viewer := range []pgtype.UUID{f.brian, f.anouk} {
+					page, err := f.svc.ListRows(ctx, f.workspace, viewer, "for_me", QuestionRowFilters{}, nil, 20)
+					if err != nil || len(page.Rows) != 1 {
+						t.Fatalf("chat rows = %+v, %v", page, err)
+					}
+					got := page.Rows[0]
+					if got.OpenIssue != nil || got.Via != nil || got.Link.Type != "chat" || got.Link.MemberID == nil || *got.Link.MemberID != util.UUIDToString(f.brian) || got.Link.Title != "" {
+						t.Fatalf("private-safe row = %+v", got)
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestQuestionChatLinksRejectForeignSessionsAndQuickCreate(t *testing.T) {
+	ctx := context.Background()
+	f, _ := newQuestionChatFixture(t)
+	foreign, foreignChat := newQuestionChatFixture(t)
+	for _, ref := range []question.LinkRef{
+		{Type: "chat", Ref: util.UUIDToString(foreignChat)},
+		{Type: "task", Ref: util.UUIDToString(foreign.task)},
+	} {
+		_, err := f.svc.ResolveLinks(ctx, f.workspace, []question.LinkRef{ref})
+		wantQuestionRefusal(t, err, 422)
+	}
+	f.fx.Exec(t, `UPDATE agent_task_queue SET chat_session_id = NULL WHERE id = $1`, f.task)
+	_, err := f.svc.Ask(ctx, f.workspace, f.asker, questionSetInput(1, f.brian))
+	wantQuestionRefusal(t, err, 422)
+	if n := f.fx.Count(t, `SELECT count(*) FROM question WHERE workspace_id = $1`, f.workspace); n != 0 {
+		t.Fatalf("quick-create wrote %d questions", n)
+	}
+}
+
+func TestQuestionCancelPreservesAnswersAndStaysEnded(t *testing.T) {
+	for _, inChat := range []bool{false, true} {
+		t.Run(fmt.Sprintf("inChat=%t", inChat), func(t *testing.T) {
+			ctx := context.Background()
+			var f *questionFixture
+			if inChat {
+				f, _ = newQuestionChatFixture(t)
+			} else {
+				f = newQuestionFixture(t)
+			}
+			input := questionSetInput(1, f.brian, f.anouk)
+			input.Policy = question.PolicyEach
+			result, err := f.svc.Ask(ctx, f.workspace, f.asker, input)
+			if err != nil {
+				t.Fatal(err)
+			}
+			id := util.MustParseUUID(result.Questions[0].ID)
+			outsider := f.fx.User(t, "Roos", "question-roos-"+result.AskID+"@example.test")
+			f.fx.Member(t, util.UUIDToString(f.workspace), outsider, "member")
+			_, err = f.svc.Cancel(ctx, f.workspace, id, QuestionActor{Type: "member", ID: util.MustParseUUID(outsider)}, CancelQuestionInput{})
+			wantQuestionRefusal(t, err, 403)
+			f.answer(t, result.Questions[0], f.other, "per line")
+			var published protocol.QuestionEventPayload
+			f.svc.Bus.Subscribe(protocol.EventQuestionUpdated, func(e events.Event) {
+				published = e.Payload.(protocol.QuestionEventPayload)
+			})
+			cancelled, err := f.svc.Cancel(ctx, f.workspace, id, f.answerer, CancelQuestionInput{Note: "already decided in the PRD"})
+			if err != nil || cancelled.Status != "cancelled" || len(cancelled.Answers) != 1 || cancelled.Answers[0].AnswererUserID != util.UUIDToString(f.anouk) {
+				t.Fatalf("cancel = %+v, %v", cancelled, err)
+			}
+			last := cancelled.Events[len(cancelled.Events)-1]
+			var details struct {
+				Note string `json:"note"`
+			}
+			if err := json.Unmarshal(last.Details, &details); err != nil {
+				t.Fatal(err)
+			}
+			if last.Kind != "cancelled" || last.ActorID == nil || *last.ActorID != util.UUIDToString(f.brian) || details.Note != "already decided in the PRD" || published.Reason != "cancelled" {
+				t.Fatalf("cancel event = %+v, details = %+v, publication = %+v", last, details, published)
+			}
+			for _, actor := range []QuestionActor{f.answerer, f.other} {
+				_, err = f.svc.Answer(ctx, f.workspace, id, actor, AnswerQuestionInput{Value: json.RawMessage(`{"option":"per total"}`)})
+				wantQuestionRefusal(t, err, 422)
+				_, err = f.svc.AskBack(ctx, f.workspace, id, actor, "Still open?")
+				wantQuestionRefusal(t, err, 422)
+			}
+			_, err = f.svc.Close(ctx, f.workspace, id, f.asker)
+			wantQuestionRefusal(t, err, 422)
+			_, err = f.svc.Withdraw(ctx, f.workspace, id, f.asker)
+			wantQuestionRefusal(t, err, 422)
+			_, err = f.svc.Cancel(ctx, f.workspace, id, f.answerer, CancelQuestionInput{})
+			wantQuestionRefusal(t, err, 422)
+			open, err := f.svc.CountOpen(ctx, f.workspace, f.brian, "for_me", nil)
+			if err != nil || open.Count != 0 {
+				t.Fatalf("cancelled open count = %+v, %v", open, err)
+			}
+			if n := f.fx.Count(t, `SELECT count(*) FROM agent_task_queue WHERE agent_id = $1`, f.agent); n != 1 {
+				t.Fatalf("cancel without wake created a run: %d", n)
+			}
+		})
+	}
+}
+
+func TestQuestionChatCancelWakeCreatesOneMessageFreeTurn(t *testing.T) {
+	for _, wake := range []bool{false, true} {
+		t.Run(fmt.Sprintf("wake=%t", wake), func(t *testing.T) {
+			ctx := context.Background()
+			f, chat := newQuestionChatFixture(t)
+			result, err := f.svc.Ask(ctx, f.workspace, f.asker, questionSetInput(3, f.brian))
+			if err != nil {
+				t.Fatal(err)
+			}
+			f.finishAskingRun(t)
+			f.answer(t, result.Questions[0], f.answerer, "per line")
+			f.answer(t, result.Questions[1], f.answerer, "per total")
+			id := util.MustParseUUID(result.Questions[2].ID)
+			_, err = f.svc.Cancel(ctx, f.workspace, id, f.answerer, CancelQuestionInput{Note: "already decided in the PRD", Wake: wake})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !wake {
+				if n := f.fx.Count(t, `SELECT count(*) FROM agent_task_queue WHERE chat_session_id = $1`, chat); n != 1 {
+					t.Fatalf("unchecked cancel queued a turn: %d", n)
+				}
+				card, err := f.svc.Get(ctx, f.workspace, id)
+				if err != nil || !card.WakeAvailable || card.UnseenAnswerCount != 3 {
+					t.Fatalf("cancel offers Wake = %+v, %v", card, err)
+				}
+				if _, err := f.svc.Wake(ctx, f.workspace, id, f.other, pgtype.UUID{}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			var taskID string
+			f.fx.QueryRow(t, `SELECT id FROM agent_task_queue WHERE chat_session_id = $1 AND id <> $2`, chat, f.task).Scan(&taskID)
+			task, err := f.svc.Queries.GetAgentTask(ctx, util.MustParseUUID(taskID))
+			if err != nil {
+				t.Fatal(err)
+			}
+			actor := f.brian
+			if !wake {
+				actor = f.anouk
+			}
+			if task.ChatSessionID != chat || task.IssueID.Valid || task.AgentID != f.agent || task.ChatInputTaskID != task.ID ||
+				task.TriggerEvidenceKind.String != string(attribution.EvidenceQuestionWake) || task.TriggerEvidenceRefID != id ||
+				task.InitiatorUserID != actor || task.OriginatorUserID != actor || task.AccountableUserID != actor {
+				t.Fatalf("chat wake identity and attribution = %+v", task)
+			}
+			if n := f.fx.Count(t, `SELECT count(*) FROM chat_message WHERE chat_session_id = $1`, chat); n != 0 {
+				t.Fatalf("wake invented %d user messages", n)
+			}
+			if n := f.fx.Count(t, `SELECT count(*) FROM activity_log WHERE workspace_id = $1 AND action = 'question_wake'`, f.workspace); n != 0 {
+				t.Fatalf("chat wake wrote %d issue activities", n)
+			}
+			_, err = f.svc.Wake(ctx, f.workspace, id, f.answerer, pgtype.UUID{})
+			if !errors.Is(err, ErrDuplicatePendingTask) {
+				t.Fatalf("second chat wake = %v", err)
+			}
+			if n := f.fx.Count(t, `SELECT count(*) FROM agent_task_queue WHERE chat_session_id = $1`, chat); n != 2 {
+				t.Fatalf("chat turns = %d, want asking plus one wake", n)
+			}
+		})
+	}
+}
+
+func TestQuestionChatCancellationSurvivesRefusedWake(t *testing.T) {
+	ctx := context.Background()
+	f, chat := newQuestionChatFixture(t)
+	row := f.ask(t)
+	id := util.MustParseUUID(row.ID)
+	cancelled, err := f.svc.Cancel(ctx, f.workspace, id, f.answerer, CancelQuestionInput{Wake: true})
+	if err != nil || cancelled.Status != "cancelled" {
+		t.Fatalf("cancel while running = %+v, %v", cancelled, err)
+	}
+	if n := f.fx.Count(t, `SELECT count(*) FROM agent_task_queue WHERE chat_session_id = $1`, chat); n != 1 {
+		t.Fatalf("running asker got another turn: %d", n)
+	}
+	f.finishAskingRun(t)
+	card, err := f.svc.Get(ctx, f.workspace, id)
+	if err != nil || !card.WakeAvailable || card.UnseenAnswerCount != 1 {
+		t.Fatalf("saved cancel remains unseen = %+v, %v", card, err)
+	}
+}
+
+func TestQuestionChatUnseenServiceCountsCancelAndIgnoresIssueRuns(t *testing.T) {
+	ctx := context.Background()
+	f, chat := newQuestionChatFixture(t)
+	result, err := f.svc.Ask(ctx, f.workspace, f.asker, questionSetInput(2, f.brian))
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.finishAskingRun(t)
+	f.answer(t, result.Questions[0], f.answerer, "per line")
+	_, err = f.svc.Cancel(ctx, f.workspace, util.MustParseUUID(result.Questions[1].ID), f.answerer, CancelQuestionInput{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.fx.Task(t, util.UUIDToString(f.agent), testutil.Cols{
+		"issue_id": f.issue, "status": "completed",
+		"dispatched_at": testutil.Raw("clock_timestamp()"), "started_at": testutil.Raw("clock_timestamp()"),
+	})
+	scope := QuestionWakeScope{ChatSessionID: chat}
+	count, err := f.svc.CountUnseenAnswers(ctx, f.workspace, f.agent, scope, pgtype.UUID{})
+	if err != nil || count != 2 {
+		t.Fatalf("chat unseen after issue run = %d, %v, want answer plus cancel", count, err)
+	}
+	f.fx.Task(t, util.UUIDToString(f.agent), testutil.Cols{
+		"chat_session_id": chat, "status": "completed",
+		"dispatched_at": testutil.Raw("clock_timestamp()"), "started_at": testutil.Raw("clock_timestamp()"),
+	})
+	count, err = f.svc.CountUnseenAnswers(ctx, f.workspace, f.agent, scope, pgtype.UUID{})
+	if err != nil || count != 0 {
+		t.Fatalf("chat unseen after its next started turn = %d, %v", count, err)
+	}
+}
+
+func TestQuestionChatLinkedIssueAssigneeAndCancelledIssueWakeScopes(t *testing.T) {
+	ctx := context.Background()
+	f, chat := newQuestionChatFixture(t)
+	target := util.MustParseUUID(f.fx.Agent(t, "Issue assignee", util.UUIDToString(f.runtime)))
+	f.fx.Exec(t, `UPDATE issue SET assignee_id = $2 WHERE id = $1`, f.issue, target)
+	input := questionSetInput(1, f.brian)
+	input.Links = []question.LinkRef{{Type: "issue", Ref: util.UUIDToString(f.issue)}}
+	result, err := f.svc.Ask(ctx, f.workspace, f.asker, input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := util.MustParseUUID(result.Questions[0].ID)
+	_, err = f.svc.Cancel(ctx, f.workspace, id, f.answerer, CancelQuestionInput{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.finishAskingRun(t)
+	ids, err := f.svc.WakeScope(ctx, f.workspace, target, QuestionWakeScope{IssueID: f.issue})
+	if err != nil || len(ids) != 1 || ids[0] != id {
+		t.Fatalf("chat question reaches linked issue assignee = %v, %v", ids, err)
+	}
+	card, err := f.svc.Get(ctx, f.workspace, id)
+	if err != nil || len(card.WakeTargets) != 2 {
+		t.Fatalf("wake targets = %+v, %v", card, err)
+	}
+	for _, offered := range card.WakeTargets {
+		if offered.AgentID == util.UUIDToString(f.agent) {
+			if offered.ChatSessionID != util.UUIDToString(chat) || offered.IssueID != "" {
+				t.Fatalf("chat asker offered issue wake = %+v", offered)
+			}
+		} else if offered.AgentID != util.UUIDToString(target) || offered.IssueID != util.UUIDToString(f.issue) || offered.ChatSessionID != "" {
+			t.Fatalf("issue assignee offered wrong scope = %+v", offered)
+		}
+		if !offered.WakeAvailable || offered.UnseenAnswerCount != 1 {
+			t.Fatalf("cancel not offered to target = %+v", offered)
+		}
+	}
+	issueFixture := newQuestionFixture(t)
+	issueQuestion := issueFixture.ask(t)
+	issueID := util.MustParseUUID(issueQuestion.ID)
+	_, err = issueFixture.svc.Cancel(ctx, issueFixture.workspace, issueID, issueFixture.answerer, CancelQuestionInput{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ids, err = issueFixture.svc.WakeScope(ctx, issueFixture.workspace, issueFixture.agent, QuestionWakeScope{IssueID: issueFixture.issue})
+	if err != nil || len(ids) != 1 || ids[0] != issueID {
+		t.Fatalf("cancelled issue question scope = %v, %v", ids, err)
+	}
+}
+
+func TestQuestionChatDeletionWithdrawsOnlyUnlinkedQuestions(t *testing.T) {
+	ctx := context.Background()
+	f, chat := newQuestionChatFixture(t)
+	onlyChat := f.ask(t)
+	input := questionSetInput(1, f.brian)
+	input.Links = []question.LinkRef{{Type: "issue", Ref: util.UUIDToString(f.issue)}}
+	onIssue, err := f.svc.Ask(ctx, f.workspace, f.asker, input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tx, err := f.svc.TxStarter.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback(ctx)
+	ids, err := f.svc.DropLinksOfChat(ctx, f.svc.Queries.WithTx(tx), f.workspace, chat)
+	if err != nil || len(ids) != 2 {
+		t.Fatalf("dropped chat question IDs = %v, %v", ids, err)
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM chat_session WHERE id = $1`, chat); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+	withdrawn, err := f.svc.Get(ctx, f.workspace, util.MustParseUUID(onlyChat.ID))
+	if err != nil || withdrawn.Status != "withdrawn" || len(withdrawn.Links) != 0 {
+		t.Fatalf("chat-only question after delete = %+v, %v", withdrawn, err)
+	}
+	kept, err := f.svc.Get(ctx, f.workspace, util.MustParseUUID(onIssue.Questions[0].ID))
+	if err != nil || kept.Status != "open" || len(kept.Links) != 1 || kept.Links[0].LinkType != "issue" {
+		t.Fatalf("issue-linked question after delete = %+v, %v", kept, err)
+	}
+}

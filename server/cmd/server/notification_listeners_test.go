@@ -1346,18 +1346,25 @@ func TestNotification_StatusChange_ReopenSurfacesNewTaskFailed(t *testing.T) {
 func TestNotification_QuestionRecipientsAndNoAnsweredItem(t *testing.T) {
 	for _, tc := range []struct {
 		name, eventType, reason, inboxType string
+		chat bool
 	}{
-		{"asked", protocol.EventQuestionCreated, "", service.InboxTypeQuestionAsked},
-		{"reassigned", protocol.EventQuestionUpdated, protocol.QuestionReasonReassigned, service.InboxTypeQuestionReassigned},
-		{"overdue", protocol.EventQuestionUpdated, protocol.QuestionReasonOverdue, service.InboxTypeQuestionOverdue},
-		{"answered", protocol.EventQuestionUpdated, protocol.QuestionReasonAnswered, ""},
-		{"answer edited", protocol.EventQuestionUpdated, protocol.QuestionReasonAnswerEdited, ""},
+		{"asked", protocol.EventQuestionCreated, "", service.InboxTypeQuestionAsked, false},
+		{"reassigned", protocol.EventQuestionUpdated, protocol.QuestionReasonReassigned, service.InboxTypeQuestionReassigned, false},
+		{"overdue", protocol.EventQuestionUpdated, protocol.QuestionReasonOverdue, service.InboxTypeQuestionOverdue, false},
+		{"answered", protocol.EventQuestionUpdated, protocol.QuestionReasonAnswered, "", false},
+		{"answer edited", protocol.EventQuestionUpdated, protocol.QuestionReasonAnswerEdited, "", false},
+		{"chat-asked", protocol.EventQuestionCreated, "", service.InboxTypeQuestionAsked, true},
+		{"chat-reassigned", protocol.EventQuestionUpdated, protocol.QuestionReasonReassigned, service.InboxTypeQuestionReassigned, true},
+		{"chat-overdue", protocol.EventQuestionUpdated, protocol.QuestionReasonOverdue, service.InboxTypeQuestionOverdue, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			base := testutil.New(testPool, testWorkspaceID, testUserID)
 			key := tc.reason
 			if key == "" {
 				key = tc.name
+			}
+			if tc.chat {
+				key += "-chat"
 			}
 			first := base.User(t, "Brian", "question-notif-"+key+"-first@multica.test")
 			second := base.User(t, "Anouk", "question-notif-"+key+"-second@multica.test")
@@ -1367,14 +1374,22 @@ func TestNotification_QuestionRecipientsAndNoAnsweredItem(t *testing.T) {
 			fx.Member(t, ws, second, "member")
 			issue := fx.Issue(t, "Invoice rules")
 			agent := fx.Agent(t, "Pieter", "")
-			task := fx.Task(t, agent, testutil.Cols{"issue_id": issue, "status": "completed", "completed_at": testutil.Raw("now()")})
+			chat, linkType, linkID := "", "issue", issue
+			taskCols := testutil.Cols{"issue_id": issue, "status": "completed", "completed_at": testutil.Raw("now()")}
+			if tc.chat {
+				chat = fx.ChatSession(t, agent, testutil.Cols{"title": "Private conversation"})
+				issue, linkType, linkID = "", "chat", chat
+				taskCols["issue_id"] = nil
+				taskCols["chat_session_id"] = chat
+			}
+			task := fx.Task(t, agent, taskCols)
 			questionID := dbid.NewV7()
 			id := fx.Insert(t, "question", testutil.Cols{
 				"id": questionID, "workspace_id": ws, "asker_agent_id": agent, "asked_in_task_id": task,
 				"prompt": "Round per line or total?", "answer_type": "yes_no", "settings": testutil.Raw(`'{"why_on_no":false}'::jsonb`),
 				"ask_id": questionID, "ask_position": 0,
 			})
-			fx.InsertNoID(t, "question_link", testutil.Cols{"question_id": id, "workspace_id": ws, "link_type": "issue", "link_id": issue, "position": 0}, "question_id=$1", id)
+			fx.InsertNoID(t, "question_link", testutil.Cols{"question_id": id, "workspace_id": ws, "link_type": linkType, "link_id": linkID, "position": 0}, "question_id=$1", id)
 			for _, user := range []string{first, second} {
 				fx.InsertNoID(t, "question_answerer", testutil.Cols{"question_id": id, "workspace_id": ws, "user_id": user}, "question_id=$1 AND user_id=$2", id, user)
 			}
@@ -1412,7 +1427,7 @@ func TestNotification_QuestionRecipientsAndNoAnsweredItem(t *testing.T) {
 			}
 			bus.Publish(events.Event{
 				Type: tc.eventType, WorkspaceID: ws, ActorType: actorType, ActorID: actorID,
-				Payload: protocol.QuestionEventPayload{QuestionID: id, AskID: id, QuestionIDs: []string{id}, IssueID: issue, Reason: tc.reason, EventID: reassignmentID},
+				Payload: protocol.QuestionEventPayload{QuestionID: id, AskID: id, QuestionIDs: []string{id}, IssueID: issue, ChatSessionID: chat, Reason: tc.reason, EventID: reassignmentID},
 			})
 			wantTotal := 2
 			if tc.inboxType == "" {
@@ -1446,6 +1461,9 @@ func TestNotification_QuestionRecipientsAndNoAnsweredItem(t *testing.T) {
 					}
 					if details["question_id"] != id {
 						t.Fatalf("question anchor missing: %+v", details)
+					}
+					if tc.chat && (item.IssueID.Valid || details["chat_session_id"] != chat || details["member_id"] != first || item.Title != "Round per line or total?") {
+						t.Fatalf("chat notification leaked private context or lost its anchor: %+v, details = %+v", item, details)
 					}
 					if tc.reason != protocol.QuestionReasonReassigned && (details["ask_id"] != id || details["question_count"] != float64(1)) {
 						t.Fatalf("one-question ask fields missing: %+v", details)
