@@ -38,6 +38,13 @@ func registerTodoListeners(bus *events.Bus, queries *db.Queries) {
 			}
 		})
 	}
+	for _, kind := range []string{protocol.EventIssueUpdated, protocol.EventTaskFailed, protocol.EventTaskDispatch} {
+		bus.Subscribe(kind, func(e events.Event) {
+			if err := agentTodos(context.Background(), svc, e); err != nil {
+				slog.Error("agent todo transition failed", "error", err)
+			}
+		})
+	}
 }
 
 func questionTodos(ctx context.Context, svc todo.Service, e events.Event) error {
@@ -293,4 +300,77 @@ func assignedTodos(ctx context.Context, svc todo.Service, e events.Event) error 
 		return err
 	}
 	return svc.Open(ctx, db.OpenTodoParams{WorkspaceID: workspace, MemberID: member, Kind: todo.Assigned, SourceKey: issue.ID, IssueID: issueID, ActorType: util.StrToText(e.ActorType), ActorID: optionalUUID(e.ActorID), Title: issue.Title})
+}
+
+func agentTodos(ctx context.Context, svc todo.Service, e events.Event) error {
+	p, ok := e.Payload.(map[string]any)
+	if !ok {
+		return nil
+	}
+	workspace, err := util.ParseUUID(e.WorkspaceID)
+	if err != nil {
+		return err
+	}
+	var issueID, taskID string
+	if e.Type == protocol.EventIssueUpdated {
+		issue, ok := p["issue"].(handler.IssueResponse)
+		if !ok {
+			return nil
+		}
+		changed, _ := p["status_changed"].(bool)
+		if !changed {
+			return nil
+		}
+		issueID = issue.ID
+		id, err := util.ParseUUID(issueID)
+		if err != nil {
+			return err
+		}
+		if issue.Status != "blocked" {
+			return svc.CloseOnIssue(ctx, db.CloseTodosOnIssueParams{WorkspaceID: workspace, IssueID: id, Kinds: []string{todo.AgentBlocked, todo.RunFailed}})
+		}
+		if e.ActorType != "agent" || issue.AssigneeType == nil || (*issue.AssigneeType != "agent" && *issue.AssigneeType != "squad") {
+			return nil
+		}
+		taskID, _ = p["source_task_id"].(string)
+		if taskID == "" {
+			return nil
+		}
+	} else {
+		issueID, _ = p["issue_id"].(string)
+		if issueID == "" {
+			return nil
+		}
+		if e.Type == protocol.EventTaskDispatch {
+			id, err := util.ParseUUID(issueID)
+			if err != nil {
+				return err
+			}
+			return svc.CloseOnIssue(ctx, db.CloseTodosOnIssueParams{WorkspaceID: workspace, IssueID: id, Kinds: []string{todo.AgentBlocked, todo.RunFailed}})
+		}
+		taskID, _ = p["task_id"].(string)
+	}
+	taskUUID, err := util.ParseUUID(taskID)
+	if err != nil {
+		return err
+	}
+	task, err := svc.Queries.GetAgentTaskInWorkspace(ctx, db.GetAgentTaskInWorkspaceParams{ID: taskUUID, WorkspaceID: workspace})
+	if err != nil {
+		return err
+	}
+	if !task.OriginatorUserID.Valid || util.UUIDToString(task.IssueID) != issueID {
+		return nil
+	}
+	if e.Type == protocol.EventIssueUpdated && util.UUIDToString(task.AgentID) != e.ActorID {
+		return nil
+	}
+	issue, err := svc.Queries.GetIssueInWorkspace(ctx, db.GetIssueInWorkspaceParams{ID: task.IssueID, WorkspaceID: workspace})
+	if err != nil {
+		return err
+	}
+	kind, source := todo.RunFailed, taskID
+	if e.Type == protocol.EventIssueUpdated {
+		kind, source = todo.AgentBlocked, issueID
+	}
+	return svc.Open(ctx, db.OpenTodoParams{WorkspaceID: workspace, MemberID: task.OriginatorUserID, Kind: kind, SourceKey: source, IssueID: task.IssueID, TaskID: task.ID, ActorType: util.StrToText("agent"), ActorID: task.AgentID, Title: issue.Title})
 }
