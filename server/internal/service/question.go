@@ -1153,13 +1153,11 @@ func (s *QuestionService) wakeInChat(ctx context.Context, workspaceID, questionI
 	}
 	// Chat deletion locks the chat before it withdraws the question, so Wake
 	// locks the chat before the question too. The chat lock also serializes
-	// wakes from different cards and enqueue paths.
+	// wakes from different cards and enqueue paths. Everything Wake decides on
+	// is read again after both locks.
 	session, err := q.LockChatSessionForEnqueue(ctx, scope.ChatSessionID)
-	if err == nil && session.WorkspaceID != workspaceID {
-		err = pgx.ErrNoRows
-	}
-	if err != nil {
-		return QuestionWakeResult{}, questionLoadError(err)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return QuestionWakeResult{}, err
 	}
 	row, err := q.GetQuestionForUpdate(ctx, db.GetQuestionForUpdateParams{ID: questionID, WorkspaceID: workspaceID})
 	if err != nil {
@@ -1169,7 +1167,7 @@ func (s *QuestionService) wakeInChat(ctx context.Context, workspaceID, questionI
 	if err != nil {
 		return QuestionWakeResult{}, err
 	}
-	if current != scope {
+	if current != scope || session.WorkspaceID != workspaceID {
 		return QuestionWakeResult{}, questionRefusal(422, "Wake target changed")
 	}
 	if session.Status != "active" {
