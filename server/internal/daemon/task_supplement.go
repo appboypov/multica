@@ -87,21 +87,29 @@ func waitTaskSupplement(ctx context.Context, wakeup <-chan struct{}, delay time.
 	}
 }
 
-func formatTaskSupplementInstruction(authorName, content string) string {
-	authorName = strings.Join(strings.Fields(authorName), " ")
+func formatTaskSupplementInstruction(issueIdentifier string, supplement *TaskSupplement) string {
+	authorName := strings.Join(strings.Fields(supplement.AuthorName), " ")
 	if authorName == "" {
 		authorName = "a user"
 	}
-	return fmt.Sprintf(`[ADDITIONAL GUIDANCE] Human %s added guidance while you were working.
+	kind := supplement.ItemKind
+	switch kind {
+	case "comment_edit":
+		kind = "edited comment"
+	case "issue_change":
+		kind = "issue change"
+	}
+	return fmt.Sprintf(`[Multica notice] %s from %s on %s (item %s)
 
-Treat this as additional guidance for the same active task, not as a replacement:
-- Preserve and complete the original objective.
-- Incorporate this guidance into the work and the turn's single final response.
-- Do not send a separate acknowledgement.
-- Replace or cancel the original objective only if the human explicitly asks for replacement or cancellation.
+%s
 
-Human message:
-%s`, strconv.Quote(authorName), content)
+This is a notice for the same active task. Preserve and complete the original objective.
+If this item is relevant to your work:
+- When you see it and handle it: multica issue react %s 👀
+- Once handled: multica issue react %s ✅
+Otherwise leave it unmarked.`,
+		kind, strconv.Quote(authorName), issueIdentifier, supplement.ItemID,
+		supplement.Content, supplement.ItemID, supplement.ItemID)
 }
 
 func taskSupplementEndpointUnsupported(err error) bool {
@@ -129,7 +137,7 @@ func taskSupplementFailureReason(ctx context.Context, err error) string {
 // one negotiated run. It performs no HTTP request until the provider confirms a live
 // turn, wakes immediately on a content-free WebSocket hint, and otherwise uses
 // the same five-second cadence as task cancellation polling.
-func (d *Daemon) runTaskSupplementLoop(ctx context.Context, session *agent.Session, taskID string, wakeup <-chan struct{}, taskLog *slog.Logger) {
+func (d *Daemon) runTaskSupplementLoop(ctx context.Context, session *agent.Session, taskID, issueIdentifier string, wakeup <-chan struct{}, taskLog *slog.Logger) {
 	if session == nil || session.Supplement == nil || session.SupplementReady == nil {
 		return
 	}
@@ -163,19 +171,19 @@ func (d *Daemon) runTaskSupplementLoop(ctx context.Context, session *agent.Sessi
 		// The adapter owns transport deadlines. Hook-based providers wait for a
 		// safe boundary, which can follow a long-running tool; run cancellation
 		// still aborts that wait and prevents late delivery.
-		injectErr := session.Supplement(ctx, formatTaskSupplementInstruction(supplement.AuthorName, supplement.Content))
+		injectErr := session.Supplement(ctx, formatTaskSupplementInstruction(issueIdentifier, supplement))
 		reason := taskSupplementFailureReason(ctx, injectErr)
 		if injectErr != nil {
 			// Raw provider/Go diagnostics remain local. Workspace-visible state is
 			// restricted to the stable reason code sent below.
-			taskLog.Warn("additional message injection failed", "comment_id", supplement.CommentID, "reason", reason, "error", injectErr)
+			taskLog.Warn("run input injection failed", "item_id", supplement.ItemID, "item_kind", supplement.ItemKind, "reason", reason, "error", injectErr)
 		}
 
 		ackCtx, cancelAck := context.WithTimeout(context.WithoutCancel(ctx), taskSupplementAckTimeout)
-		ackErr := d.client.AckTaskSupplement(ackCtx, taskID, supplement.CommentID, injectErr == nil, reason)
+		ackErr := d.client.AckTaskSupplement(ackCtx, taskID, supplement.ItemID, injectErr == nil, reason)
 		cancelAck()
 		if ackErr != nil {
-			taskLog.Warn("additional message acknowledgement failed", "comment_id", supplement.CommentID, "error", ackErr)
+			taskLog.Warn("run input acknowledgement failed", "item_id", supplement.ItemID, "item_kind", supplement.ItemKind, "error", ackErr)
 		}
 		// Do not sleep after a claim: drain already-ordered pending rows one at a
 		// time. When empty, the branch above returns to the bounded wait.

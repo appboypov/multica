@@ -47,7 +47,7 @@ func TestTaskSupplementLoopWaitsForTurnReadyBeforeClaim(t *testing.T) {
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		d.runTaskSupplementLoop(ctx, session, "task-ready", wakeup, d.logger)
+		d.runTaskSupplementLoop(ctx, session, "task-ready", "WORK-438", wakeup, d.logger)
 	}()
 	time.Sleep(30 * time.Millisecond)
 	if got := claims.Load(); got != 0 {
@@ -117,7 +117,7 @@ func TestTaskSupplementLoopAcknowledgesBeforeTurnEnds(t *testing.T) {
 			}
 			wakeup, unsubscribe := d.taskSupplementSignals.subscribe("task-ack")
 			defer unsubscribe()
-			d.runTaskSupplementLoop(t.Context(), session, "task-ack", wakeup, d.logger)
+			d.runTaskSupplementLoop(t.Context(), session, "task-ack", "WORK-438", wakeup, d.logger)
 			if injections != 1 {
 				t.Fatalf("injections = %d, want 1", injections)
 			}
@@ -162,7 +162,7 @@ func TestExecuteAndDrainSupplementNegotiation(t *testing.T) {
 			})
 			backend := &supplementGateBackend{}
 			opts := agent.ExecOptions{EnableTaskSupplement: negotiated}
-			if _, _, err := d.executeAndDrain(t.Context(), backend, "original", opts, d.logger, "task", "", new(atomic.Int32)); err != nil {
+			if _, _, err := d.executeAndDrain(t.Context(), backend, "original", opts, d.logger, "task", "", "", new(atomic.Int32)); err != nil {
 				t.Fatal(err)
 			}
 			if backend.enabled != negotiated {

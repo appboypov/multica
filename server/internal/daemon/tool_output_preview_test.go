@@ -85,8 +85,7 @@ func TestExecuteAndDrain_ToolOutputUTF8Boundary(t *testing.T) {
 	close(results)
 	backend := sessionBackend{session: &agent.Session{Messages: messages, Result: results}}
 
-	if _, _, err := d.executeAndDrain(context.Background(), backend, "p", agent.ExecOptions{},
-		slog.Default(), "task-utf8-preview", "", new(atomic.Int32)); err != nil {
+	if _, _, err := d.executeAndDrain(context.Background(), backend, "p", agent.ExecOptions{}, slog.Default(), "task-utf8-preview", "", "", new(atomic.Int32)); err != nil {
 		t.Fatalf("executeAndDrain: %v", err)
 	}
 	reported := rec.snapshot()

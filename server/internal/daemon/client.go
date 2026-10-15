@@ -456,9 +456,9 @@ func (c *Client) ClaimTaskSupplement(ctx context.Context, taskID string) (*TaskS
 	return &supplement, nil
 }
 
-func (c *Client) AckTaskSupplement(ctx context.Context, taskID, commentID string, delivered bool, errText string) error {
+func (c *Client) AckTaskSupplement(ctx context.Context, taskID, itemID string, delivered bool, errText string) error {
 	return c.postJSONWithRetry(ctx,
-		fmt.Sprintf("/api/daemon/tasks/%s/supplements/%s/ack", taskID, commentID),
+		fmt.Sprintf("/api/daemon/tasks/%s/supplements/%s/ack", taskID, itemID),
 		map[string]any{"delivered": delivered, "error": errText}, nil,
 		[]time.Duration{0, 100 * time.Millisecond, 300 * time.Millisecond})
 }
