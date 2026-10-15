@@ -120,15 +120,15 @@ func TestQuestionPartlyAnsweredRemainsUnseenAndOverdue(t *testing.T) {
 	}
 	f.fx.Exec(t, `UPDATE question SET answer_policy = 'each', status = 'partly_answered' WHERE id = $1`, id)
 	q := f.svc.Queries
-	count, err := q.CountUnseenQuestionAnswers(ctx, db.CountUnseenQuestionAnswersParams{IssueID: f.issue, WorkspaceID: f.workspace, AgentID: f.agent})
+	count, err := q.CountUnseenQuestionAnswers(ctx, db.CountUnseenQuestionAnswersParams{IssueID: f.issue, WorkspaceID: f.workspace, AgentID: f.agent, QuestionIds: []pgtype.UUID{id}})
 	if err != nil || count != 1 {
 		t.Fatalf("unseen count = %d, %v, want 1", count, err)
 	}
-	answers, err := q.ListUnseenQuestionAnswers(ctx, db.ListUnseenQuestionAnswersParams{IssueID: f.issue, WorkspaceID: f.workspace, AgentID: f.agent})
+	answers, err := q.ListUnseenQuestionAnswers(ctx, db.ListUnseenQuestionAnswersParams{IssueID: f.issue, WorkspaceID: f.workspace, AgentID: f.agent, QuestionIds: []pgtype.UUID{id}})
 	if err != nil || len(answers) != 1 || answers[0].QuestionID != id {
 		t.Fatalf("unseen answers = %+v, %v", answers, err)
 	}
-	replies, err := q.ListUnseenQuestionAskBacks(ctx, db.ListUnseenQuestionAskBacksParams{IssueID: f.issue, WorkspaceID: f.workspace, AgentID: f.agent})
+	replies, err := q.ListUnseenQuestionAskBacks(ctx, db.ListUnseenQuestionAskBacksParams{IssueID: f.issue, WorkspaceID: f.workspace, AgentID: f.agent, QuestionIds: []pgtype.UUID{id}})
 	if err != nil || len(replies) != 1 || replies[0].QuestionID != id {
 		t.Fatalf("unseen replies = %+v, %v", replies, err)
 	}
@@ -383,7 +383,7 @@ func TestQuestionUnseenTracksClaimsAndAnswerEdits(t *testing.T) {
 	if row.UnseenAnswerCount != 1 || !row.WakeAvailable {
 		t.Fatalf("edit after claim: count=%d wake=%v", row.UnseenAnswerCount, row.WakeAvailable)
 	}
-	answers, err := f.svc.Queries.ListUnseenQuestionAnswers(ctx, db.ListUnseenQuestionAnswersParams{WorkspaceID: f.workspace, IssueID: f.issue, AgentID: f.agent})
+	answers, err := f.svc.Queries.ListUnseenQuestionAnswers(ctx, db.ListUnseenQuestionAnswersParams{WorkspaceID: f.workspace, IssueID: f.issue, AgentID: f.agent, QuestionIds: []pgtype.UUID{util.MustParseUUID(row.ID)}})
 	if err != nil || len(answers) != 1 || !strings.Contains(string(answers[0].Value), "per total") {
 		t.Fatalf("unseen answers = %+v, %v", answers, err)
 	}
@@ -1095,7 +1095,11 @@ func TestQuestionSetWakeFromAnyStatusKeepsStatusAndGetsAllUnseenAnswers(t *testi
 			if err != nil || task.IssueID != f.issue || task.AgentID != f.agent || task.TriggerEvidenceRefID != id {
 				t.Fatalf("wake task = %+v, %v", task, err)
 			}
-			unseen, err := f.svc.Queries.ListUnseenQuestionAnswers(ctx, db.ListUnseenQuestionAnswersParams{WorkspaceID: f.workspace, IssueID: f.issue, AgentID: f.agent})
+			scope, err := f.svc.WakeScope(ctx, f.workspace, f.agent, f.issue)
+			if err != nil {
+				t.Fatal(err)
+			}
+			unseen, err := f.svc.Queries.ListUnseenQuestionAnswers(ctx, db.ListUnseenQuestionAnswersParams{WorkspaceID: f.workspace, IssueID: f.issue, AgentID: f.agent, QuestionIds: scope})
 			if err != nil || int64(len(unseen)) != wake.AnswerCount {
 				t.Fatalf("queued run must receive all unseen answers: %+v, %v", unseen, err)
 			}

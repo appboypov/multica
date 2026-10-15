@@ -15,6 +15,7 @@ What is above what changes all the time and outside the question: a sub-issue is
 Nothing stores which parents a question has. The server reads them from the live issue tree, comment, run and project at the moment of each read:
 
 - One rule, in one SQL file, in two forms. Upward, for given questions: the reached objects and their assignees, for Wake targets and "via". Downward, for given issues or projects: the questions whose links are in their subtree, for the parent lists, On my work and the counts.
+- Direct unseen-answer and ask-back queries receive explicit question IDs; issue-wide reads use the question IDs from the agent's Wake scope.
 - The recursive walks use `UNION`, so a cycle in the tree ends the walk.
 - A test runs the same fixtures through both forms: a question is in X's downward list exactly when X is in its upward reach.
 - Lists and counts stay in the one row list of ADR-0006; the client only formats "via".
