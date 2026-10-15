@@ -25,11 +25,11 @@ sequenceDiagram
 | Role | `client` workspace role, bound to one organisation of the workspace | new | `server/migrations/`, `server/pkg/db/` |
 | Invitation | Named invitation with role `client` and its organisation | changed | `server/internal/handler/invitation.go` |
 | Member management | Role and organisation of a client membership | changed | `server/internal/handler/workspace.go` |
-| Access rule | Client refused on every entry point outside the session list | new | `server/internal/middleware/workspace.go`, `server/cmd/server/router.go` |
-| Session | Current membership with role and organisation | changed | `server/cmd/server/router.go` |
+| Access rule | Client refused on every entry point outside the session list | new | `server/internal/middleware/client_gate.go`, `server/internal/middleware/auth.go`, `server/internal/middleware/daemon_auth.go`, `server/cmd/server/router.go` |
+| Session | Current membership with role and organisation | new | `server/internal/handler/membership.go`, `server/cmd/server/router.go` |
 | Live updates | Client excluded from workspace subscriptions | changed | `server/internal/realtime/hub.go` |
-| Assignee | Client contact as member assignee | changed | `server/internal/handler/issue.go` |
 | CLI | `multica workspace member invite --role client` with an organisation | changed | `server/cmd/multica/cmd_workspace.go` |
+| API client | Member and invitation response parsing | changed | `packages/core/api/client.ts`, `packages/core/api/schemas.ts` |
 
 ## Why
 

@@ -1,6 +1,7 @@
 package realtime
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -559,7 +560,7 @@ func (h *Hub) BroadcastToScopeDedup(scopeType, scopeID string, message []byte, e
 }
 
 func (h *Hub) dropDemotedClients(scopeType, scopeID string, message []byte) {
-	if scopeType != ScopeWorkspace || scopeID == "" {
+	if scopeType != ScopeWorkspace || scopeID == "" || !bytes.Contains(message, []byte("member:updated")) {
 		return
 	}
 	var frame struct {

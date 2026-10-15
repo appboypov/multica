@@ -123,7 +123,7 @@ flowchart LR
   projsync -->|"REST /api/organisations, /api/projects,<br/>/api/issues/batch-update"| router
   brain -->|"read only"| projsync
   projsync --> marks
-  mw --> orgh
+  clientgate --> orgh
   orgh --> sqlc
   orgh -->|"organisation:created, organisation:updated"| bus
   clients -->|"WS /ws"| hub

@@ -38,7 +38,8 @@ flowchart LR
   share["internal/handler/share_link.go<br/>JoinByShareLink"]:::changed
   mem["internal/handler/membership.go<br/>ListMyMemberships"]:::new
   mc["cmd/server/router.go<br/>membershipChecker.IsMember"]:::changed
-  hub["internal/realtime/hub.go<br/>BroadcastToScopeDedup, dropDemotedClients"]:::changed
+  hub["internal/realtime/hub.go<br/>BroadcastToScopeDedup, dropDemotedClients, registerClient"]:::changed
+  relay["internal/realtime/redis_relay.go<br/>subscribeScope, startConsumer"]:::changed
   sqlc["pkg/db/queries<br/>member.sql, invitation.sql"]:::changed
   mig["server/migrations<br/>732_client_membership"]:::new
   pg[("PostgreSQL")]
@@ -61,6 +62,7 @@ flowchart LR
   mig -.-> pg
   clients -->|"WS /ws"| mc
   mc --> sqlc
+  hub -->|"relay subscription readiness"| relay
   ws -->|"member:updated"| bus --> listeners --> hub
 ```
 
@@ -169,7 +171,7 @@ sequenceDiagram
 | Endpoint | `PATCH /api/workspaces/{id}/members/{memberId}`: role `client` with `organisation_id`, staff state revoked | changed | `server/internal/handler/workspace.go`, `server/internal/handler/workspace_revoke.go` |
 | Endpoint | `POST /api/share-links/join`: refused with a pending client invitation | changed | `server/internal/handler/share_link.go` |
 | Response | `organisation_id` on member and invitation responses | changed | `server/internal/handler/workspace.go`, `server/internal/handler/invitation.go` |
-| Realtime | `membershipChecker.IsMember` refuses a client; hub drops a demoted member's connections | changed | `server/cmd/server/router.go`, `server/internal/realtime/hub.go` |
+| Realtime | `membershipChecker.IsMember` refuses a client; hub drops demoted connections and checks membership after relay readiness | changed | `server/cmd/server/router.go`, `server/internal/realtime/hub.go`, `server/internal/realtime/redis_relay.go` |
 | CLI | `multica workspace member invite --role client --organisation` | changed | `server/cmd/multica/cmd_workspace.go` |
 | Docs | CLI invite example | changed | `apps/docs/content/docs/cli.mdx` |
 | API client | Member and invitation responses parsed with `parseWithFallback` | changed | `packages/core/api/client.ts`, `packages/core/api/schemas.ts` |
