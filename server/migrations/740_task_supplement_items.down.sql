@@ -1,4 +1,4 @@
--- 721 down builds this index concurrently before the key is restored.
+-- 741 down builds this index concurrently before the key is restored.
 SET LOCAL lock_timeout = '2s';
 SET LOCAL statement_timeout = '10s';
 

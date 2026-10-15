@@ -148,9 +148,9 @@ flowchart LR
 
 | Kind | Name | Change | Path |
 |---|---|---|---|
-| Migration | `task_supplement` items, content, 👀 and ✅ times | new | `server/migrations/720_task_supplement_items.up.sql`, `.down.sql` |
-| Migration | Unique index on `(item_id, task_id)` | new | `server/migrations/721_task_supplement_item_task_index.up.sql`, `.down.sql` |
-| Migration | Primary key on `(item_id, task_id)` | new | `server/migrations/722_task_supplement_item_task_primary_key.up.sql`, `.down.sql` |
+| Migration | `task_supplement` items, content, 👀 and ✅ times | new | `server/migrations/740_task_supplement_items.up.sql`, `.down.sql` |
+| Migration | Unique index on `(item_id, task_id)` | new | `server/migrations/741_task_supplement_item_task_index.up.sql`, `.down.sql` |
+| Migration | Primary key on `(item_id, task_id)` | new | `server/migrations/742_task_supplement_item_task_primary_key.up.sql`, `.down.sql` |
 | Migrator | Index cleanup entry | changed | `server/cmd/migrate/main.go` |
 | Queries | Receipt create per kind, claim with kind and item, react, reconcile reads ✅, unseen answers leave out ✅ | changed | `server/pkg/db/queries/supplement.sql`, `comment.sql`, `question.sql` |
 | Service | `RunInputService`: receipts for comments, answers and issue changes | new | `server/internal/service/run_input.go` |
@@ -233,4 +233,4 @@ What exists and is reused:
 
 ## Migration Plan
 
-Migrations 720 to 722 run with `make migrate`; existing rows get `item_kind = 'comment'` and `item_id = comment_id`. The down migrations restore the `(comment_id, task_id)` key in the reverse of `548` and `549`, so every index is still built `CONCURRENTLY` in a single-statement file: 722 down deletes the rows that are not `comment` receipts, drops the item key and sets `comment_id NOT NULL`; 721 down rebuilds `task_supplement_comment_task_uidx` concurrently; 720 down attaches it as the primary key and drops the new columns. A daemon without the new claim fields still delivers comments; answers and changes need the daemon of this change. Release: `make local-release` after merge.
+Migrations 740 to 742 run with `make migrate`; existing rows get `item_kind = 'comment'` and `item_id = comment_id`. The down migrations restore the `(comment_id, task_id)` key in the reverse of `548` and `549`, so every index is still built `CONCURRENTLY` in a single-statement file: 742 down deletes the rows that are not `comment` receipts, drops the item key and sets `comment_id NOT NULL`; 741 down rebuilds `task_supplement_comment_task_uidx` concurrently; 740 down attaches it as the primary key and drops the new columns. A daemon without the new claim fields still delivers comments; answers and changes need the daemon of this change. Release: `make local-release` after merge.
