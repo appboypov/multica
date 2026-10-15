@@ -50,12 +50,9 @@ The arrows into screen 6 show the last open to-do leaving; with more to-dos open
 |---|---|---|---|
 | Design | Screens of the to-do inbox and Updates, 8 frames | new | `designs/screens/todo-inbox.pen` |
 | Design | One PNG per screen | new | `designs/screens/exports/` |
-| UX spec | This document | new | `designs/screens/todo-inbox.md` |
+| UX spec | To-do inbox and Updates | new | `designs/screens/todo-inbox.md` |
 | Component | App sidebar: **Updates** item under Inbox | changed | `designs/systems/multica.lib.pen` |
 | Design | PNG of the App sidebar | changed | `designs/exports/library-app-sidebar.png` |
-| Screen | Inbox: to-do rows, detail pane per kind, Mark done, empty state | changed | `packages/views/inbox/components/` |
-| Screen | Updates: the current notification list on its own page | new | `packages/views/inbox/components/` |
-| Navigation | Sidebar item **Updates**, without a number | new | app sidebar |
 
 No token or colour is added. The only library change is the **Updates** item in the App sidebar.
 
