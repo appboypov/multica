@@ -388,7 +388,8 @@ flowchart TB
     instrfield["agents/components<br/>instructions-field.tsx InstructionsField,<br/>runtime-file-browser.tsx RuntimeFileBrowser"]
     skillstab["agents/components/tabs/skills-tab.tsx<br/>SkillsTab, CapabilitySection<br/>Switch"]
     projtable["projects/components<br/>project-table.tsx ProjectTable,<br/>organisation-picker.tsx OrganisationPicker"]
-    questions["questions<br/>question-card.tsx QuestionCard,<br/>answer-controls AnswerControl,<br/>reassign-picker.tsx, wake-button.tsx"]
+    questions["questions<br/>question-card.tsx QuestionCard,<br/>answer-controls AnswerControl,<br/>reassign-picker.tsx, wake-button.tsx,<br/>row-link.ts chatRowHref"]
+    chatquestions["chat/components<br/>chat-question-cards.tsx ChatQuestionCards,<br/>chat/lib/question-placement.ts placeQuestionCards"]
     composer["issues/components<br/>comment-input.tsx, reply-input.tsx, comment-trigger-chips.tsx;<br/>issues/hooks/use-recipient-actions.ts"]
     marks["issues/components/run-input-marks.tsx<br/>RunInputMarks: 👀 and ✅ with the agent's name<br/>on comments, answers, activity rows"]
     checkviews["inbox/components<br/>todo-check-body.tsx TodoCheckBody,<br/>todo-instruction-body.tsx TodoInstructionBody,<br/>project-check-record.tsx ProjectCheckRecord;<br/>projects/components/project-detail.tsx"]
@@ -404,7 +405,7 @@ flowchart TB
     dirlisting["runtimes/directory-listing.ts<br/>runtimeDirectoryListingOptions"]
     steering["issues/run-steering.ts<br/>resolveRecipientAction, recipientRouting:<br/>Add to current run by default"]
     runinputtypes["types/run-input.ts<br/>RunInputMark, RunInputItemKind"]
-    corequestions["questions<br/>queries.ts, mutations.ts,<br/>ws-updaters.ts, validate.ts validateAnswer"]
+    corequestions["questions<br/>queries.ts chatQuestionsOptions, mutations.ts,<br/>scope.ts QuestionScope,<br/>ws-updaters.ts, validate.ts validateAnswer"]
     corechecks["todos/checks.ts<br/>useAnswerCheckTodo, useProjectCheckTrust,<br/>useSetCheckSampling, useCheckHistory"]
     releases["releases/queries.ts, mutations.ts<br/>workspace-scoped detail, issues,<br/>comments, activity and owner writes"]
     realtime["realtime/use-realtime-sync.ts<br/>useRealtimeSync, run_input:reacted refetches<br/>the timeline and question queries"]
@@ -443,6 +444,9 @@ flowchart TB
   dirlisting --> api
   pages --> ui
   pages --> questions
+  pages --> chatquestions
+  chatquestions --> questions
+  chatquestions --> corequestions
   questions --> corequestions
   questions --> ui
   pages --> composer
