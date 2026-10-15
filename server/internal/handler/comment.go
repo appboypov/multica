@@ -2749,6 +2749,9 @@ func (h *Handler) computeCommentAgentTriggers(ctx context.Context, issue db.Issu
 			if triggers, handled := h.routeGuestSquadLeaderFallback(ctx, issue, parentComment, actorID, opts); handled {
 				return triggers, nil
 			}
+			if triggers, handled := h.routeDelegatingParentSquadLeaders(ctx, issue, actorID, opts); handled {
+				return triggers, nil
+			}
 		}
 		if issue.AssigneeType.Valid && issue.AssigneeType.String == "squad" {
 			if trigger, ok := h.routeAssignedSquadLeaderFallback(ctx, issue, actorType, actorID, opts); ok {
@@ -2929,6 +2932,80 @@ func (h *Handler) routeGuestSquadLeaderFallback(ctx context.Context, issue db.Is
 	}
 	trigger.NonLeaderAgentReply = true
 	return []commentAgentTrigger{trigger}, true
+}
+
+// routeDelegatingParentSquadLeaders closes the main-leader→sub-squad→main-leader
+// loop (ADR-0017). A sub-squad leader reports in its own leader run, replying
+// under its worker's result, so no comment of the main leader is its parent:
+// the main squad is found from its delegation instead, a leader-run comment of
+// its current leader that @mentions the sub-squad on this issue. Each such
+// squad's leader takes the report as a worker result wakes it today; the
+// issue's assigned squad keeps today's assignee route. An author that is no
+// current sub-squad leader in a leader run, or a sub-squad nobody delegated
+// to, is not handled and routing continues as today.
+func (h *Handler) routeDelegatingParentSquadLeaders(ctx context.Context, issue db.Issue, authorID string, opts commentTriggerComputeOptions) ([]commentAgentTrigger, bool) {
+	if !opts.AuthoringTaskID.Valid {
+		return nil, false
+	}
+	task, err := h.Queries.GetAgentTask(ctx, opts.AuthoringTaskID)
+	if err != nil || !task.IsLeaderTask || !task.SquadID.Valid || !task.AgentID.Valid ||
+		uuidToString(task.AgentID) != authorID || !task.IssueID.Valid ||
+		uuidToString(task.IssueID) != uuidToString(issue.ID) {
+		return nil, false
+	}
+	sub, err := h.Queries.GetSquadInWorkspace(ctx, db.GetSquadInWorkspaceParams{
+		ID:          task.SquadID,
+		WorkspaceID: issue.WorkspaceID,
+	})
+	if err != nil || sub.ArchivedAt.Valid || uuidToString(sub.LeaderID) != authorID {
+		return nil, false
+	}
+	parents, err := h.Queries.ListDelegatingParentSquads(ctx, db.ListDelegatingParentSquadsParams{
+		WorkspaceID: issue.WorkspaceID,
+		SubSquadID:  sub.ID,
+		IssueID:     issue.ID,
+	})
+	if err != nil || len(parents) == 0 {
+		return nil, false
+	}
+	var triggers []commentAgentTrigger
+	seen := make(map[string]struct{}, len(parents))
+	for i := range parents {
+		parent := parents[i]
+		var trigger commentAgentTrigger
+		if issue.AssigneeType.Valid && issue.AssigneeType.String == "squad" && issue.AssigneeID == parent.ID {
+			t, ok := h.routeAssignedSquadLeaderFallback(ctx, issue, "agent", authorID, opts)
+			if !ok {
+				continue
+			}
+			trigger = t
+		} else {
+			agent, err := h.Queries.GetAgentInWorkspace(ctx, db.GetAgentInWorkspaceParams{
+				ID:          parent.LeaderID,
+				WorkspaceID: issue.WorkspaceID,
+			})
+			if err != nil || !agent.RuntimeID.Valid || agent.ArchivedAt.Valid {
+				continue
+			}
+			if !h.canInvokeAgent(ctx, agent, "agent", authorID, opts.OriginatorUserID, uuidToString(issue.WorkspaceID)) {
+				continue
+			}
+			hasPending, err := h.hasPendingTaskForIssueAndAgent(ctx, issue.ID, agent.ID, opts)
+			if err != nil {
+				continue
+			}
+			trigger = commentAgentTrigger{Agent: agent, Source: commentTriggerSourceThreadParent, Squad: &parent, AlreadyPending: hasPending}
+		}
+		// One run per agent, as for explicit mentions.
+		id := uuidToString(trigger.Agent.ID)
+		if _, dup := seen[id]; dup {
+			continue
+		}
+		seen[id] = struct{}{}
+		trigger.NonLeaderAgentReply = true
+		triggers = append(triggers, trigger)
+	}
+	return triggers, true
 }
 
 func (h *Handler) routeThreadRootOwners(ctx context.Context, issue db.Issue, parent *db.Comment, memberID string, opts commentTriggerComputeOptions) ([]commentAgentTrigger, bool) {

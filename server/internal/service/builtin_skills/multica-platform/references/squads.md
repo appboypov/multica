@@ -128,10 +128,26 @@ write it as if every member automatically receives it.
 
 ## Squad member fields
 
-- `member_type` — `agent` or `member`.
-- `member_id` — ID of the agent or workspace member.
+- `member_type` — `agent`, `member` or `squad`.
+- `member_id` — ID of the agent, workspace member or squad.
 - `role` — roster role label. A non-empty `role` appears in the leader briefing
   roster. It does not create scheduling, permissions, or routing behavior.
+
+## Sub-squads
+
+A squad can be a member of another squad. The main squad's leader sees it in
+the roster as a `squad` row with a `[@Name](mention://squad/<id>)` mention and
+hands it work with that mention, which wakes the sub-squad's leader in its
+leader role. When the sub-squad's leader then posts a comment that @mentions
+nobody, the main squad's leader wakes, as a worker's result wakes it.
+
+- Adding a squad that would make a loop, at any depth, is refused with the
+  loop's path. A squad cannot hold itself.
+- A sub-squad cannot have the same leader as a squad it is a member of. Adding
+  it, or changing either leader to that pairing, is refused.
+- An archived sub-squad is not listed in the roster.
+- Inbox notices, squad questions and "involves me" reach direct members of the
+  named squad only, never members of its sub-squads.
 
 ## Creation and leader membership
 

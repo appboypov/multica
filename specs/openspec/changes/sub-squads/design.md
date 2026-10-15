@@ -1,6 +1,6 @@
 ## At a glance
 
-The delta of this change on the living system design, `specs/docs/system-design.md`. It adds no container. The Go server, its database and the CLI change; the daemon, web, desktop and mobile do not. The UI follows as its own change.
+The delta of this change on the living system design, `specs/docs/system-design.md`. It adds no container. The Go server, its database and the CLI change in the backend's pull request; web and desktop change in the Frontend team's pull request on top of it; the daemon and mobile do not change.
 
 ```mermaid
 C4Container
@@ -12,7 +12,7 @@ C4Container
     Container(server, "Go server", "Go, Chi", "changed: member add checks, leader change check, roster, comment routing")
     ContainerDb(pg, "PostgreSQL", "pgx, sqlc", "changed: squad_member.member_type allows squad")
     Container(daemon, "Daemon", "Go", "unchanged")
-    Container(web, "Web and desktop", "Next.js, Electron", "unchanged here; UI change follows")
+    Container(web, "Web and desktop", "Next.js, Electron", "changed: add-member picker lists squads, member rows render a squad")
   }
   Rel(brian, cli, "Runs")
   Rel(agent, cli, "Runs")
@@ -28,10 +28,10 @@ flowchart LR
   classDef changed fill:#fff1cc,stroke:#b7791f,color:#172117
   add["handler/squad.go<br/>AddSquadMember: squad branch"]:::changed
   upd["handler/squad.go<br/>UpdateSquad: leader check"]:::changed
-  nest["handler/squad_nesting.go<br/>checkSquadNesting, checkLeaderAgainstNesting"]:::new
+  nest["handler/squad_nesting.go<br/>squadNestingRefusal, squadLeaderNestingRefusal"]:::new
   roster["handler/squad_briefing.go<br/>renderMemberRow: squad"]:::changed
   route["handler/comment.go<br/>routeDelegatingParentSquadLeaders"]:::new
-  q["queries/squad.sql<br/>LockSquadNesting, FindSquadNestingLoop,<br/>ListSquadsNestedWithLeader, ListDelegatingParentSquads"]:::new
+  q["queries/squad.sql<br/>LockSquadNesting, ListSquadNestingMemberships,<br/>ListSquadsNestedWithLeader, ListDelegatingParentSquads"]:::new
   add --> nest
   upd --> nest
   nest --> q
@@ -78,7 +78,7 @@ sequenceDiagram
 | Kind | Name | Change | Path |
 |---|---|---|---|
 | Migration | `732_squad_member_squad` | new | `server/migrations/732_squad_member_squad.up.sql`, `.down.sql` |
-| Query | `LockSquadNesting`, `FindSquadNestingLoop`, `ListSquadsNestedWithLeader`, `ListDelegatingParentSquads` | new | `server/pkg/db/queries/squad.sql` |
+| Query | `LockSquadNesting`, `ListSquadNestingMemberships`, `ListSquadsNestedWithLeader`, `ListDelegatingParentSquads` | new | `server/pkg/db/queries/squad.sql` |
 | Service | nesting checks | new | `server/internal/handler/squad_nesting.go` |
 | Endpoint | `POST /api/squads/{id}/members` | changed | `server/internal/handler/squad.go` |
 | Endpoint | `PUT /api/squads/{id}` | changed | `server/internal/handler/squad.go` |
@@ -90,7 +90,7 @@ sequenceDiagram
 
 ## Context
 
-Team: Backend (`as-backend-lead`, Joeri). The UI is the Frontend team's own change after this one: `SquadMemberType` gains `"squad"` in `packages/core/types/squad.ts`, a zod schema with fallback for squad member list, preview and status responses in `packages/core/api/schema.ts`, the add-member picker lists squads, and member rows render a squad. This change keeps out of those files.
+Team: Backend (`as-backend-lead`, Joeri) builds groups 1 to 6. The UI, group 7, is the Frontend team's pull request on top of the backend's: `SquadMemberType` gains `"squad"` in `packages/core/types/squad.ts`, a zod schema with fallback for squad member list, preview and status responses in `packages/core/api/schema.ts`, the add-member picker lists squads, and member rows render a squad. The backend's pull request keeps out of those files.
 
 Code map:
 
@@ -118,12 +118,12 @@ Never:
 
 - Walk sub-squads for notices, questions, "involves me" or status.
 - Add a depth cap or runtime loop guard.
-- Touch web, desktop or mobile files.
+- Touch web, desktop or mobile files in the backend's pull request.
 
 ## Decisions
 
 1. **One workspace advisory lock for nesting writes.** `LockSquadForUpdate` on one squad cannot stop a loop closed by two adds on disjoint squads (spec "Two adds at the same time"). Adding a `squad` member and changing a leader take `pg_advisory_xact_lock(hashtextextended(workspace_id || ':squad_nesting', 0))` in their transaction before they check. Adding an `agent` or `member` does not take it.
-2. **Loop check as one recursive query.** `FindSquadNestingLoop(child, parent)` walks `squad_member` rows of type `squad` down from the added squad, carrying the path, and returns the path to the main squad when it is reached; the handler resolves names and answers 400 `adding <child> would create a loop: <parent> → <child> → … → <parent>`. A self-add returns the path at once. Archived squads stay in the walk: their rows still exist.
+2. **Loop check as one breadth-first walk.** `ListSquadNestingMemberships(workspace)` reads every `squad_member` row of type `squad` in the workspace in one query, in the order they were added. `squadNestingLoop` walks them breadth-first down from the added squad, visiting each squad once and keeping the squad it was reached from, and returns the shortest path to the main squad when it is reached. The work grows with squads and memberships, not with paths: a squad may sit in several squads and nesting has no depth limit, so a walk over every path grows exponentially while the add holds the nesting lock. The handler resolves names and answers 409 `adding <child> would create a loop: <parent> → <child> → … → <parent>`. A self-add returns the path at once. Archived squads stay in the walk: their rows still exist.
 3. **Same leader is checked on both writes.** Adding refuses a child whose `leader_id` equals the parent's. Changing a leader runs `ListSquadsNestedWithLeader(squad, new_leader)` over direct, non-archived parents and children of the squad. Only direct pairs stall a hand-off, so deeper levels may share a leader.
 4. **Report-back is found from the delegation, not the reply parent.** `routeDelegatingParentSquadLeaders` runs for an agent comment without mentions whose authoring task is a leader task of squad S on this issue, by the same agent. `ListDelegatingParentSquads(S, issue)` returns each non-archived squad P with S as a member, where a comment on the issue, not deleted, written by a leader task of P whose agent is P's current leader, contains `mention://squad/<S>`. Each P that is not the issue's assigned squad becomes a `thread_parent` trigger for P's leader with `Squad = P` and `NonLeaderAgentReply`, checked with `canInvokeAgent`, runtime and archive as `routeReplyToParentAuthor` checks. When P is the assigned squad, the route leaves it to `routeAssignedSquadLeaderFallback`, so that case runs as today. With no P left, routing continues as today.
 5. **Adding a squad uses the agent access rule on its leader.** A regular member may add a squad only when `memberCanWireAgent` allows its leader, as for adding that agent.
@@ -132,7 +132,7 @@ Never:
 ## Risks / Trade-offs
 
 - A sub-squad report wakes every main squad that delegated to it on the issue, once each; two main squads sharing a sub-squad on one issue both wake. Each leader evaluates and records `no_action` when nothing is needed.
-- Older desktop clients get `member_type: "squad"` rows before the UI change ships; the UI change adds the fallback.
+- Older desktop clients get `member_type: "squad"` rows before the UI pull request ships; it adds the fallback.
 
 ## Migration Plan
 

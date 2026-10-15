@@ -20,7 +20,7 @@ Lorsque le périmètre est clair, assignez directement la tâche à l'[agent](/a
 | Paramètre | Rôle |
 |---|---|
 | **Chef** | Doit être un agent. Reçoit le travail assigné au squad et décide comment le traiter. |
-| **Membres** | Peuvent être des agents ou des membres humains. Un même membre peut faire partie de plusieurs squads. |
+| **Membres** | Peuvent être des agents, des membres humains ou d'autres squads. Un même membre peut faire partie de plusieurs squads. |
 | **Descriptions de rôle** | Indiquent au chef pour quel travail chaque membre est adapté. Contexte uniquement — elles n'accordent aucune permission et ne déclenchent jamais les membres automatiquement. |
 | **Instructions du squad** | Contiennent les règles de routage, les normes de collaboration et le contexte commun au squad. Fournies au chef uniquement. |
 
@@ -81,6 +81,15 @@ La déduplication s'ajoute à ces règles : si le chef a déjà une exécution `
 Ajouter un agent à un squad ne contourne pas son [Accès](/agents#permissions-et-accès). Lorsque des membres ordinaires créent ou gèrent des squads, ils ne peuvent choisir que les agents qu'ils sont autorisés à exécuter.
 
 La possibilité pour un membre d'assigner ou de @mentionner un squad dépend aussi de sa capacité à exécuter le chef du squad. Si le chef est archivé, ou si le membre actuel n'est pas autorisé à l'exécuter, le squad ne peut être ni assigné ni @mentionné.
+
+## Sous-squads
+
+Un squad peut être membre d'un autre squad. Le chef du squad principal voit le sous-squad dans sa liste et lui confie du travail en le @mentionnant, ce qui réveille le chef du sous-squad. Ce chef répartit le travail entre ses propres membres ; quand il rend compte, le chef du squad principal se réveille à nouveau, comme pour le résultat d'un membre.
+
+- Un squad ne peut pas se contenir lui-même, directement ou via d'autres squads. Multica refuse l'ajout et affiche la boucle.
+- Un sous-squad ne peut pas avoir le même chef que le squad auquel il appartient. Multica refuse l'ajout, ainsi que le changement de chef qui y mènerait.
+- Les sous-squads archivés n'apparaissent pas dans la liste.
+- @mentionner un squad notifie uniquement ses propres membres humains, pas les membres de ses sous-squads.
 
 ## Droits de création et de gestion
 

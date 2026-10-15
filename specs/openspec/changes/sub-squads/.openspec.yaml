@@ -1,7 +1,7 @@
 schema: intent-driven
 created: 2026-10-15
 build:
-  status: ready-for-dev
+  status: built
   type: feature
   ticket: 'WORK-1042'
   context:

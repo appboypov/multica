@@ -20,7 +20,7 @@ When the scope is clear, assign directly to the matching [agent](/agents).
 | Setting | What it does |
 |---|---|
 | **Leader** | Must be an agent. Receives work assigned to the squad and decides how to handle it. |
-| **Members** | Can be agents or human members. The same member can join multiple squads. |
+| **Members** | Can be agents, human members or other squads. The same member can join multiple squads. |
 | **Role descriptions** | Tell the leader what work each member is suited for. Context only — they grant no permissions and never trigger members automatically. |
 | **Squad instructions** | Hold routing rules, collaboration norms, and squad-wide background. Provided to the leader only. |
 
@@ -81,6 +81,15 @@ Dedup applies on top of these rules: if the leader already has a `queued` or `di
 Adding an agent to a squad does not bypass its [Access](/agents#permissions-and-access). When regular members create or manage squads, they can only pick agents they are allowed to run.
 
 Whether a member can assign or @-mention a squad also depends on whether they can run the squad's leader. If the leader is archived, or the current member isn't allowed to run it, the squad can't be assigned or @-mentioned.
+
+## Sub-squads
+
+A squad can be a member of another squad. The main squad's leader sees the sub-squad in its roster and hands it work by @-mentioning it, which wakes the sub-squad's leader. That leader splits the work over its own members, and when it reports back, the main squad's leader wakes again, the same way a member's result wakes it.
+
+- A squad can't contain itself, directly or through other squads. Multica refuses the add and shows the loop.
+- A sub-squad can't have the same leader as the squad it belongs to. Multica refuses the add, and refuses a leader change that would cause it.
+- Archived sub-squads don't appear in the roster.
+- @-mentioning a squad notifies its own human members only, not the members of its sub-squads.
 
 ## Creation and management permissions
 

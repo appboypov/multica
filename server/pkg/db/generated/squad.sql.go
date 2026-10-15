@@ -267,6 +267,68 @@ func (q *Queries) ListAllSquads(ctx context.Context, workspaceID pgtype.UUID) ([
 	return items, nil
 }
 
+const listDelegatingParentSquads = `-- name: ListDelegatingParentSquads :many
+SELECT s.id, s.workspace_id, s.name, s.description, s.leader_id, s.creator_id, s.created_at, s.updated_at, s.archived_at, s.archived_by, s.avatar_url, s.instructions FROM squad s
+JOIN squad_member sm ON sm.squad_id = s.id
+WHERE s.workspace_id = $1
+  AND s.archived_at IS NULL
+  AND sm.member_type = 'squad'
+  AND sm.member_id = $2
+  AND EXISTS (
+    SELECT 1 FROM comment c
+    JOIN agent_task_queue t ON t.id = c.source_task_id
+    WHERE c.issue_id = $3
+      AND c.deleted_at IS NULL
+      AND t.is_leader_task
+      AND t.squad_id = s.id
+      AND t.agent_id = s.leader_id
+      AND strpos(c.content, 'mention://squad/' || $2::uuid::text) > 0
+  )
+ORDER BY s.created_at ASC
+`
+
+type ListDelegatingParentSquadsParams struct {
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
+	SubSquadID  pgtype.UUID `json:"sub_squad_id"`
+	IssueID     pgtype.UUID `json:"issue_id"`
+}
+
+// Non-archived squads holding sub_squad_id as a member whose current leader,
+// in a leader run of that squad, posted a live comment on the issue that
+// @mentions the sub-squad. Their leaders take the sub-squad's report back.
+func (q *Queries) ListDelegatingParentSquads(ctx context.Context, arg ListDelegatingParentSquadsParams) ([]Squad, error) {
+	rows, err := q.db.Query(ctx, listDelegatingParentSquads, arg.WorkspaceID, arg.SubSquadID, arg.IssueID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Squad{}
+	for rows.Next() {
+		var i Squad
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.Name,
+			&i.Description,
+			&i.LeaderID,
+			&i.CreatorID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ArchivedAt,
+			&i.ArchivedBy,
+			&i.AvatarUrl,
+			&i.Instructions,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listSquadMemberPreviewRows = `-- name: ListSquadMemberPreviewRows :many
 SELECT
     sm.squad_id,
@@ -481,6 +543,40 @@ func (q *Queries) ListSquadMembers(ctx context.Context, squadID pgtype.UUID) ([]
 	return items, nil
 }
 
+const listSquadNestingMemberships = `-- name: ListSquadNestingMemberships :many
+SELECT sm.squad_id, sm.member_id FROM squad_member sm
+JOIN squad s ON s.id = sm.squad_id
+WHERE s.workspace_id = $1 AND sm.member_type = 'squad'
+ORDER BY sm.created_at ASC, sm.id ASC
+`
+
+type ListSquadNestingMembershipsRow struct {
+	SquadID  pgtype.UUID `json:"squad_id"`
+	MemberID pgtype.UUID `json:"member_id"`
+}
+
+// Every squad-in-squad membership in the workspace, archived squads included,
+// in the order they were added. The loop check walks them once per squad.
+func (q *Queries) ListSquadNestingMemberships(ctx context.Context, workspaceID pgtype.UUID) ([]ListSquadNestingMembershipsRow, error) {
+	rows, err := q.db.Query(ctx, listSquadNestingMemberships, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListSquadNestingMembershipsRow{}
+	for rows.Next() {
+		var i ListSquadNestingMembershipsRow
+		if err := rows.Scan(&i.SquadID, &i.MemberID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listSquads = `-- name: ListSquads :many
 SELECT id, workspace_id, name, description, leader_id, creator_id, created_at, updated_at, archived_at, archived_by, avatar_url, instructions FROM squad WHERE workspace_id = $1 AND archived_at IS NULL ORDER BY created_at ASC
 `
@@ -534,6 +630,63 @@ type ListSquadsByMemberParams struct {
 // Find all squads a given entity belongs to in a workspace.
 func (q *Queries) ListSquadsByMember(ctx context.Context, arg ListSquadsByMemberParams) ([]Squad, error) {
 	rows, err := q.db.Query(ctx, listSquadsByMember, arg.WorkspaceID, arg.MemberType, arg.MemberID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Squad{}
+	for rows.Next() {
+		var i Squad
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.Name,
+			&i.Description,
+			&i.LeaderID,
+			&i.CreatorID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ArchivedAt,
+			&i.ArchivedBy,
+			&i.AvatarUrl,
+			&i.Instructions,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSquadsNestedWithLeader = `-- name: ListSquadsNestedWithLeader :many
+SELECT s.id, s.workspace_id, s.name, s.description, s.leader_id, s.creator_id, s.created_at, s.updated_at, s.archived_at, s.archived_by, s.avatar_url, s.instructions FROM squad s
+WHERE s.archived_at IS NULL
+  AND s.leader_id = $1
+  AND (
+    EXISTS (
+        SELECT 1 FROM squad_member sm
+        WHERE sm.member_type = 'squad' AND sm.squad_id = s.id AND sm.member_id = $2
+    )
+    OR EXISTS (
+        SELECT 1 FROM squad_member sm
+        WHERE sm.member_type = 'squad' AND sm.squad_id = $2 AND sm.member_id = s.id
+    )
+  )
+ORDER BY s.created_at ASC
+`
+
+type ListSquadsNestedWithLeaderParams struct {
+	LeaderID pgtype.UUID `json:"leader_id"`
+	SquadID  pgtype.UUID `json:"squad_id"`
+}
+
+// Non-archived squads led by leader_id that directly hold squad_id as a
+// member or that squad_id directly holds.
+func (q *Queries) ListSquadsNestedWithLeader(ctx context.Context, arg ListSquadsNestedWithLeaderParams) ([]Squad, error) {
+	rows, err := q.db.Query(ctx, listSquadsNestedWithLeader, arg.LeaderID, arg.SquadID)
 	if err != nil {
 		return nil, err
 	}
@@ -632,6 +785,18 @@ func (q *Queries) LockSquadForUpdate(ctx context.Context, arg LockSquadForUpdate
 		&i.Instructions,
 	)
 	return i, err
+}
+
+const lockSquadNesting = `-- name: LockSquadNesting :exec
+SELECT pg_advisory_xact_lock(hashtextextended($1::uuid::text || ':squad_nesting', 0))
+`
+
+// Serializes every write that can close a squad loop or pair a sub-squad with
+// its main squad's leader (ADR-0017). A row lock on one squad cannot: two adds
+// on disjoint squads can close one loop together.
+func (q *Queries) LockSquadNesting(ctx context.Context, workspaceID pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, lockSquadNesting, workspaceID)
+	return err
 }
 
 const removeSquadMember = `-- name: RemoveSquadMember :execrows

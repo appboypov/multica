@@ -191,7 +191,7 @@ func squadOperatingProtocolFor(ownsIssueStatus bool) string {
 // including ones where the squad is a guest on someone else's issue, so this
 // flag is what keeps status authority from leaking along with the roster.
 //
-// Archived agent members are skipped — there's no point asking the leader
+// Archived agent and squad members are skipped — there's no point asking the leader
 // to delegate to a retired agent. Members whose underlying record can't be
 // loaded (deleted user/agent races, FK weirdness) are also skipped silently.
 func buildSquadLeaderBriefing(ctx context.Context, q *db.Queries, squad db.Squad, ownsIssueStatus bool) string {
@@ -318,6 +318,17 @@ func renderMemberRow(ctx context.Context, q *db.Queries, m db.SquadMember, skill
 		// Humans have no Multica skills, so no skills segment is rendered.
 		userID := util.UUIDToString(m.MemberID)
 		return formatRosterRow(user.Name, "member (human)", role, "", formatMention(user.Name, "member", userID))
+	case "squad":
+		sub, err := q.GetSquad(ctx, m.MemberID)
+		if err != nil {
+			return ""
+		}
+		if sub.ArchivedAt.Valid {
+			return ""
+		}
+		// The mention wakes the sub-squad's leader, which splits the work over
+		// its own members (ADR-0017). Skills belong to agents, so none here.
+		return formatRosterRow(sub.Name, "squad", role, "", formatMention(sub.Name, "squad", id))
 	default:
 		return ""
 	}

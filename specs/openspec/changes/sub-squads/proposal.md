@@ -59,13 +59,13 @@ Success signal: Brian adds squad Backend to squad Tech; Tech's leader hands an i
 - Server: one migration widening a CHECK, squad member add, squad leader change, roster, comment routing.
 - CLI: `multica squad member` commands.
 - Docs: squads page in five languages, the built-in multica-platform squads reference.
-- Web, desktop and mobile: no change in this change; the UI change follows as its own change (picker, member list, `SquadMemberType`, zod fallback).
+- Web and desktop: the add-member picker lists squads and member rows render a squad (`SquadMemberType`, zod fallback), in the Frontend team's pull request on top of the backend's. Mobile reads no squad member rows and does not change.
 
 ## Constraints
 
 - @squad inbox notices, squad questions and "involves me" reach direct members of the named squad only, as today; they never look into sub-squads.
 - No foreign key or cascade for the new member type (AGENTS.md): the handler validates the sub-squad in the workspace.
-- Older desktop clients read a `squad` member type they do not know; the UI change adds the zod fallback.
+- Older desktop clients read a `squad` member type they do not know; the UI pull request adds the zod fallback.
 
 ## Non-goals
 

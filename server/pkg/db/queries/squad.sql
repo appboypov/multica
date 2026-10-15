@@ -115,6 +115,60 @@ JOIN squad_member sm ON sm.squad_id = s.id
 WHERE s.workspace_id = $1 AND sm.member_type = $2 AND sm.member_id = $3
 ORDER BY s.created_at ASC;
 
+-- name: LockSquadNesting :exec
+-- Serializes every write that can close a squad loop or pair a sub-squad with
+-- its main squad's leader (ADR-0017). A row lock on one squad cannot: two adds
+-- on disjoint squads can close one loop together.
+SELECT pg_advisory_xact_lock(hashtextextended(sqlc.arg('workspace_id')::uuid::text || ':squad_nesting', 0));
+
+-- name: ListSquadNestingMemberships :many
+-- Every squad-in-squad membership in the workspace, archived squads included,
+-- in the order they were added. The loop check walks them once per squad.
+SELECT sm.squad_id, sm.member_id FROM squad_member sm
+JOIN squad s ON s.id = sm.squad_id
+WHERE s.workspace_id = sqlc.arg('workspace_id') AND sm.member_type = 'squad'
+ORDER BY sm.created_at ASC, sm.id ASC;
+
+-- name: ListSquadsNestedWithLeader :many
+-- Non-archived squads led by leader_id that directly hold squad_id as a
+-- member or that squad_id directly holds.
+SELECT s.* FROM squad s
+WHERE s.archived_at IS NULL
+  AND s.leader_id = sqlc.arg('leader_id')
+  AND (
+    EXISTS (
+        SELECT 1 FROM squad_member sm
+        WHERE sm.member_type = 'squad' AND sm.squad_id = s.id AND sm.member_id = sqlc.arg('squad_id')
+    )
+    OR EXISTS (
+        SELECT 1 FROM squad_member sm
+        WHERE sm.member_type = 'squad' AND sm.squad_id = sqlc.arg('squad_id') AND sm.member_id = s.id
+    )
+  )
+ORDER BY s.created_at ASC;
+
+-- name: ListDelegatingParentSquads :many
+-- Non-archived squads holding sub_squad_id as a member whose current leader,
+-- in a leader run of that squad, posted a live comment on the issue that
+-- @mentions the sub-squad. Their leaders take the sub-squad's report back.
+SELECT s.* FROM squad s
+JOIN squad_member sm ON sm.squad_id = s.id
+WHERE s.workspace_id = sqlc.arg('workspace_id')
+  AND s.archived_at IS NULL
+  AND sm.member_type = 'squad'
+  AND sm.member_id = sqlc.arg('sub_squad_id')
+  AND EXISTS (
+    SELECT 1 FROM comment c
+    JOIN agent_task_queue t ON t.id = c.source_task_id
+    WHERE c.issue_id = sqlc.arg('issue_id')
+      AND c.deleted_at IS NULL
+      AND t.is_leader_task
+      AND t.squad_id = s.id
+      AND t.agent_id = s.leader_id
+      AND strpos(c.content, 'mention://squad/' || sqlc.arg('sub_squad_id')::uuid::text) > 0
+  )
+ORDER BY s.created_at ASC;
+
 -- name: TransferSquadAssignees :exec
 -- Transfer all issues assigned to a squad to the squad's leader agent.
 UPDATE issue SET assignee_type = 'agent', assignee_id = $2, revision = revision + 1, updated_at = now()

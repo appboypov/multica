@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/multica-ai/multica/server/internal/analytics"
 	"github.com/multica-ai/multica/server/internal/logger"
@@ -394,6 +395,16 @@ func (h *Handler) UpdateSquad(w http.ResponseWriter, r *http.Request) {
 	defer tx.Rollback(r.Context())
 	qtx := h.Queries.WithTx(tx)
 
+	// A leader change can pair a sub-squad with its main squad's leader. Take
+	// the nesting lock before any squad row lock: AddSquadMember holds it while
+	// its insert locks the squad row, so the reverse order could deadlock.
+	if req.LeaderID != nil {
+		if err := qtx.LockSquadNesting(r.Context(), wsUUID); err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to update squad")
+			return
+		}
+	}
+
 	// Autopilot assignment takes FOR SHARE on the squad before locking its
 	// leader Agent. Take the exclusive side in the same order so leader
 	// rotation and active Autopilot saves cannot leave an automation pointing
@@ -426,6 +437,15 @@ func (h *Handler) UpdateSquad(w http.ResponseWriter, r *http.Request) {
 		// A non-admin creator may only promote an agent they can @-trigger.
 		if !h.memberCanWireAgent(r.Context(), member, newLeader, workspaceID) {
 			writeError(w, http.StatusForbidden, "you can only use an agent you have access to as leader")
+			return
+		}
+		refusal, err := squadLeaderNestingRefusal(r.Context(), qtx, squad, lid, newLeader.Name)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to update squad")
+			return
+		}
+		if refusal != "" {
+			writeError(w, http.StatusConflict, refusal)
 			return
 		}
 		// Ensure new leader is a squad member; auto-add if not.
@@ -793,8 +813,8 @@ func (h *Handler) AddSquadMember(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
-	if req.MemberType != "agent" && req.MemberType != "member" {
-		writeError(w, http.StatusBadRequest, "member_type must be 'agent' or 'member'")
+	if req.MemberType != "agent" && req.MemberType != "member" && req.MemberType != "squad" {
+		writeError(w, http.StatusBadRequest, "member_type must be 'agent', 'member' or 'squad'")
 		return
 	}
 	if req.MemberID == "" {
@@ -806,6 +826,8 @@ func (h *Handler) AddSquadMember(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+
+	var subSquad *db.Squad
 
 	// Validate the member belongs to this workspace.
 	if req.MemberType == "agent" {
@@ -823,16 +845,81 @@ func (h *Handler) AddSquadMember(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusForbidden, "you can only add an agent you have access to")
 			return
 		}
-	} else {
+	} else if req.MemberType == "member" {
 		if _, err := h.Queries.GetMemberByUserAndWorkspace(r.Context(), db.GetMemberByUserAndWorkspaceParams{
 			UserID: memberUUID, WorkspaceID: wsUUID,
 		}); err != nil {
 			writeError(w, http.StatusBadRequest, "member not found in this workspace")
 			return
 		}
+	} else {
+		child, err := h.Queries.GetSquadInWorkspace(r.Context(), db.GetSquadInWorkspaceParams{
+			ID: memberUUID, WorkspaceID: wsUUID,
+		})
+		if err != nil || child.ArchivedAt.Valid {
+			writeError(w, http.StatusBadRequest, "squad not found in this workspace")
+			return
+		}
+		// A sub-squad routes work to its leader, so adding it follows the rule
+		// for adding that agent (MUL-4223).
+		childLeader, err := h.Queries.GetAgentInWorkspace(r.Context(), db.GetAgentInWorkspaceParams{
+			ID: child.LeaderID, WorkspaceID: wsUUID,
+		})
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to add squad member")
+			return
+		}
+		if !h.memberCanWireAgent(r.Context(), member, childLeader, workspaceID) {
+			writeError(w, http.StatusForbidden, "you can only add a squad whose leader you have access to")
+			return
+		}
+		subSquad = &child
 	}
 
-	sm, err := h.Queries.AddSquadMember(r.Context(), db.AddSquadMemberParams{
+	q := h.Queries
+	var tx pgx.Tx
+	if subSquad != nil {
+		var err error
+		tx, err = h.TxStarter.Begin(r.Context())
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to add squad member")
+			return
+		}
+		defer tx.Rollback(r.Context())
+		q = h.Queries.WithTx(tx)
+		if err := q.LockSquadNesting(r.Context(), wsUUID); err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to add squad member")
+			return
+		}
+		// Re-read both squads under the lock: a leader change or archive that
+		// committed while this request waited would otherwise be checked
+		// against the rows read before it.
+		parent, err := q.GetSquadInWorkspace(r.Context(), db.GetSquadInWorkspaceParams{
+			ID: squad.ID, WorkspaceID: wsUUID,
+		})
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to add squad member")
+			return
+		}
+		child, err := q.GetSquadInWorkspace(r.Context(), db.GetSquadInWorkspaceParams{
+			ID: subSquad.ID, WorkspaceID: wsUUID,
+		})
+		if err != nil || child.ArchivedAt.Valid {
+			writeError(w, http.StatusBadRequest, "squad not found in this workspace")
+			return
+		}
+		refusal, err := squadNestingRefusal(r.Context(), q, parent, child)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to add squad member")
+			return
+		}
+		if refusal != "" {
+			writeError(w, http.StatusConflict, refusal)
+			return
+		}
+	}
+
+	sm, err := q.AddSquadMember(r.Context(), db.AddSquadMemberParams{
 		SquadID:    squad.ID,
 		MemberType: req.MemberType,
 		MemberID:   memberUUID,
@@ -845,6 +932,12 @@ func (h *Handler) AddSquadMember(w http.ResponseWriter, r *http.Request) {
 		}
 		writeError(w, http.StatusInternalServerError, "failed to add squad member")
 		return
+	}
+	if tx != nil {
+		if err := tx.Commit(r.Context()); err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to add squad member")
+			return
+		}
 	}
 
 	writeJSON(w, http.StatusCreated, squadMemberToResponse(sm))

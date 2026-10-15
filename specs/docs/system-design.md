@@ -810,6 +810,7 @@ classDiagram
   squad "1" --> "*" squad_member : squad_id
   squad_member ..> agent : member_id
   squad_member ..> user : member_id
+  squad_member ..> squad : member_id
   agent "1" --> "*" chat_session : agent_id
   user "1" --> "*" chat_session : creator_id
   chat_session "1" --> "*" chat_message : chat_session_id
