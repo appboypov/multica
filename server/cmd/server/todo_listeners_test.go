@@ -171,3 +171,49 @@ func TestTodoMentionLifecycle(t *testing.T) {
 		t.Fatal("new description mention not opened")
 	}
 }
+
+func TestTodoAssignedLifecycle(t *testing.T) {
+	fx, svc := todoListenerFixture(t)
+	id := fx.Issue(t, "Assignment")
+	memberType := "member"
+	issue := handler.IssueResponse{ID: id, Title: "Assignment", Status: "backlog", AssigneeType: &memberType, AssigneeID: &fx.UserID}
+	event := events.Event{Type: protocol.EventIssueCreated, WorkspaceID: fx.WorkspaceID}
+	apply := func(status string, changed bool) {
+		t.Helper()
+		issue.Status = status
+		event.Payload = map[string]any{"issue": issue, "status_changed": changed}
+		if err := assignedTodos(context.Background(), svc, event); err != nil {
+			t.Fatal(err)
+		}
+	}
+	count := func(user string) int {
+		return fx.Count(t, "SELECT count(*) FROM todo WHERE issue_id = $1 AND member_id = $2 AND done_at IS NULL", id, user)
+	}
+	apply("backlog", false)
+	if count(fx.UserID) != 0 {
+		t.Fatal("backlog opened assignment")
+	}
+	apply("todo", false)
+	if count(fx.UserID) != 1 {
+		t.Fatal("todo assignment missing")
+	}
+	event.Type = protocol.EventIssueUpdated
+	apply("back_from_qa", true)
+	if count(fx.UserID) != 1 || fx.Count(t, "SELECT count(*) FROM todo WHERE issue_id = $1 AND done_at IS NOT NULL", id) != 1 {
+		t.Fatal("status inside set did not replace assignment")
+	}
+	apply("in_progress", true)
+	if count(fx.UserID) != 0 {
+		t.Fatal("status outside set did not close assignment")
+	}
+	apply("blocked", true)
+	other := fx.User(t, "Anouk", dbid.NewV7().String()+"@todo.test")
+	issue.AssigneeID = &other
+	event.Payload = map[string]any{"issue": issue, "assignee_changed": true}
+	if err := assignedTodos(context.Background(), svc, event); err != nil {
+		t.Fatal(err)
+	}
+	if count(fx.UserID) != 0 || count(other) != 1 {
+		t.Fatal("reassignment did not move todo")
+	}
+}

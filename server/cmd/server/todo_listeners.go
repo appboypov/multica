@@ -31,6 +31,13 @@ func registerTodoListeners(bus *events.Bus, queries *db.Queries) {
 			}
 		})
 	}
+	for _, kind := range []string{protocol.EventIssueCreated, protocol.EventIssueUpdated} {
+		bus.Subscribe(kind, func(e events.Event) {
+			if err := assignedTodos(context.Background(), svc, e); err != nil {
+				slog.Error("assigned todo transition failed", "error", err)
+			}
+		})
+	}
 }
 
 func questionTodos(ctx context.Context, svc todo.Service, e events.Event) error {
@@ -244,4 +251,46 @@ func mentionTodos(ctx context.Context, svc todo.Service, e events.Event) error {
 		}
 	}
 	return nil
+}
+
+func assignedTodos(ctx context.Context, svc todo.Service, e events.Event) error {
+	p, ok := e.Payload.(map[string]any)
+	if !ok {
+		return nil
+	}
+	issue, ok := p["issue"].(handler.IssueResponse)
+	if !ok {
+		return nil
+	}
+	workspace, err := util.ParseUUID(e.WorkspaceID)
+	if err != nil {
+		return err
+	}
+	issueID, err := util.ParseUUID(issue.ID)
+	if err != nil {
+		return err
+	}
+	if e.Type == protocol.EventIssueUpdated {
+		statusChanged, _ := p["status_changed"].(bool)
+		assigneeChanged, _ := p["assignee_changed"].(bool)
+		if !statusChanged && !assigneeChanged {
+			return nil
+		}
+		if err := svc.Close(ctx, db.CloseTodosParams{WorkspaceID: workspace, Kind: todo.Assigned, SourceKey: issue.ID}); err != nil {
+			return err
+		}
+	}
+	if issue.AssigneeType == nil || *issue.AssigneeType != "member" || issue.AssigneeID == nil {
+		return nil
+	}
+	switch issue.Status {
+	case "todo", "back_from_qa", "blocked", "in_review":
+	default:
+		return nil
+	}
+	member, err := util.ParseUUID(*issue.AssigneeID)
+	if err != nil {
+		return err
+	}
+	return svc.Open(ctx, db.OpenTodoParams{WorkspaceID: workspace, MemberID: member, Kind: todo.Assigned, SourceKey: issue.ID, IssueID: issueID, ActorType: util.StrToText(e.ActorType), ActorID: optionalUUID(e.ActorID), Title: issue.Title})
 }
