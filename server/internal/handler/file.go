@@ -608,10 +608,16 @@ func (h *Handler) UploadFile(w http.ResponseWriter, r *http.Request) {
 			// so the file is usable. Log the error for investigation.
 		} else {
 			if att.IssueRevision > 0 && att.IssueID.Valid {
-				h.publish(protocol.EventIssueAttachmentsChanged, workspaceID, uploaderType, uploaderID, map[string]any{
+				payload := map[string]any{
 					"issue_id":       uuidToString(att.IssueID),
 					"issue_revision": att.IssueRevision,
-				})
+				}
+				if !att.CommentID.Valid {
+					payload["attachment_id"] = uuidToString(att.ID)
+					payload["filename"] = att.Filename
+					payload["change"] = "added"
+				}
+				h.publish(protocol.EventIssueAttachmentsChanged, workspaceID, uploaderType, uploaderID, payload)
 			}
 			if att.CommentRevision > 0 && att.CommentID.Valid {
 				if comment, loadErr := h.Queries.GetCommentInWorkspace(r.Context(), db.GetCommentInWorkspaceParams{
@@ -1496,10 +1502,17 @@ func (h *Handler) DeleteAttachment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if deleted.Changed && att.IssueID.Valid {
-		h.publish(protocol.EventIssueAttachmentsChanged, workspaceID, "member", userID, map[string]any{
+		payload := map[string]any{
 			"issue_id":       uuidToString(att.IssueID),
 			"issue_revision": deleted.IssueRevision,
-		})
+		}
+		if !att.CommentID.Valid {
+			payload["attachment_id"] = uuidToString(att.ID)
+			payload["filename"] = att.Filename
+			payload["change"] = "removed"
+		}
+		actorType, actorID := h.resolveActor(r, userID, workspaceID)
+		h.publish(protocol.EventIssueAttachmentsChanged, workspaceID, actorType, actorID, payload)
 	}
 	if deleted.Changed && att.CommentID.Valid {
 		if comment, loadErr := h.Queries.GetCommentInWorkspace(r.Context(), db.GetCommentInWorkspaceParams{
