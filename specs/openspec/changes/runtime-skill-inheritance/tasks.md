@@ -1,6 +1,6 @@
 ## At a glance
 
-Laid out for Open Question 1, answer A: Joeri's Backend builders make groups 1-4 in one pull request; Thomas's Frontend builders make groups 5-6 in a second pull request stacked on it.
+Joeri's Backend builders make groups 1-4 in one pull request; Thomas's Frontend builders make groups 5-6 in a second pull request stacked on it.
 
 ```mermaid
 flowchart LR

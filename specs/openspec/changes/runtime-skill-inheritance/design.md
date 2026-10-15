@@ -128,7 +128,7 @@ sequenceDiagram
 ## Context
 
 - **Work.** Own work of De App Specialist on "The line", step L5. Input: [proposal.md](proposal.md) and [the spec delta](specs/runtime-skill-inheritance/spec.md); the passed Approach (Anytype `bafyreibcmdmxhszv47kud47o3iovihpsei3fj4ldyjlb56ltreet4k343y`). No journey, so no pass or journey steps.
-- **Team.** Open: see Open Questions. `tasks.md` is laid out for the recommended answer.
+- **Team.** Each task group goes to the lead of the team that owns its work: Joeri builds groups 1-4 (server, daemon, task environment) in one pull request; Thomas builds groups 5-6 (client, Skills tab, copy and docs) in a second pull request stacked on it. One spec, one change.
 - **Database today.** `agent.disabled_runtime_skills JSONB NOT NULL DEFAULT '[]'` (`server/migrations/206_agent_disabled_runtime_skills.up.sql`). The highest migration is `710_question_link_types`; this change takes `711`. Every agent query in `server/pkg/db/queries/agent.sql` reads and returns `*`, so the new column reaches `db.Agent` and every `RETURNING *` without other query edits. `UpdateAgentDisabledRuntimeSkills` (line 195) is the pattern for the new update. No index, no foreign key, nothing for `concurrentIndexCleanups`.
 - **Per-skill route today** (`server/internal/handler/agent_runtime_skills.go:84` `SetAgentRuntimeSkillEnabled`): `loadAgentForUser` -> `canManageAgent` -> decode `{runtime_id, root, key, name, plugin, enabled *bool}` -> runtime must be the agent's (409 otherwise) -> `getAgentRuntime(..., obsmetrics.RuntimeLookupSourceRuntimeAPI, runtimeID)` -> line 119 rejects anything but local `codex`/`claude` with 400 -> `normalizeRuntimeSkillIdentity`, plugin root only for `claude` -> tx with `GetAgentForUpdate` (read-modify-write of the JSON list) -> commit -> lines 193-208 build the response (`agentToResponse`, `enrichAgentResponseWithTargets`, `attachAgentSkills`) and publish `protocol.EventAgentStatus` with `broadcastAgentResponse(resp)` -> 204. Route: `server/cmd/server/router.go:2337`.
 - **Agent response and claim.** `AgentResponse.DisabledRuntimeSkills` (`server/internal/handler/agent.go:127`, mapped at 229). `TaskAgentData` (agent.go:773) is filled in `server/internal/handler/daemon.go:2618-2631`, with `disabledRuntimeSkillsFor(agent.DisabledRuntimeSkills, runtimeID, runtime.Provider)`.
@@ -228,7 +228,4 @@ Each name goes through `escapeOmpSkillGlob`, which puts a backslash before `\ * 
 
 ## Open Questions
 
-1. **Who builds it.** The work spans three roster teams: Backend (server, daemon, omp launch), Frontend (shared client, Skills tab, copy) and Product (docs). The plan rule says a change outside a journey holds one team's work, while the scope rule says one user goal is never split across layers.
-   - **A. One change, two pull requests (recommended).** Joeri builds groups 1-4 (server, daemon, task environment) in one pull request; Thomas builds groups 5-6 (client, Skills tab, copy and docs) in a second pull request stacked on it. Each pull request is one team's work, and the one spec stays one change, as `J8` and `J9` share a journey's change.
-   - **B. One change, one pull request, Joeri leads.** Joeri's session also launches the Frontend builders. Simplest, but one lead hands out another team's work.
-   - **C. Two changes.** This change keeps the backend; Mitchel proposes a second change for the Skills tab, moving its scenarios there. Follows the rule word for word, at the cost of a second proposal and a split spec.
+None.
