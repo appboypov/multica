@@ -1,6 +1,6 @@
 # Multica system design
 
-Drawn from the code of the fork at `146d20e5c`.
+Multica's system structure and data flow ([ADR-0017](../../adr/0017-a-to-do-is-a-row-the-server-opens-and-closes.md)).
 
 ## Context and containers
 
@@ -114,6 +114,9 @@ flowchart LR
   supp["internal/handler/task_supplement.go<br/>steerCommentAgentTriggers,<br/>ClaimTaskSupplement, AckTaskSupplement"]
   react["internal/handler/run_input.go<br/>ReactToRunInput"]
   reactcli["cmd/multica/cmd_issue.go<br/>multica issue react, inside a run"]
+  todos["internal/todo<br/>Service, Response"]
+  todolisteners["cmd/server/todo_listeners.go"]
+  todoh["internal/handler/todo.go<br/>GET /api/todos, /api/todos/summary<br/>POST /api/todos/{id}/done"]
   orgh["internal/handler<br/>organisation.go, project.go<br/>/api/organisations, organisation_id"]
   projsync["madspec-sync/multica_projects.py<br/>organisations, Product projects,<br/>single-repo merges"]
   marks[("~/.local/state/madspec/multica<br/>brain-sync.json, repository_projects")]
@@ -194,6 +197,13 @@ flowchart LR
   main --> sched --> questionjob
   questionjob --> sqlc
   questionjob --> bus
+  handlers --> todoh
+  todoh --> sqlc
+  todoh --> todos
+  bus --> todolisteners --> todos
+  services --> todos
+  todos --> sqlc
+  todos -->|"todo:opened, todo:closed"| bus
   sched --> sqlc
   sweepers --> sqlc
   handlers --> integ
@@ -641,6 +651,26 @@ classDiagram
     +uuid recipient_id
     +uuid issue_id
   }
+  class todo {
+    +uuid id
+    +uuid workspace_id
+    +uuid member_id
+    +text kind
+    +text source_key
+    +uuid issue_id
+    +uuid question_id
+    +uuid comment_id
+    +uuid task_id
+    +uuid autopilot_id
+    +text actor_type
+    +uuid actor_id
+    +text title
+    +text body
+    +jsonb details
+    +timestamptz created_at
+    +timestamptz done_at
+    +text done_by
+  }
   class attachment {
     +uuid id
     +uuid workspace_id
@@ -790,6 +820,15 @@ classDiagram
   autopilot "1" --> "*" autopilot_run : autopilot_id
   autopilot_trigger "1" --> "*" autopilot_run : trigger_id
   issue "1" --> "*" inbox_item : issue_id
+  workspace "1" --> "*" todo : workspace_id
+  user "1" --> "*" todo : member_id
+  issue "1" --> "*" todo : issue_id
+  question "1" --> "*" todo : question_id
+  comment "1" --> "*" todo : comment_id
+  agent_task_queue "1" --> "*" todo : task_id
+  autopilot "1" --> "*" todo : autopilot_id
+  todo ..> user : actor_id when member
+  todo ..> agent : actor_id when agent
   issue "1" --> "*" attachment : issue_id
   comment "1" --> "*" attachment : comment_id
   agent "1" --> "*" channel_installation : agent_id
@@ -896,7 +935,42 @@ classDiagram
   QuestionEventPayload ..> QuestionRow : question ids
 ```
 
-`QuestionRow` is sqlc's `db.Question` in `server/pkg/db/generated/models.go`, generated from the migrations. The client `Question` and `QuestionAskResult` contracts live in `packages/core/types/question.ts`; `packages/core/api/schemas.ts` parses question responses. The server's question and ask DTOs live in `server/internal/service/question.go`; `POST /api/questions` creates one transactional ask and returns `{ask_id, questions}`. `server/internal/question/policy.go` derives status from current answerers under `any_one` or `each`. Created and overdue events carry the ask's question IDs so the notification listener sends one inbox item per current answerer per ask. The event payload is declared in `server/pkg/protocol/events.go` and `packages/core/types/events.ts`.
+`QuestionRow` is sqlc's `db.Question` in `server/pkg/db/generated/models.go`, generated from the migrations. The client `Question` and `QuestionAskResult` contracts live in `packages/core/types/question.ts`; `packages/core/api/schemas.ts` parses question responses. The server's question and ask DTOs live in `server/internal/service/question.go`; `POST /api/questions` creates one transactional ask and returns `{ask_id, questions}`. `server/internal/question/policy.go` derives status from current answerers under `any_one` or `each`. Question events feed `cmd/server/todo_listeners.go`, which opens and closes per-answerer to-dos; the overdue sweep still stamps `overdue_notified_at` but creates no inbox notice. The event payload is declared in `server/pkg/protocol/events.go` and `packages/core/types/events.ts`.
+
+### To-do storage and flow
+
+```mermaid
+flowchart LR
+  events["Question, comment, issue<br/>and task events"]
+  listeners["cmd/server/todo_listeners.go"]
+  producers["Task and autopilot services<br/>failure monitor"]
+  service["internal/todo<br/>Open, Close"]
+  rows[("todo<br/>migration 740; indexes 741–742")]
+  api["internal/handler/todo.go<br/>list, summary, done"]
+  bus["events.Bus"]
+  realtime["listeners.go → realtime.Hub<br/>recipient member only"]
+  clients["Web and desktop clients"]
+  updates[("inbox_item<br/>informational Updates")]
+  notices["notification_listeners.go"]
+
+  events --> listeners --> service
+  producers --> service
+  service --> rows
+  service -->|"todo:opened, todo:closed"| bus
+  bus --> realtime --> clients
+  clients -->|"GET /api/todos, /api/todos/summary<br/>POST /api/todos/{id}/done"| api
+  api --> rows
+  api -->|"completion publication"| service
+  events --> notices --> updates
+```
+
+`server/pkg/db/queries/todo.sql` and its generated sqlc queries own persistence. The recipient `member_id` is a user's ID (`member.user_id`), not the membership row's ID. Optional source and actor IDs are logical references without foreign keys. `kind` distinguishes question, mention, assigned, agent-blocked, run-failed, autopilot-paused, quota-reached, quick-create-failed and review rows; `details` retains system-action data.
+
+Open rows have `done_at IS NULL`. The partial unique index on `(workspace_id, member_id, kind, source_key)` makes repeated opens inert; closing changes only open rows and records `done_by` as `handled` or `member`. The second partial index supports workspace/member reads by descending `created_at`. `internal/todo.Service` publishes only real transitions, after commit for transactional producers. Its `Response` projection is shared by the HTTP handler and `todo:opened`; `todo:closed` identifies the row and completion reason.
+
+List and summary queries share the visible-open-row projection: live issue/question fields, no rows for missing issues, and no review row while an open question row exists for that member on the issue. Lists order overdue before newest. The list and Mark done routes are workspace-scoped; the summary is account-level across current memberships and omits zero-count workspaces. Mark done is member-private and idempotent. The summary supplies Inbox, workspace-switcher and desktop badge counts.
+
+`inbox_item` remains the storage behind `/api/inbox` for Updates, separate from actionable to-dos. Question, mention, failed-run, paused-autopilot, quota and failed/unconfirmed quick-create notices no longer originate there. Migration 743 corrects agent-created issues to their run's originator member without changing actor/origin attribution; migration 744 then seeds still-open to-dos and archives the moved notices. [ADR-0017](../../adr/0017-a-to-do-is-a-row-the-server-opens-and-closes.md) records the storage decision.
 
 A question has exactly one asker (`question_one_asker`): an agent in a run, with `asker_agent_id` and `asked_in_task_id`, or a member outside a run, with `asker_user_id`. `Question` carries all three ids as strings; list rows carry `asker_agent_id` and `asker_user_id`. `asker_user_id` is `""` for an agent's question, and `asker_agent_id` and `asked_in_task_id` are `""` for a member's. A member asks through `POST /api/questions` or `multica question ask --on <issue>`; the first link is that issue and no run is linked, so the answers reach no run as input and the question offers no Wake (ADR-0021).
 
