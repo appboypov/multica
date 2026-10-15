@@ -40,7 +40,7 @@ export function useRecipientActions({
 }: {
   issueId: string;
   agents: CommentTriggerPreviewAgent[];
-  /** False for edits: an edit neither steers nor stops a run. */
+  /** False for edits: delivery is automatic and an edit never stops a run. */
   allowSteer: boolean;
   /** Choices reset when the composer's context changes. */
   resetKey: string;

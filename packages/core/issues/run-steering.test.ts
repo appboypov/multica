@@ -48,39 +48,62 @@ describe("commentSupplementReceipts", () => {
 describe("recipient actions", () => {
   const steerable = { kind: "running", task: task({}), steerable: true } as const;
   const busy = { kind: "running", task: task({}), steerable: false } as const;
-  const inThread = { canSteer: true, canRestart: true, steerByDefault: true };
+  const defaults = { canSteer: true, canRestart: true, steerByDefault: true };
 
   it("offers steering only to a steerable running turn", () => {
-    expect(recipientActions(steerable, inThread)).toEqual(["steer", "after_run", "restart", "skip"]);
-    expect(recipientActions(busy, inThread)).toEqual(["after_run", "restart", "skip"]);
-    expect(recipientActions({ kind: "starting", task: task({ status: "dispatched" }) }, inThread)).toEqual(["after_run", "restart", "skip"]);
-    expect(recipientActions({ kind: "idle" }, inThread)).toEqual(["start", "skip"]);
-    expect(recipientActions({ kind: "queued", task: task({ status: "queued" }) }, inThread)).toEqual(["start", "skip"]);
+    expect(recipientActions(steerable, defaults)).toEqual(["steer", "after_run", "restart", "skip"]);
+    expect(recipientActions(busy, defaults)).toEqual(["after_run", "restart", "skip"]);
+    expect(recipientActions({ kind: "starting", task: task({ status: "dispatched" }) }, defaults)).toEqual(["after_run", "restart", "skip"]);
+    expect(recipientActions({ kind: "idle" }, defaults)).toEqual(["start", "skip"]);
+    expect(recipientActions({ kind: "queued", task: task({ status: "queued" }) }, defaults)).toEqual(["start", "skip"]);
   });
 
-  it("defaults to steering only in the running turn's own thread", () => {
-    expect(resolveRecipientAction(steerable, undefined, inThread)).toBe("steer");
-    expect(resolveRecipientAction(steerable, undefined, { ...inThread, steerByDefault: false })).toBe("after_run");
-    expect(resolveRecipientAction(steerable, "steer", { ...inThread, steerByDefault: false })).toBe("steer");
+  it.each([undefined, "this-thread", "another-thread"])(
+    "defaults a steerable run to steering regardless of its starting thread: %s",
+    (trigger_comment_id) => {
+      const state = { ...steerable, task: task({ trigger_comment_id }) };
+      expect(resolveRecipientAction(state, undefined, defaults)).toBe("steer");
+    },
+  );
+
+  it.each(["after_run", "restart", "skip", "steer"] as const)("preserves an explicit %s choice", (chosen) => {
+    expect(resolveRecipientAction(steerable, chosen, defaults)).toBe(chosen);
+  });
+
+  it("respects the personal after-run default while allowing a per-message steering choice", () => {
+    const afterRunDefault = { ...defaults, steerByDefault: false };
+    expect(resolveRecipientAction(steerable, undefined, afterRunDefault)).toBe("after_run");
+    expect(resolveRecipientAction(steerable, "steer", afterRunDefault)).toBe("steer");
+  });
+
+  it("uses normal handling until a run is running and can take input", () => {
+    expect(resolveRecipientAction(busy, undefined, defaults)).toBe("after_run");
+    expect(resolveRecipientAction({ kind: "starting", task: task({ status: "dispatched" }) }, undefined, defaults)).toBe("after_run");
+    expect(resolveRecipientAction({ kind: "queued", task: task({ status: "queued" }) }, undefined, defaults)).toBe("start");
+    expect(resolveRecipientAction({ kind: "idle" }, undefined, defaults)).toBe("start");
   });
 
   it("drops a choice that is no longer available", () => {
-    // Files cannot go into a running turn.
-    expect(resolveRecipientAction(steerable, "steer", { ...inThread, canSteer: false })).toBe("after_run");
+    // The run no longer takes input, or the composer is now editing.
+    expect(resolveRecipientAction(busy, "steer", defaults)).toBe("after_run");
+    expect(resolveRecipientAction(steerable, "steer", { ...defaults, canSteer: false })).toBe("after_run");
     // The turn ended while the message was being written.
-    expect(resolveRecipientAction({ kind: "idle" }, "steer", inThread)).toBe("start");
-    expect(resolveRecipientAction({ kind: "idle" }, "skip", inThread)).toBe("skip");
+    expect(resolveRecipientAction({ kind: "idle" }, "steer", defaults)).toBe("start");
+    expect(resolveRecipientAction({ kind: "idle" }, "skip", defaults)).toBe("skip");
     // Editing never stops a run.
-    expect(recipientActions(steerable, { canSteer: false, canRestart: false, steerByDefault: false })).toEqual(["after_run", "skip"]);
+    expect(recipientActions(steerable, { canSteer: false, canRestart: false, steerByDefault: true })).toEqual(["after_run", "skip"]);
   });
 
-  it("maps actions to request routing", () => {
+  it("maps actions to request routing without steering explicitly excluded turns", () => {
     const routing = recipientRouting([
       { agentId: "a", action: "steer", state: steerable },
-      { agentId: "b", action: "skip", state: { kind: "idle" } },
+      { agentId: "b", action: "skip", state: { ...steerable, task: task({ id: "turn-b" }) } },
       { agentId: "c", action: "restart", state: { kind: "running", task: task({ id: "turn-c" }), steerable: false } },
-      { agentId: "d", action: "after_run", state: busy },
+      { agentId: "d", action: "after_run", state: { ...steerable, task: task({ id: "turn-d" }) } },
     ]);
     expect(routing).toEqual({ steerTaskIds: [steerable.task.id], suppressAgentIds: ["b"], restartTaskIds: ["turn-c"] });
+    expect(recipientRouting([
+      { agentId: "d", action: "after_run", state: steerable },
+    ]).steerTaskIds).toEqual([]);
   });
 });

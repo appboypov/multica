@@ -1546,20 +1546,22 @@ describe("ApiClient", () => {
     ]);
   });
 
-  it.each([undefined, [], ["turn-1"]])("preserves explicit composer steering choices: %j", async (steerTaskIds) => {
-    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ id: "comment-1" }), {
-      status: 201,
-      headers: { "Content-Type": "application/json" },
-    }));
-    vi.stubGlobal("fetch", fetchMock);
+  it.each([{ steerTaskIds: undefined }, { steerTaskIds: [] }, { steerTaskIds: ["turn-1"] }])(
+    "preserves explicit composer steering choices: $steerTaskIds", async ({ steerTaskIds }) => {
+      const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ id: "comment-1" }), {
+        status: 201,
+        headers: { "Content-Type": "application/json" },
+      }));
+      vi.stubGlobal("fetch", fetchMock);
 
-    const client = new ApiClient("https://api.example.test");
-    await client.createComment("issue-1", "hello", undefined, undefined, undefined, undefined, steerTaskIds);
+      const client = new ApiClient("https://api.example.test");
+      await client.createComment("issue-1", "hello", undefined, undefined, undefined, undefined, steerTaskIds);
 
-    const body = JSON.parse(fetchMock.mock.calls[0]![1].body as string);
-    if (steerTaskIds === undefined) expect(body).not.toHaveProperty("steer_task_ids");
-    else expect(body.steer_task_ids).toEqual(steerTaskIds);
-  });
+      const body = JSON.parse(fetchMock.mock.calls[0]![1].body as string);
+      if (steerTaskIds === undefined) expect(body).not.toHaveProperty("steer_task_ids");
+      else expect(body.steer_task_ids).toEqual(steerTaskIds);
+    },
+  );
 
   it("uses the Cloud Runtime node API contract", async () => {
     const node = {

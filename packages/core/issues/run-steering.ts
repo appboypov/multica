@@ -75,7 +75,7 @@ export type RecipientAction =
   | "skip";
 
 export interface RecipientActionOptions {
-  /** False while editing: an edit never goes into a running turn. Files go with the text. */
+  /** False while editing: edits have no per-recipient steering choice. Files go with the text. */
   canSteer: boolean;
   /** False while editing: an edit never stops a run. */
   canRestart: boolean;
