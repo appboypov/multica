@@ -140,9 +140,7 @@ func TestBuildMetaSkillContentSlimKindMatrix(t *testing.T) {
 		{"## Important: Always Use the `multica` CLI", allKinds},
 		{"## Output", allKinds},
 		{"## Comment Formatting", issueKinds},
-		{"## Repositories", map[taskKind]bool{
-			kindIssue: true, kindAutopilotRunOnly: true, kindChat: true,
-		}},
+		{"## Repositories", allKinds},
 		{"## Instruction Precedence", issueKinds},
 		{"## Sub-issue Creation", issueKinds},
 		// Quick-create included: it used to be skipped here and carry its own

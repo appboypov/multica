@@ -1074,7 +1074,7 @@ func writeQuestionsSection(b *strings.Builder, ctx TaskContextForEnv) {
 //	Questions (IssueID set)|    ✓    |   ✓    |     △     |      —       |  —
 //	Issue Body Formatting |    ✓    |   ✓    |     ✓     |      ✓       |  ✓
 //	Comment Formatting    |    ✓    |   ✓    |     —     |      —       |  —
-//	Repositories          |    △    |   △    |     △     |      —       |  △
+//	Repositories          |    △    |   △    |     △     |      △       |  △
 //	Project Context       |    △    |   △    |     △     |      △       |  △
 //	Instruction Precedence|    —    |   ✓    |     —     |      —       |  —
 //	Sub-issue Creation    |    ✓    |   ✓    |     —     |      —       |  —
@@ -1116,9 +1116,7 @@ func buildMetaSkillContentSlim(provider string, ctx TaskContextForEnv) string {
 		writeCommentFormatting(&b)
 	}
 
-	if kind != kindQuickCreate {
-		writeRepositories(&b, ctx)
-	}
+	writeRepositories(&b, ctx)
 
 	writeProjectContext(&b, ctx)
 
