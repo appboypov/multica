@@ -15,7 +15,7 @@ Server checks: `cd server && go test ./...` with the test database, as AGENTS.md
 
 ## 1. Data
 
-- [ ] 1.1 `server/migrations/740_todo.up.sql` / `.down.sql`: the `todo` table as `design.md` "classDiagram" holds it, with CHECKs on `kind`, `actor_type` and `done_by`. Verify: `make migrate-up` and `make migrate-down` on the worktree database.
+- [x] 1.1 `server/migrations/740_todo.up.sql` / `.down.sql`: the `todo` table as `design.md` "classDiagram" holds it, with CHECKs on `kind`, `actor_type` and `done_by`. Verify: `make migrate-up` and `make migrate-down` on the worktree database.
 - [ ] 1.2 `server/migrations/741_todo_open_index.up.sql` / `.down.sql`: unique `CONCURRENTLY` index on `(workspace_id, member_id, kind, source_key) WHERE done_at IS NULL`; `server/migrations/742_todo_list_index.up.sql` / `.down.sql`: `CONCURRENTLY` index on `(workspace_id, member_id, created_at DESC) WHERE done_at IS NULL`; both registered as AGENTS.md "Database" says. Verify: migrate up.
 - [ ] 1.3 `server/pkg/db/queries/todo.sql`: `OpenTodo`, `CloseTodos` (by member, kind and source key, or by kind and source key for all members), `CloseTodosOnIssue`, `ListOpenTodos`, `CountOpenTodosByWorkspace`, `GetTodoForMember`, `MarkTodoDone`; `make sqlc`. Verify: `go build ./...`.
 
@@ -62,3 +62,8 @@ Server checks: `cd server && go test ./...` with the test database, as AGENTS.md
 ## 10. Badges (Thomas)
 
 - [ ] 10.1 The sidebar Inbox number, the workspace switcher dot and the desktop dock badge read `GET /api/todos/summary`. Verify: `badge-convergence.test.tsx`, `app-sidebar.test.tsx`.
+
+## Implementation Notes
+
+- 1.1: Added `server/migrations/740_todo.up.sql` and `.down.sql` with the designed fields, bounded kind/actor/completion vocabularies, nullable system actor, and no foreign keys. `details` defaults to an empty object.
+- 1.1 verification: `make migrate-up ENV_FILE=.env.worktree` passed against isolated database `multica_todo_inbox_660`. `make migrate-down` successfully reversed 740, then stopped at the historical forward-only migration 494. With Joeri's approval, restored the database with migrate-up and independently ran 740's down and up files through `psql -v ON_ERROR_STOP=1`; both passed. Historical migrations are unchanged.
