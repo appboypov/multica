@@ -2030,6 +2030,11 @@ func isNoteComment(content string) bool {
 // steerTaskIDs are the running turns the author chose: a recipient whose chosen
 // turn is still running receives this comment there instead of a follow-up run.
 func (h *Handler) triggerTasksForComment(ctx context.Context, issue db.Issue, comment db.Comment, parentComment *db.Comment, actorType, actorID, originatorUserID string, suppressAgentIDs, steerTaskIDs []pgtype.UUID) []CommentTriggerOutcome {
+	return h.triggerTasksForCommentInput(ctx, issue, comment, parentComment, actorType, actorID, originatorUserID, suppressAgentIDs, steerTaskIDs,
+		service.RunInputItem{WorkspaceID: issue.WorkspaceID, Kind: "comment", ID: comment.ID, CommentID: comment.ID, Content: comment.Content})
+}
+
+func (h *Handler) triggerTasksForCommentInput(ctx context.Context, issue db.Issue, comment db.Comment, parentComment *db.Comment, actorType, actorID, originatorUserID string, suppressAgentIDs, steerTaskIDs []pgtype.UUID, item service.RunInputItem) []CommentTriggerOutcome {
 	if isNoteComment(comment.Content) {
 		return nil
 	}
@@ -2039,7 +2044,7 @@ func (h *Handler) triggerTasksForComment(ctx context.Context, issue db.Issue, co
 		OriginatorUserID:        originatorUserID,
 	})
 	h.noteBlockedRuntimeTargets(ctx, issue, targets)
-	triggers, steered := h.steerCommentAgentTriggers(ctx, issue, comment, actorType, triggers, steerTaskIDs)
+	triggers, steered := h.steerCommentAgentTriggers(ctx, issue, comment, service.RunInputActor{Type: actorType, ID: parseUUID(actorID)}, triggers, steerTaskIDs, item)
 	triggers = filterSuppressedCommentAgentTriggers(triggers, suppressAgentIDs)
 	enqueued := h.enqueueCommentAgentTriggers(ctx, issue, comment.ID, triggers)
 	for agentID, result := range steered {
@@ -3379,15 +3384,6 @@ func (h *Handler) UpdateComment(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "comment not found")
 		return
 	}
-	if bound, err := h.Queries.CommentHasTaskSupplement(r.Context(), db.CommentHasTaskSupplementParams{
-		CommentID: existing.ID, WorkspaceID: wsUUID,
-	}); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to verify additional message")
-		return
-	} else if bound {
-		writeError(w, http.StatusConflict, "additional messages cannot be edited")
-		return
-	}
 
 	member, ok := h.workspaceMember(w, r, workspaceID)
 	if !ok {
@@ -3608,7 +3604,8 @@ func (h *Handler) UpdateComment(w http.ResponseWriter, r *http.Request) {
 		}
 
 		h.retriggerCancelledTaskSurvivors(r.Context(), issue, cancelled, existing.ID)
-		return h.triggerTasksForComment(r.Context(), issue, comment, parentComment, actorType, actorID, h.invokeOriginatorFromRequest(r, actorType, actorID), suppressAgentIDs, nil)
+		return h.triggerTasksForCommentInput(r.Context(), issue, comment, parentComment, actorType, actorID, h.invokeOriginatorFromRequest(r, actorType, actorID), suppressAgentIDs, nil,
+			service.RunInputItem{WorkspaceID: issue.WorkspaceID, Kind: "comment_edit", ID: dbid.NewV7(), CommentID: comment.ID, Content: comment.Content})
 	}
 
 	// Fetch reactions and attachments for the updated comment.
@@ -3627,6 +3624,7 @@ func (h *Handler) UpdateComment(w http.ResponseWriter, r *http.Request) {
 	// The broadcast above intentionally omits trigger_outcomes — it is the
 	// editor's private feedback, not shared timeline state (MUL-4525 §2).
 	resp.TriggerOutcomes = retriggerEditedComment()
+	applyCommentSupplements(&resp, h.listCommentSupplements(r.Context(), comment.WorkspaceID, []pgtype.UUID{comment.ID})[uuidToString(comment.ID)])
 
 	writeJSON(w, http.StatusOK, resp)
 }

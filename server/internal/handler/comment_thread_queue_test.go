@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/jackc/pgx/v5"
@@ -181,6 +182,10 @@ func TestReplyInAnotherAgentsThreadIsOnlyANotice(t *testing.T) {
 	}), "id", f.issueID)).Want(http.StatusCreated).JSON(&reply)
 	if len(reply.Supplements) != 1 || reply.Supplements[0].AgentID != f.agentID {
 		t.Fatalf("Thomas missed the other thread's notice: %+v", reply.Supplements)
+	}
+	claimed, err := testHandler.Queries.ClaimNextTaskSupplement(t.Context(), parseUUID(f.taskID))
+	if err != nil || !strings.Contains(claimed.Content, "Skuddy thread's thread") || !strings.Contains(claimed.Content, root) {
+		t.Fatalf("notice lost its thread attribution: %+v / %v", claimed, err)
 	}
 	completeTaskViaDaemon(t, f.taskID)
 	if n := dbfx.Count(t, `SELECT count(*) FROM agent_task_queue WHERE agent_id=$1`, f.agentID); n != 1 {

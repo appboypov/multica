@@ -62,7 +62,7 @@ Not a journey change: no journey steps. Team Backend (Joeri) owns groups 1 to 6 
 - [x] 3.7 `server/internal/handler/question.go`, `server/internal/handler/activity.go:156-260` (`ListTimeline`, `mergeTimeline`) -- add `run_marks` to answers and to issue-change timeline entries from `ListRunInputMarksByItems` -- design decision 10.
 - [x] 3.8 `server/internal/handler/daemon.go:5129-5156` -- `failTask` calls `reconcileCommentsOnCompletion` after a transition -- design decision 7.
 - [x] 3.9 `server/internal/handler/run_input_test.go` and `server/internal/handler/comment_thread_queue_test.go` -- tests: react from another run 404s; react outside a run 401s; another emoji 400s; a CLI comment by Skuddy steers Thomas's running task; a reply in Skuddy's thread reaches Thomas's running task and queues nothing for him at its end; a composer comment with `steer_task_ids: []` does not reach a triggered recipient; a text-changing edit reaches the running task as a `comment_edit`; a comment for Thomas received without ✅ queues one follow-up at completion and at failure; one with ✅ queues none.
-- [ ] 3.10 `server/internal/handler/comment.go:3603-3618` (`retriggerEditedComment`) -- on a text-changing edit, deliver a `comment_edit` item with a new id and the edited text through the same path as 3.1.
+- [x] 3.10 `server/internal/handler/comment.go:3603-3618` (`retriggerEditedComment`) -- on a text-changing edit, deliver a `comment_edit` item with a new id and the edited text through the same path as 3.1.
 
 ## 4. omp backend
 

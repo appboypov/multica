@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/multica-ai/multica/server/internal/service"
+	"github.com/multica-ai/multica/server/internal/util"
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
 	"github.com/multica-ai/multica/server/pkg/protocol"
 )
@@ -143,7 +144,7 @@ func applyCommentSupplements(resp *CommentResponse, receipts []CommentSupplement
 // steerCommentAgentTriggers delivers a notice to every capable running run.
 // An explicit composer choice excludes only its triggered recipients' other
 // turns; recipients reached by the notice leave the follow-up enqueue list.
-func (h *Handler) steerCommentAgentTriggers(ctx context.Context, issue db.Issue, comment db.Comment, actorType string, triggers []commentAgentTrigger, steerTaskIDs []pgtype.UUID) ([]commentAgentTrigger, map[string]commentEnqueueResult) {
+func (h *Handler) steerCommentAgentTriggers(ctx context.Context, issue db.Issue, comment db.Comment, actor service.RunInputActor, triggers []commentAgentTrigger, steerTaskIDs []pgtype.UUID, item service.RunInputItem) ([]commentAgentTrigger, map[string]commentEnqueueResult) {
 	tasks, err := h.Queries.ListRunningSupplementTasksForIssues(ctx, db.ListRunningSupplementTasksForIssuesParams{
 		WorkspaceID: issue.WorkspaceID, IssueIds: []pgtype.UUID{issue.ID},
 	})
@@ -167,7 +168,35 @@ func (h *Handler) steerCommentAgentTriggers(ctx context.Context, issue db.Issue,
 			}
 		}
 	}
-	content := comment.Content
+	var content strings.Builder
+	content.WriteString(item.Content)
+	if comment.ParentID.Valid {
+		root, err := h.Queries.GetThreadRoot(ctx, db.GetThreadRootParams{CommentID: comment.ParentID, WorkspaceID: issue.WorkspaceID})
+		if err != nil {
+			slog.Error("comment run input thread failed", "comment_id", uuidToString(comment.ID), "error", err)
+			return triggers, nil
+		}
+		fmt.Fprintf(&content, "\nThread: %s", uuidToString(root.ID))
+		ownerID := pgtype.UUID{}
+		if root.AuthorType == "agent" {
+			ownerID = root.AuthorID
+		} else {
+			for _, mention := range util.ParseMentions(root.Content) {
+				if mention.Type == "agent" {
+					ownerID = parseUUID(mention.ID)
+					break
+				}
+			}
+			if !ownerID.Valid && issue.AssigneeType.String == "agent" {
+				ownerID = issue.AssigneeID
+			}
+		}
+		if ownerID.Valid {
+			if owner, err := h.Queries.GetAgentInWorkspace(ctx, db.GetAgentInWorkspaceParams{ID: ownerID, WorkspaceID: issue.WorkspaceID}); err == nil {
+				fmt.Fprintf(&content, " (%s's thread)", owner.Name)
+			}
+		}
+	}
 	attachments, err := h.Queries.ListAttachmentsByCommentIDs(ctx, db.ListAttachmentsByCommentIDsParams{
 		Column1: []pgtype.UUID{comment.ID}, WorkspaceID: issue.WorkspaceID,
 	})
@@ -176,21 +205,21 @@ func (h *Handler) steerCommentAgentTriggers(ctx context.Context, issue db.Issue,
 		return triggers, nil
 	}
 	for _, attachment := range attachments {
-		content += fmt.Sprintf("\n%s (attachment %s, multica attachment download %s)", attachment.Filename, uuidToString(attachment.ID), uuidToString(attachment.ID))
+		fmt.Fprintf(&content, "\n%s (attachment %s, multica attachment download %s)", attachment.Filename, uuidToString(attachment.ID), uuidToString(attachment.ID))
 	}
-	reached, err := h.RunInputService.Deliver(ctx, []pgtype.UUID{issue.ID},
-		service.RunInputActor{Type: actorType, ID: comment.AuthorID},
-		service.RunInputItem{WorkspaceID: issue.WorkspaceID, Kind: "comment", ID: comment.ID, CommentID: comment.ID, Content: content}, excluded)
+	item.Content = content.String()
+	reached, err := h.RunInputService.Deliver(ctx, []pgtype.UUID{issue.ID}, actor, item, excluded)
 	if err != nil {
 		slog.Error("comment run input delivery failed", "comment_id", uuidToString(comment.ID), "error", err)
 	}
+	reachedTasks := make(map[pgtype.UUID]bool, len(reached))
+	for _, id := range reached {
+		reachedTasks[id] = true
+	}
 	deliveredAgents := make(map[pgtype.UUID]bool, len(reached))
 	for _, task := range tasks {
-		for _, id := range reached {
-			if task.ID == id {
-				deliveredAgents[task.AgentID] = true
-				break
-			}
+		if reachedTasks[task.ID] {
+			deliveredAgents[task.AgentID] = true
 		}
 	}
 	kept := make([]commentAgentTrigger, 0, len(triggers))

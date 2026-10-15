@@ -161,3 +161,52 @@ func TestQuestionAnswerMarksFollowLatestEvent(t *testing.T) {
 		t.Fatalf("invalid question wire projection: %s / %v", encoded, err)
 	}
 }
+
+func TestCommentFilesReachRunningRunAsDownloadNotices(t *testing.T) {
+	f := newSupplementFixture(t, "codex", "running", true)
+	dbfx.Cleanup(t, `DELETE FROM agent_task_queue WHERE issue_id=$1`, f.issueID)
+	dbfx.Exec(t, `UPDATE issue SET assignee_type='agent',assignee_id=$2 WHERE id=$1`, f.issueID, f.agentID)
+	attachmentID := unlinkedIssueAttachment(t, f.issueID)
+	var created CommentResponse
+	createCommentWithAttachment(t, testHandler, f.issueID, attachmentID).Want(http.StatusCreated).JSON(&created)
+	if len(created.Supplements) != 1 || created.Supplements[0].TaskID != f.taskID {
+		t.Fatalf("files blocked steering: %+v", created.Supplements)
+	}
+	claimed, err := testHandler.Queries.ClaimNextTaskSupplement(t.Context(), parseUUID(f.taskID))
+	if err != nil || !strings.Contains(claimed.Content, "shot.png") || !strings.Contains(claimed.Content, "multica attachment download "+attachmentID) {
+		t.Fatalf("file notice lost its download identity: %+v / %v", claimed, err)
+	}
+	if n := dbfx.Count(t, `SELECT count(*) FROM agent_task_queue WHERE agent_id=$1`, f.agentID); n != 1 {
+		t.Fatalf("file comment created %d runs", n)
+	}
+}
+
+func TestIssueChangeMarksAppearOnTimeline(t *testing.T) {
+	f := newSupplementFixture(t, "codex", "running", true)
+	activityID := dbfx.Insert(t, "activity_log", testutil.Cols{
+		"workspace_id": testWorkspaceID, "issue_id": f.issueID,
+		"actor_type": "member", "actor_id": testUserID, "action": "priority_changed",
+		"details": `{"from":"medium","to":"high"}`,
+	})
+	_, err := testHandler.Queries.CreateRunInputSupplement(t.Context(), db.CreateRunInputSupplementParams{
+		TaskID: parseUUID(f.taskID), WorkspaceID: parseUUID(testWorkspaceID), IssueID: parseUUID(f.issueID),
+		AuthorID: parseUUID(testUserID), ItemKind: "issue_change", ItemID: parseUUID(activityID),
+		Content: pgtype.Text{String: "Brian raised the priority", Valid: true},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	dbfx.Exec(t, `UPDATE task_supplement SET status='delivered' WHERE task_id=$1`, f.taskID)
+	testutil.Call(t, testHandler.ReactToRunInput, runInputReactionRequest(f, activityID, "👀")).Want(http.StatusOK)
+	var timeline []TimelineEntry
+	testutil.Call(t, testHandler.ListTimeline, withURLParam(newRequest(http.MethodGet, "/timeline", nil), "id", f.issueID)).Want(http.StatusOK).JSON(&timeline)
+	for _, entry := range timeline {
+		if entry.ID == activityID {
+			if len(entry.RunMarks) != 1 || entry.RunMarks[0].AgentID != f.agentID || entry.RunMarks[0].SeenAt == nil || entry.RunMarks[0].HandledAt != nil {
+				t.Fatalf("activity marks missing: %+v", entry.RunMarks)
+			}
+			return
+		}
+	}
+	t.Fatal("marked activity missing from timeline")
+}
