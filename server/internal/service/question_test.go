@@ -1678,6 +1678,24 @@ func TestQuestionChatAskLinksAndPrivateRows(t *testing.T) {
 	}
 }
 
+func TestQuestionChatRowsWithoutAnIssueLink(t *testing.T) {
+	ctx := context.Background()
+	f, chat := newQuestionChatFixture(t)
+	input := questionSetInput(1, f.brian)
+	input.Links = []question.LinkRef{{Type: "task", Ref: util.UUIDToString(f.task)}}
+	result, err := f.svc.Ask(ctx, f.workspace, f.asker, input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if links := result.Questions[0].Links; len(links) != 2 || links[0].LinkType != "task" || links[1].LinkID != util.UUIDToString(chat) {
+		t.Fatalf("links = %+v", links)
+	}
+	page, err := f.svc.ListRows(ctx, f.workspace, f.brian, "for_me", QuestionRowFilters{}, nil, 20)
+	if err != nil || len(page.Rows) != 1 || page.Rows[0].OpenIssue != nil {
+		t.Fatalf("rows of a chat question with its run first = %+v, %v", page, err)
+	}
+}
+
 func TestQuestionChatLinksRejectForeignSessionsAndQuickCreate(t *testing.T) {
 	ctx := context.Background()
 	f, _ := newQuestionChatFixture(t)
@@ -1837,6 +1855,23 @@ func TestQuestionChatCancellationSurvivesRefusedWake(t *testing.T) {
 	card, err := f.svc.Get(ctx, f.workspace, id)
 	if err != nil || !card.WakeAvailable || card.UnseenAnswerCount != 1 {
 		t.Fatalf("saved cancel remains unseen = %+v, %v", card, err)
+	}
+}
+
+func TestQuestionChatArchivedOffersNoWake(t *testing.T) {
+	ctx := context.Background()
+	f, chat := newQuestionChatFixture(t)
+	row := f.ask(t)
+	id := util.MustParseUUID(row.ID)
+	f.finishAskingRun(t)
+	f.answer(t, row, f.answerer, "per line")
+	f.fx.Exec(t, `UPDATE chat_session SET status = 'archived' WHERE id = $1`, chat)
+	card, err := f.svc.Get(ctx, f.workspace, id)
+	if err != nil || card.WakeAvailable || len(card.WakeTargets) != 0 || card.UnseenAnswerCount != 1 {
+		t.Fatalf("archived chat card = %+v, %v; want no Wake and the answer still unseen", card, err)
+	}
+	if _, err := f.svc.Wake(ctx, f.workspace, id, f.answerer, pgtype.UUID{}); !errors.Is(err, ErrChatSessionArchived) {
+		t.Fatalf("wake in an archived chat = %v, want ErrChatSessionArchived", err)
 	}
 }
 

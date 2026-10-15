@@ -211,9 +211,6 @@ func (s *QuestionService) ListRows(ctx context.Context, workspaceID, viewerID pg
 		}
 		links := byQuestion[questionIDs[i]]
 		row.OpenIssue = OpenIssue(links)
-		if row.OpenIssue == nil {
-			return QuestionRowPageDTO{}, fmt.Errorf("question %s has no issue-bearing link", row.ID)
-		}
 		row.Via = Via(links, pageObject)
 		for j := range links {
 			link := &links[j]

@@ -156,11 +156,16 @@ func (s *QuestionService) wakeTargets(ctx context.Context, q *db.Queries, worksp
 		return result, nil
 	}
 	if askingScope.ChatSessionID.Valid {
-		if _, err := q.GetChatSessionInWorkspace(ctx, db.GetChatSessionInWorkspaceParams{ID: askingScope.ChatSessionID, WorkspaceID: workspaceID}); err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				return result, nil
-			}
+		session, err := q.GetChatSessionInWorkspace(ctx, db.GetChatSessionInWorkspaceParams{ID: askingScope.ChatSessionID, WorkspaceID: workspaceID})
+		if errors.Is(err, pgx.ErrNoRows) {
+			return result, nil
+		}
+		if err != nil {
 			return nil, err
+		}
+		// An archived chat takes no new turn, so it offers no Wake.
+		if session.Status != "active" {
+			return result, nil
 		}
 	} else if _, err := q.GetIssueInWorkspace(ctx, db.GetIssueInWorkspaceParams{ID: askingScope.IssueID, WorkspaceID: workspaceID}); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {

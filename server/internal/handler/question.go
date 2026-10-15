@@ -102,6 +102,8 @@ func writeQuestionError(w http.ResponseWriter, err error) {
 		writeError(w, questionErr.Status, questionErr.Message)
 	case errors.Is(err, service.ErrDuplicatePendingTask):
 		writeError(w, http.StatusConflict, "agent already has a pending task on this issue")
+	case errors.Is(err, service.ErrChatSessionArchived):
+		writeError(w, http.StatusUnprocessableEntity, "the chat is archived")
 	case errors.Is(err, pgx.ErrNoRows):
 		writeError(w, http.StatusNotFound, "question not found")
 	default:
