@@ -63,6 +63,9 @@ func registerActivityListeners(bus *events.Bus, queries *db.Queries, runInputs *
 		}
 
 		publishActivityEvent(bus, e, activity)
+		if issue.ParentIssueID != nil {
+			recordSubIssueActivity(ctx, bus, queries, e, *issue.ParentIssueID, "sub_issue_added", issue)
+		}
 	})
 
 	// issue:updated — record specific changes as separate activities
@@ -285,6 +288,51 @@ func registerActivityListeners(bus *events.Bus, queries *db.Queries, runInputs *
 				publishActivityEvent(bus, e, activity)
 			}
 		}
+		if changed, _ := payload["parent_changed"].(bool); changed {
+			previous := derefPayloadString(payload["prev_parent_issue_id"])
+			current := derefPayloadString(issue.ParentIssueID)
+			if previous != current {
+				if previous != "" {
+					recordSubIssueActivity(ctx, bus, queries, e, previous, "sub_issue_removed", issue)
+				}
+				if current != "" {
+					recordSubIssueActivity(ctx, bus, queries, e, current, "sub_issue_added", issue)
+				}
+			}
+		}
+	})
+
+	bus.Subscribe(protocol.EventIssueLabelsChanged, func(e events.Event) {
+		payload, ok := e.Payload.(map[string]any)
+		if !ok {
+			return
+		}
+		issueID, _ := payload["issue_id"].(string)
+		label, ok := payload["label"].(map[string]any)
+		change, _ := payload["change"].(string)
+		if !ok || issueID == "" || (change != "added" && change != "removed") {
+			return
+		}
+		id, _ := label["id"].(string)
+		name, _ := label["name"].(string)
+		recordIssueRelationActivity(ctx, bus, queries, e, issueID, "label_"+change, map[string]string{"label_id": id, "label_name": name})
+	})
+
+	bus.Subscribe(protocol.EventIssueAttachmentsChanged, func(e events.Event) {
+		payload, ok := e.Payload.(map[string]any)
+		if !ok {
+			return
+		}
+		issueID, _ := payload["issue_id"].(string)
+		id, _ := payload["attachment_id"].(string)
+		filename, _ := payload["filename"].(string)
+		change, _ := payload["change"].(string)
+		// Snapshot-only events, and files attached to comments, are not
+		// issue-file changes and intentionally carry no attachment id.
+		if issueID == "" || id == "" || (change != "added" && change != "removed") {
+			return
+		}
+		recordIssueRelationActivity(ctx, bus, queries, e, issueID, "attachment_"+change, map[string]string{"attachment_id": id, "filename": filename})
 	})
 
 	// task:completed — record "task_completed" activity
@@ -296,6 +344,29 @@ func registerActivityListeners(bus *events.Bus, queries *db.Queries, runInputs *
 	bus.Subscribe(protocol.EventTaskFailed, func(e events.Event) {
 		handleTaskActivity(ctx, bus, queries, e, "task_failed")
 	})
+}
+
+func recordSubIssueActivity(ctx context.Context, bus *events.Bus, queries *db.Queries, e events.Event, parentID, action string, child handler.IssueResponse) {
+	recordIssueRelationActivity(ctx, bus, queries, e, parentID, action, map[string]string{
+		"sub_issue_id": child.ID, "sub_issue_identifier": child.Identifier, "sub_issue_title": child.Title,
+	})
+}
+
+func recordIssueRelationActivity(ctx context.Context, bus *events.Bus, queries *db.Queries, e events.Event, issueID, action string, details map[string]string) {
+	body, err := json.Marshal(details)
+	if err != nil {
+		slog.Error("activity: could not encode relation change", "issue_id", issueID, "action", action, "error", err)
+		return
+	}
+	activity, err := queries.CreateActivity(ctx, db.CreateActivityParams{
+		ID: dbid.NewV7(), WorkspaceID: parseUUID(e.WorkspaceID), IssueID: parseUUID(issueID),
+		ActorType: util.StrToText(e.ActorType), ActorID: optionalUUID(e.ActorID), Action: action, Details: body,
+	})
+	if err != nil {
+		slog.Error("activity: failed to record relation change", "issue_id", issueID, "action", action, "error", err)
+		return
+	}
+	publishActivityEvent(bus, e, activity)
 }
 
 // Activity publication happens after the insert commits. Delivery uses the
@@ -328,6 +399,8 @@ func registerIssueChangeInputListener(bus *events.Bus, queries *db.Queries, runI
 			field = "title"
 		case "description_updated":
 			field = "description"
+		case "label_added", "label_removed", "attachment_added", "attachment_removed", "sub_issue_added", "sub_issue_removed":
+			// Relation changes name the added or removed item below.
 		default:
 			return
 		}
@@ -352,7 +425,32 @@ func registerIssueChangeInputListener(bus *events.Bus, queries *db.Queries, runI
 			to = activityIdentityName(context.Background(), queries, details["to_type"], details["to_id"])
 		}
 		actor := activityIdentityName(context.Background(), queries, e.ActorType, e.ActorID)
-		content := fmt.Sprintf("%s changed the %s from %s to %s", actor, field, from, to)
+		var content string
+		switch action {
+		case "label_added", "label_removed":
+			verb := "added"
+			if action == "label_removed" {
+				verb = "removed"
+			}
+			content = fmt.Sprintf("%s %s the label %s", actor, verb, details["label_name"])
+		case "attachment_added", "attachment_removed":
+			verb := "attached"
+			if action == "attachment_removed" {
+				verb = "removed"
+			}
+			content = fmt.Sprintf("%s %s %s (attachment %s)", actor, verb, details["filename"], details["attachment_id"])
+			if action == "attachment_added" {
+				content += fmt.Sprintf("\nmultica attachment download %s", details["attachment_id"])
+			}
+		case "sub_issue_added", "sub_issue_removed":
+			verb := "added"
+			if action == "sub_issue_removed" {
+				verb = "removed"
+			}
+			content = fmt.Sprintf("%s %s the sub-issue %s %s", actor, verb, details["sub_issue_identifier"], details["sub_issue_title"])
+		default:
+			content = fmt.Sprintf("%s changed the %s from %s to %s", actor, field, from, to)
+		}
 		issueID, _ := payload["issue_id"].(string)
 		itemID, _ := entry["id"].(string)
 		if _, err := runInputs.Deliver(context.Background(), []pgtype.UUID{parseUUID(issueID)},

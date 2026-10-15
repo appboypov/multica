@@ -271,6 +271,9 @@ func extractIssueFields(v any) (handler.IssueResponse, bool) {
 	issue := handler.IssueResponse{}
 	issue.ID, _ = m["id"].(string)
 	issue.WorkspaceID, _ = m["workspace_id"].(string)
+	issue.Title, _ = m["title"].(string)
+	issue.Identifier, _ = m["identifier"].(string)
+	issue.ParentIssueID, _ = m["parent_issue_id"].(*string)
 	issue.CreatorType, _ = m["creator_type"].(string)
 	issue.CreatorID, _ = m["creator_id"].(string)
 	issue.AssigneeType, _ = m["assignee_type"].(*string)
