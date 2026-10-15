@@ -29,7 +29,7 @@
 
 ## Implementation Notes
 
-- Persistence, cleanup, generated sqlc bindings, client types/schemas and event contracts are implemented in the files named above. The living model map is updated in `../../../docs/system-design.md`.
+- Persistence, cleanup, generated sqlc bindings, client types/schemas and event contracts are implemented in the files named above. The living model map is updated in `../../../../docs/system-design.md`.
 - Upsert keeps the existing row ID and replaces its process/session fields only within the same workspace. A conflicting `(daemon_id, pid)` owned by another workspace returns no row; the backend must not treat it as a successful registration.
 - The list selects runs first so sqlc infers nullable PID, runtime, issue and repository fields correctly. An absent issue has a null `issue_id` and an empty identifier.
 - Verification uses an isolated PostgreSQL 17 container, never the production database. All six session query tests, two existing runtime-session tests, the workspace deletion manifest, three concurrent-index cleanup tests and migration checks pass. The changed Go packages pass `go vet`, and `go build ./...` passes.
