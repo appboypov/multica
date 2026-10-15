@@ -16,6 +16,9 @@ UJ-2 gives an issue a worktree per repository at `~/Worktrees/{organisation key}
 - The worktree changes branch only when it holds nothing uncommitted and no commit missing from its remote. Otherwise a task fails with `worklane_branch_held`, and a switch after a merge keeps the branch and says why in the worklane's activity.
 - When the pull request on the worklane's branch merges into the default branch, the server asks the daemon to switch the worktree to the worklane's next issue's branch, or to detach it at `origin/{default_branch}` when none is left.
 - The daemon reports every branch it switches to, and the server keeps it in `worklane.branch`. Busy, the active issue and the next issue are computed from that branch and the worklane's open issues on every read, never stored.
+- Issue order is release position ASC NULLS LAST, `issue.lane_position` ASC NULLS LAST, creation date ASC, then id ASC. Lane positions are nullable fractional values, independent of board-column `issue.position`. Migration 730 backfills existing lanes in creation order; migration 731 indexes the lane position.
+- Placement writes append an issue when its lane or release changes, and clear its position when it leaves a lane. These writes and `POST /api/worklanes/{id}/issues/{issueId}/move` hold the repository lock (ADR-0013). A move computes a fractional position between neighbors in the same lane and release, normalizing that release group if a floating-point gap is exhausted. The response is the lane's complete ordered issue list, and a worklane update publishes its new head.
+- Release order cannot be overridden by an issue move: a target in another release is refused with 409. The worklane List and Board and `multica worklane move` share this rule; moving an issue does not interrupt an active branch.
 
 ## Consequences
 

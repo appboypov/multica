@@ -836,6 +836,7 @@ type Issue struct {
 	WorklaneID         pgtype.UUID        `json:"worklane_id"`
 	ReleaseID          pgtype.UUID        `json:"release_id"`
 	DoneAt             pgtype.Timestamptz `json:"done_at"`
+	LanePosition       pgtype.Float8      `json:"lane_position"`
 }
 
 type IssueChildEvent struct {

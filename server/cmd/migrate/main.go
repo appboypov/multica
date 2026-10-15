@@ -141,6 +141,7 @@ var pgBigmOperatorClass = extensionOperatorClass{
 // interrupted build would otherwise leave a permanently unusable index.
 var concurrentIndexCleanups = map[string]string{
 	"721_release_milestone_index":                               "idx_release_milestone_release",
+	"731_issue_lane_order_index":                                "idx_issue_lane_order",
 	"702_question_answer_answerer_time_index":                   "idx_question_answer_answerer_time",
 	"701_question_open_workspace_index":                         "idx_question_open_workspace",
 	"700_question_answerer_user_index":                          "idx_question_answerer_user",

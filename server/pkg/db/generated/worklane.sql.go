@@ -254,7 +254,7 @@ func (q *Queries) GetWorklaneInWorkspace(ctx context.Context, arg GetWorklaneInW
 const listOpenWorklaneIssues = `-- name: ListOpenWorklaneIssues :many
 SELECT i.id, i.worklane_id, i.title, i.status, i.created_at,
        w.issue_prefix, (w.issue_prefix || '-' || i.number)::text AS identifier,
-       r.position AS release_position,
+       r.position AS release_position, i.lane_position,
        CASE
            WHEN i.status IN ('backlog', 'todo') THEN 'unstarted'
            WHEN i.status IN ('in_progress', 'in_review', 'blocked') THEN 'started'
@@ -269,7 +269,7 @@ LEFT JOIN issue_status s ON s.key = i.status AND s.workspace_id = i.workspace_id
 WHERE i.workspace_id = $1
   AND i.worklane_id = ANY($2::uuid[])
   AND issue_effective_status(i.workspace_id, i.status) NOT IN ('done', 'cancelled')
-ORDER BY i.worklane_id, r.position ASC NULLS LAST, i.created_at ASC, i.id ASC
+ORDER BY i.worklane_id, r.position ASC NULLS LAST, i.lane_position ASC NULLS LAST, i.created_at ASC, i.id ASC
 `
 
 type ListOpenWorklaneIssuesParams struct {
@@ -286,6 +286,7 @@ type ListOpenWorklaneIssuesRow struct {
 	IssuePrefix     string             `json:"issue_prefix"`
 	Identifier      string             `json:"identifier"`
 	ReleasePosition pgtype.Int4        `json:"release_position"`
+	LanePosition    pgtype.Float8      `json:"lane_position"`
 	StatusCategory  string             `json:"status_category"`
 }
 
@@ -309,6 +310,7 @@ func (q *Queries) ListOpenWorklaneIssues(ctx context.Context, arg ListOpenWorkla
 			&i.IssuePrefix,
 			&i.Identifier,
 			&i.ReleasePosition,
+			&i.LanePosition,
 			&i.StatusCategory,
 		); err != nil {
 			return nil, err

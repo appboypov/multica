@@ -340,6 +340,7 @@ function IssueSurfaceContent({
             {controller.viewMode === "board" && (
               <BoardView
                 issues={issues}
+                worklaneId={scope.type === "worklane" ? scope.worklaneId : undefined}
                 visibleStatuses={controller.visibleStatuses}
                 hiddenStatuses={controller.hiddenStatuses}
                 onMoveIssue={controller.moveIssue}

@@ -600,6 +600,27 @@ Pick exactly one of `--top`, `--bottom`, `--before`, or `--after`. Reorder stays
 
 Reorder reads the project-scoped column before computing the new position. With older servers that omit the total or substitute the page length after a failed count, it continues to an empty page instead of trusting that count. This may cost one extra request. A failed page request, malformed issue, or repeated issue aborts the operation before a position is written. These checks do not provide a consistent snapshot across concurrent edits.
 
+### Worklanes and lane order
+
+```bash
+multica worklane list --repo owner/repository
+multica worklane list --project "Product"
+multica worklane get main --repo owner/repository
+multica worklane issues main --repo owner/repository
+multica worklane create "Feature" --repo owner/repository --folder feature --daemon-id <machine-daemon-id>
+multica worklane rename <lane-uuid> "New name"
+multica worklane remove <lane-uuid>
+multica worklane move MUL-123 --before MUL-124
+multica worklane move MUL-123 --after MUL-125
+```
+
+Every command supports `--output table|json`. A lane accepts its UUID or name; names that occur in multiple repositories require `--repo`. Repository selectors accept UUIDs or `owner/name`. Create and remove use the existing machine request flow and wait until it completes; refusals and failures exit with an error.
+
+Lane order is separate from an issue's board-column position. The release line comes first, then the manually ordered issues in each release, then issues with no release. Move requires exactly one of `--before` or `--after`, naming an issue key or UUID in the same lane and release. A cross-release target is refused with 409 because it cannot override release order. The worklane List supports pointer and keyboard dragging within each release section; the Board uses the same lane order for same-column reordering. Failed moves restore the previous order.
+
+Newly placed issues go last in their release group, including when their worklane or release changes. Removing a worklane clears its issue's lane position. The worklane's next open issue follows this order unless its worktree already holds an active issue's branch.
+
+
 ### Assign Issue
 
 ```bash

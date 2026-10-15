@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -85,6 +86,11 @@ func (sort resolvedIssueTableSort) cursorPredicate(w http.ResponseWriter, cursor
 		return "", false
 	}
 	switch sort.castType {
+	case "jsonb":
+		if !json.Valid([]byte(*cursor.SortValue)) {
+			writeError(w, http.StatusBadRequest, "invalid cursor")
+			return "", false
+		}
 	case "integer":
 		if _, err := strconv.ParseInt(*cursor.SortValue, 10, 64); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid cursor")
@@ -214,6 +220,17 @@ func (h *Handler) issueTableOrderBy(
 	return resolved, true
 }
 
+// JSONB compares equal-length arrays element by element, retaining numeric
+// positions and explicit nulls-last flags. Including the unique id makes the
+// existing keyset cursor an exact cursor for the composite lane order.
+func worklaneTableOrder() resolvedIssueTableSort {
+	releasePosition := "(SELECT r.position FROM release r WHERE r.id = i.release_id AND r.workspace_id = i.workspace_id)"
+	return resolvedIssueTableSort{
+		expression: "jsonb_build_array(" + releasePosition + " IS NULL, " + releasePosition + ", i.lane_position IS NULL, i.lane_position, i.created_at, i.id)",
+		direction:  "asc", castType: "jsonb", idOnlyTie: true,
+	}
+}
+
 func normalizeIssueTableGroupKey(w http.ResponseWriter, group issueTableGroupSpec, groupKey *string) (*string, bool) {
 	if group.Kind == "none" {
 		if groupKey != nil && strings.TrimSpace(*groupKey) != "" {
@@ -300,6 +317,9 @@ func (h *Handler) ListIssueTableRows(w http.ResponseWriter, r *http.Request) {
 	)
 	if !ok {
 		return
+	}
+	if request.Query.Scope.Kind == "worklane" && (request.Query.Sort.Field == "" || request.Query.Sort.Field == "position") {
+		resolvedSort = worklaneTableOrder()
 	}
 	predicateKey := ""
 	if groupKey != nil {

@@ -12,7 +12,7 @@ import (
 )
 
 const clearPlacementOfProjectIssues = `-- name: ClearPlacementOfProjectIssues :many
-UPDATE issue SET worklane_id = NULL, release_id = NULL, revision = revision + 1, updated_at = now()
+UPDATE issue SET worklane_id = NULL, lane_position = NULL, release_id = NULL, revision = revision + 1, updated_at = now()
 WHERE issue.workspace_id = $1
   AND issue.worklane_id IN (SELECT wl.id FROM worklane wl
                      JOIN repository r ON r.id = wl.repository_id AND r.workspace_id = wl.workspace_id
@@ -47,7 +47,7 @@ func (q *Queries) ClearPlacementOfProjectIssues(ctx context.Context, arg ClearPl
 }
 
 const clearPlacementOfRepositoryIssues = `-- name: ClearPlacementOfRepositoryIssues :many
-UPDATE issue SET worklane_id = NULL, release_id = NULL, revision = revision + 1, updated_at = now()
+UPDATE issue SET worklane_id = NULL, lane_position = NULL, release_id = NULL, revision = revision + 1, updated_at = now()
 WHERE issue.workspace_id = $1
   AND issue.worklane_id IN (SELECT wl.id FROM worklane wl
                            WHERE wl.workspace_id = $1 AND wl.repository_id = $2)
@@ -81,9 +81,16 @@ func (q *Queries) ClearPlacementOfRepositoryIssues(ctx context.Context, arg Clea
 }
 
 const clearReleaseOfIssues = `-- name: ClearReleaseOfIssues :many
-UPDATE issue SET release_id = NULL, revision = revision + 1, updated_at = now()
-WHERE workspace_id = $1 AND release_id = $2
-RETURNING id
+WITH placed AS (
+    SELECT i.id, CASE WHEN i.worklane_id IS NULL THEN NULL ELSE
+        (SELECT COALESCE(MAX(other.lane_position), 0) FROM issue other
+         WHERE other.workspace_id = i.workspace_id AND other.worklane_id = i.worklane_id)
+        + row_number() OVER (PARTITION BY i.worklane_id ORDER BY i.created_at, i.id) END AS position
+    FROM issue i WHERE i.workspace_id = $1 AND i.release_id = $2
+)
+UPDATE issue SET release_id = NULL, lane_position = placed.position, revision = revision + 1, updated_at = now()
+FROM placed WHERE issue.id = placed.id AND issue.workspace_id = $1
+RETURNING issue.id
 `
 
 type ClearReleaseOfIssuesParams struct {
@@ -112,7 +119,7 @@ func (q *Queries) ClearReleaseOfIssues(ctx context.Context, arg ClearReleaseOfIs
 }
 
 const clearWorklaneOfIssues = `-- name: ClearWorklaneOfIssues :many
-UPDATE issue SET worklane_id = NULL, revision = revision + 1, updated_at = now()
+UPDATE issue SET worklane_id = NULL, lane_position = NULL, revision = revision + 1, updated_at = now()
 WHERE workspace_id = $1 AND worklane_id = $2
   AND status = ANY($3::text[])
 RETURNING id
@@ -193,11 +200,12 @@ func (q *Queries) ListIssuesForRelease(ctx context.Context, arg ListIssuesForRel
 }
 
 const listOpenIssuesOfWorklane = `-- name: ListOpenIssuesOfWorklane :many
-SELECT id, number, title
-FROM issue
-WHERE workspace_id = $1 AND worklane_id = $2
-  AND NOT (status = ANY($3::text[]))
-ORDER BY created_at ASC, id ASC
+SELECT i.id, i.number, i.title
+FROM issue i
+LEFT JOIN release r ON r.id = i.release_id AND r.workspace_id = i.workspace_id
+WHERE i.workspace_id = $1 AND i.worklane_id = $2
+  AND NOT (i.status = ANY($3::text[]))
+ORDER BY r.position ASC NULLS LAST, i.lane_position ASC NULLS LAST, i.created_at ASC, i.id ASC
 `
 
 type ListOpenIssuesOfWorklaneParams struct {
@@ -327,8 +335,9 @@ SELECT i.id, i.workspace_id, i.title, i.description, i.status, i.priority,
        i.updated_at, i.last_activity_at, i.number, i.project_id, i.metadata, i.stage, i.properties,
        i.revision, i.duplicate_of_issue_id, i.agent_questions, i.type, i.worklane_id, i.release_id, i.done_at
 FROM issue i
+LEFT JOIN release r ON r.id = i.release_id AND r.workspace_id = i.workspace_id
 WHERE i.workspace_id = $1 AND i.worklane_id = $2
-ORDER BY i.created_at ASC, i.id ASC
+ORDER BY r.position ASC NULLS LAST, i.lane_position ASC NULLS LAST, i.created_at ASC, i.id ASC
 `
 
 type ListWorklaneIssuesParams struct {
@@ -422,7 +431,7 @@ const setIssueTypeOnce = `-- name: SetIssueTypeOnce :one
 
 UPDATE issue SET type = $1, revision = revision + 1, updated_at = now()
 WHERE id = $2 AND workspace_id = $3 AND type IS NULL
-RETURNING id, workspace_id, title, description, status, priority, assignee_type, assignee_id, creator_type, creator_id, parent_issue_id, acceptance_criteria, context_refs, position, due_date, created_at, updated_at, number, project_id, origin_type, origin_id, first_executed_at, start_date, metadata, stage, properties, revision, last_activity_at, triage_state, duplicate_of_issue_id, agent_questions, type, worklane_id, release_id, done_at
+RETURNING id, workspace_id, title, description, status, priority, assignee_type, assignee_id, creator_type, creator_id, parent_issue_id, acceptance_criteria, context_refs, position, due_date, created_at, updated_at, number, project_id, origin_type, origin_id, first_executed_at, start_date, metadata, stage, properties, revision, last_activity_at, triage_state, duplicate_of_issue_id, agent_questions, type, worklane_id, release_id, done_at, lane_position
 `
 
 type SetIssueTypeOnceParams struct {
@@ -472,14 +481,23 @@ func (q *Queries) SetIssueTypeOnce(ctx context.Context, arg SetIssueTypeOncePara
 		&i.WorklaneID,
 		&i.ReleaseID,
 		&i.DoneAt,
+		&i.LanePosition,
 	)
 	return i, err
 }
 
 const setReleaseOfIssues = `-- name: SetReleaseOfIssues :many
-UPDATE issue SET release_id = $1, revision = revision + 1, updated_at = now()
-WHERE workspace_id = $2 AND id = ANY($3::uuid[])
-RETURNING id
+WITH placed AS (
+    SELECT i.id, CASE WHEN i.worklane_id IS NULL THEN NULL ELSE
+        (SELECT COALESCE(MAX(other.lane_position), 0) FROM issue other
+         WHERE other.workspace_id = i.workspace_id AND other.worklane_id = i.worklane_id)
+        + row_number() OVER (PARTITION BY i.worklane_id ORDER BY i.created_at, i.id) END AS position
+    FROM issue i WHERE i.workspace_id = $2 AND i.id = ANY($3::uuid[])
+)
+UPDATE issue SET release_id = $1, lane_position = placed.position,
+    revision = revision + 1, updated_at = now()
+FROM placed WHERE issue.id = placed.id AND issue.workspace_id = $2
+RETURNING issue.id
 `
 
 type SetReleaseOfIssuesParams struct {
@@ -510,30 +528,37 @@ func (q *Queries) SetReleaseOfIssues(ctx context.Context, arg SetReleaseOfIssues
 
 const updateIssuePlacement = `-- name: UpdateIssuePlacement :one
 UPDATE issue SET
+    lane_position = CASE
+        WHEN $1::uuid IS NULL THEN NULL
+        WHEN worklane_id IS DISTINCT FROM $1::uuid
+          OR release_id IS DISTINCT FROM $2::uuid
+        THEN (SELECT COALESCE(MAX(other.lane_position), 0) + 1 FROM issue other
+              WHERE other.workspace_id = $3 AND other.worklane_id = $1)
+        ELSE lane_position END,
     worklane_id = $1,
     release_id = $2,
-    project_id = $3,
+    project_id = $4,
     revision = revision + 1,
     updated_at = now()
-WHERE id = $4 AND workspace_id = $5
-RETURNING id, workspace_id, title, description, status, priority, assignee_type, assignee_id, creator_type, creator_id, parent_issue_id, acceptance_criteria, context_refs, position, due_date, created_at, updated_at, number, project_id, origin_type, origin_id, first_executed_at, start_date, metadata, stage, properties, revision, last_activity_at, triage_state, duplicate_of_issue_id, agent_questions, type, worklane_id, release_id, done_at
+WHERE issue.id = $5 AND issue.workspace_id = $3
+RETURNING id, workspace_id, title, description, status, priority, assignee_type, assignee_id, creator_type, creator_id, parent_issue_id, acceptance_criteria, context_refs, position, due_date, created_at, updated_at, number, project_id, origin_type, origin_id, first_executed_at, start_date, metadata, stage, properties, revision, last_activity_at, triage_state, duplicate_of_issue_id, agent_questions, type, worklane_id, release_id, done_at, lane_position
 `
 
 type UpdateIssuePlacementParams struct {
 	WorklaneID  pgtype.UUID `json:"worklane_id"`
 	ReleaseID   pgtype.UUID `json:"release_id"`
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
 	ProjectID   pgtype.UUID `json:"project_id"`
 	ID          pgtype.UUID `json:"id"`
-	WorkspaceID pgtype.UUID `json:"workspace_id"`
 }
 
 func (q *Queries) UpdateIssuePlacement(ctx context.Context, arg UpdateIssuePlacementParams) (Issue, error) {
 	row := q.db.QueryRow(ctx, updateIssuePlacement,
 		arg.WorklaneID,
 		arg.ReleaseID,
+		arg.WorkspaceID,
 		arg.ProjectID,
 		arg.ID,
-		arg.WorkspaceID,
 	)
 	var i Issue
 	err := row.Scan(
@@ -572,6 +597,7 @@ func (q *Queries) UpdateIssuePlacement(ctx context.Context, arg UpdateIssuePlace
 		&i.WorklaneID,
 		&i.ReleaseID,
 		&i.DoneAt,
+		&i.LanePosition,
 	)
 	return i, err
 }

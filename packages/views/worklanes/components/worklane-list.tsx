@@ -2,6 +2,10 @@
 
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { DndContext, PointerSensor, KeyboardSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
+import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
+import { toast } from "sonner";
 import { useWorkspaceId } from "@multica/core/hooks";
 import { worklaneIssuesOptions } from "@multica/core/issues/placement";
 import { getIssueSurfaceViewStore } from "@multica/core/issues/stores/surface-view-store";
@@ -9,6 +13,8 @@ import { ViewStoreProvider } from "@multica/core/issues/stores/view-store-contex
 import { releaseListOptions, selectLine, toLine, type Line } from "@multica/core/releases";
 import {
   listSections,
+  useMoveWorklaneIssue,
+  type LaneMoveMutation,
   typeFilter,
   type IssueTypePick,
   type NoReleaseListSection,
@@ -17,7 +23,7 @@ import {
 import type { Issue, Repository, Worklane } from "@multica/core/types";
 import { Skeleton } from "@multica/ui/components/ui/skeleton";
 import { IssueContextMenuProvider } from "../../issues/actions";
-import { ListRow } from "../../issues/components/list-row";
+import { DraggableListRow, ListRow } from "../../issues/components/list-row";
 import { ReleaseChip } from "../../releases/components/release-chips";
 import { ReleaseMenu } from "../../releases/components/release-menu";
 import { useLastTag } from "../../releases/use-release-line";
@@ -44,6 +50,7 @@ export function WorklaneList({
   const issuesQuery = useQuery(worklaneIssuesOptions(wsId, worklane.id));
   const releasesQuery = useQuery(releaseListOptions(wsId));
   const store = useMemo(() => getIssueSurfaceViewStore(`worklane:${worklane.id}`), [worklane.id]);
+  const move = useMoveWorklaneIssue(worklane.id);
 
   const { sections, line } = useMemo(() => {
     const releases = selectLine(releasesQuery.data ?? [], repository.id);
@@ -85,9 +92,10 @@ export function WorklaneList({
                 section={section}
                 repository={repository}
                 line={line}
+                move={move}
               />
             ) : (
-              <NoReleaseSection key="no_release" section={section} />
+              <NoReleaseSection key="no_release" section={section} move={move} />
             ),
           )}
         </div>
@@ -100,10 +108,12 @@ function ReleaseSection({
   section,
   repository,
   line,
+  move,
 }: {
   section: ReleaseListSection;
   repository: Repository;
   line: Line;
+  move: LaneMoveMutation;
 }) {
   const { t: tReleases } = useT("releases");
   const { release } = section;
@@ -140,12 +150,12 @@ function ReleaseSection({
           {release.description}
         </p>
       )}
-      <IssueRows issues={section.issues} />
+      <WorklaneIssueRows issues={section.issues} move={move} />
     </section>
   );
 }
 
-function NoReleaseSection({ section }: { section: NoReleaseListSection }) {
+function NoReleaseSection({ section, move }: { section: NoReleaseListSection; move: LaneMoveMutation }) {
   const { t } = useT("worklanes");
   const { t: tReleases } = useT("releases");
   return (
@@ -156,18 +166,38 @@ function NoReleaseSection({ section }: { section: NoReleaseListSection }) {
           {t(($) => $.list.issue_count, { count: section.issues.length })}
         </span>
       </header>
-      <IssueRows issues={section.issues} />
+      <WorklaneIssueRows issues={section.issues} move={move} />
     </section>
   );
 }
 
-function IssueRows({ issues }: { issues: readonly Issue[] }) {
+export function WorklaneIssueRows({ issues, move }: { issues: readonly Issue[]; move: Pick<LaneMoveMutation, "isPending" | "mutate"> }) {
+  const { t } = useT("issues");
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+  const onDragEnd = ({ active, over }: DragEndEvent) => {
+    if (!over || active.id === over.id || move.isPending) return;
+    const oldIndex = issues.findIndex((issue) => issue.id === active.id);
+    const newIndex = issues.findIndex((issue) => issue.id === over.id);
+    if (oldIndex < 0 || newIndex < 0) return;
+    const issueId = String(active.id);
+    const target = String(over.id);
+    move.mutate(oldIndex < newIndex ? { issueId, after: target } : { issueId, before: target }, {
+      onError: () => toast.error(t(($) => $.page.move_failed)),
+    });
+  };
   if (issues.length === 0) return null;
   return (
-    <div className="pt-1">
-      {issues.map((issue) => (
-        <ListRow key={issue.id} issue={issue} />
-      ))}
-    </div>
+    <DndContext sensors={sensors} collisionDetection={closestCenter} modifiers={[restrictToVerticalAxis]} onDragEnd={onDragEnd}>
+      <SortableContext items={issues.map((issue) => issue.id)} strategy={verticalListSortingStrategy}>
+        <div className="pt-1" aria-busy={move.isPending}>
+          {issues.map((issue) => move.isPending
+            ? <ListRow key={issue.id} issue={issue} />
+            : <DraggableListRow key={issue.id} issue={issue} />)}
+        </div>
+      </SortableContext>
+    </DndContext>
   );
 }

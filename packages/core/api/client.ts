@@ -3,7 +3,7 @@ import type { IssueWakeup, IssueWakeupInput, IssueWakeupSummaryRow, PausedWakeup
 import type { WorkspaceWakeupPage, WorkspaceWakeupFilters } from "../types/issue-wakeup";
 import { WorkspaceWakeupPageSchema, IssueWakeupSchema, IssueWakeupSummaryRowSchema, PausedWakeupSchema, SystemWakeupSchema, WakeupRunSchema, WorkspaceSystemWakeupSchema } from "./schemas";
 import type { IssueTemplate, IssueType, SetIssuePlacementRequest, ReleaseProgressResponse } from "../types";
-import { IssueTemplatesResponseSchema, EMPTY_ISSUE_TEMPLATES_RESPONSE, WorklaneIssuesResponseSchema, EMPTY_WORKLANE_ISSUES_RESPONSE, ReleaseProgressResponseSchema, EMPTY_RELEASE_PROGRESS_RESPONSE } from "./schemas";
+import { IssueTemplatesResponseSchema, EMPTY_ISSUE_TEMPLATES_RESPONSE, WorklaneIssuesResponseSchema, MoveWorklaneIssueResponseSchema, EMPTY_WORKLANE_ISSUES_RESPONSE, ReleaseProgressResponseSchema, EMPTY_RELEASE_PROGRESS_RESPONSE } from "./schemas";
 import type { InboxFilters } from "../inbox/filter-store";
 import type { ArchivedInboxPage, ArchivedInboxFacets } from "../types/inbox";
 import { configStore } from "../config";
@@ -1680,6 +1680,18 @@ export class ApiClient {
     return parseWithFallback(raw, WorklaneIssuesResponseSchema, EMPTY_WORKLANE_ISSUES_RESPONSE, {
       endpoint: "GET /api/worklanes/:id/issues",
     }).issues;
+  }
+
+  async moveWorklaneIssue(worklaneId: string, issueId: string, move: { before?: string; after?: string }): Promise<Issue[]> {
+    const raw = await this.fetch<unknown>(`/api/worklanes/${encodeURIComponent(worklaneId)}/issues/${encodeURIComponent(issueId)}/move`, {
+      method: "POST",
+      body: JSON.stringify({ before: move.before, after: move.after }),
+    });
+    const response = parseWithFallback<{ issues: Issue[] } | null>(raw, MoveWorklaneIssueResponseSchema, null, {
+      endpoint: "POST /api/worklanes/:id/issues/:issueId/move",
+    });
+    if (!response) throw new Error("Move returned malformed worklane issues");
+    return response.issues;
   }
 
   async listReleaseProgress(): Promise<ReleaseProgressResponse> {

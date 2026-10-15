@@ -125,6 +125,8 @@ EXAMPLES
   $ multica issue list --output json
   $ multica release list --output json
   $ multica release milestone add <release> --name "UI prototype" --date 2026-11-02
+  $ multica worklane issues main --repo owner/repository
+  $ multica worklane move MUL-123 --before MUL-124
   $ multica daemon start
   $ multica agent list --output json
 

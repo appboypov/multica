@@ -5,6 +5,8 @@ import { cn } from "@multica/ui/lib/utils";
 
 import { useState, useCallback, useMemo, useEffect, useRef, memo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { worklaneIssuesOptions } from "@multica/core/issues/placement";
+import { useMoveWorklaneIssue } from "@multica/core/worklanes";
 import {
   DndContext,
   DragOverlay,
@@ -257,6 +259,7 @@ function BoardViewImpl({
   onCreateIssue,
   statusPagination,
   groupBranches,
+  worklaneId,
 }: {
   issues: Issue[];
   visibleStatuses: IssueStatus[];
@@ -269,11 +272,17 @@ function BoardViewImpl({
   onCreateIssue?: (defaults: IssueCreateDefaults) => void;
   statusPagination?: IssueStatusPagination;
   groupBranches?: IssueGroupBranches;
+  worklaneId?: string;
 }) {
   const { t } = useT("issues");
   const storeGrouping = useViewStore((s) => s.grouping);
   const sortBy = useViewStore((s) => s.sortBy);
   const boardWsId = useWorkspaceId();
+  const laneIssues = useQuery({
+    ...worklaneIssuesOptions(boardWsId, worklaneId ?? ""),
+    enabled: Boolean(worklaneId),
+  });
+  const laneMove = useMoveWorklaneIssue(worklaneId ?? "");
   const catalog = useIssueStatuses(boardWsId);
   const { data: workspaceProperties = [] } = useQuery(propertyListOptions(boardWsId));
   const groupingPropertyId = propertyIdFromViewKey(storeGrouping);
@@ -334,10 +343,14 @@ function BoardViewImpl({
       })
     : null;
   const { getActorName } = useActorName();
-  const groupedIssues = useMemo(
-    () => (groupBranches?.enabled ? groupBranches.issues : issues),
-    [groupBranches, issues],
-  );
+  const groupedIssues = useMemo(() => {
+    const source = groupBranches?.enabled ? groupBranches.issues : issues;
+    if (!worklaneId || !laneIssues.data) return source;
+    const ranks = new Map(laneIssues.data.map((issue, index) => [issue.id, index]));
+    // The shared board's sorting primitive reads position. Project the lane
+    // rank locally; lane moves never write the independent board position.
+    return source.map((issue) => ({ ...issue, position: ranks.get(issue.id) ?? source.length }));
+  }, [groupBranches, issues, worklaneId, laneIssues.data]);
   const hydratedAssigneeGroups = useMemo<BoardColumnGroup[] | undefined>(() => {
     if (grouping === "assignee" && groupBranches?.enabled) {
       return groupBranches.descriptors.flatMap((descriptor): BoardColumnGroup[] => {
@@ -588,6 +601,24 @@ function BoardViewImpl({
         return;
       }
 
+      if (worklaneId && activeCol === overCol && activeId !== overId) {
+        const moving = issueMapRef.current.get(activeId);
+        const target = issueMapRef.current.get(overId);
+        if (!moving || !target || moving.release_id !== target.release_id || laneMove.isPending) {
+          resetColumns();
+          return;
+        }
+        const ids = cols[activeCol]!;
+        const move = ids.indexOf(activeId) < ids.indexOf(overId)
+          ? { issueId: activeId, after: overId }
+          : { issueId: activeId, before: overId };
+        setColumns({ ...cols, [activeCol]: arrayMove(ids, ids.indexOf(activeId), ids.indexOf(overId)) });
+        laneMove.mutate(move, {
+          onError: () => toast.error(t(($) => $.page.move_failed)),
+          onSettled: beginSettle(),
+        });
+        return;
+      }
       // Same-column reorder (manual sort only)
       let finalColumns = cols;
       if (activeCol === overCol && sortBy === "position") {
@@ -688,7 +719,7 @@ function BoardViewImpl({
       );
       applyPropertyGroupValue(finalGroup, activeId);
     },
-    [groupedIssues, groups, grouping, groupingOptionIds, onMoveIssue, groupIds, groupMap, sortBy, beginSettle, columnsRef, isDraggingRef, setColumns, applyPropertyGroupValue, catalog, t],
+    [groupedIssues, groups, grouping, groupingOptionIds, onMoveIssue, groupIds, groupMap, sortBy, beginSettle, columnsRef, isDraggingRef, setColumns, applyPropertyGroupValue, catalog, t, worklaneId, laneMove],
   );
 
   // An aborted drag (pointercancel, window resize, tab hide, Escape) fires

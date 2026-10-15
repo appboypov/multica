@@ -2037,6 +2037,11 @@ export const WorklaneIssuesResponseSchema = z.object({
   issues: z.array(IssueSchema).default([]),
 }).loose();
 
+/** A move must return its order; missing issues is not a successful empty lane. */
+export const MoveWorklaneIssueResponseSchema = z.object({
+  issues: z.array(IssueSchema),
+}).loose();
+
 export const EMPTY_WORKLANE_ISSUES_RESPONSE: WorklaneIssuesResponse = { issues: [] };
 
 const ReleaseProgressRowSchema = z.object({

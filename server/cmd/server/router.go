@@ -2201,6 +2201,7 @@ func NewRouterWithOptions(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus
 					r.Delete("/", h.RemoveWorklane)
 					r.Get("/activity", h.ListWorklaneActivity)
 					r.Get("/issues", h.ListWorklaneIssues)
+					r.Post("/issues/{issueId}/move", h.MoveWorklaneIssue)
 				})
 			})
 			r.Route("/api/worklane-requests", func(r chi.Router) {

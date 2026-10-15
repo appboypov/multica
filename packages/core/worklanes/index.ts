@@ -38,3 +38,5 @@ export type {
 } from "./list-sections";
 export { ISSUE_TYPE_PICKS, typeFilter, typeCounts } from "./type-filter";
 export type { IssueTypePick } from "./type-filter";
+export { useMoveWorklaneIssue, moveLaneIssue } from "./order";
+export type { LaneMove, LaneMoveMutation } from "./order";

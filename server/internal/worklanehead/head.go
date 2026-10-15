@@ -28,6 +28,7 @@ type Issue struct {
 	Status          string
 	StatusCategory  string
 	ReleasePosition *int32
+	LanePosition    *float64
 	CreatedAt       time.Time
 }
 
@@ -56,6 +57,10 @@ func FromRows(rows []db.ListOpenWorklaneIssuesRow) map[string][]Issue {
 			position := row.ReleasePosition.Int32
 			issue.ReleasePosition = &position
 		}
+		if row.LanePosition.Valid {
+			position := row.LanePosition.Float64
+			issue.LanePosition = &position
+		}
 		worklaneID := util.UUIDToString(row.WorklaneID)
 		byWorklane[worklaneID] = append(byWorklane[worklaneID], issue)
 	}
@@ -73,7 +78,7 @@ func Branch(identifier string) string {
 // the open issue whose branch is the worktree's and whose status category is
 // started, except blocked. Without one the worklane is Free and its next
 // issue is the first open issue in release order: issues in a release by the
-// release's position, then issues in no release, each by created_at, then id.
+// release's position, then lane position, then created_at and id, with nulls last.
 func Head(branch string, issues []Issue) Result {
 	if branch != "" {
 		for i := range issues {
@@ -119,6 +124,14 @@ func before(a, b *Issue) bool {
 		return false
 	case a.ReleasePosition != nil && *a.ReleasePosition != *b.ReleasePosition:
 		return *a.ReleasePosition < *b.ReleasePosition
+	}
+	switch {
+	case a.LanePosition != nil && b.LanePosition == nil:
+		return true
+	case a.LanePosition == nil && b.LanePosition != nil:
+		return false
+	case a.LanePosition != nil && *a.LanePosition != *b.LanePosition:
+		return *a.LanePosition < *b.LanePosition
 	}
 	if !a.CreatedAt.Equal(b.CreatedAt) {
 		return a.CreatedAt.Before(b.CreatedAt)
