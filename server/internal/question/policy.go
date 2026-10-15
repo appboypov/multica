@@ -11,8 +11,10 @@ const (
 	PolicyEach   = "each"
 )
 
-// DeriveStatus counts only current answerers. Callers must not recompute closed
-// or withdrawn questions; those are explicit, terminal decisions by the asker.
+// DeriveStatus counts only current answerers. Callers must not recompute closed,
+// withdrawn or cancelled questions; those are explicit, terminal decisions: the
+// asker closes or withdraws a question and a current answerer cancels it, so
+// DeriveStatus never returns any of them.
 func DeriveStatus(policy string, answererIDs, answers []pgtype.UUID) string {
 	answered, total := 0, 0
 	for i, id := range answererIDs {
@@ -33,6 +35,8 @@ func DeriveStatus(policy string, answererIDs, answers []pgtype.UUID) string {
 	return "answered"
 }
 
+// IsOpen is true only for open and partly answered questions; every end status,
+// cancelled included, is not open.
 func IsOpen(status string) bool { return status == "open" || status == "partly_answered" }
 
 // PolicyQuestion is the membership and answer state needed for an open list.

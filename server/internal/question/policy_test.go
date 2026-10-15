@@ -37,7 +37,7 @@ func TestDeriveStatus(t *testing.T) {
 
 func TestIsOpenAndOpenFor(t *testing.T) {
 	a, b, outsider := policyID(1), policyID(2), policyID(3)
-	for _, status := range []string{"open", "partly_answered", "answered", "closed", "withdrawn"} {
+	for _, status := range []string{"open", "partly_answered", "answered", "closed", "withdrawn", "cancelled"} {
 		t.Run(status, func(t *testing.T) {
 			wantOpen := status == "open" || status == "partly_answered"
 			if IsOpen(status) != wantOpen {
