@@ -151,7 +151,7 @@ func TestQuickCreateFailure_SurfacesAgentOutput(t *testing.T) {
 		t.Fatalf("CompleteTask: %v", err)
 	}
 
-	body, errDetail, _ := requireQuickCreateOutcomeInbox(t, task.ID, "quick_create_failed")
+	body, errDetail, _ := requireQuickCreateOutcomeTodo(t, task.ID, "failed")
 
 	if !strings.Contains(errDetail, "JKY-30") {
 		t.Fatalf("expected failure detail to carry the agent's real error, got %q", errDetail)
@@ -233,7 +233,7 @@ func TestQuickCreateLookupFault_WritesUnconfirmedInbox(t *testing.T) {
 		t.Fatalf("CompleteTask: %v", err)
 	}
 
-	body, errDetail, title := requireQuickCreateOutcomeInbox(t, task.ID, "quick_create_unconfirmed")
+	body, errDetail, title := requireQuickCreateOutcomeTodo(t, task.ID, "unconfirmed")
 
 	if !strings.Contains(body, "Couldn't confirm") {
 		t.Fatalf("expected the neutral unconfirmed wording, got body %q", body)
@@ -305,7 +305,7 @@ func TestQuickCreateFailure_RedactsAgentOutput(t *testing.T) {
 		t.Fatalf("CompleteTask: %v", err)
 	}
 
-	body, errDetail, _ := requireQuickCreateOutcomeInbox(t, task.ID, "quick_create_failed")
+	body, errDetail, _ := requireQuickCreateOutcomeTodo(t, task.ID, "failed")
 
 	if strings.Contains(body, fakeToken) || strings.Contains(errDetail, fakeToken) {
 		t.Fatal("agent output reached the inbox row unredacted")
@@ -382,32 +382,28 @@ func TestQuickCreateLookupCancelled_StillWritesUnconfirmedInbox(t *testing.T) {
 		t.Fatal("test setup is wrong: the context should have been cancelled during the lookup")
 	}
 
-	body, _, _ := requireQuickCreateOutcomeInbox(t, task.ID, "quick_create_unconfirmed")
+	body, _, _ := requireQuickCreateOutcomeTodo(t, task.ID, "unconfirmed")
 	if !strings.Contains(body, "Couldn't confirm") {
 		t.Fatalf("expected the neutral unconfirmed wording, got %q", body)
 	}
 }
 
-// requireQuickCreateOutcomeInbox returns (body, details.error, title) for the
-// quick-create outcome notification of the given type belonging to taskID,
-// failing the test when none exists. Scoping by task id keeps
-// concurrent/ordering-sensitive cases from reading a sibling test's row; the
-// type is asserted because the failed and unconfirmed outcomes must never
-// collapse into one another (clients frame them differently).
-func requireQuickCreateOutcomeInbox(t *testing.T, taskID pgtype.UUID, inboxType string) (string, string, string) {
+// requireQuickCreateOutcomeTodo checks the shared kind and the explicit reason,
+// so unconfirmed outcomes never claim a confirmed failure.
+func requireQuickCreateOutcomeTodo(t *testing.T, taskID pgtype.UUID, reason string) (string, string, string) {
 	t.Helper()
 	var body, errDetail, title string
 	err := testPool.QueryRow(context.Background(), `
 		SELECT COALESCE(body, ''), COALESCE(details->>'error', ''), title
-		FROM inbox_item
-		WHERE recipient_type = 'member' AND recipient_id = $1
-		  AND type = $3
-		  AND details->>'task_id' = $2::text
+		FROM todo
+		WHERE member_id = $1 AND kind = 'quick_create_failed'
+		  AND details->>'reason' = $3
+		  AND task_id = $2
 		ORDER BY created_at DESC
 		LIMIT 1
-	`, testUserID, taskID, inboxType).Scan(&body, &errDetail, &title)
+	`, testUserID, taskID, reason).Scan(&body, &errDetail, &title)
 	if err != nil {
-		t.Fatalf("expected a %s notification for the task, got none: %v", inboxType, err)
+		t.Fatalf("expected a %s to-do for the task, got none: %v", reason, err)
 	}
 	return body, errDetail, title
 }
@@ -415,6 +411,7 @@ func requireQuickCreateOutcomeInbox(t *testing.T, taskID pgtype.UUID, inboxType 
 func deleteInboxForTask(taskID pgtype.UUID) {
 	testPool.Exec(context.Background(),
 		`DELETE FROM inbox_item WHERE details->>'task_id' = $1::text`, taskID)
+	testPool.Exec(context.Background(), `DELETE FROM todo WHERE task_id = $1`, taskID)
 }
 
 // failGetIssueByOriginDB delegates every statement to the real pool except the

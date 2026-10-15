@@ -8,11 +8,8 @@ import (
 
 	"github.com/multica-ai/multica/server/internal/events"
 	"github.com/multica-ai/multica/server/internal/handler"
-	"github.com/multica-ai/multica/server/internal/service"
-	"github.com/multica-ai/multica/server/internal/testutil"
 	"github.com/multica-ai/multica/server/internal/util"
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
-	"github.com/multica-ai/multica/server/pkg/dbid"
 	"github.com/multica-ai/multica/server/pkg/protocol"
 )
 
@@ -691,8 +688,7 @@ func TestNotification_TaskCompleted(t *testing.T) {
 	}
 }
 
-// TestNotification_TaskFailed verifies that subscribers get a "task_failed"
-// notification when a task fails, excluding the agent.
+// Failed runs are actionable to-dos, never informational inbox notices.
 func TestNotification_TaskFailed(t *testing.T) {
 	queries := db.New(testPool)
 	bus := newNotificationBus(t, queries)
@@ -721,15 +717,8 @@ func TestNotification_TaskFailed(t *testing.T) {
 		},
 	})
 
-	creatorItems := inboxItemsForRecipient(t, queries, testUserID)
-	if len(creatorItems) != 1 {
-		t.Fatalf("expected 1 inbox item for creator, got %d", len(creatorItems))
-	}
-	if creatorItems[0].Type != "task_failed" {
-		t.Fatalf("expected type 'task_failed', got %q", creatorItems[0].Type)
-	}
-	if creatorItems[0].Severity != "action_required" {
-		t.Fatalf("expected severity 'action_required', got %q", creatorItems[0].Severity)
+	if items := inboxItemsForRecipient(t, queries, testUserID); len(items) != 0 {
+		t.Fatalf("failed run created %d update notices", len(items))
 	}
 }
 
@@ -1084,411 +1073,6 @@ func TestNotification_ParentBubble_PriorityChangeSuppressed(t *testing.T) {
 	}
 }
 
-// countInboxByTypeForRecipient counts inbox rows of a given type for a
-// recipient, including archived rows. Used to distinguish "row never created"
-// from "row archived."
-func countInboxByTypeForRecipient(t *testing.T, recipientID, notifType string) (active, archived int) {
-	t.Helper()
-	rows, err := testPool.Query(context.Background(), `
-		SELECT archived FROM inbox_item
-		WHERE workspace_id = $1 AND recipient_type = 'member' AND recipient_id = $2 AND type = $3
-	`, testWorkspaceID, recipientID, notifType)
-	if err != nil {
-		t.Fatalf("countInboxByTypeForRecipient: %v", err)
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var isArchived bool
-		if err := rows.Scan(&isArchived); err != nil {
-			t.Fatalf("countInboxByTypeForRecipient scan: %v", err)
-		}
-		if isArchived {
-			archived++
-		} else {
-			active++
-		}
-	}
-	return active, archived
-}
-
-// publishStatusChange is a small helper to publish the issue:updated event
-// shape used by the notification listener for status-only transitions.
-func publishStatusChange(bus *events.Bus, issueID, newStatus, prevStatus string) {
-	bus.Publish(events.Event{
-		Type:        protocol.EventIssueUpdated,
-		WorkspaceID: testWorkspaceID,
-		ActorType:   "member",
-		ActorID:     testUserID,
-		Payload: map[string]any{
-			"issue": handler.IssueResponse{
-				ID:          issueID,
-				WorkspaceID: testWorkspaceID,
-				Title:       "task_failed dismiss test",
-				Status:      newStatus,
-				Priority:    "medium",
-				CreatorType: "member",
-				CreatorID:   testUserID,
-			},
-			"assignee_changed": false,
-			"status_changed":   true,
-			"prev_status":      prevStatus,
-		},
-	})
-}
-
-// TestNotification_StatusChange_ArchivesStaleTaskFailed verifies that when an
-// issue transitions into a terminal status (in_review/done/cancelled), any
-// existing task_failed inbox rows for that issue are archived for every
-// affected member recipient, an inbox:batch-archived event fires per
-// recipient, and sibling notifications on the same issue are untouched.
-func TestNotification_StatusChange_ArchivesStaleTaskFailed(t *testing.T) {
-	queries := db.New(testPool)
-	bus := newNotificationBus(t, queries)
-
-	subEmail := "notif-archive-task-failed-sub@multica.ai"
-	subID := createTestUser(t, subEmail)
-	t.Cleanup(func() { cleanupTestUser(t, subEmail) })
-
-	issueID := createTestIssue(t, testWorkspaceID, testUserID)
-	t.Cleanup(func() {
-		cleanupInboxForIssue(t, issueID)
-		cleanupTestIssue(t, issueID)
-	})
-
-	addTestSubscriber(t, issueID, "member", testUserID, "creator")
-	addTestSubscriber(t, issueID, "member", subID, "assignee")
-
-	agentID := "00000000-0000-0000-0000-aaaaaaaaaaaa"
-
-	// Two failed runs land before the status flip.
-	for i := 0; i < 2; i++ {
-		bus.Publish(events.Event{
-			Type:        protocol.EventTaskFailed,
-			WorkspaceID: testWorkspaceID,
-			ActorType:   "system",
-			Payload: map[string]any{
-				"task_id":  "00000000-0000-0000-0000-bbbbbbbbbbbb",
-				"agent_id": agentID,
-				"issue_id": issueID,
-			},
-		})
-	}
-
-	// A separate non-task notification on the same issue, so we can prove
-	// the archive scope is narrow. Use a comment-like notification by
-	// directly inserting a row of a different type.
-	_, err := testPool.Exec(context.Background(), `
-		INSERT INTO inbox_item (workspace_id, recipient_type, recipient_id, type, severity, issue_id, title, details)
-		VALUES ($1, 'member', $2, 'new_comment', 'info', $3, 'sibling notification', '{}')
-	`, testWorkspaceID, testUserID, issueID)
-	if err != nil {
-		t.Fatalf("seed sibling notification: %v", err)
-	}
-
-	if active, _ := countInboxByTypeForRecipient(t, testUserID, "task_failed"); active != 2 {
-		t.Fatalf("precondition: expected 2 active task_failed rows for creator, got %d", active)
-	}
-	if active, _ := countInboxByTypeForRecipient(t, subID, "task_failed"); active != 2 {
-		t.Fatalf("precondition: expected 2 active task_failed rows for sub, got %d", active)
-	}
-
-	// Track the batch-archived events fired during the status change.
-	var batchArchived []events.Event
-	bus.Subscribe(protocol.EventInboxBatchArchived, func(e events.Event) {
-		batchArchived = append(batchArchived, e)
-	})
-
-	publishStatusChange(bus, issueID, "in_review", "in_progress")
-
-	// task_failed rows are archived for both recipients.
-	for _, recipient := range []string{testUserID, subID} {
-		active, archived := countInboxByTypeForRecipient(t, recipient, "task_failed")
-		if active != 0 {
-			t.Fatalf("recipient %s: expected 0 active task_failed rows after terminal status, got %d", recipient, active)
-		}
-		if archived != 2 {
-			t.Fatalf("recipient %s: expected 2 archived task_failed rows after terminal status, got %d", recipient, archived)
-		}
-	}
-
-	// Sibling notification on the same issue is untouched.
-	if active, _ := countInboxByTypeForRecipient(t, testUserID, "new_comment"); active != 1 {
-		t.Fatalf("expected sibling new_comment row to remain active, got %d active", active)
-	}
-
-	// One inbox:batch-archived event per affected recipient.
-	if len(batchArchived) != 2 {
-		t.Fatalf("expected 2 inbox:batch-archived events (one per recipient), got %d", len(batchArchived))
-	}
-	seenRecipients := map[string]bool{}
-	for _, e := range batchArchived {
-		payload, ok := e.Payload.(map[string]any)
-		if !ok {
-			t.Fatalf("inbox:batch-archived: unexpected payload type %T", e.Payload)
-		}
-		recipientID, _ := payload["recipient_id"].(string)
-		if recipientID == "" {
-			t.Fatalf("inbox:batch-archived: missing recipient_id in payload %+v", payload)
-		}
-		if payload["issue_id"] != issueID {
-			t.Fatalf("inbox:batch-archived: expected issue_id %q, got %v", issueID, payload["issue_id"])
-		}
-		if payload["reason"] != "issue_status_terminal" {
-			t.Fatalf("inbox:batch-archived: expected reason 'issue_status_terminal', got %v", payload["reason"])
-		}
-		if count, _ := payload["count"].(int64); count != 2 {
-			t.Fatalf("inbox:batch-archived: expected count=2 for recipient %s, got %v", recipientID, payload["count"])
-		}
-		seenRecipients[recipientID] = true
-	}
-	if !seenRecipients[testUserID] || !seenRecipients[subID] {
-		t.Fatalf("expected batch-archived events for both creator and sub, got %v", seenRecipients)
-	}
-}
-
-// TestNotification_StatusChange_NonTerminalKeepsTaskFailed verifies that a
-// transition to a non-terminal status (e.g. in_progress) does NOT archive
-// existing task_failed inbox rows.
-func TestNotification_StatusChange_NonTerminalKeepsTaskFailed(t *testing.T) {
-	queries := db.New(testPool)
-	bus := newNotificationBus(t, queries)
-
-	issueID := createTestIssue(t, testWorkspaceID, testUserID)
-	t.Cleanup(func() {
-		cleanupInboxForIssue(t, issueID)
-		cleanupTestIssue(t, issueID)
-	})
-
-	addTestSubscriber(t, issueID, "member", testUserID, "creator")
-
-	bus.Publish(events.Event{
-		Type:        protocol.EventTaskFailed,
-		WorkspaceID: testWorkspaceID,
-		ActorType:   "system",
-		Payload: map[string]any{
-			"task_id":  "00000000-0000-0000-0000-bbbbbbbbbbbb",
-			"agent_id": "00000000-0000-0000-0000-aaaaaaaaaaaa",
-			"issue_id": issueID,
-		},
-	})
-
-	if active, _ := countInboxByTypeForRecipient(t, testUserID, "task_failed"); active != 1 {
-		t.Fatalf("precondition: expected 1 active task_failed row, got %d", active)
-	}
-
-	publishStatusChange(bus, issueID, "in_progress", "todo")
-
-	// task_failed row stays active because in_progress is not terminal.
-	active, archived := countInboxByTypeForRecipient(t, testUserID, "task_failed")
-	if active != 1 || archived != 0 {
-		t.Fatalf("expected task_failed row to remain active after non-terminal transition, got active=%d archived=%d", active, archived)
-	}
-}
-
-// TestNotification_StatusChange_ReopenSurfacesNewTaskFailed verifies that
-// after a terminal-status auto-archive, a status flip back to in_progress
-// followed by a new task failure produces a fresh, visible task_failed row.
-// This guards the "reopen and rerun" path described in the design.
-func TestNotification_StatusChange_ReopenSurfacesNewTaskFailed(t *testing.T) {
-	queries := db.New(testPool)
-	bus := newNotificationBus(t, queries)
-
-	issueID := createTestIssue(t, testWorkspaceID, testUserID)
-	t.Cleanup(func() {
-		cleanupInboxForIssue(t, issueID)
-		cleanupTestIssue(t, issueID)
-	})
-
-	addTestSubscriber(t, issueID, "member", testUserID, "creator")
-
-	agentID := "00000000-0000-0000-0000-aaaaaaaaaaaa"
-
-	bus.Publish(events.Event{
-		Type:        protocol.EventTaskFailed,
-		WorkspaceID: testWorkspaceID,
-		ActorType:   "system",
-		Payload: map[string]any{
-			"task_id":  "00000000-0000-0000-0000-bbbbbbbbbbbb",
-			"agent_id": agentID,
-			"issue_id": issueID,
-		},
-	})
-
-	// First terminal transition archives the original failure.
-	publishStatusChange(bus, issueID, "in_review", "in_progress")
-	if active, archived := countInboxByTypeForRecipient(t, testUserID, "task_failed"); active != 0 || archived != 1 {
-		t.Fatalf("after terminal transition: expected active=0 archived=1, got active=%d archived=%d", active, archived)
-	}
-
-	// Reviewer kicks the issue back; a rerun fails again.
-	publishStatusChange(bus, issueID, "in_progress", "in_review")
-	bus.Publish(events.Event{
-		Type:        protocol.EventTaskFailed,
-		WorkspaceID: testWorkspaceID,
-		ActorType:   "system",
-		Payload: map[string]any{
-			"task_id":  "00000000-0000-0000-0000-cccccccccccc",
-			"agent_id": agentID,
-			"issue_id": issueID,
-		},
-	})
-
-	// The new failure is visible; the old archived row stays archived.
-	active, archived := countInboxByTypeForRecipient(t, testUserID, "task_failed")
-	if active != 1 {
-		t.Fatalf("expected 1 active task_failed row after reopen+fail, got %d", active)
-	}
-	if archived != 1 {
-		t.Fatalf("expected 1 archived task_failed row preserved from prior cycle, got %d", archived)
-	}
-}
-
-func TestNotification_QuestionRecipientsAndNoAnsweredItem(t *testing.T) {
-	for _, tc := range []struct {
-		name, eventType, reason, inboxType string
-		chat                               bool
-	}{
-		{"asked", protocol.EventQuestionCreated, "", service.InboxTypeQuestionAsked, false},
-		{"reassigned", protocol.EventQuestionUpdated, protocol.QuestionReasonReassigned, service.InboxTypeQuestionReassigned, false},
-		{"overdue", protocol.EventQuestionUpdated, protocol.QuestionReasonOverdue, service.InboxTypeQuestionOverdue, false},
-		{"answered", protocol.EventQuestionUpdated, protocol.QuestionReasonAnswered, "", false},
-		{"answer edited", protocol.EventQuestionUpdated, protocol.QuestionReasonAnswerEdited, "", false},
-		{"chat-asked", protocol.EventQuestionCreated, "", service.InboxTypeQuestionAsked, true},
-		{"chat-reassigned", protocol.EventQuestionUpdated, protocol.QuestionReasonReassigned, service.InboxTypeQuestionReassigned, true},
-		{"chat-overdue", protocol.EventQuestionUpdated, protocol.QuestionReasonOverdue, service.InboxTypeQuestionOverdue, true},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			base := testutil.New(testPool, testWorkspaceID, testUserID)
-			key := tc.reason
-			if key == "" {
-				key = tc.name
-			}
-			if tc.chat {
-				key += "-chat"
-			}
-			first := base.User(t, "Brian", "question-notif-"+key+"-first@multica.test")
-			second := base.User(t, "Anouk", "question-notif-"+key+"-second@multica.test")
-			ws := base.Workspace(t, "Question notifications", "question-notif-"+key)
-			fx := testutil.New(testPool, ws, first)
-			fx.Member(t, ws, first, "owner")
-			fx.Member(t, ws, second, "member")
-			issue := fx.Issue(t, "Invoice rules")
-			agent := fx.Agent(t, "Pieter", "")
-			chat, linkType, linkID := "", "issue", issue
-			taskCols := testutil.Cols{"issue_id": issue, "status": "completed", "completed_at": testutil.Raw("now()")}
-			if tc.chat {
-				chat = fx.ChatSession(t, agent, testutil.Cols{"title": "Private conversation"})
-				issue, linkType, linkID = "", "chat", chat
-				taskCols["issue_id"] = nil
-				taskCols["chat_session_id"] = chat
-			}
-			task := fx.Task(t, agent, taskCols)
-			questionID := dbid.NewV7()
-			id := fx.Insert(t, "question", testutil.Cols{
-				"id": questionID, "workspace_id": ws, "asker_agent_id": agent, "asked_in_task_id": task,
-				"prompt": "Round per line or total?", "answer_type": "yes_no", "settings": testutil.Raw(`'{"why_on_no":false}'::jsonb`),
-				"ask_id": questionID, "ask_position": 0,
-			})
-			fx.InsertNoID(t, "question_link", testutil.Cols{"question_id": id, "workspace_id": ws, "link_type": linkType, "link_id": linkID, "position": 0}, "question_id=$1", id)
-			for _, user := range []string{first, second} {
-				fx.InsertNoID(t, "question_answerer", testutil.Cols{"question_id": id, "workspace_id": ws, "user_id": user}, "question_id=$1 AND user_id=$2", id, user)
-			}
-			reassignmentID := ""
-			if tc.reason == protocol.QuestionReasonReassigned {
-				details, err := json.Marshal(map[string]string{"user_id": second, "note": "You set the invoice rules"})
-				if err != nil {
-					t.Fatal(err)
-				}
-				reassignmentID = fx.Insert(t, "question_event", testutil.Cols{
-					"id": dbid.NewV7(), "question_id": id, "workspace_id": ws, "kind": "reassigned",
-					"actor_type": "member", "actor_id": first, "details": details,
-					"created_at": testutil.Raw("now() - interval '1 minute'"),
-				})
-				laterDetails, err := json.Marshal(map[string]string{"user_id": first, "note": "Please check the totals"})
-				if err != nil {
-					t.Fatal(err)
-				}
-				fx.Insert(t, "question_event", testutil.Cols{
-					"id": dbid.NewV7(), "question_id": id, "workspace_id": ws, "kind": "reassigned",
-					"actor_type": "member", "actor_id": second, "details": laterDetails,
-				})
-			}
-			fx.Cleanup(t, "DELETE FROM inbox_item WHERE workspace_id=$1", ws)
-			queries := db.New(testPool)
-			bus := events.New()
-			registerNotificationListeners(bus, queries)
-			var delivered []events.Event
-			bus.Subscribe(protocol.EventInboxNew, func(e events.Event) { delivered = append(delivered, e) })
-			actorType, actorID := "agent", agent
-			if tc.reason == protocol.QuestionReasonReassigned {
-				actorType, actorID = "member", first
-			} else if tc.reason == protocol.QuestionReasonOverdue {
-				actorType, actorID = "system", ""
-			}
-			bus.Publish(events.Event{
-				Type: tc.eventType, WorkspaceID: ws, ActorType: actorType, ActorID: actorID,
-				Payload: protocol.QuestionEventPayload{QuestionID: id, AskID: id, QuestionIDs: []string{id}, IssueID: issue, ChatSessionID: chat, Reason: tc.reason, EventID: reassignmentID},
-			})
-			wantTotal := 2
-			if tc.inboxType == "" {
-				wantTotal = 0
-			}
-			if tc.reason == protocol.QuestionReasonReassigned {
-				wantTotal = 1
-			}
-			if len(delivered) != wantTotal {
-				t.Fatalf("got %d inbox events, want %d", len(delivered), wantTotal)
-			}
-			for _, recipient := range []string{first, second} {
-				items, err := queries.ListInboxItems(context.Background(), db.ListInboxItemsParams{WorkspaceID: util.MustParseUUID(ws), RecipientType: "member", RecipientID: util.MustParseUUID(recipient)})
-				if err != nil {
-					t.Fatal(err)
-				}
-				want := 1
-				if tc.inboxType == "" || (tc.reason == protocol.QuestionReasonReassigned && recipient == first) {
-					want = 0
-				}
-				if len(items) != want {
-					t.Fatalf("recipient %s got %d items, want %d", recipient, len(items), want)
-				}
-				for _, item := range items {
-					if item.Type != tc.inboxType || util.UUIDToString(item.IssueID) != issue {
-						t.Fatalf("wrong notification: %+v", item)
-					}
-					var details map[string]any
-					if err := json.Unmarshal(item.Details, &details); err != nil {
-						t.Fatal(err)
-					}
-					if details["question_id"] != id {
-						t.Fatalf("question anchor missing: %+v", details)
-					}
-					if tc.chat && (item.IssueID.Valid || details["chat_session_id"] != chat || details["member_id"] != first || item.Title != "Round per line or total?") {
-						t.Fatalf("chat notification leaked private context or lost its anchor: %+v, details = %+v", item, details)
-					}
-					if tc.reason != protocol.QuestionReasonReassigned && (details["ask_id"] != id || details["question_count"] != float64(1)) {
-						t.Fatalf("one-question ask fields missing: %+v", details)
-					}
-					if tc.reason == protocol.QuestionReasonReassigned && (details["note"] != "You set the invoice rules" || item.Body.String != details["note"]) {
-						t.Fatalf("reassignment note missing: %+v", item)
-					}
-				}
-			}
-			if n := fx.Count(t, "SELECT count(*) FROM inbox_item WHERE workspace_id=$1 AND type='question_answered'", ws); n != 0 {
-				t.Fatalf("created %d forbidden answered items", n)
-			}
-		})
-	}
-}
-
-func TestNotification_QuestionTypesCannotBeMuted(t *testing.T) {
-	prefs := map[string]string{"assignments": "muted", "status_changes": "muted", "comments": "muted", "mentions": "muted", "updates": "muted", "agent_activity": "muted"}
-	for _, kind := range []string{service.InboxTypeQuestionAsked, service.InboxTypeQuestionReassigned, service.InboxTypeQuestionOverdue} {
-		if _, exists := notifTypeToGroup[kind]; exists || isNotifMuted(prefs, kind) {
-			t.Fatalf("%s must always be delivered", kind)
-		}
-	}
-}
-
 func TestNotification_QuestionRealtimeUsesWorkspaceFanout(t *testing.T) {
 	for _, eventType := range []string{protocol.EventQuestionCreated, protocol.EventQuestionUpdated} {
 		t.Run(eventType, func(t *testing.T) {
@@ -1517,82 +1101,22 @@ func TestNotification_QuestionRealtimeUsesWorkspaceFanout(t *testing.T) {
 	}
 }
 
-func TestNotification_QuestionSetCreatesOneItemPerCurrentAnswerer(t *testing.T) {
-	for _, overdue := range []bool{false, true} {
-		name := "asked"
-		if overdue {
-			name = "overdue-after-reassignment"
-		}
-		t.Run(name, func(t *testing.T) {
-			base := testutil.New(testPool, testWorkspaceID, testUserID)
-			users := []string{
-				base.User(t, "Brian", "question-set-"+name+"-brian@multica.test"),
-				base.User(t, "Anouk", "question-set-"+name+"-anouk@multica.test"),
-				base.User(t, "Roos", "question-set-"+name+"-roos@multica.test"),
-			}
-			ws := base.Workspace(t, "Question set notifications", "question-set-"+name)
-			fx := testutil.New(testPool, ws, users[0])
-			for _, user := range users {
-				fx.Member(t, ws, user, "member")
-			}
-			issue := fx.Issue(t, "CSV writer")
-			agent := fx.Agent(t, "Pieter", "")
-			task := fx.Task(t, agent, testutil.Cols{"issue_id": issue, "status": "completed", "completed_at": testutil.Raw("now()")})
-			ids := []string{util.UUIDToString(dbid.NewV7()), util.UUIDToString(dbid.NewV7()), util.UUIDToString(dbid.NewV7())}
-			for position, id := range ids {
-				fx.Insert(t, "question", testutil.Cols{
-					"id": id, "ask_id": ids[0], "ask_position": position, "ask_title": "Before I build the CSV writer",
-					"workspace_id": ws, "asker_agent_id": agent, "asked_in_task_id": task,
-					"prompt": "Confirm the invoice rules?", "answer_type": "yes_no", "settings": testutil.Raw(`'{"why_on_no":false}'::jsonb`),
-				})
-				fx.InsertNoID(t, "question_link", testutil.Cols{"question_id": id, "workspace_id": ws, "link_type": "issue", "link_id": issue, "position": 0}, "question_id=$1", id)
-				for userPosition, user := range users {
-					// Reassignment can leave different current answerers on
-					// each question; the first question alone is insufficient.
-					if overdue && userPosition != position && userPosition != 0 {
-						continue
-					}
-					fx.InsertNoID(t, "question_answerer", testutil.Cols{"question_id": id, "workspace_id": ws, "user_id": user}, "question_id=$1 AND user_id=$2", id, user)
-				}
-			}
-			fx.Cleanup(t, "DELETE FROM inbox_item WHERE workspace_id=$1", ws)
-			queries := db.New(testPool)
+func TestNotification_QuestionsDoNotCreateNotices(t *testing.T) {
+	for _, reason := range []string{"", protocol.QuestionReasonReassigned, protocol.QuestionReasonOverdue, protocol.QuestionReasonAnswered, protocol.QuestionReasonAnswerEdited} {
+		t.Run(reason, func(t *testing.T) {
 			bus := events.New()
-			registerNotificationListeners(bus, queries)
-			var delivered []events.Event
-			bus.Subscribe(protocol.EventInboxNew, func(e events.Event) { delivered = append(delivered, e) })
-			eventType, reason, inboxType, actorType, actorID := protocol.EventQuestionCreated, "", service.InboxTypeQuestionAsked, "agent", agent
-			if overdue {
-				eventType, reason, inboxType, actorType, actorID = protocol.EventQuestionUpdated, protocol.QuestionReasonOverdue, service.InboxTypeQuestionOverdue, "system", ""
+			registerNotificationListeners(bus, nil)
+			var delivered int
+			bus.Subscribe(protocol.EventInboxNew, func(events.Event) { delivered++ })
+			eventType := protocol.EventQuestionUpdated
+			if reason == "" {
+				eventType = protocol.EventQuestionCreated
 			}
-			bus.Publish(events.Event{
-				Type: eventType, WorkspaceID: ws, ActorType: actorType, ActorID: actorID,
-				Payload: protocol.QuestionEventPayload{QuestionID: ids[0], AskID: ids[0], QuestionIDs: ids, IssueID: issue, Reason: reason},
-			})
-			if len(delivered) != len(users) {
-				t.Fatalf("got %d realtime items, want %d", len(delivered), len(users))
-			}
-			for _, user := range users {
-				items, err := queries.ListInboxItems(context.Background(), db.ListInboxItemsParams{
-					WorkspaceID: util.MustParseUUID(ws), RecipientType: "member", RecipientID: util.MustParseUUID(user),
-				})
-				if err != nil {
-					t.Fatal(err)
-				}
-				if len(items) != 1 || items[0].Type != inboxType || util.UUIDToString(items[0].IssueID) != issue {
-					t.Fatalf("recipient %s needs exactly one %s for this ask: %+v", user, inboxType, items)
-				}
-				var details struct {
-					QuestionID    string `json:"question_id"`
-					AskID         string `json:"ask_id"`
-					QuestionCount int    `json:"question_count"`
-				}
-				if err := json.Unmarshal(items[0].Details, &details); err != nil {
-					t.Fatal(err)
-				}
-				if details.QuestionID != ids[0] || details.AskID != ids[0] || details.QuestionCount != 3 {
-					t.Fatalf("wrong set notification details: %+v", details)
-				}
+			bus.Publish(events.Event{Type: eventType, WorkspaceID: testWorkspaceID, Payload: protocol.QuestionEventPayload{
+				QuestionID: "question-1", AskID: "question-1", QuestionIDs: []string{"question-1", "question-2"}, IssueID: "issue-1", Reason: reason,
+			}})
+			if delivered != 0 {
+				t.Fatalf("question created %d update notices", delivered)
 			}
 		})
 	}
