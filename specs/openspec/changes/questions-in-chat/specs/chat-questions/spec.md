@@ -54,12 +54,12 @@ A chat SHALL show each question and question set asked in it as the same card as
 - **THEN** Brian's chat shows the card folded to "per line", Anouk and the time
 - **AND** offers Brian no answer controls
 
-### Requirement: The last answer of a chat ask starts the agent's next turn
-When an answer leaves no question of an ask made in a chat open, the asking agent's next turn in that chat SHALL start at once with every answer of that ask in its input; an answer that leaves a question of the ask open, and an edit of a sent answer, MUST NOT start a turn.
+### Requirement: Waking a chat question's agent continues the chat
+Every way to wake the asking agent of a question asked in a chat (sending or cancelling with **Wake {agent}** checked, pressing **Wake**, asking back) SHALL start the agent's next turn in that chat, never a run elsewhere, with every answer, ask back and cancel of the chat's questions it has not seen; an answer, edit or cancel without Wake MUST NOT start a turn.
 
-#### Scenario: Answering the last question
-- **GIVEN** Pieter asked Brian a question set of three in Brian's chat and Brian sent two answers
-- **WHEN** Brian sends the answer to the third question
+#### Scenario: Answering the last question with Wake checked
+- **GIVEN** Pieter asked Brian a question set of three in Brian's chat, Brian sent two answers and Pieter's turn has ended
+- **WHEN** Brian sends the answer to the third question with **Wake Pieter** checked
 - **THEN** Pieter's next turn in Brian's chat starts with all three answers in its input
 
 #### Scenario: Answering the first of three
@@ -67,29 +67,36 @@ When an answer leaves no question of an ask made in a chat open, the asking agen
 - **WHEN** Brian sends the answer to the first question
 - **THEN** no turn is queued for Pieter
 
-#### Scenario: Each policy waits for every answerer
-- **GIVEN** Pieter asked Brian and Anouk one question in Brian's chat under Each
-- **WHEN** Brian sends his answer
-- **THEN** no turn is queued for Pieter
-- **AND** when Anouk sends hers, Pieter's next turn in Brian's chat starts with both answers
+#### Scenario: Wake unchecked
+- **GIVEN** Pieter asked Brian one question in Brian's chat
+- **WHEN** Brian unchecks **Wake Pieter** and sends his answer
+- **THEN** no turn is queued and the folded card in the chat offers **Wake Pieter**
+- **AND** pressing it starts Pieter's next turn in Brian's chat with the answer
+
+#### Scenario: Two answers and a cancel
+- **GIVEN** Pieter asked Brian three questions in Brian's chat and Brian answered two
+- **WHEN** Brian cancels the third with **Wake Pieter** checked
+- **THEN** Pieter's next turn in Brian's chat starts with the two answers and the cancel
+
+#### Scenario: Cancel with Wake unchecked
+- **GIVEN** Pieter asked Brian three questions in Brian's chat and Brian answered two
+- **WHEN** Brian unchecks **Wake Pieter** and cancels the third
+- **THEN** no turn is queued until Brian presses **Wake Pieter** or sends a chat message
+
+#### Scenario: Ask back in a chat
+- **GIVEN** Pieter's question in Brian's chat is open and Pieter's turn has ended
+- **WHEN** Brian asks back "Which customer is this for?"
+- **THEN** Pieter's next turn in Brian's chat starts with the ask back in its input
+
+#### Scenario: Anouk wakes Pieter from Answer all
+- **GIVEN** Pieter asked Anouk a question in Brian's chat and Anouk answered it in Answer all
+- **WHEN** Anouk presses **Wake Pieter**
+- **THEN** Pieter's next turn in Brian's chat starts with her answer
 
 #### Scenario: The agent is still in a turn
 - **GIVEN** Pieter is running a turn in Brian's chat and asked one question in it
-- **WHEN** Brian answers it before the turn ends
-- **THEN** Pieter's next turn starts after the running turn ends, with Brian's answer in its input
-
-#### Scenario: Editing after the turn started
-- **GIVEN** Brian's last answer started Pieter's next turn
-- **WHEN** Brian edits that answer
-- **THEN** no turn is queued for Pieter
-
-### Requirement: No Wake for a chat question's asking agent
-A question asked in a chat MUST NOT offer **Wake** for its asking agent anywhere; the agent goes on through the last answer of the ask or a chat message.
-
-#### Scenario: Partly answered set
-- **GIVEN** Brian answered two of Pieter's three questions in Brian's chat
-- **WHEN** Brian looks at the set card in the chat and on the Questions page
-- **THEN** neither offers **Wake Pieter**
+- **WHEN** Brian answers it with **Wake Pieter** checked before the turn ends
+- **THEN** no extra turn is queued and the answer rides along in Pieter's next woken turn in the chat
 
 ### Requirement: A chat message leaves open questions open
 A chat message the member sends while questions of the chat are open SHALL start the agent's turn as any chat message does and MUST leave those questions open; the agent SHALL still read, close and withdraw them through `multica question`.

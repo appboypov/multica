@@ -1,14 +1,90 @@
 ## MODIFIED Requirements
 
-### Requirement: Answers never start a run
-Sending, partly sending or editing an answer MUST NOT queue or start any agent run, except the answer that leaves no question of an ask made in a chat open, which starts the asking agent's next turn in that chat; otherwise only a person pressing **Wake** SHALL start one.
+### Requirement: An answer starts a run only with Wake checked
+Sending, editing or cancelling MUST NOT queue or start any agent run unless it is sent with **Wake {agent}** checked; besides that, only a person pressing **Wake** or asking back SHALL start one.
 
 #### Scenario: Brian answers and nothing starts
-- **GIVEN** Pieter asked Brian a question on WORK-412, assigned to Pieter
-- **WHEN** Brian sends his answer
+- **GIVEN** Pieter asked Brian two questions in one set on WORK-412, assigned to Pieter
+- **WHEN** Brian sends his answer to the first one
 - **THEN** no run is queued for Pieter or any other agent
 
-#### Scenario: The last answer in a chat
-- **GIVEN** Pieter asked Brian one question in Brian's chat
-- **WHEN** Brian sends his answer
-- **THEN** Pieter's next turn in Brian's chat is queued and no other run is queued
+#### Scenario: Brian cancels and nothing starts
+- **GIVEN** Pieter asked Brian two questions in one set on WORK-412, assigned to Pieter
+- **WHEN** Brian cancels the first one
+- **THEN** no run is queued for Pieter or any other agent
+
+### Requirement: Sending the last open question offers Wake
+When Brian sends or cancels the last question of an ask still open for him, or the only question of a one-question ask, the card SHALL show **Wake {agent}** as a checkbox beside Send and beside Cancel, checked by default. Sent checked, the answer or cancel wakes the asking agent with every answer and cancel it has not seen; when the agent cannot be woken now, such as while it still runs on the issue, the answer or cancel is saved and rides along in its next woken run.
+
+#### Scenario: Brian answers the last question
+- **GIVEN** Brian answered the first of Pieter's two questions on WORK-412 and Pieter's run has ended
+- **WHEN** Brian sends the second one with **Wake Pieter** checked
+- **THEN** a new run of Pieter on WORK-412 starts with both answers in its input
+
+#### Scenario: Brian unchecks Wake
+- **GIVEN** Pieter's one question on WORK-412 is open for Brian
+- **WHEN** Brian unchecks **Wake Pieter** and sends his answer
+- **THEN** no run is queued and the folded card offers **Wake Pieter**
+
+#### Scenario: Brian cancels the last question
+- **GIVEN** Brian answered the first of Pieter's two questions on WORK-412 and Pieter's run has ended
+- **WHEN** Brian cancels the second one with the note "already decided in the PRD" and **Wake Pieter** checked
+- **THEN** a new run of Pieter on WORK-412 starts with the answer and the cancel, by Brian with that note, in its input
+
+#### Scenario: Brian cancels with Wake unchecked
+- **GIVEN** Pieter's one question on WORK-412 is open for Brian
+- **WHEN** Brian unchecks **Wake Pieter** and cancels the question
+- **THEN** no run is queued and the cancelled card offers **Wake Pieter**
+
+### Requirement: Wake the asking agent from the answered card
+Once a question has an answer or a cancel its asking agent has not seen, its answered or cancelled card SHALL offer **Wake** for that agent, named after it, such as **Wake Pieter**.
+
+#### Scenario: Wake offered after the answer
+- **GIVEN** Brian answered Pieter's question on WORK-412 and Pieter has had no run since
+- **WHEN** Brian looks at the folded card
+- **THEN** it offers **Wake Pieter**
+
+#### Scenario: No Wake once the agent saw the answer
+- **GIVEN** Pieter was woken after Brian's answer and no new answer has been given since
+- **WHEN** Brian looks at the folded card
+- **THEN** it offers no **Wake Pieter**
+
+#### Scenario: Wake offered after a cancel
+- **GIVEN** Brian cancelled Pieter's question on WORK-412 with Wake unchecked and Pieter has had no run since
+- **WHEN** Brian looks at the cancelled card
+- **THEN** it offers **Wake Pieter**
+
+### Requirement: A woken run gets the answers it has not seen
+A run started by **Wake** SHALL start with every answer and cancel given since the claim of that agent's latest started run on the question's links outside its retry ancestor chain, a cancel with who cancelled and its note, and the issue's timeline SHALL record who woke whom with how many answers.
+
+#### Scenario: Brian wakes Pieter
+- **GIVEN** Brian answered Pieter's question on WORK-412 with "per line"
+- **WHEN** Brian presses **Wake Pieter**
+- **THEN** a new run of Pieter on WORK-412 starts with the answer "per line" in its input
+- **AND** the timeline reads "Pieter was woken by Brian with 1 answer"
+
+#### Scenario: Brian wakes Pieter after a cancel
+- **GIVEN** Brian cancelled Pieter's question on WORK-412 with the note "already decided in the PRD"
+- **WHEN** Brian presses **Wake Pieter**
+- **THEN** a new run of Pieter on WORK-412 starts with the cancel, by Brian with that note, in its input
+
+#### Scenario: An answer changes while the woken run is dispatched
+- **GIVEN** Pieter's woken run has been claimed with Brian's answer "per line" but has not started
+- **WHEN** Brian changes the answer to "per total" and that run then starts and ends
+- **THEN** the changed answer remains unseen and **Wake Pieter** is available
+- **AND** the next woken run receives "per total"
+
+#### Scenario: A woken run retries
+- **GIVEN** Pieter's woken run received Brian's answer and ask-back, then failed
+- **WHEN** the run retries, including a retry of a retry
+- **THEN** every attempt receives the answer and ask-back without its retry ancestors advancing the unseen cutoff
+
+#### Scenario: No answers or ask-backs are available at claim
+- **GIVEN** a question-wake claim has no answers, cancels and ask-backs
+- **WHEN** the daemon builds its prompt
+- **THEN** the prompt has no `[ANSWERS]` block
+
+#### Scenario: A claim fails before the agent starts
+- **GIVEN** Brian answered Pieter and the woken run was claimed
+- **WHEN** that claim fails before the agent starts and no retry is queued
+- **THEN** the answer remains unseen and **Wake Pieter** is available
