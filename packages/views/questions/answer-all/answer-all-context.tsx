@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { useAuthStore } from "@multica/core/auth";
 import { useWorkspaceId } from "@multica/core/hooks";
 import { issueDetailOptions } from "@multica/core/issues/queries";
 import { useWorkspacePaths } from "@multica/core/paths";
@@ -13,6 +14,8 @@ import { useT, useTimeAgo } from "../../i18n";
 import { StatusIcon } from "../../issues/components/status-icon";
 import { AppLink } from "../../navigation";
 import { questionCardHref } from "../questions-page";
+import { chatQuestionHref, useChatTitle, usePlaceLabel } from "../row-link";
+import { LinkIcon } from "../type-icon";
 import type { SessionEntry } from "./session";
 
 export interface AnswerAllContextProps {
@@ -30,36 +33,26 @@ function firstParagraph(description: string | null | undefined): string {
 }
 
 /**
- * Beside One by one's card: the issue the question is on (it opens the issue),
- * its description's first paragraph, who asked and when, and **Up next**.
+ * Beside One by one's card: the issue the question is on (it opens the issue)
+ * and its description's first paragraph, or "Chat with {member}" for a chat,
+ * then who asked and when, and **Up next**.
  */
 export function AnswerAllContext({ entry, question, upNext, onJump }: AnswerAllContextProps) {
   const { t } = useT("questions");
   const timeAgo = useTimeAgo();
   const { getActorName } = useActorName();
-  const wsId = useWorkspaceId();
-  const paths = useWorkspacePaths();
-  const { data: issue, isPending } = useQuery(issueDetailOptions(wsId, entry.issueId));
-  const summary = firstParagraph(issue?.description);
+  const placeLabel = usePlaceLabel();
+  const { place } = entry;
   const asker = question ? questionAsker(question) : null;
 
   return (
     <aside className="flex min-w-0 flex-col gap-4 text-body">
       <section className="flex flex-col gap-2 rounded-xl border bg-card p-3.5">
-        {isPending ? (
-          <Skeleton className="h-5 w-3/4" />
+        {"issueId" in place ? (
+          <IssuePlace questionId={entry.id} issueId={place.issueId} identifier={place.identifier} />
         ) : (
-          <AppLink
-            href={questionCardHref(paths.issueDetail(entry.identifier), entry.id)}
-            className="flex min-w-0 items-center gap-2 hover:underline"
-            title={t(($) => $.answer_all.open_issue, { identifier: entry.identifier })}
-          >
-            {issue && <StatusIcon status={issue.status} className="size-3.5 shrink-0" />}
-            <span className="shrink-0 text-caption font-medium text-muted-foreground">{entry.identifier}</span>
-            <span className="min-w-0 truncate font-medium">{issue?.title}</span>
-          </AppLink>
+          <ChatPlace questionId={entry.id} chatSessionId={place.chatSessionId} memberId={place.memberId} />
         )}
-        {summary && <p className="line-clamp-4 text-caption text-muted-foreground">{summary}</p>}
         {question && asker && (
           <div className="flex items-center gap-2 text-caption text-muted-foreground">
             <ActorAvatar actorType={asker.type} actorId={asker.id} size="xs" />
@@ -86,7 +79,7 @@ export function AnswerAllContext({ entry, question, upNext, onJump }: AnswerAllC
                   onClick={() => onJump(next.id)}
                   className="flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-accent"
                 >
-                  <span className="shrink-0 text-caption text-muted-foreground">{next.identifier}</span>
+                  <span className="shrink-0 text-caption text-muted-foreground">{placeLabel(next.place)}</span>
                   <span className="min-w-0 truncate">{nextQuestion?.prompt}</span>
                 </button>
               </li>
@@ -95,5 +88,60 @@ export function AnswerAllContext({ entry, question, upNext, onJump }: AnswerAllC
         </section>
       )}
     </aside>
+  );
+}
+
+/** The issue the question is on, opening its card there, and the description's first paragraph. */
+function IssuePlace({ questionId, issueId, identifier }: { questionId: string; issueId: string; identifier: string }) {
+  const { t } = useT("questions");
+  const wsId = useWorkspaceId();
+  const paths = useWorkspacePaths();
+  const { data: issue, isPending } = useQuery(issueDetailOptions(wsId, issueId));
+  const summary = firstParagraph(issue?.description);
+
+  return (
+    <>
+      {isPending ? (
+        <Skeleton className="h-5 w-3/4" />
+      ) : (
+        <AppLink
+          href={questionCardHref(paths.issueDetail(identifier), questionId)}
+          className="flex min-w-0 items-center gap-2 hover:underline"
+          title={t(($) => $.answer_all.open_issue, { identifier })}
+        >
+          {issue && <StatusIcon status={issue.status} className="size-3.5 shrink-0" />}
+          <span className="shrink-0 text-caption font-medium text-muted-foreground">{identifier}</span>
+          <span className="min-w-0 truncate font-medium">{issue?.title}</span>
+        </AppLink>
+      )}
+      {summary && <p className="line-clamp-4 text-caption text-muted-foreground">{summary}</p>}
+    </>
+  );
+}
+
+/**
+ * The chat the question was asked in, named by its member and never by its
+ * title; only the member may open it, at the question's card (Decision 6).
+ */
+function ChatPlace({ questionId, chatSessionId, memberId }: { questionId: string; chatSessionId: string; memberId: string | null }) {
+  const paths = useWorkspacePaths();
+  const userId = useAuthStore((s) => s.user?.id);
+  const chatTitle = useChatTitle();
+  const label = (
+    <>
+      <LinkIcon type="chat" />
+      <span className="min-w-0 truncate font-medium">{chatTitle(memberId)}</span>
+    </>
+  );
+
+  return !!userId && memberId === userId ? (
+    <AppLink
+      href={chatQuestionHref(questionId, { chatSessionId, memberId }, userId, paths)}
+      className="flex min-w-0 items-center gap-2 hover:underline"
+    >
+      {label}
+    </AppLink>
+  ) : (
+    <div className="flex min-w-0 items-center gap-2">{label}</div>
   );
 }

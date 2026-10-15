@@ -6,6 +6,7 @@ import type { Question } from "@multica/core/types";
 import { Button } from "@multica/ui/components/ui/button";
 import { useT } from "../../i18n";
 import { QuestionCard } from "../question-card";
+import { placeScope } from "../row-link";
 import { AnswerAllContext } from "./answer-all-context";
 import { isPageKey, nextWaiting, type SessionEntry } from "./session";
 import { SessionWakeBars } from "./wake-bars";
@@ -88,7 +89,7 @@ export function OneByOne({ session, questions, waiting, currentId, onCurrent, sk
           <QuestionCard
             key={question.id}
             question={question}
-            scope={{ issueId: entry.issueId }}
+            scope={placeScope(entry.place)}
             hideWake
             askQuestions={ask.flatMap((other) => questions.get(other.id) ?? [])}
             focused
@@ -110,7 +111,7 @@ export function OneByOne({ session, questions, waiting, currentId, onCurrent, sk
             </Button>
           )}
         </div>
-        <SessionWakeBars session={session} questions={questions} firstIssueId={entry.issueId} />
+        <SessionWakeBars session={session} questions={questions} firstPlace={entry.place} />
       </div>
       <AnswerAllContext entry={entry} question={question} upNext={upNext} onJump={onCurrent} />
     </div>

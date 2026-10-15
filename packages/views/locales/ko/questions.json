@@ -227,6 +227,7 @@
   },
   "wake_bar": {
     "unseen_other": "{{name}}에게 {{identifier}}에서 내 답변 {{count}}개가 있습니다",
+    "unseen_chat_other": "{{name}}에게 {{member}}와(과)의 채팅에서 내 답변 {{count}}개가 있습니다",
     "woken": "{{name}}을(를) 내 답변으로 깨웠습니다"
   },
   "link": {

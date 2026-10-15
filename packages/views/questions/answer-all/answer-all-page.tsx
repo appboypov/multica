@@ -9,6 +9,7 @@ import { useWorkspacePaths } from "@multica/core/paths";
 import {
   EMPTY_QUESTION_ROW_FILTERS,
   issueQuestionsOptions,
+  questionDetailOptions,
   questionRowsOptions,
   sessionOrder,
   useQuestionsViewStore,
@@ -28,10 +29,13 @@ import { OnePage } from "./one-page";
 import { isAnsweredBy, isPageKey, isWaiting, toSession, type SessionEntry } from "./session";
 import { SessionWakeBars } from "./wake-bars";
 
-/** Every session issue's questions by id; stable while no issue's questions change. */
-function combineIssueQuestions(results: readonly { data?: Question[]; isSuccess: boolean }[]) {
+/**
+ * Session questions by id, from issue lists or from single question details;
+ * stable while none of them changes.
+ */
+function combineQuestions(results: readonly { data?: Question[] | Question; isSuccess: boolean }[]) {
   const questions = new Map<string, Question>();
-  for (const result of results) for (const question of result.data ?? []) questions.set(question.id, question);
+  for (const result of results) for (const question of [result.data ?? []].flat()) questions.set(question.id, question);
   return { questions, questionsLoaded: results.every((result) => result.isSuccess) };
 }
 
@@ -62,11 +66,29 @@ export function AnswerAllPage() {
     setSession(toSession(sessionOrder(rows.data.pages.flatMap((page) => page.rows))));
   }, [session, rows.isSuccess, rows.data, hasNextPage]);
 
-  const issueIds = useMemo(() => [...new Set((session ?? []).map((entry) => entry.issueId))], [session]);
-  const { questions, questionsLoaded } = useQueries({
+  // An issue's questions load as its list; a chat's list is its member's alone
+  // (Decision 6), so a question asked in a chat loads on its own.
+  const issueIds = useMemo(
+    () => [...new Set((session ?? []).flatMap((entry) => ("issueId" in entry.place ? [entry.place.issueId] : [])))],
+    [session],
+  );
+  const chatQuestionIds = useMemo(
+    () => (session ?? []).flatMap((entry) => ("chatSessionId" in entry.place ? [entry.id] : [])),
+    [session],
+  );
+  const issueQuestions = useQueries({
     queries: issueIds.map((issueId) => issueQuestionsOptions(wsId, issueId)),
-    combine: combineIssueQuestions,
+    combine: combineQuestions,
   });
+  const chatQuestions = useQueries({
+    queries: chatQuestionIds.map((id) => questionDetailOptions(wsId, id)),
+    combine: combineQuestions,
+  });
+  const questions = useMemo(
+    () => new Map([...issueQuestions.questions, ...chatQuestions.questions]),
+    [issueQuestions.questions, chatQuestions.questions],
+  );
+  const questionsLoaded = issueQuestions.questionsLoaded && chatQuestions.questionsLoaded;
 
   const waiting = useCallback((id: string) => isWaiting(questions.get(id), userId), [questions, userId]);
   const [currentId, setCurrentId] = useState<string | null>(null);
@@ -154,7 +176,7 @@ export function AnswerAllPage() {
             <p className="text-title-sm font-semibold">{t(($) => $.answer_all.done, { count: entries.length })}</p>
             <Button type="button" size="sm" onClick={leave}>{t(($) => $.answer_all.back_to_questions)}</Button>
             <div className="w-full">
-              <SessionWakeBars session={entries} questions={questions} firstIssueId={entries[0]!.issueId} />
+              <SessionWakeBars session={entries} questions={questions} firstPlace={entries[0]!.place} />
             </div>
           </div>
         ) : view === "one" ? (

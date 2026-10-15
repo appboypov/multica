@@ -227,6 +227,7 @@
   },
   "wake_bar": {
     "unseen_other": "{{name}} 在 {{identifier}} 上有你的 {{count}} 个回答",
+    "unseen_chat_other": "{{name}} 在与 {{member}} 的对话中有你的 {{count}} 个回答",
     "woken": "已用你的回答唤醒 {{name}}"
   },
   "link": {

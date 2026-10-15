@@ -1,29 +1,20 @@
 import { isOpenFor } from "@multica/core/questions";
 import { isEditableShortcutTarget, isPortalLayerShortcutTarget } from "@multica/core/shortcuts";
 import type { Question, QuestionRow } from "@multica/core/types";
+import { rowPlace, type QuestionPlace } from "../row-link";
 
 /** One question of the frozen Answer all session. */
 export interface SessionEntry {
   id: string;
   askId: string;
   askTitle: string | null;
-  issueId: string;
-  identifier: string;
+  /** The issue or chat the question's card shows in. */
+  place: QuestionPlace;
 }
 
-/**
- * Freezes For me's rows, already in `sessionOrder`, into the session's
- * entries. A chat row has no issue to load its question through and is left
- * out of the session.
- */
+/** Freezes For me's rows, already in `sessionOrder`, into the session's entries. */
 export function toSession(rows: readonly QuestionRow[]): SessionEntry[] {
-  return rows.flatMap((row) => row.open_issue ? [{
-    id: row.id,
-    askId: row.ask_id,
-    askTitle: row.ask_title,
-    issueId: row.open_issue.id,
-    identifier: row.open_issue.identifier,
-  }] : []);
+  return rows.map((row) => ({ id: row.id, askId: row.ask_id, askTitle: row.ask_title, place: rowPlace(row) }));
 }
 
 /** Still waiting on the viewer: open for them and not yet answered by them. */

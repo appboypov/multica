@@ -8,6 +8,8 @@ import type { Question } from "@multica/core/types";
 import { StatusIcon } from "../../issues/components/status-icon";
 import { QuestionCard } from "../question-card";
 import { QuestionSetCard } from "../question-set-card";
+import { placeKey, placeScope, useChatTitle, type QuestionPlace } from "../row-link";
+import { LinkIcon } from "../type-icon";
 import { WakeBars } from "../wake-bar";
 import { isPageKey, type SessionEntry } from "./session";
 
@@ -18,21 +20,22 @@ export interface OnePageProps {
   onFocus: (id: string) => void;
 }
 
-interface IssueGroup {
-  issueId: string;
-  identifier: string;
+interface PlaceGroup {
+  key: string;
+  place: QuestionPlace;
   /** Runs of one ask: a set's questions together, a single question alone. */
   asks: SessionEntry[][];
 }
 
-/** The session grouped by issue in first-seen order, a set's questions kept together. */
-function groupByIssue(session: readonly SessionEntry[]): IssueGroup[] {
-  const groups = new Map<string, IssueGroup>();
+/** The session grouped by issue or chat in first-seen order, a set's questions kept together. */
+function groupByPlace(session: readonly SessionEntry[]): PlaceGroup[] {
+  const groups = new Map<string, PlaceGroup>();
   for (const entry of session) {
-    let group = groups.get(entry.issueId);
+    const key = placeKey(entry.place);
+    let group = groups.get(key);
     if (!group) {
-      group = { issueId: entry.issueId, identifier: entry.identifier, asks: [] };
-      groups.set(entry.issueId, group);
+      group = { key, place: entry.place, asks: [] };
+      groups.set(key, group);
     }
     const last = group.asks.at(-1);
     if (last && last[0]!.askId === entry.askId) last.push(entry);
@@ -42,12 +45,13 @@ function groupByIssue(session: readonly SessionEntry[]): IssueGroup[] {
 }
 
 /**
- * Every question of the session on one scrolling page, grouped by issue, each
- * card answerable where it stands; a set shows stacked. `J`/`K` move the focus,
- * the focused card owns `⌘↵`, and each issue ends with its agents' wake bars.
+ * Every question of the session on one scrolling page, grouped by issue or
+ * chat, each card answerable where it stands; a set shows stacked. `J`/`K`
+ * move the focus, the focused card owns `⌘↵`, and each group ends with its
+ * agents' wake bars.
  */
 export function OnePage({ session, questions, focusedId, onFocus }: OnePageProps) {
-  const groups = groupByIssue(session);
+  const groups = groupByPlace(session);
 
   const move = (delta: number) => {
     const index = Math.max(session.findIndex((entry) => entry.id === focusedId), 0);
@@ -86,9 +90,14 @@ export function OnePage({ session, questions, focusedId, onFocus }: OnePageProps
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-6" onFocusCapture={focusFrom}>
       {groups.map((group) => {
         const groupQuestions = group.asks.flat().flatMap((entry) => questions.get(entry.id) ?? []);
+        const scope = placeScope(group.place);
         return (
-          <section key={group.issueId} className="flex flex-col gap-3">
-            <IssueHeading issueId={group.issueId} identifier={group.identifier} />
+          <section key={group.key} className="flex flex-col gap-3">
+            {"issueId" in group.place ? (
+              <IssueHeading issueId={group.place.issueId} identifier={group.place.identifier} />
+            ) : (
+              <ChatHeading memberId={group.place.memberId} />
+            )}
             {group.asks.map((ask) => {
               const askQuestions = ask.flatMap((entry) => questions.get(entry.id) ?? []);
               if (askQuestions.length > 1) {
@@ -96,7 +105,7 @@ export function OnePage({ session, questions, focusedId, onFocus }: OnePageProps
                   <QuestionSetCard
                     key={ask[0]!.id}
                     questions={askQuestions}
-                    scope={{ issueId: group.issueId }}
+                    scope={scope}
                     layout="stacked"
                     focusedQuestionId={focusedId}
                   />
@@ -105,11 +114,11 @@ export function OnePage({ session, questions, focusedId, onFocus }: OnePageProps
               const question = askQuestions[0];
               return question ? (
                 <div key={question.id} data-question-id={question.id}>
-                  <QuestionCard question={question} scope={{ issueId: group.issueId }} hideWake askQuestions={askQuestions} focused={question.id === focusedId} />
+                  <QuestionCard question={question} scope={scope} hideWake askQuestions={askQuestions} focused={question.id === focusedId} />
                 </div>
               ) : null;
             })}
-            <WakeBars issueId={group.issueId} identifier={group.identifier} questions={groupQuestions} />
+            <WakeBars place={group.place} questions={groupQuestions} />
           </section>
         );
       })}
@@ -126,6 +135,17 @@ function IssueHeading({ issueId, identifier }: { issueId: string; identifier: st
       {issue && <StatusIcon status={issue.status} className="size-3.5" />}
       <span className="shrink-0 font-medium text-muted-foreground">{identifier}</span>
       <span className="min-w-0 truncate font-medium">{issue?.title}</span>
+    </div>
+  );
+}
+
+/** A chat group's heading: "Chat with {member}", never the chat's title. */
+function ChatHeading({ memberId }: { memberId: string | null }) {
+  const chatTitle = useChatTitle();
+  return (
+    <div className="flex items-center gap-2 border-b pb-2 text-caption text-muted-foreground">
+      <LinkIcon type="chat" />
+      <span className="min-w-0 truncate font-medium text-foreground">{chatTitle(memberId)}</span>
     </div>
   );
 }

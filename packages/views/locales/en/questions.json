@@ -232,6 +232,8 @@
   "wake_bar": {
     "unseen_one": "{{name}} has {{count}} answer from you on {{identifier}}",
     "unseen_other": "{{name}} has {{count}} answers from you on {{identifier}}",
+    "unseen_chat_one": "{{name}} has {{count}} answer from you in the chat with {{member}}",
+    "unseen_chat_other": "{{name}} has {{count}} answers from you in the chat with {{member}}",
     "woken": "{{name}} was woken with your answers"
   },
   "link": {

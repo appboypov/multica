@@ -232,6 +232,8 @@
   "wake_bar": {
     "unseen_one": "{{name}} a {{count}} réponse de vous sur {{identifier}}",
     "unseen_other": "{{name}} a {{count}} réponses de vous sur {{identifier}}",
+    "unseen_chat_one": "{{name}} a {{count}} réponse de vous dans la discussion avec {{member}}",
+    "unseen_chat_other": "{{name}} a {{count}} réponses de vous dans la discussion avec {{member}}",
     "woken": "{{name}} a été réveillé avec vos réponses"
   },
   "link": {

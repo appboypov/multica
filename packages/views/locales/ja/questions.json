@@ -227,6 +227,7 @@
   },
   "wake_bar": {
     "unseen_other": "{{name}} に {{identifier}} であなたの回答が {{count}} 件あります",
+    "unseen_chat_other": "{{name}} に {{member}} とのチャットであなたの回答が {{count}} 件あります",
     "woken": "{{name}} をあなたの回答で起こしました"
   },
   "link": {
