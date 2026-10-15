@@ -20,8 +20,16 @@ const TEST_RESOURCES = { en: { common: enCommon, chat: enChat } };
 // a ref-driven fake the tests can steer. The thread-list stub stays
 // interactive: selecting a thread is the user action that must supersede a
 // pending `?agent=` intent.
+// The list stub keeps the props it got, so the `?question=` landing it is
+// handed can be read.
+const listProps = vi.hoisted(() => ({
+  current: null as { landingQuestionId?: string | null; chat?: { wsId: string; sessionId: string } } | null,
+}));
 vi.mock("./components/chat-message-list", () => ({
-  ChatMessageList: () => <div>chat-message-list</div>,
+  ChatMessageList: (props: { landingQuestionId?: string | null; chat?: { wsId: string; sessionId: string } }) => {
+    listProps.current = props;
+    return <div>chat-message-list</div>;
+  },
   ChatMessageSkeleton: () => <div>chat-message-skeleton</div>,
 }));
 vi.mock("./components/chat-input", () => ({
@@ -107,6 +115,7 @@ const storeRef = vi.hoisted(() => ({
 const persistedSessionRef = vi.hoisted(() => ({
   current: null as string | null,
 }));
+const hasMessagesRef = vi.hoisted(() => ({ current: false }));
 const storeListeners = vi.hoisted(() => new Set<() => void>());
 const availableAgentsRef = vi.hoisted(() => ({ current: [] as Agent[] }));
 const agentsSettledRef = vi.hoisted(() => ({ current: true }));
@@ -162,7 +171,7 @@ vi.mock("./components/use-chat-controller", async () => {
       pendingTask: null,
       pendingTaskId: null,
       showSkeleton: false,
-      hasMessages: false,
+      hasMessages: hasMessagesRef.current,
       firstItemIndex: 0,
       hasOlderMessages: false,
       isFetchingOlderMessages: false,
@@ -267,6 +276,8 @@ beforeEach(() => {
   agentsSettledRef.current = true;
   platformWorkspace.slug = "acme";
   layout.width = DESKTOP;
+  hasMessagesRef.current = false;
+  listProps.current = null;
 });
 
 describe("ChatPage URL synchronization", () => {
@@ -396,6 +407,26 @@ describe("ChatPage URL synchronization", () => {
       expect(replace).not.toHaveBeenCalled();
     },
   );
+});
+
+describe("ChatPage ?question= landing", () => {
+  it("hands the linked question to the open chat's list, and to no other chat", () => {
+    hasMessagesRef.current = true;
+    renderPage("session=session-1&question=q-2");
+    expect(listProps.current).toMatchObject({
+      chat: { wsId: "ws-1", sessionId: "session-1" },
+      landingQuestionId: "q-2",
+    });
+
+    // Another chat opened before the URL followed: the link is not its.
+    act(() => {
+      mockSetActiveSession("session-9");
+    });
+    expect(listProps.current).toMatchObject({
+      chat: { wsId: "ws-1", sessionId: "session-9" },
+      landingQuestionId: null,
+    });
+  });
 });
 
 describe("ChatPage ?agent= deep link", () => {

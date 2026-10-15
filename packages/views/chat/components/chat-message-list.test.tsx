@@ -1,13 +1,16 @@
-import { describe, expect, it, vi } from "vitest";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { I18nProvider } from "@multica/core/i18n/react";
 import { chatKeys } from "@multica/core/chat/queries";
-import type { Attachment, TaskMessagePayload } from "@multica/core/types";
+import type * as CoreApi from "@multica/core/api";
+import type * as CorePaths from "@multica/core/paths";
+import type { Attachment, ChatMessage, Question, TaskMessagePayload, TypedQuestion } from "@multica/core/types";
 import type { ReactElement } from "react";
 import enChat from "../../locales/en/chat.json";
 import zhHansAgents from "../../locales/zh-Hans/agents.json";
 import zhHansChat from "../../locales/zh-Hans/chat.json";
+import { renderWithI18n } from "../../test/i18n";
 
 // The live timeline is a real list row rather than Virtuoso chrome (MUL-4922),
 // so it shares one identity with the persisted assistant row and keeps its
@@ -15,8 +18,17 @@ import zhHansChat from "../../locales/zh-Hans/chat.json";
 // renders its Footer but NO data rows under jsdom's zero-height viewport, so
 // these tests must stub it to see rows at all. computeItemKey is still applied
 // here — it is what expresses the live -> persisted identity.
+// The stub also answers `scrollToIndex` through the list's ref and records
+// each call, so a `?question=` landing can be seen scrolling to its row.
+const { scrollCalls, listChatQuestions, viewer } = vi.hoisted(() => ({
+  scrollCalls: [] as unknown[],
+  listChatQuestions: vi.fn(),
+  viewer: { id: "user-brian" },
+}));
+
 vi.mock("react-virtuoso", () => ({
   Virtuoso: ({
+    ref,
     data,
     itemContent,
     computeItemKey,
@@ -24,6 +36,7 @@ vi.mock("react-virtuoso", () => ({
     context,
     followOutput,
   }: {
+    ref?: { current: unknown } | ((handle: unknown) => void);
     data: unknown[];
     itemContent: (i: number, item: unknown) => ReactElement;
     computeItemKey: (i: number, item: unknown) => string;
@@ -31,6 +44,9 @@ vi.mock("react-virtuoso", () => ({
     context?: unknown;
     followOutput?: (atBottom: boolean) => "smooth" | "auto" | false;
   }) => {
+    const handle = { scrollToIndex: (location: unknown) => scrollCalls.push(location) };
+    if (typeof ref === "function") ref(handle);
+    else if (ref) ref.current = handle;
     const Footer = components?.Footer;
     return (
       <div
@@ -47,6 +63,42 @@ vi.mock("react-virtuoso", () => ({
     );
   },
 }));
+
+// What the chat's question cards read: the viewer, the workspace, names, and
+// the chat's questions from the server.
+vi.mock("@multica/core/auth", () => {
+  const state = () => ({ user: { id: viewer.id } });
+  const useAuthStore = Object.assign(
+    (selector?: (s: unknown) => unknown) => (selector ? selector(state()) : state()),
+    { getState: state },
+  );
+  return { useAuthStore };
+});
+vi.mock("@multica/core/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof CoreApi>()),
+  api: { listChatQuestions },
+}));
+vi.mock("@multica/core/hooks", async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  useWorkspaceId: () => "ws-1",
+}));
+vi.mock("@multica/core/workspace/hooks", async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  useActorName: () => ({
+    getActorName: (type: string, id: string) =>
+      type === "agent" ? "Pieter" : id === "user-brian" ? "Brian" : id === "user-anouk" ? "Anouk" : "Someone",
+  }),
+}));
+vi.mock("@multica/core/workspace/queries", async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  memberListOptions: () => ({ queryKey: ["members"], queryFn: () => [] }),
+  agentListOptions: () => ({ queryKey: ["agents"], queryFn: () => [] }),
+}));
+vi.mock("@multica/core/paths", async (importOriginal) => {
+  const actual = await importOriginal<typeof CorePaths>();
+  return { ...actual, useWorkspacePaths: () => actual.paths.workspace("acme") };
+});
+vi.mock("../../common/actor-avatar", () => ({ ActorAvatar: () => <span /> }));
 
 import { ChatMessageList } from "./chat-message-list";
 
@@ -951,5 +1003,200 @@ describe("ChatMessageList onboarding starter cards", () => {
       await screen.findByRole("button", { name: "Get a board up in minutes" }),
     ).toBeEnabled();
     expect(screen.getByRole("button", { name: "Later chip" })).toBeEnabled();
+  });
+});
+
+describe("ChatMessageList question cards", () => {
+  // Brian asks, Pieter's turn task-3 replies and asks, Brian writes again.
+  const brianAsks: ChatMessage = {
+    id: "m-1",
+    chat_session_id: "session-1",
+    role: "user",
+    content: "Draft the invoice for Acme.",
+    task_id: null,
+    created_at: "2026-10-15T09:00:00Z",
+  };
+  const pieterReplies: ChatMessage = {
+    id: "m-2",
+    chat_session_id: "session-1",
+    role: "assistant",
+    content: "Three things before I file it.",
+    task_id: "task-3",
+    created_at: "2026-10-15T09:02:00Z",
+  };
+  const brianWritesAgain: ChatMessage = {
+    id: "m-3",
+    chat_session_id: "session-1",
+    role: "user",
+    content: "Thanks, looking now.",
+    task_id: null,
+    created_at: "2026-10-15T09:05:00Z",
+  };
+
+  function choice(
+    id: string,
+    prompt: string,
+    options: string[],
+    overrides: Partial<TypedQuestion<"single_choice">> = {},
+  ): Question {
+    return {
+      id,
+      workspace_id: "ws-1",
+      asker_agent_id: "agent-pieter",
+      asked_in_task_id: "task-3",
+      ask_id: "q-1",
+      ask_position: Number(id.slice(2)) - 1,
+      ask_title: "Invoice details",
+      answer_policy: "any_one",
+      prompt,
+      context_line: null,
+      status: "open",
+      due_date: null,
+      blocks_work: false,
+      links: [],
+      answerers: [{ user_id: "user-brian", assigned_at: "2026-10-15T09:01:00Z" }],
+      events: [],
+      unseen_answer_count: 0,
+      wake_available: false,
+      wake_targets: [],
+      created_at: "2026-10-15T09:01:00Z",
+      updated_at: "2026-10-15T09:01:00Z",
+      answer_type: "single_choice",
+      settings: { options, allow_other: false },
+      suggested_answer: null,
+      answers: [],
+      ...overrides,
+    };
+  }
+
+  /** Pieter's set of three for Brian, asked in task-3. */
+  const setOfThree = () => [
+    choice("q-1", "Should VAT round per invoice line or on the invoice total?", ["Per invoice line", "On the invoice total"]),
+    choice("q-2", "Which VAT rate applies?", ["21%", "9%"]),
+    choice("q-3", "Which customers does it cover?", ["Acme only", "Every customer"]),
+  ];
+
+  function renderChat(
+    messages: ChatMessage[],
+    questions: Question[],
+    props: Partial<Parameters<typeof ChatMessageList>[0]> = {},
+  ) {
+    listChatQuestions.mockResolvedValue(questions);
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    return renderWithI18n(
+      <QueryClientProvider client={client}>
+        <ChatMessageList
+          messages={messages}
+          pendingTask={null}
+          availability="online"
+          chat={{ wsId: "ws-1", sessionId: "session-1" }}
+          {...props}
+        />
+      </QueryClientProvider>,
+    );
+  }
+
+  function row(container: HTMLElement, key: string): HTMLElement {
+    return container.querySelector<HTMLElement>(`[data-row-key="${key}"]`)!;
+  }
+
+  beforeEach(() => {
+    viewer.id = "user-brian";
+    scrollCalls.length = 0;
+    listChatQuestions.mockReset();
+  });
+
+  // Scenario: A set of three in the chat
+  it("shows Pieter's set of three after his message, for Brian, each question answerable on its own", async () => {
+    const { container } = renderChat([brianAsks, pieterReplies, brianWritesAgain], setOfThree());
+
+    const overline = await screen.findByText("Question set for you");
+    const turn = row(container, "task:task-3");
+    expect(turn).toContainElement(overline);
+    expect(within(turn).getByText("· 3 questions")).toBeInTheDocument();
+    // After Pieter's message, inside his turn's row, and not after Brian's later one.
+    const reply = within(turn).getByText("Three things before I file it.");
+    expect(reply.compareDocumentPosition(overline) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(within(row(container, "m-3")).queryByText("Question set for you")).not.toBeInTheDocument();
+    expect(listChatQuestions).toHaveBeenCalledWith("session-1");
+
+    const tabs = within(turn).getAllByRole("tab");
+    expect(tabs).toHaveLength(3);
+    expect(within(turn).getByRole("radio", { name: /Per invoice line/ })).toBeInTheDocument();
+    fireEvent.click(tabs[1]!);
+    expect(within(turn).getByRole("radio", { name: /21%/ })).toBeInTheDocument();
+    fireEvent.click(tabs[2]!);
+    expect(within(turn).getByRole("radio", { name: /Acme only/ })).toBeInTheDocument();
+  });
+
+  // Scenario: Anouk's answer shows in Brian's chat
+  it("folds Anouk's sent answer in Brian's chat and offers Brian no answer controls", async () => {
+    const asked = choice("q-1", "Should VAT round per invoice line or on the invoice total?", ["per line", "per invoice"], {
+      ask_title: null,
+      ask_position: 0,
+      status: "answered",
+      answerers: [{ user_id: "user-anouk", assigned_at: "2026-10-15T09:01:00Z" }],
+      answers: [{
+        id: "a-anouk",
+        answerer_user_id: "user-anouk",
+        value: { option: "per line" },
+        display_text: "per line",
+        note: null,
+        created_at: "2026-10-15T09:10:00Z",
+        updated_at: "2026-10-15T09:10:00Z",
+      }],
+    });
+    const { container } = renderChat([brianAsks, pieterReplies], [asked]);
+
+    const turn = row(container, "task:task-3");
+    expect(await within(turn).findByText("per line")).toBeInTheDocument();
+    expect(within(turn).getByText(/Anouk/)).toBeInTheDocument();
+    expect(within(turn).queryByText("Question for you")).not.toBeInTheDocument();
+    expect(within(turn).queryByRole("radio")).not.toBeInTheDocument();
+    for (const name of ["Accept suggestion", "Send", "Decline to answer", "Cancel question", "Edit answer"]) {
+      expect(within(turn).queryByRole("button", { name })).not.toBeInTheDocument();
+    }
+  });
+
+  it("shows no cards outside a member's chat", async () => {
+    listChatQuestions.mockResolvedValue(setOfThree());
+    renderWithI18n(
+      <QueryClientProvider client={new QueryClient()}>
+        <ChatMessageList messages={[brianAsks, pieterReplies]} pendingTask={null} availability="online" />
+      </QueryClientProvider>,
+    );
+    expect(await screen.findByText("Three things before I file it.")).toBeInTheDocument();
+    expect(listChatQuestions).not.toHaveBeenCalled();
+    expect(screen.queryByText("Question set for you")).not.toBeInTheDocument();
+  });
+
+  // Decision 6: `?question=` lands on the card
+  it("lands on the linked question: scrolls to its row, opens the set at it and rings the card until it fades", async () => {
+    const { container } = renderChat([brianAsks, pieterReplies, brianWritesAgain], setOfThree(), {
+      landingQuestionId: "q-2",
+    });
+
+    // Once the list has settled at its live end, it scrolls to Pieter's row (index 1).
+    await waitFor(() => expect(scrollCalls).toContainEqual({ index: 1, align: "end" }), { timeout: 3000 });
+    const turn = row(container, "task:task-3");
+    const ringed = turn.querySelector("[data-highlighted]");
+    expect(ringed).toHaveClass("ring-2");
+    expect(within(turn).getByRole("tab", { name: /Which VAT rate applies/ })).toHaveAttribute("aria-selected", "true");
+    expect(within(turn).getByRole("radio", { name: /21%/ })).toBeInTheDocument();
+
+    await waitFor(() => expect(turn.querySelector("[data-highlighted]")).toBeNull(), { timeout: 4000 });
+  }, 10_000);
+
+  it("loads older messages until the landed question's turn arrives", async () => {
+    const onLoadOlderMessages = vi.fn();
+    renderChat([brianWritesAgain], setOfThree(), {
+      landingQuestionId: "q-2",
+      hasOlderMessages: true,
+      onLoadOlderMessages,
+    });
+
+    await waitFor(() => expect(onLoadOlderMessages).toHaveBeenCalled(), { timeout: 3000 });
+    expect(scrollCalls).not.toContainEqual({ index: 0, align: "end" });
+    expect(screen.queryByText("Question set for you")).not.toBeInTheDocument();
   });
 });
