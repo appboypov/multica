@@ -2,9 +2,11 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { Agent, AgentRuntime } from "@multica/core/types";
+import { toast } from "sonner";
+import { workspaceKeys } from "@multica/core/workspace/queries";
 import { I18nProvider } from "@multica/core/i18n/react";
 import enCommon from "../../../locales/en/common.json";
 import enAgents from "../../../locales/en/agents.json";
@@ -15,6 +17,7 @@ const mockListSkills = vi.hoisted(() => vi.fn());
 const mockGetSkill = vi.hoisted(() => vi.fn());
 const mockSetAgentSkillEnabled = vi.hoisted(() => vi.fn());
 const mockSetAgentRuntimeSkillEnabled = vi.hoisted(() => vi.fn());
+const mockSetAgentRuntimeSkillsInherited = vi.hoisted(() => vi.fn());
 const mockRemoveAgentSkill = vi.hoisted(() => vi.fn());
 const mockRuntimeCapabilities = vi.hoisted(() => vi.fn());
 
@@ -46,6 +49,8 @@ vi.mock("@multica/core/api", () => ({
     setAgentSkillEnabled: (...args: unknown[]) => mockSetAgentSkillEnabled(...args),
     setAgentRuntimeSkillEnabled: (...args: unknown[]) =>
       mockSetAgentRuntimeSkillEnabled(...args),
+    setAgentRuntimeSkillsInherited: (...args: unknown[]) =>
+      mockSetAgentRuntimeSkillsInherited(...args),
     removeAgentSkill: (...args: unknown[]) => mockRemoveAgentSkill(...args),
   },
   ApiError,
@@ -123,6 +128,7 @@ function renderSkillsTab(
   agentOverrides: Partial<Agent> = {},
   runtime: AgentRuntime | null = null,
   currentUserId: string | null = "user-1",
+  canEdit = true,
 ) {
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -132,17 +138,24 @@ function renderSkillsTab(
     },
   });
 
-  return render(
+  const tab = (overrides: Partial<Agent>) => (
     <I18nProvider locale="en" resources={TEST_RESOURCES}>
       <QueryClientProvider client={queryClient}>
         <SkillsTab
-          agent={{ ...agent, ...agentOverrides }}
+          agent={{ ...agent, ...overrides }}
           runtime={runtime}
           currentUserId={currentUserId}
+          canEdit={canEdit}
         />
       </QueryClientProvider>
-    </I18nProvider>,
+    </I18nProvider>
   );
+  const result = render(tab(agentOverrides));
+  return {
+    ...result,
+    queryClient,
+    updateAgent: (overrides: Partial<Agent>) => result.rerender(tab(overrides)),
+  };
 }
 
 describe("SkillsTab", () => {
@@ -151,6 +164,7 @@ describe("SkillsTab", () => {
     mockListSkills.mockResolvedValue([]);
     mockSetAgentSkillEnabled.mockResolvedValue(undefined);
     mockSetAgentRuntimeSkillEnabled.mockResolvedValue(undefined);
+    mockSetAgentRuntimeSkillsInherited.mockResolvedValue(undefined);
     mockRemoveAgentSkill.mockResolvedValue(undefined);
     mockRuntimeCapabilities.mockResolvedValue({
       skills: [],
@@ -290,6 +304,222 @@ describe("SkillsTab", () => {
         name: /Toggle inherited Local review/i,
       }),
     ).not.toBeChecked();
+  });
+
+  describe("runtime inheritance", () => {
+    const localReview = {
+      key: "local-review",
+      name: "Local review",
+      source_path: "~/.codex/skills/local-review",
+      provider: "codex",
+      root: "provider" as const,
+      can_disable: true,
+      file_count: 1,
+    };
+    const sectionSwitch = () =>
+      screen.findByRole("switch", { name: /Inherit skills from/i });
+
+    beforeEach(() => {
+      mockRuntimeCapabilities.mockResolvedValue({
+        skills: [localReview],
+        supported: true,
+        mcpServers: [],
+        mcpSupported: true,
+      });
+    });
+
+    it("turns inheritance off and refreshes the agent after saving", async () => {
+      const user = userEvent.setup();
+      let finishWrite!: () => void;
+      mockSetAgentRuntimeSkillsInherited.mockReturnValueOnce(
+        new Promise<void>((resolve) => {
+          finishWrite = resolve;
+        }),
+      );
+      const { queryClient } = renderSkillsTab(
+        { inherit_runtime_skills: true },
+        { ...onlineRuntime, custom_name: "My Mac" },
+      );
+      const invalidate = vi.spyOn(queryClient, "invalidateQueries");
+      const toggle = await sectionSwitch();
+
+      expect(toggle).toBeChecked();
+      expect(toggle).toHaveAccessibleName(/My Mac/);
+      await user.click(toggle);
+
+      expect(mockSetAgentRuntimeSkillsInherited).toHaveBeenCalledWith(
+        "agent-1",
+        false,
+      );
+      expect(toggle).toBeDisabled();
+      expect(invalidate).not.toHaveBeenCalled();
+      finishWrite();
+      await waitFor(() =>
+        expect(invalidate).toHaveBeenCalledWith({
+          queryKey: workspaceKeys.agents("ws-1"),
+        }),
+      );
+      await waitFor(() => expect(toggle).toBeEnabled());
+      expect(mockSetAgentRuntimeSkillEnabled).not.toHaveBeenCalled();
+    });
+
+    it("treats an omitted inheritance setting as on", async () => {
+      renderSkillsTab({}, onlineRuntime);
+      expect(await sectionSwitch()).toBeChecked();
+    });
+
+    it("keeps stored per-skill choices across section changes", async () => {
+      const user = userEvent.setup();
+      mockRuntimeCapabilities.mockResolvedValue({
+        skills: [
+          localReview,
+          { ...localReview, key: "local-plan", name: "Local plan" },
+        ],
+        supported: true,
+        mcpServers: [],
+        mcpSupported: true,
+      });
+      const savedChoices = {
+        disabled_runtime_skills: [
+          {
+            runtime_id: "runtime-1",
+            provider: "codex",
+            root: "provider" as const,
+            key: "local-review",
+          },
+        ],
+      };
+      const { updateAgent } = renderSkillsTab(
+        { ...savedChoices, inherit_runtime_skills: true },
+        onlineRuntime,
+      );
+      const review = await screen.findByRole("switch", {
+        name: /Toggle inherited Local review/i,
+      });
+      const plan = screen.getByRole("switch", {
+        name: /Toggle inherited Local plan/i,
+      });
+      expect(review).not.toBeChecked();
+      expect(plan).toBeChecked();
+
+      updateAgent({ ...savedChoices, inherit_runtime_skills: false });
+      expect(await sectionSwitch()).not.toBeChecked();
+      for (const row of [review, plan]) {
+        expect(row).not.toBeChecked();
+        expect(row).toBeDisabled();
+        await user.click(row);
+      }
+      expect(mockSetAgentRuntimeSkillEnabled).not.toHaveBeenCalled();
+
+      await user.click(await sectionSwitch());
+      expect(mockSetAgentRuntimeSkillsInherited).toHaveBeenCalledWith(
+        "agent-1",
+        true,
+      );
+      updateAgent({ ...savedChoices, inherit_runtime_skills: true });
+      expect(review).not.toBeChecked();
+      expect(review).toBeEnabled();
+      expect(plan).toBeChecked();
+      expect(plan).toBeEnabled();
+    });
+
+    it("shows section and row switches for controllable omp skills", async () => {
+      mockRuntimeCapabilities.mockResolvedValue({
+        skills: [{ ...localReview, provider: "omp" }],
+        supported: true,
+        mcpServers: [],
+        mcpSupported: true,
+      });
+      renderSkillsTab({}, { ...onlineRuntime, provider: "omp" });
+
+      expect(await sectionSwitch()).toBeChecked();
+      expect(
+        screen.getByRole("switch", { name: /Toggle inherited Local review/i }),
+      ).toBeChecked();
+    });
+
+    it("hides switches from someone who cannot edit the agent", async () => {
+      renderSkillsTab({}, onlineRuntime, "user-1", false);
+      await screen.findByText("Local review");
+      expect(screen.queryByRole("switch")).not.toBeInTheDocument();
+    });
+
+    it("hides the section switch when discovery fails after a successful listing", async () => {
+      const user = userEvent.setup();
+      renderSkillsTab({}, onlineRuntime);
+      await sectionSwitch();
+      mockRuntimeCapabilities.mockRejectedValueOnce(new Error("offline"));
+      await user.click(screen.getByRole("button", { name: "Refresh" }));
+
+      await screen.findByText("Couldn't discover runtime skills. Try again.");
+      expect(
+        screen.queryByRole("switch", { name: /Inherit skills from/i }),
+      ).not.toBeInTheDocument();
+    });
+
+    it.each([
+      ["empty", []],
+      ["unsupported provider", [{ ...localReview, provider: "other", can_disable: false }]],
+      ["missing skill root", [{ ...localReview, root: undefined }]],
+    ])("hides the section switch for a %s listing", async (_name, skills) => {
+      mockRuntimeCapabilities.mockResolvedValue({
+        skills,
+        supported: true,
+        mcpServers: [],
+        mcpSupported: true,
+      });
+      renderSkillsTab({}, onlineRuntime);
+      if (skills.length === 0) {
+        await screen.findByText(enAgents.tab_body.skills.runtime_empty);
+      } else {
+        await screen.findByText("Local review");
+      }
+      expect(screen.queryByRole("switch")).not.toBeInTheDocument();
+    });
+
+    it("keeps a hidden off setting when a skill appears on refresh", async () => {
+      const user = userEvent.setup();
+      mockRuntimeCapabilities.mockResolvedValueOnce({
+        skills: [],
+        supported: true,
+        mcpServers: [],
+        mcpSupported: true,
+      });
+      renderSkillsTab({ inherit_runtime_skills: false }, onlineRuntime);
+      await screen.findByText(enAgents.tab_body.skills.runtime_empty);
+      expect(screen.queryByRole("switch")).not.toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: "Refresh" }));
+
+      expect(await sectionSwitch()).not.toBeChecked();
+      const row = screen.getByRole("switch", {
+        name: /Toggle inherited Local review/i,
+      });
+      expect(row).not.toBeChecked();
+      expect(row).toBeDisabled();
+    });
+
+    it.each([
+      ["localized fallback", null],
+      ["server error", new Error("Permission denied")],
+    ])("reports a failed write with its %s and leaves inheritance on", async (_name, error) => {
+      const user = userEvent.setup();
+      mockSetAgentRuntimeSkillsInherited.mockRejectedValueOnce(error);
+      const { queryClient } = renderSkillsTab({}, onlineRuntime);
+      const invalidate = vi.spyOn(queryClient, "invalidateQueries");
+      const toggle = await sectionSwitch();
+      await user.click(toggle);
+
+      await waitFor(() =>
+        expect(toast.error).toHaveBeenCalledWith(
+          error instanceof Error
+            ? error.message
+            : "Could not change skill inheritance",
+        ),
+      );
+      expect(toggle).toBeChecked();
+      expect(toggle).toBeEnabled();
+      expect(invalidate).not.toHaveBeenCalled();
+    });
   });
 
   it("shows a permission notice when capability discovery is forbidden", async () => {
