@@ -250,6 +250,7 @@ const (
 	QuestionReasonReassigned   = "reassigned"
 	QuestionReasonClosed       = "closed"
 	QuestionReasonWithdrawn    = "withdrawn"
+	QuestionReasonCancelled    = "cancelled"
 	QuestionReasonOverdue      = "overdue"
 	QuestionReasonWoken        = "woken"
 	QuestionReasonLinked       = "linked"
@@ -265,6 +266,7 @@ type QuestionEventPayload struct {
 	QuestionIDs []string `json:"question_ids,omitempty"`
 	IssueID     string   `json:"issue_id"`
 	IssueIDs    []string `json:"issue_ids,omitempty"`
+	ChatSessionID string `json:"chat_session_id,omitempty"`
 	Reason      string   `json:"reason,omitempty"`
 	EventID     string   `json:"event_id,omitempty"`
 }

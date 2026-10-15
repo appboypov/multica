@@ -335,7 +335,19 @@ func (s *QuestionService) publish(ctx context.Context, row QuestionDTO, actor Qu
 	if len(issueIDs) > 0 {
 		issueID = issueIDs[0]
 	}
-	s.Bus.Publish(events.Event{Type: protocol.EventQuestionUpdated, WorkspaceID: row.WorkspaceID, ActorType: actor.Type, ActorID: util.UUIDToString(actor.ID), Payload: protocol.QuestionEventPayload{QuestionID: row.ID, AskID: row.AskID, IssueID: issueID, IssueIDs: issueIDs, Reason: reason, EventID: eventID}})
+	chatID := ""
+	links, err := s.Queries.ListQuestionLinksByQuestions(ctx, db.ListQuestionLinksByQuestionsParams{WorkspaceID: workspaceID, QuestionIds: []pgtype.UUID{questionID}})
+	if err != nil {
+		slog.Error("question publication could not load links", "question_id", row.ID, "error", err)
+		return
+	}
+	for _, link := range links {
+		if link.LinkType == question.LinkTypeChat {
+			chatID = util.UUIDToString(link.LinkID)
+			break
+		}
+	}
+	s.Bus.Publish(events.Event{Type: protocol.EventQuestionUpdated, WorkspaceID: row.WorkspaceID, ActorType: actor.Type, ActorID: util.UUIDToString(actor.ID), Payload: protocol.QuestionEventPayload{QuestionID: row.ID, AskID: row.AskID, IssueID: issueID, IssueIDs: issueIDs, ChatSessionID: chatID, Reason: reason, EventID: eventID}})
 }
 
 func (s *QuestionService) Ask(ctx context.Context, workspaceID pgtype.UUID, actor QuestionActor, input AskInput) (QuestionAskResult, error) {
@@ -560,7 +572,11 @@ func (s *QuestionService) Ask(ctx context.Context, workspaceID pgtype.UUID, acto
 		if len(issueIDs) > 0 {
 			issueID = issueIDs[0]
 		}
-		s.Bus.Publish(events.Event{Type: protocol.EventQuestionCreated, WorkspaceID: util.UUIDToString(workspaceID), ActorType: actor.Type, ActorID: util.UUIDToString(actor.ID), Payload: protocol.QuestionEventPayload{QuestionID: ids[0], AskID: result.AskID, QuestionIDs: ids, IssueID: issueID, IssueIDs: issueIDs, Reason: "asked", EventID: firstEventID}})
+		chatID := ""
+		if chat := OpenChat(hydrated[0].Links); chat != nil {
+			chatID = chat.ID
+		}
+		s.Bus.Publish(events.Event{Type: protocol.EventQuestionCreated, WorkspaceID: util.UUIDToString(workspaceID), ActorType: actor.Type, ActorID: util.UUIDToString(actor.ID), Payload: protocol.QuestionEventPayload{QuestionID: ids[0], AskID: result.AskID, QuestionIDs: ids, IssueID: issueID, IssueIDs: issueIDs, ChatSessionID: chatID, Reason: "asked", EventID: firstEventID}})
 	}
 	return result, nil
 }

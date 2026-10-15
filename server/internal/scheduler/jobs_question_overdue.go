@@ -45,6 +45,7 @@ func QuestionOverdueJob(queries *db.Queries, bus *events.Bus) JobSpec {
 			type overdueAsk struct {
 				workspaceID string
 				issueID     string
+				chatSessionID string
 				askID       string
 				questions   []overdueQuestion
 			}
@@ -70,6 +71,7 @@ func QuestionOverdueJob(queries *db.Queries, bus *events.Bus) JobSpec {
 							AskID:       ask.askID,
 							QuestionIDs: ids,
 							IssueID:     ask.issueID,
+							ChatSessionID: ask.chatSessionID,
 							Reason:      protocol.QuestionReasonOverdue,
 						},
 					})
@@ -100,6 +102,7 @@ func QuestionOverdueJob(queries *db.Queries, bus *events.Bus) JobSpec {
 						ask = &overdueAsk{
 							workspaceID: util.UUIDToString(question.WorkspaceID),
 							issueID:     util.UUIDToString(question.IssueID),
+							chatSessionID: util.UUIDToString(question.ChatSessionID),
 							askID:       util.UUIDToString(question.AskID),
 						}
 						asks[question.AskID] = ask
