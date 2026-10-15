@@ -146,7 +146,7 @@ func (h *Handler) ListIssueQuestions(w http.ResponseWriter, r *http.Request) {
 		writeQuestionError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, result)
+	writeJSON(w, http.StatusOK, h.questionResponses(r, issue.WorkspaceID, result))
 }
 
 func (h *Handler) GetQuestion(w http.ResponseWriter, r *http.Request) {
@@ -163,7 +163,7 @@ func (h *Handler) GetQuestion(w http.ResponseWriter, r *http.Request) {
 		writeQuestionError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, result)
+	h.writeQuestionResponse(w, r, ws, result)
 }
 
 func (h *Handler) AnswerQuestion(w http.ResponseWriter, r *http.Request) {
@@ -185,7 +185,7 @@ func (h *Handler) AnswerQuestion(w http.ResponseWriter, r *http.Request) {
 		writeQuestionError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, result)
+	h.writeQuestionResponse(w, r, ws, result)
 }
 
 func (h *Handler) AskBackQuestion(w http.ResponseWriter, r *http.Request) {
@@ -209,7 +209,7 @@ func (h *Handler) AskBackQuestion(w http.ResponseWriter, r *http.Request) {
 		writeQuestionError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, result)
+	h.writeQuestionResponse(w, r, ws, result)
 }
 
 func (h *Handler) ReassignQuestion(w http.ResponseWriter, r *http.Request) {
@@ -238,7 +238,7 @@ func (h *Handler) ReassignQuestion(w http.ResponseWriter, r *http.Request) {
 		writeQuestionError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, result)
+	h.writeQuestionResponse(w, r, ws, result)
 }
 
 func (h *Handler) CloseQuestion(w http.ResponseWriter, r *http.Request) {
@@ -255,7 +255,7 @@ func (h *Handler) CloseQuestion(w http.ResponseWriter, r *http.Request) {
 		writeQuestionError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, result)
+	h.writeQuestionResponse(w, r, ws, result)
 }
 
 func (h *Handler) WithdrawQuestion(w http.ResponseWriter, r *http.Request) {
@@ -272,7 +272,7 @@ func (h *Handler) WithdrawQuestion(w http.ResponseWriter, r *http.Request) {
 		writeQuestionError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, result)
+	h.writeQuestionResponse(w, r, ws, result)
 }
 
 func (h *Handler) WakeQuestion(w http.ResponseWriter, r *http.Request) {
@@ -304,4 +304,47 @@ func (h *Handler) WakeQuestion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusAccepted, result)
+}
+
+type questionAnswerResponse struct {
+	service.QuestionAnswerDTO
+	RunMarks []RunInputMarkResponse `json:"run_marks,omitempty"`
+}
+
+type questionResponse struct {
+	service.QuestionDTO
+	Answers []questionAnswerResponse `json:"answers"`
+}
+
+func (h *Handler) writeQuestionResponse(w http.ResponseWriter, r *http.Request, workspaceID pgtype.UUID, dto service.QuestionDTO) {
+	writeJSON(w, http.StatusOK, h.questionResponses(r, workspaceID, []service.QuestionDTO{dto})[0])
+}
+
+// Answers display only marks for their latest version, matching Wake's query.
+func (h *Handler) questionResponses(r *http.Request, workspaceID pgtype.UUID, dtos []service.QuestionDTO) []questionResponse {
+	out := make([]questionResponse, len(dtos))
+	itemIDs := make([]pgtype.UUID, 0)
+	answerItems := make([]map[string]string, len(dtos))
+	for i, dto := range dtos {
+		out[i] = questionResponse{QuestionDTO: dto, Answers: make([]questionAnswerResponse, len(dto.Answers))}
+		latest := make(map[string]string)
+		for j := len(dto.Events) - 1; j >= 0; j-- {
+			event := dto.Events[j]
+			if event.ActorType != "member" || event.ActorID == nil || (event.Kind != "answered" && event.Kind != "answer_edited") {
+				continue
+			}
+			if _, exists := latest[*event.ActorID]; !exists {
+				latest[*event.ActorID] = event.ID
+				itemIDs = append(itemIDs, parseUUID(event.ID))
+			}
+		}
+		answerItems[i] = latest
+	}
+	marks := h.listRunInputMarks(r.Context(), workspaceID, itemIDs)
+	for i, dto := range dtos {
+		for j, answer := range dto.Answers {
+			out[i].Answers[j] = questionAnswerResponse{QuestionAnswerDTO: answer, RunMarks: marks[answerItems[i][answer.AnswererUserID]]}
+		}
+	}
+	return out
 }

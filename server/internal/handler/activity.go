@@ -30,6 +30,7 @@ type TimelineEntry struct {
 	// Activity-only fields
 	Action  *string         `json:"action,omitempty"`
 	Details json.RawMessage `json:"details,omitempty"`
+	RunMarks []RunInputMarkResponse `json:"run_marks,omitempty"`
 
 	// Comment-only fields
 	Content     *string `json:"content,omitempty"`
@@ -260,8 +261,18 @@ func (h *Handler) ListTimeline(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) mergeTimeline(r *http.Request, comments []db.Comment, activities []db.ActivityLog, ascending bool) []TimelineEntry {
 	out := make([]TimelineEntry, 0, len(comments)+len(activities))
 	out = append(out, h.commentsToEntries(r, comments)...)
+	activityIDs := make([]pgtype.UUID, len(activities))
+	for i, activity := range activities {
+		activityIDs[i] = activity.ID
+	}
+	var marks map[string][]RunInputMarkResponse
+	if len(activities) > 0 {
+		marks = h.listRunInputMarks(r.Context(), activities[0].WorkspaceID, activityIDs)
+	}
 	for _, a := range activities {
-		out = append(out, activityToEntry(a))
+		entry := activityToEntry(a)
+		entry.RunMarks = marks[entry.ID]
+		out = append(out, entry)
 	}
 	sort.Slice(out, func(i, j int) bool {
 		if out[i].CreatedAt != out[j].CreatedAt {

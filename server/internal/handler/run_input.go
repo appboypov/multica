@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"log/slog"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
 	"github.com/multica-ai/multica/server/pkg/protocol"
 )
@@ -76,4 +78,32 @@ func (h *Handler) ReactToRunInput(w http.ResponseWriter, r *http.Request) {
 	h.publish(protocol.EventRunInputReacted, uuidToString(receipt.WorkspaceID), "agent", uuidToString(task.AgentID), payload)
 	slog.Debug("run input reaction recorded", "task_id", uuidToString(task.ID), "item_id", uuidToString(itemID), "emoji", req.Emoji)
 	writeJSON(w, http.StatusOK, payload)
+}
+
+// RunInputMarkResponse is one run's visible acknowledgement of an item.
+type RunInputMarkResponse struct {
+	TaskID    string  `json:"task_id"`
+	AgentID   string  `json:"agent_id"`
+	SeenAt    *string `json:"seen_at,omitempty"`
+	HandledAt *string `json:"handled_at,omitempty"`
+}
+
+func (h *Handler) listRunInputMarks(ctx context.Context, workspaceID pgtype.UUID, itemIDs []pgtype.UUID) map[string][]RunInputMarkResponse {
+	marks := make(map[string][]RunInputMarkResponse)
+	if len(itemIDs) == 0 {
+		return marks
+	}
+	rows, err := h.Queries.ListRunInputMarksByItems(ctx, db.ListRunInputMarksByItemsParams{WorkspaceID: workspaceID, ItemIds: itemIDs})
+	if err != nil {
+		slog.Error("run input marks lookup failed", "workspace_id", uuidToString(workspaceID), "error", err)
+		return marks
+	}
+	for _, row := range rows {
+		id := uuidToString(row.ItemID)
+		marks[id] = append(marks[id], RunInputMarkResponse{
+			TaskID: uuidToString(row.TaskID), AgentID: uuidToString(row.AgentID),
+			SeenAt: timestampToPtr(row.SeenAt), HandledAt: timestampToPtr(row.HandledAt),
+		})
+	}
+	return marks
 }
