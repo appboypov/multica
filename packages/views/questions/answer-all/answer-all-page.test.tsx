@@ -125,6 +125,17 @@ function question(id: string, prompt: string, overrides: Partial<TypedQuestion<"
   };
 }
 
+/** Anouk's answer to the chat question. */
+const ANOUK_ANSWER: TypedQuestion<"single_choice">["answers"][number] = {
+  id: "a-anouk",
+  answerer_user_id: "user-anouk",
+  value: { option: "Per invoice line" },
+  display_text: "Per invoice line",
+  note: null,
+  created_at: "2026-10-15T09:10:00Z",
+  updated_at: "2026-10-15T09:10:00Z",
+};
+
 /** Pieter's question to Anouk in Brian's chat, as the server holds it now. */
 let chatQuestion: Question;
 
@@ -162,15 +173,7 @@ describe("AnswerAllPage with a question from Brian's chat", () => {
     api.answerQuestion.mockImplementation(async () => {
       chatQuestion = question("q-chat", CHAT_PROMPT, {
         status: "answered",
-        answers: [{
-          id: "a-anouk",
-          answerer_user_id: "user-anouk",
-          value: { option: "Per invoice line" },
-          display_text: "Per invoice line",
-          note: null,
-          created_at: "2026-10-15T09:10:00Z",
-          updated_at: "2026-10-15T09:10:00Z",
-        }],
+        answers: [ANOUK_ANSWER],
         unseen_answer_count: 1,
         wake_available: true,
         wake_targets: [{ agent_id: "agent-pieter", issue_id: null, chat_session_id: "chat-1", unseen_answer_count: 1, wake_available: true }],
@@ -206,5 +209,46 @@ describe("AnswerAllPage with a question from Brian's chat", () => {
     expect(await screen.findByText("Pieter has 1 answer from you in the chat with Brian")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Wake Pieter" }));
     await waitFor(() => expect(api.wakeQuestionAgent).toHaveBeenCalledWith("q-chat", "agent-pieter"));
+  });
+});
+
+describe("AnswerAllPage opened at a chat question outside For me", () => {
+  /** The question's link to Brian's chat, as its detail carries it: by its member only. */
+  const BRIAN_CHAT_LINK = { link_type: "chat", link_id: "chat-1", position: 0, member_id: "user-brian" } as const;
+
+  beforeEach(() => {
+    for (const call of Object.values(api)) call.mockReset();
+    api.listIssueQuestions.mockResolvedValue([question("q-issue", ISSUE_PROMPT)]);
+    api.getQuestion.mockImplementation(async (id: string) => (id === "q-chat" ? chatQuestion : undefined));
+  });
+
+  // Scenario: Anouk opens a question from Brian's chat that she already answered
+  it("shows it folded with her answer, naming the chat only by its member", async () => {
+    api.listQuestionRows.mockResolvedValue({ rows: [row("q-issue", ISSUE_PROMPT, WORK_412)], next_cursor: null });
+    chatQuestion = question("q-chat", CHAT_PROMPT, { status: "answered", links: [BRIAN_CHAT_LINK], answers: [ANOUK_ANSWER] });
+    renderPage("question=q-chat");
+
+    expect(await screen.findByText(CHAT_PROMPT)).toBeInTheDocument();
+    expect(api.getQuestion).toHaveBeenCalledWith("q-chat");
+    expect(screen.getByText("Per invoice line")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Accept suggestion/ })).not.toBeInTheDocument();
+    // Anouk may not open Brian's chat: its name is plain text, not a link.
+    expect(screen.getByText("Chat with Brian").closest("a")).toBeNull();
+  });
+
+  // Scenario: Anouk opens a question from Brian's chat that is open for Brian only
+  it("shows it without answer controls, not as empty or done, while For me is empty", async () => {
+    api.listQuestionRows.mockResolvedValue({ rows: [], next_cursor: null });
+    chatQuestion = question("q-chat", CHAT_PROMPT, {
+      links: [BRIAN_CHAT_LINK],
+      answerers: [{ user_id: "user-brian", assigned_at: "2026-10-15T09:00:00Z" }],
+    });
+    renderPage("question=q-chat");
+
+    expect(await screen.findByText(CHAT_PROMPT)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Accept suggestion/ })).not.toBeInTheDocument();
+    expect(screen.queryByText("No questions waiting for you")).not.toBeInTheDocument();
+    expect(screen.queryByText(/answered$/)).not.toBeInTheDocument();
+    expect(screen.getByText("Chat with Brian").closest("a")).toBeNull();
   });
 });

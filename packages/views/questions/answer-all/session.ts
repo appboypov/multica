@@ -17,6 +17,21 @@ export function toSession(rows: readonly QuestionRow[]): SessionEntry[] {
   return rows.map((row) => ({ id: row.id, askId: row.ask_id, askTitle: row.ask_title, place: rowPlace(row) }));
 }
 
+/**
+ * A question outside For me as a session entry, placed in the chat it was
+ * asked in by its `chat` link; null when it has none.
+ */
+export function toChatEntry(question: Question): SessionEntry | null {
+  const chat = question.links.find((link) => link.link_type === "chat");
+  if (!chat) return null;
+  return {
+    id: question.id,
+    askId: question.ask_id,
+    askTitle: question.ask_title,
+    place: { chatSessionId: chat.link_id, memberId: chat.member_id },
+  };
+}
+
 /** Still waiting on the viewer: open for them and not yet answered by them. */
 export function isWaiting(question: Question | undefined, userId: string | undefined): boolean {
   return !!question && isOpenFor(question, userId);

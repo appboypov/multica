@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useInfiniteQuery, useQueries } from "@tanstack/react-query";
+import { useInfiniteQuery, useQueries, useQuery } from "@tanstack/react-query";
 import { ArrowLeft, CircleCheck, CircleHelp, LogOut } from "lucide-react";
 import { useAuthStore } from "@multica/core/auth";
 import { useWorkspaceId } from "@multica/core/hooks";
@@ -26,7 +26,7 @@ import { PageHeader } from "../../layout/page-header";
 import { useNavigation } from "../../navigation";
 import { OneByOne } from "./one-by-one";
 import { OnePage } from "./one-page";
-import { isAnsweredBy, isPageKey, isWaiting, toSession, type SessionEntry } from "./session";
+import { isAnsweredBy, isPageKey, isWaiting, toChatEntry, toSession, type SessionEntry } from "./session";
 import { SessionWakeBars } from "./wake-bars";
 
 /**
@@ -42,8 +42,10 @@ function combineQuestions(results: readonly { data?: Question[] | Question; isSu
 /**
  * Answer all: every question waiting for the viewer in one sitting. It loads
  * all of For me, then freezes the session, so answered questions stay in it,
- * folded, while their rows leave For me. Each answer is sent on its own;
- * leaving keeps the sent ones and drops unsent drafts.
+ * folded, while their rows leave For me. The question `?question=` names
+ * leads the session, also when it is not in For me: one the viewer answered,
+ * or one open for other answerers only, loads on its own. Each answer is sent
+ * on its own; leaving keeps the sent ones and drops unsent drafts.
  */
 export function AnswerAllPage() {
   const { t } = useT("questions");
@@ -66,6 +68,18 @@ export function AnswerAllPage() {
     setSession(toSession(sessionOrder(rows.data.pages.flatMap((page) => page.rows))));
   }, [session, rows.isSuccess, rows.data, hasNextPage]);
 
+  // `?question=` opens the session at that question, as a row of another member's chat does.
+  // One outside For me (answered by the viewer, or open for others only) loads
+  // on its own and leads the session; when it fails to load, For me shows alone.
+  const requestedId = navigation.searchParams.get("question");
+  const outside = !!session && !!requestedId && !session.some((entry) => entry.id === requestedId);
+  const requested = useQuery(questionDetailOptions(wsId, outside ? requestedId : ""));
+  const requestedQuestion = outside ? requested.data : undefined;
+  const entries = useMemo(() => {
+    const entry = requestedQuestion ? toChatEntry(requestedQuestion) : null;
+    return entry ? [entry, ...(session ?? [])] : (session ?? []);
+  }, [requestedQuestion, session]);
+
   // An issue's questions load as its list; a chat's list is its member's alone
   // (Decision 6), so a question asked in a chat loads on its own.
   const issueIds = useMemo(
@@ -84,18 +98,18 @@ export function AnswerAllPage() {
     queries: chatQuestionIds.map((id) => questionDetailOptions(wsId, id)),
     combine: combineQuestions,
   });
-  const questions = useMemo(
-    () => new Map([...issueQuestions.questions, ...chatQuestions.questions]),
-    [issueQuestions.questions, chatQuestions.questions],
-  );
-  const questionsLoaded = issueQuestions.questionsLoaded && chatQuestions.questionsLoaded;
+  const questions = useMemo(() => {
+    const all = new Map([...issueQuestions.questions, ...chatQuestions.questions]);
+    if (requestedQuestion) all.set(requestedQuestion.id, requestedQuestion);
+    return all;
+  }, [issueQuestions.questions, chatQuestions.questions, requestedQuestion]);
+  const questionsLoaded =
+    issueQuestions.questionsLoaded && chatQuestions.questionsLoaded && !(outside && requested.isPending);
 
   const waiting = useCallback((id: string) => isWaiting(questions.get(id), userId), [questions, userId]);
   const [currentId, setCurrentId] = useState<string | null>(null);
   const [skipped, setSkipped] = useState<ReadonlySet<string>>(() => new Set());
-  // `?question=` opens the session at that question, as a row of another member's chat does.
-  const requestedId = navigation.searchParams.get("question");
-  const current = currentId ?? session?.find((entry) => entry.id === requestedId)?.id ?? session?.[0]?.id ?? "";
+  const current = currentId ?? entries.find((entry) => entry.id === requestedId)?.id ?? entries[0]?.id ?? "";
 
   const leave = useCallback(() => navigation.push(paths.questions()), [navigation, paths]);
   useEffect(() => {
@@ -108,10 +122,11 @@ export function AnswerAllPage() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [leave]);
 
-  const entries = session ?? [];
   const answeredCount = entries.filter((entry) => isAnsweredBy(questions.get(entry.id), userId)).length;
   const skippedCount = entries.filter((entry) => skipped.has(entry.id) && waiting(entry.id)).length;
-  const done = entries.length > 0 && questionsLoaded && entries.every((entry) => !waiting(entry.id));
+  // The done screen needs For me's session to finish: a lone requested
+  // question that does not wait on the viewer shows its card instead.
+  const done = !!session?.length && questionsLoaded && entries.every((entry) => !waiting(entry.id));
   const ready = session !== null && questionsLoaded;
   const position = Math.max(entries.findIndex((entry) => entry.id === current), 0) + 1;
 
