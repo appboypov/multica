@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -120,6 +121,24 @@ func TestBuildPiArgsCustomArgsAppended(t *testing.T) {
 	}
 	if !found {
 		t.Errorf("custom --tools should pass through via custom_args, got: %v", args)
+	}
+}
+
+func TestBuildPiArgsOmpSkillSettings(t *testing.T) {
+	t.Parallel()
+
+	path := "/tmp/task env/omp-runtime-skill-settings.yml"
+	args := buildPiArgs("", ExecOptions{
+		CustomArgs:      []string{"--config", "/tmp/user.yml", "--tools", "read,bash"},
+		OmpSettingsPath: path,
+	}, slog.Default())
+	want := []string{"-p", "--mode", "json", "--config", "/tmp/user.yml", "--tools", "read,bash", "--config", path}
+	if !slices.Equal(args, want) {
+		t.Fatalf("omp args = %q, want %q", args, want)
+	}
+	args = buildPiArgs("", ExecOptions{}, slog.Default())
+	if slices.Contains(args, "--config") {
+		t.Fatalf("args without omp settings unexpectedly contain --config: %q", args)
 	}
 }
 

@@ -276,6 +276,9 @@ type Environment struct {
 	// ClaudeSettingsPath is a task-local --settings JSON file that applies
 	// disabled runtime-skill policy without mutating the user's Claude config.
 	ClaudeSettingsPath string
+	// OmpSettingsPath is a task-local --config overlay that keeps disabled
+	// runtime skills out without changing the user's omp configuration.
+	OmpSettingsPath string
 	// OpenclawConfigPath is the path to the per-task synthesized OpenClaw
 	// config (set only for openclaw provider). The daemon exports this as
 	// OPENCLAW_CONFIG_PATH on the openclaw subprocess so its native skill
@@ -547,6 +550,13 @@ func Prepare(params PrepareParams, logger *slog.Logger) (*Environment, error) {
 	}
 	if err := prepareOmpMcpConfig(workDir, params.Provider, params.McpConfig, manifest); err != nil {
 		return nil, fmt.Errorf("execenv: prepare omp mcp config: %w", err)
+	}
+	if params.Provider == "omp" {
+		settingsPath, err := prepareOmpSkillSettings(envRoot, params.Task.DisabledRuntimeSkills, params.Task.AgentSkills)
+		if err != nil {
+			return nil, fmt.Errorf("execenv: prepare omp skill settings: %w", err)
+		}
+		env.OmpSettingsPath = settingsPath
 	}
 
 	// Persist managed-env provenance for non-local resumable envs at Prepare time
@@ -847,6 +857,20 @@ func Reuse(params ReuseParams, logger *slog.Logger) *Environment {
 	if err := prepareOmpMcpConfig(params.WorkDir, params.Provider, params.McpConfig, manifest); err != nil {
 		logger.Warn("execenv: refresh omp mcp config failed; forcing fresh prepare", "error", err)
 		return nil
+	}
+	if params.Provider == "omp" {
+		// A local-directory workdir does not identify the task-owned root.
+		// Decline it rather than writing or removing settings relative to cwd.
+		if env.RootDir == "" {
+			logger.Warn("execenv: refresh omp skill settings has no task root; forcing fresh prepare")
+			return nil
+		}
+		settingsPath, err := prepareOmpSkillSettings(env.RootDir, params.Task.DisabledRuntimeSkills, params.Task.AgentSkills)
+		if err != nil {
+			logger.Warn("execenv: refresh omp skill settings failed; forcing fresh prepare", "error", err)
+			return nil
+		}
+		env.OmpSettingsPath = settingsPath
 	}
 
 	// Restore CodexHome for Codex provider — the per-task codex-home directory

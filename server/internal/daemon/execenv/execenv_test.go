@@ -547,9 +547,177 @@ func TestPrepareDirectoryMode(t *testing.T) {
 	}
 }
 
+func TestPrepareOmpSkillSettingsProviders(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	for _, provider := range []string{"omp", "pi", "claude"} {
+		t.Run(provider, func(t *testing.T) {
+			env, err := Prepare(PrepareParams{
+				WorkspacesRoot: t.TempDir(),
+				WorkspaceID:    "ws-omp-skills",
+				TaskID:         "11112222-3333-4444-5555-666677778888",
+				Provider:       provider,
+				Task: TaskContextForEnv{
+					AgentSkills: []SkillContextForEnv{{Name: "Review", Content: "Assigned review skill."}},
+					DisabledRuntimeSkills: []RuntimeSkillRefForEnv{
+						{Root: "provider", Key: "review", Name: "review"},
+						{Root: "universal", Key: "runtime-only"},
+					},
+				},
+			}, testLogger())
+			if err != nil {
+				t.Fatalf("Prepare: %v", err)
+			}
+			defer env.Cleanup(true)
+			if provider != "omp" {
+				if env.OmpSettingsPath != "" {
+					t.Fatalf("%s received omp settings path %q", provider, env.OmpSettingsPath)
+				}
+				return
+			}
+			if env.OmpSettingsPath != filepath.Join(env.RootDir, "omp-runtime-skill-settings.yml") {
+				t.Fatalf("omp settings path = %q, want task-local overlay", env.OmpSettingsPath)
+			}
+			data, err := os.ReadFile(env.OmpSettingsPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(data) != `{"skills":{"ignoredSkills":["runtime-only"]}}` {
+				t.Fatalf("omp overlay = %s; assigned review must stay enabled", data)
+			}
+			assigned, err := os.ReadFile(filepath.Join(env.WorkDir, ".omp", "skills", "review", "SKILL.md"))
+			if err != nil || !strings.Contains(string(assigned), "Assigned review skill.") {
+				t.Fatalf("assigned omp skill = %q, %v", assigned, err)
+			}
+		})
+	}
+}
 
+func TestReuseOmpSkillSettingsRefreshAndRemoval(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	env, err := Prepare(PrepareParams{
+		WorkspacesRoot: t.TempDir(),
+		WorkspaceID:    "ws-omp-skills",
+		TaskID:         "11112222-3333-4444-5555-666677778888",
+		Provider:       "omp",
+		Task: TaskContextForEnv{
+			DisabledRuntimeSkills: []RuntimeSkillRefForEnv{{Key: "old"}},
+		},
+	}, testLogger())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer env.Cleanup(true)
+	path := env.OmpSettingsPath
+	for _, tc := range []struct {
+		name     string
+		disabled []RuntimeSkillRefForEnv
+		want     string
+	}{
+		{name: "refresh", disabled: []RuntimeSkillRefForEnv{{Key: "new"}, {Key: "review"}}, want: `{"skills":{"ignoredSkills":["new"]}}`},
+		{name: "assigned wins", disabled: []RuntimeSkillRefForEnv{{Key: "review"}}},
+		{name: "inherit all"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			reused := Reuse(ReuseParams{
+				WorkDir:  env.WorkDir,
+				Provider: "omp",
+				Task: TaskContextForEnv{
+					AgentSkills:           []SkillContextForEnv{{Name: "Review", Content: "Keep assigned review."}},
+					DisabledRuntimeSkills: tc.disabled,
+				},
+			}, testLogger())
+			if reused == nil {
+				t.Fatal("Reuse declined a valid omp environment")
+			}
+			if tc.want == "" {
+				if reused.OmpSettingsPath != "" {
+					t.Fatalf("unused overlay path = %q, want empty", reused.OmpSettingsPath)
+				}
+				if _, err := os.Stat(path); !os.IsNotExist(err) {
+					t.Fatalf("unused overlay still exists: %v", err)
+				}
+				return
+			}
+			if reused.OmpSettingsPath != path {
+				t.Fatalf("reused overlay path = %q, want %q", reused.OmpSettingsPath, path)
+			}
+			data, err := os.ReadFile(path)
+			if err != nil || string(data) != tc.want {
+				t.Fatalf("refreshed overlay = %s, %v; want %s", data, err, tc.want)
+			}
+		})
+	}
+}
 
+func TestReuseOmpSkillSettingsOtherProviders(t *testing.T) {
+	t.Parallel()
+	for _, provider := range []string{"pi", "claude"} {
+		t.Run(provider, func(t *testing.T) {
+			workDir := filepath.Join(t.TempDir(), "workdir")
+			if err := os.Mkdir(workDir, 0o755); err != nil {
+				t.Fatal(err)
+			}
+			env := Reuse(ReuseParams{
+				WorkDir:  workDir,
+				Provider: provider,
+				Task:     TaskContextForEnv{DisabledRuntimeSkills: []RuntimeSkillRefForEnv{{Key: "review"}}},
+			}, testLogger())
+			if env == nil || env.OmpSettingsPath != "" {
+				t.Fatalf("%s reused environment = %+v; want no omp overlay", provider, env)
+			}
+		})
+	}
+}
 
+func TestPrepareOmpSkillSettingsFailsBeforeRun(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	params := PrepareParams{
+		WorkspacesRoot:    t.TempDir(),
+		WorkspaceID:       "ws-omp-skills",
+		TaskID:            "11112222-3333-4444-5555-666677778888",
+		Provider:          "omp",
+		EnvRootPreclaimed: true,
+		Task:              TaskContextForEnv{DisabledRuntimeSkills: []RuntimeSkillRefForEnv{{Key: "review"}}},
+	}
+	root, err := ResolveRootDir(RootDirParams{
+		WorkspacesRoot: params.WorkspacesRoot,
+		WorkspaceID:    params.WorkspaceID,
+		TaskID:         params.TaskID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(root, "omp-runtime-skill-settings.yml"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if env, err := Prepare(params, testLogger()); err == nil || env != nil {
+		t.Fatalf("Prepare with unwritable overlay = %+v, %v; want nil environment and error", env, err)
+	}
+}
+
+func TestReuseOmpSkillSettingsDeclinesUnwritableOverlay(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	workDir := filepath.Join(root, "workdir")
+	if err := os.Mkdir(workDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(filepath.Join(root, "omp-runtime-skill-settings.yml"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	params := ReuseParams{
+		WorkDir:  workDir,
+		Provider: "omp",
+		Task:     TaskContextForEnv{DisabledRuntimeSkills: []RuntimeSkillRefForEnv{{Key: "review"}}},
+	}
+	if env := Reuse(params, testLogger()); env != nil {
+		t.Fatalf("Reuse with unwritable overlay = %+v; want fresh preparation", env)
+	}
+	params.LocalDirectory = true
+	if env := Reuse(params, testLogger()); env != nil {
+		t.Fatalf("Reuse without a task root = %+v; must not write a relative overlay", env)
+	}
+}
 
 // When the issue's project has its own github_repo resources, those should be
 // the only repos rendered in the meta-skill — workspace-level repos must not

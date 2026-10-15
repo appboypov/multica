@@ -3,11 +3,13 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/multica-ai/multica/server/internal/testutil"
 )
 
 // TestListSkills_OmitsContent guards the fix for GH multica-ai/multica#2174:
@@ -223,6 +225,76 @@ func TestSetAgentRuntimeSkillEnabledPersistsScopedOverride(t *testing.T) {
 	}
 	if disabled = decodeDisabledRuntimeSkills(row.DisabledRuntimeSkills); len(disabled) != 0 {
 		t.Fatalf("re-enabled skill still disabled: %+v", disabled)
+	}
+}
+
+func TestSetAgentRuntimeSkillEnabledProviderAndPermission(t *testing.T) {
+	memberID := createRuntimeLocalSkillTestMember(t, "member")
+	for _, tc := range []struct {
+		name       string
+		provider   string
+		mode       string
+		root       string
+		member     bool
+		wantStatus int
+	}{
+		{name: "omp provider skill", provider: "omp", mode: "local", root: "provider", wantStatus: http.StatusNoContent},
+		{name: "omp universal skill", provider: "omp", mode: "local", root: "universal", wantStatus: http.StatusNoContent},
+		{name: "codex provider skill", provider: "codex", mode: "local", root: "provider", wantStatus: http.StatusNoContent},
+		{name: "claude plugin skill", provider: "claude", mode: "local", root: "plugin", wantStatus: http.StatusNoContent},
+		{name: "omp plugin rejected", provider: "omp", mode: "local", root: "plugin", wantStatus: http.StatusBadRequest},
+		{name: "codex plugin rejected", provider: "codex", mode: "local", root: "plugin", wantStatus: http.StatusBadRequest},
+		{name: "unsupported provider", provider: "pi", mode: "local", root: "provider", wantStatus: http.StatusBadRequest},
+		{name: "non local runtime", provider: "omp", mode: "cloud", root: "provider", wantStatus: http.StatusBadRequest},
+		{name: "member cannot manage", provider: "omp", mode: "local", root: "provider", member: true, wantStatus: http.StatusForbidden},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			runtimeID := dbfx.Runtime(t, t.Name(), testutil.Cols{"runtime_mode": tc.mode, "provider": tc.provider})
+			agentID := dbfx.Agent(t, t.Name(), runtimeID, testutil.Cols{
+				"runtime_mode": tc.mode, "visibility": "workspace", "permission_mode": "public_to",
+			})
+			if tc.member {
+				dbfx.Insert(t, "agent_invocation_target", testutil.Cols{
+					"agent_id": agentID, "target_type": "member", "target_id": memberID, "created_by": testUserID,
+				})
+			}
+			userID := testUserID
+			if tc.member {
+				userID = memberID
+			}
+			req := newRequestAsUser(userID, "PUT", "/api/agents/"+agentID+"/runtime-skills/enabled", map[string]any{
+				"runtime_id": runtimeID,
+				"root":       tc.root,
+				"key":        "review",
+				"name":       "Review",
+				"plugin":     "review-tools",
+				"enabled":    false,
+			})
+			req = withURLParam(req, "id", agentID)
+			testutil.Call(t, testHandler.SetAgentRuntimeSkillEnabled, req).Want(tc.wantStatus)
+			row, err := testHandler.Queries.GetAgent(context.Background(), parseUUID(agentID))
+			if err != nil {
+				t.Fatalf("load agent after runtime skill request: %v", err)
+			}
+			disabled := decodeDisabledRuntimeSkills(row.DisabledRuntimeSkills)
+			if tc.wantStatus == http.StatusNoContent {
+				plugin := ""
+				if tc.root == "plugin" {
+					plugin = "review-tools"
+				}
+				want := DisabledRuntimeSkill{
+					RuntimeID: runtimeID, Provider: tc.provider, Root: tc.root, Key: "review", Name: "Review", Plugin: plugin,
+				}
+				if len(disabled) != 1 || disabled[0] != want {
+					t.Fatalf("disabled runtime skill = %+v, want %+v", disabled, want)
+				}
+			} else if len(disabled) != 0 {
+				t.Fatalf("rejected runtime skill change saved choices: %+v", disabled)
+			}
+			if !row.InheritRuntimeSkills {
+				t.Fatal("per-skill change modified section inheritance")
+			}
+		})
 	}
 }
 

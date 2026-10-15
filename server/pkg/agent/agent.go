@@ -133,6 +133,9 @@ type ExecOptions struct {
 	// through Claude Code's --settings flag. It currently carries restrictive
 	// runtime-skill overrides only; other providers ignore it.
 	ClaudeSettingsPath string
+	// OmpSettingsPath is a daemon-owned, task-local settings overlay passed
+	// through omp's --config flag. Only omp environments populate it.
+	OmpSettingsPath string
 }
 
 // runContext derives the execution context for an agent subprocess from the

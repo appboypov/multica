@@ -198,6 +198,12 @@ SET disabled_runtime_skills = $2, updated_at = now()
 WHERE id = $1
 RETURNING *;
 
+-- name: UpdateAgentInheritRuntimeSkills :one
+UPDATE agent
+SET inherit_runtime_skills = $2, updated_at = now()
+WHERE id = $1
+RETURNING *;
+
 -- name: ArchiveAgent :one
 UPDATE agent SET archived_at = now(), archived_by = $2, updated_at = now()
 WHERE id = $1

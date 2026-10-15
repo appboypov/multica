@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -125,5 +126,124 @@ func TestRuntimeSkillPoliciesYieldToWorkspaceSkills(t *testing.T) {
 		t.Fatalf("workspace-owned Codex skill was disabled:\n%s", data)
 	} else if err != nil && !os.IsNotExist(err) {
 		t.Fatal(err)
+	}
+}
+
+func TestPrepareOmpSkillSettings(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	path, err := prepareOmpSkillSettings(root, []RuntimeSkillRefForEnv{
+		{Root: "provider", Key: "review-dir", Name: "review"},
+		{Root: "universal", Key: "duplicate", Name: "review"},
+		{Root: "provider", Key: "nested/../nested/fallback"},
+		{Root: "provider", Key: "literal", Name: `my\*?[]{}!skill`},
+		{Root: "provider", Key: "../escape", Name: "unsafe"},
+		{Root: "provider", Key: filepath.Join(root, "absolute"), Name: "absolute"},
+		{Root: "provider", Key: "", Name: "empty"},
+		{Root: "provider", Key: "assigned-dir", Name: "Code Review"},
+		{Root: "universal", Key: "nested/assigned"},
+	}, []SkillContextForEnv{{Name: "code-review"}, {Name: "Assigned"}})
+	if err != nil {
+		t.Fatalf("prepareOmpSkillSettings: %v", err)
+	}
+	if want := filepath.Join(root, "omp-runtime-skill-settings.yml"); path != want {
+		t.Fatalf("settings path = %q, want %q", path, want)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got struct {
+		Skills struct {
+			IgnoredSkills []string `json:"ignoredSkills"`
+		} `json:"skills"`
+	}
+	if err := json.Unmarshal(data, &got); err != nil {
+		t.Fatalf("decode omp overlay: %v", err)
+	}
+	want := []string{"review", "fallback", `my\\\*\?\[\]\{\}\!skill`}
+	if !slices.Equal(got.Skills.IgnoredSkills, want) {
+		t.Fatalf("ignoredSkills = %q, want %q", got.Skills.IgnoredSkills, want)
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if mode := info.Mode().Perm(); mode != 0o600 {
+		t.Fatalf("settings mode = %o, want 600", mode)
+	}
+}
+
+func TestPrepareOmpSkillSettingsRemovesUnusedOverlay(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name     string
+		disabled []RuntimeSkillRefForEnv
+		assigned []SkillContextForEnv
+	}{
+		{name: "no disabled skills"},
+		{name: "invalid keys", disabled: []RuntimeSkillRefForEnv{{Key: "../escape"}, {Key: "."}}},
+		{name: "assigned wins", disabled: []RuntimeSkillRefForEnv{{Key: "review", Name: "Review"}}, assigned: []SkillContextForEnv{{Name: "review"}}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			root := t.TempDir()
+			path := filepath.Join(root, "omp-runtime-skill-settings.yml")
+			if err := os.WriteFile(path, []byte("stale"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			got, err := prepareOmpSkillSettings(root, tc.disabled, tc.assigned)
+			if err != nil || got != "" {
+				t.Fatalf("settings path = %q, error = %v; want empty, nil", got, err)
+			}
+			if _, err := os.Stat(path); !os.IsNotExist(err) {
+				t.Fatalf("stale overlay not removed: %v", err)
+			}
+			if got, err := prepareOmpSkillSettings(root, tc.disabled, tc.assigned); err != nil || got != "" {
+				t.Fatalf("already absent overlay = %q, %v; want empty, nil", got, err)
+			}
+		})
+	}
+}
+
+func TestPrepareOmpSkillSettingsReportsFileErrors(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	path := filepath.Join(root, "omp-runtime-skill-settings.yml")
+	if err := os.Mkdir(path, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(path, "block-removal"), nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for _, disabled := range [][]RuntimeSkillRefForEnv{nil, {{Key: "review"}}} {
+		if got, err := prepareOmpSkillSettings(root, disabled, nil); err == nil || got != "" {
+			t.Fatalf("blocked overlay = %q, %v; want empty path and error", got, err)
+		}
+	}
+}
+
+func TestEscapeOmpSkillGlob(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name string
+		want string
+	}{
+		{name: "review", want: "review"},
+		{name: "", want: ""},
+		{name: `\`, want: `\\`},
+		{name: "*", want: `\*`},
+		{name: "?", want: `\?`},
+		{name: "[]", want: `\[\]`},
+		{name: "{}", want: `\{\}`},
+		{name: "!", want: `\!`},
+		{name: `my\*?[]{}!skill`, want: `my\\\*\?\[\]\{\}\!skill`},
+	} {
+		if got := escapeOmpSkillGlob(tc.name); got != tc.want {
+			t.Errorf("escapeOmpSkillGlob(%q) = %q, want %q", tc.name, got, tc.want)
+		}
 	}
 }

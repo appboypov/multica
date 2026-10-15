@@ -2628,6 +2628,7 @@ func (h *Handler) buildClaimedTaskResponse(r *http.Request, task *db.AgentTaskQu
 		ServiceTier:           agent.ServiceTier.String,
 		RuntimeConfig:         runtimeConfig,
 		DisabledRuntimeSkills: disabledRuntimeSkillsFor(agent.DisabledRuntimeSkills, runtimeID, runtime.Provider),
+		InheritRuntimeSkills:  &agent.InheritRuntimeSkills,
 	}
 	// System agents carry a product-owned instruction layer that ships with
 	// this binary instead of being copied into their row at creation. That

@@ -419,6 +419,8 @@ classDiagram
     +text name
     +text instructions
     +jsonb instruction_selection
+    +jsonb disabled_runtime_skills
+    +bool inherit_runtime_skills
     +text runtime_mode
     +text visibility
     +jsonb conversation_starters

@@ -475,6 +475,10 @@ func collectLocalSkillFiles(skillDir string, includeContent bool) ([]SkillFileDa
 	return files, nil
 }
 
+func runtimeSkillsCanDisable(provider string) bool {
+	return provider == "claude" || provider == "codex" || provider == "omp"
+}
+
 func listRuntimeLocalSkills(provider string) ([]runtimeLocalSkillSummary, bool, error) {
 	roots, supported, err := localSkillRootsForProvider(provider)
 	if err != nil || !supported {
@@ -616,7 +620,7 @@ func enumerateLocalSkills(
 				Provider:    provider,
 				Root:        root.kind,
 				Plugin:      root.plugin,
-				CanDisable:  provider == "codex" || provider == "claude",
+				CanDisable:  runtimeSkillsCanDisable(provider),
 				// `files` is the supporting bundle (collectLocalSkillFiles
 				// intentionally excludes SKILL.md so the bundle's `Content`
 				// field can carry it without duplication on import). For the

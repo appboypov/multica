@@ -118,6 +118,36 @@ func TestListRuntimeLocalSkills_Claude(t *testing.T) {
 	}
 }
 
+func TestListRuntimeLocalSkillsCanDisable(t *testing.T) {
+	for _, tc := range []struct {
+		provider string
+		dir      string
+		want     bool
+	}{
+		{provider: "claude", dir: ".claude", want: true},
+		{provider: "codex", dir: ".codex", want: true},
+		{provider: "omp", dir: ".omp/agent", want: true},
+		{provider: "pi", dir: ".pi/agent", want: false},
+	} {
+		t.Run(tc.provider, func(t *testing.T) {
+			home := t.TempDir()
+			setTestUserHome(t, home)
+			t.Setenv("CODEX_HOME", filepath.Join(home, ".codex"))
+			writeTestLocalSkill(t, filepath.Join(home, filepath.FromSlash(tc.dir), "skills"), "provider-skill", map[string]string{"SKILL.md": "# Provider\n"})
+			writeTestLocalSkill(t, filepath.Join(home, ".agents", "skills"), "shared-skill", map[string]string{"SKILL.md": "# Shared\n"})
+			skills, supported, err := listRuntimeLocalSkills(tc.provider)
+			if err != nil || !supported || len(skills) != 2 {
+				t.Fatalf("listing = %+v, supported = %v, error = %v; want two skills", skills, supported, err)
+			}
+			for _, skill := range skills {
+				if skill.CanDisable != tc.want {
+					t.Errorf("%s/%s can_disable = %v, want %v", skill.Root, skill.Key, skill.CanDisable, tc.want)
+				}
+			}
+		})
+	}
+}
+
 func TestListRuntimeLocalSkills_Mcode(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)

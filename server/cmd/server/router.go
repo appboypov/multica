@@ -2348,6 +2348,7 @@ func NewRouterWithOptions(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus
 					r.Delete("/labels/{labelId}", h.DetachLabelFromAgent)
 					r.Put("/skills/{skillId}/enabled", h.SetAgentSkillEnabled)
 					r.Put("/runtime-skills/enabled", h.SetAgentRuntimeSkillEnabled)
+					r.Put("/runtime-skills/inherit", h.SetAgentRuntimeSkillsInherited)
 					r.Delete("/skills/{skillId}", h.RemoveAgentSkill)
 					// Workspace MCP servers assigned to this agent. Mirrors
 					// the skills routes above: a library entry does nothing

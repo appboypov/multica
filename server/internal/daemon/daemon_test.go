@@ -6245,9 +6245,139 @@ func TestConvertDisabledRuntimeSkillsForEnvScopesToClaimedRuntime(t *testing.T) 
 		{RuntimeID: "runtime-2", Provider: "claude", Root: "provider", Key: "other-runtime"},
 		{RuntimeID: "runtime-1", Provider: "codex", Root: "provider", Key: "other-provider"},
 	}}
-	got := convertDisabledRuntimeSkillsForEnv(agentData, "runtime-1", "claude")
+	got, err := convertDisabledRuntimeSkillsForEnv(agentData, "runtime-1", "claude")
+	if err != nil {
+		t.Fatal(err)
+	}
 	if len(got) != 1 || got[0].Key != "review" || got[0].Name != "Review" {
 		t.Fatalf("unexpected scoped runtime skill policy: %+v", got)
+	}
+}
+
+func TestConvertDisabledRuntimeSkillsForEnvSectionOff(t *testing.T) {
+	for _, provider := range []string{"omp", "claude", "codex"} {
+		t.Run(provider, func(t *testing.T) {
+			home := t.TempDir()
+			setTestUserHome(t, home)
+			t.Setenv("CODEX_HOME", filepath.Join(home, ".codex"))
+			roots := map[string]string{
+				"omp":    filepath.Join(home, ".omp", "agent", "skills"),
+				"claude": filepath.Join(home, ".claude", "skills"),
+				"codex":  filepath.Join(home, ".codex", "skills"),
+			}
+			writeTestLocalSkill(t, roots[provider], "alpha", map[string]string{"SKILL.md": "---\nname: Alpha\n---\n"})
+			writeTestLocalSkill(t, roots[provider], "nested/beta", map[string]string{"SKILL.md": "---\nname: Beta\n---\n"})
+			writeTestLocalSkill(t, filepath.Join(home, ".agents", "skills"), "shared", map[string]string{"SKILL.md": "---\nname: Shared\n---\n"})
+			want := []execenv.RuntimeSkillRefForEnv{
+				{Root: "provider", Key: "alpha", Name: "Alpha"},
+				{Root: "provider", Key: "nested/beta", Name: "Beta"},
+				{Root: "universal", Key: "shared", Name: "Shared"},
+			}
+			if provider == "claude" {
+				pluginRoot := writeTestClaudePlugin(t, home, "paper@market", "paper", true)
+				writeTestLocalSkill(t, filepath.Join(pluginRoot, "skills"), "review", map[string]string{"SKILL.md": "# Review\n"})
+				want = slices.Insert(want, 2, execenv.RuntimeSkillRefForEnv{
+					Root: "plugin", Key: "paper:review", Name: "paper:review", Plugin: "paper@market",
+				})
+			}
+			inherit := false
+			stored := []DisabledRuntimeSkillData{{RuntimeID: "runtime-1", Provider: provider, Root: "provider", Key: "stored-only"}}
+			agentData := &AgentData{InheritRuntimeSkills: &inherit, DisabledRuntimeSkills: stored}
+			got, err := convertDisabledRuntimeSkillsForEnv(agentData, "runtime-1", provider)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !slices.Equal(got, want) {
+				t.Fatalf("section-off policy = %+v, want %+v", got, want)
+			}
+			writeTestLocalSkill(t, roots[provider], "later", map[string]string{"SKILL.md": "# Later\n"})
+			got, err = convertDisabledRuntimeSkillsForEnv(agentData, "runtime-1", provider)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !slices.Contains(got, execenv.RuntimeSkillRefForEnv{Root: "provider", Key: "later", Name: "later"}) {
+				t.Fatalf("later-installed skill missing from section-off policy: %+v", got)
+			}
+			if !slices.Equal(agentData.DisabledRuntimeSkills, stored) {
+				t.Fatal("section expansion changed stored per-skill choices")
+			}
+			inherit = true
+			got, err = convertDisabledRuntimeSkillsForEnv(agentData, "runtime-1", provider)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !slices.Equal(got, []execenv.RuntimeSkillRefForEnv{{Root: "provider", Key: "stored-only"}}) {
+				t.Fatalf("section-on policy did not restore stored choices: %+v", got)
+			}
+		})
+	}
+}
+
+func TestConvertDisabledRuntimeSkillsForEnvInheritedAndUnsupported(t *testing.T) {
+	// Listing would fail without HOME; inherited and unsupported paths must not list.
+	setTestUserHome(t, "")
+	on, off := true, false
+	for _, tc := range []struct {
+		name     string
+		provider string
+		inherit  *bool
+	}{
+		{name: "absent", provider: "omp"},
+		{name: "on", provider: "omp", inherit: &on},
+		{name: "unsupported", provider: "pi", inherit: &off},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			agentData := &AgentData{
+				InheritRuntimeSkills: tc.inherit,
+				DisabledRuntimeSkills: []DisabledRuntimeSkillData{
+					{RuntimeID: "runtime-1", Provider: tc.provider, Root: "provider", Key: "review", Name: "Review", Plugin: "plugin"},
+					{RuntimeID: "runtime-2", Provider: tc.provider, Key: "other-runtime"},
+					{RuntimeID: "runtime-1", Provider: "other", Key: "other-provider"},
+				},
+			}
+			got, err := convertDisabledRuntimeSkillsForEnv(agentData, "runtime-1", tc.provider)
+			want := []execenv.RuntimeSkillRefForEnv{{Root: "provider", Key: "review", Name: "Review", Plugin: "plugin"}}
+			if err != nil || !slices.Equal(got, want) {
+				t.Fatalf("policy = %+v, %v; want %+v, nil", got, err, want)
+			}
+		})
+	}
+	got, err := convertDisabledRuntimeSkillsForEnv(nil, "runtime-1", "omp")
+	if err != nil || len(got) != 0 {
+		t.Fatalf("nil agent policy = %+v, %v; want empty, nil", got, err)
+	}
+}
+
+func TestConvertDisabledRuntimeSkillsForEnvListingError(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		setup func(*testing.T)
+	}{
+		{name: "home resolution", setup: func(t *testing.T) {
+			setTestUserHome(t, "")
+		}},
+		{name: "root stat", setup: func(t *testing.T) {
+			home := t.TempDir()
+			setTestUserHome(t, home)
+			if err := os.WriteFile(filepath.Join(home, ".omp"), nil, 0o600); err != nil {
+				t.Fatal(err)
+			}
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			tc.setup(t)
+			inherit := false
+			got, err := convertDisabledRuntimeSkillsForEnv(&AgentData{InheritRuntimeSkills: &inherit}, "runtime-1", "omp")
+			if err == nil || !strings.Contains(err.Error(), "list runtime skills for disabled section:") {
+				t.Fatalf("policy = %+v, error = %v; want listing failure", got, err)
+			}
+			if tc.name == "root stat" {
+				var pathErr *os.PathError
+				if !errors.As(err, &pathErr) {
+					t.Fatalf("listing error lost the root filesystem cause: %v", err)
+				}
+			}
+		})
 	}
 }
 

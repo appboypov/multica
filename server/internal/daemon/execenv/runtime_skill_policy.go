@@ -10,6 +10,7 @@ import (
 )
 
 const claudeRuntimeSkillSettingsFile = "claude-runtime-skill-settings.json"
+const ompRuntimeSkillSettingsFile = "omp-runtime-skill-settings.yml"
 
 // RuntimeSkillRefForEnv identifies a runtime-local skill for provider-specific
 // task environment filtering. Provider and runtime are already selected by the
@@ -81,6 +82,65 @@ func prepareClaudeSkillSettings(envRoot string, disabled []RuntimeSkillRefForEnv
 		"skillOverrides": overrides,
 		"permissions": map[string]any{
 			"deny": deny,
+		},
+	}
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return "", err
+	}
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		return "", err
+	}
+	return path, nil
+}
+
+func escapeOmpSkillGlob(name string) string {
+	if !strings.ContainsAny(name, "\\*?[]{}!") {
+		return name
+	}
+	var escaped strings.Builder
+	escaped.Grow(len(name))
+	for _, char := range name {
+		switch char {
+		case '\\', '*', '?', '[', ']', '{', '}', '!':
+			escaped.WriteByte('\\')
+		}
+		escaped.WriteRune(char)
+	}
+	return escaped.String()
+}
+
+func prepareOmpSkillSettings(envRoot string, disabled []RuntimeSkillRefForEnv, workspaceSkills []SkillContextForEnv) (string, error) {
+	path := filepath.Join(envRoot, ompRuntimeSkillSettingsFile)
+	ignored := make([]string, 0, len(disabled))
+	seen := make(map[string]struct{}, len(disabled))
+	for _, skill := range disabled {
+		key, ok := cleanRuntimeSkillKey(skill.Key)
+		if !ok {
+			continue
+		}
+		name := strings.TrimSpace(skill.Name)
+		if name == "" {
+			name = filepath.Base(filepath.FromSlash(key))
+		}
+		if workspaceClaimsRuntimeSkill(name, workspaceSkills) {
+			continue
+		}
+		if _, exists := seen[name]; exists {
+			continue
+		}
+		seen[name] = struct{}{}
+		ignored = append(ignored, escapeOmpSkillGlob(name))
+	}
+	if len(ignored) == 0 {
+		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+			return "", err
+		}
+		return "", nil
+	}
+	payload := map[string]any{
+		"skills": map[string]any{
+			"ignoredSkills": ignored,
 		},
 	}
 	data, err := json.Marshal(payload)

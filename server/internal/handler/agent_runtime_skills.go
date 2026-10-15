@@ -79,6 +79,10 @@ func sameDisabledRuntimeSkill(a, b DisabledRuntimeSkill) bool {
 		a.Root == b.Root && a.Key == b.Key && a.Plugin == b.Plugin
 }
 
+func runtimeSkillControlsSupported(provider string) bool {
+	return provider == "claude" || provider == "codex" || provider == "omp"
+}
+
 // SetAgentRuntimeSkillEnabled persists a per-agent override for a skill that
 // is discovered from the agent's currently assigned local runtime.
 func (h *Handler) SetAgentRuntimeSkillEnabled(w http.ResponseWriter, r *http.Request) {
@@ -116,8 +120,8 @@ func (h *Handler) SetAgentRuntimeSkillEnabled(w http.ResponseWriter, r *http.Req
 		writeError(w, http.StatusNotFound, "runtime not found")
 		return
 	}
-	if rt.RuntimeMode != "local" || (rt.Provider != "codex" && rt.Provider != "claude") {
-		writeError(w, http.StatusBadRequest, "runtime skill controls are only supported for codex and claude")
+	if rt.RuntimeMode != "local" || !runtimeSkillControlsSupported(rt.Provider) {
+		writeError(w, http.StatusBadRequest, "runtime skill controls are only supported for claude, codex and omp")
 		return
 	}
 	root, key, plugin, valid := normalizeRuntimeSkillIdentity(req.Root, req.Key, req.Plugin)
@@ -172,10 +176,11 @@ func (h *Handler) SetAgentRuntimeSkillEnabled(w http.ResponseWriter, r *http.Req
 		writeError(w, http.StatusInternalServerError, "failed to encode runtime skill settings")
 		return
 	}
-	if _, err := qtx.UpdateAgentDisabledRuntimeSkills(r.Context(), db.UpdateAgentDisabledRuntimeSkillsParams{
+	updated, err := qtx.UpdateAgentDisabledRuntimeSkills(r.Context(), db.UpdateAgentDisabledRuntimeSkillsParams{
 		ID:                    locked.ID,
 		DisabledRuntimeSkills: payload,
-	}); err != nil {
+	})
+	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to update runtime skill")
 		return
 	}
@@ -184,28 +189,72 @@ func (h *Handler) SetAgentRuntimeSkillEnabled(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// Broadcast the updated agent so every other open web/desktop/mobile client
-	// invalidates its cached agent and picks up the new disabled_runtime_skills
-	// state. The workspace-skill toggle does the same through
-	// writeUpdatedAgentSkills (skill.go); the realtime layer keys off the
-	// "agent:status" event to invalidate workspaceKeys.agents. Without this only
-	// the initiating tab refreshes and other clients keep showing stale toggles.
-	locked.DisabledRuntimeSkills = payload
-	resp := h.agentToResponse(locked)
-	if err := h.enrichAgentResponseWithTargets(r.Context(), &resp, locked.ID); err != nil {
-		slog.Warn("runtime skill toggle: load invocation targets for broadcast failed",
-			append(logger.RequestAttrs(r), "error", err, "agent_id", agentID)...)
-	}
-	// agentToResponse initialises Skills as []; reload the junction-table
-	// bindings so the broadcast mirrors reality instead of signalling other
-	// clients that this agent's skills were cleared (#3459).
-	if err := h.attachAgentSkills(r.Context(), &resp, locked.ID); err != nil {
-		slog.Warn("runtime skill toggle: load agent skills for broadcast failed",
-			append(logger.RequestAttrs(r), "error", err, "agent_id", agentID)...)
-	}
-	actorType, actorID := h.resolveActor(r, requestUserID(r), uuidToString(locked.WorkspaceID))
-	h.publish(protocol.EventAgentStatus, uuidToString(locked.WorkspaceID), actorType, actorID,
-		map[string]any{"agent": broadcastAgentResponse(resp)})
-
+	h.broadcastAgentRuntimeSkills(r, updated)
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// SetAgentRuntimeSkillsInherited changes the section setting without touching
+// the agent's stored per-skill choices.
+func (h *Handler) SetAgentRuntimeSkillsInherited(w http.ResponseWriter, r *http.Request) {
+	agent, ok := h.loadAgentForUser(w, r, chi.URLParam(r, "id"))
+	if !ok {
+		return
+	}
+	if !h.canManageAgent(w, r, agent) {
+		return
+	}
+
+	var req struct {
+		Enabled *bool `json:"enabled"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Enabled == nil {
+		writeError(w, http.StatusBadRequest, "enabled is required")
+		return
+	}
+	if !agent.RuntimeID.Valid {
+		writeError(w, http.StatusBadRequest, "agent has no runtime")
+		return
+	}
+	rt, err := h.getAgentRuntime(r.Context(), obsmetrics.RuntimeLookupSourceRuntimeAPI, agent.RuntimeID)
+	if err != nil || rt.WorkspaceID != agent.WorkspaceID {
+		writeError(w, http.StatusNotFound, "runtime not found")
+		return
+	}
+	if rt.RuntimeMode != "local" || !runtimeSkillControlsSupported(rt.Provider) {
+		writeError(w, http.StatusBadRequest, "runtime skill controls are only supported for claude, codex and omp")
+		return
+	}
+
+	updated, err := h.Queries.UpdateAgentInheritRuntimeSkills(r.Context(), db.UpdateAgentInheritRuntimeSkillsParams{
+		ID:                   agent.ID,
+		InheritRuntimeSkills: *req.Enabled,
+	})
+	if err != nil {
+		slog.Error("runtime skill inheritance: update failed",
+			append(logger.RequestAttrs(r), "error", err, "agent_id", uuidToString(agent.ID))...)
+		writeError(w, http.StatusInternalServerError, "failed to update runtime skill inheritance")
+		return
+	}
+	slog.Info("runtime skill inheritance updated",
+		append(logger.RequestAttrs(r), "agent_id", uuidToString(agent.ID), "enabled", *req.Enabled)...)
+	h.broadcastAgentRuntimeSkills(r, updated)
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handler) broadcastAgentRuntimeSkills(r *http.Request, agent db.Agent) {
+	agentID := uuidToString(agent.ID)
+	resp := h.agentToResponse(agent)
+	if err := h.enrichAgentResponseWithTargets(r.Context(), &resp, agent.ID); err != nil {
+		slog.Warn("runtime skill update: load invocation targets for broadcast failed",
+			append(logger.RequestAttrs(r), "error", err, "agent_id", agentID)...)
+	}
+	// Reload assigned skills so a runtime-skill update cannot signal that the
+	// agent's workspace skill bindings were cleared.
+	if err := h.attachAgentSkills(r.Context(), &resp, agent.ID); err != nil {
+		slog.Warn("runtime skill update: load agent skills for broadcast failed",
+			append(logger.RequestAttrs(r), "error", err, "agent_id", agentID)...)
+	}
+	actorType, actorID := h.resolveActor(r, requestUserID(r), uuidToString(agent.WorkspaceID))
+	h.publish(protocol.EventAgentStatus, uuidToString(agent.WorkspaceID), actorType, actorID,
+		map[string]any{"agent": broadcastAgentResponse(resp)})
 }

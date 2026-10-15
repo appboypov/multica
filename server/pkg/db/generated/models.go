@@ -57,6 +57,7 @@ type Agent struct {
 	ServiceTier           pgtype.Text `json:"service_tier"`
 	ConversationStarters  []byte      `json:"conversation_starters"`
 	InstructionSelection  []byte      `json:"instruction_selection"`
+	InheritRuntimeSkills  bool        `json:"inherit_runtime_skills"`
 }
 
 type AgentBuilderDraft struct {

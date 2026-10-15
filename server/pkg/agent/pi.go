@@ -1086,6 +1086,9 @@ func buildPiArgs(sessionPath string, opts ExecOptions, logger *slog.Logger, rpc 
 	// inlining the same runtime brief would duplicate it on every turn.
 	// Verified against Pi 0.67.2 (MUL-5392).
 	args = append(args, filterPiCustomArgs(opts.CustomArgs, logger)...)
+	if opts.OmpSettingsPath != "" {
+		args = append(args, "--config", opts.OmpSettingsPath)
+	}
 	return args
 }
 

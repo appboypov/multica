@@ -7576,6 +7576,13 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, slot i
 	if err != nil {
 		return TaskResult{}, err
 	}
+	disabledRuntimeSkills, err := convertDisabledRuntimeSkillsForEnv(task.Agent, task.RuntimeID, provider)
+	if err != nil {
+		return TaskResult{}, err
+	}
+	if task.Agent.InheritRuntimeSkills != nil && !*task.Agent.InheritRuntimeSkills && runtimeSkillsCanDisable(provider) {
+		taskLog.Info("expanded disabled runtime skills section", "provider", provider, "count", len(disabledRuntimeSkills))
+	}
 
 	// Prepare isolated execution environment.
 	// Repos are passed as metadata only — the agent checks them out on demand
@@ -7597,7 +7604,7 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, slot i
 		AgentName:                        agentName,
 		AgentInstructions:                instructions,
 		AgentSkills:                      convertSkillsForEnv(skills),
-		DisabledRuntimeSkills:            convertDisabledRuntimeSkillsForEnv(task.Agent, task.RuntimeID, provider),
+		DisabledRuntimeSkills:            disabledRuntimeSkills,
 		Repos:                            convertReposForEnv(task.Repos),
 		ProjectID:                        task.ProjectID,
 		ProjectTitle:                     task.ProjectTitle,
@@ -8339,6 +8346,7 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, slot i
 		ServiceTier:            serviceTier,
 		OpenclawMode:           openclawMode,
 		ClaudeSettingsPath:     env.ClaudeSettingsPath,
+		OmpSettingsPath:        env.OmpSettingsPath,
 		QwenpawWorkspace:       env.QwenpawWorkspace,
 	}
 	// Some providers do not reliably load the per-task runtime config files we
@@ -9851,9 +9859,31 @@ func convertSkillsForEnv(skills []SkillData) []execenv.SkillContextForEnv {
 	return result
 }
 
-func convertDisabledRuntimeSkillsForEnv(agentData *AgentData, runtimeID, provider string) []execenv.RuntimeSkillRefForEnv {
-	if agentData == nil || len(agentData.DisabledRuntimeSkills) == 0 {
-		return nil
+func convertDisabledRuntimeSkillsForEnv(agentData *AgentData, runtimeID, provider string) ([]execenv.RuntimeSkillRefForEnv, error) {
+	if agentData == nil {
+		return nil, nil
+	}
+	if agentData.InheritRuntimeSkills != nil && !*agentData.InheritRuntimeSkills && runtimeSkillsCanDisable(provider) {
+		skills, supported, err := listRuntimeLocalSkills(provider)
+		if err != nil {
+			return nil, fmt.Errorf("list runtime skills for disabled section: %w", err)
+		}
+		if !supported {
+			return nil, fmt.Errorf("list runtime skills for disabled section: provider %q is unsupported", provider)
+		}
+		result := make([]execenv.RuntimeSkillRefForEnv, 0, len(skills))
+		for _, skill := range skills {
+			result = append(result, execenv.RuntimeSkillRefForEnv{
+				Root:   skill.Root,
+				Key:    skill.Key,
+				Name:   skill.Name,
+				Plugin: skill.Plugin,
+			})
+		}
+		return result, nil
+	}
+	if len(agentData.DisabledRuntimeSkills) == 0 {
+		return nil, nil
 	}
 	result := make([]execenv.RuntimeSkillRefForEnv, 0, len(agentData.DisabledRuntimeSkills))
 	for _, skill := range agentData.DisabledRuntimeSkills {
@@ -9867,7 +9897,7 @@ func convertDisabledRuntimeSkillsForEnv(agentData *AgentData, runtimeID, provide
 			Plugin: skill.Plugin,
 		})
 	}
-	return result
+	return result, nil
 }
 
 // composeOpenclawIncludeRoots returns the value the daemon should set for
