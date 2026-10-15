@@ -15,20 +15,43 @@
 // needs the app router, is injected by the host app via
 // `registerSystemNotificationClickHandler` instead — core stays headless.
 
+import { paths } from "../paths/paths";
+
+/** Where a clicked banner lands: a to-do in Inbox, or a notice in Updates. */
+export type SystemNotificationDestination = "inbox" | "updates";
+
 export interface SystemNotificationPayload {
   /**
    * Source workspace slug. Empty when it couldn't be resolved — the click is
    * then a no-op rather than routing to the wrong workspace (#3766).
    */
   slug: string;
-  /** Inbox row id — lets the click mark the item read. */
+  /** The to-do's or notice's own id; collapses repeat banners for one row. */
   itemId: string;
-  /** `?issue=<…>` selector for the inbox page (issue id, else the item id). */
+  /**
+   * The destination page's selector: Inbox's `?todo=` to-do id, or Updates'
+   * `?issue=` key (issue id, else the notice id).
+   */
   issueKey: string;
   title: string;
   body: string;
-  /** To-dos select a row in Inbox; notice banners open Updates. */
-  destination?: "inbox" | "updates";
+  destination: SystemNotificationDestination;
+}
+
+/**
+ * The page a clicked banner opens, in the workspace it was emitted for. Shared
+ * by the web and desktop click bridges so both route a to-do to Inbox and a
+ * notice to Updates. Null when the source workspace is unknown: the click then
+ * does nothing.
+ */
+export function systemNotificationPath(
+  target: Pick<SystemNotificationPayload, "slug" | "issueKey" | "destination">,
+): string | null {
+  if (!target.slug) return null;
+  const ws = paths.workspace(target.slug);
+  return target.destination === "inbox"
+    ? ws.inboxTodo(target.issueKey)
+    : ws.updatesItem(target.issueKey);
 }
 
 type ClickHandler = (payload: SystemNotificationPayload) => void;

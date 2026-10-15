@@ -2,6 +2,8 @@ export {
   paths,
   isGlobalPath,
   AGENT_FOCUS_CONVERSATION_STARTERS,
+  INBOX_TODO_PARAM,
+  UPDATES_ITEM_PARAM,
 } from "./paths";
 export type { WorkspacePaths } from "./paths";
 export { RESERVED_SLUGS, isReservedSlug } from "./reserved-slugs";

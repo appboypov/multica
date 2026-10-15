@@ -22,6 +22,18 @@ const encode = (id: string) => encodeURIComponent(id);
  */
 export const AGENT_FOCUS_CONVERSATION_STARTERS = "conversation_starters";
 
+/**
+ * `?todo=` selection of the to-do Inbox: the selected to-do's own id. URL
+ * vocabulary shared by the Inbox page, the tab bar and notification clicks.
+ */
+export const INBOX_TODO_PARAM = "todo";
+
+/**
+ * `?issue=` selection of Updates: the issue id a notice groups under, else the
+ * notice's own id.
+ */
+export const UPDATES_ITEM_PARAM = "issue";
+
 function workspaceScoped(slug: string) {
   const ws = `/${encode(slug)}`;
   return {
@@ -59,7 +71,11 @@ function workspaceScoped(slug: string) {
     squads: () => `${ws}/squads`,
     squadDetail: (id: string) => `${ws}/squads/${encode(id)}`,
     inbox: () => `${ws}/inbox`,
+    inboxTodo: (todoId: string) =>
+      `${ws}/inbox?${INBOX_TODO_PARAM}=${encode(todoId)}`,
     updates: () => `${ws}/updates`,
+    updatesItem: (key: string) =>
+      `${ws}/updates?${UPDATES_ITEM_PARAM}=${encode(key)}`,
     questions: () => `${ws}/questions`,
     answerAll: () => `${ws}/questions/answer`,
     chat: () => `${ws}/chat`,

@@ -1,1 +1,1 @@
-export { InboxPage, TODO_PARAM, UpdatesPage } from "./components";
+export { InboxPage, UpdatesPage } from "./components";

@@ -5,6 +5,7 @@ import {
   registerSystemNotificationClickHandler,
   requestWebNotificationPermission,
   showWebNotification,
+  systemNotificationPath,
   type SystemNotificationPayload,
 } from "./system-notification";
 
@@ -45,6 +46,7 @@ function payload(
     issueKey: "issue-1",
     title: "Mentioned you",
     body: "in a comment",
+    destination: "updates",
     ...overrides,
   };
 }
@@ -138,5 +140,25 @@ describe("showWebNotification", () => {
     }
     installWindow(ThrowingNotification);
     expect(() => showWebNotification(payload())).not.toThrow();
+  });
+});
+
+describe("systemNotificationPath", () => {
+  it("opens a to-do in the source workspace's Inbox by its own id", () => {
+    expect(
+      systemNotificationPath({ slug: "workspace-a", issueKey: "todo 1", destination: "inbox" }),
+    ).toBe("/workspace-a/inbox?todo=todo%201");
+  });
+
+  it("opens a notice in Updates at its issue key", () => {
+    expect(
+      systemNotificationPath({ slug: "workspace-a", issueKey: "issue-1", destination: "updates" }),
+    ).toBe("/workspace-a/updates?issue=issue-1");
+  });
+
+  it("does nothing for an unresolved source workspace", () => {
+    expect(
+      systemNotificationPath({ slug: "", issueKey: "todo-1", destination: "inbox" }),
+    ).toBeNull();
   });
 });

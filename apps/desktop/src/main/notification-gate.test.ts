@@ -52,6 +52,7 @@ describe("parseNativeNotificationPayload", () => {
       issueKey: "MUL-1",
       title: "New update",
       body: "A comment was added",
+      destination: "updates",
     };
     expect(parseNativeNotificationPayload(payload)).toEqual(payload);
   });
@@ -63,7 +64,32 @@ describe("parseNativeNotificationPayload", () => {
       issueKey: "MUL-1",
       title: "New update",
       body: "",
+      destination: "updates",
     };
     expect(parseNativeNotificationPayload(payload)).toEqual(payload);
+  });
+
+  it("keeps a to-do banner's Inbox destination for the click", () => {
+    const payload = {
+      slug: "acme",
+      itemId: "todo-1",
+      issueKey: "todo-1",
+      title: "Export invoices as CSV",
+      body: "",
+      destination: "inbox",
+    };
+    expect(parseNativeNotificationPayload(payload)).toEqual(payload);
+  });
+
+  it("rejects a payload without a known destination", () => {
+    const base = {
+      slug: "acme",
+      itemId: "item-1",
+      issueKey: "MUL-1",
+      title: "New update",
+      body: "",
+    };
+    expect(parseNativeNotificationPayload(base)).toBeNull();
+    expect(parseNativeNotificationPayload({ ...base, destination: "chat" })).toBeNull();
   });
 });

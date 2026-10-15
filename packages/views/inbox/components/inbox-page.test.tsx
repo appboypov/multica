@@ -26,8 +26,10 @@ vi.mock("@multica/core/todos", () => ({
 }));
 vi.mock("@multica/core/hooks", () => ({ useWorkspaceId: () => "ws-1" }));
 vi.mock("@multica/core/paths", () => ({
+  INBOX_TODO_PARAM: "todo",
   useWorkspacePaths: () => ({
     inbox: () => "/acme/inbox",
+    inboxTodo: (id: string) => `/acme/inbox?todo=${encodeURIComponent(id)}`,
     updates: () => "/acme/updates",
     issueDetail: (id: string) => `/acme/issues/${id}`,
   }),

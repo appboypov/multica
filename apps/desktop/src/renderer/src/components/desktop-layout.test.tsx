@@ -48,6 +48,7 @@ vi.mock("@multica/core/paths", () => ({
 vi.mock("@multica/core/platform", () => ({
   getCurrentSlug: () => "acme",
   subscribeToCurrentSlug: () => () => {},
+  systemNotificationPath: () => null,
 }));
 
 vi.mock("@multica/core/workspace", () => ({

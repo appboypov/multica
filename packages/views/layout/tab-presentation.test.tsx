@@ -13,6 +13,7 @@ import {
   archivedInboxLookupOptions,
 } from "@multica/core/inbox/queries";
 import { EMPTY_INBOX_FILTERS } from "@multica/core/inbox/filter-store";
+import { todoListOptions } from "@multica/core/todos";
 import { agentListOptions } from "@multica/core/workspace/queries";
 import { runtimeListOptions } from "@multica/core/runtimes/queries";
 
@@ -97,6 +98,16 @@ function seed(qc: QueryClient) {
     items: [{ ...archiveRow, id: "a3", issue_id: null, title: "Deep archived note", type: "quick_create_failed" }],
     hasMore: false, nextCursor: null,
   });
+  qc.setQueryData(todoListOptions("ws1").queryKey, [
+    {
+      id: "t1", kind: "assigned", issue_id: "i9", issue_identifier: "MUL-9",
+      issue_title: "Snapshot title", title: "Crash",
+    },
+    {
+      id: "t2", kind: "autopilot_paused", issue_id: null, issue_identifier: null,
+      issue_title: null, title: "Autopilot paused",
+    },
+  ] as never);
   qc.setQueryData(agentListOptions("ws1").queryKey, [
     { id: "ag1", name: "Robby", avatar_url: null },
   ] as never);
@@ -204,17 +215,51 @@ describe("useTabPresentation — live from cache", () => {
     });
   });
 
-  it("inbox container: selected issue shows Inbox icon + issue title", () => {
-    // Selection key is issue_id ?? id — n1 links issue i9.
-    expect(presentationOf("/acme/inbox?issue=i9")).toEqual({
+  it("inbox container: an issue's to-do shows Inbox icon + the live issue title", () => {
+    expect(presentationOf("/acme/inbox?todo=t1")).toEqual({
       visual: { kind: "icon", icon: "Inbox" },
       title: "MUL-9: Crash",
     });
   });
 
-  it("inbox container: selected non-issue shows its display title", () => {
-    expect(presentationOf("/acme/inbox?issue=n2")).toEqual({
+  it("inbox container: an issue's to-do falls back to its snapshot while the issue is cold", () => {
+    const qc = makeClient();
+    seed(qc);
+    qc.removeQueries({ queryKey: issueDetailOptions("ws1", "i9").queryKey });
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={qc}>{children}</QueryClientProvider>
+    );
+
+    const { result } = renderHook(() => useTabPresentation("/acme/inbox?todo=t1"), { wrapper });
+
+    expect(result.current.title).toBe("MUL-9: Snapshot title");
+  });
+
+  it("inbox container: an issue-less to-do shows its own title", () => {
+    expect(presentationOf("/acme/inbox?todo=t2")).toEqual({
       visual: { kind: "icon", icon: "Inbox" },
+      title: "Autopilot paused",
+    });
+  });
+
+  it("inbox container: an ?issue= selection is not a to-do and stays Inbox", () => {
+    expect(presentationOf("/acme/inbox?issue=i9")).toEqual({
+      visual: { kind: "icon", icon: "Inbox" },
+      title: "Inbox",
+    });
+  });
+
+  it("updates container: selected issue shows Bell icon + issue title", () => {
+    // Selection key is issue_id ?? id — n1 links issue i9.
+    expect(presentationOf("/acme/updates?issue=i9")).toEqual({
+      visual: { kind: "icon", icon: "Bell" },
+      title: "MUL-9: Crash",
+    });
+  });
+
+  it("updates container: selected non-issue shows its display title", () => {
+    expect(presentationOf("/acme/updates?issue=n2")).toEqual({
+      visual: { kind: "icon", icon: "Bell" },
       title: "Quick create failed",
     });
   });
@@ -222,26 +267,26 @@ describe("useTabPresentation — live from cache", () => {
   it("issue-backed selection resolves by object, in either view", () => {
     // The selection key IS the group key (`issue_id ?? id`), so an
     // issue-backed selection names the issue directly and is answered by the
-    // issue cache — no inbox list involved. That holds in both views on
-    // purpose: i1's notification lives only in the ARCHIVED list, yet the main
-    // view still titles the tab by the object the URL names. Treating "not in
-    // the list I loaded" as "does not exist" is what this must not do — the
-    // page itself resolves such a link to the issue rather than dropping it
-    // (see the deep-link fallback in inbox-page).
-    expect(presentationOf("/acme/inbox?issue=i1")).toEqual({
-      visual: { kind: "icon", icon: "Inbox" },
+    // issue cache — no list involved. That holds in both views on purpose:
+    // i1's notice lives only in the ARCHIVED list, yet the main view still
+    // titles the tab by the object the URL names. Treating "not in the list I
+    // loaded" as "does not exist" is what this must not do — the page itself
+    // resolves such a link to the issue rather than dropping it (see the
+    // deep-link fallback in updates-page).
+    expect(presentationOf("/acme/updates?issue=i1")).toEqual({
+      visual: { kind: "icon", icon: "Bell" },
       title: "MUL-1: Fix login",
     });
-    expect(presentationOf("/acme/inbox?view=archived&issue=i1")).toEqual({
-      visual: { kind: "icon", icon: "Inbox" },
+    expect(presentationOf("/acme/updates?view=archived&issue=i1")).toEqual({
+      visual: { kind: "icon", icon: "Bell" },
       title: "MUL-1: Fix login",
     });
   });
 
-  it("issue-backed selection survives a cold inbox list", () => {
-    // Regression (MUL-6967): the badge no longer pre-warms the inbox list at
-    // app start, so a restored tab may have the issue cached but no list. It
-    // must still show the issue, not collapse to the container label.
+  it("issue-backed selection survives a cold Updates list", () => {
+    // Regression (MUL-6967): the badge no longer pre-warms the list at app
+    // start, so a restored tab may have the issue cached but no list. It must
+    // still show the issue, not collapse to the container label.
     const qc = makeClient();
     seed(qc);
     qc.removeQueries({ queryKey: inboxListOptions("ws1").queryKey });
@@ -251,7 +296,7 @@ describe("useTabPresentation — live from cache", () => {
     );
 
     const { result } = renderHook(
-      () => useTabPresentation("/acme/inbox?issue=i9", "MUL-9: Crash"),
+      () => useTabPresentation("/acme/updates?issue=i9", "MUL-9: Crash"),
       { wrapper },
     );
 
@@ -259,39 +304,46 @@ describe("useTabPresentation — live from cache", () => {
   });
 
   it("falls back to the persisted title while a selection is unresolved", () => {
-    // Nothing cached for this key yet — an issue-less notification whose row
-    // has not loaded. The persisted title is a better first frame than
-    // "Inbox"; without it the tab loses its identity until the page loads.
+    // Nothing cached for these keys yet — an issue-less notice or a to-do
+    // whose row has not loaded. The persisted title is a better first frame
+    // than the container label; without it the tab loses its identity until
+    // the page loads.
     const qc = makeClient();
     const wrapper = ({ children }: { children: ReactNode }) => (
       <QueryClientProvider client={qc}>{children}</QueryClientProvider>
     );
 
-    const { result } = renderHook(
-      () => useTabPresentation("/acme/inbox?issue=n7", "Autopilot paused"),
+    const updates = renderHook(
+      () => useTabPresentation("/acme/updates?issue=n7", "Autopilot paused"),
+      { wrapper },
+    );
+    const inbox = renderHook(
+      () => useTabPresentation("/acme/inbox?todo=t7", "MUL-7: Review me"),
       { wrapper },
     );
 
-    expect(result.current.title).toBe("Autopilot paused");
+    expect(updates.result.current.title).toBe("Autopilot paused");
+    expect(inbox.result.current.title).toBe("MUL-7: Review me");
   });
 
   it("uses the container label when nothing is selected, persisted title or not", () => {
-    // The fallback is for a PENDING identity only. An Inbox tab with no
-    // selection is fully resolved — it really is just "Inbox", and a stale
-    // persisted title must not override it.
+    // The fallback is for a PENDING identity only. A container tab with no
+    // selection is fully resolved — it really is just "Inbox" or "Updates",
+    // and a stale persisted title must not override it.
     expect(presentationOf("/acme/inbox", "MUL-9: Crash").title).toBe("Inbox");
+    expect(presentationOf("/acme/updates", "MUL-9: Crash").title).toBe("Updates");
   });
 
-  it("archived inbox: selected non-issue resolves against the archived list", () => {
-    expect(presentationOf("/acme/inbox?view=archived&issue=a2")).toEqual({
-      visual: { kind: "icon", icon: "Inbox" },
+  it("archived updates: selected non-issue resolves against the archived list", () => {
+    expect(presentationOf("/acme/updates?view=archived&issue=a2")).toEqual({
+      visual: { kind: "icon", icon: "Bell" },
       title: "Archived note",
     });
   });
 
-  it("archived inbox: a deep-link lookup supplies the title outside loaded pages", () => {
-    expect(presentationOf("/acme/inbox?view=archived&issue=a3")).toEqual({
-      visual: { kind: "icon", icon: "Inbox" }, title: "Deep archived note",
+  it("archived updates: a deep-link lookup supplies the title outside loaded pages", () => {
+    expect(presentationOf("/acme/updates?view=archived&issue=a3")).toEqual({
+      visual: { kind: "icon", icon: "Bell" }, title: "Deep archived note",
     });
   });
 

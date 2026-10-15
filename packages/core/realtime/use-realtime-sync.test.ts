@@ -813,6 +813,7 @@ describe("handleInboxNew", () => {
       issueKey: "issue-1",
       title: "Mentioned you",
       body: "in a comment",
+      destination: "updates",
     });
   });
 

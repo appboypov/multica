@@ -70,7 +70,10 @@ export interface TabPresentation {
   title: TabTitleSpec;
 }
 
-/** Resolved inbox selection, as computed by the view layer from cache. */
+/**
+ * Resolved selection of a container with rows (Inbox to-dos, Updates notices),
+ * as computed by the view layer from cache.
+ */
 export type InboxSelectionData =
   | { kind: "issue"; identifier: string; title: string }
   | { kind: "item"; title: string };
@@ -93,7 +96,7 @@ export interface TabEntityData {
   runtime?: { name: string };
   /** Resolved chat session title (already includes the "New chat" fallback). */
   chatSessionTitle?: string;
-  /** Resolved inbox selection (issue identifier/title or item title). */
+  /** Resolved Inbox to-do or Updates notice selection (issue or row title). */
   inboxSelection?: InboxSelectionData;
 }
 
@@ -104,6 +107,22 @@ export const DEFAULT_TAB_VISUAL: TabVisual = { kind: "icon", icon: "FileQuestion
 function textOr(text: string | undefined | null, tabKey: TabLabelKey): TabTitleSpec {
   const trimmed = text?.trim();
   return trimmed ? { kind: "text", text: trimmed } : { kind: "tab", tabKey };
+}
+
+/**
+ * Title of a container tab: its selected row once resolved, otherwise the
+ * page name. The container icon never changes with the selection.
+ */
+function selectionTitle(
+  selectedKey: string | null,
+  selection: InboxSelectionData | undefined,
+  navKey: NavLabelKey,
+): TabTitleSpec {
+  const sel = selectedKey ? selection : undefined;
+  if (!sel) return { kind: "nav", navKey };
+  if (sel.kind === "issue") return { kind: "text", text: `${sel.identifier}: ${sel.title}` };
+  const text = sel.title.trim();
+  return text ? { kind: "text", text } : { kind: "nav", navKey };
 }
 
 const ACTOR_LABEL: Record<TabActorType, TabLabelKey> = {
@@ -221,20 +240,16 @@ export function resolveTabPresentation(
           ? { kind: "text", text: subject.filename }
           : { kind: "tab", tabKey: "attachment" },
       };
-    case "inbox": {
-      // The container icon never changes; only the title tracks the selection.
-      const sel = subject.selectedKey ? data.inboxSelection : undefined;
-      let title: TabTitleSpec;
-      if (!sel) {
-        title = { kind: "nav", navKey: "inbox" };
-      } else if (sel.kind === "issue") {
-        title = { kind: "text", text: `${sel.identifier}: ${sel.title}` };
-      } else {
-        const text = sel.title.trim();
-        title = text ? { kind: "text", text } : { kind: "nav", navKey: "inbox" };
-      }
-      return { visual: { kind: "icon", icon: "Inbox" }, title };
-    }
+    case "inbox":
+      return {
+        visual: { kind: "icon", icon: WORKSPACE_PAGES.inbox.icon },
+        title: selectionTitle(subject.selectedKey, data.inboxSelection, "inbox"),
+      };
+    case "updates":
+      return {
+        visual: { kind: "icon", icon: WORKSPACE_PAGES.updates.icon },
+        title: selectionTitle(subject.selectedKey, data.inboxSelection, "updates"),
+      };
     case "chat": {
       const title: TabTitleSpec =
         subject.sessionId && data.chatSessionTitle?.trim()
