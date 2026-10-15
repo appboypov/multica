@@ -2,7 +2,9 @@ package daemon
 
 import (
 	"fmt"
+	"sort"
 	"strings"
+	"time"
 
 	"github.com/multica-ai/multica/server/internal/daemon/execenv"
 	"github.com/multica-ai/multica/server/pkg/protocol"
@@ -85,12 +87,52 @@ func buildJoinedWakeupsBlock(notes string) string {
 	return "[WAKEUP — joined this run]\n" + strings.TrimSpace(notes) + "\n\n"
 }
 
-// buildQuestionAnswersBlock always carries the answers a Wake delivers; the
-// line pointing at `multica question` is written only while the run may ask
-// questions (ADR-0005).
+// questionAnswersItem is one line of the [ANSWERS] block: an answer, an ask
+// back or a cancel, with when it happened and who asked its question.
+type questionAnswersItem struct {
+	at           time.Time
+	line         string
+	askerAgentID string
+	askerName    string
+	via          *protocol.QuestionViaData
+}
+
+// buildQuestionAnswersBlock always carries the answers, ask backs and cancels
+// a claim delivers, one line each in the order they happened; the line
+// pointing at `multica question` is written only while the run may ask
+// questions (ADR-0017).
 func buildQuestionAnswersBlock(answers *protocol.QuestionAnswers, questionsEnabled bool) string {
-	if answers == nil || len(answers.Answers) == 0 && len(answers.AskBacks) == 0 {
+	if answers == nil || len(answers.Answers) == 0 && len(answers.AskBacks) == 0 && len(answers.Cancels) == 0 {
 		return ""
+	}
+	items := make([]questionAnswersItem, 0, len(answers.Answers)+len(answers.AskBacks)+len(answers.Cancels))
+	for _, answer := range answers.Answers {
+		line := fmt.Sprintf("- %s  %q → %s · %s · %s", answer.QuestionID, answer.Prompt, answer.DisplayText, answer.AnswererName, answer.UpdatedAt)
+		if answer.Note != "" {
+			line += " · note: " + oneLine(answer.Note)
+		}
+		items = append(items, questionAnswersItem{at: questionAnswersTime(answer.UpdatedAt), line: line, askerAgentID: answer.AskerAgentID, askerName: answer.AskerName, via: answer.Via})
+	}
+	for _, reply := range answers.AskBacks {
+		line := fmt.Sprintf("- %s  %q · ask back: %s · %s · %s", reply.QuestionID, reply.Prompt, oneLine(reply.Text), reply.ActorName, reply.CreatedAt)
+		items = append(items, questionAnswersItem{at: questionAnswersTime(reply.CreatedAt), line: line, askerAgentID: reply.AskerAgentID, askerName: reply.AskerName, via: reply.Via})
+	}
+	for _, cancel := range answers.Cancels {
+		line := fmt.Sprintf("- %s  %q · Cancelled by %s", cancel.QuestionID, cancel.Prompt, cancel.ActorName)
+		if note := oneLine(cancel.Note); note != "" {
+			line += ": " + note
+		}
+		line += " · " + cancel.CreatedAt
+		items = append(items, questionAnswersItem{at: questionAnswersTime(cancel.CreatedAt), line: line, askerAgentID: cancel.AskerAgentID, askerName: cancel.AskerName, via: cancel.Via})
+	}
+	sort.SliceStable(items, func(i, j int) bool { return items[i].at.Before(items[j].at) })
+
+	onWork := false
+	for _, item := range items {
+		if item.askerAgentID != "" && item.askerAgentID != answers.AgentID {
+			onWork = true
+			break
+		}
 	}
 	var b strings.Builder
 	b.WriteString("[ANSWERS]\n")
@@ -98,38 +140,15 @@ func buildQuestionAnswersBlock(answers *protocol.QuestionAnswers, questionsEnabl
 	if answers.AnswerCount == 1 {
 		plural = "answer"
 	}
-	onWork := false
-	for _, answer := range answers.Answers {
-		if answer.AskerAgentID != "" && answer.AskerAgentID != answers.AgentID {
-			onWork = true
-			break
-		}
-	}
-	for _, reply := range answers.AskBacks {
-		if reply.AskerAgentID != "" && reply.AskerAgentID != answers.AgentID {
-			onWork = true
-			break
-		}
-	}
 	subject := "your questions"
 	if onWork {
 		subject = "questions on your work"
 	}
 	fmt.Fprintf(&b, "%s woke you with %d %s to %s:\n", answers.WakerName, answers.AnswerCount, plural, subject)
-	for _, answer := range answers.Answers {
-		fmt.Fprintf(&b, "- %s  %q → %s · %s · %s", answer.QuestionID, answer.Prompt, answer.DisplayText, answer.AnswererName, answer.UpdatedAt)
-		if answer.Note != "" {
-			fmt.Fprintf(&b, " · note: %s", strings.Join(strings.Fields(answer.Note), " "))
-		}
-		if answer.AskerAgentID != "" && answer.AskerAgentID != answers.AgentID {
-			fmt.Fprintf(&b, " · asked by %s%s", answer.AskerName, questionAnswerVia(answer.Via))
-		}
-		b.WriteString("\n")
-	}
-	for _, reply := range answers.AskBacks {
-		fmt.Fprintf(&b, "- %s  %q · ask back: %s · %s · %s", reply.QuestionID, reply.Prompt, strings.Join(strings.Fields(reply.Text), " "), reply.ActorName, reply.CreatedAt)
-		if reply.AskerAgentID != "" && reply.AskerAgentID != answers.AgentID {
-			fmt.Fprintf(&b, " · asked by %s%s", reply.AskerName, questionAnswerVia(reply.Via))
+	for _, item := range items {
+		b.WriteString(item.line)
+		if item.askerAgentID != "" && item.askerAgentID != answers.AgentID {
+			fmt.Fprintf(&b, " · asked by %s%s", item.askerName, questionAnswerVia(item.via))
 		}
 		b.WriteString("\n")
 	}
@@ -138,6 +157,22 @@ func buildQuestionAnswersBlock(answers *protocol.QuestionAnswers, questionsEnabl
 	}
 	b.WriteString("\n")
 	return b.String()
+}
+
+// questionAnswersTime reads a claim timestamp; one that does not parse sorts
+// first and keeps its place among the others that do not.
+func questionAnswersTime(value string) time.Time {
+	at, err := time.Parse(time.RFC3339Nano, value)
+	if err != nil {
+		return time.Time{}
+	}
+	return at
+}
+
+// oneLine folds every run of whitespace, line breaks included, into one space
+// so a person's text stays on its item's line.
+func oneLine(text string) string {
+	return strings.Join(strings.Fields(text), " ")
 }
 
 func questionAnswerVia(via *protocol.QuestionViaData) string {
