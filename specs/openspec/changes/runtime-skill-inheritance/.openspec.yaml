@@ -1,2 +1,9 @@
 schema: intent-driven
 created: 2026-10-15
+build:
+  status: draft
+  type: feature
+  ticket: ""
+  context:
+    - "{project-root}/AGENTS.md"
+    - "{project-root}/adr/0017-runtime-skill-switches-exist-only-where-the-run-enforces-them.md"
