@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { normalizeIssueStatusCategory } from "../issues/config/status";
+import { isDeclined } from "../questions/validate";
 import { ISSUE_TYPES } from "../types/issue";
 import type {
   AgentBuilderRuntimeSwitch,
@@ -4700,7 +4701,10 @@ function readQuestion({
     const parsedSettings = schemas.settings.safeParse(settings);
     const parsedSuggestion =
       suggested_answer == null ? null : schemas.value.safeParse(suggested_answer);
-    const parsedValues = answers.map((answer) => schemas.value.safeParse(answer.value));
+    // A declined answer is valid in every answer type.
+    const parsedValues = answers.map((answer) =>
+      isDeclined(answer.value) ? { success: true as const, data: answer.value } : schemas.value.safeParse(answer.value),
+    );
     if (
       parsedSettings.success &&
       parsedSuggestion?.success !== false &&

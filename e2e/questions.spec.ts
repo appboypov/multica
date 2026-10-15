@@ -123,14 +123,14 @@ function questionCard(page: Page, prompt: string): Locator {
   return page.locator("[data-question-state]").filter({ has: page.getByText(prompt, { exact: true }) });
 }
 
-async function acceptSuggestion(page: Page, card: Locator, id: string) {
+async function acceptSuggestion(page: Page, card: Locator, id: string, wake: boolean) {
   const sent = page.waitForResponse((response) =>
     response.request().method() === "POST" && response.url().endsWith(`/api/questions/${id}/answer`),
   );
   await card.getByRole("button", { name: "Accept suggestion", exact: true }).click();
   const response = await sent;
   expect(response.status()).toBe(200);
-  expect(response.request().postDataJSON()).toEqual({ value: { option: "per line" } });
+  expect(response.request().postDataJSON()).toEqual({ value: { option: "per line" }, ...(wake ? { wake: true } : {}) });
   const stored: TestQuestion = await response.json();
   expect(stored.status).toBe("answered");
   expect(stored.answers).toHaveLength(1);
@@ -185,11 +185,15 @@ test("Brian accepts Pieter's suggestion, sees the folded answer, and explicitly 
     await expect(run.getByText("Waiting for answer", { exact: true })).toBeVisible();
   });
 
-  await test.step("Accept the suggested answer / Brian accepts the suggestion", async () => {
+  await test.step("Accept the suggested answer / Brian accepts the suggestion; Sending the last open question offers Wake / Brian unchecks Wake", async () => {
     await expect(card.getByRole("radio", { name: /per line/ })).not.toBeChecked();
     await expect(card.getByRole("radio", { name: /per total/ })).not.toBeChecked();
     await expect(card.getByRole("button", { name: "Wake Pieter", exact: true })).toHaveCount(0);
-    await acceptSuggestion(page, card, question.id);
+    const wake = card.getByRole("checkbox", { name: "Wake Pieter", exact: true });
+    await expect(wake).toBeChecked();
+    await wake.click();
+    await expect(wake).not.toBeChecked();
+    await acceptSuggestion(page, card, question.id, false);
   });
 
   await test.step("A sent answer reaches the asker at once / The card folds after sending", async () => {
@@ -203,7 +207,7 @@ test("Brian accepts Pieter's suggestion, sees the folded answer, and explicitly 
     expect(Number.isFinite(Date.parse(readable.answers[0]!.updated_at))).toBe(true);
   });
 
-  await test.step("Answers never start a run / Brian answers and nothing starts; Run row / The badge leaves once answered", async () => {
+  await test.step("An answer starts a run only with Wake checked / Brian unchecks Wake; Run row / The badge leaves once answered", async () => {
     expect(await fixture.taskIds()).toEqual(beforeAnswer);
     await expect(run.getByText("Waiting for answer", { exact: true })).toHaveCount(0);
     await expect(page.getByText("None open", { exact: true })).toBeVisible();
@@ -251,16 +255,20 @@ test("Answer simple questions in the inbox / Brian answers from the inbox", asyn
   const beforeAnswer = await fixture.taskIds();
   const card = await openInboxQuestion(page, fixture, question);
   await expect(card.getByRole("radio", { name: /per line/ })).toBeVisible();
-  await acceptSuggestion(page, card, question.id);
+  await expect(card.getByRole("checkbox", { name: "Wake Pieter", exact: true })).toBeChecked();
+  await acceptSuggestion(page, card, question.id, true);
   await expectFolded(card, question.prompt);
   await expect(page).toHaveURL(new RegExp(`/${fixture.workspace.slug}/inbox`));
-  expect(await fixture.taskIds()).toEqual(beforeAnswer);
+  // Sent with Wake Pieter checked, the answer queues one run of Pieter.
+  const afterAnswer = await fixture.taskIds();
+  expect(afterAnswer).toEqual(expect.arrayContaining(beforeAnswer));
+  expect(afterAnswer).toHaveLength(beforeAnswer.length + 1);
   expect((await fixture.api.getQuestion(question.id)).answers[0]).toMatchObject({ answerer_user_id: fixture.userId, value: { option: "per line" } });
 
   await page.goto(`/${fixture.workspace.slug}/issues/${fixture.issue.id}`, { waitUntil: "domcontentloaded" });
   await expectFolded(questionCard(page, question.prompt), question.prompt);
   await expect(page.getByText("None open", { exact: true })).toBeVisible();
-  expect(await fixture.taskIds()).toEqual(beforeAnswer);
+  expect(await fixture.taskIds()).toEqual(afterAnswer);
 });
 
 test("Answer simple questions in the inbox / Other types open the issue", async ({ page, question: fixture }) => {

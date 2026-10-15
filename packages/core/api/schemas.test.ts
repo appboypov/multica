@@ -2775,6 +2775,20 @@ describe("QuestionSchema", () => {
     expect(question.answers[0]?.value).toEqual(value);
   });
 
+  it.each([
+    ["text", { length: "short" }],
+    ["ranking", { items: ["a", "b"] }],
+  ])("reads a %s question with a declined answer by its answer type", (answerType, settings) => {
+    const question = parse({
+      answer_type: answerType,
+      settings,
+      suggested_answer: null,
+      answers: [{ ...wireQuestion.answers[0], value: { declined: true }, display_text: "Declined to answer", note: "Not my area" }],
+    });
+    expect(question.answer_type).toBe(answerType);
+    expect(question.answers[0]).toMatchObject({ value: { declined: true }, display_text: "Declined to answer", note: "Not my area" });
+  });
+
   it("defaults missing optional fields and arrays", () => {
     const {
       context_line: _contextLine,
