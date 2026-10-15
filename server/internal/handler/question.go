@@ -158,7 +158,7 @@ func (h *Handler) ListIssueQuestions(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	result, err := h.QuestionService.ListForIssue(r.Context(), issue.WorkspaceID, issue.ID)
+	result, err := h.QuestionService.ListForLink(r.Context(), issue.WorkspaceID, question.LinkTypeIssue, issue.ID)
 	if err != nil {
 		writeQuestionError(w, err)
 		return

@@ -860,15 +860,18 @@ func (s *QuestionService) Get(ctx context.Context, workspaceID, questionID pgtyp
 	return result[0], nil
 }
 
-func (s *QuestionService) ListForIssue(ctx context.Context, workspaceID, issueID pgtype.UUID) ([]QuestionDTO, error) {
-	issue, err := s.Queries.GetIssue(ctx, issueID)
-	if err != nil {
-		return nil, questionLoadError(err)
+func (s *QuestionService) ListForLink(ctx context.Context, workspaceID pgtype.UUID, linkType string, linkID pgtype.UUID) ([]QuestionDTO, error) {
+	if !question.ValidLinkType(linkType) {
+		return nil, questionRefusal(422, "unknown question link type")
 	}
-	if issue.WorkspaceID != workspaceID {
-		return nil, questionRefusal(404, "issue not found")
+	if _, err := s.ResolveLinks(ctx, workspaceID, []question.LinkRef{{Type: linkType, Ref: util.UUIDToString(linkID)}}); err != nil {
+		var refusal *QuestionError
+		if errors.As(err, &refusal) {
+			return nil, questionRefusal(404, linkType+" not found")
+		}
+		return nil, err
 	}
-	rows, err := s.Queries.ListQuestionsLinkedTo(ctx, db.ListQuestionsLinkedToParams{WorkspaceID: workspaceID, LinkType: "issue", LinkID: issueID})
+	rows, err := s.Queries.ListQuestionsLinkedTo(ctx, db.ListQuestionsLinkedToParams{WorkspaceID: workspaceID, LinkType: linkType, LinkID: linkID})
 	if err != nil {
 		return nil, err
 	}

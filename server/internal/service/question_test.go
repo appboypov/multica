@@ -286,7 +286,7 @@ func TestQuestionLifecycleNeverEnqueues(t *testing.T) {
 			}
 		}
 	}
-	listed, err := f.svc.ListForIssue(ctx, f.workspace, f.issue)
+	listed, err := f.svc.ListForLink(ctx, f.workspace, question.LinkTypeIssue, f.issue)
 	if err != nil || len(listed) != 1 || listed[0].Status != "closed" {
 		t.Fatalf("list after close = %+v, %v", listed, err)
 	}
@@ -365,7 +365,7 @@ func TestQuestionActorWorkspaceAndAskRefusals(t *testing.T) {
 	foreign := util.MustParseUUID(foreignWorkspace)
 	_, err = f.svc.Get(ctx, foreign, id)
 	wantQuestionRefusal(t, err, 404)
-	_, err = f.svc.ListForIssue(ctx, foreign, f.issue)
+	_, err = f.svc.ListForLink(ctx, foreign, question.LinkTypeIssue, f.issue)
 	wantQuestionRefusal(t, err, 404)
 	_, err = f.svc.Answer(ctx, foreign, id, f.answerer, AnswerQuestionInput{Value: json.RawMessage(`{"option":"per line"}`)})
 	wantQuestionRefusal(t, err, 403)
@@ -866,7 +866,7 @@ func TestQuestionSetIsAtomicOrderedAndPublishesOnceAfterCommit(t *testing.T) {
 	}
 	f.wantNoNewTask(t)
 	f.answer(t, result.Questions[1], f.answerer, "per line")
-	listed, err := f.svc.ListForIssue(ctx, f.workspace, f.issue)
+	listed, err := f.svc.ListForLink(ctx, f.workspace, question.LinkTypeIssue, f.issue)
 	if err != nil || len(listed) != 3 {
 		t.Fatalf("list set: %+v, %v", listed, err)
 	}
