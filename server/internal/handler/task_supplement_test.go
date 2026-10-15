@@ -228,9 +228,9 @@ func TestTaskSupplementCapabilityDoesNotBreakNonIssueStarts(t *testing.T) {
 	}
 }
 
-func TestTaskSupplementCompletionDoesNotReplayBoundComments(t *testing.T) {
+func TestTaskSupplementCompletionReplaysOnlyUnhandledComments(t *testing.T) {
 	for _, provider := range []string{"codex", "claude", "grok"} {
-		for _, status := range []string{"pending", "delivering", "delivered", "failed"} {
+		for _, status := range []string{"pending", "delivering", "delivered", "failed", "handled"} {
 			for _, ordinary := range []string{"none", "unhandled", "queued"} {
 				t.Run(provider+"/"+status+"/"+ordinary, func(t *testing.T) {
 					fixture := newSupplementFixture(t, provider, "running", true)
@@ -254,14 +254,17 @@ func TestTaskSupplementCompletionDoesNotReplayBoundComments(t *testing.T) {
 					}
 
 					var supplement CommentResponse
-					supplementRequest(t, fixture, "0199a4e8-22ce-7b01-bba5-999999999999", "Add this only to the current run.").
+					supplementRequest(t, fixture, "0199a4e8-22ce-7b01-bba5-999999999999", "Handle this additional input.").
 						Want(http.StatusCreated).JSON(&supplement)
-					// Receipt transitions are covered by the retry test; vary only the
-					// persisted state consumed by completion reconciliation here.
-					dbfx.Exec(t, `UPDATE task_supplement SET status = $2 WHERE comment_id = $1`, supplement.ID, status)
+					// Vary delivery and handling independently: only handled input is
+					// omitted from the completing run's follow-up.
+					if status == "handled" {
+						dbfx.Exec(t, `UPDATE task_supplement SET status = 'delivered', handled_at = now() WHERE comment_id = $1`, supplement.ID)
+					} else {
+						dbfx.Exec(t, `UPDATE task_supplement SET status = $2 WHERE comment_id = $1`, supplement.ID, status)
+					}
 
-					// Drive the real completion handler: a direct SQL status update skips
-					// the reconciliation that previously replayed the supplement.
+					// Drive the real completion handler, including reconciliation.
 					req := newDaemonTokenRequest(http.MethodPost, "/api/daemon/tasks/"+fixture.taskID+"/complete",
 						map[string]any{"output": "done"}, testWorkspaceID, "legit-daemon")
 					testutil.Call(t, testHandler.CompleteTask, withURLParam(req, "taskId", fixture.taskID)).Want(http.StatusOK)
@@ -275,13 +278,13 @@ func TestTaskSupplementCompletionDoesNotReplayBoundComments(t *testing.T) {
 					}
 
 					wantTasks := 1
-					if ordinary != "none" {
+					if ordinary != "none" || status != "handled" {
 						wantTasks++
 					}
 					if n := dbfx.Count(t, `SELECT count(*) FROM agent_task_queue WHERE issue_id = $1`, fixture.issueID); n != wantTasks {
-						t.Fatalf("completion left %d runs, want %d; supplement must never create a follow-up", n, wantTasks)
+						t.Fatalf("completion left %d runs, want %d for %s input", n, wantTasks, status)
 					}
-					if ordinary != "none" {
+					if wantTasks == 2 {
 						var followupID, triggerID string
 						var coalesced []string
 						dbfx.QueryRow(t, `SELECT id, trigger_comment_id, coalesced_comment_ids::text[]
@@ -290,9 +293,14 @@ func TestTaskSupplementCompletionDoesNotReplayBoundComments(t *testing.T) {
 						if queuedID != "" && followupID != queuedID {
 							t.Fatalf("replaced existing queued run %s with %s", queuedID, followupID)
 						}
-						if triggerID != ordinaryID || slices.Contains(coalesced, supplement.ID) {
-							t.Fatalf("follow-up input = trigger %s, coalesced %v; want ordinary comment %s without supplement %s",
-								triggerID, coalesced, ordinaryID, supplement.ID)
+						wantTrigger := ordinaryID
+						if wantTrigger == "" {
+							wantTrigger = supplement.ID
+						}
+						wantCoalescedSupplement := ordinaryID != "" && status != "handled"
+						if triggerID != wantTrigger || slices.Contains(coalesced, supplement.ID) != wantCoalescedSupplement {
+							t.Fatalf("follow-up input = trigger %s, coalesced %v; want trigger %s, coalesced supplement=%v",
+								triggerID, coalesced, wantTrigger, wantCoalescedSupplement)
 						}
 					}
 				})
