@@ -659,8 +659,8 @@
     "toast_profile_failed": "Échec de la mise à jour du profil"
   },
   "notifications": {
-    "title": "Notifications de la boîte de réception",
-    "description": "Les événements désactivés restent visibles dans la tâche.",
+    "title": "Mises à jour",
+    "description": "Choisissez les événements qui arrivent dans Mises à jour. Les événements désactivés restent visibles dans la tâche. Les éléments à faire de la boîte de réception ignorent ces réglages.",
     "toast_failed": "Échec de la mise à jour des réglages de notification",
     "groups": {
       "assignments": {
@@ -675,17 +675,9 @@
         "label": "Commentaires",
         "description": "Nouveaux commentaires sur les tâches que vous suivez"
       },
-      "mentions": {
-        "label": "Mentions",
-        "description": "Quand quelqu'un vous @mentionne, y compris via @all et @squad"
-      },
       "updates": {
         "label": "Priorité et date d'échéance",
         "description": "Quand la priorité ou la date d'échéance change sur les tâches que vous suivez"
-      },
-      "agent_activity": {
-        "label": "Activité des agents",
-        "description": "Lorsqu'une exécution d'agent échoue"
       }
     },
     "system": {
@@ -695,7 +687,7 @@
     },
     "browser": {
       "label": "Notifications du navigateur",
-      "hint": "Autoriser ce navigateur à afficher des bannières de notification pour les nouveaux éléments de la boîte de réception.",
+      "hint": "Autoriser ce navigateur à afficher des bannières de notification pour les nouveaux éléments à faire et les nouvelles mises à jour.",
       "enable": "Activer",
       "granted": "Ce navigateur peut afficher des bannières de notification.",
       "denied": "Bloqué par votre navigateur. Activez les notifications pour ce site dans ses réglages.",

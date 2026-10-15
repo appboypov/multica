@@ -16,17 +16,16 @@ import {
   SettingsTab,
 } from "./settings-layout";
 
-// Inbox event groups rendered in the per-event toggle list. `system_notifications`
+// Updates event groups rendered in the per-event toggle list. Inbox to-dos
+// ignore preferences, so no group here covers them. `system_notifications`
 // is a sibling preference key but lives in its own section below.
-const INBOX_GROUP_KEYS = [
+const UPDATES_GROUP_KEYS = [
   "assignments",
   "status_changes",
   "comments",
-  "mentions",
   "updates",
-  "agent_activity",
 ] as const;
-type InboxGroupKey = (typeof INBOX_GROUP_KEYS)[number];
+type UpdatesGroupKey = (typeof UPDATES_GROUP_KEYS)[number];
 
 export function NotificationsTab() {
   const { t } = useT("settings");
@@ -62,10 +61,10 @@ export function NotificationsTab() {
       <SettingsSection
         title={t(($) => $.notifications.title)}
         description={t(($) => $.notifications.description)}
-        anchor="inbox"
+        anchor="updates-groups"
       >
         <SettingsCard>
-            {INBOX_GROUP_KEYS.map((key: InboxGroupKey) => {
+            {UPDATES_GROUP_KEYS.map((key: UpdatesGroupKey) => {
               const enabled = preferences[key] !== "muted";
               return (
                 <SettingsRow

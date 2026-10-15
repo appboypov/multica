@@ -659,8 +659,8 @@
     "toast_profile_failed": "Failed to update profile"
   },
   "notifications": {
-    "title": "Inbox Notifications",
-    "description": "Muted events remain visible on the issue.",
+    "title": "Updates",
+    "description": "Choose which events reach Updates. Muted events remain visible on the issue. Inbox to-dos ignore these settings.",
     "toast_failed": "Failed to update notification settings",
     "groups": {
       "assignments": {
@@ -675,17 +675,9 @@
         "label": "Comments",
         "description": "New comments on issues you follow"
       },
-      "mentions": {
-        "label": "Mentions",
-        "description": "When someone @mentions you, including @all and @squad"
-      },
       "updates": {
         "label": "Priority & Due date",
         "description": "When priority or due date changes on issues you follow"
-      },
-      "agent_activity": {
-        "label": "Agent activity",
-        "description": "When an agent run fails"
       }
     },
     "system": {
@@ -695,7 +687,7 @@
     },
     "browser": {
       "label": "Browser notifications",
-      "hint": "Allow this browser to show notification banners for new inbox items.",
+      "hint": "Allow this browser to show notification banners for new to-dos and Updates.",
       "enable": "Enable",
       "granted": "This browser can show notification banners.",
       "denied": "Blocked by your browser. Enable notifications for this site in your browser settings.",
