@@ -646,7 +646,7 @@
       "assigned_title": "分配给智能体",
       "assigned_hint": "关闭后暂停使用，仍保留分配。",
       "runtime_title": "从运行时继承",
-      "runtime_hint": "自动从 {{runtime}} 发现；只要该智能体在这个运行时执行，就可以直接使用。",
+      "runtime_hint": "自动从 {{runtime}} 发现。",
       "workspace_badge": "工作区",
       "inherited_badge": "继承",
       "refresh_action": "刷新",

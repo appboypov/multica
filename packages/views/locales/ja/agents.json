@@ -544,7 +544,7 @@
       "assigned_title": "エージェントに割り当て済み",
       "assigned_hint": "オフにすると割り当てを残したまま使用を停止できます。",
       "runtime_title": "ランタイムから継承",
-      "runtime_hint": "{{runtime}} から自動検出され、このエージェントがそこで実行されるときに利用できます。",
+      "runtime_hint": "{{runtime}} から自動検出されます。",
       "workspace_badge": "ワークスペース",
       "inherited_badge": "継承",
       "refresh_action": "更新",

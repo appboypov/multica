@@ -658,7 +658,7 @@
       "assigned_title": "Assignés à l'agent",
       "assigned_hint": "Désactivez un skill pour suspendre son utilisation sans le retirer.",
       "runtime_title": "Hérités du runtime",
-      "runtime_hint": "Détectés automatiquement depuis {{runtime}} et disponibles chaque fois que cet agent s'y exécute.",
+      "runtime_hint": "Détectés automatiquement depuis {{runtime}}.",
       "workspace_badge": "Espace de travail",
       "inherited_badge": "Hérité",
       "refresh_action": "Actualiser",
