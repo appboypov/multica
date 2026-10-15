@@ -38,7 +38,7 @@ func cleanupActivities(t *testing.T, issueID string) {
 func TestActivityIssueCreated(t *testing.T) {
 	queries := db.New(testPool)
 	bus := events.New()
-	registerActivityListeners(bus, queries)
+	registerActivityListeners(bus, queries, &service.RunInputService{Queries: queries})
 
 	issueID := createTestIssue(t, testWorkspaceID, testUserID)
 	t.Cleanup(func() {
@@ -80,7 +80,7 @@ func TestActivityIssueCreated_AutopilotMapPayload(t *testing.T) {
 	ctx := context.Background()
 	queries := db.New(testPool)
 	bus := events.New()
-	registerActivityListeners(bus, queries)
+	registerActivityListeners(bus, queries, &service.RunInputService{Queries: queries})
 
 	agentID, _ := firstFixtureAgent(t)
 	issueID := workspaceFixture(t).Issue(t, "autopilot-created activity", testutil.Cols{
@@ -137,7 +137,7 @@ func TestActivityIssueCreated_AutopilotMapPayload(t *testing.T) {
 func TestActivityIssueUpdated_StatusChanged(t *testing.T) {
 	queries := db.New(testPool)
 	bus := events.New()
-	registerActivityListeners(bus, queries)
+	registerActivityListeners(bus, queries, &service.RunInputService{Queries: queries})
 
 	issueID := createTestIssue(t, testWorkspaceID, testUserID)
 	t.Cleanup(func() {
@@ -188,7 +188,7 @@ func TestActivityIssueUpdated_StatusChanged(t *testing.T) {
 func TestActivityIssueUpdated_AssigneeChanged(t *testing.T) {
 	queries := db.New(testPool)
 	bus := events.New()
-	registerActivityListeners(bus, queries)
+	registerActivityListeners(bus, queries, &service.RunInputService{Queries: queries})
 
 	assigneeEmail := "activity-assignee-test@multica.ai"
 	assigneeID := createTestUser(t, assigneeEmail)
@@ -247,7 +247,7 @@ func TestActivityIssueUpdated_AssigneeChanged(t *testing.T) {
 func TestActivityIssueUpdated_NoChangeFlags(t *testing.T) {
 	queries := db.New(testPool)
 	bus := events.New()
-	registerActivityListeners(bus, queries)
+	registerActivityListeners(bus, queries, &service.RunInputService{Queries: queries})
 
 	issueID := createTestIssue(t, testWorkspaceID, testUserID)
 	t.Cleanup(func() {
@@ -286,7 +286,7 @@ func TestActivityIssueUpdated_NoChangeFlags(t *testing.T) {
 func TestActivityIssueUpdated_TitleChanged(t *testing.T) {
 	queries := db.New(testPool)
 	bus := events.New()
-	registerActivityListeners(bus, queries)
+	registerActivityListeners(bus, queries, &service.RunInputService{Queries: queries})
 
 	issueID := createTestIssue(t, testWorkspaceID, testUserID)
 	t.Cleanup(func() {
@@ -337,7 +337,7 @@ func TestActivityIssueUpdated_TitleChanged(t *testing.T) {
 func TestActivityTaskCompleted(t *testing.T) {
 	queries := db.New(testPool)
 	bus := events.New()
-	registerActivityListeners(bus, queries)
+	registerActivityListeners(bus, queries, &service.RunInputService{Queries: queries})
 
 	issueID := createTestIssue(t, testWorkspaceID, testUserID)
 	t.Cleanup(func() {
@@ -375,7 +375,7 @@ func TestActivityTaskCompleted(t *testing.T) {
 func TestActivityTaskFailed(t *testing.T) {
 	queries := db.New(testPool)
 	bus := events.New()
-	registerActivityListeners(bus, queries)
+	registerActivityListeners(bus, queries, &service.RunInputService{Queries: queries})
 
 	issueID := createTestIssue(t, testWorkspaceID, testUserID)
 	t.Cleanup(func() {
@@ -486,7 +486,7 @@ func testIssueIdentifier(t *testing.T, queries *db.Queries, issueID string) stri
 func newDuplicateTestIssues(t *testing.T, queries *db.Queries) (bus *events.Bus, duplicateID, originalID string) {
 	t.Helper()
 	bus = events.New()
-	registerActivityListeners(bus, queries)
+	registerActivityListeners(bus, queries, &service.RunInputService{Queries: queries})
 	duplicateID = createTestIssue(t, testWorkspaceID, testUserID)
 	originalID = createTestIssue(t, testWorkspaceID, testUserID)
 	t.Cleanup(func() {

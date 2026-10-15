@@ -3,7 +3,12 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
+	"strings"
+	"unicode"
+
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/multica-ai/multica/server/internal/events"
 	"github.com/multica-ai/multica/server/internal/handler"
@@ -18,8 +23,9 @@ import (
 // entries in the activity_log table. Each listener creates one or more activity
 // records depending on what changed, then publishes an activity:created event
 // for WS broadcasting.
-func registerActivityListeners(bus *events.Bus, queries *db.Queries) {
+func registerActivityListeners(bus *events.Bus, queries *db.Queries, runInputs *service.RunInputService) {
 	ctx := context.Background()
+	registerIssueChangeInputListener(bus, queries, runInputs)
 
 	// issue:created — record "created" activity
 	bus.Subscribe(protocol.EventIssueCreated, func(e events.Event) {
@@ -259,6 +265,10 @@ func registerActivityListeners(bus *events.Bus, queries *db.Queries) {
 		}
 
 		if descriptionChanged {
+			details, _ := json.Marshal(map[string]string{
+				"from": derefPayloadString(payload["prev_description"]),
+				"to":   derefPayloadString(issue.Description),
+			})
 			activity, err := queries.CreateActivity(ctx, db.CreateActivityParams{
 				ID:          dbid.NewV7(),
 				WorkspaceID: parseUUID(issue.WorkspaceID),
@@ -266,7 +276,7 @@ func registerActivityListeners(bus *events.Bus, queries *db.Queries) {
 				ActorType:   util.StrToText(e.ActorType),
 				ActorID:     optionalUUID(e.ActorID),
 				Action:      "description_updated",
-				Details:     []byte("{}"),
+				Details:     details,
 			})
 			if err != nil {
 				slog.Error("activity: failed to record description change",
@@ -286,6 +296,116 @@ func registerActivityListeners(bus *events.Bus, queries *db.Queries) {
 	bus.Subscribe(protocol.EventTaskFailed, func(e events.Event) {
 		handleTaskActivity(ctx, bus, queries, e, "task_failed")
 	})
+}
+
+// Activity publication happens after the insert commits. Delivery uses the
+// persisted row's identity and details, so the notice and its marks refer to
+// precisely the timeline entry viewers see.
+func registerIssueChangeInputListener(bus *events.Bus, queries *db.Queries, runInputs *service.RunInputService) {
+	bus.Subscribe(protocol.EventActivityCreated, func(e events.Event) {
+		payload, ok := e.Payload.(map[string]any)
+		if !ok {
+			return
+		}
+		entry, ok := payload["entry"].(map[string]any)
+		if !ok {
+			return
+		}
+		action, _ := entry["action"].(string)
+		field := ""
+		switch action {
+		case "status_changed", "duplicate_marked", "duplicate_unmarked":
+			field = "status"
+		case "priority_changed":
+			field = "priority"
+		case "assignee_changed":
+			field = "assignee"
+		case "start_date_changed":
+			field = "start date"
+		case "due_date_changed":
+			field = "due date"
+		case "title_changed":
+			field = "title"
+		case "description_updated":
+			field = "description"
+		default:
+			return
+		}
+		body, ok := entry["details"].(json.RawMessage)
+		if !ok {
+			return
+		}
+		var details map[string]string
+		if err := json.Unmarshal(body, &details); err != nil {
+			slog.Error("activity: invalid issue change details", "action", action, "error", err)
+			return
+		}
+		if (action == "duplicate_marked" || action == "duplicate_unmarked") && details["to"] == "" {
+			return
+		}
+		from, to := details["from"], details["to"]
+		if field == "status" || field == "priority" {
+			from, to = activityValueLabel(from), activityValueLabel(to)
+		}
+		if field == "assignee" {
+			from = activityIdentityName(context.Background(), queries, details["from_type"], details["from_id"])
+			to = activityIdentityName(context.Background(), queries, details["to_type"], details["to_id"])
+		}
+		actor := activityIdentityName(context.Background(), queries, e.ActorType, e.ActorID)
+		content := fmt.Sprintf("%s changed the %s from %s to %s", actor, field, from, to)
+		issueID, _ := payload["issue_id"].(string)
+		itemID, _ := entry["id"].(string)
+		if _, err := runInputs.Deliver(context.Background(), []pgtype.UUID{parseUUID(issueID)},
+			service.RunInputActor{Type: e.ActorType, ID: optionalUUID(e.ActorID)},
+			service.RunInputItem{WorkspaceID: parseUUID(e.WorkspaceID), Kind: "issue_change", ID: parseUUID(itemID), Content: content}, nil); err != nil {
+			slog.Error("activity: run input delivery failed", "issue_id", issueID, "activity_id", itemID, "error", err)
+		}
+	})
+}
+
+func activityValueLabel(value string) string {
+	words := strings.Fields(strings.ReplaceAll(value, "_", " "))
+	for i, word := range words {
+		runes := []rune(word)
+		runes[0] = unicode.ToUpper(runes[0])
+		words[i] = string(runes)
+	}
+	return strings.Join(words, " ")
+}
+
+func activityIdentityName(ctx context.Context, queries *db.Queries, kind, id string) string {
+	if id == "" {
+		if kind == "system" {
+			return "System"
+		}
+		return "Unassigned"
+	}
+	uuid, err := util.ParseUUID(id)
+	if err == nil {
+		switch kind {
+		case "member":
+			var user db.User
+			user, err = queries.GetUser(ctx, uuid)
+			if err == nil {
+				return user.Name
+			}
+		case "agent":
+			var agent db.Agent
+			agent, err = queries.GetAgent(ctx, uuid)
+			if err == nil {
+				return agent.Name
+			}
+		case "squad":
+			var squad db.Squad
+			squad, err = queries.GetSquad(ctx, uuid)
+			if err == nil {
+				return squad.Name
+			}
+		}
+	}
+	// A removed assignee still has an identity in the persisted change.
+	slog.Warn("activity: name unavailable", "actor_type", kind, "actor_id", id, "error", err)
+	return id
 }
 
 // handleTaskActivity records an activity for task:completed or task:failed events.
@@ -369,6 +489,10 @@ func recordDuplicateMarkActivities(ctx context.Context, bus *events.Bus, queries
 	prev := derefPayloadString(payload["prev_duplicate_of_issue_id"])
 	statusChanged, _ := payload["status_changed"].(bool)
 	record := func(issueID, action string, details map[string]string) bool {
+		if issueID == issue.ID && statusChanged {
+			details["from"], _ = payload["prev_status"].(string)
+			details["to"] = issue.Status
+		}
 		body, _ := json.Marshal(details)
 		activity, err := queries.CreateActivity(ctx, db.CreateActivityParams{
 			ID:          dbid.NewV7(),

@@ -431,6 +431,7 @@ func main() {
 	daemonHub := daemonws.NewHub()
 	var daemonWakeup interface {
 		service.TaskWakeupNotifier
+		service.RunInputNotifier
 		handler.RuntimeGoneNotifier
 	} = daemonHub
 	// Nil unless a Redis relay is running: without one there is only one
@@ -613,7 +614,7 @@ func main() {
 	// The notification listener queries the subscriber table to determine recipients,
 	// so subscribers must be written first within the same synchronous event dispatch.
 	registerSubscriberListeners(bus, pool)
-	registerActivityListeners(bus, queries)
+	registerActivityListeners(bus, queries, &service.RunInputService{Queries: queries, Notifier: daemonWakeup})
 	registerNotificationListeners(bus, queries)
 
 	metricsConfig := obsmetrics.ConfigFromEnv()

@@ -21,6 +21,7 @@ import (
 	"github.com/multica-ai/multica/server/internal/auth"
 	"github.com/multica-ai/multica/server/internal/events"
 	"github.com/multica-ai/multica/server/internal/realtime"
+	"github.com/multica-ai/multica/server/internal/service"
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
 )
 
@@ -73,7 +74,8 @@ func TestMain(m *testing.M) {
 	bus := events.New()
 	registerListeners(bus, hub)
 	// Same wiring as main.go: HTTP writes through the test server log activity.
-	registerActivityListeners(bus, db.New(pool))
+	queries := db.New(pool)
+	registerActivityListeners(bus, queries, &service.RunInputService{Queries: queries})
 	router := NewRouter(pool, hub, bus, analytics.NoopClient{}, nil)
 	testServer = httptest.NewServer(router)
 
