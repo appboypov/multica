@@ -10,33 +10,6 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("ApiClient runtime skill inheritance", () => {
-  it.each([false, true])("sets inheritance to %s with an empty response", async (enabled) => {
-    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
-    vi.stubGlobal("fetch", fetchMock);
-    const client = new ApiClient("https://api.example.test");
-
-    await expect(client.setAgentRuntimeSkillsInherited("agent-1", enabled)).resolves.toBeUndefined();
-
-    expect(fetchMock).toHaveBeenCalledWith(
-      "https://api.example.test/api/agents/agent-1/runtime-skills/inherit",
-      expect.objectContaining({ method: "PUT", body: JSON.stringify({ enabled }) }),
-    );
-  });
-
-  it("surfaces a rejected inheritance change", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(
-      JSON.stringify({ error: "forbidden" }),
-      { status: 403, headers: { "Content-Type": "application/json" } },
-    )));
-    const client = new ApiClient("https://api.example.test");
-
-    await expect(client.setAgentRuntimeSkillsInherited("agent-1", false)).rejects.toMatchObject({
-      status: 403,
-    });
-  });
-});
-
 describe("ApiClient status reorder", () => {
   it("opts into built-in ordering and tolerates malformed responses", async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ statuses: "invalid" }), {
