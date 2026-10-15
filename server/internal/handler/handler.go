@@ -213,6 +213,7 @@ type Handler struct {
 	Bus                    *events.Bus
 	TaskService            *service.TaskService
 	QuestionService        *service.QuestionService
+	RunInputService        *service.RunInputService
 	PluginService          *service.PluginService
 	IssueService           *service.IssueService
 	AutopilotService       *service.AutopilotService
@@ -486,6 +487,10 @@ func New(queries *db.Queries, txStarter txStarter, hub *realtime.Hub, bus *event
 	// backs auto-titling. A deployment with no MULTICA_LLM_* configuration gets
 	// a disabled client, which turns the feature off rather than failing.
 	taskSvc.QuickActions = llmClient
+	runInputs := &service.RunInputService{Queries: queries}
+	if daemonHub != nil {
+		runInputs.Notifier = daemonHub
+	}
 	h := &Handler{
 		Queries:                      queries,
 		ReadSelector:                 dbreader.NewPrimaryOnly(queries),
@@ -498,7 +503,8 @@ func New(queries *db.Queries, txStarter txStarter, hub *realtime.Hub, bus *event
 		DaemonRuntimeGone:            daemonRuntimeGone,
 		Bus:                          bus,
 		TaskService:                  taskSvc,
-		QuestionService:              &service.QuestionService{Queries: queries, TxStarter: txStarter, Bus: bus, Tasks: taskSvc},
+		QuestionService:              &service.QuestionService{Queries: queries, TxStarter: txStarter, Bus: bus, Tasks: taskSvc, RunInputs: runInputs},
+		RunInputService:              runInputs,
 		PluginService:                service.NewPluginService(queries, txStarter),
 		IssueService:                 service.NewIssueService(queries, txStarter, bus, analyticsClient, taskSvc),
 		AutopilotService:             service.NewAutopilotService(queries, txStarter, bus, taskSvc),

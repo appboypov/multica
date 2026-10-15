@@ -138,6 +138,7 @@ type QuestionService struct {
 	TxStarter TxStarter
 	Bus       *events.Bus
 	Tasks     *TaskService
+	RunInputs *RunInputService
 }
 
 func questionText(t pgtype.Text) *string {
@@ -566,11 +567,73 @@ func (s *QuestionService) mutate(ctx context.Context, workspaceID, questionID pg
 	if err != nil {
 		return QuestionDTO{}, err
 	}
+	var input RunInputItem
+	var issueIDs []pgtype.UUID
+	if s.RunInputs != nil && (reason == "answered" || reason == "answer_edited" || reason == "ask_back") {
+		input, issueIDs, err = s.runInputForQuestion(ctx, q, row, result[0], actor, reason, eventID)
+		if err != nil {
+			return QuestionDTO{}, err
+		}
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return QuestionDTO{}, err
 	}
+	if len(issueIDs) > 0 {
+		if _, err := s.RunInputs.Deliver(ctx, issueIDs, RunInputActor{Type: actor.Type, ID: actor.ID}, input, nil); err != nil {
+			// The answer is committed; a delivery error must not invite a
+			// second answer write. The durable question remains available.
+			slog.Error("question run input delivery failed", "question_id", result[0].ID, "event_id", eventID, "error", err)
+		}
+	}
 	s.publish(ctx, result[0], actor, reason, eventID)
 	return result[0], nil
+}
+
+func (s *QuestionService) runInputForQuestion(ctx context.Context, q *db.Queries, row db.Question, dto QuestionDTO, actor QuestionActor, reason, eventID string) (RunInputItem, []pgtype.UUID, error) {
+	user, err := q.GetUser(ctx, actor.ID)
+	if err != nil {
+		return RunInputItem{}, nil, err
+	}
+	asker, err := q.GetAgentInWorkspace(ctx, db.GetAgentInWorkspaceParams{ID: row.AskerAgentID, WorkspaceID: row.WorkspaceID})
+	if err != nil {
+		return RunInputItem{}, nil, err
+	}
+	id, err := util.ParseUUID(eventID)
+	if err != nil {
+		return RunInputItem{}, nil, err
+	}
+	content := ""
+	if reason == "ask_back" {
+		for _, event := range dto.Events {
+			if event.ID == eventID {
+				var reply struct {
+					Text string `json:"text"`
+				}
+				if err := json.Unmarshal(event.Details, &reply); err != nil {
+					return RunInputItem{}, nil, err
+				}
+				content = fmt.Sprintf("%s asks back: %s (question %q by %s)", user.Name, reply.Text, row.Prompt, asker.Name)
+				break
+			}
+		}
+	} else {
+		for _, answer := range dto.Answers {
+			if answer.AnswererUserID != util.UUIDToString(actor.ID) {
+				continue
+			}
+			verb := "answered"
+			if reason == "answer_edited" {
+				verb = "changed the answer to"
+			}
+			content = fmt.Sprintf("%s %s %s's question %q: %s", user.Name, verb, asker.Name, row.Prompt, answer.DisplayText)
+			if answer.Note != nil && *answer.Note != "" {
+				content += "\n" + *answer.Note
+			}
+			break
+		}
+	}
+	issueIDs, err := s.CardIssueIDs(ctx, q, row.WorkspaceID, []pgtype.UUID{row.ID})
+	return RunInputItem{WorkspaceID: row.WorkspaceID, Kind: "answer", ID: id, Content: content}, issueIDs, err
 }
 
 // recomputeStatus is called only for live questions while their row is locked.
