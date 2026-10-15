@@ -11,7 +11,7 @@ import { renderWithI18n } from "../../test/i18n";
 // edit, so on anyone else's comment Resolve leads the menu.
 
 vi.mock("@multica/core/api", () => ({
-  api: { uploadFile: vi.fn() },
+  api: { uploadFile: vi.fn(), listTasksByIssue: vi.fn().mockResolvedValue([]) },
   dispatchReasonCode: () => undefined,
   errorCode: () => undefined,
 }));
@@ -23,6 +23,8 @@ vi.mock("../../navigation", () => ({
     getShareableUrl: (p: string) => `https://app.example${p}`,
   }),
 }));
+
+vi.mock("@multica/core/hooks", () => ({ useWorkspaceId: () => "workspace" }));
 
 vi.mock("@multica/core/workspace/hooks", () => ({
   useActorName: () => ({ getActorName: () => "Ada" }),

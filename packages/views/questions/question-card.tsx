@@ -136,7 +136,8 @@ function FoldedQuestion({ question, issueId, hideWake, onEdit }: { question: Que
   const Icon = answer ? CircleCheck : CircleSlash;
 
   return (
-    <div className="flex min-h-12 min-w-0 items-center gap-2 rounded-xl border bg-card px-3.5 py-1.5 text-body" data-question-state={question.status}>
+    <div className="min-w-0 rounded-xl border bg-card px-3.5 py-1.5 text-body" data-question-state={question.status}>
+      <div className="flex min-h-9 min-w-0 items-center gap-2">
       <Icon aria-hidden className={cn("size-4 shrink-0", answer ? "text-success" : "text-muted-foreground")} />
       {/* The prompt grows from nothing into the room the answer leaves, up to its own width,
           so it truncates first; the answer keeps its width until it alone no longer fits. */}
@@ -148,7 +149,6 @@ function FoldedQuestion({ question, issueId, hideWake, onEdit }: { question: Que
           <span className="shrink-0 text-caption text-muted-foreground">
             · {t(($) => $.card.answered_by, { name: getActorName("member", answer.answerer_user_id), time: timeAgo(answer.updated_at) })}
           </span>
-          <RunInputMarks marks={answer.run_marks} className="shrink-0 flex-nowrap" />
         </>
       ) : (
         <span className="min-w-0 truncate font-medium">
@@ -164,6 +164,8 @@ function FoldedQuestion({ question, issueId, hideWake, onEdit }: { question: Que
         )}
         {!hideWake && <WakeButtons questions={[question]} issueId={issueId} />}
       </span>
+      </div>
+      <RunInputMarks marks={answer?.run_marks} className="mt-1.5" />
     </div>
   );
 }

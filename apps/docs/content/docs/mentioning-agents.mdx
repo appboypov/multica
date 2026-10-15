@@ -47,7 +47,7 @@ Replies stay with the target agent even while its runtime is offline or busy. Mu
 
 ## Coalescing consecutive comments
 
-When the same agent already has a waiting run on the issue, new consecutive comments merge into the pending run; if the agent is already running, later comments wait for the current run to finish and merge into a single follow-up run. You can keep adding information without waiting for the agent to reply.
+When the same agent already has a waiting run on the issue, new consecutive comments merge into the pending run. A running agent receives comments as notices when its runtime supports [input while running](/comments#when-an-agent-is-already-running); comments for it without ✅ merge into a follow-up run when it ends. On other runtimes, later comments wait for the current run to finish and merge into a single follow-up run. You can keep adding information without waiting for the agent to reply.
 
 When one comment @-mentions several different agents, each agent gets its own run; multiple mentions resolving to the same agent keep only one.
 

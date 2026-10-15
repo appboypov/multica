@@ -329,18 +329,20 @@ function TabbedQuestionSet({ questions, issueId, runNumber, activeQuestionId }: 
             const Icon = shown ? CircleCheck : CircleSlash;
             const canChange = !!own && (question.status === "answered" || question.status === "partly_answered") && question.answer_type !== "unknown";
             return (
-              <div key={question.id} className="flex min-h-10 min-w-0 items-center gap-2 rounded-lg bg-muted px-3 py-1.5 text-body" data-question-state={question.status}>
+              <div key={question.id} className="min-w-0 rounded-lg bg-muted px-3 py-1.5 text-body" data-question-state={question.status}>
+                <div className="flex min-h-7 min-w-0 items-center gap-2">
                 <Icon aria-hidden className={cn("size-4 shrink-0", shown ? "text-success" : "text-muted-foreground")} />
                 <span className="min-w-0 max-w-max grow basis-0 truncate font-medium" title={question.prompt}>{question.prompt}</span>
                 <span className="min-w-0 truncate text-caption text-muted-foreground">
                   {shown ? shown.display_text : question.status === "withdrawn" ? t(($) => $.card.withdrawn) : t(($) => $.card.closed)}
                 </span>
-                {shown && <RunInputMarks marks={shown.run_marks} className="shrink-0 flex-nowrap" />}
                 {canChange && (
                   <Button type="button" variant="ghost" size="sm" className="ml-auto shrink-0" onClick={() => startEdit(index)}>
                     {t(($) => $.set.change)}
                   </Button>
                 )}
+                </div>
+                <RunInputMarks marks={shown?.run_marks} className="mt-1.5" />
               </div>
             );
           }

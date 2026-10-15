@@ -101,8 +101,8 @@ Not a journey change: no journey steps. Team Backend (Joeri) owns groups 1 to 6 
 
 ## 9. Docs and living view
 
-- [ ] 9.1 `apps/docs/content/docs/comments.mdx`, `cli.mdx` -- comments, edits, answers and issue changes reach running agents as notices, the 👀 and ✅ marks, `multica issue react`.
-- [ ] 9.2 `specs/docs/system-design.md` -- add `RunInputService`, the react endpoint, the omp RPC path and the receipt columns to the Go server, daemon and models views.
+- [x] 9.1 `apps/docs/content/docs/comments.mdx`, `cli.mdx` -- comments, edits, answers and issue changes reach running agents as notices, the 👀 and ✅ marks, `multica issue react`.
+- [x] 9.2 `specs/docs/system-design.md` -- add `RunInputService`, the react endpoint, the omp RPC path and the receipt columns to the Go server, daemon and models views.
 
 ## Implementation Notes
 
