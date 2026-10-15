@@ -15,7 +15,7 @@ Sending, partly sending or editing an answer MUST NOT queue or start any agent r
 - **THEN** no run is queued for Pieter or any other agent
 
 ### Requirement: Wake the asking agent from the answered card
-Once a question has an answer its asking agent has not seen, its answered card SHALL offer **Wake** for that agent, named after it, such as **Wake Pieter**.
+Once a question has an answer its asking agent has not seen, its answered card SHALL offer **Wake** for that agent, named after it, such as **Wake Pieter**. An answer the agent marked ✅ in a run that received it counts as seen.
 
 #### Scenario: Wake offered after the answer
 - **GIVEN** Brian answered Pieter's question on WORK-412 and Pieter has had no run since
@@ -27,8 +27,18 @@ Once a question has an answer its asking agent has not seen, its answered card S
 - **WHEN** Brian looks at the folded card
 - **THEN** it offers no **Wake Pieter**
 
+#### Scenario: No Wake once the running agent marked the answer ✅
+- **GIVEN** Pieter's run on WORK-412 was running when Brian answered, received the answer and marked it ✅
+- **WHEN** the run ends and Brian looks at the folded card
+- **THEN** it offers no **Wake Pieter**
+
+#### Scenario: Wake after a run that left the answer without ✅
+- **GIVEN** Pieter's run on WORK-412 received Brian's answer and marked it 👀 only
+- **WHEN** the run ends and Brian looks at the folded card
+- **THEN** it offers **Wake Pieter**
+
 ### Requirement: A woken run gets the answers it has not seen
-A run started by **Wake** SHALL start with every answer given since the claim of that agent's latest started run on the question's links outside its retry ancestor chain, and the issue's timeline SHALL record who woke whom with how many answers.
+A run started by **Wake** SHALL start with every answer given since the claim of that agent's latest started run on the question's links outside its retry ancestor chain, leaving out each answer that agent marked ✅ in a run that received it, and the issue's timeline SHALL record who woke whom with how many answers.
 
 #### Scenario: Brian wakes Pieter
 - **GIVEN** Brian answered Pieter's question on WORK-412 with "per line"
@@ -56,6 +66,12 @@ A run started by **Wake** SHALL start with every answer given since the claim of
 - **GIVEN** Brian answered Pieter and the woken run was claimed
 - **WHEN** that claim fails before the agent starts and no retry is queued
 - **THEN** the answer remains unseen and **Wake Pieter** is available
+
+#### Scenario: Wake leaves out the answer marked ✅
+- **GIVEN** Pieter's running run received and marked ✅ Brian's first answer, and Brian answered a second question of the set after that run ended
+- **WHEN** Brian presses **Wake Pieter**
+- **THEN** the new run starts with only the second answer
+- **AND** the timeline reads "Pieter was woken by Brian with 1 answer"
 
 ### Requirement: Wake from a question set's footer
 Once any question of a set has an answer its asking agent has not seen, the set's footer SHALL offer **Wake** for that agent, also while other questions of the set are open, and the woken run SHALL get every answer of the set given since that agent's last run.
