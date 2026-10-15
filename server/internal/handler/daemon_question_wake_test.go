@@ -349,3 +349,146 @@ func TestQuestionWake_QueuedClaimConsumesWaitAndPostClaimInputFollowsUp(t *testi
 		})
 	}
 }
+
+func claimChatQuestionTask(t *testing.T, fx questionAPIFixture) *AgentTaskResponse {
+	t.Helper()
+	r := withURLParam(newDaemonTokenRequest("POST", "/", nil, testWorkspaceID, "chat-question-claim"), "runtimeId", fx.RuntimeID)
+	var out struct {
+		Task *AgentTaskResponse `json:"task"`
+	}
+	testutil.Call(t, testHandler.ClaimTaskByRuntime, r).Want(200).JSON(&out)
+	if out.Task == nil {
+		t.Fatal("missing chat task")
+	}
+	return out.Task
+}
+
+func TestClaim_ChatQuestionsFollowWorkspaceDefault(t *testing.T) {
+	var original []byte
+	dbfx.QueryRow(t, "SELECT settings FROM workspace WHERE id=$1", testWorkspaceID).Scan(&original)
+	t.Cleanup(func() {
+		dbfx.Exec(t, "UPDATE workspace SET settings=$2 WHERE id=$1", testWorkspaceID, original)
+	})
+	for _, tc := range []struct {
+		name    string
+		setting string
+		channel bool
+		want    bool
+	}{
+		{"absent is on", `{}`, false, true},
+		{"on", `{"agent_questions":true}`, false, true},
+		{"off", `{"agent_questions":false}`, false, false},
+		{"channel stays off", `{"agent_questions":true}`, true, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dbfx.Exec(t, "UPDATE workspace SET settings=$2::jsonb WHERE id=$1", testWorkspaceID, tc.setting)
+			fx, sessionID := newChatQuestionAPIFixture(t)
+			dbfx.Exec(t, "UPDATE agent_task_queue SET status='completed',completed_at=now() WHERE id=$1", fx.TaskID)
+			cols := testutil.Cols{"runtime_id": fx.RuntimeID, "chat_session_id": sessionID, "status": "queued"}
+			message := testutil.Cols{"chat_session_id": sessionID, "role": "user", "content": "Continue"}
+			if tc.channel {
+				cols["channel_context_revision"] = int64(1)
+				message["channel_context_revision"] = int64(1)
+			}
+			taskID := dbfx.Task(t, fx.AgentID, cols)
+			dbfx.Exec(t, "UPDATE agent_task_queue SET chat_input_task_id=id WHERE id=$1", taskID)
+			message["task_id"] = taskID
+			dbfx.Insert(t, "chat_message", message)
+			task := claimChatQuestionTask(t, fx)
+			if task.ID != taskID || task.QuestionsEnabled != tc.want {
+				t.Fatalf("claim questions_enabled=%v task=%s, want %v task=%s", task.QuestionsEnabled, task.ID, tc.want, taskID)
+			}
+			var stored bool
+			dbfx.QueryRow(t, "SELECT questions_enabled FROM agent_task_queue WHERE id=$1", taskID).Scan(&stored)
+			if stored != tc.want {
+				t.Fatalf("persisted questions_enabled=%v, want %v", stored, tc.want)
+			}
+		})
+	}
+}
+
+func TestClaim_ChatQuestionWakeCarriesAnswersCancelAndRetryChain(t *testing.T) {
+	fx, sessionID := newChatQuestionAPIFixture(t)
+	body := questionAskBody(testUserID)
+	body["title"] = "Invoice decisions"
+	body["questions"] = []map[string]any{
+		{"prompt": "First?", "answer_type": "text", "settings": map[string]any{"length": "short"}},
+		{"prompt": "Second?", "answer_type": "text", "settings": map[string]any{"length": "short"}},
+		{"prompt": "Third?", "answer_type": "text", "settings": map[string]any{"length": "short"}},
+	}
+	var ask service.QuestionAskResult
+	testutil.Call(t, testHandler.AskQuestion, fx.agentRequest("POST", "", body)).Want(201).JSON(&ask)
+	dbfx.Exec(t, "UPDATE agent_task_queue SET status='completed',completed_at=now() WHERE id=$1", fx.TaskID)
+	for i, value := range []string{"per line", "EUR"} {
+		testutil.Call(t, testHandler.AnswerQuestion, withURLParam(newRequest("POST", "/", map[string]any{
+			"value": map[string]any{"text": value},
+		}), "id", ask.Questions[i].ID)).Want(200)
+	}
+	testutil.Call(t, testHandler.CancelQuestion, withURLParam(newRequest("POST", "/", map[string]any{
+		"note": "already decided in the PRD", "wake": true,
+	}), "id", ask.Questions[2].ID)).Want(200)
+	if n := dbfx.Count(t, "SELECT count(*) FROM chat_message WHERE chat_session_id=$1", sessionID); n != 0 {
+		t.Fatalf("wake manufactured %d chat messages", n)
+	}
+	var expectedID string
+	dbfx.QueryRow(t, "SELECT id::text FROM agent_task_queue WHERE chat_session_id=$1 AND status='queued'", sessionID).Scan(&expectedID)
+	// An unrelated issue run must not advance the chat cutoff.
+	dbfx.Task(t, fx.AgentID, testutil.Cols{
+		"runtime_id": fx.RuntimeID, "issue_id": fx.IssueID, "status": "completed",
+		"started_at": testutil.Raw("now()+interval '1 hour'"), "dispatched_at": testutil.Raw("now()+interval '1 hour'"),
+	})
+	for attempt := 1; attempt <= 3; attempt++ {
+		task := claimChatQuestionTask(t, fx)
+		if task.ID != expectedID || task.ChatSessionID != sessionID || task.ChatMessage != "" {
+			t.Fatalf("attempt %d wrong chat wake: %+v", attempt, task)
+		}
+		qa := task.QuestionAnswers
+		if qa == nil || qa.AnswerCount != 3 || len(qa.Answers) != 2 || len(qa.Cancels) != 1 || len(qa.AskBacks) != 0 {
+			t.Fatalf("attempt %d payload: %+v", attempt, qa)
+		}
+		if qa.Answers[0].DisplayText != "per line" || qa.Answers[1].DisplayText != "EUR" {
+			t.Fatalf("answers: %+v", qa.Answers)
+		}
+		cancel := qa.Cancels[0]
+		if cancel.QuestionID != ask.Questions[2].ID || cancel.Note != "already decided in the PRD" || cancel.ActorName != handlerTestName || cancel.CreatedAt == "" || cancel.AskerAgentID != fx.AgentID {
+			t.Fatalf("cancel: %+v", cancel)
+		}
+		dbfx.Exec(t, "UPDATE agent_task_queue SET status='failed',started_at=clock_timestamp(),completed_at=clock_timestamp() WHERE id=$1", task.ID)
+		if attempt < 3 {
+			expectedID = dbfx.Task(t, fx.AgentID, testutil.Cols{
+				"runtime_id": fx.RuntimeID, "chat_session_id": sessionID, "status": "queued",
+				"trigger_evidence_kind": service.ActivityQuestionWake, "retry_of_task_id": task.ID,
+				"parent_task_id": task.ID, "attempt": attempt + 1,
+			})
+			dbfx.Exec(t, "UPDATE agent_task_queue SET chat_input_task_id=id WHERE id=$1", expectedID)
+		}
+	}
+}
+
+func TestClaim_ChatMessageCarriesUnseenAnswerAndLeavesQuestionsOpen(t *testing.T) {
+	fx, sessionID := newChatQuestionAPIFixture(t)
+	id := askQuestionForTest(t, fx)
+	openID := askQuestionForTest(t, fx)
+	dbfx.Exec(t, "UPDATE agent_task_queue SET status='completed',completed_at=now() WHERE id=$1", fx.TaskID)
+	testutil.Call(t, testHandler.AnswerQuestion, withURLParam(newRequest("POST", "/", map[string]any{
+		"value": map[string]any{"option": "per line"},
+	}), "id", id)).Want(200)
+	req := withChatTestWorkspaceCtx(t, withURLParam(newRequest("POST", "/", map[string]any{"content": "Continue with these answers"}), "sessionId", sessionID))
+	var sent SendChatMessageResponse
+	testutil.Call(t, testHandler.SendChatMessage, req).Want(201).JSON(&sent)
+	task := claimChatQuestionTask(t, fx)
+	if task.ID != sent.TaskID || task.ChatMessage != "Continue with these answers" || task.QuestionAnswers == nil || len(task.QuestionAnswers.Answers) != 1 || task.QuestionAnswers.Answers[0].QuestionID != id {
+		t.Fatalf("message turn lost unseen answer: %+v", task)
+	}
+	var status string
+	dbfx.QueryRow(t, "SELECT status FROM question WHERE id=$1", openID).Scan(&status)
+	if status != "open" {
+		t.Fatalf("message ended open question: %s", status)
+	}
+	dbfx.Exec(t, "UPDATE agent_task_queue SET status='completed',started_at=clock_timestamp(),completed_at=clock_timestamp() WHERE id=$1", task.ID)
+	var question service.QuestionDTO
+	testutil.Call(t, testHandler.GetQuestion, withURLParam(newRequest("GET", "/", nil), "id", id)).Want(200).JSON(&question)
+	if question.WakeAvailable || question.UnseenAnswerCount != 0 {
+		t.Fatalf("started message turn did not consume answer: %+v", question)
+	}
+}

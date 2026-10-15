@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/multica-ai/multica/server/internal/middleware"
+	"github.com/multica-ai/multica/server/internal/service"
+	"github.com/multica-ai/multica/server/internal/testutil"
 	"github.com/multica-ai/multica/server/internal/util"
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
 )
@@ -961,5 +963,45 @@ func TestListChatSessions_ArchivedSessionReportsZeroUnread(t *testing.T) {
 	archive(false)
 	if n, has := unreadOf(); n != 1 || !has {
 		t.Fatalf("unarchived session unread: want count=1 has=true, got count=%d has=%v", n, has)
+	}
+}
+
+func TestListChatQuestions_CreatorOnly(t *testing.T) {
+	fx, sessionID := newChatQuestionAPIFixture(t)
+	id := askQuestionForTest(t, fx)
+	request := func() *http.Request {
+		return withChatTestWorkspaceCtx(t, withURLParam(newRequest("GET", "/", nil), "sessionId", sessionID))
+	}
+	var out []service.QuestionDTO
+	testutil.Call(t, testHandler.ListChatQuestions, request()).Want(200).JSON(&out)
+	if len(out) != 1 || out[0].ID != id || out[0].AskedInTaskID != fx.TaskID {
+		t.Fatalf("chat questions: %+v", out)
+	}
+	other := dbfx.User(t, "Other chat member", "question-chat-other@multica.test")
+	dbfx.Member(t, testWorkspaceID, other, "member")
+	r := request()
+	r.Header.Set("X-User-ID", other)
+	testutil.Call(t, testHandler.ListChatQuestions, r).Want(403)
+}
+
+func TestDeleteChatSession_DropsQuestionChatAndRunLinks(t *testing.T) {
+	fx, sessionID := newChatQuestionAPIFixture(t)
+	unlinkedID := askQuestionForTest(t, fx)
+	body := questionAskBody(testUserID)
+	body["links"] = []map[string]any{{"type": "issue", "id": fx.IssueID}}
+	var ask service.QuestionAskResult
+	testutil.Call(t, testHandler.AskQuestion, fx.agentRequest("POST", "", body)).Want(201).JSON(&ask)
+	linkedID := ask.Questions[0].ID
+	req := withChatTestWorkspaceCtx(t, withURLParam(newRequest("DELETE", "/", nil), "sessionId", sessionID))
+	testutil.Call(t, testHandler.DeleteChatSession, req).Want(204)
+	for _, item := range []struct{ id, status string }{{unlinkedID, "withdrawn"}, {linkedID, "open"}} {
+		var status string
+		dbfx.QueryRow(t, "SELECT status FROM question WHERE id=$1", item.id).Scan(&status)
+		if status != item.status {
+			t.Fatalf("question %s status=%s, want %s", item.id, status, item.status)
+		}
+		if n := dbfx.Count(t, "SELECT count(*) FROM question_link WHERE question_id=$1 AND link_type IN ('chat','task')", item.id); n != 0 {
+			t.Fatalf("question %s retained %d deleted chat/run links", item.id, n)
+		}
 	}
 }

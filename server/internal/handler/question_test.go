@@ -79,6 +79,43 @@ func TestQuestionAPI_MemberNeedsIssueLink(t *testing.T) {
 	testutil.Call(t, testHandler.AskQuestion, newRequest("POST", "/api/questions", questionAskBody(testUserID))).Want(422)
 }
 
+func newChatQuestionAPIFixture(t *testing.T) (questionAPIFixture, string) {
+	t.Helper()
+	fx := newQuestionAPIFixture(t)
+	sessionID := dbfx.ChatSession(t, fx.AgentID, testutil.Cols{"runtime_id": fx.RuntimeID})
+	dbfx.Exec(t, `UPDATE agent_task_queue SET issue_id=NULL, chat_session_id=$2,
+		dispatched_at=now()-interval '1 hour' WHERE id=$1`, fx.TaskID, sessionID)
+	return fx, sessionID
+}
+
+func TestQuestionAPI_CancelAuthorizationAndResponse(t *testing.T) {
+	fx := newQuestionAPIFixture(t)
+	id := askQuestionForTest(t, fx)
+	body := map[string]any{"note": "already decided in the PRD"}
+	outsider := dbfx.User(t, "Other canceller", "question-cancel-other@multica.test")
+	dbfx.Member(t, testWorkspaceID, outsider, "member")
+	r := withURLParam(newRequest("POST", "/", body), "id", id)
+	r.Header.Set("X-User-ID", outsider)
+	testutil.Call(t, testHandler.CancelQuestion, r).Want(403)
+	testutil.Call(t, testHandler.CancelQuestion, fx.agentRequest("POST", id, body)).Want(403)
+	testutil.Call(t, testHandler.CancelQuestion, withURLParam(newRequest("POST", "/", body), "id", "bad")).Want(400)
+	var out service.QuestionDTO
+	testutil.Call(t, testHandler.CancelQuestion, withURLParam(newRequest("POST", "/", body), "id", id)).Want(200).JSON(&out)
+	if out.ID != id || out.Status != "cancelled" {
+		t.Fatalf("cancel response: %+v", out)
+	}
+	var kind, note, actor string
+	dbfx.QueryRow(t, `SELECT kind, details->>'note', actor_id::text
+		FROM question_event WHERE question_id=$1 AND kind='cancelled'`, id).Scan(&kind, &note, &actor)
+	if kind != "cancelled" || note != body["note"] || actor != testUserID {
+		t.Fatalf("cancel event: %s %s %s", kind, note, actor)
+	}
+	if n := dbfx.Count(t, "SELECT count(*) FROM agent_task_queue WHERE agent_id=$1 AND status='queued'", fx.AgentID); n != 0 {
+		t.Fatalf("unchecked cancel queued %d tasks", n)
+	}
+}
+
+
 func TestQuestionAPI_AgentAnswererRejectedByName(t *testing.T) {
 	fx := newQuestionAPIFixture(t)
 	joeri := dbfx.Agent(t, "Joeri", fx.RuntimeID)
