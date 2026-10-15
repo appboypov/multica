@@ -11,12 +11,16 @@ WITH selected AS (
            q.answer_type, q.settings, q.status, q.answer_policy,
            q.asker_agent_id, q.asker_user_id, q.due_date, q.blocks_work, q.created_at,
            l.link_type, l.link_id,
+           chat.creator_id AS link_member_id,
            a.value AS my_answer_value, a.updated_at AS my_answer_updated_at
     FROM question q
     JOIN question_link l
       ON l.question_id = q.id
      AND l.workspace_id = q.workspace_id
      AND l.position = 0
+    LEFT JOIN chat_session chat
+      ON l.link_type = 'chat' AND chat.id = l.link_id
+     AND chat.workspace_id = q.workspace_id
     LEFT JOIN question_answer a
       ON a.question_id = q.id
      AND a.workspace_id = q.workspace_id
@@ -68,12 +72,16 @@ WITH selected AS (
            q.answer_type, q.settings, q.status, q.answer_policy,
            q.asker_agent_id, q.asker_user_id, q.due_date, q.blocks_work, q.created_at,
            l.link_type, l.link_id,
+           chat.creator_id AS link_member_id,
            a.value AS my_answer_value, a.updated_at AS my_answer_updated_at
     FROM question q
     JOIN question_link l
       ON l.question_id = q.id
      AND l.workspace_id = q.workspace_id
      AND l.position = 0
+    LEFT JOIN chat_session chat
+      ON l.link_type = 'chat' AND chat.id = l.link_id
+     AND chat.workspace_id = q.workspace_id
     LEFT JOIN question_answer a
       ON a.question_id = q.id
      AND a.workspace_id = q.workspace_id
@@ -118,6 +126,7 @@ WITH selected AS (
            q.answer_type, q.settings, q.status, q.answer_policy,
            q.asker_agent_id, q.asker_user_id, q.due_date, q.blocks_work, q.created_at,
            l.link_type, l.link_id,
+           chat.creator_id AS link_member_id,
            a.value AS my_answer_value, a.updated_at AS my_answer_updated_at
     FROM question_answer a
     JOIN question q
@@ -127,6 +136,9 @@ WITH selected AS (
       ON l.question_id = q.id
      AND l.workspace_id = q.workspace_id
      AND l.position = 0
+    LEFT JOIN chat_session chat
+      ON l.link_type = 'chat' AND chat.id = l.link_id
+     AND chat.workspace_id = q.workspace_id
     WHERE a.workspace_id = sqlc.arg('workspace_id')::uuid
       AND a.answerer_user_id = sqlc.arg('viewer_id')::uuid
       AND (COALESCE(cardinality(sqlc.narg('answer_type')::text[]), 0) = 0
@@ -222,12 +234,16 @@ WITH RECURSIVE subtree AS (
            q.answer_type, q.settings, q.status, q.answer_policy,
            q.asker_agent_id, q.asker_user_id, q.due_date, q.blocks_work, q.created_at,
            l.link_type, l.link_id,
+           chat.creator_id AS link_member_id,
            a.value AS my_answer_value, a.updated_at AS my_answer_updated_at
     FROM question q
     JOIN question_link l
       ON l.question_id = q.id
      AND l.workspace_id = q.workspace_id
      AND l.position = 0
+    LEFT JOIN chat_session chat
+      ON l.link_type = 'chat' AND chat.id = l.link_id
+     AND chat.workspace_id = q.workspace_id
     LEFT JOIN question_answer a
       ON a.question_id = q.id
      AND a.workspace_id = q.workspace_id
