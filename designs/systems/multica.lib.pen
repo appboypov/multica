@@ -6920,6 +6920,21 @@
                   }
                 },
                 {
+                  "id": "EEwXG",
+                  "type": "ref",
+                  "ref": "q5CDcw",
+                  "name": "Nav updates",
+                  "width": "fill_container",
+                  "descendants": {
+                    "irWtm": {
+                      "icon": "bell"
+                    },
+                    "eld4j": {
+                      "content": "Updates"
+                    }
+                  }
+                },
+                {
                   "id": "yoyy1",
                   "type": "ref",
                   "ref": "q5CDcw",
