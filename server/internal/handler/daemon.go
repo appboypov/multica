@@ -3395,13 +3395,9 @@ func (h *Handler) buildClaimedTaskResponse(r *http.Request, task *db.AgentTaskQu
 		}
 		resp.ChatMessage = strings.Join(parts, "\n\n")
 
-		// Fail closed: a task-owned direct task that resolves to no user text
-		// (and is not the agent's proactive intro) must never dispatch an
-		// empty prompt. The send path creates the owning user message in the
-		// same transaction as the task, so this only fires on genuinely
-		// corrupt state — cancel the just-dispatched task and reject the claim
-		// rather than run the agent with nothing to answer (MUL-4351).
-		if task.ChatInputTaskID.Valid && !resp.ChatIntro && strings.TrimSpace(resp.ChatMessage) == "" {
+		// Task-owned direct turns require user input unless the turn is an
+		// intro or an explicit question wake, whose input is hydrated below.
+		if task.ChatInputTaskID.Valid && !resp.ChatIntro && task.TriggerEvidenceKind.String != string(attribution.EvidenceQuestionWake) && strings.TrimSpace(resp.ChatMessage) == "" {
 			slog.Error("chat claim: task-owned direct task has no user input; cancelling",
 				"task_id", uuidToString(task.ID),
 				"chat_session_id", uuidToString(cs.ID),
@@ -3718,7 +3714,7 @@ func (h *Handler) buildClaimedTaskResponse(r *http.Request, task *db.AgentTaskQu
 		resp.InitiatorName = originator.Name
 		resp.InitiatorEmail = originator.Email
 	}
-	if task.TriggerEvidenceKind.String == string(attribution.EvidenceQuestionWake) {
+	if task.ChatSessionID.Valid || task.TriggerEvidenceKind.String == string(attribution.EvidenceQuestionWake) {
 		resp.QuestionAnswers, err = h.loadClaimQuestionAnswers(r.Context(), *task, parseUUID(resp.WorkspaceID), resp.InitiatorName)
 		if err != nil {
 			slog.Error("claim: failed to hydrate question answers", "task_id", resp.ID, "error", err)
@@ -3732,28 +3728,32 @@ func (h *Handler) buildClaimedTaskResponse(r *http.Request, task *db.AgentTaskQu
 }
 
 func (h *Handler) loadClaimQuestionAnswers(ctx context.Context, task db.AgentTaskQueue, workspaceID pgtype.UUID, wakerName string) (*protocol.QuestionAnswers, error) {
-	if !task.TriggerEvidenceKind.Valid || task.TriggerEvidenceKind.String != string(attribution.EvidenceQuestionWake) {
+	if !task.ChatSessionID.Valid && task.TriggerEvidenceKind.String != string(attribution.EvidenceQuestionWake) {
 		return nil, nil
 	}
-	if !task.IssueID.Valid {
-		return nil, errors.New("question wake has no issue")
+	wakeScope := service.QuestionWakeScope{ChatSessionID: task.ChatSessionID}
+	if !task.ChatSessionID.Valid {
+		if !task.IssueID.Valid {
+			return nil, errors.New("question wake has no issue or chat")
+		}
+		wakeScope.IssueID = task.IssueID
 	}
 	answerAnchor, err := service.QuestionWakeAnswerAnchor(task)
 	if err != nil {
 		return nil, err
 	}
-	scope, err := h.QuestionService.WakeScope(ctx, workspaceID, task.AgentID, service.QuestionWakeScope{IssueID: task.IssueID})
+	scope, err := h.QuestionService.WakeScope(ctx, workspaceID, task.AgentID, wakeScope)
 	if err != nil {
 		return nil, err
 	}
 	answers, err := h.Queries.ListUnseenQuestionAnswers(ctx, db.ListUnseenQuestionAnswersParams{
-		WorkspaceID: workspaceID, IssueID: task.IssueID, AgentID: task.AgentID, ExcludeTaskID: task.ID, QuestionIds: scope, AnswerAnchor: answerAnchor,
+		WorkspaceID: workspaceID, IssueID: wakeScope.IssueID, ChatSessionID: wakeScope.ChatSessionID, AgentID: task.AgentID, ExcludeTaskID: task.ID, QuestionIds: scope, AnswerAnchor: answerAnchor,
 	})
 	if err != nil {
 		return nil, err
 	}
-	askBacks, err := h.Queries.ListUnseenQuestionEvents(ctx, db.ListUnseenQuestionEventsParams{
-		WorkspaceID: workspaceID, IssueID: task.IssueID, AgentID: task.AgentID, ExcludeTaskID: task.ID, QuestionIds: scope, AnswerAnchor: answerAnchor,
+	questionEvents, err := h.Queries.ListUnseenQuestionEvents(ctx, db.ListUnseenQuestionEventsParams{
+		WorkspaceID: workspaceID, IssueID: wakeScope.IssueID, ChatSessionID: wakeScope.ChatSessionID, AgentID: task.AgentID, ExcludeTaskID: task.ID, QuestionIds: scope, AnswerAnchor: answerAnchor,
 	})
 	if err != nil {
 		return nil, err
@@ -3767,6 +3767,9 @@ func (h *Handler) loadClaimQuestionAnswers(ctx context.Context, task db.AgentTas
 		byQuestion[item.QuestionID] = append(byQuestion[item.QuestionID], item)
 	}
 	viaFor := func(id pgtype.UUID) *protocol.QuestionViaData {
+		if !wakeScope.IssueID.Valid {
+			return nil
+		}
 		via := service.Via(byQuestion[id], service.QuestionPageObject{Type: "issue", ID: task.IssueID})
 		if via == nil {
 			return nil
@@ -3783,7 +3786,7 @@ func (h *Handler) loadClaimQuestionAnswers(ctx context.Context, task db.AgentTas
 	result := &protocol.QuestionAnswers{
 		WakerName: wakerName, AgentID: uuidToString(task.AgentID), AnswerCount: int64(len(answers)),
 		Answers:  make([]protocol.QuestionAnswerData, 0, len(answers)),
-		AskBacks: make([]protocol.QuestionAskBackData, 0, len(askBacks)),
+		AskBacks: make([]protocol.QuestionAskBackData, 0, len(questionEvents)),
 	}
 	for _, answer := range answers {
 		result.Answers = append(result.Answers, protocol.QuestionAnswerData{
@@ -3794,18 +3797,29 @@ func (h *Handler) loadClaimQuestionAnswers(ctx context.Context, task db.AgentTas
 			UpdatedAt: answer.UpdatedAt.Time.UTC().Format(time.RFC3339Nano),
 		})
 	}
-	for _, askBack := range askBacks {
+	for _, event := range questionEvents {
 		var details struct {
 			Text string `json:"text"`
+			Note string `json:"note"`
 		}
-		if err := json.Unmarshal(askBack.Details, &details); err != nil {
+		if err := json.Unmarshal(event.Details, &details); err != nil {
 			return nil, err
 		}
-		result.AskBacks = append(result.AskBacks, protocol.QuestionAskBackData{
-			QuestionID: uuidToString(askBack.QuestionID), Prompt: askBack.Prompt, Text: details.Text,
-			AskerAgentID: uuidToString(askBack.AskerAgentID), AskerName: askBack.AskerName, Via: viaFor(askBack.QuestionID),
-			ActorName: askBack.ActorName, CreatedAt: askBack.CreatedAt.Time.UTC().Format(time.RFC3339Nano),
-		})
+		switch event.Kind {
+		case "ask_back":
+			result.AskBacks = append(result.AskBacks, protocol.QuestionAskBackData{
+				QuestionID: uuidToString(event.QuestionID), Prompt: event.Prompt, Text: details.Text,
+				AskerAgentID: uuidToString(event.AskerAgentID), AskerName: event.AskerName, Via: viaFor(event.QuestionID),
+				ActorName: event.ActorName, CreatedAt: event.CreatedAt.Time.UTC().Format(time.RFC3339Nano),
+			})
+		case "cancelled":
+			result.Cancels = append(result.Cancels, protocol.QuestionCancelData{
+				QuestionID: uuidToString(event.QuestionID), Prompt: event.Prompt, Note: details.Note,
+				AskerAgentID: uuidToString(event.AskerAgentID), AskerName: event.AskerName, Via: viaFor(event.QuestionID),
+				ActorName: event.ActorName, CreatedAt: event.CreatedAt.Time.UTC().Format(time.RFC3339Nano),
+			})
+			result.AnswerCount++
+		}
 	}
 	return result, nil
 }

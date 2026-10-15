@@ -1,12 +1,13 @@
 package protocol
 
-// QuestionAnswers carries run-scoped answers hydrated when a question wake is claimed.
+// QuestionAnswers carries run-scoped answers and events hydrated at claim.
 type QuestionAnswers struct {
 	WakerName   string                `json:"waker_name"`
 	AgentID     string                `json:"agent_id,omitempty"`
 	AnswerCount int64                 `json:"answer_count"`
 	Answers     []QuestionAnswerData  `json:"answers"`
 	AskBacks    []QuestionAskBackData `json:"ask_backs"`
+	Cancels     []QuestionCancelData  `json:"cancels,omitempty"`
 }
 
 type QuestionAnswerData struct {
@@ -28,6 +29,17 @@ type QuestionAskBackData struct {
 	Via          *QuestionViaData `json:"via,omitempty"`
 	Prompt       string           `json:"prompt"`
 	Text         string           `json:"text"`
+	ActorName    string           `json:"actor_name"`
+	CreatedAt    string           `json:"created_at"`
+}
+
+type QuestionCancelData struct {
+	QuestionID   string           `json:"question_id"`
+	AskerAgentID string           `json:"asker_agent_id,omitempty"`
+	AskerName    string           `json:"asker_name,omitempty"`
+	Via          *QuestionViaData `json:"via,omitempty"`
+	Prompt       string           `json:"prompt"`
+	Note         string           `json:"note"`
 	ActorName    string           `json:"actor_name"`
 	CreatedAt    string           `json:"created_at"`
 }
