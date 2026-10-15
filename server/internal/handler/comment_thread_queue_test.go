@@ -193,6 +193,21 @@ func TestReplyInAnotherAgentsThreadIsOnlyANotice(t *testing.T) {
 	}
 }
 
+func TestReplyUnderMalformedAgentMentionNamesTheValidOwner(t *testing.T) {
+	f := newSupplementFixture(t, "codex", "running", true)
+	skuddy := dbfx.Agent(t, "Skuddy malformed", f.runtimeID)
+	root := dbfx.Comment(t, f.issueID, "[@x](mention://agent/-) "+agentMention("Skuddy", skuddy)+" original objective")
+	dbfx.Exec(t, `UPDATE agent_task_queue SET delivered_comment_ids=ARRAY[trigger_comment_id] WHERE id=$1`, f.taskID)
+	dbfx.Cleanup(t, `DELETE FROM agent_task_queue WHERE issue_id=$1`, f.issueID)
+	testutil.Call(t, testHandler.CreateComment, withURLParam(newRequest(http.MethodPost, "/comments", map[string]any{
+		"content": "use the toolbar copy button", "parent_id": root,
+	}), "id", f.issueID)).Want(http.StatusCreated)
+	claimed, err := testHandler.Queries.ClaimNextTaskSupplement(t.Context(), parseUUID(f.taskID))
+	if err != nil || !strings.Contains(claimed.Content, "Skuddy malformed's thread") {
+		t.Fatalf("notice did not name the valid thread owner: %+v / %v", claimed, err)
+	}
+}
+
 func TestComposerEmptySteeringListExcludesTriggeredRun(t *testing.T) {
 	f := newSupplementFixture(t, "codex", "running", true)
 	dbfx.Cleanup(t, `DELETE FROM agent_task_queue WHERE issue_id=$1`, f.issueID)

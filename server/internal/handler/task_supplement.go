@@ -182,8 +182,11 @@ func (h *Handler) steerCommentAgentTriggers(ctx context.Context, issue db.Issue,
 			ownerID = root.AuthorID
 		} else {
 			for _, mention := range util.ParseMentions(root.Content) {
-				if mention.Type == "agent" {
-					ownerID = parseUUID(mention.ID)
+				if mention.Type != "agent" {
+					continue
+				}
+				if agentID, err := util.ParseUUID(mention.ID); err == nil {
+					ownerID = agentID
 					break
 				}
 			}
