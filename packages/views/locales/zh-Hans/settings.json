@@ -654,8 +654,8 @@
     "toast_profile_failed": "更新资料失败"
   },
   "notifications": {
-    "title": "收件箱通知",
-    "description": "关闭通知后，仍可在任务中查看相关动态。",
+    "title": "动态",
+    "description": "选择哪些事件进入动态。关闭通知后，仍可在任务中查看相关动态。收件箱中的待办不受这些设置影响。",
     "toast_failed": "更新通知设置失败",
     "groups": {
       "assignments": {
@@ -670,17 +670,9 @@
         "label": "评论",
         "description": "你订阅的任务有新评论时"
       },
-      "mentions": {
-        "label": "提及",
-        "description": "有人 @ 你时，包括 @all 和 @squad"
-      },
       "updates": {
         "label": "优先级与截止日期",
         "description": "你订阅的任务优先级或截止日期变更时"
-      },
-      "agent_activity": {
-        "label": "智能体活动",
-        "description": "智能体运行失败时"
       }
     },
     "system": {
@@ -690,7 +682,7 @@
     },
     "browser": {
       "label": "浏览器通知",
-      "hint": "允许当前浏览器为新的收件箱条目弹出通知横幅。",
+      "hint": "允许当前浏览器为新的待办和动态弹出通知横幅。",
       "enable": "启用",
       "granted": "当前浏览器可以弹出通知横幅。",
       "denied": "已被浏览器拦截。请在浏览器设置中为本站点开启通知权限。",

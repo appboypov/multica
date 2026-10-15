@@ -9,9 +9,7 @@ const NOTIFICATION_GROUPS = [
   "assignments",
   "status_changes",
   "comments",
-  "mentions",
   "updates",
-  "agent_activity",
 ] as const;
 
 export interface SettingsSearchPage {
