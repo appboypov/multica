@@ -16,6 +16,7 @@ import (
 	"github.com/multica-ai/multica/server/internal/analytics"
 	obsmetrics "github.com/multica-ai/multica/server/internal/metrics"
 	"github.com/multica-ai/multica/server/internal/middleware"
+	"github.com/multica-ai/multica/server/internal/question"
 	"github.com/multica-ai/multica/server/internal/service"
 	"github.com/multica-ai/multica/server/internal/util"
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
@@ -340,6 +341,23 @@ func (h *Handler) GetChatSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, responses[0])
+}
+
+func (h *Handler) ListChatQuestions(w http.ResponseWriter, r *http.Request) {
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
+	session, ok := h.gatePublicChatSessionForUser(w, r, userID, ctxWorkspaceID(r.Context()), chi.URLParam(r, "sessionId"))
+	if !ok {
+		return
+	}
+	result, err := h.QuestionService.ListForLink(r.Context(), session.WorkspaceID, question.LinkTypeChat, session.ID)
+	if err != nil {
+		writeQuestionError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
 }
 
 type UpdateChatSessionRequest struct {
