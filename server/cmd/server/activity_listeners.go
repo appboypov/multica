@@ -466,7 +466,7 @@ func registerIssueChangeInputListener(bus *events.Bus, queries *db.Queries, runI
 		itemID, _ := entry["id"].(string)
 		if _, err := runInputs.Deliver(context.Background(), []pgtype.UUID{parseUUID(issueID)},
 			service.RunInputActor{Type: e.ActorType, ID: optionalUUID(e.ActorID)},
-			service.RunInputItem{WorkspaceID: parseUUID(e.WorkspaceID), Kind: "issue_change", ID: parseUUID(itemID), Content: content}, nil); err != nil {
+			service.RunInputItem{WorkspaceID: parseUUID(e.WorkspaceID), Kind: "issue_change", ID: parseUUID(itemID), Content: content}, service.RunInputChoice{}); err != nil {
 			slog.Error("activity: run input delivery failed", "issue_id", issueID, "activity_id", itemID, "error", err)
 		}
 	})

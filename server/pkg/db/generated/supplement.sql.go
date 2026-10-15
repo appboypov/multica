@@ -701,7 +701,8 @@ WHERE r.workspace_id = $1
   AND t.status = 'running'
   AND cap.capability = 'task-supplement-v1'
   AND ($3::uuid IS NULL OR t.agent_id <> $3::uuid)
-  AND NOT (t.id = ANY(COALESCE($4::uuid[], '{}'::uuid[])))
+  AND NOT (t.agent_id = ANY(COALESCE($4::uuid[], '{}'::uuid[]))
+           AND NOT (t.id = ANY(COALESCE($5::uuid[], '{}'::uuid[]))))
 ORDER BY t.id
 `
 
@@ -709,7 +710,8 @@ type ListRunningSupplementTasksForIssuesParams struct {
 	WorkspaceID    pgtype.UUID   `json:"workspace_id"`
 	IssueIds       []pgtype.UUID `json:"issue_ids"`
 	ExcludeAgentID pgtype.UUID   `json:"exclude_agent_id"`
-	ExcludeTaskIds []pgtype.UUID `json:"exclude_task_ids"`
+	ChosenAgentIds []pgtype.UUID `json:"chosen_agent_ids"`
+	ChosenTaskIds  []pgtype.UUID `json:"chosen_task_ids"`
 }
 
 type ListRunningSupplementTasksForIssuesRow struct {
@@ -719,12 +721,15 @@ type ListRunningSupplementTasksForIssuesRow struct {
 	RuntimeID pgtype.UUID `json:"runtime_id"`
 }
 
+// A chosen agent is reached only in its chosen tasks, so a run it started
+// after the choice was made is left out.
 func (q *Queries) ListRunningSupplementTasksForIssues(ctx context.Context, arg ListRunningSupplementTasksForIssuesParams) ([]ListRunningSupplementTasksForIssuesRow, error) {
 	rows, err := q.db.Query(ctx, listRunningSupplementTasksForIssues,
 		arg.WorkspaceID,
 		arg.IssueIds,
 		arg.ExcludeAgentID,
-		arg.ExcludeTaskIds,
+		arg.ChosenAgentIds,
+		arg.ChosenTaskIds,
 	)
 	if err != nil {
 		return nil, err

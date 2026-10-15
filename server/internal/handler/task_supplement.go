@@ -142,30 +142,14 @@ func applyCommentSupplements(resp *CommentResponse, receipts []CommentSupplement
 }
 
 // steerCommentAgentTriggers delivers a notice to every capable running run.
-// An explicit composer choice excludes only its triggered recipients' other
+// An explicit composer choice limits its triggered recipients to their chosen
 // turns; recipients reached by the notice leave the follow-up enqueue list.
 func (h *Handler) steerCommentAgentTriggers(ctx context.Context, issue db.Issue, comment db.Comment, actor service.RunInputActor, triggers []commentAgentTrigger, steerTaskIDs []pgtype.UUID, item service.RunInputItem) ([]commentAgentTrigger, map[string]commentEnqueueResult) {
-	tasks, err := h.Queries.ListRunningSupplementTasksForIssues(ctx, db.ListRunningSupplementTasksForIssuesParams{
-		WorkspaceID: issue.WorkspaceID, IssueIds: []pgtype.UUID{issue.ID},
-	})
-	if err != nil {
-		slog.Error("comment run input recipients failed", "comment_id", uuidToString(comment.ID), "error", err)
-		return triggers, nil
-	}
-	triggered := make(map[pgtype.UUID]bool, len(triggers))
-	for _, trigger := range triggers {
-		triggered[trigger.Agent.ID] = true
-	}
-	chosen := make(map[pgtype.UUID]bool, len(steerTaskIDs))
-	for _, id := range steerTaskIDs {
-		chosen[id] = true
-	}
-	var excluded []pgtype.UUID
+	var choice service.RunInputChoice
 	if steerTaskIDs != nil {
-		for _, task := range tasks {
-			if triggered[task.AgentID] && !chosen[task.ID] {
-				excluded = append(excluded, task.ID)
-			}
+		choice.TaskIDs = steerTaskIDs
+		for _, trigger := range triggers {
+			choice.AgentIDs = append(choice.AgentIDs, trigger.Agent.ID)
 		}
 	}
 	var content strings.Builder
@@ -211,19 +195,13 @@ func (h *Handler) steerCommentAgentTriggers(ctx context.Context, issue db.Issue,
 		fmt.Fprintf(&content, "\n%s (attachment %s, multica attachment download %s)", attachment.Filename, uuidToString(attachment.ID), uuidToString(attachment.ID))
 	}
 	item.Content = content.String()
-	reached, err := h.RunInputService.Deliver(ctx, []pgtype.UUID{issue.ID}, actor, item, excluded)
+	reached, err := h.RunInputService.Deliver(ctx, []pgtype.UUID{issue.ID}, actor, item, choice)
 	if err != nil {
 		slog.Error("comment run input delivery failed", "comment_id", uuidToString(comment.ID), "error", err)
 	}
-	reachedTasks := make(map[pgtype.UUID]bool, len(reached))
-	for _, id := range reached {
-		reachedTasks[id] = true
-	}
 	deliveredAgents := make(map[pgtype.UUID]bool, len(reached))
-	for _, task := range tasks {
-		if reachedTasks[task.ID] {
-			deliveredAgents[task.AgentID] = true
-		}
+	for _, task := range reached {
+		deliveredAgents[task.AgentID] = true
 	}
 	kept := make([]commentAgentTrigger, 0, len(triggers))
 	steered := make(map[string]commentEnqueueResult)

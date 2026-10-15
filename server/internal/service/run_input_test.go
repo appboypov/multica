@@ -55,19 +55,18 @@ func TestRunInputDeliverSelectsOnlyEligibleRuns(t *testing.T) {
 	newTask("Starting", "dispatched", f.issue, true)
 	newTask("Without capability", "running", f.issue, false)
 	newTask("Elsewhere", "running", unrelatedIssue, true)
-	excluded := newTask("Explicitly excluded", "running", f.issue, true)
 
 	notifications := &runInputNotifications{}
 	svc := &RunInputService{Queries: f.svc.Queries, Notifier: notifications}
 	item := RunInputItem{WorkspaceID: f.workspace, Kind: "issue_change", ID: dbid.NewV7(), Content: "Pieter changed the priority from Medium to High"}
 	for range 2 {
-		reached, err := svc.Deliver(ctx, []pgtype.UUID{f.issue, secondIssue, f.issue}, RunInputActor{Type: "agent", ID: f.agent}, item, []pgtype.UUID{excluded})
+		reached, err := svc.Deliver(ctx, []pgtype.UUID{f.issue, secondIssue, f.issue}, RunInputActor{Type: "agent", ID: f.agent}, item, RunInputChoice{})
 		if err != nil {
 			t.Fatal(err)
 		}
 		got := make(map[pgtype.UUID]bool)
-		for _, id := range reached {
-			got[id] = true
+		for _, task := range reached {
+			got[task.ID] = true
 		}
 		if len(reached) != 2 || !got[first] || !got[second] {
 			t.Fatalf("reached = %v, want only Thomas and Guus", reached)
@@ -90,6 +89,31 @@ func TestRunInputDeliverSelectsOnlyEligibleRuns(t *testing.T) {
 	}
 }
 
+func TestRunInputDeliverLimitsAChosenAgentToItsChosenRuns(t *testing.T) {
+	f := newQuestionFixture(t)
+	enableRunInputTestTask(t, f.fx, f.task, f.issue)
+	// The author chose Pieter's run. It ends and Pieter's next run starts
+	// before the comment is delivered.
+	f.fx.Exec(t, "UPDATE agent_task_queue SET status = 'completed', completed_at = now() WHERE id = $1", f.task)
+	replacement := util.MustParseUUID(f.fx.Task(t, util.UUIDToString(f.agent), testutil.Cols{"runtime_id": f.runtime, "issue_id": f.issue, "status": "running"}))
+	enableRunInputTestTask(t, f.fx, replacement, f.issue)
+	otherAgent := util.MustParseUUID(f.fx.Agent(t, "Thomas", util.UUIDToString(f.runtime)))
+	other := util.MustParseUUID(f.fx.Task(t, util.UUIDToString(otherAgent), testutil.Cols{"runtime_id": f.runtime, "issue_id": f.issue, "status": "running"}))
+	enableRunInputTestTask(t, f.fx, other, f.issue)
+
+	svc := &RunInputService{Queries: f.svc.Queries}
+	item := RunInputItem{WorkspaceID: f.workspace, Kind: "issue_change", ID: dbid.NewV7(), Content: "Only change the original task"}
+	choice := RunInputChoice{AgentIDs: []pgtype.UUID{f.agent}, TaskIDs: []pgtype.UUID{f.task}}
+	reached, err := svc.Deliver(context.Background(), []pgtype.UUID{f.issue}, RunInputActor{Type: "member", ID: f.brian}, item, choice)
+	if err != nil || len(reached) != 1 || reached[0].ID != other || reached[0].AgentID != otherAgent {
+		t.Fatalf("reached = %+v, %v; want only the run of the agent outside the choice", reached, err)
+	}
+	rows, err := f.svc.Queries.ListRunInputMarksByItems(context.Background(), db.ListRunInputMarksByItemsParams{WorkspaceID: f.workspace, ItemIds: []pgtype.UUID{item.ID}})
+	if err != nil || len(rows) != 1 || rows[0].TaskID != other {
+		t.Fatalf("receipts = %+v, %v; the replacing run must get none", rows, err)
+	}
+}
+
 func TestRunInputDeliverPreservesCommentAndEditIdentity(t *testing.T) {
 	f := newQuestionFixture(t)
 	enableRunInputTestTask(t, f.fx, f.task, f.issue)
@@ -100,8 +124,8 @@ func TestRunInputDeliverPreservesCommentAndEditIdentity(t *testing.T) {
 		{WorkspaceID: f.workspace, Kind: "comment_edit", ID: dbid.NewV7(), CommentID: comment, Content: "Changed text"},
 	}
 	for _, item := range items {
-		reached, err := svc.Deliver(context.Background(), []pgtype.UUID{f.issue}, RunInputActor{Type: "member", ID: f.brian}, item, nil)
-		if err != nil || len(reached) != 1 || reached[0] != f.task {
+		reached, err := svc.Deliver(context.Background(), []pgtype.UUID{f.issue}, RunInputActor{Type: "member", ID: f.brian}, item, RunInputChoice{})
+		if err != nil || len(reached) != 1 || reached[0].ID != f.task {
 			t.Fatalf("deliver %s: %v, %v", item.Kind, reached, err)
 		}
 		receipt, err := f.svc.Queries.GetTaskSupplementForRun(context.Background(), db.GetTaskSupplementForRunParams{WorkspaceID: f.workspace, TaskID: f.task, ItemID: item.ID})
@@ -188,7 +212,7 @@ func TestRunInputDeliverCannotCrossWorkspace(t *testing.T) {
 	enableRunInputTestTask(t, foreign.fx, foreign.task, foreign.issue)
 	item := RunInputItem{WorkspaceID: local.workspace, Kind: "answer", ID: dbid.NewV7(), Content: "Workspace-local answer"}
 	svc := &RunInputService{Queries: local.svc.Queries}
-	reached, err := svc.Deliver(context.Background(), []pgtype.UUID{foreign.issue}, RunInputActor{Type: "member", ID: local.brian}, item, nil)
+	reached, err := svc.Deliver(context.Background(), []pgtype.UUID{foreign.issue}, RunInputActor{Type: "member", ID: local.brian}, item, RunInputChoice{})
 	if err != nil || len(reached) != 0 {
 		t.Fatalf("cross-workspace delivery = %v, %v; want no recipients", reached, err)
 	}

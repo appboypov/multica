@@ -159,6 +159,8 @@ WHERE cap.workspace_id = @workspace_id
 GROUP BY cap.task_id, cap.capability;
 
 -- name: ListRunningSupplementTasksForIssues :many
+-- A chosen agent is reached only in its chosen tasks, so a run it started
+-- after the choice was made is left out.
 SELECT t.id, t.agent_id, t.issue_id, t.runtime_id
 FROM agent_task_queue t
 JOIN agent_runtime r ON r.id = t.runtime_id
@@ -168,7 +170,8 @@ WHERE r.workspace_id = @workspace_id
   AND t.status = 'running'
   AND cap.capability = 'task-supplement-v1'
   AND (sqlc.narg('exclude_agent_id')::uuid IS NULL OR t.agent_id <> sqlc.narg('exclude_agent_id')::uuid)
-  AND NOT (t.id = ANY(COALESCE(@exclude_task_ids::uuid[], '{}'::uuid[])))
+  AND NOT (t.agent_id = ANY(COALESCE(@chosen_agent_ids::uuid[], '{}'::uuid[]))
+           AND NOT (t.id = ANY(COALESCE(@chosen_task_ids::uuid[], '{}'::uuid[]))))
 ORDER BY t.id;
 
 -- name: CreateRunInputSupplement :one

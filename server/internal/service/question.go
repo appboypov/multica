@@ -579,7 +579,7 @@ func (s *QuestionService) mutate(ctx context.Context, workspaceID, questionID pg
 		return QuestionDTO{}, err
 	}
 	if len(issueIDs) > 0 {
-		if _, err := s.RunInputs.Deliver(ctx, issueIDs, RunInputActor{Type: actor.Type, ID: actor.ID}, input, nil); err != nil {
+		if _, err := s.RunInputs.Deliver(ctx, issueIDs, RunInputActor{Type: actor.Type, ID: actor.ID}, input, RunInputChoice{}); err != nil {
 			// The answer is committed; a delivery error must not invite a
 			// second answer write. The durable question remains available.
 			slog.Error("question run input delivery failed", "question_id", result[0].ID, "event_id", eventID, "error", err)

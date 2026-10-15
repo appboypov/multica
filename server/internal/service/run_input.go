@@ -28,6 +28,14 @@ type RunInputItem struct {
 	Content     string
 }
 
+// RunInputChoice is an author's explicit choice of runs. Each agent in
+// AgentIDs is reached only in its runs in TaskIDs; agents outside AgentIDs are
+// not limited. The zero value chooses nothing and limits nobody.
+type RunInputChoice struct {
+	AgentIDs []pgtype.UUID
+	TaskIDs  []pgtype.UUID
+}
+
 type RunInputNotifier interface {
 	NotifyTaskSupplementAvailable(runtimeID, taskID string)
 }
@@ -38,11 +46,12 @@ type RunInputService struct {
 	Notifier RunInputNotifier
 }
 
-// Deliver returns the exact tasks that have a receipt for this item. Each insert
-// locks its task before its receipt, like CreateTaskSupplement and settlement;
-// a run that ended after selection gets no new receipt. Inserts commit before
-// their daemon hints are sent. A failure for one recipient does not hide others.
-func (s *RunInputService) Deliver(ctx context.Context, issueIDs []pgtype.UUID, actor RunInputActor, item RunInputItem, excludeTaskIDs []pgtype.UUID) ([]pgtype.UUID, error) {
+// Deliver returns the exact runs that have a receipt for this item. The choice
+// is applied in the same read that selects them. Each insert locks its task
+// before its receipt, like CreateTaskSupplement and settlement; a run that
+// ended after selection gets no new receipt. Inserts commit before their
+// daemon hints are sent. A failure for one recipient does not hide others.
+func (s *RunInputService) Deliver(ctx context.Context, issueIDs []pgtype.UUID, actor RunInputActor, item RunInputItem, choice RunInputChoice) ([]db.ListRunningSupplementTasksForIssuesRow, error) {
 	if len(issueIDs) == 0 {
 		return nil, nil
 	}
@@ -52,13 +61,13 @@ func (s *RunInputService) Deliver(ctx context.Context, issueIDs []pgtype.UUID, a
 	}
 	tasks, err := s.Queries.ListRunningSupplementTasksForIssues(ctx, db.ListRunningSupplementTasksForIssuesParams{
 		WorkspaceID: item.WorkspaceID, IssueIds: issueIDs,
-		ExcludeAgentID: excludeAgentID, ExcludeTaskIds: excludeTaskIDs,
+		ExcludeAgentID: excludeAgentID, ChosenAgentIds: choice.AgentIDs, ChosenTaskIds: choice.TaskIDs,
 	})
 	if err != nil {
 		slog.Error("run input recipient lookup failed", "item_id", util.UUIDToString(item.ID), "item_kind", item.Kind, "error", err)
 		return nil, err
 	}
-	reached := make([]pgtype.UUID, 0, len(tasks))
+	reached := make([]db.ListRunningSupplementTasksForIssuesRow, 0, len(tasks))
 	var deliveryErr error
 	for _, task := range tasks {
 		_, err := s.Queries.CreateRunInputSupplement(ctx, db.CreateRunInputSupplementParams{
@@ -81,7 +90,7 @@ func (s *RunInputService) Deliver(ctx context.Context, issueIDs []pgtype.UUID, a
 			deliveryErr = errors.Join(deliveryErr, fmt.Errorf("task %s: %w", util.UUIDToString(task.ID), err))
 			continue
 		}
-		reached = append(reached, task.ID)
+		reached = append(reached, task)
 		slog.Debug("run input receipt committed", "item_id", util.UUIDToString(item.ID), "item_kind", item.Kind, "issue_id", util.UUIDToString(task.IssueID), "task_id", util.UUIDToString(task.ID), "runtime_id", util.UUIDToString(task.RuntimeID))
 		if s.Notifier != nil && task.RuntimeID.Valid {
 			s.Notifier.NotifyTaskSupplementAvailable(util.UUIDToString(task.RuntimeID), util.UUIDToString(task.ID))
