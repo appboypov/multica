@@ -2287,6 +2287,62 @@ func TestQuestionWakePromptOmitsEmptyAnswers(t *testing.T) {
 	}
 }
 
+// TestQuestionWakePromptCarriesTwoAnswersAndACancel is the chat turn Brian
+// woke by cancelling the third of Pieter's questions: its [ANSWERS] block
+// lists both answers and the cancel with who cancelled and the note, in the
+// order they happened.
+func TestQuestionWakePromptCarriesTwoAnswersAndACancel(t *testing.T) {
+	task := Task{ChatSessionID: "chat-1", InitiatorName: "Brian", InitiatorEmail: "brian@example.com", QuestionsEnabled: true}
+	without := BuildPrompt(task, "codex")
+	task.QuestionAnswers = &protocol.QuestionAnswers{
+		WakerName: "Brian", AnswerCount: 3,
+		Answers: []protocol.QuestionAnswerData{
+			{QuestionID: "q-2", Prompt: "Which customer?", DisplayText: "Acme", AnswererName: "Brian", UpdatedAt: "2026-10-15T09:05:00Z"},
+			{QuestionID: "q-1", Prompt: "Round per line or per total?", DisplayText: "per line", AnswererName: "Brian", UpdatedAt: "2026-10-15T09:04:00Z"},
+		},
+		Cancels: []protocol.QuestionCancelData{
+			{QuestionID: "q-3", Prompt: "Which currency?", Note: "already decided in the PRD", ActorName: "Brian", CreatedAt: "2026-10-15T09:06:00Z"},
+		},
+	}
+	block := "[ANSWERS]\nBrian woke you with 3 answers to your questions:\n" +
+		"- q-1  \"Round per line or per total?\" → per line · Brian · 2026-10-15T09:04:00Z\n" +
+		"- q-2  \"Which customer?\" → Acme · Brian · 2026-10-15T09:05:00Z\n" +
+		"- q-3  \"Which currency?\" · Cancelled by Brian: already decided in the PRD · 2026-10-15T09:06:00Z\n" +
+		"`multica question answers <question-id>` shows a question in full.\n\n"
+	if got := BuildPrompt(task, "codex"); got != without+block {
+		t.Fatalf("answers and cancel did not end the prompt in order:\n%s", got)
+	}
+}
+
+func TestQuestionWakePromptCancelOrderAndBareCancel(t *testing.T) {
+	block := buildQuestionAnswersBlock(&protocol.QuestionAnswers{
+		WakerName: "Brian", AnswerCount: 2,
+		Answers: []protocol.QuestionAnswerData{
+			{QuestionID: "q-1", Prompt: "Rounding?", DisplayText: "per line", AnswererName: "Anouk", UpdatedAt: "2026-10-15T09:10:00Z"},
+		},
+		AskBacks: []protocol.QuestionAskBackData{
+			{QuestionID: "q-1", Prompt: "Rounding?", Text: "EUR or USD?", ActorName: "Anouk", CreatedAt: "2026-10-15T09:02:00Z"},
+		},
+		Cancels: []protocol.QuestionCancelData{
+			{QuestionID: "q-2", Prompt: "Which customer?", ActorName: "Brian", CreatedAt: "2026-10-15T09:05:00Z"},
+		},
+	}, false)
+	want := "[ANSWERS]\nBrian woke you with 2 answers to your questions:\n" +
+		"- q-1  \"Rounding?\" · ask back: EUR or USD? · Anouk · 2026-10-15T09:02:00Z\n" +
+		"- q-2  \"Which customer?\" · Cancelled by Brian · 2026-10-15T09:05:00Z\n" +
+		"- q-1  \"Rounding?\" → per line · Anouk · 2026-10-15T09:10:00Z\n\n"
+	if block != want {
+		t.Fatalf("cancel without a note or chronological order is wrong:\n%s", block)
+	}
+	only := buildQuestionAnswersBlock(&protocol.QuestionAnswers{
+		WakerName: "Brian", AnswerCount: 1,
+		Cancels: []protocol.QuestionCancelData{{QuestionID: "q-3", Prompt: "Which currency?", ActorName: "Brian", CreatedAt: "2026-10-15T09:06:00Z"}},
+	}, true)
+	if !strings.Contains(only, "[ANSWERS]\nBrian woke you with 1 answer to your questions:\n- q-3  \"Which currency?\" · Cancelled by Brian · 2026-10-15T09:06:00Z\n") {
+		t.Fatalf("a wake with only a cancel lost its block:\n%s", only)
+	}
+}
+
 func TestQuestionWakePromptKeepsMultilineInputOnOneItemLine(t *testing.T) {
 	block := buildQuestionAnswersBlock(&protocol.QuestionAnswers{
 		WakerName: "Brian", AnswerCount: 1,
