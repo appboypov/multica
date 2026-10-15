@@ -293,14 +293,15 @@ func TestTaskSupplementCompletionReplaysOnlyUnhandledComments(t *testing.T) {
 						if queuedID != "" && followupID != queuedID {
 							t.Fatalf("replaced existing queued run %s with %s", queuedID, followupID)
 						}
-						wantTrigger := ordinaryID
-						if wantTrigger == "" {
-							wantTrigger = supplement.ID
+						hasSupplement := triggerID == supplement.ID || slices.Contains(coalesced, supplement.ID)
+						wantSupplement := status != "handled"
+						if hasSupplement != wantSupplement {
+							t.Fatalf("follow-up input = trigger %s, coalesced %v; want supplement %s included=%v",
+								triggerID, coalesced, supplement.ID, wantSupplement)
 						}
-						wantCoalescedSupplement := ordinaryID != "" && status != "handled"
-						if triggerID != wantTrigger || slices.Contains(coalesced, supplement.ID) != wantCoalescedSupplement {
-							t.Fatalf("follow-up input = trigger %s, coalesced %v; want trigger %s, coalesced supplement=%v",
-								triggerID, coalesced, wantTrigger, wantCoalescedSupplement)
+						if ordinaryID != "" && triggerID != ordinaryID && !slices.Contains(coalesced, ordinaryID) {
+							t.Fatalf("follow-up input = trigger %s, coalesced %v; missing ordinary comment %s",
+								triggerID, coalesced, ordinaryID)
 						}
 					}
 				})

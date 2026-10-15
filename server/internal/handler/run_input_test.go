@@ -31,7 +31,8 @@ func TestRunInputReactionsRequireTheReceivingRun(t *testing.T) {
 	dbfx.Exec(t, `UPDATE task_supplement SET status='delivered', delivered_at=now() WHERE task_id=$1`, f.taskID)
 	human := withURLParams(newRequest(http.MethodPost, "/reactions", map[string]any{"emoji": "✅"}), "taskId", f.taskID, "itemId", comment.ID)
 	testutil.Call(t, testHandler.ReactToRunInput, human).Want(http.StatusUnauthorized)
-	other := newSupplementFixture(t, "codex", "running", true)
+	other := f
+	other.agentID, other.taskID = runningSteerableTask(t, f, "Other reaction receiver")
 	testutil.Call(t, testHandler.ReactToRunInput, runInputReactionRequest(other, comment.ID, "✅")).Want(http.StatusNotFound)
 	forged := runInputReactionRequest(other, comment.ID, "✅")
 	forged = withURLParam(forged, "taskId", f.taskID)
