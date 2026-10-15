@@ -26,6 +26,7 @@ import (
 	obsmetrics "github.com/multica-ai/multica/server/internal/metrics"
 	"github.com/multica-ai/multica/server/internal/realtime"
 	"github.com/multica-ai/multica/server/internal/runtimeapps"
+	"github.com/multica-ai/multica/server/internal/todo"
 	"github.com/multica-ai/multica/server/internal/util"
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
 	"github.com/multica-ai/multica/server/pkg/dbid"
@@ -8080,6 +8081,9 @@ func (s *TaskService) notifyQuickCreateCompleted(ctx context.Context, task db.Ag
 		s.notifyQuickCreateFailed(ctx, task, qc, detail)
 		return
 	}
+	if err := s.closeQuickCreateTodos(ctx, task, workspaceID); err != nil {
+		slog.Error("quick-create completion: close todos failed", "task_id", util.UUIDToString(task.ID), "error", err)
+	}
 
 	// Link the new issue back to this task so subsequent reads (Activity tab,
 	// Recent work, etc.) can navigate to the result instead of leaving it on
@@ -8139,28 +8143,15 @@ func (s *TaskService) notifyQuickCreateCompleted(ctx context.Context, task db.Ag
 	s.publishQuickCreateInbox(item, qc.WorkspaceID, util.UUIDToString(task.AgentID), issue.Status)
 }
 
-// Inbox types for the two non-success quick-create outcomes. They are distinct
-// because clients render them differently: the failed type carries an explicit
-// "Failed:" framing, which must not be applied to an outcome we could not
-// verify. Older clients that predate the unconfirmed type fall through their
-// existing default branch and render the row's title/body unchanged, which is
-// already the neutral wording.
-const (
-	inboxTypeQuickCreateFailed      = "quick_create_failed"
-	inboxTypeQuickCreateUnconfirmed = "quick_create_unconfirmed"
-)
+// Known failures and unconfirmed outcomes share a to-do kind; the reason in
+// details preserves the distinction without claiming an unconfirmed failure.
 
-// notifyQuickCreateFailed writes a failure inbox notification carrying the
-// original prompt + agent ID so the frontend can render an "Edit as
-// advanced form" entry that pre-fills the legacy create-issue modal
-// without asking the user to retype. Use this only when the run is KNOWN not
-// to have produced an issue; when that is merely unverified, use
-// notifyQuickCreateUnconfirmed so the user is not told a definite failure.
+// notifyQuickCreateFailed opens a recoverable to-do for a confirmed failure.
 func (s *TaskService) notifyQuickCreateFailed(ctx context.Context, task db.AgentTaskQueue, qc QuickCreateContext, errMsg string) {
 	if errMsg == "" {
 		errMsg = "Quick create did not finish successfully"
 	}
-	s.writeQuickCreateOutcomeInbox(ctx, task, qc, inboxTypeQuickCreateFailed, "Quick create failed", errMsg)
+	s.writeQuickCreateOutcomeTodo(ctx, task, qc, "failed", errMsg)
 }
 
 // quickCreateUnconfirmedDetail is the user-facing message for a quick-create
@@ -8170,31 +8161,18 @@ func (s *TaskService) notifyQuickCreateFailed(ctx context.Context, task db.Agent
 // so a retry cannot silently produce the duplicate the guard exists to prevent.
 const quickCreateUnconfirmedDetail = "Couldn't confirm whether the issue was created. Check your recent issues before retrying — creating it again may produce a duplicate."
 
-// notifyQuickCreateUnconfirmed writes a NEUTRAL terminal notification for a
-// quick-create run whose outcome is unverified. The task is already completed
-// and nothing re-runs this reconciliation, so returning without writing here
-// would strand the requester with no inbox result at all — the failure mode
-// this exists to prevent.
-//
-// It uses its own inbox type rather than reusing quick_create_failed: every
-// client renders the failed type with a "Failed:" prefix, which would assert a
-// failure we never observed no matter how neutral the title and body are.
-// Severity stays action_required because the user does need to look.
+// notifyQuickCreateUnconfirmed asks the requester to check before retrying.
 func (s *TaskService) notifyQuickCreateUnconfirmed(ctx context.Context, task db.AgentTaskQueue, qc QuickCreateContext) {
-	s.writeQuickCreateOutcomeInbox(ctx, task, qc, inboxTypeQuickCreateUnconfirmed, "Quick create needs a check", quickCreateUnconfirmedDetail)
+	s.writeQuickCreateOutcomeTodo(ctx, task, qc, "unconfirmed", quickCreateUnconfirmedDetail)
 }
 
 // quickCreateNotifyTimeout bounds the detached terminal-notification write in
-// writeQuickCreateOutcomeInbox. Long enough for a healthy DB round-trip, short
+// writeQuickCreateOutcomeTodo. Long enough for a healthy DB round-trip, short
 // enough that a wedged pool cannot pin the completion goroutine.
 const quickCreateNotifyTimeout = 5 * time.Second
 
-// writeQuickCreateOutcomeInbox writes the shared inbox row used by both
-// non-success outcomes (known failure and unverified outcome). Callers own the
-// user-facing wording and the row type; the row shape — original prompt, agent
-// id, redacted message — is identical so the frontend's recovery affordance
-// keeps working for both.
-func (s *TaskService) writeQuickCreateOutcomeInbox(ctx context.Context, task db.AgentTaskQueue, qc QuickCreateContext, inboxType, title, errMsg string) {
+// writeQuickCreateOutcomeTodo preserves the prompt and redacted failure details.
+func (s *TaskService) writeQuickCreateOutcomeTodo(ctx context.Context, task db.AgentTaskQueue, qc QuickCreateContext, reason, errMsg string) {
 	requesterID, err := util.ParseUUID(qc.RequesterID)
 	if err != nil {
 		return
@@ -8218,26 +8196,37 @@ func (s *TaskService) writeQuickCreateOutcomeInbox(ctx context.Context, task db.
 		"original_prompt":   qc.Prompt,
 		"error":             redact.Text(errMsg),
 		"source_context_id": qc.SourceContextID,
+		"reason":            reason,
 	})
-	item, err := s.Queries.CreateInboxItem(ctx, db.CreateInboxItemParams{
-		ID:            dbid.NewV7(),
-		WorkspaceID:   workspaceID,
-		RecipientType: "member",
-		RecipientID:   requesterID,
-		Type:          inboxType,
-		Severity:      "action_required",
-		IssueID:       pgtype.UUID{},
-		Title:         title,
-		Body:          pgtype.Text{String: redact.Text(errMsg), Valid: true},
-		ActorType:     pgtype.Text{String: "agent", Valid: true},
-		ActorID:       task.AgentID,
-		Details:       details,
+	err = (todo.Service{Queries: s.Queries, Bus: s.Bus}).Open(ctx, db.OpenTodoParams{
+		WorkspaceID: workspaceID, MemberID: requesterID,
+		Kind: todo.QuickCreateFailed, SourceKey: util.UUIDToString(task.ID), TaskID: task.ID,
+		Title: qc.Prompt, Body: util.StrToText(redact.Text(errMsg)), Details: details,
 	})
 	if err != nil {
-		slog.Error("quick-create failure: inbox write failed", "task_id", util.UUIDToString(task.ID), "error", err)
-		return
+		slog.Error("quick-create failure: todo write failed", "task_id", util.UUIDToString(task.ID), "error", err)
 	}
-	s.publishQuickCreateInbox(item, qc.WorkspaceID, util.UUIDToString(task.AgentID), "")
+}
+
+func (s *TaskService) closeQuickCreateTodos(ctx context.Context, task db.AgentTaskQueue, workspaceID pgtype.UUID) error {
+	svc := todo.Service{Queries: s.Queries, Bus: s.Bus}
+	for {
+		if err := svc.Close(ctx, db.CloseTodosParams{WorkspaceID: workspaceID, Kind: todo.QuickCreateFailed, SourceKey: util.UUIDToString(task.ID)}); err != nil {
+			return err
+		}
+		parent := task.RetryOfTaskID
+		if !parent.Valid {
+			parent = task.RerunOfTaskID
+		}
+		if !parent.Valid {
+			return nil
+		}
+		var err error
+		task, err = s.Queries.GetAgentTaskInWorkspace(ctx, db.GetAgentTaskInWorkspaceParams{ID: parent, WorkspaceID: workspaceID})
+		if err != nil {
+			return err
+		}
+	}
 }
 
 // publishQuickCreateInbox emits the WS event so the requester's inbox list

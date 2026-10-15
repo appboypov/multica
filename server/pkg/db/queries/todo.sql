@@ -31,6 +31,12 @@ WHERE workspace_id = @workspace_id AND issue_id = @issue_id
   AND done_at IS NULL
 RETURNING *;
 
+-- name: CloseTodosInWorkspace :many
+UPDATE todo
+SET done_at = now(), done_by = 'handled'
+WHERE workspace_id = @workspace_id AND kind = @kind AND done_at IS NULL
+RETURNING *;
+
 -- name: ListOpenTodos :many
 WITH issue_projection AS (
     SELECT i.id, i.workspace_id, i.title, i.status, i.due_date,

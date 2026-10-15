@@ -49,6 +49,11 @@ func (s Service) Open(ctx context.Context, p db.OpenTodoParams) error {
 	if err != nil {
 		return fmt.Errorf("open %s todo: %w", p.Kind, err)
 	}
+	return s.PublishOpened(ctx, row)
+}
+
+// PublishOpened runs after a caller's transaction commits.
+func (s Service) PublishOpened(ctx context.Context, row db.Todo) error {
 	projected, err := s.Queries.GetTodoForMember(ctx, db.GetTodoForMemberParams{ID: row.ID, WorkspaceID: row.WorkspaceID, MemberID: row.MemberID})
 	if err != nil {
 		return fmt.Errorf("project opened todo: %w", err)
@@ -73,6 +78,15 @@ func (s Service) CloseOnIssue(ctx context.Context, p db.CloseTodosOnIssueParams)
 	rows, err := s.Queries.CloseTodosOnIssue(ctx, p)
 	if err != nil {
 		return fmt.Errorf("close issue todos: %w", err)
+	}
+	s.PublishClosed(rows)
+	return nil
+}
+
+func (s Service) CloseInWorkspace(ctx context.Context, p db.CloseTodosInWorkspaceParams) error {
+	rows, err := s.Queries.CloseTodosInWorkspace(ctx, p)
+	if err != nil {
+		return fmt.Errorf("close workspace todos: %w", err)
 	}
 	s.PublishClosed(rows)
 	return nil

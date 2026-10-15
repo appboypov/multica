@@ -336,3 +336,28 @@ func TestTodoReviewLifecycle(t *testing.T) {
 	apply()
 	visible(0)
 }
+
+func TestTodoAutopilotPauseAndResume(t *testing.T) {
+	q := db.New(testPool)
+	ap := seedAutopilot(t, q, "Todo pause", "member", parseUUID(testUserID), pickFixtureAgent(t))
+	t.Cleanup(func() { testPool.Exec(context.Background(), "DELETE FROM todo WHERE autopilot_id = $1", ap.ID) })
+	bus := events.New()
+	registerTodoListeners(bus, q)
+	opened, closed := 0, 0
+	bus.Subscribe(protocol.EventTodoOpened, func(events.Event) { opened++ })
+	bus.Subscribe(protocol.EventTodoClosed, func(events.Event) { closed++ })
+	if _, err := q.SystemPauseAutopilot(context.Background(), ap.ID); err != nil {
+		t.Fatal(err)
+	}
+	emitAutopilotPausedNotifications(context.Background(), q, bus, ap, db.SelectAutopilotsExceedingFailureThresholdRow{FailedRuns: 10, TotalRuns: 10}, defaultFailureMonitorConfig(), 100)
+	if opened != 1 {
+		t.Fatalf("pause opened=%d", opened)
+	}
+	if _, err := testPool.Exec(context.Background(), "UPDATE autopilot SET status = 'active' WHERE id = $1", ap.ID); err != nil {
+		t.Fatal(err)
+	}
+	bus.Publish(events.Event{Type: protocol.EventAutopilotUpdated, WorkspaceID: testWorkspaceID, Payload: map[string]any{"autopilot_id": util.UUIDToString(ap.ID)}})
+	if closed != 1 {
+		t.Fatalf("resume closed=%d", closed)
+	}
+}

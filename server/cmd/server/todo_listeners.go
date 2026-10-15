@@ -48,6 +48,11 @@ func registerTodoListeners(bus *events.Bus, queries *db.Queries) {
 			}
 		})
 	}
+	bus.Subscribe(protocol.EventAutopilotUpdated, func(e events.Event) {
+		if err := autopilotTodos(context.Background(), svc, e); err != nil {
+			slog.Error("autopilot todo transition failed", "error", err)
+		}
+	})
 }
 
 func questionTodos(ctx context.Context, svc todo.Service, e events.Event) error {
@@ -414,4 +419,33 @@ func reviewTodos(ctx context.Context, svc todo.Service, e events.Event) error {
 		return err
 	}
 	return svc.Open(ctx, db.OpenTodoParams{WorkspaceID: workspace, MemberID: member, Kind: todo.Review, SourceKey: issue.ID, IssueID: issueID, ActorType: util.StrToText(e.ActorType), ActorID: optionalUUID(e.ActorID), Title: issue.Title})
+}
+
+func autopilotTodos(ctx context.Context, svc todo.Service, e events.Event) error {
+	p, ok := e.Payload.(map[string]any)
+	if !ok {
+		return nil
+	}
+	id, _ := p["autopilot_id"].(string)
+	switch ap := p["autopilot"].(type) {
+	case handler.AutopilotResponse:
+		id = ap.ID
+	case map[string]any:
+		id, _ = ap["id"].(string)
+	}
+	if id == "" {
+		return nil
+	}
+	autopilotID, err := util.ParseUUID(id)
+	if err != nil {
+		return err
+	}
+	ap, err := svc.Queries.GetAutopilot(ctx, autopilotID)
+	if err != nil {
+		return err
+	}
+	if util.UUIDToString(ap.WorkspaceID) != e.WorkspaceID || ap.Status == "paused" {
+		return nil
+	}
+	return svc.Close(ctx, db.CloseTodosParams{WorkspaceID: ap.WorkspaceID, Kind: todo.AutopilotPaused, SourceKey: id})
 }

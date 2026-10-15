@@ -72,6 +72,57 @@ func (q *Queries) CloseTodos(ctx context.Context, arg CloseTodosParams) ([]Todo,
 	return items, nil
 }
 
+const closeTodosInWorkspace = `-- name: CloseTodosInWorkspace :many
+UPDATE todo
+SET done_at = now(), done_by = 'handled'
+WHERE workspace_id = $1 AND kind = $2 AND done_at IS NULL
+RETURNING id, workspace_id, member_id, kind, source_key, issue_id, question_id, comment_id, task_id, autopilot_id, actor_type, actor_id, title, body, details, created_at, done_at, done_by
+`
+
+type CloseTodosInWorkspaceParams struct {
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
+	Kind        string      `json:"kind"`
+}
+
+func (q *Queries) CloseTodosInWorkspace(ctx context.Context, arg CloseTodosInWorkspaceParams) ([]Todo, error) {
+	rows, err := q.db.Query(ctx, closeTodosInWorkspace, arg.WorkspaceID, arg.Kind)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Todo{}
+	for rows.Next() {
+		var i Todo
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.MemberID,
+			&i.Kind,
+			&i.SourceKey,
+			&i.IssueID,
+			&i.QuestionID,
+			&i.CommentID,
+			&i.TaskID,
+			&i.AutopilotID,
+			&i.ActorType,
+			&i.ActorID,
+			&i.Title,
+			&i.Body,
+			&i.Details,
+			&i.CreatedAt,
+			&i.DoneAt,
+			&i.DoneBy,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const closeTodosOnIssue = `-- name: CloseTodosOnIssue :many
 UPDATE todo
 SET done_at = now(), done_by = 'handled'

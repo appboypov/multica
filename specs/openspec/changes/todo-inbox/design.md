@@ -106,7 +106,7 @@ Today's inbox writes one `inbox_item` per notice, kept until archived (`server/c
 | `agent_blocked` | issue id | `issue:updated` to `blocked` by an agent in a run, assignee agent or squad | `issue:updated` away from `blocked`; `task:dispatched` on the issue | the run's `originator_user_id` | none |
 | `run_failed` | task id | `task:failed` on an issue, not a quick create | same as `agent_blocked` | the task's `originator_user_id` | none |
 | `autopilot_paused` | autopilot id | the failure monitor pauses it | the autopilot leaves `paused` | today's notice recipients | none |
-| `quota_reached` | quota period id | the first quota rejection of a period | an autopilot run is admitted in the workspace | today's notice recipients | none |
+| `quota_reached` | the period's start and end, UTC RFC 3339, joined by `/` | the first quota rejection of a period | an autopilot run is admitted in the workspace, which closes every open `quota_reached` row of the workspace | today's notice recipients | none |
 | `quick_create_failed` | task id | quick create failed or unconfirmed | its retry creates the issue | the requester | none |
 | `review` | issue id | `issue:created` / `issue:updated` into `in_review` | `issue:updated` out of `in_review` | the member creator, unless assignee | `issue.due_date` |
 
