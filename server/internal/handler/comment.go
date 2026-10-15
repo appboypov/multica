@@ -1491,10 +1491,8 @@ type CreateCommentRequest struct {
 	ParentID         *string  `json:"parent_id"`
 	AttachmentIDs    []string `json:"attachment_ids"`
 	SuppressAgentIDs []string `json:"suppress_agent_ids"`
-	// SteerTaskIDs are the running turns the author chose to add this comment
-	// to, instead of starting a follow-up run for their agents. A turn that
-	// has ended, or cannot take additional input, is never swapped for another
-	// one: its agent keeps the normal trigger.
+	// Nil means the caller accepts default steering. An explicit empty list
+	// keeps triggered recipients out of their running turns.
 	SteerTaskIDs []string `json:"steer_task_ids"`
 }
 
@@ -1774,6 +1772,9 @@ func (h *Handler) CreateComment(w http.ResponseWriter, r *http.Request) {
 	steerTaskIDs, ok := parseUUIDSliceOrBadRequest(w, req.SteerTaskIDs, "steer_task_ids")
 	if !ok {
 		return
+	}
+	if req.SteerTaskIDs == nil {
+		steerTaskIDs = nil
 	}
 
 	// Determine author identity: agent (via X-Agent-ID header) or member.
