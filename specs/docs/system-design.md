@@ -949,7 +949,12 @@ flowchart LR
   api["internal/handler/todo.go<br/>list, summary, done"]
   bus["events.Bus"]
   realtime["listeners.go → realtime.Hub<br/>recipient member only"]
-  clients["Web and desktop clients"]
+  clients["core/todos<br/>queries, optimistic Mark done<br/>realtime cache updates"]
+  inbox["views/inbox<br/>InboxPage and to-do detail"]
+  badges["Sidebar count, workspace dot<br/>desktop dock badge"]
+  news["UpdatesPage<br/>/slug/updates?issue=id"]
+  chat["Floating chat current issue<br/>Inbox todo -> issue_id<br/>Updates issue selector"]
+  wecom["WeCom notice link<br/>/slug/updates?issue=id"]
   updates[("inbox_item<br/>informational Updates")]
   notices["notification_listeners.go"]
   backfill["migration 753<br/>creator backfill"]
@@ -962,6 +967,12 @@ flowchart LR
   service -->|"todo:opened, todo:closed"| bus
   bus --> realtime --> clients
   clients -->|"GET /api/todos, /api/todos/summary<br/>POST /api/todos/{id}/done"| api
+  clients --> inbox
+  clients -->|"summary"| badges
+  inbox --> chat
+  news --> chat
+  updates -->|"GET /api/inbox"| news
+  wecom --> news
   api -->|"list and summary"| rows
   api -->|"MarkDone"| service
   events --> notices --> updates
@@ -976,6 +987,8 @@ Agent-blocked and run-failed to-dos select the first non-null member ID from the
 Open rows have `done_at IS NULL`. The partial unique index on `(workspace_id, member_id, kind, source_key)` makes repeated opens inert; closing changes only open rows and records `done_by` as `handled` or `member`. The second partial index supports workspace/member reads by descending `created_at`. `internal/todo.Service` runs each write and its visibility query in one transaction and publishes visible-list transitions after commit; a transactional producer publishes after its own commit. The visibility query compares the changed rows and affected reviews before and after the write, so questions hide and reveal reviews without completing them. Before it runs, the transaction locks each member and issue its question and review rows touch, so concurrent question writes see each other and a review hides and reveals once. Its `Response` projection is shared by the HTTP handler and `todo:opened`; `todo:closed` identifies the row and completion reason, or null when the row is hidden.
 
 List and summary queries share the visible-open-row projection: live issue/question fields, no rows for missing issues, and no review row while an open question row exists for that member on the issue. Lists order overdue before newest. The list and Mark done routes are workspace-scoped; the summary is account-level across current memberships and omits zero-count workspaces. Mark done is member-private and idempotent. The summary supplies Inbox, workspace-switcher and desktop badge counts.
+
+`packages/core/todos/` owns list and summary queries, optimistic completion with rollback, and cache updates from `todo:opened` and `todo:closed`. `packages/views/inbox/components/inbox-page.tsx` renders actionable rows and per-kind details; `updates-page.tsx` renders informational notices with read/unread and Archive. Web and desktop routes share these views. Notification banners select Inbox by `todo` or Updates by `issue`. Floating chat resolves a selected to-do's `issue_id` for its current issue. Unconfirmed quick-create outcomes use neutral copy and offer no context retry.
 
 `inbox_item` remains the storage behind `/api/inbox` for Updates, separate from actionable to-dos. Question, mention, failed-run, paused-autopilot, quota and failed/unconfirmed quick-create notices no longer originate there. Migration 753 corrects agent-created issues to their run's originator member without changing actor/origin attribution, and makes that member's `issue_subscriber` row an active `creator` row unless they unsubscribed from the issue or a tree above it; migration 754 then seeds still-open to-dos and archives the moved notices. [ADR-0017](../../adr/0017-a-to-do-is-a-row-the-server-opens-and-closes.md) records the storage decision.
 

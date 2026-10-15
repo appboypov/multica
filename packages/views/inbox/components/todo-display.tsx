@@ -55,12 +55,18 @@ export function TodoKindIcon({ todo, className }: { todo: Pick<Todo, "kind" | "q
   return <Icon aria-hidden className={cn("size-3.5 shrink-0", tone, className)} />;
 }
 
+/** A Quick create failed to-do whose run finished without a confirmed result: its issue may exist. */
+export function isUnconfirmedQuickCreate(todo: Pick<Todo, "kind" | "details">): boolean {
+  return todo.kind === "quick_create_failed" && todo.details?.reason === "unconfirmed";
+}
+
 /** The kind's label, such as "Question for you" or "Approval for you". */
 export function useTodoKindLabel() {
   const { t } = useT("inbox");
   return useCallback(
-    (todo: Pick<Todo, "kind" | "question_answer_type">): string => {
+    (todo: Pick<Todo, "kind" | "question_answer_type" | "details">): string => {
       if (isApproval(todo)) return t(($) => $.todos.kinds.approval);
+      if (isUnconfirmedQuickCreate(todo)) return t(($) => $.types.quick_create_unconfirmed);
       return isKnownKind(todo.kind) ? t(($) => $.todos.kinds[todo.kind as TodoKind]) : t(($) => $.todos.kinds.other);
     },
     [t],

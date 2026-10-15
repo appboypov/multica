@@ -612,24 +612,6 @@ describe("UpdatesPage", () => {
     expect(issueDetailProps.at(-1)?.highlightRequestToken).toBe(1);
   });
 
-  it("shows a question item's pane and opens its issue at the card", () => {
-    reset();
-    layout.width = DESKTOP;
-    listData.active = [item({ type: "question_asked", details: { question_id: "q-1" } })];
-
-    render(<UpdatesPage />);
-    fireEvent.click(screen.getByTestId("row"));
-    expect(screen.getByTestId("question-pane")).toHaveTextContent("q-1");
-    expect(issueDetailProps).toHaveLength(0);
-
-    fireEvent.click(screen.getByTestId("question-pane"));
-    expect(issueDetailProps.at(-1)).toMatchObject({ issueId: "issue-1", highlightQuestionId: "q-1", highlightCommentId: undefined });
-    expect(screen.queryByTestId("question-pane")).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByTestId("row"));
-    expect(screen.getByTestId("question-pane")).toBeInTheDocument();
-  });
-
   it("keeps the archived view in the URL when selecting an item there", () => {
     // A bare `?issue=` write would silently drop the user back to the main
     // inbox on the next refresh — both pieces of state travel together.

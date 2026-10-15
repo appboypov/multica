@@ -61,7 +61,7 @@ func inboxAppURL() string {
 //
 //	**[{type}] {title}**
 //	{body}
-//	[{detail link}]({appURL}/{slug|workspaceID}/inbox?issue={issueID})
+//	[{detail link}]({appURL}/{slug|workspaceID}/updates?issue={issueID})
 //
 // The type label and the link's anchor text come from the reader's copyPack.
 // The link segment is omitted entirely when no appURL is configured — we
@@ -170,7 +170,7 @@ func inboxItemBody(item map[string]any) string {
 	return ""
 }
 
-// inboxItemLink builds the {appURL}/{slug|wsUUID}/inbox?issue={issueID}
+// inboxItemLink builds the {appURL}/{slug|wsUUID}/updates?issue={issueID}
 // deep link. Returns "" when no appURL is configured — the caller uses that
 // as a signal to drop the entire link segment.
 func inboxItemLink(item map[string]any, workspaceID, slug string) string {
@@ -186,8 +186,8 @@ func inboxItemLink(item map[string]any, workspaceID, slug string) string {
 	b.WriteString(appURL)
 	b.WriteString("/")
 	b.WriteString(url.PathEscape(seg))
-	b.WriteString("/inbox")
-	// Optional ?issue=... — chat-only inbox items have no issue.
+	b.WriteString("/updates")
+	// Optional ?issue=... — chat-only notices have no issue.
 	if issueID := inboxItemIssueID(item); issueID != "" {
 		b.WriteString("?issue=")
 		b.WriteString(url.QueryEscape(issueID))

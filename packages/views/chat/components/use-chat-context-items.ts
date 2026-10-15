@@ -5,7 +5,9 @@ import { useMemo } from "react";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { selectRecentContexts, useRecentContextStore, type RecentContextEntry } from "@multica/core/chat";
 import { issueDetailOptions } from "@multica/core/issues/queries";
+import { INBOX_TODO_PARAM, UPDATES_ITEM_PARAM } from "@multica/core/paths";
 import { projectDetailOptions } from "@multica/core/projects/queries";
+import { todoListOptions } from "@multica/core/todos/queries";
 import type { Issue, Project } from "@multica/core/types";
 import type { MentionItem } from "../../editor/extensions/mention-suggestion";
 import { useNavigation } from "../../navigation";
@@ -64,16 +66,22 @@ function hydrateRecentEntry(entry: RecentContextEntry, data: Issue | Project | u
     : projectToMentionItem(data as Project, "recent");
 }
 
-export function parseCurrentContextRoute(pathname: string, searchParams: URLSearchParams): { type: "issue" | "project"; id: string } | null {
+export function parseCurrentContextRoute(
+  pathname: string,
+  searchParams: URLSearchParams,
+): { type: "issue" | "project" | "todo"; id: string } | null {
   const issueMatch = pathname.match(/^\/[^/]+\/issues\/([^/]+)$/);
   if (issueMatch?.[1]) return { type: "issue", id: decodeURIComponent(issueMatch[1]) };
 
   const projectMatch = pathname.match(/^\/[^/]+\/projects\/([^/]+)$/);
   if (projectMatch?.[1]) return { type: "project", id: decodeURIComponent(projectMatch[1]) };
 
-  const inboxMatch = pathname.match(/^\/[^/]+\/inbox$/);
-  const inboxIssueId = searchParams.get("issue");
-  if (inboxMatch && inboxIssueId) return { type: "issue", id: inboxIssueId };
+  // A selected to-do stands for its issue, which the hook looks up in the to-do list.
+  const todoId = searchParams.get(INBOX_TODO_PARAM);
+  if (/^\/[^/]+\/inbox$/.test(pathname) && todoId) return { type: "todo", id: todoId };
+
+  const updatesIssueId = searchParams.get(UPDATES_ITEM_PARAM);
+  if (/^\/[^/]+\/updates$/.test(pathname) && updatesIssueId) return { type: "issue", id: updatesIssueId };
 
   return null;
 }
@@ -87,9 +95,20 @@ export function useChatContextItems(wsId: string): MentionItem[] {
     [recentEntries],
   );
 
+  const { data: todos } = useQuery({
+    ...todoListOptions(wsId),
+    enabled: !!wsId && currentRoute?.type === "todo",
+  });
+  const currentIssueId =
+    currentRoute?.type === "issue"
+      ? currentRoute.id
+      : currentRoute?.type === "todo"
+        ? (todos?.find((todo) => todo.id === currentRoute.id)?.issue_id ?? "")
+        : "";
+
   const { data: currentIssue } = useQuery({
-    ...issueDetailOptions(wsId, currentRoute?.type === "issue" ? currentRoute.id : ""),
-    enabled: currentRoute?.type === "issue",
+    ...issueDetailOptions(wsId, currentIssueId),
+    enabled: !!currentIssueId,
   });
 
   const { data: currentProject } = useQuery({
