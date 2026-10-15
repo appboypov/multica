@@ -198,14 +198,15 @@ WHERE id = @id
 -- effective cutoff, with an optional retained anchor and claiming retry exclusion.
 
 -- name: CountUnseenQuestionAnswers :one
+
 SELECT count(*)::bigint AS unseen_count
 FROM question_answer a
 JOIN question q ON q.id = a.question_id AND q.workspace_id = a.workspace_id
 WHERE a.workspace_id = @workspace_id
   AND q.id = ANY(@question_ids::uuid[])
-  AND q.status IN ('open', 'partly_answered', 'answered')
+  AND q.status IN ('open', 'partly_answered', 'answered', 'cancelled')
   AND a.updated_at > (SELECT question_wake_answer_cutoff(
-      @workspace_id::uuid, @issue_id::uuid, @agent_id::uuid,
+      @workspace_id::uuid, sqlc.narg('issue_id')::uuid, sqlc.narg('chat_session_id')::uuid, @agent_id::uuid,
       sqlc.narg('exclude_task_id')::uuid, sqlc.narg('answer_anchor')::timestamptz))
   AND NOT EXISTS (
       SELECT 1 FROM task_supplement s
@@ -227,6 +228,7 @@ WHERE a.workspace_id = @workspace_id
   );
 
 -- name: ListUnseenQuestionAnswers :many
+
 SELECT a.id, a.question_id, a.answerer_user_id, a.value, a.note, a.created_at, a.updated_at,
        q.prompt, q.answer_type, q.settings, q.asker_agent_id,
        asker.name AS asker_name, u.name AS answerer_name
@@ -236,9 +238,9 @@ JOIN agent asker ON asker.id = q.asker_agent_id AND asker.workspace_id = q.works
 JOIN "user" u ON u.id = a.answerer_user_id
 WHERE a.workspace_id = @workspace_id
   AND q.id = ANY(@question_ids::uuid[])
-  AND q.status IN ('open', 'partly_answered', 'answered')
+  AND q.status IN ('open', 'partly_answered', 'answered', 'cancelled')
   AND a.updated_at > (SELECT question_wake_answer_cutoff(
-      @workspace_id::uuid, @issue_id::uuid, @agent_id::uuid,
+      @workspace_id::uuid, sqlc.narg('issue_id')::uuid, sqlc.narg('chat_session_id')::uuid, @agent_id::uuid,
       sqlc.narg('exclude_task_id')::uuid, sqlc.narg('answer_anchor')::timestamptz))
   AND NOT EXISTS (
       SELECT 1 FROM task_supplement s
@@ -274,7 +276,7 @@ WHERE e.workspace_id = @workspace_id
   AND q.id = ANY(@question_ids::uuid[])
   AND q.status IN ('open', 'partly_answered', 'answered')
   AND e.created_at > (SELECT question_wake_answer_cutoff(
-      @workspace_id::uuid, @issue_id::uuid, @agent_id::uuid,
+      @workspace_id::uuid, @issue_id::uuid, NULL::uuid, @agent_id::uuid,
       sqlc.narg('exclude_task_id')::uuid, sqlc.narg('answer_anchor')::timestamptz))
   AND NOT EXISTS (
       SELECT 1 FROM task_supplement s

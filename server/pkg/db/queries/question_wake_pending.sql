@@ -32,7 +32,7 @@ ORDER BY created_at, workspace_id, issue_id, agent_id
 LIMIT @max_rows;
 
 -- name: GetQuestionWakeAnswerAnchor :one
-SELECT question_wake_answer_cutoff(@workspace_id::uuid, @issue_id::uuid, @agent_id::uuid,
+SELECT question_wake_answer_cutoff(@workspace_id::uuid, @issue_id::uuid, NULL::uuid, @agent_id::uuid,
                                   NULL::uuid, NULL::timestamptz)::timestamptz AS answer_anchor;
 
 -- name: ListQuestionWakeRetryCandidates :many
