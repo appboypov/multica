@@ -2,7 +2,9 @@ package handler
 
 import (
 	"context"
+	"net/http"
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/jackc/pgx/v5"
@@ -140,5 +142,107 @@ func TestDeferredCommentThreadsPromoteIndependently(t *testing.T) {
 	row, err := testHandler.Queries.GetAgentTask(ctx, parseUUID(anotherA))
 	if err != nil || row.Status != "deferred" {
 		t.Fatalf("second run in A must stay deferred: %s / %v", row.Status, err)
+	}
+}
+
+func TestCLICommentSteersAnotherAgentsRunningTask(t *testing.T) {
+	f := newSupplementFixture(t, "codex", "running", true)
+	skuddy, skuddyTask := runningSteerableTask(t, f, "Skuddy CLI")
+	dbfx.Cleanup(t, `DELETE FROM agent_task_queue WHERE issue_id=$1`, f.issueID)
+	req := withURLParam(newRequest(http.MethodPost, "/comments", map[string]any{
+		"content": agentMention("Thomas", f.agentID) + " the modal needs it too",
+	}), "id", f.issueID)
+	req.Header.Set("X-Actor-Source", "task_token")
+	req.Header.Set("X-Agent-ID", skuddy)
+	req.Header.Set("X-Task-ID", skuddyTask)
+	var created CommentResponse
+	testutil.Call(t, testHandler.CreateComment, req).Want(http.StatusCreated).JSON(&created)
+	if len(created.Supplements) != 1 || created.Supplements[0].TaskID != f.taskID {
+		t.Fatalf("CLI comment did not steer Thomas only: %+v", created.Supplements)
+	}
+	if n := dbfx.Count(t, `SELECT count(*) FROM agent_task_queue WHERE agent_id=$1`, f.agentID); n != 1 {
+		t.Fatalf("CLI comment queued %d Thomas runs", n)
+	}
+	if n := dbfx.Count(t, `SELECT count(*) FROM task_supplement WHERE task_id=$1`, skuddyTask); n != 0 {
+		t.Fatalf("Skuddy received his own comment: %d", n)
+	}
+}
+
+func TestReplyInAnotherAgentsThreadIsOnlyANotice(t *testing.T) {
+	f := newSupplementFixture(t, "codex", "running", true)
+	skuddy := dbfx.Agent(t, "Skuddy thread", f.runtimeID)
+	root := dbfx.Comment(t, f.issueID, agentMention("Skuddy", skuddy)+" original objective")
+	dbfx.Exec(t, `UPDATE issue SET assignee_type='agent',assignee_id=$2 WHERE id=$1`, f.issueID, skuddy)
+	dbfx.Exec(t, `UPDATE agent_task_queue SET delivered_comment_ids=ARRAY[trigger_comment_id] WHERE id=$1`, f.taskID)
+	dbfx.Cleanup(t, `DELETE FROM agent_task_queue WHERE issue_id=$1`, f.issueID)
+	var reply CommentResponse
+	testutil.Call(t, testHandler.CreateComment, withURLParam(newRequest(http.MethodPost, "/comments", map[string]any{
+		"content": "use the toolbar copy button", "parent_id": root,
+	}), "id", f.issueID)).Want(http.StatusCreated).JSON(&reply)
+	if len(reply.Supplements) != 1 || reply.Supplements[0].AgentID != f.agentID {
+		t.Fatalf("Thomas missed the other thread's notice: %+v", reply.Supplements)
+	}
+	completeTaskViaDaemon(t, f.taskID)
+	if n := dbfx.Count(t, `SELECT count(*) FROM agent_task_queue WHERE agent_id=$1`, f.agentID); n != 1 {
+		t.Fatalf("a notice not for Thomas queued %d runs", n)
+	}
+}
+
+func TestComposerEmptySteeringListExcludesTriggeredRun(t *testing.T) {
+	f := newSupplementFixture(t, "codex", "running", true)
+	dbfx.Cleanup(t, `DELETE FROM agent_task_queue WHERE issue_id=$1`, f.issueID)
+	var created CommentResponse
+	testutil.Call(t, testHandler.CreateComment, withURLParam(newRequest(http.MethodPost, "/comments", map[string]any{
+		"content": agentMention("Thomas", f.agentID)+" next round", "steer_task_ids": []string{},
+	}), "id", f.issueID)).Want(http.StatusCreated).JSON(&created)
+	if len(created.Supplements) != 0 || dbfx.Count(t, `SELECT count(*) FROM task_supplement WHERE comment_id=$1`, created.ID) != 0 {
+		t.Fatalf("explicit empty composer choice delivered a notice: %+v", created.Supplements)
+	}
+	completeTaskViaDaemon(t, f.taskID)
+	if n := dbfx.Count(t, `SELECT count(*) FROM agent_task_queue WHERE agent_id=$1 AND trigger_comment_id=$2`, f.agentID, created.ID); n != 1 {
+		t.Fatalf("explicit after-run comment has %d follow-ups", n)
+	}
+}
+
+func TestReceivedCommentFollowupDependsOnHandledAtCompletionAndFailure(t *testing.T) {
+	for _, terminal := range []string{"completed", "failed"} {
+		for _, handled := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/handled=%v", terminal, handled), func(t *testing.T) {
+				f := newSupplementFixture(t, "codex", "running", true)
+				dbfx.Cleanup(t, `DELETE FROM agent_task_queue WHERE issue_id=$1`, f.issueID)
+				dbfx.Exec(t, `UPDATE comment SET content=$2 WHERE id=$1`, f.triggerID, agentMention("Thomas", f.agentID)+" original objective")
+				dbfx.Exec(t, `UPDATE agent_task_queue SET delivered_comment_ids=ARRAY[trigger_comment_id] WHERE id=$1`, f.taskID)
+				var comment CommentResponse
+				testutil.Call(t, testHandler.CreateComment, withURLParam(newRequest(http.MethodPost, "/comments", map[string]any{
+					"content": "keep the Markdown toggle", "parent_id": f.triggerID,
+				}), "id", f.issueID)).Want(http.StatusCreated).JSON(&comment)
+				if len(comment.Supplements) != 1 {
+					t.Fatalf("comment was not received: %+v", comment)
+				}
+				dbfx.Exec(t, `UPDATE task_supplement SET status='delivered',delivered_at=now() WHERE task_id=$1`, f.taskID)
+				emoji := "👀"
+				if handled {
+					emoji = "✅"
+				}
+				testutil.Call(t, testHandler.ReactToRunInput, runInputReactionRequest(f, comment.ID, emoji)).Want(http.StatusOK)
+				finish := func() {
+					t.Helper()
+					if terminal == "completed" {
+						completeTaskViaDaemon(t, f.taskID)
+					} else if w := failTaskViaHandler(t, f.taskID); w.Code != http.StatusOK {
+						t.Fatalf("failure callback: %d %s", w.Code, w.Body.String())
+					}
+				}
+				finish()
+				finish() // Terminal callback retries must not duplicate follow-ups.
+				want := 0
+				if !handled {
+					want = 1
+				}
+				if n := dbfx.Count(t, `SELECT count(*) FROM agent_task_queue WHERE agent_id=$1 AND trigger_comment_id=$2 AND status='queued'`, f.agentID, comment.ID); n != want {
+					t.Fatalf("follow-ups=%d, want %d after %s, handled=%v", n, want, terminal, handled)
+				}
+			})
+		}
 	}
 }

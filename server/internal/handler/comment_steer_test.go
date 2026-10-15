@@ -80,6 +80,7 @@ func TestCreateCommentSteersTheThreadAgentsRunningTurn(t *testing.T) {
 		t.Fatalf("steering created %d runs, want the running turn only", n)
 	}
 
+	dbfx.Exec(t, `UPDATE task_supplement SET status='delivered',handled_at=now() WHERE task_id=$1`, f.taskID)
 	completeTaskViaDaemon(t, f.taskID)
 	if n := dbfx.Count(t, `SELECT count(*) FROM agent_task_queue WHERE issue_id = $1`, f.issueID); n != 1 {
 		t.Fatalf("completion replayed a steered comment into %d runs", n)
@@ -175,7 +176,7 @@ func TestCreateCommentSteersSeveralRunningTurns(t *testing.T) {
 	}
 }
 
-func TestCompletionReplaysASteeredCommentOnlyForAgentsItDidNotSteer(t *testing.T) {
+func TestCompletionReplaysASteeredCommentOnlyForAgentsThatDidNotHandleIt(t *testing.T) {
 	f := newSupplementFixture(t, "codex", "running", true)
 	dbfx.Exec(t, `UPDATE agent_task_queue SET delivered_comment_ids = ARRAY[trigger_comment_id] WHERE id = $1`, f.taskID)
 	dbfx.Cleanup(t, `DELETE FROM agent_task_queue WHERE issue_id = $1`, f.issueID)
@@ -192,6 +193,7 @@ func TestCompletionReplaysASteeredCommentOnlyForAgentsItDidNotSteer(t *testing.T
 	if n := dbfx.Count(t, `SELECT count(*) FROM agent_task_queue WHERE agent_id = $1 AND trigger_comment_id = $2`, otherAgentID, created.ID); n != 1 {
 		t.Fatalf("unsteered recipient got %d follow-ups, want 1", n)
 	}
+	dbfx.Exec(t, `UPDATE task_supplement SET status='delivered',handled_at=now() WHERE task_id=$1`, f.taskID)
 	completeTaskViaDaemon(t, f.taskID)
 	if n := dbfx.Count(t, `SELECT count(*) FROM agent_task_queue WHERE agent_id = $1`, f.agentID); n != 1 {
 		t.Fatalf("steered recipient has %d runs, want no follow-up", n)
