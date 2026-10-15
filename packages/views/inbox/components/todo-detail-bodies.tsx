@@ -30,7 +30,7 @@ import { useNavigation } from "../../navigation";
 import { useIssueLimitUpgradePrompt } from "../../modals/use-issue-limit-upgrade-prompt";
 import { AutopilotQuotaNotice } from "./autopilot-quota-notice";
 import { QuickCreateRecovery } from "./quick-create-recovery";
-import { TodoKindIcon, useTodoKindLabel } from "./todo-display";
+import { isUnconfirmedQuickCreate, TodoKindIcon, useTodoKindLabel } from "./todo-display";
 
 /** Comments a reader can see: deleted tombstones hold no text to show. */
 function visibleComments(timeline: readonly TimelineEntry[]): TimelineEntry[] {
@@ -248,7 +248,9 @@ export function TodoSystemBody({ todo }: { todo: Todo }) {
                 </Button>
               </>
             )}
-            {todo.kind === "quick_create_failed" && <QuickCreateRecovery details={todo.details} retryable />}
+            {todo.kind === "quick_create_failed" && (
+              <QuickCreateRecovery details={todo.details} retryable={!isUnconfirmedQuickCreate(todo)} />
+            )}
           </div>
         </>
       )}

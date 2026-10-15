@@ -22,7 +22,7 @@ func TestBuildInboxMarkdown_TitleBodyLink(t *testing.T) {
 	if !strings.Contains(got, "from: todo\nto: in_review") {
 		t.Fatalf("missing body: %q", got)
 	}
-	if !strings.Contains(got, "[查看详情](https://example.com/acme/inbox?issue=9194c058-e8a4-4c15-9c65-86d1784ba715)") {
+	if !strings.Contains(got, "[查看详情](https://example.com/acme/updates?issue=9194c058-e8a4-4c15-9c65-86d1784ba715)") {
 		t.Fatalf("missing detail link: %q", got)
 	}
 }
@@ -40,7 +40,7 @@ func TestBuildInboxMarkdown_FallsBackToWorkspaceUUIDWhenSlugMissing(t *testing.T
 	t.Setenv("WECOM_APP_URL", "https://example.com")
 	item := map[string]any{"type": "new_comment", "title": "t", "issue_id": "iid"}
 	got := buildInboxMarkdown(item, "ws-uuid", "", copyFor(DefaultLocale))
-	if !strings.Contains(got, "https://example.com/ws-uuid/inbox?issue=iid") {
+	if !strings.Contains(got, "https://example.com/ws-uuid/updates?issue=iid") {
 		t.Fatalf("expected workspace uuid path segment, got %q", got)
 	}
 }
@@ -83,7 +83,7 @@ func TestBuildInboxMarkdown_TruncatesLongBody(t *testing.T) {
 	if !strings.Contains(got, "...") {
 		t.Fatalf("expected truncation marker, got tail %q", got[len(got)-50:])
 	}
-	if !strings.HasSuffix(got, "acme/inbox?issue=iid)") {
+	if !strings.HasSuffix(got, "acme/updates?issue=iid)") {
 		t.Fatalf("link must survive truncation, got tail %q", got[len(got)-80:])
 	}
 }
