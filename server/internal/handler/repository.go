@@ -527,6 +527,12 @@ func (h *Handler) DeleteRepository(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 500, "failed to clear repository releases from issues")
 		return
 	}
+	if err := qtx.DeleteReleaseMilestonesByRepository(r.Context(), db.DeleteReleaseMilestonesByRepositoryParams{
+		WorkspaceID: repository.WorkspaceID, RepositoryID: repository.ID,
+	}); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to delete release milestones")
+		return
+	}
 	if err := qtx.DeleteReleasesByRepository(r.Context(), db.DeleteReleasesByRepositoryParams{
 		RepositoryID: repository.ID,
 		WorkspaceID:  repository.WorkspaceID,

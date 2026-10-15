@@ -1926,6 +1926,21 @@ export const EMPTY_WORKLANE_ACTIVITY_RESPONSE: WorklaneActivityResponse = {
   entries: [],
 };
 
+export const ReleaseMilestoneSchema = z.object({
+  id: z.string().min(1),
+  release_id: z.string().min(1),
+  name: z.string().trim().min(1),
+  date: z.iso.date(),
+  created_at: z.string().default(""),
+  updated_at: z.string().default(""),
+}).loose();
+
+const ReleaseMilestonesSchema = z.array(z.unknown())
+  .transform((rows) => rows.flatMap((row) => {
+    const parsed = ReleaseMilestoneSchema.safeParse(row);
+    return parsed.success ? [parsed.data] : [];
+  })).catch([]);
+
 export const ReleaseSchema: z.ZodType<Release> = z.object({
   id: z.string(),
   repository_id: z.string(),
@@ -1937,6 +1952,7 @@ export const ReleaseSchema: z.ZodType<Release> = z.object({
   shipped_at: z.string().nullable().default(null),
   created_at: z.string().default(""),
   updated_at: z.string().default(""),
+  milestones: ReleaseMilestonesSchema,
 }).loose();
 
 export const EMPTY_RELEASE: Release = {
@@ -1950,6 +1966,7 @@ export const EMPTY_RELEASE: Release = {
   shipped_at: null,
   created_at: "",
   updated_at: "",
+  milestones: [],
 };
 
 const ReleaseListSchema = z.array(ReleaseSchema.catch(EMPTY_RELEASE))
@@ -2035,6 +2052,7 @@ export const ReleaseProgressResponseSchema = z.object({
     release_id: z.string(),
     done: z.number().default(0),
     total: z.number().default(0),
+    milestones: ReleaseMilestonesSchema,
   }).loose()).default([]),
 }).loose();
 

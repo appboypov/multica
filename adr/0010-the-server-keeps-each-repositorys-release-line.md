@@ -11,6 +11,7 @@ A repository has one release line, which every worklane of the repository shows.
 ## Decision
 
 - A release is a row of `release`. It holds its `repository_id`, its `position` on the line, its `version` without the `v` (the tag is `v{version}`), its `bump` (NULL when the version was set by hand), its title and description, and `shipped_at` (NULL until it ships). There are no foreign keys.
+- A release has zero or more free milestones in `release_milestone`: each has a required name and a calendar day (`DATE`, rendered as `YYYY-MM-DD`, never a timestamp). There is no fixed catalogue or count limit. Release responses include them ordered by date then name. Milestone writes take the repository lock, recheck the release, return the whole line and publish `release_line:updated`; workspace/project owner locks fence teardown. Removing a release, repository, project or workspace deletes its milestones in the same transaction, without foreign keys or cascades.
 - The repository keeps the version of the last tag (its highest `v{version}` tag) in `repository.last_tag`, without the `v`. A checkout check finds it once, at Add repository, or when a passing check meets a NULL. NULL means not known yet, and `''` means the repository has no tag. Writes to the line refuse while it is NULL.
 - One Go package, `server/internal/releaseline`, holds the line's rules: renumbering, the strictly-increasing check, and plan, edit, move and remove. Every write runs in one transaction:
   1. It locks the repository row.

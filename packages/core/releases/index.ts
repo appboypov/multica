@@ -4,6 +4,9 @@ export {
   useEditRelease,
   useMoveRelease,
   useRemoveRelease,
+  useAddReleaseMilestone,
+  useEditReleaseMilestone,
+  useRemoveReleaseMilestone,
   releaseRefusalOf,
 } from "./mutations";
 export {

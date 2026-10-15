@@ -8,16 +8,16 @@ import type {
   PlanReleaseRequest,
   ReleaseLineResponse,
   ReleaseRefusal,
+  ReleaseMilestoneRequest,
 } from "../types";
 import { worklaneKeys } from "../worklanes/queries";
 import { releaseKeys } from "./queries";
-import { invalidatePlacementReads } from "../issues/placement/queries";
+import { invalidatePlacementReads, releaseProgressKeys } from "../issues/placement/queries";
 
 /**
  * Every write answers with the repository's whole line: it replaces that
- * repository's releases in the workspace list without a second read. Each
- * write also adds an entry to the activity of every worklane of the
- * repository.
+ * repository's releases in the workspace list without a second read.
+ * Refresh progress metadata and the repository's worklane activity.
  */
 function settleLine(
   qc: QueryClient,
@@ -37,6 +37,7 @@ function settleLine(
       : old,
   );
   qc.invalidateQueries({ queryKey: worklaneKeys.activityAll(wsId) });
+  qc.invalidateQueries({ queryKey: releaseProgressKeys.list(wsId) });
 }
 
 /** The structured refusal of a failed release write, or null for any other error. */
@@ -93,5 +94,34 @@ export function useRemoveRelease() {
     onSuccess: (answer, { repositoryId }) => settleLine(qc, wsId, repositoryId, answer),
     // The removed release's issues go to No release.
     onSettled: () => invalidatePlacementReads(qc, wsId),
+  });
+}
+
+export function useAddReleaseMilestone() {
+  const qc = useQueryClient();
+  const wsId = useWorkspaceId();
+  return useMutation({
+    mutationFn: ({ releaseId, data }: { releaseId: string; repositoryId: string; data: ReleaseMilestoneRequest }) =>
+      api.addReleaseMilestone(releaseId, data),
+    onSuccess: (answer, { repositoryId }) => settleLine(qc, wsId, repositoryId, answer),
+  });
+}
+
+export function useEditReleaseMilestone() {
+  const qc = useQueryClient();
+  const wsId = useWorkspaceId();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; repositoryId: string; data: Partial<ReleaseMilestoneRequest> }) =>
+      api.editReleaseMilestone(id, data),
+    onSuccess: (answer, { repositoryId }) => settleLine(qc, wsId, repositoryId, answer),
+  });
+}
+
+export function useRemoveReleaseMilestone() {
+  const qc = useQueryClient();
+  const wsId = useWorkspaceId();
+  return useMutation({
+    mutationFn: ({ id }: { id: string; repositoryId: string }) => api.removeReleaseMilestone(id),
+    onSuccess: (answer, { repositoryId }) => settleLine(qc, wsId, repositoryId, answer),
   });
 }

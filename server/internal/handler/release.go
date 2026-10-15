@@ -46,16 +46,17 @@ const versionPolicyNone = "none"
 // ReleaseResponse is one release of a repository's line. Version has no
 // leading `v`; a null bump means the version was set by hand.
 type ReleaseResponse struct {
-	ID           string  `json:"id"`
-	RepositoryID string  `json:"repository_id"`
-	Position     int32   `json:"position"`
-	Version      string  `json:"version"`
-	Bump         *string `json:"bump"`
-	Title        string  `json:"title"`
-	Description  string  `json:"description"`
-	ShippedAt    *string `json:"shipped_at"`
-	CreatedAt    string  `json:"created_at"`
-	UpdatedAt    string  `json:"updated_at"`
+	ID           string                     `json:"id"`
+	RepositoryID string                     `json:"repository_id"`
+	Position     int32                      `json:"position"`
+	Version      string                     `json:"version"`
+	Bump         *string                    `json:"bump"`
+	Title        string                     `json:"title"`
+	Description  string                     `json:"description"`
+	ShippedAt    *string                    `json:"shipped_at"`
+	CreatedAt    string                     `json:"created_at"`
+	UpdatedAt    string                     `json:"updated_at"`
+	Milestones   []ReleaseMilestoneResponse `json:"milestones"`
 }
 
 func releaseToResponse(r db.Release) ReleaseResponse {
@@ -70,15 +71,31 @@ func releaseToResponse(r db.Release) ReleaseResponse {
 		ShippedAt:    timestampToPtr(r.ShippedAt),
 		CreatedAt:    timestampToString(r.CreatedAt),
 		UpdatedAt:    timestampToString(r.UpdatedAt),
+		Milestones:   []ReleaseMilestoneResponse{},
 	}
 }
 
-func releasesToResponse(rows []db.Release) []ReleaseResponse {
+func releasesToResponse(ctx context.Context, q *db.Queries, ws pgtype.UUID, rows []db.Release) ([]ReleaseResponse, error) {
 	out := make([]ReleaseResponse, len(rows))
+	if len(rows) == 0 {
+		return out, nil
+	}
+	ids := make([]pgtype.UUID, len(rows))
+	positions := make(map[pgtype.UUID]int, len(rows))
 	for i, r := range rows {
 		out[i] = releaseToResponse(r)
+		ids[i] = r.ID
+		positions[r.ID] = i
 	}
-	return out
+	milestones, err := q.ListReleaseMilestones(ctx, db.ListReleaseMilestonesParams{WorkspaceID: ws, ReleaseIds: ids})
+	if err != nil {
+		return nil, err
+	}
+	for _, milestone := range milestones {
+		i := positions[milestone.ReleaseID]
+		out[i].Milestones = append(out[i].Milestones, milestoneToResponse(milestone))
+	}
+	return out, nil
 }
 
 // releaseLineOf is the line releaseline works on: the repository's last tag
@@ -109,7 +126,12 @@ func (h *Handler) ListReleases(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to list releases")
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"releases": releasesToResponse(rows)})
+	releases, err := releasesToResponse(r.Context(), h.Queries, wsUUID, rows)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to list release milestones")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"releases": releases})
 }
 
 // releaseRequest is the body of Plan release and Edit release: a title, a
@@ -290,6 +312,11 @@ func (h *Handler) runReleaseLineWrite(w http.ResponseWriter, r *http.Request, re
 		writeError(w, http.StatusInternalServerError, "failed to read release line")
 		return
 	}
+	responses, err := releasesToResponse(ctx, qtx, wsUUID, line)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to read release milestones")
+		return
+	}
 	if err := tx.Commit(ctx); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to commit release line")
 		return
@@ -300,7 +327,7 @@ func (h *Handler) runReleaseLineWrite(w http.ResponseWriter, r *http.Request, re
 	h.publish(protocol.EventReleaseLineUpdated, workspaceID, actorType, actorID, protocol.ReleaseLineEventPayload{
 		RepositoryID: uuidToString(repo.ID),
 	})
-	writeJSON(w, op.status, map[string]any{"releases": releasesToResponse(line)})
+	writeJSON(w, op.status, map[string]any{"releases": responses})
 }
 
 // rewriteReleaseLine writes the position and version of every release of
@@ -600,6 +627,9 @@ func (h *Handler) RemoveRelease(w http.ResponseWriter, r *http.Request) {
 			current.Title = removed.Title
 			issues, activities, err = h.releaseIssueEntries(ctx, qtx, repo.WorkspaceID, ids, actorType, actorID, issueActionReleaseGone, current)
 			if err != nil {
+				return nil, err
+			}
+			if err := qtx.DeleteReleaseMilestones(ctx, db.DeleteReleaseMilestonesParams{WorkspaceID: rel.WorkspaceID, ReleaseID: rel.ID}); err != nil {
 				return nil, err
 			}
 			if err := qtx.DeleteRelease(ctx, db.DeleteReleaseParams{ID: rel.ID, WorkspaceID: rel.WorkspaceID}); err != nil {

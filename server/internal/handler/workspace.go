@@ -1184,6 +1184,10 @@ func (h *Handler) DeleteWorkspace(w http.ResponseWriter, r *http.Request) {
 			run:  func() error { return qtx.PrepareWorkspaceDeletionLinks(ctx, requester.WorkspaceID) },
 		},
 		{
+			name: "delete release milestones",
+			run:  func() error { return qtx.DeleteReleaseMilestonesByWorkspace(ctx, requester.WorkspaceID) },
+		},
+		{
 			// These FK-free intents deliberately survive the transaction so the
 			// worker can release every invitation/member seat after local rows
 			// disappear. Skipped for self-hosted/unmanaged deployments.

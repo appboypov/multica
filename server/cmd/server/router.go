@@ -2179,11 +2179,17 @@ func NewRouterWithOptions(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus
 			r.Route("/api/releases", func(r chi.Router) {
 				r.Get("/", h.ListReleases)
 				r.Route("/{id}", func(r chi.Router) {
+					r.Get("/", h.GetRelease)
 					r.Patch("/", h.EditRelease)
 					r.Delete("/", h.RemoveRelease)
 					r.Post("/move", h.MoveRelease)
 					r.Post("/issues", h.AddIssuesToRelease)
+					r.Post("/milestones", h.AddReleaseMilestone)
 				})
+			})
+			r.Route("/api/release-milestones/{id}", func(r chi.Router) {
+				r.Patch("/", h.EditReleaseMilestone)
+				r.Delete("/", h.RemoveReleaseMilestone)
 			})
 
 			// Worklanes and the requests that make and remove their worktrees

@@ -578,6 +578,12 @@ func (h *Handler) DeleteProject(w http.ResponseWriter, r *http.Request) {
 	}
 	// Releases reference their repository, never the project, so they go
 	// before the project's repositories, in the same transaction.
+	if err := qtx.DeleteReleaseMilestonesByProject(r.Context(), db.DeleteReleaseMilestonesByProjectParams{
+		WorkspaceID: project.WorkspaceID, ProjectID: project.ID,
+	}); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to delete release milestones")
+		return
+	}
 	if err := qtx.DeleteReleasesByProject(r.Context(), db.DeleteReleasesByProjectParams{
 		WorkspaceID: project.WorkspaceID,
 		ProjectID:   project.ID,

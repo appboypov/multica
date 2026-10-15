@@ -22,7 +22,7 @@ import {
   type ReleaseDraft,
 } from "@multica/core/releases";
 import { repositoryListOptions } from "@multica/core/repositories";
-import type { ReleaseBump, Repository } from "@multica/core/types";
+import type { Release, ReleaseBump, Repository } from "@multica/core/types";
 import { cn } from "@multica/ui/lib/utils";
 import { Button } from "@multica/ui/components/ui/button";
 import {
@@ -39,6 +39,7 @@ import { useT } from "../../i18n";
 import { useLastTag, useReleaseLine } from "../use-release-line";
 import { problemMessage, refusalMessage } from "./release-messages";
 import { ReleaseIssuesField } from "./release-issues-field";
+import { ReleaseMilestones } from "./release-milestones";
 
 type Choice = ReleaseBump | "custom";
 
@@ -80,17 +81,7 @@ export function ReleaseDialog({
       key={editing?.id ?? "plan"}
       repository={repository}
       line={line}
-      release={
-        editing
-          ? {
-              id: editing.id,
-              bump: editing.bump,
-              version: editing.version,
-              title: editing.title,
-              description: editing.description,
-            }
-          : null
-      }
+      release={editing ?? null}
       worklaneId={worklaneId}
       onClose={onClose}
     />
@@ -108,7 +99,7 @@ function DialogFrame({
 }) {
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-lg">
         {title !== null ? (
           <DialogHeader>
             <DialogTitle>{title}</DialogTitle>
@@ -137,13 +128,6 @@ function NotFound({ onClose }: { onClose: () => void }) {
   );
 }
 
-interface EditedRelease {
-  id: string;
-  bump: ReleaseBump | null;
-  version: string;
-  title: string;
-  description: string;
-}
 
 function ReleaseForm({
   repository,
@@ -154,7 +138,7 @@ function ReleaseForm({
 }: {
   repository: Repository;
   line: LinePreview["line"];
-  release: EditedRelease | null;
+  release: Release | null;
   /** Plan release from a worklane's Timeline: its issues in no release to tick. */
   worklaneId: string | null;
   onClose: () => void;
@@ -393,6 +377,7 @@ function ReleaseForm({
         {!release && worklaneId ? (
           <ReleaseIssuesField worklaneId={worklaneId} selected={issueIds} onChange={setIssueIds} showLater />
         ) : null}
+        {release ? <ReleaseMilestones release={release} /> : null}
 
         <div className="flex gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-caption text-muted-foreground">
           <Rocket className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />

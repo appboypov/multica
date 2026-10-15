@@ -487,13 +487,32 @@ func (h *Handler) ListReleaseProgress(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 500, "failed to read release totals")
 		return
 	}
+	milestonesByRelease := make(map[pgtype.UUID][]ReleaseMilestoneResponse, len(totals))
+	if len(totals) > 0 {
+		ids := make([]pgtype.UUID, len(totals))
+		for i, row := range totals {
+			ids[i] = row.ReleaseID
+		}
+		milestones, err := h.Queries.ListReleaseMilestones(r.Context(), db.ListReleaseMilestonesParams{WorkspaceID: ws, ReleaseIds: ids})
+		if err != nil {
+			writeError(w, 500, "failed to read release milestones")
+			return
+		}
+		for _, row := range milestones {
+			milestonesByRelease[row.ReleaseID] = append(milestonesByRelease[row.ReleaseID], milestoneToResponse(row))
+		}
+	}
 	result := make([]map[string]any, len(rows))
 	for i, row := range rows {
 		result[i] = map[string]any{"worklane_id": uuidToString(row.WorklaneID), "release_id": uuidToString(row.ReleaseID), "done": row.Done, "total": row.Total}
 	}
 	releases := make([]map[string]any, len(totals))
 	for i, row := range totals {
-		releases[i] = map[string]any{"release_id": uuidToString(row.ReleaseID), "done": row.Done, "total": row.Total}
+		milestones := milestonesByRelease[row.ReleaseID]
+		if milestones == nil {
+			milestones = []ReleaseMilestoneResponse{}
+		}
+		releases[i] = map[string]any{"release_id": uuidToString(row.ReleaseID), "done": row.Done, "total": row.Total, "milestones": milestones}
 	}
 	writeJSON(w, 200, map[string]any{"rows": result, "releases": releases})
 }

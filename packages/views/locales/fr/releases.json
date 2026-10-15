@@ -1,4 +1,18 @@
 {
+  "milestones": {
+    "title": "Jalons",
+    "add": "Ajouter un jalon",
+    "name": "Nom",
+    "date": "Date",
+    "save": "Enregistrer le jalon",
+    "cancel": "Annuler",
+    "remove": "Supprimer le jalon",
+    "edit_name": "Modifier {{name}}",
+    "remove_name": "Supprimer {{name}}",
+    "confirm_remove": "Supprimer {{name}} de cette version ?",
+    "independent": "Les modifications des jalons sont enregistrées immédiatement.",
+    "failed": "Impossible d’enregistrer le jalon. Réessayez."
+  },
   "dialog": {
     "plan_title": "Planifier une version · {{repository}}",
     "edit_title": "Modifier la version · {{repository}}",

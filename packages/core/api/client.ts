@@ -204,7 +204,9 @@ import type {
   ListGitHubInstallationsResponse,
   ListGitHubRepositoriesResponse,
   ListReleasesResponse,
+  Release,
   ReleaseLineResponse,
+  ReleaseMilestoneRequest,
   PlanReleaseRequest,
   EditReleaseRequest,
   MoveReleaseRequest,
@@ -496,6 +498,8 @@ import {
   EMPTY_LIST_GITHUB_INSTALLATIONS_RESPONSE,
   EMPTY_LIST_GITHUB_REPOSITORIES_RESPONSE,
   ReleasesResponseSchema,
+  ReleaseSchema,
+  EMPTY_RELEASE,
   ReleaseLineResponseSchema,
   EMPTY_RELEASES_RESPONSE,
   EMPTY_RELEASE_LINE_RESPONSE,
@@ -4553,6 +4557,13 @@ export class ApiClient {
     });
   }
 
+  async getRelease(id: string): Promise<Release> {
+    const raw = await this.fetch<unknown>(`/api/releases/${id}`);
+    return parseWithFallback(raw, ReleaseSchema, EMPTY_RELEASE, {
+      endpoint: "GET /api/releases/{id}",
+    });
+  }
+
   async planRelease(repositoryId: string, data: PlanReleaseRequest): Promise<ReleaseLineResponse> {
     const raw = await this.fetch<unknown>(`/api/repositories/${repositoryId}/releases`, {
       method: "POST",
@@ -4587,6 +4598,31 @@ export class ApiClient {
     const raw = await this.fetch<unknown>(`/api/releases/${id}`, { method: "DELETE" });
     return parseWithFallback(raw, ReleaseLineResponseSchema, EMPTY_RELEASE_LINE_RESPONSE, {
       endpoint: "DELETE /api/releases/{id}",
+    });
+  }
+
+  async addReleaseMilestone(releaseId: string, data: ReleaseMilestoneRequest): Promise<ReleaseLineResponse> {
+    const raw = await this.fetch<unknown>(`/api/releases/${releaseId}/milestones`, {
+      method: "POST", body: JSON.stringify(data),
+    });
+    return parseWithFallback(raw, ReleaseLineResponseSchema, EMPTY_RELEASE_LINE_RESPONSE, {
+      endpoint: "POST /api/releases/{id}/milestones",
+    });
+  }
+
+  async editReleaseMilestone(id: string, data: Partial<ReleaseMilestoneRequest>): Promise<ReleaseLineResponse> {
+    const raw = await this.fetch<unknown>(`/api/release-milestones/${id}`, {
+      method: "PATCH", body: JSON.stringify(data),
+    });
+    return parseWithFallback(raw, ReleaseLineResponseSchema, EMPTY_RELEASE_LINE_RESPONSE, {
+      endpoint: "PATCH /api/release-milestones/{id}",
+    });
+  }
+
+  async removeReleaseMilestone(id: string): Promise<ReleaseLineResponse> {
+    const raw = await this.fetch<unknown>(`/api/release-milestones/${id}`, { method: "DELETE" });
+    return parseWithFallback(raw, ReleaseLineResponseSchema, EMPTY_RELEASE_LINE_RESPONSE, {
+      endpoint: "DELETE /api/release-milestones/{id}",
     });
   }
 

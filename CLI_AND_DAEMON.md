@@ -795,6 +795,35 @@ The `usage` command returns the aggregated token usage for an issue, summed acro
 
 The `runs` command shows all past and current executions for an issue, including running tasks. Table output uses short task UUID prefixes by default; pass `--full-id` to print canonical task UUIDs. The `run-messages` command accepts full task UUIDs directly; copied short task prefixes must be scoped with `--issue <issue-id>` so the CLI only checks that issue's runs. It shows the detailed message log (tool calls, thinking, text, errors) for a single run. Use `--since` for efficient polling of in-progress runs.
 
+## Releases
+
+Releases belong to repositories. Use full UUIDs or unambiguous UUID prefixes;
+`--full-id` shows full identifiers in tables. Every command supports
+`--output table|json`. Repository references also accept `owner/repo`.
+
+```bash
+multica release list --repository owner/repo
+multica release list --project <project-id> --output json
+multica release get <release> --output json
+multica release plan owner/repo --bump minor --title "Account and profile"
+multica release plan owner/repo --version 2.0.0 --title "Next version" --description "..."
+multica release edit <release> --title "Updated title"
+multica release move <release> --direction earlier
+multica release remove <release>
+multica release add-issues <release> MUL-42 MUL-43
+multica release milestone add <release> --name "UI prototype" --date 2026-11-02
+multica release milestone edit <milestone> --date 2026-11-03
+multica release milestone remove <milestone>
+```
+
+Plan requires a title and either `--version` or `--bump patch|minor|major`.
+Edit keeps unspecified fields. Milestone dates are calendar days, not
+timestamps; names and dates are required when adding. A release can hold any
+number of milestones. The timeline and Edit release dialog save milestone
+changes immediately, independently of the release's title/version save.
+Removing a release also removes its milestones. There is no `ship` command:
+the release API does not expose shipping yet.
+
 ## Projects
 
 Projects group related issues (e.g. a sprint, an epic, a workstream). Every project

@@ -1441,6 +1441,16 @@ type Release struct {
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
 }
 
+type ReleaseMilestone struct {
+	ID          pgtype.UUID        `json:"id"`
+	WorkspaceID pgtype.UUID        `json:"workspace_id"`
+	ReleaseID   pgtype.UUID        `json:"release_id"`
+	Name        string             `json:"name"`
+	Date        pgtype.Date        `json:"date"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
 type Repository struct {
 	ID               pgtype.UUID        `json:"id"`
 	WorkspaceID      pgtype.UUID        `json:"workspace_id"`

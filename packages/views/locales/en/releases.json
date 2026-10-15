@@ -1,4 +1,18 @@
 {
+  "milestones": {
+    "title": "Milestones",
+    "add": "Add milestone",
+    "name": "Name",
+    "date": "Date",
+    "save": "Save milestone",
+    "cancel": "Cancel",
+    "remove": "Remove milestone",
+    "edit_name": "Edit {{name}}",
+    "remove_name": "Remove {{name}}",
+    "confirm_remove": "Remove {{name}} from this release?",
+    "independent": "Milestone changes save immediately.",
+    "failed": "Could not save the milestone. Try again."
+  },
   "dialog": {
     "plan_title": "Plan release · {{repository}}",
     "edit_title": "Edit release · {{repository}}",

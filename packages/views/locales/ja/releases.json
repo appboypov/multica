@@ -1,4 +1,18 @@
 {
+  "milestones": {
+    "title": "マイルストーン",
+    "add": "マイルストーンを追加",
+    "name": "名前",
+    "date": "日付",
+    "save": "マイルストーンを保存",
+    "cancel": "キャンセル",
+    "remove": "マイルストーンを削除",
+    "edit_name": "{{name}}を編集",
+    "remove_name": "{{name}}を削除",
+    "confirm_remove": "このリリースから{{name}}を削除しますか？",
+    "independent": "マイルストーンの変更はすぐに保存されます。",
+    "failed": "マイルストーンを保存できませんでした。もう一度お試しください。"
+  },
   "dialog": {
     "plan_title": "リリースを計画 · {{repository}}",
     "edit_title": "リリースを編集 · {{repository}}",

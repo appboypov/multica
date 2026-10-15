@@ -1,4 +1,18 @@
 {
+  "milestones": {
+    "title": "里程碑",
+    "add": "添加里程碑",
+    "name": "名称",
+    "date": "日期",
+    "save": "保存里程碑",
+    "cancel": "取消",
+    "remove": "删除里程碑",
+    "edit_name": "编辑{{name}}",
+    "remove_name": "删除{{name}}",
+    "confirm_remove": "从此版本中删除{{name}}？",
+    "independent": "里程碑更改会立即保存。",
+    "failed": "无法保存里程碑。请重试。"
+  },
   "dialog": {
     "plan_title": "规划版本 · {{repository}}",
     "edit_title": "编辑版本 · {{repository}}",

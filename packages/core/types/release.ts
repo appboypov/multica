@@ -1,5 +1,20 @@
 export type ReleaseBump = "patch" | "minor" | "major";
 
+export interface ReleaseMilestone {
+  id: string;
+  release_id: string;
+  name: string;
+  /** A calendar day, not a timestamp. */
+  date: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ReleaseMilestoneRequest {
+  name: string;
+  date: string;
+}
+
 /** Version has no leading `v`. Null bump means the version was set by hand. */
 export interface Release {
   id: string;
@@ -12,6 +27,7 @@ export interface Release {
   shipped_at: string | null;
   created_at: string;
   updated_at: string;
+  milestones: ReleaseMilestone[];
 }
 
 export interface ListReleasesResponse {

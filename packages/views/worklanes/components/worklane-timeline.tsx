@@ -14,6 +14,7 @@ import { useT } from "../../i18n";
 import { NoReleaseColumn } from "../../releases/components/no-release-column";
 import { ReleaseIssueRow } from "../../releases/components/release-issue-row";
 import { PlanReleaseButton, ReleaseLine } from "../../releases/components/release-line";
+import { ReleaseMilestones } from "../../releases/components/release-milestones";
 
 const EMPTY: never[] = [];
 
@@ -61,12 +62,12 @@ export function WorklaneTimeline({
   const renderIssues = (release: Release) => {
     const inRelease = byRelease.get(release.id);
     const unshipped = release.shipped_at === null;
-    if (!inRelease && !unshipped) return null;
     const row = progress?.rows.find(
       (candidate) => candidate.release_id === release.id && candidate.worklane_id === worklane.id,
     );
     return (
       <div className="flex flex-col py-1">
+        <div className="px-4 py-2"><ReleaseMilestones release={release} /></div>
         {row && row.total > 0 ? (
           <p className="px-4 pb-1 text-caption tabular-nums text-muted-foreground">
             {tReleases(($) => $.issues.progress, { done: row.done, total: row.total })}

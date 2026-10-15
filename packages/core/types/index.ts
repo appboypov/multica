@@ -238,6 +238,8 @@ export type {
 export type {
   ReleaseBump,
   Release,
+  ReleaseMilestone,
+  ReleaseMilestoneRequest,
   ListReleasesResponse,
   ReleaseLineResponse,
   PlanReleaseRequest,
