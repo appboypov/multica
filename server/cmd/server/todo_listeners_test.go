@@ -246,7 +246,12 @@ func TestTodoAgentFailures(t *testing.T) {
 		t.Fatal("agent blocking in run did not open")
 	}
 	event.Type = protocol.EventTaskFailed
-	event.Payload = map[string]any{"issue_id": issue, "task_id": task}
+	event.Payload = map[string]any{"issue_id": issue, "task_id": task, "retry_pending": true}
+	apply()
+	if count() != 1 {
+		t.Fatal("failed attempt with a retry pending opened run failed")
+	}
+	event.Payload = map[string]any{"issue_id": issue, "task_id": task, "retry_pending": false}
 	apply()
 	if count() != 2 {
 		t.Fatal("failed run did not open separate todo")
@@ -349,7 +354,7 @@ func TestTodoAutopilotPauseAndResume(t *testing.T) {
 	if _, err := q.SystemPauseAutopilot(context.Background(), ap.ID); err != nil {
 		t.Fatal(err)
 	}
-	emitAutopilotPausedNotifications(context.Background(), q, bus, ap, db.SelectAutopilotsExceedingFailureThresholdRow{FailedRuns: 10, TotalRuns: 10}, defaultFailureMonitorConfig(), 100)
+	openAutopilotPausedTodos(context.Background(), q, bus, ap, db.SelectAutopilotsExceedingFailureThresholdRow{FailedRuns: 10, TotalRuns: 10}, defaultFailureMonitorConfig(), 100)
 	if opened != 1 {
 		t.Fatalf("pause opened=%d", opened)
 	}
@@ -359,5 +364,16 @@ func TestTodoAutopilotPauseAndResume(t *testing.T) {
 	bus.Publish(events.Event{Type: protocol.EventAutopilotUpdated, WorkspaceID: testWorkspaceID, Payload: map[string]any{"autopilot_id": util.UUIDToString(ap.ID)}})
 	if closed != 1 {
 		t.Fatalf("resume closed=%d", closed)
+	}
+	if _, err := q.SystemPauseAutopilot(context.Background(), ap.ID); err != nil {
+		t.Fatal(err)
+	}
+	openAutopilotPausedTodos(context.Background(), q, bus, ap, db.SelectAutopilotsExceedingFailureThresholdRow{FailedRuns: 10, TotalRuns: 10}, defaultFailureMonitorConfig(), 100)
+	if _, err := testPool.Exec(context.Background(), "DELETE FROM autopilot WHERE id = $1", ap.ID); err != nil {
+		t.Fatal(err)
+	}
+	bus.Publish(events.Event{Type: protocol.EventAutopilotDeleted, WorkspaceID: testWorkspaceID, Payload: map[string]any{"autopilot_id": util.UUIDToString(ap.ID)}})
+	if opened != 2 || closed != 2 {
+		t.Fatalf("delete opened=%d closed=%d", opened, closed)
 	}
 }

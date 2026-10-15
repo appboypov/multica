@@ -175,7 +175,7 @@ func tickAutopilotFailureMonitor(ctx context.Context, queries *db.Queries, bus *
 			"fail_pct", failPct,
 		)
 
-		emitAutopilotPausedNotifications(ctx, queries, bus, paused, c, cfg, failPct)
+		openAutopilotPausedTodos(ctx, queries, bus, paused, c, cfg, failPct)
 
 		// Fan out the status change so any open UI updates the autopilot row.
 		workspaceID := util.UUIDToString(paused.WorkspaceID)
@@ -191,7 +191,7 @@ func tickAutopilotFailureMonitor(ctx context.Context, queries *db.Queries, bus *
 	}
 }
 
-// emitAutopilotPausedNotifications opens one to-do per relevant recipient:
+// openAutopilotPausedTodos opens one to-do per relevant recipient:
 //
 //  1. The autopilot creator if a member.
 //  2. If the autopilot creator is an agent, the agent's owner_id (mapped to a
@@ -202,7 +202,7 @@ func tickAutopilotFailureMonitor(ctx context.Context, queries *db.Queries, bus *
 // up. If neither path lands a human (e.g. agent has no owner), we skip
 // silently — the WS autopilot:updated event still surfaces the change in the
 // UI for any logged-in workspace member.
-func emitAutopilotPausedNotifications(
+func openAutopilotPausedTodos(
 	ctx context.Context,
 	queries *db.Queries,
 	bus *events.Bus,
@@ -256,7 +256,6 @@ func emitAutopilotPausedNotifications(
 			)
 			continue
 		}
-
 	}
 }
 

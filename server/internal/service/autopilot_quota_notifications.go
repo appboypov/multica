@@ -84,7 +84,7 @@ func (s *AutopilotService) createAutopilotQuotaRejectionNotice(
 		return nil, nil
 	}
 
-	items, err := s.createAutopilotQuotaInboxItems(ctx, q, autopilotQuotaNoticeFacts{
+	todos, err := s.openAutopilotQuotaTodos(ctx, q, autopilotQuotaNoticeFacts{
 		WorkspaceID: period.WorkspaceID,
 		AutopilotID: params.AutopilotID,
 		Source:      source,
@@ -98,7 +98,7 @@ func (s *AutopilotService) createAutopilotQuotaRejectionNotice(
 	if err != nil {
 		return nil, err
 	}
-	if len(items) == 0 {
+	if len(todos) == 0 {
 		// Keep the marker unset so a later rejection can notify a newly restored
 		// workspace owner or admin instead of silencing the entire period.
 		if err := tx.Commit(ctx); err != nil {
@@ -116,10 +116,10 @@ func (s *AutopilotService) createAutopilotQuotaRejectionNotice(
 	if err := tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("commit quota rejection notice: %w", err)
 	}
-	return items, nil
+	return todos, nil
 }
 
-func (s *AutopilotService) createAutopilotQuotaInboxItems(
+func (s *AutopilotService) openAutopilotQuotaTodos(
 	ctx context.Context,
 	q *db.Queries,
 	facts autopilotQuotaNoticeFacts,
@@ -154,12 +154,12 @@ func (s *AutopilotService) createAutopilotQuotaInboxItems(
 		"autopilot_title": autopilotTitle,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("marshal autopilot quota inbox details: %w", err)
+		return nil, fmt.Errorf("marshal autopilot quota todo details: %w", err)
 	}
 
-	items := make([]db.Todo, 0, len(recipients))
+	todos := make([]db.Todo, 0, len(recipients))
 	for _, recipient := range recipients {
-		item, err := q.OpenTodo(ctx, db.OpenTodoParams{
+		row, err := q.OpenTodo(ctx, db.OpenTodoParams{
 			ID: dbid.NewV7(), WorkspaceID: facts.WorkspaceID, MemberID: recipient.ID,
 			Kind: todo.QuotaReached, SourceKey: facts.SourceKey,
 			Title: "Autopilot run limit reached", Body: pgtype.Text{String: body, Valid: true},
@@ -171,9 +171,9 @@ func (s *AutopilotService) createAutopilotQuotaInboxItems(
 		if err != nil {
 			return nil, fmt.Errorf("create autopilot quota todo: %w", err)
 		}
-		items = append(items, item)
+		todos = append(todos, row)
 	}
-	return items, nil
+	return todos, nil
 }
 
 func (s *AutopilotService) publishAutopilotQuotaTodos(ctx context.Context, items []db.Todo) {
