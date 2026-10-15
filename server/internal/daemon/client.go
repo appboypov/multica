@@ -438,6 +438,8 @@ func (c *Client) ExtendTaskPrepareLease(ctx context.Context, runtimeID, taskID s
 }
 
 type TaskSupplement struct {
+	ItemKind   string `json:"item_kind"`
+	ItemID     string `json:"item_id"`
 	CommentID  string `json:"comment_id"`
 	AuthorName string `json:"author_name"`
 	Content    string `json:"content"`
@@ -448,7 +450,7 @@ func (c *Client) ClaimTaskSupplement(ctx context.Context, taskID string) (*TaskS
 	if err := c.postJSON(ctx, fmt.Sprintf("/api/daemon/tasks/%s/supplements/claim", taskID), map[string]any{}, &supplement); err != nil {
 		return nil, err
 	}
-	if supplement.CommentID == "" {
+	if supplement.ItemID == "" {
 		return nil, nil
 	}
 	return &supplement, nil

@@ -82,6 +82,7 @@ func TestTaskSupplementLoopAcknowledgesBeforeTurnEnds(t *testing.T) {
 				case strings.HasSuffix(r.URL.Path, "/supplements/claim"):
 					if claims.Add(1) == 1 {
 						_ = json.NewEncoder(w).Encode(map[string]string{
+							"item_kind": "comment", "item_id": "comment-1",
 							"comment_id": "comment-1", "author_name": "Ada", "content": "Create evidence.txt",
 						})
 						return
