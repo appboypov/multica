@@ -3746,7 +3746,7 @@ func (h *Handler) loadClaimQuestionAnswers(ctx context.Context, task db.AgentTas
 	if err != nil {
 		return nil, err
 	}
-	askBacks, err := h.Queries.ListUnseenQuestionAskBacks(ctx, db.ListUnseenQuestionAskBacksParams{
+	askBacks, err := h.Queries.ListUnseenQuestionEvents(ctx, db.ListUnseenQuestionEventsParams{
 		WorkspaceID: workspaceID, IssueID: task.IssueID, AgentID: task.AgentID, ExcludeTaskID: task.ID, QuestionIds: scope, AnswerAnchor: answerAnchor,
 	})
 	if err != nil {

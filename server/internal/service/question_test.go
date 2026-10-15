@@ -130,7 +130,7 @@ func TestQuestionPartlyAnsweredRemainsUnseenAndOverdue(t *testing.T) {
 	if err != nil || len(answers) != 1 || answers[0].QuestionID != id {
 		t.Fatalf("unseen answers = %+v, %v", answers, err)
 	}
-	replies, err := q.ListUnseenQuestionAskBacks(ctx, db.ListUnseenQuestionAskBacksParams{IssueID: f.issue, WorkspaceID: f.workspace, AgentID: f.agent, QuestionIds: []pgtype.UUID{id}})
+	replies, err := q.ListUnseenQuestionEvents(ctx, db.ListUnseenQuestionEventsParams{IssueID: f.issue, WorkspaceID: f.workspace, AgentID: f.agent, QuestionIds: []pgtype.UUID{id}})
 	if err != nil || len(replies) != 1 || replies[0].QuestionID != id {
 		t.Fatalf("unseen replies = %+v, %v", replies, err)
 	}
@@ -496,7 +496,7 @@ func TestQuestionAskBackWakesTheAsker(t *testing.T) {
 	}
 	var taskID pgtype.UUID
 	f.fx.QueryRow(t, `SELECT id FROM agent_task_queue WHERE issue_id = $1 AND agent_id = $2 AND status = 'queued' AND trigger_evidence_kind = $3`, f.issue, f.agent, string(attribution.EvidenceQuestionWake)).Scan(&taskID)
-	replies, err := f.svc.Queries.ListUnseenQuestionAskBacks(ctx, db.ListUnseenQuestionAskBacksParams{IssueID: f.issue, WorkspaceID: f.workspace, AgentID: f.agent, ExcludeTaskID: taskID, QuestionIds: []pgtype.UUID{id}})
+	replies, err := f.svc.Queries.ListUnseenQuestionEvents(ctx, db.ListUnseenQuestionEventsParams{IssueID: f.issue, WorkspaceID: f.workspace, AgentID: f.agent, ExcludeTaskID: taskID, QuestionIds: []pgtype.UUID{id}})
 	if err != nil || len(replies) != 1 {
 		t.Fatalf("woken run must carry the ask back: %+v, %v", replies, err)
 	}

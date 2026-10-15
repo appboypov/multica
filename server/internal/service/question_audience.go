@@ -87,7 +87,7 @@ func (s *QuestionService) hasUnseenAskBacks(ctx context.Context, q *db.Queries, 
 	if err != nil || len(ids) == 0 {
 		return false, err
 	}
-	askBacks, err := q.ListUnseenQuestionAskBacks(ctx, db.ListUnseenQuestionAskBacksParams{
+	askBacks, err := q.ListUnseenQuestionEvents(ctx, db.ListUnseenQuestionEventsParams{
 		WorkspaceID: workspaceID, QuestionIds: ids, AgentID: agentID, IssueID: issueID, AnswerAnchor: pgtype.Timestamptz{},
 	})
 	return len(askBacks) > 0, err

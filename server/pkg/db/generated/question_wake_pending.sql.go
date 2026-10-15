@@ -28,7 +28,7 @@ func (q *Queries) DeleteQuestionWakePending(ctx context.Context, arg DeleteQuest
 }
 
 const getQuestionWakeAnswerAnchor = `-- name: GetQuestionWakeAnswerAnchor :one
-SELECT question_wake_answer_cutoff($1::uuid, $2::uuid, $3::uuid,
+SELECT question_wake_answer_cutoff($1::uuid, $2::uuid, NULL::uuid, $3::uuid,
                                   NULL::uuid, NULL::timestamptz)::timestamptz AS answer_anchor
 `
 

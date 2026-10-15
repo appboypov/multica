@@ -828,7 +828,7 @@ func (s *QuestionService) ListForIssue(ctx context.Context, workspaceID, issueID
 	if issue.WorkspaceID != workspaceID {
 		return nil, questionRefusal(404, "issue not found")
 	}
-	rows, err := s.Queries.ListQuestionsByIssue(ctx, db.ListQuestionsByIssueParams{WorkspaceID: workspaceID, IssueID: issueID})
+	rows, err := s.Queries.ListQuestionsLinkedTo(ctx, db.ListQuestionsLinkedToParams{WorkspaceID: workspaceID, LinkType: "issue", LinkID: issueID})
 	if err != nil {
 		return nil, err
 	}

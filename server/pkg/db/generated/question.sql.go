@@ -50,22 +50,23 @@ func (q *Queries) AppendQuestionLinks(ctx context.Context, arg AppendQuestionLin
 
 const countUnseenQuestionAnswers = `-- name: CountUnseenQuestionAnswers :one
 
+
 SELECT count(*)::bigint AS unseen_count
 FROM question_answer a
 JOIN question q ON q.id = a.question_id AND q.workspace_id = a.workspace_id
 WHERE a.workspace_id = $1
   AND q.id = ANY($2::uuid[])
-  AND q.status IN ('open', 'partly_answered', 'answered')
+  AND q.status IN ('open', 'partly_answered', 'answered', 'cancelled')
   AND a.updated_at > (SELECT question_wake_answer_cutoff(
-      $1::uuid, $3::uuid, $4::uuid,
-      $5::uuid, $6::timestamptz))
+      $1::uuid, $3::uuid, $4::uuid, $5::uuid,
+      $6::uuid, $7::timestamptz))
   AND NOT EXISTS (
       SELECT 1 FROM task_supplement s
       JOIN agent_task_queue handled_run ON handled_run.id = s.task_id
       WHERE s.workspace_id = a.workspace_id
         AND s.item_kind = 'answer'
         AND s.handled_at IS NOT NULL
-        AND handled_run.agent_id = $4
+        AND handled_run.agent_id = $5
         AND s.item_id = (
             SELECT e.id FROM question_event e
             WHERE e.workspace_id = a.workspace_id
@@ -83,6 +84,7 @@ type CountUnseenQuestionAnswersParams struct {
 	WorkspaceID   pgtype.UUID        `json:"workspace_id"`
 	QuestionIds   []pgtype.UUID      `json:"question_ids"`
 	IssueID       pgtype.UUID        `json:"issue_id"`
+	ChatSessionID pgtype.UUID        `json:"chat_session_id"`
 	AgentID       pgtype.UUID        `json:"agent_id"`
 	ExcludeTaskID pgtype.UUID        `json:"exclude_task_id"`
 	AnswerAnchor  pgtype.Timestamptz `json:"answer_anchor"`
@@ -95,6 +97,7 @@ func (q *Queries) CountUnseenQuestionAnswers(ctx context.Context, arg CountUnsee
 		arg.WorkspaceID,
 		arg.QuestionIds,
 		arg.IssueID,
+		arg.ChatSessionID,
 		arg.AgentID,
 		arg.ExcludeTaskID,
 		arg.AnswerAnchor,
@@ -137,8 +140,8 @@ type CreateQuestionParams struct {
 	AnswerPolicy    string      `json:"answer_policy"`
 }
 
-// Questions agents ask in a run or members ask on an issue (ADR-0021). Every query is
-// scoped by workspace_id; the service validates ids and runs the multi-row
+// Questions agents ask during issue runs and chat turns, and members ask on an issue (ADR-0021).
+// Every query is scoped by workspace_id; the service validates ids and runs the multi-row
 // writes of one action in one transaction.
 // One question of an ask: a one-question ask passes ask_id = id and
 // ask_position 0; ask_title is set only when the ask holds several.
@@ -425,6 +428,29 @@ func (q *Queries) GetQuestionForUpdate(ctx context.Context, arg GetQuestionForUp
 	return i, err
 }
 
+const hasActiveChatTaskForAgent = `-- name: HasActiveChatTaskForAgent :one
+SELECT EXISTS (
+    SELECT 1 FROM agent_task_queue t
+    JOIN agent a ON a.id = t.agent_id AND a.workspace_id = $1
+    JOIN chat_session c ON c.id = t.chat_session_id AND c.workspace_id = $1
+    WHERE t.agent_id = $2 AND t.chat_session_id = $3
+      AND t.status IN ('queued', 'dispatched', 'running')
+)::boolean AS has_active
+`
+
+type HasActiveChatTaskForAgentParams struct {
+	WorkspaceID   pgtype.UUID `json:"workspace_id"`
+	AgentID       pgtype.UUID `json:"agent_id"`
+	ChatSessionID pgtype.UUID `json:"chat_session_id"`
+}
+
+func (q *Queries) HasActiveChatTaskForAgent(ctx context.Context, arg HasActiveChatTaskForAgentParams) (bool, error) {
+	row := q.db.QueryRow(ctx, hasActiveChatTaskForAgent, arg.WorkspaceID, arg.AgentID, arg.ChatSessionID)
+	var has_active bool
+	err := row.Scan(&has_active)
+	return has_active, err
+}
+
 const isQuestionAnswerer = `-- name: IsQuestionAnswerer :one
 SELECT EXISTS (
     SELECT 1 FROM question_answerer
@@ -445,6 +471,78 @@ func (q *Queries) IsQuestionAnswerer(ctx context.Context, arg IsQuestionAnswerer
 	var is_answerer bool
 	err := row.Scan(&is_answerer)
 	return is_answerer, err
+}
+
+const listChatQuestionIDs = `-- name: ListChatQuestionIDs :many
+SELECT q.id FROM question q
+JOIN question_link l
+  ON l.question_id = q.id AND l.workspace_id = q.workspace_id
+WHERE q.workspace_id = $1
+  AND q.asker_agent_id = $2
+  AND q.status IN ('open', 'partly_answered', 'answered', 'cancelled')
+  AND l.link_type = 'chat' AND l.link_id = $3
+ORDER BY q.id
+`
+
+type ListChatQuestionIDsParams struct {
+	WorkspaceID   pgtype.UUID `json:"workspace_id"`
+	AgentID       pgtype.UUID `json:"agent_id"`
+	ChatSessionID pgtype.UUID `json:"chat_session_id"`
+}
+
+// The asking agent receives the answers and events of its questions in this chat.
+func (q *Queries) ListChatQuestionIDs(ctx context.Context, arg ListChatQuestionIDsParams) ([]pgtype.UUID, error) {
+	rows, err := q.db.Query(ctx, listChatQuestionIDs, arg.WorkspaceID, arg.AgentID, arg.ChatSessionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []pgtype.UUID{}
+	for rows.Next() {
+		var id pgtype.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listChatTaskIDs = `-- name: ListChatTaskIDs :many
+SELECT t.id FROM agent_task_queue t
+JOIN agent a ON a.id = t.agent_id AND a.workspace_id = $1
+JOIN chat_session c ON c.id = t.chat_session_id AND c.workspace_id = $1
+WHERE t.chat_session_id = $2
+ORDER BY t.id
+`
+
+type ListChatTaskIDsParams struct {
+	WorkspaceID   pgtype.UUID `json:"workspace_id"`
+	ChatSessionID pgtype.UUID `json:"chat_session_id"`
+}
+
+// Chat deletion drops question links to these runs before removing the chat.
+func (q *Queries) ListChatTaskIDs(ctx context.Context, arg ListChatTaskIDsParams) ([]pgtype.UUID, error) {
+	rows, err := q.db.Query(ctx, listChatTaskIDs, arg.WorkspaceID, arg.ChatSessionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []pgtype.UUID{}
+	for rows.Next() {
+		var id pgtype.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listCurrentAnswers = `-- name: ListCurrentAnswers :many
@@ -496,12 +594,15 @@ func (q *Queries) ListCurrentAnswers(ctx context.Context, arg ListCurrentAnswers
 }
 
 const listOpenOverdueQuestions = `-- name: ListOpenOverdueQuestions :many
-SELECT q.id, q.workspace_id, q.asker_agent_id, q.asked_in_task_id, q.prompt, q.context_line, q.answer_type, q.settings, q.suggested_answer, q.status, q.due_date, q.blocks_work, q.overdue_notified_at, q.created_at, q.updated_at, q.ask_id, q.ask_position, q.ask_title, q.answer_policy, q.asker_user_id, l.link_id AS issue_id
+SELECT q.id, q.workspace_id, q.asker_agent_id, q.asked_in_task_id, q.prompt, q.context_line, q.answer_type, q.settings, q.suggested_answer, q.status, q.due_date, q.blocks_work, q.overdue_notified_at, q.created_at, q.updated_at, q.ask_id, q.ask_position, q.ask_title, q.answer_policy, q.asker_user_id,
+       (CASE WHEN l.link_type = 'issue' THEN l.link_id END)::uuid AS issue_id,
+       (CASE WHEN l.link_type = 'chat' THEN l.link_id END)::uuid AS chat_session_id
 FROM question q
 JOIN question_link l
   ON l.question_id = q.id
  AND l.workspace_id = q.workspace_id
- AND l.link_type = 'issue'
+ AND l.position = 0
+ AND l.link_type IN ('issue', 'chat')
 WHERE q.status IN ('open', 'partly_answered')
   AND q.overdue_notified_at IS NULL
   AND q.due_date < $1::date
@@ -536,11 +637,12 @@ type ListOpenOverdueQuestionsRow struct {
 	AnswerPolicy      string             `json:"answer_policy"`
 	AskerUserID       pgtype.UUID        `json:"asker_user_id"`
 	IssueID           pgtype.UUID        `json:"issue_id"`
+	ChatSessionID     pgtype.UUID        `json:"chat_session_id"`
 }
 
 // The overdue sweep runs across workspaces: open and partly answered questions
 // due before the given UTC day that have had no overdue notice yet, each with
-// its ask_id and the issue it is linked to.
+// its ask_id and its position-0 issue or chat link.
 func (q *Queries) ListOpenOverdueQuestions(ctx context.Context, arg ListOpenOverdueQuestionsParams) ([]ListOpenOverdueQuestionsRow, error) {
 	rows, err := q.db.Query(ctx, listOpenOverdueQuestions, arg.BeforeDate, arg.MaxRows)
 	if err != nil {
@@ -572,6 +674,7 @@ func (q *Queries) ListOpenOverdueQuestions(ctx context.Context, arg ListOpenOver
 			&i.AnswerPolicy,
 			&i.AskerUserID,
 			&i.IssueID,
+			&i.ChatSessionID,
 		); err != nil {
 			return nil, err
 		}
@@ -794,35 +897,36 @@ func (q *Queries) ListQuestionsByAsk(ctx context.Context, arg ListQuestionsByAsk
 	return items, nil
 }
 
-const listQuestionsByIssue = `-- name: ListQuestionsByIssue :many
+const listQuestionsLinkedTo = `-- name: ListQuestionsLinkedTo :many
 SELECT DISTINCT q.id, q.workspace_id, q.asker_agent_id, q.asked_in_task_id, q.prompt, q.context_line, q.answer_type, q.settings, q.suggested_answer, q.status, q.due_date, q.blocks_work, q.overdue_notified_at, q.created_at, q.updated_at, q.ask_id, q.ask_position, q.ask_title, q.answer_policy, q.asker_user_id FROM question q
 JOIN question_link l
   ON l.question_id = q.id AND l.workspace_id = q.workspace_id
 WHERE q.workspace_id = $1
   AND (
-      (l.link_type = 'issue' AND l.link_id = $2)
-      OR (l.link_type = 'comment' AND EXISTS (
+      (l.link_type = $2 AND l.link_id = $3)
+      OR ($2 = 'issue' AND l.link_type = 'comment' AND EXISTS (
           SELECT 1 FROM comment c
           WHERE c.id = l.link_id AND c.workspace_id = $1
-            AND c.issue_id = $2 AND c.deleted_at IS NULL
+            AND c.issue_id = $3 AND c.deleted_at IS NULL
       ))
-      OR (l.link_type = 'task' AND EXISTS (
+      OR ($2 = 'issue' AND l.link_type = 'task' AND EXISTS (
           SELECT 1 FROM agent_task_queue t
           JOIN agent a ON a.id = t.agent_id AND a.workspace_id = $1
-          WHERE t.id = l.link_id AND t.issue_id = $2
+          WHERE t.id = l.link_id AND t.issue_id = $3
       ))
   )
 ORDER BY q.created_at ASC, q.id ASC
 `
 
-type ListQuestionsByIssueParams struct {
+type ListQuestionsLinkedToParams struct {
 	WorkspaceID pgtype.UUID `json:"workspace_id"`
-	IssueID     pgtype.UUID `json:"issue_id"`
+	LinkType    string      `json:"link_type"`
+	LinkID      pgtype.UUID `json:"link_id"`
 }
 
-// Direct cards include links to the issue, its live comments and its runs.
-func (q *Queries) ListQuestionsByIssue(ctx context.Context, arg ListQuestionsByIssueParams) ([]Question, error) {
-	rows, err := q.db.Query(ctx, listQuestionsByIssue, arg.WorkspaceID, arg.IssueID)
+// Direct cards for any link; issue cards also include live comments and runs.
+func (q *Queries) ListQuestionsLinkedTo(ctx context.Context, arg ListQuestionsLinkedToParams) ([]Question, error) {
+	rows, err := q.db.Query(ctx, listQuestionsLinkedTo, arg.WorkspaceID, arg.LinkType, arg.LinkID)
 	if err != nil {
 		return nil, err
 	}
@@ -863,6 +967,7 @@ func (q *Queries) ListQuestionsByIssue(ctx context.Context, arg ListQuestionsByI
 }
 
 const listUnseenQuestionAnswers = `-- name: ListUnseenQuestionAnswers :many
+
 SELECT a.id, a.question_id, a.answerer_user_id, a.value, a.note, a.created_at, a.updated_at,
        q.prompt, q.answer_type, q.settings, q.asker_agent_id,
        asker.name AS asker_name, u.name AS answerer_name
@@ -872,17 +977,17 @@ JOIN agent asker ON asker.id = q.asker_agent_id AND asker.workspace_id = q.works
 JOIN "user" u ON u.id = a.answerer_user_id
 WHERE a.workspace_id = $1
   AND q.id = ANY($2::uuid[])
-  AND q.status IN ('open', 'partly_answered', 'answered')
+  AND q.status IN ('open', 'partly_answered', 'answered', 'cancelled')
   AND a.updated_at > (SELECT question_wake_answer_cutoff(
-      $1::uuid, $3::uuid, $4::uuid,
-      $5::uuid, $6::timestamptz))
+      $1::uuid, $3::uuid, $4::uuid, $5::uuid,
+      $6::uuid, $7::timestamptz))
   AND NOT EXISTS (
       SELECT 1 FROM task_supplement s
       JOIN agent_task_queue handled_run ON handled_run.id = s.task_id
       WHERE s.workspace_id = a.workspace_id
         AND s.item_kind = 'answer'
         AND s.handled_at IS NOT NULL
-        AND handled_run.agent_id = $4
+        AND handled_run.agent_id = $5
         AND s.item_id = (
             SELECT e.id FROM question_event e
             WHERE e.workspace_id = a.workspace_id
@@ -901,6 +1006,7 @@ type ListUnseenQuestionAnswersParams struct {
 	WorkspaceID   pgtype.UUID        `json:"workspace_id"`
 	QuestionIds   []pgtype.UUID      `json:"question_ids"`
 	IssueID       pgtype.UUID        `json:"issue_id"`
+	ChatSessionID pgtype.UUID        `json:"chat_session_id"`
 	AgentID       pgtype.UUID        `json:"agent_id"`
 	ExcludeTaskID pgtype.UUID        `json:"exclude_task_id"`
 	AnswerAnchor  pgtype.Timestamptz `json:"answer_anchor"`
@@ -927,6 +1033,7 @@ func (q *Queries) ListUnseenQuestionAnswers(ctx context.Context, arg ListUnseenQ
 		arg.WorkspaceID,
 		arg.QuestionIds,
 		arg.IssueID,
+		arg.ChatSessionID,
 		arg.AgentID,
 		arg.ExcludeTaskID,
 		arg.AnswerAnchor,
@@ -963,42 +1070,44 @@ func (q *Queries) ListUnseenQuestionAnswers(ctx context.Context, arg ListUnseenQ
 	return items, nil
 }
 
-const listUnseenQuestionAskBacks = `-- name: ListUnseenQuestionAskBacks :many
-SELECT e.id, e.question_id, e.actor_id, e.details, e.created_at,
+const listUnseenQuestionEvents = `-- name: ListUnseenQuestionEvents :many
+SELECT e.id, e.question_id, e.kind, e.actor_id, e.details, e.created_at,
        q.prompt, q.asker_agent_id, asker.name AS asker_name, u.name AS actor_name
 FROM question_event e
 JOIN question q ON q.id = e.question_id AND q.workspace_id = e.workspace_id
 JOIN agent asker ON asker.id = q.asker_agent_id AND asker.workspace_id = q.workspace_id
 JOIN "user" u ON u.id = e.actor_id
 WHERE e.workspace_id = $1
-  AND e.kind = 'ask_back'
+  AND e.kind IN ('ask_back', 'cancelled')
   AND q.id = ANY($2::uuid[])
-  AND q.status IN ('open', 'partly_answered', 'answered')
+  AND q.status IN ('open', 'partly_answered', 'answered', 'cancelled')
   AND e.created_at > (SELECT question_wake_answer_cutoff(
-      $1::uuid, $3::uuid, $4::uuid,
-      $5::uuid, $6::timestamptz))
+      $1::uuid, $3::uuid, $4::uuid, $5::uuid,
+      $6::uuid, $7::timestamptz))
   AND NOT EXISTS (
       SELECT 1 FROM task_supplement s
       JOIN agent_task_queue handled_run ON handled_run.id = s.task_id
       WHERE s.workspace_id = e.workspace_id AND s.item_kind = 'answer'
         AND s.item_id = e.id AND s.handled_at IS NOT NULL
-        AND handled_run.agent_id = $4
+        AND handled_run.agent_id = $5
   )
 ORDER BY e.created_at ASC, e.id ASC
 `
 
-type ListUnseenQuestionAskBacksParams struct {
+type ListUnseenQuestionEventsParams struct {
 	WorkspaceID   pgtype.UUID        `json:"workspace_id"`
 	QuestionIds   []pgtype.UUID      `json:"question_ids"`
 	IssueID       pgtype.UUID        `json:"issue_id"`
+	ChatSessionID pgtype.UUID        `json:"chat_session_id"`
 	AgentID       pgtype.UUID        `json:"agent_id"`
 	ExcludeTaskID pgtype.UUID        `json:"exclude_task_id"`
 	AnswerAnchor  pgtype.Timestamptz `json:"answer_anchor"`
 }
 
-type ListUnseenQuestionAskBacksRow struct {
+type ListUnseenQuestionEventsRow struct {
 	ID           pgtype.UUID        `json:"id"`
 	QuestionID   pgtype.UUID        `json:"question_id"`
+	Kind         string             `json:"kind"`
 	ActorID      pgtype.UUID        `json:"actor_id"`
 	Details      []byte             `json:"details"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
@@ -1008,13 +1117,14 @@ type ListUnseenQuestionAskBacksRow struct {
 	ActorName    string             `json:"actor_name"`
 }
 
-// Ask-backs are no answers: they count toward nothing and ride along in the
-// next woken run, against the same anchor.
-func (q *Queries) ListUnseenQuestionAskBacks(ctx context.Context, arg ListUnseenQuestionAskBacksParams) ([]ListUnseenQuestionAskBacksRow, error) {
-	rows, err := q.db.Query(ctx, listUnseenQuestionAskBacks,
+// Ask-backs and cancels ride along in the next run against the same scope
+// anchor as answers, keeping their kind for the per-turn prompt.
+func (q *Queries) ListUnseenQuestionEvents(ctx context.Context, arg ListUnseenQuestionEventsParams) ([]ListUnseenQuestionEventsRow, error) {
+	rows, err := q.db.Query(ctx, listUnseenQuestionEvents,
 		arg.WorkspaceID,
 		arg.QuestionIds,
 		arg.IssueID,
+		arg.ChatSessionID,
 		arg.AgentID,
 		arg.ExcludeTaskID,
 		arg.AnswerAnchor,
@@ -1023,12 +1133,13 @@ func (q *Queries) ListUnseenQuestionAskBacks(ctx context.Context, arg ListUnseen
 		return nil, err
 	}
 	defer rows.Close()
-	items := []ListUnseenQuestionAskBacksRow{}
+	items := []ListUnseenQuestionEventsRow{}
 	for rows.Next() {
-		var i ListUnseenQuestionAskBacksRow
+		var i ListUnseenQuestionEventsRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.QuestionID,
+			&i.Kind,
 			&i.ActorID,
 			&i.Details,
 			&i.CreatedAt,

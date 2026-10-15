@@ -127,12 +127,16 @@ WITH selected AS (
            q.answer_type, q.settings, q.status, q.answer_policy,
            q.asker_agent_id, q.asker_user_id, q.due_date, q.blocks_work, q.created_at,
            l.link_type, l.link_id,
+           chat.creator_id AS link_member_id,
            a.value AS my_answer_value, a.updated_at AS my_answer_updated_at
     FROM question q
     JOIN question_link l
       ON l.question_id = q.id
      AND l.workspace_id = q.workspace_id
      AND l.position = 0
+    LEFT JOIN chat_session chat
+      ON l.link_type = 'chat' AND chat.id = l.link_id
+     AND chat.workspace_id = q.workspace_id
     LEFT JOIN question_answer a
       ON a.question_id = q.id
      AND a.workspace_id = q.workspace_id
@@ -161,7 +165,7 @@ WITH selected AS (
     ORDER BY q.created_at ASC, q.id ASC
     LIMIT $10::int
 )
-SELECT selected.id, selected.ask_id, selected.ask_position, selected.ask_title, selected.prompt, selected.answer_type, selected.settings, selected.status, selected.answer_policy, selected.asker_agent_id, selected.asker_user_id, selected.due_date, selected.blocks_work, selected.created_at, selected.link_type, selected.link_id, selected.my_answer_value, selected.my_answer_updated_at,
+SELECT selected.id, selected.ask_id, selected.ask_position, selected.ask_title, selected.prompt, selected.answer_type, selected.settings, selected.status, selected.answer_policy, selected.asker_agent_id, selected.asker_user_id, selected.due_date, selected.blocks_work, selected.created_at, selected.link_type, selected.link_id, selected.link_member_id, selected.my_answer_value, selected.my_answer_updated_at,
        ARRAY(
            SELECT r.user_id FROM question_answerer r
            WHERE r.workspace_id = $1::uuid
@@ -202,6 +206,7 @@ type ListOpenQuestionRowsRow struct {
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	LinkType          string             `json:"link_type"`
 	LinkID            pgtype.UUID        `json:"link_id"`
+	LinkMemberID      pgtype.UUID        `json:"link_member_id"`
 	MyAnswerValue     []byte             `json:"my_answer_value"`
 	MyAnswerUpdatedAt pgtype.Timestamptz `json:"my_answer_updated_at"`
 	AnswererIds       []pgtype.UUID      `json:"answerer_ids"`
@@ -244,6 +249,7 @@ func (q *Queries) ListOpenQuestionRows(ctx context.Context, arg ListOpenQuestion
 			&i.CreatedAt,
 			&i.LinkType,
 			&i.LinkID,
+			&i.LinkMemberID,
 			&i.MyAnswerValue,
 			&i.MyAnswerUpdatedAt,
 			&i.AnswererIds,
@@ -264,6 +270,7 @@ WITH selected AS (
            q.answer_type, q.settings, q.status, q.answer_policy,
            q.asker_agent_id, q.asker_user_id, q.due_date, q.blocks_work, q.created_at,
            l.link_type, l.link_id,
+           chat.creator_id AS link_member_id,
            a.value AS my_answer_value, a.updated_at AS my_answer_updated_at
     FROM question_answer a
     JOIN question q
@@ -273,6 +280,9 @@ WITH selected AS (
       ON l.question_id = q.id
      AND l.workspace_id = q.workspace_id
      AND l.position = 0
+    LEFT JOIN chat_session chat
+      ON l.link_type = 'chat' AND chat.id = l.link_id
+     AND chat.workspace_id = q.workspace_id
     WHERE a.workspace_id = $1::uuid
       AND a.answerer_user_id = $2::uuid
       AND (COALESCE(cardinality($3::text[]), 0) = 0
@@ -297,7 +307,7 @@ WITH selected AS (
     ORDER BY a.updated_at DESC, a.question_id DESC
     LIMIT $10::int
 )
-SELECT selected.id, selected.ask_id, selected.ask_position, selected.ask_title, selected.prompt, selected.answer_type, selected.settings, selected.status, selected.answer_policy, selected.asker_agent_id, selected.asker_user_id, selected.due_date, selected.blocks_work, selected.created_at, selected.link_type, selected.link_id, selected.my_answer_value, selected.my_answer_updated_at,
+SELECT selected.id, selected.ask_id, selected.ask_position, selected.ask_title, selected.prompt, selected.answer_type, selected.settings, selected.status, selected.answer_policy, selected.asker_agent_id, selected.asker_user_id, selected.due_date, selected.blocks_work, selected.created_at, selected.link_type, selected.link_id, selected.link_member_id, selected.my_answer_value, selected.my_answer_updated_at,
        ARRAY(
            SELECT r.user_id FROM question_answerer r
            WHERE r.workspace_id = $1::uuid
@@ -338,6 +348,7 @@ type ListQuestionRowsAnsweredByRow struct {
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	LinkType          string             `json:"link_type"`
 	LinkID            pgtype.UUID        `json:"link_id"`
+	LinkMemberID      pgtype.UUID        `json:"link_member_id"`
 	MyAnswerValue     []byte             `json:"my_answer_value"`
 	MyAnswerUpdatedAt pgtype.Timestamptz `json:"my_answer_updated_at"`
 	AnswererIds       []pgtype.UUID      `json:"answerer_ids"`
@@ -380,6 +391,7 @@ func (q *Queries) ListQuestionRowsAnsweredBy(ctx context.Context, arg ListQuesti
 			&i.CreatedAt,
 			&i.LinkType,
 			&i.LinkID,
+			&i.LinkMemberID,
 			&i.MyAnswerValue,
 			&i.MyAnswerUpdatedAt,
 			&i.AnswererIds,
@@ -425,12 +437,16 @@ WITH RECURSIVE subtree AS (
            q.answer_type, q.settings, q.status, q.answer_policy,
            q.asker_agent_id, q.asker_user_id, q.due_date, q.blocks_work, q.created_at,
            l.link_type, l.link_id,
+           chat.creator_id AS link_member_id,
            a.value AS my_answer_value, a.updated_at AS my_answer_updated_at
     FROM question q
     JOIN question_link l
       ON l.question_id = q.id
      AND l.workspace_id = q.workspace_id
      AND l.position = 0
+    LEFT JOIN chat_session chat
+      ON l.link_type = 'chat' AND chat.id = l.link_id
+     AND chat.workspace_id = q.workspace_id
     LEFT JOIN question_answer a
       ON a.question_id = q.id
      AND a.workspace_id = q.workspace_id
@@ -460,7 +476,7 @@ WITH RECURSIVE subtree AS (
     ORDER BY q.created_at ASC, q.id ASC
     LIMIT $12::int
 )
-SELECT selected.id, selected.ask_id, selected.ask_position, selected.ask_title, selected.prompt, selected.answer_type, selected.settings, selected.status, selected.answer_policy, selected.asker_agent_id, selected.asker_user_id, selected.due_date, selected.blocks_work, selected.created_at, selected.link_type, selected.link_id, selected.my_answer_value, selected.my_answer_updated_at,
+SELECT selected.id, selected.ask_id, selected.ask_position, selected.ask_title, selected.prompt, selected.answer_type, selected.settings, selected.status, selected.answer_policy, selected.asker_agent_id, selected.asker_user_id, selected.due_date, selected.blocks_work, selected.created_at, selected.link_type, selected.link_id, selected.link_member_id, selected.my_answer_value, selected.my_answer_updated_at,
        ARRAY(
            SELECT r.user_id FROM question_answerer r
            WHERE r.workspace_id = $1::uuid
@@ -503,6 +519,7 @@ type ListQuestionRowsBelowRow struct {
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	LinkType          string             `json:"link_type"`
 	LinkID            pgtype.UUID        `json:"link_id"`
+	LinkMemberID      pgtype.UUID        `json:"link_member_id"`
 	MyAnswerValue     []byte             `json:"my_answer_value"`
 	MyAnswerUpdatedAt pgtype.Timestamptz `json:"my_answer_updated_at"`
 	AnswererIds       []pgtype.UUID      `json:"answerer_ids"`
@@ -550,6 +567,7 @@ func (q *Queries) ListQuestionRowsBelow(ctx context.Context, arg ListQuestionRow
 			&i.CreatedAt,
 			&i.LinkType,
 			&i.LinkID,
+			&i.LinkMemberID,
 			&i.MyAnswerValue,
 			&i.MyAnswerUpdatedAt,
 			&i.AnswererIds,
@@ -571,12 +589,16 @@ WITH selected AS (
            q.answer_type, q.settings, q.status, q.answer_policy,
            q.asker_agent_id, q.asker_user_id, q.due_date, q.blocks_work, q.created_at,
            l.link_type, l.link_id,
+           chat.creator_id AS link_member_id,
            a.value AS my_answer_value, a.updated_at AS my_answer_updated_at
     FROM question q
     JOIN question_link l
       ON l.question_id = q.id
      AND l.workspace_id = q.workspace_id
      AND l.position = 0
+    LEFT JOIN chat_session chat
+      ON l.link_type = 'chat' AND chat.id = l.link_id
+     AND chat.workspace_id = q.workspace_id
     LEFT JOIN question_answer a
       ON a.question_id = q.id
      AND a.workspace_id = q.workspace_id
@@ -612,7 +634,7 @@ WITH selected AS (
     ORDER BY q.created_at ASC, q.id ASC
     LIMIT $10::int
 )
-SELECT selected.id, selected.ask_id, selected.ask_position, selected.ask_title, selected.prompt, selected.answer_type, selected.settings, selected.status, selected.answer_policy, selected.asker_agent_id, selected.asker_user_id, selected.due_date, selected.blocks_work, selected.created_at, selected.link_type, selected.link_id, selected.my_answer_value, selected.my_answer_updated_at,
+SELECT selected.id, selected.ask_id, selected.ask_position, selected.ask_title, selected.prompt, selected.answer_type, selected.settings, selected.status, selected.answer_policy, selected.asker_agent_id, selected.asker_user_id, selected.due_date, selected.blocks_work, selected.created_at, selected.link_type, selected.link_id, selected.link_member_id, selected.my_answer_value, selected.my_answer_updated_at,
        ARRAY(
            SELECT r.user_id FROM question_answerer r
            WHERE r.workspace_id = $1::uuid
@@ -653,6 +675,7 @@ type ListQuestionRowsForMemberRow struct {
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	LinkType          string             `json:"link_type"`
 	LinkID            pgtype.UUID        `json:"link_id"`
+	LinkMemberID      pgtype.UUID        `json:"link_member_id"`
 	MyAnswerValue     []byte             `json:"my_answer_value"`
 	MyAnswerUpdatedAt pgtype.Timestamptz `json:"my_answer_updated_at"`
 	AnswererIds       []pgtype.UUID      `json:"answerer_ids"`
@@ -701,6 +724,7 @@ func (q *Queries) ListQuestionRowsForMember(ctx context.Context, arg ListQuestio
 			&i.CreatedAt,
 			&i.LinkType,
 			&i.LinkID,
+			&i.LinkMemberID,
 			&i.MyAnswerValue,
 			&i.MyAnswerUpdatedAt,
 			&i.AnswererIds,
