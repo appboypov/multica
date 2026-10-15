@@ -104,10 +104,11 @@ type QuestionEventDTO struct {
 	CreatedAt string          `json:"created_at"`
 }
 
-// QuestionWakeTargetDTO is an agent/issue pair offered Wake, with its unseen answers.
+// QuestionWakeTargetDTO offers Wake for an agent in one issue or chat scope.
 type QuestionWakeTargetDTO struct {
 	AgentID           string `json:"agent_id"`
 	IssueID           string `json:"issue_id"`
+	ChatSessionID     string `json:"chat_session_id,omitempty"`
 	UnseenAnswerCount int64  `json:"unseen_answer_count"`
 	WakeAvailable     bool   `json:"wake_available"`
 }
@@ -959,14 +960,13 @@ func (s *QuestionService) hydrate(ctx context.Context, q *db.Queries, workspaceI
 			}
 		}
 		if !found && row.AskedInTaskID.Valid {
-			// An archived asker is no Wake target, but the card still counts the
-			// answers it has not seen on its run's issue.
+			// An archived asker is no Wake target, but its unseen count remains.
 			asking, err := q.GetAgentTaskInWorkspace(ctx, db.GetAgentTaskInWorkspaceParams{ID: row.AskedInTaskID, WorkspaceID: workspaceID})
 			if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 				return nil, err
 			}
-			if asking.IssueID.Valid {
-				result[i].UnseenAnswerCount, err = s.countUnseenAnswers(ctx, q, workspaceID, row.AskerAgentID, asking.IssueID, pgtype.UUID{})
+			if asking.IssueID.Valid || asking.ChatSessionID.Valid {
+				result[i].UnseenAnswerCount, err = s.countUnseenAnswers(ctx, q, workspaceID, row.AskerAgentID, questionTaskScope(asking), pgtype.UUID{})
 				if err != nil {
 					return nil, err
 				}
@@ -980,7 +980,7 @@ func (s *QuestionService) Wake(ctx context.Context, workspaceID, questionID pgty
 	if err := s.requireMember(ctx, s.Queries, workspaceID, actor); err != nil {
 		return QuestionWakeResult{}, err
 	}
-	// Resolve without a write lock: every writer takes issue, pending, question.
+	// Resolve without a write lock: every writer takes the scope lock first.
 	row, err := s.Queries.GetQuestion(ctx, db.GetQuestionParams{ID: questionID, WorkspaceID: workspaceID})
 	if err != nil {
 		return QuestionWakeResult{}, questionLoadError(err)
@@ -991,10 +991,14 @@ func (s *QuestionService) Wake(ctx context.Context, workspaceID, questionID pgty
 	if !agentID.Valid {
 		agentID = row.AskerAgentID
 	}
-	issueID, err := s.questionWakeIssue(ctx, s.Queries, workspaceID, row, agentID)
+	scope, err := s.questionWakeScope(ctx, s.Queries, workspaceID, row, agentID)
 	if err != nil {
 		return QuestionWakeResult{}, err
 	}
+	if scope.ChatSessionID.Valid {
+		return s.wakeInChat(ctx, workspaceID, questionID, actor, agentID, scope)
+	}
+	issueID := scope.IssueID
 	initialAgent, err := s.Queries.GetAgentInWorkspace(ctx, db.GetAgentInWorkspaceParams{ID: agentID, WorkspaceID: workspaceID})
 	if err != nil {
 		return QuestionWakeResult{}, err
@@ -1027,11 +1031,11 @@ func (s *QuestionService) Wake(ctx context.Context, workspaceID, questionID pgty
 	if err != nil {
 		return QuestionWakeResult{}, questionLoadError(err)
 	}
-	currentIssue, err := s.questionWakeIssue(ctx, q, workspaceID, row, agentID)
+	current, err := s.questionWakeScope(ctx, q, workspaceID, row, agentID)
 	if err != nil {
 		return QuestionWakeResult{}, err
 	}
-	if currentIssue != issueID {
+	if current != scope {
 		return QuestionWakeResult{}, questionRefusal(422, "Wake target changed")
 	}
 	agent, err := q.GetAgentInWorkspace(ctx, db.GetAgentInWorkspaceParams{ID: agentID, WorkspaceID: workspaceID})
@@ -1041,11 +1045,11 @@ func (s *QuestionService) Wake(ctx context.Context, workspaceID, questionID pgty
 	if agent.ArchivedAt.Valid || !agent.RuntimeID.Valid {
 		return QuestionWakeResult{}, questionRefusal(422, "agent must be active and have a runtime")
 	}
-	count, err := s.countUnseenAnswers(ctx, q, workspaceID, agentID, issueID, pgtype.UUID{})
+	count, err := s.countUnseenAnswers(ctx, q, workspaceID, agentID, scope, pgtype.UUID{})
 	if err != nil {
 		return QuestionWakeResult{}, err
 	}
-	askBacks, err := s.hasUnseenAskBacks(ctx, q, workspaceID, agentID, issueID)
+	events, err := s.hasUnseenEvents(ctx, q, workspaceID, agentID, scope)
 	if err != nil {
 		return QuestionWakeResult{}, err
 	}
@@ -1066,7 +1070,7 @@ func (s *QuestionService) Wake(ctx context.Context, workspaceID, questionID pgty
 		}
 		return QuestionWakeResult{AnswerCount: count}, nil
 	}
-	if !waiting && count == 0 && !askBacks {
+	if !waiting && count == 0 && !events {
 		return QuestionWakeResult{}, questionRefusal(422, "there are no unseen answers")
 	}
 	if !waiting {
@@ -1114,4 +1118,86 @@ func (s *QuestionService) Wake(ctx context.Context, workspaceID, questionID pgty
 	}
 	s.publishQuestionWake(ctx, delivery)
 	return delivery.result, nil
+}
+
+// wakeInChat continues the agent in the chat. A chat has no durable wait: a
+// Wake while the chat already has the agent's active task is refused.
+func (s *QuestionService) wakeInChat(ctx context.Context, workspaceID, questionID pgtype.UUID, actor QuestionActor, agentID pgtype.UUID, scope QuestionWakeScope) (QuestionWakeResult, error) {
+	tx, err := s.TxStarter.Begin(ctx)
+	if err != nil {
+		return QuestionWakeResult{}, err
+	}
+	defer tx.Rollback(ctx)
+	q := s.Queries.WithTx(tx)
+	if err := s.requireMember(ctx, q, workspaceID, actor); err != nil {
+		return QuestionWakeResult{}, err
+	}
+	// Chat deletion locks the chat before it withdraws the question, so Wake
+	// locks the chat before the question too. The chat lock also serializes
+	// wakes from different cards and enqueue paths.
+	session, err := q.LockChatSessionForEnqueue(ctx, scope.ChatSessionID)
+	if err == nil && session.WorkspaceID != workspaceID {
+		err = pgx.ErrNoRows
+	}
+	if err != nil {
+		return QuestionWakeResult{}, questionLoadError(err)
+	}
+	row, err := q.GetQuestionForUpdate(ctx, db.GetQuestionForUpdateParams{ID: questionID, WorkspaceID: workspaceID})
+	if err != nil {
+		return QuestionWakeResult{}, questionLoadError(err)
+	}
+	current, err := s.questionWakeScope(ctx, q, workspaceID, row, agentID)
+	if err != nil {
+		return QuestionWakeResult{}, err
+	}
+	if current != scope {
+		return QuestionWakeResult{}, questionRefusal(422, "Wake target changed")
+	}
+	if session.Status != "active" {
+		return QuestionWakeResult{}, ErrChatSessionArchived
+	}
+	agent, err := q.GetAgentInWorkspace(ctx, db.GetAgentInWorkspaceParams{ID: agentID, WorkspaceID: workspaceID})
+	if err != nil {
+		return QuestionWakeResult{}, err
+	}
+	if agent.ArchivedAt.Valid || !agent.RuntimeID.Valid {
+		return QuestionWakeResult{}, questionRefusal(422, "agent must be active and have a runtime")
+	}
+	active, err := s.hasActiveWakeTask(ctx, q, workspaceID, agentID, scope)
+	if err != nil {
+		return QuestionWakeResult{}, err
+	}
+	if active {
+		return QuestionWakeResult{}, ErrDuplicatePendingTask
+	}
+	count, err := s.countUnseenAnswers(ctx, q, workspaceID, agentID, scope, pgtype.UUID{})
+	if err != nil {
+		return QuestionWakeResult{}, err
+	}
+	if count == 0 {
+		events, err := s.hasUnseenEvents(ctx, q, workspaceID, agentID, scope)
+		if err != nil {
+			return QuestionWakeResult{}, err
+		}
+		if !events {
+			return QuestionWakeResult{}, questionRefusal(422, "there are no unseen answers")
+		}
+	}
+	task, err := s.Tasks.EnqueueChatTaskForQuestionWake(ctx, tx, session, agentID, actor.ID, row.ID, count)
+	if err != nil {
+		return QuestionWakeResult{}, err
+	}
+	result := QuestionWakeResult{TaskID: util.UUIDToString(task.ID), AnswerCount: count}
+	event, err := s.writeEvent(ctx, q, row, actor, "woken", result)
+	if err != nil {
+		return QuestionWakeResult{}, err
+	}
+	if _, err := q.SetQuestionStatus(ctx, db.SetQuestionStatusParams{ID: row.ID, WorkspaceID: workspaceID, Status: row.Status, FromStatuses: []string{row.Status}}); err != nil {
+		return QuestionWakeResult{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return QuestionWakeResult{}, err
+	}
+	s.publishQuestionWake(ctx, &questionWakeDelivery{result: result, task: task, row: row, actor: actor, event: event})
+	return result, nil
 }

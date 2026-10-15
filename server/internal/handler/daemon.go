@@ -3736,7 +3736,7 @@ func (h *Handler) loadClaimQuestionAnswers(ctx context.Context, task db.AgentTas
 	if err != nil {
 		return nil, err
 	}
-	scope, err := h.QuestionService.WakeScope(ctx, workspaceID, task.AgentID, task.IssueID)
+	scope, err := h.QuestionService.WakeScope(ctx, workspaceID, task.AgentID, service.QuestionWakeScope{IssueID: task.IssueID})
 	if err != nil {
 		return nil, err
 	}

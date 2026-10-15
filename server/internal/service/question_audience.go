@@ -53,44 +53,84 @@ func (s *QuestionService) reach(ctx context.Context, q *db.Queries, workspaceID 
 	return result, nil
 }
 
-func (s *QuestionService) WakeScope(ctx context.Context, workspaceID, agentID, issueID pgtype.UUID) ([]pgtype.UUID, error) {
-	return s.wakeScope(ctx, s.Queries, workspaceID, agentID, issueID)
+// QuestionWakeScope selects exactly one place where the agent continues.
+type QuestionWakeScope struct {
+	IssueID       pgtype.UUID
+	ChatSessionID pgtype.UUID
 }
 
-func (s *QuestionService) wakeScope(ctx context.Context, q *db.Queries, workspaceID, agentID, issueID pgtype.UUID) ([]pgtype.UUID, error) {
-	return q.ListQuestionWakeScope(ctx, db.ListQuestionWakeScopeParams{WorkspaceID: workspaceID, AgentID: agentID, IssueID: issueID})
+func questionTaskScope(task db.AgentTaskQueue) QuestionWakeScope {
+	if task.ChatSessionID.Valid {
+		return QuestionWakeScope{ChatSessionID: task.ChatSessionID}
+	}
+	return QuestionWakeScope{IssueID: task.IssueID}
 }
 
-// CountUnseenAnswers uses the canonical pair cutoff, including a durable wait's
-// retained anchor. At claim, excludeTaskID excludes the task and retry ancestors.
-func (s *QuestionService) CountUnseenAnswers(ctx context.Context, workspaceID, agentID, issueID, excludeTaskID pgtype.UUID) (int64, error) {
-	return s.countUnseenAnswers(ctx, s.Queries, workspaceID, agentID, issueID, excludeTaskID)
+func (s *QuestionService) WakeScope(ctx context.Context, workspaceID, agentID pgtype.UUID, scope QuestionWakeScope) ([]pgtype.UUID, error) {
+	return s.wakeScope(ctx, s.Queries, workspaceID, agentID, scope)
 }
 
-func (s *QuestionService) countUnseenAnswers(ctx context.Context, q *db.Queries, workspaceID, agentID, issueID, excludeTaskID pgtype.UUID) (int64, error) {
-	ids, err := s.wakeScope(ctx, q, workspaceID, agentID, issueID)
+func (s *QuestionService) wakeScope(ctx context.Context, q *db.Queries, workspaceID, agentID pgtype.UUID, scope QuestionWakeScope) ([]pgtype.UUID, error) {
+	if scope.IssueID.Valid == scope.ChatSessionID.Valid {
+		return nil, questionRefusal(422, "wake requires one issue or chat scope")
+	}
+	if scope.ChatSessionID.Valid {
+		return q.ListChatQuestionIDs(ctx, db.ListChatQuestionIDsParams{WorkspaceID: workspaceID, AgentID: agentID, ChatSessionID: scope.ChatSessionID})
+	}
+	return q.ListQuestionWakeScope(ctx, db.ListQuestionWakeScopeParams{WorkspaceID: workspaceID, AgentID: agentID, IssueID: scope.IssueID})
+}
+
+// CountUnseenAnswers counts answers and cancellations against the canonical
+// scope cutoff, including an issue's durable wait's retained anchor. At claim,
+// excludeTaskID excludes the task and retry ancestors.
+func (s *QuestionService) CountUnseenAnswers(ctx context.Context, workspaceID, agentID pgtype.UUID, scope QuestionWakeScope, excludeTaskID pgtype.UUID) (int64, error) {
+	return s.countUnseenAnswers(ctx, s.Queries, workspaceID, agentID, scope, excludeTaskID)
+}
+
+func (s *QuestionService) countUnseenAnswers(ctx context.Context, q *db.Queries, workspaceID, agentID pgtype.UUID, scope QuestionWakeScope, excludeTaskID pgtype.UUID) (int64, error) {
+	ids, err := s.wakeScope(ctx, q, workspaceID, agentID, scope)
+	if err != nil || len(ids) == 0 {
+		return 0, err
+	}
+	count, err := q.CountUnseenQuestionAnswers(ctx, db.CountUnseenQuestionAnswersParams{
+		WorkspaceID: workspaceID, QuestionIds: ids, AgentID: agentID,
+		IssueID: scope.IssueID, ChatSessionID: scope.ChatSessionID, ExcludeTaskID: excludeTaskID, AnswerAnchor: pgtype.Timestamptz{},
+	})
 	if err != nil {
 		return 0, err
 	}
-	if len(ids) == 0 {
-		return 0, nil
-	}
-	return q.CountUnseenQuestionAnswers(ctx, db.CountUnseenQuestionAnswersParams{
-		WorkspaceID: workspaceID, QuestionIds: ids, AgentID: agentID, IssueID: issueID, ExcludeTaskID: excludeTaskID, AnswerAnchor: pgtype.Timestamptz{},
+	events, err := q.ListUnseenQuestionEvents(ctx, db.ListUnseenQuestionEventsParams{
+		WorkspaceID: workspaceID, QuestionIds: ids, AgentID: agentID,
+		IssueID: scope.IssueID, ChatSessionID: scope.ChatSessionID, ExcludeTaskID: excludeTaskID, AnswerAnchor: pgtype.Timestamptz{},
 	})
+	if err != nil {
+		return 0, err
+	}
+	for _, event := range events {
+		if event.Kind == "cancelled" {
+			count++
+		}
+	}
+	return count, nil
 }
 
-// hasUnseenAskBacks tells whether the agent has ask-backs on the issue it has
-// not seen, against the same scope and anchor as claim delivery.
-func (s *QuestionService) hasUnseenAskBacks(ctx context.Context, q *db.Queries, workspaceID, agentID, issueID pgtype.UUID) (bool, error) {
-	ids, err := s.wakeScope(ctx, q, workspaceID, agentID, issueID)
+func (s *QuestionService) hasUnseenEvents(ctx context.Context, q *db.Queries, workspaceID, agentID pgtype.UUID, scope QuestionWakeScope) (bool, error) {
+	ids, err := s.wakeScope(ctx, q, workspaceID, agentID, scope)
 	if err != nil || len(ids) == 0 {
 		return false, err
 	}
-	askBacks, err := q.ListUnseenQuestionEvents(ctx, db.ListUnseenQuestionEventsParams{
-		WorkspaceID: workspaceID, QuestionIds: ids, AgentID: agentID, IssueID: issueID, AnswerAnchor: pgtype.Timestamptz{},
+	events, err := q.ListUnseenQuestionEvents(ctx, db.ListUnseenQuestionEventsParams{
+		WorkspaceID: workspaceID, QuestionIds: ids, AgentID: agentID,
+		IssueID: scope.IssueID, ChatSessionID: scope.ChatSessionID, AnswerAnchor: pgtype.Timestamptz{},
 	})
-	return len(askBacks) > 0, err
+	return len(events) > 0, err
+}
+
+func (s *QuestionService) hasActiveWakeTask(ctx context.Context, q *db.Queries, workspaceID, agentID pgtype.UUID, scope QuestionWakeScope) (bool, error) {
+	if scope.ChatSessionID.Valid {
+		return q.HasActiveChatTaskForAgent(ctx, db.HasActiveChatTaskForAgentParams{WorkspaceID: workspaceID, AgentID: agentID, ChatSessionID: scope.ChatSessionID})
+	}
+	return q.HasActiveQuestionWakeTask(ctx, db.HasActiveQuestionWakeTaskParams{WorkspaceID: workspaceID, AgentID: agentID, IssueID: scope.IssueID})
 }
 
 func (s *QuestionService) WakeTargets(ctx context.Context, workspaceID pgtype.UUID, row db.Question) ([]QuestionWakeTargetDTO, error) {
@@ -111,10 +151,18 @@ func (s *QuestionService) wakeTargets(ctx context.Context, q *db.Queries, worksp
 	if err != nil {
 		return nil, err
 	}
-	if !asking.IssueID.Valid {
+	askingScope := questionTaskScope(asking)
+	if !askingScope.IssueID.Valid && !askingScope.ChatSessionID.Valid {
 		return result, nil
 	}
-	if _, err := q.GetIssueInWorkspace(ctx, db.GetIssueInWorkspaceParams{ID: asking.IssueID, WorkspaceID: workspaceID}); err != nil {
+	if askingScope.ChatSessionID.Valid {
+		if _, err := q.GetChatSessionInWorkspace(ctx, db.GetChatSessionInWorkspaceParams{ID: askingScope.ChatSessionID, WorkspaceID: workspaceID}); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return result, nil
+			}
+			return nil, err
+		}
+	} else if _, err := q.GetIssueInWorkspace(ctx, db.GetIssueInWorkspaceParams{ID: askingScope.IssueID, WorkspaceID: workspaceID}); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return result, nil
 		}
@@ -124,18 +172,24 @@ func (s *QuestionService) wakeTargets(ctx context.Context, q *db.Queries, worksp
 	if err != nil {
 		return nil, err
 	}
-	type pair struct{ agent, issue pgtype.UUID }
-	pairs := []pair{{row.AskerAgentID, asking.IssueID}}
+	type pair struct {
+		agent pgtype.UUID
+		scope QuestionWakeScope
+	}
+	pairs := []pair{{row.AskerAgentID, askingScope}}
 	seen := map[pair]bool{pairs[0]: true}
 	for _, r := range reach {
-		if r.AssigneeType != "agent" || !r.AssigneeID.Valid {
+		if r.AssigneeType != "agent" || !r.AssigneeID.Valid || (askingScope.ChatSessionID.Valid && r.AssigneeID == row.AskerAgentID) {
 			continue
 		}
-		target := pair{agent: r.AssigneeID, issue: asking.IssueID}
+		target := pair{agent: r.AssigneeID, scope: QuestionWakeScope{IssueID: asking.IssueID}}
 		switch r.ObjectType {
 		case "issue":
-			target.issue = r.ObjectID
+			target.scope.IssueID = r.ObjectID
 		case "project", "autopilot":
+			if !target.scope.IssueID.Valid {
+				continue
+			}
 		default:
 			continue
 		}
@@ -160,17 +214,25 @@ func (s *QuestionService) wakeTargets(ctx context.Context, q *db.Queries, worksp
 		if agent.ArchivedAt.Valid {
 			continue
 		}
-		count, err := s.countUnseenAnswers(ctx, q, workspaceID, target.agent, target.issue, pgtype.UUID{})
+		count, err := s.countUnseenAnswers(ctx, q, workspaceID, target.agent, target.scope, pgtype.UUID{})
 		if err != nil {
 			return nil, err
 		}
-		active, err := q.HasActiveQuestionWakeTask(ctx, db.HasActiveQuestionWakeTaskParams{WorkspaceID: workspaceID, AgentID: target.agent, IssueID: target.issue})
+		active, err := s.hasActiveWakeTask(ctx, q, workspaceID, target.agent, target.scope)
 		if err != nil {
 			return nil, err
+		}
+		unseen := count > 0
+		if !unseen {
+			unseen, err = s.hasUnseenEvents(ctx, q, workspaceID, target.agent, target.scope)
+			if err != nil {
+				return nil, err
+			}
 		}
 		result = append(result, QuestionWakeTargetDTO{
-			AgentID: util.UUIDToString(target.agent), IssueID: util.UUIDToString(target.issue),
-			UnseenAnswerCount: count, WakeAvailable: count > 0 && !active && agent.RuntimeID.Valid,
+			AgentID: util.UUIDToString(target.agent), IssueID: util.UUIDToString(target.scope.IssueID),
+			ChatSessionID: util.UUIDToString(target.scope.ChatSessionID),
+			UnseenAnswerCount: count, WakeAvailable: unseen && !active && agent.RuntimeID.Valid,
 		})
 	}
 	return result, nil

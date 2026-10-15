@@ -155,10 +155,11 @@ WITH RECURSIVE owned_tree AS (
 SELECT DISTINCT q.id FROM question q
 JOIN agent_task_queue asking ON asking.id = q.asked_in_task_id
 JOIN agent asker ON asker.id = asking.agent_id AND asker.workspace_id = @workspace_id
-JOIN issue asking_issue ON asking_issue.id = asking.issue_id AND asking_issue.workspace_id = @workspace_id
+LEFT JOIN issue asking_issue ON asking_issue.id = asking.issue_id AND asking_issue.workspace_id = @workspace_id
 JOIN agent target ON target.id = @agent_id AND target.workspace_id = @workspace_id
 JOIN issue target_issue ON target_issue.id = @issue_id AND target_issue.workspace_id = @workspace_id
-WHERE q.workspace_id = @workspace_id AND q.status IN ('open', 'partly_answered', 'answered')
+WHERE q.workspace_id = @workspace_id AND q.status IN ('open', 'partly_answered', 'answered', 'cancelled')
+  AND (asking.issue_id IS NULL OR asking_issue.id IS NOT NULL)
   AND (
     (q.asker_agent_id = @agent_id AND asking.issue_id = @issue_id)
     OR EXISTS (
