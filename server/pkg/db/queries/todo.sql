@@ -122,3 +122,45 @@ SET done_at = now(), done_by = 'member'
 WHERE id = @id AND workspace_id = @workspace_id AND member_id = @member_id
   AND done_at IS NULL
 RETURNING *;
+
+-- name: ListTodoVisibilityChanges :many
+-- Reconstruct visibility before this write, including reviews affected by questions.
+WITH changed AS (
+    SELECT * FROM todo WHERE id = ANY(@ids::uuid[])
+), affected AS (
+    SELECT id FROM changed
+    UNION
+    SELECT t.id
+    FROM changed c
+    JOIN todo t ON t.workspace_id = c.workspace_id
+               AND t.member_id = c.member_id AND t.issue_id = c.issue_id
+    WHERE c.kind = 'question' AND t.kind = 'review' AND t.done_at IS NULL
+), candidates AS (
+    SELECT t.*
+    FROM affected a
+    JOIN todo t ON t.id = a.id
+    LEFT JOIN issue i ON i.id = t.issue_id AND i.workspace_id = t.workspace_id
+    WHERE t.issue_id IS NULL OR i.id IS NOT NULL
+), visibility AS (
+    SELECT t.*,
+        ((CASE WHEN t.id = ANY(@ids::uuid[]) THEN NOT @opening::boolean
+               ELSE t.done_at IS NULL END)
+         AND (t.kind <> 'review' OR NOT EXISTS (
+             SELECT 1 FROM todo q
+             WHERE q.workspace_id = t.workspace_id AND q.member_id = t.member_id
+               AND q.issue_id = t.issue_id AND q.kind = 'question'
+               AND CASE WHEN q.id = ANY(@ids::uuid[]) THEN NOT @opening::boolean
+                        ELSE q.done_at IS NULL END
+         )))::boolean AS was_visible,
+        (t.done_at IS NULL AND (t.kind <> 'review' OR NOT EXISTS (
+            SELECT 1 FROM todo q
+            WHERE q.workspace_id = t.workspace_id AND q.member_id = t.member_id
+              AND q.issue_id = t.issue_id AND q.kind = 'question'
+              AND q.done_at IS NULL
+        )))::boolean AS is_visible
+    FROM candidates t
+)
+SELECT id, workspace_id, member_id, kind, done_by, is_visible
+FROM visibility
+WHERE was_visible <> is_visible
+ORDER BY is_visible, id;
