@@ -67,7 +67,7 @@ Not a journey change: no journey steps. Team Backend (Joeri) owns groups 1 to 6 
 ## 4. omp backend
 
 - [x] 4.1 `server/pkg/agent/pi.go:352-755`, `995-1030` -- for the `omp` identity: start `omp --mode rpc --no-ui --session <path>`, send `{"type":"set_interrupt_mode","mode":"wait"}` then the prompt as one `{"type":"prompt"}` frame, keep stdin open, map `agent_start`/`message_*`/`tool_*`/`agent_end` as print mode does, skip `response` and `prompt_result`, close stdin on `session_settled`; `Session.Supplement` writes `{"type":"steer","message":…}` and `SupplementReady` closes after `agent_start` -- design decision 4.
-- [ ] 4.2 `server/pkg/agent/version.go:114-134` -- `SupportsTaskSupplement("omp", v)` true from `18.10.1`.
+- [x] 4.2 `server/pkg/agent/version.go:114-134` -- `SupportsTaskSupplement("omp", v)` true from `18.10.1`.
 - [ ] 4.3 `server/pkg/agent/pi_test.go` -- tests with a fake omp script: RPC frames produce the same messages and result as print mode; a supplement written after `agent_start` reaches stdin as one `steer` line; stdin closes on `session_settled`; pi still runs print mode.
 
 ## 5. Daemon
@@ -138,6 +138,7 @@ Not a journey change: no journey steps. Team Backend (Joeri) owns groups 1 to 6 
 - Server endpoints additional regression coverage: `run_input_test.go` exercises comments with files and activity-row marks, and the other-thread queue test checks the notice's root id and owning agent's name. File/thread context is snapshotted before delivery so the daemon can render it without extra API calls.
 - Server endpoints documentation: `admission.go` describes `DispatchSteered` as receipt-driven input, including default steering rather than only an explicit author request. User-facing feature documentation remains assigned to group 9.
 - omp backend 4.1: `server/pkg/agent/pi.go` selects headless RPC only for the omp identity; Pi retains print/JSON with prompt EOF. The wait-mode command precedes one JSON-encoded prompt, stdin remains open through yields and is closed at `session_settled`, and the shared stream mapper retains its text/tool/usage/error handling while ignoring RPC responses/results. Negotiated sessions expose serialized `steer` writes and readiness only after `agent_start`, cleared at `agent_end`, settlement or cancellation. Cancellation of a blocked/partial input closes the unusable JSONL pipe. Updated all `buildPiArgs` test callers and the two existing omp execution fixtures in `pi_test.go`/`omp_test.go` for the selected dialect. No language server is configured; repository searches supplied callers. No checks run; group 4 regression additions follow in 4.3.
+- omp backend 4.2: `server/pkg/agent/version.go` enables task-supplement negotiation for omp from `18.10.1`; older and unknown versions remain fail-closed and Pi stays unsupported. `version_test.go` adds exact-floor, higher patch/major, lower patch/minor and missing/development-version cases. Tests are authored, not run.
 
 ## Plan Change Log
 

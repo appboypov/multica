@@ -125,6 +125,9 @@ func SupportsTaskSupplement(provider, version string) bool {
 		// Grok Build 1.0.14 supports atomic delivery of in-turn interjections
 		// through its x.ai/interject ACP extension.
 		minimum = "1.0.14"
+	case "omp":
+		// Headless RPC accepts steer in wait interrupt mode.
+		minimum = "18.10.1"
 	default:
 		return false
 	}
