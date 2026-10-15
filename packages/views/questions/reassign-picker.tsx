@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { useAuthStore } from "@multica/core/auth";
 import { useWorkspaceId } from "@multica/core/hooks";
 import { createLogger } from "@multica/core/logger";
-import { useReassignQuestion } from "@multica/core/questions";
+import { useReassignQuestion, type QuestionScope } from "@multica/core/questions";
 import type { Question } from "@multica/core/types";
 import { memberListOptions } from "@multica/core/workspace/queries";
 import { Button } from "@multica/ui/components/ui/button";
@@ -26,18 +26,19 @@ const logger = createLogger("questions.reassign");
  */
 export function ReassignPicker({
   question,
-  issueId,
+  scope,
   disabled = false,
 }: {
   question: Question;
-  issueId: string | null;
+  /** The issue or chat the question's card shows in, whose questions refresh after the reassignment. */
+  scope: QuestionScope;
   disabled?: boolean;
 }) {
   const { t } = useT("questions");
   const wsId = useWorkspaceId();
   const userId = useAuthStore((s) => s.user?.id);
   const { data: members = [] } = useQuery(memberListOptions(wsId));
-  const reassign = useReassignQuestion(wsId, { issueId });
+  const reassign = useReassignQuestion(wsId, scope);
   const [open, setOpen] = useState(false);
   const [filter, setFilter] = useState("");
   const [picked, setPicked] = useState<{ user_id: string; name: string } | null>(null);

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useIsMutating } from "@tanstack/react-query";
-import { Check, CircleCheck, CirclePause, CircleSlash, CornerUpLeft, ListTodo, Send } from "lucide-react";
+import { Check, CircleCheck, CirclePause, CircleSlash, CircleX, CornerUpLeft, ListTodo, Send } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthStore } from "@multica/core/auth";
 import { hasUploadingDraft } from "@multica/core/drafts";
@@ -20,7 +20,9 @@ import {
   setProgress,
   useAnswerQuestion,
   useAskBackQuestion,
+  useCancelQuestion,
   useQuestionDraftStore,
+  type QuestionScope,
 } from "@multica/core/questions";
 import type { AnswerValue, DeclinedAnswerValue, Question, QuestionAnswer } from "@multica/core/types";
 import { useActorName } from "@multica/core/workspace/hooks";
@@ -33,7 +35,7 @@ import { useT } from "../i18n";
 import { AnswerControl, handleAnswerKey, useAnswerControlLink } from "./answer-controls/answer-control";
 import { draftError, valueToSend, type AnswerDraft } from "./answer-controls/draft";
 import { AnswerCountPill, AnswererProgress, showsAnswererProgress } from "./answerer-progress";
-import { AnswerLine, AskedBy, QuestionCard, QuestionHistory } from "./question-card";
+import { AnswerLine, AskedBy, CancelDetails, CancelledBy, QuestionCard, QuestionHistory } from "./question-card";
 import { ReassignPicker } from "./reassign-picker";
 import { RunInputMarks } from "../issues/components/run-input-marks";
 import { TYPE_ICONS } from "./type-icon";
@@ -44,8 +46,8 @@ const logger = createLogger("questions.set-card");
 export interface QuestionSetCardProps {
   /** The questions of one ask, in ask order. */
   questions: Question[];
-  /** The issue the card shows on, whose questions refresh after each action. */
-  issueId: string;
+  /** The issue or chat the card shows in, whose questions refresh after each action. */
+  scope: QuestionScope;
   /** The asking run's place among its agent's runs on the issue, for "asked during run #N". */
   runNumber?: number;
   /** The question the card opens at: a deep link's or the Questions row's. */
@@ -73,16 +75,16 @@ interface Composing {
  */
 export function QuestionSetCard({ layout = "tabs", focusedQuestionId, ...props }: QuestionSetCardProps) {
   return layout === "stacked"
-    ? <StackedQuestionSet questions={props.questions} issueId={props.issueId} runNumber={props.runNumber} focusedQuestionId={focusedQuestionId} />
+    ? <StackedQuestionSet questions={props.questions} scope={props.scope} runNumber={props.runNumber} focusedQuestionId={focusedQuestionId} />
     : <TabbedQuestionSet {...props} />;
 }
 
 function StackedQuestionSet({
   questions,
-  issueId,
+  scope,
   runNumber,
   focusedQuestionId,
-}: Pick<QuestionSetCardProps, "questions" | "issueId" | "runNumber" | "focusedQuestionId">) {
+}: Pick<QuestionSetCardProps, "questions" | "scope" | "runNumber" | "focusedQuestionId">) {
   const title = questions[0]?.ask_title;
   return (
     <div className="flex flex-col gap-2">
@@ -91,7 +93,7 @@ function StackedQuestionSet({
         <div key={question.id} data-question-id={question.id}>
           <QuestionCard
             question={question}
-            issueId={issueId}
+            scope={scope}
             runNumber={runNumber}
             hideWake
             askQuestions={questions}
@@ -103,7 +105,7 @@ function StackedQuestionSet({
   );
 }
 
-function TabbedQuestionSet({ questions, issueId, runNumber, activeQuestionId }: Omit<QuestionSetCardProps, "layout" | "focusedQuestionId">) {
+function TabbedQuestionSet({ questions, scope, runNumber, activeQuestionId }: Omit<QuestionSetCardProps, "layout" | "focusedQuestionId">) {
   const { t } = useT("questions");
   const { getActorName } = useActorName();
   const userId = useAuthStore((s) => s.user?.id);
@@ -124,10 +126,14 @@ function TabbedQuestionSet({ questions, issueId, runNumber, activeQuestionId }: 
   const [wakeAfter, setWakeAfter] = useState(true);
 
   const current = questions[Math.min(active, questions.length - 1)]!;
-  const answer = useAnswerQuestion(wsId, { issueId }, current.id);
-  const askBack = useAskBackQuestion(wsId, { issueId }, current.id);
+  const answer = useAnswerQuestion(wsId, scope, current.id);
+  const askBack = useAskBackQuestion(wsId, scope, current.id);
+  const cancel = useCancelQuestion(wsId, scope, current.id);
   // Read from the query client, not the hook's observer: switching tabs rebinds the hooks to another question.
-  const pending = useIsMutating({ mutationKey: questionMutationKeys.answer(wsId, current.id) }) > 0;
+  // An answer and a cancel each end the viewer's turn on the question, so the footer waits while either is on its way.
+  const answering = useIsMutating({ mutationKey: questionMutationKeys.answer(wsId, current.id) }) > 0;
+  const cancelling = useIsMutating({ mutationKey: questionMutationKeys.cancel(wsId, current.id) }) > 0;
+  const pending = answering || cancelling;
   const askingBack = useIsMutating({ mutationKey: questionMutationKeys.askBack(wsId, current.id) }) > 0;
   // File and Text keep the answer's uploads in the question's draft; Send waits while one runs.
   const draftKey = questionDraftKey(wsId, current.id);
@@ -148,8 +154,14 @@ function TabbedQuestionSet({ questions, issueId, runNumber, activeQuestionId }: 
   const forYou = questions.some((q) => isOpenFor(q, userId));
   const blocksWork = questions.some((q) => isOpen(q) && q.blocks_work);
   const progress = setProgress(questions);
-  // Sending the viewer's last open question of an agent's set offers to wake the asker.
+  // Sending or cancelling the viewer's last open question of an agent's set offers to wake the asker; a
+  // cancelled question, like an answered one, is no longer open for anyone.
   const offersWake = asker.type === "agent" && canAnswer && editingId !== current.id && isLastOpenFor(questions, current.id, userId);
+  // The note of a control that asks for one goes with an answer, a decline or a cancel; Wake, when offered and checked, with each.
+  const noteAndWake = {
+    ...(note.trim() ? { note: note.trim() } : {}),
+    ...(offersWake && wakeAfter ? { wake: true } : {}),
+  };
 
   const activate = (index: number) => {
     setActive(index);
@@ -172,19 +184,21 @@ function TabbedQuestionSet({ questions, issueId, runNumber, activeQuestionId }: 
     clearDraft(questionDraftKey(wsId, id));
   };
 
+  /** Once a question is sent or cancelled: its draft goes, and the next question still open for the viewer opens, after this one first. */
+  const moveOn = (doneId: string) => {
+    discard(doneId);
+    setEditingId(null);
+    const order = questions.map((_, offset) => (active + 1 + offset) % questions.length);
+    const next = order.find((index) => questions[index]!.id !== doneId && isOpenFor(questions[index]!, userId));
+    if (next !== undefined) activate(next);
+  };
+
   const submit = (value: AnswerValue | DeclinedAnswerValue) => {
     const sentId = current.id;
     answer.mutate(
-      { value, ...(note.trim() ? { note: note.trim() } : {}), ...(offersWake && wakeAfter ? { wake: true } : {}) },
+      { value, ...noteAndWake },
       {
-        onSuccess: () => {
-          discard(sentId);
-          setEditingId(null);
-          // The next question still open for the viewer, after this one first.
-          const order = questions.map((_, offset) => (active + 1 + offset) % questions.length);
-          const next = order.find((index) => questions[index]!.id !== sentId && isOpenFor(questions[index]!, userId));
-          if (next !== undefined) activate(next);
-        },
+        onSuccess: () => moveOn(sentId),
         onError: (err) => {
           logger.error("answer failed", { questionId: sentId, askId: first.ask_id, error: err });
           setServerError(err.message || t(($) => $.card.answer_failed));
@@ -205,6 +219,19 @@ function TabbedQuestionSet({ questions, issueId, runNumber, activeQuestionId }: 
     if (!canAnswer || pending) return;
     logger.info("declining question", { questionId: current.id, askId: first.ask_id });
     submit(DECLINED_ANSWER);
+  };
+
+  const cancelQuestion = () => {
+    if (!canAnswer || pending) return;
+    const cancelledId = current.id;
+    logger.info("cancelling question", { questionId: cancelledId, askId: first.ask_id });
+    cancel.mutate(noteAndWake, {
+      onSuccess: () => moveOn(cancelledId),
+      onError: (err) => {
+        logger.error("cancel failed", { questionId: cancelledId, askId: first.ask_id, error: err });
+        setServerError(err.message || t(($) => $.card.cancel_failed));
+      },
+    });
   };
 
   const sendAskBack = () => {
@@ -330,6 +357,18 @@ function TabbedQuestionSet({ questions, issueId, runNumber, activeQuestionId }: 
               </div>
             );
           }
+          if (question.status === "cancelled") {
+            return (
+              <div key={question.id} className="flex min-w-0 flex-col gap-1 rounded-lg bg-muted px-3 py-1.5 text-body" data-question-state="cancelled">
+                <div className="flex min-h-7 min-w-0 items-center gap-2">
+                  <CircleSlash aria-hidden className="size-4 shrink-0 text-muted-foreground" />
+                  <span className="min-w-0 max-w-max grow basis-0 truncate font-medium" title={question.prompt}>{question.prompt}</span>
+                  <CancelledBy question={question} />
+                </div>
+                <CancelDetails question={question} />
+              </div>
+            );
+          }
           if (own || !isOpen(question)) {
             const answers: QuestionAnswer<unknown>[] = question.answers;
             const shown = own ?? answers.reduce<QuestionAnswer<unknown> | undefined>(
@@ -402,12 +441,18 @@ function TabbedQuestionSet({ questions, issueId, runNumber, activeQuestionId }: 
               {t(($) => $.card.ask_back)}
             </Button>
             {canAnswer && (
-              <Button type="button" variant="ghost" size="sm" className="text-muted-foreground" disabled={pending} onClick={decline}>
-                <CircleSlash />
-                {t(($) => $.card.decline)}
-              </Button>
+              <>
+                <Button type="button" variant="ghost" size="sm" className="text-muted-foreground" disabled={pending} onClick={decline}>
+                  <CircleSlash />
+                  {t(($) => $.card.decline)}
+                </Button>
+                <Button type="button" variant="ghost" size="sm" className="text-muted-foreground" disabled={pending} onClick={cancelQuestion}>
+                  <CircleX />
+                  {t(($) => $.card.cancel_question)}
+                </Button>
+              </>
             )}
-            <ReassignPicker question={current} issueId={issueId} disabled={pending} />
+            <ReassignPicker question={current} scope={scope} disabled={pending} />
           </>
         )}
         <span className="ml-auto flex items-center gap-2">
@@ -418,7 +463,7 @@ function TabbedQuestionSet({ questions, issueId, runNumber, activeQuestionId }: 
               {t(($) => $.card.wake, { name: askerName })}
             </label>
           ) : (
-            <WakeButtons questions={questions} issueId={issueId} />
+            <WakeButtons questions={questions} scope={scope} />
           )}
           {editingId === current.id && (
             <Button type="button" variant="ghost" size="sm" onClick={cancelEdit}>

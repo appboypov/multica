@@ -3375,14 +3375,14 @@ export function IssueDetail({ issueId, onDelete, onDone, defaultSidebarOpen = tr
             {item.card.questions.length === 1 ? (
               <QuestionCard
                 question={item.card.questions[0]!}
-                issueId={id}
+                scope={{ issueId: id }}
                 runNumber={runNumbers.get(item.card.questions[0]!.asked_in_task_id)}
                 askQuestions={item.card.questions}
               />
             ) : (
               <QuestionSetCard
                 questions={item.card.questions}
-                issueId={id}
+                scope={{ issueId: id }}
                 runNumber={runNumbers.get(item.card.questions[0]!.asked_in_task_id)}
                 activeQuestionId={[jumpedQuestionId, highlightQuestionId].find((qid) => item.card.questions.some((q) => q.id === qid)) ?? undefined}
               />

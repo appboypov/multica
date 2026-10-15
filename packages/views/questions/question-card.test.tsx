@@ -14,6 +14,7 @@ import { OnePage } from "./answer-all/one-page";
 
 const answerMutate = vi.fn();
 const wakeMutate = vi.fn();
+const cancelMutate = vi.fn();
 const { answerQuestion, uploadQuestionFile, listMembers, listAgents } = vi.hoisted(() => ({
   answerQuestion: vi.fn(),
   uploadQuestionFile: vi.fn(),
@@ -67,6 +68,7 @@ vi.mock("@multica/core/questions", async (importOriginal) => {
     useAskBackQuestion: () => ({ ...pending, mutate: vi.fn() }),
     useReassignQuestion: () => ({ ...pending, mutate: vi.fn() }),
     useWakeQuestionAgent: () => ({ ...pending, mutate: wakeMutate }),
+    useCancelQuestion: () => ({ ...pending, mutate: cancelMutate }),
   };
 });
 // The rich-text editor's contract, without ProseMirror: typing reaches `onUpdate`
@@ -233,6 +235,41 @@ function textQuestion(overrides: Partial<TypedQuestion<"text">> = {}): Question 
   return { ...base(), answer_type: "text", settings: { length: "short" }, suggested_answer: null, answers: [], ...overrides };
 }
 
+function yesNoQuestion(overrides: Partial<TypedQuestion<"yes_no">> = {}): Question {
+  return { ...base(), answer_type: "yes_no", settings: { why_on_no: true }, suggested_answer: null, answers: [], ...overrides };
+}
+
+/** Pieter's question to Brian, Anouk and Roos under Each, which Brian cancelled after Anouk answered. */
+function cancelledQuestion(overrides: Partial<TypedQuestion<"single_choice">> = {}): Question {
+  return singleChoice({
+    status: "cancelled",
+    answer_policy: "each",
+    answerers: [
+      { user_id: "user-brian", assigned_at: "2026-10-13T10:00:00Z" },
+      { user_id: "user-anouk", assigned_at: "2026-10-13T10:00:00Z" },
+      { user_id: "user-roos", assigned_at: "2026-10-13T10:00:00Z" },
+    ],
+    answers: [{
+      id: "a-anouk",
+      answerer_user_id: "user-anouk",
+      value: { option: "Per invoice line" },
+      display_text: "Per invoice line",
+      note: null,
+      created_at: "2026-10-13T10:05:00Z",
+      updated_at: "2026-10-13T10:05:00Z",
+    }],
+    events: [{
+      id: "e-cancel",
+      kind: "cancelled",
+      actor_type: "member",
+      actor_id: "user-brian",
+      details: { note: "already decided in the PRD" },
+      created_at: "2026-10-13T10:10:00Z",
+    }],
+    ...overrides,
+  });
+}
+
 function fileQuestion(): Question {
   return { ...base(), answer_type: "file", settings: { accept: [] }, suggested_answer: null, answers: [] };
 }
@@ -278,11 +315,19 @@ let client: QueryClient;
 function renderCard(question: Question) {
   const card = (q: Question) => (
     <QueryClientProvider client={client}>
-      <QuestionCard question={q} issueId="issue-412" runNumber={3} askQuestions={[q]} />
+      <QuestionCard question={q} scope={{ issueId: "issue-412" }} runNumber={3} askQuestions={[q]} />
     </QueryClientProvider>
   );
   const result = renderWithI18n(card(question));
   return { ...result, rerenderCard: (q: Question) => result.rerender(card(q)) };
+}
+
+function renderSet(questions: Question[]) {
+  return renderWithI18n(
+    <QueryClientProvider client={client}>
+      <QuestionSetCard questions={questions} scope={{ issueId: "issue-412" }} runNumber={3} />
+    </QueryClientProvider>,
+  );
 }
 
 describe("QuestionCard", () => {
@@ -293,6 +338,7 @@ describe("QuestionCard", () => {
     answerQuestion.mockReset();
     answerQuestion.mockResolvedValue({});
     wakeMutate.mockReset();
+    cancelMutate.mockReset();
     uploadQuestionFile.mockReset();
     listMembers.mockReset();
     listMembers.mockResolvedValue([]);
@@ -581,7 +627,7 @@ describe("QuestionCard", () => {
       ];
       renderWithI18n(
         <QueryClientProvider client={client}>
-          <QuestionSetCard questions={questions} issueId="issue-442" runNumber={3} />
+          <QuestionSetCard questions={questions} scope={{ issueId: "issue-442" }} runNumber={3} />
         </QueryClientProvider>,
       );
       expect(screen.getByText("Skuddy")).toBeInTheDocument();
@@ -613,6 +659,8 @@ describe("QuestionCard", () => {
     expect(screen.queryByRole("button", { name: "Accept suggestion" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Send" })).not.toBeInTheDocument();
     expect(screen.getByText("Waiting for Brian")).toBeInTheDocument();
+    // Scenario: A member who is not an answerer
+    expect(screen.queryByRole("button", { name: "Cancel question" })).not.toBeInTheDocument();
   });
 
   it("folds an answered card with Edit answer, and a closed one without", () => {
@@ -667,7 +715,7 @@ describe("QuestionCard", () => {
     const second = (first: Question) => [first, singleChoice({ id: "q-2", ask_id: "q-1", ask_position: 1, ask_title: "VAT", prompt: "Which VAT rate applies?" })];
     const set = (questions: Question[]) => (
       <QueryClientProvider client={client}>
-        <QuestionSetCard questions={questions} issueId="issue-412" runNumber={3} />
+        <QuestionSetCard questions={questions} scope={{ issueId: "issue-412" }} runNumber={3} />
       </QueryClientProvider>
     );
     const { rerender } = renderWithI18n(set(second(singleChoice({ ask_title: "VAT" }))));
@@ -702,6 +750,76 @@ describe("QuestionCard", () => {
     expect(card("q-2").getByRole("checkbox", { name: "Wake Pieter" })).toHaveAttribute("aria-checked", "true");
     fireEvent.click(card("q-2").getByRole("button", { name: "Accept suggestion" }));
     expect(answerMutate).toHaveBeenCalledWith({ value: { option: "Per invoice line" }, wake: true }, expect.anything());
+  });
+
+  // Scenario: Brian cancels the last question
+  it("cancels with the note as its reason, waking Pieter", () => {
+    renderCard(singleChoice());
+    fireEvent.click(screen.getByRole("button", { name: "Add a note" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Note to your answer" }), { target: { value: "already decided in the PRD" } });
+    fireEvent.click(screen.getByRole("button", { name: "Cancel question" }));
+    expect(cancelMutate).toHaveBeenCalledWith({ note: "already decided in the PRD", wake: true }, expect.anything());
+    expect(answerMutate).not.toHaveBeenCalled();
+  });
+
+  // Scenario: Brian cancels with Wake unchecked
+  it("cancels without waking Pieter once Brian unchecks Wake Pieter", () => {
+    renderCard(singleChoice());
+    fireEvent.click(screen.getByRole("checkbox", { name: "Wake Pieter" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cancel question" }));
+    expect(cancelMutate).toHaveBeenCalledWith({}, expect.anything());
+  });
+
+  // Scenario: Brian cancels and nothing starts
+  it("cancels the first of three questions in a set with its note and without waking Pieter", () => {
+    renderSet([
+      yesNoQuestion({ ask_title: "VAT" }),
+      singleChoice({ id: "q-2", ask_id: "q-1", ask_position: 1, ask_title: "VAT", prompt: "Which VAT rate applies?" }),
+      singleChoice({ id: "q-3", ask_id: "q-1", ask_position: 2, ask_title: "VAT", prompt: "Which invoices does it cover?" }),
+    ]);
+    expect(screen.queryByRole("checkbox", { name: "Wake Pieter" })).not.toBeInTheDocument();
+    // The set has no note box of its own; Yes / No asks for its note on No.
+    fireEvent.click(screen.getByRole("button", { name: "No" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Why not" }), { target: { value: "already decided in the PRD" } });
+    fireEvent.click(screen.getByRole("button", { name: "Cancel question" }));
+    expect(cancelMutate).toHaveBeenCalledWith({ note: "already decided in the PRD" }, expect.anything());
+    expect(answerMutate).not.toHaveBeenCalled();
+  });
+
+  // Scenario: Brian cancels the last question
+  it("counts a cancelled question of a set as ended: shows its cancelled row and offers Wake Pieter on the last open one", () => {
+    renderSet([
+      cancelledQuestion({ ask_title: "VAT" }),
+      singleChoice({ id: "q-2", ask_id: "q-1", ask_position: 1, ask_title: "VAT", prompt: "Which VAT rate applies?" }),
+    ]);
+    expect(screen.getByText("Cancelled by Brian")).toBeInTheDocument();
+    expect(screen.getByText("already decided in the PRD")).toBeInTheDocument();
+    // Anouk's answer stays readable; the open question's own options also read "Per invoice line".
+    expect(screen.getByText(/^· Anouk ·/)).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "Wake Pieter" })).toHaveAttribute("aria-checked", "true");
+    fireEvent.click(screen.getByRole("button", { name: "Cancel question" }));
+    expect(cancelMutate).toHaveBeenCalledWith({ wake: true }, expect.anything());
+  });
+
+  // Scenario: Brian cancels a question asked of three
+  it("folds a cancelled card to Cancelled by Brian with the note and Anouk's answer, without answer controls", () => {
+    renderCard(cancelledQuestion());
+    expect(screen.getByText("Cancelled by Brian")).toBeInTheDocument();
+    expect(screen.getByText("already decided in the PRD")).toBeInTheDocument();
+    expect(screen.getByText("Per invoice line")).toBeInTheDocument();
+    expect(screen.getByText(/Anouk/)).toBeInTheDocument();
+    expect(screen.queryByRole("radio")).not.toBeInTheDocument();
+    for (const name of ["Accept suggestion", "Send", "Decline to answer", "Cancel question", "Edit answer"]) {
+      expect(screen.queryByRole("button", { name })).not.toBeInTheDocument();
+    }
+  });
+
+  // Scenario: A cancelled question stays ended
+  it("offers Anouk no Edit answer on a cancelled question she answered", () => {
+    viewerId = "user-anouk";
+    renderCard(cancelledQuestion());
+    expect(screen.getByText("Cancelled by Brian")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Edit answer" })).not.toBeInTheDocument();
   });
 
   it("keeps the unsent answer, note and ask back when the card unmounts, and drops them once sent", async () => {

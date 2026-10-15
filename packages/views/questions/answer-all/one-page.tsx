@@ -90,7 +90,7 @@ export function OnePage({ session, questions, focusedId, onFocus }: OnePageProps
                   <QuestionSetCard
                     key={ask[0]!.id}
                     questions={askQuestions}
-                    issueId={group.issueId}
+                    scope={{ issueId: group.issueId }}
                     layout="stacked"
                     focusedQuestionId={focusedId}
                   />
@@ -99,7 +99,7 @@ export function OnePage({ session, questions, focusedId, onFocus }: OnePageProps
               const question = askQuestions[0];
               return question ? (
                 <div key={question.id} data-question-id={question.id}>
-                  <QuestionCard question={question} issueId={group.issueId} hideWake askQuestions={askQuestions} focused={question.id === focusedId} />
+                  <QuestionCard question={question} scope={{ issueId: group.issueId }} hideWake askQuestions={askQuestions} focused={question.id === focusedId} />
                 </div>
               ) : null;
             })}

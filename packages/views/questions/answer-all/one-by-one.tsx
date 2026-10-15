@@ -88,7 +88,7 @@ export function OneByOne({ session, questions, waiting, currentId, onCurrent, sk
           <QuestionCard
             key={question.id}
             question={question}
-            issueId={entry.issueId}
+            scope={{ issueId: entry.issueId }}
             hideWake
             askQuestions={ask.flatMap((other) => questions.get(other.id) ?? [])}
             focused
