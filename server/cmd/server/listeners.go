@@ -79,6 +79,8 @@ func projectOutbound(eventType string, payload any) any {
 func registerListeners(bus *events.Bus, b realtime.Broadcaster) {
 	// Personal events should NOT be broadcast to the whole workspace.
 	personalEvents := map[string]bool{
+		protocol.EventTodoOpened:         true,
+		protocol.EventTodoClosed:         true,
 		protocol.EventInboxNew:           true,
 		protocol.EventInboxRead:          true,
 		protocol.EventInboxArchived:      true,
@@ -102,6 +104,17 @@ func registerListeners(bus *events.Bus, b realtime.Broadcaster) {
 		}
 		realtime.M.RecordEvent(e.Type)
 		b.SendToUser(recipientID, data)
+	}
+
+	for _, eventType := range []string{protocol.EventTodoOpened, protocol.EventTodoClosed} {
+		bus.Subscribe(eventType, func(e events.Event) {
+			payload, ok := e.Payload.(map[string]any)
+			if !ok {
+				return
+			}
+			memberID, _ := payload["member_id"].(string)
+			sendToRecipient(b, e, memberID)
+		})
 	}
 
 	// inbox:new — extract recipient from nested item

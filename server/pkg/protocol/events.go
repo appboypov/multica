@@ -57,6 +57,10 @@ const (
 	EventInboxBatchRead     = "inbox:batch-read"
 	EventInboxBatchArchived = "inbox:batch-archived"
 
+	// Member-private to-do transitions.
+	EventTodoOpened = "todo:opened"
+	EventTodoClosed = "todo:closed"
+
 	// Workspace events
 	EventWorkspaceUpdated = "workspace:updated"
 	EventWorkspaceDeleted = "workspace:deleted"
