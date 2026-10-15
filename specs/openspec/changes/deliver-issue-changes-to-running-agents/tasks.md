@@ -73,7 +73,7 @@ Not a journey change: no journey steps. Team Backend (Joeri) owns groups 1 to 6 
 ## 5. Daemon
 
 - [ ] 5.1 `server/internal/daemon/client.go` -- decode the claim fields of 3.5.
-- [ ] 5.2 `server/internal/daemon/task_supplement.go:90` -- `formatTaskSupplementInstruction` writes a notice: kind, author, issue key, thread, item id, content, files with download commands, and the two `multica issue react` commands for when it is relevant -- design decision 5.
+- [ ] 5.2 `server/internal/daemon/task_supplement.go:90` -- `formatTaskSupplementInstruction` writes a notice: kind, author, issue key, thread, item id, content, files with download commands, and the two `multica issue react` commands for when it is relevant; the issue key is the run's own `task.IssueIdentifier`, passed from `executeAndDrain` into `runTaskSupplementLoop` -- design decision 5.
 - [ ] 5.3 `server/internal/daemon/task_supplement_test.go` -- tests: each kind's text names its item id and the react commands; an answer, an edit and an issue change are delivered through the same loop as a comment.
 
 ## 6. CLI, brief and skill
