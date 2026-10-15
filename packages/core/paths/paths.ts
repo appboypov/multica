@@ -78,7 +78,9 @@ function workspaceScoped(slug: string) {
     updatesItem: (key: string) =>
       `${ws}/updates?${UPDATES_ITEM_PARAM}=${encode(key)}`,
     questions: () => `${ws}/questions`,
-    answerAll: () => `${ws}/questions/answer`,
+    /** `questionId` opens the session at that question. */
+    answerAll: (options?: { questionId?: string }) =>
+      `${ws}/questions/answer${options?.questionId ? `?question=${encode(options.questionId)}` : ""}`,
     chat: () => `${ws}/chat`,
     chatWithAgent: (agentId: string) =>
       `${ws}/chat?agent=${encode(agentId)}`,

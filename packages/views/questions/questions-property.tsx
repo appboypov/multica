@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { CircleHelp } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { useAuthStore } from "@multica/core/auth";
 import { useWorkspaceId } from "@multica/core/hooks";
 import { useWorkspacePaths } from "@multica/core/paths";
 import {
@@ -12,6 +13,7 @@ import type { QuestionRow } from "@multica/core/types";
 import { useT } from "../i18n";
 import { useNavigation } from "../navigation";
 import { questionAnchor } from "../issues/components/comment-runs";
+import { chatRowHref } from "./row-link";
 import { TYPE_ICONS } from "./type-icon";
 
 export interface QuestionsPropertyProps {
@@ -67,11 +69,12 @@ export function QuestionsProperty({ parent, pageIssueIdentifier = null, onCountC
   );
 }
 
-/** One question below the page: its type glyph, prompt and how it reached the page; opens it on its issue. */
+/** One question below the page: its type glyph, prompt and how it reached the page; opens it where its card is. */
 function ViaRow({ row, pageIssueIdentifier }: { row: QuestionRow; pageIssueIdentifier: string | null }) {
   const { t } = useT("questions");
   const { push } = useNavigation();
   const paths = useWorkspacePaths();
+  const userId = useAuthStore((s) => s.user?.id);
   const Icon = TYPE_ICONS[row.answer_type];
   const via = viaLabel(row.via, pageIssueIdentifier, (key, params) => t(($) => $.via[key], params));
 
@@ -79,7 +82,9 @@ function ViaRow({ row, pageIssueIdentifier }: { row: QuestionRow; pageIssueIdent
     <button
       type="button"
       className="flex w-full min-w-0 items-center gap-1.5 text-left text-muted-foreground hover:text-foreground"
-      onClick={() => row.open_issue && push(`${paths.issueDetail(row.open_issue.id)}#${questionAnchor(row.id)}`)}
+      onClick={() =>
+        push(row.open_issue ? `${paths.issueDetail(row.open_issue.id)}#${questionAnchor(row.id)}` : chatRowHref(row, userId, paths))
+      }
     >
       <Icon aria-hidden className="size-3.5 shrink-0" />
       <span className="min-w-0 truncate text-foreground">{row.prompt}</span>

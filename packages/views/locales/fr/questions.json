@@ -234,6 +234,9 @@
     "unseen_other": "{{name}} a {{count}} réponses de vous sur {{identifier}}",
     "woken": "{{name}} a été réveillé avec vos réponses"
   },
+  "link": {
+    "chat_with": "Discussion avec {{name}}"
+  },
   "via": {
     "issue": "via la tâche {{identifier}}",
     "sub_issue": "via la sous-tâche {{identifier}}",

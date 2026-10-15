@@ -71,7 +71,9 @@ export function AnswerAllPage() {
   const waiting = useCallback((id: string) => isWaiting(questions.get(id), userId), [questions, userId]);
   const [currentId, setCurrentId] = useState<string | null>(null);
   const [skipped, setSkipped] = useState<ReadonlySet<string>>(() => new Set());
-  const current = currentId ?? session?.[0]?.id ?? "";
+  // `?question=` opens the session at that question, as a row of another member's chat does.
+  const requestedId = navigation.searchParams.get("question");
+  const current = currentId ?? session?.find((entry) => entry.id === requestedId)?.id ?? session?.[0]?.id ?? "";
 
   const leave = useCallback(() => navigation.push(paths.questions()), [navigation, paths]);
   useEffect(() => {

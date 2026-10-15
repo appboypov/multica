@@ -229,6 +229,9 @@
     "unseen_other": "{{name}} 在 {{identifier}} 上有你的 {{count}} 个回答",
     "woken": "已用你的回答唤醒 {{name}}"
   },
+  "link": {
+    "chat_with": "与 {{name}} 的对话"
+  },
   "via": {
     "issue": "来自任务 {{identifier}}",
     "sub_issue": "来自子任务 {{identifier}}",

@@ -70,6 +70,12 @@ export function OnePage({ session, questions, focusedId, onFocus }: OnePageProps
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
+  // The page opens at the focused question, such as the one `?question=` asked for.
+  const openedAtRef = useRef(focusedId);
+  useEffect(() => {
+    document.querySelector(`[data-question-id="${openedAtRef.current}"]`)?.scrollIntoView({ block: "center" });
+  }, []);
+
   // Working inside a card focuses it, so `⌘↵` sends what is being typed.
   const focusFrom = (event: FocusEvent<HTMLDivElement>) => {
     const id = (event.target as HTMLElement).closest<HTMLElement>("[data-question-id]")?.dataset.questionId;

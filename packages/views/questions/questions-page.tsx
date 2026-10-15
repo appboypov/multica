@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, type ReactNode } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { CircleAlert, CircleHelp, Filter, Inbox, Layers, Play, RotateCcw } from "lucide-react";
+import { useAuthStore } from "@multica/core/auth";
 import { useWorkspaceId } from "@multica/core/hooks";
 import { useWorkspacePaths } from "@multica/core/paths";
 import {
@@ -20,7 +21,7 @@ import {
   type QuestionRowGroup,
 } from "@multica/core/questions";
 import { isEditableShortcutTarget, isPortalLayerShortcutTarget } from "@multica/core/shortcuts";
-import type { AnswerType, QuestionRow, QuestionRowFilters, QuestionTab } from "@multica/core/types";
+import type { AnswerType, QuestionRow, QuestionRowFilters, QuestionRowLink, QuestionTab } from "@multica/core/types";
 import { useActorName } from "@multica/core/workspace/hooks";
 import { Button } from "@multica/ui/components/ui/button";
 import {
@@ -45,6 +46,7 @@ import { StatusIcon } from "../issues/components/status-icon";
 import { CollectionPageHeader, CollectionPageState } from "../layout/collection-page";
 import { useNavigation } from "../navigation";
 import { QuestionListRow } from "./question-row";
+import { chatRowHref, useLinkTitle } from "./row-link";
 import { LinkIcon } from "./type-icon";
 
 /** The tabs of the page, in order; `for_me` is the default and leaves `?tab=` out. */
@@ -82,6 +84,8 @@ export function QuestionsPage() {
   const { t } = useT("questions");
   const wsId = useWorkspaceId();
   const paths = useWorkspacePaths();
+  const userId = useAuthStore((s) => s.user?.id);
+  const linkTitle = useLinkTitle();
   const navigation = useNavigation();
   const tab = readTab(navigation.searchParams.get("tab"));
   const filters = useQuestionFilters(wsId);
@@ -107,9 +111,11 @@ export function QuestionsPage() {
   const latestAnsweredRow = latestAnswered.data?.pages[0]?.rows[0];
 
   const openRow = (row: QuestionRow) => {
-    // A chat row's card opens in its chat, which this page does not link yet.
-    if (!row.open_issue) return;
-    navigation.push(questionCardHref(paths.issueDetail(row.open_issue.identifier), row.id));
+    navigation.push(
+      row.open_issue
+        ? questionCardHref(paths.issueDetail(row.open_issue.identifier), row.id)
+        : chatRowHref(row, userId, paths),
+    );
   };
 
   const selectTab = (next: PageTab) => {
@@ -188,7 +194,7 @@ export function QuestionsPage() {
     body = (
       <>
         {groups.map((group) => (
-          <section key={`${group.kind}:${group.key}`} aria-label={groupLabelText(group)}>
+          <section key={`${group.kind}:${group.key}`} aria-label={groupLabelText(group, linkTitle)}>
             <GroupHeading group={group} />
             <div role="list">
               {group.rows.map((row) => <QuestionListRow key={row.id} row={row} onOpen={openRow} />)}
@@ -242,15 +248,16 @@ export function QuestionsPage() {
   );
 }
 
-function groupLabelText(group: QuestionRowGroup): string {
-  if (group.kind === "link") return group.link.identifier ? `${group.link.identifier} ${group.link.title}` : group.link.title;
+function groupLabelText(group: QuestionRowGroup, linkTitle: (link: QuestionRowLink) => string): string {
+  if (group.kind === "link") return group.link.identifier ? `${group.link.identifier} ${linkTitle(group.link)}` : linkTitle(group.link);
   return group.key;
 }
 
-/** A group's heading: the linked issue, the due bucket or the asker (agent or member), and its row count. */
+/** A group's heading: the linked issue or other object ("Chat with {member}"), the due bucket or the asker (agent or member), and its row count. */
 export function GroupHeading({ group }: { group: QuestionRowGroup }) {
   const { t } = useT("questions");
   const { getActorName } = useActorName();
+  const linkTitle = useLinkTitle();
   return (
     <div className="sticky top-0 z-10 flex h-8 items-center gap-2 border-b bg-muted/60 px-4 text-caption backdrop-blur">
       {group.kind === "link" && (
@@ -258,7 +265,7 @@ export function GroupHeading({ group }: { group: QuestionRowGroup }) {
           {group.link.status && <StatusIcon status={group.link.status} className="size-3.5" />}
           {group.link.type !== "issue" && <LinkIcon type={group.link.type} />}
           {group.link.identifier && <span className="shrink-0 font-medium text-muted-foreground">{group.link.identifier}</span>}
-          <span className="min-w-0 truncate font-medium">{group.link.title}</span>
+          <span className="min-w-0 truncate font-medium">{linkTitle(group.link)}</span>
         </>
       )}
       {group.kind === "due" && <span className="font-medium">{t(($) => $.page.due[group.key])}</span>}
@@ -313,7 +320,8 @@ function QuestionsFilterMenu({ wsId, rows, filters }: { wsId: string; rows: read
   const toggleBlocking = useQuestionsViewStore((s) => s.toggleBlocking);
   const clearFilters = useQuestionsViewStore((s) => s.clearFilters);
   const activeCount = questionFilterCount(filters);
-  const linkTitles = new Map(rows.map((row) => [row.link.id, row.link.identifier ?? row.link.title]));
+  const linkTitle = useLinkTitle();
+  const linkTitles = new Map(rows.map((row) => [row.link.id, row.link.identifier ?? linkTitle(row.link)]));
   const askers = new Map(rows.map(questionAsker).map((asker) => [asker.id, asker] as const));
 
   const dimensions: { key: QuestionListFilter; label: string; options: FilterOption[] }[] = [

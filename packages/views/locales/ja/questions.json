@@ -229,6 +229,9 @@
     "unseen_other": "{{name}} に {{identifier}} であなたの回答が {{count}} 件あります",
     "woken": "{{name}} をあなたの回答で起こしました"
   },
+  "link": {
+    "chat_with": "{{name}} とのチャット"
+  },
   "via": {
     "issue": "タスク {{identifier}} 経由",
     "sub_issue": "サブタスク {{identifier}} 経由",

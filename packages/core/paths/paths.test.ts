@@ -21,6 +21,8 @@ describe("paths.workspace(slug)", () => {
     expect(ws.inboxTodo("todo 1")).toBe("/acme/inbox?todo=todo%201");
     expect(ws.updates()).toBe("/acme/updates");
     expect(ws.updatesItem("issue-1")).toBe("/acme/updates?issue=issue-1");
+    expect(ws.answerAll()).toBe("/acme/questions/answer");
+    expect(ws.answerAll({ questionId: "q/1" })).toBe("/acme/questions/answer?question=q%2F1");
     expect(ws.chatWithAgent("agent one")).toBe(
       "/acme/chat?agent=agent%20one",
     );

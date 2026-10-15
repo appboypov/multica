@@ -15,13 +15,14 @@ import { cn } from "@multica/ui/lib/utils";
 import { ActorAvatar } from "../common/actor-avatar";
 import { useT, useTimeAgo } from "../i18n";
 import { QuestionBadges } from "./question-badges";
+import { useLinkTitle } from "./row-link";
 import { LinkIcon, TYPE_ICONS } from "./type-icon";
 
 const logger = createLogger("questions.row");
 
 export interface QuestionListRowProps {
   row: QuestionRow;
-  /** Opens the question on its issue: Enter or a click on the row. */
+  /** Opens the question where its card is: Enter or a click on the row. */
   onOpen: (row: QuestionRow) => void;
 }
 
@@ -190,12 +191,13 @@ export function QuestionListRow({ row, onOpen }: QuestionListRowProps) {
   );
 }
 
-/** The object a question belongs to when it is no issue: its kind's icon and its name. */
+/** The object a question belongs to when it is no issue: its kind's icon and its name, "Chat with {member}" for a chat. */
 function LinkObject({ link }: { link: QuestionRow["link"] }) {
+  const linkTitle = useLinkTitle();
   return (
     <span className="flex min-w-0 shrink items-center gap-1 text-caption text-muted-foreground">
       <LinkIcon type={link.type} />
-      <span className="truncate">{link.title}</span>
+      <span className="truncate">{linkTitle(link)}</span>
     </span>
   );
 }
