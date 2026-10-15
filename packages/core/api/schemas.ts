@@ -63,6 +63,7 @@ import type {
   QuestionRow,
   QuestionRowPage,
   QuestionWakeResult,
+  QuestionWakeTarget,
   UnreadableQuestion,
   UnreadableQuestionRow,
   Label,
@@ -4869,18 +4870,33 @@ const listDroppingUnreadable = <T extends z.ZodType>(item: T) =>
     }),
   );
 
+// An empty id reads as absent, as the server writes an unset UUID.
+const optionalQuestionId = z.string().nullish().catch(null).transform((value) => value || null);
+
+const QuestionStatusSchema = z
+  .enum(["open", "partly_answered", "answered", "closed", "withdrawn", "cancelled"])
+  .catch("closed");
+
 const QuestionLinkSchema = z.object({
-  link_type: z.enum(["issue", "task", "comment", "project", "agent", "squad", "autopilot", "skill"]),
+  link_type: z.enum(["issue", "task", "comment", "project", "agent", "squad", "autopilot", "skill", "chat"]),
   link_id: z.string(),
   position: z.number().int(),
+  member_id: optionalQuestionId,
 }).loose();
 
+// A target wakes in its chat, else on its issue; one without either is dropped.
 const QuestionWakeTargetSchema = z.object({
   agent_id: z.string().min(1),
-  issue_id: z.string().min(1),
+  issue_id: optionalQuestionId,
+  chat_session_id: optionalQuestionId,
   unseen_answer_count: z.number().int().nonnegative().catch(0),
   wake_available: BooleanWithDefaultSchema(false),
-}).loose();
+}).loose().transform(({ issue_id, chat_session_id, ...target }, ctx): QuestionWakeTarget => {
+  if (chat_session_id) return { ...target, issue_id: null, chat_session_id };
+  if (issue_id) return { ...target, issue_id, chat_session_id: null };
+  ctx.addIssue({ code: "custom", message: "a wake target requires an issue or a chat" });
+  return z.NEVER;
+});
 
 const QuestionViaSchema = z.object({
   type: z.enum(["issue", "sub_issue", "comment", "task"]).catch("issue"),
@@ -4920,6 +4936,15 @@ const QuestionEventSchema = z.discriminatedUnion("kind", [
       answer_count: z.number().int().nonnegative(),
     }).loose(),
   }).loose(),
+  // The note is optional: an empty, missing or malformed one reads as none,
+  // so the cancel itself always shows.
+  z.object({
+    ...QuestionEventShape,
+    kind: z.literal("cancelled"),
+    details: z.object({
+      note: z.string().nullish().catch(null).transform((value) => value || null),
+    }).loose().catch({ note: null }),
+  }).loose(),
 ]);
 
 const QuestionAnswererSchema = z.object({
@@ -4954,7 +4979,7 @@ const QuestionWireSchema = z.object({
   answer_type: z.string(),
   settings: z.unknown(),
   suggested_answer: z.unknown(),
-  status: z.enum(["open", "partly_answered", "answered", "closed", "withdrawn"]).catch("closed"),
+  status: QuestionStatusSchema,
   due_date: z.string().nullish().catch(null).transform((value) => value ?? null),
   blocks_work: BooleanWithDefaultSchema(false),
   links: listDroppingUnreadable(QuestionLinkSchema),
@@ -5090,17 +5115,20 @@ export const EMPTY_QUESTION_WAKE_RESULT: QuestionWakeResult = {
 // carry its ids, prompt and first link's page object; a page drops a row
 // without them instead of hiding the others. Non-issue objects may have no
 // identifier or status. Unknown link and via types read as `issue`; absent
-// via reads as null, absent open_issue as the legacy issue link. A page
-// without `rows` reads as empty, a missing `next_cursor` as the last page,
-// missing or malformed `my_answer` as not answered, and malformed counts as 0.
+// via reads as null. An absent or malformed open_issue reads as the legacy
+// issue link, except on a chat link, whose card opens in the chat: there it
+// reads as null. A page without `rows` reads as empty, a missing
+// `next_cursor` as the last page, missing or malformed `my_answer` as not
+// answered, and malformed counts as 0.
 // ---------------------------------------------------------------------------
 
 const QuestionRowLinkSchema = z.object({
-  type: z.enum(["issue", "project", "agent", "squad", "autopilot", "skill"]).catch("issue"),
+  type: z.enum(["issue", "project", "agent", "squad", "autopilot", "skill", "chat"]).catch("issue"),
   id: z.string().min(1),
   identifier: z.string().min(1).nullish().transform((value) => value ?? null),
   title: z.string().catch(""),
   status: z.string().nullish().catch(null).transform((value) => value ?? null),
+  member_id: optionalQuestionId,
 }).loose().refine((link) => link.type !== "issue" || link.identifier !== null, {
   message: "an issue link requires its identifier",
 });
@@ -5123,7 +5151,7 @@ const QuestionRowWireSchema = z.object({
   prompt: z.string(),
   answer_type: z.string(),
   settings: z.unknown(),
-  status: z.enum(["open", "partly_answered", "answered", "closed", "withdrawn"]).catch("closed"),
+  status: QuestionStatusSchema,
   answer_policy: z.enum(["any_one", "each"]).catch("any_one"),
   asker_agent_id: z.string(),
   asker_user_id: z.string().default(""),
@@ -5133,7 +5161,7 @@ const QuestionRowWireSchema = z.object({
   created_at: z.string(),
   link: QuestionRowLinkSchema,
   via: QuestionViaSchema.nullish().catch(null).transform((value) => value ?? null),
-  open_issue: QuestionOpenIssueSchema.nullish(),
+  open_issue: QuestionOpenIssueSchema.nullish().catch(null),
   my_answer: QuestionRowAnswerSchema.nullish().catch(null).transform((value) => value ?? null),
 }).loose();
 
@@ -5146,7 +5174,7 @@ function readQuestionRow({
   settings,
   ...wire
 }: z.output<typeof QuestionRowWireSchema>, ctx: z.RefinementCtx): QuestionRow {
-  if (open_issue == null) {
+  if (open_issue == null && wire.link.type !== "chat") {
     const legacyIssue = QuestionOpenIssueSchema.safeParse(wire.link);
     if (!legacyIssue.success) {
       ctx.addIssue({ code: "custom", message: "question row has no opening issue" });
@@ -5154,7 +5182,7 @@ function readQuestionRow({
     }
     open_issue = legacyIssue.data;
   }
-  const rest = { ...wire, ask_id: ask_id ?? wire.id, open_issue };
+  const rest = { ...wire, ask_id: ask_id ?? wire.id, open_issue: open_issue ?? null };
   if (isAnswerType(answer_type)) {
     const schemas: AnswerTypeSchemas = ANSWER_TYPE_SCHEMAS[answer_type];
     const parsedSettings = schemas.settings.safeParse(settings);
