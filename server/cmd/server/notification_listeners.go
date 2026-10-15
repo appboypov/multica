@@ -520,7 +520,7 @@ func notifyDirect(
 		RecipientID:   parseUUID(recipientID),
 		Type:          notifType,
 		Severity:      severity,
-		IssueID:       parseUUID(issueID),
+		IssueID:       optionalUUID(issueID),
 		Title:         title,
 		Body:          util.StrToText(body),
 		ActorType:     util.StrToText(e.ActorType),
@@ -1101,22 +1101,38 @@ func notifyQuestionAnswerers(ctx context.Context, queries *db.Queries, bus *even
 	if err != nil {
 		return
 	}
-	issueID, err := util.ParseUUID(payload.IssueID)
-	if err != nil {
-		return
-	}
 	q, err := queries.GetQuestion(ctx, db.GetQuestionParams{ID: questionID, WorkspaceID: workspaceID})
 	if err != nil {
 		slog.Error("question notification: load question failed", "question_id", payload.QuestionID, "error", err)
 		return
 	}
-	issue, err := queries.GetIssueInWorkspace(ctx, db.GetIssueInWorkspaceParams{ID: issueID, WorkspaceID: workspaceID})
-	if err != nil {
-		slog.Error("question notification: load issue failed", "issue_id", payload.IssueID, "error", err)
-		return
-	}
 	recipients := []string{}
 	detailsMap := map[string]any{"question_id": payload.QuestionID}
+	title, issueStatus := q.Prompt, ""
+	if payload.IssueID != "" {
+		issueID, err := util.ParseUUID(payload.IssueID)
+		if err != nil {
+			return
+		}
+		issue, err := queries.GetIssueInWorkspace(ctx, db.GetIssueInWorkspaceParams{ID: issueID, WorkspaceID: workspaceID})
+		if err != nil {
+			slog.Error("question notification: load issue failed", "issue_id", payload.IssueID, "error", err)
+			return
+		}
+		title, issueStatus = issue.Title, issue.Status
+	} else {
+		chatID, err := util.ParseUUID(payload.ChatSessionID)
+		if err != nil {
+			return
+		}
+		session, err := queries.GetChatSessionInWorkspace(ctx, db.GetChatSessionInWorkspaceParams{ID: chatID, WorkspaceID: workspaceID})
+		if err != nil {
+			slog.Error("question notification: load chat failed", "chat_session_id", payload.ChatSessionID, "error", err)
+			return
+		}
+		detailsMap["chat_session_id"] = payload.ChatSessionID
+		detailsMap["member_id"] = util.UUIDToString(session.CreatorID)
+	}
 	body := q.Prompt
 	if notifType == service.InboxTypeQuestionReassigned {
 		history, err := queries.ListQuestionEventsByQuestions(ctx, db.ListQuestionEventsByQuestionsParams{
@@ -1180,7 +1196,7 @@ func notifyQuestionAnswerers(ctx context.Context, queries *db.Queries, bus *even
 	}
 	for _, recipientID := range recipients {
 		notifyDirect(ctx, queries, bus, "member", recipientID, e.WorkspaceID, e,
-			payload.IssueID, issue.Status, notifType, "action_required", issue.Title, body, details)
+			payload.IssueID, issueStatus, notifType, "action_required", title, body, details)
 	}
 }
 
