@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/jackc/pgx/v5/pgtype"
+
 	"github.com/multica-ai/multica/server/internal/events"
 	"github.com/multica-ai/multica/server/internal/handler"
 	"github.com/multica-ai/multica/server/internal/service"
@@ -753,4 +755,227 @@ func TestActivityLeftoverDuplicatePointer(t *testing.T) {
 		wantActions(t, duplicateID, "duplicate_marked", "status_changed")
 		wantStatusMove(t, duplicateID, "cancelled", "todo")
 	})
+}
+
+func activityRunInputSetup(t *testing.T) (*events.Bus, *db.Queries, *testutil.Fixture, string, []string) {
+	t.Helper()
+	fx := workspaceFixture(t)
+	issueID := fx.Issue(t, "Live issue changes")
+	runtime := fx.Runtime(t, "live-input-omp", testutil.Cols{"provider": "omp"})
+	tasks := make([]string, 0, 2)
+	for _, name := range []string{"Skuddy live input", "Thomas live input"} {
+		agent := fx.Agent(t, name, runtime)
+		task := fx.Task(t, agent, testutil.Cols{"runtime_id": runtime, "issue_id": issueID, "status": "running"})
+		fx.InsertNoID(t, "task_supplement_capability", testutil.Cols{
+			"task_id": task, "workspace_id": testWorkspaceID, "issue_id": issueID, "capability": "task-supplement-v1",
+		}, "task_id = $1", task)
+		fx.Cleanup(t, "DELETE FROM task_supplement WHERE task_id = $1", task)
+		tasks = append(tasks, task)
+	}
+	fx.Cleanup(t, "DELETE FROM activity_log WHERE issue_id = $1", issueID)
+	queries := db.New(testPool)
+	bus := events.New()
+	registerActivityListeners(bus, queries, &service.RunInputService{Queries: queries})
+	return bus, queries, fx, issueID, tasks
+}
+
+func TestActivityFieldChangesReachEveryRunningRun(t *testing.T) {
+	bus, queries, _, issueID, tasks := activityRunInputSetup(t)
+	longDescription := "# Revised description\n" + strings.Repeat("The full Markdown is part of this notice.\n", 100)
+	previousAssignee, nextAssignee := testUserID, testUserID
+	memberType := "member"
+	user, err := queries.GetUser(context.Background(), util.MustParseUUID(testUserID))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		name, action, flag string
+		previous          map[string]any
+		want              []string
+	}{
+		{"status", "status_changed", "status_changed", map[string]any{"prev_status": "todo"}, []string{"status from Todo to In Progress"}},
+		{"priority", "priority_changed", "priority_changed", map[string]any{"prev_priority": "medium"}, []string{"priority from Medium to High"}},
+		{"assignee", "assignee_changed", "assignee_changed", map[string]any{"prev_assignee_type": &memberType, "prev_assignee_id": &previousAssignee}, []string{"assignee from " + user.Name + " to " + user.Name}},
+		{"start date", "start_date_changed", "start_date_changed", map[string]any{"prev_start_date": new("2026-10-14")}, []string{"start date from 2026-10-14 to 2026-10-15"}},
+		{"due date", "due_date_changed", "due_date_changed", map[string]any{"prev_due_date": new("2026-10-15")}, []string{"due date from 2026-10-15 to 2026-10-16"}},
+		{"title", "title_changed", "title_changed", map[string]any{"prev_title": "Old title"}, []string{"title from Old title to Next title"}},
+		{"description", "description_updated", "description_changed", map[string]any{"prev_description": new("Old description")}, []string{"Old description", longDescription}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			payload := map[string]any{
+				"issue": handler.IssueResponse{
+					ID: issueID, WorkspaceID: testWorkspaceID, Status: "in_progress", Priority: "high", Title: "Next title",
+					AssigneeType: &memberType, AssigneeID: &nextAssignee,
+					StartDate: new("2026-10-15"), DueDate: new("2026-10-16"), Description: &longDescription,
+				},
+				tc.flag: true,
+			}
+			for key, value := range tc.previous {
+				payload[key] = value
+			}
+			bus.Publish(events.Event{Type: protocol.EventIssueUpdated, WorkspaceID: testWorkspaceID, ActorType: "member", ActorID: testUserID, Payload: payload})
+			var activity *db.ActivityLog
+			for _, row := range listActivitiesForIssue(t, queries, issueID) {
+				if row.Action == tc.action {
+					row := row
+					activity = &row
+					break
+				}
+			}
+			if activity == nil {
+				t.Fatalf("missing %s activity", tc.action)
+			}
+			rows, err := queries.ListRunInputMarksByItems(context.Background(), db.ListRunInputMarksByItemsParams{WorkspaceID: util.MustParseUUID(testWorkspaceID), ItemIds: []pgtype.UUID{activity.ID}})
+			if err != nil || len(rows) != len(tasks) {
+				t.Fatalf("receipts = %+v, %v; want all running runs", rows, err)
+			}
+			for _, row := range rows {
+				if row.ItemKind != "issue_change" || row.Status != "pending" || !strings.HasPrefix(row.Content.String, user.Name+" changed") {
+					t.Fatalf("wrong issue notice: %+v", row)
+				}
+				for _, text := range tc.want {
+					if !strings.Contains(row.Content.String, text) {
+						t.Fatalf("notice omitted %q: %s", text, row.Content.String)
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestActivityRelationChangesWriteRowsAndReceipts(t *testing.T) {
+	bus, queries, fx, issueID, tasks := activityRunInputSetup(t)
+	childID := fx.Issue(t, "Copy button tests", testutil.Cols{"parent_issue_id": issueID})
+	fx.Cleanup(t, "DELETE FROM activity_log WHERE issue_id = $1", childID)
+	attachmentID := "0199a4e8-22ce-7b01-bba5-444444444444"
+	labelID := "0199a4e8-22ce-7b01-bba5-555555555555"
+	var published []string
+	bus.Subscribe(protocol.EventActivityCreated, func(e events.Event) {
+		payload := e.Payload.(map[string]any)
+		entry := payload["entry"].(map[string]any)
+		published = append(published, entry["id"].(string))
+	})
+	for _, tc := range []struct {
+		action, event string
+		payload       map[string]any
+		want          string
+	}{
+		{"label_added", protocol.EventIssueLabelsChanged, map[string]any{"issue_id": issueID, "label": map[string]any{"id": labelID, "name": "Design"}, "change": "added"}, "added the label Design"},
+		{"label_removed", protocol.EventIssueLabelsChanged, map[string]any{"issue_id": issueID, "label": map[string]any{"id": labelID, "name": "Design"}, "change": "removed"}, "removed the label Design"},
+		{"attachment_added", protocol.EventIssueAttachmentsChanged, map[string]any{"issue_id": issueID, "attachment_id": attachmentID, "filename": "flow.pdf", "change": "added"}, "multica attachment download " + attachmentID},
+		{"attachment_removed", protocol.EventIssueAttachmentsChanged, map[string]any{"issue_id": issueID, "attachment_id": attachmentID, "filename": "flow.pdf", "change": "removed"}, "removed flow.pdf"},
+		{"sub_issue_added", protocol.EventIssueCreated, map[string]any{"issue": handler.IssueResponse{ID: childID, WorkspaceID: testWorkspaceID, Identifier: "WORK-450", Title: "Copy button tests", CreatorType: "member", CreatorID: testUserID, ParentIssueID: &issueID}}, "added the sub-issue WORK-450 Copy button tests"},
+		{"sub_issue_removed", protocol.EventIssueUpdated, map[string]any{"issue": handler.IssueResponse{ID: childID, WorkspaceID: testWorkspaceID, Identifier: "WORK-450", Title: "Copy button tests"}, "parent_changed": true, "prev_parent_issue_id": &issueID}, "removed the sub-issue WORK-450 Copy button tests"},
+	} {
+		t.Run(tc.action, func(t *testing.T) {
+			bus.Publish(events.Event{Type: tc.event, WorkspaceID: testWorkspaceID, ActorType: "member", ActorID: testUserID, Payload: tc.payload})
+			var activity *db.ActivityLog
+			for _, row := range listActivitiesForIssue(t, queries, issueID) {
+				if row.Action == tc.action {
+					row := row
+					activity = &row
+					break
+				}
+			}
+			if activity == nil {
+				t.Fatalf("missing %s activity on parent issue", tc.action)
+			}
+			rows, err := queries.ListRunInputMarksByItems(context.Background(), db.ListRunInputMarksByItemsParams{WorkspaceID: util.MustParseUUID(testWorkspaceID), ItemIds: []pgtype.UUID{activity.ID}})
+			if err != nil || len(rows) != len(tasks) {
+				t.Fatalf("relation receipts = %+v, %v", rows, err)
+			}
+			for _, row := range rows {
+				if row.IssueID != util.MustParseUUID(issueID) || row.ItemKind != "issue_change" || !strings.Contains(row.Content.String, tc.want) {
+					t.Fatalf("wrong relation notice: %+v", row)
+				}
+			}
+			if strings.HasPrefix(tc.action, "sub_issue") {
+				var details map[string]string
+				if err := json.Unmarshal(activity.Details, &details); err != nil {
+					t.Fatal(err)
+				}
+				if details["sub_issue_id"] != childID || details["sub_issue_identifier"] != "WORK-450" || details["sub_issue_title"] != "Copy button tests" {
+					t.Fatalf("child identity missing from parent activity: %v", details)
+				}
+			}
+			found := false
+			for _, id := range published {
+				found = found || id == util.UUIDToString(activity.ID)
+			}
+			if !found {
+				t.Fatal("persisted activity was not published")
+			}
+		})
+	}
+	before := len(listActivitiesForIssue(t, queries, issueID))
+	bus.Publish(events.Event{Type: protocol.EventIssueAttachmentsChanged, WorkspaceID: testWorkspaceID, ActorType: "member", ActorID: testUserID, Payload: map[string]any{"issue_id": issueID, "issue_revision": int64(42)}})
+	if got := len(listActivitiesForIssue(t, queries, issueID)); got != before {
+		t.Fatalf("snapshot-only attachment event wrote an activity: %d -> %d", before, got)
+	}
+}
+
+func TestActivityOwnAgentChangeDoesNotReachItsRun(t *testing.T) {
+	bus, queries, _, issueID, tasks := activityRunInputSetup(t)
+	actorTask, err := queries.GetAgentTask(context.Background(), util.MustParseUUID(tasks[0]))
+	if err != nil {
+		t.Fatal(err)
+	}
+	bus.Publish(events.Event{
+		Type: protocol.EventIssueUpdated, WorkspaceID: testWorkspaceID, ActorType: "agent", ActorID: util.UUIDToString(actorTask.AgentID),
+		Payload: map[string]any{"issue": handler.IssueResponse{ID: issueID, WorkspaceID: testWorkspaceID, Priority: "high"}, "priority_changed": true, "prev_priority": "medium"},
+	})
+	activities := listActivitiesForIssue(t, queries, issueID)
+	if len(activities) != 1 {
+		t.Fatalf("activities = %v", activities)
+	}
+	rows, err := queries.ListRunInputMarksByItems(context.Background(), db.ListRunInputMarksByItemsParams{WorkspaceID: util.MustParseUUID(testWorkspaceID), ItemIds: []pgtype.UUID{activities[0].ID}})
+	if err != nil || len(rows) != 1 || util.UUIDToString(rows[0].TaskID) != tasks[1] {
+		t.Fatalf("own change recipients = %+v, %v; want only the other agent", rows, err)
+	}
+}
+
+func TestActivitySubIssueMoveNotifiesBothParents(t *testing.T) {
+	bus, queries, fx, previousParent, previousTasks := activityRunInputSetup(t)
+	nextParent := fx.Issue(t, "Next parent")
+	child := fx.Issue(t, "Moved child", testutil.Cols{"parent_issue_id": nextParent})
+	previousTask, err := queries.GetAgentTask(context.Background(), util.MustParseUUID(previousTasks[0]))
+	if err != nil {
+		t.Fatal(err)
+	}
+	nextTask := fx.Task(t, util.UUIDToString(previousTask.AgentID), testutil.Cols{
+		"runtime_id": previousTask.RuntimeID, "issue_id": nextParent, "status": "running",
+	})
+	fx.InsertNoID(t, "task_supplement_capability", testutil.Cols{
+		"task_id": nextTask, "workspace_id": testWorkspaceID, "issue_id": nextParent, "capability": "task-supplement-v1",
+	}, "task_id = $1", nextTask)
+	fx.Cleanup(t, "DELETE FROM task_supplement WHERE task_id = $1", nextTask)
+	fx.Cleanup(t, "DELETE FROM activity_log WHERE issue_id = $1", nextParent)
+	bus.Publish(events.Event{
+		Type: protocol.EventIssueUpdated, WorkspaceID: testWorkspaceID, ActorType: "member", ActorID: testUserID,
+		Payload: map[string]any{
+			"issue": handler.IssueResponse{ID: child, WorkspaceID: testWorkspaceID, Identifier: "WORK-450", Title: "Moved child", ParentIssueID: &nextParent},
+			"parent_changed": true, "prev_parent_issue_id": &previousParent,
+		},
+	})
+	for _, tc := range []struct {
+		issue, action string
+		count         int
+	}{
+		{previousParent, "sub_issue_removed", len(previousTasks)},
+		{nextParent, "sub_issue_added", 1},
+	} {
+		activities := listActivitiesForIssue(t, queries, tc.issue)
+		if len(activities) != 1 || activities[0].Action != tc.action {
+			t.Fatalf("parent %s activities = %v; want %s", tc.issue, activities, tc.action)
+		}
+		rows, err := queries.ListRunInputMarksByItems(context.Background(), db.ListRunInputMarksByItemsParams{WorkspaceID: util.MustParseUUID(testWorkspaceID), ItemIds: []pgtype.UUID{activities[0].ID}})
+		if err != nil || len(rows) != tc.count {
+			t.Fatalf("parent %s receipts = %v, %v; want %d", tc.issue, rows, err, tc.count)
+		}
+		for _, row := range rows {
+			if util.UUIDToString(row.IssueID) != tc.issue {
+				t.Fatalf("move receipt belongs to the wrong parent: %+v", row)
+			}
+		}
+	}
 }

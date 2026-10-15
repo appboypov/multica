@@ -12,6 +12,7 @@ import (
 
 	"github.com/multica-ai/multica/server/internal/events"
 	"github.com/multica-ai/multica/server/internal/handler"
+	"github.com/multica-ai/multica/server/internal/issuestatus"
 	"github.com/multica-ai/multica/server/internal/service"
 	"github.com/multica-ai/multica/server/internal/util"
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
@@ -419,6 +420,16 @@ func registerIssueChangeInputListener(bus *events.Bus, queries *db.Queries, runI
 		from, to := details["from"], details["to"]
 		if field == "status" || field == "priority" {
 			from, to = activityValueLabel(from), activityValueLabel(to)
+			if field == "status" {
+				_, oldName := issuestatus.CategoryAndName(context.Background(), queries, parseUUID(e.WorkspaceID), details["from"])
+				_, newName := issuestatus.CategoryAndName(context.Background(), queries, parseUUID(e.WorkspaceID), details["to"])
+				if oldName != "" {
+					from = oldName
+				}
+				if newName != "" {
+					to = newName
+				}
+			}
 		}
 		if field == "assignee" {
 			from = activityIdentityName(context.Background(), queries, details["from_type"], details["from_id"])
