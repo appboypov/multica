@@ -31,7 +31,7 @@ Not a journey change: no journey steps. Team Backend (Joeri) owns groups 1 to 6 
 
 ## 1. Database
 
-- [ ] 1.1 `server/migrations/720_task_supplement_items.up.sql`, `.down.sql` -- add `item_kind TEXT NOT NULL DEFAULT 'comment' CHECK (item_kind IN ('comment','comment_edit','answer','issue_change'))`, `item_id UUID`, `content TEXT`, `seen_at TIMESTAMPTZ`, `handled_at TIMESTAMPTZ`; backfill `item_id = comment_id`; set `item_id NOT NULL`. Down attaches `task_supplement_comment_task_uidx` (rebuilt by 721 down) as `task_supplement_pkey` with `PRIMARY KEY USING INDEX`, then drops the columns -- design decision 1, Migration Plan.
+- [x] 1.1 `server/migrations/720_task_supplement_items.up.sql`, `.down.sql` -- add `item_kind TEXT NOT NULL DEFAULT 'comment' CHECK (item_kind IN ('comment','comment_edit','answer','issue_change'))`, `item_id UUID`, `content TEXT`, `seen_at TIMESTAMPTZ`, `handled_at TIMESTAMPTZ`; backfill `item_id = comment_id`; set `item_id NOT NULL`. Down attaches `task_supplement_comment_task_uidx` (rebuilt by 721 down) as `task_supplement_pkey` with `PRIMARY KEY USING INDEX`, then drops the columns -- design decision 1, Migration Plan.
 - [ ] 1.2 `server/migrations/721_task_supplement_item_task_index.up.sql`, `.down.sql` -- up: `CREATE UNIQUE INDEX CONCURRENTLY task_supplement_item_task_key ON task_supplement (item_id, task_id)`; down: `CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS task_supplement_comment_task_uidx ON task_supplement (comment_id, task_id)`; add the up entry to `concurrentIndexCleanups` and the down entry to the down-cleanup map beside `548` in `server/cmd/migrate/main.go` -- AGENTS.md index rule, Migration Plan.
 - [ ] 1.3 `server/migrations/722_task_supplement_item_task_primary_key.up.sql`, `.down.sql` -- up: swap the primary key to `(item_id, task_id)` using the index of 1.2, then `ALTER COLUMN comment_id DROP NOT NULL`; down: delete non-comment rows (`item_kind <> 'comment'`), drop `task_supplement_pkey`, `ALTER COLUMN comment_id SET NOT NULL`. 721 down and 720 down restore the old key -- Migration Plan.
 - [ ] 1.4 `server/pkg/db/queries/supplement.sql` -- `CreateRunInputSupplement` (kind, item, content, comment id nullable, `client_request_id = item_id`, `ON CONFLICT (item_id, task_id) DO NOTHING`); `ListRunningSupplementTasksForIssues` (running tasks with `task-supplement-v1` on the given issues, minus an agent and a task list); claim returns `item_kind`, `item_id`, `content`; `MarkRunInputSeen` and `MarkRunInputHandled` (`COALESCE`, only `status = 'delivered'`, returning the row); `ListRunInputMarksByItems` for answers and activity rows; switch every `comment_id`-keyed lookup the handlers use to `item_id`.
@@ -105,6 +105,8 @@ Not a journey change: no journey steps. Team Backend (Joeri) owns groups 1 to 6 
 - [ ] 9.2 `specs/docs/system-design.md` -- add `RunInputService`, the react endpoint, the omp RPC path and the receipt columns to the Go server, daemon and models views.
 
 ## Implementation Notes
+
+- Database 1.1: added `server/migrations/720_task_supplement_items.up.sql` and `.down.sql`. Existing receipts become `comment` items keyed by their comment id; content and mark timestamps remain nullable. The approved reverse migration attaches the concurrently rebuilt comment/task index before dropping the item columns. Migration execution is left to the main agent's verification.
 
 ## Plan Change Log
 
