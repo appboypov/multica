@@ -62,6 +62,10 @@
   "question_pane": {
     "open_on": "{{identifier}}에서 열기",
     "answered_on_issue": "{{type}} 질문은 해당 태스크에서 답변합니다.",
+    "open_in_chat": "채팅에서 열기",
+    "open_in_answer_all": "모두 답하기에서 열기",
+    "answered_in_chat": "{{type}} 질문은 채팅에서 답변합니다.",
+    "answered_in_answer_all": "{{type}} 질문은 모두 답하기에서 답변합니다.",
     "unavailable": "이 질문을 여기에 표시할 수 없습니다."
   },
   "checks": {

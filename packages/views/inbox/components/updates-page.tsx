@@ -715,6 +715,19 @@ export function UpdatesPage() {
   ) : null;
 
   const questionId = detailItem && QUESTION_ITEM_TYPES.has(detailItem.type) ? detailItem.details?.question_id ?? undefined : undefined;
+  // A question asked in a chat has no issue: its item names the chat and its member.
+  const questionChatId = questionId ? detailItem?.details?.chat_session_id ?? undefined : undefined;
+  const questionPaneActions = detailItem && (isArchivedView ? (
+    <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => handleUnarchive(detailItem.id)}>
+      <ArchiveRestore className="h-3.5 w-3.5" />
+      {t(($) => $.detail.unarchive)}
+    </Button>
+  ) : (
+    <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => handleArchive(detailItem.id)}>
+      <Archive className="h-3.5 w-3.5" />
+      {t(($) => $.detail.archive)}
+    </Button>
+  ));
   const detailContent = detailItem?.issue_id ? (
     // Key by issue_id (not inbox-item id): a new comment/reaction generates a
     // new inbox notification for the same issue, and the dedup helper picks the
@@ -746,17 +759,7 @@ export function UpdatesPage() {
             setOpenedQuestionId(activeQuestionId ?? null);
             setOpenedQuestionItemId(detailItem.id);
           }}
-          actions={isArchivedView ? (
-            <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => handleUnarchive(detailItem.id)}>
-              <ArchiveRestore className="h-3.5 w-3.5" />
-              {t(($) => $.detail.unarchive)}
-            </Button>
-          ) : (
-            <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => handleArchive(detailItem.id)}>
-              <Archive className="h-3.5 w-3.5" />
-              {t(($) => $.detail.archive)}
-            </Button>
-          )}
+          actions={questionPaneActions}
         />
       ) : (
         <IssueDetail
@@ -783,6 +786,15 @@ export function UpdatesPage() {
         />
       )}
     </ErrorBoundary>
+  ) : detailItem && questionId && questionChatId ? (
+    <InboxQuestionPane
+      key={detailItem.id}
+      item={detailItem}
+      chat={{ chatSessionId: questionChatId, memberId: detailItem.details?.member_id ?? null }}
+      questionId={questionId}
+      leadingAction={compactBackAction}
+      actions={questionPaneActions}
+    />
   ) : detailItem ? (
     <div className="p-6">
       <h2 className="text-title font-semibold">

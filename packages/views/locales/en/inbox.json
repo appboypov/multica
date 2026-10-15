@@ -64,6 +64,10 @@
   "question_pane": {
     "open_on": "Open on {{identifier}}",
     "answered_on_issue": "{{type}} is answered on its issue.",
+    "open_in_chat": "Open in chat",
+    "open_in_answer_all": "Open in Answer all",
+    "answered_in_chat": "{{type}} is answered in the chat.",
+    "answered_in_answer_all": "{{type}} is answered in Answer all.",
     "unavailable": "This question can't be shown here."
   },
   "checks": {

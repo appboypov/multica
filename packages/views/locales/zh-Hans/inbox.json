@@ -62,6 +62,10 @@
   "question_pane": {
     "open_on": "在 {{identifier}} 中打开",
     "answered_on_issue": "{{type}}问题需在其任务中回答。",
+    "open_in_chat": "在对话中打开",
+    "open_in_answer_all": "在全部回答中打开",
+    "answered_in_chat": "{{type}}问题需在对话中回答。",
+    "answered_in_answer_all": "{{type}}问题需在全部回答中回答。",
     "unavailable": "无法在此显示这个问题。"
   },
   "checks": {

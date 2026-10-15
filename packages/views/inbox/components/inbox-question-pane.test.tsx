@@ -19,6 +19,15 @@ vi.mock("@multica/core/auth", () => {
   return { useAuthStore };
 });
 vi.mock("@multica/core/hooks", () => ({ useWorkspaceId: () => "ws-1" }));
+const { push } = vi.hoisted(() => ({ push: vi.fn() }));
+vi.mock("../../navigation", () => ({ useNavigation: () => ({ push }) }));
+vi.mock("@multica/core/paths", async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  useWorkspacePaths: () => ({
+    chatSession: (id: string, options?: { questionId?: string }) => `/acme/chat?session=${id}&question=${options?.questionId}`,
+    answerAll: (options?: { questionId?: string }) => `/acme/questions/answer?question=${options?.questionId}`,
+  }),
+}));
 vi.mock("@multica/core/workspace/hooks", () => ({
   useActorName: () => ({ getActorName: (type: string) => (type === "agent" ? "Pieter" : "Brian") }),
 }));

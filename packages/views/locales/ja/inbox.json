@@ -62,6 +62,10 @@
   "question_pane": {
     "open_on": "{{identifier}} で開く",
     "answered_on_issue": "{{type}}の質問はタスク上で回答します。",
+    "open_in_chat": "チャットで開く",
+    "open_in_answer_all": "すべて回答で開く",
+    "answered_in_chat": "{{type}}の質問はチャットで回答します。",
+    "answered_in_answer_all": "{{type}}の質問はすべて回答で回答します。",
     "unavailable": "この質問はここに表示できません。"
   },
   "checks": {

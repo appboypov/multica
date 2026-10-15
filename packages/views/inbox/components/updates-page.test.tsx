@@ -127,8 +127,8 @@ vi.mock("../../issues/components/issue-detail", () => ({
   issueHighlightMementoKey: (issueId: string) => `highlight:${issueId}`,
 }));
 vi.mock("./inbox-question-pane", () => ({
-  InboxQuestionPane: ({ questionId, onOpenIssue }: { questionId: string; onOpenIssue: () => void }) => (
-    <button data-testid="question-pane" onClick={onOpenIssue}>
+  InboxQuestionPane: ({ questionId, onOpenIssue }: { questionId: string; onOpenIssue: (questionId?: string) => void }) => (
+    <button data-testid="question-pane" onClick={() => onOpenIssue()}>
       {questionId}
     </button>
   ),

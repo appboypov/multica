@@ -64,6 +64,10 @@
   "question_pane": {
     "open_on": "Ouvrir sur {{identifier}}",
     "answered_on_issue": "Une question de type {{type}} se répond sur sa tâche.",
+    "open_in_chat": "Ouvrir dans la discussion",
+    "open_in_answer_all": "Ouvrir dans Tout répondre",
+    "answered_in_chat": "Une question de type {{type}} se répond dans la discussion.",
+    "answered_in_answer_all": "Une question de type {{type}} se répond dans Tout répondre.",
     "unavailable": "Cette question ne peut pas être affichée ici."
   },
   "checks": {
