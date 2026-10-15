@@ -12,8 +12,8 @@
 
 #### Scenario: No sessions
 
-- **GIVEN** no Roos session runs
-- **WHEN** a session runs `multica agent sessions roos`
+- **GIVEN** no Guus session runs
+- **WHEN** a session runs `multica agent sessions guus`
 - **THEN** the output lists no session
 
 ### Requirement: A session started by hand registers itself

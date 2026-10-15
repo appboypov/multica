@@ -47,7 +47,7 @@ Success signal: `multica agent sessions mitchel` lists every running Mitchel ses
 ## Impact
 
 - CLI: two `agent` subcommands.
-- Sync: `madspec-sync/multica_sync.py` and `madspec-sync/specs/multica-agents.md`; the 12 existing persona agents' runtimes, `instruction_selection` and `custom_args`, and 13 runtime profiles, Paul's included.
+- Sync: `madspec-sync/multica_sync.py` and `madspec-sync/specs/multica-agents.md`; the 11 existing persona agents' runtimes, `instruction_selection` and `custom_args`, and 12 runtime profiles, Paul's included.
 
 ## Constraints
 
@@ -63,3 +63,4 @@ Success signal: `multica agent sessions mitchel` lists every running Mitchel ses
 ## Sources
 
 - The Multica issue "Persona repos in ~/Repos/Agents" (WORK-1057): Pieter's discovery result (comment of 15 Oct 16:44), Brian's approval with active sessions on each agent's page (comment of 15 Oct 18:30) and his addition of Paul (comment of 15 Oct 18:50).
+- Brian's removal of Roos from MadSpec on 15 Oct (WORK-1058): she has no Multica agent and gets no runtime profile.

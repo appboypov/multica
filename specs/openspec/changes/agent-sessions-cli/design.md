@@ -70,7 +70,7 @@ Resolves the agent, then posts `{workspace_id, agent_id, pid, cwd, herdr_pane_id
 
 1. Merge `agent-active-sessions` and this change; release the CLI.
 2. Merge `persona-offices` in MadSpec and run `make symlinks`, so every alias exists in `~/.local/bin`.
-3. Run the sync: 13 profiles, 12 agents moved; Paul's agent follows once it exists.
+3. Run the sync: 12 profiles, 11 agents moved; Paul's agent follows once it exists.
 
 Rollback: the sync of the commit before puts the agents back on the shared omp runtime with their selections; the profiles stay unused.
 
