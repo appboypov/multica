@@ -3394,8 +3394,9 @@ func (h *Handler) CreateIssue(w http.ResponseWriter, r *http.Request) {
 		dueDate = d
 	}
 
-	// Determine creator identity: agent (via X-Agent-ID header) or member.
-	creatorType, actualCreatorID := h.resolveActor(r, creatorID, workspaceID)
+	// The creator is who the issue is for; the actor is who filed it.
+	actorType, actorID := h.resolveActor(r, creatorID, workspaceID)
+	creatorType, actualCreatorID := actorType, actorID
 
 	// Optional origin stamping (quick-create / autopilot). Only the
 	// allowed origin types are accepted; anything else is rejected so a
@@ -3403,6 +3404,7 @@ func (h *Handler) CreateIssue(w http.ResponseWriter, r *http.Request) {
 	// be provided together.
 	var originType pgtype.Text
 	var originID pgtype.UUID
+	var originTask db.AgentTaskQueue
 	if req.OriginType != nil || req.OriginID != nil {
 		if req.OriginType == nil || req.OriginID == nil {
 			writeError(w, http.StatusBadRequest, "origin_type and origin_id must be provided together")
@@ -3421,6 +3423,14 @@ func (h *Handler) CreateIssue(w http.ResponseWriter, r *http.Request) {
 		}
 		originType = pgtype.Text{String: *req.OriginType, Valid: true}
 		originID = oid
+		if actorType == "agent" {
+			task, err := h.Queries.GetAgentTaskInWorkspace(r.Context(), db.GetAgentTaskInWorkspaceParams{
+				ID: oid, WorkspaceID: wsUUID,
+			})
+			if err == nil && uuidToString(task.AgentID) == actorID {
+				originTask = task
+			}
+		}
 	} else if creatorType == "agent" {
 		// MUL-4305: an agent creating an issue via the ordinary create path
 		// carries no explicit origin, which historically left the new issue
@@ -3440,12 +3450,17 @@ func (h *Handler) CreateIssue(w http.ResponseWriter, r *http.Request) {
 		// it.
 		if taskIDHeader := r.Header.Get("X-Task-ID"); taskIDHeader != "" {
 			if taskUUID, perr := util.ParseUUID(taskIDHeader); perr == nil {
-				if task, terr := h.Queries.GetAgentTask(r.Context(), taskUUID); terr == nil && uuidToString(task.AgentID) == actualCreatorID {
+				if task, terr := h.Queries.GetAgentTask(r.Context(), taskUUID); terr == nil && uuidToString(task.AgentID) == actorID {
 					originType = pgtype.Text{String: "agent_create", Valid: true}
 					originID = taskUUID
+					originTask = task
 				}
 			}
 		}
+	}
+	if originTask.OriginatorUserID.Valid {
+		creatorType = "member"
+		actualCreatorID = uuidToString(originTask.OriginatorUserID)
 	}
 
 	// Prefix is workspace-level; pre-compute once so both the broadcast
@@ -3464,8 +3479,8 @@ func (h *Handler) CreateIssue(w http.ResponseWriter, r *http.Request) {
 	if assigneeType.Valid && assigneeType.String == "agent" {
 		analyticsAgentID = uuidToString(assigneeID)
 	}
-	if creatorType == "agent" && analyticsAgentID == "" {
-		analyticsAgentID = actualCreatorID
+	if actorType == "agent" && analyticsAgentID == "" {
+		analyticsAgentID = actorID
 	}
 
 	attachmentMode := attachmentURLModeFromRequest(r)
@@ -3506,7 +3521,8 @@ func (h *Handler) CreateIssue(w http.ResponseWriter, r *http.Request) {
 		Properties:     properties,
 		AllowDuplicate: req.AllowDuplicate,
 	}, service.IssueCreateOpts{
-		ActorID:          actualCreatorID,
+		ActorType:        actorType,
+		ActorID:          actorID,
 		AnalyticsAgentID: analyticsAgentID,
 		Platform:         func() string { p, _, _ := middleware.ClientMetadataFromContext(r.Context()); return p }(),
 		BroadcastPayload: func(issue db.Issue, atts []db.Attachment, labels []db.IssueLabel) map[string]any {
