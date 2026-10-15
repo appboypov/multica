@@ -648,7 +648,7 @@
       "unresolve_failed": "스레드 해결을 취소하지 못했습니다"
     },
     "recipient_steer": "현재 실행에 추가",
-    "recipient_steer_desc": "{{name}}이(가) 현재 단계가 끝난 뒤 읽고 원래 작업을 계속합니다. 텍스트만 가능합니다.",
+    "recipient_steer_desc": "{{name}}이(가) 현재 단계가 끝난 뒤 읽고 원래 작업을 계속합니다.",
     "recipient_after_run": "이번 실행 후 시작",
     "recipient_after_run_desc": "현재 실행을 방해하지 않고, 끝난 뒤 새 실행에서 처리합니다.",
     "recipient_restart": "중지하고 다시 시작",
@@ -659,7 +659,6 @@
     "recipient_state_starting": "시작 중",
     "recipient_state_queued": "대기 중",
     "recipient_count_other": "에이전트 {{count}}개가 받습니다",
-    "steer_attachment_notice": "실행 중에는 텍스트만 추가할 수 있어, 파일이 있는 메시지는 이번 실행 후에 처리됩니다.",
     "restart_send": "중지하고 보내기",
     "restart_failed": "현재 실행을 중지하지 못했습니다. 메시지는 보내지 않았습니다."
   },

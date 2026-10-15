@@ -36,14 +36,12 @@ export function useRecipientActions({
   issueId,
   agents,
   allowSteer,
-  hasAttachments = false,
   resetKey,
 }: {
   issueId: string;
   agents: CommentTriggerPreviewAgent[];
   /** False for edits: an edit neither steers nor stops a run. */
   allowSteer: boolean;
-  hasAttachments?: boolean;
   /** Choices reset when the composer's context changes. */
   resetKey: string;
 }) {
@@ -89,11 +87,6 @@ export function useRecipientActions({
     };
   }), [agents, tasks, chosen, allowSteer, steerByDefault]);
 
-  // A recipient would take this in its running turn, but files cannot go there.
-  const attachmentsBlockSteer = allowSteer && hasAttachments && recipients.some((r) =>
-    r.state.kind === "running" && r.state.steerable
-    && (chosen[r.agent.id] === "steer" || (!chosen[r.agent.id] && steerByDefault)));
-
   const setAction = useCallback((agentId: string, action: RecipientAction) => {
     setChosen((prev) => (prev[agentId] === action ? prev : { ...prev, [agentId]: action }));
   }, []);
@@ -106,5 +99,5 @@ export function useRecipientActions({
     agentId: r.agent.id, action: r.action, state: r.state,
   }))), [recipients]);
 
-  return { recipients, attachmentsBlockSteer, routing, setAction, reset };
+  return { recipients, routing, setAction, reset };
 }

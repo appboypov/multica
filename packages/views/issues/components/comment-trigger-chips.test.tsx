@@ -89,7 +89,7 @@ describe("CommentTriggerChips", () => {
     fireEvent.click(screen.getByRole("button", { name: "Walt trigger: Add to current run" }));
     const menu = await screen.findByRole("menu");
     expect(within(menu).getByText("Running")).toBeInTheDocument();
-    expect(within(menu).getByText("Walt reads it after the current step and keeps working on the original task. Text only.")).toBeInTheDocument();
+    expect(within(menu).getByText("Walt reads it after the current step and keeps working on the original task.")).toBeInTheDocument();
     expect(within(menu).getByText("Stops the current run now and starts over from this message.")).toBeInTheDocument();
     fireEvent.click(within(menu).getByRole("menuitemradio", { name: /Start after this run/ }));
     expect(onActionChange).toHaveBeenCalledWith("agent-1", "after_run");

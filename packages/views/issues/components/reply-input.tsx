@@ -17,7 +17,6 @@ import { useT } from "../../i18n";
 import { CommentTriggerChips } from "./comment-trigger-chips";
 import { useCommentTriggerPreview } from "../hooks/use-comment-trigger-preview";
 import { useRecipientActions } from "../hooks/use-recipient-actions";
-import { SteerAttachmentNotice } from "./steer-attachment-notice";
 import { useStopRunsBeforeSend } from "./use-stop-runs-before-send";
 import { useCommentUploads } from "./use-comment-uploads";
 import { useQuickActionMenu } from "../hooks/use-quick-action-menu";
@@ -95,15 +94,10 @@ function ReplyInput({
   // CommentInput.
   const { uploads, attachments: pendingAttachments, handleUpload, removeUpload, gate } =
     useCommentUploads(draftKey, { issueId }, uploadGate, editorRef);
-  const hasAttachments = useMemo(
-    () => pendingAttachments.some((a) => contentReferencesAttachment(content, a)) || gate.uploading,
-    [pendingAttachments, content, gate.uploading],
-  );
-  const { recipients, attachmentsBlockSteer, routing, setAction, reset: resetRecipients } = useRecipientActions({
+  const { recipients, routing, setAction, reset: resetRecipients } = useRecipientActions({
     issueId,
     agents: triggerPreview.agents,
     allowSteer: true,
-    hasAttachments,
     resetKey: `${issueId}:${parentId}`,
   });
   const stopRunsBeforeSend = useStopRunsBeforeSend(issueId);
@@ -192,7 +186,7 @@ function ReplyInput({
         content,
         activeIds.length > 0 ? activeIds : undefined,
         suppressAgentIds.length > 0 ? suppressAgentIds : undefined,
-        steerTaskIds.length > 0 ? steerTaskIds : undefined,
+        steerTaskIds,
       ).then((commentId) => {
         acceptedCommentIdRef.current = typeof commentId === "string" ? commentId : null;
         return !!commentId;
@@ -239,7 +233,6 @@ function ReplyInput({
           (!isEmpty || annotations.length > 0) && "pb-9",
         )}
       >
-        {attachmentsBlockSteer && <SteerAttachmentNotice />}
         {draftKey && annotations.length > 0 && <>
           {targetMissing && <p role="alert" className="mb-2 text-caption text-destructive">{t(($) => $.reply.annotations.target_deleted)}</p>}
           <ReplyAnnotations draftKey={draftKey} annotations={annotations}

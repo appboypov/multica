@@ -669,7 +669,7 @@
       "unresolve_failed": "Échec de la réouverture du fil"
     },
     "recipient_steer": "Ajouter à l'exécution en cours",
-    "recipient_steer_desc": "{{name}} le lit après l'étape en cours et poursuit la tâche d'origine. Texte uniquement.",
+    "recipient_steer_desc": "{{name}} le lit après l'étape en cours et poursuit la tâche d'origine.",
     "recipient_after_run": "Démarrer après cette exécution",
     "recipient_after_run_desc": "N'interrompt pas l'exécution en cours ; traité ensuite dans une nouvelle exécution.",
     "recipient_restart": "Arrêter et recommencer",
@@ -681,7 +681,6 @@
     "recipient_state_queued": "En file",
     "recipient_count_one": "{{count}} agent recevra ce message",
     "recipient_count_other": "{{count}} agents recevront ce message",
-    "steer_attachment_notice": "Seul du texte peut rejoindre une exécution en cours : un message avec des fichiers sera traité après.",
     "restart_send": "Arrêter et envoyer",
     "restart_failed": "Impossible d'arrêter l'exécution en cours. Votre message n'a pas été envoyé."
   },

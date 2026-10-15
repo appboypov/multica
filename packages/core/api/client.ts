@@ -1801,7 +1801,7 @@ export class ApiClient {
         ...(parentId ? { parent_id: parentId } : {}),
         ...(attachmentIds?.length ? { attachment_ids: attachmentIds } : {}),
         ...(suppressAgentIds?.length ? { suppress_agent_ids: suppressAgentIds } : {}),
-        ...(steerTaskIds?.length ? { steer_task_ids: steerTaskIds } : {}),
+        ...(steerTaskIds !== undefined ? { steer_task_ids: steerTaskIds } : {}),
       }),
     });
   }
