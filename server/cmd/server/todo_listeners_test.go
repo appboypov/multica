@@ -217,3 +217,59 @@ func TestTodoAssignedLifecycle(t *testing.T) {
 		t.Fatal("reassignment did not move todo")
 	}
 }
+
+func TestTodoAgentFailures(t *testing.T) {
+	fx, svc := todoListenerFixture(t)
+	issue := fx.Issue(t, "Agent issue")
+	runtime := fx.Runtime(t, "Todo runtime")
+	agent := fx.Agent(t, "Joeri", runtime)
+	task := fx.Task(t, agent, testutil.Cols{"runtime_id": runtime, "issue_id": issue, "originator_user_id": fx.UserID, "accountable_user_id": fx.UserID})
+	kind := "agent"
+	response := handler.IssueResponse{ID: issue, Status: "blocked", AssigneeType: &kind, AssigneeID: &agent}
+	event := events.Event{Type: protocol.EventIssueUpdated, WorkspaceID: fx.WorkspaceID, ActorType: "member", ActorID: fx.UserID, Payload: map[string]any{"issue": response, "status_changed": true, "source_task_id": task}}
+	apply := func() {
+		t.Helper()
+		if err := agentTodos(context.Background(), svc, event); err != nil {
+			t.Fatal(err)
+		}
+	}
+	count := func() int {
+		return fx.Count(t, "SELECT count(*) FROM todo WHERE issue_id = $1 AND done_at IS NULL", issue)
+	}
+	apply()
+	if count() != 0 {
+		t.Fatal("member blocking agent opened agent blocked")
+	}
+	event.ActorType, event.ActorID = "agent", agent
+	apply()
+	if count() != 1 {
+		t.Fatal("agent blocking in run did not open")
+	}
+	event.Type = protocol.EventTaskFailed
+	event.Payload = map[string]any{"issue_id": issue, "task_id": task}
+	apply()
+	if count() != 2 {
+		t.Fatal("failed run did not open separate todo")
+	}
+	event.Type = protocol.EventTaskDispatch
+	apply()
+	if count() != 0 {
+		t.Fatal("run starting did not close both failure kinds")
+	}
+	event.Type = protocol.EventTaskFailed
+	apply()
+	response.Status = "in_progress"
+	event.Type = protocol.EventIssueUpdated
+	event.Payload = map[string]any{"issue": response, "status_changed": true}
+	apply()
+	if count() != 0 {
+		t.Fatal("leaving blocked did not close failure")
+	}
+	quick := fx.Task(t, agent, testutil.Cols{"runtime_id": runtime, "context": `{"type":"quick_create"}`, "originator_user_id": fx.UserID, "accountable_user_id": fx.UserID})
+	event.Type = protocol.EventTaskFailed
+	event.Payload = map[string]any{"task_id": quick, "issue_id": ""}
+	apply()
+	if count() != 0 {
+		t.Fatal("quick create opened run failed")
+	}
+}
