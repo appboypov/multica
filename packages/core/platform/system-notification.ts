@@ -27,6 +27,8 @@ export interface SystemNotificationPayload {
   issueKey: string;
   title: string;
   body: string;
+  /** To-dos select a row in Inbox; notice banners open Updates. */
+  destination?: "inbox" | "updates";
 }
 
 type ClickHandler = (payload: SystemNotificationPayload) => void;

@@ -121,6 +121,8 @@ export type {
   PluginTokenIssue,
 } from "./plugin";
 export type { InboxItem, InboxSeverity, InboxItemType, InboxWorkspaceUnread, ArchivedInboxPage, ArchivedInboxFacets } from "./inbox";
+export { TODO_KINDS } from "./todo";
+export type { Todo, TodoKind, TodoWorkspaceCount, TodoOpenedPayload, TodoClosedPayload } from "./todo";
 export type { NotificationGroupKey, NotificationGroupValue, NotificationPreferences, NotificationPreferenceResponse } from "./notification-preference";
 export type { Comment, CommentType, CommentAuthorType, CommentSupplementReceipt, CommentSupplementStatus, CommentTriggerPreview, CommentTriggerPreviewAgent, CommentTriggerSource, CommentTriggerOutcome, CommentTriggerStatus, Reaction } from "./comment";
 export type { RunInputItemKind, RunInputMark } from "./run-input";
