@@ -62,6 +62,51 @@
     "answered_on_issue": "{{type}}の質問はタスク上で回答します。",
     "unavailable": "この質問はここに表示できません。"
   },
+  "todos": {
+    "mark_done": "完了にする",
+    "overdue": "期限超過",
+    "open_autopilot": "オートパイロットを開く",
+    "kinds": {
+      "question": "あなたへの質問",
+      "approval": "あなたへの承認依頼",
+      "mention": "あなたをメンション",
+      "assigned": "あなたに割り当て",
+      "agent_blocked": "エージェントがブロック中",
+      "run_failed": "実行に失敗",
+      "autopilot_paused": "オートパイロット一時停止",
+      "quota_reached": "クォータ上限に到達",
+      "quick_create_failed": "クイック作成に失敗",
+      "review": "あなたのレビュー待ち",
+      "other": "ToDo"
+    },
+    "leaves": {
+      "question": "回答すると受信箱から消えます。",
+      "mention": "{{identifier}} にコメントすると受信箱から消えます。",
+      "assigned": "{{identifier}} が別のステータスに移ると受信箱から消えます。",
+      "agent_blocked": "{{identifier}} がブロック中でなくなるか、エージェントが再実行すると受信箱から消えます。",
+      "run_failed": "{{identifier}} でエージェントが再実行すると受信箱から消えます。",
+      "review": "{{identifier}} がレビュー中でなくなると受信箱から消えます。",
+      "autopilot_paused": "オートパイロットを再開すると受信箱から消えます。",
+      "quota_reached": "オートパイロットの実行が再び許可されると受信箱から消えます。",
+      "quick_create_failed": "再試行で課題が作成されると受信箱から消えます。",
+      "other": "対応すると受信箱から消えます。"
+    },
+    "created_by_you": "あなたが作成",
+    "assigned_to_you": "あなたに割り当て",
+    "reply_to": "{{name}} に返信…",
+    "comment_unavailable": "このコメントはここに表示できません。",
+    "run_label": "実行 #{{number}}",
+    "run_label_plain": "最新の実行",
+    "blocked_badge": "ブロック中",
+    "failed_badge": "失敗",
+    "resume_autopilot": "オートパイロットを再開",
+    "view_runs": "実行を表示",
+    "empty_title": "対応待ちはありません",
+    "empty_body": "フォロー中の課題の更新は「更新」にあります。",
+    "open_updates": "更新を開く",
+    "select_prompt": "ToDo を選択して必要な対応を確認",
+    "load_failed": "ToDo を読み込めませんでした"
+  },
   "types": {
     "issue_assigned": "割り当て済み",
     "issue_subscribed": "購読済み",
@@ -124,6 +169,7 @@
     "archive_completed_failed": "完了した項目をアーカイブできませんでした",
     "unarchive_failed": "アーカイブ解除に失敗しました",
     "archived_load_failed": "アーカイブ済み通知を読み込めませんでした",
-    "filters_load_failed": "フィルターを読み込めませんでした"
+    "filters_load_failed": "フィルターを読み込めませんでした",
+    "resume_autopilot_failed": "オートパイロットを再開できませんでした"
   }
 }

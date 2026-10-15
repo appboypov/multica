@@ -64,6 +64,51 @@
     "answered_on_issue": "{{type}} is answered on its issue.",
     "unavailable": "This question can't be shown here."
   },
+  "todos": {
+    "mark_done": "Mark done",
+    "overdue": "Overdue",
+    "open_autopilot": "Open autopilot",
+    "kinds": {
+      "question": "Question for you",
+      "approval": "Approval for you",
+      "mention": "Mentioned you",
+      "assigned": "Assigned to you",
+      "agent_blocked": "Agent blocked",
+      "run_failed": "Run failed",
+      "autopilot_paused": "Autopilot paused",
+      "quota_reached": "Quota limit reached",
+      "quick_create_failed": "Quick create failed",
+      "review": "Waiting for your review",
+      "other": "To-do"
+    },
+    "leaves": {
+      "question": "Leaves your inbox once you answer it.",
+      "mention": "Leaves your inbox once you comment on {{identifier}}.",
+      "assigned": "Leaves your inbox once {{identifier}} moves to another status.",
+      "agent_blocked": "Leaves your inbox once {{identifier}} is no longer Blocked or the agent runs again.",
+      "run_failed": "Leaves your inbox once an agent runs on {{identifier}} again.",
+      "review": "Leaves your inbox once {{identifier}} leaves In Review.",
+      "autopilot_paused": "Leaves your inbox once the autopilot is resumed.",
+      "quota_reached": "Leaves your inbox once an autopilot run is admitted again.",
+      "quick_create_failed": "Leaves your inbox once a retry creates the issue.",
+      "other": "Leaves your inbox once it is handled."
+    },
+    "created_by_you": "created by you",
+    "assigned_to_you": "assigned to you",
+    "reply_to": "Reply to {{name}}…",
+    "comment_unavailable": "This comment can't be shown here.",
+    "run_label": "Run #{{number}}",
+    "run_label_plain": "Latest run",
+    "blocked_badge": "Blocked",
+    "failed_badge": "Failed",
+    "resume_autopilot": "Resume autopilot",
+    "view_runs": "View runs",
+    "empty_title": "Nothing waits for you",
+    "empty_body": "News on the issues you follow is in Updates.",
+    "open_updates": "Open Updates",
+    "select_prompt": "Select a to-do to see what it needs",
+    "load_failed": "Could not load your to-dos"
+  },
   "types": {
     "issue_assigned": "Assigned",
     "issue_subscribed": "Subscribed",
@@ -127,6 +172,7 @@
     "archive_completed_failed": "Failed to archive completed",
     "unarchive_failed": "Failed to unarchive",
     "archived_load_failed": "Failed to load archived notifications",
-    "filters_load_failed": "Could not load filters"
+    "filters_load_failed": "Could not load filters",
+    "resume_autopilot_failed": "Failed to resume the autopilot"
   }
 }

@@ -64,6 +64,51 @@
     "answered_on_issue": "Une question de type {{type}} se répond sur sa tâche.",
     "unavailable": "Cette question ne peut pas être affichée ici."
   },
+  "todos": {
+    "mark_done": "Marquer comme fait",
+    "overdue": "En retard",
+    "open_autopilot": "Ouvrir l'autopilote",
+    "kinds": {
+      "question": "Question pour vous",
+      "approval": "Approbation pour vous",
+      "mention": "Vous a mentionné",
+      "assigned": "Assigné à vous",
+      "agent_blocked": "Agent bloqué",
+      "run_failed": "Exécution échouée",
+      "autopilot_paused": "Autopilote en pause",
+      "quota_reached": "Limite de quota atteinte",
+      "quick_create_failed": "Création rapide échouée",
+      "review": "En attente de votre revue",
+      "other": "À faire"
+    },
+    "leaves": {
+      "question": "Quitte votre boîte une fois que vous y répondez.",
+      "mention": "Quitte votre boîte une fois que vous commentez {{identifier}}.",
+      "assigned": "Quitte votre boîte une fois que {{identifier}} change de statut.",
+      "agent_blocked": "Quitte votre boîte une fois que {{identifier}} n'est plus Bloqué ou que l'agent s'exécute à nouveau.",
+      "run_failed": "Quitte votre boîte une fois qu'un agent s'exécute à nouveau sur {{identifier}}.",
+      "review": "Quitte votre boîte une fois que {{identifier}} quitte En revue.",
+      "autopilot_paused": "Quitte votre boîte une fois l'autopilote repris.",
+      "quota_reached": "Quitte votre boîte une fois qu'une exécution d'autopilote est à nouveau admise.",
+      "quick_create_failed": "Quitte votre boîte une fois qu'une nouvelle tentative crée le ticket.",
+      "other": "Quitte votre boîte une fois traité."
+    },
+    "created_by_you": "créé par vous",
+    "assigned_to_you": "assigné à vous",
+    "reply_to": "Répondre à {{name}}…",
+    "comment_unavailable": "Ce commentaire ne peut pas être affiché ici.",
+    "run_label": "Exécution n°{{number}}",
+    "run_label_plain": "Dernière exécution",
+    "blocked_badge": "Bloqué",
+    "failed_badge": "Échoué",
+    "resume_autopilot": "Reprendre l'autopilote",
+    "view_runs": "Voir les exécutions",
+    "empty_title": "Rien ne vous attend",
+    "empty_body": "Les nouvelles des tickets que vous suivez sont dans Mises à jour.",
+    "open_updates": "Ouvrir Mises à jour",
+    "select_prompt": "Sélectionnez une tâche pour voir ce qu'elle demande",
+    "load_failed": "Impossible de charger vos tâches"
+  },
   "types": {
     "issue_assigned": "Assigné",
     "issue_subscribed": "Abonné",
@@ -127,6 +172,7 @@
     "archive_completed_failed": "Échec de l'archivage des éléments terminés",
     "unarchive_failed": "Échec du désarchivage",
     "archived_load_failed": "Échec du chargement des notifications archivées",
-    "filters_load_failed": "Impossible de charger les filtres"
+    "filters_load_failed": "Impossible de charger les filtres",
+    "resume_autopilot_failed": "Impossible de reprendre l'autopilote"
   }
 }

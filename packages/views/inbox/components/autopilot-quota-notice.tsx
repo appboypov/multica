@@ -4,8 +4,8 @@ import type { InboxItem } from "@multica/core/types";
 import { Button } from "@multica/ui/components/ui/button";
 import { useT } from "../../i18n";
 
-function formatResetAt(value: string | undefined): string {
-  if (!value) return "";
+function formatResetAt(value: unknown): string {
+  if (typeof value !== "string" || !value) return "";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
   return new Intl.DateTimeFormat(undefined, {
@@ -18,17 +18,19 @@ export function AutopilotQuotaNotice({
   item,
   onOpenRecovery,
 }: {
-  item: InboxItem;
+  /** A quota notice, or a Quota limit reached to-do: both carry the notice's details. */
+  item: Pick<InboxItem, "body"> & { details: Readonly<Record<string, unknown>> | null };
   onOpenRecovery: () => void;
 }) {
   const { t } = useT("inbox");
   const details = item.details ?? {};
   const resetAt = formatResetAt(details.reset_at);
+  const limit = typeof details.limit === "string" || typeof details.limit === "number" ? String(details.limit) : "";
 
   let body = item.body;
-  if (details.limit && resetAt) {
+  if (limit && resetAt) {
     body = t(($) => $.detail.autopilot_quota_exceeded_body, {
-      limit: details.limit,
+      limit,
       resetAt,
     });
   }

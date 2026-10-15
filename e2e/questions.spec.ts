@@ -99,6 +99,7 @@ const test = base.extend<{ question: QuestionFixture }>({
       try {
         if (agentId) {
           // Question tables deliberately have no foreign-key cascades.
+          await db.query(`DELETE FROM todo WHERE question_id IN (SELECT id FROM question WHERE asker_agent_id = $1)`, [agentId]);
           await db.query(`DELETE FROM question_event WHERE question_id IN (SELECT id FROM question WHERE asker_agent_id = $1)`, [agentId]);
           await db.query(`DELETE FROM question_answer WHERE question_id IN (SELECT id FROM question WHERE asker_agent_id = $1)`, [agentId]);
           await db.query(`DELETE FROM question_answerer WHERE question_id IN (SELECT id FROM question WHERE asker_agent_id = $1)`, [agentId]);
@@ -148,17 +149,22 @@ async function expectFolded(card: Locator, prompt: string) {
   await expect(card.getByRole("button", { name: "Accept suggestion", exact: true })).toHaveCount(0);
 }
 
+function openTodoCount(fixture: QuestionFixture, question: TestQuestion) {
+  return fixture.db.query<{ count: number }>(
+    `SELECT count(*)::int AS count FROM todo WHERE workspace_id = $1 AND member_id = $2 AND kind = 'question' AND question_id = $3 AND done_at IS NULL`,
+    [fixture.workspace.id, fixture.userId, question.id],
+  ).then((rows) => rows.rows[0]!.count);
+}
+
+function questionTodoRow(page: Page, fixture: QuestionFixture): Locator {
+  return page.getByRole("button").filter({ hasText: fixture.issue.title }).filter({ hasText: "Question for you" });
+}
+
 async function openInboxQuestion(page: Page, fixture: QuestionFixture, question: TestQuestion) {
-  // Observe actual notification delivery, rather than inserting or mocking an inbox item.
-  await expect.poll(async () => {
-    const rows = await fixture.db.query<{ count: number }>(
-      `SELECT count(*)::int AS count FROM inbox_item WHERE workspace_id = $1 AND recipient_id = $2 AND type = 'question_asked' AND details->>'question_id' = $3`,
-      [fixture.workspace.id, fixture.userId, question.id],
-    );
-    return rows.rows[0]!.count;
-  }, { timeout: 30_000 }).toBe(1);
+  // Observe the real to-do the question opened, rather than inserting or mocking one.
+  await expect.poll(() => openTodoCount(fixture, question), { timeout: 30_000 }).toBe(1);
   await page.goto(`/${fixture.workspace.slug}/inbox`, { waitUntil: "domcontentloaded" });
-  await page.getByRole("button").filter({ hasText: fixture.issue.title }).filter({ hasText: "Question for you" }).click({ timeout: 45_000 });
+  await questionTodoRow(page, fixture).click({ timeout: 45_000 });
   const card = questionCard(page, question.prompt);
   await expect(card).toBeVisible();
   return card;
@@ -257,7 +263,9 @@ test("Answer simple questions in the inbox / Brian answers from the inbox", asyn
   await expect(card.getByRole("radio", { name: /per line/ })).toBeVisible();
   await expect(card.getByRole("checkbox", { name: "Wake Pieter", exact: true })).toBeChecked();
   await acceptSuggestion(page, card, question.id, true);
-  await expectFolded(card, question.prompt);
+  // Answering handles the to-do: it leaves the Inbox.
+  await expect.poll(() => openTodoCount(fixture, question), { timeout: 30_000 }).toBe(0);
+  await expect(questionTodoRow(page, fixture)).toHaveCount(0, { timeout: 30_000 });
   await expect(page).toHaveURL(new RegExp(`/${fixture.workspace.slug}/inbox`));
   // Sent with Wake Pieter checked, the answer queues one run of Pieter.
   const afterAnswer = await fixture.taskIds();
