@@ -1,0 +1,9 @@
+schema: intent-driven
+created: 2026-10-15
+build:
+  status: draft
+  type: feature
+  ticket: WORK-1087
+  context:
+    - '{project-root}/adr/0017-an-agents-sessions-are-its-followed-sessions-and-its-running-tasks.md'
+    - '{project-root}/specs/docs/system-design.md'
