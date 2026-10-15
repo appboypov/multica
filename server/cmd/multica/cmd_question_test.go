@@ -617,6 +617,44 @@ func TestQuestionAnswersJSONPreservesFullAggregate(t *testing.T) {
 	}
 }
 
+func TestQuestionAnswersShowsTheCancel(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		details string
+		want    string
+	}{
+		{"with a note", `{"note":"already decided in the PRD"}`, "- Cancelled by Brian: already decided in the PRD · 2026-10-15T09:30:00Z\n"},
+		{"without a note", `{}`, "- Cancelled by Brian · 2026-10-15T09:30:00Z\n"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			response := `{"id":"q-1","prompt":"Round?","status":"cancelled","answers":[{"id":"a-1","answerer_user_id":"` + questionTestMember + `","value":{"option":"per line"},"display_text":"per line","note":"","updated_at":"2026-10-15T09:00:00Z"}],"events":[{"kind":"cancelled","actor_type":"member","actor_id":"` + questionTestMember + `","details":` + tc.details + `,"created_at":"2026-10-15T09:30:00Z"}]}`
+			questionTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != http.MethodGet || r.URL.Path != "/api/questions/q-1" {
+					t.Errorf("unexpected request %s %s", r.Method, r.URL.Path)
+				}
+				_, _ = w.Write([]byte(response))
+			})
+			cmd := newQuestionCommand()
+			var out bytes.Buffer
+			cmd.SetOut(&out)
+			cmd.SetArgs([]string{"answers", "q-1"})
+			if err := cmd.Execute(); err != nil {
+				t.Fatal(err)
+			}
+			got := out.String()
+			if !strings.HasPrefix(got, "q-1 · cancelled\n") {
+				t.Fatalf("status line does not show the question cancelled:\n%s", got)
+			}
+			if !strings.Contains(got, tc.want) {
+				t.Fatalf("cancel line missing %q:\n%s", tc.want, got)
+			}
+			if !strings.Contains(got, "- per line · Brian · 2026-10-15T09:00:00Z") {
+				t.Fatalf("earlier answer is no longer readable:\n%s", got)
+			}
+		})
+	}
+}
+
 func TestQuestionCloseAndWithdrawReturnQuestion(t *testing.T) {
 	for _, action := range []string{"close", "withdraw"} {
 		t.Run(action, func(t *testing.T) {

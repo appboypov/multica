@@ -86,10 +86,10 @@ type questionAskItem struct {
 const questionLinkHelp = `Links: --on <link> is where the question is asked (position 0); repeatable
 --link <link> adds more links in the given order, at most 10 together. In a
 run, without --on the first --link takes position 0; without either the
-question is asked on the run's issue. The asking run is always linked after
-them. Outside a run (a member login), --on names the issue the question is
-asked on and is required; no run is linked. Add links later with:
-multica question link <question-id> <link>...
+question is asked on the run's issue, or on its chat in a chat turn. The
+asking run is always linked after them. Outside a run (a member login),
+--on names the issue the question is asked on and is required; no run is
+linked. Add links later with: multica question link <question-id> <link>...
 
 A link is a bare issue key or ID (WORK-415), or <type>:<ref>:
   issue:<key or ID>        project:<ID or prefix>    autopilot:<ID or prefix>
@@ -829,12 +829,22 @@ func runQuestionAction(cmd *cobra.Command, id, action string) error {
 	if events, ok := result["events"].([]any); ok {
 		for _, raw := range events {
 			if event, ok := raw.(map[string]any); ok {
-				fmt.Fprintf(cmd.OutOrStdout(), "- %s · %s · %s", strVal(event, "kind"), lookup.actor(strVal(event, "actor_type"), strVal(event, "actor_id")), strVal(event, "created_at"))
-				if details, ok := event["details"].(map[string]any); ok {
-					for _, key := range []string{"text", "note"} {
-						if v := strVal(details, key); v != "" {
-							fmt.Fprintf(cmd.OutOrStdout(), " · %s", v)
-						}
+				actor := lookup.actor(strVal(event, "actor_type"), strVal(event, "actor_id"))
+				details, _ := event["details"].(map[string]any)
+				if strVal(event, "kind") == "cancelled" {
+					// A cancel reads as one line: who ended the question, the
+					// note they gave as the reason, and when.
+					fmt.Fprintf(cmd.OutOrStdout(), "- Cancelled by %s", actor)
+					if note := strVal(details, "note"); note != "" {
+						fmt.Fprintf(cmd.OutOrStdout(), ": %s", note)
+					}
+					fmt.Fprintf(cmd.OutOrStdout(), " · %s\n", strVal(event, "created_at"))
+					continue
+				}
+				fmt.Fprintf(cmd.OutOrStdout(), "- %s · %s · %s", strVal(event, "kind"), actor, strVal(event, "created_at"))
+				for _, key := range []string{"text", "note"} {
+					if v := strVal(details, key); v != "" {
+						fmt.Fprintf(cmd.OutOrStdout(), " · %s", v)
 					}
 				}
 				fmt.Fprintln(cmd.OutOrStdout())
