@@ -62,7 +62,7 @@ The branch is stacked on `ask-back-wakes-the-asker` (pull request 34); the Wake 
 
 ## 5. Backend and agent tooling: daemon and CLI
 
-- [ ] 5.1 `server/internal/daemon/execenv/runtime_config_sections.go` -- write the Questions section for a chat turn whose claim has `QuestionsEnabled`, still never for quick-create; its link line names the chat in a chat turn and the issue in an issue run -- Decision 9, ADR-0017.
+- [x] 5.1 `server/internal/daemon/execenv/runtime_config_sections.go` -- write the Questions section for a chat turn whose claim has `QuestionsEnabled`, still never for quick-create; its link line names the chat in a chat turn and the issue in an issue run -- Decision 9, ADR-0017.
 - [ ] 5.2 `server/internal/daemon/prompt.go` `buildQuestionAnswersBlock` -- render a `cancelled` event as "Cancelled by {member}: {note}" under its question, ordered with the answers and ask backs -- Decision 5.
 - [ ] 5.3 `server/cmd/multica/cmd_question.go` `answers` -- print a cancelled question's status and the cancel line with who, the note and when -- `question-answering` spec "Pieter reads the cancel".
 - [ ] 5.4 `server/internal/daemon/execenv/runtime_config_sections_test.go`, `server/internal/daemon/prompt_test.go` -- a chat turn with questions on has the Questions section and one with questions off has none; the `[ANSWERS]` block shows two answers and "Cancelled by Brian: already decided in the PRD" -- the brief and prompt rules of 5.1 and 5.2.
@@ -97,6 +97,8 @@ The branch is stacked on `ask-back-wakes-the-asker` (pull request 34); the Wake 
 - [ ] 9.1 `specs/openspec/changes/questions-in-chat/` -- run `openspec validate questions-in-chat --type change --strict`, sync the specs and archive the change -- own work has no acceptance test.
 
 ## Implementation Notes
+
+- 5.1: `buildMetaSkillContentSlim` now calls `writeQuestionsSection` for every chat turn as well as for non-quick-create runs with an issue; the section still writes only while the claim's `QuestionsEnabled` is true, so channel chat turns (off at claim) and quick-create get none. Surprise: `QuestionsSection` has no link line, and the in-force `agent-question-tooling` requirement "The brief tells only that the tool exists", which this change does not modify, fixes the section word for word (the workspace Questions settings show the same constant). Joeri agreed: a chat turn gets the identical section and no link line is added, so the section names neither the chat nor the issue. The section matrix comment and the `TaskContextForEnv.QuestionsEnabled` comment now cite ADR-0017.
 
 - 4.1: `handler/question.go` adds the thin current-member cancellation endpoint using `CancelQuestionInput` and the existing UUID, actor and question-error boundaries; `cmd/server/router.go` mounts it inside `RequireHumanActor` beside Answer. It returns the hydrated question with 200. The shared member-only refusal text includes cancellation. No checks run; endpoint regression coverage belongs to 4.6 and verification to the main agent.
 - 4.2: `handler/chat.go` lists hydrated questions through `ListForLink(chat)` only after the existing public-session ownership/private-agent gate, and `cmd/server/router.go` exposes the session questions GET. Joeri resolved the 4.6 planning slip: another member receives the existing gate's 403, not 404; no masking or shared-gate change. Updated 4.6 accordingly. No checks run.

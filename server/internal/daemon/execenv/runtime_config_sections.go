@@ -1054,7 +1054,8 @@ const QuestionsSection = "## Questions\n\n" +
 	"`multica question --help` lists its commands, answer types and options.\n\n"
 
 // writeQuestionsSection writes the Questions section only while questions are
-// on for the run: while they are off the brief says nothing about them.
+// on for the run, as resolved at claim (ADR-0017): while they are off the
+// brief says nothing about them.
 func writeQuestionsSection(b *strings.Builder, ctx TaskContextForEnv) {
 	if ctx.QuestionsEnabled {
 		b.WriteString(QuestionsSection)
@@ -1089,7 +1090,7 @@ func writeWhileYouRunSection(b *strings.Builder, ctx TaskContextForEnv) {
 //	Section               | comment | assign | autopilot | quick_create | chat
 //	----------------------+---------+--------+-----------+--------------+------
 //	Available Commands    |   full  |  full  |   full    |   minimal    | full
-//	Questions (IssueID set)|    ✓    |   ✓    |     △     |      —       |  —
+//	Questions             |    △    |   △    |     △     |      —       |  △
 //	While you run         |    △    |   △    |     △     |      △       |  △
 //	Issue Body Formatting |    ✓    |   ✓    |     ✓     |      ✓       |  ✓
 //	Comment Formatting    |    ✓    |   ✓    |     —     |      —       |  —
@@ -1100,6 +1101,9 @@ func writeWhileYouRunSection(b *strings.Builder, ctx TaskContextForEnv) {
 //	Skills                |    ✓    |   ✓    |     ✓    |      ✓       |  ✓
 //	Mentions              |    ✓    |   ✓    |     —     |      —       |  —
 //	Attachments           |    ✓    |   ✓    |     —     |      —       |  —
+//
+// Questions is written for an issue run or a chat turn whose claim has
+// QuestionsEnabled; a quick-create run never gets it.
 //
 // Always-on rows — Header, Background Task Safety, Agent Identity,
 // Requesting User, Workspace Context, Connected Apps,
@@ -1126,7 +1130,7 @@ func buildMetaSkillContentSlim(provider string, ctx TaskContextForEnv) string {
 	default:
 		writeAvailableCommands(&b, ctx)
 	}
-	if ctx.IssueID != "" && kind != kindChat && kind != kindQuickCreate {
+	if kind == kindChat || (ctx.IssueID != "" && kind != kindQuickCreate) {
 		writeQuestionsSection(&b, ctx)
 	}
 	writeWhileYouRunSection(&b, ctx)

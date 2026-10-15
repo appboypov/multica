@@ -178,7 +178,7 @@ type TaskContextForEnv struct {
 	AutopilotTriggerPayload string
 	QuickCreatePrompt       string // non-empty for quick-create tasks
 	IsSquadLeader           bool   // true when THIS TASK runs the agent in the squad-leader role (may exit silently on no_action); derived from the claim's is_leader_task / squad_id, never sniffed from instructions text (MUL-5811)
-	QuestionsEnabled        bool   // whether this run may ask questions (ADR-0005): the brief's Questions section and the [ANSWERS] tail line are written only while true
+	QuestionsEnabled        bool   // whether this run may ask questions, resolved at claim for issue runs and in-app chat turns (ADR-0017): the brief's Questions section and the [ANSWERS] tail line are written only while true
 	// TaskSupplementNegotiated records that the server accepted
 	// task-supplement-v1 when this run started, so items on its issue reach it
 	// while it runs (ADR-0019). The brief's While you run section is written
