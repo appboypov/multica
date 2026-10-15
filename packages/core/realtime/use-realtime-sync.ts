@@ -55,6 +55,10 @@ import {
   invalidateUpdatedAtSortedIssueLists,
 } from "../issues/cache-coordinator";
 import { onInboxNew, onInboxInvalidate, onInboxIssueStatusChanged, onInboxIssueDeleted, onInboxSummaryInvalidate } from "../inbox/ws-updaters";
+import { onTodoOpened, onTodoClosed, onTodosInvalidate, onTodoSummaryInvalidate } from "../todos/ws-updaters";
+import { parseWithFallback } from "../api/schema";
+import { TodoOpenedPayloadSchema, TodoClosedPayloadSchema } from "../api/schemas";
+import type { Todo, TodoOpenedPayload, TodoClosedPayload } from "../types/todo";
 import {
   notificationPreferenceOptions,
   notificationPreferenceKeys,
@@ -579,6 +583,27 @@ export async function handleInboxNew(
   // A new item in ANY workspace can light the workspace-switcher dot, so
   // refresh the cross-workspace summary regardless of the active workspace.
   void onInboxSummaryInvalidate(qc);
+  await showInboxNotification(qc, item);
+}
+
+export async function handleTodoOpened(qc: QueryClient, todo: Todo): Promise<void> {
+  void onTodoOpened(qc, todo);
+  // Unlike Updates, to-dos are selected by their own id, never grouped by issue.
+  await showInboxNotification(qc, {
+    workspace_id: todo.workspace_id,
+    id: todo.id,
+    issue_id: todo.id,
+    title: todo.title,
+    body: todo.body,
+  }, "inbox");
+}
+
+async function showInboxNotification(
+  qc: QueryClient,
+  item: Pick<InboxItem, "workspace_id" | "id" | "issue_id" | "title" | "body">,
+  destination?: "inbox" | "updates",
+): Promise<void> {
+  const sourceWsId = item.workspace_id;
   // Fire a native OS notification only when the app isn't focused. When
   // the user is already looking at Multica, the inbox sidebar's unread
   // styling is enough — no need to interrupt with a banner. `desktopAPI`
@@ -627,6 +652,7 @@ export async function handleInboxNew(
     issueKey: item.issue_id ?? item.id,
     title: item.title,
     body: item.body ?? "",
+    ...(destination ? { destination } : {}),
   };
   const desktopAPI = (
     globalThis as unknown as {
@@ -659,6 +685,7 @@ function invalidateWorkspaceScopedQueries(qc: QueryClient): void {
     // can land during the list's first load, and a plain invalidate would be
     // answered by the request already on the wire (see refreshInboxQuery).
     void onInboxInvalidate(qc, wsId);
+    void onTodosInvalidate(qc, wsId);
     qc.invalidateQueries({ queryKey: workspaceKeys.agents(wsId) });
     qc.invalidateQueries({ queryKey: workspaceKeys.members(wsId) });
     qc.invalidateQueries({ queryKey: workspaceKeys.squads(wsId) });
@@ -687,6 +714,7 @@ function invalidateWorkspaceScopedQueries(qc: QueryClient): void {
   // Cross-workspace, so outside the wsId guard: a reconnect may have missed
   // inbox events from any workspace, so re-pull the switcher-dot summary.
   void onInboxSummaryInvalidate(qc);
+  void onTodoSummaryInvalidate(qc);
   // Per-issue caches are keyed without wsId, so the issueKeys.all(wsId)
   // prefix above does not reach them. They rely entirely on WS events for
   // freshness (staleTime: Infinity), so events missed while disconnected
@@ -1086,6 +1114,7 @@ export function useRealtimeSync(
     const specificEvents = new Set([
       "workspace:updated",
       "issue:updated", "issue:created", "issue:deleted", "issue_attachments:changed", "issue_labels:changed", "issue_metadata:changed", "issue_properties:changed", "property:created", "property:updated", "inbox:new",
+      "todo:opened", "todo:closed",
       "comment:created", "comment:updated", "comment:deleted",
       "comment:resolved", "comment:unresolved",
       "activity:created",
@@ -1110,6 +1139,12 @@ export function useRealtimeSync(
     ]);
 
     const unsubAny = ws.onAny((msg) => {
+      if (msg.type === "question:updated") {
+        const wsId = getCurrentWsId();
+        if (wsId) debouncedRefresh(`todo-source:${wsId}`, () => {
+          void onTodosInvalidate(qc, wsId);
+        });
+      }
       if (msg.type === "question:created" || msg.type === "question:updated" || msg.type.startsWith("task:")) {
         const wsId = getCurrentWsId();
         const payload = msg.payload;
@@ -1163,6 +1198,11 @@ export function useRealtimeSync(
           onInboxIssueStatusChanged(qc, wsId, issue.id, issue.status);
         }
         invalidateIssueWorklanes(qc, wsId);
+        // Titles, status and due dates are live source projections, not fields
+        // persisted on the to-do row, so they need no todo:opened event.
+        debouncedRefresh(`todo-source:${wsId}`, () => {
+          void onTodosInvalidate(qc, wsId);
+        });
       }
     });
 
@@ -1184,6 +1224,8 @@ export function useRealtimeSync(
         void invalidateQuestionReach(qc, wsId);
         onIssueDeleted(qc, wsId, issue_id);
         void onInboxIssueDeleted(qc, wsId, issue_id);
+        void onTodosInvalidate(qc, wsId);
+        void onTodoSummaryInvalidate(qc);
         // The payload has no worklane, so every worklane's now and next refresh.
         qc.invalidateQueries({ queryKey: worklaneKeys.all(wsId) });
       }
@@ -1242,6 +1284,19 @@ export function useRealtimeSync(
       const { item } = p as InboxNewPayload;
       if (!item) return;
       await handleInboxNew(qc, item);
+    });
+
+    const unsubTodoOpened = ws.on("todo:opened", async (payload) => {
+      const parsed = parseWithFallback<TodoOpenedPayload | null>(
+        payload, TodoOpenedPayloadSchema, null, { endpoint: "WS todo:opened" },
+      );
+      if (parsed) await handleTodoOpened(qc, parsed.todo);
+    });
+    const unsubTodoClosed = ws.on("todo:closed", async (payload) => {
+      const parsed = parseWithFallback<TodoClosedPayload | null>(
+        payload, TodoClosedPayloadSchema, null, { endpoint: "WS todo:closed" },
+      );
+      if (parsed) await onTodoClosed(qc, parsed.todo_id);
     });
 
     // --- Timeline event handlers (global fallback) ---
@@ -1912,6 +1967,8 @@ export function useRealtimeSync(
       unsubIssuePropertiesChanged();
       unsubPropertyChanged.forEach((unsub) => unsub());
       unsubInboxNew();
+      unsubTodoOpened();
+      unsubTodoClosed();
       unsubCommentCreated();
       unsubCommentUpdated();
       unsubCommentDeleted();

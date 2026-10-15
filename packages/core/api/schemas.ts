@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { Todo, TodoWorkspaceCount } from "../types/todo";
 import { normalizeIssueStatusCategory } from "../issues/config/status";
 import { isDeclined } from "../questions/validate";
 import { ISSUE_TYPES } from "../types/issue";
@@ -3283,6 +3284,51 @@ export const InboxUnreadSummarySchema = z.array(
 );
 
 export const EMPTY_INBOX_UNREAD_SUMMARY: InboxWorkspaceUnread[] = [];
+
+// To-do kinds and source enums remain open at the wire boundary so installed
+// clients retain rows from a newer server; renderers provide their default case.
+export const TodoSchema = z.object({
+  id: z.string(),
+  workspace_id: z.string(),
+  kind: z.string(),
+  issue_id: z.string().nullish().default(null),
+  issue_identifier: z.string().nullish().default(null),
+  issue_title: z.string().nullish().default(null),
+  issue_status: z.string().nullish().default(null),
+  question_id: z.string().nullish().default(null),
+  question_answer_type: z.string().nullish().default(null),
+  comment_id: z.string().nullish().default(null),
+  task_id: z.string().nullish().default(null),
+  autopilot_id: z.string().nullish().default(null),
+  actor_type: z.string().nullish().default(null),
+  actor_id: z.string().nullish().default(null),
+  title: z.string(),
+  body: z.string().nullish().default(null),
+  details: z.record(z.string(), z.unknown()).nullish().transform((value) => value ?? {}),
+  due_date: z.string().nullish().default(null),
+  overdue: z.boolean().default(false),
+  created_at: z.string(),
+  done_at: z.string().nullish().default(null),
+  done_by: z.string().nullish().default(null),
+}).loose();
+
+export const TodoListSchema = z.array(TodoSchema);
+export const TodoSummarySchema = z.array(z.object({
+  workspace_id: z.string(),
+  count: z.number().int().nonnegative(),
+}).loose());
+export const TodoOpenedPayloadSchema = z.object({
+  member_id: z.string(),
+  todo: TodoSchema,
+}).loose();
+export const TodoClosedPayloadSchema = z.object({
+  member_id: z.string(),
+  todo_id: z.string(),
+  kind: z.string(),
+  done_by: z.string(),
+}).loose();
+export const EMPTY_TODOS: Todo[] = [];
+export const EMPTY_TODO_SUMMARY: TodoWorkspaceCount[] = [];
 
 // ---------------------------------------------------------------------------
 // Inbox items (`/api/inbox` and `/api/inbox/archived` GET).

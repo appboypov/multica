@@ -2,6 +2,7 @@ import type { Issue, IssueMetadata, IssueReaction } from "./issue";
 import type { IssueProperty, IssuePropertyValues } from "./property";
 import type { Agent } from "./agent";
 import type { InboxItem } from "./inbox";
+import type { TodoOpenedPayload, TodoClosedPayload } from "./todo";
 import type { Comment, Reaction } from "./comment";
 import type { TimelineEntry } from "./activity";
 import type { Workspace, MemberWithUser, Invitation } from "./workspace";
@@ -35,6 +36,8 @@ export type WSEventType =
   | "task:failed"
   | "task:message"
   | "task:cancelled"
+  | "todo:opened"
+  | "todo:closed"
   | "inbox:new"
   | "inbox:read"
   | "inbox:unread"
@@ -630,6 +633,8 @@ export interface WSEventPayloadMap {
   "task:progress": unknown;
   "question:created": QuestionEventPayload;
   "question:updated": QuestionEventPayload;
+  "todo:opened": TodoOpenedPayload;
+  "todo:closed": TodoClosedPayload;
   "inbox:new": InboxNewPayload;
   "inbox:read": InboxReadPayload;
   "inbox:unread": InboxUnreadPayload;

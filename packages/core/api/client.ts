@@ -6,6 +6,7 @@ import type { IssueTemplate, IssueType, SetIssuePlacementRequest, ReleaseProgres
 import { IssueTemplatesResponseSchema, EMPTY_ISSUE_TEMPLATES_RESPONSE, WorklaneIssuesResponseSchema, MoveWorklaneIssueResponseSchema, EMPTY_WORKLANE_ISSUES_RESPONSE, ReleaseProgressResponseSchema, EMPTY_RELEASE_PROGRESS_RESPONSE } from "./schemas";
 import type { InboxFilters } from "../inbox/filter-store";
 import type { ArchivedInboxPage, ArchivedInboxFacets } from "../types/inbox";
+import type { Todo, TodoWorkspaceCount } from "../types/todo";
 import { configStore } from "../config";
 import type {
   AgentQuestionsSettings,
@@ -464,6 +465,11 @@ import {
   ArchivedInboxPageSchema,
   ArchivedInboxFacetsSchema,
   EMPTY_INBOX_ITEMS,
+  TodoSchema,
+  TodoListSchema,
+  TodoSummarySchema,
+  EMPTY_TODOS,
+  EMPTY_TODO_SUMMARY,
   NotificationPreferenceResponseSchema,
   EMPTY_NOTIFICATION_PREFERENCE_RESPONSE,
   LabelSchema,
@@ -3067,6 +3073,32 @@ export class ApiClient {
     });
     if (!task) throw new Error("Invalid source-context retry response");
     return task;
+  }
+
+  // To-dos
+  async listTodos(signal?: AbortSignal): Promise<Todo[]> {
+    const raw = await this.fetch<unknown>("/api/todos", { signal });
+    return parseWithFallback(raw, TodoListSchema, EMPTY_TODOS, {
+      endpoint: "GET /api/todos",
+    });
+  }
+
+  async getTodoSummary(signal?: AbortSignal): Promise<TodoWorkspaceCount[]> {
+    const raw = await this.fetch<unknown>("/api/todos/summary", { signal });
+    return parseWithFallback(raw, TodoSummarySchema, EMPTY_TODO_SUMMARY, {
+      endpoint: "GET /api/todos/summary",
+    });
+  }
+
+  async markTodoDone(id: string): Promise<Todo> {
+    const raw = await this.fetch<unknown>(`/api/todos/${encodeURIComponent(id)}/done`, {
+      method: "POST",
+    });
+    const todo = parseWithFallback<Todo | null>(raw, TodoSchema, null, {
+      endpoint: "POST /api/todos/:id/done",
+    });
+    if (!todo) throw new Error("Invalid Mark done response");
+    return todo;
   }
 
   // Inbox
