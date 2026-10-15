@@ -87,6 +87,10 @@ func supplementReceipt(s db.TaskSupplement) taskSupplementReceiptResponse {
 // a running turn. A comment can steer several agents' turns at once.
 type CommentSupplementResponse struct {
 	TaskID        string  `json:"task_id"`
+	ItemKind      string  `json:"item_kind"`
+	ItemID        string  `json:"item_id"`
+	SeenAt        *string `json:"seen_at,omitempty"`
+	HandledAt     *string `json:"handled_at,omitempty"`
 	AgentID       string  `json:"agent_id,omitempty"`
 	Status        string  `json:"status"`
 	FailureReason *string `json:"failure_reason,omitempty"`
@@ -111,6 +115,10 @@ func (h *Handler) listCommentSupplements(ctx context.Context, workspaceID pgtype
 		out[id] = append(out[id], CommentSupplementResponse{
 			TaskID:        uuidToString(row.TaskID),
 			AgentID:       uuidToString(row.AgentID),
+			ItemKind:      row.ItemKind,
+			ItemID:        uuidToString(row.ItemID),
+			SeenAt:        timestampToPtr(row.SeenAt),
+			HandledAt:     timestampToPtr(row.HandledAt),
 			Status:        row.Status,
 			FailureReason: textToPtr(row.FailureReason),
 			DeliveredAt:   timestampToPtr(row.DeliveredAt),
@@ -327,6 +335,8 @@ func (h *Handler) CreateTaskSupplement(w http.ResponseWriter, r *http.Request) {
 	applyCommentSupplements(&resp, []CommentSupplementResponse{{
 		TaskID:        uuidToString(created.SupplementTaskID),
 		AgentID:       uuidToString(task.AgentID),
+		ItemKind:      "comment",
+		ItemID:        uuidToString(comment.ID),
 		Status:        created.SupplementStatus,
 		FailureReason: textToPtr(created.SupplementFailureReason),
 		DeliveredAt:   timestampToPtr(created.SupplementDeliveredAt),
@@ -411,8 +421,9 @@ func (h *Handler) ClaimTaskSupplement(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to claim additional message")
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{
-		"comment_id": uuidToString(row.CommentID), "author_name": row.AuthorName, "content": row.Content,
+	writeJSON(w, http.StatusOK, protocol.TaskSupplementClaimResponse{
+		ItemKind: row.ItemKind, ItemID: uuidToString(row.ItemID),
+		CommentID: uuidToString(row.CommentID), AuthorName: row.AuthorName, Content: row.Content,
 	})
 }
 
@@ -469,6 +480,9 @@ func stableTaskSupplementFailureReason(reason string) string {
 }
 
 func (h *Handler) publishTaskSupplementUpdate(r *http.Request, row db.TaskSupplement) {
+	if !row.CommentID.Valid {
+		return
+	}
 	h.publishCommentSupplementUpdate(r.Context(), row.WorkspaceID, row.CommentID)
 }
 
