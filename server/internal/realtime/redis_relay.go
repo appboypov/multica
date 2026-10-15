@@ -248,12 +248,12 @@ func (r *RedisRelay) Start(ctx context.Context) {
 	}
 
 	r.hub.SetSubscriptionCallbacks(
-		func(scopeType, scopeID string) { r.startConsumer(ctx, scopeType, scopeID) },
+		func(scopeType, scopeID string) { r.subscribeScope(ctx, scopeType, scopeID) },
 		func(scopeType, scopeID string) { r.stopConsumer(scopeType, scopeID) },
 	)
 
 	for _, key := range r.hub.LocalScopes() {
-		r.startConsumer(ctx, key.Type, key.ID)
+		r.subscribeScope(ctx, key.Type, key.ID)
 	}
 
 	r.wg.Add(2)
@@ -325,29 +325,53 @@ func (r *RedisRelay) publishWithID(scopeType, scopeID, exclude string, frame []b
 	return nil
 }
 
-// startConsumer kicks off a single per-scope XREADGROUP loop if not already
-// running.
-func (r *RedisRelay) startConsumer(parent context.Context, scopeType, scopeID string) {
+func (r *RedisRelay) subscribeScope(ctx context.Context, scopeType, scopeID string) {
+	if err := r.startConsumer(ctx, scopeType, scopeID); err != nil {
+		slog.Warn("realtime/redis: subscription preparation failed", "error", err, "scope", scopeType, "scope_id", scopeID)
+		r.hub.closeScopeClients(scopeType, scopeID)
+	}
+}
+
+// startConsumer establishes the group's cursor synchronously so events
+// published after the subscription callback returns cannot be skipped.
+func (r *RedisRelay) startConsumer(parent context.Context, scopeType, scopeID string) error {
 	key := sk(scopeType, scopeID)
 	r.mu.Lock()
-	if r.stopping || parent.Err() != nil {
-		r.mu.Unlock()
-		return
+	defer r.mu.Unlock()
+	if err := parent.Err(); err != nil {
+		return err
+	}
+	if r.stopping {
+		return context.Canceled
 	}
 	if _, exists := r.consumers[key]; exists {
-		r.mu.Unlock()
-		return
+		return nil
 	}
 	ctx, cancel := context.WithCancel(parent)
+	createCtx, createCancel := context.WithTimeout(ctx, 2*time.Second)
+	stream := StreamKey(scopeType, scopeID)
+	err := r.ensureConsumerGroup(createCtx, stream, "node:"+r.nodeID, "$")
+	if err == nil && r.retention.StreamTTLEnabled {
+		if ttlErr := r.ttl.refreshIfDue(createCtx, r.writeRDB, stream); ttlErr != nil {
+			r.recordRetentionError("consumer stream PEXPIRE failed", ttlErr, "stream", stream)
+		}
+	}
+	createCancel()
+	if err == nil {
+		err = ctx.Err()
+	}
+	if err != nil {
+		cancel()
+		return err
+	}
 	c := &scopeConsumer{cancel: cancel, done: make(chan struct{})}
 	r.consumers[key] = c
 	r.wg.Add(1)
-	r.mu.Unlock()
-
 	go func() {
 		defer r.wg.Done()
 		r.runConsumer(ctx, c, scopeType, scopeID)
 	}()
+	return nil
 }
 
 func (r *RedisRelay) stopConsumer(scopeType, scopeID string) {
@@ -370,18 +394,6 @@ func (r *RedisRelay) runConsumer(ctx context.Context, c *scopeConsumer, scopeTyp
 	stream := StreamKey(scopeType, scopeID)
 	group := "node:" + r.nodeID
 	consumerName := r.nodeID
-
-	// MKSTREAM ensures the stream exists. Ignore BUSYGROUP.
-	createCtx, createCancel := context.WithTimeout(ctx, 2*time.Second)
-	if err := r.ensureConsumerGroup(createCtx, stream, group, "$"); err != nil {
-		slog.Warn("realtime/redis: XGROUP CREATE failed", "error", err, "scope", scopeType, "scope_id", scopeID)
-	}
-	if r.retention.StreamTTLEnabled {
-		if err := r.ttl.refreshIfDue(createCtx, r.writeRDB, stream); err != nil {
-			r.recordRetentionError("consumer stream PEXPIRE failed", err, "stream", stream)
-		}
-	}
-	createCancel()
 
 	// Register ourselves as a node interested in this scope.
 	regCtx, regCancel := context.WithTimeout(ctx, 2*time.Second)

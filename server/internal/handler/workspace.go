@@ -140,20 +140,22 @@ func (h *Handler) workspaceToResponse(w db.Workspace) WorkspaceResponse {
 }
 
 type MemberResponse struct {
-	ID          string `json:"id"`
-	WorkspaceID string `json:"workspace_id"`
-	UserID      string `json:"user_id"`
-	Role        string `json:"role"`
-	CreatedAt   string `json:"created_at"`
+	ID             string  `json:"id"`
+	WorkspaceID    string  `json:"workspace_id"`
+	UserID         string  `json:"user_id"`
+	Role           string  `json:"role"`
+	OrganisationID *string `json:"organisation_id"`
+	CreatedAt      string  `json:"created_at"`
 }
 
 func memberToResponse(m db.Member) MemberResponse {
 	return MemberResponse{
-		ID:          uuidToString(m.ID),
-		WorkspaceID: uuidToString(m.WorkspaceID),
-		UserID:      uuidToString(m.UserID),
-		Role:        m.Role,
-		CreatedAt:   timestampToString(m.CreatedAt),
+		ID:             uuidToString(m.ID),
+		WorkspaceID:    uuidToString(m.WorkspaceID),
+		UserID:         uuidToString(m.UserID),
+		Role:           m.Role,
+		OrganisationID: uuidToPtr(m.OrganisationID),
+		CreatedAt:      timestampToString(m.CreatedAt),
 	}
 }
 
@@ -260,6 +262,19 @@ func (h *Handler) CreateWorkspace(w http.ResponseWriter, r *http.Request) {
 	defer tx.Rollback(r.Context())
 
 	qtx := h.Queries.WithTx(tx)
+	if err := qtx.LockUserForMembership(r.Context(), parseUUID(userID)); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to create workspace")
+		return
+	}
+	isClient, err := qtx.IsClientAccount(r.Context(), parseUUID(userID))
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to create workspace")
+		return
+	}
+	if isClient {
+		writeError(w, http.StatusConflict, "this account is a client account")
+		return
+	}
 	ws, err := qtx.CreateWorkspace(r.Context(), db.CreateWorkspaceParams{
 		Name:        req.Name,
 		Slug:        req.Slug,
@@ -277,9 +292,10 @@ func (h *Handler) CreateWorkspace(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_, err = qtx.CreateMember(r.Context(), db.CreateMemberParams{
-		WorkspaceID: ws.ID,
-		UserID:      parseUUID(userID),
-		Role:        "owner",
+		WorkspaceID:    ws.ID,
+		UserID:         parseUUID(userID),
+		Role:           "owner",
+		OrganisationID: pgtype.UUID{},
 	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to add owner: "+err.Error())
@@ -498,14 +514,15 @@ func (h *Handler) ListMembers(w http.ResponseWriter, r *http.Request) {
 }
 
 type MemberWithUserResponse struct {
-	ID          string  `json:"id"`
-	WorkspaceID string  `json:"workspace_id"`
-	UserID      string  `json:"user_id"`
-	Role        string  `json:"role"`
-	CreatedAt   string  `json:"created_at"`
-	Name        string  `json:"name"`
-	Email       string  `json:"email"`
-	AvatarURL   *string `json:"avatar_url"`
+	ID             string  `json:"id"`
+	WorkspaceID    string  `json:"workspace_id"`
+	UserID         string  `json:"user_id"`
+	Role           string  `json:"role"`
+	OrganisationID *string `json:"organisation_id"`
+	CreatedAt      string  `json:"created_at"`
+	Name           string  `json:"name"`
+	Email          string  `json:"email"`
+	AvatarURL      *string `json:"avatar_url"`
 }
 
 func (h *Handler) ListMembersWithUser(w http.ResponseWriter, r *http.Request) {
@@ -524,14 +541,15 @@ func (h *Handler) ListMembersWithUser(w http.ResponseWriter, r *http.Request) {
 	resp := make([]MemberWithUserResponse, len(members))
 	for i, m := range members {
 		resp[i] = MemberWithUserResponse{
-			ID:          uuidToString(m.ID),
-			WorkspaceID: uuidToString(m.WorkspaceID),
-			UserID:      uuidToString(m.UserID),
-			Role:        m.Role,
-			CreatedAt:   timestampToString(m.CreatedAt),
-			Name:        m.UserName,
-			Email:       m.UserEmail,
-			AvatarURL:   h.resolveAvatarURLPtr(textToPtr(m.UserAvatarUrl)),
+			ID:             uuidToString(m.ID),
+			WorkspaceID:    uuidToString(m.WorkspaceID),
+			UserID:         uuidToString(m.UserID),
+			Role:           m.Role,
+			OrganisationID: uuidToPtr(m.OrganisationID),
+			CreatedAt:      timestampToString(m.CreatedAt),
+			Name:           m.UserName,
+			Email:          m.UserEmail,
+			AvatarURL:      h.resolveAvatarURLPtr(textToPtr(m.UserAvatarUrl)),
 		}
 	}
 
@@ -539,20 +557,22 @@ func (h *Handler) ListMembersWithUser(w http.ResponseWriter, r *http.Request) {
 }
 
 type CreateMemberRequest struct {
-	Email string `json:"email"`
-	Role  string `json:"role"`
+	Email          string  `json:"email"`
+	Role           string  `json:"role"`
+	OrganisationID *string `json:"organisation_id"`
 }
 
 func (h *Handler) memberWithUserResponse(member db.Member, user db.User) MemberWithUserResponse {
 	return MemberWithUserResponse{
-		ID:          uuidToString(member.ID),
-		WorkspaceID: uuidToString(member.WorkspaceID),
-		UserID:      uuidToString(member.UserID),
-		Role:        member.Role,
-		CreatedAt:   timestampToString(member.CreatedAt),
-		Name:        user.Name,
-		Email:       user.Email,
-		AvatarURL:   h.resolveAvatarURLPtr(textToPtr(user.AvatarUrl)),
+		ID:             uuidToString(member.ID),
+		WorkspaceID:    uuidToString(member.WorkspaceID),
+		UserID:         uuidToString(member.UserID),
+		Role:           member.Role,
+		OrganisationID: uuidToPtr(member.OrganisationID),
+		CreatedAt:      timestampToString(member.CreatedAt),
+		Name:           user.Name,
+		Email:          user.Email,
+		AvatarURL:      h.resolveAvatarURLPtr(textToPtr(user.AvatarUrl)),
 	}
 }
 
@@ -563,7 +583,7 @@ func normalizeMemberRole(role string) (string, bool) {
 
 	role = strings.TrimSpace(role)
 	switch role {
-	case "owner", "admin", "member":
+	case "owner", "admin", "member", "client":
 		return role, true
 	default:
 		return "", false
@@ -571,13 +591,18 @@ func normalizeMemberRole(role string) (string, bool) {
 }
 
 type UpdateMemberRequest struct {
-	Role string `json:"role"`
+	Role           string  `json:"role"`
+	OrganisationID *string `json:"organisation_id"`
 }
 
 func (h *Handler) UpdateMember(w http.ResponseWriter, r *http.Request) {
 	workspaceID := workspaceIDFromURL(r, "id")
 	requester, ok := h.workspaceMember(w, r, workspaceID)
 	if !ok {
+		return
+	}
+	if !roleAllowed(requester.Role, "owner", "admin") {
+		writeError(w, http.StatusForbidden, "insufficient permissions")
 		return
 	}
 
@@ -608,13 +633,30 @@ func (h *Handler) UpdateMember(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	tx, err := h.TxStarter.Begin(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to update member")
+		return
+	}
+	defer tx.Rollback(r.Context())
+	qtx := h.Queries.WithTx(tx)
+	if err := qtx.LockUserForMembership(r.Context(), target.UserID); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to update member")
+		return
+	}
+	// Re-read after serializing membership writes for this account.
+	target, err = qtx.GetMember(r.Context(), target.ID)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "member not found")
+		return
+	}
 	if (target.Role == "owner" || role == "owner") && requester.Role != "owner" {
 		writeError(w, http.StatusForbidden, "insufficient permissions")
 		return
 	}
 
 	if target.Role == "owner" && role != "owner" {
-		members, err := h.Queries.ListMembers(r.Context(), target.WorkspaceID)
+		members, err := qtx.ListMembers(r.Context(), target.WorkspaceID)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "failed to update member")
 			return
@@ -624,28 +666,54 @@ func (h *Handler) UpdateMember(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-
-	updatedMember, err := h.Queries.UpdateMemberRole(r.Context(), db.UpdateMemberRoleParams{
-		ID:   target.ID,
-		Role: role,
+	organisationID, ok := membershipOrganisation(w, r, qtx, target.WorkspaceID, role, req.OrganisationID, "a client needs an organisation of this workspace")
+	if !ok {
+		return
+	}
+	if role == "client" {
+		count, err := qtx.CountMembershipsByUser(r.Context(), target.UserID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to update member")
+			return
+		}
+		if count != 1 {
+			writeError(w, http.StatusConflict, "a client needs an account without other workspace memberships")
+			return
+		}
+	}
+	user, err := qtx.GetUser(r.Context(), target.UserID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load member")
+		return
+	}
+	var revoked revocationResult
+	if role == "client" && target.Role != "client" {
+		revoked, err = h.revokeMemberState(r.Context(), qtx, target.WorkspaceID, target.UserID, requester.UserID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to revoke member state")
+			return
+		}
+	}
+	updatedMember, err := qtx.UpdateMemberRole(r.Context(), db.UpdateMemberRoleParams{
+		ID: target.ID, Role: role, OrganisationID: organisationID,
 	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to update member")
 		return
 	}
-
-	h.MembershipCache.Invalidate(r.Context(), uuidToString(target.UserID), workspaceID)
-
-	user, err := h.Queries.GetUser(r.Context(), updatedMember.UserID)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to load member")
+	if err := tx.Commit(r.Context()); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to update member")
 		return
 	}
+	h.MembershipCache.Invalidate(r.Context(), uuidToString(target.UserID), workspaceID)
 
 	userID := requestUserID(r)
 	h.publish(protocol.EventMemberUpdated, uuidToString(requester.WorkspaceID), "member", userID, map[string]any{
 		"member": h.memberWithUserResponse(updatedMember, user),
 	})
+	// Evict demoted sockets before any revocation event exposes workspace data.
+	h.publishRevocation(r.Context(), revoked, uuidToString(requester.WorkspaceID), "member", userID)
+	logRevocation(revoked, uuidToString(requester.WorkspaceID), uuidToString(target.UserID))
 
 	writeJSON(w, http.StatusOK, h.memberWithUserResponse(updatedMember, user))
 }

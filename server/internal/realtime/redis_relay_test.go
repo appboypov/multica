@@ -263,3 +263,125 @@ func (p *localFirstPublisher) PublishWithID(scopeType, scopeID, exclude string, 
 	}
 	return nil
 }
+
+// readinessRedis keeps the consumer blocked until cancellation, allowing the
+// registration/group-creation ordering to be exercised without a Redis server.
+type readinessRedis struct {
+	redis.UniversalClient
+	createGroup func(context.Context, string, string, string) error
+}
+
+func (r *readinessRedis) XGroupCreateMkStream(ctx context.Context, stream, group, start string) *redis.StatusCmd {
+	cmd := redis.NewStatusCmd(ctx)
+	if err := r.createGroup(ctx, stream, group, start); err != nil {
+		cmd.SetErr(err)
+	} else {
+		cmd.SetVal("OK")
+	}
+	return cmd
+}
+
+func (r *readinessRedis) ZAdd(ctx context.Context, _ string, _ ...redis.Z) *redis.IntCmd {
+	cmd := redis.NewIntCmd(ctx)
+	cmd.SetVal(1)
+	return cmd
+}
+
+func (r *readinessRedis) XReadGroup(ctx context.Context, _ *redis.XReadGroupArgs) *redis.XStreamSliceCmd {
+	<-ctx.Done()
+	cmd := redis.NewXStreamSliceCmd(ctx)
+	cmd.SetErr(ctx.Err())
+	return cmd
+}
+
+func (r *readinessRedis) XGroupDelConsumer(ctx context.Context, _, _, _ string) *redis.IntCmd {
+	cmd := redis.NewIntCmd(ctx)
+	cmd.SetVal(0)
+	return cmd
+}
+
+func TestRedisRelayRegistrationChecksRoleAfterGroupReadiness(t *testing.T) {
+	for _, demote := range []bool{false, true} {
+		t.Run(fmt.Sprintf("demote=%v", demote), func(t *testing.T) {
+			hub := NewHub()
+			ready := make(map[string]bool)
+			allowed := true
+			rdb := &readinessRedis{
+				createGroup: func(_ context.Context, stream, _, start string) error {
+					if start != "$" {
+						t.Errorf("new group replay cursor = %q, want existing live-only policy", start)
+					}
+					ready[stream] = true
+					if demote && stream == StreamKey(ScopeWorkspace, "workspace") {
+						// The demotion was published before group creation and
+						// is intentionally not available through live-only replay.
+						allowed = false
+					}
+					return nil
+				},
+			}
+			relay := NewRedisRelay(hub, rdb)
+			ctx, cancel := context.WithCancel(context.Background())
+			defer func() {
+				cancel()
+				relay.Stop()
+				relay.Wait()
+			}()
+			hub.SetSubscriptionCallbacks(
+				func(scopeType, scopeID string) { relay.subscribeScope(ctx, scopeType, scopeID) },
+				relay.stopConsumer,
+			)
+			checks := 0
+			client := &Client{
+				hub: hub, send: make(chan []byte, 1), userID: "user", workspaceID: "workspace",
+				membershipChecker: membershipCheckFunc(func(context.Context, string, string) bool {
+					checks++
+					if !ready[StreamKey(ScopeWorkspace, "workspace")] || !ready[StreamKey(ScopeUser, "user")] {
+						t.Error("final authorization ran before all subscription groups were ready")
+					}
+					return allowed
+				}),
+			}
+			t.Cleanup(func() { hub.removeClient(client) })
+			if got := hub.registerClient(client); got != !demote {
+				t.Fatalf("registration allowed = %v, want %v", got, !demote)
+			}
+			if checks != 1 {
+				t.Fatalf("final authorization checks = %d, want 1", checks)
+			}
+			if demote && (totalClients(hub) != 0 || len(hub.LocalScopes()) != 0) {
+				t.Fatal("demoted registration retained live subscriptions")
+			}
+		})
+	}
+}
+
+func TestRedisRelaySubscriptionReadinessFailureRefusesRegistration(t *testing.T) {
+	for _, createErr := range []error{errors.New("redis unavailable"), context.Canceled, context.DeadlineExceeded} {
+		t.Run(createErr.Error(), func(t *testing.T) {
+			hub := NewHub()
+			rdb := &readinessRedis{
+				createGroup: func(context.Context, string, string, string) error { return createErr },
+			}
+			relay := NewRedisRelay(hub, rdb)
+			hub.SetSubscriptionCallbacks(
+				func(scopeType, scopeID string) { relay.subscribeScope(context.Background(), scopeType, scopeID) },
+				relay.stopConsumer,
+			)
+			client := &Client{
+				hub: hub, send: make(chan []byte, 1), userID: "user", workspaceID: "workspace",
+				membershipChecker: &mockMembershipChecker{},
+			}
+			if hub.registerClient(client) {
+				t.Fatal("registration succeeded without a ready relay group")
+			}
+			if raw, ok := <-client.send; ok {
+				t.Fatalf("failed registration received a frame: %s", raw)
+			}
+			if totalClients(hub) != 0 || len(hub.LocalScopes()) != 0 || len(relay.consumers) != 0 {
+				t.Fatal("failed subscription preparation retained a client, room, or consumer")
+			}
+			relay.Wait()
+		})
+	}
+}

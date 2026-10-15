@@ -221,11 +221,13 @@ func sk(t, id string) scopeKey { return scopeKey{Type: t, ID: id} }
 // Client represents a single WebSocket connection with identity and the set
 // of scopes it is currently subscribed to.
 type Client struct {
-	hub         *Hub
-	conn        *websocket.Conn
-	send        chan []byte
-	userID      string
-	workspaceID string
+	hub               *Hub
+	conn              *websocket.Conn
+	send              chan []byte
+	userID            string
+	workspaceID       string
+	membershipChecker MembershipChecker
+	registered        chan bool
 
 	// subscriptions is guarded by hub.mu. Tracks the scopes this client is
 	// currently in. Used to clean up rooms on disconnect.
@@ -322,18 +324,10 @@ func (h *Hub) Run() {
 	for {
 		select {
 		case client := <-h.register:
-			h.mu.Lock()
-			h.clients[client] = true
-			total := len(h.clients)
-			h.mu.Unlock()
-			M.ConnectsTotal.Add(1)
-			M.ActiveConnections.Add(1)
-			// Auto-subscribe to the workspace and user scopes.
-			h.subscribe(client, ScopeWorkspace, client.workspaceID)
-			if client.userID != "" {
-				h.subscribe(client, ScopeUser, client.userID)
+			allowed := h.registerClient(client)
+			if client.registered != nil {
+				client.registered <- allowed
 			}
-			slog.Info("ws client connected", "workspace_id", client.workspaceID, "user_id", client.userID, "total_clients", total)
 
 		case client := <-h.unregister:
 			h.removeClient(client)
@@ -342,6 +336,43 @@ func (h *Hub) Run() {
 			h.fanoutAll(message, "")
 		}
 	}
+}
+
+func (h *Hub) registerClient(client *Client) bool {
+	h.mu.Lock()
+	h.clients[client] = true
+	M.ConnectsTotal.Add(1)
+	M.ActiveConnections.Add(1)
+	h.mu.Unlock()
+
+	// Subscription callbacks establish relay group readiness before returning.
+	// No socket pump runs until the final authorization below has succeeded.
+	h.subscribe(client, ScopeWorkspace, client.workspaceID)
+	if client.userID != "" {
+		h.subscribe(client, ScopeUser, client.userID)
+	}
+
+	h.mu.Lock()
+	allowed := h.clients[client]
+	if allowed && client.membershipChecker != nil {
+		// Serialize the final check with demotion eviction after all relay
+		// subscriptions are ready to receive events, including on a new node.
+		ctx, cancel := context.WithTimeout(context.Background(), writeWait)
+		allowed = client.membershipChecker.IsMember(ctx, client.userID, client.workspaceID)
+		cancel()
+	}
+	total := len(h.clients)
+	h.mu.Unlock()
+	if !allowed {
+		if client.conn != nil {
+			client.conn.Close()
+		}
+		h.removeClient(client)
+		slog.Info("ws registration refused", "workspace_id", client.workspaceID, "user_id", client.userID)
+		return false
+	}
+	slog.Info("ws client connected", "workspace_id", client.workspaceID, "user_id", client.userID, "total_clients", total)
+	return true
 }
 
 // removeClient drops a client from all rooms and the global set.
@@ -496,6 +527,7 @@ func (h *Hub) BroadcastToScope(scopeType, scopeID string, message []byte) {
 // to clients that have already seen eventID (used by the Redis relay to
 // deduplicate the local fast path of DualWriteBroadcaster).
 func (h *Hub) BroadcastToScopeDedup(scopeType, scopeID string, message []byte, eventID string) {
+	h.dropDemotedClients(scopeType, scopeID, message)
 	if scopeType == "" || scopeID == "" {
 		return
 	}
@@ -523,6 +555,62 @@ func (h *Hub) BroadcastToScopeDedup(scopeType, scopeID string, message []byte, e
 	}
 	if len(slow) > 0 {
 		h.evictSlow(slow)
+	}
+}
+
+func (h *Hub) dropDemotedClients(scopeType, scopeID string, message []byte) {
+	if scopeType != ScopeWorkspace || scopeID == "" {
+		return
+	}
+	var frame struct {
+		Type    string `json:"type"`
+		Payload struct {
+			Member struct {
+				UserID string `json:"user_id"`
+				Role   string `json:"role"`
+			} `json:"member"`
+		} `json:"payload"`
+	}
+	if err := json.Unmarshal(message, &frame); err != nil || frame.Type != "member:updated" ||
+		frame.Payload.Member.Role != "client" || frame.Payload.Member.UserID == "" {
+		return
+	}
+
+	h.mu.RLock()
+	var demoted []*Client
+	for client := range h.clients {
+		if client.workspaceID == scopeID && client.userID == frame.Payload.Member.UserID {
+			demoted = append(demoted, client)
+		}
+	}
+	h.mu.RUnlock()
+
+	for _, client := range demoted {
+		// Closing the transport also discards frames already queued for the
+		// writer; closing send alone would let it drain those payloads.
+		if client.conn != nil {
+			client.conn.Close()
+		}
+		h.removeClient(client)
+	}
+	if len(demoted) > 0 {
+		slog.Info("ws clients dropped after client demotion",
+			"workspace_id", scopeID, "user_id", frame.Payload.Member.UserID, "connections", len(demoted))
+	}
+}
+
+func (h *Hub) closeScopeClients(scopeType, scopeID string) {
+	h.mu.RLock()
+	clients := make([]*Client, 0, len(h.rooms[sk(scopeType, scopeID)]))
+	for client := range h.rooms[sk(scopeType, scopeID)] {
+		clients = append(clients, client)
+	}
+	h.mu.RUnlock()
+	for _, client := range clients {
+		if client.conn != nil {
+			client.conn.Close()
+		}
+		h.removeClient(client)
 	}
 }
 
@@ -871,13 +959,18 @@ func HandleWebSocket(hub *Hub, mc MembershipChecker, pr PATResolver, resolveSlug
 	)
 
 	client := &Client{
-		hub:         hub,
-		conn:        conn,
-		send:        make(chan []byte, 256),
-		userID:      userID,
-		workspaceID: workspaceID,
+		hub:               hub,
+		conn:              conn,
+		send:              make(chan []byte, 256),
+		userID:            userID,
+		workspaceID:       workspaceID,
+		membershipChecker: mc,
+		registered:        make(chan bool, 1),
 	}
 	hub.register <- client
+	if !<-client.registered {
+		return
+	}
 
 	go client.writePump()
 	go client.readPump()
@@ -1038,6 +1131,11 @@ func (c *Client) handleUnsubscribe(scope, id string) {
 func (c *Client) sendJSON(v any) {
 	data, err := json.Marshal(v)
 	if err != nil {
+		return
+	}
+	c.hub.mu.RLock()
+	defer c.hub.mu.RUnlock()
+	if !c.hub.clients[c] {
 		return
 	}
 	select {

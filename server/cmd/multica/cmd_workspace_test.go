@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -684,6 +685,7 @@ func newWorkspaceMemberInviteTestCmd() *cobra.Command {
 	cmd.Flags().String("workspace-id", "", "")
 	cmd.Flags().String("profile", "", "")
 	cmd.Flags().String("role", "member", "")
+	cmd.Flags().String("organisation", "", "")
 	cmd.Flags().String("output", "json", "")
 	return cmd
 }
@@ -730,6 +732,9 @@ func TestRunWorkspaceMemberInvitePostsInvitation(t *testing.T) {
 	}
 	if gotBody["role"] != "member" {
 		t.Fatalf("body role = %v, want member (default)", gotBody["role"])
+	}
+	if _, present := gotBody["organisation_id"]; present {
+		t.Fatalf("staff invitation must not include organisation_id: %#v", gotBody)
 	}
 }
 
@@ -796,5 +801,196 @@ func TestRunWorkspaceMemberInviteRejectsUnknownRole(t *testing.T) {
 	_ = cmd.Flags().Set("role", "superuser")
 	if err := runWorkspaceMemberInvite(cmd, []string{"alice@example.com"}); err == nil {
 		t.Fatal("expected error for unknown --role, got nil")
+	}
+}
+
+func TestRunWorkspaceMemberInviteOrganisationRulesBeforeRequests(t *testing.T) {
+	for _, tc := range []struct {
+		name         string
+		role         string
+		organisation string
+		setFlag      bool
+		wantError    string
+	}{
+		{name: "client needs organisation", role: "client", wantError: "a client invitation needs --organisation"},
+		{name: "client needs nonblank organisation", role: "client", organisation: "  ", setFlag: true, wantError: "a client invitation needs --organisation"},
+		{name: "member cannot bind organisation", role: "member", organisation: "rebl-records", setFlag: true, wantError: "--organisation is only allowed with --role client"},
+		{name: "admin cannot bind organisation", role: "admin", organisation: "rebl-records", setFlag: true, wantError: "--organisation is only allowed with --role client"},
+		{name: "staff cannot pass empty organisation flag", role: "member", setFlag: true, wantError: "--organisation is only allowed with --role client"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("HOME", t.TempDir())
+			var requests atomic.Int32
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				requests.Add(1)
+				http.Error(w, "unexpected request", http.StatusInternalServerError)
+			}))
+			defer srv.Close()
+			setCLITestServerEnv(t, srv.URL)
+
+			cmd := newWorkspaceMemberInviteTestCmd()
+			_ = cmd.Flags().Set("role", tc.role)
+			if tc.setFlag {
+				_ = cmd.Flags().Set("organisation", tc.organisation)
+			}
+			// A slug would require a workspace lookup if validation ran too late.
+			err := runWorkspaceMemberInvite(cmd, []string{"contact@client.nl", "rebl"})
+			if err == nil || err.Error() != tc.wantError {
+				t.Fatalf("error = %v, want %q", err, tc.wantError)
+			}
+			if got := requests.Load(); got != 0 {
+				t.Fatalf("requests = %d, want none before flag validation", got)
+			}
+		})
+	}
+}
+
+func TestRunWorkspaceMemberInviteUnknownOrganisation(t *testing.T) {
+	t.Chdir(t.TempDir())
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("MULTICA_AGENT_ID", "")
+	t.Setenv("MULTICA_TASK_ID", "")
+	t.Setenv("MULTICA_DAEMON_PORT", "")
+
+	var requests atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests.Add(1)
+		if r.Method != http.MethodGet || r.URL.Path != "/api/organisations" {
+			t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
+			http.NotFound(w, r)
+			return
+		}
+		if got := r.Header.Get("X-Workspace-ID"); got != "ws-1" {
+			t.Errorf("workspace header = %q, want ws-1", got)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"organisations": []map[string]any{{"id": "org-other", "key": "another"}},
+			"total":         1,
+		})
+	}))
+	defer srv.Close()
+	setCLITestServerEnv(t, srv.URL)
+
+	cmd := newWorkspaceMemberInviteTestCmd()
+	_ = cmd.Flags().Set("role", "client")
+	_ = cmd.Flags().Set("organisation", "missing")
+	err := runWorkspaceMemberInvite(cmd, []string{"contact@client.nl"})
+	if err == nil || err.Error() != "organisation missing not found" {
+		t.Fatalf("error = %v, want organisation not found", err)
+	}
+	if got := requests.Load(); got != 1 {
+		t.Fatalf("requests = %d, want only the organisation lookup and no invitation", got)
+	}
+}
+
+func TestRunWorkspaceMemberInviteClientOrganisation(t *testing.T) {
+	const workspaceID = "11111111-1111-1111-1111-111111111111"
+	const organisationID = "ABCDEF12-3456-7890-ABCD-1234567890AB"
+	for _, tc := range []struct {
+		name         string
+		organisation string
+		workspaceArg string
+		output       string
+		wantRequests int32
+	}{
+		{name: "case insensitive key in resolved workspace", organisation: "ReBl-ReCoRdS", workspaceArg: "rebl", output: "json", wantRequests: 3},
+		{name: "UUID direct with positional workspace", organisation: organisationID, workspaceArg: workspaceID, output: "table", wantRequests: 1},
+		{name: "key in default workspace with table output", organisation: "rebl-records", output: "table", wantRequests: 2},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Chdir(t.TempDir())
+			t.Setenv("HOME", t.TempDir())
+			t.Setenv("MULTICA_AGENT_ID", "")
+			t.Setenv("MULTICA_TASK_ID", "")
+			t.Setenv("MULTICA_DAEMON_PORT", "")
+
+			var requests atomic.Int32
+			var gotBody map[string]any
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				requests.Add(1)
+				w.Header().Set("Content-Type", "application/json")
+				switch r.Method + " " + r.URL.Path {
+				case "GET /api/workspaces":
+					_ = json.NewEncoder(w).Encode([]map[string]any{
+						{"id": workspaceID, "slug": "rebl", "name": "Rebl"},
+					})
+				case "GET /api/organisations":
+					if tc.organisation == organisationID {
+						t.Error("UUID must not trigger an organisation lookup")
+					}
+					if got := r.Header.Get("X-Workspace-ID"); got != workspaceID {
+						t.Errorf("organisation workspace = %q, want %q", got, workspaceID)
+					}
+					_ = json.NewEncoder(w).Encode(map[string]any{
+						"organisations": []map[string]any{
+							{"id": "another-org", "key": "another"},
+							{"id": organisationID, "key": "rebl-records"},
+						},
+						"total": 2,
+					})
+				case "POST /api/workspaces/" + workspaceID + "/members":
+					if got := r.Header.Get("X-Workspace-ID"); got != workspaceID {
+						t.Errorf("invitation workspace = %q, want %q", got, workspaceID)
+					}
+					if err := json.NewDecoder(r.Body).Decode(&gotBody); err != nil {
+						t.Errorf("decode invitation: %v", err)
+						http.Error(w, "invalid body", http.StatusBadRequest)
+						return
+					}
+					w.WriteHeader(http.StatusCreated)
+					_ = json.NewEncoder(w).Encode(map[string]any{
+						"invitee_email":   gotBody["email"],
+						"role":            gotBody["role"],
+						"organisation_id": gotBody["organisation_id"],
+						"status":          "pending",
+					})
+				default:
+					t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
+					http.NotFound(w, r)
+				}
+			}))
+			defer srv.Close()
+			setCLITestServerEnv(t, srv.URL)
+			if tc.workspaceArg == "" {
+				t.Setenv("MULTICA_WORKSPACE_ID", workspaceID)
+			}
+
+			cmd := newWorkspaceMemberInviteTestCmd()
+			_ = cmd.Flags().Set("role", " CLIENT ")
+			_ = cmd.Flags().Set("organisation", tc.organisation)
+			_ = cmd.Flags().Set("output", tc.output)
+			args := []string{"Contact@Client.nl"}
+			if tc.workspaceArg != "" {
+				args = append(args, tc.workspaceArg)
+			}
+			out, err := captureStdout(t, func() error {
+				return runWorkspaceMemberInvite(cmd, args)
+			})
+			if err != nil {
+				t.Fatalf("runWorkspaceMemberInvite: %v", err)
+			}
+			if got := requests.Load(); got != tc.wantRequests {
+				t.Errorf("requests = %d, want %d", got, tc.wantRequests)
+			}
+			if gotBody["email"] != "contact@client.nl" || gotBody["role"] != "client" || gotBody["organisation_id"] != organisationID || len(gotBody) != 3 {
+				t.Fatalf("invitation body = %#v, want client email, role and organisation binding", gotBody)
+			}
+			if tc.output == "json" {
+				var invitation map[string]any
+				if err := json.Unmarshal([]byte(out), &invitation); err != nil {
+					t.Fatalf("decode output: %v", err)
+				}
+				if invitation["organisation_id"] != organisationID || invitation["role"] != "client" {
+					t.Errorf("invitation output = %#v, want client organisation", invitation)
+				}
+			} else {
+				for _, want := range []string{"contact@client.nl", "client", "organisation: " + organisationID, "pending"} {
+					if !strings.Contains(out, want) {
+						t.Errorf("table output %q does not contain %q", out, want)
+					}
+				}
+			}
+		})
 	}
 }

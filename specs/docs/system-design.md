@@ -75,6 +75,8 @@ flowchart LR
   main["cmd/server/main.go<br/>main"]
   router["cmd/server/router.go<br/>NewRouterWithOptions, Chi"]
   mw["internal/middleware<br/>Auth, DaemonAuth, workspace gates"]
+  clientgate["internal/middleware/client_gate.go<br/>clientGate, clientSessionRoutes"]
+  membership["internal/handler/membership.go<br/>GET /api/me/memberships"]
   authpkg["internal/auth<br/>JWT, PAT, daemon tokens"]
   handlers["internal/handler<br/>Handler, one file per resource"]
   daemonapi["internal/handler<br/>daemon.go, daemon_ws.go<br/>/api/daemon/*"]
@@ -111,8 +113,10 @@ flowchart LR
 
   main --> router
   router --> mw --> authpkg
-  mw --> handlers
-  mw --> daemonapi
+  mw --> clientgate --> handlers
+  clientgate --> membership --> sqlc
+  clientgate --> sqlc
+  clientgate --> daemonapi
   mw --> publicapi
   clients -->|"REST /api"| router
   questioncli -->|"REST /api/questions"| router
@@ -356,6 +360,15 @@ classDiagram
     +uuid workspace_id
     +uuid user_id
     +text role
+    +uuid organisation_id
+  }
+  class workspace_invitation {
+    +uuid id
+    +uuid workspace_id
+    +text invitee_email
+    +text role
+    +uuid organisation_id
+    +text status
   }
   class agent {
     +uuid id
@@ -607,6 +620,9 @@ classDiagram
 
   workspace "1" --> "*" member : workspace_id
   user "1" --> "*" member : user_id
+  workspace "1" --> "*" workspace_invitation : workspace_id
+  organisation "0..1" --> "*" member : organisation_id
+  organisation "0..1" --> "*" workspace_invitation : organisation_id
   workspace "1" --> "*" agent : workspace_id
   workspace "1" --> "*" issue : workspace_id
   workspace "1" --> "*" project : workspace_id

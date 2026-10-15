@@ -141,6 +141,7 @@ func TestClientHandleSubscribeReportsLookupFailure(t *testing.T) {
 		workspaceID:   testWorkspaceID,
 		subscriptions: make(map[scopeKey]bool),
 	}
+	hub.clients[client] = true
 
 	client.handleSubscribe(ScopeTask, "task-id")
 
@@ -647,4 +648,320 @@ func TestReadPump_AcksAuthFrameOnCookieSession(t *testing.T) {
 	if !strings.Contains(string(raw), "auth_ack") {
 		t.Fatalf("got %s, want an auth_ack frame", raw)
 	}
+}
+
+func addHubTestClient(t *testing.T, hub *Hub, userID, workspaceID string) *Client {
+	t.Helper()
+	client := &Client{
+		hub:         hub,
+		send:        make(chan []byte, 16),
+		userID:      userID,
+		workspaceID: workspaceID,
+	}
+	hub.registerClient(client)
+	t.Cleanup(func() { hub.removeClient(client) })
+	return client
+}
+
+func TestHub_DemotedClientEviction(t *testing.T) {
+	for _, delivery := range []string{"local", "relay"} {
+		t.Run(delivery, func(t *testing.T) {
+			hub := NewHub()
+			first := addHubTestClient(t, hub, "demoted", "workspace")
+			second := addHubTestClient(t, hub, "demoted", "workspace")
+			staff := addHubTestClient(t, hub, "staff", "workspace")
+			otherWorkspace := addHubTestClient(t, hub, "demoted", "other-workspace")
+			hub.subscribe(first, ScopeTask, "task")
+			hub.subscribe(second, ScopeChat, "chat")
+			drained := make(map[scopeKey]int)
+			hub.SetSubscriptionCallbacks(nil, func(scopeType, scopeID string) {
+				drained[sk(scopeType, scopeID)]++
+			})
+
+			slowBefore := M.SlowEvictionsTotal.Load()
+			droppedBefore := M.MessagesDroppedTotal.Load()
+			demotion := []byte(`{"type":"member:updated","payload":{"member":{"user_id":"demoted","role":"client"}}}`)
+			if delivery == "local" {
+				hub.BroadcastToWorkspace("workspace", demotion)
+			} else {
+				deliverEnvelope(hub, nil, nil, envelope{
+					Scope: ScopeWorkspace, ScopeID: "workspace",
+					PayloadJSON: string(demotion), EventID: "demotion",
+				})
+			}
+
+			hub.BroadcastToWorkspace("workspace", []byte(`{"type":"issue:updated"}`))
+			hub.BroadcastToScope(ScopeTask, "task", []byte(`{"type":"task:message"}`))
+			hub.BroadcastToScope(ScopeChat, "chat", []byte(`{"type":"chat:message"}`))
+			hub.SendToUser("demoted", []byte(`{"type":"comment:created"}`))
+			hub.fanoutAll([]byte(`{"type":"daemon:updated"}`), "")
+			hub.BroadcastToWorkspace("other-workspace", []byte(`{"type":"project:updated"}`))
+
+			for _, client := range []*Client{first, second} {
+				if message, ok := <-client.send; ok {
+					t.Fatalf("demoted client received a frame: %s", message)
+				}
+				if hub.subscribe(client, ScopeUser, client.userID) {
+					t.Fatal("evicted client was resubscribed")
+				}
+				// Control frames racing with eviction must not send to a closed channel.
+				client.handleFrame([]byte(`{"type":"ping"}`))
+				hub.removeClient(client)
+			}
+			if got := totalClients(hub); got != 2 {
+				t.Fatalf("remaining clients = %d, want staff and other workspace", got)
+			}
+			for client, wantTypes := range map[*Client][]string{
+				staff:          {"member:updated", "issue:updated", "daemon:updated"},
+				otherWorkspace: {"comment:created", "daemon:updated", "project:updated"},
+			} {
+				for _, want := range wantTypes {
+					select {
+					case raw := <-client.send:
+						var frame struct {
+							Type string `json:"type"`
+						}
+						if err := json.Unmarshal(raw, &frame); err != nil || frame.Type != want {
+							t.Fatalf("frame = %s, error = %v, want type %q", raw, err, want)
+						}
+					default:
+						t.Fatalf("unaffected client did not receive %s", want)
+					}
+				}
+				if got := len(client.send); got != 0 {
+					t.Fatalf("unaffected client received %d unexpected frames", got)
+				}
+			}
+			for _, key := range []scopeKey{sk(ScopeTask, "task"), sk(ScopeChat, "chat")} {
+				if drained[key] != 1 || hub.HasLocalSubscribers(key.Type, key.ID) {
+					t.Fatalf("room %v was not drained exactly once: %v", key, drained)
+				}
+			}
+			if len(drained) != 2 {
+				t.Fatalf("unaffected rooms were drained: %v", drained)
+			}
+			if M.SlowEvictionsTotal.Load() != slowBefore || M.MessagesDroppedTotal.Load() != droppedBefore {
+				t.Fatal("authorization eviction counted as a slow client or dropped message")
+			}
+		})
+	}
+}
+
+func TestHub_MemberUpdatesWithoutDemotionKeepConnections(t *testing.T) {
+	for _, frame := range []string{
+		`{"type":"member:updated","payload":{"member":{"user_id":"user","role":"member"}}}`,
+		`{"type":"member:updated","payload":{"member":{"user_id":"user","role":"admin"}}}`,
+		`{"type":"member:updated","payload":{"member":{"user_id":"user","role":"owner"}}}`,
+		`{"type":"member:updated","payload":{"member":{"role":"client"}}}`,
+		`{"type":"issue:updated","payload":{"member":{"user_id":"user","role":"client"}}}`,
+		`not-json`,
+	} {
+		t.Run(frame, func(t *testing.T) {
+			hub := NewHub()
+			client := addHubTestClient(t, hub, "user", "workspace")
+			hub.BroadcastToWorkspace("workspace", []byte(frame))
+			if got, ok := <-client.send; !ok || string(got) != frame {
+				t.Fatalf("frame = %s, open = %v, want unchanged delivery", got, ok)
+			}
+			if totalClients(hub) != 1 {
+				t.Fatal("non-demotion removed a client")
+			}
+		})
+	}
+}
+
+func TestHub_DemotionBeforeImplicitSubscription(t *testing.T) {
+	hub := NewHub()
+	client := &Client{hub: hub, send: make(chan []byte, 1), userID: "user", workspaceID: "workspace"}
+	// Registration has inserted the client but has not added its implicit rooms.
+	hub.clients[client] = true
+	M.ConnectsTotal.Add(1)
+	M.ActiveConnections.Add(1)
+	hub.BroadcastToWorkspace("workspace", []byte(`{"type":"member:updated","payload":{"member":{"user_id":"user","role":"client"}}}`))
+	if hub.subscribe(client, ScopeWorkspace, "workspace") || hub.subscribe(client, ScopeUser, "user") {
+		t.Fatal("implicit subscription resurrected an evicted client")
+	}
+	if raw, ok := <-client.send; ok {
+		t.Fatalf("evicted client received %s", raw)
+	}
+}
+
+type membershipCheckFunc func(context.Context, string, string) bool
+
+func (f membershipCheckFunc) IsMember(ctx context.Context, userID, workspaceID string) bool {
+	return f(ctx, userID, workspaceID)
+}
+
+func TestHandleWebSocket_DemotionBeforeRegistration(t *testing.T) {
+	hub := NewHub()
+	go hub.Run()
+	var mu sync.Mutex
+	allowed, calls := true, 0
+	initialCheck := make(chan struct{})
+	releaseCheck := make(chan struct{})
+	var releaseOnce sync.Once
+	checker := membershipCheckFunc(func(ctx context.Context, _, _ string) bool {
+		mu.Lock()
+		calls++
+		call, result := calls, allowed
+		mu.Unlock()
+		if call == 1 {
+			close(initialCheck)
+			select {
+			case <-releaseCheck:
+			case <-ctx.Done():
+				return false
+			}
+		} else if hub.mu.TryLock() {
+			hub.mu.Unlock()
+			t.Error("registration authorization was not synchronized with eviction")
+		}
+		return result
+	})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		HandleWebSocket(hub, checker, nil, nil, w, r)
+	}))
+	defer server.Close()
+	defer releaseOnce.Do(func() { close(releaseCheck) })
+	type dialResult struct {
+		conn *websocket.Conn
+		err  error
+	}
+	result := make(chan dialResult, 1)
+	header := http.Header{}
+	header.Add("Cookie", (&http.Cookie{Name: auth.AuthCookieName, Value: makeTestToken(t)}).String())
+	dialer := *websocket.DefaultDialer
+	dialer.HandshakeTimeout = 2 * time.Second
+	go func() {
+		conn, _, err := dialer.Dial("ws"+strings.TrimPrefix(server.URL, "http")+"/ws?workspace_id="+testWorkspaceID, header)
+		result <- dialResult{conn, err}
+	}()
+	select {
+	case <-initialCheck:
+	case <-time.After(2 * time.Second):
+		t.Fatal("initial authorization did not start")
+	}
+	mu.Lock()
+	allowed = false
+	mu.Unlock()
+	hub.BroadcastToWorkspace(testWorkspaceID, []byte(`{"type":"member:updated","payload":{"member":{"user_id":"test-user","role":"client"}}}`))
+	releaseOnce.Do(func() { close(releaseCheck) })
+
+	select {
+	case dial := <-result:
+		if dial.err != nil {
+			t.Fatalf("stale pre-upgrade authorization failed unexpectedly: %v", dial.err)
+		}
+		defer dial.conn.Close()
+		dial.conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+		if _, raw, err := dial.conn.ReadMessage(); err == nil {
+			t.Fatalf("refused registration received a frame: %s", raw)
+		} else if timeout, ok := err.(interface{ Timeout() bool }); ok && timeout.Timeout() {
+			t.Fatal("refused registration left its socket open")
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("websocket upgrade did not finish")
+	}
+	waitFor(t, "refused registration cleanup", func() bool {
+		return totalClients(hub) == 0 && len(hub.LocalScopes()) == 0
+	})
+	mu.Lock()
+	defer mu.Unlock()
+	if calls != 2 || totalClients(hub) != 0 || len(hub.LocalScopes()) != 0 {
+		t.Fatalf("registration was not rechecked and refused: calls=%d clients=%d", calls, totalClients(hub))
+	}
+}
+
+func TestHub_DemotionDiscardsQueuedSocketFrames(t *testing.T) {
+	accepted := make(chan *websocket.Conn, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := upgrader.Upgrade(w, r, nil)
+		if err == nil {
+			accepted <- conn
+		}
+	}))
+	defer server.Close()
+	remote, _, err := websocket.DefaultDialer.Dial("ws"+strings.TrimPrefix(server.URL, "http"), nil)
+	if err != nil {
+		t.Fatalf("connect socket: %v", err)
+	}
+	defer remote.Close()
+	conn := <-accepted
+	defer conn.Close()
+	hub := NewHub()
+	client := addHubTestClient(t, hub, "user", "workspace")
+	client.conn = conn
+	client.send <- []byte(`{"type":"issue:updated","payload":{"title":"private"}}`)
+	hub.BroadcastToWorkspace("workspace", []byte(`{"type":"member:updated","payload":{"member":{"user_id":"user","role":"client"}}}`))
+	finished := make(chan struct{})
+	go func() {
+		client.writePump()
+		close(finished)
+	}()
+	remote.SetReadDeadline(time.Now().Add(2 * time.Second))
+	if _, raw, err := remote.ReadMessage(); err == nil {
+		t.Fatalf("demoted socket received queued workspace data: %s", raw)
+	} else if timeout, ok := err.(interface{ Timeout() bool }); ok && timeout.Timeout() {
+		t.Fatal("demoted socket was not closed")
+	}
+	select {
+	case <-finished:
+	case <-time.After(2 * time.Second):
+		t.Fatal("writer did not exit after demotion")
+	}
+}
+
+func TestHandleWebSocket_DemotionDuringSubscriptionReadiness(t *testing.T) {
+	hub := NewHub()
+	go hub.Run()
+	var mu sync.Mutex
+	allowed := true
+	checker := membershipCheckFunc(func(context.Context, string, string) bool {
+		mu.Lock()
+		defer mu.Unlock()
+		return allowed
+	})
+	preparing := make(chan struct{})
+	release := make(chan struct{})
+	var releaseOnce sync.Once
+	hub.SetSubscriptionCallbacks(func(scopeType, _ string) {
+		if scopeType == ScopeWorkspace {
+			close(preparing)
+			<-release
+		}
+	}, nil)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		HandleWebSocket(hub, checker, nil, nil, w, r)
+	}))
+	defer server.Close()
+	defer releaseOnce.Do(func() { close(release) })
+	header := http.Header{}
+	header.Add("Cookie", (&http.Cookie{Name: auth.AuthCookieName, Value: makeTestToken(t)}).String())
+	conn, _, err := websocket.DefaultDialer.Dial("ws"+strings.TrimPrefix(server.URL, "http")+"/ws?workspace_id="+testWorkspaceID, header)
+	if err != nil {
+		t.Fatalf("connect socket: %v", err)
+	}
+	defer conn.Close()
+	select {
+	case <-preparing:
+	case <-time.After(2 * time.Second):
+		t.Fatal("subscription preparation did not start")
+	}
+
+	// A demotion published before the relay group's cursor exists is not
+	// replayed. The final check must observe it after readiness completes.
+	mu.Lock()
+	allowed = false
+	mu.Unlock()
+	hub.fanoutAll([]byte(`{"type":"issue:updated","payload":{"title":"private"}}`), "")
+	releaseOnce.Do(func() { close(release) })
+	conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+	if _, raw, err := conn.ReadMessage(); err == nil {
+		t.Fatalf("registration leaked data queued during preparation: %s", raw)
+	} else if timeout, ok := err.(interface{ Timeout() bool }); ok && timeout.Timeout() {
+		t.Fatal("demoted registration left its socket open")
+	}
+	waitFor(t, "refused registration cleanup", func() bool {
+		return totalClients(hub) == 0 && len(hub.LocalScopes()) == 0
+	})
 }

@@ -183,7 +183,7 @@ Story WORK-1069, the first of WORK-1059's six stories. It is own-project work on
 **Code map.** Paths are under `server/` unless they start with `packages/`, `apps/` or `adr/`.
 
 - Routes: `cmd/server/router.go`. Public `/auth/send-code`, `/auth/verify-code`, `/auth/google`, `/auth/logout` (1509-1512) need no credential. `/api/daemon` mounts `middleware.DaemonAuth` (1557). The plugin bridge (1637) and the main group (1647) mount `middleware.Auth`; the main group holds `/api/me` (1650), `/api/cli-token`, `/api/auth/refresh`, `/api/attachments/{id}/download`, `/api/workspaces` (1702), `/api/tokens` (1924), `/api/invitations` and `/api/share-links/join` (~1912-1922), and the `RequireWorkspaceMember` group with every resource route (1993-2560). `/api/v1` (1626) takes plugin installation tokens only, never a user credential. `/ws` (1461) authenticates itself and checks `membershipChecker.IsMember` (2640), which today accepts any member row.
-- `internal/middleware/auth.go:59` `Auth` and `internal/middleware/daemon_auth.go:79` `DaemonAuth` resolve every user credential (JWT cookie or bearer, `mul_` PAT, `mat_` task token, `mcn_` cloud PAT, daemon token) and set `X-User-ID`; each branch ends in `next.ServeHTTP`. Unit tests call `Auth(nil, nil, nil, nil)` (`internal/middleware/auth_test.go:64`).
+- `internal/middleware/auth.go` `Auth` and `internal/middleware/daemon_auth.go` `DaemonAuth` resolve user credentials (JWT cookie or bearer, `mul_` PAT, `mat_` task token, `mcn_` cloud PAT) to `X-User-ID`; each branch ends in `next.ServeHTTP`. Runtime-bound `mdt_` daemon tokens have no user principal and are revoked with their owner's staff state. `DaemonAuth` clears caller-supplied `X-User-ID`. Unit tests can call `Auth(nil, nil, nil, nil)`.
 - Schema: `migrations/001_init.up.sql:26` `member.role` `CHECK (role IN ('owner','admin','member'))`, constraint `member_role_check`; `041_workspace_invitation.up.sql:7` `workspace_invitation.role` `CHECK (role IN ('admin','member'))`, constraint `workspace_invitation_role_check`; `327_workspace_share_link.up.sql:14` share links allow admin and member only. Latest migration on `main` is 731. `organisation` (572-574) is workspace-scoped; there is no delete handler for it, only workspace teardown (`pkg/db/queries/workspace_delete.sql:720`).
 - Queries: `pkg/db/queries/member.sql` (`CreateMember`, `UpdateMemberRole`, `GetMemberByUserAndWorkspace`), `invitation.sql:1` `CreateInvitation`, `organisation.sql:9` `GetOrganisationInWorkspace`. `CreateMember` callers: `internal/handler/workspace.go:279` (create workspace), `invitation.go:543` (accept), `share_link.go:377` (join). `UpdateMemberRole` caller: `workspace.go:628`.
 - Invitations: `internal/handler/invitation.go` `InvitationResponse` (24), `CreateInvitation` (61, role through `normalizeMemberRole` at `workspace.go:559`, owner refused), `AcceptInvitation` (455, tx with `qtx.AcceptInvitation` at 537 and `CreateMember` at 543). Share links: `share_link.go` `CreateShareLink` (68) already refuses any role other than member or admin (81-87); `JoinByShareLink` (264) settles a pending email invitation and creates the member with the link's role (341-377).
@@ -192,7 +192,7 @@ Story WORK-1069, the first of WORK-1059's six stories. It is own-project work on
 - Realtime: `internal/realtime/hub.go` `HandleWebSocket` (775), `Hub.Run` auto-subscribes a connection to its workspace and user scopes, `BroadcastToScopeDedup` (498) is the one fan-out for workspace scopes on a single node (`BroadcastToScope`) and from the relays (`redis_relay.go:108` `deliverEnvelope`), `evictSlow` (619) closes clients. `cmd/server/listeners.go` sends every workspace event through `BroadcastToWorkspace`. No server-side path closes a removed member's socket today.
 - CLI: `cmd/multica/cmd_workspace.go` `workspaceMemberInviteCmd` (64), its flags (186), `runWorkspaceMemberInvite` (827) with a client-side role switch. `multica login` uses `/api/cli-token` (web), `POST /api/tokens` and `GET /api/me` (`cmd_auth.go:329-343`).
 - Web and desktop: `packages/core/api/client.ts` `listMembers` (3580) and the invitation reads (3611-3630) return raw JSON; `packages/views/settings/components/members-tab.tsx` indexes `roleConfig[member.role]` and `roleConfig[invitation.role]` (193, 313), which throws on an unknown role. The member list refetches on `member:*` events (`packages/core/realtime/use-realtime-sync.ts`), so parsing the reads covers live updates too. Precedent for parsing: `listOrganisations` (4407) with `ListOrganisationsResponseSchema` (`schemas.ts:1519`) and its test `packages/core/api/organisations-projects.test.ts`.
-- Must not change: owner, admin and member routes, roles and responses; the public auth routes; share-link roles; `/api/v1`.
+- Must not change: owner, admin and member routes, roles and responses; the public auth routes; share-link roles; plugin installation-token authentication on `/v1/*`.
 
 ## Goals / Non-Goals
 
@@ -256,6 +256,8 @@ The account, not the workspace, is the unit because user-scoped routes such as `
 
 The last row closes the one fallback that turns an invited client into a member: today the join settles a pending invitation and creates the member with the link's role (`share_link.go:341-377`).
 
+`LockUserForMembership` locks the existing user row in the transaction before checking and writing memberships. Invitation acceptance, role changes, share-link joins and workspace creation share this lock, so concurrent writes cannot create a client with another membership.
+
 ### 3. Invitation
 
 `CreateMemberRequest` gains `organisation_id`. Role `client` needs an `organisation_id` that `GetOrganisationInWorkspace` finds in the workspace, else 400 `a client invitation needs an organisation of this workspace`; a staff role with an `organisation_id` is 400. `normalizeMemberRole` accepts `client`; the owner refusals stay. `CreateInvitation` (query) stores `organisation_id`. `InvitationResponse` gains `organisation_id` (`*string`, `null` for staff). The route group already limits invitations to owners and admins (`router.go:1742`).
@@ -266,7 +268,7 @@ The last row closes the one fallback that turns an invited client into a member:
 
 `UpdateMemberRequest` gains `organisation_id`. Owner and last-owner rules stay as they are.
 
-- To `client`: `organisation_id` required and found with `GetOrganisationInWorkspace`, else 400 and nothing changes. From a staff role, one tx runs `revokeMemberState` and `UpdateMemberRole`; after commit `publishRevocation` runs, as for a removal. Client to client changes only the organisation.
+- To `client`: `organisation_id` required and found with `GetOrganisationInWorkspace`, else 400 and nothing changes. From a staff role, one tx runs `revokeMemberState` and `UpdateMemberRole`; after commit `member:updated` publishes before `publishRevocation`, so sockets close before revocation payloads. Client to client changes only the organisation.
 - To a staff role: `organisation_id` must be absent (400 otherwise); `UpdateMemberRole` writes `organisation_id = NULL`.
 - `revokeMemberState(ctx, qtx, workspaceID, userID, archivedBy)` is `revokeAndRemoveMember` up to and without the seat release and `DeleteMember`; `revokeAndRemoveMember` keeps its tx and calls it, then releases the seat and deletes the row. A client owns no agent, runtime, view or subscription template, so the next task can never start on their behalf.
 - `MembershipCache.Invalidate` and the `member:updated` publish stay; the payload's member carries the new role and `organisation_id`.
@@ -277,6 +279,7 @@ Removing a client is the existing `DeleteMember`. An organisation is never delet
 
 - `membershipChecker.IsMember` returns false for a `client` row, so `/ws` refuses a client with the existing 403 `not a member of this workspace`, on both the cookie and the first-message token path. A client therefore has no connection, and no personal (`user` scope) event reaches them either.
 - `Hub.BroadcastToScopeDedup` calls `h.dropDemotedClients(scopeType, scopeID, message)` first. For a `workspace` scope frame that contains `"type":"member:updated"`, it decodes `payload.member.user_id` and `payload.member.role`; when the role is `client`, it removes and closes that user's clients in that workspace, as `evictSlow` does, before the frame fans out. The frame reaches every node with a subscriber, single-node through `BroadcastToScope` and multi-node through `deliverEnvelope`, so the drop works on every node.
+- Registration establishes workspace and user relay subscriptions, then rechecks membership under the hub lock before starting socket pumps. Legacy Redis consumer groups are prepared synchronously with the existing two-second context; failure closes affected connections. The handler waits for registration's result. The final membership check has the existing `writeWait` deadline and serializes with demotion eviction.
 
 ### 6. Current membership
 
@@ -296,7 +299,7 @@ Removing a client is the existing `DeleteMember`. An organisation is never delet
 ### 8. Tests
 
 - `internal/middleware/client_gate_test.go`: the matcher table (every session row matches, `/api/invitations/x/y` and other paths do not), refusal body and status, staff pass-through.
-- `cmd/server/client_gate_test.go` (DB-backed, router from `NewRouterWithOptions`): walks every route with `chi.Walk`, fills URL params with random UUIDs, and for each route that answers 401 without a credential asserts that a client's JWT, and a client's PAT, get the gate's 403 unless the route is on the session list. This is the test that keeps routes added later closed.
+- `cmd/server/client_gate_test.go` (DB-backed, router from `NewRouterWithOptions`): walks every route with `chi.Walk`, fills URL params with random UUIDs, and substitutes a terminal handler to avoid writes. A route that answers 401 without a credential gives client JWTs/PATs the gate's 403 unless it is on the session list. Installation-token-only `/v1/*` routes instead reject both user credentials with 401. This keeps routes added later closed without changing plugin authentication.
 - Handler tests in `invitation_test.go`, `workspace_test.go`, `share_link_test.go` for decisions 2-4 and the assignee scenario; `internal/realtime/hub_test.go` for decision 5; `cmd/multica` tests for the flag rules.
 - `packages/core/api/members-invitations.test.ts`: a `client` row parses with the role fallback and the list keeps its other rows.
 
@@ -309,7 +312,7 @@ Removing a client is the existing `DeleteMember`. An organisation is never delet
 - [One extra query per authenticated request] -> `IsClientAccount` is an index-only `EXISTS` on `idx_member_user_workspace`; caching it would add an invalidation path on every role change for no measured need.
 - [A staff account can never also be a client] -> a client contact needs their own account, as Brian settled; the refusals in decision 2 name it.
 - [A client reads as Member in the staff members tab] -> no client account exists until real accounts are created (a non-goal); the staff screens stories show the role. An owner or admin who changes that row's role makes an explicit role change, which the spec allows.
-- [A connection that registers between the demotion's commit and its `member:updated` frame keeps its socket] -> `IsMember` already refuses it after commit, so only a socket opened in the milliseconds before commit can slip through, and it closes at its next reconnect.
+- [Final WebSocket authorization holds the hub lock] -> one bounded database read per connection closes registration/demotion races; relay readiness precedes that read, and no socket pump sends queued payloads until it succeeds.
 - [The hub reads one event type from the frame] -> the alternative, a direct `Handler.Hub` call, only reaches the node that handled the request.
 - [CloudFront cookies on the session routes] -> `RefreshCloudFrontCookies` still runs for a client on the session list; the fork runs without a CloudFront signer, and a client never receives a storage key.
 

@@ -11,20 +11,38 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countMembershipsByUser = `-- name: CountMembershipsByUser :one
+SELECT COUNT(*) FROM member
+WHERE user_id = $1
+`
+
+func (q *Queries) CountMembershipsByUser(ctx context.Context, userID pgtype.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countMembershipsByUser, userID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createMember = `-- name: CreateMember :one
-INSERT INTO member (workspace_id, user_id, role)
-VALUES ($1, $2, $3)
-RETURNING id, workspace_id, user_id, role, created_at
+INSERT INTO member (workspace_id, user_id, role, organisation_id)
+VALUES ($1, $2, $3, $4)
+RETURNING id, workspace_id, user_id, role, created_at, organisation_id
 `
 
 type CreateMemberParams struct {
-	WorkspaceID pgtype.UUID `json:"workspace_id"`
-	UserID      pgtype.UUID `json:"user_id"`
-	Role        string      `json:"role"`
+	WorkspaceID    pgtype.UUID `json:"workspace_id"`
+	UserID         pgtype.UUID `json:"user_id"`
+	Role           string      `json:"role"`
+	OrganisationID pgtype.UUID `json:"organisation_id"`
 }
 
 func (q *Queries) CreateMember(ctx context.Context, arg CreateMemberParams) (Member, error) {
-	row := q.db.QueryRow(ctx, createMember, arg.WorkspaceID, arg.UserID, arg.Role)
+	row := q.db.QueryRow(ctx, createMember,
+		arg.WorkspaceID,
+		arg.UserID,
+		arg.Role,
+		arg.OrganisationID,
+	)
 	var i Member
 	err := row.Scan(
 		&i.ID,
@@ -32,6 +50,7 @@ func (q *Queries) CreateMember(ctx context.Context, arg CreateMemberParams) (Mem
 		&i.UserID,
 		&i.Role,
 		&i.CreatedAt,
+		&i.OrganisationID,
 	)
 	return i, err
 }
@@ -46,7 +65,7 @@ func (q *Queries) DeleteMember(ctx context.Context, id pgtype.UUID) error {
 }
 
 const getMember = `-- name: GetMember :one
-SELECT id, workspace_id, user_id, role, created_at FROM member
+SELECT id, workspace_id, user_id, role, created_at, organisation_id FROM member
 WHERE id = $1
 `
 
@@ -59,12 +78,13 @@ func (q *Queries) GetMember(ctx context.Context, id pgtype.UUID) (Member, error)
 		&i.UserID,
 		&i.Role,
 		&i.CreatedAt,
+		&i.OrganisationID,
 	)
 	return i, err
 }
 
 const getMemberByUserAndWorkspace = `-- name: GetMemberByUserAndWorkspace :one
-SELECT id, workspace_id, user_id, role, created_at FROM member
+SELECT id, workspace_id, user_id, role, created_at, organisation_id FROM member
 WHERE user_id = $1 AND workspace_id = $2
 `
 
@@ -82,12 +102,27 @@ func (q *Queries) GetMemberByUserAndWorkspace(ctx context.Context, arg GetMember
 		&i.UserID,
 		&i.Role,
 		&i.CreatedAt,
+		&i.OrganisationID,
 	)
 	return i, err
 }
 
+const isClientAccount = `-- name: IsClientAccount :one
+SELECT EXISTS (
+    SELECT 1 FROM member
+    WHERE user_id = $1 AND role = 'client'
+)
+`
+
+func (q *Queries) IsClientAccount(ctx context.Context, userID pgtype.UUID) (bool, error) {
+	row := q.db.QueryRow(ctx, isClientAccount, userID)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const listMembers = `-- name: ListMembers :many
-SELECT id, workspace_id, user_id, role, created_at FROM member
+SELECT id, workspace_id, user_id, role, created_at, organisation_id FROM member
 WHERE workspace_id = $1
 ORDER BY created_at ASC
 `
@@ -107,6 +142,7 @@ func (q *Queries) ListMembers(ctx context.Context, workspaceID pgtype.UUID) ([]M
 			&i.UserID,
 			&i.Role,
 			&i.CreatedAt,
+			&i.OrganisationID,
 		); err != nil {
 			return nil, err
 		}
@@ -119,7 +155,7 @@ func (q *Queries) ListMembers(ctx context.Context, workspaceID pgtype.UUID) ([]M
 }
 
 const listMembersWithUser = `-- name: ListMembersWithUser :many
-SELECT m.id, m.workspace_id, m.user_id, m.role, m.created_at,
+SELECT m.id, m.workspace_id, m.user_id, m.role, m.organisation_id, m.created_at,
        u.name as user_name, u.email as user_email, u.avatar_url as user_avatar_url
 FROM member m
 JOIN "user" u ON u.id = m.user_id
@@ -128,14 +164,15 @@ ORDER BY m.created_at ASC
 `
 
 type ListMembersWithUserRow struct {
-	ID            pgtype.UUID        `json:"id"`
-	WorkspaceID   pgtype.UUID        `json:"workspace_id"`
-	UserID        pgtype.UUID        `json:"user_id"`
-	Role          string             `json:"role"`
-	CreatedAt     pgtype.Timestamptz `json:"created_at"`
-	UserName      string             `json:"user_name"`
-	UserEmail     string             `json:"user_email"`
-	UserAvatarUrl pgtype.Text        `json:"user_avatar_url"`
+	ID             pgtype.UUID        `json:"id"`
+	WorkspaceID    pgtype.UUID        `json:"workspace_id"`
+	UserID         pgtype.UUID        `json:"user_id"`
+	Role           string             `json:"role"`
+	OrganisationID pgtype.UUID        `json:"organisation_id"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UserName       string             `json:"user_name"`
+	UserEmail      string             `json:"user_email"`
+	UserAvatarUrl  pgtype.Text        `json:"user_avatar_url"`
 }
 
 func (q *Queries) ListMembersWithUser(ctx context.Context, workspaceID pgtype.UUID) ([]ListMembersWithUserRow, error) {
@@ -152,10 +189,57 @@ func (q *Queries) ListMembersWithUser(ctx context.Context, workspaceID pgtype.UU
 			&i.WorkspaceID,
 			&i.UserID,
 			&i.Role,
+			&i.OrganisationID,
 			&i.CreatedAt,
 			&i.UserName,
 			&i.UserEmail,
 			&i.UserAvatarUrl,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listMyMemberships = `-- name: ListMyMemberships :many
+SELECT m.workspace_id, w.name AS workspace_name, w.slug AS workspace_slug, m.role,
+       o.id AS organisation_id, o.name AS organisation_name
+FROM member m
+JOIN workspace w ON w.id = m.workspace_id
+LEFT JOIN organisation o ON o.id = m.organisation_id AND o.workspace_id = m.workspace_id
+WHERE m.user_id = $1
+ORDER BY m.created_at ASC
+`
+
+type ListMyMembershipsRow struct {
+	WorkspaceID      pgtype.UUID `json:"workspace_id"`
+	WorkspaceName    string      `json:"workspace_name"`
+	WorkspaceSlug    string      `json:"workspace_slug"`
+	Role             string      `json:"role"`
+	OrganisationID   pgtype.UUID `json:"organisation_id"`
+	OrganisationName pgtype.Text `json:"organisation_name"`
+}
+
+func (q *Queries) ListMyMemberships(ctx context.Context, userID pgtype.UUID) ([]ListMyMembershipsRow, error) {
+	rows, err := q.db.Query(ctx, listMyMemberships, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListMyMembershipsRow{}
+	for rows.Next() {
+		var i ListMyMembershipsRow
+		if err := rows.Scan(
+			&i.WorkspaceID,
+			&i.WorkspaceName,
+			&i.WorkspaceSlug,
+			&i.Role,
+			&i.OrganisationID,
+			&i.OrganisationName,
 		); err != nil {
 			return nil, err
 		}
@@ -193,19 +277,31 @@ func (q *Queries) ListWorkspaceManagerUserIDs(ctx context.Context, workspaceID p
 	return items, nil
 }
 
-const updateMemberRole = `-- name: UpdateMemberRole :one
-UPDATE member SET role = $2
+const lockUserForMembership = `-- name: LockUserForMembership :exec
+SELECT id FROM "user"
 WHERE id = $1
-RETURNING id, workspace_id, user_id, role, created_at
+FOR UPDATE
+`
+
+func (q *Queries) LockUserForMembership(ctx context.Context, id pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, lockUserForMembership, id)
+	return err
+}
+
+const updateMemberRole = `-- name: UpdateMemberRole :one
+UPDATE member SET role = $2, organisation_id = $3
+WHERE id = $1
+RETURNING id, workspace_id, user_id, role, created_at, organisation_id
 `
 
 type UpdateMemberRoleParams struct {
-	ID   pgtype.UUID `json:"id"`
-	Role string      `json:"role"`
+	ID             pgtype.UUID `json:"id"`
+	Role           string      `json:"role"`
+	OrganisationID pgtype.UUID `json:"organisation_id"`
 }
 
 func (q *Queries) UpdateMemberRole(ctx context.Context, arg UpdateMemberRoleParams) (Member, error) {
-	row := q.db.QueryRow(ctx, updateMemberRole, arg.ID, arg.Role)
+	row := q.db.QueryRow(ctx, updateMemberRole, arg.ID, arg.Role, arg.OrganisationID)
 	var i Member
 	err := row.Scan(
 		&i.ID,
@@ -213,6 +309,7 @@ func (q *Queries) UpdateMemberRole(ctx context.Context, arg UpdateMemberRolePara
 		&i.UserID,
 		&i.Role,
 		&i.CreatedAt,
+		&i.OrganisationID,
 	)
 	return i, err
 }

@@ -12,8 +12,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+	"github.com/multica-ai/multica/server/internal/auth"
+	"github.com/multica-ai/multica/server/internal/events"
 	"github.com/multica-ai/multica/server/internal/testutil"
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
+	"github.com/multica-ai/multica/server/pkg/protocol"
 )
 
 func TestCreateWorkspace_RejectsReservedSlug(t *testing.T) {
@@ -1524,5 +1528,388 @@ func TestUpdateWorkspace_RejectsInvalidIssuePrefix(t *testing.T) {
 	dbfx.QueryRow(t, `SELECT issue_prefix FROM workspace WHERE id = $1`, testWorkspaceID).Scan(&after)
 	if after != before {
 		t.Fatalf("issue_prefix changed on a rejected update: %q → %q", before, after)
+	}
+}
+
+func clientTestOrganisation(t *testing.T, workspaceID string) string {
+	t.Helper()
+	return dbfx.Insert(t, "organisation", testutil.Cols{
+		"workspace_id": workspaceID, "name": "Client organisation " + uuid.NewString(),
+		"key": "client-" + uuid.NewString(),
+	})
+}
+
+func clientTestMember(t *testing.T, workspaceID, role, organisationID string) (string, string) {
+	t.Helper()
+	userID := dbfx.User(t, "Client lifecycle contact", "client-member-"+uuid.NewString()+"@multica.ai")
+	cols := testutil.Cols{"workspace_id": workspaceID, "user_id": userID, "role": role}
+	if organisationID != "" {
+		cols["organisation_id"] = organisationID
+	}
+	return userID, dbfx.Insert(t, "member", cols)
+}
+
+func TestUpdateMember_ClientOrganisationAndRoles(t *testing.T) {
+	organisationID := clientTestOrganisation(t, testWorkspaceID)
+	otherOrganisationID := clientTestOrganisation(t, testWorkspaceID)
+	foreignWorkspaceID := dbfx.Insert(t, "workspace", testutil.Cols{
+		"name": "Foreign member workspace", "slug": "client-member-other-" + uuid.NewString(),
+	})
+	foreignOrganisationID := clientTestOrganisation(t, foreignWorkspaceID)
+	for _, tc := range []struct {
+		name            string
+		from            string
+		to              string
+		organisation    *string
+		otherMembership bool
+		status          int
+	}{
+		{name: "move client organisation", from: "client", to: "client", organisation: &otherOrganisationID, status: http.StatusOK},
+		{name: "client to member", from: "client", to: "member", status: http.StatusOK},
+		{name: "client to admin", from: "client", to: "admin", status: http.StatusOK},
+		{name: "client to owner", from: "client", to: "owner", status: http.StatusOK},
+		{name: "member to client", from: "member", to: "client", organisation: &organisationID, status: http.StatusOK},
+		{name: "member without organisation", from: "member", to: "client", status: http.StatusBadRequest},
+		{name: "foreign organisation", from: "member", to: "client", organisation: &foreignOrganisationID, status: http.StatusBadRequest},
+		{name: "staff cannot keep organisation", from: "client", to: "member", organisation: &organisationID, status: http.StatusBadRequest},
+		{name: "other membership", from: "member", to: "client", organisation: &organisationID, otherMembership: true, status: http.StatusConflict},
+		{name: "staff role change preserved", from: "member", to: "admin", status: http.StatusOK},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			binding := ""
+			if tc.from == "client" {
+				binding = organisationID
+			}
+			userID, memberID := clientTestMember(t, testWorkspaceID, tc.from, binding)
+			if tc.otherMembership {
+				dbfx.Member(t, foreignWorkspaceID, userID, "member")
+			}
+			req := newRequest("PATCH", "/api/workspaces/"+testWorkspaceID+"/members/"+memberID, UpdateMemberRequest{
+				Role: tc.to, OrganisationID: tc.organisation,
+			})
+			req = withURLParams(req, "id", testWorkspaceID, "memberId", memberID)
+			rec := testutil.Call(t, testHandler.UpdateMember, req).Want(tc.status)
+			member, err := testHandler.Queries.GetMember(context.Background(), parseUUID(memberID))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if tc.status != http.StatusOK {
+				if member.Role != tc.from || uuidToString(member.OrganisationID) != binding {
+					t.Fatalf("refused update changed membership: %+v", member)
+				}
+				return
+			}
+			var response MemberWithUserResponse
+			rec.JSON(&response)
+			if member.Role != tc.to || response.Role != tc.to || response.UserID != userID {
+				t.Fatalf("updated identity/role mismatch: %+v", response)
+			}
+			if tc.to == "client" {
+				if response.OrganisationID == nil || *response.OrganisationID != *tc.organisation || uuidToString(member.OrganisationID) != *tc.organisation {
+					t.Fatalf("client binding mismatch: %+v", response)
+				}
+			} else if member.OrganisationID.Valid || response.OrganisationID != nil {
+				t.Fatalf("staff retained organisation: %+v", response)
+			}
+		})
+	}
+}
+
+func TestUpdateMember_DemotionRevokesStaffStateBeforePublishingCleanup(t *testing.T) {
+	fx := setupRevocationFixture(t, "handler-tests-client-demotion", "daemon-client-demotion")
+	dbfx.Exec(t, `UPDATE member SET role='member' WHERE id=$1`, fx.MemberID)
+	organisationID := clientTestOrganisation(t, fx.WorkspaceID)
+	actionID := dbfx.Insert(t, "quick_action", testutil.Cols{
+		"workspace_id": fx.WorkspaceID, "name": "Client former action", "description": "",
+		"assignee_type": "agent", "assignee_id": fx.AgentID, "prompt": "private",
+		"visibility": "private", "created_by_type": "member", "created_by_id": fx.TargetUserID,
+	})
+	h := *testHandler
+	h.Bus = events.New()
+	var published []string
+	for _, eventType := range []string{protocol.EventMemberUpdated, protocol.EventAgentArchived, protocol.EventDaemonRegister} {
+		h.Bus.Subscribe(eventType, func(e events.Event) {
+			published = append(published, e.Type)
+			if e.Type == protocol.EventMemberUpdated {
+				payload := e.Payload.(map[string]any)
+				member := payload["member"].(MemberWithUserResponse)
+				if member.Role != "client" || member.UserID != fx.TargetUserID || member.OrganisationID == nil || *member.OrganisationID != organisationID {
+					t.Errorf("demotion event missing gate identity: %+v", member)
+				}
+				var persistedRole string
+				dbfx.QueryRow(t, `SELECT role FROM member WHERE id=$1`, fx.MemberID).Scan(&persistedRole)
+				if persistedRole != "client" {
+					t.Errorf("demotion published before commit: %s", persistedRole)
+				}
+			}
+		})
+	}
+	req := newRequest("PATCH", "/api/workspaces/"+fx.WorkspaceID+"/members/"+fx.MemberID, UpdateMemberRequest{
+		Role: "client", OrganisationID: &organisationID,
+	})
+	req.Header.Set("X-Workspace-ID", fx.WorkspaceID)
+	req = withURLParams(req, "id", fx.WorkspaceID, "memberId", fx.MemberID)
+	testutil.Call(t, h.UpdateMember, req).Want(http.StatusOK)
+	if len(published) < 3 || published[0] != protocol.EventMemberUpdated {
+		t.Fatalf("cleanup events precede eviction event: %v", published)
+	}
+	var runtimeStatus, taskStatus string
+	var archived bool
+	dbfx.QueryRow(t, `SELECT status FROM agent_runtime WHERE id=$1`, fx.RuntimeID).Scan(&runtimeStatus)
+	dbfx.QueryRow(t, `SELECT status FROM agent_task_queue WHERE id=$1`, fx.TaskID).Scan(&taskStatus)
+	dbfx.QueryRow(t, `SELECT archived_at IS NOT NULL FROM agent WHERE id=$1`, fx.AgentID).Scan(&archived)
+	if runtimeStatus != "offline" || taskStatus != "cancelled" || !archived {
+		t.Fatalf("staff state retained: runtime=%s task=%s archived=%v", runtimeStatus, taskStatus, archived)
+	}
+	if dbfx.Count(t, `SELECT count(*) FROM daemon_token WHERE token_hash=$1`, fx.TokenHash) != 0 ||
+		dbfx.Count(t, `SELECT count(*) FROM quick_action WHERE id=$1`, actionID) != 0 {
+		t.Fatal("demotion retained daemon token or private quick action")
+	}
+}
+
+func TestUpdateMember_DemotionRollsBackAllStaffStateOnCommitFailure(t *testing.T) {
+	fx := setupRevocationFixture(t, "handler-tests-client-demotion-rollback", "daemon-client-demotion-rollback")
+	organisationID := clientTestOrganisation(t, fx.WorkspaceID)
+	h := *testHandler
+	h.TxStarter = rollbackOnCommitTxStarter{pool: testPool}
+	h.Bus = events.New()
+	eventsPublished := 0
+	h.Bus.Subscribe(protocol.EventMemberUpdated, func(events.Event) { eventsPublished++ })
+	h.Bus.Subscribe(protocol.EventAgentArchived, func(events.Event) { eventsPublished++ })
+	req := newRequest("PATCH", "/api/workspaces/"+fx.WorkspaceID+"/members/"+fx.MemberID, UpdateMemberRequest{
+		Role: "client", OrganisationID: &organisationID,
+	})
+	req.Header.Set("X-Workspace-ID", fx.WorkspaceID)
+	req = withURLParams(req, "id", fx.WorkspaceID, "memberId", fx.MemberID)
+	testutil.Call(t, h.UpdateMember, req).Want(http.StatusInternalServerError)
+	var role, taskStatus string
+	var archived bool
+	dbfx.QueryRow(t, `SELECT role FROM member WHERE id=$1`, fx.MemberID).Scan(&role)
+	dbfx.QueryRow(t, `SELECT status FROM agent_task_queue WHERE id=$1`, fx.TaskID).Scan(&taskStatus)
+	dbfx.QueryRow(t, `SELECT archived_at IS NOT NULL FROM agent WHERE id=$1`, fx.AgentID).Scan(&archived)
+	if role != "owner" || taskStatus == "cancelled" || archived || eventsPublished != 0 {
+		t.Fatalf("failed demotion leaked state: role=%s task=%s archived=%v events=%d", role, taskStatus, archived, eventsPublished)
+	}
+	if dbfx.Count(t, `SELECT count(*) FROM daemon_token WHERE token_hash=$1`, fx.TokenHash) != 1 {
+		t.Fatal("failed demotion deleted daemon token")
+	}
+}
+
+func TestUpdateMember_DemotionInvalidatesDaemonAndMembershipCaches(t *testing.T) {
+	rdb := newRedisTestClient(t)
+	fx := setupRevocationFixture(t, "handler-tests-client-demotion-cache", "daemon-client-demotion-cache")
+	organisationID := clientTestOrganisation(t, fx.WorkspaceID)
+	h := *testHandler
+	h.DaemonTokenCache = auth.NewDaemonTokenCache(rdb)
+	h.MembershipCache = auth.NewMembershipCache(rdb)
+	ctx := context.Background()
+	h.DaemonTokenCache.Set(ctx, fx.TokenHash, auth.DaemonTokenIdentity{
+		WorkspaceID: fx.WorkspaceID, DaemonID: fx.DaemonID,
+	}, time.Minute)
+	h.MembershipCache.Set(ctx, fx.TargetUserID, fx.WorkspaceID)
+	if _, ok := h.DaemonTokenCache.Get(ctx, fx.TokenHash); !ok || !h.MembershipCache.Get(ctx, fx.TargetUserID, fx.WorkspaceID) {
+		t.Fatal("cache priming failed")
+	}
+	req := newRequest("PATCH", "/api/workspaces/"+fx.WorkspaceID+"/members/"+fx.MemberID, UpdateMemberRequest{
+		Role: "client", OrganisationID: &organisationID,
+	})
+	req.Header.Set("X-Workspace-ID", fx.WorkspaceID)
+	req = withURLParams(req, "id", fx.WorkspaceID, "memberId", fx.MemberID)
+	testutil.Call(t, h.UpdateMember, req).Want(http.StatusOK)
+	if _, ok := h.DaemonTokenCache.Get(ctx, fx.TokenHash); ok || h.MembershipCache.Get(ctx, fx.TargetUserID, fx.WorkspaceID) {
+		t.Fatal("demotion retained cached staff credentials")
+	}
+}
+
+func TestDeleteMember_RemovesClient(t *testing.T) {
+	organisationID := clientTestOrganisation(t, testWorkspaceID)
+	_, memberID := clientTestMember(t, testWorkspaceID, "client", organisationID)
+	req := newRequest("DELETE", "/api/workspaces/"+testWorkspaceID+"/members/"+memberID, nil)
+	req = withURLParams(req, "id", testWorkspaceID, "memberId", memberID)
+	testutil.Call(t, testHandler.DeleteMember, req).Want(http.StatusNoContent)
+	if dbfx.Count(t, `SELECT count(*) FROM member WHERE id=$1`, memberID) != 0 {
+		t.Fatal("client membership survived removal")
+	}
+}
+
+func TestClientMembership_RemainsAssignableByUserID(t *testing.T) {
+	organisationID := clientTestOrganisation(t, testWorkspaceID)
+	userID, _ := clientTestMember(t, testWorkspaceID, "client", organisationID)
+	for _, role := range []string{"owner", "admin", "member"} {
+		t.Run(role, func(t *testing.T) {
+			requesterID := testUserID
+			if role != "owner" {
+				requesterID, _ = clientTestMember(t, testWorkspaceID, role, "")
+			}
+			issueID := dbfx.Issue(t, "Assign to client contact "+role)
+			req := newRequest("PATCH", "/api/issues/"+issueID, map[string]any{
+				"assignee_type": "member", "assignee_id": userID,
+			})
+			req.Header.Set("X-User-ID", requesterID)
+			req = withURLParam(req, "id", issueID)
+			var issue IssueResponse
+			testutil.Call(t, testHandler.UpdateIssue, req).Want(http.StatusOK).JSON(&issue)
+			if issue.AssigneeType == nil || *issue.AssigneeType != "member" || issue.AssigneeID == nil || *issue.AssigneeID != userID {
+				t.Fatalf("client assignee identity changed: %+v", issue)
+			}
+		})
+	}
+}
+
+func TestListMyMemberships_MinimalClientAndStaffResponses(t *testing.T) {
+	organisationID := clientTestOrganisation(t, testWorkspaceID)
+	otherWorkspaceID := dbfx.Insert(t, "workspace", testutil.Cols{
+		"name": "Staff memberships", "slug": "client-list-staff-" + uuid.NewString(),
+	})
+	foreignOrganisationID := clientTestOrganisation(t, otherWorkspaceID)
+	for _, tc := range []struct {
+		name             string
+		role             string
+		organisation     string
+		wantOrganisation bool
+		wantCount        int
+	}{
+		{name: "client", role: "client", organisation: organisationID, wantOrganisation: true, wantCount: 1},
+		{name: "missing organisation", role: "client", organisation: uuid.NewString(), wantCount: 1},
+		{name: "foreign organisation", role: "client", organisation: foreignOrganisationID, wantCount: 1},
+		{name: "staff", role: "member", wantCount: 2},
+		{name: "no memberships", wantCount: 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			userID := dbfx.User(t, "Current membership", "client-current-"+uuid.NewString()+"@multica.ai")
+			if tc.role != "" {
+				cols := testutil.Cols{"workspace_id": testWorkspaceID, "user_id": userID, "role": tc.role}
+				if tc.organisation != "" {
+					cols["organisation_id"] = tc.organisation
+				}
+				dbfx.Insert(t, "member", cols)
+			}
+			if tc.role == "member" {
+				dbfx.Member(t, otherWorkspaceID, userID, "admin")
+			}
+			req := newRequest("GET", "/api/me/memberships", nil)
+			req.Header.Set("X-User-ID", userID)
+			var response struct {
+				Memberships []map[string]json.RawMessage `json:"memberships"`
+			}
+			testutil.Call(t, testHandler.ListMyMemberships, req).Want(http.StatusOK).JSON(&response)
+			if response.Memberships == nil || len(response.Memberships) != tc.wantCount {
+				t.Fatalf("membership count mismatch: %+v", response)
+			}
+			for i, row := range response.Memberships {
+				if len(row) != 5 {
+					t.Fatalf("membership leaks extra fields: %v", row)
+				}
+				var got MyMembershipResponse
+				raw, err := json.Marshal(row)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := json.Unmarshal(raw, &got); err != nil {
+					t.Fatal(err)
+				}
+				if got.WorkspaceID == "" || got.WorkspaceName == "" || got.WorkspaceSlug == "" {
+					t.Fatalf("membership omits workspace identity: %+v", got)
+				}
+				if i == 0 && got.Role != tc.role {
+					t.Fatalf("membership role changed: %+v", got)
+				}
+				if tc.wantOrganisation {
+					if got.Organisation == nil || got.Organisation.ID != organisationID || got.Organisation.Name == "" {
+						t.Fatalf("client organisation absent: %+v", got)
+					}
+				} else if got.Organisation != nil {
+					t.Fatalf("invalid/staff organisation exposed: %+v", got)
+				}
+			}
+		})
+	}
+	req := newRequest("GET", "/api/me/memberships", nil)
+	req.Header.Del("X-User-ID")
+	testutil.Call(t, testHandler.ListMyMemberships, req).Want(http.StatusUnauthorized)
+}
+
+func TestUpdateMember_OnlyStaffDemotionRevokesState(t *testing.T) {
+	for _, tc := range []struct {
+		name             string
+		from             string
+		to               string
+		withOrganisation bool
+		status           int
+	}{
+		{name: "staff role change", from: "owner", to: "member", status: http.StatusOK},
+		{name: "client binding change", from: "client", to: "client", withOrganisation: true, status: http.StatusOK},
+		{name: "invalid demotion", from: "owner", to: "client", status: http.StatusBadRequest},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			suffix := uuid.NewString()
+			fx := setupRevocationFixture(t, "client-preserve-"+suffix, "client-preserve-daemon-"+suffix)
+			organisationID := clientTestOrganisation(t, fx.WorkspaceID)
+			if tc.from == "client" {
+				dbfx.Exec(t, `UPDATE member SET role='client', organisation_id=$2 WHERE id=$1`, fx.MemberID, organisationID)
+			}
+			body := UpdateMemberRequest{Role: tc.to}
+			if tc.withOrganisation {
+				otherOrganisationID := clientTestOrganisation(t, fx.WorkspaceID)
+				body.OrganisationID = &otherOrganisationID
+			}
+			req := newRequest("PATCH", "/api/workspaces/"+fx.WorkspaceID+"/members/"+fx.MemberID, body)
+			req.Header.Set("X-Workspace-ID", fx.WorkspaceID)
+			req = withURLParams(req, "id", fx.WorkspaceID, "memberId", fx.MemberID)
+			testutil.Call(t, testHandler.UpdateMember, req).Want(tc.status)
+			var archived bool
+			var taskStatus string
+			dbfx.QueryRow(t, `SELECT archived_at IS NOT NULL FROM agent WHERE id=$1`, fx.AgentID).Scan(&archived)
+			dbfx.QueryRow(t, `SELECT status FROM agent_task_queue WHERE id=$1`, fx.TaskID).Scan(&taskStatus)
+			if archived || taskStatus == "cancelled" || dbfx.Count(t, `SELECT count(*) FROM daemon_token WHERE token_hash=$1`, fx.TokenHash) != 1 {
+				t.Fatalf("non-demotion revoked staff state: archived=%v task=%s", archived, taskStatus)
+			}
+		})
+	}
+}
+
+func TestCreateWorkspace_ClientCannotGainOwnerMembership(t *testing.T) {
+	organisationID := clientTestOrganisation(t, testWorkspaceID)
+	userID, _ := clientTestMember(t, testWorkspaceID, "client", organisationID)
+	slug := "client-refused-owner-" + uuid.NewString()
+	req := newRequest("POST", "/api/workspaces", CreateWorkspaceRequest{Name: "Client cannot own", Slug: slug})
+	req.Header.Set("X-User-ID", userID)
+	testutil.Call(t, testHandler.CreateWorkspace, req).Want(http.StatusConflict)
+	if dbfx.Count(t, `SELECT count(*) FROM member WHERE user_id=$1`, userID) != 1 ||
+		dbfx.Count(t, `SELECT count(*) FROM workspace WHERE slug=$1`, slug) != 0 {
+		t.Fatal("client acquired workspace or owner membership")
+	}
+}
+
+func TestUpdateMember_ClientChangePreservesOwnerGuards(t *testing.T) {
+	workspaceID := dbfx.Insert(t, "workspace", testutil.Cols{
+		"name": "Last owner guard", "slug": "client-last-owner-" + uuid.NewString(),
+	})
+	memberID := dbfx.Member(t, workspaceID, testUserID, "owner")
+	organisationID := clientTestOrganisation(t, workspaceID)
+	req := newRequest("PATCH", "/api/workspaces/"+workspaceID+"/members/"+memberID, UpdateMemberRequest{
+		Role: "client", OrganisationID: &organisationID,
+	})
+	req.Header.Set("X-Workspace-ID", workspaceID)
+	req = withURLParams(req, "id", workspaceID, "memberId", memberID)
+	testutil.Call(t, testHandler.UpdateMember, req).Want(http.StatusBadRequest)
+	var role string
+	dbfx.QueryRow(t, `SELECT role FROM member WHERE id=$1`, memberID).Scan(&role)
+	if role != "owner" {
+		t.Fatalf("last owner demoted: %s", role)
+	}
+
+	adminID := dbfx.User(t, "Client role administrator", "client-role-admin-"+uuid.NewString()+"@multica.ai")
+	dbfx.Member(t, workspaceID, adminID, "admin")
+	targetID, targetMemberID := clientTestMember(t, workspaceID, "client", organisationID)
+	req = newRequest("PATCH", "/api/workspaces/"+workspaceID+"/members/"+targetMemberID, UpdateMemberRequest{Role: "owner"})
+	req.Header.Set("X-Workspace-ID", workspaceID)
+	req.Header.Set("X-User-ID", adminID)
+	req = withURLParams(req, "id", workspaceID, "memberId", targetMemberID)
+	testutil.Call(t, testHandler.UpdateMember, req).Want(http.StatusForbidden)
+	var targetRole string
+	dbfx.QueryRow(t, `SELECT role FROM member WHERE user_id=$1 AND workspace_id=$2`, targetID, workspaceID).Scan(&targetRole)
+	if targetRole != "client" {
+		t.Fatalf("admin promoted owner: %s", targetRole)
 	}
 }

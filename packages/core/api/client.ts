@@ -544,6 +544,10 @@ import {
   PluginPreviewSchema,
   WorkspaceMcpServerListSchema,
   WorkspaceMcpServerSchema,
+  MemberListSchema,
+  InvitationSchema,
+  InvitationListSchema,
+  EMPTY_INVITATION,
   ShareLinkSchema,
   ShareLinkListResponseSchema,
   ShareLinkInfoSchema,
@@ -3578,7 +3582,10 @@ export class ApiClient {
 
   // Members
   async listMembers(workspaceId: string): Promise<MemberWithUser[]> {
-    return this.fetch(`/api/workspaces/${workspaceId}/members`);
+    const raw = await this.fetch<unknown>(`/api/workspaces/${workspaceId}/members`);
+    return parseWithFallback<MemberWithUser[]>(raw, MemberListSchema, [], {
+      endpoint: "GET /api/workspaces/{id}/members",
+    });
   }
 
   async createMember(workspaceId: string, data: CreateMemberRequest): Promise<Invitation> {
@@ -3609,7 +3616,10 @@ export class ApiClient {
 
   // Invitations
   async listWorkspaceInvitations(workspaceId: string): Promise<Invitation[]> {
-    return this.fetch(`/api/workspaces/${workspaceId}/invitations`);
+    const raw = await this.fetch<unknown>(`/api/workspaces/${workspaceId}/invitations`);
+    return parseWithFallback<Invitation[]>(raw, InvitationListSchema, [], {
+      endpoint: "GET /api/workspaces/{id}/invitations",
+    });
   }
 
   async revokeInvitation(workspaceId: string, invitationId: string): Promise<void> {
@@ -3619,11 +3629,17 @@ export class ApiClient {
   }
 
   async listMyInvitations(): Promise<Invitation[]> {
-    return this.fetch("/api/invitations");
+    const raw = await this.fetch<unknown>("/api/invitations");
+    return parseWithFallback<Invitation[]>(raw, InvitationListSchema, [], {
+      endpoint: "GET /api/invitations",
+    });
   }
 
   async getInvitation(invitationId: string): Promise<Invitation> {
-    return this.fetch(`/api/invitations/${invitationId}`);
+    const raw = await this.fetch<unknown>(`/api/invitations/${invitationId}`);
+    return parseWithFallback(raw, InvitationSchema, EMPTY_INVITATION, {
+      endpoint: "GET /api/invitations/{id}",
+    });
   }
 
   async acceptInvitation(invitationId: string): Promise<MemberWithUser> {

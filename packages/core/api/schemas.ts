@@ -61,6 +61,7 @@ import type {
   UnreadableQuestionRow,
   Label,
   MemberWithUser,
+  Invitation,
   IssueProperty,
   ListPropertiesResponse,
   QuickAction,
@@ -4246,12 +4247,48 @@ export const MemberWithUserSchema = z.object({
   id: z.string(),
   workspace_id: z.string(),
   user_id: z.string(),
-  role: z.string(),
+  role: z.enum(["owner", "admin", "member"]).catch("member"),
   created_at: z.string().optional().default(""),
   name: z.string().optional().default(""),
   email: z.string().optional().default(""),
   avatar_url: z.string().nullable().optional().default(null),
 }).loose();
+
+export const MemberListSchema = z.array(MemberWithUserSchema).default([]);
+
+export const InvitationSchema = z.object({
+  id: z.string(),
+  workspace_id: z.string(),
+  inviter_id: z.string(),
+  invitee_email: z.string(),
+  invitee_user_id: z.string().nullable().optional().default(null),
+  role: z.enum(["owner", "admin", "member"]).catch("member"),
+  status: z.enum(["pending", "accepted", "declined", "expired"]).catch("expired"),
+  created_at: z.string().optional().default(""),
+  updated_at: z.string().optional().default(""),
+  expires_at: z.string().optional().default(""),
+  inviter_name: z.string().optional().default(""),
+  inviter_email: z.string().optional().default(""),
+  workspace_name: z.string().optional().default(""),
+}).loose();
+
+export const InvitationListSchema = z.array(InvitationSchema).default([]);
+
+export const EMPTY_INVITATION: Invitation = {
+  id: "",
+  workspace_id: "",
+  inviter_id: "",
+  invitee_email: "",
+  invitee_user_id: null,
+  role: "member",
+  status: "expired",
+  created_at: "",
+  updated_at: "",
+  expires_at: "",
+  inviter_name: "",
+  inviter_email: "",
+  workspace_name: "",
+};
 
 export const JoinShareLinkResponseSchema = z.object({
   member: MemberWithUserSchema,

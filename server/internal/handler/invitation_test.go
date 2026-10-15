@@ -858,3 +858,373 @@ func TestDeclineInvitation_AlreadyAcceptedIsNoOp(t *testing.T) {
 		t.Fatalf("member count = %d, want 1", members)
 	}
 }
+
+func TestCreateInvitation_ClientRules(t *testing.T) {
+	organisationID := clientTestOrganisation(t, testWorkspaceID)
+	foreignWorkspaceID := dbfx.Insert(t, "workspace", testutil.Cols{
+		"name": "Other client workspace", "slug": "client-other-" + uuid.NewString(),
+	})
+	foreignOrganisationID := clientTestOrganisation(t, foreignWorkspaceID)
+	for _, tc := range []struct {
+		name          string
+		role          string
+		organisation  *string
+		existingRole  string
+		requesterRole string
+		status        int
+	}{
+		{name: "client", role: "client", organisation: &organisationID, status: http.StatusCreated},
+		{name: "missing organisation", role: "client", status: http.StatusBadRequest},
+		{name: "foreign organisation", role: "client", organisation: &foreignOrganisationID, status: http.StatusBadRequest},
+		{name: "staff organisation", role: "member", organisation: &organisationID, status: http.StatusBadRequest},
+		{name: "client with staff membership", role: "client", organisation: &organisationID, existingRole: "member", status: http.StatusConflict},
+		{name: "staff invite to client account", role: "member", existingRole: "client", status: http.StatusConflict},
+		{name: "member requester", role: "client", organisation: &organisationID, requesterRole: "member", status: http.StatusForbidden},
+		{name: "admin requester", role: "client", organisation: &organisationID, requesterRole: "admin", status: http.StatusCreated},
+		{name: "staff preserved", role: "admin", status: http.StatusCreated},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			email := "client-invite-" + uuid.NewString() + "@multica.ai"
+			userID := dbfx.User(t, "Client invitee", email)
+			if tc.existingRole != "" {
+				cols := testutil.Cols{"workspace_id": foreignWorkspaceID, "user_id": userID, "role": tc.existingRole}
+				if tc.existingRole == "client" {
+					cols["organisation_id"] = foreignOrganisationID
+				}
+				dbfx.Insert(t, "member", cols)
+			}
+			requesterID := testUserID
+			if tc.requesterRole != "" {
+				requesterID = dbfx.User(t, "Client inviter", "client-inviter-"+uuid.NewString()+"@multica.ai")
+				dbfx.Member(t, testWorkspaceID, requesterID, tc.requesterRole)
+			}
+			req := newRequest("POST", "/api/workspaces/"+testWorkspaceID+"/members", CreateMemberRequest{
+				Email: email, Role: tc.role, OrganisationID: tc.organisation,
+			})
+			req.Header.Set("X-User-ID", requesterID)
+			req = withURLParam(req, "id", testWorkspaceID)
+			rec := testutil.Call(t, testHandler.CreateInvitation, req).Want(tc.status)
+			if tc.status != http.StatusCreated {
+				if n := dbfx.Count(t, `SELECT count(*) FROM workspace_invitation WHERE invitee_email=$1`, email); n != 0 {
+					t.Fatalf("refused invitation persisted: %d", n)
+				}
+				return
+			}
+			var invitation InvitationResponse
+			rec.JSON(&invitation)
+			dbfx.Cleanup(t, `DELETE FROM workspace_invitation WHERE id=$1`, invitation.ID)
+			if invitation.Role != tc.role || invitation.Status != "pending" || invitation.InviteeUserID == nil || *invitation.InviteeUserID != userID {
+				t.Fatalf("invitation identity/role changed: %+v", invitation)
+			}
+			if tc.organisation == nil {
+				if invitation.OrganisationID != nil {
+					t.Fatalf("staff has organisation: %+v", invitation)
+				}
+			} else if invitation.OrganisationID == nil || *invitation.OrganisationID != *tc.organisation {
+				t.Fatalf("organisation not preserved: %+v", invitation)
+			}
+		})
+	}
+}
+
+func TestAcceptInvitation_ClientRules(t *testing.T) {
+	organisationID := clientTestOrganisation(t, testWorkspaceID)
+	otherWorkspaceID := dbfx.Insert(t, "workspace", testutil.Cols{
+		"name": "Other acceptance workspace", "slug": "client-accept-other-" + uuid.NewString(),
+	})
+	otherOrganisationID := clientTestOrganisation(t, otherWorkspaceID)
+	for _, tc := range []struct {
+		name         string
+		role         string
+		organisation string
+		existingRole string
+		status       int
+	}{
+		{name: "accept client", role: "client", organisation: organisationID, status: http.StatusOK},
+		{name: "missing organisation", role: "client", organisation: uuid.NewString(), status: http.StatusConflict},
+		{name: "foreign organisation", role: "client", organisation: otherOrganisationID, status: http.StatusConflict},
+		{name: "existing staff membership", role: "client", organisation: organisationID, existingRole: "member", status: http.StatusConflict},
+		{name: "staff invitation to client account", role: "member", existingRole: "client", status: http.StatusConflict},
+		{name: "staff multiple workspaces preserved", role: "admin", existingRole: "member", status: http.StatusOK},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			email := "client-accept-" + uuid.NewString() + "@multica.ai"
+			userID := dbfx.User(t, "Client acceptance", email)
+			if tc.existingRole != "" {
+				cols := testutil.Cols{"workspace_id": otherWorkspaceID, "user_id": userID, "role": tc.existingRole}
+				if tc.existingRole == "client" {
+					cols["organisation_id"] = otherOrganisationID
+				}
+				dbfx.Insert(t, "member", cols)
+			}
+			cols := testutil.Cols{
+				"workspace_id": testWorkspaceID, "inviter_id": testUserID,
+				"invitee_email": email, "invitee_user_id": userID, "role": tc.role,
+				"expires_at": testutil.Raw("now() + interval '1 day'"),
+			}
+			if tc.organisation != "" {
+				cols["organisation_id"] = tc.organisation
+			}
+			invitationID := dbfx.Insert(t, "workspace_invitation", cols)
+			req := newRequest("POST", "/api/invitations/"+invitationID+"/accept", nil)
+			req.Header.Set("X-User-ID", userID)
+			req = withURLParam(req, "id", invitationID)
+			rec := testutil.Call(t, testHandler.AcceptInvitation, req).Want(tc.status)
+			var status string
+			dbfx.QueryRow(t, `SELECT status FROM workspace_invitation WHERE id=$1`, invitationID).Scan(&status)
+			if tc.status != http.StatusOK {
+				if status != "pending" || dbfx.Count(t, `SELECT count(*) FROM member WHERE workspace_id=$1 AND user_id=$2`, testWorkspaceID, userID) != 0 {
+					t.Fatal("refused acceptance settled invitation or created membership")
+				}
+				return
+			}
+			var member MemberWithUserResponse
+			rec.JSON(&member)
+			dbfx.Cleanup(t, `DELETE FROM member WHERE id=$1`, member.ID)
+			if status != "accepted" || member.Role != tc.role || member.UserID != userID {
+				t.Fatalf("acceptance changed identity or role: %+v status=%s", member, status)
+			}
+			if tc.role == "client" && (member.OrganisationID == nil || *member.OrganisationID != organisationID) {
+				t.Fatalf("acceptance lost organisation: %+v", member)
+			}
+			// A later acceptance retry must not upgrade the client either.
+			var retried MemberWithUserResponse
+			testutil.Call(t, testHandler.AcceptInvitation, req).Want(http.StatusOK).JSON(&retried)
+			if retried.Role != member.Role || retried.ID != member.ID {
+				t.Fatalf("retry changed membership: %+v", retried)
+			}
+		})
+	}
+}
+
+func TestAcceptInvitation_ClientFailureLeavesInvitationPending(t *testing.T) {
+	for _, commitFailure := range []bool{false, true} {
+		name := "missing organisation"
+		if commitFailure {
+			name = "commit failure"
+		}
+		t.Run(name, func(t *testing.T) {
+			email := "client-accept-failure-" + uuid.NewString() + "@multica.ai"
+			userID := dbfx.User(t, "Client failed acceptance", email)
+			organisationID := uuid.NewString()
+			if commitFailure {
+				organisationID = clientTestOrganisation(t, testWorkspaceID)
+			}
+			invitationID := dbfx.Insert(t, "workspace_invitation", testutil.Cols{
+				"workspace_id": testWorkspaceID, "inviter_id": testUserID,
+				"invitee_email": email, "role": "client", "organisation_id": organisationID,
+				"expires_at": testutil.Raw("now() + interval '1 day'"),
+			})
+			h := *testHandler
+			capacity := &stubSeatCapacity{}
+			h.SeatCapacity = capacity
+			wantStatus := http.StatusConflict
+			if commitFailure {
+				h.SeatCapacity = nil
+				h.TxStarter = rollbackOnCommitTxStarter{pool: testPool}
+				wantStatus = http.StatusInternalServerError
+			}
+			req := newRequest("POST", "/api/invitations/"+invitationID+"/accept", nil)
+			req.Header.Set("X-User-ID", userID)
+			req = withURLParam(req, "id", invitationID)
+			testutil.Call(t, h.AcceptInvitation, req).Want(wantStatus)
+			var status string
+			dbfx.QueryRow(t, `SELECT status FROM workspace_invitation WHERE id=$1`, invitationID).Scan(&status)
+			if status != "pending" || dbfx.Count(t, `SELECT count(*) FROM member WHERE user_id=$1`, userID) != 0 {
+				t.Fatal("failed acceptance settled invitation or created membership")
+			}
+			if capacity.consumeCalls != 0 {
+				t.Fatal("invalid organisation consumed capacity")
+			}
+		})
+	}
+}
+
+func TestAcceptInvitation_ClientSerializesWithEveryStaffMembershipWrite(t *testing.T) {
+	for _, competingWrite := range []string{"invitation", "share link", "create workspace"} {
+		t.Run(competingWrite, func(t *testing.T) {
+			email := "client-concurrent-" + uuid.NewString() + "@multica.ai"
+			userID := dbfx.User(t, "Concurrent client membership", email)
+			organisationID := clientTestOrganisation(t, testWorkspaceID)
+			invitationID := dbfx.Insert(t, "workspace_invitation", testutil.Cols{
+				"workspace_id": testWorkspaceID, "inviter_id": testUserID,
+				"invitee_email": email, "role": "client", "organisation_id": organisationID,
+				"expires_at": testutil.Raw("now() + interval '1 day'"),
+			})
+			dbfx.Cleanup(t, `DELETE FROM member WHERE user_id=$1`, userID)
+			otherWorkspaceID := dbfx.Insert(t, "workspace", testutil.Cols{
+				"name": "Concurrent staff workspace", "slug": "client-concurrent-other-" + uuid.NewString(),
+			})
+			h := *testHandler
+			h.SeatCapacity = nil
+			clientReq := newRequest("POST", "/api/invitations/"+invitationID+"/accept", nil)
+			clientReq.Header.Set("X-User-ID", userID)
+			clientReq = withURLParam(clientReq, "id", invitationID)
+			var staffReq *http.Request
+			var staffHandler http.HandlerFunc
+			staffSuccess := http.StatusOK
+			switch competingWrite {
+			case "invitation":
+				staffInvitationID := dbfx.Insert(t, "workspace_invitation", testutil.Cols{
+					"workspace_id": otherWorkspaceID, "inviter_id": testUserID,
+					"invitee_email": email, "role": "member",
+					"expires_at": testutil.Raw("now() + interval '1 day'"),
+				})
+				staffReq = newRequest("POST", "/api/invitations/"+staffInvitationID+"/accept", nil)
+				staffReq = withURLParam(staffReq, "id", staffInvitationID)
+				staffHandler = h.AcceptInvitation
+			case "share link":
+				link := createTestShareLink(t, otherWorkspaceID, "member", 0, 24)
+				staffReq = newRequest("POST", "/api/share-links/join", JoinByShareLinkRequest{Code: link.Code})
+				staffHandler = h.JoinByShareLink
+			case "create workspace":
+				slug := "client-concurrent-created-" + uuid.NewString()
+				dbfx.Cleanup(t, `DELETE FROM workspace WHERE slug=$1`, slug)
+				staffReq = newRequest("POST", "/api/workspaces", CreateWorkspaceRequest{Name: "Concurrent created workspace", Slug: slug})
+				staffHandler = h.CreateWorkspace
+				staffSuccess = http.StatusCreated
+			}
+			staffReq.Header.Set("X-User-ID", userID)
+			type result struct {
+				client bool
+				status int
+				body   string
+			}
+			results := make(chan result, 2)
+			start := make(chan struct{})
+			go func() {
+				<-start
+				rec := httptest.NewRecorder()
+				h.AcceptInvitation(rec, clientReq)
+				results <- result{client: true, status: rec.Code, body: rec.Body.String()}
+			}()
+			go func() {
+				<-start
+				rec := httptest.NewRecorder()
+				staffHandler(rec, staffReq)
+				results <- result{status: rec.Code, body: rec.Body.String()}
+			}()
+			close(start)
+			successes := 0
+			for range 2 {
+				result := <-results
+				wantSuccess := staffSuccess
+				if result.client {
+					wantSuccess = http.StatusOK
+				}
+				if result.status == wantSuccess {
+					successes++
+				} else if result.status != http.StatusConflict {
+					t.Errorf("unexpected concurrent response: %+v", result)
+				}
+			}
+			if successes != 1 || dbfx.Count(t, `SELECT count(*) FROM member WHERE user_id=$1`, userID) != 1 {
+				t.Fatalf("concurrent membership writes violated single membership: successes=%d", successes)
+			}
+		})
+	}
+}
+
+func TestClientMembership_LaterLoginAndLogoutPreserveBinding(t *testing.T) {
+	organisationID := clientTestOrganisation(t, testWorkspaceID)
+	userID, memberID := clientTestMember(t, testWorkspaceID, "client", organisationID)
+	var email string
+	dbfx.QueryRow(t, `SELECT email FROM "user" WHERE id=$1`, userID).Scan(&email)
+	dbfx.Insert(t, "verification_code", testutil.Cols{
+		"email": email, "code": "123456", "expires_at": testutil.Raw("now() + interval '10 minutes'"),
+	})
+	loginReq := testutil.JSONRequest("POST", "/auth/verify-code", VerifyCodeRequest{Email: email, Code: "123456"})
+	var login LoginResponse
+	loginRec := testutil.Call(t, testHandler.VerifyCode, loginReq).Want(http.StatusOK)
+	loginRec.JSON(&login)
+	if login.Token == "" || login.User.ID != userID {
+		t.Fatalf("client login changed identity: %+v", login)
+	}
+	protected := middleware.Auth(testHandler.Queries, nil, nil, nil)(http.HandlerFunc(testHandler.ListMyMemberships))
+	membershipsReq := httptest.NewRequest("GET", "/api/me/memberships", nil)
+	for _, cookie := range loginRec.Result().Cookies() {
+		membershipsReq.AddCookie(cookie)
+	}
+	var response struct {
+		Memberships []MyMembershipResponse `json:"memberships"`
+	}
+	testutil.Call(t, protected.ServeHTTP, membershipsReq).Want(http.StatusOK).JSON(&response)
+	if len(response.Memberships) != 1 || response.Memberships[0].Role != "client" ||
+		response.Memberships[0].Organisation == nil || response.Memberships[0].Organisation.ID != organisationID {
+		t.Fatalf("later login changed membership: %+v", response)
+	}
+	logoutReq := httptest.NewRequest("POST", "/auth/logout", nil)
+	logoutRec := testutil.Call(t, testHandler.Logout, logoutReq).Want(http.StatusOK)
+	cleared := make(map[string]bool)
+	for _, cookie := range logoutRec.Result().Cookies() {
+		if cookie.Value == "" && cookie.MaxAge < 0 {
+			cleared[cookie.Name] = true
+		}
+	}
+	for _, cookie := range loginRec.Result().Cookies() {
+		if !cleared[cookie.Name] {
+			t.Errorf("logout did not clear session cookie %s", cookie.Name)
+		}
+	}
+	testutil.Call(t, protected.ServeHTTP, httptest.NewRequest("GET", "/api/me/memberships", nil)).Want(http.StatusUnauthorized)
+	var role, binding string
+	dbfx.QueryRow(t, `SELECT role, organisation_id::text FROM member WHERE id=$1`, memberID).Scan(&role, &binding)
+	if role != "client" || binding != organisationID {
+		t.Fatalf("login/logout mutated membership: %s %s", role, binding)
+	}
+}
+
+func TestUpdateMember_DemotionSerializesWithStaffInvitationAcceptance(t *testing.T) {
+	fx := setupRevocationFixture(t, "handler-tests-client-concurrent-demotion", "daemon-client-concurrent-demotion")
+	organisationID := clientTestOrganisation(t, fx.WorkspaceID)
+	otherWorkspaceID := dbfx.Insert(t, "workspace", testutil.Cols{
+		"name": "Concurrent demotion destination", "slug": "client-demotion-other-" + uuid.NewString(),
+	})
+	var email string
+	dbfx.QueryRow(t, `SELECT email FROM "user" WHERE id=$1`, fx.TargetUserID).Scan(&email)
+	invitationID := dbfx.Insert(t, "workspace_invitation", testutil.Cols{
+		"workspace_id": otherWorkspaceID, "inviter_id": testUserID, "invitee_email": email,
+		"role": "member", "expires_at": testutil.Raw("now() + interval '1 day'"),
+	})
+	dbfx.Cleanup(t, `DELETE FROM member WHERE workspace_id=$1 AND user_id=$2`, otherWorkspaceID, fx.TargetUserID)
+	demotionReq := newRequest("PATCH", "/api/workspaces/"+fx.WorkspaceID+"/members/"+fx.MemberID, UpdateMemberRequest{
+		Role: "client", OrganisationID: &organisationID,
+	})
+	demotionReq.Header.Set("X-Workspace-ID", fx.WorkspaceID)
+	demotionReq = withURLParams(demotionReq, "id", fx.WorkspaceID, "memberId", fx.MemberID)
+	acceptReq := newRequest("POST", "/api/invitations/"+invitationID+"/accept", nil)
+	acceptReq.Header.Set("X-User-ID", fx.TargetUserID)
+	acceptReq = withURLParam(acceptReq, "id", invitationID)
+	h := *testHandler
+	h.SeatCapacity = nil
+	results := make(chan *httptest.ResponseRecorder, 2)
+	start := make(chan struct{})
+	go func() {
+		<-start
+		rec := httptest.NewRecorder()
+		h.UpdateMember(rec, demotionReq)
+		results <- rec
+	}()
+	go func() {
+		<-start
+		rec := httptest.NewRecorder()
+		h.AcceptInvitation(rec, acceptReq)
+		results <- rec
+	}()
+	close(start)
+	successes := 0
+	for range 2 {
+		rec := <-results
+		if rec.Code == http.StatusOK {
+			successes++
+		} else if rec.Code != http.StatusConflict {
+			t.Errorf("concurrent demotion response = %d: %s", rec.Code, rec.Body.String())
+		}
+	}
+	var role string
+	dbfx.QueryRow(t, `SELECT role FROM member WHERE id=$1`, fx.MemberID).Scan(&role)
+	count := dbfx.Count(t, `SELECT count(*) FROM member WHERE user_id=$1`, fx.TargetUserID)
+	if successes != 1 || (role == "client" && count != 1) || (role != "client" && count != 2) {
+		t.Fatalf("demotion raced past staff join: successes=%d role=%s count=%d", successes, role, count)
+	}
+}

@@ -8,6 +8,8 @@ import (
 	"encoding/pem"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"os/exec"
 	"testing"
 	"time"
 
@@ -42,9 +44,16 @@ func testSigner(t *testing.T) *auth.CloudFrontSigner {
 }
 
 func TestRefreshCloudFrontCookies_UsesAuthTokenTTL(t *testing.T) {
-	// Set a short TTL (1 hour) so we can verify the middleware does NOT use
-	// the old hardcoded 30-day value.
-	t.Setenv("AUTH_TOKEN_TTL", "1h")
+	// TTL is cached process-wide. Isolate the configured value from other
+	// authentication tests that initialize it before this test.
+	if os.Getenv("MULTICA_TEST_CLOUDFRONT_TTL") != "1" {
+		cmd := exec.Command(os.Args[0], "-test.run=^TestRefreshCloudFrontCookies_UsesAuthTokenTTL$")
+		cmd.Env = append(os.Environ(), "MULTICA_TEST_CLOUDFRONT_TTL=1", "AUTH_TOKEN_TTL=1h")
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("isolated TTL regression: %v\n%s", err, out)
+		}
+		return
+	}
 
 	signer := testSigner(t)
 	handler := RefreshCloudFrontCookies(signer)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

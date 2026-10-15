@@ -300,6 +300,17 @@ func (h *Handler) JoinByShareLink(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	pending, pendingErr := h.Queries.GetPendingInvitationByEmail(r.Context(), db.GetPendingInvitationByEmailParams{
+		WorkspaceID: linkPreview.WorkspaceID, InviteeEmail: strings.ToLower(user.Email),
+	})
+	if pendingErr == nil && pending.Role == "client" {
+		writeError(w, http.StatusConflict, "accept your client invitation instead")
+		return
+	}
+	if pendingErr != nil && !errors.Is(pendingErr, pgx.ErrNoRows) {
+		writeError(w, http.StatusInternalServerError, "failed to join workspace")
+		return
+	}
 	var capacityToken uuid.UUID
 	if h.seatCapacityEnabled() {
 		capacityToken, err = h.beginShareJoinCapacity(r.Context(), uuid.UUID(linkPreview.WorkspaceID.Bytes), uuid.UUID(linkPreview.ID.Bytes), uuid.UUID(user.ID.Bytes))
@@ -321,6 +332,13 @@ func (h *Handler) JoinByShareLink(w http.ResponseWriter, r *http.Request) {
 	defer tx.Rollback(r.Context())
 
 	qtx := h.Queries.WithTx(tx)
+	if err := qtx.LockUserForMembership(r.Context(), user.ID); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to join workspace")
+		return
+	}
+	if !checkMembershipAdmission(w, r, qtx, user.ID, linkPreview.Role) {
+		return
+	}
 
 	link, err := qtx.ClaimShareLinkByID(r.Context(), linkPreview.ID)
 	if err != nil {
@@ -354,6 +372,10 @@ func (h *Handler) JoinByShareLink(w http.ResponseWriter, r *http.Request) {
 	})
 	switch {
 	case pendingErr == nil:
+		if pendingInv.Role == "client" {
+			writeError(w, http.StatusConflict, "accept your client invitation instead")
+			return
+		}
 		// AcceptInvitation re-checks status='pending' under the row lock, so
 		// a decline concluded concurrently leaves nothing to settle and the
 		// join still proceeds.
@@ -375,9 +397,10 @@ func (h *Handler) JoinByShareLink(w http.ResponseWriter, r *http.Request) {
 	}
 
 	member, err := qtx.CreateMember(r.Context(), db.CreateMemberParams{
-		WorkspaceID: link.WorkspaceID,
-		UserID:      user.ID,
-		Role:        link.Role,
+		WorkspaceID:    link.WorkspaceID,
+		UserID:         user.ID,
+		Role:           link.Role,
+		OrganisationID: pgtype.UUID{},
 	})
 	if err != nil {
 		if isUniqueViolation(err) {

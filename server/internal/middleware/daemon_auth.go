@@ -78,6 +78,9 @@ func WithDaemonContext(ctx context.Context, workspaceID, daemonID string) contex
 // Cache misses fall back to the original DB-backed behavior.
 func DaemonAuth(queries *db.Queries, patCache *auth.PATCache, daemonCache *auth.DaemonTokenCache, cloudPAT *auth.CloudPATVerifier) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
+		if queries != nil {
+			next = clientGate(queries, next)
+		}
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// X-Actor-Source is server-set only — strip any
 			// client-supplied value before any branch can re-stamp
@@ -96,6 +99,9 @@ func DaemonAuth(queries *db.Queries, patCache *auth.PATCache, daemonCache *auth.
 			// never these headers (MUL-3428, #4313).
 			r.Header.Del("X-Agent-ID")
 			r.Header.Del("X-Task-ID")
+			// Runtime-bound daemon tokens do not resolve a user. Never let a
+			// caller supply the principal consumed by the client gate.
+			r.Header.Del("X-User-ID")
 
 			authHeader := r.Header.Get("Authorization")
 			if authHeader == "" {

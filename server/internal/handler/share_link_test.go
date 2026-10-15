@@ -885,3 +885,70 @@ func TestCreateShareLink_ConcurrentCreatesSingleActive(t *testing.T) {
 		t.Fatalf("concurrent creates: expected exactly 1 active link, got %d", active)
 	}
 }
+
+func TestJoinByShareLink_PendingClientInvitationSettlesNothing(t *testing.T) {
+	userID := createTestUserAndMember(t, "")
+	var email string
+	dbfx.QueryRow(t, `SELECT email FROM "user" WHERE id=$1`, userID).Scan(&email)
+	organisationID := clientTestOrganisation(t, testWorkspaceID)
+	invitationID := dbfx.Insert(t, "workspace_invitation", testutil.Cols{
+		"workspace_id": testWorkspaceID, "inviter_id": testUserID,
+		"invitee_email": email, "invitee_user_id": userID,
+		"role": "client", "organisation_id": organisationID,
+		"expires_at": testutil.Raw("now() + interval '1 day'"),
+	})
+	link := createTestShareLink(t, testWorkspaceID, "member", 1, 24)
+	capacity := &shareJoinCapacityStub{}
+	useSeatCapacity(t, capacity)
+	req := newRequest("POST", "/api/share-links/join", JoinByShareLinkRequest{Code: link.Code})
+	req.Header.Set("X-User-ID", userID)
+	rec := testutil.Call(t, testHandler.JoinByShareLink, req).Want(http.StatusConflict)
+	var response struct {
+		Error string `json:"error"`
+	}
+	rec.JSON(&response)
+	if response.Error != "accept your client invitation instead" {
+		t.Fatalf("unexpected conflict: %+v", response)
+	}
+	var status, role string
+	var useCount int
+	var onboarded bool
+	dbfx.QueryRow(t, `SELECT status, role FROM workspace_invitation WHERE id=$1`, invitationID).Scan(&status, &role)
+	dbfx.QueryRow(t, `SELECT use_count FROM workspace_share_link WHERE id=$1`, link.ID).Scan(&useCount)
+	dbfx.QueryRow(t, `SELECT onboarded_at IS NOT NULL FROM "user" WHERE id=$1`, userID).Scan(&onboarded)
+	if status != "pending" || role != "client" || useCount != 0 || onboarded {
+		t.Fatalf("refused join settled state: status=%s role=%s uses=%d onboarded=%v", status, role, useCount, onboarded)
+	}
+	if dbfx.Count(t, `SELECT count(*) FROM member WHERE user_id=$1`, userID) != 0 || len(capacity.tokens()) != 0 {
+		t.Fatal("refused join created member or claimed capacity")
+	}
+}
+
+func TestJoinByShareLink_ClientCannotGainAnotherMembership(t *testing.T) {
+	organisationID := clientTestOrganisation(t, testWorkspaceID)
+	userID, _ := clientTestMember(t, testWorkspaceID, "client", organisationID)
+	otherWorkspaceID := dbfx.Insert(t, "workspace", testutil.Cols{
+		"name": "Share link other workspace", "slug": "client-share-other-" + uuid.NewString(),
+	})
+	link := createTestShareLink(t, otherWorkspaceID, "member", 1, 24)
+	req := newRequest("POST", "/api/share-links/join", JoinByShareLinkRequest{Code: link.Code})
+	req.Header.Set("X-User-ID", userID)
+	testutil.Call(t, testHandler.JoinByShareLink, req).Want(http.StatusConflict)
+	if dbfx.Count(t, `SELECT count(*) FROM member WHERE user_id=$1`, userID) != 1 {
+		t.Fatal("client gained another membership")
+	}
+	var useCount int
+	dbfx.QueryRow(t, `SELECT use_count FROM workspace_share_link WHERE id=$1`, link.ID).Scan(&useCount)
+	if useCount != 0 {
+		t.Fatalf("refused client consumed share link: %d", useCount)
+	}
+}
+
+func TestCreateShareLink_RefusesClientRole(t *testing.T) {
+	req := newRequest("POST", "/api/workspaces/"+testWorkspaceID+"/share-links", CreateShareLinkRequest{Role: "client"})
+	req = withURLParam(req, "id", testWorkspaceID)
+	testutil.Call(t, testHandler.CreateShareLink, req).Want(http.StatusBadRequest)
+	if n := dbfx.Count(t, `SELECT count(*) FROM workspace_share_link WHERE workspace_id=$1 AND role='client'`, testWorkspaceID); n != 0 {
+		t.Fatalf("client share link persisted: %d", n)
+	}
+}
