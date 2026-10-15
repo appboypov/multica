@@ -6,6 +6,7 @@ import (
 
 	"github.com/multica-ai/multica/server/internal/events"
 	"github.com/multica-ai/multica/server/internal/handler"
+	"github.com/multica-ai/multica/server/internal/testutil"
 	"github.com/multica-ai/multica/server/internal/util"
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
 	"github.com/multica-ai/multica/server/pkg/protocol"
@@ -114,6 +115,45 @@ func TestSubscriberIssueCreated_CreatorSubscribed(t *testing.T) {
 	}
 	if count := subscriberCount(t, queries, issueID); count != 1 {
 		t.Fatalf("expected 1 subscriber, got %d", count)
+	}
+}
+
+func TestSubscriberAgentFiledIssueUsesMemberCreator(t *testing.T) {
+	queries := db.New(testPool)
+	bus := events.New()
+	registerSubscriberListeners(bus, testPool)
+	registerActivityListeners(bus, queries)
+	agentID, runtimeID := firstFixtureAgent(t)
+	task := createAgentTaskWithOriginator(t, agentID, runtimeID, util.MustParseUUID(testUserID))
+	for _, origin := range []string{"agent_create", "quick_create"} {
+		t.Run(origin, func(t *testing.T) {
+			issueID := workspaceFixture(t).Issue(t, "Agent filed for member", testutil.Cols{
+				"origin_type": origin, "origin_id": task,
+			})
+			bus.Publish(events.Event{
+				Type: protocol.EventIssueCreated, WorkspaceID: testWorkspaceID,
+				ActorType: "agent", ActorID: agentID,
+				Payload: map[string]any{"issue": handler.IssueResponse{
+					ID: issueID, WorkspaceID: testWorkspaceID, Title: "Agent filed for member",
+					Status: "todo", Priority: "none", CreatorType: "member", CreatorID: testUserID,
+				}},
+			})
+			if got := subscriberReason(t, queries, issueID, "member", testUserID); got != "creator" {
+				t.Fatalf("member subscription reason = %q, want creator", got)
+			}
+			if isSubscribed(t, queries, issueID, "agent", agentID) {
+				t.Fatal("filing agent was subscribed as creator")
+			}
+			var actorType, actorID string
+			if err := testPool.QueryRow(context.Background(),
+				`SELECT actor_type, actor_id FROM activity_log WHERE issue_id=$1 AND action='created'`, issueID,
+			).Scan(&actorType, &actorID); err != nil {
+				t.Fatal(err)
+			}
+			if actorType != "agent" || actorID != agentID {
+				t.Fatalf("creation activity actor = %s/%s, want agent/%s", actorType, actorID, agentID)
+			}
+		})
 	}
 }
 

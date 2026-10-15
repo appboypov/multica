@@ -14,18 +14,12 @@ import (
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
 )
 
-// Subscribing the quick-create requester moved OFF the completion path in
-// MUL-5483. It now happens at issue-creation time in the shared
-// delegated-subscriber rule, which resolves the human from
-// origin_type='quick_create' + the origin task's originator_user_id — the same
-// origin waterfall attribution uses. That behavior is covered by
-// TestDelegatedSubscribe_QuickCreateKeepsDirectReason in
-// delegated_subscriber_test.go, including the assertion that quick create keeps
-// the direct 'creator' tier rather than the reduced delegated one.
+// The quick-create requester follows the issue through its member creator
+// subscription at issue-creation time. TestSubscriberAgentFiledIssueUsesMemberCreator
+// covers that path independently of the agent that filed it.
 //
 // The failure-path test below stays here: "no issue created ⇒ no subscriber
-// row" is a property of the quick-create completion flow itself and holds
-// regardless of which layer writes the subscription.
+// row" is a property of the quick-create completion flow itself.
 
 // TestQuickCreateFailure_DoesNotSubscribeRequester confirms the failure path
 // (agent finished without producing an issue) does not invent a subscriber
