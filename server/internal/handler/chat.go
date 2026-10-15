@@ -777,6 +777,13 @@ func (h *Handler) DeleteChatSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	questionIDs, err := h.QuestionService.DropLinksOfChat(r.Context(), qtx, session.WorkspaceID, session.ID)
+	if err != nil {
+		slog.Error("chat delete: failed to drop question links", "session_id", sessionID, "error", err)
+		writeError(w, http.StatusInternalServerError, "failed to drop chat question links")
+		return
+	}
+
 	if err := qtx.DeleteChatSession(r.Context(), db.DeleteChatSessionParams{
 		ID:          session.ID,
 		WorkspaceID: session.WorkspaceID,
@@ -806,6 +813,7 @@ func (h *Handler) DeleteChatSession(w http.ResponseWriter, r *http.Request) {
 	// cancelled and returned before the delete, so they still carry its id, but
 	// the row they would be resolved through is gone by now.
 	h.TaskService.BroadcastCancelledTasks(r.Context(), workspaceID, cancelled)
+	h.QuestionService.PublishLinkChanges(r.Context(), session.WorkspaceID, questionIDs)
 
 	resolvedSessionID := uuidToString(session.ID)
 	h.publishChat(protocol.EventChatSessionDeleted, workspaceID, "member", userID, resolvedSessionID, protocol.ChatSessionDeletedPayload{
