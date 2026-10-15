@@ -37,7 +37,7 @@ export function ReassignPicker({
   const wsId = useWorkspaceId();
   const userId = useAuthStore((s) => s.user?.id);
   const { data: members = [] } = useQuery(memberListOptions(wsId));
-  const reassign = useReassignQuestion(wsId, issueId);
+  const reassign = useReassignQuestion(wsId, { issueId });
   const [open, setOpen] = useState(false);
   const [filter, setFilter] = useState("");
   const [picked, setPicked] = useState<{ user_id: string; name: string } | null>(null);

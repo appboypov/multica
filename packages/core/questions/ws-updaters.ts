@@ -1,13 +1,20 @@
-import type { QueryClient, QueryFilters } from "@tanstack/react-query";
+import type { QueryClient, QueryFilters, QueryKey } from "@tanstack/react-query";
 import type { Issue } from "../types/issue";
-import type { Question } from "../types/question";
+import type { Question, QuestionLinkType } from "../types/question";
 import { issueKeys } from "../issues/queries";
 import { questionKeys } from "./queries";
+import type { QuestionScope } from "./scope";
 
-/** Refreshes the questions an issue shows; `issueId` null refreshes only the question `questionId`. */
-export async function invalidateIssueQuestions(qc: QueryClient, wsId: string, issueId: string | null, questionId?: string) {
+/** Refetches a list of linked questions and the cached questions linked to the same object. */
+async function refetchLinkedQuestions(
+  qc: QueryClient,
+  wsId: string,
+  listKey: QueryKey,
+  link: { type: QuestionLinkType; id: string },
+  questionId?: string,
+) {
   const filters: QueryFilters[] = [
-    ...(issueId ? [{ queryKey: questionKeys.byIssue(wsId, issueId) }] : []),
+    { queryKey: listKey },
     {
       queryKey: questionKeys.details(wsId),
       predicate: (query) => {
@@ -15,7 +22,7 @@ export async function invalidateIssueQuestions(qc: QueryClient, wsId: string, is
         const question = query.state.data as Question | undefined;
         // An unresolved detail has no link information yet; refetching avoids
         // keeping an in-flight snapshot from before this event indefinitely.
-        return !question || (!!issueId && question.links.some((link) => link.link_type === "issue" && link.link_id === issueId));
+        return !question || question.links.some((entry) => entry.link_type === link.type && entry.link_id === link.id);
       },
     },
   ];
@@ -23,6 +30,21 @@ export async function invalidateIssueQuestions(qc: QueryClient, wsId: string, is
   // pre-event request. Cancel first, as inbox refreshes do, then fetch anew.
   await Promise.all(filters.map((filter) => qc.cancelQueries(filter)));
   await Promise.all(filters.map((filter) => qc.invalidateQueries(filter)));
+}
+
+export function invalidateIssueQuestions(qc: QueryClient, wsId: string, issueId: string, questionId?: string) {
+  return refetchLinkedQuestions(qc, wsId, questionKeys.byIssue(wsId, issueId), { type: "issue", id: issueId }, questionId);
+}
+
+export function invalidateChatQuestions(qc: QueryClient, wsId: string, chatSessionId: string, questionId?: string) {
+  return refetchLinkedQuestions(qc, wsId, questionKeys.byChat(wsId, chatSessionId), { type: "chat", id: chatSessionId }, questionId);
+}
+
+/** The questions of the issue or chat a card shows in. */
+export function invalidateScopeQuestions(qc: QueryClient, wsId: string, scope: QuestionScope, questionId?: string) {
+  return "issueId" in scope
+    ? invalidateIssueQuestions(qc, wsId, scope.issueId, questionId)
+    : invalidateChatQuestions(qc, wsId, scope.chatSessionId, questionId);
 }
 
 /** The Questions page's rows and the sidebar count: refetched, never patched. */
@@ -40,14 +62,19 @@ export function handleQuestionEvent(qc: QueryClient, wsId: string, type: string,
   // Events are workspace-wide; every question event may move the viewer's rows.
   const rows = type.startsWith("question:") ? invalidateQuestionRows(qc, wsId) : undefined;
   const fields = payload as Record<string, unknown>;
-  if (typeof fields.issue_id !== "string" || !fields.issue_id) return rows;
+  const questionId = typeof fields.question_id === "string" ? fields.question_id : undefined;
+  // A question asked in a chat shows in that chat, also when it is on an
+  // issue; a chat turn's task events move whether its agent is offered Wake.
+  const chat = typeof fields.chat_session_id === "string" && fields.chat_session_id
+    ? invalidateChatQuestions(qc, wsId, fields.chat_session_id, questionId)
+    : undefined;
+  if (typeof fields.issue_id !== "string" || !fields.issue_id) return Promise.all([rows, chat]);
   // `issue_ids` names every issue whose page shows the card; `issue_id` is its first.
   const issueIds = new Set([fields.issue_id]);
   if (Array.isArray(fields.issue_ids)) {
     for (const id of fields.issue_ids) if (typeof id === "string" && id) issueIds.add(id);
   }
-  const questionId = typeof fields.question_id === "string" ? fields.question_id : undefined;
-  return Promise.all([rows, ...[...issueIds].flatMap((issueId) => [
+  return Promise.all([rows, chat, ...[...issueIds].flatMap((issueId) => [
     invalidateIssueQuestions(qc, wsId, issueId, questionId),
     // Wake writes activity without publishing activity:created. Question
     // updates and issue task events are the live signal for other viewers.

@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { useWorkspaceId } from "@multica/core/hooks";
 import { issueDetailOptions } from "@multica/core/issues/queries";
 import { createLogger } from "@multica/core/logger";
-import { useWakeQuestionAgent, wakeOffers, type WakeOffer } from "@multica/core/questions";
+import { useWakeQuestionAgent, wakeOfferKey, wakeOffers, wakeTargetScope, type WakeOffer } from "@multica/core/questions";
 import type { Question } from "@multica/core/types";
 import { useActorName } from "@multica/core/workspace/hooks";
 import { Button } from "@multica/ui/components/ui/button";
@@ -40,7 +40,7 @@ export function WakeBars({ issueId, identifier, questions }: WakeBarsProps) {
     <>
       {offers.map((offer) => (
         <WakeBar
-          key={`${offer.target.agent_id}:${offer.target.issue_id}`}
+          key={wakeOfferKey(offer.target)}
           offer={offer}
           issueId={issueId}
           identifier={identifier}
@@ -68,9 +68,10 @@ function WakeBar({
   const { t } = useT("questions");
   const wsId = useWorkspaceId();
   const { getActorName } = useActorName();
-  const wake = useWakeQuestionAgent(wsId, issueId);
+  const wake = useWakeQuestionAgent(wsId, { issueId });
   // A target on another issue (an assignee above, a project lead) names that issue.
-  const otherIssue = useQuery({ ...issueDetailOptions(wsId, target.issue_id), enabled: target.issue_id !== issueId });
+  const otherIssueId = target.issue_id !== null && target.issue_id !== issueId ? target.issue_id : "";
+  const otherIssue = useQuery({ ...issueDetailOptions(wsId, otherIssueId), enabled: !!otherIssueId });
   const targetIdentifier = target.issue_id === issueId ? identifier : (otherIssue.data?.identifier ?? "");
   const name = getActorName("agent", target.agent_id);
 
@@ -87,11 +88,11 @@ function WakeBar({
         disabled={wake.isPending}
         onClick={() =>
           wake.mutate(
-            { id: question.id, target: { agentId: target.agent_id, issueId: target.issue_id } },
+            { id: question.id, target: { agentId: target.agent_id, scope: wakeTargetScope(target) } },
             {
               onSuccess: onWoken,
               onError: (error) => {
-                logger.error("wake failed", { questionId: question.id, agentId: target.agent_id, issueId: target.issue_id, error });
+                logger.error("wake failed", { questionId: question.id, agentId: target.agent_id, scope: wakeTargetScope(target), error });
                 toast.error(t(($) => $.card.wake_failed, { name }), { description: error.message });
               },
             },

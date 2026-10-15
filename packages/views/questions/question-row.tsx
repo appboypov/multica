@@ -43,7 +43,11 @@ export function QuestionListRow({ row, onOpen }: QuestionListRowProps) {
   const timeAgo = useTimeAgo();
   const userId = useAuthStore((s) => s.user?.id);
   const wsId = useWorkspaceId();
-  const answer = useAnswerQuestion(wsId, row.open_issue.id, row.id);
+  const answer = useAnswerQuestion(
+    wsId,
+    row.open_issue ? { issueId: row.open_issue.id } : { chatSessionId: row.link.id },
+    row.id,
+  );
   const [noteOpen, setNoteOpen] = useState(false);
   const [note, setNote] = useState("");
 

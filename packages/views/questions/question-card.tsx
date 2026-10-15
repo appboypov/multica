@@ -447,8 +447,8 @@ function AnswerForm({
 }) {
   const { t } = useT("questions");
   const wsId = useWorkspaceId();
-  const answer = useAnswerQuestion(wsId, issueId, question.id);
-  const askBack = useAskBackQuestion(wsId, issueId, question.id);
+  const answer = useAnswerQuestion(wsId, { issueId }, question.id);
+  const askBack = useAskBackQuestion(wsId, { issueId }, question.id);
   // Read from the query client, not this card's own mutation: a card mounted
   // again while its send or an ask back is on its way still shows it pending.
   const queryClient = useQueryClient();

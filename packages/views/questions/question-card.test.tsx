@@ -56,8 +56,8 @@ vi.mock("@multica/core/questions", async (importOriginal) => {
   return {
     ...actual,
     // The real hook against the mocked API, so what a success does runs as in the app; the spy records each send.
-    useAnswerQuestion: (wsId: string, issueId: string, questionId: string) => {
-      const mutation = actual.useAnswerQuestion(wsId, issueId, questionId);
+    useAnswerQuestion: (wsId: string, scope: CoreQuestions.QuestionScope, questionId: string) => {
+      const mutation = actual.useAnswerQuestion(wsId, scope, questionId);
       const mutate: typeof mutation.mutate = (variables, options) => {
         answerMutate(variables, options);
         mutation.mutate(variables, options);
@@ -634,11 +634,11 @@ describe("QuestionCard", () => {
     renderCard(answered({
       wake_available: true,
       unseen_answer_count: 1,
-      wake_targets: [{ agent_id: "agent-pieter", issue_id: "issue-412", unseen_answer_count: 1, wake_available: true }],
+      wake_targets: [{ agent_id: "agent-pieter", issue_id: "issue-412", chat_session_id: null, unseen_answer_count: 1, wake_available: true }],
     }));
     fireEvent.click(screen.getByRole("button", { name: "Wake Pieter" }));
     expect(wakeMutate).toHaveBeenCalledWith(
-      { id: "q-1", target: { agentId: "agent-pieter", issueId: "issue-412" } },
+      { id: "q-1", target: { agentId: "agent-pieter", scope: { issueId: "issue-412" } } },
       expect.anything(),
     );
   });

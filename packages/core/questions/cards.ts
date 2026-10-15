@@ -76,22 +76,29 @@ export function groupQuestionCards(questions: readonly Question[]): QuestionCard
   });
 }
 
-/** An agent offered Wake on an issue, with a question that offers it. */
+/** An agent offered Wake on an issue or in a chat, with a question that offers it. */
 export interface WakeOffer {
   question: Question;
   target: QuestionWakeTarget;
 }
 
+/** One key per (agent, issue or chat) wake target. */
+export function wakeOfferKey(target: QuestionWakeTarget): string {
+  return target.chat_session_id !== null
+    ? `${target.agent_id}:chat:${target.chat_session_id}`
+    : `${target.agent_id}:issue:${target.issue_id}`;
+}
+
 /**
- * Each (agent, issue) wake target of the questions that can be woken now, once,
- * in question order and the asking agent first within a question (design.md
- * decision 6 of UJ-4): one Wake bar or button each.
+ * Each (agent, issue or chat) wake target of the questions that can be woken
+ * now, once, in question order and the asking agent first within a question
+ * (design.md decision 6 of UJ-4): one Wake bar or button each.
  */
 export function wakeOffers(questions: readonly Question[]): WakeOffer[] {
   const offers = new Map<string, WakeOffer>();
   for (const question of questions) {
     for (const target of question.wake_targets) {
-      const key = `${target.agent_id}:${target.issue_id}`;
+      const key = wakeOfferKey(target);
       if (target.wake_available && !offers.has(key)) offers.set(key, { question, target });
     }
   }

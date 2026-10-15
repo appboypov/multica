@@ -1,14 +1,17 @@
 export {
-  questionKeys, issueQuestionsOptions, questionDetailOptions, useIssueQuestions, useQuestion, type QuestionParent,
+  questionKeys, issueQuestionsOptions, chatQuestionsOptions, questionDetailOptions, useIssueQuestions, useQuestion,
+  type QuestionParent,
 } from "./queries";
 export {
   EMPTY_QUESTION_ROW_FILTERS, questionRowsOptions, questionsOpenCountOptions, useQuestionRows, useQuestionsOpenCount,
   questionParentRowsOptions, questionParentCountOptions,
 } from "./list-queries";
 export {
-  questionMutationKeys, useAnswerQuestion, useAskBackQuestion, useReassignQuestion, useWakeQuestionAgent,
+  questionMutationKeys, useAnswerQuestion, useAskBackQuestion, useCancelQuestion, useReassignQuestion,
+  useWakeQuestionAgent,
 } from "./mutations";
 export { questionAsker, type QuestionAsker } from "./asker";
+export { wakeTargetScope, type QuestionScope } from "./scope";
 export {
   dueBucket, groupQuestionRows, sessionOrder, type QuestionDueBucket, type QuestionGrouping, type QuestionRowGroup,
 } from "./rows";
@@ -21,7 +24,7 @@ export {
 } from "./draft-store";
 export { agentQuestionsKeys, agentQuestionsOptions, useUpdateAgentQuestionsDefault } from "./agent-questions";
 export {
-  countOpen, groupQuestionCards, isLastOpenFor, isOpen, isOpenFor, setProgress, wakeOffers, type QuestionCardGroup,
+  countOpen, groupQuestionCards, isLastOpenFor, isOpen, isOpenFor, setProgress, wakeOfferKey, wakeOffers, type QuestionCardGroup,
   type WakeOffer,
 } from "./cards";
 export { viaLabel, type ViaLabelKey, type ViaTranslate } from "./via";

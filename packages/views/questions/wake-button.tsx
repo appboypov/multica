@@ -4,7 +4,7 @@ import { AlarmClock } from "lucide-react";
 import { toast } from "sonner";
 import { useWorkspaceId } from "@multica/core/hooks";
 import { createLogger } from "@multica/core/logger";
-import { useWakeQuestionAgent, wakeOffers, type WakeOffer } from "@multica/core/questions";
+import { useWakeQuestionAgent, wakeOfferKey, wakeOffers, wakeTargetScope, type WakeOffer } from "@multica/core/questions";
 import type { Question } from "@multica/core/types";
 import { useActorName } from "@multica/core/workspace/hooks";
 import { Button } from "@multica/ui/components/ui/button";
@@ -20,18 +20,18 @@ export function WakeButtons({ questions, issueId }: { questions: readonly Questi
   return (
     <>
       {wakeOffers(questions).map((offer) => (
-        <WakeButton key={`${offer.target.agent_id}:${offer.target.issue_id}`} offer={offer} issueId={issueId} />
+        <WakeButton key={wakeOfferKey(offer.target)} offer={offer} issueId={issueId} />
       ))}
     </>
   );
 }
 
-/** **Wake <agent>**: the one way an answer turns into a run (ADR-0003), on the target's issue. */
-function WakeButton({ offer: { question, target }, issueId }: { offer: WakeOffer; issueId: string | null }) {
+/** **Wake <agent>**: the one way an answer turns into a run (ADR-0003), in the target's issue or chat. */
+function WakeButton({ offer: { question, target }, issueId }: { offer: WakeOffer; issueId: string }) {
   const { t } = useT("questions");
   const wsId = useWorkspaceId();
   const { getActorName } = useActorName();
-  const wake = useWakeQuestionAgent(wsId, issueId);
+  const wake = useWakeQuestionAgent(wsId, { issueId });
   const name = getActorName("agent", target.agent_id);
 
   return (
@@ -42,7 +42,7 @@ function WakeButton({ offer: { question, target }, issueId }: { offer: WakeOffer
       disabled={wake.isPending}
       onClick={() =>
         wake.mutate(
-          { id: question.id, target: { agentId: target.agent_id, issueId: target.issue_id } },
+          { id: question.id, target: { agentId: target.agent_id, scope: wakeTargetScope(target) } },
           {
             onError: (error) => {
               logger.error("wake failed", { questionId: question.id, agentId: target.agent_id, error });

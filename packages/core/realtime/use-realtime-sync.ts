@@ -1158,11 +1158,13 @@ export function useRealtimeSync(
       if (msg.type === "question:created" || msg.type === "question:updated" || msg.type.startsWith("task:")) {
         const wsId = getCurrentWsId();
         const payload = msg.payload;
-        if (wsId && payload && typeof payload === "object" && "issue_id" in payload
-          && typeof payload.issue_id === "string" && payload.issue_id) {
-          // Coalesce streamed task frames per issue, without suppressing the
-          // lifecycle event that changes the asking agent's unseen answers.
-          debouncedRefresh(`questions:${wsId}:${payload.issue_id}`, () => {
+        const fields = payload && typeof payload === "object" ? payload as Record<string, unknown> : undefined;
+        const issueId = typeof fields?.issue_id === "string" ? fields.issue_id : "";
+        const chatSessionId = typeof fields?.chat_session_id === "string" ? fields.chat_session_id : "";
+        if (wsId && (issueId || chatSessionId)) {
+          // Coalesce streamed task frames per issue or chat, without suppressing
+          // the lifecycle event that changes the asking agent's unseen answers.
+          debouncedRefresh(`questions:${wsId}:${issueId}:${chatSessionId}`, () => {
             if (getCurrentWsId() === wsId) handleQuestionEvent(qc, wsId, msg.type, payload);
           });
         }

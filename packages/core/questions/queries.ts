@@ -8,6 +8,8 @@ export type QuestionParent = NonNullable<QuestionRowFilters["parent"]>;
 export const questionKeys = {
   all: (wsId: string) => ["questions", wsId] as const,
   byIssue: (wsId: string, issueId: string) => [...questionKeys.all(wsId), "issue", issueId] as const,
+  /** The questions asked in a chat, as its messages show them. */
+  byChat: (wsId: string, chatSessionId: string) => [...questionKeys.all(wsId), "chat", chatSessionId] as const,
   details: (wsId: string) => [...questionKeys.all(wsId), "detail"] as const,
   detail: (wsId: string, id: string) => [...questionKeys.details(wsId), id] as const,
   /** Every row list of the Questions page, for invalidation. */
@@ -28,6 +30,14 @@ export function issueQuestionsOptions(wsId: string, issueId: string) {
     queryKey: questionKeys.byIssue(wsId, issueId),
     queryFn: () => api.listIssueQuestions(issueId),
     enabled: !!wsId && !!issueId,
+  });
+}
+
+export function chatQuestionsOptions(wsId: string, chatSessionId: string) {
+  return queryOptions({
+    queryKey: questionKeys.byChat(wsId, chatSessionId),
+    queryFn: () => api.listChatQuestions(chatSessionId),
+    enabled: !!wsId && !!chatSessionId,
   });
 }
 

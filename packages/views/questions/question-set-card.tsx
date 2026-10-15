@@ -124,8 +124,8 @@ function TabbedQuestionSet({ questions, issueId, runNumber, activeQuestionId }: 
   const [wakeAfter, setWakeAfter] = useState(true);
 
   const current = questions[Math.min(active, questions.length - 1)]!;
-  const answer = useAnswerQuestion(wsId, issueId, current.id);
-  const askBack = useAskBackQuestion(wsId, issueId, current.id);
+  const answer = useAnswerQuestion(wsId, { issueId }, current.id);
+  const askBack = useAskBackQuestion(wsId, { issueId }, current.id);
   // Read from the query client, not the hook's observer: switching tabs rebinds the hooks to another question.
   const pending = useIsMutating({ mutationKey: questionMutationKeys.answer(wsId, current.id) }) > 0;
   const askingBack = useIsMutating({ mutationKey: questionMutationKeys.askBack(wsId, current.id) }) > 0;
