@@ -262,21 +262,21 @@ WHERE a.workspace_id = @workspace_id
   )
 ORDER BY a.updated_at ASC, a.id ASC;
 
--- name: ListUnseenQuestionAskBacks :many
--- Ask-backs are no answers: they count toward nothing and ride along in the
--- next woken run, against the same anchor.
-SELECT e.id, e.question_id, e.actor_id, e.details, e.created_at,
+-- name: ListUnseenQuestionEvents :many
+-- Ask-backs and cancels ride along in the next run against the same scope
+-- anchor as answers, keeping their kind for the per-turn prompt.
+SELECT e.id, e.question_id, e.kind, e.actor_id, e.details, e.created_at,
        q.prompt, q.asker_agent_id, asker.name AS asker_name, u.name AS actor_name
 FROM question_event e
 JOIN question q ON q.id = e.question_id AND q.workspace_id = e.workspace_id
 JOIN agent asker ON asker.id = q.asker_agent_id AND asker.workspace_id = q.workspace_id
 JOIN "user" u ON u.id = e.actor_id
 WHERE e.workspace_id = @workspace_id
-  AND e.kind = 'ask_back'
+  AND e.kind IN ('ask_back', 'cancelled')
   AND q.id = ANY(@question_ids::uuid[])
-  AND q.status IN ('open', 'partly_answered', 'answered')
+  AND q.status IN ('open', 'partly_answered', 'answered', 'cancelled')
   AND e.created_at > (SELECT question_wake_answer_cutoff(
-      @workspace_id::uuid, @issue_id::uuid, NULL::uuid, @agent_id::uuid,
+      @workspace_id::uuid, sqlc.narg('issue_id')::uuid, sqlc.narg('chat_session_id')::uuid, @agent_id::uuid,
       sqlc.narg('exclude_task_id')::uuid, sqlc.narg('answer_anchor')::timestamptz))
   AND NOT EXISTS (
       SELECT 1 FROM task_supplement s
