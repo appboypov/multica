@@ -71,8 +71,8 @@ sequenceDiagram
 | Migration | `todo` table | new | `server/migrations/740_todo.up.sql` |
 | Migration | open-row unique index, `CONCURRENTLY` | new | `server/migrations/741_todo_open_index.up.sql` |
 | Migration | open list index, `CONCURRENTLY` | new | `server/migrations/742_todo_list_index.up.sql` |
-| Migration | open to-dos from today's data, archive moved notices | new | `server/migrations/743_todo_backfill.up.sql` |
-| Migration | creator of agent-made issues | new | `server/migrations/744_issue_creator_backfill.up.sql` |
+| Migration | creator of agent-made issues | new | `server/migrations/743_issue_creator_backfill.up.sql` |
+| Migration | open to-dos from today's data, archive moved notices | new | `server/migrations/744_todo_backfill.up.sql` |
 | Queries | open, close, list, summary, mark done | new | `server/pkg/db/queries/todo.sql` |
 | Package | `Open`, `Close`, kinds, events | new | `server/internal/todo/` |
 | Listeners | question, comment, issue, task, autopilot events | new | `server/cmd/server/todo_listeners.go` |
@@ -122,7 +122,7 @@ These `inbox_item` types are no longer made: `question_asked`, `question_reassig
 
 ### Creator of agent-made issues
 
-`CreateIssue` already resolves the run behind an agent's create: `X-Task-ID` for `agent_create`, `origin_id` for `quick_create`. When that run has an `originator_user_id`, the issue's creator is that member; `ActorID` and the origin stay the agent and its run. Production has 91 such issues, all with an originator who is a workspace member. Migration 744 sets the same for them.
+`CreateIssue` already resolves the run behind an agent's create: `X-Task-ID` for `agent_create`, `origin_id` for `quick_create`. When that run has an `originator_user_id`, the issue's creator is that member; `ActorID` and the origin stay the agent and its run. Production has 91 such issues, all with an originator who is a workspace member. Migration 743 sets the same for them, before migration 744 opens the review to-dos of their creators.
 
 `attribution.DelegatedSubscriber` acts only on agent creators, so the member now follows these issues through the ordinary creator subscription.
 
