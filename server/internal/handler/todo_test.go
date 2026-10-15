@@ -103,6 +103,23 @@ func TestTodoReviewHiddenInListAndSummaryUntilQuestionDone(t *testing.T) {
 	issueID := dbfx.Issue(t, "Review", testutil.Cols{"workspace_id": workspaceID, "status": "in_review"})
 	reviewID := insertHandlerTodo(t, workspaceID, "review", testutil.Cols{"issue_id": issueID})
 	questionID := insertHandlerTodo(t, workspaceID, "question", testutil.Cols{"issue_id": issueID})
+	bus := events.New()
+	h := &Handler{Queries: testHandler.Queries, Bus: bus}
+	var transitions []string
+	bus.Subscribe(protocol.EventTodoClosed, func(e events.Event) {
+		payload := e.Payload.(map[string]any)
+		if payload["todo_id"] != questionID || payload["done_by"] != "member" {
+			t.Fatalf("wrong completed question: %+v", payload)
+		}
+		transitions = append(transitions, "closed:question")
+	})
+	bus.Subscribe(protocol.EventTodoOpened, func(e events.Event) {
+		row := e.Payload.(map[string]any)["todo"].(map[string]any)
+		if row["id"] != reviewID || row["done_at"] != nil || row["kind"] != "review" {
+			t.Fatalf("wrong revealed review: %+v", row)
+		}
+		transitions = append(transitions, "opened:review")
+	})
 	for _, want := range []string{questionID, reviewID} {
 		var rows []map[string]any
 		testutil.Call(t, inboxWorkspaceHandler(testHandler.ListTodos), inboxRequest(http.MethodGet, "/api/todos", workspaceID)).Want(http.StatusOK).JSON(&rows)
@@ -118,7 +135,11 @@ func TestTodoReviewHiddenInListAndSummaryUntilQuestionDone(t *testing.T) {
 			t.Fatalf("summary must match visible list: %+v", summary)
 		}
 		if want == questionID {
-			testutil.Call(t, inboxWorkspaceHandler(testHandler.MarkTodoDone), todoDoneRequest(questionID, workspaceID)).Want(http.StatusOK)
+			mark := middleware.RequireWorkspaceMember(h.Queries)(http.HandlerFunc(h.MarkTodoDone)).ServeHTTP
+			testutil.Call(t, mark, todoDoneRequest(questionID, workspaceID)).Want(http.StatusOK)
+			if !reflect.DeepEqual(transitions, []string{"closed:question", "opened:review"}) {
+				t.Fatalf("completion events = %v", transitions)
+			}
 		}
 	}
 }

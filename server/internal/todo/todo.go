@@ -54,15 +54,7 @@ func (s Service) Open(ctx context.Context, p db.OpenTodoParams) error {
 
 // PublishOpened runs after a caller's transaction commits.
 func (s Service) PublishOpened(ctx context.Context, row db.Todo) error {
-	projected, err := s.Queries.GetTodoForMember(ctx, db.GetTodoForMemberParams{ID: row.ID, WorkspaceID: row.WorkspaceID, MemberID: row.MemberID})
-	if err != nil {
-		return fmt.Errorf("project opened todo: %w", err)
-	}
-	if s.Bus != nil {
-		s.Bus.Publish(events.Event{Type: protocol.EventTodoOpened, WorkspaceID: util.UUIDToString(row.WorkspaceID), Payload: map[string]any{"member_id": util.UUIDToString(row.MemberID), "todo": Response(projected)}})
-	}
-	slog.Debug("todo opened", "todo_id", util.UUIDToString(row.ID), "kind", row.Kind)
-	return nil
+	return s.publishChanges(ctx, []pgtype.UUID{row.ID}, true)
 }
 
 func (s Service) Close(ctx context.Context, p db.CloseTodosParams) error {
@@ -70,8 +62,7 @@ func (s Service) Close(ctx context.Context, p db.CloseTodosParams) error {
 	if err != nil {
 		return fmt.Errorf("close %s todos: %w", p.Kind, err)
 	}
-	s.PublishClosed(rows)
-	return nil
+	return s.PublishClosed(ctx, rows)
 }
 
 func (s Service) CloseOnIssue(ctx context.Context, p db.CloseTodosOnIssueParams) error {
@@ -79,8 +70,7 @@ func (s Service) CloseOnIssue(ctx context.Context, p db.CloseTodosOnIssueParams)
 	if err != nil {
 		return fmt.Errorf("close issue todos: %w", err)
 	}
-	s.PublishClosed(rows)
-	return nil
+	return s.PublishClosed(ctx, rows)
 }
 
 func (s Service) CloseInWorkspace(ctx context.Context, p db.CloseTodosInWorkspaceParams) error {
@@ -88,18 +78,51 @@ func (s Service) CloseInWorkspace(ctx context.Context, p db.CloseTodosInWorkspac
 	if err != nil {
 		return fmt.Errorf("close workspace todos: %w", err)
 	}
-	s.PublishClosed(rows)
-	return nil
+	return s.PublishClosed(ctx, rows)
 }
 
 // PublishClosed also serves member-driven completion after its database write.
-func (s Service) PublishClosed(rows []db.Todo) {
-	for _, row := range rows {
-		if s.Bus != nil {
-			s.Bus.Publish(events.Event{Type: protocol.EventTodoClosed, WorkspaceID: util.UUIDToString(row.WorkspaceID), Payload: map[string]any{"member_id": util.UUIDToString(row.MemberID), "todo_id": util.UUIDToString(row.ID), "kind": row.Kind, "done_by": row.DoneBy.String}})
-		}
-		slog.Debug("todo closed", "todo_id", util.UUIDToString(row.ID), "kind", row.Kind, "done_by", row.DoneBy.String)
+func (s Service) PublishClosed(ctx context.Context, rows []db.Todo) error {
+	if len(rows) == 0 {
+		return nil
 	}
+	ids := make([]pgtype.UUID, len(rows))
+	for i, row := range rows {
+		ids[i] = row.ID
+	}
+	return s.publishChanges(ctx, ids, false)
+}
+
+func (s Service) publishChanges(ctx context.Context, ids []pgtype.UUID, opening bool) error {
+	changes, err := s.Queries.ListTodoVisibilityChanges(ctx, db.ListTodoVisibilityChangesParams{Ids: ids, Opening: opening})
+	if err != nil {
+		return fmt.Errorf("query todo visibility changes: %w", err)
+	}
+	for _, row := range changes {
+		event := events.Event{Type: protocol.EventTodoClosed, WorkspaceID: util.UUIDToString(row.WorkspaceID)}
+		payload := map[string]any{"member_id": util.UUIDToString(row.MemberID)}
+		if row.IsVisible {
+			projected, err := s.Queries.GetTodoForMember(ctx, db.GetTodoForMemberParams{ID: row.ID, WorkspaceID: row.WorkspaceID, MemberID: row.MemberID})
+			if err != nil {
+				return fmt.Errorf("project opened todo: %w", err)
+			}
+			event.Type = protocol.EventTodoOpened
+			payload["todo"] = Response(projected)
+		} else {
+			payload["todo_id"] = util.UUIDToString(row.ID)
+			payload["kind"] = row.Kind
+			payload["done_by"] = nil
+			if row.DoneBy.Valid {
+				payload["done_by"] = row.DoneBy.String
+			}
+		}
+		event.Payload = payload
+		if s.Bus != nil {
+			s.Bus.Publish(event)
+		}
+		slog.Debug("todo visibility changed", "todo_id", util.UUIDToString(row.ID), "kind", row.Kind, "visible", row.IsVisible)
+	}
+	return nil
 }
 
 // Response is shared by the API and opened events, including live source fields.

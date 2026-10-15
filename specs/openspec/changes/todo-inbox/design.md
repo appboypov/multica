@@ -92,7 +92,7 @@ Today's inbox writes one `inbox_item` per notice, kept until archived (`server/c
 `todo` holds one row per to-do. `internal/todo` opens a row when the event that makes it happens and closes it when the event that handles it happens; `done_at` set means closed. Lists and counts read open rows only. See `adr/0017-a-to-do-is-a-row-the-server-opens-and-closes.md`.
 
 - Open is `INSERT … ON CONFLICT DO NOTHING` on the open-row key `(workspace_id, member_id, kind, source_key) WHERE done_at IS NULL`, so a repeated event opens nothing new.
-- Close is an `UPDATE … WHERE done_at IS NULL`, so a repeated event closes nothing more. Every closed row publishes `todo:closed`.
+- Close is an `UPDATE … WHERE done_at IS NULL`, so a repeated event closes nothing more. Events report changes to the visible list, including review rows hidden or revealed by questions.
 - Overdue, the issue's title and status, and the question's type are read at list time from `issue` and `question`, so they never go stale.
 - No foreign keys (AGENTS.md). A row whose issue is gone is not listed.
 
@@ -185,9 +185,11 @@ Sent only to the member, like `inbox:new`.
 | Event | Payload |
 |---|---|
 | `todo:opened` | `{ "member_id": "uuid", "todo": Todo }` |
-| `todo:closed` | `{ "member_id": "uuid", "todo_id": "uuid", "kind": "…", "done_by": "handled | member" }` |
+| `todo:closed` | `{ "member_id": "uuid", "todo_id": "uuid", "kind": "…", "done_by": "handled | member" or null }` |
 
 `todo:opened` carries the row as `GET /api/todos` returns it, so a client can notify the member without a fetch.
+
+`internal/todo` compares visibility before and after each write for its rows and affected reviews. A review created behind an open question emits nothing. The first question hides the review with `todo:closed`; closing the last question reveals the same review with `todo:opened`. Hidden rows emit no completion event. `done_by` is null when a row leaves the list without being completed.
 
 ## Risks
 

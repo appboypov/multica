@@ -433,6 +433,90 @@ func (q *Queries) ListOpenTodos(ctx context.Context, arg ListOpenTodosParams) ([
 	return items, nil
 }
 
+const listTodoVisibilityChanges = `-- name: ListTodoVisibilityChanges :many
+WITH changed AS (
+    SELECT id, workspace_id, member_id, kind, source_key, issue_id, question_id, comment_id, task_id, autopilot_id, actor_type, actor_id, title, body, details, created_at, done_at, done_by FROM todo WHERE id = ANY($1::uuid[])
+), affected AS (
+    SELECT id FROM changed
+    UNION
+    SELECT t.id
+    FROM changed c
+    JOIN todo t ON t.workspace_id = c.workspace_id
+               AND t.member_id = c.member_id AND t.issue_id = c.issue_id
+    WHERE c.kind = 'question' AND t.kind = 'review' AND t.done_at IS NULL
+), candidates AS (
+    SELECT t.id, t.workspace_id, t.member_id, t.kind, t.source_key, t.issue_id, t.question_id, t.comment_id, t.task_id, t.autopilot_id, t.actor_type, t.actor_id, t.title, t.body, t.details, t.created_at, t.done_at, t.done_by
+    FROM affected a
+    JOIN todo t ON t.id = a.id
+    LEFT JOIN issue i ON i.id = t.issue_id AND i.workspace_id = t.workspace_id
+    WHERE t.issue_id IS NULL OR i.id IS NOT NULL
+), visibility AS (
+    SELECT t.id, t.workspace_id, t.member_id, t.kind, t.source_key, t.issue_id, t.question_id, t.comment_id, t.task_id, t.autopilot_id, t.actor_type, t.actor_id, t.title, t.body, t.details, t.created_at, t.done_at, t.done_by,
+        ((CASE WHEN t.id = ANY($1::uuid[]) THEN NOT $2::boolean
+               ELSE t.done_at IS NULL END)
+         AND (t.kind <> 'review' OR NOT EXISTS (
+             SELECT 1 FROM todo q
+             WHERE q.workspace_id = t.workspace_id AND q.member_id = t.member_id
+               AND q.issue_id = t.issue_id AND q.kind = 'question'
+               AND CASE WHEN q.id = ANY($1::uuid[]) THEN NOT $2::boolean
+                        ELSE q.done_at IS NULL END
+         )))::boolean AS was_visible,
+        (t.done_at IS NULL AND (t.kind <> 'review' OR NOT EXISTS (
+            SELECT 1 FROM todo q
+            WHERE q.workspace_id = t.workspace_id AND q.member_id = t.member_id
+              AND q.issue_id = t.issue_id AND q.kind = 'question'
+              AND q.done_at IS NULL
+        )))::boolean AS is_visible
+    FROM candidates t
+)
+SELECT id, workspace_id, member_id, kind, done_by, is_visible
+FROM visibility
+WHERE was_visible <> is_visible
+ORDER BY is_visible, id
+`
+
+type ListTodoVisibilityChangesParams struct {
+	Ids     []pgtype.UUID `json:"ids"`
+	Opening bool          `json:"opening"`
+}
+
+type ListTodoVisibilityChangesRow struct {
+	ID          pgtype.UUID `json:"id"`
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
+	MemberID    pgtype.UUID `json:"member_id"`
+	Kind        string      `json:"kind"`
+	DoneBy      pgtype.Text `json:"done_by"`
+	IsVisible   bool        `json:"is_visible"`
+}
+
+// Reconstruct visibility before this write, including reviews affected by questions.
+func (q *Queries) ListTodoVisibilityChanges(ctx context.Context, arg ListTodoVisibilityChangesParams) ([]ListTodoVisibilityChangesRow, error) {
+	rows, err := q.db.Query(ctx, listTodoVisibilityChanges, arg.Ids, arg.Opening)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListTodoVisibilityChangesRow{}
+	for rows.Next() {
+		var i ListTodoVisibilityChangesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.MemberID,
+			&i.Kind,
+			&i.DoneBy,
+			&i.IsVisible,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const markTodoDone = `-- name: MarkTodoDone :one
 UPDATE todo
 SET done_at = now(), done_by = 'member'

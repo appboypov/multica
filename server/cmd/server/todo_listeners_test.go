@@ -10,6 +10,7 @@ import (
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
 	"github.com/multica-ai/multica/server/pkg/dbid"
 	"github.com/multica-ai/multica/server/pkg/protocol"
+	"reflect"
 	"testing"
 )
 
@@ -354,6 +355,148 @@ func TestTodoReviewLifecycle(t *testing.T) {
 	response.AssigneeType, response.AssigneeID = &memberType, &fx.UserID
 	apply()
 	visible(0)
+}
+
+func TestTodoReviewRealtimeVisibility(t *testing.T) {
+	for _, questionFirst := range []bool{false, true} {
+		name := "review_before_question"
+		if questionFirst {
+			name = "question_before_review"
+		}
+		t.Run(name, func(t *testing.T) {
+			fx, svc := todoListenerFixture(t)
+			ctx := context.Background()
+			issueID := fx.Issue(t, "Review", testutil.Cols{"status": "in_review"})
+			workspace, _ := util.ParseUUID(fx.WorkspaceID)
+			member, _ := util.ParseUUID(fx.UserID)
+			client := map[string]map[string]any{}
+			var delivered []string
+			svc.Bus.Subscribe(protocol.EventTodoOpened, func(e events.Event) {
+				payload := e.Payload.(map[string]any)
+				if e.WorkspaceID != fx.WorkspaceID || payload["member_id"] != fx.UserID {
+					t.Fatalf("wrong audience: %+v", e)
+				}
+				row := payload["todo"].(map[string]any)
+				id := row["id"].(string)
+				if _, exists := client[id]; exists {
+					t.Fatalf("opened an already visible row: %s", id)
+				}
+				client[id] = row
+				delivered = append(delivered, "opened:"+row["kind"].(string))
+			})
+			svc.Bus.Subscribe(protocol.EventTodoClosed, func(e events.Event) {
+				payload := e.Payload.(map[string]any)
+				if e.WorkspaceID != fx.WorkspaceID || payload["member_id"] != fx.UserID {
+					t.Fatalf("wrong audience: %+v", e)
+				}
+				id := payload["todo_id"].(string)
+				if _, exists := client[id]; !exists {
+					t.Fatalf("closed an invisible row: %s", id)
+				}
+				delete(client, id)
+				delivered = append(delivered, "closed:"+payload["kind"].(string))
+			})
+			check := func(want ...string) {
+				t.Helper()
+				if !reflect.DeepEqual(delivered, want) {
+					t.Fatalf("events = %v, want %v", delivered, want)
+				}
+				delivered = nil
+				rows, err := svc.Queries.ListOpenTodos(ctx, db.ListOpenTodosParams{WorkspaceID: workspace, MemberID: member})
+				if err != nil {
+					t.Fatal(err)
+				}
+				list := map[string]map[string]any{}
+				for _, row := range rows {
+					list[util.UUIDToString(row.ID)] = todo.Response(db.GetTodoForMemberRow(row))
+				}
+				if !reflect.DeepEqual(client, list) {
+					t.Fatalf("realtime rows = %v, list = %v", client, list)
+				}
+				counts, err := svc.Queries.CountOpenTodosByWorkspace(ctx, member)
+				if err != nil {
+					t.Fatal(err)
+				}
+				var count int64
+				for _, row := range counts {
+					if row.WorkspaceID == workspace {
+						count = row.Count
+					}
+				}
+				if count != int64(len(client)) {
+					t.Fatalf("summary = %d, realtime count = %d", count, len(client))
+				}
+			}
+			review := func() {
+				t.Helper()
+				err := reviewTodos(ctx, svc, events.Event{
+					Type: protocol.EventIssueCreated, WorkspaceID: fx.WorkspaceID,
+					Payload: map[string]any{"issue": handler.IssueResponse{
+						ID: issueID, Status: "in_review", CreatorType: "member", CreatorID: fx.UserID,
+					}},
+				})
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			question := func() string {
+				t.Helper()
+				id := dbid.NewV7()
+				fx.Insert(t, "question", testutil.Cols{"id": id, "ask_id": id, "ask_position": 0, "workspace_id": fx.WorkspaceID, "asker_agent_id": dbid.NewV7(), "asked_in_task_id": dbid.NewV7(), "prompt": "Approve?", "answer_type": "approval"})
+				fx.Exec(t, "INSERT INTO question_answerer (question_id, user_id, workspace_id) VALUES ($1, $2, $3)", id, fx.UserID, fx.WorkspaceID)
+				err := questionTodos(ctx, svc, events.Event{
+					Type: protocol.EventQuestionCreated, WorkspaceID: fx.WorkspaceID,
+					Payload: protocol.QuestionEventPayload{QuestionID: util.UUIDToString(id), IssueID: issueID},
+				})
+				if err != nil {
+					t.Fatal(err)
+				}
+				return util.UUIDToString(id)
+			}
+			answer := func(id string) {
+				t.Helper()
+				fx.Exec(t, "UPDATE question SET status = 'answered' WHERE id = $1", id)
+				err := questionTodos(ctx, svc, events.Event{
+					Type: protocol.EventQuestionUpdated, WorkspaceID: fx.WorkspaceID, ActorID: fx.UserID,
+					Payload: protocol.QuestionEventPayload{QuestionID: id, IssueID: issueID, Reason: protocol.QuestionReasonAnswered},
+				})
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			var first string
+			if questionFirst {
+				first = question()
+				check("opened:question")
+				review()
+				check()
+			} else {
+				review()
+				check("opened:review")
+				first = question()
+				check("closed:review", "opened:question")
+			}
+			review()
+			check()
+			second := question()
+			check("opened:question")
+			answer(first)
+			check("closed:question")
+			answer(second)
+			check("closed:question", "opened:review")
+			answer(second)
+			check()
+			question()
+			check("closed:review", "opened:question")
+			issue, _ := util.ParseUUID(issueID)
+			if err := svc.CloseOnIssue(ctx, db.CloseTodosOnIssueParams{
+				WorkspaceID: workspace, IssueID: issue, Kinds: []string{todo.Question, todo.Review},
+			}); err != nil {
+				t.Fatal(err)
+			}
+			check("closed:question")
+		})
+	}
 }
 
 func TestTodoAutopilotPauseAndResume(t *testing.T) {
