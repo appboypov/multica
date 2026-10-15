@@ -49,12 +49,18 @@ func (s *QuestionService) resolveLinks(ctx context.Context, q *db.Queries, works
 		case question.LinkTypeTask:
 			var task db.AgentTaskQueue
 			task, err = q.GetAgentTaskInWorkspace(ctx, db.GetAgentTaskInWorkspaceParams{ID: id, WorkspaceID: workspaceID})
-			if err == nil && !task.IssueID.Valid {
-				err = pgx.ErrNoRows
-			}
 			if err == nil {
-				_, err = q.GetIssueInWorkspace(ctx, db.GetIssueInWorkspaceParams{ID: task.IssueID, WorkspaceID: workspaceID})
+				switch {
+				case task.ChatSessionID.Valid:
+					_, err = q.GetChatSessionInWorkspace(ctx, db.GetChatSessionInWorkspaceParams{ID: task.ChatSessionID, WorkspaceID: workspaceID})
+				case task.IssueID.Valid:
+					_, err = q.GetIssueInWorkspace(ctx, db.GetIssueInWorkspaceParams{ID: task.IssueID, WorkspaceID: workspaceID})
+				default:
+					err = pgx.ErrNoRows
+				}
 			}
+		case question.LinkTypeChat:
+			_, err = q.GetChatSessionInWorkspace(ctx, db.GetChatSessionInWorkspaceParams{ID: id, WorkspaceID: workspaceID})
 		case question.LinkTypeProject:
 			_, err = q.GetProjectInWorkspace(ctx, db.GetProjectInWorkspaceParams{ID: id, WorkspaceID: workspaceID})
 		case question.LinkTypeAgent:
@@ -90,6 +96,7 @@ type QuestionViaDTO struct {
 	ID              string  `json:"id"`
 	Identifier      *string `json:"identifier"`
 	IssueIdentifier *string `json:"issue_identifier"`
+	MemberID        *string `json:"member_id,omitempty"`
 }
 
 type QuestionOpenIssueDTO struct {
@@ -151,6 +158,16 @@ func OpenIssue(reach []QuestionReach) *QuestionOpenIssueDTO {
 		return nil
 	}
 	return &QuestionOpenIssueDTO{ID: util.UUIDToString(first.IssueID), Identifier: nonemptyQuestionText(first.IssueIdentifier)}
+}
+
+// OpenChat selects the chat link without exposing its title or messages.
+func OpenChat(links []QuestionLinkDTO) *QuestionViaDTO {
+	for _, link := range links {
+		if link.LinkType == question.LinkTypeChat {
+			return &QuestionViaDTO{Type: question.LinkTypeChat, ID: link.LinkID, MemberID: link.MemberID}
+		}
+	}
+	return nil
 }
 
 // CardIssueIDs is the direct timeline projection, deliberately not ancestors.

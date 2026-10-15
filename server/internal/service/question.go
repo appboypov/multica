@@ -72,6 +72,7 @@ type QuestionLinkDTO struct {
 	LinkType string `json:"link_type"`
 	LinkID   string `json:"link_id"`
 	Position int32  `json:"position"`
+	MemberID *string `json:"member_id,omitempty"`
 }
 
 type QuestionAnswererDTO struct {
@@ -855,9 +856,23 @@ func (s *QuestionService) hydrate(ctx context.Context, q *db.Queries, workspaceI
 	if err != nil {
 		return nil, err
 	}
+	chatMembers := make(map[pgtype.UUID]string)
 	for _, link := range links {
 		i := index[link.QuestionID]
-		result[i].Links = append(result[i].Links, QuestionLinkDTO{LinkType: link.LinkType, LinkID: util.UUIDToString(link.LinkID), Position: link.Position})
+		dto := QuestionLinkDTO{LinkType: link.LinkType, LinkID: util.UUIDToString(link.LinkID), Position: link.Position}
+		if link.LinkType == question.LinkTypeChat {
+			memberID, found := chatMembers[link.LinkID]
+			if !found {
+				session, err := q.GetChatSessionInWorkspace(ctx, db.GetChatSessionInWorkspaceParams{ID: link.LinkID, WorkspaceID: workspaceID})
+				if err != nil {
+					return nil, err
+				}
+				memberID = util.UUIDToString(session.CreatorID)
+				chatMembers[link.LinkID] = memberID
+			}
+			dto.MemberID = &memberID
+		}
+		result[i].Links = append(result[i].Links, dto)
 	}
 	answerers, err := q.ListQuestionAnswerersByQuestions(ctx, db.ListQuestionAnswerersByQuestionsParams{WorkspaceID: workspaceID, QuestionIds: ids})
 	if err != nil {
