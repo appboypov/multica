@@ -136,6 +136,39 @@ func TestEditedCommentCreatesANewRunInput(t *testing.T) {
 	}
 }
 
+func TestEditingARunningRunsOwnCommentKeepsItRunning(t *testing.T) {
+	for _, strict := range []bool{true, false} {
+		t.Run(map[bool]string{true: "revision edit", false: "plain edit"}[strict], func(t *testing.T) {
+			f := newSupplementFixture(t, "codex", "running", true)
+			dbfx.Cleanup(t, `DELETE FROM agent_task_queue WHERE issue_id=$1`, f.issueID)
+			body := map[string]any{"content": "original objective, now for the header"}
+			if strict {
+				var revision int64
+				dbfx.QueryRow(t, `SELECT revision FROM comment WHERE id=$1`, f.triggerID).Scan(&revision)
+				body["expected_revision"] = revision
+			}
+			testutil.Call(t, testHandler.UpdateComment, withURLParam(newRequest(http.MethodPut, "/comments/"+f.triggerID, body), "commentId", f.triggerID)).Want(http.StatusOK)
+			task, err := testHandler.Queries.GetAgentTask(t.Context(), parseUUID(f.taskID))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if task.Status != "running" {
+				t.Fatalf("edit of the run's own trigger stopped it: status %s", task.Status)
+			}
+			rows, err := testHandler.Queries.ListTaskSupplementsByCommentIDs(t.Context(), db.ListTaskSupplementsByCommentIDsParams{WorkspaceID: parseUUID(testWorkspaceID), CommentIds: []pgtype.UUID{parseUUID(f.triggerID)}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(rows) != 1 || uuidToString(rows[0].TaskID) != f.taskID || rows[0].ItemKind != "comment_edit" || !strings.Contains(rows[0].Content.String, "now for the header") {
+				t.Fatalf("running run did not receive the edit: %+v", rows)
+			}
+			if n := dbfx.Count(t, `SELECT count(*) FROM agent_task_queue WHERE agent_id=$1`, f.agentID); n != 1 {
+				t.Fatalf("edit queued another run: %d tasks", n)
+			}
+		})
+	}
+}
+
 func TestQuestionAnswerMarksFollowLatestEvent(t *testing.T) {
 	fx := newQuestionAPIFixture(t)
 	id := askQuestionForTest(t, fx)

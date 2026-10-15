@@ -2740,14 +2740,26 @@ func (s *TaskService) CancelTasksForAgent(ctx context.Context, agentID pgtype.UU
 }
 
 // CancelTasksByTriggerComment cancels active tasks whose planned comment batch
-// contains the given edited/deleted comment. The historical method name is
+// contains the given deleted comment. The historical method name is
 // retained for call-site stability. It must run before deletion clears the
 // trigger FK; the returned rows let the handler re-route every surviving input.
 func (s *TaskService) CancelTasksByTriggerComment(ctx context.Context, commentID pgtype.UUID) ([]db.AgentTaskQueue, error) {
+	return s.cancelTasksByComment(ctx, commentID, (*db.Queries).CancelAgentTasksByTriggerComment)
+}
+
+// CancelTasksByEditedComment cancels active tasks whose planned comment batch
+// contains the given edited comment, except running runs that take run input:
+// those receive the edit as a notice. The returned rows let the handler
+// re-route every surviving input.
+func (s *TaskService) CancelTasksByEditedComment(ctx context.Context, commentID pgtype.UUID) ([]db.AgentTaskQueue, error) {
+	return s.cancelTasksByComment(ctx, commentID, (*db.Queries).CancelAgentTasksByEditedComment)
+}
+
+func (s *TaskService) cancelTasksByComment(ctx context.Context, commentID pgtype.UUID, cancel func(*db.Queries, context.Context, pgtype.UUID) ([]db.AgentTaskQueue, error)) ([]db.AgentTaskQueue, error) {
 	var cancelled []db.AgentTaskQueue
 	if err := s.runInTx(ctx, func(qtx *db.Queries) error {
 		var err error
-		cancelled, err = qtx.CancelAgentTasksByTriggerComment(ctx, commentID)
+		cancelled, err = cancel(qtx, ctx, commentID)
 		if err != nil {
 			return err
 		}

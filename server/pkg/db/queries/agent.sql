@@ -683,16 +683,36 @@ WHERE agent_id = $1 AND status IN ('queued', 'dispatched', 'running', 'waiting_l
 RETURNING *;
 
 -- name: CancelAgentTasksByTriggerComment :many
--- Cancels active tasks whose planned batch contains the edited/deleted comment.
+-- Cancels active tasks whose planned batch contains the deleted comment.
 -- The body may already have been embedded as either the primary trigger or a
--- coalesced input; cancellation prevents an agent from acting on a stale or
--- deleted version. Must run before deletion clears trigger_comment_id.
+-- coalesced input; cancellation prevents an agent from acting on a deleted
+-- version. Must run before deletion clears trigger_comment_id.
 UPDATE agent_task_queue
 SET status = 'cancelled', completed_at = now(), prepare_lease_expires_at = NULL,
     cancelled_by_type = 'system', cancelled_by_id = NULL, cancelled_by_name = NULL,
     context = COALESCE(context, '{}'::jsonb) || jsonb_build_object('comment_change_cancelled_task_id', id::text)
 WHERE (trigger_comment_id = $1 OR $1 = ANY(coalesced_comment_ids))
   AND status IN ('queued', 'dispatched', 'running', 'waiting_local_directory', 'deferred')
+RETURNING *;
+
+-- name: CancelAgentTasksByEditedComment :many
+-- Cancels active tasks whose planned batch contains the edited comment, so no
+-- agent acts on the stale version. A running run that takes run input keeps
+-- working: it receives the edited text as a comment_edit notice instead.
+UPDATE agent_task_queue
+SET status = 'cancelled', completed_at = now(), prepare_lease_expires_at = NULL,
+    cancelled_by_type = 'system', cancelled_by_id = NULL, cancelled_by_name = NULL,
+    context = COALESCE(context, '{}'::jsonb) || jsonb_build_object('comment_change_cancelled_task_id', id::text)
+WHERE (trigger_comment_id = $1 OR $1 = ANY(coalesced_comment_ids))
+  AND status IN ('queued', 'dispatched', 'running', 'waiting_local_directory', 'deferred')
+  AND NOT (
+      status = 'running'
+      AND EXISTS (
+          SELECT 1 FROM task_supplement_capability cap
+          WHERE cap.task_id = agent_task_queue.id
+            AND cap.capability = 'task-supplement-v1'
+      )
+  )
 RETURNING *;
 
 -- name: CancelAgentTasksByChatSession :many

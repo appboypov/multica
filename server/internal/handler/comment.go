@@ -3484,7 +3484,7 @@ func (h *Handler) UpdateComment(w http.ResponseWriter, r *http.Request) {
 		// revision writes defer cancellation until the conditional UPDATE wins,
 		// so a race that returns 409 cannot mutate the task queue.
 		if !strictContentEdit {
-			cancelled, err = h.TaskService.CancelTasksByTriggerComment(r.Context(), existing.ID)
+			cancelled, err = h.TaskService.CancelTasksByEditedComment(r.Context(), existing.ID)
 			if err != nil {
 				slog.Warn("cancel tasks for edited comment failed", "comment_id", uuidToString(existing.ID), "error", err)
 				writeError(w, http.StatusInternalServerError, "failed to prepare comment edit")
@@ -3529,7 +3529,7 @@ func (h *Handler) UpdateComment(w http.ResponseWriter, r *http.Request) {
 			issueRevision = updated.IssueRevision
 		}
 		if err == nil && oldContent != req.Content && strictContentEdit {
-			cancelled, err = qtx.CancelAgentTasksByTriggerComment(r.Context(), existing.ID)
+			cancelled, err = qtx.CancelAgentTasksByEditedComment(r.Context(), existing.ID)
 			if err == nil {
 				err = service.SettleTerminalTaskState(r.Context(), qtx, cancelled...)
 			}
