@@ -45,7 +45,7 @@ Server checks: `cd server && go test ./...` with the test database, as AGENTS.md
 
 ## 6. Docs
 
-- [ ] 6.1 `specs/docs/system-design.md`: the `todo` table and its flow. Verify: read-through.
+- [x] 6.1 `specs/docs/system-design.md`: the `todo` table and its flow. Verify: read-through.
 
 ## 7. Client data (Thomas)
 
@@ -95,3 +95,5 @@ Server checks: `cd server && go test ./...` with the test database, as AGENTS.md
 - 5.2: Added `server/migrations/743_issue_creator_backfill.up.sql`, its non-destructive `.down.sql`, and `server/pkg/db/issue_creator_backfill_test.go`. Only agent creators on `agent_create` or `quick_create` issues with a resolved non-null run originator change to member creators; origin, timestamps and other issue fields are untouched. The down migration deliberately preserves corrected creators, since provenance cannot safely distinguish them from member-created issues.
 - 5.2 verification: `gofmt` and `TEST_DATABASE_URL`-configured `go -C server test ./pkg/db -run '^TestIssueCreatorBackfill$' -count=1 -v` passed. The seeded migration test corrects 91 issues, leaves existing member creators and missing/unattributed/unrelated origins unchanged, confirms a repeat changes zero rows, exercises the down file alone, and applies 744 afterward to prove all 91 reviews belong to the corrected member creator. Both table-wide backfills run inside a rollback-only test transaction.
 - 5.2 production observation: A read-only candidate count in the running production Postgres (`default_transaction_read_only=on`) found 95 eligible issues, all with originators still in their workspace, rather than the planning snapshot's 91. Joeri confirmed this is live-data drift as agents keep creating issues; the general creator rule remains unchanged. No production migration or write was run.
+- 6.1: Completed the existing edit of `specs/docs/system-design.md`: server component relationships, the full `todo` model and logical source/actor references, question-to-do integration, and the storage/API/realtime/Updates flow. Kept the document present-state only and retained the durable ADR-0017 link rather than linking to the archivable change design. This task and its notes are the only other changes, in `tasks.md`.
+- 6.1 verification: Read through the system design against every apply context file and all three build-context files, including ADR-0017. Confirmed recipient identity, open-row indexes, completion events, list/count projection, API scopes and migration ordering match the change. No code tests or diagram rendering checks ran for this documentation-only task. The apply command reports `missingPrerequisites: ["adr"]` even though the accepted ADR-0017 exists and is explicitly included in build context; no missing design decision was encountered.
