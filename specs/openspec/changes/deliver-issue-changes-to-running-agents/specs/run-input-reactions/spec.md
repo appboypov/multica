@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
-### Requirement: The agent marks an item it received with 👀 and ✅
-During its run, an agent SHALL be able to mark each item that run received with 👀 and with ✅ through `multica issue react <item> 👀` and `multica issue react <item> ✅`, where `<item>` is the id the item arrived with; marking the same item twice with the same emoji SHALL change nothing.
+### Requirement: The agent marks an item it handles with 👀 and ✅
+During its run, an agent SHALL be able to mark an item that run received with 👀 when it saw the item and handles it, and with ✅ once it handled it, through `multica issue react <item> 👀` and `multica issue react <item> ✅`, where `<item>` is the id the item arrived with. An item that is not relevant to the agent gets no mark. Marking the same item twice with the same emoji SHALL change nothing.
 
 #### Scenario: Thomas sees Brian's comment
 - **GIVEN** Thomas's running run on WORK-434 received Brian's comment
@@ -21,6 +21,16 @@ During its run, an agent SHALL be able to mark each item that run received with 
 #### Scenario: Another emoji
 - **WHEN** Thomas runs `multica issue react <comment id> 👍`
 - **THEN** the command fails with "react takes 👀 or ✅"
+
+#### Scenario: Thomas leaves an item that is not for him
+- **GIVEN** Thomas's running run on WORK-434 received Brian's reply in Skuddy's thread
+- **WHEN** Thomas finds the reply is not relevant to his work and does not mark it
+- **THEN** the reply shows no mark of Thomas
+
+#### Scenario: Marks on an edited comment
+- **GIVEN** Thomas's run received Brian's comment, marked it ✅, and then received Brian's edit of it
+- **WHEN** Thomas marks the edit 👀
+- **THEN** the comment shows ✅ Thomas for the first text and 👀 Thomas for the edit
 
 ### Requirement: Only the run that received an item marks it
 `multica issue react` SHALL succeed only inside a run that received the item, and SHALL fail with a message naming why otherwise.
@@ -54,7 +64,7 @@ Each 👀 and ✅ SHALL show with the agent's name on the comment, on the answer
 - **THEN** ✅ Thomas appears on the comment without a reload
 
 ### Requirement: A run's end hands on only items without ✅
-When a run ends, each item it received with ✅ SHALL start nothing, and each item it received without ✅ SHALL get the handling it would have got without being received: a comment starts the agent's follow-up run, an issue change starts nothing.
+When a run ends, each item it received with ✅ SHALL start nothing, and each item it received without ✅ SHALL get the handling it would have got without being received: a comment or an edited comment for the agent starts the agent's follow-up run, an answer to the agent's question stays unseen for Wake, and an item that is not for the agent and an issue change start nothing. For a comment the run received more than once, the newest item decides.
 
 #### Scenario: Thomas handled the comment
 - **GIVEN** Thomas's run received Brian's comment and marked it ✅
@@ -76,13 +86,23 @@ When a run ends, each item it received with ✅ SHALL start nothing, and each it
 - **WHEN** the run ends
 - **THEN** no run is queued for Thomas
 
+#### Scenario: A reply that was not for Thomas
+- **GIVEN** Thomas's run received Brian's reply in Skuddy's thread and did not mark it
+- **WHEN** the run ends
+- **THEN** no run is queued for Thomas
+
+#### Scenario: The edit is not handled
+- **GIVEN** Thomas's run received Brian's comment for Thomas and marked it ✅, then received Brian's edit and did not mark it ✅
+- **WHEN** the run ends
+- **THEN** a follow-up run of Thomas starts with the edited comment as its input
+
 #### Scenario: The run fails
 - **GIVEN** Thomas's run received Brian's comment and did not mark it ✅
 - **WHEN** the run fails
 - **THEN** the comment starts Thomas's follow-up run, as an unhandled comment of a completed run does
 
 ### Requirement: The agent brief explains received items
-The brief of every run that can take input SHALL tell the agent that comments, answers and issue changes can arrive while it runs, each with its item id, and that it marks each with 👀 when it sees it and ✅ once it handled it, and that an item without ✅ is handled again after the run.
+The brief of every run that can take input SHALL tell the agent that comments, edits, answers and issue changes on its issue arrive while it runs as notices, each with its item id; that it marks an item 👀 when it saw it and handles it and ✅ once it handled it; that it leaves an item that is not relevant to it unmarked; and that an item for it without ✅ is handled again after the run.
 
 #### Scenario: Thomas's run starts on omp
 - **GIVEN** Thomas runs on the Oh-My-Pi runtime

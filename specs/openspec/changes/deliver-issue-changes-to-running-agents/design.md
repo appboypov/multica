@@ -87,7 +87,7 @@ flowchart LR
 classDiagram
   class TaskSupplement {
     task_id UUID
-    item_kind comment|answer|issue_change
+    item_kind comment|comment_edit|answer|issue_change
     item_id UUID
     comment_id UUID nullable
     issue_id UUID
@@ -137,9 +137,9 @@ sequenceDiagram
 
 ```mermaid
 flowchart LR
-  item["comment, answer event or activity row"] --> pick{"running run with<br/>task-supplement-v1 on the issue,<br/>agent is not the actor?"}
+  item["comment, comment edit, answer event or activity row"] --> pick{"running run with<br/>task-supplement-v1 on the issue,<br/>agent is not the actor,<br/>not excluded in the composer?"}
   pick -- no --> today["today's handling"]
-  pick -- yes --> receipt["task_supplement row pending"] --> steer["daemon steers the run"] --> marks{"✅ when the run ends?"}
+  pick -- yes --> receipt["task_supplement row pending"] --> steer["daemon steers the run at its next tool-batch boundary"] --> marks{"✅ when the run ends?"}
   marks -- yes --> nothing["nothing starts; answer counts as seen"]
   marks -- no --> normal["comment: follow-up run<br/>answer: stays unseen, Wake offered<br/>issue change: nothing"]
 ```
@@ -157,7 +157,8 @@ flowchart LR
 | Handler | Comment steering by default for every author | changed | `server/internal/handler/task_supplement.go`, `comment.go` |
 | Handler | `ReactToRunInput` | new | `server/internal/handler/run_input.go`, `server/cmd/server/router.go` |
 | Service | Answers and ask-backs hand receipts to `RunInputService` | changed | `server/internal/service/question.go` |
-| Listener | Issue-change rows hand receipts to `RunInputService` | changed | `server/cmd/server/activity_listeners.go` |
+| Listener | Issue-change rows, new rows for labels, files and sub-issues, and receipts through `RunInputService` | changed | `server/cmd/server/activity_listeners.go` |
+| Handler | Label, file and parent-change events carry what changed | changed | `server/internal/handler/label.go`, `file.go`, `issue.go` |
 | Protocol | Claim response kind and item id; `run_input:reacted` event | changed | `server/pkg/protocol/messages.go`, `events.go` |
 | Agent backend | omp on RPC with steer and `session_settled` | changed | `server/pkg/agent/pi.go`, `version.go` |
 | Daemon | Delivered text names kind, item id and the react command | changed | `server/internal/daemon/task_supplement.go`, `client.go` |
@@ -166,7 +167,7 @@ flowchart LR
 | CLI | `multica issue react` | new | `server/cmd/multica/cmd_issue.go` |
 | Core | Steer by default; receipt fields; reactions in answers and activity entries; realtime event | changed | `packages/core/issues/run-steering.ts`, `packages/core/types/`, `packages/core/api/schemas.ts`, `packages/core/realtime/use-realtime-sync.ts` |
 | Component | `RunInputMarks` | new | `packages/views/issues/components/run-input-marks.tsx` |
-| Views | Comment card, question card, activity row show the marks | changed | `packages/views/issues/components/comment-card.tsx`, `packages/views/questions/`, `packages/views/issues/components/` |
+| Views | Comment card, question card, activity row show the marks; activity texts for labels, files and sub-issues; composer steers with files | changed | `packages/views/issues/components/comment-card.tsx`, `packages/views/questions/question-card.tsx`, `packages/views/issues/components/issue-detail.tsx`, `packages/views/issues/components/comment-input.tsx` |
 | Docs | Comments and CLI pages | changed | `apps/docs/content/docs/comments.mdx`, `cli.mdx` |
 | Living view | Server, daemon and web maps | changed | `specs/docs/system-design.md` |
 | ADR | Input reaches a running run as a receipt; ✅ decides the run's end | new | `adr/0019-input-reaches-a-running-run-as-a-receipt.md` |
@@ -196,8 +197,9 @@ What exists and is reused:
 **Goals:**
 
 - Always: an item reaches only runs in `running` with `task-supplement-v1`; never the actor's own agent's run; a queued or starting run gets comments at claim as today.
+- Always: an item reaches every running run on its issue, as a notice at the run's next tool-batch boundary; only an explicit composer choice other than **Add to current run** keeps it out of a recipient's run.
 - Always: one receipt row per item and run, the only record of what a run received and of its 👀 and ✅.
-- Always: run-end handling reads only ✅ (`handled_at`).
+- Always: run-end handling reads only ✅ (`handled_at`), and only for items the agent would have been started for without the run.
 - Never: an answer starts a run (ADR-0003, restated in ADR-0020).
 - Never: a person's reaction counts as an agent's ✅.
 
@@ -205,43 +207,30 @@ What exists and is reused:
 
 - Mid-run input for pi and the other runtimes without it today.
 - Marks on a run's own starting input.
-- Attachments, labels, sub-issues and reactions as delivered issue changes.
+- Reactions and subscribers as delivered issue changes.
 
 ## Decisions
 
-1. **Receipts for every kind live in `task_supplement`.** The table gains `item_kind` (`comment`, `answer`, `issue_change`), `item_id` (the comment id, the `question_event` id or the `activity_log` id), `content` (the text for answers and changes, rendered at creation), `seen_at` and `handled_at`; `comment_id` becomes nullable and stays set for comments, so upstream's comment queries keep working. The primary key moves to `(item_id, task_id)`, built `CONCURRENTLY` and swapped as `549` did. Alternative: a fork-owned `run_input` table beside `task_supplement`. Rejected: two receipt stores, two claim paths in the daemon and two places to read ✅. Upstream merges touching `task_supplement` may conflict; the columns are additive to keep them small.
-2. **One service creates receipts.** `RunInputService.Deliver(ctx, issueID, actor, item, agentIDs)` finds the issue's tasks in `running` with `task-supplement-v1` whose agent is in `agentIDs` and is not the actor, inserts a `pending` receipt per task in the task-row lock order `CreateTaskSupplement` uses, and calls `NotifyTaskSupplementAvailable`. Who an item is for: a comment, the agents `computeCommentAgentTriggers` returns for it (mention, assignee, thread), called through `steerCommentAgentTriggers`; an answer, edited answer or ask-back, the question's asking agent, called by `QuestionService` after the event commits; an issue change, every agent with a running task on the issue, called by the activity listener after each issue-change row. A comment with attachments gets no receipt (text only, as today).
-3. **Steer is the server's default.** A comment request without `steer_task_ids` (the CLI, agents, older clients) steers every running, supplement-capable recipient it triggers, for any author type. A request with `steer_task_ids`, also an empty list, is the composer's explicit choice and is followed as today. The composer always sends the list, with every running recipient at **Add to current run** by default (`steerByDefault: true`).
-4. **omp runs on its RPC dialect.** For the `omp` identity only, `piBackend` starts `omp --mode rpc --no-ui --session <path>`, writes one `prompt` frame, ignores `response` and `prompt_result` frames in the event reader, closes stdin on `session_settled`, and sets `Session.Supplement` to write a `steer` frame and `SupplementReady` after `agent_start`. `SupportsTaskSupplement("omp", v)` returns true from `18.10.1`, the version on Brian's Mac. pi keeps print mode.
-5. **Delivered text names the item.** The claim response adds `item_kind` and `item_id`; `formatTaskSupplementInstruction` writes, for example: `[Multica] Brian commented on WORK-434 (item 01a1…): <text>. Mark it: multica issue react 01a1… 👀 when seen, ✅ once handled.`
+1. **Receipts for every kind live in `task_supplement`.** The table gains `item_kind` (`comment`, `comment_edit`, `answer`, `issue_change`), `item_id` (the comment id, a new id per comment edit, the `question_event` id or the `activity_log` id), `content` (the text of edits, answers and changes, rendered at creation), `seen_at` and `handled_at`; `comment_id` becomes nullable and stays set for comments and comment edits, so upstream's comment queries keep working. The primary key moves to `(item_id, task_id)`, built `CONCURRENTLY` and swapped as `549` did. New kinds set `client_request_id = item_id`, which keeps `(task_id, client_request_id)` unique. Alternative: a fork-owned `run_input` table beside `task_supplement`. Rejected: two receipt stores, two claim paths in the daemon and two places to read ✅. Upstream merges touching `task_supplement` may conflict; the columns are additive to keep them small.
+2. **One service creates receipts, for every running run on the issue.** `RunInputService.Deliver(ctx, issueIDs, actor, item, excludeTaskIDs)` finds the tasks in `running` with `task-supplement-v1` on those issues whose agent is not the actor and whose id is not in `excludeTaskIDs`, inserts one `pending` receipt per task in the task-row lock order `CreateTaskSupplement` uses, and calls `NotifyTaskSupplementAvailable`. Callers: comments through `steerCommentAgentTriggers` on create and on a text-changing edit (`comment.go:3603`, kind `comment_edit`); `QuestionService` after `answered`, `answer_edited` and `ask_back` events commit, for every issue the question links to; the activity listener after each issue-change row. Brian decided every running agent gets every item as a notice (plan gate answer 1).
+3. **A comment for a running recipient joins its run.** `steerCommentAgentTriggers` takes the triggered recipients whose running task got a receipt out of the enqueue list, so no follow-up is queued while they run. Without `steer_task_ids` (the CLI, agents, older clients), every triggered running recipient is steered, for any author type. With `steer_task_ids`, also an empty list, a triggered recipient whose running task is not in the list is the composer's explicit other choice: its task goes in `excludeTaskIDs` and it keeps today's after-run, restart or suppress handling. The composer always sends the list, every running recipient at **Add to current run** by default (`steerByDefault: true`), also with files (`canSteer` no longer depends on files).
+4. **omp runs on its RPC dialect, in wait mode.** For the `omp` identity only, `piBackend` starts `omp --mode rpc --no-ui --session <path>`, writes `{"type":"set_interrupt_mode","mode":"wait"}` and then one `prompt` frame, ignores `response` and `prompt_result` frames in the event reader, closes stdin on `session_settled`, and sets `Session.Supplement` to write a `steer` frame and `SupplementReady` after `agent_start`. Wait mode lets the work in progress finish and injects the notice at the tool-batch boundary (omp `rpc.md` "Mode semantics"): notified, not interrupted. `SupportsTaskSupplement("omp", v)` returns true from `18.10.1`, the version on Brian's Mac. pi keeps print mode.
+5. **Delivered text is a notice that names the item.** The claim response adds `item_kind`, `item_id` and `content`; `formatTaskSupplementInstruction` writes, for example: `[Multica notice] Brian replied in Skuddy's thread on WORK-434 (item 01a1…): <text>. If it is relevant to your work: multica issue react 01a1… 👀 now, ✅ once handled. Otherwise leave it.` A comment's files follow as `name (attachment <id>, multica attachment download <id>)`.
 6. **React is a run-scoped endpoint.** `POST /api/tasks/{taskId}/inputs/{itemId}/reactions` with `{"emoji":"👀"|"✅"}` under agent auth; the task token's task must be `taskId` and a receipt `(itemId, taskId)` must exist with status `delivered`. It sets `seen_at` or `handled_at` once (`COALESCE`), then publishes `run_input:reacted` with the issue id, item kind and item id. `multica issue react <item> <emoji>` reads `MULTICA_TASK_ID` and fails outside a run with "react works only inside an agent's run".
-7. **Run end reads ✅.** `comment.sql`'s steered-comment exclusion keeps only receipts with `handled_at IS NOT NULL`, so a delivered comment without ✅ replays like any comment posted during the run. `FailTask` runs the same reconciliation after its transition, so a failed run's comments without ✅ replay too; an auto-retry it queued absorbs them through the existing merge into a queued task. Answers without ✅ stay unseen (decision 8, ADR-0020); issue changes start nothing.
+7. **Run end reads ✅ of the newest receipt.** `ListReconcilableCommentsForIssueSince` (`comment.sql:351-407`) also takes comments that have a receipt of the completing task, so an edit of an older comment replays too, and drops a comment only when its newest receipt (`comment` or `comment_edit`) for a task of this agent has `handled_at`. The handler's existing per-agent routing recheck keeps replays to the agents the comment is for, so a notice that was not for the agent starts nothing. `failTask` runs the same reconciliation after its transition; an auto-retry it queued absorbs the replays through the existing merge into a queued task. Answers without ✅ stay unseen (decision 8, ADR-0020); issue changes start nothing.
 8. **Unseen answers leave out ✅.** `CountUnseenQuestionAnswers` and `loadClaimQuestionAnswers` skip an answer whose latest `answered` or `answer_edited` event has a receipt with `handled_at` for a task of the same agent. Wake and the woken input stay one query each (ADR-0003, ADR-0020).
-9. **Marks render from receipts.** Comment receipts gain `seen_at` and `handled_at`; question answers and activity entries gain `run_marks: [{agent_id, seen_at, handled_at}]`. One `RunInputMarks` component shows 👀 and ✅ with the agent's name. `run_input:reacted` invalidates the issue's timeline and question queries.
-10. **The brief tells it only where it applies.** `runtime_config_sections.go` adds a "While you run" section when the task starts with `task-supplement-v1`; the `multica-platform` skill documents `multica issue react`.
+9. **Label, file and sub-issue changes are activity rows.** Brian counts them as issue changes (plan gate answer 3), and a mark needs a row to sit on, so the activity listener records `label_added`, `label_removed`, `attachment_added`, `attachment_removed`, `sub_issue_added` and `sub_issue_removed` (ADR-0008: activity lives in `activity_log`). The publishers add what changed: `issue_labels:changed` gets `label` and `change` (`added`/`removed`) in `label.go:487`, `559`; `issue_attachments:changed` gets `attachment_id`, `filename` and `change` for files on the issue itself (not on a comment) in `file.go:611`, `1499`; `issue:updated` gets `parent_changed` and `prev_parent_issue_id` in `issue.go:4144`; a create with a parent comes from `issue:created`. Sub-issue rows go on the parent. The description-embedded attachment event at `issue.go:4172` carries no file delta and stays as it is; its change reaches runs as `description_updated`.
+10. **Marks render from receipts.** Comment receipts gain `seen_at`, `handled_at` and `item_kind`; question answers and activity entries gain `run_marks: [{agent_id, seen_at, handled_at}]`. One `RunInputMarks` component shows 👀 and ✅ with the agent's name, and on a comment an edit's marks with "edit". `run_input:reacted` invalidates the issue's timeline and question queries.
+11. **The brief tells it only where it applies.** `runtime_config_sections.go` adds a "While you run" section when the task starts with `task-supplement-v1`: notices arrive with an item id, 👀 when it saw one and handles it, ✅ once handled, leave one that is not relevant; an item for it without ✅ is handled again after the run. The `multica-platform` skill documents `multica issue react`.
 
 ## Risks / Trade-offs
 
 - [omp RPC pins neutral defaults (async jobs, bash auto-background, advisor) that print mode does not] -> the runtime's explicit `config.yml` stays authoritative per omp's RPC docs; the backend test compares the frames of a print-mode and an RPC-mode run of the same prompt.
 - [A run that never yields keeps omp alive] -> the existing idle watchdog and cancel path in `executeAndDrain` still kill the process; RPC adds no new wait.
-- [Agents that ignore the brief never ✅] -> every delivered comment then replays as today: no input is lost.
-- [A busy issue floods a run with changes] -> receipts are claimed one at a time and steer folds into omp's steering queue; the brief tells the agent a change can be 👀 and ✅ at once.
+- [Agents that ignore the brief never ✅] -> every delivered comment for them then replays as today: no input is lost.
+- [A busy issue floods every running run with notices] -> omp's wait mode injects them only at tool-batch boundaries, receipts are claimed one at a time, and the brief tells the agent to leave notices that are not relevant unmarked.
 - [Upstream merges on `task_supplement`] -> additive columns; the primary-key swap follows upstream's own `549` pattern.
 
 ## Migration Plan
 
 Migrations 720 to 722 run with `make migrate`; existing rows get `item_kind = 'comment'` and `item_id = comment_id`. Down migrations restore the `(comment_id, task_id)` key after deleting non-comment rows. A daemon without the new claim fields still delivers comments; answers and changes need the daemon of this change. Release: `make local-release` after merge.
-
-## Open Questions
-
-The plan follows the first option of each entry; another answer changes the part named in it.
-
-1. **Who hears a comment or an answer.** Thomas runs on WORK-434, whose assignee is Skuddy. Brian replies in Skuddy's thread there, or answers Skuddy's question, and does not mention Thomas.
-   - (a) Only the agent it is for (mentioned, assignee, thread starter, asker) hears it; Thomas does not. Keeps runs on their own work and follows who a comment wakes today.
-   - (b) Every agent running on the issue hears it, Thomas too. Matches "any running agent on the issue" literally; changes decision 2 and live-run-input.
-2. **Edited comments.** Thomas's run already received Brian's comment; Brian then edits it.
-   - (a) The edit does not reach the run. Most edits fix typos, and the run already has the meaning.
-   - (b) The edited text reaches the run as a new item to mark 👀 and ✅. Matches "any change to a thread"; adds an item kind and a spec requirement.
-3. **Which issue changes reach a run.** Brian changes WORK-434 while Thomas runs on it.
-   - (a) Status, priority, assignee, title, description, start date and due date. These are the changes the activity log records today.
-   - (b) Also labels, attachments and sub-issues. Matches "any change to a task"; adds three new change sources.

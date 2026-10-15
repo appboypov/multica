@@ -25,10 +25,11 @@ sequenceDiagram
 
 | Kind | Name | Change | Path |
 |---|---|---|---|
-| Behaviour | A new comment, an answer or an issue change reaches the agent's running run on the issue at its next step | new | `server/internal/handler/`, `server/internal/service/`, `server/internal/daemon/` |
+| Behaviour | Every new or edited comment, answer and issue change reaches every running run on the issue as a notice at its next tool-batch boundary | new | `server/internal/handler/`, `server/internal/service/`, `server/internal/daemon/` |
 | Runtime | omp runs take input while they run | changed | `server/pkg/agent/pi.go` |
 | Command | `multica issue react <item> 👀` and `✅` for an item the run received | new | `server/cmd/multica/` |
 | Behaviour | When a run ends, only its items without ✅ get their normal handling | changed | `server/internal/handler/daemon.go`, `server/pkg/db/queries/` |
+| Activity | Label, file and sub-issue changes get their own rows in the issue's activity | new | `server/cmd/server/activity_listeners.go`, `packages/views/issues/components/issue-detail.tsx` |
 | Display | 👀 and ✅ of an agent on comments, answers and issue changes | new | `packages/views/issues/`, `packages/views/questions/` |
 | Display | Wake is not offered for an answer the agent marked ✅ | changed | `server/pkg/db/queries/question.sql` |
 | Brief | The agent brief and the `multica-platform` skill tell agents to react 👀 and ✅ | changed | `server/internal/daemon/execenv/`, `server/internal/service/builtin_skills/multica-platform/` |
@@ -42,10 +43,11 @@ Success signal: while Thomas runs on WORK-434, Brian answers Thomas's question a
 ## What Changes
 
 - An omp run accepts new input while it runs, as Claude Code, Codex and Grok runs do today.
-- A new comment, a sent or changed answer, an ask-back and an issue change (status, priority, assignee, title, description, start date, due date) reach the running run of an agent on that issue at the run's next step, without a choice in the composer.
-- In the comment composer, a running recipient defaults to **Add to current run** in every thread; **Start after this run**, **Stop and start over** and **Won't trigger** stay available.
-- The agent marks each item it received with 👀 when it sees it and ✅ when it handled it, through `multica issue react`. Brian sees both, with the agent's name, on the comment, the answer and the issue change.
-- When a run ends, an item it received without ✅ gets the handling it gets today: a comment starts the agent's follow-up run, an issue change starts nothing. An item with ✅ starts nothing.
+- Every new comment, edited comment, sent or changed answer, ask-back and issue change (status, priority, assignee, title, description, start date, due date, labels, files, sub-issues) reaches every running run on that issue as a notice: at the run's next tool-batch boundary, after the work in progress finishes, and also when it is not addressed to that agent.
+- A comment for a running agent joins its run instead of queuing a follow-up run. In the comment composer, a running recipient defaults to **Add to current run** in every thread, also with files; **Start after this run**, **Stop and start over** and **Won't trigger** stay available. A comment's files arrive as names and ids the agent downloads.
+- The agent marks an item 👀 when it saw it and handles it, and ✅ once it handled it, through `multica issue react`; an item that is not relevant to it stays unmarked. Brian sees both, with the agent's name, on the comment, the answer and the activity row.
+- Label, file and sub-issue changes get rows in the issue's activity, so their marks have a place.
+- When a run ends, an item for its agent without ✅ gets the handling it gets today: a comment or edit starts the agent's follow-up run, an answer stays unseen for Wake. An item with ✅, an item not for the agent and an issue change start nothing.
 - An answer with ✅ counts as seen: **Wake** is not offered for it.
 - The agent brief and the `multica-platform` skill tell agents that items arrive while they run and how to react to them.
 
@@ -83,7 +85,7 @@ Success signal: while Thomas runs on WORK-434, Brian answers Thomas's question a
 - Mid-run input for pi, Cursor, OpenCode, Copilot, Hermes, Kimi and the other runtimes without it today.
 - 👀 and ✅ on items a run did not receive while it ran, such as the comment that started it.
 - Reactions by people that count as ✅.
-- Attachments, sub-issues, labels and reactions as delivered issue changes.
+- Reactions and subscribers as delivered issue changes.
 - Changing what starts a run for an agent that is not running.
 
 ## Sources

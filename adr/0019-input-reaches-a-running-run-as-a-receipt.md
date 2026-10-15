@@ -10,12 +10,12 @@ Brian answers questions, comments and changes issues while an agent runs on the 
 
 ## Decision
 
-- Every item that reaches a running run is a row of `task_supplement`, one per item and run, keyed `(item_id, task_id)`, with `item_kind` `comment`, `answer` or `issue_change`. There is no second receipt store.
-- One server service creates receipts for all kinds. An item reaches only tasks in `running` that negotiated `task-supplement-v1`, and never the actor's own agent. A queued or starting run gets its input at claim, as before.
-- A comment steers its running recipients by default, for every author type; the composer can still choose another action per recipient.
-- The run's agent marks a received item through the run-scoped endpoint behind `multica issue react`, which sets the receipt's `seen_at` (👀) or `handled_at` (✅) once. Only the run that holds the receipt can mark it.
-- When a run ends, completed or failed, only `handled_at` decides: a received item with ✅ starts nothing; one without gets the handling it gets when no run received it.
-- omp takes mid-run input through its RPC mode's `steer`; a runtime without mid-run input keeps the item for the run's end.
+- Every item that reaches a running run is a row of `task_supplement`, one per item and run, keyed `(item_id, task_id)`, with `item_kind` `comment`, `comment_edit`, `answer` or `issue_change`. There is no second receipt store.
+- One server service creates receipts for all kinds. An item reaches every task in `running` on its issue that negotiated `task-supplement-v1`, as a notice the run takes at its next tool-batch boundary, never the actor's own agent, and not a recipient the composer explicitly sent elsewhere. A queued or starting run gets its input at claim, as before.
+- A comment for a running recipient joins that run instead of queuing a follow-up, for every author type; the composer can still choose another action per recipient.
+- The run's agent marks a received item it handles through the run-scoped endpoint behind `multica issue react`, which sets the receipt's `seen_at` (👀) or `handled_at` (✅) once; an item not relevant to it stays unmarked. Only the run that holds the receipt can mark it.
+- When a run ends, completed or failed, only `handled_at` decides, and for a comment received more than once the newest receipt: a received item with ✅ starts nothing; one without gets the handling it gets when no run received it, which for an item not addressed to the agent is nothing.
+- omp takes mid-run input through its RPC mode's `steer` in `wait` interrupt mode; a runtime without mid-run input keeps the item for the run's end.
 
 ## Consequences
 
