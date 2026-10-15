@@ -5,8 +5,10 @@ import (
 	"strings"
 )
 
-// Link types of question_link.link_type (design.md decision 1, migration 710).
-// A sub-issue is an issue link to an issue with a parent; a run is a task link.
+// Link types of question_link.link_type (design.md decision 1, migrations 710
+// and 711). A sub-issue is an issue link to an issue with a parent; a run is a
+// task link; a chat is a chat session, where a question asked in a chat turn
+// is asked.
 const (
 	LinkTypeIssue     = "issue"
 	LinkTypeTask      = "task"
@@ -16,6 +18,7 @@ const (
 	LinkTypeSquad     = "squad"
 	LinkTypeAutopilot = "autopilot"
 	LinkTypeSkill     = "skill"
+	LinkTypeChat      = "chat"
 )
 
 // MaxLinksPerAsk bounds the links one request may give: an ask's links, and the
@@ -44,9 +47,10 @@ var linkTypes = []struct {
 	{LinkTypeSquad, "squad"},
 	{LinkTypeAutopilot, "autopilot"},
 	{LinkTypeSkill, "skill"},
+	{LinkTypeChat, "chat"},
 }
 
-// ValidLinkType reports whether linkType is one of the eight link types.
+// ValidLinkType reports whether linkType is one of the nine link types.
 func ValidLinkType(linkType string) bool {
 	for _, def := range linkTypes {
 		if def.linkType == linkType {
