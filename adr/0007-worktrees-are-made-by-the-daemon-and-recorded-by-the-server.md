@@ -11,6 +11,7 @@ Agents changed Brian's normal checkouts, or worked in throwaway worktrees under 
 ## Decision
 
 - Only the daemon touches a runtime's disk. Checking a checkout, cloning, making, switching and removing a worktree run on the daemon that holds the repository's checkout, as a request the server enqueues and the daemon answers. The UI waits on the request.
+- A worklane request on a machine may be started by the machine's owner or by a workspace owner or admin.
 - The server records every worktree a daemon made, with its machine, path and branch. The record is the authority for where a worktree is. A task reuses the recorded worktree; it never recomputes the path.
 - A task never writes in a repository's normal checkout. It works in a worktree of that checkout on its own branch, cut from `origin/{default branch}` after a fetch.
 - A worktree is removed only when it holds no uncommitted change and no commit missing from its remote. Otherwise it stays, and the reason is said where Brian sees it: on the issue, or on the worklane's activity.

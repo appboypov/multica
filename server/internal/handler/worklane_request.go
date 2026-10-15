@@ -19,7 +19,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/redis/go-redis/v9"
 
-	obsmetrics "github.com/multica-ai/multica/server/internal/metrics"
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
 	"github.com/multica-ai/multica/server/pkg/protocol"
 )
@@ -549,6 +548,20 @@ func (h *Handler) enqueueWorklaneRequest(ctx context.Context, req *WorklaneReque
 	return nil
 }
 
+// requireWorklaneRuntimeAccess lets the runtime owner or a workspace owner/admin
+// start worklane requests, without granting access to the machine's skill files.
+func (h *Handler) requireWorklaneRuntimeAccess(w http.ResponseWriter, r *http.Request, runtime db.AgentRuntime) bool {
+	member, ok := h.workspaceMember(w, r, uuidToString(runtime.WorkspaceID))
+	if !ok {
+		return false
+	}
+	if (runtime.OwnerID.Valid && runtime.OwnerID == member.UserID) || roleAllowed(member.Role, "owner", "admin") {
+		return true
+	}
+	writeError(w, http.StatusForbidden, "insufficient permissions")
+	return false
+}
+
 // CreateWorklaneRequest starts a new worklane: every refusal below comes
 // before anything runs on the machine (design decision 2).
 func (h *Handler) CreateWorklaneRequest(w http.ResponseWriter, r *http.Request) {
@@ -621,8 +634,8 @@ func (h *Handler) CreateWorklaneRequest(w http.ResponseWriter, r *http.Request) 
 		writeWorklaneRefusal(w, http.StatusConflict, "runtime_offline", fmt.Sprintf("%s is offline", machine.name), machine.name)
 		return
 	}
-	// The install command runs on the machine, so only its owner may start it.
-	if _, ok := h.requireRuntimeLocalSkillAccess(w, r, obsmetrics.RuntimeLookupSourceRuntimeAPI, uuidToString(machine.runtime.ID)); !ok {
+	// The runtime owner or a workspace owner/admin may run the install command on this machine.
+	if !h.requireWorklaneRuntimeAccess(w, r, machine.runtime) {
 		return
 	}
 	if !runtimeHasCapability(machine.runtime.Metadata, protocol.DaemonCapabilityWorklaneWorktreeV1) {
@@ -762,7 +775,7 @@ func (h *Handler) RetryWorklaneRequest(w http.ResponseWriter, r *http.Request) {
 		writeWorklaneRefusal(w, http.StatusConflict, "runtime_offline", fmt.Sprintf("%s is offline", machine.name), machine.name)
 		return
 	}
-	if _, ok := h.requireRuntimeLocalSkillAccess(w, r, obsmetrics.RuntimeLookupSourceRuntimeAPI, uuidToString(machine.runtime.ID)); !ok {
+	if !h.requireWorklaneRuntimeAccess(w, r, machine.runtime) {
 		return
 	}
 	if !runtimeHasCapability(machine.runtime.Metadata, protocol.DaemonCapabilityWorklaneWorktreeV1) {
