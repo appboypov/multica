@@ -3267,11 +3267,11 @@ export const EMPTY_USER: User = {
 };
 
 // ---------------------------------------------------------------------------
-// Cross-workspace unread inbox summary (`/api/inbox/unread-summary` GET).
-// One entry per workspace the user belongs to that has unread items; the
-// sidebar derives the workspace-switcher dot from it. Lenient per the usual
-// rules so a future field addition can't blank the dot — on malformed JSON
-// parseWithFallback returns the empty list, which simply hides the dot.
+// Cross-workspace unread notice summary (`/api/inbox/unread-summary` GET).
+// One entry per workspace the user belongs to that has unread Updates. The
+// Inbox number and workspace-switcher dot read TodoSummarySchema instead.
+// Lenient per the usual rules — on malformed JSON parseWithFallback returns
+// the empty list, which reads as nothing unread.
 // ---------------------------------------------------------------------------
 
 export const InboxUnreadSummarySchema = z.array(

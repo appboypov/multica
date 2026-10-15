@@ -68,7 +68,8 @@ import { useCurrentWorkspace, useWorkspacePaths, paths } from "@multica/core/pat
 import { workspaceListOptions, myInvitationListOptions, workspaceKeys } from "@multica/core/workspace/queries";
 import { resolvePublicFileUrl } from "@multica/core/workspace/avatar-url";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { inboxUnreadSummaryOptions, useInboxUnreadCount, hasOtherWorkspaceUnread, unreadWorkspaceIds } from "@multica/core/inbox/queries";
+import { todoSummaryOptions, useTodoCount, hasOtherWorkspaceTodos, todoWorkspaceIds } from "@multica/core/todos/queries";
+import type { TodoWorkspaceCount } from "@multica/core/types";
 import { useQuestionsOpenCount } from "@multica/core/questions";
 import { chatSessionsOptions } from "@multica/core/chat/queries";
 import { countUnreadChatMessages } from "@multica/core/chat/unread";
@@ -106,7 +107,7 @@ function isNavActive(pathname: string, href: string): boolean {
 const EMPTY_PINS: PinnedItem[] = [];
 const EMPTY_WORKSPACES: Awaited<ReturnType<typeof api.listWorkspaces>> = [];
 const EMPTY_INVITATIONS: Awaited<ReturnType<typeof api.listMyInvitations>> = [];
-const EMPTY_INBOX_SUMMARY: Awaited<ReturnType<typeof api.getInboxUnreadSummary>> = [];
+const EMPTY_TODO_SUMMARY: TodoWorkspaceCount[] = [];
 const PINNED_PREVIEW_LIMIT = 5;
 
 // Nav items reference WorkspacePaths method names so they can be resolved
@@ -474,10 +475,10 @@ export function AppSidebar({ topSlot, searchSlot, headerClassName, headerStyle }
   }, [pathname, setOpenMobile]);
 
   const wsId = workspace?.id;
-  // Nav badge. Reads the cross-workspace unread summary fetched just below
-  // for the switcher dot, so the count costs no request of its own — it used
-  // to download the whole inbox list here just to count it (MUL-6967).
-  const unreadCount = useInboxUnreadCount(wsId);
+  // Inbox number: the workspace's open to-dos. Reads the cross-workspace to-do
+  // summary fetched just below for the switcher dot, so the count costs no
+  // request of its own. Unread Updates never count here (Updates has no number).
+  const todoCount = useTodoCount(wsId);
   // The questions open for the viewer, as the Questions page's For me holds them.
   const questionsOpenCount = useQuestionsOpenCount(wsId ?? "");
   // Chat tab unread badge: IM-style total of unread *messages* across chat
@@ -509,20 +510,20 @@ export function AppSidebar({ topSlot, searchSlot, headerClassName, headerStyle }
     () => countUnreadChatMessages(chatSessions, viewedChatSessionId),
     [chatSessions, viewedChatSessionId],
   );
-  // Cross-workspace unread summary backs the workspace-switcher dot. One
-  // shared cache entry across workspaces; gated on an active workspace since
-  // the endpoint resolves through the workspace-member middleware.
-  const { data: unreadSummary = EMPTY_INBOX_SUMMARY } = useQuery({
-    ...inboxUnreadSummaryOptions(),
+  // Cross-workspace to-do summary backs the workspace-switcher dot. One
+  // shared cache entry across workspaces; gated on an active workspace like
+  // the Inbox number it shares the cache with.
+  const { data: todoSummary = EMPTY_TODO_SUMMARY } = useQuery({
+    ...todoSummaryOptions(),
     enabled: !!wsId,
   });
-  const otherWorkspaceUnread = React.useMemo(
-    () => hasOtherWorkspaceUnread(unreadSummary, wsId),
-    [unreadSummary, wsId],
+  const otherWorkspaceTodos = React.useMemo(
+    () => hasOtherWorkspaceTodos(todoSummary, wsId),
+    [todoSummary, wsId],
   );
-  // Which workspaces have unread, so the switcher dropdown can point at the
-  // specific one(s) rather than just the aggregate avatar dot.
-  const unreadWsIds = React.useMemo(() => unreadWorkspaceIds(unreadSummary), [unreadSummary]);
+  // Which workspaces have open to-dos, so the switcher dropdown can point at
+  // the specific one(s) rather than just the aggregate avatar dot.
+  const todoWsIds = React.useMemo(() => todoWorkspaceIds(todoSummary), [todoSummary]);
   const { data: pinnedItems = EMPTY_PINS } = useQuery({
     ...pinListOptions(wsId ?? "", userId ?? ""),
     enabled: !!wsId && !!userId,
@@ -642,10 +643,10 @@ export function AppSidebar({ topSlot, searchSlot, headerClassName, headerStyle }
                       <span className="relative">
                         <WorkspaceAvatar name={workspace?.name ?? "M"} avatarUrl={workspace?.avatar_url} size="sm" />
                         {/* Shared brand dot: a pending invitation OR another
-                            workspace with unread inbox items. The active
-                            workspace's own unread stays on the Inbox nav count
-                            (below), so it is deliberately excluded here. */}
-                        {(myInvitations.length > 0 || otherWorkspaceUnread) && (
+                            workspace with open to-dos. The active workspace's
+                            own to-dos stay on the Inbox nav count (below), so
+                            it is deliberately excluded here. */}
+                        {(myInvitations.length > 0 || otherWorkspaceTodos) && (
                           <span className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-brand ring-1 ring-sidebar" />
                         )}
                       </span>
@@ -692,12 +693,12 @@ export function AppSidebar({ topSlot, searchSlot, headerClassName, headerStyle }
                       >
                         <WorkspaceAvatar name={ws.name} avatarUrl={ws.avatar_url} size="sm" />
                         <span className="flex-1 truncate">{ws.name}</span>
-                        {/* Points at the specific workspace holding unread
-                            inbox items. Sits in the same right-edge slot as the
+                        {/* Points at the specific workspace holding open
+                            to-dos. Sits in the same right-edge slot as the
                             active-workspace check; the active workspace is
-                            excluded (its unread is the Inbox nav count), so dot
-                            and check never collide on one row. */}
-                        {ws.id !== workspace?.id && unreadWsIds.has(ws.id) && (
+                            excluded (its to-dos are the Inbox nav count), so
+                            dot and check never collide on one row. */}
+                        {ws.id !== workspace?.id && todoWsIds.has(ws.id) && (
                           <span className="size-2 rounded-full bg-brand" />
                         )}
                         {ws.id === workspace?.id && (
@@ -805,9 +806,9 @@ export function AppSidebar({ topSlot, searchSlot, headerClassName, headerStyle }
                       >
                         <Icon />
                         <span>{t(($) => $.nav[item.labelKey])}</span>
-                        {item.key === "inbox" && unreadCount > 0 && (
+                        {item.key === "inbox" && todoCount > 0 && (
                           <CappedNumberFlow
-                            value={unreadCount}
+                            value={todoCount}
                             animated={false}
                             className="ml-auto text-caption"
                           />

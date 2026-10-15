@@ -10,9 +10,9 @@ import type { InboxItem } from "../types";
  * Re-read every inbox cache a write can change: both workspace lists and the
  * cross-workspace unread summary.
  *
- * The unread badge reads that summary (`useInboxUnreadCount`), and it lives
- * under its own account-level key which `inboxKeys.all(wsId)` does not reach.
- * Every mutation here can change the number it holds, so each one refreshes it
+ * The unread notice count reads that summary (`useInboxUnreadCount`), and it
+ * lives under its own account-level key which `inboxKeys.all(wsId)` does not
+ * reach. Every mutation here can change the number it holds, so each one refreshes it
  * once the server has confirmed, rather than waiting for the WebSocket echo of
  * its own action.
  *
@@ -110,8 +110,8 @@ export function useMarkInboxUnread() {
       for (const [key, data] of ctx?.prevArchived ?? []) qc.setQueryData(key, data);
     },
     onSettled: () => {
-      // The switcher dot must light again when the workspace goes back to
-      // having unread items — that count lives on the server.
+      // The unread notice summary must count the workspace again once it is
+      // back to having unread items — that count lives on the server.
       refreshInboxAfterWrite(qc, wsId);
     },
   });

@@ -185,8 +185,8 @@ export async function onInboxInvalidate(qc: QueryClient, wsId: string) {
   await refreshInboxQuery(qc, inboxKeys.all(wsId));
 }
 
-// THE entry point for refreshing the cross-workspace unread summary — the
-// workspace-switcher dot and the Inbox unread badge. Every writer goes through
+// THE entry point for refreshing the cross-workspace unread notice summary
+// (the Updates meaning; to-dos have their own). Every writer goes through
 // here: inbox mutations, inbox events, issue deletion, and reconnect. The
 // summary spans every workspace, so it is refreshed on ANY inbox event
 // regardless of which workspace the event came from — including read/archive

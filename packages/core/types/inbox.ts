@@ -39,10 +39,9 @@ export type InboxItemType =
   | "question_overdue";
 
 /**
- * One workspace's unread inbox count in the cross-workspace summary
- * (`GET /api/inbox/unread-summary`). The sidebar uses this to light a dot on
- * the workspace switcher when a workspace OTHER than the active one has
- * unread items.
+ * One workspace's unread notice count in the cross-workspace summary
+ * (`GET /api/inbox/unread-summary`): the Updates meaning. Web and desktop
+ * badges count to-dos instead (`TodoWorkspaceCount`).
  */
 export interface InboxWorkspaceUnread {
   workspace_id: string;

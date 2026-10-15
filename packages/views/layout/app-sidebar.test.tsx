@@ -8,9 +8,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@multica/core/api";
 import type * as CorePaths from "@multica/core/paths";
 import { renderWithI18n } from "../test/i18n";
+import type * as TodoQueries from "@multica/core/todos/queries";
 import { AppSidebar } from "./app-sidebar";
 
-const { appForeground, chatSessions, chatStore, detail, deletePin, invitationApi, navigation, pins, sidebarState, summary, workspaces } = vi.hoisted(() => ({
+const { appForeground, chatSessions, chatStore, detail, deletePin, invitationApi, navigation, notices, pins, sidebarState, summary, workspaces } = vi.hoisted(() => ({
   appForeground: { current: true },
   sidebarState: { setOpenMobile: vi.fn() },
   chatSessions: { current: [] as { id?: string; unread_count?: number }[] },
@@ -26,7 +27,10 @@ const { appForeground, chatSessions, chatStore, detail, deletePin, invitationApi
     mutations: [] as Array<Record<string, unknown>>,
   },
   navigation: { current: { pathname: "/acme/issues" } },
+  // `GET /api/todos/summary`: the Inbox number and the switcher dots.
   summary: { current: [] as { workspace_id: string; count: number }[] },
+  // `GET /api/inbox/unread-summary`: unread Updates, which never badge.
+  notices: { current: [] as { workspace_id: string; count: number }[] },
   workspaces: {
     current: [] as { id: string; name: string; slug: string; avatar_url: string | null }[],
   },
@@ -154,19 +158,18 @@ vi.mock("@multica/core/api", async (importOriginal) => {
     },
   };
 });
-vi.mock("@multica/core/inbox/queries", () => ({
-  inboxUnreadSummaryOptions: () => ({ queryKey: ["inbox", "unread-summary"] }),
-  // The nav badge and the switcher dot read the SAME cross-workspace summary,
-  // so the fixture that drives one drives the other.
-  useInboxUnreadCount: (currentWsId: string | null) =>
-    summary.current.find((s) => s.workspace_id === currentWsId)?.count ?? 0,
-  hasOtherWorkspaceUnread: (
-    entries: { workspace_id: string; count: number }[],
-    currentWsId: string | null,
-  ) => entries.some((s) => s.workspace_id !== currentWsId && s.count > 0),
-  unreadWorkspaceIds: (entries: { workspace_id: string; count: number }[]) =>
-    new Set(entries.filter((s) => s.count > 0).map((s) => s.workspace_id)),
-}));
+vi.mock("@multica/core/todos/queries", async (importOriginal) => {
+  const actual = await importOriginal<typeof TodoQueries>();
+  return {
+    ...actual,
+    // The nav number and the switcher dots read the SAME cross-workspace
+    // to-do summary, so the fixture that drives one drives the other. The
+    // mocked useQuery below applies no `select`, so the count is derived here
+    // with the real helper.
+    useTodoCount: (currentWsId: string | null | undefined) =>
+      actual.todoCountForWorkspace(summary.current, currentWsId),
+  };
+});
 vi.mock("@multica/core/issues/queries", () => ({ issueDetailOptions: () => ({ queryKey: ["issue"] }) }));
 vi.mock("@multica/core/issues/stores/create-mode-store", () => ({
   useCreateModeStore: { getState: () => ({ lastMode: "agent" }) },
@@ -191,7 +194,8 @@ vi.mock("@tanstack/react-query", async (importOriginal) => ({
   useQuery: ({ queryKey }: { queryKey: readonly unknown[] }) => {
     if (queryKey[0] === "pins") return { data: pins.current };
     if (queryKey[0] === "issue") return detail.current;
-    if (queryKey[0] === "inbox" && queryKey[1] === "unread-summary") return { data: summary.current };
+    if (queryKey[0] === "todos" && queryKey[1] === "summary") return { data: summary.current };
+    if (queryKey[0] === "inbox" && queryKey[1] === "unread-summary") return { data: notices.current };
     if (queryKey[0] === "workspaces") return { data: workspaces.current };
     if (queryKey[0] === "chat" && queryKey[2] === "sessions") return { data: chatSessions.current };
     return { data: [] };
@@ -312,9 +316,10 @@ describe("mobile sheet dismissal", () => {
   });
 });
 
-describe("workspace-switcher unread dot", () => {
+describe("workspace-switcher to-do dot", () => {
   beforeEach(() => {
     summary.current = [];
+    notices.current = [];
     workspaces.current = [];
   });
 
@@ -322,21 +327,27 @@ describe("workspace-switcher unread dot", () => {
   // (DraftDot is null when there's no draft, and there are no invitations).
   const dot = (container: HTMLElement) => container.querySelector("span.bg-brand.ring-sidebar");
 
-  it("shows a dot when another workspace has unread inbox items", () => {
+  it("shows a dot when another workspace has open to-dos", () => {
     summary.current = [{ workspace_id: "ws-2", count: 3 }];
     const { container } = render(<AppSidebar />);
     expect(dot(container)).not.toBeNull();
   });
 
-  it("does not show a dot when only the active workspace has unread", () => {
+  it("does not show a dot when only the active workspace has open to-dos", () => {
     // Active workspace is ws-1 (see useCurrentWorkspace mock).
     summary.current = [{ workspace_id: "ws-1", count: 3 }];
     const { container } = render(<AppSidebar />);
     expect(dot(container)).toBeNull();
   });
 
-  it("does not show a dot when no workspace has unread", () => {
+  it("does not show a dot when no workspace has open to-dos", () => {
     summary.current = [];
+    const { container } = render(<AppSidebar />);
+    expect(dot(container)).toBeNull();
+  });
+
+  it("does not show a dot for another workspace's unread Updates alone", () => {
+    notices.current = [{ workspace_id: "ws-2", count: 6 }];
     const { container } = render(<AppSidebar />);
     expect(dot(container)).toBeNull();
   });
@@ -356,7 +367,7 @@ describe("workspace-switcher dropdown per-workspace dot", () => {
   const rowDots = (container: HTMLElement) =>
     container.querySelectorAll("span.bg-brand:not(.ring-sidebar)");
 
-  it("dots the specific other workspace that has unread", () => {
+  it("dots the specific other workspace that has open to-dos", () => {
     summary.current = [{ workspace_id: "ws-2", count: 3 }];
     const { container } = render(<AppSidebar />);
     // Exactly one row dot, sitting right after the "Other WS" name; the active
@@ -366,13 +377,19 @@ describe("workspace-switcher dropdown per-workspace dot", () => {
     expect(screen.getByText("Active WS").nextElementSibling?.className ?? "").not.toContain("bg-brand");
   });
 
-  it("does not dot a workspace whose unread count is zero", () => {
+  it("does not dot a workspace whose to-do count is zero", () => {
     summary.current = [{ workspace_id: "ws-2", count: 0 }];
     const { container } = render(<AppSidebar />);
     expect(rowDots(container)).toHaveLength(0);
   });
 
-  it("never dots the active workspace even when it has unread", () => {
+  it("does not dot a workspace that only has unread Updates", () => {
+    notices.current = [{ workspace_id: "ws-2", count: 4 }];
+    const { container } = render(<AppSidebar />);
+    expect(rowDots(container)).toHaveLength(0);
+  });
+
+  it("never dots the active workspace even when it has open to-dos", () => {
     summary.current = [{ workspace_id: "ws-1", count: 5 }];
     const { container } = render(<AppSidebar />);
     expect(rowDots(container)).toHaveLength(0);
@@ -400,6 +417,7 @@ describe("personal nav — Chat", () => {
   beforeEach(() => {
     chatSessions.current = [];
     summary.current = [];
+    notices.current = [];
     navigation.current = { pathname: "/acme/issues" };
     chatStore.current = { activeSessionId: null, isOpen: false };
     appForeground.current = true;
@@ -425,8 +443,49 @@ describe("personal nav — Chat", () => {
     expect(currentChatBadge?.animated).toBe(false);
   });
 
+  it("numbers Inbox with the active workspace's open to-dos, not unread Updates or other workspaces", () => {
+    summary.current = [{ workspace_id: "ws-1", count: 2 }, { workspace_id: "ws-2", count: 7 }];
+    notices.current = [{ workspace_id: "ws-1", count: 9 }];
+    const { container } = render(<AppSidebar />);
+    const inboxBadge = container
+      .querySelector<HTMLElement>('button[data-href="/acme/inbox"]')
+      ?.querySelector("number-flow-react");
+
+    expect(inboxBadge).toHaveAttribute("aria-label", "2");
+  });
+
+  it("shows Inbox without a number when no to-do is open, even with unread Updates", () => {
+    summary.current = [{ workspace_id: "ws-2", count: 3 }];
+    notices.current = [{ workspace_id: "ws-1", count: 5 }];
+    const { container } = render(<AppSidebar />);
+    const inboxNav = container.querySelector<HTMLElement>('button[data-href="/acme/inbox"]');
+
+    expect(inboxNav).not.toBeNull();
+    expect(inboxNav?.querySelector("number-flow-react")).toBeNull();
+  });
+
+  it("lowers the Inbox number when the summary drops a closed to-do", () => {
+    summary.current = [{ workspace_id: "ws-1", count: 3 }];
+    const { container, rerender } = render(<AppSidebar />);
+    const inboxBadge = () => container
+      .querySelector<HTMLElement>('button[data-href="/acme/inbox"]')
+      ?.querySelector("number-flow-react");
+    expect(inboxBadge()).toHaveAttribute("aria-label", "3");
+
+    // A realtime `todo:closed` refetches the summary; the last to-do closing
+    // leaves the workspace out of it entirely.
+    summary.current = [{ workspace_id: "ws-1", count: 2 }];
+    rerender(<AppSidebar />);
+    expect(inboxBadge()).toHaveAttribute("aria-label", "2");
+
+    summary.current = [];
+    rerender(<AppSidebar />);
+    expect(inboxBadge()).toBeNull();
+  });
+
   it("lists Updates right under Inbox, with no number even when notices are unread", () => {
     summary.current = [{ workspace_id: "ws-1", count: 4 }];
+    notices.current = [{ workspace_id: "ws-1", count: 4 }];
     const { container } = render(<AppSidebar />);
     const hrefs = Array.from(
       container.querySelectorAll<HTMLElement>("button[data-href]"),

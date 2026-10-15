@@ -76,7 +76,6 @@ vi.mock("@multica/core/inbox/queries", () => ({
   archivedInboxLookupOptions: () => ({ queryKey: ["inbox", "workspace-1", "archived", "lookup"] }),
   deduplicateInboxItems: (items: InboxItem[]) => items.filter((i) => !i.archived),
   deduplicateArchivedInboxItems: (items: InboxItem[]) => items.filter((i) => i.archived),
-  useInboxUnreadCount: () => 2,
 }));
 
 // Stable spies: the auto-mark-read effect keys on the mutate identity, so a
