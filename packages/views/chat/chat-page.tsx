@@ -80,6 +80,9 @@ export function ChatPage() {
   // Toast when an accepted refresh later fails in the daemon (async half).
   useQuickActionsFailureToast(c.activeSessionId ?? null);
   const regenerateQuickActions = useRegenerateChatQuickActions();
+  // `?question=<id>` lands the open chat on that question's card (Decision 6);
+  // choosing another chat rewrites the URL without it.
+  const urlQuestion = searchParams.get("question") || null;
   const urlSession = searchParams.get("session") || null;
   const urlAgent = searchParams.get("agent") || null;
 
@@ -299,6 +302,7 @@ export function ChatPage() {
               : undefined
           }
           chat={c.activeSessionId ? { wsId: c.wsId, sessionId: c.activeSessionId } : undefined}
+          landingQuestionId={urlSession === c.activeSessionId ? urlQuestion : null}
           quickActionsPendingMessageId={quickActionsPending?.message_id ?? null}
         />
       ) : (

@@ -9,7 +9,9 @@ interface ChatQuestionCardsProps {
   cards: readonly QuestionCardGroup[];
   /** The chat they were asked in, whose questions refresh after each action. */
   chatSessionId: string;
-  /** The question a `?question=` link landed on: its card is ringed and a set opens at it. */
+  /** The question a `?question=` link points at: a set card opens at it. */
+  landingQuestionId: string | null;
+  /** The question just landed on: its card is ringed until the ring fades. */
   highlightedQuestionId: string | null;
 }
 
@@ -18,12 +20,13 @@ interface ChatQuestionCardsProps {
  * an issue, scoped to the chat, so the chat's member answers, cancels and
  * wakes in place and sees every other answerer's sent answer.
  */
-export function ChatQuestionCards({ cards, chatSessionId, highlightedQuestionId }: ChatQuestionCardsProps) {
+export function ChatQuestionCards({ cards, chatSessionId, landingQuestionId, highlightedQuestionId }: ChatQuestionCardsProps) {
   const scope = { chatSessionId };
   return (
     <div className="mt-3 flex flex-col gap-3">
       {cards.map((card) => {
-        const highlighted = !!highlightedQuestionId && card.questions.some((q) => q.id === highlightedQuestionId);
+        const highlighted = card.questions.some((q) => q.id === highlightedQuestionId);
+        const landing = card.questions.some((q) => q.id === landingQuestionId);
         return (
           <div
             key={card.askId}
@@ -36,7 +39,7 @@ export function ChatQuestionCards({ cards, chatSessionId, highlightedQuestionId 
               <QuestionSetCard
                 questions={card.questions}
                 scope={scope}
-                activeQuestionId={highlighted ? highlightedQuestionId! : undefined}
+                activeQuestionId={landing ? landingQuestionId! : undefined}
               />
             )}
           </div>

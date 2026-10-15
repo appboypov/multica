@@ -8,11 +8,6 @@ export interface ChatRowAnchor {
   createdAt: string | null;
 }
 
-/** The row key a turn's message and its live row share. */
-export function turnRowKey(taskId: string): string {
-  return `task:${taskId}`;
-}
-
 /**
  * The question cards each row of a chat ends with (Decision 7): a card
  * follows the turn that asked it, its assistant message or, while the turn
@@ -31,8 +26,9 @@ export function placeQuestionCards(
   const keys = new Set(rows.map((row) => row.key));
   for (const card of cards) {
     const first = card.questions[0]!;
-    const key = keys.has(turnRowKey(first.asked_in_task_id))
-      ? turnRowKey(first.asked_in_task_id)
+    const turnKey = `task:${first.asked_in_task_id}`;
+    const key = keys.has(turnKey)
+      ? turnKey
       : (lastRowBefore(rows, first.created_at) ?? (hasOlderRows ? null : rows[0]!.key));
     if (key === null) continue;
     const onRow = placed.get(key);

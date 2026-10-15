@@ -101,6 +101,11 @@ interface ChatMessageListProps {
    * member's chat.
    */
   chat?: { wsId: string; sessionId: string };
+  /**
+   * A question to land on once (`?question=`): when the list has settled,
+   * scroll to the row holding its card and ring the card (Decision 6).
+   */
+  landingQuestionId?: string | null;
 }
 
 // ─── Virtuoso chrome ─────────────────────────────────────────────────────
@@ -184,6 +189,9 @@ const LIST_COMPONENTS: Components<ChatRenderItem, ChatListContext> = {
   Footer: ChatListFooter,
 };
 
+/** How long a landed question card stays ringed, as an issue's landed comment does. */
+const LANDING_HIGHLIGHT_MS = 2500;
+
 export function ChatMessageList({
   messages,
   pendingTask,
@@ -198,6 +206,7 @@ export function ChatMessageList({
   onRegenerateQuickActions,
   quickActionsPendingMessageId = null,
   chat,
+  landingQuestionId = null,
 }: ChatMessageListProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [scrollContainerEl, setScrollContainerEl] = useState<HTMLDivElement | null>(null);
@@ -212,7 +221,7 @@ export function ChatMessageList({
   const pinToLiveEnd = useCallback(() => {
     virtuosoRef.current?.scrollToIndex({ index: "LAST", align: "end" });
   }, []);
-  const { isFollowing, onContentHeightChanged, hasReachedLiveEnd } = useStickToBottom(
+  const { isFollowing, onContentHeightChanged, hasReachedLiveEnd, disengage } = useStickToBottom(
     scrollContainerEl,
     pinToLiveEnd,
   );
@@ -303,6 +312,41 @@ export function ChatMessageList({
       ),
     [renderItems, questions, hasOlderMessages],
   );
+
+  // A `?question=` link lands once the list has settled at its live end and
+  // the card's row exists: stop following the live end, bring the end of that
+  // row (where the card sits) into view and ring the card. A card whose turn
+  // is on an older page loads pages until its row arrives.
+  const landingIndex = useMemo(
+    () =>
+      landingQuestionId
+        ? renderItems.findIndex((item) =>
+            cardsByRow.get(item.key)?.some((card) => card.questions.some((q) => q.id === landingQuestionId)),
+          )
+        : -1,
+    [landingQuestionId, renderItems, cardsByRow],
+  );
+  const landingAsked = !!landingQuestionId && !!questions?.some((q) => q.id === landingQuestionId);
+  const loadOlderRef = useRef(onLoadOlderMessages);
+  loadOlderRef.current = onLoadOlderMessages;
+  const landedQuestionRef = useRef<string | null>(null);
+  const [highlightedQuestionId, setHighlightedQuestionId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!landingQuestionId || landedQuestionRef.current === landingQuestionId || !hasReachedLiveEnd) return;
+    if (landingIndex < 0) {
+      if (landingAsked && hasOlderMessages && !isFetchingOlderMessages) loadOlderRef.current?.();
+      return;
+    }
+    landedQuestionRef.current = landingQuestionId;
+    disengage();
+    virtuosoRef.current?.scrollToIndex({ index: landingIndex, align: "end" });
+    setHighlightedQuestionId(landingQuestionId);
+  }, [landingQuestionId, landingIndex, landingAsked, hasReachedLiveEnd, hasOlderMessages, isFetchingOlderMessages, disengage]);
+  useEffect(() => {
+    if (!highlightedQuestionId) return;
+    const fade = window.setTimeout(() => setHighlightedQuestionId(null), LANDING_HIGHLIGHT_MS);
+    return () => window.clearTimeout(fade);
+  }, [highlightedQuestionId]);
 
   const firstIndex = renderItems.length > 0 ? firstItemIndex : 0;
   const liveEndKey = renderItems[renderItems.length - 1]?.key ?? null;
@@ -418,7 +462,12 @@ export function ChatMessageList({
                 starterCardsMessageId={starterCardsMessageId}
               />
               {chat && cards ? (
-                <ChatQuestionCards cards={cards} chatSessionId={chat.sessionId} highlightedQuestionId={null} />
+                <ChatQuestionCards
+                  cards={cards}
+                  chatSessionId={chat.sessionId}
+                  landingQuestionId={landingQuestionId}
+                  highlightedQuestionId={highlightedQuestionId}
+                />
               ) : null}
             </div>
           );

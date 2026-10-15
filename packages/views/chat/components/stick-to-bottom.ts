@@ -102,6 +102,11 @@ export interface StickToBottom {
    * of the conversation and the next one jumps (MUL-6879).
    */
   hasReachedLiveEnd: boolean;
+  /**
+   * Explicit navigation away from the live end (a `?question=` landing):
+   * stop following, so the scroll there is not pinned back to the bottom.
+   */
+  disengage(): void;
 }
 
 /**
@@ -300,6 +305,7 @@ export function useStickToBottom(
     () => ({
       isFollowing: () => follow.isFollowing(),
       onContentHeightChanged: onResize,
+      disengage: () => follow.disengage(),
       hasReachedLiveEnd,
     }),
     [follow, onResize, hasReachedLiveEnd],
