@@ -62,6 +62,51 @@
     "answered_on_issue": "{{type}} 질문은 해당 태스크에서 답변합니다.",
     "unavailable": "이 질문을 여기에 표시할 수 없습니다."
   },
+  "todos": {
+    "mark_done": "완료로 표시",
+    "overdue": "기한 지남",
+    "open_autopilot": "오토파일럿 열기",
+    "kinds": {
+      "question": "나에게 온 질문",
+      "approval": "나에게 온 승인 요청",
+      "mention": "나를 멘션함",
+      "assigned": "나에게 할당됨",
+      "agent_blocked": "에이전트 차단됨",
+      "run_failed": "실행 실패",
+      "autopilot_paused": "오토파일럿 일시 중지",
+      "quota_reached": "할당량 한도 도달",
+      "quick_create_failed": "빠른 생성 실패",
+      "review": "내 리뷰 대기 중",
+      "other": "할 일"
+    },
+    "leaves": {
+      "question": "답변하면 받은편지함에서 사라집니다.",
+      "mention": "{{identifier}}에 댓글을 달면 받은편지함에서 사라집니다.",
+      "assigned": "{{identifier}}이(가) 다른 상태로 바뀌면 받은편지함에서 사라집니다.",
+      "agent_blocked": "{{identifier}}이(가) 더 이상 차단 상태가 아니거나 에이전트가 다시 실행되면 받은편지함에서 사라집니다.",
+      "run_failed": "{{identifier}}에서 에이전트가 다시 실행되면 받은편지함에서 사라집니다.",
+      "review": "{{identifier}}이(가) 리뷰 중 상태를 벗어나면 받은편지함에서 사라집니다.",
+      "autopilot_paused": "오토파일럿을 재개하면 받은편지함에서 사라집니다.",
+      "quota_reached": "오토파일럿 실행이 다시 허용되면 받은편지함에서 사라집니다.",
+      "quick_create_failed": "재시도로 이슈가 생성되면 받은편지함에서 사라집니다.",
+      "other": "처리하면 받은편지함에서 사라집니다."
+    },
+    "created_by_you": "내가 만듦",
+    "assigned_to_you": "나에게 할당됨",
+    "reply_to": "{{name}}에게 답장…",
+    "comment_unavailable": "이 댓글은 여기에 표시할 수 없습니다.",
+    "run_label": "실행 #{{number}}",
+    "run_label_plain": "최근 실행",
+    "blocked_badge": "차단됨",
+    "failed_badge": "실패",
+    "resume_autopilot": "오토파일럿 재개",
+    "view_runs": "실행 보기",
+    "empty_title": "기다리는 일이 없습니다",
+    "empty_body": "팔로우하는 이슈의 소식은 업데이트에 있습니다.",
+    "open_updates": "업데이트 열기",
+    "select_prompt": "필요한 작업을 보려면 할 일을 선택하세요",
+    "load_failed": "할 일을 불러오지 못했습니다"
+  },
   "types": {
     "issue_assigned": "할당됨",
     "issue_subscribed": "구독됨",
@@ -124,6 +169,7 @@
     "archive_completed_failed": "완료된 항목을 보관하지 못했습니다",
     "unarchive_failed": "보관 해제에 실패했습니다",
     "archived_load_failed": "보관된 알림을 불러오지 못했습니다",
-    "filters_load_failed": "필터를 불러올 수 없습니다"
+    "filters_load_failed": "필터를 불러올 수 없습니다",
+    "resume_autopilot_failed": "오토파일럿을 재개하지 못했습니다"
   }
 }

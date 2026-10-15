@@ -62,6 +62,51 @@
     "answered_on_issue": "{{type}}问题需在其任务中回答。",
     "unavailable": "无法在此显示这个问题。"
   },
+  "todos": {
+    "mark_done": "标记为完成",
+    "overdue": "已逾期",
+    "open_autopilot": "打开自动驾驶",
+    "kinds": {
+      "question": "给你的问题",
+      "approval": "给你的审批",
+      "mention": "提到了你",
+      "assigned": "分配给你",
+      "agent_blocked": "智能体受阻",
+      "run_failed": "运行失败",
+      "autopilot_paused": "自动驾驶已暂停",
+      "quota_reached": "已达配额上限",
+      "quick_create_failed": "快速创建失败",
+      "review": "等待你的评审",
+      "other": "待办"
+    },
+    "leaves": {
+      "question": "你回答后即离开收件箱。",
+      "mention": "你在 {{identifier}} 上评论后即离开收件箱。",
+      "assigned": "{{identifier}} 变为其他状态后即离开收件箱。",
+      "agent_blocked": "{{identifier}} 不再受阻或智能体再次运行后即离开收件箱。",
+      "run_failed": "智能体在 {{identifier}} 上再次运行后即离开收件箱。",
+      "review": "{{identifier}} 离开评审中后即离开收件箱。",
+      "autopilot_paused": "自动驾驶恢复后即离开收件箱。",
+      "quota_reached": "自动驾驶运行再次被允许后即离开收件箱。",
+      "quick_create_failed": "重试创建出事项后即离开收件箱。",
+      "other": "处理后即离开收件箱。"
+    },
+    "created_by_you": "由你创建",
+    "assigned_to_you": "分配给你",
+    "reply_to": "回复 {{name}}…",
+    "comment_unavailable": "此评论无法在这里显示。",
+    "run_label": "运行 #{{number}}",
+    "run_label_plain": "最近一次运行",
+    "blocked_badge": "受阻",
+    "failed_badge": "失败",
+    "resume_autopilot": "恢复自动驾驶",
+    "view_runs": "查看运行",
+    "empty_title": "没有等你处理的事",
+    "empty_body": "你关注的事项的动态在「更新」中。",
+    "open_updates": "打开更新",
+    "select_prompt": "选择一个待办查看需要做什么",
+    "load_failed": "无法加载你的待办"
+  },
   "types": {
     "issue_assigned": "已分配",
     "issue_subscribed": "已订阅",
@@ -124,6 +169,7 @@
     "archive_completed_failed": "归档已完成失败",
     "unarchive_failed": "取消归档失败",
     "archived_load_failed": "无法加载已归档通知",
-    "filters_load_failed": "无法加载筛选项"
+    "filters_load_failed": "无法加载筛选项",
+    "resume_autopilot_failed": "无法恢复自动驾驶"
   }
 }
