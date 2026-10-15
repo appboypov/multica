@@ -14,6 +14,7 @@ import { workspaceWorkingAgentsKeys } from "../agents/queries";
 import { workspaceKeys } from "../workspace/queries";
 import { issueStatusKeys } from "../issue-statuses/queries";
 import { questionKeys } from "../questions/queries";
+import { todoKeys } from "../todos/queries";
 import {
   markWorkspaceDeletePending,
   unmarkWorkspaceDeletePending,
@@ -127,17 +128,19 @@ describe("useRealtimeSync — ws instance change", () => {
     rerender({ ws: ws2 });
 
     // Should have called invalidateQueries for all workspace-scoped keys
-    // (23 workspace-scoped [incl. property definitions, organisations,
-    // questions, repositories, worklanes, worklane issues, releases and
-    // release progress] + 6 per-issue prefixes + the workspace working-agents
-    // projection + 5 per-chat prefixes + 1 workspaceKeys.list() + 1
-    // cross-workspace inbox unread summary = 38 calls).
+    // (24 workspace-scoped [incl. property definitions, organisations,
+    // questions, repositories, worklanes, worklane issues, releases,
+    // release progress and to-dos] + 6 per-issue prefixes + the workspace
+    // working-agents projection + 5 per-chat prefixes + 1 workspaceKeys.list()
+    // + 1 cross-workspace inbox unread summary + 1 to-do summary = 40 calls).
     //
-    // Awaited rather than counted synchronously: the inbox unread summary
-    // refresh cancels any in-flight request before invalidating (see
-    // onInboxSummaryInvalidate), so that one lands after the synchronous ones.
-    await waitFor(() => expect(invalidateSpy).toHaveBeenCalledTimes(38));
+    // Awaited rather than counted synchronously: the inbox unread summary,
+    // to-do list and to-do summary refreshes cancel in-flight requests before
+    // invalidating, so those calls land after the synchronous ones.
+    await waitFor(() => expect(invalidateSpy).toHaveBeenCalledTimes(40));
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: questionKeys.all("ws-1") });
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: todoKeys.all("ws-1") });
+    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: todoKeys.summary() });
   });
 
   it("does not re-invalidate when rerendered with the same ws instance", () => {

@@ -49,7 +49,7 @@ Server checks: `cd server && go test ./...` with the test database, as AGENTS.md
 
 ## 7. Client data (Thomas)
 
-- [ ] 7.1 `packages/core/types/todo.ts`, zod schemas with `parseWithFallback` in `packages/core/api/schemas.ts`, API client methods, `packages/core/todos/` queries (`todoKeys`), Mark done mutation with optimistic removal, `todo:*` handlers in `use-realtime-sync.ts`, desktop notification on `todo:opened`. Verify: unit tests.
+- [x] 7.1 `packages/core/types/todo.ts`, zod schemas with `parseWithFallback` in `packages/core/api/schemas.ts`, API client methods, `packages/core/todos/` queries (`todoKeys`), Mark done mutation with optimistic removal, `todo:*` handlers in `use-realtime-sync.ts`, desktop notification on `todo:opened`. Verify: unit tests.
 
 ## 8. Inbox (Thomas)
 
@@ -107,6 +107,7 @@ Server checks: `cd server && go test ./...` with the test database, as AGENTS.md
 - Reused the notification focus/mute/source-workspace checks for `todo:opened`. To-do notification selectors use the to-do ID and the shared notification payload has an optional `destination`; group 9 owns preserving/routing that discriminator through native IPC and the web/desktop click bridges.
 - Added unit suites in `packages/core/api/todo.test.ts`, `packages/core/todos/{mutations.test.tsx,ws-updaters.test.ts}` and `packages/core/realtime/use-realtime-sync-todo.test.tsx` for schema drift, optimistic removal/rollback, duplicate actions, summary isolation, initial-load races, realtime lifecycle and notification routing/mute. These suites are authored, not run here: the coordinating builder runs verification after frontend integration.
 - Context surprise: OpenSpec lives in `specs/`, so apply instructions were obtained there after the root invocation could not find the change. The design document and seven PNG exports were read from the design PR's separate worktree without copying them. Implementation uses `design.md`'s API contract while backend groups 1–6 are built separately.
+- Reopened 7.1 finding: updated `packages/core/realtime/use-realtime-sync-ws-instance.test.tsx` to expect 40 reconnect invalidations, including the intended workspace to-do list and account-level summary refreshes. The test now asserts both `todoKeys.all("ws-1")` and `todoKeys.summary()` and explains their asynchronous cancellation-before-invalidation behaviour. Production reconnect behaviour is unchanged. No checks were run for this correction; Main owns the integrated verification.
 
 ### Inbox — WORK-449, group 8
 
