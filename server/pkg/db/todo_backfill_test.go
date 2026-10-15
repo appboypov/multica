@@ -127,6 +127,20 @@ func TestTodoBackfillQuestionsAssignmentsAndReviews(t *testing.T) {
 	}
 }
 
+func TestTodoBackfillQuestionThroughComment(t *testing.T) {
+	fx, _ := todoFixture(t)
+	issue := fx.Issue(t, "Commented issue")
+	comment := fx.Insert(t, "comment", testutil.Cols{"workspace_id": fx.WorkspaceID, "issue_id": issue, "author_type": "agent", "author_id": dbid.NewV7(), "content": "Asked here"})
+	id := dbid.NewV7()
+	qid := fx.Insert(t, "question", testutil.Cols{"id": id, "workspace_id": fx.WorkspaceID, "ask_id": id, "ask_position": 0, "asker_agent_id": dbid.NewV7(), "asked_in_task_id": dbid.NewV7(), "prompt": "Approve?", "answer_type": "approval", "status": "open"})
+	fx.InsertNoID(t, "question_link", testutil.Cols{"workspace_id": fx.WorkspaceID, "question_id": qid, "link_type": "comment", "link_id": comment, "position": 0}, "question_id=$1", qid)
+	fx.InsertNoID(t, "question_answerer", testutil.Cols{"workspace_id": fx.WorkspaceID, "question_id": qid, "user_id": fx.UserID}, "question_id=$1 AND user_id=$2", qid, fx.UserID)
+	tx := applyTodoBackfill(t, fx)
+	if got := backfillCount(t, tx, `SELECT count(*) FROM todo WHERE workspace_id=$1 AND member_id=$2 AND kind='question' AND question_id=$3 AND issue_id=$4 AND done_at IS NULL`, fx.WorkspaceID, fx.UserID, qid, issue); got != 1 {
+		t.Errorf("comment-linked question has %d open to-dos on its issue, want 1", got)
+	}
+}
+
 func TestTodoBackfillAgentFailures(t *testing.T) {
 	fx, _ := todoFixture(t)
 	runtime := fx.Runtime(t, "Backfill runtime")
