@@ -1,5 +1,5 @@
--- Questions agents ask in a run or members ask on an issue (ADR-0021). Every query is
--- scoped by workspace_id; the service validates ids and runs the multi-row
+-- Questions agents ask during issue runs and chat turns, and members ask on an issue (ADR-0021).
+-- Every query is scoped by workspace_id; the service validates ids and runs the multi-row
 -- writes of one action in one transaction.
 
 -- name: CreateQuestion :one
@@ -74,6 +74,26 @@ WHERE q.workspace_id = @workspace_id
       ))
   )
 ORDER BY q.created_at ASC, q.id ASC;
+
+-- name: ListChatQuestionIDs :many
+-- The asking agent receives the answers and events of its questions in this chat.
+SELECT q.id FROM question q
+JOIN question_link l
+  ON l.question_id = q.id AND l.workspace_id = q.workspace_id
+WHERE q.workspace_id = @workspace_id
+  AND q.asker_agent_id = @agent_id
+  AND q.status IN ('open', 'partly_answered', 'answered', 'cancelled')
+  AND l.link_type = 'chat' AND l.link_id = @chat_session_id
+ORDER BY q.id;
+
+-- name: HasActiveChatTaskForAgent :one
+SELECT EXISTS (
+    SELECT 1 FROM agent_task_queue t
+    JOIN agent a ON a.id = t.agent_id AND a.workspace_id = @workspace_id
+    JOIN chat_session c ON c.id = t.chat_session_id AND c.workspace_id = @workspace_id
+    WHERE t.agent_id = @agent_id AND t.chat_session_id = @chat_session_id
+      AND t.status IN ('queued', 'dispatched', 'running')
+)::boolean AS has_active;
 
 -- name: ListQuestionsByAsk :many
 -- An ask's questions in order (idx_question_ask).
@@ -171,13 +191,16 @@ SELECT count(*)::bigint AS removed_count FROM removed;
 -- name: ListOpenOverdueQuestions :many
 -- The overdue sweep runs across workspaces: open and partly answered questions
 -- due before the given UTC day that have had no overdue notice yet, each with
--- its ask_id and the issue it is linked to.
-SELECT q.*, l.link_id AS issue_id
+-- its ask_id and its position-0 issue or chat link.
+SELECT q.*,
+       (CASE WHEN l.link_type = 'issue' THEN l.link_id END)::uuid AS issue_id,
+       (CASE WHEN l.link_type = 'chat' THEN l.link_id END)::uuid AS chat_session_id
 FROM question q
 JOIN question_link l
   ON l.question_id = q.id
  AND l.workspace_id = q.workspace_id
- AND l.link_type = 'issue'
+ AND l.position = 0
+ AND l.link_type IN ('issue', 'chat')
 WHERE q.status IN ('open', 'partly_answered')
   AND q.overdue_notified_at IS NULL
   AND q.due_date < @before_date::date
