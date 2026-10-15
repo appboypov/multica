@@ -11,6 +11,7 @@ import {
   ListOrdered,
   ListTodo,
   MessageCircleQuestionMark,
+  MessageSquare,
   Paperclip,
   Stamp,
   ToggleLeft,
@@ -47,6 +48,7 @@ const LINK_ICONS: Record<QuestionRowLink["type"], LucideIcon> = {
   squad: Users,
   autopilot: Zap,
   skill: BookOpenText,
+  chat: MessageSquare,
 };
 
 /** The icon of a question's page object kind. */

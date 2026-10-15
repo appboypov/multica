@@ -11,15 +11,19 @@ export interface SessionEntry {
   identifier: string;
 }
 
-/** Freezes For me's rows, already in `sessionOrder`, into the session's entries. */
+/**
+ * Freezes For me's rows, already in `sessionOrder`, into the session's
+ * entries. A chat row has no issue to load its question through and is left
+ * out of the session.
+ */
 export function toSession(rows: readonly QuestionRow[]): SessionEntry[] {
-  return rows.map((row) => ({
+  return rows.flatMap((row) => row.open_issue ? [{
     id: row.id,
     askId: row.ask_id,
     askTitle: row.ask_title,
     issueId: row.open_issue.id,
     identifier: row.open_issue.identifier,
-  }));
+  }] : []);
 }
 
 /** Still waiting on the viewer: open for them and not yet answered by them. */

@@ -491,6 +491,7 @@ export type {
   Question,
   AnswerQuestionRequest,
   AskBackQuestionRequest,
+  CancelQuestionRequest,
   ReassignQuestionRequest,
   QuestionWakeResult,
   AgentQuestionsSettings,

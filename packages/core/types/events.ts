@@ -143,10 +143,23 @@ export interface QuestionEventPayload {
   question_id: string;
   ask_id?: string;
   question_ids?: string[];
+  /** The first issue whose page shows the card; empty for a question on no issue. */
   issue_id: string;
   /** Every issue whose page shows the card; issue_id stays the first. */
   issue_ids?: string[];
-  reason?: "answered" | "answer_edited" | "ask_back" | "reassigned" | "closed" | "withdrawn" | "overdue" | "woken" | "linked";
+  /** The chat whose messages show the card, when the question links to one. */
+  chat_session_id?: string;
+  reason?:
+    | "answered"
+    | "answer_edited"
+    | "ask_back"
+    | "reassigned"
+    | "closed"
+    | "withdrawn"
+    | "cancelled"
+    | "overdue"
+    | "woken"
+    | "linked";
   event_id?: string;
 }
 

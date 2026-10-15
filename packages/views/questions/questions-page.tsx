@@ -107,6 +107,8 @@ export function QuestionsPage() {
   const latestAnsweredRow = latestAnswered.data?.pages[0]?.rows[0];
 
   const openRow = (row: QuestionRow) => {
+    // A chat row's card opens in its chat, which this page does not link yet.
+    if (!row.open_issue) return;
     navigation.push(questionCardHref(paths.issueDetail(row.open_issue.identifier), row.id));
   };
 

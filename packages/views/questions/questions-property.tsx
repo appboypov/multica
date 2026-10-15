@@ -79,7 +79,7 @@ function ViaRow({ row, pageIssueIdentifier }: { row: QuestionRow; pageIssueIdent
     <button
       type="button"
       className="flex w-full min-w-0 items-center gap-1.5 text-left text-muted-foreground hover:text-foreground"
-      onClick={() => push(`${paths.issueDetail(row.open_issue.id)}#${questionAnchor(row.id)}`)}
+      onClick={() => row.open_issue && push(`${paths.issueDetail(row.open_issue.id)}#${questionAnchor(row.id)}`)}
     >
       <Icon aria-hidden className="size-3.5 shrink-0" />
       <span className="min-w-0 truncate text-foreground">{row.prompt}</span>

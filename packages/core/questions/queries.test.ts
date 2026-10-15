@@ -11,7 +11,7 @@ import { issueKeys } from "../issues/queries";
 vi.mock("../api", () => ({ api: { listIssueQuestions: vi.fn(), getQuestion: vi.fn() } }));
 
 function linkedQuestion(id: string, issueId: string): Question {
-  return { ...EMPTY_QUESTION, id, links: [{ link_type: "issue", link_id: issueId, position: 0 }] };
+  return { ...EMPTY_QUESTION, id, links: [{ link_type: "issue", link_id: issueId, position: 0, member_id: null }] };
 }
 
 function deferred<T>() {

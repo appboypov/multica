@@ -193,9 +193,11 @@ export interface DeclinedAnswerValue {
 
 /**
  * Overdue is no status: it derives from `due_date` while open. `open` and
- * `partly_answered` are both open (ADR-0004).
+ * `partly_answered` are both open (ADR-0004). `closed`, `withdrawn` and
+ * `cancelled` end the question; `cancelled` is a current answerer's cancel,
+ * which keeps every answer sent before it.
  */
-export type QuestionStatus = "open" | "partly_answered" | "answered" | "closed" | "withdrawn";
+export type QuestionStatus = "open" | "partly_answered" | "answered" | "closed" | "withdrawn" | "cancelled";
 
 /**
  * When answers make a question answered: under `any_one` the first answer of a
@@ -212,13 +214,19 @@ export type QuestionLinkType =
   | "agent"
   | "squad"
   | "autopilot"
-  | "skill";
+  | "skill"
+  | "chat";
 
 /** Where a question belongs; position 0 is where it was asked. */
 export interface QuestionLink {
   link_type: QuestionLinkType;
   link_id: string;
   position: number;
+  /**
+   * The member of a `chat` link's chat (its creator), never its title or
+   * messages; null on every other link.
+   */
+  member_id: string | null;
 }
 
 /** The first link that reaches the page's object or the viewer's work. */
@@ -229,13 +237,21 @@ export interface QuestionVia {
   issue_identifier: string | null;
 }
 
-/** One agent offered Wake on its own issue; the asking agent is first. */
-export interface QuestionWakeTarget {
+export interface QuestionWakeTargetBase {
   agent_id: string;
-  issue_id: string;
   unseen_answer_count: number;
   wake_available: boolean;
 }
+
+/**
+ * One agent offered Wake in its own scope; the asking agent is first. The
+ * asking agent of a question asked in a chat wakes in that chat (ADR-0018),
+ * with `chat_session_id` set; every other target wakes on `issue_id`.
+ */
+export type QuestionWakeTarget = QuestionWakeTargetBase & (
+  | { issue_id: string; chat_session_id: null }
+  | { issue_id: null; chat_session_id: string }
+);
 
 /** A current answerer: always a member. */
 export interface QuestionAnswerer {
@@ -265,7 +281,8 @@ export type QuestionEventKind =
   | "reassigned"
   | "closed"
   | "withdrawn"
-  | "woken";
+  | "woken"
+  | "cancelled";
 
 /** The `details` each event kind carries; kinds without any carry `{}`. */
 export interface QuestionEventDetailsByKind {
@@ -280,6 +297,8 @@ export interface QuestionEventDetailsByKind {
   withdrawn: Record<string, never>;
   /** A member pressed Wake: the run it queued and the answers it carries. */
   woken: { task_id: string; answer_count: number };
+  /** A current answerer cancelled the question; `note` is their optional reason. */
+  cancelled: { note: string | null };
 }
 
 interface QuestionEventOf<K extends QuestionEventKind> {
@@ -367,6 +386,13 @@ export interface AskBackQuestionRequest {
   text: string;
 }
 
+/** Body of `POST /api/questions/{id}/cancel`: ends the question for every answerer. */
+export interface CancelQuestionRequest {
+  note?: string;
+  /** Wakes the asking agent once the cancel is saved. */
+  wake?: boolean;
+}
+
 /** Body of `POST /api/questions/{id}/reassign`; the note is required. */
 export interface ReassignQuestionRequest {
   user_id: string;
@@ -408,7 +434,11 @@ export interface QuestionAskResult {
  */
 export type QuestionTab = "for_me" | "on_my_work" | "all_open" | "answered";
 
-/** The first link's page object: comments and runs use their issue. */
+/**
+ * The first link's page object: comments and runs use their issue. A `chat`
+ * link names only its member, never the chat's title: its `identifier` and
+ * `status` are null and its `title` is empty.
+ */
 export interface QuestionRowLink {
   type: Exclude<QuestionLinkType, "comment" | "task">;
   id: string;
@@ -416,6 +446,8 @@ export interface QuestionRowLink {
   identifier: string | null;
   title: string;
   status: IssueStatus | null;
+  /** The chat's member (its creator) on a `chat` link; null on every other link. */
+  member_id: string | null;
 }
 
 /** The viewer's own answer to the row's question. */
@@ -449,8 +481,11 @@ interface QuestionRowBase {
   link: QuestionRowLink;
   /** Null for a direct link or outside a parent list and On my work. */
   via: QuestionVia | null;
-  /** The issue where the question's card opens, regardless of the first link's type. */
-  open_issue: { id: string; identifier: string };
+  /**
+   * The issue where the question's card opens, regardless of the first link's
+   * type; null when the first link is a chat, whose card opens in the chat.
+   */
+  open_issue: { id: string; identifier: string } | null;
   /** Null while the viewer has not answered. */
   my_answer: QuestionRowAnswer | null;
 }
