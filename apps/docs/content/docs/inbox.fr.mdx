@@ -1,29 +1,58 @@
 ---
 title: "Boîte de réception et abonnements"
-description: "Un seul endroit pour les assignations, mentions, commentaires et échecs d'agents qui demandent votre suivi."
+description: "La boîte de réception liste ce qui attend une action de votre part ; Mises à jour rassemble les nouvelles des tâches que vous suivez."
 ---
 
 import { Callout } from "fumadocs-ui/components/callout";
 
-La boîte de réception rassemble l'activité de travail qui vous concerne. Ce n'est pas un journal d'activité complet — elle signale les changements qui demandent votre attention ; le contexte complet reste sur la tâche correspondante.
+Ce qui vous concerne se trouve sur deux pages de la barre latérale :
+
+- **Boîte de réception** liste vos à-faire : ce qui attend une action de votre part. Son compteur indique vos à-faire ouverts.
+- **Mises à jour** liste les nouvelles des tâches que vous suivez : les changements et commentaires qui ne vous demandent rien. Elle n'a pas de compteur.
+
+Aucune des deux n'est un journal d'activité complet ; le contexte complet reste sur la tâche correspondante.
 
 ## Ce qui arrive dans la boîte de réception
+
+Chaque à-faire est une ligne, même lorsque plusieurs concernent la même tâche. Les à-faire en retard viennent en premier, puis les plus récents. Un à-faire part de lui-même une fois traité :
+
+| À-faire | Vous le recevez quand | Il part quand |
+|---|---|---|
+| **Question pour vous**, **Approbation pour vous** | quelqu'un vous pose une question ou vous demande une approbation | vous y répondez, elle n'est plus ouverte, ou elle est réassignée à quelqu'un d'autre |
+| **Vous a mentionné** | quelqu'un vous @mentionne dans la description ou un commentaire d'une tâche, y compris via `@all` ou `@squad` | vous publiez un commentaire sur cette tâche |
+| **Assigné à vous** | une tâche qui vous est assignée est en `todo`, `back_from_qa`, `blocked` ou `in_review` | la tâche passe à un autre statut ou à un autre assigné |
+| **En attente de votre revue** | une tâche que vous avez créée passe en `in_review`, et vous n'en êtes pas l'assigné | la tâche quitte `in_review` |
+| **Agent bloqué** | un agent passe une tâche en `blocked` lors d'une exécution qui travaille pour vous | la tâche n'est plus `blocked`, ou un agent s'exécute à nouveau dessus |
+| **Exécution échouée** | une exécution d'agent qui travaille pour vous échoue | un agent s'exécute à nouveau sur la tâche |
+| **Autopilote en pause**, **Limite de quota atteinte**, **Création rapide échouée** | une automatisation est mise en pause après des échecs ou atteint sa limite de quota, ou une création rapide échoue | l'automatisation est relancée, une exécution d'automatisation est de nouveau admise, ou une nouvelle tentative crée la tâche |
+
+Lorsqu'une tâche en `in_review` a aussi une question ouverte pour vous, comme une approbation de fusion, la boîte de réception n'affiche que la question.
+
+## Traiter les à-faire
+
+Sélectionnez un à-faire pour l'ouvrir à droite. La ligne sous son titre indique ce qui le fait partir, et le contenu vous permet d'agir sur place : répondre à la question, répondre à la mention, changer le statut ou relancer l'automatisation.
+
+**Marquer comme fait**, sur la ligne survolée et en haut de l'à-faire ouvert, retire l'à-faire aussitôt et baisse le compteur de la boîte de réception. Cela ne modifie pas la tâche. Un événement ultérieur, comme une nouvelle mention, ouvre un nouvel à-faire.
+
+La boîte de réception n'a ni état lu ni liste Archivées : chaque ligne vous attend encore. Sans à-faire ouvert, elle affiche **Rien ne vous attend** et propose **Ouvrir Mises à jour**.
+
+## Ce qui arrive dans Mises à jour
 
 Les notifications courantes incluent :
 
 - une tâche vous est assignée, ou vous est retirée ;
 - une tâche à laquelle vous êtes abonné reçoit un nouveau commentaire, ou son assigné, son statut, sa priorité ou ses dates changent ;
-- quelqu'un vous @mentionne dans la description ou un commentaire d'une tâche ;
 - une tâche ou un commentaire que vous avez créé reçoit une réaction ;
-- une exécution d'agent échoue sur une tâche à laquelle vous êtes abonné ;
-- la création d'une tâche via un agent aboutit ou échoue ;
-- une automatisation à laquelle vous êtes abonné crée une nouvelle tâche, ou est mise en pause après des échecs consécutifs.
+- la création d'une tâche via un agent aboutit ;
+- une automatisation à laquelle vous êtes abonné crée une nouvelle tâche.
+
+Les questions, mentions, exécutions échouées, automatisations en pause, limites de quota et créations rapides échouées sont des à-faire dans votre boîte de réception, pas des notifications dans Mises à jour.
 
 Vos propres actions ne vous notifient pas. Plusieurs notifications sur la même tâche sont fusionnées en une seule entrée ; ouvrez-la pour voir les changements récents de la tâche.
 
 ## Sources d'abonnement automatique
 
-Ces participants sont automatiquement abonnés à une tâche :
+S'abonner à une tâche envoie ses nouvelles dans vos Mises à jour. Ces participants sont automatiquement abonnés à une tâche :
 
 - le créateur de la tâche ;
 - un nouvel assigné ;
@@ -31,36 +60,36 @@ Ces participants sont automatiquement abonnés à une tâche :
 - toute personne nouvellement @mentionnée dans la description de la tâche ;
 - les abonnés préconfigurés dans une automatisation.
 
-Changer l'assigné ne supprime pas les abonnements existants. Abonnez-vous ou désabonnez-vous à tout moment depuis la page de la tâche ; après le désabonnement, les mises à jour ordinaires n'arrivent plus dans votre boîte de réception, mais les @mentions directes vous notifient toujours individuellement.
+Changer l'assigné ne supprime pas les abonnements existants. Abonnez-vous ou désabonnez-vous à tout moment depuis la page de la tâche ; après le désabonnement, les mises à jour ordinaires n'arrivent plus dans Mises à jour, mais une @mention directe vous donne toujours un à-faire dans votre boîte de réception.
 
 <Callout type="info">
-Lorsque le statut d'une sous-tâche change, les abonnés de la tâche parente sont également notifiés. Les commentaires, la priorité et les changements de dates d'une sous-tâche ne remontent pas à la tâche parente.
+Lorsque le statut d'une sous-tâche change, les abonnés de la tâche parente reçoivent également une notification dans Mises à jour. Les commentaires, la priorité et les changements de dates d'une sous-tâche ne remontent pas à la tâche parente.
 </Callout>
 
 ## Les agents n'utilisent pas la boîte de réception
 
-La boîte de réception est réservée aux membres de l'espace de travail. Même lorsqu'un agent est l'assigné ou un abonné, il ne lit jamais les notifications de la boîte de réception.
+La boîte de réception et Mises à jour sont réservées aux membres de l'espace de travail. Même lorsqu'un agent est l'assigné ou un abonné, il ne reçoit jamais d'à-faire ni de notification.
 
-@mentionner un agent dans un commentaire, lui assigner une tâche ou déclencher une automatisation crée directement une exécution au lieu de laisser une notification à l'agent. `@all` ne notifie que les membres.
+@mentionner un agent dans un commentaire, lui assigner une tâche ou déclencher une automatisation crée directement une exécution au lieu de laisser un à-faire à l'agent. `@all` ne donne des à-faire qu'aux membres.
 
-## Traiter les notifications
+## Traiter les notifications dans Mises à jour
 
-Sélectionner une notification la marque comme lue. Archivez-la quand vous avez terminé ; l'archivage ne modifie ni ne supprime la tâche correspondante. Dès qu'une tâche atteint un statut qui la rend à une personne — `in_review`, un statut personnalisé de la catégorie `started`, ou tout statut des catégories `done` ou `closed` — ses notifications d'échec d'exécution sont archivées automatiquement. `blocked` fait exception : il transmet la tâche, mais le travail reste bloqué, donc les échecs passés restent utiles à lire.
+Sélectionner une notification la marque comme lue. Archivez-la quand vous avez terminé ; l'archivage ne modifie ni ne supprime la tâche correspondante.
 
-Faites un clic droit sur une notification pour **Marquer comme lu** / **Marquer comme non lu** et **Archiver** (**Désarchiver** dans la vue Archivées). Marquer comme non lu est l'action « j'ai regardé, mais je n'en ai pas fini » : la notification redevient non lue et fait remonter le compteur de non-lus, et elle reste non lue même tant que vous la gardez ouverte — la rouvrir plus tard la marque comme lue, comme d'habitude. Les notifications archivées conservent leur état de lecture : en restaurer une la rétablit exactement comme vous l'aviez laissée.
+Faites un clic droit sur une notification pour **Marquer comme lu** / **Marquer comme non lu** et **Archiver** (**Désarchiver** dans la vue Archivées). Marquer comme non lu est l'action « j'ai regardé, mais je n'en ai pas fini » : la notification redevient non lue, et elle reste non lue même tant que vous la gardez ouverte — la rouvrir plus tard la marque comme lue, comme d'habitude. Les notifications archivées conservent leur état de lecture : en restaurer une la rétablit exactement comme vous l'aviez laissée.
 
-Depuis le menu de la boîte de réception, vous pouvez aussi :
+Depuis le menu de Mises à jour, vous pouvez aussi :
 
 - tout marquer comme lu ;
 - tout archiver, ou archiver tout ce qui est lu ;
 - archiver les notifications des tâches en `done` ou `cancelled` ;
 - ouvrir Archivées et restaurer une notification.
 
-Ouvrez **Archivées** en bas de la boîte de réception pour parcourir les notifications plus anciennes. D'autres éléments se chargent au fil du défilement. Les filtres s'appliquent à l'ensemble des archives, y compris aux éléments pas encore chargés.
+Ouvrez **Archivées** en bas de Mises à jour pour parcourir les notifications plus anciennes. D'autres éléments se chargent au fil du défilement. Les filtres s'appliquent à l'ensemble des archives, y compris aux éléments pas encore chargés.
 
 ## Régler les types de notification
 
-Ouvrez **Paramètres → Notifications** pour activer ou désactiver chaque groupe séparément :
+Ouvrez **Paramètres → Notifications** pour activer ou désactiver séparément chaque groupe de notifications de Mises à jour :
 
 - Assignations ;
 - Changements de statut ;
@@ -69,7 +98,7 @@ Ouvrez **Paramètres → Notifications** pour activer ou désactiver chaque grou
 - Priorité et date d'échéance ;
 - Activité des agents.
 
-Désactiver un groupe n'empêche pas l'enregistrement des changements sur la tâche — cela arrête seulement les notifications dans la boîte de réception. Quelques types, comme les réactions, les résultats de création rapide et les mises en pause d'automatisation, ne relèvent pas de ces six groupes et sont toujours envoyés. Les notifications système et du navigateur contrôlent les bannières sur le bureau et ne modifient pas la boîte de réception elle-même.
+Désactiver un groupe n'empêche pas l'enregistrement des changements sur la tâche — cela arrête seulement ces notifications dans Mises à jour. Les à-faire ignorent ces réglages : une question, une mention ou une exécution échouée arrive toujours dans votre boîte de réception. Quelques types, comme les réactions, les créations rapides abouties et les tâches créées par une automatisation, ne relèvent pas de ces six groupes et sont toujours envoyés. Les notifications système et du navigateur contrôlent les bannières sur le bureau, pour les à-faire comme pour les notifications : cliquer sur une bannière ouvre l'à-faire dans la boîte de réception ou la notification dans Mises à jour. Elles ne modifient aucune des deux listes.
 
 ## Étapes suivantes
 
