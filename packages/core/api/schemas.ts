@@ -1873,7 +1873,7 @@ const WorklaneActivityEntrySchema: z.ZodType<WorklaneActivityEntry> = z.union([
   }).loose(),
   z.object({
     ...WorklaneActivityShape,
-    action: z.literal("release_planned"),
+    action: z.literal(["release_planned", "release_shipped"]),
     details: z.object(ReleaseActivityDetailsShape).loose().catch(EmptyReleaseActivityDetails),
   }).loose(),
   z.object({
@@ -1982,6 +1982,7 @@ export const ReleaseRefusalSchema: z.ZodType<ReleaseRefusal> = z.object({
   code: z.enum([
     "title_required", "version_or_bump", "version_invalid", "does_not_release",
     "last_tag_unknown", "first_release", "last_release", "line_not_increasing", "unknown",
+    "release_shipped", "release_before_shipped", "release_not_next", "release_not_ready",
   ]).catch("unknown"),
   error: z.string().optional(),
   release_id: z.string().optional(),

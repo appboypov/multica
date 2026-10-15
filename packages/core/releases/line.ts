@@ -24,6 +24,8 @@ export type LineProblemCode =
   | "first_release"
   | "last_release"
   | "line_not_increasing"
+  | "release_shipped"
+  | "release_before_shipped"
   | "release_not_on_line";
 
 /**
@@ -214,11 +216,15 @@ export function previewPlan(line: Line, draft: ReleaseDraft): LinePreview {
 export function previewEdit(line: Line, id: string, draft: ReleaseDraft): LinePreview {
   const index = line.releases.findIndex((release) => release.id === id);
   if (index < 0) return notOnLine(line);
+  const current = line.releases[index]!;
+  if (current.shipped && (draft.bump !== current.bump || (draft.bump === null && draft.version !== current.version))) {
+    return { line, changes: [], problem: { code: "release_shipped", release: current, before: null, lastTag: line.lastTag } };
+  }
   const releases = line.releases.map((release, i) =>
     i === index
       ? {
           ...release,
-          version: draft.bump === null ? draft.version : release.version,
+          version: current.shipped ? current.version : draft.bump === null ? draft.version : release.version,
           bump: draft.bump,
           title: draft.title,
         }
@@ -235,6 +241,9 @@ export function previewMove(line: Line, id: string, direction: "earlier" | "late
   const index = line.releases.findIndex((release) => release.id === id);
   if (index < 0) return notOnLine(line);
   const release = line.releases[index]!;
+  if (release.shipped) {
+    return { line, changes: [], problem: { code: "release_shipped", release, before: null, lastTag: line.lastTag } };
+  }
   if (direction === "earlier" && index === 0) {
     return { line, changes: [], problem: { code: "first_release", release, before: null, lastTag: line.lastTag } };
   }
@@ -242,6 +251,9 @@ export function previewMove(line: Line, id: string, direction: "earlier" | "late
     return { line, changes: [], problem: { code: "last_release", release, before: null, lastTag: line.lastTag } };
   }
   const other = direction === "earlier" ? index - 1 : index + 1;
+  if (line.releases[other]!.shipped) {
+    return { line, changes: [], problem: { code: "release_before_shipped", release, before: null, lastTag: line.lastTag } };
+  }
   const releases = [...line.releases];
   releases[index] = releases[other]!;
   releases[other] = release;
@@ -252,6 +264,10 @@ export function previewMove(line: Line, id: string, direction: "earlier" | "late
 export function previewRemove(line: Line, id: string): LinePreview {
   const index = line.releases.findIndex((release) => release.id === id);
   if (index < 0) return notOnLine(line);
+  const release = line.releases[index]!;
+  if (release.shipped) {
+    return { line, changes: [], problem: { code: "release_shipped", release, before: null, lastTag: line.lastTag } };
+  }
   return settle(line, {
     lastTag: line.lastTag,
     releases: line.releases.filter((release) => release.id !== id),

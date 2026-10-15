@@ -189,6 +189,58 @@ func (q *Queries) ListReleaseLine(ctx context.Context, arg ListReleaseLineParams
 	return items, nil
 }
 
+const listReleaseShippingBlockers = `-- name: ListReleaseShippingBlockers :many
+SELECT i.id, (w.issue_prefix || '-' || i.number)::text AS identifier
+FROM issue i JOIN workspace w ON w.id = i.workspace_id
+WHERE i.workspace_id = $1 AND i.release_id = $2
+  AND (
+    issue_effective_status(i.workspace_id, i.status) <> 'done'
+    OR EXISTS (
+      SELECT 1 FROM issue_pull_request link
+      LEFT JOIN github_pull_request pr ON pr.id = link.pull_request_id AND pr.workspace_id = i.workspace_id
+      WHERE link.issue_id = i.id AND (pr.id IS NULL OR pr.state <> 'merged')
+    )
+    OR EXISTS (
+      SELECT 1 FROM issue_vcs_pull_request link
+      LEFT JOIN vcs_pull_request pr ON pr.id = link.pull_request_id AND pr.workspace_id = i.workspace_id
+      WHERE link.issue_id = i.id AND (pr.id IS NULL OR pr.state <> 'merged')
+    )
+  )
+ORDER BY i.number, i.id
+`
+
+type ListReleaseShippingBlockersParams struct {
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
+	ReleaseID   pgtype.UUID `json:"release_id"`
+}
+
+type ListReleaseShippingBlockersRow struct {
+	ID         pgtype.UUID `json:"id"`
+	Identifier string      `json:"identifier"`
+}
+
+// A manual ship records an external publication. Every issue must be Done
+// and every linked pull request must be merged before that record is made.
+func (q *Queries) ListReleaseShippingBlockers(ctx context.Context, arg ListReleaseShippingBlockersParams) ([]ListReleaseShippingBlockersRow, error) {
+	rows, err := q.db.Query(ctx, listReleaseShippingBlockers, arg.WorkspaceID, arg.ReleaseID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListReleaseShippingBlockersRow{}
+	for rows.Next() {
+		var i ListReleaseShippingBlockersRow
+		if err := rows.Scan(&i.ID, &i.Identifier); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listReleasesInWorkspace = `-- name: ListReleasesInWorkspace :many
 
 SELECT id, workspace_id, repository_id, position, version, bump, title, description, shipped_at, created_by, created_at, updated_at FROM release
@@ -268,6 +320,90 @@ func (q *Queries) ListUnshippedReleaseHeads(ctx context.Context, arg ListUnshipp
 		return nil, err
 	}
 	return items, nil
+}
+
+const lockReleaseIssuesForShipping = `-- name: LockReleaseIssuesForShipping :many
+SELECT id FROM issue
+WHERE workspace_id = $1 AND release_id = $2
+ORDER BY id
+FOR UPDATE
+`
+
+type LockReleaseIssuesForShippingParams struct {
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
+	ReleaseID   pgtype.UUID `json:"release_id"`
+}
+
+func (q *Queries) LockReleaseIssuesForShipping(ctx context.Context, arg LockReleaseIssuesForShippingParams) ([]pgtype.UUID, error) {
+	rows, err := q.db.Query(ctx, lockReleaseIssuesForShipping, arg.WorkspaceID, arg.ReleaseID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []pgtype.UUID{}
+	for rows.Next() {
+		var id pgtype.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const lockReleaseLineOwners = `-- name: LockReleaseLineOwners :one
+SELECT repository.id FROM repository
+JOIN project ON project.id = repository.project_id AND project.workspace_id = repository.workspace_id
+JOIN workspace ON workspace.id = repository.workspace_id
+WHERE repository.id = $1 AND repository.workspace_id = $2
+FOR KEY SHARE OF workspace, project
+`
+
+type LockReleaseLineOwnersParams struct {
+	ID          pgtype.UUID `json:"id"`
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
+}
+
+// Fence workspace/project teardown before taking the repository lock.
+func (q *Queries) LockReleaseLineOwners(ctx context.Context, arg LockReleaseLineOwnersParams) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, lockReleaseLineOwners, arg.ID, arg.WorkspaceID)
+	var id pgtype.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
+const markReleaseShipped = `-- name: MarkReleaseShipped :one
+UPDATE release SET shipped_at = now(), updated_at = now()
+WHERE id = $1 AND workspace_id = $2 AND shipped_at IS NULL
+RETURNING id, workspace_id, repository_id, position, version, bump, title, description, shipped_at, created_by, created_at, updated_at
+`
+
+type MarkReleaseShippedParams struct {
+	ID          pgtype.UUID `json:"id"`
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
+}
+
+func (q *Queries) MarkReleaseShipped(ctx context.Context, arg MarkReleaseShippedParams) (Release, error) {
+	row := q.db.QueryRow(ctx, markReleaseShipped, arg.ID, arg.WorkspaceID)
+	var i Release
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.RepositoryID,
+		&i.Position,
+		&i.Version,
+		&i.Bump,
+		&i.Title,
+		&i.Description,
+		&i.ShippedAt,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const updateReleaseFields = `-- name: UpdateReleaseFields :one

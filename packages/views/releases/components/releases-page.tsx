@@ -20,7 +20,7 @@ import { RELEASE_ROW_COLS, ReleaseRow } from "./release-row";
 const EMPTY_PROGRESS = { rows: [], releases: [] };
 
 /**
- * Releases: every repository's unshipped releases in line order under their
+ * Releases: every repository's releases in line order under their
  * project and organisation, built in the client from the workspace's lists
  * (ADR-0016). Every group opens unfolded; the fold state is not kept. It only
  * shows releases: planning, editing and moving them stay on a worklane's

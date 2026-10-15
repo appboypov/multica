@@ -174,6 +174,41 @@ func TestReleaseCLIExistingOperations(t *testing.T) {
 	}
 }
 
+func TestReleaseCLIShip(t *testing.T) {
+	t.Setenv("MULTICA_TOKEN", "test-token")
+	const id = "11111111-1111-4111-8111-111111111111"
+	shipped := "2026-10-15T12:00:00Z"
+	release := releaseDTO{ID: id, RepositoryID: "repo", Version: "1.0.0", Title: "Published", ShippedAt: &shipped}
+	writes := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("X-Workspace-ID") != "ws-1" {
+			t.Errorf("workspace header = %q", r.Header.Get("X-Workspace-ID"))
+		}
+		switch r.Method + " " + r.URL.Path {
+		case "GET /api/releases":
+			json.NewEncoder(w).Encode(releaseListDTO{[]releaseDTO{release}})
+		case "POST /api/releases/" + id + "/ship":
+			writes++
+			json.NewEncoder(w).Encode(releaseListDTO{[]releaseDTO{release}})
+		default:
+			t.Errorf("unexpected %s %s", r.Method, r.URL.Path)
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+	out, err := executeReleaseTest(t, server.URL, "ship", "1111", "--output", "json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var rows []releaseDTO
+	if err := json.Unmarshal([]byte(out), &rows); err != nil {
+		t.Fatal(err)
+	}
+	if writes != 1 || len(rows) != 1 || rows[0].ShippedAt == nil || *rows[0].ShippedAt != shipped {
+		t.Fatalf("ship output = %s, writes = %d", out, writes)
+	}
+}
+
 func TestReleaseCLIRejectsInvalidMilestoneFields(t *testing.T) {
 	for _, args := range [][]string{
 		{"milestone", "add", "release", "--name", "UI"},
@@ -184,9 +219,5 @@ func TestReleaseCLIRejectsInvalidMilestoneFields(t *testing.T) {
 		if _, err := executeReleaseTest(t, "http://127.0.0.1:1", args...); err == nil {
 			t.Fatalf("accepted %v", args)
 		}
-	}
-	root := newReleaseCommand()
-	if cmd, _, err := root.Find([]string{"ship"}); err == nil && cmd != root {
-		t.Fatal("shipping is not implemented by the API")
 	}
 }

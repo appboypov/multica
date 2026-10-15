@@ -13,7 +13,7 @@ import { selectLine } from "./queries";
 
 export interface ReleaseOverviewRow {
   release: Release;
-  state: "next" | "planned";
+  state: "shipped" | "next" | "planned";
   /** The version was set by hand rather than by a bump. */
   setByHand: boolean;
   /** Over every issue in the release, also a closed one whose worklane was removed. */
@@ -35,10 +35,9 @@ export interface ReleaseOverviewRepository {
 export type ReleaseOverview = WorkTree<ReleaseOverviewRepository>;
 
 /**
- * The Releases page's tree: every repository's unshipped releases in line
- * order, under their project and organisation (ADR-0016). A repository that
- * releases without an unshipped release is left out; one that does not
- * release is kept with `doesNotRelease`.
+ * The Releases page's tree: every repository's releases in line order,
+ * under their project and organisation (ADR-0016). A repository without
+ * releases is left out; one that does not release keeps `doesNotRelease`.
  */
 export function releaseOverview({
   organisations,
@@ -85,7 +84,7 @@ export function releaseOverview({
       const rows: ReleaseOverviewRow[] = [];
       for (const release of line) {
         const state = states.get(release.id);
-        if (state !== "next" && state !== "planned") continue;
+        if (!state) continue;
         const holding = repositoryWorklanes.filter((worklane) =>
           heldBy.has(`${worklane.id}:${release.id}`),
         );
@@ -93,7 +92,7 @@ export function releaseOverview({
         rows.push({
           release,
           state,
-          setByHand: release.bump === null,
+          setByHand: release.bump === null && state !== "shipped",
           done: counts?.done ?? 0,
           total: counts?.total ?? 0,
           worklanes: holding,

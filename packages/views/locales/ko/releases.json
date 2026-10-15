@@ -58,6 +58,8 @@
   },
   "refusal": {
     "title_required": "릴리스에는 제목이 필요합니다.",
+    "release_shipped": "출시됨: 태그가 고정되었습니다",
+    "release_before_shipped": "이전 릴리스가 출시되었습니다",
     "version_or_bump": "패치, 마이너, 메이저 또는 직접 입력을 선택하세요.",
     "version_invalid": "v1.4.0 형식을 사용하세요.",
     "does_not_release": "{{repository}}은(는) 릴리스하지 않으므로 해당 worklane은 릴리스를 계획하지 않습니다.",
@@ -114,6 +116,7 @@
   },
   "activity": {
     "planned": "{{actor}}님이 {{version}} {{title}}을(를) 계획했습니다",
+    "shipped": "{{actor}}님이 {{version}} {{title}}을(를) 출시됨으로 표시했습니다",
     "edited": "{{actor}}님이 {{version}} {{title}}을(를) 편집했습니다",
     "moved_earlier": "{{actor}}님이 {{version}} {{title}}을(를) 앞으로 옮겼습니다",
     "moved_later": "{{actor}}님이 {{version}} {{title}}을(를) 뒤로 옮겼습니다",

@@ -831,6 +831,7 @@ multica release plan owner/repo --version 2.0.0 --title "Next version" --descrip
 multica release edit <release> --title "Updated title"
 multica release move <release> --direction earlier
 multica release remove <release>
+multica release ship <release>
 multica release add-issues <release> MUL-42 MUL-43
 multica release milestone add <release> --name "UI prototype" --date 2026-11-02
 multica release milestone edit <milestone> --date 2026-11-03
@@ -842,8 +843,13 @@ Edit keeps unspecified fields. Milestone dates are calendar days, not
 timestamps; names and dates are required when adding. A release can hold any
 number of milestones. The timeline and Edit release dialog save milestone
 changes immediately, independently of the release's title/version save.
-Removing a release also removes its milestones. There is no `ship` command:
-the release API does not expose shipping yet.
+Removing a release also removes its milestones. After publishing, `ship` marks
+the first unshipped release shipped at the current time and returns its whole
+repository line. Every issue must be Done and every linked pull request merged;
+an empty release can be marked manually. The next unshipped release becomes
+next. Shipping fixes the version and position and prevents removal or new
+issues; title and description remain editable. It does not publish to GitHub
+and has no undo.
 
 ## Projects
 

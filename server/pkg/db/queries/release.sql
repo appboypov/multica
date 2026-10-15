@@ -72,3 +72,43 @@ WHERE release.workspace_id = sqlc.arg('workspace_id')
 SELECT version, title FROM release
 WHERE workspace_id = $1 AND repository_id = $2 AND shipped_at IS NULL
 ORDER BY position ASC;
+
+-- name: LockReleaseLineOwners :one
+-- Fence workspace/project teardown before taking the repository lock.
+SELECT repository.id FROM repository
+JOIN project ON project.id = repository.project_id AND project.workspace_id = repository.workspace_id
+JOIN workspace ON workspace.id = repository.workspace_id
+WHERE repository.id = $1 AND repository.workspace_id = $2
+FOR KEY SHARE OF workspace, project;
+
+-- name: MarkReleaseShipped :one
+UPDATE release SET shipped_at = now(), updated_at = now()
+WHERE id = $1 AND workspace_id = $2 AND shipped_at IS NULL
+RETURNING *;
+
+-- name: LockReleaseIssuesForShipping :many
+SELECT id FROM issue
+WHERE workspace_id = $1 AND release_id = $2
+ORDER BY id
+FOR UPDATE;
+
+-- name: ListReleaseShippingBlockers :many
+-- A manual ship records an external publication. Every issue must be Done
+-- and every linked pull request must be merged before that record is made.
+SELECT i.id, (w.issue_prefix || '-' || i.number)::text AS identifier
+FROM issue i JOIN workspace w ON w.id = i.workspace_id
+WHERE i.workspace_id = $1 AND i.release_id = $2
+  AND (
+    issue_effective_status(i.workspace_id, i.status) <> 'done'
+    OR EXISTS (
+      SELECT 1 FROM issue_pull_request link
+      LEFT JOIN github_pull_request pr ON pr.id = link.pull_request_id AND pr.workspace_id = i.workspace_id
+      WHERE link.issue_id = i.id AND (pr.id IS NULL OR pr.state <> 'merged')
+    )
+    OR EXISTS (
+      SELECT 1 FROM issue_vcs_pull_request link
+      LEFT JOIN vcs_pull_request pr ON pr.id = link.pull_request_id AND pr.workspace_id = i.workspace_id
+      WHERE link.issue_id = i.id AND (pr.id IS NULL OR pr.state <> 'merged')
+    )
+  )
+ORDER BY i.number, i.id;

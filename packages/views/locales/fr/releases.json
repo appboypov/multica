@@ -58,6 +58,8 @@
   },
   "refusal": {
     "title_required": "Une version a besoin d’un titre.",
+    "release_shipped": "Publiée : son tag est fixe",
+    "release_before_shipped": "La version précédente a été publiée",
     "version_or_bump": "Choisissez Correctif, Mineure, Majeure ou Personnalisé.",
     "version_invalid": "Utilisez la forme v1.4.0.",
     "does_not_release": "{{repository}} ne publie pas de versions, donc ses worklanes n’en planifient pas.",
@@ -114,6 +116,7 @@
   },
   "activity": {
     "planned": "{{actor}} a planifié {{version}} {{title}}",
+    "shipped": "{{actor}} a marqué {{version}} {{title}} comme publiée",
     "edited": "{{actor}} a modifié {{version}} {{title}}",
     "moved_earlier": "{{actor}} a avancé {{version}} {{title}}",
     "moved_later": "{{actor}} a reculé {{version}} {{title}}",

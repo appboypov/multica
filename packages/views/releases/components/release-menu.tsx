@@ -26,9 +26,8 @@ import { moveProblemMessage, refusalMessage } from "./release-messages";
 type Direction = "earlier" | "later";
 
 /**
- * The menu of an unshipped release on a worklane's Timeline: Edit release,
- * Move earlier, Move later and Remove release. A move that would break the
- * line is disabled with its reason, previewed with the client rules.
+ * The release's editing and line actions. Published releases keep their
+ * version and position; their title and description remain editable.
  */
 export function ReleaseMenu({
   repository,
@@ -55,6 +54,7 @@ export function ReleaseMenu({
   };
   const earlier = reasonOf("earlier");
   const later = reasonOf("later");
+  const shipped = release.shipped_at !== null;
 
   const move = async (direction: Direction) => {
     try {
@@ -102,7 +102,7 @@ export function ReleaseMenu({
           <Pencil className="size-3.5" aria-hidden="true" />
           {t(($) => $.menu.edit)}
         </DropdownMenuItem>
-        {worklaneId ? (
+        {worklaneId && !shipped ? (
           <DropdownMenuItem
             onClick={() => open("add-issues-to-release", { releaseId: release.id, worklaneId })}
           >
@@ -127,7 +127,7 @@ export function ReleaseMenu({
         <DropdownMenuSeparator />
         <DropdownMenuItem
           variant="destructive"
-          disabled={findingTag}
+          disabled={findingTag || shipped}
           onClick={() => open("remove-release", data)}
           className="items-start"
         >
@@ -137,6 +137,7 @@ export function ReleaseMenu({
             {findingTag ? (
               <span className="text-caption text-muted-foreground">{t(($) => $.menu.finding_tag)}</span>
             ) : null}
+            {shipped ? <span className="text-caption text-muted-foreground">{t(($) => $.refusal.release_shipped)}</span> : null}
           </span>
         </DropdownMenuItem>
       </DropdownMenuContent>

@@ -27,6 +27,7 @@ const (
 	releaseActionEdited  = "release_edited"
 	releaseActionMoved   = "release_moved"
 	releaseActionRemoved = "release_removed"
+	releaseActionShipped = "release_shipped"
 )
 
 // Release refusal codes (design.md decision 2), checked in this order inside
@@ -236,6 +237,10 @@ func (h *Handler) runReleaseLineWrite(w http.ResponseWriter, r *http.Request, re
 	defer tx.Rollback(ctx)
 	qtx := h.Queries.WithTx(tx)
 
+	if _, err := qtx.LockReleaseLineOwners(ctx, db.LockReleaseLineOwnersParams{ID: repositoryID, WorkspaceID: wsUUID}); err != nil {
+		writeMilestoneReadError(w, err, "repository")
+		return
+	}
 	repo, err := qtx.LockRepositoryForLine(ctx, db.LockRepositoryForLineParams{ID: repositoryID, WorkspaceID: wsUUID})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -385,6 +390,12 @@ func writeReleaseProblem(w http.ResponseWriter, p *releaseline.Problem) {
 		writeErrorCode(w, http.StatusConflict, p.Code, "it is the first release")
 	case releaseline.CodeLastRelease:
 		writeErrorCode(w, http.StatusConflict, p.Code, "it is the last release")
+	case releaseline.CodeShipped:
+		writeErrorCode(w, http.StatusConflict, p.Code, "Shipped: its tag is fixed")
+	case releaseline.CodeBeforeShipped:
+		writeErrorCode(w, http.StatusConflict, p.Code, "The release before it has shipped")
+	case releaseline.CodeNotNext:
+		writeErrorCode(w, http.StatusConflict, p.Code, "only the first unshipped release can ship")
 	default:
 		before := map[string]string{"last_tag": p.LastTag}
 		if p.Before != nil {

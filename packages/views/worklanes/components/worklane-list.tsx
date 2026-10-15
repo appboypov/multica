@@ -26,6 +26,7 @@ import { IssueContextMenuProvider } from "../../issues/actions";
 import { DraggableListRow, ListRow } from "../../issues/components/list-row";
 import { ReleaseChip } from "../../releases/components/release-chips";
 import { ReleaseMenu } from "../../releases/components/release-menu";
+import { ReleaseShippedDate } from "../../releases/components/release-shipped-date";
 import { useLastTag } from "../../releases/use-release-line";
 import { useT } from "../../i18n";
 
@@ -127,6 +128,7 @@ function ReleaseSection({
         <span className="text-caption text-muted-foreground">
           {tReleases(($) => $.column.state[section.state])}
         </span>
+        <ReleaseShippedDate shippedAt={release.shipped_at} />
         <span className="min-w-0 truncate font-medium">{release.title}</span>
         {section.setByHand && (
           <span className="text-caption text-muted-foreground">

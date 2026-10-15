@@ -12,6 +12,7 @@ export function problemMessage(
   targetId: string,
 ): string | null {
   const problem = preview.problem;
+  if (problem?.code === "release_shipped") return t(($) => $.refusal.release_shipped);
   if (!problem || problem.code !== "line_not_increasing" || !problem.release) return null;
   if (problem.release.id === targetId) {
     return problem.before
@@ -39,6 +40,10 @@ export function moveProblemMessage(t: TFunction<"releases">, preview: LinePrevie
   const problem = preview.problem;
   if (!problem) return null;
   switch (problem.code) {
+    case "release_shipped":
+      return t(($) => $.refusal.release_shipped);
+    case "release_before_shipped":
+      return t(($) => $.refusal.release_before_shipped);
     case "first_release":
       return t(($) => $.menu.first_release);
     case "last_release":
@@ -68,6 +73,10 @@ export function refusalMessage(
   repository: string,
 ): string {
   switch (refusal.code) {
+    case "release_shipped":
+      return t(($) => $.refusal.release_shipped);
+    case "release_before_shipped":
+      return t(($) => $.refusal.release_before_shipped);
     case "title_required":
       return t(($) => $.refusal.title_required);
     case "version_or_bump":

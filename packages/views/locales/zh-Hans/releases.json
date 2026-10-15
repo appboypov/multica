@@ -58,6 +58,8 @@
   },
   "refusal": {
     "title_required": "版本需要一个标题。",
+    "release_shipped": "已发布：标签已固定",
+    "release_before_shipped": "前一个版本已发布",
     "version_or_bump": "请选择补丁、次要、主要或自定义。",
     "version_invalid": "请使用 v1.4.0 的格式。",
     "does_not_release": "{{repository}} 不发布版本，因此它的 worklane 不规划版本。",
@@ -114,6 +116,7 @@
   },
   "activity": {
     "planned": "{{actor}} 规划了 {{version}} {{title}}",
+    "shipped": "{{actor}} 将 {{version}} {{title}} 标记为已发布",
     "edited": "{{actor}} 编辑了 {{version}} {{title}}",
     "moved_earlier": "{{actor}} 将 {{version}} {{title}} 提前",
     "moved_later": "{{actor}} 将 {{version}} {{title}} 推后",

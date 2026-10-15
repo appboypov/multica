@@ -7,6 +7,7 @@ import { useT } from "../../i18n";
 import { ReleaseChip } from "./release-chips";
 import { ReleaseMenu } from "./release-menu";
 import { SetByHand } from "./set-by-hand";
+import { ReleaseShippedDate } from "./release-shipped-date";
 
 const NODE_CLASS: Record<ReleaseState, string> = {
   shipped: "border-info bg-info",
@@ -16,7 +17,7 @@ const NODE_CLASS: Record<ReleaseState, string> = {
 
 /**
  * One release on a worklane's Timeline: its node on the line, version and
- * state, title, description, Set by hand, the menu of an unshipped release,
+ * state, title, description, Set by hand, its menu and shipped date,
  * and the worklane's issues in it as `children`. Without children it says
  * "No issues of this worklane".
  */
@@ -68,9 +69,9 @@ export function ReleaseColumn({
             <span className={cn("text-caption", next ? "text-brand" : "text-muted-foreground")}>
               {t(($) => $.column.state[state])}
             </span>
+            <ReleaseShippedDate shippedAt={release.shipped_at} />
             {release.bump === null && state !== "shipped" ? <SetByHand /> : null}
             <div className="flex-1" />
-            {state !== "shipped" ? (
               <ReleaseMenu
                 repository={repository}
                 release={release}
@@ -78,7 +79,6 @@ export function ReleaseColumn({
                 findingTag={findingTag}
                 worklaneId={worklaneId}
               />
-            ) : null}
           </div>
           <h3 className="mt-2 text-body-lg font-medium">{release.title}</h3>
           {release.description ? (

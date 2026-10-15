@@ -71,6 +71,10 @@ export type ReleaseRefusalCode =
   | "first_release"
   | "last_release"
   | "line_not_increasing"
+  | "release_shipped"
+  | "release_before_shipped"
+  | "release_not_next"
+  | "release_not_ready"
   | "unknown";
 
 export interface ReleaseRefusal {

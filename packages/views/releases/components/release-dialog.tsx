@@ -152,6 +152,7 @@ function ReleaseForm({
   const planRelease = usePlanRelease();
   const editRelease = useEditRelease();
   const lastTag = useLastTag(repository);
+  const shipped = release?.shipped_at != null;
 
   const [choice, setChoice] = useState<Choice>(release ? (release.bump ?? "custom") : "patch");
   const [issueIds, setIssueIds] = useState<string[]>([]);
@@ -165,8 +166,9 @@ function ReleaseForm({
   const options = bumpOptions(line, index);
   const before = versionBefore(line, index);
   const parsed = choice === "custom" ? parseVersion(custom) : null;
-  const version =
-    choice === "custom"
+  const version = shipped
+    ? release.version
+    : choice === "custom"
       ? parsed
         ? versionString(parsed)
         : ""
@@ -191,7 +193,7 @@ function ReleaseForm({
     : [];
 
   const hint =
-    choice === "custom"
+    shipped ? t(($) => $.refusal.release_shipped) : choice === "custom"
       ? before.kind === "none"
         ? t(($) => $.dialog.hint_set_by_hand_first)
         : t(($) => $.dialog.hint_set_by_hand)
@@ -252,7 +254,7 @@ function ReleaseForm({
           <Label id={versionId} className="text-caption text-muted-foreground">
             {t(($) => $.dialog.version_label)}
           </Label>
-          <div role="radiogroup" aria-labelledby={versionId} className="grid grid-cols-4 gap-2">
+          <fieldset disabled={shipped} role="radiogroup" aria-labelledby={versionId} className="grid grid-cols-4 gap-2 disabled:opacity-60">
             {choices.map((value) => {
               const selected = value === choice;
               const option = options.find((o) => o.bump === value);
@@ -294,7 +296,7 @@ function ReleaseForm({
                 </button>
               );
             })}
-          </div>
+          </fieldset>
           {choice === "custom" ? (
             <div className="space-y-1 pt-1">
               <Label htmlFor={customId} className="sr-only">
@@ -303,6 +305,7 @@ function ReleaseForm({
               <Input
                 id={customId}
                 autoFocus
+                readOnly={shipped}
                 value={custom}
                 onChange={(e) => {
                   setCustom(e.target.value);

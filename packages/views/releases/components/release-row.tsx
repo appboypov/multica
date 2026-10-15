@@ -8,6 +8,7 @@ import { cn } from "@multica/ui/lib/utils";
 import { AppLink } from "../../navigation";
 import { useT } from "../../i18n";
 import { ReleaseChip } from "./release-chips";
+import { ReleaseShippedDate } from "./release-shipped-date";
 
 /**
  * The release row's column template: name, issues, worklanes and the chevron.
@@ -17,7 +18,7 @@ export const RELEASE_ROW_COLS =
   "grid-cols-[minmax(0,1fr)_minmax(6rem,10rem)_minmax(0,16rem)_1rem]";
 
 /**
- * One unshipped release on Releases: its version chip, its state, title, "Set by hand",
+ * One release on Releases: its version chip, its state, title, shipped date,
  * progress over every issue in it and the worklanes that hold them. The whole
  * row opens the target worklane's Timeline with the release in view. It has
  * no menu: Releases does not plan, edit or move releases.
@@ -39,6 +40,7 @@ export function ReleaseRow({ row, indent }: { row: ReleaseOverviewRow; indent: s
         <span className="shrink-0 text-caption text-muted-foreground">
           {t(($) => $.column.state[state])}
         </span>
+        <ReleaseShippedDate shippedAt={release.shipped_at} />
         <span className="min-w-0 truncate text-caption font-medium">{release.title}</span>
         {setByHand && (
           <span className="shrink-0 text-caption text-muted-foreground">

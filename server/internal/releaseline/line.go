@@ -29,6 +29,9 @@ const (
 	CodeLastRelease       = "last_release"
 	CodeLineNotIncreasing = "line_not_increasing"
 	CodeNotOnLine         = "release_not_on_line"
+	CodeShipped           = "release_shipped"
+	CodeBeforeShipped     = "release_before_shipped"
+	CodeNotNext           = "release_not_next"
 )
 
 // Release is one release of a line, in line order.
@@ -206,8 +209,14 @@ func Edit(line Line, id string, r Release) (Line, *Problem) {
 	if i < 0 {
 		return line, &Problem{Code: CodeNotOnLine}
 	}
+	current := line.Releases[i]
+	if current.Shipped && (r.Bump != current.Bump || (r.Bump == "" && r.Version != current.Version)) {
+		return line, &Problem{Code: CodeShipped, Release: current}
+	}
 	releases := clone(line.Releases)
-	releases[i].Version = r.Version
+	if !current.Shipped {
+		releases[i].Version = r.Version
+	}
 	releases[i].Bump = r.Bump
 	releases[i].Title = r.Title
 	return settle(Line{LastTag: line.LastTag, Releases: releases})
@@ -220,6 +229,9 @@ func Move(line Line, id, direction string) (Line, *Problem) {
 	if i < 0 {
 		return line, &Problem{Code: CodeNotOnLine}
 	}
+	if line.Releases[i].Shipped {
+		return line, &Problem{Code: CodeShipped, Release: line.Releases[i]}
+	}
 	j := i + 1
 	if direction == Earlier {
 		if i == 0 {
@@ -228,6 +240,9 @@ func Move(line Line, id, direction string) (Line, *Problem) {
 		j = i - 1
 	} else if i == len(line.Releases)-1 {
 		return line, &Problem{Code: CodeLastRelease, Release: line.Releases[i]}
+	}
+	if line.Releases[j].Shipped {
+		return line, &Problem{Code: CodeBeforeShipped, Release: line.Releases[i]}
 	}
 	releases := clone(line.Releases)
 	releases[i], releases[j] = releases[j], releases[i]
@@ -241,10 +256,32 @@ func Remove(line Line, id string) (Line, *Problem) {
 	if i < 0 {
 		return line, &Problem{Code: CodeNotOnLine}
 	}
+	if line.Releases[i].Shipped {
+		return line, &Problem{Code: CodeShipped, Release: line.Releases[i]}
+	}
 	releases := make([]Release, 0, len(line.Releases)-1)
 	releases = append(releases, line.Releases[:i]...)
 	releases = append(releases, line.Releases[i+1:]...)
 	return settle(Line{LastTag: line.LastTag, Releases: releases})
+}
+
+// Ship fixes the version of the first unshipped release without renumbering.
+func Ship(line Line, id string) (Line, *Problem) {
+	i := indexOf(line, id)
+	if i < 0 {
+		return line, &Problem{Code: CodeNotOnLine}
+	}
+	if line.Releases[i].Shipped {
+		return line, &Problem{Code: CodeShipped, Release: line.Releases[i]}
+	}
+	for _, r := range line.Releases[:i] {
+		if !r.Shipped {
+			return line, &Problem{Code: CodeNotNext, Release: line.Releases[i]}
+		}
+	}
+	releases := clone(line.Releases)
+	releases[i].Shipped = true
+	return Line{LastTag: line.LastTag, Releases: releases}, nil
 }
 
 // Changes lists, in the order of after, every release of both lines whose

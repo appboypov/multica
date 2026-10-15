@@ -91,6 +91,13 @@ function WorklaneActivityRow({ entry }: { entry: WorklaneActivityEntry }) {
         title: entry.details.title,
       });
       break;
+    case "release_shipped":
+      sentence = tReleases(($) => $.activity.shipped, {
+        actor,
+        version: formatVersion(entry.details.version),
+        title: entry.details.title,
+      });
+      break;
     case "release_edited":
       sentence = tReleases(($) => $.activity.edited, {
         actor,

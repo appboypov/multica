@@ -58,6 +58,8 @@
   },
   "refusal": {
     "title_required": "リリースにはタイトルが必要です。",
+    "release_shipped": "リリース済み：タグは固定されています",
+    "release_before_shipped": "前のリリースはリリース済みです",
     "version_or_bump": "パッチ、マイナー、メジャー、カスタムのいずれかを選んでください。",
     "version_invalid": "v1.4.0 の形式で入力してください。",
     "does_not_release": "{{repository}} はリリースしないため、その worklane はリリースを計画しません。",
@@ -114,6 +116,7 @@
   },
   "activity": {
     "planned": "{{actor}} が {{version}} {{title}} を計画しました",
+    "shipped": "{{actor}} が {{version}} {{title}} をリリース済みにしました",
     "edited": "{{actor}} が {{version}} {{title}} を編集しました",
     "moved_earlier": "{{actor}} が {{version}} {{title}} を前へ移動しました",
     "moved_later": "{{actor}} が {{version}} {{title}} を後ろへ移動しました",

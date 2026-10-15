@@ -145,6 +145,7 @@ export type WorklaneActivityAction =
   | "release_edited"
   | "release_moved"
   | "release_removed"
+  | "release_shipped"
   | "worklane_switched"
   | "worklane_kept"
   | "unknown";
@@ -170,7 +171,7 @@ export type WorklaneActivityEntry = WorklaneActivityEntryBase &
   (
     | { action: "worklane_created"; details: WorklaneCreatedDetails }
     | { action: "worklane_renamed"; details: WorklaneRenamedDetails }
-    | { action: "release_planned"; details: ReleaseActivityDetails }
+    | { action: "release_planned" | "release_shipped"; details: ReleaseActivityDetails }
     | { action: "release_edited"; details: ReleaseEditedDetails }
     | { action: "release_moved"; details: ReleaseMovedDetails }
     | { action: "release_removed"; details: ReleaseRemovedDetails }

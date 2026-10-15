@@ -58,6 +58,8 @@
   },
   "refusal": {
     "title_required": "A release needs a title.",
+    "release_shipped": "Shipped: its tag is fixed",
+    "release_before_shipped": "The release before it has shipped",
     "version_or_bump": "Pick Patch, Minor, Major or Custom.",
     "version_invalid": "Use the form v1.4.0.",
     "does_not_release": "{{repository}} does not release, so its worklanes plan no releases.",
@@ -114,6 +116,7 @@
   },
   "activity": {
     "planned": "{{actor}} planned {{version}} {{title}}",
+    "shipped": "{{actor}} marked {{version}} {{title}} shipped",
     "edited": "{{actor}} edited {{version}} {{title}}",
     "moved_earlier": "{{actor}} moved {{version}} {{title}} earlier",
     "moved_later": "{{actor}} moved {{version}} {{title}} later",

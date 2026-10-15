@@ -50,6 +50,7 @@ func newReleaseCommand() *cobra.Command {
 		{"edit <release>", "Edit a release", exactArgs(1)},
 		{"move <release>", "Move a release earlier or later", exactArgs(1)},
 		{"remove <release>", "Remove an unshipped release", exactArgs(1)},
+		{"ship <release>", "Mark the next release shipped after publication", exactArgs(1)},
 		{"add-issues <release> <issue>...", "Add issues to a release", cobra.MinimumNArgs(2)},
 	} {
 		cmd := &cobra.Command{Use: spec.use, Short: spec.short, Args: spec.args, RunE: runRelease}
@@ -253,6 +254,8 @@ func runRelease(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("--direction must be earlier or later")
 		}
 		err = client.PostJSON(ctx, path+"/move", map[string]string{"direction": direction}, &out)
+	} else if action == "ship" {
+		err = client.PostJSON(ctx, path+"/ship", nil, &out)
 	} else {
 		err = client.DeleteJSONResponse(ctx, path, &out)
 	}

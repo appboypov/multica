@@ -28,6 +28,6 @@ A repository has one release line, which every worklane of the repository shows.
 
 - No version can break the line through a race. The repository lock serialises writes to one line, and the check runs on the line as it stands.
 - Issues refer to their release by id (UJ-5), so renumbering and moving never touch issues.
-- UJ-8 sets `shipped_at` and adds its refusals. The renumbering already skips shipped releases, and "next" already follows from `shipped_at`.
+- `POST /api/releases/{id}/ship` and `multica release ship` record an external publication at the current time. Only the first unshipped release can ship, after every issue is Done and every linked pull request is merged. The repository lock serialises shipping with line and issue placement writes; owner locks fence teardown. Shipping writes repository activity and returns and publishes the line. There is no undo. Automatic publishing to GitHub is separate.
 - The rules live in two languages. The shared case file catches any drift between them.
 - A repository added before this change has no stored last tag until a passed checkout check fills it in.

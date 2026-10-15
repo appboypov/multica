@@ -2183,6 +2183,7 @@ func NewRouterWithOptions(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus
 					r.Patch("/", h.EditRelease)
 					r.Delete("/", h.RemoveRelease)
 					r.Post("/move", h.MoveRelease)
+					r.Post("/ship", h.ShipRelease)
 					r.Post("/issues", h.AddIssuesToRelease)
 					r.Post("/milestones", h.AddReleaseMilestone)
 				})
