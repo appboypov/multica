@@ -1061,6 +1061,24 @@ func writeQuestionsSection(b *strings.Builder, ctx TaskContextForEnv) {
 	}
 }
 
+// WhileYouRunSection is the brief's section for a run that takes input while it
+// runs. It names `multica issue react`, so a run without that input never gets
+// it: what it describes could not happen there.
+const WhileYouRunSection = "## While you run\n\n" +
+	"Comments, comment edits, answers and issue changes on your issue reach you while you run, as a `[Multica notice]` at your next step. Each notice names its item id.\n\n" +
+	"- You saw an item and handle it: `multica issue react <item> 👀`.\n" +
+	"- You handled it: `multica issue react <item> ✅`.\n" +
+	"- It is not relevant to your work: leave it unmarked.\n\n" +
+	"An item for you without ✅ is handled again after the run, as if this run had not received it.\n\n"
+
+// writeWhileYouRunSection writes the While you run section only for a run that
+// started with task-supplement-v1 (ADR-0019).
+func writeWhileYouRunSection(b *strings.Builder, ctx TaskContextForEnv) {
+	if ctx.TaskSupplementNegotiated {
+		b.WriteString(WhileYouRunSection)
+	}
+}
+
 // buildMetaSkillContentSlim is the post-MUL-3560 brief assembler.
 // Called from buildMetaSkillContent (runtime_config.go). The
 // `runtime_brief_slim` flag that once gated it was retired in MUL-4297.
@@ -1072,6 +1090,7 @@ func writeQuestionsSection(b *strings.Builder, ctx TaskContextForEnv) {
 //	----------------------+---------+--------+-----------+--------------+------
 //	Available Commands    |   full  |  full  |   full    |   minimal    | full
 //	Questions (IssueID set)|    ✓    |   ✓    |     △     |      —       |  —
+//	While you run         |    △    |   △    |     △     |      △       |  △
 //	Issue Body Formatting |    ✓    |   ✓    |     ✓     |      ✓       |  ✓
 //	Comment Formatting    |    ✓    |   ✓    |     —     |      —       |  —
 //	Repositories          |    △    |   △    |     △     |      △       |  △
@@ -1110,6 +1129,7 @@ func buildMetaSkillContentSlim(provider string, ctx TaskContextForEnv) string {
 	if ctx.IssueID != "" && kind != kindChat && kind != kindQuickCreate {
 		writeQuestionsSection(&b, ctx)
 	}
+	writeWhileYouRunSection(&b, ctx)
 	writeIssueBodyFormatting(&b)
 
 	if kind == kindIssue {
