@@ -87,8 +87,10 @@ import {
 import {
   EMPTY_QUESTION,
   EMPTY_QUESTION_LIST,
+  EMPTY_QUESTION_ROW_PAGE,
   EMPTY_QUESTION_WAKE_RESULT,
   QuestionListSchema,
+  QuestionRowPageSchema,
   QuestionSchema,
   QuestionWakeResultSchema,
   RepositoryCheckoutRequestSchema,
@@ -101,6 +103,7 @@ import {
 import type {
   AgentSessionsResponse,
   Question,
+  QuestionRowPage,
   QuestionWakeResult,
   RepositoryCheckoutRequest,
 } from "../types";
@@ -2913,6 +2916,63 @@ describe("QuestionSchema", () => {
     expect(parse({ status: undefined }).status).toBe("closed");
   });
 
+  it("reads a cancelled question with its cancel event and every answer sent before it", () => {
+    const question = parse({
+      status: "cancelled",
+      events: [
+        { id: "event-1", kind: "cancelled", actor_type: "member", actor_id: "user-brian", details: { note: "Not needed any more" }, created_at: "2026-10-12T22:00:00Z" },
+        { id: "event-2", kind: "cancelled", actor_type: "member", actor_id: "user-brian", details: {}, created_at: "2026-10-12T22:01:00Z" },
+        { id: "event-3", kind: "cancelled", actor_type: "member", actor_id: "user-brian", details: { note: "" }, created_at: "2026-10-12T22:02:00Z" },
+        { id: "event-4", kind: "cancelled", actor_type: "member", actor_id: "user-brian", details: { note: 7 }, created_at: "2026-10-12T22:03:00Z" },
+      ],
+    });
+    expect(question.status).toBe("cancelled");
+    expect(question.answers.map((answer) => answer.display_text)).toEqual(["per line"]);
+    expect(question.events.map((event) => [event.kind, event.details])).toEqual([
+      ["cancelled", { note: "Not needed any more" }],
+      ["cancelled", { note: null }],
+      ["cancelled", { note: null }],
+      ["cancelled", { note: null }],
+    ]);
+  });
+
+  it("reads a chat link with its member and a chat wake target", () => {
+    const question = parse({
+      links: [
+        { link_type: "chat", link_id: "chat-1", position: 0, member_id: "user-brian" },
+        { link_type: "task", link_id: "task-3", position: 1 },
+      ],
+      wake_targets: [
+        { agent_id: "agent-pieter", issue_id: "", chat_session_id: "chat-1", unseen_answer_count: 2, wake_available: true },
+        { agent_id: "agent-joeri", issue_id: "issue-412", unseen_answer_count: 1, wake_available: true },
+      ],
+    });
+    expect(question.links).toEqual([
+      { link_type: "chat", link_id: "chat-1", position: 0, member_id: "user-brian" },
+      { link_type: "task", link_id: "task-3", position: 1, member_id: null },
+    ]);
+    expect(question.wake_targets).toEqual([
+      { agent_id: "agent-pieter", issue_id: null, chat_session_id: "chat-1", unseen_answer_count: 2, wake_available: true },
+      { agent_id: "agent-joeri", issue_id: "issue-412", chat_session_id: null, unseen_answer_count: 1, wake_available: true },
+    ]);
+  });
+
+  it("drops a link of an unknown type and a wake target without an issue or a chat", () => {
+    const question = parse({
+      links: [
+        { link_type: "whiteboard", link_id: "board-1", position: 0 },
+        { link_type: "issue", link_id: "issue-412", position: 1 },
+      ],
+      wake_targets: [
+        { agent_id: "agent-pieter", issue_id: "", chat_session_id: null, unseen_answer_count: 1, wake_available: true },
+        { agent_id: "agent-joeri", issue_id: "issue-412", unseen_answer_count: 1, wake_available: true },
+      ],
+    });
+    expect(question.id).toBe("question-1");
+    expect(question.links).toEqual([{ link_type: "issue", link_id: "issue-412", position: 1, member_id: null }]);
+    expect(question.wake_targets.map((target) => target.agent_id)).toEqual(["agent-joeri"]);
+  });
+
   it("drops events and links it cannot read and keeps the rest", () => {
     const question = parse({
       links: [
@@ -2931,8 +2991,8 @@ describe("QuestionSchema", () => {
       ],
     });
     expect(question.links).toEqual([
-      { link_type: "issue", link_id: "issue-412", position: 0 },
-      { link_type: "project", link_id: "project-1", position: 1 },
+      { link_type: "issue", link_id: "issue-412", position: 0, member_id: null },
+      { link_type: "project", link_id: "project-1", position: 1, member_id: null },
     ]);
     expect(question.events.map((event) => [event.kind, event.details])).toEqual([
       ["ask_back", { text: "Which customer?" }],
@@ -3035,6 +3095,58 @@ describe("QuestionWakeResultSchema", () => {
       expect(parseWake(response)).toBe(EMPTY_QUESTION_WAKE_RESULT);
     },
   );
+});
+
+describe("QuestionRowPageSchema", () => {
+  const wireRow = {
+    id: "question-1",
+    ask_id: "question-1",
+    ask_position: 0,
+    ask_title: null,
+    prompt: "Ship it?",
+    answer_type: "yes_no",
+    settings: { why_on_no: false },
+    status: "open",
+    answer_policy: "any_one",
+    asker_agent_id: "agent-pieter",
+    answerer_ids: ["user-brian"],
+    due_date: null,
+    blocks_work: false,
+    created_at: "2026-10-12T20:00:00Z",
+    link: { type: "issue", id: "issue-412", identifier: "WORK-412", title: "Invoices", status: "todo" },
+    via: null,
+    open_issue: { id: "issue-412", identifier: "WORK-412" },
+    my_answer: null,
+  };
+  const parsePage = (rows: unknown[]) =>
+    parseWithFallback<QuestionRowPage>({ rows, next_cursor: null }, QuestionRowPageSchema, EMPTY_QUESTION_ROW_PAGE, {
+      endpoint: "GET /api/questions",
+    }).rows;
+
+  it("reads a cancelled row", () => {
+    expect(parsePage([{ ...wireRow, status: "cancelled" }])[0]?.status).toBe("cancelled");
+  });
+
+  it("reads a chat row by its member, with no issue to open", () => {
+    const [row] = parsePage([{
+      ...wireRow,
+      link: { type: "chat", id: "chat-1", title: "", member_id: "user-brian" },
+      open_issue: { id: "", identifier: "" },
+    }]);
+    expect(row).toMatchObject({
+      id: "question-1",
+      link: { type: "chat", id: "chat-1", identifier: null, title: "", status: null, member_id: "user-brian" },
+      open_issue: null,
+    });
+  });
+
+  it("reads an unknown row link type as an issue, and an issue row without open_issue by its link", () => {
+    const [row] = parsePage([{ ...wireRow, link: { ...wireRow.link, type: "whiteboard" }, open_issue: undefined }]);
+    expect(row).toMatchObject({
+      link: { type: "issue", id: "issue-412", identifier: "WORK-412", member_id: null },
+      open_issue: { id: "issue-412", identifier: "WORK-412" },
+    });
+  });
 });
 
 describe("RepositoryCheckoutRequestSchema", () => {
