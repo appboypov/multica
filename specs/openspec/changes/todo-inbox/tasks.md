@@ -15,8 +15,8 @@ Server checks: `cd server && go test ./...` with the test database, as AGENTS.md
 
 ## 1. Data
 
-- [ ] 1.1 `server/migrations/740_todo.up.sql` / `.down.sql`: the `todo` table as `design.md` "classDiagram" holds it, with CHECKs on `kind`, `actor_type` and `done_by`, and a list index on `(workspace_id, member_id, created_at DESC) WHERE done_at IS NULL`. Verify: `make migrate-up` and `make migrate-down` on the worktree database.
-- [ ] 1.2 `server/migrations/741_todo_open_index.up.sql` / `.down.sql`: unique `CONCURRENTLY` index on `(workspace_id, member_id, kind, source_key) WHERE done_at IS NULL`. Verify: migrate up.
+- [ ] 1.1 `server/migrations/740_todo.up.sql` / `.down.sql`: the `todo` table as `design.md` "classDiagram" holds it, with CHECKs on `kind`, `actor_type` and `done_by`. Verify: `make migrate-up` and `make migrate-down` on the worktree database.
+- [ ] 1.2 `server/migrations/741_todo_open_index.up.sql` / `.down.sql`: unique `CONCURRENTLY` index on `(workspace_id, member_id, kind, source_key) WHERE done_at IS NULL`; `server/migrations/742_todo_list_index.up.sql` / `.down.sql`: `CONCURRENTLY` index on `(workspace_id, member_id, created_at DESC) WHERE done_at IS NULL`; both registered as AGENTS.md "Database" says. Verify: migrate up.
 - [ ] 1.3 `server/pkg/db/queries/todo.sql`: `OpenTodo`, `CloseTodos` (by member, kind and source key, or by kind and source key for all members), `CloseTodosOnIssue`, `ListOpenTodos`, `CountOpenTodosByWorkspace`, `GetTodoForMember`, `MarkTodoDone`; `make sqlc`. Verify: `go build ./...`.
 
 ## 2. Logic
@@ -36,12 +36,12 @@ Server checks: `cd server && go test ./...` with the test database, as AGENTS.md
 
 ## 4. Backfill
 
-- [ ] 4.1 `server/migrations/742_todo_backfill.up.sql`: open to-dos from open questions, assigned issues, created issues In Review, and the unarchived notices of the moved types that are still open; then archive those notices. Verify: a migration test on seeded rows.
+- [ ] 4.1 `server/migrations/743_todo_backfill.up.sql`: open to-dos from open questions, assigned issues, created issues In Review, and the unarchived notices of the moved types that are still open; then archive those notices. Verify: a migration test on seeded rows.
 
 ## 5. Creator
 
 - [ ] 5.1 `CreateIssue` sets the run's `originator_user_id` as creator for `agent_create` and `quick_create`. Verify: tests for quick create, agent in a run, agent run without originator; the subscriber test that the member follows as creator.
-- [ ] 5.2 `server/migrations/743_issue_creator_backfill.up.sql`. Verify: migration test; on production data 91 issues change.
+- [ ] 5.2 `server/migrations/744_issue_creator_backfill.up.sql`. Verify: migration test; on production data 91 issues change.
 
 ## 6. Docs
 
