@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"github.com/multica-ai/multica/server/internal/events"
+	"github.com/multica-ai/multica/server/internal/handler"
 	"github.com/multica-ai/multica/server/internal/testutil"
 	"github.com/multica-ai/multica/server/internal/todo"
 	"github.com/multica-ai/multica/server/internal/util"
@@ -113,5 +114,60 @@ func TestTodoQuestionReassigned(t *testing.T) {
 	if fx.Count(t, "SELECT count(*) FROM todo WHERE workspace_id = $1 AND member_id = $2 AND done_at IS NULL", fx.WorkspaceID, fx.UserID) != 0 ||
 		fx.Count(t, "SELECT count(*) FROM todo WHERE workspace_id = $1 AND member_id = $2 AND done_at IS NULL", fx.WorkspaceID, other) != 1 {
 		t.Fatal("reassignment kept wrong recipient")
+	}
+}
+
+func TestTodoMentionLifecycle(t *testing.T) {
+	fx, svc := todoListenerFixture(t)
+	issue := fx.Issue(t, "Mention")
+	author := fx.User(t, "Pieter", dbid.NewV7().String()+"@todo.test")
+	fx.Member(t, fx.WorkspaceID, author, "member")
+	count := func() int {
+		return fx.Count(t, "SELECT count(*) FROM todo WHERE workspace_id = $1 AND member_id = $2 AND done_at IS NULL", fx.WorkspaceID, fx.UserID)
+	}
+	comment := handler.CommentResponse{ID: dbid.NewV7().String(), IssueID: issue, AuthorType: "member", AuthorID: author, Content: "[Brian](mention://member/" + fx.UserID + ")"}
+	event := events.Event{Type: protocol.EventCommentCreated, WorkspaceID: fx.WorkspaceID, ActorType: "member", ActorID: author, Payload: map[string]any{"comment": comment}}
+	apply := func() {
+		t.Helper()
+		if err := mentionTodos(context.Background(), svc, event); err != nil {
+			t.Fatal(err)
+		}
+	}
+	apply()
+	if count() != 1 {
+		t.Fatal("mention not opened")
+	}
+	fx.Exec(t, "UPDATE todo SET done_at = now(), done_by = 'member' WHERE workspace_id = $1", fx.WorkspaceID)
+	comment.ID = dbid.NewV7().String()
+	event.Payload = map[string]any{"comment": comment}
+	apply()
+	if count() != 1 {
+		t.Fatal("later mention after Mark done did not open")
+	}
+	comment.ID, comment.AuthorID = dbid.NewV7().String(), fx.UserID
+	event.ActorID, event.Payload = fx.UserID, map[string]any{"comment": comment}
+	apply()
+	if count() != 0 {
+		t.Fatal("reply did not close mention, or own mention reopened it")
+	}
+	description := "[Brian](mention://member/" + fx.UserID + ")"
+	event.Type, event.ActorID = protocol.EventIssueCreated, author
+	event.Payload = map[string]any{"issue": handler.IssueResponse{ID: issue, Description: &description}}
+	apply()
+	if count() != 1 {
+		t.Fatal("description mention not opened")
+	}
+	fx.Exec(t, "UPDATE todo SET done_at = now(), done_by = 'member' WHERE workspace_id = $1 AND done_at IS NULL", fx.WorkspaceID)
+	event.Type = protocol.EventIssueUpdated
+	event.Payload = map[string]any{"issue": handler.IssueResponse{ID: issue, Description: &description}, "description_changed": true, "prev_description": &description}
+	apply()
+	if count() != 0 {
+		t.Fatal("unchanged description mention reopened dismissed todo")
+	}
+	previous := ""
+	event.Payload.(map[string]any)["prev_description"] = &previous
+	apply()
+	if count() != 1 {
+		t.Fatal("new description mention not opened")
 	}
 }
