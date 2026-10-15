@@ -2,7 +2,8 @@ schema: intent-driven
 created: 2026-10-15
 skip_specs: true
 build:
-  status: ready-for-dev
+  status: in-progress
+  baseline_revision: d9f4c8650b671b520a930559ed261007279c2fb5
   type: feature
   ticket: WORK-1057
   context:
