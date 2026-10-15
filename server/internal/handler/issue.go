@@ -3404,7 +3404,7 @@ func (h *Handler) CreateIssue(w http.ResponseWriter, r *http.Request) {
 	// be provided together.
 	var originType pgtype.Text
 	var originID pgtype.UUID
-	var originTask db.AgentTaskQueue
+	var originatorUserID pgtype.UUID
 	if req.OriginType != nil || req.OriginID != nil {
 		if req.OriginType == nil || req.OriginID == nil {
 			writeError(w, http.StatusBadRequest, "origin_type and origin_id must be provided together")
@@ -3428,7 +3428,7 @@ func (h *Handler) CreateIssue(w http.ResponseWriter, r *http.Request) {
 				ID: oid, WorkspaceID: wsUUID,
 			})
 			if err == nil && uuidToString(task.AgentID) == actorID {
-				originTask = task
+				originatorUserID = task.OriginatorUserID
 			}
 		}
 	} else if creatorType == "agent" {
@@ -3453,14 +3453,14 @@ func (h *Handler) CreateIssue(w http.ResponseWriter, r *http.Request) {
 				if task, terr := h.Queries.GetAgentTask(r.Context(), taskUUID); terr == nil && uuidToString(task.AgentID) == actorID {
 					originType = pgtype.Text{String: "agent_create", Valid: true}
 					originID = taskUUID
-					originTask = task
+					originatorUserID = task.OriginatorUserID
 				}
 			}
 		}
 	}
-	if originTask.OriginatorUserID.Valid {
+	if originatorUserID.Valid {
 		creatorType = "member"
-		actualCreatorID = uuidToString(originTask.OriginatorUserID)
+		actualCreatorID = uuidToString(originatorUserID)
 	}
 
 	// Prefix is workspace-level; pre-compute once so both the broadcast
