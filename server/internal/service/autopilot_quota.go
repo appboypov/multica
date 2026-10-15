@@ -120,6 +120,9 @@ func (s *AutopilotService) createAutopilotRunWithQuota(
 	policy, enabled := s.quotaPolicy(ctx, workspaceID)
 	if !enabled {
 		run, err := s.Queries.CreateAutopilotRun(ctx, params)
+		if err == nil {
+			s.closeAutopilotQuotaTodos(ctx, workspaceID)
+		}
 		return run, false, err
 	}
 
@@ -215,6 +218,7 @@ func (s *AutopilotService) createAutopilotRunWithQuota(
 	if err := tx.Commit(ctx); err != nil {
 		return db.AutopilotRun{}, false, fmt.Errorf("commit quota admission: %w", err)
 	}
+	s.closeAutopilotQuotaTodos(ctx, workspaceID)
 	result := "admitted"
 	if wouldBlock {
 		result = "would_block"
