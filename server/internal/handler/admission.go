@@ -37,8 +37,8 @@ const (
 	// DispatchDeferred: admitted but intentionally not started yet (e.g. a
 	// backlog issue parked until promotion, or suppress_run).
 	DispatchDeferred DispatchStatus = "deferred"
-	// DispatchSteered: the comment was bound to the target's running turn
-	// instead of starting a run. Only returned when the author asked to steer.
+	// DispatchSteered: the running turn received the comment as input instead
+	// of starting a follow-up run.
 	DispatchSteered DispatchStatus = "steered"
 	// DispatchBlocked: the run was refused. ReasonCode carries why.
 	DispatchBlocked DispatchStatus = "blocked"

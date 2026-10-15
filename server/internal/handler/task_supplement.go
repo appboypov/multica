@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -11,6 +12,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/multica-ai/multica/server/internal/service"
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
 	"github.com/multica-ai/multica/server/pkg/protocol"
 )
@@ -130,54 +132,69 @@ func applyCommentSupplements(resp *CommentResponse, receipts []CommentSupplement
 	resp.SupplementDeliveredAt = receipts[0].DeliveredAt
 }
 
-// steerCommentAgentTriggers binds a member comment to the turn its author
-// chose for each recipient. A bound agent leaves the enqueue list: that turn
-// receives the comment instead of a follow-up run. A chosen turn that has
-// ended, has not started, or cannot take additional input is never swapped
-// for another turn of the same agent; that recipient keeps its normal
-// queued / coalesced / deferred handling, so losing a race never drops or
-// misdirects the comment.
+// steerCommentAgentTriggers delivers a notice to every capable running run.
+// An explicit composer choice excludes only its triggered recipients' other
+// turns; recipients reached by the notice leave the follow-up enqueue list.
 func (h *Handler) steerCommentAgentTriggers(ctx context.Context, issue db.Issue, comment db.Comment, actorType string, triggers []commentAgentTrigger, steerTaskIDs []pgtype.UUID) ([]commentAgentTrigger, map[string]commentEnqueueResult) {
-	if len(steerTaskIDs) == 0 || len(triggers) == 0 || actorType != "member" {
+	tasks, err := h.Queries.ListRunningSupplementTasksForIssues(ctx, db.ListRunningSupplementTasksForIssuesParams{
+		WorkspaceID: issue.WorkspaceID, IssueIds: []pgtype.UUID{issue.ID},
+	})
+	if err != nil {
+		slog.Error("comment run input recipients failed", "comment_id", uuidToString(comment.ID), "error", err)
 		return triggers, nil
 	}
-	// Each chosen turn names its agent; only a turn of this issue counts.
-	chosen := make(map[string]pgtype.UUID, len(steerTaskIDs))
-	for _, taskID := range steerTaskIDs {
-		task, err := h.Queries.GetAgentTask(ctx, taskID)
-		if err != nil || task.IssueID != issue.ID {
-			continue
+	triggered := make(map[pgtype.UUID]bool, len(triggers))
+	for _, trigger := range triggers {
+		triggered[trigger.Agent.ID] = true
+	}
+	chosen := make(map[pgtype.UUID]bool, len(steerTaskIDs))
+	for _, id := range steerTaskIDs {
+		chosen[id] = true
+	}
+	var excluded []pgtype.UUID
+	if steerTaskIDs != nil {
+		for _, task := range tasks {
+			if triggered[task.AgentID] && !chosen[task.ID] {
+				excluded = append(excluded, task.ID)
+			}
 		}
-		chosen[uuidToString(task.AgentID)] = task.ID
+	}
+	content := comment.Content
+	attachments, err := h.Queries.ListAttachmentsByCommentIDs(ctx, db.ListAttachmentsByCommentIDsParams{
+		Column1: []pgtype.UUID{comment.ID}, WorkspaceID: issue.WorkspaceID,
+	})
+	if err != nil {
+		slog.Error("comment run input files failed", "comment_id", uuidToString(comment.ID), "error", err)
+		return triggers, nil
+	}
+	for _, attachment := range attachments {
+		content += fmt.Sprintf("\n%s (attachment %s, multica attachment download %s)", attachment.Filename, uuidToString(attachment.ID), uuidToString(attachment.ID))
+	}
+	reached, err := h.RunInputService.Deliver(ctx, []pgtype.UUID{issue.ID},
+		service.RunInputActor{Type: actorType, ID: comment.AuthorID},
+		service.RunInputItem{WorkspaceID: issue.WorkspaceID, Kind: "comment", ID: comment.ID, CommentID: comment.ID, Content: content}, excluded)
+	if err != nil {
+		slog.Error("comment run input delivery failed", "comment_id", uuidToString(comment.ID), "error", err)
+	}
+	deliveredAgents := make(map[pgtype.UUID]bool, len(reached))
+	for _, task := range tasks {
+		for _, id := range reached {
+			if task.ID == id {
+				deliveredAgents[task.AgentID] = true
+				break
+			}
+		}
 	}
 	kept := make([]commentAgentTrigger, 0, len(triggers))
 	steered := make(map[string]commentEnqueueResult)
 	for _, trigger := range triggers {
-		agentID := uuidToString(trigger.Agent.ID)
-		taskID, ok := chosen[agentID]
-		if !ok {
+		if deliveredAgents[trigger.Agent.ID] {
+			steered[uuidToString(trigger.Agent.ID)] = commentEnqueueResult{status: DispatchSteered, reason: ReasonSteered}
+		} else {
 			kept = append(kept, trigger)
-			continue
-		}
-		// The comment is its own request id: it binds to a turn at most once.
-		bound, err := h.Queries.BindCommentTaskSupplement(ctx, db.BindCommentTaskSupplementParams{
-			TaskID: taskID, IssueID: issue.ID, AgentID: trigger.Agent.ID, WorkspaceID: issue.WorkspaceID,
-			CommentID: comment.ID, AuthorID: comment.AuthorID, ClientRequestID: comment.ID,
-		})
-		if err != nil {
-			if !errors.Is(err, pgx.ErrNoRows) {
-				slog.Warn("steer comment into running turn failed",
-					"issue_id", uuidToString(issue.ID), "comment_id", uuidToString(comment.ID), "task_id", uuidToString(taskID), "error", err)
-			}
-			kept = append(kept, trigger)
-			continue
-		}
-		steered[agentID] = commentEnqueueResult{status: DispatchSteered, reason: ReasonSteered}
-		if h.DaemonTaskSupplement != nil && bound.RuntimeID.Valid {
-			h.DaemonTaskSupplement.NotifyTaskSupplementAvailable(uuidToString(bound.RuntimeID), uuidToString(bound.TaskID))
 		}
 	}
-	if len(steered) > 0 {
+	if len(reached) > 0 {
 		h.publishCommentSupplementUpdate(ctx, issue.WorkspaceID, comment.ID)
 	}
 	return kept, steered

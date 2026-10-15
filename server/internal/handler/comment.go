@@ -1775,11 +1775,6 @@ func (h *Handler) CreateComment(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	// A running turn receives text only, so a comment that carries files is
-	// always a normal trigger.
-	if len(attachmentIDs) > 0 {
-		steerTaskIDs = nil
-	}
 
 	// Determine author identity: agent (via X-Agent-ID header) or member.
 	authorType, authorID := h.resolveActor(r, userID, uuidToString(issue.WorkspaceID))
@@ -1989,9 +1984,7 @@ func (h *Handler) CreateComment(w http.ResponseWriter, r *http.Request) {
 	// request. Surface the per-target outcomes so the client can show partial
 	// success instead of a silent no-op (MUL-4525 §2).
 	resp.TriggerOutcomes = h.triggerTasksForComment(r.Context(), issue, comment, parentComment, authorType, authorID, originatorUserID, suppressAgentIDs, steerTaskIDs)
-	if len(steerTaskIDs) > 0 {
-		applyCommentSupplements(&resp, h.listCommentSupplements(r.Context(), issue.WorkspaceID, []pgtype.UUID{comment.ID})[uuidToString(comment.ID)])
-	}
+	applyCommentSupplements(&resp, h.listCommentSupplements(r.Context(), issue.WorkspaceID, []pgtype.UUID{comment.ID})[uuidToString(comment.ID)])
 
 	writeJSON(w, http.StatusCreated, resp)
 }
@@ -2044,9 +2037,9 @@ func (h *Handler) triggerTasksForComment(ctx context.Context, issue db.Issue, co
 		AuthoringTaskID:         comment.SourceTaskID,
 		OriginatorUserID:        originatorUserID,
 	})
-	triggers = filterSuppressedCommentAgentTriggers(triggers, suppressAgentIDs)
 	h.noteBlockedRuntimeTargets(ctx, issue, targets)
 	triggers, steered := h.steerCommentAgentTriggers(ctx, issue, comment, actorType, triggers, steerTaskIDs)
+	triggers = filterSuppressedCommentAgentTriggers(triggers, suppressAgentIDs)
 	enqueued := h.enqueueCommentAgentTriggers(ctx, issue, comment.ID, triggers)
 	for agentID, result := range steered {
 		enqueued[agentID] = result
