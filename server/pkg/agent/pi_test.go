@@ -7,8 +7,10 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -907,5 +909,261 @@ func TestBuildPiArgsBareAndEmptyModels(t *testing.T) {
 		if arg == "--model" {
 			t.Errorf("blank model should omit --model so pi picks its default: %v", empty)
 		}
+	}
+}
+
+func TestPiAndOmpExecuteEventParity(t *testing.T) {
+	t.Parallel()
+	if runtime.GOOS == "windows" {
+		t.Skip("shell-script fixture is POSIX-only")
+	}
+	events := []string{
+		`{"type":"agent_start"}`,
+		`{"type":"turn_start"}`,
+		`{"type":"message_start","message":{"role":"assistant"}}`,
+		`{"type":"message_update","assistantMessageEvent":{"type":"thinking_delta","delta":"considering"}}`,
+		`{"type":"message_update","assistantMessageEvent":{"type":"text_delta","delta":"hello "}}`,
+		`{"type":"tool_execution_start","toolCallId":"call-1","toolName":"read","args":{"path":"file.txt"}}`,
+		`{"type":"tool_execution_update","toolCallId":"call-1"}`,
+		`{"type":"tool_execution_end","toolCallId":"call-1","result":"contents"}`,
+		`{"type":"message_update","assistantMessageEvent":{"type":"text_delta","delta":"world"}}`,
+		`{"type":"message_end","message":{"role":"assistant"}}`,
+		`{"type":"turn_end","message":{"role":"assistant","model":"fixture","usage":{"input":10,"output":5,"cacheRead":3,"cacheWrite":2},"stopReason":"stop"}}`,
+		`{"type":"agent_end","messages":[]}`,
+	}
+	const prompt = "a \"quoted\" prompt\nwith a second line and 👀"
+	var printMessages []Message
+	var printResult Result
+	for _, provider := range []string{"pi", "omp"} {
+		t.Run(provider, func(t *testing.T) {
+			dir := t.TempDir()
+			inputPath := filepath.Join(dir, "input")
+			argsPath := filepath.Join(dir, "args")
+			eofPath := filepath.Join(dir, "eof")
+			fakePath := filepath.Join(dir, provider)
+			script := "#!/bin/sh\nprintf '%s\\n' \"$@\" > \"$ARGS_PATH\"\n"
+			if provider == "pi" {
+				script += "cat > \"$INPUT_PATH\"\n"
+			} else {
+				script += "IFS= read -r mode || exit 11\nIFS= read -r prompt || exit 12\n" +
+					"printf '%s\\n' \"$mode\" \"$prompt\" > \"$INPUT_PATH\"\n" +
+					"printf '%s\\n' '{\"type\":\"ready\"}' '{\"type\":\"response\",\"command\":\"prompt\",\"success\":true}'\n"
+			}
+			for _, event := range events {
+				script += "printf '%s\\n' '" + event + "'\n"
+			}
+			if provider == "omp" {
+				script += "printf '%s\\n' '{\"type\":\"prompt_result\",\"status\":\"completed\",\"sessionSettled\":true}' '{\"type\":\"session_settled\"}'\n" +
+					"if IFS= read -r extra; then exit 13; fi\n"
+			}
+			script += "printf 'eof' > \"$EOF_PATH\"\n"
+			writeTestExecutable(t, fakePath, []byte(script))
+			backend, err := ResolveBackend(provider, Config{
+				ExecutablePath: fakePath, Logger: slog.Default(),
+				Env: map[string]string{"INPUT_PATH": inputPath, "ARGS_PATH": argsPath, "EOF_PATH": eofPath},
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			sessionPath := filepath.Join(dir, "session.jsonl")
+			session, err := backend.Execute(t.Context(), prompt, ExecOptions{
+				ResumeSessionID: sessionPath, Timeout: 5 * time.Second,
+				Model: "gateway/fixture", ThinkingLevel: "high",
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if session.Supplement != nil || session.SupplementReady != nil {
+				t.Fatal("session without negotiated supplements exposes input")
+			}
+			var messages []Message
+			for message := range session.Messages {
+				messages = append(messages, message)
+			}
+			result := waitPiResult(t, session, time.Second)
+			if result.Status != "completed" || result.Error != "" || result.Output != "hello world" {
+				t.Fatalf("unexpected result: %+v", result)
+			}
+			if result.SessionID != sessionPath {
+				t.Fatalf("session id = %q, want %q", result.SessionID, sessionPath)
+			}
+			if eof, err := os.ReadFile(eofPath); err != nil || string(eof) != "eof" {
+				t.Fatalf("child did not observe stdin EOF: %q, %v", eof, err)
+			}
+			args, err := os.ReadFile(argsPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			wantArgs := []string{"-p", "--mode", "json"}
+			if provider == "omp" {
+				wantArgs = []string{"--mode", "rpc", "--no-ui"}
+			}
+			wantArgs = append(wantArgs, "--session", sessionPath, "--model", "gateway/fixture", "--thinking", "high")
+			if string(args) != strings.Join(wantArgs, "\n")+"\n" {
+				t.Fatalf("argv = %q, want %v", args, wantArgs)
+			}
+			input, err := os.ReadFile(inputPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			// Compare only provider-independent result fields.
+			result.DurationMs, result.SessionID = 0, ""
+			if provider == "pi" {
+				if string(input) != prompt {
+					t.Fatalf("print-mode prompt = %q", input)
+				}
+				printMessages, printResult = messages, result
+				if len(messages) != 6 || messages[0].Type != MessageStatus ||
+					messages[1].Type != MessageThinking || messages[3].Type != MessageToolUse ||
+					messages[4].Type != MessageToolResult {
+					t.Fatalf("missing print-mode mappings: %+v", messages)
+				}
+				if got := result.Usage["fixture"]; got.InputTokens != 10 || got.OutputTokens != 5 ||
+					got.CacheReadTokens != 3 || got.CacheWriteTokens != 2 {
+					t.Fatalf("usage = %+v", got)
+				}
+				return
+			}
+			lines := strings.Split(strings.TrimSuffix(string(input), "\n"), "\n")
+			if len(lines) != 2 {
+				t.Fatalf("initial input has %d physical lines: %q", len(lines), input)
+			}
+			var mode, initial map[string]string
+			if err := json.Unmarshal([]byte(lines[0]), &mode); err != nil {
+				t.Fatal(err)
+			}
+			if err := json.Unmarshal([]byte(lines[1]), &initial); err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(mode, map[string]string{"type": "set_interrupt_mode", "mode": "wait"}) ||
+				!reflect.DeepEqual(initial, map[string]string{"type": "prompt", "message": prompt}) {
+				t.Fatalf("initial RPC commands = %v, %v", mode, initial)
+			}
+			if !reflect.DeepEqual(messages, printMessages) || !reflect.DeepEqual(result, printResult) {
+				t.Fatalf("RPC differs from print mode:\nmessages %+v vs %+v\nresult %+v vs %+v",
+					messages, printMessages, result, printResult)
+			}
+		})
+	}
+}
+
+func TestOmpExecuteSteersUntilSessionSettled(t *testing.T) {
+	t.Parallel()
+	if runtime.GOOS == "windows" {
+		t.Skip("shell-script fixture is POSIX-only")
+	}
+	dir := t.TempDir()
+	inputPath := filepath.Join(dir, "steers")
+	eofPath := filepath.Join(dir, "eof")
+	fakePath := filepath.Join(dir, "omp")
+	script := `#!/bin/sh
+IFS= read -r mode || exit 11
+IFS= read -r prompt || exit 12
+printf '%s\n' '{"type":"agent_start"}'
+IFS= read -r first || exit 13
+IFS= read -r second || exit 14
+printf '%s\n' "$first" "$second" > "$INPUT_PATH"
+printf '%s\n' '{"type":"agent_end","messages":[],"yielded":true}' '{"type":"prompt_result","status":"completed","sessionSettled":false}'
+printf '%s\n' '{"type":"agent_start"}' '{"type":"turn_start"}'
+printf '%s\n' '{"type":"message_update","assistantMessageEvent":{"type":"text_delta","delta":"handled the notices"}}'
+printf '%s\n' '{"type":"agent_end","messages":[]}' '{"type":"prompt_result","status":"completed","sessionSettled":true}'
+printf '%s\n' '{"type":"session_settled"}'
+if IFS= read -r extra; then exit 15; fi
+printf 'eof' > "$EOF_PATH"
+`
+	writeTestExecutable(t, fakePath, []byte(script))
+	backend, err := ResolveBackend("omp", Config{
+		ExecutablePath: fakePath, Logger: slog.Default(),
+		Env: map[string]string{"INPUT_PATH": inputPath, "EOF_PATH": eofPath},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	session, err := backend.Execute(t.Context(), "original task", ExecOptions{
+		ResumeSessionID: filepath.Join(dir, "session.jsonl"),
+		Timeout: 10 * time.Second, EnableTaskSupplement: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if session.Supplement == nil || session.SupplementReady == nil {
+		t.Fatal("negotiated omp session does not expose input")
+	}
+	select {
+	case message := <-session.Messages:
+		if message.Type != MessageStatus || message.Status != "running" || !session.SupplementReady() {
+			t.Fatalf("agent_start did not enable supplements: %+v", message)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("omp did not start")
+	}
+	cancelled, cancel := context.WithCancel(t.Context())
+	cancel()
+	if err := session.Supplement(cancelled, "must not be sent"); err != context.Canceled {
+		t.Fatalf("cancelled input error = %v", err)
+	}
+	instructions := []string{
+		"Brian says \"keep it\"\non the next line 👀 " + strings.Repeat("x", 128*1024),
+		"Brian changed the answer\n" + strings.Repeat("y", 128*1024),
+	}
+	// Frames larger than PIPE_BUF must stay intact even with concurrent callers.
+	var writers sync.WaitGroup
+	errors := make(chan error, len(instructions))
+	for _, instruction := range instructions {
+		writers.Add(1)
+		go func() {
+			defer writers.Done()
+			errors <- session.Supplement(t.Context(), instruction)
+		}()
+	}
+	writers.Wait()
+	for range instructions {
+		if err := <-errors; err != nil {
+			t.Fatalf("steer: %v", err)
+		}
+	}
+	var messages []Message
+	for message := range session.Messages {
+		messages = append(messages, message)
+	}
+	result := waitPiResult(t, session, time.Second)
+	if result.Status != "completed" || result.Output != "handled the notices" {
+		t.Fatalf("result = %+v", result)
+	}
+	if len(messages) != 2 || messages[0].Type != MessageStatus || messages[1].Type != MessageText {
+		t.Fatalf("follow-up run events = %+v", messages)
+	}
+	if session.SupplementReady() {
+		t.Fatal("settled session still accepts input")
+	}
+	if err := session.Supplement(t.Context(), "too late"); err == nil {
+		t.Fatal("supplement succeeded after settlement")
+	}
+	input, err := os.ReadFile(inputPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(strings.TrimSuffix(string(input), "\n"), "\n")
+	if len(lines) != len(instructions) {
+		t.Fatalf("got %d steer lines, want %d", len(lines), len(instructions))
+	}
+	received := make(map[string]bool)
+	for _, line := range lines {
+		var frame map[string]string
+		if err := json.Unmarshal([]byte(line), &frame); err != nil {
+			t.Fatalf("split/interleaved frame: %v", err)
+		}
+		if frame["type"] != "steer" || len(frame) != 2 {
+			t.Fatalf("unexpected frame shape: %v", frame)
+		}
+		received[frame["message"]] = true
+	}
+	for _, instruction := range instructions {
+		if !received[instruction] {
+			t.Fatal("steer frame changed or lost its instruction")
+		}
+	}
+	if eof, err := os.ReadFile(eofPath); err != nil || string(eof) != "eof" {
+		t.Fatalf("session_settled did not close stdin: %q, %v", eof, err)
 	}
 }
