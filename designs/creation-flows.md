@@ -24,7 +24,7 @@ flowchart LR
 
 - **Organisation**: groups a workspace's projects. The sidebar's Organisations page lists them; an organisation's page shows its projects, each with its repositories and worklanes.
 - **Repository** (in one project): a GitHub repository (`owner/name`, default branch), its checkout on a runtime (machine plus path), and its version policy: where the version lives (for example `pubspec.yaml`, `package.json` or tags only) and the tag pattern (`v{version}`). Adding a repository adds its worklane `main` at the same time.
-- **Worklane** (in one repository): a name, a folder, the runtime its worktree lives on, and an order. Its worktree path follows from these: `~/Worktrees/{project key}/{folder}/{repo}`. Its state follows from its line: Busy with the active issue's branch, or Free. A worklane without a worktree does not exist, so creating a worklane creates its worktree. The sidebar's Worklanes page lists every worklane, grouped by organisation, project and repository; a row opens its timeline.
+- **Worklane** (in one repository): a name, a folder, the runtime its worktree lives on, and an order. Its worktree path follows from these: `~/Worktrees/{organisation key}/{repo}/{folder}`. Its state follows from its line: Busy with the active issue's branch, or Free. A worklane without a worktree does not exist, so creating a worklane creates its worktree. The sidebar's Worklanes page lists every worklane, grouped by organisation, project and repository; a row opens its timeline.
 - **Release** (in one repository): a version, a title, a description and its issues. Each worklane's timeline shows the repository's releases with that lane's issues in them, each under its version, title and description. An issue's release card shows the title too. The version is the repository's because a repository has one tag sequence, and a release is cut from the default branch with everything merged into it, whichever lane did the work. A planned release's version comes from its bump (patch, minor or major) after the release before it, or is set by hand; a version set by hand is marked "Set by hand" on the timeline. The sidebar's Releases page lists every repository's release line in order, each release with its state, title, issue progress and the worklanes with issues in it; a row opens the timeline of a worklane with issues in it. Planning, editing and moving stay on the worklane's timeline.
 - **Issue**: has at most one worklane and at most one release, and the release must belong to that worklane's repository.
 
@@ -33,9 +33,10 @@ flowchart LR
 Opened from a project's "Add repository" button. It is a dialog, not an inline field.
 
 1. **Repository**: a searchable list of the repositories the GitHub App can see, each showing `owner/name`, Private or Public, and its default branch. A repository already in another project shows which one it is in and cannot be picked; there is no URL field to type into. If the repository is missing, a "Give Multica access on GitHub" link opens the GitHub App installation.
-2. **Checkout**: the runtime (for example "Brian's Mac · online") and the path to its normal checkout. The path is filled in with `~/Repos/{name}` when that folder exists, and can be changed with the folder picker. It is checked to be a git checkout whose `origin` is this repository and that sits on its default branch. If the folder does not exist, "Clone it there" clones the repository into it.
+2. **Checkout**: the runtime (for example "Brian's Mac · online") and the path to its normal checkout. The path is filled in with `~/Repos/{name}` and can be changed with the folder picker. It is checked to be a git checkout whose `origin` is this repository and that sits on its default branch. If the folder does not exist, "Clone it there" clones the repository into it.
 3. **Releases**: the version policy Multica found, for example "Version in `pubspec.yaml` · tags `v{version}` · last tag v1.0.0". It can be changed to "Tags only" or "This repository does not release".
-4. **Add repository** creates the repository with worklane `main` on its checkout. The project page then shows the new repository open, with `main` Free.
+4. **Install**: the install command Multica found from the lockfile on the default branch (`pnpm-lock.yaml`, `package-lock.json`, `yarn.lock`, `pubspec.yaml` or `uv.lock`, the first it finds), for example `pnpm install`. It can be changed or set to None; Edit repository shows it too.
+5. **Add repository** creates the repository with worklane `main` on its checkout. The project page then shows the new repository open, with `main` Free.
 
 The button stays disabled until the repository is picked and the checkout is valid. Each check failure is shown under the field it belongs to, with how to fix it.
 
@@ -43,12 +44,12 @@ The button stays disabled until the repository is picked and the checkout is val
 
 Opened from a repository's "+ Worklane" button. It is a dialog.
 
-1. **Name**: for example "Fan app", unique in its repository. The folder is filled in from it (`fan-app`) and can be edited: one folder name, unique among the repository's worklanes. Worklanes with the same name in different repositories of a project share their folder, with one worktree per repository, for example `~/Worktrees/supermarty/catalog-and-tools/sm-api` and `~/Worktrees/supermarty/catalog-and-tools/sm-cli`.
-2. **Runtime**: the machine the worktree lives on; only online runtimes that can make worktrees are offered.
-3. **Worktree** (read only, follows from the fields above): `~/Worktrees/rebl/fan-app/rebl`, branched from `origin/main`, with the repository's install command (for example `pnpm install`).
+1. **Name**: for example "Fan app", unique in its repository. The folder is filled in from it (`fan-app`) and can be edited: one folder name, unique among the repository's worklanes.
+2. **Runtime**: the machine the worktree lives on; only the runtime that holds the repository's checkout is offered, while it is online and can make worktrees.
+3. **Worktree** (read only, follows from the fields above): `~/Worktrees/{organisation key}/{repo}/{folder}`, for example `~/Worktrees/rebl/rebl/fan-app`, branched from `origin/main`, with the repository's install command (for example `pnpm install`). A checkout of the repository already at that path is used as it is.
 4. **Create worklane** shows each step as it runs on the runtime: fetching `origin/main`, adding the worktree, installing dependencies. When it is done, the worklane opens on its empty timeline, with state Free. If a step fails, the error stays in the dialog with "Try again", and no worklane is saved.
 
-Brian's yes is the click, and it is recorded on the worklane's activity.
+Brian's yes is the click, and it is recorded on the worklane's activity. The worklane's page shows its activity, with what is planned in it and the progress of its work.
 
 ## Plan release
 
@@ -58,19 +59,21 @@ Opened from a worklane timeline's "Plan release" button, at the end of the timel
 2. **Title**: a short name for the release, for example "Account and profile". Required.
 3. **Description**: what the release brings, in a few sentences. Optional.
 4. **Issues**: this worklane's issues that are in no release yet, with their type icon, ID, title and status, to tick. Issues can also be added later from the timeline.
-5. **Ships**: a read-only line about what happens when it ships. When all its issues are done and merged, Multica tags `v1.1.0` on `main`, writes the release note, publishes the GitHub release, and asks you to pass it. A release has no date until it ships.
+5. **Ships**: a read-only line about what happens when it ships. When all its issues are done and merged, Multica tags `v1.1.0` on `main`, writes the release note and publishes the GitHub release; it needs no pass. A release has no date until it ships.
 6. **Plan release** adds the release to the end of the repository's release line. On this worklane's timeline it appears in place with the chosen issues, and on the other worklanes of the repository it appears empty.
 
 The button stays disabled until the release has a title and a valid version.
 
 ## Edit and move a release
 
-Each release on a worklane's timeline has a menu: Add issue to release, Edit release, Move earlier and Move later.
+Each release on a worklane's timeline has a menu: Add issue to release, which lists this worklane's issues in no release to tick, Edit release, Move earlier, Move later and Remove release, which renumbers the computed versions after it and puts its issues back in "No release". The + at the end of a release opens New issue with this worklane and that release filled in.
 
 1. **Edit release** opens the same dialog as Plan release, filled in, with "Save release". Version, title and description can be changed. Setting a version by hand shows which later releases renumber, for example "Later releases renumber: v1.2.0 → v1.3.0, v1.3.0 → v1.4.0." Choosing Patch, Minor or Major again drops the version set by hand.
 2. **A shipped release** keeps its version: it shows read only with "Shipped: its tag is fixed." Its title and description can still change, here and on the GitHub release; the tag stays. No issue can be added to it: "Add issue to release" is disabled with "Shipped: add it to a later release", and New issue shows it disabled as "Shipped".
 3. **Move earlier** and **Move later** swap the release with its neighbour on the repository's release line. Releases with a computed version renumber to their new place; a release set by hand keeps its number. Each issue follows its release to the new number.
 4. **A move or edit that breaks the line is refused.** The menu item is disabled with its reason: "It is the first release", "It is the last release", "The release before it has shipped" or "Shipped: its tag is fixed". When a release set by hand would end up not higher than the release before it, the move is disabled and Save stays disabled, naming both releases, for example "Then v1.5.0 Event push is not higher than v1.6.0 Agenda and publication, the release before it."
+5. **Activity**: each plan, edit, move and removal adds an entry to the activity of every worklane of the repository, naming the versions that changed.
+6. **A repository that stops releasing**: Edit repository refuses "This repository does not release" while the repository has unshipped releases, naming them.
 
 ## Decisions
 
