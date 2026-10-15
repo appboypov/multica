@@ -18,8 +18,8 @@ import (
 )
 
 type runInputFixture struct {
-	fx                                  *testutil.Fixture
-	q                                   *db.Queries
+	fx                                    *testutil.Fixture
+	q                                     *db.Queries
 	workspace, author, agent, issue, task pgtype.UUID
 }
 
@@ -49,9 +49,9 @@ func newRunInputFixture(t *testing.T) *runInputFixture {
 	issue := fx.Issue(t, "Receipt query coverage")
 	task := fx.Task(t, agent, testutil.Cols{
 		"runtime_id": runtime, "issue_id": issue, "status": "running",
-		"created_at": testutil.Raw("clock_timestamp() - interval '1 hour'"),
+		"created_at":    testutil.Raw("clock_timestamp() - interval '1 hour'"),
 		"dispatched_at": testutil.Raw("clock_timestamp() - interval '1 hour'"),
-		"started_at": testutil.Raw("clock_timestamp() - interval '1 hour'"),
+		"started_at":    testutil.Raw("clock_timestamp() - interval '1 hour'"),
 	})
 	fx.InsertNoID(t, "task_supplement_capability", testutil.Cols{
 		"task_id": task, "workspace_id": workspace, "issue_id": issue, "capability": "task-supplement-v1",
@@ -88,9 +88,9 @@ func (f *runInputFixture) deliver(t *testing.T, item pgtype.UUID) {
 
 func TestRunInputCommentReconciliationUsesNewestHandledReceipt(t *testing.T) {
 	for _, tc := range []struct {
-		name                      string
+		name                       string
 		seen, handled, edit, older bool
-		want                      int
+		want                       int
 	}{
 		{name: "delivered without handled mark", want: 1},
 		{name: "seen only", seen: true, want: 1},

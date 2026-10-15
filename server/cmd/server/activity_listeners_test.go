@@ -790,8 +790,8 @@ func TestActivityFieldChangesReachEveryRunningRun(t *testing.T) {
 	}
 	for _, tc := range []struct {
 		name, action, flag string
-		previous          map[string]any
-		want              []string
+		previous           map[string]any
+		want               []string
 	}{
 		{"status", "status_changed", "status_changed", map[string]any{"prev_status": "todo"}, []string{"status from Todo to In Progress"}},
 		{"priority", "priority_changed", "priority_changed", map[string]any{"prev_priority": "medium"}, []string{"priority from Medium to High"}},
@@ -953,7 +953,7 @@ func TestActivitySubIssueMoveNotifiesBothParents(t *testing.T) {
 	bus.Publish(events.Event{
 		Type: protocol.EventIssueUpdated, WorkspaceID: testWorkspaceID, ActorType: "member", ActorID: testUserID,
 		Payload: map[string]any{
-			"issue": handler.IssueResponse{ID: child, WorkspaceID: testWorkspaceID, Identifier: "WORK-450", Title: "Moved child", ParentIssueID: &nextParent},
+			"issue":          handler.IssueResponse{ID: child, WorkspaceID: testWorkspaceID, Identifier: "WORK-450", Title: "Moved child", ParentIssueID: &nextParent},
 			"parent_changed": true, "prev_parent_issue_id": &previousParent,
 		},
 	})

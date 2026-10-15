@@ -126,9 +126,9 @@ func TestQuestionAnswersReachOtherRunningAgentsOnEveryLinkedIssue(t *testing.T) 
 	}
 	f.svc.RunInputs = &RunInputService{Queries: f.svc.Queries}
 	asked, err := f.svc.Ask(ctx, f.workspace, f.asker, AskInput{
-		Questions: []question.AskQuestion{{Prompt: "Which toolbar?", AnswerType: "single_choice", Settings: json.RawMessage(`{"options":["header","footer"],"allow_other":false}`)}},
+		Questions:   []question.AskQuestion{{Prompt: "Which toolbar?", AnswerType: "single_choice", Settings: json.RawMessage(`{"options":["header","footer"],"allow_other":false}`)}},
 		AnswererIDs: []pgtype.UUID{f.brian},
-		Links: []question.LinkRef{{Type: "issue", Ref: util.UUIDToString(f.issue)}, {Type: "issue", Ref: util.UUIDToString(secondIssue)}},
+		Links:       []question.LinkRef{{Type: "issue", Ref: util.UUIDToString(f.issue)}, {Type: "issue", Ref: util.UUIDToString(secondIssue)}},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -138,9 +138,15 @@ func TestQuestionAnswersReachOtherRunningAgentsOnEveryLinkedIssue(t *testing.T) 
 		kind, want string
 		action     func() (QuestionDTO, error)
 	}{
-		{"answered", "Brian answered Skuddy's question", func() (QuestionDTO, error) { return f.svc.Answer(ctx, f.workspace, id, f.answerer, AnswerQuestionInput{Value: json.RawMessage(`{"option":"header"}`), Note: "Keep the copy button"}) }},
-		{"answer_edited", "Brian changed the answer to Skuddy's question", func() (QuestionDTO, error) { return f.svc.Answer(ctx, f.workspace, id, f.answerer, AnswerQuestionInput{Value: json.RawMessage(`{"option":"footer"}`)}) }},
-		{"ask_back", "Brian asks back: which copy button?", func() (QuestionDTO, error) { return f.svc.AskBack(ctx, f.workspace, id, f.answerer, "which copy button?") }},
+		{"answered", "Brian answered Skuddy's question", func() (QuestionDTO, error) {
+			return f.svc.Answer(ctx, f.workspace, id, f.answerer, AnswerQuestionInput{Value: json.RawMessage(`{"option":"header"}`), Note: "Keep the copy button"})
+		}},
+		{"answer_edited", "Brian changed the answer to Skuddy's question", func() (QuestionDTO, error) {
+			return f.svc.Answer(ctx, f.workspace, id, f.answerer, AnswerQuestionInput{Value: json.RawMessage(`{"option":"footer"}`)})
+		}},
+		{"ask_back", "Brian asks back: which copy button?", func() (QuestionDTO, error) {
+			return f.svc.AskBack(ctx, f.workspace, id, f.answerer, "which copy button?")
+		}},
 	} {
 		t.Run(tc.kind, func(t *testing.T) {
 			result, err := tc.action()
