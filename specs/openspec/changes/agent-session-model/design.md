@@ -96,7 +96,7 @@ Queries, each filtered by `workspace_id`: `UpsertAgentSession` (on `(daemon_id, 
 
 `ListAgentSessions(workspace_id, agent_id)` is one `UNION ALL`, ordered by start time:
 
-- `agent_session` rows whose `daemon_id` has an `agent_runtime` with status `online` in the workspace: kind `terminal`. A sleeping Mac's sessions drop out until its daemon is back and has swept them.
+- `agent_session` rows whose `daemon_id` has an `agent_runtime` with status `online` in the workspace: kind `terminal`, with their `pid`, so a session finds its own entry. A sleeping Mac's sessions drop out until its daemon is back and has swept them.
 - `agent_task_queue` rows of the agent in `dispatched` or `running`: kind `run`, with the runtime's id and name, `work_dir`, the task id, the issue's id and identifier, status `starting` (`dispatched`) or `working` (`running`), and `started_at`, else `dispatched_at`. Repository and branch come from the issue's `active` `issue_worktree` row whose `path` is the run's `work_dir`, else its only `active` row; several rows with none at the folder leave both empty, and the issue still names the work. The repository is the `repository` row's `full_name`.
 
 ### 3. The event
@@ -105,7 +105,7 @@ Queries, each filtered by `workspace_id`: `UpsertAgentSession` (on `(daemon_id, 
 
 ### 4. Types and schemas
 
-`AgentSession`: `id`, `kind` (`terminal` | `run` | `unknown`), `herdr_pane_id`, `runtime` (`{id, name}` | null), `task_id`, `issue` (`{id, identifier}` | null), `work_dir`, `repository`, `branch`, `status` (`idle` | `working` | `blocked` | `done` | `starting` | `unknown`), `started_at`. `AgentSessionsResponse`: `{sessions: AgentSession[]}`. Their zod schemas default missing strings to `""` and nullable objects to `null`, map an unknown `kind` or `status` to `unknown`, and default `sessions` to `[]`.
+`AgentSession`: `id`, `kind` (`terminal` | `run` | `unknown`), `pid` (number | null, null for a run), `herdr_pane_id`, `runtime` (`{id, name}` | null), `task_id`, `issue` (`{id, identifier}` | null), `work_dir`, `repository`, `branch`, `status` (`idle` | `working` | `blocked` | `done` | `starting` | `unknown`), `started_at`. `AgentSessionsResponse`: `{sessions: AgentSession[]}`. Their zod schemas default missing strings to `""` and nullable values to `null`, map an unknown `kind` or `status` to `unknown`, and default `sessions` to `[]`.
 
 ## Risks / Trade-offs
 
