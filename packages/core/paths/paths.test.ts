@@ -27,6 +27,9 @@ describe("paths.workspace(slug)", () => {
     expect(ws.chatSession("session one")).toBe(
       "/acme/chat?session=session%20one",
     );
+    expect(ws.chatSession("session one", { questionId: "q/1" })).toBe(
+      "/acme/chat?session=session%20one&question=q%2F1",
+    );
     expect(ws.myIssues()).toBe("/acme/my-issues");
     expect(ws.runtimes()).toBe("/acme/runtimes");
     expect(ws.runtimeSettings("machine/runtime", "runtime one")).toBe(

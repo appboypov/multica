@@ -82,8 +82,9 @@ function workspaceScoped(slug: string) {
     chat: () => `${ws}/chat`,
     chatWithAgent: (agentId: string) =>
       `${ws}/chat?agent=${encode(agentId)}`,
-    chatSession: (sessionId: string) =>
-      `${ws}/chat?session=${encode(sessionId)}`,
+    /** `questionId` scrolls the chat's message list to that question's card. */
+    chatSession: (sessionId: string, options?: { questionId?: string }) =>
+      `${ws}/chat?session=${encode(sessionId)}${options?.questionId ? `&question=${encode(options.questionId)}` : ""}`,
     myIssues: () => `${ws}/my-issues`,
     runtimes: () => `${ws}/runtimes`,
     runtimeDetail: (id: string) => `${ws}/runtimes/${encode(id)}`,
