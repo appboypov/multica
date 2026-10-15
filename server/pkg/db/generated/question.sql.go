@@ -1158,6 +1158,31 @@ func (q *Queries) ListUnseenQuestionEvents(ctx context.Context, arg ListUnseenQu
 	return items, nil
 }
 
+const promoteFirstQuestionLinks = `-- name: PromoteFirstQuestionLinks :exec
+UPDATE question_link l SET position = 0
+FROM (
+    SELECT DISTINCT ON (f.question_id) f.question_id, f.link_type, f.link_id, f.position
+    FROM question_link f
+    WHERE f.workspace_id = $1 AND f.question_id = ANY($2::uuid[])
+    ORDER BY f.question_id, f.position
+) first
+WHERE l.workspace_id = $1 AND l.question_id = first.question_id
+  AND l.link_type = first.link_type AND l.link_id = first.link_id
+  AND first.position > 0
+`
+
+type PromoteFirstQuestionLinksParams struct {
+	WorkspaceID pgtype.UUID   `json:"workspace_id"`
+	QuestionIds []pgtype.UUID `json:"question_ids"`
+}
+
+// Every list joins the link at position 0. When that link was deleted, the
+// question's first remaining link takes position 0, so it stays listed.
+func (q *Queries) PromoteFirstQuestionLinks(ctx context.Context, arg PromoteFirstQuestionLinksParams) error {
+	_, err := q.db.Exec(ctx, promoteFirstQuestionLinks, arg.WorkspaceID, arg.QuestionIds)
+	return err
+}
+
 const replaceQuestionAnswerer = `-- name: ReplaceQuestionAnswerer :one
 WITH removed AS (
     DELETE FROM question_answerer

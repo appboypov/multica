@@ -350,3 +350,17 @@ WHERE q.workspace_id = @workspace_id AND q.id = ANY(@question_ids::uuid[])
       WHERE l.question_id = q.id AND l.workspace_id = q.workspace_id
   )
 RETURNING q.id;
+
+-- name: PromoteFirstQuestionLinks :exec
+-- Every list joins the link at position 0. When that link was deleted, the
+-- question's first remaining link takes position 0, so it stays listed.
+UPDATE question_link l SET position = 0
+FROM (
+    SELECT DISTINCT ON (f.question_id) f.question_id, f.link_type, f.link_id, f.position
+    FROM question_link f
+    WHERE f.workspace_id = @workspace_id AND f.question_id = ANY(@question_ids::uuid[])
+    ORDER BY f.question_id, f.position
+) first
+WHERE l.workspace_id = @workspace_id AND l.question_id = first.question_id
+  AND l.link_type = first.link_type AND l.link_id = first.link_id
+  AND first.position > 0;

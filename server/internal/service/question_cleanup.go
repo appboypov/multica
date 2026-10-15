@@ -72,6 +72,9 @@ func (s *QuestionService) finishLinkDeletion(ctx context.Context, qtx *db.Querie
 	if _, err := s.WithdrawUnlinked(ctx, qtx, workspaceID, unique); err != nil {
 		return nil, err
 	}
+	if err := qtx.PromoteFirstQuestionLinks(ctx, db.PromoteFirstQuestionLinksParams{WorkspaceID: workspaceID, QuestionIds: unique}); err != nil {
+		return nil, err
+	}
 	return unique, nil
 }
 

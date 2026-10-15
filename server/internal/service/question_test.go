@@ -1991,3 +1991,40 @@ func TestQuestionChatDeletionWithdrawsOnlyUnlinkedQuestions(t *testing.T) {
 		t.Fatalf("issue-linked question after delete = %+v, %v", kept, err)
 	}
 }
+
+func TestQuestionChatDeletionKeepsALaterLinkedQuestionListed(t *testing.T) {
+	ctx := context.Background()
+	f, chat := newQuestionChatFixture(t)
+	asked := f.ask(t)
+	id := util.MustParseUUID(asked.ID)
+	linked, err := f.svc.AddLinks(ctx, f.workspace, id, f.asker, []question.LinkRef{{Type: "issue", Ref: util.UUIDToString(f.issue)}})
+	if err != nil || len(linked.Links) != 3 || linked.Links[0].LinkType != "chat" || linked.Links[2].LinkType != "issue" {
+		t.Fatalf("links before chat delete = %+v, %v", linked.Links, err)
+	}
+	before, err := f.svc.CountOpen(ctx, f.workspace, f.brian, "for_me", nil)
+	if err != nil || before.Count != 1 {
+		t.Fatalf("open count before chat delete = %+v, %v", before, err)
+	}
+	tx, err := f.svc.TxStarter.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback(ctx)
+	if _, err := f.svc.DropLinksOfChat(ctx, f.svc.Queries.WithTx(tx), f.workspace, chat); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM chat_session WHERE id = $1`, chat); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+	page, err := f.svc.ListRows(ctx, f.workspace, f.brian, "for_me", QuestionRowFilters{}, nil, 20)
+	if err != nil || len(page.Rows) != 1 || page.Rows[0].ID != asked.ID || page.Rows[0].Link.Type != "issue" || page.Rows[0].Link.ID != util.UUIDToString(f.issue) {
+		t.Fatalf("for me rows after chat delete = %+v, %v", page, err)
+	}
+	after, err := f.svc.CountOpen(ctx, f.workspace, f.brian, "for_me", nil)
+	if err != nil || after != before {
+		t.Fatalf("open count after chat delete = %+v, want %+v, %v", after, before, err)
+	}
+}
