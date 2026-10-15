@@ -1081,7 +1081,7 @@ printf 'eof' > "$EOF_PATH"
 	}
 	session, err := backend.Execute(t.Context(), "original task", ExecOptions{
 		ResumeSessionID: filepath.Join(dir, "session.jsonl"),
-		Timeout: 10 * time.Second, EnableTaskSupplement: true,
+		Timeout:         10 * time.Second, EnableTaskSupplement: true,
 	})
 	if err != nil {
 		t.Fatal(err)

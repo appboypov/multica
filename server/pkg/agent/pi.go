@@ -462,7 +462,7 @@ func (b *piBackend) Execute(ctx context.Context, prompt string, opts ExecOptions
 			closeStdin()
 			return fmt.Errorf("%s steer write: %w", label, err)
 		}
-		b.cfg.Logger.Debug(label + " input written", "kind", "steer")
+		b.cfg.Logger.Debug(label+" input written", "kind", "steer")
 		return nil
 	}
 	// Watch stderr as well as log it. When Pi refuses a resume it exits before
