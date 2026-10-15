@@ -157,7 +157,7 @@ func TestTodoBackfillAgentFailures(t *testing.T) {
 	stale := backfillTask(t, fx, agent, runtime, testutil.Cols{"issue_id": resumedIssue, "status": "failed", "created_at": now.Add(-2 * time.Hour)})
 	backfillTask(t, fx, agent, runtime, testutil.Cols{"issue_id": resumedIssue, "status": "completed", "created_at": now.Add(-time.Hour)})
 	unattributedIssue := fx.Issue(t, "No human")
-	unattributed := backfillTask(t, fx, agent, runtime, testutil.Cols{"issue_id": unattributedIssue, "status": "failed", "originator_user_id": nil})
+	unattributed := backfillTask(t, fx, agent, runtime, testutil.Cols{"issue_id": unattributedIssue, "status": "failed", "originator_user_id": nil, "accountable_user_id": nil})
 	blocked := func(assigneeType, assigneeID, actorType string, resumed bool) string {
 		issue := fx.Issue(t, "Blocked", testutil.Cols{"status": "blocked", "assignee_type": assigneeType, "assignee_id": assigneeID})
 		backfillTask(t, fx, agent, runtime, testutil.Cols{"issue_id": issue, "status": "completed", "created_at": now.Add(-2 * time.Hour), "dispatched_at": now.Add(-90 * time.Minute), "started_at": now.Add(-time.Hour)})
@@ -187,6 +187,55 @@ func TestTodoBackfillAgentFailures(t *testing.T) {
 	wantBackfilled(t, tx, fx, "agent_blocked", memberBlocked, 0)
 	wantBackfilled(t, tx, fx, "agent_blocked", runningBlocked, 0)
 	wantBackfilled(t, tx, fx, "agent_blocked", queuedBlocked, 1)
+}
+
+func TestTodoBackfillAgentFailureAttribution(t *testing.T) {
+	for _, first := range []int{0, 1, 2, 3, 4} {
+		t.Run([]string{"originator", "accountable", "source-originator", "source-accountable", "unattributed"}[first], func(t *testing.T) {
+			fx, _ := todoFixture(t)
+			runtime := fx.Runtime(t, "Attribution runtime")
+			agent := fx.Agent(t, "Joeri", runtime)
+			var members [4]any
+			for index := first; index < len(members); index++ {
+				user := fx.User(t, "Member", dbid.NewV7().String()+"@todo.test")
+				fx.Member(t, fx.WorkspaceID, user, "member")
+				members[index] = user
+			}
+			if members[0] != nil {
+				members[1] = members[0]
+			}
+			if members[2] != nil {
+				members[3] = members[2]
+			}
+			source := backfillTask(t, fx, agent, runtime, testutil.Cols{"originator_user_id": members[2], "accountable_user_id": members[3]})
+			now := time.Now().UTC()
+			tasks := make(map[string]string)
+			issues := make(map[string]string)
+			for _, kind := range []string{"run_failed", "agent_blocked"} {
+				issue := fx.Issue(t, kind, testutil.Cols{"status": "blocked", "assignee_type": "agent", "assignee_id": agent})
+				status := "failed"
+				if kind == "agent_blocked" {
+					status = "completed"
+					fx.Insert(t, "activity_log", testutil.Cols{"workspace_id": fx.WorkspaceID, "issue_id": issue, "actor_type": "agent", "actor_id": agent, "action": "status_changed", "details": `{"from":"in_progress","to":"blocked"}`, "created_at": now})
+				}
+				tasks[kind] = backfillTask(t, fx, agent, runtime, testutil.Cols{"issue_id": issue, "status": status, "originator_user_id": members[0], "accountable_user_id": members[1], "delegated_from_task_id": source, "dispatched_at": now.Add(-time.Hour)})
+				issues[kind] = issue
+			}
+			tx := applyTodoBackfill(t, fx)
+			for kind, task := range tasks {
+				count := backfillCount(t, tx, "SELECT count(*) FROM todo WHERE issue_id=$1 AND kind=$2 AND done_at IS NULL", issues[kind], kind)
+				if first == len(members) {
+					if count != 0 {
+						t.Errorf("%s: unattributed work opened a to-do", kind)
+					}
+					continue
+				}
+				if count != 1 || backfillCount(t, tx, "SELECT count(*) FROM todo WHERE issue_id=$1 AND kind=$2 AND member_id=$3 AND task_id=$4 AND done_at IS NULL", issues[kind], kind, members[first], task) != 1 {
+					t.Errorf("%s: to-do did not reach the first attributed member", kind)
+				}
+			}
+		})
+	}
 }
 
 func TestTodoBackfillMentionsAndArchives(t *testing.T) {

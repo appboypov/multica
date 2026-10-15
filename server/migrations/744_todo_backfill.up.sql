@@ -47,12 +47,12 @@ WHERE i.creator_type = 'member' AND i.status = 'in_review'
   AND NOT COALESCE(i.assignee_type = 'member' AND i.assignee_id = i.creator_id, false)
 ON CONFLICT (workspace_id, member_id, kind, source_key) WHERE done_at IS NULL DO NOTHING;
 
--- Failure notices have no task pointer and were sent to subscribers. Read the
--- latest run instead, retaining the run's originator rather than its watchers.
+-- Read the latest run and attribute it to its originator, accountable member,
+-- source run's originator, then source run's accountable member.
 -- A later status change closes the failure, as it does live.
 INSERT INTO todo (workspace_id, member_id, kind, source_key, issue_id, task_id,
                   actor_type, actor_id, title, created_at)
-SELECT i.workspace_id, t.originator_user_id, 'run_failed', t.id::text, i.id, t.id,
+SELECT i.workspace_id, m.user_id, 'run_failed', t.id::text, i.id, t.id,
        'agent', t.agent_id, i.title, COALESCE(t.completed_at, t.created_at)
 FROM issue i
 JOIN LATERAL (
@@ -61,7 +61,10 @@ JOIN LATERAL (
     WHERE t.issue_id = i.id
     ORDER BY t.created_at DESC, t.id DESC LIMIT 1
 ) t ON t.status = 'failed'
-JOIN member m ON m.workspace_id = i.workspace_id AND m.user_id = t.originator_user_id
+LEFT JOIN agent_task_queue source ON source.id = t.delegated_from_task_id
+    AND EXISTS (SELECT 1 FROM agent a WHERE a.id = source.agent_id AND a.workspace_id = i.workspace_id)
+JOIN member m ON m.workspace_id = i.workspace_id
+    AND m.user_id = COALESCE(t.originator_user_id, t.accountable_user_id, source.originator_user_id, source.accountable_user_id)
 WHERE NOT EXISTS (
     SELECT 1 FROM activity_log s
     WHERE s.workspace_id = i.workspace_id AND s.issue_id = i.id AND s.action = 'status_changed'
@@ -71,7 +74,7 @@ ON CONFLICT (workspace_id, member_id, kind, source_key) WHERE done_at IS NULL DO
 
 INSERT INTO todo (workspace_id, member_id, kind, source_key, issue_id, task_id,
                   actor_type, actor_id, title, created_at)
-SELECT i.workspace_id, t.originator_user_id, 'agent_blocked', i.id::text, i.id, t.id,
+SELECT i.workspace_id, m.user_id, 'agent_blocked', i.id::text, i.id, t.id,
        'agent', t.agent_id, i.title, s.created_at
 FROM issue i
 JOIN LATERAL (
@@ -85,7 +88,10 @@ JOIN LATERAL (
     WHERE s.workspace_id = i.workspace_id AND s.issue_id = i.id AND s.action = 'status_changed'
     ORDER BY s.created_at DESC, s.id DESC LIMIT 1
 ) s ON s.actor_type = 'agent' AND s.actor_id = t.agent_id AND s.details->>'to' = 'blocked'
-JOIN member m ON m.workspace_id = i.workspace_id AND m.user_id = t.originator_user_id
+LEFT JOIN agent_task_queue source ON source.id = t.delegated_from_task_id
+    AND EXISTS (SELECT 1 FROM agent a WHERE a.id = source.agent_id AND a.workspace_id = i.workspace_id)
+JOIN member m ON m.workspace_id = i.workspace_id
+    AND m.user_id = COALESCE(t.originator_user_id, t.accountable_user_id, source.originator_user_id, source.accountable_user_id)
 WHERE i.status = 'blocked' AND i.assignee_type IN ('agent', 'squad')
   AND COALESCE(t.dispatched_at, t.started_at) <= s.created_at
 ON CONFLICT (workspace_id, member_id, kind, source_key) WHERE done_at IS NULL DO NOTHING;
