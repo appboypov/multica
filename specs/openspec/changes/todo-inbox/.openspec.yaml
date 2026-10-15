@@ -1,0 +1,11 @@
+schema: intent-driven
+created: 2026-10-15
+build:
+  status: in-progress
+  type: feature
+  ticket: 'WORK-449'
+  context:
+    - '{project-root}/AGENTS.md'
+    - '{project-root}/specs/docs/system-design.md'
+    - '{project-root}/adr/0017-a-to-do-is-a-row-the-server-opens-and-closes.md'
+    - '{project-root}/designs/screens/todo-inbox.md'
