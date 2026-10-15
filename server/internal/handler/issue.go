@@ -4142,6 +4142,7 @@ func (h *Handler) UpdateIssue(w http.ResponseWriter, r *http.Request) {
 
 	h.publish(protocol.EventIssueUpdated, workspaceID, actorType, actorID, map[string]any{
 		"issue":                resp,
+		"source_task_id":       uuidToString(h.wakeupSourceTaskID(r)),
 		"assignee_changed":     assigneeChanged,
 		"status_changed":       statusChanged,
 		"priority_changed":     priorityChanged,
@@ -4954,6 +4955,7 @@ func (h *Handler) BatchUpdateIssues(w http.ResponseWriter, r *http.Request) {
 
 		h.publish(protocol.EventIssueUpdated, workspaceID, actorType, actorID, map[string]any{
 			"issue":                      resp,
+			"source_task_id":             uuidToString(h.wakeupSourceTaskID(r)),
 			"assignee_changed":           assigneeChanged,
 			"status_changed":             statusChanged,
 			"priority_changed":           priorityChanged,
