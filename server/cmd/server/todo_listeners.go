@@ -48,11 +48,13 @@ func registerTodoListeners(bus *events.Bus, queries *db.Queries) {
 			}
 		})
 	}
-	bus.Subscribe(protocol.EventAutopilotUpdated, func(e events.Event) {
-		if err := autopilotTodos(context.Background(), svc, e); err != nil {
-			slog.Error("autopilot todo transition failed", "error", err)
-		}
-	})
+	for _, kind := range []string{protocol.EventAutopilotUpdated, protocol.EventAutopilotDeleted} {
+		bus.Subscribe(kind, func(e events.Event) {
+			if err := autopilotTodos(context.Background(), svc, e); err != nil {
+				slog.Error("autopilot todo transition failed", "error", err)
+			}
+		})
+	}
 }
 
 func questionTodos(ctx context.Context, svc todo.Service, e events.Event) error {
@@ -214,10 +216,6 @@ func mentionTodos(ctx context.Context, svc todo.Service, e events.Event) error {
 	if err != nil {
 		return err
 	}
-	issue, err := svc.Queries.GetIssueInWorkspace(ctx, db.GetIssueInWorkspaceParams{ID: issueUUID, WorkspaceID: workspace})
-	if err != nil {
-		return err
-	}
 	prev := map[string]bool{}
 	for _, m := range util.ParseMentions(previous) {
 		prev[m.Type+":"+m.ID] = true
@@ -256,6 +254,13 @@ func mentionTodos(ctx context.Context, svc todo.Service, e events.Event) error {
 				}
 			}
 		}
+	}
+	if len(recipients) == 0 {
+		return nil
+	}
+	issue, err := svc.Queries.GetIssueInWorkspace(ctx, db.GetIssueInWorkspaceParams{ID: issueUUID, WorkspaceID: workspace})
+	if err != nil {
+		return err
 	}
 	for member := range recipients {
 		if e.ActorType == "member" && util.UUIDToString(member) == e.ActorID {
@@ -356,6 +361,10 @@ func agentTodos(ctx context.Context, svc todo.Service, e events.Event) error {
 			}
 			return svc.CloseOnIssue(ctx, db.CloseTodosOnIssueParams{WorkspaceID: workspace, IssueID: id, Kinds: []string{todo.AgentBlocked, todo.RunFailed}})
 		}
+		// A failed attempt with an automatic retry pending is not a failure the member acts on.
+		if retry, _ := p["retry_pending"].(bool); retry {
+			return nil
+		}
 		taskID, _ = p["task_id"].(string)
 	}
 	taskUUID, err := util.ParseUUID(taskID)
@@ -439,6 +448,13 @@ func autopilotTodos(ctx context.Context, svc todo.Service, e events.Event) error
 	autopilotID, err := util.ParseUUID(id)
 	if err != nil {
 		return err
+	}
+	if e.Type == protocol.EventAutopilotDeleted {
+		workspace, err := util.ParseUUID(e.WorkspaceID)
+		if err != nil {
+			return err
+		}
+		return svc.Close(ctx, db.CloseTodosParams{WorkspaceID: workspace, Kind: todo.AutopilotPaused, SourceKey: id})
 	}
 	ap, err := svc.Queries.GetAutopilot(ctx, autopilotID)
 	if err != nil {
