@@ -553,6 +553,8 @@
       "remove_aria": "{{name}} を削除",
       "toggle_failed_toast": "スキルの状態を変更できませんでした",
       "runtime_toggle_aria": "継承した {{name}} の有効・無効を切り替え",
+      "runtime_inherit_aria": "{{runtime}} からスキルを継承",
+      "runtime_inherit_failed_toast": "スキルの継承を変更できませんでした",
       "runtime_toggle_failed_toast": "継承スキルの状態を変更できませんでした",
       "runtime_missing": "継承スキルを検出するには、ローカルランタイムを割り当ててください。",
       "runtime_offline": "ローカルランタイムはオフラインです。再接続すると更新できます。",

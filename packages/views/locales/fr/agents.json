@@ -667,6 +667,8 @@
       "remove_aria": "Retirer {{name}}",
       "toggle_failed_toast": "Échec du changement de statut du skill",
       "runtime_toggle_aria": "Activer ou désactiver {{name}} (hérité)",
+      "runtime_inherit_aria": "Hériter des skills de {{runtime}}",
+      "runtime_inherit_failed_toast": "Impossible de modifier l'héritage des skills",
       "runtime_toggle_failed_toast": "Échec du changement de statut du skill hérité",
       "runtime_missing": "Assignez un runtime local pour détecter les skills hérités.",
       "runtime_offline": "Le runtime local est hors ligne. Reconnectez-le pour actualiser les skills hérités.",

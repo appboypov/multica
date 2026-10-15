@@ -561,6 +561,8 @@
       "remove_aria": "{{name}} 제거",
       "toggle_failed_toast": "스킬 상태를 변경하지 못했습니다",
       "runtime_toggle_aria": "상속된 {{name}} 켜기 또는 끄기",
+      "runtime_inherit_aria": "{{runtime}}에서 스킬 상속",
+      "runtime_inherit_failed_toast": "스킬 상속 설정을 변경하지 못했습니다",
       "runtime_toggle_failed_toast": "상속된 스킬 상태를 변경하지 못했습니다",
       "runtime_missing": "상속된 스킬을 탐색하려면 로컬 런타임을 할당하세요.",
       "runtime_offline": "로컬 런타임이 오프라인입니다. 다시 연결하면 새로고침할 수 있습니다.",

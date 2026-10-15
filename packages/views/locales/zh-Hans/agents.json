@@ -655,6 +655,8 @@
       "remove_aria": "移除 {{name}}",
       "toggle_failed_toast": "修改 skill 状态失败",
       "runtime_toggle_aria": "启用或关闭继承的 {{name}}",
+      "runtime_inherit_aria": "从 {{runtime}} 继承 skill",
+      "runtime_inherit_failed_toast": "无法修改 skill 继承设置",
       "runtime_toggle_failed_toast": "修改继承 skill 状态失败",
       "runtime_missing": "请先分配一个本地运行时，以发现继承的 skill。",
       "runtime_offline": "本地运行时处于离线状态，重新连接后即可刷新继承的 skill。",
