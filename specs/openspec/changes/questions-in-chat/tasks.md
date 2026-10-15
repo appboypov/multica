@@ -1,0 +1,103 @@
+## At a glance
+
+```mermaid
+flowchart LR
+  classDef work fill:#d9f2d9,stroke:#2e7d32,color:#172117
+  B1[Backend: model change<br/>group 1]:::work --> B2[Backend: queries<br/>group 2]:::work
+  B2 --> B3[Backend: services<br/>group 3]:::work
+  B3 --> B4[Backend: endpoints<br/>group 4]:::work
+  B3 --> B5[Backend: daemon and CLI<br/>group 5]:::work
+  B4 --> F6[Frontend: DTOs and client<br/>group 6]:::work
+  F6 --> F7[Frontend: components<br/>group 7]:::work
+  F7 --> F8[Frontend: screens<br/>group 8]:::work
+  B5 --> A9[Archive<br/>group 9]:::work
+  F8 --> A9
+```
+
+| Team | Groups | Lead | Builder |
+|---|---|---|---|
+| Backend | 1 model change, 2 queries, 3 services, 4 endpoints, 5 daemon and CLI | Joeri | `madspec-model-builder`, `madspec-service-builder`, `madspec-api-builder`, `madspec-command-builder` |
+| Frontend | 6 DTOs and client, 7 components, 8 screens | Thomas | `madspec-dto-builder`, `madspec-component-builder`, `madspec-view-builder` |
+| Verification | 9 archive | Sarkout | `as-verifier` |
+
+The branch is stacked on `ask-back-wakes-the-asker` (pull request 34); the Wake checkbox, ask-back wake and decline paths it names exist there.
+
+## 1. Backend and agent tooling: model change
+
+- [ ] 1.1 `server/migrations/711_questions_in_chat.up.sql`, `.down.sql` -- up: replace the CHECK constraints of `question_link.link_type` (add `chat`), `question.status` (add `cancelled`) and `question_event.kind` (add `cancelled`), starting from the lists in `710_question_link_types.up.sql` and `575_question_ask.up.sql`; down: set cancelled questions to `withdrawn`, delete `cancelled` events and `chat` links, restore the 710 constraints -- design.md Migration Plan.
+- [ ] 1.2 `server/internal/question/links.go` -- add `LinkTypeChat = "chat"` to the constants and the registry `ValidLinkType` reads -- Decision 1.
+- [ ] 1.3 `server/internal/question/policy.go` -- document `cancelled` beside `closed` and `withdrawn` (`:15`) as an explicit end status that `DeriveStatus` never returns; `IsOpen` (`:36`) already treats it as ended -- Decision 5.
+
+## 2. Backend and agent tooling: queries
+
+- [ ] 2.1 `server/pkg/db/queries/question.sql` -- `CountUnseenQuestionAnswers` and `ListUnseenQuestionAnswers`: replace `issue_id = @issue_id` in the retry chain and the cutoff with `(sqlc.narg('issue_id')::uuid IS NOT NULL AND t.issue_id = sqlc.narg('issue_id')) OR (sqlc.narg('chat_session_id')::uuid IS NOT NULL AND t.chat_session_id = sqlc.narg('chat_session_id'))`, and add `cancelled` to the status filter -- Decision 4, ADR-0018.
+- [ ] 2.2 `server/pkg/db/queries/question.sql` -- rename `ListUnseenQuestionAskBacks` to `ListUnseenQuestionEvents`: `e.kind IN ('ask_back', 'cancelled')`, return `e.kind`, same scope parameters and status filter as 2.1 -- Decision 4.
+- [ ] 2.3 `server/pkg/db/queries/question.sql` -- `ListChatQuestionIDs` (questions with a `chat` link to the session, asked by the agent) and `HasActiveChatTaskForAgent` (a queued, dispatched or running task of the agent in the session); the overdue sweep (`:171-185`) takes questions whose position-0 link is `issue` or `chat` and returns the chat id beside the issue id -- Decisions 3, 4 and 6.
+- [ ] 2.4 `server/pkg/db/queries/question.sql` -- `ListQuestionsLinkedTo(workspace_id, link_type, link_id)` generalising the issue list query `ListForIssue` reads; `ListChatTaskIDs(workspace_id, chat_session_id)` for the run links of 3.4 -- Decisions 7 and 8.
+- [ ] 2.5 `server/pkg/db/queries/question_list.sql` -- project the position-0 `chat` link's `chat_session.creator_id` as `link_member_id`, never the chat's title -- Decision 6.
+- [ ] 2.6 `server/pkg/db/generated/` -- run `make sqlc` and commit the output -- generated code stays in step with the queries.
+
+## 3. Backend and agent tooling: services
+
+- [ ] 3.1 `server/internal/service/question_links.go` -- `resolveLinks`: a `chat` link must be a chat session of the workspace; a `task` link accepts a task with an issue or a chat session; `Via` and the link DTO give a chat link `{type: "chat", id, member_id}` from the session's creator; add `OpenChat(links)` beside `OpenIssue` -- Decisions 1 and 6.
+- [ ] 3.2 `server/internal/service/question.go` `Ask` -- refuse with 422 "questions are asked during an issue run or a chat turn" unless the task has an issue or a chat session; for a chat turn put the chat at position 0 when no `--on` is given, else right after the `--on` link, and append the run link as today -- Decision 1, `agent-question-tooling` and `questions` specs.
+- [ ] 3.3 `server/internal/service/question.go` -- `Cancel(ctx, workspaceID, questionID, actor, CancelQuestionInput{Note, Wake})` through `mutate` as a current answerer: `SetQuestionStatus` to `cancelled` from `open`, `partly_answered`; event `cancelled` with `{"note"}`; publish reason `cancelled`; then, when `Wake` is true, `Wake` the asker after commit and log a refused wake while keeping the cancel, as `Answer` does (`:644-650`) -- Decision 5, `question-answering` spec.
+- [ ] 3.4 `server/internal/service/question.go` `Wake`, `wakeTargets`, `WakeScope`, `countUnseenAnswers`, `hasUnseenAskBacks` -- a scope type `{IssueID | ChatSessionID}`; the asker of a question whose `asked_in_task_id` task has a chat session gets the chat scope; for a chat scope lock the session, refuse with `ErrDuplicatePendingTask` on `HasActiveChatTaskForAgent`, count unseen answers and events by chat, call `EnqueueChatTaskForQuestionWake`, write no issue activity; `QuestionWakeTargetDTO` gains `chat_session_id`; issue scopes stay as they are -- Decisions 2 to 4, ADR-0018.
+- [ ] 3.5 `server/internal/service/task.go` -- `EnqueueChatTaskForQuestionWake(ctx, tx, session, agentID, actorID, questionID, count)`: the `CreateChatTask` row of `SendDirectChatMessage` with `trigger_evidence_kind` `question_wake`, ref the question, initiator the actor, no `chat_message`, then `SetChatTaskInputOwnerSelf`; the caller broadcasts and notifies after commit -- Decision 3.
+- [ ] 3.6 `server/internal/service/question_cleanup.go` -- `DropLinksOfChat(ctx, qtx, workspaceID, sessionID)`: drop `chat` links to the session and `task` links to `ListChatTaskIDs`, then `WithdrawUnlinked`, returning the affected question ids -- Decision 8.
+- [ ] 3.7 `server/internal/service/question_list.go` -- a row whose position-0 link is a chat no longer errors: `open_issue` stays null and the row link carries `member_id` -- Decision 6.
+- [ ] 3.8 `server/internal/service/question.go` `ListForIssue` -- generalise to `ListForLink(workspaceID, linkType, linkID)` over `ListQuestionsLinkedTo`, and move the issue caller to it -- Decision 7.
+- [ ] 3.9 `server/internal/service/question.go` `publish`, `server/pkg/protocol/events.go` -- `QuestionEventPayload` gains `chat_session_id` from the question's `chat` link -- Decision 7.
+- [ ] 3.10 `server/cmd/server/notification_listeners.go` -- question inbox items (asked, reassigned, overdue) of a question without an issue keep `issue_id` null and put `chat_session_id` and its `member_id` in details -- Decision 6.
+- [ ] 3.11 `server/internal/service/question_test.go` -- DB-backed: a chat turn's ask links chat then run, and `--on WORK-412` links the issue first; an ask from a quick-create task is refused; Brian cancels with a note, the question is `cancelled`, Anouk's earlier answer stays and nobody can answer, edit, close or withdraw it; a non-answerer's cancel is 403; cancel with `wake` enqueues one chat turn with no user message and without `wake` none; a second wake while that turn is queued returns `ErrDuplicatePendingTask`; unseen counts by chat ignore runs of the agent on issues and count a cancel; deleting a chat withdraws a question linked only to it and its run and keeps one also linked to WORK-412 -- the business rules of the `chat-questions`, `question-answering` and `agent-wake` specs.
+
+## 4. Backend and agent tooling: endpoints
+
+- [ ] 4.1 `server/internal/handler/question.go`, `server/cmd/server/router.go` -- `CancelQuestion`: `POST /api/questions/{id}/cancel` with `{note?: string, wake?: bool}` in the human member group beside answer and ask-back, returning the question -- Decision 5.
+- [ ] 4.2 `server/internal/handler/chat.go`, `server/cmd/server/router.go` -- `ListChatQuestions`: `GET /api/chat/sessions/{sessionId}/questions` behind `gatePublicChatSessionForUser`, through `ListForLink(chat)` -- Decision 7.
+- [ ] 4.3 `server/internal/handler/chat.go` `DeleteChatSession` -- call `DropLinksOfChat` inside the delete transaction before the session row goes, and publish the affected questions after commit -- Decision 8.
+- [ ] 4.4 `server/internal/handler/daemon.go` claim (`:2644-2655`) -- a chat task without channel context resolves `questions_enabled` from the workspace settings with `ResolveAgentQuestions(nil, settings)`; every other task without an issue stays off -- ADR-0017.
+- [ ] 4.5 `server/internal/handler/daemon.go` `loadClaimQuestionAnswers` -- a chat task always hydrates the unseen answers and events of `ListChatQuestionIDs` with the chat scope, excluding its retry chain; an issue task keeps hydrating only on `question_wake`; a chat `question_wake` claim with no input messages is accepted as the intro chat is -- Decisions 3 and 4.
+- [ ] 4.6 `server/internal/handler/question_test.go`, `chat_test.go`, `daemon_question_wake_test.go` -- cancel returns 200 for an answerer and 403 for another member; the chat questions list is 404 for a member who is not the chat's creator; a chat claim has `questions_enabled` true with the default On and false with it Off or for a channel chat; a woken chat turn's claim carries the two answers and the cancel with its note, and a chat-message turn's claim carries an unseen answer -- the endpoint contracts of 4.1 to 4.5.
+
+## 5. Backend and agent tooling: daemon and CLI
+
+- [ ] 5.1 `server/internal/daemon/execenv/runtime_config_sections.go` -- write the Questions section for a chat turn whose claim has `QuestionsEnabled`, still never for quick-create; its link line names the chat in a chat turn and the issue in an issue run -- Decision 9, ADR-0017.
+- [ ] 5.2 `server/internal/daemon/prompt.go` `buildQuestionAnswersBlock` -- render a `cancelled` event as "Cancelled by {member}: {note}" under its question, ordered with the answers and ask backs -- Decision 5.
+- [ ] 5.3 `server/cmd/multica/cmd_question.go` `answers` -- print a cancelled question's status and the cancel line with who, the note and when -- `question-answering` spec "Pieter reads the cancel".
+- [ ] 5.4 `server/internal/daemon/execenv/runtime_config_sections_test.go`, `server/internal/daemon/prompt_test.go` -- a chat turn with questions on has the Questions section and one with questions off has none; the `[ANSWERS]` block shows two answers and "Cancelled by Brian: already decided in the PRD" -- the brief and prompt rules of 5.1 and 5.2.
+
+## 6. Frontend: DTOs and client
+
+- [ ] 6.1 `packages/core/types/question.ts`, `packages/core/types/events.ts` -- `QuestionStatus` adds `cancelled`; event kinds and the update reason add `cancelled`; `QuestionLink` adds `{type: "chat", id, member_id}`; `QuestionWakeTarget` adds `chat_session_id`; the question event payload adds `chat_session_id` -- Decisions 5 to 7.
+- [ ] 6.2 `packages/core/api/schemas.ts` -- the question, row and event schemas accept `cancelled` and the chat link, with the existing `.catch` fallbacks -- the server contracts of groups 3 and 4.
+- [ ] 6.3 `packages/core/api/client.ts` -- `cancelQuestion(id, {note, wake})` and `listChatQuestions(sessionId)` -- 4.1 and 4.2.
+- [ ] 6.4 `packages/core/questions/queries.ts`, `mutations.ts`, `ws-updaters.ts` -- `chatQuestionsOptions(wsId, sessionId)` under `questionKeys`; `useCancelQuestion`; mutations and `useWakeQuestionAgent` take a scope `{issueId} | {chatSessionId}` for invalidation; `handleQuestionEvent` invalidates the chat's questions on `chat_session_id` when no `issue_id` is set -- Decision 7.
+- [ ] 6.5 `packages/core/paths/paths.ts` -- `chatSession(sessionId, {questionId})` adds `&question=` -- Decision 6.
+- [ ] 6.6 `packages/core/api/schemas.test.ts`, `packages/core/questions/ws-updaters.test.ts` (new) -- a `cancelled` question and a chat link parse; an unknown link type falls back; a `question:updated` with only `chat_session_id` invalidates that chat's questions -- the parsing and invalidation rules.
+
+## 7. Frontend: components
+
+- [ ] 7.1 `packages/views/questions/question-card.tsx` -- **Cancel question** beside **Decline to answer** for a current answerer, with the same optional note; the **Wake {agent}** checkbox applies to Cancel as to Send on the last question still open for him; a cancelled card folds to "Cancelled by {member}" with the note, keeps every sent answer, and offers no answer controls and no **Edit answer**; the scope prop replaces the bare `issueId` for cache scope -- `question-answering` and `agent-wake` specs.
+- [ ] 7.2 `packages/views/questions/question-set-card.tsx`, `wake-button.tsx` -- a cancelled question counts as ended for the last-open rule and shows its cancelled row; Wake uses the scope -- `agent-wake` spec.
+- [ ] 7.3 `packages/views/questions/question-card.test.tsx` -- Cancel with a note sends `{note, wake: true}` on the last open question and `{note}` without wake on the first of three in a set; unchecking Wake sends no `wake`; a cancelled card shows "Cancelled by Brian", the note and Anouk's answer, and no answer controls -- the card's behaviour.
+
+## 8. Frontend: screens
+
+- [ ] 8.1 `packages/views/chat/components/chat-message-list.tsx` -- load `chatQuestionsOptions` for the session, group with `groupQuestionCards`, and render each group after the `AssistantMessage` whose `task_id` is its `asked_in_task_id`, or after the live turn while it streams, with the "Question for you" overline when the chat's member is an answerer -- Decision 7, `chat-questions` "Question cards in the chat".
+- [ ] 8.2 `packages/views/chat/chat-page.tsx` -- read `?question=`, scroll the message list to the message holding that card and highlight the card -- Decision 6.
+- [ ] 8.3 `packages/views/questions/questions-page.tsx`, `question-row.tsx` -- a chat row opens `paths.chatSession(id, {questionId})` when the link's `member_id` is the viewer, else Answer all at that question; rows group under "Chat with {member}" -- Decision 6.
+- [ ] 8.4 `packages/views/questions/answer-all/answer-all-page.tsx` -- entries without an issue load through `questionDetailOptions` -- Decision 6.
+- [ ] 8.5 `packages/views/inbox/components/inbox-question-pane.tsx` -- for a chat question the open button opens the chat at the card for the chat's member and Answer all for every other member -- Decision 6.
+- [ ] 8.6 `packages/views/locales/{en,fr,ja,ko,zh-Hans}/questions.json` -- Cancel question, Cancelled by {name}, Chat with {name}, the cancel note placeholder -- one copy per language.
+- [ ] 8.7 `packages/views/chat/components/chat-message-list.test.tsx`, `packages/views/questions/questions-page.test.tsx` (new), `packages/views/inbox/components/inbox-question-pane.test.tsx` -- a set of three shows after Pieter's message with the overline; Anouk's answer shows folded with no controls for Brian; Brian's chat row opens his chat with `question=`, Anouk's opens Answer all; the inbox pane opens the chat for Brian -- the screens' behaviour.
+
+## 9. Archive
+
+- [ ] 9.1 `specs/openspec/changes/questions-in-chat/` -- run `openspec validate questions-in-chat --type change --strict`, sync the specs and archive the change -- own work has no acceptance test.
+
+## Implementation Notes
+
+## Plan Change Log
+
+- 2026-10-15: technical design written from the proposal, the spec deltas and Brian's answers to "Agent questions in a chat" and "Cancelling questions" on WORK-447; ADR-0017 and ADR-0018 supersede ADR-0005 and ADR-0003.

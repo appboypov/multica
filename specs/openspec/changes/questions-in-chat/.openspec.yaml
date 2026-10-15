@@ -1,2 +1,14 @@
 schema: intent-driven
 created: 2026-10-14
+build:
+  status: ready-for-dev
+  type: feature
+  ticket: 'WORK-447'
+  context:
+    - '{project-root}/AGENTS.md'
+    - '{project-root}/specs/docs/system-design.md'
+    - '{project-root}/adr/0002-questions-are-their-own-aggregate.md'
+    - '{project-root}/adr/0004-question-sets-group-questions-open-is-per-question.md'
+    - '{project-root}/adr/0006-questions-are-listed-per-viewer-through-one-row-list.md'
+    - '{project-root}/adr/0017-a-chat-turn-may-ask-by-the-workspace-default.md'
+    - '{project-root}/adr/0018-a-wake-continues-where-the-question-was-asked.md'
