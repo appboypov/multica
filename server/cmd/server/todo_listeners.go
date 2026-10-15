@@ -7,6 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/multica-ai/multica/server/internal/events"
+	"github.com/multica-ai/multica/server/internal/handler"
 	"github.com/multica-ai/multica/server/internal/question"
 	"github.com/multica-ai/multica/server/internal/todo"
 	"github.com/multica-ai/multica/server/internal/util"
@@ -20,6 +21,13 @@ func registerTodoListeners(bus *events.Bus, queries *db.Queries) {
 		bus.Subscribe(kind, func(e events.Event) {
 			if err := questionTodos(context.Background(), svc, e); err != nil {
 				slog.Error("question todo transition failed", "error", err)
+			}
+		})
+	}
+	for _, kind := range []string{protocol.EventCommentCreated, protocol.EventIssueCreated, protocol.EventIssueUpdated} {
+		bus.Subscribe(kind, func(e events.Event) {
+			if err := mentionTodos(context.Background(), svc, e); err != nil {
+				slog.Error("mention todo transition failed", "error", err)
 			}
 		})
 	}
@@ -115,6 +123,124 @@ func questionTodos(ctx context.Context, svc todo.Service, e events.Event) error 
 			if err := svc.Open(ctx, db.OpenTodoParams{WorkspaceID: workspace, MemberID: answerer.UserID, Kind: todo.Question, SourceKey: id, IssueID: issueID, QuestionID: questionID, ActorType: util.StrToText("agent"), ActorID: row.AskerAgentID, Title: issue.Title, Body: util.StrToText(row.Prompt)}); err != nil {
 				return err
 			}
+		}
+	}
+	return nil
+}
+
+func mentionTodos(ctx context.Context, svc todo.Service, e events.Event) error {
+	p, ok := e.Payload.(map[string]any)
+	if !ok {
+		return nil
+	}
+	workspace, err := util.ParseUUID(e.WorkspaceID)
+	if err != nil {
+		return err
+	}
+	var issueID, source, content, previous string
+	var commentID pgtype.UUID
+	if e.Type == protocol.EventCommentCreated {
+		var authorType string
+		switch c := p["comment"].(type) {
+		case handler.CommentResponse:
+			issueID, source, content, authorType = c.IssueID, c.ID, c.Content, c.AuthorType
+		case map[string]any:
+			issueID, _ = c["issue_id"].(string)
+			source, _ = c["id"].(string)
+			content, _ = c["content"].(string)
+			authorType, _ = c["author_type"].(string)
+		default:
+			return nil
+		}
+		if authorType == "system" {
+			return nil
+		}
+		commentID, err = util.ParseUUID(source)
+		if err != nil {
+			return err
+		}
+		if authorType == "member" {
+			member, err := util.ParseUUID(e.ActorID)
+			if err != nil {
+				return err
+			}
+			issue, err := util.ParseUUID(issueID)
+			if err != nil {
+				return err
+			}
+			if err := svc.CloseOnIssue(ctx, db.CloseTodosOnIssueParams{WorkspaceID: workspace, IssueID: issue, MemberID: member, Kinds: []string{todo.Mention}}); err != nil {
+				return err
+			}
+		}
+	} else {
+		issue, ok := p["issue"].(handler.IssueResponse)
+		if !ok || issue.Description == nil {
+			return nil
+		}
+		if e.Type == protocol.EventIssueUpdated {
+			changed, _ := p["description_changed"].(bool)
+			if !changed {
+				return nil
+			}
+			if prev, ok := p["prev_description"].(*string); ok && prev != nil {
+				previous = *prev
+			}
+		}
+		issueID, source, content = issue.ID, issue.ID, *issue.Description
+	}
+	issueUUID, err := util.ParseUUID(issueID)
+	if err != nil {
+		return err
+	}
+	issue, err := svc.Queries.GetIssueInWorkspace(ctx, db.GetIssueInWorkspaceParams{ID: issueUUID, WorkspaceID: workspace})
+	if err != nil {
+		return err
+	}
+	prev := map[string]bool{}
+	for _, m := range util.ParseMentions(previous) {
+		prev[m.Type+":"+m.ID] = true
+	}
+	recipients := map[pgtype.UUID]bool{}
+	for _, m := range util.ParseMentions(content) {
+		if prev[m.Type+":"+m.ID] {
+			continue
+		}
+		switch m.Type {
+		case "member":
+			id, err := util.ParseUUID(m.ID)
+			if err == nil {
+				recipients[id] = true
+			}
+		case "all":
+			members, err := svc.Queries.ListMembers(ctx, workspace)
+			if err != nil {
+				return err
+			}
+			for _, member := range members {
+				recipients[member.UserID] = true
+			}
+		case "squad":
+			id, err := util.ParseUUID(m.ID)
+			if err != nil {
+				continue
+			}
+			members, err := svc.Queries.ListSquadMembers(ctx, id)
+			if err != nil {
+				return err
+			}
+			for _, member := range members {
+				if member.MemberType == "member" {
+					recipients[member.MemberID] = true
+				}
+			}
+		}
+	}
+	for member := range recipients {
+		if e.ActorType == "member" && util.UUIDToString(member) == e.ActorID {
+			continue
+		}
+		if err := svc.Open(ctx, db.OpenTodoParams{WorkspaceID: workspace, MemberID: member, Kind: todo.Mention, SourceKey: source, IssueID: issueUUID, CommentID: commentID, ActorType: util.StrToText(e.ActorType), ActorID: optionalUUID(e.ActorID), Title: issue.Title}); err != nil {
+			return err
 		}
 	}
 	return nil
