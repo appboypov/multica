@@ -1468,6 +1468,52 @@ func (s *TaskService) EnqueueTaskForQuestionWake(ctx context.Context, tx pgx.Tx,
 	return s.enqueueMentionTaskWithQueries(ctx, q, issue, agentID, pgtype.UUID{}, nil, false, pgtype.UUID{}, false, "", actorUserID, pgtype.UUID{}, OriginNamed, wake)
 }
 
+// EnqueueChatTaskForQuestionWake writes a turn without inventing a user message.
+// The caller holds the session enqueue lock and publishes only after commit.
+func (s *TaskService) EnqueueChatTaskForQuestionWake(ctx context.Context, tx pgx.Tx, session db.ChatSession, agentID, actorID, questionID pgtype.UUID, count int64) (db.AgentTaskQueue, error) {
+	q := s.Queries.WithTx(tx)
+	agent, err := q.GetAgentForClaimUpdate(ctx, agentID)
+	if err != nil {
+		return db.AgentTaskQueue{}, err
+	}
+	if agent.WorkspaceID != session.WorkspaceID || session.AgentID != agentID {
+		return db.AgentTaskQueue{}, questionRefusal(422, "asking agent does not belong to this chat")
+	}
+	if session.Status != "active" {
+		return db.AgentTaskQueue{}, ErrChatSessionArchived
+	}
+	if agent.ArchivedAt.Valid {
+		return db.AgentTaskQueue{}, ErrChatTaskAgentArchived
+	}
+	if !agent.RuntimeID.Valid {
+		return db.AgentTaskQueue{}, ErrChatTaskAgentNoRuntime
+	}
+	attr := attribution.DirectHumanRun(actorID, attribution.EvidenceQuestionWake, questionID)
+	attr, err = s.applyAttributionFallback(ctx, attr, agent)
+	if err != nil {
+		return db.AgentTaskQueue{}, err
+	}
+	source, _, evidenceKind, evidenceRef := attributionCreateParams(attr)
+	overlay := s.buildRuntimeMCPOverlay(ctx, attr.UserID, agent)
+	task, err := q.CreateChatTask(ctx, db.CreateChatTaskParams{
+		ID: dbid.NewV7(), AgentID: agentID, RuntimeID: agent.RuntimeID,
+		Priority: 2, ChatSessionID: session.ID, InitiatorUserID: actorID,
+		OriginatorUserID: attr.UserID, AccountableUserID: attr.AccountableUserID,
+		ForceFreshSession: pgtype.Bool{Bool: false, Valid: true},
+		RuntimeMcpOverlay: overlay.Overlay, RuntimeConnectedApps: overlay.ConnectedApps,
+		OriginatorSource: source, TriggerEvidenceKind: evidenceKind, TriggerEvidenceRefID: evidenceRef,
+	})
+	if err != nil {
+		return db.AgentTaskQueue{}, err
+	}
+	task, err = q.SetChatTaskInputOwnerSelf(ctx, task.ID)
+	if err != nil {
+		return db.AgentTaskQueue{}, err
+	}
+	slog.Debug("question chat turn prepared", "task_id", util.UUIDToString(task.ID), "chat_session_id", util.UUIDToString(session.ID), "question_id", util.UUIDToString(questionID), "answer_count", count)
+	return task, nil
+}
+
 func (s *TaskService) enqueueMentionTaskWithQueries(ctx context.Context, q *db.Queries, issue db.Issue, agentID pgtype.UUID, triggerCommentID pgtype.UUID, coalescedCommentIDs []pgtype.UUID, isLeader bool, squadID pgtype.UUID, forceFreshSession bool, handoffNote string, actorUserID pgtype.UUID, rerunOfTaskID pgtype.UUID, origin RunOrigin, wake *questionTaskWake) (db.AgentTaskQueue, error) {
 	if err := guardIssueNotInTriage(ctx, q, issue.ID, origin); err != nil {
 		return db.AgentTaskQueue{}, err
