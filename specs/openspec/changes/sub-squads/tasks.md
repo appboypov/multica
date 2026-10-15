@@ -1,6 +1,6 @@
 ## At a glance
 
-One team, Backend, builds every group in one pull request. The UI is the Frontend team's change after this one.
+Backend builds groups 1 to 6 in one pull request. Frontend builds group 7 in its own pull request on top of it.
 
 | Group | Kind | Builder |
 |---|---|---|
@@ -10,6 +10,7 @@ One team, Backend, builds every group in one pull request. The UI is the Fronten
 | 4 | endpoints and routing | `madspec-api-builder` |
 | 5 | CLI and docs | `madspec-command-builder` |
 | 6 | tests | `madspec-service-builder` |
+| 7 | UI | `madspec-view-builder` |
 
 ## 1. Model change
 
@@ -40,6 +41,14 @@ One team, Backend, builds every group in one pull request. The UI is the Fronten
 
 - [x] 6.1 `server/internal/handler/squad_nesting_test.go` -- add a squad; direct, deep and self loop with the named path; a diamond nesting adds and refuses its loop with the shortest path; same leader; unknown and archived squad; leader change refused both ways; roster row and archived skip -- spec scenarios of the first four requirements.
 - [x] 6.2 `server/internal/handler/squad_sub_squad_report_test.go` -- report wakes the delegating guest main leader; assigned main squad wakes once; no delegation wakes nobody; a mention in the report wakes only the mentioned -- spec "A sub-squad's report wakes the leader that delegated to it".
+
+## 7. UI
+
+- [x] 7.1 `packages/core/types/squad.ts`, `packages/core/api/schemas.ts`, `client.ts`, `schemas.test.ts` -- `SquadMemberType` gets `"squad"`; the member list goes through `SquadMemberListSchema`, which drops a row of a type this client does not know -- AGENTS.md "API Compatibility".
+- [x] 7.2 `packages/views/squads/components/squad-detail-page.tsx` -- the add-member picker lists the workspace's squads except this squad and its squad members; a refused add shows the server's 409 message -- spec "Nesting never makes a loop", "A sub-squad never shares its leader with its main squad".
+- [x] 7.3 `squad-detail-page.tsx`, `squad-profile-card.tsx` -- a squad member row shows the squad's name and avatar and links to that squad, with no runtime status; `squads-page.tsx` already renders it through `ActorAvatar` -- spec "A squad holds squads as members".
+- [x] 7.4 `apps/mobile` -- no change: mobile reads no squad member rows.
+- [x] 7.5 `packages/views/locales/*/squads.json` -- squad copy in en, fr, ja, ko and zh-Hans -- AGENTS.md "UI Copy".
 
 ## Implementation Notes
 

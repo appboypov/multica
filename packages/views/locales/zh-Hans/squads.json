@@ -21,7 +21,8 @@
   },
   "member_type": {
     "agent": "智能体",
-    "member": "成员"
+    "member": "成员",
+    "squad": "小队"
   },
   "archive_dialog": {
     "title": "归档这个小队？",
@@ -42,15 +43,16 @@
   },
   "add_member_dialog": {
     "title": "添加成员",
-    "description": "可选择工作区成员或智能体。",
+    "description": "可选择工作区成员、智能体或小队。",
     "label_member": "成员",
     "label_role": "角色",
     "label_optional": "（可选）",
     "cancel": "取消",
-    "select_target": "选择成员或智能体",
-    "search_placeholder": "搜索成员或智能体...",
+    "select_target": "选择成员、智能体或小队",
+    "search_placeholder": "搜索成员、智能体或小队...",
     "members_section": "成员",
     "agents_section": "智能体",
+    "squads_section": "小队",
     "role_placeholder": "例如：审查者、前端负责人",
     "add": "添加"
   },
@@ -78,6 +80,7 @@
     "create_agent_button": "创建智能体",
     "leader_chip": "队长",
     "view_agent_tooltip": "打开智能体详情",
+    "view_squad_tooltip": "打开小队详情",
     "make_leader_tooltip": "设为小队负责人",
     "remove_member_tooltip": "从小队移除",
     "status_working": "工作中",

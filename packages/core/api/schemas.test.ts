@@ -65,6 +65,7 @@ import {
   RuntimeUsageListSchema,
   SendChatMessageResponseSchema,
   SquadListSchema,
+  SquadMemberListSchema,
   SquadSchema,
   SourceContextPreviewSchema,
   TimelineEntriesSchema,
@@ -1182,6 +1183,34 @@ describe("SquadListSchema member preview drift", () => {
     expect(parsed[0]?.member_count).toBe(2);
     expect(parsed[0]?.member_preview).toHaveLength(2);
     expect(parsed[0]?.member_preview?.[0]?.role).toBe("leader");
+  });
+});
+
+describe("SquadMemberListSchema member type drift", () => {
+  const row = (member_type: string, member_id: string) => ({
+    id: `sm-${member_id}`,
+    squad_id: "squad-1",
+    member_type,
+    member_id,
+    role: "",
+    created_at: "2026-05-01T00:00:00Z",
+  });
+
+  it("keeps agent, member and squad rows", () => {
+    const parsed = SquadMemberListSchema.parse([
+      row("agent", "agent-1"),
+      row("member", "user-1"),
+      row("squad", "squad-2"),
+    ]);
+    expect(parsed.map((m) => m.member_type)).toEqual(["agent", "member", "squad"]);
+  });
+
+  it("drops a row with a member type this client does not know", () => {
+    const parsed = SquadMemberListSchema.parse([
+      row("agent", "agent-1"),
+      row("team", "team-1"),
+    ]);
+    expect(parsed.map((m) => m.member_id)).toEqual(["agent-1"]);
   });
 });
 

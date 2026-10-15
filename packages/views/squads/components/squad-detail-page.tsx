@@ -10,7 +10,7 @@ import { resolvePublicFileUrl } from "@multica/core/workspace/avatar-url";
 import { isImeComposing } from "@multica/core/utils";
 import { getShortcut, shortcutMatchesEvent } from "@multica/core/shortcuts";
 import { useTimeAgo } from "../../i18n";
-import { agentListOptions, memberListOptions, squadMemberStatusOptions, workspaceKeys } from "@multica/core/workspace/queries";
+import { agentListOptions, memberListOptions, squadDetailOptions, squadMemberStatusOptions, workspaceKeys } from "@multica/core/workspace/queries";
 import { useNavigation } from "../../navigation";
 import { AppLink } from "../../navigation";
 import { BreadcrumbHeader } from "../../layout/breadcrumb-header";
@@ -59,9 +59,10 @@ import {
 } from "../../issues/components/pickers/property-picker";
 import { ChevronDown, UserPlus } from "lucide-react";
 import { toast } from "sonner";
-import type { Squad, SquadMember, SquadMemberStatus, SquadMemberStatusValue, Agent, MemberWithUser } from "@multica/core/types";
+import type { Squad, SquadMember, SquadMemberStatus, SquadMemberStatusValue, SquadMemberType, Agent, MemberWithUser } from "@multica/core/types";
 import { useT } from "../../i18n";
 import { matchesPinyin } from "../../editor/extensions/pinyin-match";
+import { useSquadLookup } from "../use-squad-lookup";
 
 export function SquadDetailPage() {
   const { t } = useT("squads");
@@ -72,9 +73,8 @@ export function SquadDetailPage() {
   const queryClient = useQueryClient();
   const squadId = pathname.split("/").pop() ?? "";
 
-  const { data: squad, refetch: refetchSquad } = useQuery<Squad>({
-    queryKey: [...workspaceKeys.squads(wsId), squadId],
-    queryFn: () => api.getSquad(squadId),
+  const { data: squad, refetch: refetchSquad } = useQuery({
+    ...squadDetailOptions(wsId, squadId),
     enabled: !!workspace?.id && !!squadId,
   });
 
@@ -100,6 +100,11 @@ export function SquadDetailPage() {
 
   const { data: agents = [] } = useQuery(agentListOptions(wsId));
   const { data: wsMembers = [] } = useQuery(memberListOptions(wsId));
+  // Archived sub-squads stay members but drop out of the squad list, so
+  // member squads resolve through the lookup rather than the list alone.
+  const { squads, getSquad } = useSquadLookup(
+    members.filter((m) => m.member_type === "squad").map((m) => m.member_id),
+  );
 
   const currentUser = useAuthStore((s) => s.user);
   const myRole = useMemo(() => {
@@ -128,7 +133,7 @@ export function SquadDetailPage() {
   });
 
   const addMemberMut = useMutation({
-    mutationFn: (input: { type: "agent" | "member"; id: string; role?: string }) =>
+    mutationFn: (input: { type: SquadMemberType; id: string; role?: string }) =>
       api.addSquadMember(squadId, {
         member_type: input.type,
         member_id: input.id,
@@ -179,6 +184,7 @@ export function SquadDetailPage() {
 
   const getEntityName = (type: string, id: string) => {
     if (type === "agent") return agents.find((a: Agent) => a.id === id)?.name ?? id.slice(0, 8);
+    if (type === "squad") return getSquad(id)?.name ?? id.slice(0, 8);
     return wsMembers.find((m) => m.user_id === id)?.name ?? id.slice(0, 8);
   };
 
@@ -188,9 +194,12 @@ export function SquadDetailPage() {
 
   const availableAgents = agents.filter((a: Agent) => !a.archived_at && !members.some((m) => m.member_type === "agent" && m.member_id === a.id));
   const availableMembers = wsMembers.filter((m) => !members.some((sm) => sm.member_type === "member" && sm.member_id === m.user_id));
+  const availableSquads = squads.filter((s) => s.id !== squad.id && !members.some((m) => m.member_type === "squad" && m.member_id === s.id));
   const isLeader = (m: SquadMember) => m.member_type === "agent" && squad.leader_id === m.member_id;
   const isArchived = (m: SquadMember) =>
-    m.member_type === "agent" && !!agents.find((a: Agent) => a.id === m.member_id)?.archived_at;
+    m.member_type === "agent"
+      ? !!agents.find((a: Agent) => a.id === m.member_id)?.archived_at
+      : m.member_type === "squad" && !!getSquad(m.member_id)?.archived_at;
 
   const initials = squad.name
     .split(" ")
@@ -256,6 +265,7 @@ export function SquadDetailPage() {
         <AddMemberDialog
           availableMembers={availableMembers}
           availableAgents={availableAgents}
+          availableSquads={availableSquads}
           onClose={() => setShowAddMember(false)}
           onSubmit={async (input) => { await addMemberMut.mutateAsync(input); }}
         />
@@ -506,16 +516,18 @@ function InlineEditPopover({
 function AddMemberDialog({
   availableMembers,
   availableAgents,
+  availableSquads,
   onClose,
   onSubmit,
 }: {
   availableMembers: MemberWithUser[];
   availableAgents: Agent[];
+  availableSquads: Squad[];
   onClose: () => void;
-  onSubmit: (input: { type: "agent" | "member"; id: string; role?: string }) => Promise<void>;
+  onSubmit: (input: { type: SquadMemberType; id: string; role?: string }) => Promise<void>;
 }) {
   const { t } = useT("squads");
-  const [target, setTarget] = useState<{ type: "agent" | "member"; id: string; name: string } | null>(null);
+  const [target, setTarget] = useState<{ type: SquadMemberType; id: string; name: string } | null>(null);
   const [role, setRole] = useState("");
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerFilter, setPickerFilter] = useState("");
@@ -524,6 +536,7 @@ function AddMemberDialog({
   const query = pickerFilter.trim().toLowerCase();
   const filteredMembers = availableMembers.filter((m) => m.name.toLowerCase().includes(query) || matchesPinyin(m.name, query));
   const filteredAgents = availableAgents.filter((a) => a.name.toLowerCase().includes(query) || matchesPinyin(a.name, query));
+  const filteredSquads = availableSquads.filter((s) => s.name.toLowerCase().includes(query) || matchesPinyin(s.name, query));
 
   const canSubmit = !!target && !submitting;
 
@@ -616,7 +629,25 @@ function AddMemberDialog({
                       ))}
                     </PickerSection>
                   )}
-                  {filteredMembers.length === 0 && filteredAgents.length === 0 && <PickerEmpty />}
+                  {filteredSquads.length > 0 && (
+                    <PickerSection label={t(($) => $.add_member_dialog.squads_section)}>
+                      {filteredSquads.map((s) => (
+                        <PickerItem
+                          key={s.id}
+                          selected={target?.type === "squad" && target.id === s.id}
+                          onClick={() => {
+                            setTarget({ type: "squad", id: s.id, name: s.name });
+                            setPickerOpen(false);
+                            setPickerFilter("");
+                          }}
+                        >
+                          <ActorAvatar actorType="squad" actorId={s.id} size="sm" />
+                          <span>{s.name}</span>
+                        </PickerItem>
+                      ))}
+                    </PickerSection>
+                  )}
+                  {filteredMembers.length === 0 && filteredAgents.length === 0 && filteredSquads.length === 0 && <PickerEmpty />}
                 </div>
               </PopoverContent>
             </Popover>
@@ -1153,7 +1184,12 @@ function SquadMembersTab({
       <div className="space-y-2">
         {members.map((m) => {
           const status = memberStatusById.get(m.member_id);
-          const statusValue = status?.status ?? null;
+          // Squads report no live status of their own; an archived sub-squad
+          // borrows the archived pill an archived agent shows.
+          const statusValue =
+            m.member_type === "squad"
+              ? isArchived(m) ? "archived" : null
+              : status?.status ?? null;
           const dotClass =
             statusValue && statusValue in SQUAD_STATUS_DOT_CLASS
               ? SQUAD_STATUS_DOT_CLASS[statusValue as keyof typeof SQUAD_STATUS_DOT_CLASS]
@@ -1195,7 +1231,7 @@ function SquadMembersTab({
                       {t(($) => $.members_tab.leader_chip)}
                     </span>
                   )}
-                  {m.member_type === "agent" && statusLabel && (
+                  {m.member_type !== "member" && statusLabel && (
                     <span className="inline-flex items-center gap-1 text-caption text-muted-foreground">
                       <span className={`h-1.5 w-1.5 rounded-full ${dotClass ?? "bg-muted-foreground/40"}`} />
                       {statusLabel}
@@ -1255,6 +1291,24 @@ function SquadMembersTab({
                   />
                   <TooltipContent>
                     {t(($) => $.members_tab.view_agent_tooltip)}
+                  </TooltipContent>
+                </Tooltip>
+              )}
+              {m.member_type === "squad" && (
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <AppLink
+                        href={p.squadDetail(m.member_id)}
+                        className="inline-flex items-center justify-center h-8 w-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                        aria-label={t(($) => $.members_tab.view_squad_tooltip)}
+                      >
+                        <ArrowUpRight className="size-3.5" />
+                      </AppLink>
+                    }
+                  />
+                  <TooltipContent>
+                    {t(($) => $.members_tab.view_squad_tooltip)}
                   </TooltipContent>
                 </Tooltip>
               )}

@@ -21,7 +21,8 @@
   },
   "member_type": {
     "agent": "Agent",
-    "member": "Membre"
+    "member": "Membre",
+    "squad": "Squad"
   },
   "archive_dialog": {
     "title": "Archiver ce squad ?",
@@ -42,15 +43,16 @@
   },
   "add_member_dialog": {
     "title": "Ajouter un membre",
-    "description": "Choisissez des membres ou des agents de l’espace de travail.",
+    "description": "Choisissez des membres, des agents ou des squads de l’espace de travail.",
     "label_member": "Membre",
     "label_role": "Rôle",
     "label_optional": "(facultatif)",
     "cancel": "Annuler",
-    "select_target": "Sélectionner un membre ou un agent",
-    "search_placeholder": "Rechercher des membres ou des agents...",
+    "select_target": "Sélectionner un membre, un agent ou un squad",
+    "search_placeholder": "Rechercher des membres, des agents ou des squads...",
     "members_section": "Membres",
     "agents_section": "Agents",
+    "squads_section": "Squads",
     "role_placeholder": "Par exemple : Relecteur, Responsable frontend",
     "add": "Ajouter"
   },
@@ -79,6 +81,7 @@
     "create_agent_button": "Créer un agent",
     "leader_chip": "Chef",
     "view_agent_tooltip": "Ouvrir le détail de l'agent",
+    "view_squad_tooltip": "Ouvrir le détail du squad",
     "make_leader_tooltip": "Nommer chef du squad",
     "remove_member_tooltip": "Retirer du squad",
     "status_working": "Au travail",

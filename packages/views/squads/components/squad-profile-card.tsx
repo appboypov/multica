@@ -4,7 +4,6 @@ import { useQuery } from "@tanstack/react-query";
 import type { SquadMemberPreview } from "@multica/core/types";
 import { useWorkspaceId } from "@multica/core/hooks";
 import {
-  squadListOptions,
   agentListOptions,
   memberListOptions,
 } from "@multica/core/workspace/queries";
@@ -14,6 +13,7 @@ import { Skeleton } from "@multica/ui/components/ui/skeleton";
 import { ActorAvatar } from "../../common/actor-avatar";
 import { AppLink } from "../../navigation";
 import { useT } from "../../i18n";
+import { useSquadLookup } from "../use-squad-lookup";
 
 interface SquadProfileCardProps {
   squadId: string;
@@ -23,15 +23,14 @@ export function SquadProfileCard({ squadId }: SquadProfileCardProps) {
   const { t } = useT("squads");
   const wsId = useWorkspaceId();
   const p = useWorkspacePaths();
-  const { data: squads = [], isLoading: squadsLoading } = useQuery(
-    squadListOptions(wsId),
-  );
+  // The lookup resolves an archived squad too, so its archived header renders.
+  const { getSquad, isLoading: squadLoading } = useSquadLookup([squadId]);
   const { data: agents = [] } = useQuery(agentListOptions(wsId));
   const { data: wsMembers = [] } = useQuery(memberListOptions(wsId));
 
-  const squad = squads.find((s) => s.id === squadId);
+  const squad = getSquad(squadId);
 
-  if (squadsLoading && !squad) {
+  if (squadLoading && !squad) {
     return (
       <div className="flex items-center gap-3">
         <Skeleton className="h-10 w-10 rounded-full" />
@@ -128,6 +127,9 @@ function MembersList({
   const p = useWorkspacePaths();
   const visible = members.slice(0, 3);
   const overflow = Math.max(0, memberCount - visible.length);
+  const { getSquad } = useSquadLookup(
+    visible.filter((m) => m.member_type === "squad").map((m) => m.member_id),
+  );
 
   return (
     <div className="flex flex-col gap-1.5 text-caption">
@@ -139,16 +141,22 @@ function MembersList({
         {visible.map((m) => {
           const isLeader =
             m.member_type === "agent" && m.member_id === leaderId;
+          const subSquad =
+            m.member_type === "squad" ? getSquad(m.member_id) : undefined;
           const name =
             m.member_type === "agent"
               ? agents.find((a) => a.id === m.member_id)?.name ??
                 m.member_id.slice(0, 8)
-              : wsMembers.find((u) => u.user_id === m.member_id)?.name ??
-                m.member_id.slice(0, 8);
+              : m.member_type === "squad"
+                ? subSquad?.name ?? m.member_id.slice(0, 8)
+                : wsMembers.find((u) => u.user_id === m.member_id)?.name ??
+                  m.member_id.slice(0, 8);
           const href =
             m.member_type === "agent"
               ? p.agentDetail(m.member_id)
-              : p.memberDetail(m.member_id);
+              : m.member_type === "squad"
+                ? p.squadDetail(m.member_id)
+                : p.memberDetail(m.member_id);
           const memberRole =
             m.member_type === "member"
               ? wsMembers.find((u) => u.user_id === m.member_id)?.role ?? null
@@ -168,6 +176,11 @@ function MembersList({
                 className="shrink-0"
               />
               <span className="min-w-0 flex-1 truncate font-medium">{name}</span>
+              {subSquad?.archived_at && (
+                <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-micro font-medium text-muted-foreground">
+                  {t(($) => $.profile_card.archived)}
+                </span>
+              )}
               {isLeader && (
                 <span className="max-w-[4rem] shrink-0 truncate rounded-md bg-amber-100 px-1 py-0.5 text-micro font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
                   {t(($) => $.members_tab.leader_chip)}

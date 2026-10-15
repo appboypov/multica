@@ -108,6 +108,7 @@ import type {
   SkillImportResult,
   SkillSummary,
   Squad,
+  SquadMember,
   TimelineEntry,
   User,
   WebhookDelivery,
@@ -2968,6 +2969,25 @@ export const EMPTY_SQUAD: Squad = {
   member_count: 0,
   member_preview: [],
 };
+
+// Squad member list — backs the Squad detail page's Members tab. A row this
+// client cannot render (a member_type a newer server added, or a malformed
+// row) is dropped instead of blanking the whole roster.
+const SquadMemberSchema = z.object({
+  id: z.string(),
+  squad_id: z.string(),
+  member_type: z.enum(["agent", "member", "squad"]),
+  member_id: z.string(),
+  role: z.string().default(""),
+  created_at: z.string().default(""),
+}).loose();
+
+export const SquadMemberListSchema = z.array(z.unknown())
+  .transform((rows) => rows.flatMap((row) => {
+    const parsed = SquadMemberSchema.safeParse(row);
+    return parsed.success ? [parsed.data] : [];
+  }));
+export const EMPTY_SQUAD_MEMBER_LIST: SquadMember[] = [];
 
 // Squad member status — backs the Squad detail page's Members tab. status
 // is `string | null` (not the narrow `SquadMemberStatusValue` union) so a

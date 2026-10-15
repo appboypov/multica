@@ -21,7 +21,8 @@
   },
   "member_type": {
     "agent": "エージェント",
-    "member": "メンバー"
+    "member": "メンバー",
+    "squad": "スクワッド"
   },
   "archive_dialog": {
     "title": "このスクワッドをアーカイブしますか？",
@@ -42,15 +43,16 @@
   },
   "add_member_dialog": {
     "title": "メンバーを追加",
-    "description": "ワークスペースのメンバーまたはエージェントを選択できます。",
+    "description": "ワークスペースのメンバー、エージェント、スクワッドを選択できます。",
     "label_member": "メンバー",
     "label_role": "役割",
     "label_optional": "（任意）",
     "cancel": "キャンセル",
-    "select_target": "メンバーまたはエージェントを選択",
-    "search_placeholder": "メンバーまたはエージェントを検索...",
+    "select_target": "メンバー、エージェント、スクワッドを選択",
+    "search_placeholder": "メンバー、エージェント、スクワッドを検索...",
     "members_section": "メンバー",
     "agents_section": "エージェント",
+    "squads_section": "スクワッド",
     "role_placeholder": "例：レビュアー、フロントエンドリード",
     "add": "追加"
   },
@@ -78,6 +80,7 @@
     "create_agent_button": "エージェントを作成",
     "leader_chip": "リーダー",
     "view_agent_tooltip": "エージェントの詳細を開く",
+    "view_squad_tooltip": "スクワッドの詳細を開く",
     "make_leader_tooltip": "スクワッドリーダーに指定",
     "remove_member_tooltip": "スクワッドから削除",
     "status_working": "作業中",

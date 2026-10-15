@@ -21,7 +21,8 @@
   },
   "member_type": {
     "agent": "에이전트",
-    "member": "멤버"
+    "member": "멤버",
+    "squad": "스쿼드"
   },
   "archive_dialog": {
     "title": "이 스쿼드를 보관할까요?",
@@ -42,15 +43,16 @@
   },
   "add_member_dialog": {
     "title": "멤버 추가",
-    "description": "워크스페이스 멤버 또는 에이전트를 선택할 수 있습니다.",
+    "description": "워크스페이스 멤버, 에이전트 또는 스쿼드를 선택할 수 있습니다.",
     "label_member": "멤버",
     "label_role": "역할",
     "label_optional": "(선택 사항)",
     "cancel": "취소",
-    "select_target": "멤버 또는 에이전트 선택",
-    "search_placeholder": "멤버 또는 에이전트 검색...",
+    "select_target": "멤버, 에이전트 또는 스쿼드 선택",
+    "search_placeholder": "멤버, 에이전트 또는 스쿼드 검색...",
     "members_section": "멤버",
     "agents_section": "에이전트",
+    "squads_section": "스쿼드",
     "role_placeholder": "예: 리뷰어, 프런트엔드 리드",
     "add": "추가"
   },
@@ -78,6 +80,7 @@
     "create_agent_button": "에이전트 만들기",
     "leader_chip": "리더",
     "view_agent_tooltip": "에이전트 상세 열기",
+    "view_squad_tooltip": "스쿼드 상세 열기",
     "make_leader_tooltip": "스쿼드 리더로 지정",
     "remove_member_tooltip": "스쿼드에서 제거",
     "status_working": "작업 중",

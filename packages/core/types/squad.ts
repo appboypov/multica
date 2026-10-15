@@ -1,4 +1,4 @@
-export type SquadMemberType = "agent" | "member";
+export type SquadMemberType = "agent" | "member" | "squad";
 
 export type SquadActivityOutcome = "action" | "no_action" | "failed";
 

@@ -105,6 +105,16 @@ export function squadListOptions(wsId: string) {
   });
 }
 
+// Single squad, archived ones included — the list above omits archived
+// squads, so this is the lookup for a squad that is not in it.
+export function squadDetailOptions(wsId: string, squadId: string) {
+  return queryOptions<Squad>({
+    queryKey: [...workspaceKeys.squads(wsId), squadId] as const,
+    queryFn: () => api.getSquad(squadId),
+    enabled: !!wsId && !!squadId,
+  });
+}
+
 // Per-squad members status snapshot. The freshness signal is the WS task /
 // agent / runtime invalidation wired in use-realtime-sync (which broadly
 // invalidates `["workspaces", wsId, "squads"]`); the staleTime is a

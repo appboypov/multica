@@ -21,7 +21,8 @@
   },
   "member_type": {
     "agent": "Agent",
-    "member": "Member"
+    "member": "Member",
+    "squad": "Squad"
   },
   "archive_dialog": {
     "title": "Archive this squad?",
@@ -42,15 +43,16 @@
   },
   "add_member_dialog": {
     "title": "Add Member",
-    "description": "Choose workspace members or agents.",
+    "description": "Choose workspace members, agents or squads.",
     "label_member": "Member",
     "label_role": "Role",
     "label_optional": "(optional)",
     "cancel": "Cancel",
-    "select_target": "Select a member or agent",
-    "search_placeholder": "Search members or agents...",
+    "select_target": "Select a member, agent or squad",
+    "search_placeholder": "Search members, agents or squads...",
     "members_section": "Members",
     "agents_section": "Agents",
+    "squads_section": "Squads",
     "role_placeholder": "e.g. Reviewer, Frontend Lead",
     "add": "Add"
   },
@@ -79,6 +81,7 @@
     "create_agent_button": "Create Agent",
     "leader_chip": "Leader",
     "view_agent_tooltip": "Open agent detail",
+    "view_squad_tooltip": "Open squad detail",
     "make_leader_tooltip": "Make squad leader",
     "remove_member_tooltip": "Remove from squad",
     "status_working": "Working",
