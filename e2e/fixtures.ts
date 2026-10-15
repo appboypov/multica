@@ -397,6 +397,14 @@ export class TestApiClient {
     await this.authedFetch(`/api/issues/${id}`, { method: "DELETE" });
   }
 
+  async getIssue(id: string) {
+    const res = await this.authedFetch(`/api/issues/${id}`);
+    if (!res.ok) {
+      throw new Error(`get issue failed: ${res.status} ${await res.text()}`);
+    }
+    return (await res.json()) as Record<string, unknown>;
+  }
+
   async createComment(issueId: string, content: string) {
     const res = await this.authedFetch(`/api/issues/${issueId}/comments`, {
       method: "POST",
