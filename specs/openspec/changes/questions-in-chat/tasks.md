@@ -24,7 +24,7 @@ The branch is stacked on `ask-back-wakes-the-asker` (pull request 34); the Wake 
 
 ## 1. Backend and agent tooling: model change
 
-- [ ] 1.1 `server/migrations/711_questions_in_chat.up.sql`, `.down.sql` -- up: replace the CHECK constraints of `question_link.link_type` (add `chat`), `question.status` (add `cancelled`) and `question_event.kind` (add `cancelled`), starting from the lists in `710_question_link_types.up.sql` and `575_question_ask.up.sql`; down: set cancelled questions to `withdrawn`, delete `cancelled` events and `chat` links, restore the 710 constraints -- design.md Migration Plan.
+- [x] 1.1 `server/migrations/711_questions_in_chat.up.sql`, `.down.sql` -- up: replace the CHECK constraints of `question_link.link_type` (add `chat`), `question.status` (add `cancelled`) and `question_event.kind` (add `cancelled`), starting from the lists in `710_question_link_types.up.sql` and `575_question_ask.up.sql`; down: set cancelled questions to `withdrawn`, delete `cancelled` events and `chat` links, restore the 710 constraints -- design.md Migration Plan.
 - [ ] 1.2 `server/internal/question/links.go` -- add `LinkTypeChat = "chat"` to the constants and the registry `ValidLinkType` reads -- Decision 1.
 - [ ] 1.3 `server/internal/question/policy.go` -- document `cancelled` beside `closed` and `withdrawn` (`:15`) as an explicit end status that `DeriveStatus` never returns; `IsOpen` (`:36`) already treats it as ended -- Decision 5.
 
@@ -97,6 +97,8 @@ The branch is stacked on `ask-back-wakes-the-asker` (pull request 34); the Wake 
 - [ ] 9.1 `specs/openspec/changes/questions-in-chat/` -- run `openspec validate questions-in-chat --type change --strict`, sync the specs and archive the change -- own work has no acceptance test.
 
 ## Implementation Notes
+
+- 1.1: migration 711 follows 710's shape: `SET LOCAL lock_timeout = '2s'`, each CHECK dropped and added back `NOT VALID`, then validated. No index, so no `concurrentIndexCleanups` entry. The down restores 710's link type and event kind CHECKs and 575's status CHECK (710 never touched `question.status`). No other branch holds a 711 migration as of 2026-10-15. Checked on Crabbox against a temporary PostgreSQL 17: `go run ./cmd/migrate up` applies 711; the new CHECKs take a `chat` link, a `cancelled` question and a `cancelled` event and still refuse unknown values; running the down turns the question `withdrawn`, keeps its run link, deletes the `chat` link and `cancelled` event and leaves validated CHECKs that refuse `chat` and `cancelled`; the up then applies again.
 
 ## Plan Change Log
 
