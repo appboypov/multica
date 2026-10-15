@@ -35,6 +35,31 @@ func (s *QuestionService) DropLinksOfIssues(ctx context.Context, qtx *db.Queries
 	return s.finishLinkDeletion(ctx, qtx, workspaceID, questionIDs)
 }
 
+// DropLinksOfChat removes the session and its runs before the chat is deleted.
+// Withdrawal is derived only after both kinds of link have been removed.
+func (s *QuestionService) DropLinksOfChat(ctx context.Context, qtx *db.Queries, workspaceID, sessionID pgtype.UUID) ([]pgtype.UUID, error) {
+	tasks, err := qtx.ListChatTaskIDs(ctx, db.ListChatTaskIDsParams{WorkspaceID: workspaceID, ChatSessionID: sessionID})
+	if err != nil {
+		return nil, err
+	}
+	ids, err := qtx.DeleteQuestionLinksTo(ctx, db.DeleteQuestionLinksToParams{
+		WorkspaceID: workspaceID, LinkType: "chat", Ids: []pgtype.UUID{sessionID},
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(tasks) > 0 {
+		runIDs, err := qtx.DeleteQuestionLinksTo(ctx, db.DeleteQuestionLinksToParams{
+			WorkspaceID: workspaceID, LinkType: "task", Ids: tasks,
+		})
+		if err != nil {
+			return nil, err
+		}
+		ids = append(ids, runIDs...)
+	}
+	return s.finishLinkDeletion(ctx, qtx, workspaceID, ids)
+}
+
 func (s *QuestionService) finishLinkDeletion(ctx context.Context, qtx *db.Queries, workspaceID pgtype.UUID, ids []pgtype.UUID) ([]pgtype.UUID, error) {
 	unique := make([]pgtype.UUID, 0, len(ids))
 	seen := make(map[pgtype.UUID]bool, len(ids))
@@ -51,7 +76,7 @@ func (s *QuestionService) finishLinkDeletion(ctx context.Context, qtx *db.Querie
 }
 
 // WithdrawUnlinked writes status and its history in the caller's transaction.
-// Closed/withdrawn questions stay unchanged; a surviving link prevents withdrawal.
+// Terminal questions stay unchanged; a surviving link prevents withdrawal.
 func (s *QuestionService) WithdrawUnlinked(ctx context.Context, qtx *db.Queries, workspaceID pgtype.UUID, questionIDs []pgtype.UUID) ([]pgtype.UUID, error) {
 	if len(questionIDs) == 0 {
 		return []pgtype.UUID{}, nil
