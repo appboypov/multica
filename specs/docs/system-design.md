@@ -144,7 +144,7 @@ flowchart LR
   handlers --> questions
   questions --> questionrules
   questions --> sqlc
-  questions -->|"EnqueueTaskForQuestionWake"| services
+  questions -->|"EnqueueTaskForQuestionWake,<br/>EnqueueChatTaskForQuestionWake"| services
   questions -->|"blocked Wake: persist or coalesce"| questionpending
   questionwait -->|"issue lock: blockers, live scope,<br/>unseen input and handled receipts"| sqlc
   questionwait --> questionpending
@@ -256,7 +256,7 @@ flowchart TB
   actions --> dirlist
   actions --> update
   poll -->|"ClaimTasks"| client
-  client -.->|"Task.QuestionAnswers on question_wake claim"| task
+  client -.->|"Task.QuestionAnswers on question_wake claim<br/>and on every chat turn"| task
   client -.->|"ClaimWorklane.pull_request_branch"| worktrees
   poll --> task
   task --> selection
@@ -801,6 +801,7 @@ classDiagram
   question "1" --> "*" question_link : question_id
   question_link ..> issue : link_id
   question_link ..> agent_task_queue : link_id
+  question_link ..> chat_session : link_id
   question "1" --> "*" question_answerer : question_id
   user "1" --> "*" question_answerer : user_id
   question "1" --> "*" question_answer : question_id
@@ -888,6 +889,7 @@ classDiagram
     +string ask_id
     +string[] question_ids
     +string issue_id
+    +string chat_session_id
   }
   QuestionRow ..> Question : schema fields
   QuestionAskResult "1" o-- "*" Question : questions
