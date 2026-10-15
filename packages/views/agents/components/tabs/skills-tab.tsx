@@ -142,7 +142,29 @@ export function SkillsTab({
     }
   };
 
+  const handleRuntimeInheritanceToggle = async (enabled: boolean) => {
+    setBusyId("runtime:inherit");
+    try {
+      await api.setAgentRuntimeSkillsInherited(agent.id, enabled);
+      await refreshAgent();
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : t(($) => $.tab_body.skills.runtime_inherit_failed_toast),
+      );
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   const runtimeSkills = runtimeQuery.data?.skills ?? [];
+  const inheritsRuntimeSkills = agent.inherit_runtime_skills !== false;
+  const canToggleRuntimeInheritance =
+    canEdit &&
+    runtimeQuery.isSuccess &&
+    runtimeQuery.data?.supported === true &&
+    runtimeSkills.some((skill) => skill.can_disable === true && skill.root);
 
   return (
     <div className="space-y-8">
@@ -239,20 +261,32 @@ export function SkillsTab({
         })}
         action={
           runtimeId ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => runtimeQuery.refetch()}
-              disabled={runtimeQuery.isFetching}
-            >
-              <RefreshCw
-                className={cn(
-                  "h-3.5 w-3.5",
-                  runtimeQuery.isFetching && "animate-spin motion-reduce:animate-none",
-                )}
-              />
-              {t(($) => $.tab_body.skills.refresh_action)}
-            </Button>
+            <div className="flex items-center gap-2">
+              {canToggleRuntimeInheritance && runtime && (
+                <Switch
+                  checked={inheritsRuntimeSkills}
+                  disabled={busyId !== null}
+                  onCheckedChange={handleRuntimeInheritanceToggle}
+                  aria-label={t(($) => $.tab_body.skills.runtime_inherit_aria, {
+                    runtime: runtimeDisplayLabel(runtime),
+                  })}
+                />
+              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => runtimeQuery.refetch()}
+                disabled={runtimeQuery.isFetching}
+              >
+                <RefreshCw
+                  className={cn(
+                    "h-3.5 w-3.5",
+                    runtimeQuery.isFetching && "animate-spin motion-reduce:animate-none",
+                  )}
+                />
+                {t(($) => $.tab_body.skills.refresh_action)}
+              </Button>
+            </div>
           ) : null
         }
       >
@@ -283,11 +317,13 @@ export function SkillsTab({
         ) : (
           <ul className="divide-y rounded-lg border bg-surface-raised/40">
             {runtimeSkills.map((skill) => {
-              const disabled = isRuntimeSkillDisabled(
-                agent.disabled_runtime_skills,
-                runtime?.id,
-                skill,
-              );
+              const disabled =
+                !inheritsRuntimeSkills ||
+                isRuntimeSkillDisabled(
+                  agent.disabled_runtime_skills,
+                  runtime?.id,
+                  skill,
+                );
               const busyKey = runtimeSkillIdentity(skill);
               const busy = busyId === busyKey;
               return (
@@ -330,6 +366,7 @@ export function SkillsTab({
                     ) : (
                       <Switch
                         checked={!disabled}
+                        disabled={!inheritsRuntimeSkills}
                         onCheckedChange={(checked) =>
                           handleRuntimeToggle(skill, checked)
                         }
