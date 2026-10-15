@@ -261,14 +261,14 @@ const (
 // identify the ask on creation and overdue updates; QuestionID is its first question.
 // IssueIDs are the issues whose pages show the card; IssueID remains the first.
 type QuestionEventPayload struct {
-	QuestionID  string   `json:"question_id"`
-	AskID       string   `json:"ask_id,omitempty"`
-	QuestionIDs []string `json:"question_ids,omitempty"`
-	IssueID     string   `json:"issue_id"`
-	IssueIDs    []string `json:"issue_ids,omitempty"`
-	ChatSessionID string `json:"chat_session_id,omitempty"`
-	Reason      string   `json:"reason,omitempty"`
-	EventID     string   `json:"event_id,omitempty"`
+	QuestionID    string   `json:"question_id"`
+	AskID         string   `json:"ask_id,omitempty"`
+	QuestionIDs   []string `json:"question_ids,omitempty"`
+	IssueID       string   `json:"issue_id"`
+	IssueIDs      []string `json:"issue_ids,omitempty"`
+	ChatSessionID string   `json:"chat_session_id,omitempty"`
+	Reason        string   `json:"reason,omitempty"`
+	EventID       string   `json:"event_id,omitempty"`
 }
 
 // RunInputReactedPayload identifies one run's marks on a delivered item.

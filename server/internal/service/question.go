@@ -74,9 +74,9 @@ type QuestionWakeResult struct {
 }
 
 type QuestionLinkDTO struct {
-	LinkType string `json:"link_type"`
-	LinkID   string `json:"link_id"`
-	Position int32  `json:"position"`
+	LinkType string  `json:"link_type"`
+	LinkID   string  `json:"link_id"`
+	Position int32   `json:"position"`
 	MemberID *string `json:"member_id,omitempty"`
 }
 

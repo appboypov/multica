@@ -32,11 +32,11 @@ type QuestionRowCursor struct {
 }
 
 type QuestionRowLinkDTO struct {
-	Type       string `json:"type"`
-	ID         string `json:"id"`
-	Identifier string `json:"identifier"`
-	Title      string `json:"title"`
-	Status     string `json:"status"`
+	Type       string  `json:"type"`
+	ID         string  `json:"id"`
+	Identifier string  `json:"identifier"`
+	Title      string  `json:"title"`
+	Status     string  `json:"status"`
 	MemberID   *string `json:"member_id,omitempty"`
 }
 

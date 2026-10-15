@@ -1346,7 +1346,7 @@ func TestNotification_StatusChange_ReopenSurfacesNewTaskFailed(t *testing.T) {
 func TestNotification_QuestionRecipientsAndNoAnsweredItem(t *testing.T) {
 	for _, tc := range []struct {
 		name, eventType, reason, inboxType string
-		chat bool
+		chat                               bool
 	}{
 		{"asked", protocol.EventQuestionCreated, "", service.InboxTypeQuestionAsked, false},
 		{"reassigned", protocol.EventQuestionUpdated, protocol.QuestionReasonReassigned, service.InboxTypeQuestionReassigned, false},

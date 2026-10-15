@@ -43,11 +43,11 @@ func QuestionOverdueJob(queries *db.Queries, bus *events.Bus) JobSpec {
 				position int32
 			}
 			type overdueAsk struct {
-				workspaceID string
-				issueID     string
+				workspaceID   string
+				issueID       string
 				chatSessionID string
-				askID       string
-				questions   []overdueQuestion
+				askID         string
+				questions     []overdueQuestion
 			}
 			asks := make(map[pgtype.UUID]*overdueAsk)
 			var askOrder []*overdueAsk
@@ -67,12 +67,12 @@ func QuestionOverdueJob(queries *db.Queries, bus *events.Bus) JobSpec {
 						WorkspaceID: ask.workspaceID,
 						ActorType:   "system",
 						Payload: protocol.QuestionEventPayload{
-							QuestionID:  ask.askID,
-							AskID:       ask.askID,
-							QuestionIDs: ids,
-							IssueID:     ask.issueID,
+							QuestionID:    ask.askID,
+							AskID:         ask.askID,
+							QuestionIDs:   ids,
+							IssueID:       ask.issueID,
 							ChatSessionID: ask.chatSessionID,
-							Reason:      protocol.QuestionReasonOverdue,
+							Reason:        protocol.QuestionReasonOverdue,
 						},
 					})
 				}
@@ -100,10 +100,10 @@ func QuestionOverdueJob(queries *db.Queries, bus *events.Bus) JobSpec {
 					ask := asks[question.AskID]
 					if ask == nil {
 						ask = &overdueAsk{
-							workspaceID: util.UUIDToString(question.WorkspaceID),
-							issueID:     util.UUIDToString(question.IssueID),
+							workspaceID:   util.UUIDToString(question.WorkspaceID),
+							issueID:       util.UUIDToString(question.IssueID),
 							chatSessionID: util.UUIDToString(question.ChatSessionID),
-							askID:       util.UUIDToString(question.AskID),
+							askID:         util.UUIDToString(question.AskID),
 						}
 						asks[question.AskID] = ask
 						askOrder = append(askOrder, ask)

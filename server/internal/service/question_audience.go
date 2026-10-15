@@ -231,7 +231,7 @@ func (s *QuestionService) wakeTargets(ctx context.Context, q *db.Queries, worksp
 		}
 		result = append(result, QuestionWakeTargetDTO{
 			AgentID: util.UUIDToString(target.agent), IssueID: util.UUIDToString(target.scope.IssueID),
-			ChatSessionID: util.UUIDToString(target.scope.ChatSessionID),
+			ChatSessionID:     util.UUIDToString(target.scope.ChatSessionID),
 			UnseenAnswerCount: count, WakeAvailable: unseen && !active && agent.RuntimeID.Valid,
 		})
 	}
