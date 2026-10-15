@@ -510,6 +510,13 @@ func TestPlatformSkillCoversPlatformContracts(t *testing.T) {
 				"--resolve-properties",
 				"display_values",
 				"`value` keeps the stored ids",
+				// WORK-438: the brief's While you run section names the
+				// command; the skill carries when to use each mark and what
+				// a run's end does with an item without ✅.
+				"multica issue react <item> 👀",
+				"multica issue react <item> ✅",
+				"Leave an item that is not relevant to your work unmarked",
+				"an item for you without ✅ gets its normal handling again",
 			},
 			notWant: []string{
 				"--no-start",

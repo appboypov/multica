@@ -7,6 +7,7 @@ Product contracts the runtime brief does not fully encode.
 - [Custom properties: typed workflow state](#custom-properties-typed-workflow-state)
 - [Status changes have server side effects](#status-changes-have-server-side-effects)
 - [Who else is running right now](#who-else-is-running-right-now)
+- [Items that reach you while you run](#items-that-reach-you-while-you-run)
 - [Sub-issues: todo starts work now, backlog parks it](#sub-issues-todo-starts-work-now-backlog-parks-it)
 - [Charts and files in a comment](#charts-and-files-in-a-comment)
 - [Incorrect to correct](#incorrect-to-correct)
@@ -289,6 +290,37 @@ Both are advisory reads. Nothing here reserves an issue or serialises anything:
 a run you see may finish a second later, and one you don't see may start a
 second later. Coordinate through the issue's comments — the reads tell you whom
 to coordinate with.
+
+## Items that reach you while you run
+
+When your brief has a "While you run" section, new comments, comment edits,
+answers, ask-backs and issue changes on your issue reach your running run as a
+`[Multica notice]` at your next step, after the work in progress finishes. Each
+notice names its item id. Without that section your runtime takes no input
+while it runs, and nothing here applies.
+
+Mark an item that is relevant to your work with the id the notice names:
+
+```bash
+multica issue react <item> 👀   # you saw it and handle it
+multica issue react <item> ✅   # you handled it
+```
+
+- Leave an item that is not relevant to your work unmarked, such as a reply in
+  another agent's thread or a change that does not touch what you do.
+- People see 👀 and ✅ with your name on the comment, the answer or the
+  issue's activity row.
+- When the run ends, an item for you without ✅ gets its normal handling again:
+  a comment or comment edit starts your follow-up run, and an answer stays
+  unseen for Wake. An item with ✅ starts nothing.
+- An edited comment arrives as an item of its own: a ✅ on the first text does
+  not cover the edit.
+- Marking the same item twice with the same emoji changes nothing.
+
+The command works only inside an agent's run and only for an item that run
+received. It fails with "react works only inside an agent's run", "this run did
+not receive that item" or "react takes 👀 or ✅"; read the message, it says
+which.
 
 ## Sub-issues: todo starts work now, backlog parks it
 
