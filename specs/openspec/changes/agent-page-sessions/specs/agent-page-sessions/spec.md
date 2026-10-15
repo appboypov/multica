@@ -12,9 +12,9 @@ An agent's page SHALL show the agent's active sessions, each with where it runs,
 
 #### Scenario: No sessions
 
-- **GIVEN** no Roos session runs
-- **WHEN** Brian opens Roos's page
-- **THEN** it shows that Roos has no active sessions
+- **GIVEN** no Guus session runs
+- **WHEN** Brian opens Guus's page
+- **THEN** it shows that Guus has no active sessions
 
 #### Scenario: A session ends
 
