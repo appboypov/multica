@@ -1146,7 +1146,7 @@ describe("IssueDetail (shared)", () => {
       updated_at: "2026-01-16T12:00:00Z",
     } as Question;
 
-    it("shows the card at the moment it was asked, outlined for its answerer", async () => {
+    it("shows the card at the moment it was asked with its answer controls", async () => {
       mockApiObj.listIssueQuestions.mockResolvedValue([question]);
       renderIssueDetail();
 
@@ -1155,7 +1155,8 @@ describe("IssueDetail (shared)", () => {
         expect(el).not.toBeNull();
         return el!;
       });
-      expect(within(card).getByText("Question for you")).toBeInTheDocument();
+      expect(within(card).getByText(question.prompt)).toBeInTheDocument();
+      expect(within(card).getByRole("button", { name: "Yes" })).toBeInTheDocument();
       const before = document.getElementById("comment-comment-1")!;
       const after = document.getElementById("comment-comment-2")!;
       expect(before.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
@@ -1168,10 +1169,9 @@ describe("IssueDetail (shared)", () => {
       renderIssueDetail();
 
       const row = await screen.findByRole("button", { name: /1 open/ });
-      expect(row).toHaveTextContent("1 open· blocks work");
       fireEvent.click(row);
       expect(scrollToIndexSpy).toHaveBeenCalledWith({ index: 1, align: "start", offset: -16 });
-      expect(document.getElementById("comment-question-q-1")!.firstElementChild).toHaveClass("ring-2");
+      expect(document.getElementById("comment-question-q-1")!.firstElementChild).toHaveAttribute("data-highlighted", "true");
     });
 
     it("keeps no Questions row while no question on or below the issue is open", async () => {

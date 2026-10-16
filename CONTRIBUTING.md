@@ -407,6 +407,16 @@ This runs:
 3. Go tests
 4. Playwright E2E tests
 
+To run the non-mobile TypeScript unit suite without cached results, with one
+package and at most two test workers at a time:
+
+```bash
+pnpm turbo test --filter=!@multica/mobile --force --concurrency=1 -- --maxWorkers=2
+```
+
+Views tests allow 15 seconds per test so UI interactions finish before teardown
+on shared runners.
+
 Notes:
 
 - Go tests create their own fixture data
@@ -414,6 +424,7 @@ Notes:
   Their timestamps are bound parameters, independent of PostgreSQL's session date.
 - E2E tests create their own workspace and issue fixtures
 - the check flow starts backend/frontend only if they are not already running
+- Readonly code-copy regressions cover clipboard completion before and after unmount.
 
 ## Local Codex Daemon
 

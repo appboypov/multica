@@ -128,11 +128,16 @@ export function CodeBlockShell({
   const [copied, setCopied] = useState(false);
   const copyLabel = t(($) => $.code_block.copy_code) || "Copy code";
 
+  useEffect(() => {
+    if (!copied) return;
+    const timer = setTimeout(() => setCopied(false), 2000);
+    return () => clearTimeout(timer);
+  }, [copied]);
+
   const handleCopy = async () => {
     if (!code) return;
     if (await copyText(code)) {
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
     }
   };
 

@@ -2867,8 +2867,9 @@ describe("QuestionSchema", () => {
     const question = parse({
       links: [
         { link_type: "issue", link_id: "issue-412", position: 0 },
-        { link_type: "milestone", link_id: "milestone-1", position: 1 },
-        { link_type: "task", link_id: 7, position: 2 },
+        { link_type: "project", link_id: "project-1", position: 1 },
+        { link_type: "future_link_type", link_id: "future-1", position: 2 },
+        { link_type: "task", link_id: 7, position: 3 },
       ],
       events: [
         { id: "event-1", kind: "pinned", actor_type: "member", actor_id: "user-brian", details: {}, created_at: "2026-10-12T20:00:00Z" },
@@ -2879,7 +2880,10 @@ describe("QuestionSchema", () => {
         { id: "event-6", kind: "closed", actor_type: "agent", actor_id: null, created_at: "2026-10-12T22:00:00Z" },
       ],
     });
-    expect(question.links).toEqual([{ link_type: "issue", link_id: "issue-412", position: 0 }]);
+    expect(question.links).toEqual([
+      { link_type: "issue", link_id: "issue-412", position: 0 },
+      { link_type: "project", link_id: "project-1", position: 1 },
+    ]);
     expect(question.events.map((event) => [event.kind, event.details])).toEqual([
       ["ask_back", { text: "Which customer?" }],
       ["reassigned", { user_id: "user-anouk", note: "You set the invoice rules" }],

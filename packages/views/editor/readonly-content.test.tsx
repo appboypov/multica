@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactElement } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
@@ -439,6 +439,37 @@ describe("ReadonlyContent code styling", () => {
     await waitFor(() => {
       expect(writeText).toHaveBeenCalledWith(source);
     });
+  });
+
+  it.each([false, true])("releases copy feedback on unmount (clipboard pending: %s)", async (pending) => {
+    vi.useFakeTimers();
+    const clipboard = Object.getOwnPropertyDescriptor(navigator, "clipboard");
+    try {
+      let finishCopy!: () => void;
+      const writeText = vi.fn(() => new Promise<void>((resolve) => { finishCopy = resolve; }));
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: { writeText },
+      });
+      const { getByRole, unmount } = render(
+        <ReadonlyContent content={"```bash\npnpm test\n```"} />,
+      );
+
+      await act(async () => {
+        fireEvent.click(getByRole("button", { name: "Copy code" }));
+      });
+      expect(writeText).toHaveBeenCalledWith("pnpm test");
+      if (pending) unmount();
+      await act(async () => { finishCopy(); });
+      if (!pending) unmount();
+
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.clearAllTimers();
+      vi.useRealTimers();
+      if (clipboard) Object.defineProperty(navigator, "clipboard", clipboard);
+      else Reflect.deleteProperty(navigator, "clipboard");
+    }
   });
 });
 
