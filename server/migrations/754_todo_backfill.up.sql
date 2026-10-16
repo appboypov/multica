@@ -36,7 +36,7 @@ INSERT INTO todo (workspace_id, member_id, kind, source_key, issue_id, title, cr
 SELECT i.workspace_id, i.assignee_id, 'assigned', i.id::text, i.id, i.title, i.updated_at
 FROM issue i
 JOIN member m ON m.workspace_id = i.workspace_id AND m.user_id = i.assignee_id
-WHERE i.assignee_type = 'member' AND i.status IN ('todo', 'back_from_qa', 'blocked', 'in_review')
+WHERE i.assignee_type = 'member' AND i.status IN ('todo', 'blocked', 'in_review')
 ON CONFLICT (workspace_id, member_id, kind, source_key) WHERE done_at IS NULL DO NOTHING;
 
 INSERT INTO todo (workspace_id, member_id, kind, source_key, issue_id, title, created_at)

@@ -316,7 +316,7 @@ func assignedTodos(ctx context.Context, svc todo.Service, e events.Event) error 
 		return nil
 	}
 	switch issue.Status {
-	case "todo", "back_from_qa", "blocked", "in_review":
+	case "todo", "blocked", "in_review":
 	default:
 		return nil
 	}
