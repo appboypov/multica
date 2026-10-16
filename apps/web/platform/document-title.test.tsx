@@ -138,4 +138,20 @@ describe("WorkspaceDocumentTitle", () => {
 
     await waitFor(() => expect(document.title).toBe("Inbox | Multica"));
   });
+
+  it("keeps a whitespace-normalized title stable after late route metadata", async () => {
+    open("/acme/issues/MUL-123");
+    presentation.title = "MUL-123: Fix  spaced\tissue\nname";
+    render(<WorkspaceDocumentTitle />);
+
+    const metadataTitle = document.createElement("title");
+    metadataTitle.textContent = SITE_TITLE;
+    document.head.prepend(metadataTitle);
+
+    // A browser task must still run after the observer restores the tab name.
+    const { promise, resolve } = Promise.withResolvers<void>();
+    setTimeout(resolve, 0);
+    await promise;
+    expect(document.title).toBe("MUL-123: Fix spaced issue name | Multica");
+  });
 });

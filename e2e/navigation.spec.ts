@@ -6,7 +6,6 @@ const ROUTE_CHANGE_TIMEOUT = 30000;
 test.describe("Navigation", () => {
   test.beforeEach(async ({ page }) => {
     await loginAsDefault(page);
-    await page.waitForLoadState("networkidle");
   });
 
   test("sidebar navigation works", async ({ page }) => {
@@ -32,8 +31,18 @@ test.describe("Navigation", () => {
     await expect(page).toHaveURL(/\/settings/, { timeout: ROUTE_CHANGE_TIMEOUT });
     await waitForPageText(page, "Settings");
 
-    await expect(page.getByRole("tab", { name: "General" })).toBeVisible();
-    await expect(page.getByRole("tab", { name: "Members" })).toBeVisible();
+    // Settings is a page with its own navigation: each section is a link that
+    // opens its form beside it.
+    const settingsNav = page.getByRole("navigation", { name: "Settings" });
+
+    await settingsNav.getByRole("link", { name: "General" }).click();
+    await expect(page).toHaveURL(/tab=workspace/);
+    await expect(page.getByRole("heading", { name: "General", level: 2 })).toBeVisible();
+    await expect(page.getByRole("textbox", { name: "Name" })).toHaveValue(/E2E Workspace/);
+
+    await settingsNav.getByRole("link", { name: "Members" }).click();
+    await expect(page).toHaveURL(/tab=members/);
+    await expect(page.getByRole("heading", { name: "Members", level: 2 })).toBeVisible();
   });
 
   test("agents page shows agent list", async ({ page }) => {

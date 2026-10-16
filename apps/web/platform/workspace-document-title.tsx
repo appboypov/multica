@@ -46,8 +46,10 @@ export function WorkspaceDocumentTitle() {
   // (`/inbox` → `/inbox?view=archived`).
   useEffect(() => {
     document.title = documentTitle;
+    // The browser collapses ASCII whitespace when reading document.title.
+    const normalizedTitle = document.title;
     const observer = new MutationObserver(() => {
-      if (document.title !== documentTitle) document.title = documentTitle;
+      if (document.title !== normalizedTitle) document.title = normalizedTitle;
     });
     observer.observe(document.head, { childList: true, subtree: true, characterData: true });
     return () => observer.disconnect();
