@@ -214,6 +214,20 @@ Cursors preserve `(created_at, id)` order, including timestamp precision.
 Invalid limits or cursors return HTTP 400; limits above 200 are capped.
 Clients that do not follow the cursor receive only the newest 200 runs.
 
+### Active agent sessions
+
+```bash
+multica agent sessions mitchel
+multica agent sessions mitchel --output json
+multica agent register-session mitchel --pid 4242 --cwd "$PWD" --pane w12:p0
+```
+
+`agent sessions` lists sessions started by hand and active task runs, including their folder, repository, branch, issue and status. The table shows a Herdr pane or `run on <runtime>`; an empty list prints `No active sessions.`. JSON keeps the server's `sessions` array, including `[]` when empty.
+
+Run by hand without `--profile`, both commands use the CLI profile whose daemon runs on this machine for that profile's server and workspace: the default profile's, else the one named profile's. Daemons of several named profiles make them ask for `--profile`; an explicit `--profile` always wins.
+
+`agent register-session` is for sessions started by hand, not daemon-managed tasks. `--pane` is optional. It prints the registered session ID, or `{"id": "..."}` with `--output json`. A stopped daemon or rejected registration exits non-zero with the daemon error.
+
 
 ## Daemon and runtimes
 

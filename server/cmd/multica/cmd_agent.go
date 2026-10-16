@@ -138,6 +138,8 @@ func init() {
 	agentCmd.AddCommand(agentArchiveCmd)
 	agentCmd.AddCommand(agentRestoreCmd)
 	agentCmd.AddCommand(agentTasksCmd)
+	agentCmd.AddCommand(agentSessionsCmd)
+	agentCmd.AddCommand(agentRegisterSessionCmd)
 	agentCmd.AddCommand(agentAvatarCmd)
 	agentCmd.AddCommand(agentSkillsCmd)
 	agentCmd.AddCommand(agentEnvCmd)
