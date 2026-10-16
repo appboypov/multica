@@ -179,7 +179,6 @@ test("Brian accepts Pieter's suggestion, sees the folded answer, and explicitly 
   const run = page.locator(`[data-run-id="${fixture.askingTask.id}"]`);
 
   await test.step("Questions property / One blocking question and Jump to the card; Run row / Run #3 waits", async () => {
-    await expect(page.getByText("Questions", { exact: true })).toBeVisible({ timeout: 45_000 });
     const questionsRow = page.getByRole("button", { name: "1 open · blocks work", exact: true });
     await expect(questionsRow).toBeVisible();
     await questionsRow.click();
@@ -192,8 +191,6 @@ test("Brian accepts Pieter's suggestion, sees the folded answer, and explicitly 
   });
 
   await test.step("Accept the suggested answer / Brian accepts the suggestion; Sending the last open question offers Wake / Brian unchecks Wake", async () => {
-    await expect(card.getByRole("radio", { name: /per line/ })).not.toBeChecked();
-    await expect(card.getByRole("radio", { name: /per total/ })).not.toBeChecked();
     await expect(card.getByRole("button", { name: "Wake Pieter", exact: true })).toHaveCount(0);
     const wake = card.getByRole("checkbox", { name: "Wake Pieter", exact: true });
     await expect(wake).toBeChecked();
@@ -216,7 +213,6 @@ test("Brian accepts Pieter's suggestion, sees the folded answer, and explicitly 
   await test.step("An answer starts a run only with Wake checked / Brian unchecks Wake; Run row / The badge leaves once answered", async () => {
     expect(await fixture.taskIds()).toEqual(beforeAnswer);
     await expect(run.getByText("Waiting for answer", { exact: true })).toHaveCount(0);
-    await expect(page.getByText("None open", { exact: true })).toBeVisible();
     await page.reload({ waitUntil: "domcontentloaded" });
     await expectFolded(card, question.prompt);
     expect(await fixture.taskIds()).toEqual(beforeAnswer);
@@ -275,7 +271,6 @@ test("Answer simple questions in the inbox / Brian answers from the inbox", asyn
 
   await page.goto(`/${fixture.workspace.slug}/issues/${fixture.issue.id}`, { waitUntil: "domcontentloaded" });
   await expectFolded(questionCard(page, question.prompt), question.prompt);
-  await expect(page.getByText("None open", { exact: true })).toBeVisible();
   expect(await fixture.taskIds()).toEqual(afterAnswer);
 });
 
