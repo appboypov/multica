@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/multica-ai/multica/server/internal/analytics"
@@ -35,11 +36,12 @@ var testRuntimeID string
 // writing an INSERT and a matching DELETE by hand; see internal/testutil.
 var dbfx *testutil.Fixture
 
-const (
-	handlerTestEmail         = "handler-test@multica.ai"
-	handlerTestName          = "Handler Test User"
-	handlerTestWorkspaceSlug = "handler-tests"
-)
+const handlerTestName = "Handler Test User"
+
+// Each test binary owns its identities; another invocation may use this DB.
+var handlerTestRunID = uuid.NewString()
+var handlerTestEmail = "handler-test-" + handlerTestRunID + "@multica.ai"
+var handlerTestWorkspaceSlug = "handler-tests-" + handlerTestRunID
 
 func TestMain(m *testing.M) {
 	ctx := context.Background()
@@ -82,7 +84,7 @@ func TestMain(m *testing.M) {
 	})
 	testPool = pool
 
-	testUserID, testWorkspaceID, err = setupHandlerTestFixture(ctx, pool)
+	testUserID, testWorkspaceID, testRuntimeID, err = setupHandlerTestFixture(ctx, pool, handlerTestEmail, handlerTestWorkspaceSlug)
 	if err != nil {
 		fmt.Printf("Failed to set up handler test fixture: %v\n", err)
 		pool.Close()
@@ -91,7 +93,7 @@ func TestMain(m *testing.M) {
 	dbfx = testutil.New(pool, testWorkspaceID, testUserID)
 
 	code := m.Run()
-	if err := cleanupHandlerTestFixture(context.Background(), pool); err != nil {
+	if err := cleanupHandlerTestFixture(context.Background(), pool, testUserID, testWorkspaceID); err != nil {
 		fmt.Printf("Failed to clean up handler test fixture: %v\n", err)
 		if code == 0 {
 			code = 1
@@ -101,50 +103,51 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-func setupHandlerTestFixture(ctx context.Context, pool *pgxpool.Pool) (string, string, error) {
-	if err := cleanupHandlerTestFixture(ctx, pool); err != nil {
-		return "", "", err
+func setupHandlerTestFixture(ctx context.Context, pool *pgxpool.Pool, email, slug string) (string, string, string, error) {
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		return "", "", "", err
 	}
+	defer tx.Rollback(ctx)
 
 	var userID string
-	if err := pool.QueryRow(ctx, `
+	if err := tx.QueryRow(ctx, `
 		INSERT INTO "user" (name, email)
 		VALUES ($1, $2)
 		RETURNING id
-	`, handlerTestName, handlerTestEmail).Scan(&userID); err != nil {
-		return "", "", err
+	`, handlerTestName, email).Scan(&userID); err != nil {
+		return "", "", "", err
 	}
 
 	var workspaceID string
-	if err := pool.QueryRow(ctx, `
+	if err := tx.QueryRow(ctx, `
 		INSERT INTO workspace (name, slug, description, issue_prefix)
 		VALUES ($1, $2, $3, $4)
 		RETURNING id
-	`, "Handler Tests", handlerTestWorkspaceSlug, "Temporary workspace for handler tests", "HAN").Scan(&workspaceID); err != nil {
-		return "", "", err
+	`, "Handler Tests", slug, "Temporary workspace for handler tests", "HAN").Scan(&workspaceID); err != nil {
+		return "", "", "", err
 	}
 
-	if _, err := pool.Exec(ctx, `
+	if _, err := tx.Exec(ctx, `
 		INSERT INTO member (workspace_id, user_id, role)
 		VALUES ($1, $2, 'owner')
 	`, workspaceID, userID); err != nil {
-		return "", "", err
+		return "", "", "", err
 	}
 
 	var runtimeID string
-	if err := pool.QueryRow(ctx, `
+	if err := tx.QueryRow(ctx, `
 		INSERT INTO agent_runtime (
 			workspace_id, daemon_id, name, runtime_mode, provider, status, device_info, metadata, owner_id, last_seen_at
 		)
 		VALUES ($1, NULL, $2, 'cloud', $3, 'online', $4, '{}'::jsonb, $5, now())
 		RETURNING id
 	`, workspaceID, "Handler Test Runtime", "handler_test_runtime", "Handler test runtime", userID).Scan(&runtimeID); err != nil {
-		return "", "", err
+		return "", "", "", err
 	}
-	testRuntimeID = runtimeID
 
 	var seededAgentID string
-	if err := pool.QueryRow(ctx, `
+	if err := tx.QueryRow(ctx, `
 		INSERT INTO agent (
 			workspace_id, name, description, runtime_mode, runtime_config,
 			runtime_id, visibility, permission_mode, max_concurrent_tasks, owner_id
@@ -152,38 +155,100 @@ func setupHandlerTestFixture(ctx context.Context, pool *pgxpool.Pool) (string, s
 		VALUES ($1, $2, '', 'cloud', '{}'::jsonb, $3, 'workspace', 'public_to', 1, $4)
 		RETURNING id
 	`, workspaceID, "Handler Test Agent", runtimeID, userID).Scan(&seededAgentID); err != nil {
-		return "", "", err
+		return "", "", "", err
 	}
 	// MUL-3963: the seeded workspace-visible agent is invocable by workspace
 	// members and A2A triggers, so seed its workspace invocation target.
-	if _, err := pool.Exec(ctx, `
+	if _, err := tx.Exec(ctx, `
 		INSERT INTO agent_invocation_target (agent_id, target_type, target_id)
 		VALUES ($1, 'workspace', $2)
 		ON CONFLICT (agent_id, target_type, target_id) DO NOTHING
 	`, seededAgentID, workspaceID); err != nil {
-		return "", "", err
+		return "", "", "", err
 	}
 
-	return userID, workspaceID, nil
+	if err := tx.Commit(ctx); err != nil {
+		return "", "", "", err
+	}
+	return userID, workspaceID, runtimeID, nil
 }
 
-func cleanupHandlerTestFixture(ctx context.Context, pool *pgxpool.Pool) error {
+func cleanupHandlerTestFixture(ctx context.Context, pool *pgxpool.Pool, userID, workspaceID string) error {
 	var hasClientUsageTable bool
 	if err := pool.QueryRow(ctx, `SELECT to_regclass('client_usage_daily') IS NOT NULL`).Scan(&hasClientUsageTable); err != nil {
 		return err
 	}
 	if hasClientUsageTable {
-		if _, err := pool.Exec(ctx, `DELETE FROM client_usage_daily WHERE user_id IN (SELECT id FROM "user" WHERE email = $1)`, handlerTestEmail); err != nil {
+		if _, err := pool.Exec(ctx, `DELETE FROM client_usage_daily WHERE user_id = $1`, userID); err != nil {
 			return err
 		}
 	}
-	if _, err := pool.Exec(ctx, `DELETE FROM workspace WHERE slug = $1`, handlerTestWorkspaceSlug); err != nil {
+	if _, err := pool.Exec(ctx, `DELETE FROM workspace WHERE id = $1`, workspaceID); err != nil {
 		return err
 	}
-	if _, err := pool.Exec(ctx, `DELETE FROM "user" WHERE email = $1`, handlerTestEmail); err != nil {
+	if _, err := pool.Exec(ctx, `DELETE FROM "user" WHERE id = $1`, userID); err != nil {
 		return err
 	}
 	return nil
+}
+
+func TestHandlerFixtureOwnership(t *testing.T) {
+	ctx := context.Background()
+	setup := func() (string, string, string) {
+		t.Helper()
+		runID := uuid.NewString()
+		userID, workspaceID, runtimeID, err := setupHandlerTestFixture(ctx, testPool,
+			"handler-test-"+runID+"@multica.ai", "handler-tests-"+runID)
+		if err != nil {
+			t.Fatalf("set up overlapping handler fixture: %v", err)
+		}
+		t.Cleanup(func() {
+			if err := cleanupHandlerTestFixture(ctx, testPool, userID, workspaceID); err != nil {
+				t.Errorf("clean up overlapping handler fixture: %v", err)
+			}
+		})
+		return userID, workspaceID, runtimeID
+	}
+	assertFixture := func(userID, workspaceID, runtimeID string) {
+		t.Helper()
+		var count int
+		dbfx.QueryRow(t, `
+			SELECT count(*) FROM workspace w
+			JOIN member m ON m.workspace_id = w.id
+			JOIN "user" u ON u.id = m.user_id
+			JOIN agent_runtime r ON r.workspace_id = w.id AND r.owner_id = u.id
+			JOIN agent a ON a.runtime_id = r.id AND a.owner_id = u.id
+			WHERE w.id = $1 AND u.id = $2 AND r.id = $3
+		`, workspaceID, userID, runtimeID).Scan(&count)
+		if count != 1 {
+			t.Fatalf("handler fixture %s lost its user, membership, runtime or agent: count=%d", workspaceID, count)
+		}
+	}
+
+	firstUser, firstWorkspace, firstRuntime := setup()
+	secondUser, secondWorkspace, secondRuntime := setup()
+	assertFixture(firstUser, firstWorkspace, firstRuntime)
+	assertFixture(secondUser, secondWorkspace, secondRuntime)
+	if err := cleanupHandlerTestFixture(ctx, testPool, firstUser, firstWorkspace); err != nil {
+		t.Fatalf("tear down first overlapping handler fixture: %v", err)
+	}
+	assertFixture(secondUser, secondWorkspace, secondRuntime)
+	var firstRows int
+	dbfx.QueryRow(t, `
+		SELECT (SELECT count(*) FROM workspace WHERE id = $1) +
+		       (SELECT count(*) FROM "user" WHERE id = $2)
+	`, firstWorkspace, firstUser).Scan(&firstRows)
+	if firstRows != 0 {
+		t.Fatalf("owned handler fixture rows survived teardown: %d", firstRows)
+	}
+	var suiteRows int
+	dbfx.QueryRow(t, `
+		SELECT count(*) FROM agent_runtime
+		WHERE id = $1 AND workspace_id = $2 AND owner_id = $3
+	`, testRuntimeID, testWorkspaceID, testUserID).Scan(&suiteRows)
+	if suiteRows != 1 {
+		t.Fatalf("overlapping fixture setup or teardown changed the suite runtime: %d", suiteRows)
+	}
 }
 
 func newRequest(method, path string, body any) *http.Request {

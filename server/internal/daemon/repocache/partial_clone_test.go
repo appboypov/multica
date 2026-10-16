@@ -139,6 +139,10 @@ func TestReusedIsolatedCheckoutRepairsPromisorConfig(t *testing.T) {
 	sourceRepo := createFilterableTestRepo(t)
 	cache := New(t.TempDir(), testLogger())
 	seedBloblessCache(t, cache, "ws-1", sourceRepo)
+	fullCache := New(t.TempDir(), testLogger())
+	if err := fullCache.Sync("ws-1", []RepoInfo{{URL: sourceRepo}}); err != nil {
+		t.Fatalf("seed full cache: %v", err)
+	}
 
 	params := WorktreeParams{
 		WorkspaceID:         "ws-1",
@@ -148,12 +152,12 @@ func TestReusedIsolatedCheckoutRepairsPromisorConfig(t *testing.T) {
 		TaskID:              "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
 		IsolatedGitMetadata: true,
 	}
-	first, err := cache.CreateWorktree(params)
+	first, err := fullCache.CreateWorktree(params)
 	if err != nil {
 		t.Fatalf("first CreateWorktree failed: %v", err)
 	}
-	if err := runGit("-C", first.Path, "config", "--unset", "remote.origin.promisor"); err != nil {
-		t.Fatalf("unset promisor: %v", err)
+	if isPartialClone(first.Path) {
+		t.Fatal("checkout from the full cache must not have promisor config")
 	}
 
 	second, err := cache.CreateWorktree(params)

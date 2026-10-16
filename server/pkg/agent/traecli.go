@@ -113,6 +113,7 @@ func (b *traecliBackend) Execute(ctx context.Context, prompt string, opts ExecOp
 	)
 	cmd := b.cfg.commandAt(execPath).exec(runCtx, traecliArgs...)
 	hideAgentWindow(cmd)
+	cmd.WaitDelay = 10 * time.Second
 	b.cfg.logAgentCommand(cmd, newAgentCommandLogArgs(traecliArgs,
 		trustAgentCommandPositional(0, "acp"),
 		trustAgentCommandPositional(1, "serve"),
@@ -218,13 +219,21 @@ func (b *traecliBackend) Execute(ctx context.Context, prompt string, opts ExecOp
 		c.closeAllPending(fmt.Errorf("traecli process exited"))
 	}()
 
+	var waitOnce sync.Once
+	reapProcess := func() {
+		waitOnce.Do(func() { _ = cmd.Wait() })
+	}
+
 	go func() {
 		defer cancel()
 		defer msgStream.close()
 		defer close(resCh)
 		defer func() {
 			stdin.Close()
-			_ = cmd.Wait()
+			cancel()
+			reapProcess()
+			<-readerDone
+			<-stderrDone
 			releaseProcessGroup(cmd)
 		}()
 
@@ -397,24 +406,24 @@ func (b *traecliBackend) Execute(ctx context.Context, prompt string, opts ExecOp
 		b.cfg.Logger.Info("traecli finished", "pid", cmd.Process.Pid, "status", finalStatus, "duration", duration.Round(time.Millisecond).String())
 
 		stdin.Close()
-		cancel()
 
-		// traecli ACP may keep the process — and the stdout/stderr pipes — open
-		// briefly after session/prompt returns. The prompt response is already
-		// terminal, so bound the drain: wait for the stdout reader and the
-		// stderr copier, but no longer than the grace window (CommandContext
-		// cancellation tears the process down). Draining stderr is what makes
-		// the provider-error promotion below see a terminal marker.
-		drainCtx, drainCancel := context.WithTimeout(context.Background(), traecliReaderDrainGrace)
-		select {
-		case <-readerDone:
-		case <-drainCtx.Done():
+		// The quiet window is a heuristic, not EOF. Keep the process alive
+		// while it flushes stdout/stderr after stdin closes, just as Hermes
+		// does; cancelling here can kill a final notification still in flight.
+		if !waitForHermesPipeDrain(readerDone, stderrDone, traecliReaderDrainGrace) {
+			b.cfg.Logger.Warn("traecli did not close output pipes after stdin EOF; forcing shutdown",
+				"pid", cmd.Process.Pid,
+				"grace", traecliReaderDrainGrace.String(),
+			)
+			cancel()
+			// WaitDelay bounds the reap and closes the pipes even when an
+			// escaped descendant holds them open. Join both readers before
+			// inspecting their output or closing the message stream.
+			reapProcess()
+			<-readerDone
+			<-stderrDone
 		}
-		select {
-		case <-stderrDone:
-		case <-drainCtx.Done():
-		}
-		drainCancel()
+		providerErr.Finalize()
 		// Flip the gate before the defer closes msgStream; a late reader that
 		// already passed the gate is serialized by traecliMessageStream so the
 		// late send is dropped instead of panicking.

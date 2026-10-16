@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -36,11 +37,12 @@ var (
 // jwtSecret is resolved at runtime via auth.JWTSecret() so it respects
 // the JWT_SECRET env var (set in .env) and stays in sync with the server.
 
-const (
-	integrationTestEmail         = "integration-test@multica.ai"
-	integrationTestName          = "Integration Tester"
-	integrationTestWorkspaceSlug = "integration-tests"
-)
+const integrationTestName = "Integration Tester"
+
+// Each test binary owns its identities; another invocation may use this DB.
+var integrationTestRunID = uuid.NewString()
+var integrationTestEmail = "integration-test-" + integrationTestRunID + "@multica.ai"
+var integrationTestWorkspaceSlug = "integration-tests-" + integrationTestRunID
 
 func TestMain(m *testing.M) {
 	ctx := context.Background()
@@ -61,7 +63,7 @@ func TestMain(m *testing.M) {
 	}
 
 	testPool = pool
-	testUserID, testWorkspaceID, err = setupIntegrationTestFixture(ctx, pool)
+	testUserID, testWorkspaceID, err = setupIntegrationTestFixture(ctx, pool, integrationTestEmail, integrationTestWorkspaceSlug)
 	if err != nil {
 		fmt.Printf("Failed to set up integration test fixture: %v\n", err)
 		pool.Close()
@@ -90,7 +92,7 @@ func TestMain(m *testing.M) {
 
 	code := m.Run()
 
-	if err := cleanupIntegrationTestFixture(context.Background(), pool); err != nil {
+	if err := cleanupIntegrationTestFixture(context.Background(), pool, testUserID, testWorkspaceID); err != nil {
 		fmt.Printf("Failed to clean up integration test fixture: %v\n", err)
 		if code == 0 {
 			code = 1
@@ -101,30 +103,32 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-func setupIntegrationTestFixture(ctx context.Context, pool *pgxpool.Pool) (string, string, error) {
-	if err := cleanupIntegrationTestFixture(ctx, pool); err != nil {
+func setupIntegrationTestFixture(ctx context.Context, pool *pgxpool.Pool, email, slug string) (string, string, error) {
+	tx, err := pool.Begin(ctx)
+	if err != nil {
 		return "", "", err
 	}
+	defer tx.Rollback(ctx)
 
 	var userID string
-	if err := pool.QueryRow(ctx, `
+	if err := tx.QueryRow(ctx, `
 		INSERT INTO "user" (name, email)
 		VALUES ($1, $2)
 		RETURNING id
-	`, integrationTestName, integrationTestEmail).Scan(&userID); err != nil {
+	`, integrationTestName, email).Scan(&userID); err != nil {
 		return "", "", err
 	}
 
 	var workspaceID string
-	if err := pool.QueryRow(ctx, `
+	if err := tx.QueryRow(ctx, `
 		INSERT INTO workspace (name, slug, description)
 		VALUES ($1, $2, $3)
 		RETURNING id
-	`, "Integration Tests", integrationTestWorkspaceSlug, "Temporary workspace for router integration tests").Scan(&workspaceID); err != nil {
+	`, "Integration Tests", slug, "Temporary workspace for router integration tests").Scan(&workspaceID); err != nil {
 		return "", "", err
 	}
 
-	if _, err := pool.Exec(ctx, `
+	if _, err := tx.Exec(ctx, `
 		INSERT INTO member (workspace_id, user_id, role)
 		VALUES ($1, $2, 'owner')
 	`, workspaceID, userID); err != nil {
@@ -136,7 +140,7 @@ func setupIntegrationTestFixture(ctx context.Context, pool *pgxpool.Pool) (strin
 	// owner, so an ownerless one could not host the agents these tests create
 	// through the API.
 	var runtimeID string
-	if err := pool.QueryRow(ctx, `
+	if err := tx.QueryRow(ctx, `
 		INSERT INTO agent_runtime (
 			workspace_id, daemon_id, name, runtime_mode, provider, status, device_info, metadata, owner_id, last_seen_at
 		)
@@ -146,7 +150,7 @@ func setupIntegrationTestFixture(ctx context.Context, pool *pgxpool.Pool) (strin
 		return "", "", err
 	}
 
-	if _, err := pool.Exec(ctx, `
+	if _, err := tx.Exec(ctx, `
 		INSERT INTO agent (
 			workspace_id, name, description, runtime_mode, runtime_config,
 			runtime_id, visibility, max_concurrent_tasks, owner_id
@@ -156,17 +160,84 @@ func setupIntegrationTestFixture(ctx context.Context, pool *pgxpool.Pool) (strin
 		return "", "", err
 	}
 
+	if err := tx.Commit(ctx); err != nil {
+		return "", "", err
+	}
 	return userID, workspaceID, nil
 }
 
-func cleanupIntegrationTestFixture(ctx context.Context, pool *pgxpool.Pool) error {
-	if _, err := pool.Exec(ctx, `DELETE FROM workspace WHERE slug = $1`, integrationTestWorkspaceSlug); err != nil {
+func cleanupIntegrationTestFixture(ctx context.Context, pool *pgxpool.Pool, userID, workspaceID string) error {
+	if _, err := pool.Exec(ctx, `DELETE FROM workspace WHERE id = $1`, workspaceID); err != nil {
 		return err
 	}
-	if _, err := pool.Exec(ctx, `DELETE FROM "user" WHERE email = $1`, integrationTestEmail); err != nil {
+	if _, err := pool.Exec(ctx, `DELETE FROM "user" WHERE id = $1`, userID); err != nil {
 		return err
 	}
 	return nil
+}
+
+func TestIntegrationFixtureOwnership(t *testing.T) {
+	ctx := context.Background()
+	setup := func() (string, string) {
+		t.Helper()
+		runID := uuid.NewString()
+		userID, workspaceID, err := setupIntegrationTestFixture(ctx, testPool,
+			"integration-test-"+runID+"@multica.ai", "integration-tests-"+runID)
+		if err != nil {
+			t.Fatalf("set up overlapping integration fixture: %v", err)
+		}
+		t.Cleanup(func() {
+			if err := cleanupIntegrationTestFixture(ctx, testPool, userID, workspaceID); err != nil {
+				t.Errorf("clean up overlapping integration fixture: %v", err)
+			}
+		})
+		return userID, workspaceID
+	}
+	assertFixture := func(userID, workspaceID string) {
+		t.Helper()
+		var count int
+		if err := testPool.QueryRow(ctx, `
+			SELECT count(*) FROM workspace w
+			JOIN member m ON m.workspace_id = w.id
+			JOIN "user" u ON u.id = m.user_id
+			JOIN agent_runtime r ON r.workspace_id = w.id AND r.owner_id = u.id
+			JOIN agent a ON a.runtime_id = r.id AND a.owner_id = u.id
+			WHERE w.id = $1 AND u.id = $2
+		`, workspaceID, userID).Scan(&count); err != nil {
+			t.Fatalf("read surviving integration fixture: %v", err)
+		}
+		if count != 1 {
+			t.Fatalf("integration fixture %s lost its user, membership, runtime or agent: count=%d", workspaceID, count)
+		}
+	}
+
+	firstUser, firstWorkspace := setup()
+	secondUser, secondWorkspace := setup()
+	assertFixture(firstUser, firstWorkspace)
+	assertFixture(secondUser, secondWorkspace)
+	if err := cleanupIntegrationTestFixture(ctx, testPool, firstUser, firstWorkspace); err != nil {
+		t.Fatalf("tear down first overlapping integration fixture: %v", err)
+	}
+	assertFixture(secondUser, secondWorkspace)
+	var firstRows int
+	if err := testPool.QueryRow(ctx, `
+		SELECT (SELECT count(*) FROM workspace WHERE id = $1) +
+		       (SELECT count(*) FROM "user" WHERE id = $2)
+	`, firstWorkspace, firstUser).Scan(&firstRows); err != nil {
+		t.Fatalf("read deleted integration fixture: %v", err)
+	}
+	if firstRows != 0 {
+		t.Fatalf("owned integration fixture rows survived teardown: %d", firstRows)
+	}
+	var suiteRows int
+	if err := testPool.QueryRow(ctx, `
+		SELECT count(*) FROM member WHERE workspace_id = $1 AND user_id = $2
+	`, testWorkspaceID, testUserID).Scan(&suiteRows); err != nil {
+		t.Fatalf("read suite membership: %v", err)
+	}
+	if suiteRows != 1 {
+		t.Fatalf("overlapping fixture setup or teardown changed the suite membership: %d", suiteRows)
+	}
 }
 
 // Helper to make authenticated requests

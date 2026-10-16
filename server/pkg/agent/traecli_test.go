@@ -58,8 +58,19 @@ while IFS= read -r line; do
       printf '{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"ses_new","update":{"sessionUpdate":"agent_message_chunk","content":{"type":"text","text":"pong"}}}}\n'
       printf '{"jsonrpc":"2.0","id":%s,"result":{"stopReason":"end_turn","usage":{"inputTokens":17,"outputTokens":5,"cachedReadTokens":3,"cachedWriteTokens":2,"costUsdTicks":900}}}\n' "$id"
       if [ -n "$TRAECLI_LATE_CHUNK" ]; then
-        sleep 0.05
+        if [ "$TRAECLI_LATE_CHUNK" = "after-stdin-eof" ]; then
+          while IFS= read -r line; do :; done
+        else
+          sleep 0.05
+        fi
         printf '{"jsonrpc":"2.0","method":"session/update","params":{"sessionId":"ses_new","update":{"sessionUpdate":"agent_message_chunk","content":{"type":"text","text":" tail"}}}}\n'
+      fi
+      if [ -n "$TRAECLI_LINGER" ]; then
+        if [ "$TRAECLI_LINGER" = "closed-pipes" ]; then
+          exec 1>&-
+          exec 2>&-
+        fi
+        while :; do :; done
       fi
       exit 0
       ;;
@@ -292,33 +303,104 @@ func TestTraecliUsesSessionLoadForResume(t *testing.T) {
 // #5675 (hermes).
 func TestTraecliDrainsNotificationsAfterPromptResponse(t *testing.T) {
 	t.Parallel()
+	for _, boundary := range []string{"after-response", "after-stdin-eof"} {
+		t.Run(boundary, func(t *testing.T) {
+			t.Parallel()
+			fakePath := filepath.Join(t.TempDir(), "trae")
+			writeTestExecutable(t, fakePath, []byte(fakeTraecliACPScript()))
 
-	fakePath := filepath.Join(t.TempDir(), "trae")
-	writeTestExecutable(t, fakePath, []byte(fakeTraecliACPScript()))
+			backend, err := New("traecli", Config{
+				ExecutablePath: fakePath,
+				Logger:         slog.Default(),
+				Env:            map[string]string{"TRAECLI_LATE_CHUNK": boundary},
+			})
+			if err != nil {
+				t.Fatalf("new traecli backend: %v", err)
+			}
 
-	backend, err := New("traecli", Config{
-		ExecutablePath: fakePath,
-		Logger:         slog.Default(),
-		Env:            map[string]string{"TRAECLI_LATE_CHUNK": "1"},
-	})
-	if err != nil {
-		t.Fatalf("new traecli backend: %v", err)
+			session, err := backend.Execute(context.Background(), "task", ExecOptions{Timeout: 5 * time.Second})
+			if err != nil {
+				t.Fatalf("execute: %v", err)
+			}
+			var output strings.Builder
+			messagesDone := make(chan struct{})
+			go func() {
+				defer close(messagesDone)
+				for msg := range session.Messages {
+					if msg.Type == MessageText {
+						output.WriteString(msg.Content)
+					}
+				}
+			}()
+
+			result := <-session.Result
+			if result.Status != "completed" {
+				t.Fatalf("expected completed, got status=%q error=%q", result.Status, result.Error)
+			}
+			if !strings.Contains(result.Output, "pong tail") {
+				t.Fatalf("late output was truncated: %q", result.Output)
+			}
+			<-messagesDone
+			if !strings.Contains(output.String(), "pong tail") {
+				t.Fatalf("late streamed output was truncated: %q", output.String())
+			}
+		})
 	}
+}
 
-	session, err := backend.Execute(context.Background(), "task", ExecOptions{Timeout: 5 * time.Second})
-	if err != nil {
-		t.Fatalf("execute: %v", err)
-	}
-	go func() {
-		for range session.Messages {
-		}
-	}()
+func TestTraecliStopsLingeringProcessAfterPromptResponse(t *testing.T) {
+	// Not parallel: the drain deadline is shortened for these non-exiting fakes.
+	grace := traecliReaderDrainGrace
+	traecliReaderDrainGrace = 100 * time.Millisecond
+	t.Cleanup(func() { traecliReaderDrainGrace = grace })
 
-	result := <-session.Result
-	if result.Status != "completed" {
-		t.Fatalf("expected completed, got status=%q error=%q", result.Status, result.Error)
-	}
-	if !strings.Contains(result.Output, "pong tail") {
-		t.Fatalf("late output was truncated: %q", result.Output)
+	for _, pipes := range []string{"open-pipes", "closed-pipes"} {
+		t.Run(pipes, func(t *testing.T) {
+			fakePath := filepath.Join(t.TempDir(), "trae")
+			writeTestExecutable(t, fakePath, []byte(fakeTraecliACPScript()))
+			backend, err := New("traecli", Config{
+				ExecutablePath: fakePath,
+				Logger:         slog.Default(),
+				Env:            map[string]string{"TRAECLI_LINGER": pipes},
+			})
+			if err != nil {
+				t.Fatalf("new traecli backend: %v", err)
+			}
+			session, err := backend.Execute(context.Background(), "task", ExecOptions{Timeout: 5 * time.Second})
+			if err != nil {
+				t.Fatalf("execute: %v", err)
+			}
+			messagesDone := make(chan struct{})
+			promptOutput := make(chan struct{}, 1)
+			go func() {
+				defer close(messagesDone)
+				for msg := range session.Messages {
+					if msg.Type == MessageText && msg.Content == "pong" {
+						promptOutput <- struct{}{}
+					}
+				}
+			}()
+			select {
+			case <-promptOutput:
+			case <-time.After(5 * time.Second):
+				t.Fatal("timeout waiting for lingering Traecli prompt output")
+			}
+
+			deadline := time.NewTimer(time.Second)
+			defer deadline.Stop()
+			select {
+			case result := <-session.Result:
+				if result.Status != "completed" || result.Output != "pong" {
+					t.Fatalf("unexpected result: %+v", result)
+				}
+			case <-deadline.C:
+				t.Fatal("timeout waiting for result from lingering Traecli")
+			}
+			select {
+			case <-messagesDone:
+			case <-deadline.C:
+				t.Fatal("timeout waiting for Traecli cleanup to close messages")
+			}
+		})
 	}
 }

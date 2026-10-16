@@ -217,7 +217,7 @@ flowchart TB
   agentpkg["pkg/agent<br/>New, NewRuntime, Backend.Execute"]
   builtin["pkg/agent/builtin_runtimes.go<br/>omp on the pi protocol family"]
   omprpc["pkg/agent/pi.go omp dialect<br/>--mode rpc --no-ui, wait interrupt mode,<br/>steer frames, stdin closed on session_settled"]
-  backends["pkg/agent<br/>claude.go, codex.go, pi.go, cursor.go,<br/>opencode.go, copilot.go, hermes.go, ..."]
+  backends["pkg/agent<br/>claude.go, codex.go, pi.go, cursor.go,<br/>opencode.go, copilot.go, hermes.go, traecli.go, ..."]
   procs["processtree"]
   gc["gc.go<br/>gcLoop"]
   server["Go server<br/>/api/daemon/*"]
@@ -261,6 +261,11 @@ flowchart TB
   dirlist --> client
   client --> server
 ```
+
+Traecli completion (`server/pkg/agent/traecli.go`) closes stdin after the ACP
+notification quiet window, then drains stdout and stderr before inspecting the
+final result. A bounded drain and process reap stop a lingering process without
+discarding final notifications emitted after stdin EOF.
 
 ### Web and desktop
 

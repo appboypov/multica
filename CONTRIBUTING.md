@@ -419,7 +419,9 @@ on shared runners.
 
 Notes:
 
-- Go tests create their own fixture data
+- Go tests create their own fixture data; handler and router suites use unique
+  users/workspaces per invocation and clean up only those IDs, so overlapping
+  runs cannot delete each other's fixtures
 - Handler claim tests use per-test runtime and agent fixtures so heartbeat freshness
   does not depend on the duration of earlier tests.
 - Connection-loss tests wait for `pg_terminate_backend` to finish terminating the
@@ -428,12 +430,16 @@ Notes:
   directory, so synthetic threads never scan the user's Codex rollouts for usage.
 - Dashboard exact-window fixtures share a pinned UTC clock with their requests.
   Their timestamps are bound parameters, independent of PostgreSQL's session date.
+- sweeper fixtures own their runtime heartbeat and agent, so reconnect-grace
+  assertions do not depend on another test's liveness state
 - Go tests ignore the task identity of a daemon-managed agent task: the CLI
   packages clear the variables the daemon injects, and `cmd/multica` runs from
   a temporary working directory so the daemon's task marker above a checkout is
   never found (`server/internal/testutil/testenv`)
 - git-backed daemon fixtures use an empty global git config, so your own
   settings such as `commit.gpgsign` never reach fixture commits
+- fake Codex fixtures use a private `CODEX_HOME` with a `sessions/` directory,
+  so usage collection never scans your own rollout history
 - Cursor background-process tests on Linux require kernel 6.9 or newer for
   pidfd process-group signalling; older kernels reject retained group ownership
 - E2E tests create their own workspace and issue fixtures

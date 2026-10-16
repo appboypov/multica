@@ -3198,7 +3198,7 @@ func TestCodexExecuteFirstTurnNoProgressSurfacesDiagnostics(t *testing.T) {
 
 	result := executeFakeCodex(t, fakePath, ExecOptions{
 		Timeout:                    5 * time.Second,
-		SemanticInactivityTimeout:   5 * time.Second,
+		SemanticInactivityTimeout:  5 * time.Second,
 		FirstTurnNoProgressTimeout: 100 * time.Millisecond,
 	})
 	if result.Status != "timeout" {
@@ -3386,7 +3386,7 @@ func TestCodexExecuteFirstItemWaitLifecycle(t *testing.T) {
 			CodexVersion:  "codex-test",
 		}, ExecOptions{
 			Timeout:                    5 * time.Second,
-			SemanticInactivityTimeout:   5 * time.Second,
+			SemanticInactivityTimeout:  5 * time.Second,
 			FirstTurnNoProgressTimeout: 100 * time.Millisecond,
 		}, firstItemWaitTestBudget)
 		if result.Status != "timeout" {
@@ -3996,7 +3996,7 @@ func TestCodexInterruptCompletesNearConfiguredDeadline(t *testing.T) {
 
 func cancelFakeCodexAfterMarker(t *testing.T, fakePath, marker string, waitForActiveTurn bool, opts ExecOptions) (Result, time.Duration) {
 	t.Helper()
-	backend, err := New("codex", Config{ExecutablePath: fakePath, Logger: slog.Default()})
+	backend, err := New("codex", isolatedFakeCodexConfig(t, Config{ExecutablePath: fakePath, Logger: slog.Default()}))
 	if err != nil {
 		t.Fatalf("new codex backend: %v", err)
 	}
@@ -4612,6 +4612,27 @@ func TestCodexExecuteResumeIgnoresPreviousTurnCompletion(t *testing.T) {
 	}
 }
 
+// isolatedFakeCodexConfig keeps usage discovery in the fixture's own home.
+// The sessions directory must exist: codexSessionRoot otherwise falls back to
+// the user's real ~/.codex archive even when CODEX_HOME is explicitly set.
+func isolatedFakeCodexConfig(t *testing.T, cfg Config) Config {
+	t.Helper()
+	if strings.TrimSpace(cfg.Env["CODEX_HOME"]) != "" {
+		return cfg
+	}
+	env := make(map[string]string, len(cfg.Env)+1)
+	for key, value := range cfg.Env {
+		env[key] = value
+	}
+	home := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(home, "sessions"), 0o755); err != nil {
+		t.Fatalf("create fake Codex sessions directory: %v", err)
+	}
+	env["CODEX_HOME"] = home
+	cfg.Env = env
+	return cfg
+}
+
 func writeFakeCodexAppServer(t *testing.T, body string) string {
 	t.Helper()
 	fakePath := filepath.Join(t.TempDir(), "codex")
@@ -4639,7 +4660,7 @@ func executeFakeCodexCollectingMessages(t *testing.T, fakePath string, opts Exec
 func executeFakeCodexCollectingMessagesWithConfig(t *testing.T, fakePath string, cfg Config, opts ExecOptions, budget time.Duration) (Result, []Message) {
 	t.Helper()
 	cfg.ExecutablePath = fakePath
-	backend, err := New("codex", cfg)
+	backend, err := New("codex", isolatedFakeCodexConfig(t, cfg))
 	if err != nil {
 		t.Fatalf("new codex backend: %v", err)
 	}

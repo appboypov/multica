@@ -7,8 +7,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/multica-ai/multica/server/internal/events"
 	"github.com/multica-ai/multica/server/internal/service"
+	"github.com/multica-ai/multica/server/internal/testutil"
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
 )
 
@@ -39,81 +41,91 @@ func TestPeriodicSweepStopsWithItsContext(t *testing.T) {
 	}
 }
 
-// setupSweeperTestFixture creates an issue and a task in the given status with
-// timestamps old enough to trigger the sweeper. Returns (issueID, agentID, taskID).
+// setupSweeperTestFixture owns a fresh runtime, agent, issue and task for this
+// test. Heartbeat age is relative to this setup, not the package's TestMain.
+// Returns (issueID, agentID, taskID); fixture cleanup runs in dependency order.
 func setupSweeperTestFixture(t *testing.T, taskStatus string) (string, string, string) {
 	t.Helper()
-	ctx := context.Background()
-
-	// Find the integration test agent
-	var agentID, runtimeID string
-	err := testPool.QueryRow(ctx, `
-		SELECT a.id, a.runtime_id FROM agent a
-		JOIN member m ON m.workspace_id = a.workspace_id
-		JOIN "user" u ON u.id = m.user_id
-		WHERE u.email = $1
-		LIMIT 1
-	`, integrationTestEmail).Scan(&agentID, &runtimeID)
-	if err != nil {
-		t.Fatalf("failed to find test agent: %v", err)
+	fx := testutil.New(testPool, testWorkspaceID, testUserID)
+	name := "Sweeper " + uuid.NewString()
+	runtimeID := fx.Runtime(t, name)
+	agentID := fx.Agent(t, name, runtimeID, testutil.Cols{"status": "working"})
+	issueID := fx.Issue(t, "Sweeper test issue", testutil.Cols{
+		"assignee_type": "agent",
+		"assignee_id":   agentID,
+	})
+	cols := testutil.Cols{
+		"runtime_id": runtimeID,
+		"issue_id":   issueID,
+		"status":     taskStatus,
 	}
-
-	// Create an issue assigned to the agent
-	var issueID string
-	err = testPool.QueryRow(ctx, `
-		INSERT INTO issue (workspace_id, title, status, priority, creator_type, creator_id, assignee_type, assignee_id)
-		SELECT $1, 'Sweeper test issue', 'todo', 'none', 'member', m.user_id, 'agent', $2
-		FROM member m WHERE m.workspace_id = $1 LIMIT 1
-		RETURNING id
-	`, testWorkspaceID, agentID).Scan(&issueID)
-	if err != nil {
-		t.Fatalf("failed to create test issue: %v", err)
-	}
-
-	// Create a task in the desired status with old timestamps
-	var taskID string
 	switch taskStatus {
 	case "running":
-		err = testPool.QueryRow(ctx, `
-			INSERT INTO agent_task_queue (agent_id, runtime_id, issue_id, status, priority, dispatched_at, started_at)
-			VALUES ($1, $2, $3, 'running', 0, now() - interval '3 hours', now() - interval '3 hours')
-			RETURNING id
-		`, agentID, runtimeID, issueID).Scan(&taskID)
+		cols["dispatched_at"] = testutil.Raw("now() - interval '3 hours'")
+		cols["started_at"] = testutil.Raw("now() - interval '3 hours'")
 	case "dispatched":
-		err = testPool.QueryRow(ctx, `
-			INSERT INTO agent_task_queue (agent_id, runtime_id, issue_id, status, priority, dispatched_at)
-			VALUES ($1, $2, $3, 'dispatched', 0, now() - interval '10 minutes')
-			RETURNING id
-		`, agentID, runtimeID, issueID).Scan(&taskID)
+		cols["dispatched_at"] = testutil.Raw("now() - interval '10 minutes'")
+	default:
+		t.Fatalf("unsupported sweeper fixture task status %q", taskStatus)
 	}
-	if err != nil {
-		t.Fatalf("failed to create test task: %v", err)
-	}
-
-	// Set agent status to "working"
-	_, err = testPool.Exec(ctx, `UPDATE agent SET status = 'working' WHERE id = $1`, agentID)
-	if err != nil {
-		t.Fatalf("failed to set agent status: %v", err)
-	}
-
+	taskID := fx.Task(t, agentID, cols)
 	return issueID, agentID, taskID
 }
 
-func cleanupSweeperFixture(t *testing.T, issueID, agentID string) {
-	t.Helper()
-	ctx := context.Background()
-	testPool.Exec(ctx, `DELETE FROM agent_task_queue WHERE issue_id = $1`, issueID)
-	testPool.Exec(ctx, `DELETE FROM issue WHERE id = $1`, issueID)
-	testPool.Exec(ctx, `UPDATE agent SET status = 'idle' WHERE id = $1`, agentID)
+func TestSweeperFixtureOwnsRuntimeAndAgent(t *testing.T) {
+	if testPool == nil {
+		t.Skip("no database connection")
+	}
+	_, firstAgent, firstTask := setupSweeperTestFixture(t, "dispatched")
+	setAgentRuntimeOffline(t, firstAgent, 10*time.Minute)
+	_, secondAgent, secondTask := setupSweeperTestFixture(t, "dispatched")
+	if firstAgent == secondAgent {
+		t.Fatal("overlapping sweeper fixtures share an agent")
+	}
+	var sameRuntime bool
+	if err := testPool.QueryRow(context.Background(), `
+		SELECT a.runtime_id = b.runtime_id
+		FROM agent a, agent b WHERE a.id = $1 AND b.id = $2
+	`, firstAgent, secondAgent).Scan(&sameRuntime); err != nil {
+		t.Fatalf("read sweeper fixture runtimes: %v", err)
+	}
+	if sameRuntime {
+		t.Fatal("overlapping sweeper fixtures share runtime liveness")
+	}
+
+	failedTasks, err := db.New(testPool).FailStaleTasks(context.Background(), db.FailStaleTasksParams{
+		DispatchTimeoutSecs:       1.0,
+		RunningTimeoutSecs:        9000.0,
+		RuntimeStaleSecs:          staleThresholdSeconds,
+		RuntimeReconnectGraceSecs: defaultRuntimeReconnectGrace.Seconds(),
+	})
+	if err != nil {
+		t.Fatalf("sweep overlapping fixtures: %v", err)
+	}
+	foundSecond := false
+	for _, task := range failedTasks {
+		switch task.ID.Bytes {
+		case parseUUIDBytes(firstTask):
+			t.Fatal("offline fixture was swept inside reconnect grace")
+		case parseUUIDBytes(secondTask):
+			foundSecond = true
+		}
+	}
+	if !foundSecond {
+		t.Fatal("fresh fixture inherited another fixture's offline heartbeat")
+	}
+	var firstStatus string
+	if err := testPool.QueryRow(context.Background(), `SELECT status FROM agent_task_queue WHERE id = $1`, firstTask).Scan(&firstStatus); err != nil {
+		t.Fatalf("read offline fixture task: %v", err)
+	}
+	if firstStatus != "dispatched" {
+		t.Fatalf("offline fixture task status = %q, want dispatched", firstStatus)
+	}
 }
 
-// ageOutAgentRuntime marks the agent's runtime as stale — old last_seen_at —
-// so the runtime-liveness gate on the running-task sweep predicate
-// (agent_runtime.last_seen_at within staleThresholdSeconds) does NOT protect
-// the test task from being killed by the wall clock. Register a cleanup that
-// restores last_seen_at so subsequent tests re-using this runtime see it as
-// fresh. Callers pass a `staleAgo` well beyond staleThresholdSeconds so tests
-// are insensitive to that constant's precise value.
+// ageOutAgentRuntime marks the agent's runtime as stale so its heartbeat no
+// longer protects a running task from the wall clock. Cleanup restores the
+// heartbeat for callers that use the package fixture runtime.
 func ageOutAgentRuntime(t *testing.T, agentID string, staleAgo time.Duration) {
 	t.Helper()
 	ctx := context.Background()
@@ -155,8 +167,7 @@ func TestRefreshAgentStatusFromTasks(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	issueID, agentID, taskID := setupSweeperTestFixture(t, "dispatched")
-	t.Cleanup(func() { cleanupSweeperFixture(t, issueID, agentID) })
+	_, agentID, taskID := setupSweeperTestFixture(t, "dispatched")
 
 	queries := db.New(testPool)
 	taskService := service.NewTaskService(queries, testPool, nil, events.New())
@@ -221,8 +232,7 @@ func TestStartTaskSkipsUnchangedAgentStatusWriteAndBroadcast(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	issueID, agentID, taskID := setupSweeperTestFixture(t, "dispatched")
-	t.Cleanup(func() { cleanupSweeperFixture(t, issueID, agentID) })
+	_, agentID, taskID := setupSweeperTestFixture(t, "dispatched")
 
 	var updatedAtBefore time.Time
 	if err := testPool.QueryRow(ctx, `
@@ -274,8 +284,7 @@ func TestSweepStaleTasksBroadcastsWithWorkspaceID(t *testing.T) {
 		t.Skip("no database connection")
 	}
 
-	issueID, agentID, taskID := setupSweeperTestFixture(t, "running")
-	t.Cleanup(func() { cleanupSweeperFixture(t, issueID, agentID) })
+	_, agentID, taskID := setupSweeperTestFixture(t, "running")
 	// The running-task sweep now requires the task's runtime to be NOT
 	// heartbeating (MUL-4107). Age the runtime out so this test still
 	// exercises the sweeper wall clock rather than being silently skipped.
@@ -370,8 +379,7 @@ func TestSweepStaleTasksReconcileAgentStatus(t *testing.T) {
 		t.Skip("no database connection")
 	}
 
-	issueID, agentID, _ := setupSweeperTestFixture(t, "running")
-	t.Cleanup(func() { cleanupSweeperFixture(t, issueID, agentID) })
+	_, agentID, _ := setupSweeperTestFixture(t, "running")
 	// Runtime must be stale for the running-task wall clock to fire (MUL-4107).
 	ageOutAgentRuntime(t, agentID, defaultRuntimeReconnectGrace+time.Hour)
 
@@ -435,8 +443,7 @@ func TestSweepDispatchedStaleTask(t *testing.T) {
 		t.Skip("no database connection")
 	}
 
-	issueID, agentID, taskID := setupSweeperTestFixture(t, "dispatched")
-	t.Cleanup(func() { cleanupSweeperFixture(t, issueID, agentID) })
+	_, agentID, taskID := setupSweeperTestFixture(t, "dispatched")
 
 	queries := db.New(testPool)
 	bus := events.New()
@@ -450,12 +457,10 @@ func TestSweepDispatchedStaleTask(t *testing.T) {
 		mu.Unlock()
 	})
 
-	// Fail stale tasks — dispatch timeout of 1 second (our task is 10 minutes old)
+	// No active dispatch lease on a runtime with a fresh online heartbeat.
 	failedTasks, err := queries.FailStaleTasks(context.Background(), db.FailStaleTasksParams{
-		DispatchTimeoutSecs: 1.0,
-		RunningTimeoutSecs:  9000.0,
-		// RuntimeStaleSecs only affects the running branch — irrelevant for
-		// this dispatched-timeout test, but wired for API consistency.
+		DispatchTimeoutSecs:       1.0,
+		RunningTimeoutSecs:        9000.0,
 		RuntimeStaleSecs:          staleThresholdSeconds,
 		RuntimeReconnectGraceSecs: defaultRuntimeReconnectGrace.Seconds(),
 	})
@@ -518,8 +523,7 @@ func TestSweepDispatchedTaskWaitsThroughReconnectGrace(t *testing.T) {
 		t.Skip("no database connection")
 	}
 
-	issueID, agentID, taskID := setupSweeperTestFixture(t, "dispatched")
-	t.Cleanup(func() { cleanupSweeperFixture(t, issueID, agentID) })
+	_, agentID, taskID := setupSweeperTestFixture(t, "dispatched")
 	setAgentRuntimeOffline(t, agentID, 10*time.Minute)
 
 	failedTasks, err := db.New(testPool).FailStaleTasks(context.Background(), db.FailStaleTasksParams{
@@ -557,10 +561,9 @@ func TestSweepRunningTaskSkippedWhenRuntimeFresh(t *testing.T) {
 		t.Skip("no database connection")
 	}
 
-	issueID, agentID, taskID := setupSweeperTestFixture(t, "running")
-	t.Cleanup(func() { cleanupSweeperFixture(t, issueID, agentID) })
+	_, _, taskID := setupSweeperTestFixture(t, "running")
 
-	// Runtime heartbeat is fresh (integration fixture inserts last_seen_at=now()).
+	// This test's runtime has a fresh heartbeat from fixture setup.
 	// Task started_at is 3h ago; RunningTimeoutSecs=1s would kill on wall clock
 	// alone — but the runtime is proving liveness, so the sweeper must skip it.
 	queries := db.New(testPool)
@@ -596,8 +599,7 @@ func TestSweepRunningTaskWaitsThroughReconnectGrace(t *testing.T) {
 		t.Skip("no database connection")
 	}
 
-	issueID, agentID, taskID := setupSweeperTestFixture(t, "running")
-	t.Cleanup(func() { cleanupSweeperFixture(t, issueID, agentID) })
+	_, agentID, taskID := setupSweeperTestFixture(t, "running")
 	setAgentRuntimeOffline(t, agentID, 10*time.Minute)
 
 	failedTasks, err := db.New(testPool).FailStaleTasks(context.Background(), db.FailStaleTasksParams{
@@ -632,8 +634,7 @@ func TestSweepRunningTaskKilledBeyondReconnectGrace(t *testing.T) {
 		t.Skip("no database connection")
 	}
 
-	issueID, agentID, taskID := setupSweeperTestFixture(t, "running")
-	t.Cleanup(func() { cleanupSweeperFixture(t, issueID, agentID) })
+	_, agentID, taskID := setupSweeperTestFixture(t, "running")
 	ageOutAgentRuntime(t, agentID, defaultRuntimeReconnectGrace+time.Hour)
 
 	queries := db.New(testPool)
@@ -675,8 +676,7 @@ func TestOfflineRuntimeTasksRespectReconnectGrace(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	issueID, agentID, taskID := setupSweeperTestFixture(t, "running")
-	t.Cleanup(func() { cleanupSweeperFixture(t, issueID, agentID) })
+	_, agentID, taskID := setupSweeperTestFixture(t, "running")
 	setAgentRuntimeOffline(t, agentID, 10*time.Minute)
 	queries := db.New(testPool)
 
@@ -729,7 +729,6 @@ func TestRuntimeReconnectRetryHasBoundedTerminalPath(t *testing.T) {
 
 	ctx := context.Background()
 	issueID, agentID, parentID := setupSweeperTestFixture(t, "running")
-	t.Cleanup(func() { cleanupSweeperFixture(t, issueID, agentID) })
 	setAgentRuntimeOffline(t, agentID, defaultRuntimeReconnectGrace+time.Hour)
 
 	if _, err := testPool.Exec(ctx, `
@@ -756,6 +755,8 @@ func TestRuntimeReconnectRetryHasBoundedTerminalPath(t *testing.T) {
 	`, parentID).Scan(&retryID); err != nil {
 		t.Fatalf("insert deferred retry: %v", err)
 	}
+	testutil.New(testPool, testWorkspaceID, testUserID).Cleanup(t,
+		`DELETE FROM agent_task_queue WHERE issue_id = $1`, issueID)
 
 	queries := db.New(testPool)
 	params := db.FailExpiredRuntimeReconnectRetriesParams{
