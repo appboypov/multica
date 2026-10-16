@@ -2541,8 +2541,14 @@ func NewRouterWithOptions(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus
 
 			r.Route("/api/todos", func(r chi.Router) {
 				r.Get("/", h.ListTodos)
+				r.Post("/checks", h.OpenCheck)
+				r.Get("/checks/{id}", h.GetCheck)
+				r.Get("/check-settings", h.CheckSettings)
+				r.Put("/check-settings", h.CheckSettings)
+				r.Post("/{id}/answer", h.AnswerCheck)
 				r.Post("/{id}/done", h.MarkTodoDone)
 			})
+			r.Get("/api/projects/{id}/check-trust", h.ListCheckTrust)
 
 			// Inbox
 			r.Route("/api/inbox", func(r chi.Router) {

@@ -80,6 +80,10 @@ func (h *Handler) MarkTodoDone(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, todo.Response(row))
 		return
 	}
+	if row.Kind == "check" || row.Kind == "trust_proposal" {
+		writeError(w, http.StatusUnprocessableEntity, "answer this to-do to handle it")
+		return
+	}
 	var details map[string]json.RawMessage
 	_ = json.Unmarshal(row.Details, &details)
 	if len(details["routine_decision_id"]) > 0 {

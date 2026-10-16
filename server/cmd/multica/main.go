@@ -88,6 +88,7 @@ func init() {
 	rootCmd.AddCommand(squadCmd)
 	rootCmd.AddCommand(chatCmd)
 	rootCmd.AddCommand(questionCmd)
+	rootCmd.AddCommand(newTodoCommand())
 	rootCmd.AddCommand(daemonCmd)
 	rootCmd.AddCommand(runtimeCmd)
 	rootCmd.AddCommand(authCmd)

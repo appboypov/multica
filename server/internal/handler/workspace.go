@@ -1444,6 +1444,10 @@ func (h *Handler) DeleteWorkspace(w http.ResponseWriter, r *http.Request) {
 			run:  func() error { return qtx.DeleteWorkspaceAdministration(ctx, requester.WorkspaceID) },
 		},
 		{
+			name: "delete check trust",
+			run:  func() error { return service.DeleteCheckData(ctx, tx, requester.WorkspaceID, pgtype.UUID{}) },
+		},
+		{
 			// At this point workspaceMember has resolved → workspaceID is a
 			// valid UUID, so reuse the resolved value. The existing final
 			// statement also sweeps any expand-phase compatibility leftovers.

@@ -18,6 +18,7 @@ import (
 	"github.com/multica-ai/multica/server/internal/issuestatus"
 	"github.com/multica-ai/multica/server/internal/logger"
 	"github.com/multica-ai/multica/server/internal/question"
+	"github.com/multica-ai/multica/server/internal/service"
 	"github.com/multica-ai/multica/server/internal/util"
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
 	"github.com/multica-ai/multica/server/pkg/protocol"
@@ -522,6 +523,10 @@ func (h *Handler) DeleteProject(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		writeError(w, http.StatusInternalServerError, "failed to lock project")
+		return
+	}
+	if err := service.DeleteCheckData(r.Context(), tx, project.WorkspaceID, project.ID); err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to delete project checks")
 		return
 	}
 	repositories, err := qtx.ListRepositoriesByProject(r.Context(), db.ListRepositoriesByProjectParams{WorkspaceID: project.WorkspaceID, ProjectID: project.ID})

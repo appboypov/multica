@@ -31,6 +31,8 @@ Opening and answering lock the trust row. Answering also locks the to-do. Each h
 
 A member answer queues the opening agent with its answer in the handoff note, using the task service. An active run receives the answer through run input delivery. The durable result remains readable through the API. Automatic answers are returned in the create response and do not start another run.
 
+Project deletion removes that project's check items and trust rows in its transaction. Workspace deletion removes settings and trust with the workspace's other data. Check opens share locks on the workspace and project so deletion cannot leave a record behind.
+
 ## UI
 
 Reuse the inbox row, split detail pane, semantic tokens and pending/error states from `designs/screens/todo-inbox.md`. A check shows its kind, timing, work link, sampled state, project trust counts and Pass / Send feedback. A proposal shows its track record and Yes / No. Project trust is shown beside the selected check. Web and desktop use the same core hooks and views.
