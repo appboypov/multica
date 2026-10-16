@@ -203,6 +203,7 @@ flowchart TB
   update["handleUpdate"]
   poll["daemon.go<br/>pollLoop"]
   task["daemon.go<br/>handleTask, runTask"]
+  worktrees["issue_worktree.go, worklane_task.go<br/>resolve lane or registered PR worktree,<br/>lock selected path, prepare branch"]
   execenv["execenv<br/>Prepare, Reuse, InjectRuntimeConfig,<br/>While you run section with task-supplement-v1"]
   prompt["prompt.go<br/>BuildPrompt, buildQuestionAnswersBlock"]
   supp["task_supplement.go<br/>runTaskSupplementLoop,<br/>formatTaskSupplementInstruction: [Multica notice] with item id"]
@@ -235,7 +236,8 @@ flowchart TB
   client -.->|"Task.QuestionAnswers on question_wake claim"| task
   poll --> task
   task --> selection
-  task --> execenv
+  task --> worktrees --> execenv
+  worktrees -->|"lane branch reports only"| client
   task --> prompt
   task --> repocache
   task --> skillcache
