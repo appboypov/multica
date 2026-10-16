@@ -13,7 +13,7 @@ One team, Backend, builds every group in one pull request. The UI is the Fronten
 
 ## 1. Model change
 
-- [x] 1.1 `server/migrations/732_squad_member_squad.up.sql`, `.down.sql` -- widen `squad_member_member_type_check` to `('agent', 'member', 'squad')` `NOT VALID` then `VALIDATE`; down deletes `squad` rows and restores the two-type CHECK -- design.md "Migration Plan".
+- [x] 1.1 `server/migrations/745_squad_member_squad.up.sql`, `.down.sql` -- widen `squad_member_member_type_check` to `('agent', 'member', 'squad')` `NOT VALID` then `VALIDATE`; down deletes `squad` rows and restores the two-type CHECK -- design.md "Migration Plan".
 
 ## 2. Queries
 

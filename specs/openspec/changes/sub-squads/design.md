@@ -77,7 +77,7 @@ sequenceDiagram
 
 | Kind | Name | Change | Path |
 |---|---|---|---|
-| Migration | `732_squad_member_squad` | new | `server/migrations/732_squad_member_squad.up.sql`, `.down.sql` |
+| Migration | `745_squad_member_squad` | new | `server/migrations/745_squad_member_squad.up.sql`, `.down.sql` |
 | Query | `LockSquadNesting`, `ListSquadNestingMemberships`, `ListSquadsNestedWithLeader`, `ListDelegatingParentSquads` | new | `server/pkg/db/queries/squad.sql` |
 | Service | nesting checks | new | `server/internal/handler/squad_nesting.go` |
 | Endpoint | `POST /api/squads/{id}/members` | changed | `server/internal/handler/squad.go` |
@@ -136,4 +136,4 @@ Never:
 
 ## Migration Plan
 
-`732_squad_member_squad.up.sql` drops `squad_member_member_type_check` and adds it back `NOT VALID` with `('agent', 'member', 'squad')`, then validates, under `SET LOCAL lock_timeout = '2s'`, as `710_question_link_types` does. Down deletes `squad` rows, then restores the two-type CHECK and validates it.
+`745_squad_member_squad.up.sql` drops `squad_member_member_type_check` and adds it back `NOT VALID` with `('agent', 'member', 'squad')`, then validates, under `SET LOCAL lock_timeout = '2s'`, as `710_question_link_types` does. Down deletes `squad` rows, then restores the two-type CHECK and validates it.

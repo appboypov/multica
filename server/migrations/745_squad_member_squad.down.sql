@@ -1,4 +1,4 @@
--- Reverse 732: restore the agent and member CHECK on squad_member.member_type.
+-- Reverse 745: restore the agent and member CHECK on squad_member.member_type.
 -- The narrower CHECK refuses sub-squad rows, so delete them first; rollback
 -- loses every sub-squad membership.
 --
