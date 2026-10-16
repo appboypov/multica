@@ -1,6 +1,7 @@
 import { render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { configureShortcutPlatform } from "@multica/core/shortcuts";
+import type * as CorePaths from "@multica/core/paths";
 import { NavigationProvider, type NavigationAdapter } from "../navigation";
 import { GlobalShortcuts } from "./global-shortcuts";
 
@@ -13,22 +14,10 @@ vi.mock("@multica/ui/components/ui/sidebar", () => ({
 vi.mock("@multica/core/chat", () => ({
   useChatStore: { getState: () => ({ floatingChatEnabled: false }) },
 }));
-vi.mock("@multica/core/paths", () => ({
-  useWorkspacePaths: () => ({
-    inbox: () => "/w/inbox",
-    chat: () => "/w/chat",
-    myIssues: () => "/w/my-issues",
-    issues: () => "/w/issues",
-    projects: () => "/w/projects",
-    autopilots: () => "/w/autopilots",
-    agents: () => "/w/agents",
-    squads: () => "/w/squads",
-    usage: () => "/w/usage",
-    runtimes: () => "/w/runtimes",
-    skills: () => "/w/skills",
-    settings: () => "/w/settings",
-  }),
-}));
+vi.mock("@multica/core/paths", async (importOriginal) => {
+  const actual = await importOriginal<typeof CorePaths>();
+  return { useWorkspacePaths: () => actual.paths.workspace("w") };
+});
 
 function makeAdapter(overrides: Partial<NavigationAdapter> = {}): NavigationAdapter {
   return {
