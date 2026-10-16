@@ -14,7 +14,7 @@ import (
 
 func applyTodoBackfill(t *testing.T, fx *testutil.Fixture) pgx.Tx {
 	t.Helper()
-	migration, err := os.ReadFile("../../migrations/744_todo_backfill.up.sql")
+	migration, err := os.ReadFile("../../migrations/754_todo_backfill.up.sql")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -325,7 +325,7 @@ func TestTodoBackfillSystemProblems(t *testing.T) {
 	if _, err := tx.Exec(context.Background(), `UPDATE inbox_item SET archived=false WHERE workspace_id=$1 AND type='autopilot_quota_exceeded'`, fx.WorkspaceID); err != nil {
 		t.Fatal(err)
 	}
-	migration, err := os.ReadFile("../../migrations/744_todo_backfill.up.sql")
+	migration, err := os.ReadFile("../../migrations/754_todo_backfill.up.sql")
 	if err != nil {
 		t.Fatal(err)
 	}
