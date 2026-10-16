@@ -6,6 +6,7 @@ vi.mock("@multica/core/issue-statuses/hooks", () => ({
 }));
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@multica/core/api";
+import type * as CorePaths from "@multica/core/paths";
 import { renderWithI18n } from "../test/i18n";
 import { AppSidebar } from "./app-sidebar";
 
@@ -128,33 +129,19 @@ vi.mock("@multica/core/chat", () => ({
     { getState: () => chatStore.current },
   ),
 }));
-vi.mock("@multica/core/paths", async (importOriginal) => ({
+vi.mock("@multica/core/paths", async (importOriginal) => {
   // Spread the real module so pure helpers (resolveRouteIconName, used by the
-  // nav to derive each item's icon from its href) stay intact; only the
-  // workspace/context hooks below are stubbed to control routes in tests.
-  ...(await importOriginal<typeof import("@multica/core/paths")>()),
-  paths: { workspace: (slug: string) => ({ issues: () => `/${slug}/issues` }) },
-  useCurrentWorkspace: () => ({ id: "ws-1", name: "Acme", slug: "acme" }),
-  useWorkspacePaths: () => ({
-    inbox: () => "/acme/inbox",
-    chat: () => "/acme/chat",
-    myIssues: () => "/acme/my-issues",
-    issues: () => "/acme/issues",
-    projects: () => "/acme/projects",
-    organisations: () => "/acme/organisations",
-    worklanes: () => "/acme/worklanes",
-    releases: () => "/acme/releases",
-    autopilots: () => "/acme/autopilots",
-    agents: () => "/acme/agents",
-    squads: () => "/acme/squads",
-    usage: () => "/acme/usage",
-    runtimes: () => "/acme/runtimes",
-    skills: () => "/acme/skills",
-    settings: () => "/acme/settings",
-    issueDetail: (id: string) => `/acme/issues/${id}`,
-    projectDetail: (id: string) => `/acme/projects/${id}`,
-  }),
-}));
+  // nav to derive each item's icon from its href) and the real workspace path
+  // builders stay intact; only the workspace/context hooks below are stubbed
+  // to control routes in tests.
+  const actual = await importOriginal<typeof CorePaths>();
+  return {
+    ...actual,
+    paths: { workspace: (slug: string) => ({ issues: () => `/${slug}/issues` }) },
+    useCurrentWorkspace: () => ({ id: "ws-1", name: "Acme", slug: "acme" }),
+    useWorkspacePaths: () => actual.paths.workspace("acme"),
+  };
+});
 vi.mock("@multica/core/api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@multica/core/api")>();
   return {

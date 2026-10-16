@@ -9,6 +9,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "@multica/core/i18n/react";
 import { WORKSPACE_PAGES } from "@multica/core/paths";
+import type * as CorePaths from "@multica/core/paths";
 import { SearchCommand } from "./search-command";
 vi.mock("@multica/core/hooks", () => ({ useWorkspaceId: () => "ws-1" }));
 import { useSearchStore } from "./search-store";
@@ -206,33 +207,13 @@ vi.mock("@multica/core", () => ({
   useWorkspaceId: () => "ws-test",
 }));
 
-vi.mock("@multica/core/paths", async (importOriginal) => ({
+vi.mock("@multica/core/paths", async (importOriginal) => {
   // Spread the real module so pure helpers (resolveRouteIconName, used to
-  // derive each nav page's icon from its href) stay intact.
-  ...(await importOriginal<typeof import("@multica/core/paths")>()),
-  useWorkspacePaths: () => ({
-    inbox: () => "/ws-test/inbox",
-    chat: () => "/ws-test/chat",
-    myIssues: () => "/ws-test/my-issues",
-    issues: () => "/ws-test/issues",
-    projects: () => "/ws-test/projects",
-    organisations: () => "/ws-test/organisations",
-    worklanes: () => "/ws-test/worklanes",
-    releases: () => "/ws-test/releases",
-    autopilots: () => "/ws-test/autopilots",
-    agents: () => "/ws-test/agents",
-    squads: () => "/ws-test/squads",
-    usage: () => "/ws-test/usage",
-    runtimes: () => "/ws-test/runtimes",
-    skills: () => "/ws-test/skills",
-    settings: () => "/ws-test/settings",
-    issueDetail: (id: string) => `/ws-test/issues/${id}`,
-    memberDetail: (id: string) => `/ws-test/members/${id}`,
-    agentDetail: (id: string) => `/ws-test/agents/${id}`,
-    squadDetail: (id: string) => `/ws-test/squads/${id}`,
-    projectDetail: (id: string) => `/ws-test/projects/${id}`,
-  }),
-}));
+  // derive each nav page's icon from its href) and the real workspace path
+  // builders stay intact.
+  const actual = await importOriginal<typeof CorePaths>();
+  return { ...actual, useWorkspacePaths: () => actual.paths.workspace("ws-test") };
+});
 
 vi.mock("@multica/core/issues/queries", () => ({
   issueDetailOptions: (_wsId: string, id: string) => ({
