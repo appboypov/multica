@@ -2,23 +2,23 @@
 
 ## Purpose
 
-Keep the MadSpec personas equal to their skills as agents in the local Multica workspace, by hand, with `madspec-sync/multica_sync.py`. Only the personas are Multica agents.
+Keep MadSpec personas and team workers equal to their office sources as managed agents in the local Multica workspace, by hand, with `madspec-sync/multica_sync.py`. Team membership and worker file locations are defined in `~/Repos/Ventures/madspec/skills/madspec/help/workers.md`.
 
 ## Requirements
 
 ### Requirement: Personas are Multica agents
 
-Every persona MadSpec's `roster.py --personas` reports SHALL be an agent in the local Multica workspace, and no sub agent in MadSpec's `agents/` SHALL be one. Each agent SHALL be bound to the one local omp runtime and open to the whole workspace.
+Every persona with a skill that MadSpec's `roster.py --personas` reports SHALL be an agent in the local Multica workspace. Each roster team worker SHALL also be an agent. Session helpers SHALL stay outside the sync. Each managed agent SHALL use the one local omp runtime and be open to the whole workspace. The sync SHALL never write squads.
 
 #### Scenario: A full sync makes the persona agents
 
 - **WHEN** `multica_sync.py` runs without an argument
-- **THEN** the workspace holds one active agent per persona, such as Mitchel, Pieter and Skuddy
-- **AND** no sub agent, such as Explorer, is synced
+- **THEN** the workspace holds one active managed agent per persona, including Luuk, Tortolero, Paul and Lukas, and per roster worker
+- **AND** session helpers, such as Explorer, are not synced
 
 ### Requirement: An agent runs its persona as the persona command does
 
-A persona's agent SHALL be named after the persona, carry the description `Runs the <skill> skill.`, and select its whole skill folder in the MadSpec checkout, `~/Repos/Ventures/madspec/skills/<skill>`, as the single absolute path in `instruction_selection`. Its instructions SHALL be `` `{skill-root}` is <that folder>. Your instructions are the <skill> skill below; follow it. ``, a blank line, then `{selection}`. At every task start, the daemon SHALL fill `{selection}` with the folder's tree and text files as they are on disk, including uncommitted edits. Multica SHALL store paths, not a copy of the skill. Its model and thinking level SHALL be the first entry of the `model` list in the persona's `customize.toml` `[agent]` and its `:level`. Its omp arguments SHALL be `--skills=` with the persona's skills, left out for a persona with every skill, and, when `model` lists more than one entry, `--config=` with an overlay in `~/.local/state/madspec/multica/<command>.yml` that sets `retry.modelFallback: true` and a `retry.fallbackChains` entry from the first model to the other entries in order. Its env SHALL hold `MADSPEC_PERSONA=<command>`. The persona SHALL reach its skills through their global links, `~/.agents/skills/<skill>/`.
+A persona's agent SHALL be named after the persona, carry the description `Runs the <skill> skill.`, and select its whole skill folder through `~/Repos/Ventures/madspec/skills/<skill>` when present, else `~/Repos/Agents/<command>/skills/<skill>`. This SHALL be the single absolute path in `instruction_selection`. Its instructions SHALL be `` `{skill-root}` is <that folder>. Your instructions are the <skill> skill below; follow it. ``, a blank line, then `{selection}`. At task start, the daemon SHALL fill `{selection}` with the folder's tree and text files from disk, including uncommitted edits. Multica SHALL store paths, not a copy of the skill. Its model and thinking level SHALL be the first entry of the persona's `[agent].model` list and its `:level`. Its omp arguments SHALL be `--skills=` with the persona's skills, left out for a persona with every skill. When the model list has more than one entry, `--config=` SHALL name an overlay in `~/.local/state/madspec/multica/<command>.yml` with `retry.modelFallback: true` and a `retry.fallbackChains` entry from the first model to the remaining entries in order. Its env SHALL hold `MADSPEC_PERSONA=<command>`. Skills SHALL be reached through `~/.agents/skills/<skill>/`.
 
 #### Scenario: Mitchel
 
@@ -58,13 +58,19 @@ A persona's agent SHALL be named after the persona, carry the description `Runs 
 
 ### Requirement: The sync manages only its own agents
 
-An agent SHALL count as the sync's own when its env holds `MADSPEC_PERSONA`. An unmarked agent with a persona's name SHALL be taken over and given the marker, an active one before an archived one. An archived agent of a persona SHALL be restored. A full sync SHALL archive its agents whose persona is gone and delete the overlays no active agent names. Agents without the marker SHALL stay as they are.
+An agent SHALL count as the sync's own when its env holds `MADSPEC_PERSONA` or `MADSPEC_WORKER`. Only a matching managed identity SHALL be updated or restored. An unmanaged same-name agent SHALL stay unchanged unless its exact name is passed through repeatable `--adopt NAME`. Adoption SHALL require exactly one unmanaged match, preserve other environment values and set the source's marker before syncing its fields. A full sync SHALL archive managed agents whose source is gone and delete overlays no active agent names. Unreadable sources SHALL be reported and protected from archive.
 
-#### Scenario: An archived persona agent is taken over
+#### Scenario: Lukas is adopted
 
-- **GIVEN** the archived, unmarked agent Mitchel
-- **WHEN** the sync runs
-- **THEN** the same agent is restored, carries `MADSPEC_PERSONA=mitchel` and equals the persona
+- **GIVEN** one unmanaged agent named Lukas
+- **WHEN** `multica_sync.py Lukas --adopt Lukas` runs
+- **THEN** that agent carries `MADSPEC_PERSONA=lukas` and equals his office persona
+
+#### Scenario: An unmanaged agent stays unchanged
+
+- **GIVEN** an unmanaged agent with a source name
+- **WHEN** the sync runs without adoption
+- **THEN** it reports the conflict and leaves that agent unchanged
 
 #### Scenario: A removed persona
 
@@ -74,7 +80,7 @@ An agent SHALL count as the sync's own when its env holds `MADSPEC_PERSONA`. An 
 
 ### Requirement: The sync runs by hand
 
-`multica_sync.py` SHALL run only when started by hand. Without an argument it SHALL sync every persona. With a persona name or command it SHALL sync only that persona, and archive and delete nothing. A failure SHALL print what failed and exit non-zero.
+`multica_sync.py` SHALL run only when started by hand. Without an argument it SHALL sync every persona and roster worker. With a name or command it SHALL sync only that source, and archive and delete nothing. A failure SHALL print what failed and exit non-zero.
 
 #### Scenario: One persona by name
 
@@ -87,12 +93,31 @@ An agent SHALL count as the sync's own when its env holds `MADSPEC_PERSONA`. An 
 - **WHEN** the sync runs
 - **THEN** it prints that the server is unreachable and exits non-zero
 
-### Requirement: Persona configuration comes from main
+### Requirement: Configuration comes from main
 
-The sync SHALL read the persona list, models and arguments from `skills/` on `origin/main` in the MadSpec checkout `~/Repos/Ventures/madspec`, whichever branch or uncommitted change the checkout holds. The selected skill content SHALL come from that checkout's disk at task start, not from the sync's exported `origin/main` tree. Without an `origin/main` the sync SHALL print that and exit non-zero, writing nothing.
+The sync SHALL export `skills/` from MadSpec and `skills/` and `agents/` from every git-backed office on `origin/main`, whichever branch or uncommitted edits the checkouts hold. It SHALL call `personas(offices_root, skills_root)` with the exported office and skills roots. Source links SHALL resolve within the snapshot. A missing `origin/main` SHALL fail before API writes. Persona skill content at task start SHALL still come from disk.
 
-#### Scenario: An uncommitted edit in the MadSpec checkout
+#### Scenario: An uncommitted office configuration edit
 
-- **GIVEN** the MadSpec checkout on main with an uncommitted edit to a persona's `customize.toml`
+- **GIVEN** an uncommitted edit to a persona model or worker body
 - **WHEN** the sync runs
-- **THEN** the agent's model and arguments come from that `customize.toml` as it is on `origin/main`
+- **THEN** its agent uses the office's committed `origin/main` configuration
+
+### Requirement: Workers use their agent files
+
+The sync SHALL read only workers named by roster teams from `agents/<worker-id>.md` in each lead's office. YAML frontmatter SHALL supply name, description, skills and ordered models. The body SHALL be the instructions, with no frontmatter or instruction selection. Primary model, effort, skill arguments and fallback overlays SHALL follow the persona rules above. Worker identity SHALL be `MADSPEC_WORKER=<worker-id>`.
+
+#### Scenario: Backend Junior
+
+- **GIVEN** the roster names backend-junior in Joeri's team
+- **WHEN** the sync runs
+- **THEN** Backend Junior uses that file's body, primary model and ordered fallbacks on the local omp runtime
+
+### Requirement: Dry run is read-only
+
+`--dry-run` SHALL read source and API state and print proposed creates, updates, restores, adoptions, archives and overlay writes or deletes. It SHALL write neither API state nor overlay files, and SHALL report the same source and identity errors as a write run.
+
+#### Scenario: Preview an adoption
+
+- **WHEN** `multica_sync.py Lukas --adopt Lukas --dry-run` runs
+- **THEN** it reports the adoption and field changes without changing Lukas or any overlay
