@@ -14,8 +14,8 @@ import (
 const gracefulStopTimeout = time.Second
 
 // CombinedOutput runs an unstarted command and returns its combined output.
-// Cancellation terminates the entire process tree, waits for it to disappear,
-// and returns the context cause rather than a platform-specific exit status.
+// Cancellation terminates the entire process tree, waits for all live members
+// to exit, and returns the context cause rather than a platform-specific status.
 func CombinedOutput(ctx context.Context, cmd *exec.Cmd, waitDelay time.Duration) ([]byte, error) {
 	var output bytes.Buffer
 	cmd.Stdout = &output

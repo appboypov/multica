@@ -39,3 +39,23 @@ func TestCombinedOutputKillsDescendantsHoldingOutput(t *testing.T) {
 		t.Fatalf("descendant survived process-tree cancellation, stat error = %v", err)
 	}
 }
+
+func TestCombinedOutputKillsDescendantsAfterLeaderExit(t *testing.T) {
+	t.Parallel()
+
+	marker := filepath.Join(t.TempDir(), "descendant-survived")
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	started := time.Now()
+	cmd := exec.Command("/bin/sh", "-c", `(sleep 0.5; echo leaked > "$1") >/dev/null 2>&1 & exit 0`, "helper", marker)
+	if _, err := CombinedOutput(ctx, cmd, 250*time.Millisecond); err != nil {
+		t.Fatalf("CombinedOutput after leader exit: %v", err)
+	}
+	if elapsed := time.Since(started); elapsed > time.Second {
+		t.Fatalf("CombinedOutput took %s, want bounded descendant cleanup", elapsed)
+	}
+	time.Sleep(600 * time.Millisecond)
+	if _, err := os.Stat(marker); !os.IsNotExist(err) {
+		t.Fatalf("descendant survived leader exit, stat error = %v", err)
+	}
+}

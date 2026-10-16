@@ -3,7 +3,6 @@
 package processtree
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -29,26 +28,14 @@ func (*controller) interrupt(cmd *exec.Cmd) error {
 	if cmd.Process == nil {
 		return os.ErrProcessDone
 	}
-	if err := syscall.Kill(-cmd.Process.Pid, syscall.SIGTERM); err != nil {
-		if errors.Is(err, syscall.ESRCH) {
-			return nil
-		}
-		return err
-	}
-	return nil
+	return signalProcessGroup(cmd.Process.Pid, syscall.SIGTERM)
 }
 
 func (*controller) stop(cmd *exec.Cmd) error {
 	if cmd.Process == nil {
 		return os.ErrProcessDone
 	}
-	if err := syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL); err != nil {
-		if errors.Is(err, syscall.ESRCH) {
-			return nil
-		}
-		return cmd.Process.Kill()
-	}
-	return nil
+	return signalProcessGroup(cmd.Process.Pid, syscall.SIGKILL)
 }
 
 func (c *controller) finish(cmd *exec.Cmd) error {
@@ -56,19 +43,21 @@ func (c *controller) finish(cmd *exec.Cmd) error {
 		return nil
 	}
 	pid := cmd.Process.Pid
-	if err := syscall.Kill(-pid, 0); errors.Is(err, syscall.ESRCH) {
-		return nil
+	alive, err := processGroupAlive(pid)
+	if err != nil || !alive {
+		return err
 	}
 	// A normally-exited leader can still leave a descendant holding inherited
 	// pipes or repository locks. Kill the remaining group before returning
 	// ownership of the repository to another operation.
-	if err := syscall.Kill(-pid, syscall.SIGKILL); err != nil && !errors.Is(err, syscall.ESRCH) {
+	if err := c.stop(cmd); err != nil {
 		return err
 	}
 	deadline := time.Now().Add(processTreeFinishTimeout)
 	for time.Now().Before(deadline) {
-		if err := syscall.Kill(-pid, 0); errors.Is(err, syscall.ESRCH) {
-			return nil
+		alive, err := processGroupAlive(pid)
+		if err != nil || !alive {
+			return err
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
