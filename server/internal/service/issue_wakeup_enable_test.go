@@ -73,13 +73,34 @@ func TestIssueWakeupEnableOneShotRequiresExplicitFutureRearm(t *testing.T) {
 	if _, err := s.Enable(ctx, issue, owner, pgtype.UUID{}, w.ID, WakeupEnableInput{Revision: w.Revision}); !errors.Is(err, ErrWakeupInput) {
 		t.Fatalf("expired toggle accepted: %v", err)
 	}
+	past := time.Now().Add(-time.Minute)
+	if _, err := s.Enable(ctx, issue, owner, pgtype.UUID{}, w.ID, WakeupEnableInput{Revision: w.Revision, At: &past, Rearm: true}); !errors.Is(err, ErrWakeupInput) {
+		t.Fatalf("past rearm accepted: %v", err)
+	}
 	future := time.Now().Add(time.Hour)
 	restored, err := s.Enable(ctx, issue, owner, pgtype.UUID{}, w.ID, WakeupEnableInput{Revision: w.Revision, At: &future, Rearm: true})
 	if err != nil {
 		t.Fatal(err)
 	}
+	if restored.Revision != w.Revision+1 || !restored.Enabled || !restored.NextFireAt.Valid || !restored.NextFireAt.Time.After(time.Now()) {
+		t.Fatalf("future rearm not scheduled: %+v", restored)
+	}
+	if _, err = s.Enable(ctx, issue, owner, pgtype.UUID{}, w.ID, WakeupEnableInput{Revision: w.Revision, At: &future, Rearm: true}); !errors.Is(err, ErrWakeupConflict) {
+		t.Fatalf("stale rearm accepted: %v", err)
+	}
 	f.Exec(t, "UPDATE issue_wakeup SET next_fire_at=now()-interval '1 second' WHERE id=$1", w.ID)
 	wakeDispatch(t, s, restored)
+	wakeDispatch(t, s, restored)
+	fired, err := f.q.GetIssueWakeup(ctx, db.GetIssueWakeupParams{ID: w.ID, WorkspaceID: w.WorkspaceID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fired.Enabled || fired.NextFireAt.Valid || fired.FireCount != 1 || !fired.LastTaskID.Valid {
+		t.Fatalf("one-shot not consumed exactly once: %+v", fired)
+	}
+	if got := f.Count(t, "SELECT count(*) FROM agent_task_queue WHERE context->>'wakeup_id'=$1", util.UUIDToString(w.ID)); got != 1 {
+		t.Fatalf("first rearm created %d runs, want 1", got)
+	}
 	if _, err = s.Enable(ctx, issue, owner, pgtype.UUID{}, w.ID, WakeupEnableInput{Revision: restored.Revision, At: &future}); !errors.Is(err, ErrWakeupInput) {
 		t.Fatalf("consumed toggle accepted: %v", err)
 	}
@@ -89,8 +110,25 @@ func TestIssueWakeupEnableOneShotRequiresExplicitFutureRearm(t *testing.T) {
 	if _, err = s.Disable(ctx, issue, w.ID, owner); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = s.Enable(ctx, issue, owner, pgtype.UUID{}, w.ID, WakeupEnableInput{Revision: restored.Revision, At: &future, Rearm: true}); err != nil {
+	rearmed, err := s.Enable(ctx, issue, owner, pgtype.UUID{}, w.ID, WakeupEnableInput{Revision: restored.Revision, At: &future, Rearm: true})
+	if err != nil {
 		t.Fatal(err)
+	}
+	if rearmed.Revision != restored.Revision+1 || !rearmed.Enabled || rearmed.FireCount != 0 || rearmed.LastTaskID.Valid {
+		t.Fatalf("consumed one-shot not rearmed: %+v", rearmed)
+	}
+	f.Exec(t, "UPDATE issue_wakeup SET next_fire_at=now()-interval '1 second' WHERE id=$1", w.ID)
+	wakeDispatch(t, s, rearmed)
+	wakeDispatch(t, s, rearmed)
+	again, err := f.q.GetIssueWakeup(ctx, db.GetIssueWakeupParams{ID: w.ID, WorkspaceID: w.WorkspaceID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if again.Enabled || again.NextFireAt.Valid || again.FireCount != 1 || !again.LastTaskID.Valid || again.LastTaskID == fired.LastTaskID {
+		t.Fatalf("second rearm not consumed exactly once: %+v", again)
+	}
+	if got := f.Count(t, "SELECT count(*) FROM agent_task_queue WHERE context->>'wakeup_id'=$1", util.UUIDToString(w.ID)); got != 2 {
+		t.Fatalf("two rearms created %d runs, want 2", got)
 	}
 }
 
