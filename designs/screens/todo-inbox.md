@@ -79,7 +79,7 @@ The kinds, their icon and when they leave:
 |---|---|---|
 | Question for you, Approval for you (also reassigned to you, or overdue) | `message-circle-question-mark`, `badge-check`, in `brand` | It is answered |
 | Mentioned you | `at-sign` in `brand` | The member posts any comment on that issue after it |
-| Assigned to you · Todo, Back From QA, Blocked or In Review | `user-round-check` | The issue moves to another status |
+| Assigned to you · Todo, Blocked or In Review | `user-round-check` | The issue moves to another status |
 | Agent blocked, Run failed | `octagon-pause`, `circle-x`, in `destructive` | The issue is no longer Blocked, or the agent runs again |
 | Autopilot paused, Quota limit reached, Quick create failed | `circle-pause`, `gauge`, `triangle-alert`, in `warning` | It is solved, such as a paused autopilot that is resumed |
 | Waiting for your review: an issue the member created that is In Review, also with a pull request | `git-pull-request` in `info` | The issue leaves In Review |
@@ -106,7 +106,7 @@ Selecting a row opens its detail on the right.
 - **Waiting for your review** (screen 3): the issue's status and that the member created it, the pull request with its checks and **Open pull request**, the latest comment and a comment box.
 - **Agent blocked or run failed** (screen 4): the run row with **Blocked** or **Failed**, the agent's last comment and a comment box.
 - **System problem** (screen 5): what went wrong and the action that solves it, such as **Resume autopilot**.
-- **Assigned to you** (screen 8): the issue's status as a pill that changes it in place, who assigned it, the latest comment and a comment box. The leaves line names the status the issue is in: "Leaves your inbox once WORK-427 moves out of Todo.", and so on for Back From QA, Blocked and In Review. Moving the issue to another status handles the to-do.
+- **Assigned to you** (screen 8): the issue's status as a pill that changes it in place, who assigned it, the latest comment and a comment box. The leaves line names the status the issue is in: "Leaves your inbox once WORK-427 moves out of Todo.", and so on for Blocked and In Review. Moving the issue to another status handles the to-do.
 
 ## Mark done
 

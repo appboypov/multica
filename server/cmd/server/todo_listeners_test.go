@@ -213,7 +213,7 @@ func TestTodoAssignedLifecycle(t *testing.T) {
 		t.Fatal("todo assignment missing")
 	}
 	event.Type = protocol.EventIssueUpdated
-	apply("back_from_qa", true)
+	apply("in_review", true)
 	if count(fx.UserID) != 1 || fx.Count(t, "SELECT count(*) FROM todo WHERE issue_id = $1 AND done_at IS NOT NULL", id) != 1 {
 		t.Fatal("status inside set did not replace assignment")
 	}
@@ -393,7 +393,7 @@ func TestTodoReviewLifecycle(t *testing.T) {
 	visible(1)
 	event.Type = protocol.EventIssueUpdated
 	event.Payload.(map[string]any)["status_changed"] = true
-	response.Status = "waiting_for_qa"
+	response.Status = "in_progress"
 	apply()
 	visible(0)
 	response.Status = "in_review"

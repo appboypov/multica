@@ -30,7 +30,7 @@ Success signal: Brian opens Inbox and sees only what waits for him, with overdue
 ## What Changes
 
 - A to-do is something that waits for a member to act. It shows only while it does, and leaves by itself once handled. The member can also mark it done.
-- Kinds: a question or approval asked of the member; a comment that @mentions them; an issue assigned to them in Todo, Back From QA, Blocked or In Review; an agent blocked or a failed run on work done for them; a paused autopilot, a reached quota limit or a failed quick create; an issue they created that is In Review.
+- Kinds: a question or approval asked of the member; a comment that @mentions them; an issue assigned to them in Todo, Blocked or In Review; an agent blocked or a failed run on work done for them; a paused autopilot, a reached quota limit or a failed quick create; an issue they created that is In Review.
 - One row per to-do, also when several are on the same issue. An In Review issue with an open question for the member shows only the question. Order: overdue first, then newest.
 - The Inbox number counts the open to-dos. The workspace switcher dot and the desktop badge follow it.
 - Updates is today's inbox list, without the notices that became to-dos, and with no number.
