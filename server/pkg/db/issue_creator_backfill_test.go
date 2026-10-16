@@ -50,7 +50,7 @@ func TestIssueCreatorBackfill(t *testing.T) {
 		}
 		ids[n] = fx.Issue(t, tc.name, cols)
 	}
-	migration, err := os.ReadFile("../../migrations/743_issue_creator_backfill.up.sql")
+	migration, err := os.ReadFile("../../migrations/753_issue_creator_backfill.up.sql")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -81,7 +81,7 @@ func TestIssueCreatorBackfill(t *testing.T) {
 	if got := backfillCount(t, tx, `SELECT count(*) FROM issue WHERE workspace_id=$1 AND creator_id=$2 AND creator_type='member' AND origin_id=$3 AND origin_type IN ('agent_create', 'quick_create') AND updated_at=created_at`, fx.WorkspaceID, fx.UserID, origin); got != 91 {
 		t.Fatalf("preserved origin and timestamps = %d, want 91", got)
 	}
-	down, err := os.ReadFile("../../migrations/743_issue_creator_backfill.down.sql")
+	down, err := os.ReadFile("../../migrations/753_issue_creator_backfill.down.sql")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -91,7 +91,7 @@ func TestIssueCreatorBackfill(t *testing.T) {
 	if got := backfillCount(t, tx, `SELECT count(*) FROM issue WHERE workspace_id=$1 AND creator_type='member' AND creator_id=$2`, fx.WorkspaceID, fx.UserID); got != 91 {
 		t.Fatalf("down migration changed member creators: got %d", got)
 	}
-	todoMigration, err := os.ReadFile("../../migrations/744_todo_backfill.up.sql")
+	todoMigration, err := os.ReadFile("../../migrations/754_todo_backfill.up.sql")
 	if err != nil {
 		t.Fatal(err)
 	}
