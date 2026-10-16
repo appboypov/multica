@@ -8,10 +8,10 @@
 
 ## 1. New model
 
-- [x] 1.1 `server/migrations/732_agent_session.up.sql`, `.down.sql` -- create `agent_session` with the columns and `CHECK` of design.md decision 1, no foreign keys, and the comment saying why; the down migration drops it. When `main` has taken 732 to 734, take the next free numbers and rename every reference.
-- [x] 1.2 `server/migrations/733_agent_session_daemon_pid_index.up.sql`, `.down.sql` -- `CREATE UNIQUE INDEX CONCURRENTLY agent_session_daemon_pid_unique ON agent_session (daemon_id, pid)`.
-- [x] 1.3 `server/migrations/734_agent_session_agent_index.up.sql`, `.down.sql` -- `CREATE INDEX CONCURRENTLY agent_session_workspace_agent_idx ON agent_session (workspace_id, agent_id)`.
-- [x] 1.4 `server/cmd/migrate/main.go` -- add 733 and 734 to the concurrent index cleanups -- `TestEveryConcurrentUpBuildHasCleanup` requires it.
+- [x] 1.1 `server/migrations/748_agent_session.up.sql`, `.down.sql` -- create `agent_session` with the columns and `CHECK` of design.md decision 1, no foreign keys, and the comment saying why; the down migration drops it.
+- [x] 1.2 `server/migrations/749_agent_session_daemon_pid_index.up.sql`, `.down.sql` -- `CREATE UNIQUE INDEX CONCURRENTLY agent_session_daemon_pid_unique ON agent_session (daemon_id, pid)`.
+- [x] 1.3 `server/migrations/750_agent_session_agent_index.up.sql`, `.down.sql` -- `CREATE INDEX CONCURRENTLY agent_session_workspace_agent_idx ON agent_session (workspace_id, agent_id)`.
+- [x] 1.4 `server/cmd/migrate/main.go` -- add 749 and 750 to the concurrent index cleanups -- `TestEveryConcurrentUpBuildHasCleanup` requires it.
 - [x] 1.5 `server/pkg/db/queries/agent_session.sql` -- `UpsertAgentSession`, `UpdateAgentSession`, `DeleteAgentSession`, `ListAgentSessionsForDaemon`, `ListAgentSessions` as design.md decisions 1 and 2 set out, each filtered by `workspace_id`.
 - [x] 1.6 `server/pkg/db/queries/workspace_delete.sql` -- delete the workspace's `agent_session` rows in the step that deletes agents. `server/internal/handler/workspace_delete_manifest_test.go` -- classify `agent_session`.
 - [x] 1.7 `server/pkg/db/generated/` -- run `make sqlc` and commit the output.

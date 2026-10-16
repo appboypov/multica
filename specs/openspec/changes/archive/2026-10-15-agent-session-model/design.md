@@ -73,7 +73,7 @@ classDiagram
 
 | Kind | Name | Change | Path |
 |---|---|---|---|
-| Model | `agent_session` | new | `server/migrations/732_agent_session.up.sql` |
+| Model | `agent_session` | new | `server/migrations/748_agent_session.up.sql` |
 | Model | Queries | new | `server/pkg/db/queries/agent_session.sql` |
 | Action name | `agent:sessions` | new | `server/pkg/protocol/events.go`, `packages/core/types/events.ts` |
 | Type | `AgentSession`, `AgentSessionsResponse` | new | `packages/core/types/agent.ts`, `packages/core/api/schemas.ts` |

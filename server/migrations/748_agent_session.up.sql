@@ -12,8 +12,8 @@
 --
 -- No foreign keys or cascades: the handlers check the agent against
 -- the workspace, the daemon deletes the sessions that ended, and workspace
--- teardown deletes these rows. The indexes are built CONCURRENTLY in 733 and
--- 734, one per file, since CREATE INDEX CONCURRENTLY cannot share this
+-- teardown deletes these rows. The indexes are built CONCURRENTLY in 749 and
+-- 750, one per file, since CREATE INDEX CONCURRENTLY cannot share this
 -- transaction.
 CREATE TABLE IF NOT EXISTS agent_session (
     id                 UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
