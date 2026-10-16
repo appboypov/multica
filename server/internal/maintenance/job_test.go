@@ -308,7 +308,7 @@ func TestConcurrentReplicaAndConnectionLoss(t *testing.T) {
 		if err := tx.QueryRow(ctx, "SELECT pg_backend_pid()").Scan(&pid); err != nil {
 			return err
 		}
-		_, err := pool.Exec(ctx, "SELECT pg_terminate_backend($1)", pid)
+		_, err := pool.Exec(ctx, "SELECT pg_terminate_backend($1, 1000)", pid)
 		if err != nil {
 			return err
 		}

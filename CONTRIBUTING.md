@@ -422,6 +422,8 @@ Notes:
 - Go tests create their own fixture data
 - Handler claim tests use per-test runtime and agent fixtures so heartbeat freshness
   does not depend on the duration of earlier tests.
+- Connection-loss tests wait for `pg_terminate_backend` to finish terminating the
+  backend before asserting recovery, so its transaction locks are released.
 - Agent tests set `CODEX_HOME` to a temporary home with an empty `sessions`
   directory, so synthetic threads never scan the user's Codex rollouts for usage.
 - Dashboard exact-window fixtures share a pinned UTC clock with their requests.
