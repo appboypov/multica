@@ -78,6 +78,11 @@ function NavigationProviderInner({
   const adapter: NavigationAdapter = {
     push: router.push,
     replace: router.replace,
+    // A history write without Next's own state marker: Next adopts it as the
+    // current URL (`usePathname` follows) and keeps the rendered tree, so the
+    // page is not remounted. Passing `window.history.state` would carry that
+    // marker and leave Next's pathname stale.
+    replaceAddress: (path: string) => window.history.replaceState(null, "", path),
     back: router.back,
     forward: router.forward,
     canGoBack: canGoBackInApp,

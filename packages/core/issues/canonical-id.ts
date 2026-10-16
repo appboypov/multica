@@ -75,12 +75,13 @@ export function useCanonicalIssue(wsId: string, routeId: string): CanonicalIssue
   // `initialData` hop above.
   //
   // In-app links still carry the UUID, so opening one lands on the UUID URL and
-  // the route then rewrites the address bar to the identifier. That rewrite is
-  // a navigation: the route re-renders with the identifier as its segment, and
-  // without this seed the resolution query above would miss on a cache entry
-  // nothing has filled and re-fetch an issue already in hand — a second request
-  // for one issue open. The `??` keeps a realtime-patched entry intact, and
-  // only `.id` is ever read back out, which never changes.
+  // the route then rewrites the address bar to the identifier. On desktop that
+  // rewrite re-renders the route with the identifier as its segment, and on web
+  // the next visit to the rewritten URL does; without this seed the resolution
+  // query above would miss on a cache entry nothing has filled and re-fetch an
+  // issue already in hand — a second request for one issue open. The `??`
+  // keeps a realtime-patched entry intact, and only `.id` is ever read back
+  // out, which never changes.
   const loadedIdentifier = detail.data?.identifier;
   const loadedIssue = detail.data;
   useEffect(() => {

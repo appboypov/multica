@@ -1,6 +1,16 @@
 export interface NavigationAdapter {
   push(path: string): void;
   replace(path: string): void;
+  /**
+   * Optional: show `path` as the address of the page already on screen,
+   * without a route transition, so the page and its local state stay mounted.
+   * For a URL that names the same page, such as an issue's identifier URL in
+   * place of its UUID URL. Web needs it: a Next.js `replace` to another value
+   * of a dynamic segment remounts the page. Adapters whose `replace` keeps the
+   * page mounted (desktop's react-router) leave it undefined, and callers use
+   * `replace`.
+   */
+  replaceAddress?: (path: string) => void;
   back(): void;
   pathname: string;
   searchParams: URLSearchParams;

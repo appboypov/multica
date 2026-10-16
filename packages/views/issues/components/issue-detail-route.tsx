@@ -23,6 +23,9 @@ interface IssueDetailRouteProps {
  *
  * A replace, not a push: the UUID URL is the same page, and a history entry
  * for it would make Back bounce the user between two spellings of one issue.
+ * Through `replaceAddress` where the platform has it: on web a route replace
+ * remounts the page, and the description's Markdown view, a reply being
+ * typed or an open wakeup form opened before the rewrite would be lost.
  */
 export function useCanonicalIssueUrl(
   routeId: string,
@@ -41,7 +44,7 @@ export function useCanonicalIssueUrl(
     if (!canonicalHref || routeId === identifier) return;
     if (replacedRef.current === canonicalHref) return;
     replacedRef.current = canonicalHref;
-    navigation.replace(canonicalHref);
+    (navigation.replaceAddress ?? navigation.replace)(canonicalHref);
   }, [canonicalHref, identifier, routeId, navigation]);
 }
 
