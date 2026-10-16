@@ -9,6 +9,7 @@ import { createTestApi, loginAsDefault, reloadAppPage } from "./helpers";
 import type { TestApiClient, TestTableIssueSeed } from "./fixtures";
 
 type TableRequestBody = {
+  query?: { sort?: { field?: string; direction?: string } };
   group?: { kind?: string };
   group_key?: string | null;
   parent_id?: string | null;
@@ -148,7 +149,9 @@ test.describe("Issue Table server grouping", () => {
       .filter({ hasText: "Backlog" })
       .first();
     await expect(backlogGroup).toContainText("501");
-    await expect(page.getByText(/Loaded \d+ of 1001/)).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: /^E2E Table Large / }).first(),
+    ).toBeVisible();
     await expect(
       page.getByText(/Grouping and hierarchy are paused/),
     ).toHaveCount(0);
@@ -183,7 +186,7 @@ test.describe("Issue Table server grouping", () => {
       { title: parentTitle, status: "todo", position: 1 },
     ]);
     if (!parent) throw new Error("Hierarchy parent fixture was not created");
-    await api.seedTableIssues([
+    const [sameGroupChild, crossGroupChild] = await api.seedTableIssues([
       {
         title: sameGroupTitle,
         status: "todo",
@@ -197,9 +200,18 @@ test.describe("Issue Table server grouping", () => {
         position: 2,
       },
     ]);
+    if (!sameGroupChild || !crossGroupChild) {
+      throw new Error("Hierarchy child fixtures were not created");
+    }
     await reloadAppPage(page);
     await switchToTable(page);
 
+    const groupsResponsePromise = page.waitForResponse(
+      (response) =>
+        apiPath(response.request()) === "/api/issues/table/groups" &&
+        tableBody(response.request()).group?.kind === "status" &&
+        response.status() === 200,
+    );
     const todoRootPromise = page.waitForResponse((response) => {
       if (apiPath(response.request()) !== "/api/issues/table/rows") return false;
       const body = tableBody(response.request());
@@ -212,7 +224,11 @@ test.describe("Issue Table server grouping", () => {
     const todoChildrenPromise = page.waitForResponse((response) => {
       if (apiPath(response.request()) !== "/api/issues/table/rows") return false;
       const body = tableBody(response.request());
-      return body.parent_id === parent.id && response.status() === 200;
+      return (
+        body.group_key === "status:todo" &&
+        body.parent_id === parent.id &&
+        response.status() === 200
+      );
     });
     const doneRootPromise = page.waitForResponse((response) => {
       if (apiPath(response.request()) !== "/api/issues/table/rows") return false;
@@ -225,30 +241,50 @@ test.describe("Issue Table server grouping", () => {
     });
 
     await groupByStatus(page);
-    const [todoRootResponse, todoChildrenResponse, doneRootResponse] =
+    const [groupsResponse, todoRootResponse, todoChildrenResponse, doneRootResponse] =
       await Promise.all([
+        groupsResponsePromise,
         todoRootPromise,
         todoChildrenPromise,
         doneRootPromise,
       ]);
+    const groups = (await groupsResponse.json()) as TableGroupsResponse;
     const todoRoot = (await todoRootResponse.json()) as TableRowsResponse;
     const todoChildren =
       (await todoChildrenResponse.json()) as TableRowsResponse;
     const doneRoot = (await doneRootResponse.json()) as TableRowsResponse;
 
-    expect(todoRoot.total).toBe(3);
+    // Grouped row pages intentionally omit query-wide totals; /groups owns them.
+    expect(groups.total).toBe(3);
+    expect(
+      Object.fromEntries(groups.groups.map((group) => [group.key, group.count])),
+    ).toEqual({ "status:todo": 2, "status:done": 1 });
     expect(todoRoot.rows).toEqual([
       expect.objectContaining({
         issue: expect.objectContaining({ id: parent.id, title: parentTitle }),
         direct_child_count: 1,
       }),
     ]);
-    expect(todoChildren.rows.map((row) => row.issue.title)).toEqual([
-      sameGroupTitle,
+    expect(todoChildren.rows).toEqual([
+      expect.objectContaining({
+        issue: expect.objectContaining({
+          id: sameGroupChild.id,
+          title: sameGroupTitle,
+        }),
+        direct_child_count: 0,
+      }),
     ]);
-    expect(doneRoot.rows.map((row) => row.issue.title)).toEqual([
-      crossGroupTitle,
+    expect(doneRoot.rows).toEqual([
+      expect.objectContaining({
+        issue: expect.objectContaining({
+          id: crossGroupChild.id,
+          title: crossGroupTitle,
+        }),
+        direct_child_count: 0,
+      }),
     ]);
+    await expect(page.getByRole("button", { name: "Todo 2", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Done 1", exact: true })).toBeVisible();
 
     const sameGroupRow = page
       .getByRole("row")
@@ -280,12 +316,24 @@ test.describe("Issue Table server grouping", () => {
     const moved = seeds.at(-1);
     if (!moved) throw new Error("Cursor fixture was not created");
     await reloadAppPage(page);
+    // Positions only define the boundary when the user chooses Manual ordering.
+    await page.getByRole("button", { name: "Display", exact: true }).click();
+    const ordering = page
+      .locator("[data-slot=popover-content]")
+      .locator("[aria-label=Ordering]");
+    await ordering.click();
+    await page.getByRole("option", { name: "Manual", exact: true }).click();
+    await expect(ordering).toContainText("Manual");
+    await page.keyboard.press("Escape");
+    await expect(ordering).toBeHidden();
 
     const firstHeadPromise = page.waitForResponse((response) => {
       if (apiPath(response.request()) !== "/api/issues/table/rows") return false;
       const body = tableBody(response.request());
       return (
         body.group?.kind === "none" &&
+        body.query?.sort?.field === "position" &&
+        body.query.sort.direction === "asc" &&
         (body.page?.cursor === null || body.page?.cursor === undefined) &&
         response.status() === 200
       );
@@ -294,6 +342,11 @@ test.describe("Issue Table server grouping", () => {
     const firstHead = (await (await firstHeadPromise).json()) as TableRowsResponse;
     const staleCursor = firstHead.next_cursor;
     expect(staleCursor).toBeTruthy();
+    expect(firstHead.total).toBe(60);
+    expect(firstHead.rows.map((row) => row.issue.id)).toEqual(
+      seeds.slice(0, 50).map((issue) => issue.id),
+    );
+    expect(firstHead.rows.map((row) => row.issue.id)).not.toContain(moved.id);
 
     const firstTailPromise = page.waitForResponse((response) => {
       if (apiPath(response.request()) !== "/api/issues/table/rows") return false;
@@ -304,8 +357,12 @@ test.describe("Issue Table server grouping", () => {
     await tableScroller.evaluate((element) => {
       element.scrollTop = element.scrollHeight;
     });
-    await firstTailPromise;
-    await expect(page.getByText("Loaded 60 of 60", { exact: true })).toBeVisible();
+    const firstTail = (await (await firstTailPromise).json()) as TableRowsResponse;
+    expect(firstTail.rows.map((row) => row.issue.id)).toEqual(
+      seeds.slice(50).map((issue) => issue.id),
+    );
+    expect(firstTail.next_cursor).toBeNull();
+    await expect(page.getByRole("row", { name: "No more", exact: true })).toBeVisible();
 
     const postUpdateResponses: Array<{
       body: TableRequestBody;
@@ -318,8 +375,17 @@ test.describe("Issue Table server grouping", () => {
       ) {
         return;
       }
+      const body = tableBody(response.request());
+      if (
+        body.group?.kind !== "none" ||
+        body.parent_id !== null ||
+        body.query?.sort?.field !== "position" ||
+        body.query.sort.direction !== "asc"
+      ) {
+        return;
+      }
       postUpdateResponses.push({
-        body: tableBody(response.request()),
+        body,
         payload: (await response.json()) as TableRowsResponse,
       });
     };
@@ -330,19 +396,32 @@ test.describe("Issue Table server grouping", () => {
       .poll(
         () =>
           postUpdateResponses.find(
-            ({ body }) =>
-              body.page?.cursor === null || body.page?.cursor === undefined,
+            ({ body, payload }) =>
+              (body.page?.cursor === null || body.page?.cursor === undefined) &&
+              payload.rows[0]?.issue.id === moved.id,
           )?.payload.next_cursor,
         { timeout: 10000 },
       )
       .not.toBeUndefined();
     const freshHead = postUpdateResponses.find(
-      ({ body }) =>
-        body.page?.cursor === null || body.page?.cursor === undefined,
+      ({ body, payload }) =>
+        (body.page?.cursor === null || body.page?.cursor === undefined) &&
+        payload.rows[0]?.issue.id === moved.id,
     )?.payload;
     const freshCursor = freshHead?.next_cursor;
     expect(freshCursor).toBeTruthy();
     expect(freshCursor).not.toBe(staleCursor);
+    expect(freshHead?.total).toBe(60);
+    expect(freshHead?.rows.map((row) => row.issue.id)).toEqual([
+      moved.id,
+      ...seeds.slice(0, 49).map((issue) => issue.id),
+    ]);
+    await tableScroller.evaluate((element) => {
+      element.scrollTop = 0;
+    });
+    await expect(
+      page.getByRole("button", { name: /^E2E Table Cursor / }).first(),
+    ).toHaveText(moved.title);
 
     await tableScroller.evaluate((element) => {
       element.scrollTop = element.scrollHeight;
@@ -363,9 +442,14 @@ test.describe("Issue Table server grouping", () => {
       ...(freshHead?.rows ?? []),
       ...(freshTail?.rows ?? []),
     ].map((row) => row.issue.id);
+    expect(freshTail?.next_cursor).toBeNull();
+    expect(refreshedIds).toHaveLength(60);
     expect(new Set(refreshedIds).size).toBe(60);
-    expect(refreshedIds).toContain(moved.id);
-    await expect(page.getByText("Loaded 60 of 60", { exact: true })).toBeVisible();
+    expect(refreshedIds).toEqual([
+      moved.id,
+      ...seeds.slice(0, -1).map((issue) => issue.id),
+    ]);
+    await expect(page.getByRole("row", { name: "No more", exact: true })).toBeVisible();
     page.off("response", collectResponse);
   });
 

@@ -90,18 +90,19 @@ test.describe("Issues", () => {
     await page.getByRole("menuitem", { name: /^Date\b/ }).hover();
     await page.getByRole("menuitem", { name: "Today" }).click();
 
-    await expect(page.getByRole("button", { name: /1 filter/i })).toBeVisible();
+    const activeFilter = page.getByRole("button", { name: /1 filter/i });
+    await expect(activeFilter).toHaveAttribute("aria-expanded", "true");
     await expect(page.getByText(todayTitle)).toBeVisible();
     await expect(page.getByText(oldTitle)).toBeHidden({ timeout: 10000 });
     await expect(page.getByText(updatedTodayTitle)).toBeHidden({ timeout: 10000 });
 
-    await page.getByRole("button", { name: /1 filter/i }).click();
-    const dateFilterItem = page.getByRole("menuitem", { name: /^Date\b/ });
-    await dateFilterItem.focus();
-    await page.keyboard.press("ArrowRight");
+    // Choosing Today keeps the filter menu and its Date submenu open.
+    // Toggling the trigger here would close the menu before choosing Updated.
     const updatedDateField = page.getByRole("menuitemradio", { name: "Updated" });
     await expect(updatedDateField).toBeVisible();
     await updatedDateField.press("Enter");
+    await expect(updatedDateField).toBeChecked();
+    await expect(activeFilter).toHaveAttribute("aria-expanded", "true");
     await expect(page.getByText(todayTitle)).toBeVisible();
     await expect(page.getByText(updatedTodayTitle)).toBeVisible();
     await expect(page.getByText(oldTitle)).toBeHidden({ timeout: 10000 });

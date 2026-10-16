@@ -1,8 +1,8 @@
 import { test, expect, type Page } from "@playwright/test";
 import { TestApiClient } from "./fixtures";
-import { waitForPageText } from "./helpers";
+import { enableComposioApps, waitForPageText } from "./helpers";
 
-// Stage 3.2 (MUL-3870): the creator-only MCP tab on the agent detail page.
+// Stage 3.2 (MUL-3870): creator-only MCP Apps under agent Capabilities.
 //
 // Auth + workspace bootstrap go through the real backend (same as every other
 // spec), but the agent list and the Composio connection/catalog endpoints are
@@ -76,9 +76,11 @@ function mockAgent(ownerId: string, workspaceId: string) {
 }
 
 /** Mock the Composio catalog + the current user's active connections (Notion +
- *  Slack), the agent list (owned by `ownerId`), and capture any PUT
- *  /api/agents/<id> body. Returns a getter for the last captured allowlist. */
-async function mockApis(page: Page, ownerId: string) {
+ *  Slack), the agent list (owned by `owner.userId`), and capture any PUT
+ *  /api/agents/<id> body. Returns a getter for the last captured allowlist.
+ *  Mutating the owner before a reload lets the permission test keep every
+ *  other fixture condition identical. */
+async function mockApis(page: Page, owner: { userId: string }) {
   const captured: { allowlist?: unknown } = {};
 
   await page.route("**/api/integrations/composio/toolkits", (route) =>
@@ -129,7 +131,7 @@ async function mockApis(page: Page, ownerId: string) {
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({
-          ...mockAgent(ownerId, workspaceId),
+          ...mockAgent(owner.userId, workspaceId),
           composio_toolkit_allowlist: body.composio_toolkit_allowlist ?? [],
         }),
       });
@@ -139,7 +141,7 @@ async function mockApis(page: Page, ownerId: string) {
       return route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify([mockAgent(ownerId, workspaceId)]),
+        body: JSON.stringify([mockAgent(owner.userId, workspaceId)]),
       });
     }
 
@@ -149,45 +151,61 @@ async function mockApis(page: Page, ownerId: string) {
   return () => captured.allowlist;
 }
 
-test.describe("Agent MCP tab (creator-only)", () => {
-  test("creator sees the MCP Apps tab and toggling a toolkit writes the allowlist", async ({
+test.describe("Agent MCP Apps (creator-only)", () => {
+  test("creator sees MCP Apps under Capabilities and toggling a toolkit writes the allowlist", async ({
     page,
   }) => {
+    await enableComposioApps(page);
     const { slug, userId } = await loginCapturingUser(page);
-    const getAllowlist = await mockApis(page, userId);
+    const getAllowlist = await mockApis(page, { userId });
 
     await page.goto(`/${slug}/agents/${AGENT_ID}`, {
       waitUntil: "domcontentloaded",
     });
     await waitForPageText(page, "MCP Test Agent");
 
-    // The creator-only tab entry is present and opens the connection list.
-    const tab = page.getByRole("button", { name: "MCP Apps" });
-    await expect(tab).toBeVisible({ timeout: 15000 });
-    await tab.click();
+    await page.getByRole("tab", { name: "Capabilities", exact: true }).click();
+    const appsTab = page.getByRole("tab", { name: "MCP Apps", exact: true });
+    await expect(appsTab).toBeVisible({ timeout: 15000 });
+    await appsTab.click();
+    await expect(appsTab).toHaveAttribute("aria-selected", "true");
 
     await expect(page.getByText("Notion")).toBeVisible();
     await expect(page.getByText("Slack")).toBeVisible();
 
     // Allow Notion → the PUT body carries exactly ["notion"].
-    await page.getByLabel(/Allow Notion for this agent/i).click();
+    const notion = page.getByRole("checkbox", { name: "Allow Notion for this agent" });
+    await expect(notion).not.toBeChecked();
+    await notion.check();
     await expect.poll(() => getAllowlist()).toEqual(["notion"]);
+    await expect(notion).toBeChecked();
   });
 
-  test("a non-creator viewer does not see the MCP Apps tab", async ({ page }) => {
-    const { slug } = await loginCapturingUser(page);
-    // Agent owned by someone else → the creator gate hides the tab entry.
-    await mockApis(page, OTHER_USER_ID);
+  test("a non-creator viewer cannot see the apps surface available to the creator", async ({ page }) => {
+    await enableComposioApps(page);
+    const { slug, userId } = await loginCapturingUser(page);
+    const owner = { userId };
+    await mockApis(page, owner);
 
     await page.goto(`/${slug}/agents/${AGENT_ID}`, {
       waitUntil: "domcontentloaded",
     });
     await waitForPageText(page, "MCP Test Agent");
+    await page.getByRole("tab", { name: "Capabilities", exact: true }).click();
+    await page.getByRole("tab", { name: "MCP Apps", exact: true }).click();
+    await expect(
+      page.getByRole("checkbox", { name: "Allow Notion for this agent" }),
+    ).toBeVisible();
 
-    // Other tabs render, but the creator-only MCP Apps entry must not.
-    await expect(page.getByRole("button", { name: "Activity" })).toBeVisible({
-      timeout: 15000,
-    });
-    await expect(page.getByRole("button", { name: "MCP Apps" })).toHaveCount(0);
+    // Keep the enabled feature and connected catalog; only ownership changes.
+    owner.userId = OTHER_USER_ID;
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForPageText(page, "MCP Test Agent");
+    await page.getByRole("tab", { name: "Capabilities", exact: true }).click();
+    await expect(
+      page.getByRole("tab", { name: "Instructions", exact: true }),
+    ).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByRole("tab", { name: "MCP Apps", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("checkbox", { name: /Allow .+ for this agent/ })).toHaveCount(0);
   });
 });

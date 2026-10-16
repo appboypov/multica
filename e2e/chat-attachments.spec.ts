@@ -75,9 +75,8 @@ test.describe("Chat attachments", () => {
     expect(pgClient).not.toBeNull();
     const pgc = pgClient!;
 
-    // Resolve the workspace + caller so we can seed an agent/runtime/session
-    // directly via SQL. Going through the HTTP API would require modelling
-    // local-daemon ownership which isn't needed for this contract test.
+    // Resolve the workspace + caller to seed an agent/runtime without needing
+    // local-daemon ownership. The empty chat session uses the public create API.
     const workspaces = await api.getWorkspaces();
     const ws = workspaces[0]!;
     api.setWorkspaceSlug(ws.slug);
@@ -90,7 +89,7 @@ test.describe("Chat attachments", () => {
     if (userRow.rows.length === 0) throw new Error("e2e user missing");
     const userId = userRow.rows[0].id as string;
 
-    // Seed runtime + agent + chat_session.
+    // Seed the runtime + agent; no agent execution is needed for attachment binding.
     const runtimeIns = await pgc.query(
       `INSERT INTO agent_runtime (
          workspace_id, daemon_id, name, runtime_mode, provider, status,
@@ -113,13 +112,23 @@ test.describe("Chat attachments", () => {
     );
     createdAgentId = agentIns.rows[0].id as string;
 
-    const sessionIns = await pgc.query(
-      `INSERT INTO chat_session (workspace_id, agent_id, creator_id, title, status)
-       VALUES ($1, $2, $3, 'E2E Chat Attachment Session', 'active')
-       RETURNING id`,
-      [ws.id, createdAgentId, userId],
-    );
-    createdSessionId = sessionIns.rows[0].id as string;
+    // Explicit first-party creation makes an empty session public before its
+    // first message, so it is eligible for uploads without seeding a fake turn.
+    const sessionRes = await authedFetch(api, "/api/chat/sessions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Workspace-Slug": ws.slug,
+      },
+      body: JSON.stringify({
+        agent_id: createdAgentId,
+        title: "E2E Chat Attachment Session",
+      }),
+    });
+    expect(sessionRes.status).toBe(201);
+    const session = (await sessionRes.json()) as { id: string };
+    createdSessionId = session.id;
+    expect(createdSessionId).toBeTruthy();
 
     // 1. Upload a small PNG against the chat session.
     const pngBytes = Buffer.from([

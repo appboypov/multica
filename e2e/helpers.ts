@@ -88,3 +88,29 @@ export async function openWorkspaceMenu(page: Page) {
   // Wait for dropdown to appear
   await expect(page.locator('[class*="popover"]')).toBeVisible();
 }
+
+/**
+ * Enable the Composio browser surface through its public config contract.
+ * These specs mock Composio itself; preserve every other real server decision.
+ * Register before navigation so the auth initializer reads the enabled flag.
+ */
+export async function enableComposioApps(page: Page) {
+  await page.route("**/api/config", async (route) => {
+    const response = await route.fetch();
+    if (!response.ok()) {
+      throw new Error(`Failed to load app config: ${response.status()}`);
+    }
+    const config: { feature_flags?: Record<string, boolean> } =
+      await response.json();
+    await route.fulfill({
+      response,
+      json: {
+        ...config,
+        feature_flags: {
+          ...config.feature_flags,
+          composio_mcp_apps: true,
+        },
+      },
+    });
+  });
+}
