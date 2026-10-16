@@ -1161,7 +1161,7 @@ func TestQuestionSetWakeFromAnyStatusKeepsStatusAndGetsAllUnseenAnswers(t *testi
 			if err != nil || task.IssueID != f.issue || task.AgentID != f.agent || task.TriggerEvidenceRefID != id {
 				t.Fatalf("wake task = %+v, %v", task, err)
 			}
-			scope, err := f.svc.WakeScope(ctx, f.workspace, f.agent, f.issue)
+			scope, err := f.svc.WakeScope(ctx, f.workspace, f.agent, QuestionWakeScope{IssueID: f.issue})
 			if err != nil {
 				t.Fatal(err)
 			}
