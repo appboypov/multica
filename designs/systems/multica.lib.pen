@@ -5571,6 +5571,61 @@
                           "fontWeight": "normal"
                         }
                       ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "K3XjD",
+                      "x": 0,
+                      "y": 0,
+                      "name": "Client wait row",
+                      "enabled": false,
+                      "gap": 6,
+                      "padding": [
+                        4,
+                        0,
+                        0,
+                        0
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "id": "Hg8r5",
+                          "type": "ref",
+                          "ref": "Lam3L",
+                          "name": "Can proceed",
+                          "descendants": {
+                            "a7j7d": {
+                              "enabled": true,
+                              "icon": "circle-play",
+                              "fill": "$success"
+                            },
+                            "hTh3P": {
+                              "content": "3 can proceed",
+                              "fill": "$foreground"
+                            }
+                          }
+                        },
+                        {
+                          "type": "icon",
+                          "id": "CNi35",
+                          "name": "Wait icon",
+                          "width": 12,
+                          "height": 12,
+                          "icon": "hourglass",
+                          "library": "lucide",
+                          "fill": "$warning"
+                        },
+                        {
+                          "type": "text",
+                          "id": "rOpRV",
+                          "name": "Wait text",
+                          "fill": "$muted-foreground",
+                          "content": "then waits on Nasir",
+                          "fontFamily": "$font-sans",
+                          "fontSize": "$text-caption",
+                          "fontWeight": "normal"
+                        }
+                      ]
                     }
                   ]
                 },
@@ -8767,6 +8822,378 @@
                   "content": "1"
                 }
               }
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "ops4U",
+          "name": "Client access (NEW)",
+          "fill": "$foreground",
+          "content": "Client access (NEW: wait row, planned row, lane cut, empty state, client wait row)",
+          "fontFamily": "$font-sans",
+          "fontSize": "$text-title-sm",
+          "fontWeight": "600"
+        },
+        {
+          "type": "frame",
+          "id": "pVIiv",
+          "name": "Client access row",
+          "width": "fill_container",
+          "gap": 24,
+          "children": [
+            {
+              "type": "frame",
+              "id": "VyDWT",
+              "name": "Col wait rows",
+              "width": 380,
+              "layout": "vertical",
+              "gap": 8,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "y3REe",
+                  "name": "Wait row/Default",
+                  "reusable": true,
+                  "width": 380,
+                  "fill": "$surface",
+                  "cornerRadius": "$radius-lg",
+                  "gap": 10,
+                  "padding": [
+                    10,
+                    12
+                  ],
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "P4tnAn",
+                      "name": "Text",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 4,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "lwzyi",
+                          "name": "Title",
+                          "fill": "$foreground",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Send the 2025 rent roll export",
+                          "fontFamily": "$font-sans",
+                          "fontSize": "$text-body",
+                          "fontWeight": "500"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "onktH",
+                          "name": "Meta",
+                          "gap": 6,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "Qw7lQ",
+                              "name": "Due icon",
+                              "width": 13,
+                              "height": 13,
+                              "icon": "calendar",
+                              "library": "lucide",
+                              "fill": "$muted-foreground"
+                            },
+                            {
+                              "type": "text",
+                              "id": "C0UHN",
+                              "name": "Due",
+                              "fill": "$muted-foreground",
+                              "content": "Due Fri 24 Oct",
+                              "fontFamily": "$font-sans",
+                              "fontSize": "$text-caption",
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "id": "y27jz",
+                      "type": "ref",
+                      "ref": "J9uZa9",
+                      "name": "Overdue",
+                      "enabled": false,
+                      "descendants": {
+                        "Z2sweF": {
+                          "icon": "clock-alert"
+                        },
+                        "d1ef9": {
+                          "content": "Overdue"
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "S3u2aQ",
+                  "name": "Wait row/Selected",
+                  "reusable": true,
+                  "width": 380,
+                  "fill": "$surface-selected",
+                  "cornerRadius": "$radius-lg",
+                  "gap": 10,
+                  "padding": [
+                    10,
+                    12
+                  ],
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "BxoyZ",
+                      "name": "Text",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 4,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "fBcwU",
+                          "name": "Title",
+                          "fill": "$foreground",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "Send the 2025 rent roll export",
+                          "fontFamily": "$font-sans",
+                          "fontSize": "$text-body",
+                          "fontWeight": "500"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "KUDL4",
+                          "name": "Meta",
+                          "gap": 6,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "n6ISl",
+                              "name": "Due icon",
+                              "width": 13,
+                              "height": 13,
+                              "icon": "calendar",
+                              "library": "lucide",
+                              "fill": "$muted-foreground"
+                            },
+                            {
+                              "type": "text",
+                              "id": "vEHHT",
+                              "name": "Due",
+                              "fill": "$muted-foreground",
+                              "content": "Due Fri 24 Oct",
+                              "fontFamily": "$font-sans",
+                              "fontSize": "$text-caption",
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "id": "U6LRsY",
+                      "type": "ref",
+                      "ref": "J9uZa9",
+                      "name": "Overdue",
+                      "enabled": false,
+                      "descendants": {
+                        "Z2sweF": {
+                          "icon": "clock-alert"
+                        },
+                        "d1ef9": {
+                          "content": "Overdue"
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "p96Qtq",
+              "name": "Col list parts",
+              "width": 880,
+              "layout": "vertical",
+              "gap": 16,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "USdAj",
+                  "name": "Planned row",
+                  "reusable": true,
+                  "width": 880,
+                  "height": 36,
+                  "fill": "$page-canvas",
+                  "stroke": "$border",
+                  "strokeWidth": {
+                    "bottom": 1
+                  },
+                  "gap": 10,
+                  "padding": [
+                    0,
+                    16
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "id": "UJvc3",
+                      "type": "ref",
+                      "ref": "aJZqJ",
+                      "name": "Status"
+                    },
+                    {
+                      "type": "text",
+                      "id": "dHHqs",
+                      "name": "Title",
+                      "fill": "$foreground",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Show the yield per property",
+                      "fontFamily": "$font-sans",
+                      "fontSize": "$text-body",
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "WTAnJ",
+                      "name": "Status label",
+                      "fill": "$muted-foreground",
+                      "content": "In progress",
+                      "fontFamily": "$font-sans",
+                      "fontSize": "$text-caption",
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "ZRgUY",
+                  "name": "Lane cut",
+                  "reusable": true,
+                  "width": 880,
+                  "height": 32,
+                  "fill": "$page-canvas",
+                  "gap": 8,
+                  "padding": [
+                    0,
+                    16
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "aTeeI",
+                      "name": "Icon",
+                      "width": 14,
+                      "height": 14,
+                      "icon": "hourglass",
+                      "library": "lucide",
+                      "fill": "$warning"
+                    },
+                    {
+                      "type": "text",
+                      "id": "k1eRvB",
+                      "name": "Label",
+                      "fill": "$foreground",
+                      "content": "Waits on Nasir from here",
+                      "fontFamily": "$font-sans",
+                      "fontSize": "$text-caption",
+                      "fontWeight": "500"
+                    },
+                    {
+                      "type": "rectangle",
+                      "id": "R8rcci",
+                      "name": "Line",
+                      "fill": "$warning",
+                      "width": "fill_container",
+                      "height": 1
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "mU8Tn",
+                  "name": "Empty state",
+                  "reusable": true,
+                  "width": 400,
+                  "layout": "vertical",
+                  "gap": 8,
+                  "padding": [
+                    24,
+                    0
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "hwJAn",
+                      "name": "Icon",
+                      "width": 40,
+                      "height": 40,
+                      "icon": "list-todo",
+                      "library": "lucide",
+                      "fill": "$faint-foreground"
+                    },
+                    {
+                      "type": "text",
+                      "id": "MXtnZ",
+                      "name": "Title",
+                      "fill": "$foreground",
+                      "content": "Nothing waits on you",
+                      "textAlign": "center",
+                      "fontFamily": "$font-sans",
+                      "fontSize": "$text-title-sm",
+                      "fontWeight": "500"
+                    },
+                    {
+                      "type": "text",
+                      "id": "p9Tbr",
+                      "name": "Text",
+                      "fill": "$muted-foreground",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "New waits show here once they are put on your name.",
+                      "textAlign": "center",
+                      "fontFamily": "$font-sans",
+                      "fontSize": "$text-body",
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "id": "FZiYw",
+                      "type": "ref",
+                      "ref": "v2G260",
+                      "name": "Action",
+                      "descendants": {
+                        "c7Sgv": {
+                          "icon": "arrow-right"
+                        },
+                        "OemMw": {
+                          "content": "Go to your waits"
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "id": "PPYiq",
+                  "type": "ref",
+                  "ref": "P5zC6d",
+                  "name": "Example: lane with a client wait",
+                  "descendants": {
+                    "K3XjD": {
+                      "enabled": true
+                    }
+                  }
+                }
+              ]
             }
           ]
         }
