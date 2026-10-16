@@ -622,7 +622,7 @@ VALUES ($1, $2, gen_random_uuid(), $3, gen_random_uuid(), now())
 		"task_usage_hourly_dirty":      "workspace_id",
 		"channel_media_pending_object": "workspace_id",
 		"organisation":                 "workspace_id",
-		"question_wake_pending":         "workspace_id",
+		"question_wake_pending":        "workspace_id",
 	} {
 		var count int
 		dbfx.QueryRow(t, `
