@@ -1,8 +1,8 @@
 schema: intent-driven
 created: 2026-10-17
-build:
+x-build:
   status: ready-for-dev
   type: feature
-context:
-  - "{project-root}/AGENTS.md"
-  - "{project-root}/specs/openspec/changes/routine-decider/design.md"
+  context:
+    - "{project-root}/AGENTS.md"
+    - "{project-root}/specs/openspec/changes/routine-decider/design.md"

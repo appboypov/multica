@@ -373,6 +373,9 @@ deleted_inbox AS (
 deleted_todos AS (
     DELETE FROM todo WHERE workspace_id = $1
 ),
+deleted_routine_decisions AS (
+    DELETE FROM routine_decision WHERE workspace_id = $1
+),
 deleted_issue_dependencies AS (
     DELETE FROM issue_dependency
     WHERE issue_id IN (SELECT id FROM ws_issues)

@@ -1484,6 +1484,16 @@ type Repository struct {
 	WorkInCheckout   bool               `json:"work_in_checkout"`
 }
 
+type RoutineDecision struct {
+	ID          string             `json:"id"`
+	WorkspaceID pgtype.UUID        `json:"workspace_id"`
+	IssueID     pgtype.UUID        `json:"issue_id"`
+	Input       []byte             `json:"input"`
+	TaskID      pgtype.UUID        `json:"task_id"`
+	Outcome     string             `json:"outcome"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+}
+
 type RuntimeProfile struct {
 	ID             pgtype.UUID        `json:"id"`
 	WorkspaceID    pgtype.UUID        `json:"workspace_id"`
