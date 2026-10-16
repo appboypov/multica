@@ -94,7 +94,7 @@ func TestCheckValidatesRelationshipsAndSettings(t *testing.T){
 
 func TestCheckDeliversAnswerToOpeningAgentRun(t *testing.T){
  f,in:=checkFixture(t)
- f.fx.Exec(t,"INSERT INTO task_supplement_capability(task_id,capability) VALUES($1,'task-supplement-v1')",f.task)
+ f.fx.Exec(t,"INSERT INTO task_supplement_capability(task_id,workspace_id,issue_id,capability) VALUES($1,$2,$3,'task-supplement-v1')",f.task,f.workspace,f.issue)
  f.fx.Cleanup(t,"DELETE FROM task_supplement_capability WHERE task_id=$1",f.task)
  f.fx.Cleanup(t,"DELETE FROM task_supplement WHERE task_id=$1",f.task)
  id:=openCheck(t,f,in);answerCheck(t,f,id,"feedback")

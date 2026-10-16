@@ -221,7 +221,7 @@ func (s *QuestionService) AnswerCheck(ctx context.Context, ws, id pgtype.UUID, a
    var pending pgtype.UUID
    err = tx.QueryRow(ctx, `SELECT id FROM agent_task_queue WHERE issue_id=$1 AND agent_id=$2 AND status IN ('queued','dispatched') AND comment_thread_id IS NULL ORDER BY created_at LIMIT 1 FOR UPDATE`,issue.ID,row.ActorID).Scan(&pending)
    if err == nil {
-    _,err=tx.Exec(ctx,`UPDATE agent_task_queue SET handoff_note=concat_ws(E'\n\n',NULLIF(handoff_note,''),$2) WHERE id=$1`,pending,content)
+    _,err=tx.Exec(ctx,`UPDATE agent_task_queue SET handoff_note=concat_ws(E'\n\n',NULLIF(handoff_note,''),$2::text) WHERE id=$1`,pending,content)
    } else if errors.Is(err,pgx.ErrNoRows) {
     task, err = s.Tasks.enqueueMentionTaskWithQueries(ctx,q,issue,row.ActorID,pgtype.UUID{},nil,false,pgtype.UUID{},false,content,actor.ID,pgtype.UUID{},OriginNamed,nil)
    }
