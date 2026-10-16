@@ -8830,7 +8830,7 @@
           "id": "ops4U",
           "name": "Client access (NEW)",
           "fill": "$foreground",
-          "content": "Client access (NEW: wait row, planned row, lane cut, empty state, client wait row)",
+          "content": "Client access (NEW: wait row with organisation, planned row, lane cut, empty state, client wait row, chip, multi select)",
           "fontFamily": "$font-sans",
           "fontSize": "$text-title-sm",
           "fontWeight": "600"
@@ -8907,6 +8907,26 @@
                               "name": "Due",
                               "fill": "$muted-foreground",
                               "content": "Due Fri 24 Oct",
+                              "fontFamily": "$font-sans",
+                              "fontSize": "$text-caption",
+                              "fontWeight": "normal"
+                            },
+                            {
+                              "type": "icon",
+                              "id": "W73cB",
+                              "name": "Organisation icon",
+                              "width": 13,
+                              "height": 13,
+                              "icon": "building-2",
+                              "library": "lucide",
+                              "fill": "$muted-foreground"
+                            },
+                            {
+                              "type": "text",
+                              "id": "ZK9jn",
+                              "name": "Organisation",
+                              "fill": "$muted-foreground",
+                              "content": "IVGA Vastgoed",
                               "fontFamily": "$font-sans",
                               "fontSize": "$text-caption",
                               "fontWeight": "normal"
@@ -8989,6 +9009,26 @@
                               "name": "Due",
                               "fill": "$muted-foreground",
                               "content": "Due Fri 24 Oct",
+                              "fontFamily": "$font-sans",
+                              "fontSize": "$text-caption",
+                              "fontWeight": "normal"
+                            },
+                            {
+                              "type": "icon",
+                              "id": "djsZY",
+                              "name": "Organisation icon",
+                              "width": 13,
+                              "height": 13,
+                              "icon": "building-2",
+                              "library": "lucide",
+                              "fill": "$muted-foreground"
+                            },
+                            {
+                              "type": "text",
+                              "id": "x1cUJ",
+                              "name": "Organisation",
+                              "fill": "$muted-foreground",
+                              "content": "IVGA Vastgoed",
                               "fontFamily": "$font-sans",
                               "fontSize": "$text-caption",
                               "fontWeight": "normal"
@@ -9192,6 +9232,118 @@
                       "enabled": true
                     }
                   }
+                },
+                {
+                  "type": "frame",
+                  "id": "wW6u3",
+                  "name": "Multi select parts",
+                  "gap": 16,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "wIC0e",
+                      "name": "Chip",
+                      "reusable": true,
+                      "height": 22,
+                      "fill": "$muted",
+                      "cornerRadius": "$radius-sm",
+                      "gap": 4,
+                      "padding": [
+                        0,
+                        4,
+                        0,
+                        8
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "XnAdj",
+                          "name": "Label",
+                          "fill": "$foreground",
+                          "content": "IVGA Vastgoed",
+                          "fontFamily": "$font-sans",
+                          "fontSize": "$text-caption",
+                          "fontWeight": "500"
+                        },
+                        {
+                          "type": "icon",
+                          "id": "zpbrb",
+                          "name": "Remove",
+                          "width": 12,
+                          "height": 12,
+                          "icon": "x",
+                          "library": "lucide",
+                          "fill": "$muted-foreground"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "zKtDY",
+                      "name": "Multi select",
+                      "reusable": true,
+                      "width": 420,
+                      "fill": "$surface",
+                      "cornerRadius": "$radius-lg",
+                      "stroke": "$input",
+                      "strokeWidth": 1,
+                      "gap": 8,
+                      "padding": [
+                        4,
+                        8,
+                        4,
+                        4
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "hW4pW",
+                          "name": "Chips",
+                          "width": "fill_container",
+                          "gap": 4,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "id": "K56vv",
+                              "type": "ref",
+                              "ref": "wIC0e",
+                              "name": "Chip 1"
+                            },
+                            {
+                              "id": "ud4nr",
+                              "type": "ref",
+                              "ref": "wIC0e",
+                              "name": "Chip 2",
+                              "descendants": {
+                                "XnAdj": {
+                                  "content": "Whitebird"
+                                }
+                              }
+                            },
+                            {
+                              "id": "cPNKs",
+                              "type": "ref",
+                              "ref": "wIC0e",
+                              "name": "Chip 3",
+                              "enabled": false
+                            }
+                          ]
+                        },
+                        {
+                          "type": "icon",
+                          "id": "R6bDD",
+                          "name": "Chevron",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "chevron-down",
+                          "library": "lucide",
+                          "fill": "$muted-foreground"
+                        }
+                      ]
+                    }
+                  ]
                 }
               ]
             }

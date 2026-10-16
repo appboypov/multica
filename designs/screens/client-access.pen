@@ -857,6 +857,21 @@
                                               "content": "IVGA Vastgoed"
                                             }
                                           }
+                                        },
+                                        {
+                                          "id": "jULMr",
+                                          "type": "ref",
+                                          "ref": "L:Lam3L",
+                                          "name": "Badge Whitebird",
+                                          "descendants": {
+                                            "L:a7j7d": {
+                                              "enabled": true,
+                                              "icon": "building-2"
+                                            },
+                                            "L:hTh3P": {
+                                              "content": "Whitebird"
+                                            }
+                                          }
                                         }
                                       ]
                                     },
@@ -1047,7 +1062,7 @@
                           ]
                         },
                         "L:JbpbF": {
-                          "content": "Reads their own issues and the planned work of one organisation. Can't change anything."
+                          "content": "Reads their own issues and the planned work of their organisations. Can't change anything."
                         }
                       }
                     },
@@ -1055,11 +1070,11 @@
                       "id": "o4SQtF",
                       "type": "ref",
                       "ref": "L:GPVnc",
-                      "name": "Field · Organisation",
+                      "name": "Field · Organisations",
                       "width": "fill_container",
                       "descendants": {
                         "L:KRgjT": {
-                          "content": "Organisation"
+                          "content": "Organisations"
                         },
                         "L:xzCrL": {
                           "enabled": false
@@ -1072,16 +1087,11 @@
                           "layout": "vertical",
                           "children": [
                             {
-                              "id": "dkCTw",
+                              "id": "M0jTyJ",
                               "type": "ref",
-                              "ref": "L:ED2nY",
-                              "name": "Organisation select",
-                              "width": "fill_container",
-                              "descendants": {
-                                "L:eiwdN": {
-                                  "content": "IVGA Vastgoed"
-                                }
-                              }
+                              "ref": "L:zKtDY",
+                              "name": "Organisations select",
+                              "width": "fill_container"
                             }
                           ]
                         },
@@ -1102,6 +1112,319 @@
                   "content": "Invite"
                 }
               }
+            },
+            {
+              "type": "frame",
+              "id": "LCVLI",
+              "layoutPosition": "absolute",
+              "x": 500,
+              "y": 568,
+              "name": "Organisations popover",
+              "width": 440,
+              "fill": "$L:surface-raised",
+              "cornerRadius": "$L:radius-lg",
+              "stroke": "$L:surface-border",
+              "strokeWidth": 1,
+              "effect": [
+                {
+                  "type": "shadow",
+                  "shadowType": "outer",
+                  "color": "#0F172A24",
+                  "offset": {
+                    "x": 0,
+                    "y": 16
+                  },
+                  "blur": 40
+                },
+                {
+                  "type": "shadow",
+                  "shadowType": "outer",
+                  "color": "#0F172A14",
+                  "offset": {
+                    "x": 0,
+                    "y": 3
+                  },
+                  "blur": 10
+                }
+              ],
+              "layout": "vertical",
+              "padding": 4,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "xVzyn",
+                  "name": "Search",
+                  "width": "fill_container",
+                  "stroke": "$L:border",
+                  "strokeWidth": {
+                    "bottom": 1
+                  },
+                  "padding": 8,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "HtwQn",
+                      "name": "Placeholder",
+                      "fill": "$L:muted-foreground",
+                      "content": "Search organisations",
+                      "fontFamily": "$L:font-sans",
+                      "fontSize": "$L:text-label",
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "p9tqK4",
+                  "name": "Items",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "padding": [
+                    4,
+                    0,
+                    0,
+                    0
+                  ],
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "K9DLn",
+                      "name": "Item IVGA Vastgoed",
+                      "width": "fill_container",
+                      "height": 32,
+                      "cornerRadius": "$L:radius-md",
+                      "gap": 8,
+                      "padding": [
+                        0,
+                        8
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon",
+                          "id": "V1cGzM",
+                          "name": "Icon",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "building-2",
+                          "library": "lucide",
+                          "fill": "$L:muted-foreground"
+                        },
+                        {
+                          "type": "text",
+                          "id": "fujH4",
+                          "name": "Name",
+                          "fill": "$L:foreground",
+                          "content": "IVGA Vastgoed",
+                          "fontFamily": "$L:font-sans",
+                          "fontSize": "$L:text-label",
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "fNtie",
+                          "name": "Push",
+                          "width": "fill_container",
+                          "height": 1
+                        },
+                        {
+                          "type": "icon",
+                          "id": "wWf23",
+                          "name": "Selected",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "check",
+                          "library": "lucide",
+                          "fill": "$L:foreground"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "qFqnK",
+                      "name": "Item Whitebird",
+                      "width": "fill_container",
+                      "height": 32,
+                      "fill": "$L:muted",
+                      "cornerRadius": "$L:radius-md",
+                      "gap": 8,
+                      "padding": [
+                        0,
+                        8
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon",
+                          "id": "QaBks",
+                          "name": "Icon",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "building-2",
+                          "library": "lucide",
+                          "fill": "$L:muted-foreground"
+                        },
+                        {
+                          "type": "text",
+                          "id": "JWqts",
+                          "name": "Name",
+                          "fill": "$L:foreground",
+                          "content": "Whitebird",
+                          "fontFamily": "$L:font-sans",
+                          "fontSize": "$L:text-label",
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "R3fcIL",
+                          "name": "Push",
+                          "width": "fill_container",
+                          "height": 1
+                        },
+                        {
+                          "type": "icon",
+                          "id": "k71on",
+                          "name": "Selected",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "check",
+                          "library": "lucide",
+                          "fill": "$L:foreground"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "qeVrf",
+                      "name": "Item BABA Management",
+                      "width": "fill_container",
+                      "height": 32,
+                      "cornerRadius": "$L:radius-md",
+                      "gap": 8,
+                      "padding": [
+                        0,
+                        8
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon",
+                          "id": "M6A9L",
+                          "name": "Icon",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "building-2",
+                          "library": "lucide",
+                          "fill": "$L:muted-foreground"
+                        },
+                        {
+                          "type": "text",
+                          "id": "ewBxn",
+                          "name": "Name",
+                          "fill": "$L:foreground",
+                          "content": "BABA Management",
+                          "fontFamily": "$L:font-sans",
+                          "fontSize": "$L:text-label",
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "Vfzjs",
+                          "name": "Push",
+                          "width": "fill_container",
+                          "height": 1
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "eNi2a",
+                      "name": "Item Supermarty B.V.",
+                      "width": "fill_container",
+                      "height": 32,
+                      "cornerRadius": "$L:radius-md",
+                      "gap": 8,
+                      "padding": [
+                        0,
+                        8
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon",
+                          "id": "OWdna",
+                          "name": "Icon",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "building-2",
+                          "library": "lucide",
+                          "fill": "$L:muted-foreground"
+                        },
+                        {
+                          "type": "text",
+                          "id": "WvhsC",
+                          "name": "Name",
+                          "fill": "$L:foreground",
+                          "content": "Supermarty B.V.",
+                          "fontFamily": "$L:font-sans",
+                          "fontSize": "$L:text-label",
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "F82nF",
+                          "name": "Push",
+                          "width": "fill_container",
+                          "height": 1
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "D72C3A",
+                      "name": "Item We Work",
+                      "width": "fill_container",
+                      "height": 32,
+                      "cornerRadius": "$L:radius-md",
+                      "gap": 8,
+                      "padding": [
+                        0,
+                        8
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon",
+                          "id": "EHYca",
+                          "name": "Icon",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "building-2",
+                          "library": "lucide",
+                          "fill": "$L:muted-foreground"
+                        },
+                        {
+                          "type": "text",
+                          "id": "fMeIR",
+                          "name": "Name",
+                          "fill": "$L:foreground",
+                          "content": "We Work",
+                          "fontFamily": "$L:font-sans",
+                          "fontSize": "$L:text-label",
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "jDZY7",
+                          "name": "Push",
+                          "width": "fill_container",
+                          "height": 1
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
             }
           ]
         }
@@ -1569,6 +1892,21 @@
                                             },
                                             "L:hTh3P": {
                                               "content": "IVGA Vastgoed"
+                                            }
+                                          }
+                                        },
+                                        {
+                                          "id": "J30kZr",
+                                          "type": "ref",
+                                          "ref": "L:Lam3L",
+                                          "name": "Badge Whitebird",
+                                          "descendants": {
+                                            "L:a7j7d": {
+                                              "enabled": true,
+                                              "icon": "building-2"
+                                            },
+                                            "L:hTh3P": {
+                                              "content": "Whitebird"
                                             }
                                           }
                                         }
@@ -2580,6 +2918,21 @@
                                               "content": "IVGA Vastgoed"
                                             }
                                           }
+                                        },
+                                        {
+                                          "id": "KXlgm",
+                                          "type": "ref",
+                                          "ref": "L:Lam3L",
+                                          "name": "Badge Whitebird",
+                                          "descendants": {
+                                            "L:a7j7d": {
+                                              "enabled": true,
+                                              "icon": "building-2"
+                                            },
+                                            "L:hTh3P": {
+                                              "content": "Whitebird"
+                                            }
+                                          }
                                         }
                                       ]
                                     },
@@ -3476,16 +3829,6 @@
                   "fontWeight": "normal"
                 },
                 {
-                  "type": "text",
-                  "id": "QelBe",
-                  "name": "Caption",
-                  "fill": "$L:muted-foreground",
-                  "content": "IVGA Vastgoed",
-                  "fontFamily": "$L:font-sans",
-                  "fontSize": "$L:text-caption",
-                  "fontWeight": "normal"
-                },
-                {
                   "type": "frame",
                   "id": "qKjDT",
                   "name": "Push",
@@ -3532,16 +3875,6 @@
                   "content": "Rizgar",
                   "fontFamily": "$L:font-sans",
                   "fontSize": "$L:text-label",
-                  "fontWeight": "normal"
-                },
-                {
-                  "type": "text",
-                  "id": "nw5QL",
-                  "name": "Caption",
-                  "fill": "$L:muted-foreground",
-                  "content": "IVGA Vastgoed",
-                  "fontFamily": "$L:font-sans",
-                  "fontSize": "$L:text-caption",
                   "fontWeight": "normal"
                 },
                 {
@@ -3910,7 +4243,7 @@
                       "fill": "$L:muted-foreground",
                       "textGrowth": "fixed-width",
                       "width": "fill_container",
-                      "content": "Brian invited you to join as a client of IVGA Vastgoed.",
+                      "content": "Brian invited you to join as a client of IVGA Vastgoed and Whitebird.",
                       "textAlign": "center",
                       "fontFamily": "$L:font-sans",
                       "fontSize": "$L:text-body",
@@ -4005,7 +4338,7 @@
               "fontWeight": "500"
             },
             "L:aJEzs/L:Q64DKw": {
-              "content": "2"
+              "content": "3"
             },
             "L:EEwXG": {
               "enabled": false
@@ -4090,7 +4423,7 @@
                   "content": "My issues"
                 },
                 "L:ky0VG": {
-                  "content": "2"
+                  "content": "3"
                 },
                 "L:SqyrP": {
                   "enabled": false
@@ -4119,21 +4452,6 @@
                   "padding": 8,
                   "children": [
                     {
-                      "id": "DReMm",
-                      "type": "ref",
-                      "ref": "L:S3u2aQ",
-                      "name": "Wait Send the 2025 rent roll export",
-                      "width": "fill_container",
-                      "descendants": {
-                        "L:fBcwU": {
-                          "content": "Send the 2025 rent roll export"
-                        },
-                        "L:vEHHT": {
-                          "content": "Due Fri 24 Oct"
-                        }
-                      }
-                    },
-                    {
                       "id": "wPetw",
                       "type": "ref",
                       "ref": "L:y3REe",
@@ -4154,6 +4472,39 @@
                         },
                         "L:y27jz/L:d1ef9": {
                           "content": "Overdue"
+                        }
+                      }
+                    },
+                    {
+                      "id": "DReMm",
+                      "type": "ref",
+                      "ref": "L:S3u2aQ",
+                      "name": "Wait Send the 2025 rent roll export",
+                      "width": "fill_container",
+                      "descendants": {
+                        "L:fBcwU": {
+                          "content": "Send the 2025 rent roll export"
+                        },
+                        "L:vEHHT": {
+                          "content": "Due Fri 24 Oct"
+                        }
+                      }
+                    },
+                    {
+                      "id": "VJkJe",
+                      "type": "ref",
+                      "ref": "L:y3REe",
+                      "name": "Wait Approve the new logo",
+                      "width": "fill_container",
+                      "descendants": {
+                        "L:lwzyi": {
+                          "content": "Approve the new logo"
+                        },
+                        "L:C0UHN": {
+                          "content": "Due Wed 5 Nov"
+                        },
+                        "L:ZK9jn": {
+                          "content": "Whitebird"
                         }
                       }
                     }
@@ -4205,6 +4556,26 @@
                           "name": "Due",
                           "fill": "$L:muted-foreground",
                           "content": "Due Fri 24 Oct",
+                          "fontFamily": "$L:font-sans",
+                          "fontSize": "$L:text-body",
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "icon",
+                          "id": "fSR4C",
+                          "name": "Organisation icon",
+                          "width": 14,
+                          "height": 14,
+                          "icon": "building-2",
+                          "library": "lucide",
+                          "fill": "$L:muted-foreground"
+                        },
+                        {
+                          "type": "text",
+                          "id": "s5dpJ",
+                          "name": "Organisation",
+                          "fill": "$L:muted-foreground",
+                          "content": "IVGA Vastgoed",
                           "fontFamily": "$L:font-sans",
                           "fontSize": "$L:text-body",
                           "fontWeight": "normal"
@@ -4310,7 +4681,7 @@
               "content": "My issues"
             },
             "L:aJEzs/L:Q64DKw": {
-              "content": "2"
+              "content": "3"
             },
             "L:EEwXG": {
               "enabled": false
@@ -4414,7 +4785,7 @@
               "name": "Body",
               "width": "fill_container",
               "layout": "vertical",
-              "gap": 24,
+              "gap": 40,
               "padding": [
                 16,
                 24
@@ -4422,17 +4793,16 @@
               "children": [
                 {
                   "type": "frame",
-                  "id": "tyObA",
-                  "name": "Release v1.4.0",
+                  "id": "pJg9Q",
+                  "name": "Organisation IVGA Vastgoed",
                   "width": "fill_container",
                   "layout": "vertical",
-                  "gap": 4,
+                  "gap": 24,
                   "children": [
                     {
                       "type": "frame",
-                      "id": "XeZZ0",
-                      "name": "Release head",
-                      "height": 32,
+                      "id": "Q1iLzY",
+                      "name": "Organisation head",
                       "gap": 8,
                       "padding": [
                         0,
@@ -4441,118 +4811,358 @@
                       "alignItems": "center",
                       "children": [
                         {
-                          "id": "HW00i",
-                          "type": "ref",
-                          "ref": "L:aCLgS",
-                          "name": "Release",
-                          "descendants": {
-                            "L:uo2SE": {
-                              "content": "v1.4.0"
-                            }
-                          }
+                          "type": "icon",
+                          "id": "i9ez5",
+                          "name": "Icon",
+                          "width": 16,
+                          "height": 16,
+                          "icon": "building-2",
+                          "library": "lucide",
+                          "fill": "$L:muted-foreground"
                         },
                         {
                           "type": "text",
-                          "id": "rjh7q",
-                          "name": "Project",
+                          "id": "k5JjQ",
+                          "name": "Name",
                           "fill": "$L:foreground",
-                          "content": "Asset dashboard",
+                          "content": "IVGA Vastgoed",
                           "fontFamily": "$L:font-sans",
-                          "fontSize": "$L:text-body",
-                          "fontWeight": "500"
+                          "fontSize": "$L:text-title-sm",
+                          "fontWeight": "600"
                         }
                       ]
                     },
                     {
                       "type": "frame",
-                      "id": "m3cg3",
-                      "name": "Rows",
-                      "clip": true,
+                      "id": "tyObA",
+                      "name": "Release v1.4.0",
                       "width": "fill_container",
-                      "cornerRadius": "$L:radius-lg",
-                      "stroke": "$L:border",
-                      "strokeWidth": 1,
                       "layout": "vertical",
+                      "gap": 4,
                       "children": [
                         {
-                          "id": "f9xVq",
-                          "type": "ref",
-                          "ref": "L:USdAj",
-                          "name": "Planned Show the yield per property",
-                          "width": "fill_container",
-                          "descendants": {
-                            "L:UJvc3": {
-                              "id": "K4NmQ",
+                          "type": "frame",
+                          "id": "XeZZ0",
+                          "name": "Release head",
+                          "height": 32,
+                          "gap": 8,
+                          "padding": [
+                            0,
+                            4
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "id": "HW00i",
                               "type": "ref",
-                              "ref": "L:aJZqJ"
+                              "ref": "L:aCLgS",
+                              "name": "Release",
+                              "descendants": {
+                                "L:uo2SE": {
+                                  "content": "v1.4.0"
+                                }
+                              }
                             },
-                            "L:dHHqs": {
-                              "content": "Show the yield per property"
-                            },
-                            "L:WTAnJ": {
-                              "content": "In progress"
+                            {
+                              "type": "text",
+                              "id": "rjh7q",
+                              "name": "Project",
+                              "fill": "$L:foreground",
+                              "content": "Asset dashboard",
+                              "fontFamily": "$L:font-sans",
+                              "fontSize": "$L:text-body",
+                              "fontWeight": "500"
                             }
-                          }
+                          ]
                         },
                         {
-                          "id": "VEmZR",
-                          "type": "ref",
-                          "ref": "L:USdAj",
-                          "name": "Planned Import the portfolio from Excel",
+                          "type": "frame",
+                          "id": "m3cg3",
+                          "name": "Rows",
+                          "clip": true,
                           "width": "fill_container",
-                          "descendants": {
-                            "L:UJvc3": {
-                              "id": "hmsju",
+                          "cornerRadius": "$L:radius-lg",
+                          "stroke": "$L:border",
+                          "strokeWidth": 1,
+                          "layout": "vertical",
+                          "children": [
+                            {
+                              "id": "f9xVq",
                               "type": "ref",
-                              "ref": "L:aJZqJ"
+                              "ref": "L:USdAj",
+                              "name": "Planned Show the yield per property",
+                              "width": "fill_container",
+                              "descendants": {
+                                "L:UJvc3": {
+                                  "id": "K4NmQ",
+                                  "type": "ref",
+                                  "ref": "L:aJZqJ"
+                                },
+                                "L:dHHqs": {
+                                  "content": "Show the yield per property"
+                                },
+                                "L:WTAnJ": {
+                                  "content": "In progress"
+                                }
+                              }
                             },
-                            "L:dHHqs": {
-                              "content": "Import the portfolio from Excel"
+                            {
+                              "id": "VEmZR",
+                              "type": "ref",
+                              "ref": "L:USdAj",
+                              "name": "Planned Import the portfolio from Excel",
+                              "width": "fill_container",
+                              "descendants": {
+                                "L:UJvc3": {
+                                  "id": "hmsju",
+                                  "type": "ref",
+                                  "ref": "L:aJZqJ"
+                                },
+                                "L:dHHqs": {
+                                  "content": "Import the portfolio from Excel"
+                                },
+                                "L:WTAnJ": {
+                                  "content": "In progress"
+                                }
+                              }
                             },
-                            "L:WTAnJ": {
-                              "content": "In progress"
+                            {
+                              "id": "LLeo6",
+                              "type": "ref",
+                              "ref": "L:USdAj",
+                              "name": "Planned Tenant list per building",
+                              "width": "fill_container",
+                              "descendants": {
+                                "L:UJvc3": {
+                                  "id": "j4wUgh",
+                                  "type": "ref",
+                                  "ref": "L:ldC2B"
+                                },
+                                "L:dHHqs": {
+                                  "content": "Tenant list per building"
+                                },
+                                "L:WTAnJ": {
+                                  "content": "In review"
+                                }
+                              }
+                            },
+                            {
+                              "id": "T5CCe",
+                              "type": "ref",
+                              "ref": "L:USdAj",
+                              "name": "Planned Export the dashboard as PDF",
+                              "width": "fill_container",
+                              "descendants": {
+                                "L:UJvc3": {
+                                  "id": "LzlZV",
+                                  "type": "ref",
+                                  "ref": "L:QUXmm"
+                                },
+                                "L:dHHqs": {
+                                  "content": "Export the dashboard as PDF"
+                                },
+                                "L:WTAnJ": {
+                                  "content": "Todo"
+                                }
+                              }
                             }
-                          }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "uDyYg",
+                      "name": "Release v1.5.0",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 4,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "t2ntr",
+                          "name": "Release head",
+                          "height": 32,
+                          "gap": 8,
+                          "padding": [
+                            0,
+                            4
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "id": "xJf6R",
+                              "type": "ref",
+                              "ref": "L:bFt73",
+                              "name": "Release",
+                              "descendants": {
+                                "L:TsHtV": {
+                                  "content": "v1.5.0"
+                                }
+                              }
+                            },
+                            {
+                              "type": "text",
+                              "id": "M4YAu1",
+                              "name": "Project",
+                              "fill": "$L:foreground",
+                              "content": "Asset dashboard",
+                              "fontFamily": "$L:font-sans",
+                              "fontSize": "$L:text-body",
+                              "fontWeight": "500"
+                            }
+                          ]
                         },
                         {
-                          "id": "LLeo6",
-                          "type": "ref",
-                          "ref": "L:USdAj",
-                          "name": "Planned Tenant list per building",
+                          "type": "frame",
+                          "id": "H2qMgz",
+                          "name": "Rows",
+                          "clip": true,
                           "width": "fill_container",
-                          "descendants": {
-                            "L:UJvc3": {
-                              "id": "j4wUgh",
+                          "cornerRadius": "$L:radius-lg",
+                          "stroke": "$L:border",
+                          "strokeWidth": 1,
+                          "layout": "vertical",
+                          "children": [
+                            {
+                              "id": "opIMx",
                               "type": "ref",
-                              "ref": "L:ldC2B"
+                              "ref": "L:USdAj",
+                              "name": "Planned Rent increase per 1 July",
+                              "width": "fill_container",
+                              "descendants": {
+                                "L:UJvc3": {
+                                  "id": "wxSi3",
+                                  "type": "ref",
+                                  "ref": "L:kOtJS"
+                                },
+                                "L:dHHqs": {
+                                  "content": "Rent increase per 1 July"
+                                },
+                                "L:WTAnJ": {
+                                  "content": "Backlog"
+                                }
+                              }
                             },
-                            "L:dHHqs": {
-                              "content": "Tenant list per building"
-                            },
-                            "L:WTAnJ": {
-                              "content": "In review"
+                            {
+                              "id": "R00uw",
+                              "type": "ref",
+                              "ref": "L:USdAj",
+                              "name": "Planned Maintenance costs per building",
+                              "width": "fill_container",
+                              "descendants": {
+                                "L:UJvc3": {
+                                  "id": "DagTw",
+                                  "type": "ref",
+                                  "ref": "L:kOtJS"
+                                },
+                                "L:dHHqs": {
+                                  "content": "Maintenance costs per building"
+                                },
+                                "L:WTAnJ": {
+                                  "content": "Backlog"
+                                }
+                              }
                             }
-                          }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "B2Hd5z",
+                      "name": "Release v1.0.0",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 4,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "c1qxW",
+                          "name": "Release head",
+                          "height": 32,
+                          "gap": 8,
+                          "padding": [
+                            0,
+                            4
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "id": "r7aUDF",
+                              "type": "ref",
+                              "ref": "L:bFt73",
+                              "name": "Release",
+                              "descendants": {
+                                "L:TsHtV": {
+                                  "content": "v1.0.0"
+                                }
+                              }
+                            },
+                            {
+                              "type": "text",
+                              "id": "v1kXr5",
+                              "name": "Project",
+                              "fill": "$L:foreground",
+                              "content": "Tenant portal",
+                              "fontFamily": "$L:font-sans",
+                              "fontSize": "$L:text-body",
+                              "fontWeight": "500"
+                            }
+                          ]
                         },
                         {
-                          "id": "T5CCe",
-                          "type": "ref",
-                          "ref": "L:USdAj",
-                          "name": "Planned Export the dashboard as PDF",
+                          "type": "frame",
+                          "id": "tH0G2",
+                          "name": "Rows",
+                          "clip": true,
                           "width": "fill_container",
-                          "descendants": {
-                            "L:UJvc3": {
-                              "id": "LzlZV",
+                          "cornerRadius": "$L:radius-lg",
+                          "stroke": "$L:border",
+                          "strokeWidth": 1,
+                          "layout": "vertical",
+                          "children": [
+                            {
+                              "id": "EGxuM",
                               "type": "ref",
-                              "ref": "L:QUXmm"
+                              "ref": "L:USdAj",
+                              "name": "Planned Tenants log in with their email",
+                              "width": "fill_container",
+                              "descendants": {
+                                "L:UJvc3": {
+                                  "id": "FYPqc",
+                                  "type": "ref",
+                                  "ref": "L:QUXmm"
+                                },
+                                "L:dHHqs": {
+                                  "content": "Tenants log in with their email"
+                                },
+                                "L:WTAnJ": {
+                                  "content": "Todo"
+                                }
+                              }
                             },
-                            "L:dHHqs": {
-                              "content": "Export the dashboard as PDF"
-                            },
-                            "L:WTAnJ": {
-                              "content": "Todo"
+                            {
+                              "id": "f4a29O",
+                              "type": "ref",
+                              "ref": "L:USdAj",
+                              "name": "Planned Tenants report a repair",
+                              "width": "fill_container",
+                              "descendants": {
+                                "L:UJvc3": {
+                                  "id": "HhRLL",
+                                  "type": "ref",
+                                  "ref": "L:kOtJS"
+                                },
+                                "L:dHHqs": {
+                                  "content": "Tenants report a repair"
+                                },
+                                "L:WTAnJ": {
+                                  "content": "Backlog"
+                                }
+                              }
                             }
-                          }
+                          ]
                         }
                       ]
                     }
@@ -4560,17 +5170,16 @@
                 },
                 {
                   "type": "frame",
-                  "id": "uDyYg",
-                  "name": "Release v1.5.0",
+                  "id": "iCVDE",
+                  "name": "Organisation Whitebird",
                   "width": "fill_container",
                   "layout": "vertical",
-                  "gap": 4,
+                  "gap": 24,
                   "children": [
                     {
                       "type": "frame",
-                      "id": "t2ntr",
-                      "name": "Release head",
-                      "height": 32,
+                      "id": "MtSCg",
+                      "name": "Organisation head",
                       "gap": 8,
                       "padding": [
                         0,
@@ -4579,176 +5188,122 @@
                       "alignItems": "center",
                       "children": [
                         {
-                          "id": "xJf6R",
-                          "type": "ref",
-                          "ref": "L:bFt73",
-                          "name": "Release",
-                          "descendants": {
-                            "L:TsHtV": {
-                              "content": "v1.5.0"
-                            }
-                          }
+                          "type": "icon",
+                          "id": "dINKb",
+                          "name": "Icon",
+                          "width": 16,
+                          "height": 16,
+                          "icon": "building-2",
+                          "library": "lucide",
+                          "fill": "$L:muted-foreground"
                         },
                         {
                           "type": "text",
-                          "id": "M4YAu1",
-                          "name": "Project",
+                          "id": "JmuUn",
+                          "name": "Name",
                           "fill": "$L:foreground",
-                          "content": "Asset dashboard",
+                          "content": "Whitebird",
                           "fontFamily": "$L:font-sans",
-                          "fontSize": "$L:text-body",
-                          "fontWeight": "500"
+                          "fontSize": "$L:text-title-sm",
+                          "fontWeight": "600"
                         }
                       ]
                     },
                     {
                       "type": "frame",
-                      "id": "H2qMgz",
-                      "name": "Rows",
-                      "clip": true,
+                      "id": "Nvbpi",
+                      "name": "Release v2.0.0",
                       "width": "fill_container",
-                      "cornerRadius": "$L:radius-lg",
-                      "stroke": "$L:border",
-                      "strokeWidth": 1,
                       "layout": "vertical",
+                      "gap": 4,
                       "children": [
                         {
-                          "id": "opIMx",
-                          "type": "ref",
-                          "ref": "L:USdAj",
-                          "name": "Planned Rent increase per 1 July",
-                          "width": "fill_container",
-                          "descendants": {
-                            "L:UJvc3": {
-                              "id": "wxSi3",
+                          "type": "frame",
+                          "id": "sv76Q",
+                          "name": "Release head",
+                          "height": 32,
+                          "gap": 8,
+                          "padding": [
+                            0,
+                            4
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "id": "CY9Au",
                               "type": "ref",
-                              "ref": "L:kOtJS"
+                              "ref": "L:aCLgS",
+                              "name": "Release",
+                              "descendants": {
+                                "L:uo2SE": {
+                                  "content": "v2.0.0"
+                                }
+                              }
                             },
-                            "L:dHHqs": {
-                              "content": "Rent increase per 1 July"
-                            },
-                            "L:WTAnJ": {
-                              "content": "Backlog"
+                            {
+                              "type": "text",
+                              "id": "CahlO",
+                              "name": "Project",
+                              "fill": "$L:foreground",
+                              "content": "Website",
+                              "fontFamily": "$L:font-sans",
+                              "fontSize": "$L:text-body",
+                              "fontWeight": "500"
                             }
-                          }
+                          ]
                         },
                         {
-                          "id": "R00uw",
-                          "type": "ref",
-                          "ref": "L:USdAj",
-                          "name": "Planned Maintenance costs per building",
+                          "type": "frame",
+                          "id": "infG3",
+                          "name": "Rows",
+                          "clip": true,
                           "width": "fill_container",
-                          "descendants": {
-                            "L:UJvc3": {
-                              "id": "DagTw",
+                          "cornerRadius": "$L:radius-lg",
+                          "stroke": "$L:border",
+                          "strokeWidth": 1,
+                          "layout": "vertical",
+                          "children": [
+                            {
+                              "id": "gLLhE",
                               "type": "ref",
-                              "ref": "L:kOtJS"
+                              "ref": "L:USdAj",
+                              "name": "Planned New logo on every page",
+                              "width": "fill_container",
+                              "descendants": {
+                                "L:UJvc3": {
+                                  "id": "ELDjc",
+                                  "type": "ref",
+                                  "ref": "L:aJZqJ"
+                                },
+                                "L:dHHqs": {
+                                  "content": "New logo on every page"
+                                },
+                                "L:WTAnJ": {
+                                  "content": "In progress"
+                                }
+                              }
                             },
-                            "L:dHHqs": {
-                              "content": "Maintenance costs per building"
-                            },
-                            "L:WTAnJ": {
-                              "content": "Backlog"
-                            }
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                {
-                  "type": "frame",
-                  "id": "B2Hd5z",
-                  "name": "Release v1.0.0",
-                  "width": "fill_container",
-                  "layout": "vertical",
-                  "gap": 4,
-                  "children": [
-                    {
-                      "type": "frame",
-                      "id": "c1qxW",
-                      "name": "Release head",
-                      "height": 32,
-                      "gap": 8,
-                      "padding": [
-                        0,
-                        4
-                      ],
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "id": "r7aUDF",
-                          "type": "ref",
-                          "ref": "L:bFt73",
-                          "name": "Release",
-                          "descendants": {
-                            "L:TsHtV": {
-                              "content": "v1.0.0"
-                            }
-                          }
-                        },
-                        {
-                          "type": "text",
-                          "id": "v1kXr5",
-                          "name": "Project",
-                          "fill": "$L:foreground",
-                          "content": "Tenant portal",
-                          "fontFamily": "$L:font-sans",
-                          "fontSize": "$L:text-body",
-                          "fontWeight": "500"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "tH0G2",
-                      "name": "Rows",
-                      "clip": true,
-                      "width": "fill_container",
-                      "cornerRadius": "$L:radius-lg",
-                      "stroke": "$L:border",
-                      "strokeWidth": 1,
-                      "layout": "vertical",
-                      "children": [
-                        {
-                          "id": "EGxuM",
-                          "type": "ref",
-                          "ref": "L:USdAj",
-                          "name": "Planned Tenants log in with their email",
-                          "width": "fill_container",
-                          "descendants": {
-                            "L:UJvc3": {
-                              "id": "FYPqc",
+                            {
+                              "id": "ixiqn",
                               "type": "ref",
-                              "ref": "L:QUXmm"
-                            },
-                            "L:dHHqs": {
-                              "content": "Tenants log in with their email"
-                            },
-                            "L:WTAnJ": {
-                              "content": "Todo"
+                              "ref": "L:USdAj",
+                              "name": "Planned Contact form sends to the right office",
+                              "width": "fill_container",
+                              "descendants": {
+                                "L:UJvc3": {
+                                  "id": "NAFWF",
+                                  "type": "ref",
+                                  "ref": "L:QUXmm"
+                                },
+                                "L:dHHqs": {
+                                  "content": "Contact form sends to the right office"
+                                },
+                                "L:WTAnJ": {
+                                  "content": "Todo"
+                                }
+                              }
                             }
-                          }
-                        },
-                        {
-                          "id": "f4a29O",
-                          "type": "ref",
-                          "ref": "L:USdAj",
-                          "name": "Planned Tenants report a repair",
-                          "width": "fill_container",
-                          "descendants": {
-                            "L:UJvc3": {
-                              "id": "HhRLL",
-                              "type": "ref",
-                              "ref": "L:kOtJS"
-                            },
-                            "L:dHHqs": {
-                              "content": "Tenants report a repair"
-                            },
-                            "L:WTAnJ": {
-                              "content": "Backlog"
-                            }
-                          }
+                          ]
                         }
                       ]
                     }
@@ -5137,7 +5692,7 @@
               "content": "My issues"
             },
             "L:aJEzs/L:Q64DKw": {
-              "content": "2"
+              "content": "3"
             },
             "L:EEwXG": {
               "enabled": false
@@ -5251,7 +5806,7 @@
                       "content": "You can't open this page"
                     },
                     "L:p9Tbr": {
-                      "content": "Your account shows your own issues and your organisation's planned work."
+                      "content": "Your account shows your own issues and the planned work of your organisations."
                     },
                     "L:FZiYw/L:c7Sgv": {
                       "icon": "arrow-right"
@@ -5531,6 +6086,16 @@
                               "content": "2",
                               "fontFamily": "$L:font-sans",
                               "fontSize": "$L:text-body",
+                              "fontWeight": "normal"
+                            },
+                            {
+                              "type": "text",
+                              "id": "C1zTOw",
+                              "name": "Also",
+                              "fill": "$L:muted-foreground",
+                              "content": "Also a client of Whitebird",
+                              "fontFamily": "$L:font-sans",
+                              "fontSize": "$L:text-caption",
                               "fontWeight": "normal"
                             }
                           ]
@@ -5942,8 +6507,14 @@
                     "L:d9CCt": {
                       "content": "Asset dashboard"
                     },
+                    "L:Ac5sM/L:q2fV1": {
+                      "stroke": "$L:muted-foreground"
+                    },
+                    "L:Ac5sM/L:TXRkn": {
+                      "enabled": false
+                    },
                     "L:fCkWv": {
-                      "content": "AMD-76 Show the portfolio Waardekompas on the…"
+                      "content": "AMD-77 Approve the dashboard colours"
                     },
                     "L:K3XjD": {
                       "enabled": true
@@ -6188,6 +6759,9 @@
                     "L:d9CCt": {
                       "content": "main"
                     },
+                    "L:Ac5sM": {
+                      "enabled": false
+                    },
                     "L:Ac5sM/L:q2fV1": {
                       "stroke": "#000000"
                     },
@@ -6195,10 +6769,10 @@
                       "enabled": false
                     },
                     "L:fCkWv": {
-                      "content": "Next: IVGA-45 Verify that a source correction chan…"
+                      "content": "No open issues"
                     },
                     "L:K3XjD": {
-                      "enabled": true
+                      "enabled": false
                     },
                     "L:Hg8r5/L:hTh3P": {
                       "content": "All 2 can proceed"
@@ -6568,7 +7142,7 @@
                           "id": "YmRQo",
                           "type": "ref",
                           "ref": "L:t9xNo",
-                          "name": "Row AMD-74",
+                          "name": "Row AMD-79",
                           "width": "fill_container",
                           "descendants": {
                             "L:KG9sI": {
@@ -6577,29 +7151,31 @@
                               "ref": "L:Dmm07"
                             },
                             "L:fx9aY": {
-                              "id": "QSEkG",
+                              "id": "PiuP5",
                               "type": "ref",
-                              "ref": "L:ngCRp"
+                              "ref": "L:ac9LK",
+                              "name": "Client wait chore"
                             },
                             "L:N0dj9": {
-                              "content": "AMD-74"
+                              "content": "AMD-79"
                             },
                             "L:vx024": {
-                              "id": "dbOWz",
+                              "id": "RTid1",
                               "type": "ref",
-                              "ref": "L:QUXmm"
+                              "ref": "L:WywEd",
+                              "name": "Status/Blocked"
                             },
                             "L:vuG9z": {
-                              "content": "Yield per property for 2025"
+                              "content": "Sign the data processing agreement"
                             },
                             "L:IPpTX": {
                               "enabled": false
                             },
                             "L:SAuqU": {
-                              "fill": "$L:chart-3"
+                              "fill": "$L:type-journey"
                             },
                             "L:SAuqU/L:Ugbzg": {
-                              "content": "BR"
+                              "content": "RZ"
                             }
                           }
                         }
@@ -6741,6 +7317,1627 @@
                           }
                         }
                       ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "o1Aw4U",
+      "x": 20280,
+      "y": 0,
+      "name": "2c · Change a client's organisations",
+      "clip": true,
+      "width": 1440,
+      "height": 900,
+      "fill": "$L:app-shell",
+      "children": [
+        {
+          "id": "YLuAh",
+          "type": "ref",
+          "ref": "L:aSVx6",
+          "name": "App sidebar",
+          "height": "fill_container",
+          "descendants": {
+            "L:qSICc": {
+              "fill": "#00000000"
+            },
+            "L:qSICc/L:fVZGR": {
+              "fill": "$L:muted-foreground"
+            },
+            "L:qSICc/L:hOvR0": {
+              "fill": "$L:muted-foreground",
+              "fontWeight": "normal"
+            },
+            "L:U5q4iR": {
+              "fill": "$L:sidebar-accent"
+            },
+            "L:U5q4iR/L:irWtm": {
+              "fill": "$L:foreground"
+            },
+            "L:U5q4iR/L:eld4j": {
+              "fill": "$L:foreground",
+              "fontWeight": "500"
+            }
+          }
+        },
+        {
+          "type": "frame",
+          "id": "laByz",
+          "name": "Main",
+          "clip": true,
+          "width": "fill_container",
+          "height": "fill_container",
+          "fill": "$L:page-canvas",
+          "layout": "vertical",
+          "children": [
+            {
+              "id": "YuIlR",
+              "type": "ref",
+              "ref": "L:p1b4tu",
+              "name": "Page header",
+              "width": "fill_container",
+              "descendants": {
+                "L:dsuI9": {
+                  "icon": "settings"
+                },
+                "L:EZ9ww": {
+                  "content": "Settings"
+                },
+                "L:ky0VG": {
+                  "enabled": false
+                },
+                "L:SqyrP": {
+                  "enabled": false
+                }
+              }
+            },
+            {
+              "type": "frame",
+              "id": "UB8pb",
+              "name": "Body",
+              "width": "fill_container",
+              "height": "fill_container",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "H3uzy",
+                  "name": "Settings nav",
+                  "width": 232,
+                  "height": "fill_container",
+                  "stroke": "$L:border",
+                  "strokeWidth": {
+                    "right": 1
+                  },
+                  "layout": "vertical",
+                  "gap": 2,
+                  "padding": [
+                    16,
+                    8
+                  ],
+                  "children": [
+                    {
+                      "id": "fwd45",
+                      "type": "ref",
+                      "ref": "L:LyQFq",
+                      "name": "Group Brian",
+                      "width": "fill_container",
+                      "descendants": {
+                        "L:RNBEi": {
+                          "content": "Brian"
+                        }
+                      }
+                    },
+                    {
+                      "id": "RTvC9",
+                      "type": "ref",
+                      "ref": "L:q5CDcw",
+                      "name": "Tab Profile",
+                      "width": "fill_container",
+                      "descendants": {
+                        "L:irWtm": {
+                          "icon": "user"
+                        },
+                        "L:eld4j": {
+                          "content": "Profile"
+                        },
+                        "L:FXc46": {
+                          "enabled": false
+                        }
+                      }
+                    },
+                    {
+                      "id": "Ijmvu",
+                      "type": "ref",
+                      "ref": "L:q5CDcw",
+                      "name": "Tab Preferences",
+                      "width": "fill_container",
+                      "descendants": {
+                        "L:irWtm": {
+                          "icon": "sliders-horizontal"
+                        },
+                        "L:eld4j": {
+                          "content": "Preferences"
+                        },
+                        "L:FXc46": {
+                          "enabled": false
+                        }
+                      }
+                    },
+                    {
+                      "id": "oixbF",
+                      "type": "ref",
+                      "ref": "L:q5CDcw",
+                      "name": "Tab Notifications",
+                      "width": "fill_container",
+                      "descendants": {
+                        "L:irWtm": {
+                          "icon": "bell"
+                        },
+                        "L:eld4j": {
+                          "content": "Notifications"
+                        },
+                        "L:FXc46": {
+                          "enabled": false
+                        }
+                      }
+                    },
+                    {
+                      "id": "n6bNr",
+                      "type": "ref",
+                      "ref": "L:LyQFq",
+                      "name": "Group De App Specialist",
+                      "width": "fill_container",
+                      "descendants": {
+                        "L:RNBEi": {
+                          "content": "De App Specialist"
+                        }
+                      }
+                    },
+                    {
+                      "id": "X8pQka",
+                      "type": "ref",
+                      "ref": "L:q5CDcw",
+                      "name": "Tab General",
+                      "width": "fill_container",
+                      "descendants": {
+                        "L:irWtm": {
+                          "icon": "settings"
+                        },
+                        "L:eld4j": {
+                          "content": "General"
+                        },
+                        "L:FXc46": {
+                          "enabled": false
+                        }
+                      }
+                    },
+                    {
+                      "id": "ac2Xv",
+                      "type": "ref",
+                      "ref": "L:Wgrsa",
+                      "name": "Tab Members",
+                      "width": "fill_container",
+                      "descendants": {
+                        "L:fVZGR": {
+                          "icon": "users"
+                        },
+                        "L:hOvR0": {
+                          "content": "Members"
+                        },
+                        "L:l5CZs": {
+                          "enabled": false
+                        }
+                      }
+                    },
+                    {
+                      "id": "pR7z7",
+                      "type": "ref",
+                      "ref": "L:LyQFq",
+                      "name": "Group Issues",
+                      "width": "fill_container",
+                      "descendants": {
+                        "L:RNBEi": {
+                          "content": "Issues"
+                        }
+                      }
+                    },
+                    {
+                      "id": "b835y",
+                      "type": "ref",
+                      "ref": "L:q5CDcw",
+                      "name": "Tab Issue statuses",
+                      "width": "fill_container",
+                      "descendants": {
+                        "L:irWtm": {
+                          "icon": "circle-dot"
+                        },
+                        "L:eld4j": {
+                          "content": "Issue statuses"
+                        },
+                        "L:FXc46": {
+                          "enabled": false
+                        }
+                      }
+                    },
+                    {
+                      "id": "VbYlE",
+                      "type": "ref",
+                      "ref": "L:q5CDcw",
+                      "name": "Tab Labels",
+                      "width": "fill_container",
+                      "descendants": {
+                        "L:irWtm": {
+                          "icon": "tags"
+                        },
+                        "L:eld4j": {
+                          "content": "Labels"
+                        },
+                        "L:FXc46": {
+                          "enabled": false
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "K2EIuA",
+                  "name": "Members tab",
+                  "width": "fill_container",
+                  "height": "fill_container",
+                  "layout": "vertical",
+                  "gap": 32,
+                  "padding": [
+                    32,
+                    48
+                  ],
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "Qe2Nx",
+                      "name": "Tab header",
+                      "width": "fill_container",
+                      "gap": 10,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "elehs",
+                          "name": "Title",
+                          "fill": "$L:foreground",
+                          "content": "Members",
+                          "fontFamily": "$L:font-sans",
+                          "fontSize": "$L:text-title-lg",
+                          "fontWeight": "600"
+                        },
+                        {
+                          "id": "w1pBA",
+                          "type": "ref",
+                          "ref": "L:Lam3L",
+                          "name": "Badge Workspace",
+                          "descendants": {
+                            "L:a7j7d": {
+                              "enabled": true,
+                              "icon": "building"
+                            },
+                            "L:hTh3P": {
+                              "content": "Workspace"
+                            }
+                          }
+                        },
+                        {
+                          "type": "frame",
+                          "id": "Obhej",
+                          "name": "Push",
+                          "width": "fill_container",
+                          "height": 1
+                        },
+                        {
+                          "id": "FtcH6",
+                          "type": "ref",
+                          "ref": "L:Ugg3j",
+                          "name": "Invite member",
+                          "descendants": {
+                            "L:QwYQ9": {
+                              "content": "Invite member"
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "bonEf",
+                      "name": "Lists",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 12,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "M8TKn",
+                          "name": "List bar",
+                          "width": "fill_container",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "id": "Af1u3",
+                              "type": "ref",
+                              "ref": "L:s6381",
+                              "name": "Lists",
+                              "descendants": {
+                                "L:H5ggEo": {
+                                  "fill": "$L:surface"
+                                },
+                                "L:a4Q6x": {
+                                  "content": "Members",
+                                  "fill": "$L:foreground"
+                                },
+                                "L:I6cIE": {
+                                  "fill": "#00000000"
+                                },
+                                "L:DIs3i": {
+                                  "content": "Pending invitations",
+                                  "fill": "$L:muted-foreground"
+                                },
+                                "L:SwH6x": {
+                                  "content": "Share links"
+                                }
+                              }
+                            },
+                            {
+                              "type": "frame",
+                              "id": "I84tKJ",
+                              "name": "Push",
+                              "width": "fill_container",
+                              "height": 1
+                            },
+                            {
+                              "id": "o1lhB",
+                              "type": "ref",
+                              "ref": "L:DmY05",
+                              "name": "Search",
+                              "width": 224,
+                              "descendants": {
+                                "L:FByMw": {
+                                  "content": "Search name or email"
+                                }
+                              }
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "r3eR6",
+                          "name": "Card",
+                          "clip": true,
+                          "width": "fill_container",
+                          "fill": "$L:surface",
+                          "cornerRadius": "$L:radius-xl",
+                          "stroke": "$L:border",
+                          "strokeWidth": 1,
+                          "layout": "vertical",
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "GAYMe",
+                              "name": "Member Brian",
+                              "width": "fill_container",
+                              "stroke": "$L:border",
+                              "strokeWidth": {
+                                "bottom": 1
+                              },
+                              "gap": 12,
+                              "padding": [
+                                12,
+                                16
+                              ],
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "id": "abjW7",
+                                  "type": "ref",
+                                  "ref": "L:UEn9u",
+                                  "name": "Avatar BR",
+                                  "width": 32,
+                                  "height": 32,
+                                  "cornerRadius": 16,
+                                  "fill": "$L:chart-3",
+                                  "descendants": {
+                                    "L:Ugbzg": {
+                                      "content": "BR",
+                                      "fontSize": 12
+                                    }
+                                  }
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "QlWuu",
+                                  "name": "Who",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 2,
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "D0I0Ik",
+                                      "name": "Name line",
+                                      "gap": 8,
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "rMoJA",
+                                          "name": "Name",
+                                          "fill": "$L:foreground",
+                                          "content": "Brian",
+                                          "fontFamily": "$L:font-sans",
+                                          "fontSize": "$L:text-body",
+                                          "fontWeight": "500"
+                                        },
+                                        {
+                                          "id": "XgvfC",
+                                          "type": "ref",
+                                          "ref": "L:Lam3L",
+                                          "name": "Badge You",
+                                          "descendants": {
+                                            "L:a7j7d": {
+                                              "enabled": false
+                                            },
+                                            "L:hTh3P": {
+                                              "content": "You"
+                                            }
+                                          }
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "xGZj6",
+                                      "name": "Email",
+                                      "fill": "$L:muted-foreground",
+                                      "content": "brian@deappspecialist.nl",
+                                      "fontFamily": "$L:font-sans",
+                                      "fontSize": "$L:text-caption",
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "tTqv2",
+                                  "name": "Joined",
+                                  "fill": "$L:muted-foreground",
+                                  "textGrowth": "fixed-width",
+                                  "width": 128,
+                                  "content": "Joined 3 Mar 2025",
+                                  "fontFamily": "$L:font-sans",
+                                  "fontSize": "$L:text-caption",
+                                  "fontWeight": "normal"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "TgcXa",
+                                  "name": "Role",
+                                  "width": 96,
+                                  "gap": 6,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "icon",
+                                      "id": "CsaX8",
+                                      "name": "Role icon",
+                                      "width": 14,
+                                      "height": 14,
+                                      "icon": "crown",
+                                      "library": "lucide",
+                                      "fill": "$L:muted-foreground"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "beoWb",
+                                      "name": "Role label",
+                                      "fill": "$L:foreground",
+                                      "content": "Owner",
+                                      "fontFamily": "$L:font-sans",
+                                      "fontSize": "$L:text-body",
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "icon",
+                                  "id": "GYaov",
+                                  "x": 0,
+                                  "y": 0,
+                                  "name": "Actions",
+                                  "enabled": false,
+                                  "width": 16,
+                                  "height": 16,
+                                  "library": "lucide",
+                                  "fill": "$L:muted-foreground"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "zbK42",
+                              "name": "Member Mark",
+                              "width": "fill_container",
+                              "stroke": "$L:border",
+                              "strokeWidth": {
+                                "bottom": 1
+                              },
+                              "gap": 12,
+                              "padding": [
+                                12,
+                                16
+                              ],
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "id": "t5qVJ",
+                                  "type": "ref",
+                                  "ref": "L:UEn9u",
+                                  "name": "Avatar MK",
+                                  "width": 32,
+                                  "height": 32,
+                                  "cornerRadius": 16,
+                                  "fill": "$L:chart-1",
+                                  "descendants": {
+                                    "L:Ugbzg": {
+                                      "content": "MK",
+                                      "fontSize": 12
+                                    }
+                                  }
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "gxthE",
+                                  "name": "Who",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 2,
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "wgQj2",
+                                      "name": "Name line",
+                                      "gap": 8,
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "F3Tz9s",
+                                          "name": "Name",
+                                          "fill": "$L:foreground",
+                                          "content": "Mark",
+                                          "fontFamily": "$L:font-sans",
+                                          "fontSize": "$L:text-body",
+                                          "fontWeight": "500"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "gwcD2",
+                                      "name": "Email",
+                                      "fill": "$L:muted-foreground",
+                                      "content": "mark@deappspecialist.nl",
+                                      "fontFamily": "$L:font-sans",
+                                      "fontSize": "$L:text-caption",
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "f1qiZ",
+                                  "name": "Joined",
+                                  "fill": "$L:muted-foreground",
+                                  "textGrowth": "fixed-width",
+                                  "width": 128,
+                                  "content": "Joined 12 May 2025",
+                                  "fontFamily": "$L:font-sans",
+                                  "fontSize": "$L:text-caption",
+                                  "fontWeight": "normal"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "KWWSH",
+                                  "name": "Role",
+                                  "width": 96,
+                                  "gap": 6,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "icon",
+                                      "id": "muO6s",
+                                      "name": "Role icon",
+                                      "width": 14,
+                                      "height": 14,
+                                      "icon": "shield",
+                                      "library": "lucide",
+                                      "fill": "$L:muted-foreground"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "XX74H",
+                                      "name": "Role label",
+                                      "fill": "$L:foreground",
+                                      "content": "Admin",
+                                      "fontFamily": "$L:font-sans",
+                                      "fontSize": "$L:text-body",
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "icon",
+                                  "id": "OAarx",
+                                  "name": "Actions",
+                                  "width": 16,
+                                  "height": 16,
+                                  "icon": "ellipsis",
+                                  "library": "lucide",
+                                  "fill": "$L:muted-foreground"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "Dgthj",
+                              "name": "Member Sarah",
+                              "width": "fill_container",
+                              "stroke": "$L:border",
+                              "strokeWidth": {
+                                "bottom": 1
+                              },
+                              "gap": 12,
+                              "padding": [
+                                12,
+                                16
+                              ],
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "id": "BAmCK",
+                                  "type": "ref",
+                                  "ref": "L:UEn9u",
+                                  "name": "Avatar SJ",
+                                  "width": 32,
+                                  "height": 32,
+                                  "cornerRadius": 16,
+                                  "fill": "$L:chart-2",
+                                  "descendants": {
+                                    "L:Ugbzg": {
+                                      "content": "SJ",
+                                      "fontSize": 12
+                                    }
+                                  }
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "wkEJ7",
+                                  "name": "Who",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 2,
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "iTK5K",
+                                      "name": "Name line",
+                                      "gap": 8,
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "p9z13S",
+                                          "name": "Name",
+                                          "fill": "$L:foreground",
+                                          "content": "Sarah",
+                                          "fontFamily": "$L:font-sans",
+                                          "fontSize": "$L:text-body",
+                                          "fontWeight": "500"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "EHkTj",
+                                      "name": "Email",
+                                      "fill": "$L:muted-foreground",
+                                      "content": "sarah@deappspecialist.nl",
+                                      "fontFamily": "$L:font-sans",
+                                      "fontSize": "$L:text-caption",
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "RN0Fj",
+                                  "name": "Joined",
+                                  "fill": "$L:muted-foreground",
+                                  "textGrowth": "fixed-width",
+                                  "width": 128,
+                                  "content": "Joined 2 Sep 2025",
+                                  "fontFamily": "$L:font-sans",
+                                  "fontSize": "$L:text-caption",
+                                  "fontWeight": "normal"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "c9HYtu",
+                                  "name": "Role",
+                                  "width": 96,
+                                  "gap": 6,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "icon",
+                                      "id": "Q0Olwu",
+                                      "name": "Role icon",
+                                      "width": 14,
+                                      "height": 14,
+                                      "icon": "user",
+                                      "library": "lucide",
+                                      "fill": "$L:muted-foreground"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "IxBCC",
+                                      "name": "Role label",
+                                      "fill": "$L:foreground",
+                                      "content": "Member",
+                                      "fontFamily": "$L:font-sans",
+                                      "fontSize": "$L:text-body",
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "icon",
+                                  "id": "WWIAy",
+                                  "name": "Actions",
+                                  "width": 16,
+                                  "height": 16,
+                                  "icon": "ellipsis",
+                                  "library": "lucide",
+                                  "fill": "$L:muted-foreground"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "K7IQE",
+                              "name": "Member Nasir",
+                              "width": "fill_container",
+                              "stroke": "$L:border",
+                              "strokeWidth": {
+                                "bottom": 1
+                              },
+                              "gap": 12,
+                              "padding": [
+                                12,
+                                16
+                              ],
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "id": "ZlxyS",
+                                  "type": "ref",
+                                  "ref": "L:UEn9u",
+                                  "name": "Avatar NA",
+                                  "width": 32,
+                                  "height": 32,
+                                  "cornerRadius": 16,
+                                  "fill": "$L:type-journey",
+                                  "descendants": {
+                                    "L:Ugbzg": {
+                                      "content": "NA",
+                                      "fontSize": 12
+                                    }
+                                  }
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "G3zydP",
+                                  "name": "Who",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 2,
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "adWFr",
+                                      "name": "Name line",
+                                      "gap": 8,
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "SsPU8",
+                                          "name": "Name",
+                                          "fill": "$L:foreground",
+                                          "content": "Nasir",
+                                          "fontFamily": "$L:font-sans",
+                                          "fontSize": "$L:text-body",
+                                          "fontWeight": "500"
+                                        },
+                                        {
+                                          "id": "gB6ZJ",
+                                          "type": "ref",
+                                          "ref": "L:Lam3L",
+                                          "name": "Badge IVGA Vastgoed",
+                                          "descendants": {
+                                            "L:a7j7d": {
+                                              "enabled": true,
+                                              "icon": "building-2"
+                                            },
+                                            "L:hTh3P": {
+                                              "content": "IVGA Vastgoed"
+                                            }
+                                          }
+                                        },
+                                        {
+                                          "id": "pTzzt",
+                                          "type": "ref",
+                                          "ref": "L:Lam3L",
+                                          "name": "Badge Whitebird",
+                                          "descendants": {
+                                            "L:a7j7d": {
+                                              "enabled": true,
+                                              "icon": "building-2"
+                                            },
+                                            "L:hTh3P": {
+                                              "content": "Whitebird"
+                                            }
+                                          }
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "BZgrf",
+                                      "name": "Email",
+                                      "fill": "$L:muted-foreground",
+                                      "content": "nasir@ivga.nl",
+                                      "fontFamily": "$L:font-sans",
+                                      "fontSize": "$L:text-caption",
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "FNrIB",
+                                  "name": "Joined",
+                                  "fill": "$L:muted-foreground",
+                                  "textGrowth": "fixed-width",
+                                  "width": 128,
+                                  "content": "Joined today",
+                                  "fontFamily": "$L:font-sans",
+                                  "fontSize": "$L:text-caption",
+                                  "fontWeight": "normal"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "CJPp6",
+                                  "name": "Role",
+                                  "width": 96,
+                                  "gap": 6,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "icon",
+                                      "id": "QiRQU",
+                                      "name": "Role icon",
+                                      "width": 14,
+                                      "height": 14,
+                                      "icon": "eye",
+                                      "library": "lucide",
+                                      "fill": "$L:muted-foreground"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "vcveC",
+                                      "name": "Role label",
+                                      "fill": "$L:foreground",
+                                      "content": "Client",
+                                      "fontFamily": "$L:font-sans",
+                                      "fontSize": "$L:text-body",
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "icon",
+                                  "id": "ZyaGc",
+                                  "name": "Actions",
+                                  "width": 16,
+                                  "height": 16,
+                                  "icon": "ellipsis",
+                                  "library": "lucide",
+                                  "fill": "$L:muted-foreground"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "hBh2P",
+                              "name": "Member Rizgar",
+                              "width": "fill_container",
+                              "gap": 12,
+                              "padding": [
+                                12,
+                                16
+                              ],
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "id": "BMYpb",
+                                  "type": "ref",
+                                  "ref": "L:UEn9u",
+                                  "name": "Avatar RZ",
+                                  "width": 32,
+                                  "height": 32,
+                                  "cornerRadius": 16,
+                                  "fill": "$L:type-epic",
+                                  "descendants": {
+                                    "L:Ugbzg": {
+                                      "content": "RZ",
+                                      "fontSize": 12
+                                    }
+                                  }
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "I3wfJ",
+                                  "name": "Who",
+                                  "width": "fill_container",
+                                  "layout": "vertical",
+                                  "gap": 2,
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "fOaEb",
+                                      "name": "Name line",
+                                      "gap": 8,
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "zJJ8w",
+                                          "name": "Name",
+                                          "fill": "$L:foreground",
+                                          "content": "Rizgar",
+                                          "fontFamily": "$L:font-sans",
+                                          "fontSize": "$L:text-body",
+                                          "fontWeight": "500"
+                                        },
+                                        {
+                                          "id": "SjioB",
+                                          "type": "ref",
+                                          "ref": "L:Lam3L",
+                                          "name": "Badge IVGA Vastgoed",
+                                          "descendants": {
+                                            "L:a7j7d": {
+                                              "enabled": true,
+                                              "icon": "building-2"
+                                            },
+                                            "L:hTh3P": {
+                                              "content": "IVGA Vastgoed"
+                                            }
+                                          }
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "LCyTK",
+                                      "name": "Email",
+                                      "fill": "$L:muted-foreground",
+                                      "content": "rizgar@ivga.nl",
+                                      "fontFamily": "$L:font-sans",
+                                      "fontSize": "$L:text-caption",
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "WPWcm",
+                                  "name": "Joined",
+                                  "fill": "$L:muted-foreground",
+                                  "textGrowth": "fixed-width",
+                                  "width": 128,
+                                  "content": "Joined 14 Oct 2026",
+                                  "fontFamily": "$L:font-sans",
+                                  "fontSize": "$L:text-caption",
+                                  "fontWeight": "normal"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "RxbXz",
+                                  "name": "Role",
+                                  "width": 96,
+                                  "gap": 6,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "icon",
+                                      "id": "canno",
+                                      "name": "Role icon",
+                                      "width": 14,
+                                      "height": 14,
+                                      "icon": "eye",
+                                      "library": "lucide",
+                                      "fill": "$L:muted-foreground"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "m6zEKS",
+                                      "name": "Role label",
+                                      "fill": "$L:foreground",
+                                      "content": "Client",
+                                      "fontFamily": "$L:font-sans",
+                                      "fontSize": "$L:text-body",
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "icon",
+                                  "id": "uVLHQ",
+                                  "name": "Actions",
+                                  "width": 16,
+                                  "height": 16,
+                                  "icon": "ellipsis",
+                                  "library": "lucide",
+                                  "fill": "$L:muted-foreground"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "iXnCk",
+          "layoutPosition": "absolute",
+          "x": 0,
+          "y": 0,
+          "name": "Overlay",
+          "width": 1440,
+          "height": 900,
+          "children": [
+            {
+              "type": "frame",
+              "id": "i8tcVB",
+              "layoutPosition": "absolute",
+              "x": 1176,
+              "y": 412,
+              "name": "Row menu",
+              "width": 208,
+              "fill": "$L:surface-raised",
+              "cornerRadius": "$L:radius-lg",
+              "stroke": "$L:surface-border",
+              "strokeWidth": 1,
+              "effect": [
+                {
+                  "type": "shadow",
+                  "shadowType": "outer",
+                  "color": "#0F172A24",
+                  "offset": {
+                    "x": 0,
+                    "y": 16
+                  },
+                  "blur": 40
+                },
+                {
+                  "type": "shadow",
+                  "shadowType": "outer",
+                  "color": "#0F172A14",
+                  "offset": {
+                    "x": 0,
+                    "y": 3
+                  },
+                  "blur": 10
+                }
+              ],
+              "layout": "vertical",
+              "padding": 4,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "e05KiS",
+                  "name": "Item Change role",
+                  "width": "fill_container",
+                  "height": 32,
+                  "cornerRadius": "$L:radius-md",
+                  "gap": 8,
+                  "padding": [
+                    0,
+                    8
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "SMr3b",
+                      "name": "Icon",
+                      "width": 14,
+                      "height": 14,
+                      "icon": "shield",
+                      "library": "lucide",
+                      "fill": "$L:foreground"
+                    },
+                    {
+                      "type": "text",
+                      "id": "Xou9j",
+                      "name": "Label",
+                      "fill": "$L:foreground",
+                      "content": "Change role",
+                      "fontFamily": "$L:font-sans",
+                      "fontSize": "$L:text-label",
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "kaHkD",
+                      "name": "Push",
+                      "width": "fill_container",
+                      "height": 1
+                    },
+                    {
+                      "type": "icon",
+                      "id": "M1u8fg",
+                      "name": "Sub",
+                      "width": 14,
+                      "height": 14,
+                      "icon": "chevron-right",
+                      "library": "lucide",
+                      "fill": "$L:muted-foreground"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "Z9nQe",
+                  "name": "Item Organisations",
+                  "width": "fill_container",
+                  "height": 32,
+                  "fill": "$L:muted",
+                  "cornerRadius": "$L:radius-md",
+                  "gap": 8,
+                  "padding": [
+                    0,
+                    8
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "HWRJT",
+                      "name": "Icon",
+                      "width": 14,
+                      "height": 14,
+                      "icon": "building-2",
+                      "library": "lucide",
+                      "fill": "$L:foreground"
+                    },
+                    {
+                      "type": "text",
+                      "id": "vQZg9",
+                      "name": "Label",
+                      "fill": "$L:foreground",
+                      "content": "Organisations",
+                      "fontFamily": "$L:font-sans",
+                      "fontSize": "$L:text-label",
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "eMpeJ",
+                      "name": "Push",
+                      "width": "fill_container",
+                      "height": 1
+                    },
+                    {
+                      "type": "icon",
+                      "id": "kdlx5",
+                      "name": "Sub",
+                      "width": 14,
+                      "height": 14,
+                      "icon": "chevron-right",
+                      "library": "lucide",
+                      "fill": "$L:muted-foreground"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "Q4Iv0",
+                  "name": "Separator",
+                  "width": "fill_container",
+                  "height": 9,
+                  "fill": "#00000000",
+                  "layout": "vertical",
+                  "padding": [
+                    4,
+                    -4
+                  ],
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "E2yGY",
+                      "name": "Line",
+                      "width": "fill_container",
+                      "height": 1,
+                      "fill": "$L:border"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "YVbBd",
+                  "name": "Item Remove from workspace",
+                  "width": "fill_container",
+                  "height": 32,
+                  "cornerRadius": "$L:radius-md",
+                  "gap": 8,
+                  "padding": [
+                    0,
+                    8
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "yjUhk",
+                      "name": "Icon",
+                      "width": 14,
+                      "height": 14,
+                      "icon": "user-minus",
+                      "library": "lucide",
+                      "fill": "$L:destructive"
+                    },
+                    {
+                      "type": "text",
+                      "id": "NO9zE",
+                      "name": "Label",
+                      "fill": "$L:destructive",
+                      "content": "Remove from workspace",
+                      "fontFamily": "$L:font-sans",
+                      "fontSize": "$L:text-label",
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "HdVBL",
+                      "name": "Push",
+                      "width": "fill_container",
+                      "height": 1
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "VorYa",
+              "layoutPosition": "absolute",
+              "x": 952,
+              "y": 448,
+              "name": "Organisations submenu",
+              "width": 220,
+              "fill": "$L:surface-raised",
+              "cornerRadius": "$L:radius-lg",
+              "stroke": "$L:surface-border",
+              "strokeWidth": 1,
+              "effect": [
+                {
+                  "type": "shadow",
+                  "shadowType": "outer",
+                  "color": "#0F172A24",
+                  "offset": {
+                    "x": 0,
+                    "y": 16
+                  },
+                  "blur": 40
+                },
+                {
+                  "type": "shadow",
+                  "shadowType": "outer",
+                  "color": "#0F172A14",
+                  "offset": {
+                    "x": 0,
+                    "y": 3
+                  },
+                  "blur": 10
+                }
+              ],
+              "layout": "vertical",
+              "padding": 4,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "s91uv",
+                  "name": "Item IVGA Vastgoed",
+                  "width": "fill_container",
+                  "height": 32,
+                  "cornerRadius": "$L:radius-md",
+                  "gap": 8,
+                  "padding": [
+                    0,
+                    8
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "IDYhe",
+                      "name": "Icon",
+                      "width": 14,
+                      "height": 14,
+                      "icon": "building-2",
+                      "library": "lucide",
+                      "fill": "$L:foreground"
+                    },
+                    {
+                      "type": "text",
+                      "id": "NzOFn",
+                      "name": "Label",
+                      "fill": "$L:foreground",
+                      "content": "IVGA Vastgoed",
+                      "fontFamily": "$L:font-sans",
+                      "fontSize": "$L:text-label",
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "PPnjr",
+                      "name": "Push",
+                      "width": "fill_container",
+                      "height": 1
+                    },
+                    {
+                      "type": "icon",
+                      "id": "CJBGT",
+                      "name": "Checked",
+                      "width": 14,
+                      "height": 14,
+                      "icon": "check",
+                      "library": "lucide",
+                      "fill": "$L:foreground"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "q2Dil6",
+                  "name": "Item Whitebird",
+                  "width": "fill_container",
+                  "height": 32,
+                  "cornerRadius": "$L:radius-md",
+                  "gap": 8,
+                  "padding": [
+                    0,
+                    8
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "BWooR",
+                      "name": "Icon",
+                      "width": 14,
+                      "height": 14,
+                      "icon": "building-2",
+                      "library": "lucide",
+                      "fill": "$L:foreground"
+                    },
+                    {
+                      "type": "text",
+                      "id": "LUaKx",
+                      "name": "Label",
+                      "fill": "$L:foreground",
+                      "content": "Whitebird",
+                      "fontFamily": "$L:font-sans",
+                      "fontSize": "$L:text-label",
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "uDDd5",
+                      "name": "Push",
+                      "width": "fill_container",
+                      "height": 1
+                    },
+                    {
+                      "type": "icon",
+                      "id": "IrkYE",
+                      "name": "Checked",
+                      "width": 14,
+                      "height": 14,
+                      "icon": "check",
+                      "library": "lucide",
+                      "fill": "$L:foreground"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "JzPkZ",
+                  "name": "Item BABA Management",
+                  "width": "fill_container",
+                  "height": 32,
+                  "fill": "$L:muted",
+                  "cornerRadius": "$L:radius-md",
+                  "gap": 8,
+                  "padding": [
+                    0,
+                    8
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "Z5C9M",
+                      "name": "Icon",
+                      "width": 14,
+                      "height": 14,
+                      "icon": "building-2",
+                      "library": "lucide",
+                      "fill": "$L:foreground"
+                    },
+                    {
+                      "type": "text",
+                      "id": "Xz08B",
+                      "name": "Label",
+                      "fill": "$L:foreground",
+                      "content": "BABA Management",
+                      "fontFamily": "$L:font-sans",
+                      "fontSize": "$L:text-label",
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "fEp3n",
+                      "name": "Push",
+                      "width": "fill_container",
+                      "height": 1
+                    },
+                    {
+                      "type": "icon",
+                      "id": "iTXFs",
+                      "name": "Checked",
+                      "width": 14,
+                      "height": 14,
+                      "icon": "check",
+                      "library": "lucide",
+                      "fill": "#00000000"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "s4UPm",
+                  "name": "Item Supermarty B.V.",
+                  "width": "fill_container",
+                  "height": 32,
+                  "cornerRadius": "$L:radius-md",
+                  "gap": 8,
+                  "padding": [
+                    0,
+                    8
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "V8Gh4",
+                      "name": "Icon",
+                      "width": 14,
+                      "height": 14,
+                      "icon": "building-2",
+                      "library": "lucide",
+                      "fill": "$L:foreground"
+                    },
+                    {
+                      "type": "text",
+                      "id": "K25soc",
+                      "name": "Label",
+                      "fill": "$L:foreground",
+                      "content": "Supermarty B.V.",
+                      "fontFamily": "$L:font-sans",
+                      "fontSize": "$L:text-label",
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "GxJZo",
+                      "name": "Push",
+                      "width": "fill_container",
+                      "height": 1
+                    },
+                    {
+                      "type": "icon",
+                      "id": "fcQvU",
+                      "name": "Checked",
+                      "width": 14,
+                      "height": 14,
+                      "icon": "check",
+                      "library": "lucide",
+                      "fill": "#00000000"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "a7pP0",
+                  "name": "Item We Work",
+                  "width": "fill_container",
+                  "height": 32,
+                  "cornerRadius": "$L:radius-md",
+                  "gap": 8,
+                  "padding": [
+                    0,
+                    8
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon",
+                      "id": "hIuMw",
+                      "name": "Icon",
+                      "width": 14,
+                      "height": 14,
+                      "icon": "building-2",
+                      "library": "lucide",
+                      "fill": "$L:foreground"
+                    },
+                    {
+                      "type": "text",
+                      "id": "IeDln",
+                      "name": "Label",
+                      "fill": "$L:foreground",
+                      "content": "We Work",
+                      "fontFamily": "$L:font-sans",
+                      "fontSize": "$L:text-label",
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "C5CpwX",
+                      "name": "Push",
+                      "width": "fill_container",
+                      "height": 1
+                    },
+                    {
+                      "type": "icon",
+                      "id": "eCtoI",
+                      "name": "Checked",
+                      "width": 14,
+                      "height": 14,
+                      "icon": "check",
+                      "library": "lucide",
+                      "fill": "#00000000"
                     }
                   ]
                 }
