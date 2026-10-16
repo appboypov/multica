@@ -591,6 +591,8 @@ func TestCreateComment_ThreadReplyDoesNotEscalateToAssignee(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := context.Background()
 			ownerID := createHandlerTestAgent(t, "Thread Owner", nil)
+			runtimeID := dbfx.Runtime(t, "Thread Owner Runtime")
+			dbfx.Exec(t, `UPDATE agent SET runtime_id = $1 WHERE id = $2`, runtimeID, ownerID)
 			assigneeID := ownerID
 			if !tc.sameAssignee {
 				assigneeID = createHandlerTestAgent(t, "Issue Assignee", nil)
@@ -624,6 +626,9 @@ func TestCreateComment_ThreadReplyDoesNotEscalateToAssignee(t *testing.T) {
 			}
 			if primary == nil {
 				t.Fatal("thread owner task was not claimable")
+			}
+			if primary.ID != tasks[0].ID {
+				t.Fatalf("claimed task = %s, want thread owner's task %s", uuidToString(primary.ID), uuidToString(tasks[0].ID))
 			}
 			if _, err := testHandler.TaskService.StartTask(ctx, primary.ID); err != nil {
 				t.Fatal(err)

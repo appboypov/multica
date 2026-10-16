@@ -80,11 +80,12 @@ func assertNoForeignContext(t *testing.T, body string, extra ...string) {
 }
 
 type claimProjectFields struct {
-	WorkspaceID        string                `json:"workspace_id"`
-	Repos              []RepoData            `json:"repos"`
-	ProjectID          string                `json:"project_id"`
-	ProjectTitle       string                `json:"project_title"`
-	ProjectDescription string                `json:"project_description"`
+	ID                 string                     `json:"id"`
+	WorkspaceID        string                     `json:"workspace_id"`
+	Repos              []RepoData                 `json:"repos"`
+	ProjectID          string                     `json:"project_id"`
+	ProjectTitle       string                     `json:"project_title"`
+	ProjectDescription string                     `json:"project_description"`
 	Repositories       []protocol.ClaimRepository `json:"repositories"`
 }
 
@@ -102,24 +103,20 @@ func TestClaimTask_IssueProjectInForeignWorkspace_DegradesToWorkspaceRepos(t *te
 	})
 	_, foreignProjectID := foreignWorkspaceWithProject(t, "foreign-issue-project-ws", "FIP")
 
-	var agentID, runtimeID string
-	dbfx.QueryRow(t,
-		`SELECT id, runtime_id FROM agent WHERE workspace_id = $1 LIMIT 1`,
-		testWorkspaceID,
-	).Scan(&agentID, &runtimeID)
+	agentID, runtimeID, daemonID := createRuntimeGuardAgent(t, context.Background())
 
 	issueID := dbfx.Issue(t, "issue pointing at a foreign project", testutil.Cols{
 		"project_id": foreignProjectID,
 		"priority":   "medium",
 		"number":     88101,
 	})
-	dbfx.Task(t, agentID, testutil.Cols{
+	taskID := dbfx.Task(t, agentID, testutil.Cols{
 		"runtime_id": runtimeID,
 		"issue_id":   issueID,
 	})
 
 	req := newDaemonTokenRequest("POST", "/api/daemon/runtimes/"+runtimeID+"/claim", nil,
-		testWorkspaceID, "test-claim-foreign-issue-project")
+		testWorkspaceID, daemonID)
 	req = withURLParam(req, "runtimeId", runtimeID)
 	w := testutil.Call(t, testHandler.ClaimTaskByRuntime, req).Want(http.StatusOK)
 
@@ -129,6 +126,9 @@ func TestClaimTask_IssueProjectInForeignWorkspace_DegradesToWorkspaceRepos(t *te
 	w.JSON(&resp)
 	if resp.Task == nil {
 		t.Fatal("expected task in response")
+	}
+	if resp.Task.ID != taskID {
+		t.Fatalf("claimed task = %s, want %s", resp.Task.ID, taskID)
 	}
 	assertNoForeignContext(t, w.Text(), foreignProjectID)
 
@@ -218,29 +218,25 @@ func TestClaimTask_ProjectResourceFromForeignWorkspace_IsFilteredOut(t *testing.
 	// which is exactly the case the predicate exists for.
 	dbfx.Insert(t, "repository", testutil.Cols{
 		"project_id": projectID, "workspace_id": foreignWorkspaceID,
-		"github_repo_id": 99003, "full_name": strings.TrimPrefix(foreignRepoURL, "https://github.com/")+"-corrupt",
+		"github_repo_id": 99003, "full_name": strings.TrimPrefix(foreignRepoURL, "https://github.com/") + "-corrupt",
 		"private": false, "default_branch": "main", "checkout_daemon_id": "foreign-daemon",
 		"checkout_path": foreignLocalPath, "version_policy": "tags",
 	})
 
-	var agentID, runtimeID string
-	dbfx.QueryRow(t,
-		`SELECT id, runtime_id FROM agent WHERE workspace_id = $1 LIMIT 1`,
-		testWorkspaceID,
-	).Scan(&agentID, &runtimeID)
+	agentID, runtimeID, daemonID := createRuntimeGuardAgent(t, context.Background())
 
 	issueID := dbfx.Issue(t, "issue with a mismatched project resource", testutil.Cols{
 		"project_id": projectID,
 		"priority":   "medium",
 		"number":     88102,
 	})
-	dbfx.Task(t, agentID, testutil.Cols{
+	taskID := dbfx.Task(t, agentID, testutil.Cols{
 		"runtime_id": runtimeID,
 		"issue_id":   issueID,
 	})
 
 	req := newDaemonTokenRequest("POST", "/api/daemon/runtimes/"+runtimeID+"/claim", nil,
-		testWorkspaceID, "test-claim-foreign-resource")
+		testWorkspaceID, daemonID)
 	req = withURLParam(req, "runtimeId", runtimeID)
 	w := testutil.Call(t, testHandler.ClaimTaskByRuntime, req).Want(http.StatusOK)
 
@@ -250,6 +246,9 @@ func TestClaimTask_ProjectResourceFromForeignWorkspace_IsFilteredOut(t *testing.
 	w.JSON(&resp)
 	if resp.Task == nil {
 		t.Fatal("expected task in response")
+	}
+	if resp.Task.ID != taskID {
+		t.Fatalf("claimed task = %s, want %s", resp.Task.ID, taskID)
 	}
 	assertNoForeignContext(t, w.Text())
 
@@ -275,11 +274,7 @@ func TestClaimTask_AutopilotRunOnlyForeignWorkspace_CancelsTask(t *testing.T) {
 		t.Skip("database not available")
 	}
 
-	var localAgentID, localRuntimeID string
-	dbfx.QueryRow(t,
-		`SELECT id, runtime_id FROM agent WHERE workspace_id = $1 LIMIT 1`,
-		testWorkspaceID,
-	).Scan(&localAgentID, &localRuntimeID)
+	localAgentID, localRuntimeID, daemonID := createRuntimeGuardAgent(t, context.Background())
 
 	foreignWorkspaceID, foreignProjectID := foreignWorkspaceWithProject(t, "foreign-autopilot-ws", "FAW")
 
@@ -305,7 +300,7 @@ func TestClaimTask_AutopilotRunOnlyForeignWorkspace_CancelsTask(t *testing.T) {
 	})
 
 	req := newDaemonTokenRequest("POST", "/api/daemon/runtimes/"+localRuntimeID+"/claim", nil,
-		testWorkspaceID, "test-claim-foreign-autopilot")
+		testWorkspaceID, daemonID)
 	req = withURLParam(req, "runtimeId", localRuntimeID)
 	w := testutil.Call(t, testHandler.ClaimTaskByRuntime, req).Want(http.StatusInternalServerError)
 	if !strings.Contains(w.Text(), "task workspace isolation check failed") {

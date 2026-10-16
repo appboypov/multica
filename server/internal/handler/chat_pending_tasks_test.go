@@ -410,6 +410,8 @@ func TestPendingQueueHeadMatchesClaimForEqualCreatedAt(t *testing.T) {
 	}
 	ctx := context.Background()
 	agentID := createHandlerTestAgent(t, "Pending Equal Timestamp Agent", []byte("[]"))
+	runtimeID := dbfx.Runtime(t, "Pending Equal Timestamp Runtime")
+	dbfx.Exec(t, `UPDATE agent SET runtime_id = $1 WHERE id = $2`, runtimeID, agentID)
 	sessionID := createHandlerTestChatSession(t, agentID)
 
 	lowID := uuid.New()
@@ -422,7 +424,7 @@ func TestPendingQueueHeadMatchesClaimForEqualCreatedAt(t *testing.T) {
 				id, agent_id, runtime_id, status, priority, chat_session_id, created_at
 			)
 			VALUES ($1, $2, $3, 'queued', 2, $4, '2026-07-29T01:00:00Z')
-		`, taskID, agentID, handlerTestRuntimeID(t), sessionID); err != nil {
+		`, taskID, agentID, runtimeID, sessionID); err != nil {
 			t.Fatalf("insert equal-timestamp task %s: %v", taskID, err)
 		}
 	}

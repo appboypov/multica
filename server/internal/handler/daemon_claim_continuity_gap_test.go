@@ -48,8 +48,7 @@ func TestClaimTaskByRuntime_ChatRolloutMissingDisclosesGap(t *testing.T) {
 	}
 	ctx := context.Background()
 
-	agentID := createHandlerTestAgent(t, "ChatGapClaimAgent", []byte("[]"))
-	runtimeID := handlerTestRuntimeID(t)
+	agentID, runtimeID, daemonID := createRuntimeGuardAgent(t, ctx)
 
 	// Chat session that still carries a good resume pointer from an earlier turn.
 	var sessionID string
@@ -85,7 +84,10 @@ func TestClaimTaskByRuntime_ChatRolloutMissingDisclosesGap(t *testing.T) {
 	}
 	t.Cleanup(func() { testPool.Exec(context.Background(), `DELETE FROM agent_task_queue WHERE id = $1`, taskID) })
 
-	probe := claimOneTaskForRuntime(t, runtimeID, "chat-gap-claim-test")
+	probe := claimOneTaskForRuntime(t, runtimeID, daemonID)
+	if probe.Task.ID != taskID {
+		t.Fatalf("claimed task = %s, want chat follow-up %s", probe.Task.ID, taskID)
+	}
 	if !probe.Task.PriorSessionResumeUnavailable {
 		t.Fatalf("expected chat claim to disclose the continuity gap; response task=%+v", *probe.Task)
 	}
@@ -101,8 +103,7 @@ func TestClaimTaskByRuntime_RerunSourceRolloutMissingDisclosesGap(t *testing.T) 
 	}
 	ctx := context.Background()
 
-	agentID := createHandlerTestAgent(t, "RerunGapClaimAgent", []byte("[]"))
-	runtimeID := handlerTestRuntimeID(t)
+	agentID, runtimeID, daemonID := createRuntimeGuardAgent(t, ctx)
 
 	var issueID string
 	if err := testPool.QueryRow(ctx, `
@@ -139,7 +140,10 @@ func TestClaimTaskByRuntime_RerunSourceRolloutMissingDisclosesGap(t *testing.T) 
 	}
 	t.Cleanup(func() { testPool.Exec(context.Background(), `DELETE FROM agent_task_queue WHERE id = $1`, taskID) })
 
-	probe := claimOneTaskForRuntime(t, runtimeID, "rerun-gap-claim-test")
+	probe := claimOneTaskForRuntime(t, runtimeID, daemonID)
+	if probe.Task.ID != taskID {
+		t.Fatalf("claimed task = %s, want rerun %s", probe.Task.ID, taskID)
+	}
 	if !probe.Task.PriorSessionResumeUnavailable {
 		t.Fatalf("expected rerun claim to disclose the source task's continuity gap; response task=%+v", *probe.Task)
 	}

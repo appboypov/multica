@@ -430,8 +430,8 @@ Notes:
   directory, so synthetic threads never scan the user's Codex rollouts for usage.
 - Dashboard exact-window fixtures share a pinned UTC clock with their requests.
   Their timestamps are bound parameters, independent of PostgreSQL's session date.
-- sweeper fixtures own their runtime heartbeat and agent, so reconnect-grace
-  assertions do not depend on another test's liveness state
+- claim and sweeper fixtures own their runtime heartbeat and agent, so claim
+  eligibility and reconnect-grace assertions do not depend on suite duration
 - the source-context lifecycle fixture locks unrelated intent rows in a separate
   transaction; query-plan regressions use a private temporary table and statistics
 - Go tests ignore the task identity of a daemon-managed agent task: the CLI
