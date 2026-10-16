@@ -37,7 +37,7 @@ When Brian sends or cancels the last question of an ask still open for him, or t
 - **THEN** no run is queued and the cancelled card offers **Wake Pieter**
 
 ### Requirement: Wake the asking agent from the answered card
-Once a question has an answer or a cancel its asking agent has not seen, its answered or cancelled card SHALL offer **Wake** for that agent, named after it, such as **Wake Pieter**.
+Once a question has an answer or a cancel its asking agent has not seen, its answered or cancelled card SHALL offer **Wake** for that agent, named after it, such as **Wake Pieter**. An answer the agent marked ✅ in a run that received it counts as seen.
 
 #### Scenario: Wake offered after the answer
 - **GIVEN** Brian answered Pieter's question on WORK-412 and Pieter has had no run since
@@ -49,13 +49,23 @@ Once a question has an answer or a cancel its asking agent has not seen, its ans
 - **WHEN** Brian looks at the folded card
 - **THEN** it offers no **Wake Pieter**
 
+#### Scenario: No Wake once the running agent marked the answer ✅
+- **GIVEN** Pieter's run on WORK-412 was running when Brian answered, received the answer and marked it ✅
+- **WHEN** the run ends and Brian looks at the folded card
+- **THEN** it offers no **Wake Pieter**
+
+#### Scenario: Wake after a run that left the answer without ✅
+- **GIVEN** Pieter's run on WORK-412 received Brian's answer and marked it 👀 only
+- **WHEN** the run ends and Brian looks at the folded card
+- **THEN** it offers **Wake Pieter**
+
 #### Scenario: Wake offered after a cancel
 - **GIVEN** Brian cancelled Pieter's question on WORK-412 with Wake unchecked and Pieter has had no run since
 - **WHEN** Brian looks at the cancelled card
 - **THEN** it offers **Wake Pieter**
 
 ### Requirement: A woken run gets the answers it has not seen
-A run started by **Wake** SHALL start with every answer and cancel given since the claim of that agent's latest started run on the question's links outside its retry ancestor chain, a cancel with who cancelled and its note, and the issue's timeline SHALL record who woke whom with how many answers.
+A run started by **Wake** SHALL start with every answer and cancel given since the claim of that agent's latest started run on the question's links outside its retry ancestor chain, leaving out each answer that agent marked ✅ in a run that received it. Each cancel SHALL include who cancelled and its note, and the issue's timeline SHALL record who woke whom with how many answers.
 
 #### Scenario: Brian wakes Pieter
 - **GIVEN** Brian answered Pieter's question on WORK-412 with "per line"
@@ -88,3 +98,9 @@ A run started by **Wake** SHALL start with every answer and cancel given since t
 - **GIVEN** Brian answered Pieter and the woken run was claimed
 - **WHEN** that claim fails before the agent starts and no retry is queued
 - **THEN** the answer remains unseen and **Wake Pieter** is available
+
+#### Scenario: Wake leaves out the answer marked ✅
+- **GIVEN** Pieter's running run received and marked ✅ Brian's first answer, and Brian answered a second question of the set after that run ended
+- **WHEN** Brian presses **Wake Pieter**
+- **THEN** the new run starts with only the second answer
+- **AND** the timeline reads "Pieter was woken by Brian with 1 answer"
