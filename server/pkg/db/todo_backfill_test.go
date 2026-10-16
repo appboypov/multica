@@ -95,9 +95,9 @@ func TestTodoBackfillQuestionsAssignmentsAndReviews(t *testing.T) {
 	withdrawn := question("withdrawn", "each", false)
 	closed := question("closed", "any_one", false)
 	selfReview := fx.Issue(t, "Own review", testutil.Cols{"status": "in_review", "assignee_type": "member", "assignee_id": fx.UserID})
-	waitingQA := fx.Issue(t, "Waiting for QA", testutil.Cols{"status": "waiting_for_qa"})
+	inProgress := fx.Issue(t, "In progress", testutil.Cols{"status": "in_progress"})
 	assigned := make(map[string]string)
-	for _, status := range []string{"todo", "back_from_qa", "blocked", "in_review", "backlog", "in_progress", "done"} {
+	for _, status := range []string{"todo", "blocked", "in_review", "backlog", "in_progress", "done"} {
 		assigned[status] = fx.Issue(t, status, testutil.Cols{"status": status, "assignee_type": "member", "assignee_id": fx.UserID})
 	}
 	// Existing rows win over the backfill, including their stable IDs/times.
@@ -114,10 +114,10 @@ func TestTodoBackfillQuestionsAssignmentsAndReviews(t *testing.T) {
 	}
 	wantBackfilled(t, tx, fx, "review", issue, 1) // Stored even while a question hides it.
 	wantBackfilled(t, tx, fx, "review", selfReview, 0)
-	wantBackfilled(t, tx, fx, "review", waitingQA, 0)
+	wantBackfilled(t, tx, fx, "review", inProgress, 0)
 	for status, id := range assigned {
 		want := 0
-		if status == "todo" || status == "back_from_qa" || status == "blocked" || status == "in_review" {
+		if status == "todo" || status == "blocked" || status == "in_review" {
 			want = 1
 		}
 		wantBackfilled(t, tx, fx, "assigned", id, want)
