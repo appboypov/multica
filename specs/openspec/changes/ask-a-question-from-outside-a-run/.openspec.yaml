@@ -1,2 +1,12 @@
 schema: intent-driven
 created: 2026-10-16
+build:
+  status: ready-for-dev
+  type: feature
+  ticket: ''
+  context:
+    - '{project-root}/AGENTS.md'
+    - '{project-root}/specs/docs/system-design.md'
+    - '{project-root}/adr/0021-a-member-asks-on-an-issue-and-wakes-no-agent.md'
+    - '{project-root}/adr/0020-only-wake-turns-answers-into-a-run-and-a-checked-answer-is-seen.md'
+    - '{project-root}/adr/0019-input-reaches-a-running-run-as-a-receipt.md'
