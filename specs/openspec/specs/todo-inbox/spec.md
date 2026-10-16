@@ -43,7 +43,7 @@ A comment that @mentions a member SHALL give that member a to-do, unless they wr
 - **THEN** the to-do leaves
 
 ### Requirement: An issue assigned to a member is a to-do in some statuses
-An issue assigned to a member SHALL be a to-do while it is in Todo, Back From QA, Blocked or In Review. It SHALL leave once the issue moves to another status or another assignee. A move to another of these statuses SHALL open a new to-do.
+An issue assigned to a member SHALL be a to-do while it is in Todo, Blocked or In Review. It SHALL leave once the issue moves to another status or another assignee. A move to another of these statuses SHALL open a new to-do.
 
 #### Scenario: Assigned in Todo
 - **GIVEN** WORK-420 is in Todo
@@ -104,9 +104,9 @@ An issue a member created SHALL be a Waiting for your review to-do while it is I
 - **WHEN** Sarkout asks Brian an Approval question on WORK-424
 - **THEN** Brian's inbox shows only the Question to-do for WORK-424
 
-#### Scenario: Waiting For QA is no to-do
+#### Scenario: In Progress is no review to-do
 - **GIVEN** Brian created WORK-425
-- **WHEN** Joeri moves WORK-425, which Brian created, to Waiting For QA
+- **WHEN** Joeri moves WORK-425, which Brian created, to In Progress
 - **THEN** Brian has no to-do for WORK-425
 
 ### Requirement: Mark done
