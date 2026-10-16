@@ -22,6 +22,7 @@
     "due_date": "{{date}}까지 답변",
     "asked_during_run": "실행 #{{number}} 중 질문 · {{time}}",
     "asked_during_a_run": "실행 중 질문 · {{time}}",
+    "asked": "질문 · {{time}}",
     "asked_to": "질문 대상",
     "waiting_for": "{{names}}의 답변 대기 중",
     "add_note": "메모 추가",
@@ -60,7 +61,8 @@
   "each": {
     "answered": "{{total}}명 중 {{answered}}명 답변",
     "waiting": "대기 중",
-    "line": "{{name}}은(는) 답변이 올 때마다 확인하고, 충분히 모이면 질문을 닫습니다."
+    "line": "{{name}}은(는) 답변이 올 때마다 확인하고, 충분히 모이면 질문을 닫습니다.",
+    "line_member": "{{name}}은(는) 답변이 올 때마다 확인합니다."
   },
   "hints": {
     "text": "멘션, 링크, 첨부 파일은 댓글과 같이 작동합니다.",

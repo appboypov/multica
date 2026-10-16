@@ -67,6 +67,7 @@ type QuestionRowResponse struct {
 	Status       string                     `json:"status"`
 	AnswerPolicy string                     `json:"answer_policy"`
 	AskerAgentID string                     `json:"asker_agent_id"`
+	AskerUserID  string                     `json:"asker_user_id"`
 	AnswererIDs  []string                   `json:"answerer_ids"`
 	DueDate      *string                    `json:"due_date"`
 	BlocksWork   bool                       `json:"blocks_work"`
@@ -303,6 +304,7 @@ func questionRowResponse(row *service.QuestionRowDTO) QuestionRowResponse {
 		ID: row.ID, AskID: row.AskID, AskPosition: row.AskPosition, AskTitle: row.AskTitle,
 		Prompt: row.Prompt, AnswerType: row.AnswerType, Settings: row.Settings,
 		Status: row.Status, AnswerPolicy: row.AnswerPolicy, AskerAgentID: row.AskerAgentID,
+		AskerUserID: row.AskerUserID,
 		AnswererIDs: row.AnswererIDs, DueDate: row.DueDate, BlocksWork: row.BlocksWork,
 		CreatedAt: row.CreatedAt,
 		Link: QuestionRowLinkResponse{

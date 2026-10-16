@@ -119,15 +119,15 @@ func (q *Queries) CountUnseenQuestionAnswers(ctx context.Context, arg CountUnsee
 const createQuestion = `-- name: CreateQuestion :one
 
 INSERT INTO question (
-    id, workspace_id, asker_agent_id, asked_in_task_id, prompt, context_line,
+    id, workspace_id, asker_agent_id, asked_in_task_id, asker_user_id, prompt, context_line,
     answer_type, settings, suggested_answer, due_date, blocks_work,
     ask_id, ask_position, ask_title, answer_policy
 ) VALUES (
-    $1, $2, $3, $4, $5, $6,
-    $7, $8, $9, $10, $11,
-    $12, $13, $14, $15
+    $1, $2, $3, $4, $5, $6, $7,
+    $8, $9, $10, $11, $12,
+    $13, $14, $15, $16
 )
-RETURNING id, workspace_id, asker_agent_id, asked_in_task_id, prompt, context_line, answer_type, settings, suggested_answer, status, due_date, blocks_work, overdue_notified_at, created_at, updated_at, ask_id, ask_position, ask_title, answer_policy
+RETURNING id, workspace_id, asker_agent_id, asked_in_task_id, prompt, context_line, answer_type, settings, suggested_answer, status, due_date, blocks_work, overdue_notified_at, created_at, updated_at, ask_id, ask_position, ask_title, answer_policy, asker_user_id
 `
 
 type CreateQuestionParams struct {
@@ -135,6 +135,7 @@ type CreateQuestionParams struct {
 	WorkspaceID     pgtype.UUID `json:"workspace_id"`
 	AskerAgentID    pgtype.UUID `json:"asker_agent_id"`
 	AskedInTaskID   pgtype.UUID `json:"asked_in_task_id"`
+	AskerUserID     pgtype.UUID `json:"asker_user_id"`
 	Prompt          string      `json:"prompt"`
 	ContextLine     pgtype.Text `json:"context_line"`
 	AnswerType      string      `json:"answer_type"`
@@ -148,7 +149,7 @@ type CreateQuestionParams struct {
 	AnswerPolicy    string      `json:"answer_policy"`
 }
 
-// Questions agents ask members during an issue run (ADR-0002). Every query is
+// Questions agents ask in a run or members ask on an issue (ADR-0021). Every query is
 // scoped by workspace_id; the service validates ids and runs the multi-row
 // writes of one action in one transaction.
 // One question of an ask: a one-question ask passes ask_id = id and
@@ -159,6 +160,7 @@ func (q *Queries) CreateQuestion(ctx context.Context, arg CreateQuestionParams) 
 		arg.WorkspaceID,
 		arg.AskerAgentID,
 		arg.AskedInTaskID,
+		arg.AskerUserID,
 		arg.Prompt,
 		arg.ContextLine,
 		arg.AnswerType,
@@ -192,6 +194,7 @@ func (q *Queries) CreateQuestion(ctx context.Context, arg CreateQuestionParams) 
 		&i.AskPosition,
 		&i.AskTitle,
 		&i.AnswerPolicy,
+		&i.AskerUserID,
 	)
 	return i, err
 }
@@ -356,7 +359,7 @@ func (q *Queries) DeleteQuestionLinksTo(ctx context.Context, arg DeleteQuestionL
 }
 
 const getQuestion = `-- name: GetQuestion :one
-SELECT id, workspace_id, asker_agent_id, asked_in_task_id, prompt, context_line, answer_type, settings, suggested_answer, status, due_date, blocks_work, overdue_notified_at, created_at, updated_at, ask_id, ask_position, ask_title, answer_policy FROM question
+SELECT id, workspace_id, asker_agent_id, asked_in_task_id, prompt, context_line, answer_type, settings, suggested_answer, status, due_date, blocks_work, overdue_notified_at, created_at, updated_at, ask_id, ask_position, ask_title, answer_policy, asker_user_id FROM question
 WHERE id = $1 AND workspace_id = $2
 `
 
@@ -388,12 +391,13 @@ func (q *Queries) GetQuestion(ctx context.Context, arg GetQuestionParams) (Quest
 		&i.AskPosition,
 		&i.AskTitle,
 		&i.AnswerPolicy,
+		&i.AskerUserID,
 	)
 	return i, err
 }
 
 const getQuestionForUpdate = `-- name: GetQuestionForUpdate :one
-SELECT id, workspace_id, asker_agent_id, asked_in_task_id, prompt, context_line, answer_type, settings, suggested_answer, status, due_date, blocks_work, overdue_notified_at, created_at, updated_at, ask_id, ask_position, ask_title, answer_policy FROM question
+SELECT id, workspace_id, asker_agent_id, asked_in_task_id, prompt, context_line, answer_type, settings, suggested_answer, status, due_date, blocks_work, overdue_notified_at, created_at, updated_at, ask_id, ask_position, ask_title, answer_policy, asker_user_id FROM question
 WHERE id = $1 AND workspace_id = $2
 FOR UPDATE
 `
@@ -428,6 +432,7 @@ func (q *Queries) GetQuestionForUpdate(ctx context.Context, arg GetQuestionForUp
 		&i.AskPosition,
 		&i.AskTitle,
 		&i.AnswerPolicy,
+		&i.AskerUserID,
 	)
 	return i, err
 }
@@ -503,7 +508,7 @@ func (q *Queries) ListCurrentAnswers(ctx context.Context, arg ListCurrentAnswers
 }
 
 const listOpenOverdueQuestions = `-- name: ListOpenOverdueQuestions :many
-SELECT q.id, q.workspace_id, q.asker_agent_id, q.asked_in_task_id, q.prompt, q.context_line, q.answer_type, q.settings, q.suggested_answer, q.status, q.due_date, q.blocks_work, q.overdue_notified_at, q.created_at, q.updated_at, q.ask_id, q.ask_position, q.ask_title, q.answer_policy, l.link_id AS issue_id
+SELECT q.id, q.workspace_id, q.asker_agent_id, q.asked_in_task_id, q.prompt, q.context_line, q.answer_type, q.settings, q.suggested_answer, q.status, q.due_date, q.blocks_work, q.overdue_notified_at, q.created_at, q.updated_at, q.ask_id, q.ask_position, q.ask_title, q.answer_policy, q.asker_user_id, l.link_id AS issue_id
 FROM question q
 JOIN question_link l
   ON l.question_id = q.id
@@ -541,6 +546,7 @@ type ListOpenOverdueQuestionsRow struct {
 	AskPosition       int32              `json:"ask_position"`
 	AskTitle          pgtype.Text        `json:"ask_title"`
 	AnswerPolicy      string             `json:"answer_policy"`
+	AskerUserID       pgtype.UUID        `json:"asker_user_id"`
 	IssueID           pgtype.UUID        `json:"issue_id"`
 }
 
@@ -576,6 +582,7 @@ func (q *Queries) ListOpenOverdueQuestions(ctx context.Context, arg ListOpenOver
 			&i.AskPosition,
 			&i.AskTitle,
 			&i.AnswerPolicy,
+			&i.AskerUserID,
 			&i.IssueID,
 		); err != nil {
 			return nil, err
@@ -746,7 +753,7 @@ func (q *Queries) ListQuestionLinksByQuestions(ctx context.Context, arg ListQues
 }
 
 const listQuestionsByAsk = `-- name: ListQuestionsByAsk :many
-SELECT id, workspace_id, asker_agent_id, asked_in_task_id, prompt, context_line, answer_type, settings, suggested_answer, status, due_date, blocks_work, overdue_notified_at, created_at, updated_at, ask_id, ask_position, ask_title, answer_policy FROM question
+SELECT id, workspace_id, asker_agent_id, asked_in_task_id, prompt, context_line, answer_type, settings, suggested_answer, status, due_date, blocks_work, overdue_notified_at, created_at, updated_at, ask_id, ask_position, ask_title, answer_policy, asker_user_id FROM question
 WHERE workspace_id = $1
   AND ask_id = $2
 ORDER BY ask_position ASC
@@ -787,6 +794,7 @@ func (q *Queries) ListQuestionsByAsk(ctx context.Context, arg ListQuestionsByAsk
 			&i.AskPosition,
 			&i.AskTitle,
 			&i.AnswerPolicy,
+			&i.AskerUserID,
 		); err != nil {
 			return nil, err
 		}
@@ -799,7 +807,7 @@ func (q *Queries) ListQuestionsByAsk(ctx context.Context, arg ListQuestionsByAsk
 }
 
 const listQuestionsByIssue = `-- name: ListQuestionsByIssue :many
-SELECT DISTINCT q.id, q.workspace_id, q.asker_agent_id, q.asked_in_task_id, q.prompt, q.context_line, q.answer_type, q.settings, q.suggested_answer, q.status, q.due_date, q.blocks_work, q.overdue_notified_at, q.created_at, q.updated_at, q.ask_id, q.ask_position, q.ask_title, q.answer_policy FROM question q
+SELECT DISTINCT q.id, q.workspace_id, q.asker_agent_id, q.asked_in_task_id, q.prompt, q.context_line, q.answer_type, q.settings, q.suggested_answer, q.status, q.due_date, q.blocks_work, q.overdue_notified_at, q.created_at, q.updated_at, q.ask_id, q.ask_position, q.ask_title, q.answer_policy, q.asker_user_id FROM question q
 JOIN question_link l
   ON l.question_id = q.id AND l.workspace_id = q.workspace_id
 WHERE q.workspace_id = $1
@@ -854,6 +862,7 @@ func (q *Queries) ListQuestionsByIssue(ctx context.Context, arg ListQuestionsByI
 			&i.AskPosition,
 			&i.AskTitle,
 			&i.AnswerPolicy,
+			&i.AskerUserID,
 		); err != nil {
 			return nil, err
 		}
@@ -1112,7 +1121,7 @@ SET status = $1,
 WHERE id = $2
   AND workspace_id = $3
   AND status = ANY($4::text[])
-RETURNING id, workspace_id, asker_agent_id, asked_in_task_id, prompt, context_line, answer_type, settings, suggested_answer, status, due_date, blocks_work, overdue_notified_at, created_at, updated_at, ask_id, ask_position, ask_title, answer_policy
+RETURNING id, workspace_id, asker_agent_id, asked_in_task_id, prompt, context_line, answer_type, settings, suggested_answer, status, due_date, blocks_work, overdue_notified_at, created_at, updated_at, ask_id, ask_position, ask_title, answer_policy, asker_user_id
 `
 
 type SetQuestionStatusParams struct {
@@ -1152,6 +1161,7 @@ func (q *Queries) SetQuestionStatus(ctx context.Context, arg SetQuestionStatusPa
 		&i.AskPosition,
 		&i.AskTitle,
 		&i.AnswerPolicy,
+		&i.AskerUserID,
 	)
 	return i, err
 }

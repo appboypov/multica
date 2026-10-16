@@ -20,7 +20,7 @@ func parseQuestionLinks(w http.ResponseWriter, links []QuestionLinkRequest) ([]q
 }
 
 func (h *Handler) AddQuestionLinks(w http.ResponseWriter, r *http.Request) {
-	workspaceID, actor, ok := h.questionActor(w, r, true, false)
+	workspaceID, actor, ok := h.questionActor(w, r, questionRoleAgent)
 	if !ok {
 		return
 	}

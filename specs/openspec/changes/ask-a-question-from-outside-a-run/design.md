@@ -31,7 +31,7 @@ flowchart LR
   aud["service/question_audience.go<br/>wakeTargets"]:::changed
   list["service/question_list.go<br/>handler/question_list.go<br/>asker_user_id, asker filter"]:::changed
   sql["pkg/db/queries<br/>question.sql, question_list.sql"]:::changed
-  mig["migrations/743_question_member_asker"]:::new
+  mig["migrations/744_question_member_asker"]:::new
   runinput["service/run_input.go<br/>Deliver"]
   bus["events Bus -> listeners.go<br/>workspace broadcast"]
   handler --> svc
@@ -136,7 +136,7 @@ sequenceDiagram
 
 | Kind | Name | Change | Path |
 |---|---|---|---|
-| Migration | question member asker | new | `server/migrations/743_question_member_asker.up.sql`, `.down.sql` |
+| Migration | question member asker | new | `server/migrations/744_question_member_asker.up.sql`, `.down.sql` |
 | Queries | question create and list | changed | `server/pkg/db/queries/question.sql`, `server/pkg/db/queries/question_list.sql`, `server/pkg/db/generated/` |
 | Handler | question actor and ask | changed | `server/internal/handler/question.go`, `server/internal/handler/question_links.go`, `server/internal/handler/question_list.go` |
 | Service | question ask, mutate, Wake, hydrate | changed | `server/internal/service/question.go` |

@@ -2717,6 +2717,16 @@ describe("QuestionSchema", () => {
     });
   });
 
+  it("reads a member's question asked outside a run, and an agent's question from before members asked", () => {
+    expect(parse({ asker_agent_id: "", asked_in_task_id: "", asker_user_id: "user-skuddy" })).toMatchObject({
+      id: "question-1",
+      asker_agent_id: "",
+      asked_in_task_id: "",
+      asker_user_id: "user-skuddy",
+    });
+    expect(parse({})).toMatchObject({ id: "question-1", asker_agent_id: "agent-pieter", asker_user_id: "" });
+  });
+
   it.each([["first_two"], [7], [null]])("reads an unknown or malformed answer policy %j as any_one", (policy) => {
     const question = parse({ ask_id: "question-0", answer_policy: policy });
     expect(question).toMatchObject({ id: "question-1", ask_id: "question-0", answer_policy: "any_one" });
@@ -2857,7 +2867,7 @@ describe("QuestionSchema", () => {
     const question = parse({
       links: [
         { link_type: "issue", link_id: "issue-412", position: 0 },
-        { link_type: "project", link_id: "project-1", position: 1 },
+        { link_type: "milestone", link_id: "milestone-1", position: 1 },
         { link_type: "task", link_id: 7, position: 2 },
       ],
       events: [

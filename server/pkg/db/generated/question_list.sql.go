@@ -125,7 +125,7 @@ const listOpenQuestionRows = `-- name: ListOpenQuestionRows :many
 WITH selected AS (
     SELECT q.id, q.ask_id, q.ask_position, q.ask_title, q.prompt,
            q.answer_type, q.settings, q.status, q.answer_policy,
-           q.asker_agent_id, q.due_date, q.blocks_work, q.created_at,
+           q.asker_agent_id, q.asker_user_id, q.due_date, q.blocks_work, q.created_at,
            l.link_type, l.link_id,
            a.value AS my_answer_value, a.updated_at AS my_answer_updated_at
     FROM question q
@@ -142,7 +142,8 @@ WITH selected AS (
       AND (COALESCE(cardinality($3::text[]), 0) = 0
            OR q.answer_type = ANY($3::text[]))
       AND (COALESCE(cardinality($4::uuid[]), 0) = 0
-           OR q.asker_agent_id = ANY($4::uuid[]))
+           OR (q.asker_agent_id = ANY($4::uuid[])
+               OR q.asker_user_id = ANY($4::uuid[])))
       AND (COALESCE(cardinality($5::uuid[]), 0) = 0
            OR EXISTS (
                SELECT 1 FROM question_answerer r
@@ -160,7 +161,7 @@ WITH selected AS (
     ORDER BY q.created_at ASC, q.id ASC
     LIMIT $10::int
 )
-SELECT selected.id, selected.ask_id, selected.ask_position, selected.ask_title, selected.prompt, selected.answer_type, selected.settings, selected.status, selected.answer_policy, selected.asker_agent_id, selected.due_date, selected.blocks_work, selected.created_at, selected.link_type, selected.link_id, selected.my_answer_value, selected.my_answer_updated_at,
+SELECT selected.id, selected.ask_id, selected.ask_position, selected.ask_title, selected.prompt, selected.answer_type, selected.settings, selected.status, selected.answer_policy, selected.asker_agent_id, selected.asker_user_id, selected.due_date, selected.blocks_work, selected.created_at, selected.link_type, selected.link_id, selected.my_answer_value, selected.my_answer_updated_at,
        ARRAY(
            SELECT r.user_id FROM question_answerer r
            WHERE r.workspace_id = $1::uuid
@@ -175,7 +176,7 @@ type ListOpenQuestionRowsParams struct {
 	WorkspaceID    pgtype.UUID        `json:"workspace_id"`
 	ViewerID       pgtype.UUID        `json:"viewer_id"`
 	AnswerType     []string           `json:"answer_type"`
-	AskerAgentID   []pgtype.UUID      `json:"asker_agent_id"`
+	AskerIds       []pgtype.UUID      `json:"asker_ids"`
 	AnswererUserID []pgtype.UUID      `json:"answerer_user_id"`
 	LinkIds        []pgtype.UUID      `json:"link_ids"`
 	BlocksWork     pgtype.Bool        `json:"blocks_work"`
@@ -195,6 +196,7 @@ type ListOpenQuestionRowsRow struct {
 	Status            string             `json:"status"`
 	AnswerPolicy      string             `json:"answer_policy"`
 	AskerAgentID      pgtype.UUID        `json:"asker_agent_id"`
+	AskerUserID       pgtype.UUID        `json:"asker_user_id"`
 	DueDate           pgtype.Date        `json:"due_date"`
 	BlocksWork        bool               `json:"blocks_work"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
@@ -210,7 +212,7 @@ func (q *Queries) ListOpenQuestionRows(ctx context.Context, arg ListOpenQuestion
 		arg.WorkspaceID,
 		arg.ViewerID,
 		arg.AnswerType,
-		arg.AskerAgentID,
+		arg.AskerIds,
 		arg.AnswererUserID,
 		arg.LinkIds,
 		arg.BlocksWork,
@@ -236,6 +238,7 @@ func (q *Queries) ListOpenQuestionRows(ctx context.Context, arg ListOpenQuestion
 			&i.Status,
 			&i.AnswerPolicy,
 			&i.AskerAgentID,
+			&i.AskerUserID,
 			&i.DueDate,
 			&i.BlocksWork,
 			&i.CreatedAt,
@@ -259,7 +262,7 @@ const listQuestionRowsAnsweredBy = `-- name: ListQuestionRowsAnsweredBy :many
 WITH selected AS (
     SELECT q.id, q.ask_id, q.ask_position, q.ask_title, q.prompt,
            q.answer_type, q.settings, q.status, q.answer_policy,
-           q.asker_agent_id, q.due_date, q.blocks_work, q.created_at,
+           q.asker_agent_id, q.asker_user_id, q.due_date, q.blocks_work, q.created_at,
            l.link_type, l.link_id,
            a.value AS my_answer_value, a.updated_at AS my_answer_updated_at
     FROM question_answer a
@@ -275,7 +278,8 @@ WITH selected AS (
       AND (COALESCE(cardinality($3::text[]), 0) = 0
            OR q.answer_type = ANY($3::text[]))
       AND (COALESCE(cardinality($4::uuid[]), 0) = 0
-           OR q.asker_agent_id = ANY($4::uuid[]))
+           OR (q.asker_agent_id = ANY($4::uuid[])
+               OR q.asker_user_id = ANY($4::uuid[])))
       AND (COALESCE(cardinality($5::uuid[]), 0) = 0
            OR EXISTS (
                SELECT 1 FROM question_answerer r
@@ -293,7 +297,7 @@ WITH selected AS (
     ORDER BY a.updated_at DESC, a.question_id DESC
     LIMIT $10::int
 )
-SELECT selected.id, selected.ask_id, selected.ask_position, selected.ask_title, selected.prompt, selected.answer_type, selected.settings, selected.status, selected.answer_policy, selected.asker_agent_id, selected.due_date, selected.blocks_work, selected.created_at, selected.link_type, selected.link_id, selected.my_answer_value, selected.my_answer_updated_at,
+SELECT selected.id, selected.ask_id, selected.ask_position, selected.ask_title, selected.prompt, selected.answer_type, selected.settings, selected.status, selected.answer_policy, selected.asker_agent_id, selected.asker_user_id, selected.due_date, selected.blocks_work, selected.created_at, selected.link_type, selected.link_id, selected.my_answer_value, selected.my_answer_updated_at,
        ARRAY(
            SELECT r.user_id FROM question_answerer r
            WHERE r.workspace_id = $1::uuid
@@ -308,7 +312,7 @@ type ListQuestionRowsAnsweredByParams struct {
 	WorkspaceID    pgtype.UUID        `json:"workspace_id"`
 	ViewerID       pgtype.UUID        `json:"viewer_id"`
 	AnswerType     []string           `json:"answer_type"`
-	AskerAgentID   []pgtype.UUID      `json:"asker_agent_id"`
+	AskerIds       []pgtype.UUID      `json:"asker_ids"`
 	AnswererUserID []pgtype.UUID      `json:"answerer_user_id"`
 	LinkIds        []pgtype.UUID      `json:"link_ids"`
 	BlocksWork     pgtype.Bool        `json:"blocks_work"`
@@ -328,6 +332,7 @@ type ListQuestionRowsAnsweredByRow struct {
 	Status            string             `json:"status"`
 	AnswerPolicy      string             `json:"answer_policy"`
 	AskerAgentID      pgtype.UUID        `json:"asker_agent_id"`
+	AskerUserID       pgtype.UUID        `json:"asker_user_id"`
 	DueDate           pgtype.Date        `json:"due_date"`
 	BlocksWork        bool               `json:"blocks_work"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
@@ -343,7 +348,7 @@ func (q *Queries) ListQuestionRowsAnsweredBy(ctx context.Context, arg ListQuesti
 		arg.WorkspaceID,
 		arg.ViewerID,
 		arg.AnswerType,
-		arg.AskerAgentID,
+		arg.AskerIds,
 		arg.AnswererUserID,
 		arg.LinkIds,
 		arg.BlocksWork,
@@ -369,6 +374,7 @@ func (q *Queries) ListQuestionRowsAnsweredBy(ctx context.Context, arg ListQuesti
 			&i.Status,
 			&i.AnswerPolicy,
 			&i.AskerAgentID,
+			&i.AskerUserID,
 			&i.DueDate,
 			&i.BlocksWork,
 			&i.CreatedAt,
@@ -417,7 +423,7 @@ WITH RECURSIVE subtree AS (
 ), selected AS (
     SELECT q.id, q.ask_id, q.ask_position, q.ask_title, q.prompt,
            q.answer_type, q.settings, q.status, q.answer_policy,
-           q.asker_agent_id, q.due_date, q.blocks_work, q.created_at,
+           q.asker_agent_id, q.asker_user_id, q.due_date, q.blocks_work, q.created_at,
            l.link_type, l.link_id,
            a.value AS my_answer_value, a.updated_at AS my_answer_updated_at
     FROM question q
@@ -435,7 +441,8 @@ WITH RECURSIVE subtree AS (
       AND (COALESCE(cardinality($5::text[]), 0) = 0
            OR q.answer_type = ANY($5::text[]))
       AND (COALESCE(cardinality($6::uuid[]), 0) = 0
-           OR q.asker_agent_id = ANY($6::uuid[]))
+           OR (q.asker_agent_id = ANY($6::uuid[])
+               OR q.asker_user_id = ANY($6::uuid[])))
       AND (COALESCE(cardinality($7::uuid[]), 0) = 0
            OR EXISTS (
                SELECT 1 FROM question_answerer r
@@ -453,7 +460,7 @@ WITH RECURSIVE subtree AS (
     ORDER BY q.created_at ASC, q.id ASC
     LIMIT $12::int
 )
-SELECT selected.id, selected.ask_id, selected.ask_position, selected.ask_title, selected.prompt, selected.answer_type, selected.settings, selected.status, selected.answer_policy, selected.asker_agent_id, selected.due_date, selected.blocks_work, selected.created_at, selected.link_type, selected.link_id, selected.my_answer_value, selected.my_answer_updated_at,
+SELECT selected.id, selected.ask_id, selected.ask_position, selected.ask_title, selected.prompt, selected.answer_type, selected.settings, selected.status, selected.answer_policy, selected.asker_agent_id, selected.asker_user_id, selected.due_date, selected.blocks_work, selected.created_at, selected.link_type, selected.link_id, selected.my_answer_value, selected.my_answer_updated_at,
        ARRAY(
            SELECT r.user_id FROM question_answerer r
            WHERE r.workspace_id = $1::uuid
@@ -470,7 +477,7 @@ type ListQuestionRowsBelowParams struct {
 	ProjectIds     []pgtype.UUID      `json:"project_ids"`
 	ViewerID       pgtype.UUID        `json:"viewer_id"`
 	AnswerType     []string           `json:"answer_type"`
-	AskerAgentID   []pgtype.UUID      `json:"asker_agent_id"`
+	AskerIds       []pgtype.UUID      `json:"asker_ids"`
 	AnswererUserID []pgtype.UUID      `json:"answerer_user_id"`
 	LinkIds        []pgtype.UUID      `json:"link_ids"`
 	BlocksWork     pgtype.Bool        `json:"blocks_work"`
@@ -490,6 +497,7 @@ type ListQuestionRowsBelowRow struct {
 	Status            string             `json:"status"`
 	AnswerPolicy      string             `json:"answer_policy"`
 	AskerAgentID      pgtype.UUID        `json:"asker_agent_id"`
+	AskerUserID       pgtype.UUID        `json:"asker_user_id"`
 	DueDate           pgtype.Date        `json:"due_date"`
 	BlocksWork        bool               `json:"blocks_work"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
@@ -510,7 +518,7 @@ func (q *Queries) ListQuestionRowsBelow(ctx context.Context, arg ListQuestionRow
 		arg.ProjectIds,
 		arg.ViewerID,
 		arg.AnswerType,
-		arg.AskerAgentID,
+		arg.AskerIds,
 		arg.AnswererUserID,
 		arg.LinkIds,
 		arg.BlocksWork,
@@ -536,6 +544,7 @@ func (q *Queries) ListQuestionRowsBelow(ctx context.Context, arg ListQuestionRow
 			&i.Status,
 			&i.AnswerPolicy,
 			&i.AskerAgentID,
+			&i.AskerUserID,
 			&i.DueDate,
 			&i.BlocksWork,
 			&i.CreatedAt,
@@ -560,7 +569,7 @@ const listQuestionRowsForMember = `-- name: ListQuestionRowsForMember :many
 WITH selected AS (
     SELECT q.id, q.ask_id, q.ask_position, q.ask_title, q.prompt,
            q.answer_type, q.settings, q.status, q.answer_policy,
-           q.asker_agent_id, q.due_date, q.blocks_work, q.created_at,
+           q.asker_agent_id, q.asker_user_id, q.due_date, q.blocks_work, q.created_at,
            l.link_type, l.link_id,
            a.value AS my_answer_value, a.updated_at AS my_answer_updated_at
     FROM question q
@@ -584,7 +593,8 @@ WITH selected AS (
       AND (COALESCE(cardinality($3::text[]), 0) = 0
            OR q.answer_type = ANY($3::text[]))
       AND (COALESCE(cardinality($4::uuid[]), 0) = 0
-           OR q.asker_agent_id = ANY($4::uuid[]))
+           OR (q.asker_agent_id = ANY($4::uuid[])
+               OR q.asker_user_id = ANY($4::uuid[])))
       AND (COALESCE(cardinality($5::uuid[]), 0) = 0
            OR EXISTS (
                SELECT 1 FROM question_answerer r
@@ -602,7 +612,7 @@ WITH selected AS (
     ORDER BY q.created_at ASC, q.id ASC
     LIMIT $10::int
 )
-SELECT selected.id, selected.ask_id, selected.ask_position, selected.ask_title, selected.prompt, selected.answer_type, selected.settings, selected.status, selected.answer_policy, selected.asker_agent_id, selected.due_date, selected.blocks_work, selected.created_at, selected.link_type, selected.link_id, selected.my_answer_value, selected.my_answer_updated_at,
+SELECT selected.id, selected.ask_id, selected.ask_position, selected.ask_title, selected.prompt, selected.answer_type, selected.settings, selected.status, selected.answer_policy, selected.asker_agent_id, selected.asker_user_id, selected.due_date, selected.blocks_work, selected.created_at, selected.link_type, selected.link_id, selected.my_answer_value, selected.my_answer_updated_at,
        ARRAY(
            SELECT r.user_id FROM question_answerer r
            WHERE r.workspace_id = $1::uuid
@@ -617,7 +627,7 @@ type ListQuestionRowsForMemberParams struct {
 	WorkspaceID    pgtype.UUID        `json:"workspace_id"`
 	ViewerID       pgtype.UUID        `json:"viewer_id"`
 	AnswerType     []string           `json:"answer_type"`
-	AskerAgentID   []pgtype.UUID      `json:"asker_agent_id"`
+	AskerIds       []pgtype.UUID      `json:"asker_ids"`
 	AnswererUserID []pgtype.UUID      `json:"answerer_user_id"`
 	LinkIds        []pgtype.UUID      `json:"link_ids"`
 	BlocksWork     pgtype.Bool        `json:"blocks_work"`
@@ -637,6 +647,7 @@ type ListQuestionRowsForMemberRow struct {
 	Status            string             `json:"status"`
 	AnswerPolicy      string             `json:"answer_policy"`
 	AskerAgentID      pgtype.UUID        `json:"asker_agent_id"`
+	AskerUserID       pgtype.UUID        `json:"asker_user_id"`
 	DueDate           pgtype.Date        `json:"due_date"`
 	BlocksWork        bool               `json:"blocks_work"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
@@ -658,7 +669,7 @@ func (q *Queries) ListQuestionRowsForMember(ctx context.Context, arg ListQuestio
 		arg.WorkspaceID,
 		arg.ViewerID,
 		arg.AnswerType,
-		arg.AskerAgentID,
+		arg.AskerIds,
 		arg.AnswererUserID,
 		arg.LinkIds,
 		arg.BlocksWork,
@@ -684,6 +695,7 @@ func (q *Queries) ListQuestionRowsForMember(ctx context.Context, arg ListQuestio
 			&i.Status,
 			&i.AnswerPolicy,
 			&i.AskerAgentID,
+			&i.AskerUserID,
 			&i.DueDate,
 			&i.BlocksWork,
 			&i.CreatedAt,

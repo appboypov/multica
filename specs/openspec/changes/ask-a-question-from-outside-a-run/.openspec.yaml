@@ -1,9 +1,10 @@
 schema: intent-driven
 created: 2026-10-16
 build:
-  status: ready-for-dev
+  status: built
   type: feature
   ticket: ''
+  baseline_revision: efc980fd303717c2861c5fc06de7046d017c992b
   context:
     - '{project-root}/AGENTS.md'
     - '{project-root}/specs/docs/system-design.md'

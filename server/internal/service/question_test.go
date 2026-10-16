@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/multica-ai/multica/server/internal/attribution"
 	"github.com/multica-ai/multica/server/internal/events"
@@ -322,7 +323,7 @@ func TestQuestionActorWorkspaceAndAskRefusals(t *testing.T) {
 	f := newQuestionFixture(t)
 	input := AskInput{Questions: []question.AskQuestion{{Prompt: "Rules?", AnswerType: "yes_no", Settings: json.RawMessage(`{"why_on_no":false}`)}}, AnswererIDs: []pgtype.UUID{f.brian}}
 	_, err := f.svc.Ask(ctx, f.workspace, f.answerer, input)
-	wantQuestionRefusal(t, err, 403)
+	wantQuestionRefusal(t, err, 422)
 	input.AnswererIDs = []pgtype.UUID{f.agent}
 	_, err = f.svc.Ask(ctx, f.workspace, f.asker, input)
 	wantQuestionRefusal(t, err, 422)
@@ -1301,4 +1302,287 @@ func TestQuestionOpenWakeStillRequiresUnseenAnswers(t *testing.T) {
 		t.Fatalf("open question without unseen answers = %+v, %v", row, err)
 	}
 	f.wantNoNewTask(t)
+}
+
+func TestQuestionMemberAskOnIssueKeepsLinksAndPublishesAfterCommit(t *testing.T) {
+	ctx := context.Background()
+	f := newQuestionFixture(t)
+	second := f.fx.Issue(t, "Also relevant")
+	f.fx.Exec(t, `UPDATE issue SET agent_questions = false WHERE id = $1`, f.issue)
+	f.fx.Exec(t, `UPDATE workspace SET settings = settings || '{"agent_questions":false}'::jsonb WHERE id = $1`, f.workspace)
+	f.fx.Exec(t, `UPDATE agent_task_queue SET questions_enabled = false WHERE id = $1`, f.task)
+	var published []events.Event
+	f.svc.Bus.Subscribe(protocol.EventQuestionCreated, func(event events.Event) {
+		published = append(published, event)
+		payload := event.Payload.(protocol.QuestionEventPayload)
+		if got := f.fx.Count(t, `SELECT count(*) FROM question WHERE ask_id = $1`, payload.AskID); got != 2 {
+			t.Errorf("created event preceded commit: %d questions", got)
+		}
+	})
+	input := questionSetInput(2, f.brian)
+	input.Links = []question.LinkRef{{Type: "issue", Ref: util.UUIDToString(f.issue)}, {Type: "issue", Ref: second}}
+	result, err := f.svc.Ask(ctx, f.workspace, f.other, input)
+	if err != nil || len(result.Questions) != 2 {
+		t.Fatalf("member ask with Agent questions off = %+v, %v", result, err)
+	}
+	for i, row := range result.Questions {
+		if row.AskerUserID != util.UUIDToString(f.anouk) || row.AskerAgentID != "" || row.AskedInTaskID != "" || row.AskID != result.AskID || row.AskPosition != int32(i) {
+			t.Fatalf("member question identity = %+v", row)
+		}
+		if len(row.Links) != 2 || row.Links[0] != (QuestionLinkDTO{"issue", util.UUIDToString(f.issue), 0}) || row.Links[1] != (QuestionLinkDTO{"issue", second, 1}) {
+			t.Fatalf("member links = %+v; want issue then extra issue, no run", row.Links)
+		}
+		if row.WakeTargets == nil || len(row.WakeTargets) != 0 || row.WakeAvailable || row.UnseenAnswerCount != 0 {
+			t.Fatalf("member ask offered agent state: %+v", row)
+		}
+		if len(row.Events) != 1 || row.Events[0].Kind != "asked" || row.Events[0].ActorType != "member" || row.Events[0].ActorID == nil || *row.Events[0].ActorID != row.AskerUserID {
+			t.Fatalf("member asked event = %+v", row.Events)
+		}
+		stored, err := f.svc.Queries.GetQuestion(ctx, db.GetQuestionParams{ID: util.MustParseUUID(row.ID), WorkspaceID: f.workspace})
+		if err != nil || stored.AskerUserID != f.anouk || stored.AskerAgentID.Valid || stored.AskedInTaskID.Valid {
+			t.Fatalf("stored member identity = %+v, %v", stored, err)
+		}
+	}
+	if len(published) != 1 {
+		t.Fatalf("created publications = %d, want one per ask", len(published))
+	}
+	event := published[0]
+	payload := event.Payload.(protocol.QuestionEventPayload)
+	if event.WorkspaceID != util.UUIDToString(f.workspace) || event.ActorType != "member" || event.ActorID != util.UUIDToString(f.anouk) || payload.AskID != result.AskID || payload.QuestionID != result.Questions[0].ID || len(payload.QuestionIDs) != 2 || payload.QuestionIDs[1] != result.Questions[1].ID || payload.EventID == "" {
+		t.Fatalf("member created publication = %+v, payload = %+v", event, payload)
+	}
+	listed, err := f.svc.ListForIssue(ctx, f.workspace, f.issue)
+	if err != nil || len(listed) != 2 || listed[0].AskerUserID != util.UUIDToString(f.anouk) {
+		t.Fatalf("member issue cards = %+v, %v", listed, err)
+	}
+	f.wantNoNewTask(t)
+}
+
+func TestQuestionMemberAskRequiresIssueFirstAndNoRunLink(t *testing.T) {
+	f := newQuestionFixture(t)
+	project := f.fx.Project(t, "Question project")
+	for _, tc := range []struct {
+		name    string
+		links   []question.LinkRef
+		message string
+	}{
+		{"no links", nil, "a question asked outside a run is asked on an issue"},
+		{"project first", []question.LinkRef{{Type: "project", Ref: project}, {Type: "issue", Ref: util.UUIDToString(f.issue)}}, "a question asked outside a run is asked on an issue"},
+		{"explicit run", []question.LinkRef{{Type: "issue", Ref: util.UUIDToString(f.issue)}, {Type: "task", Ref: util.UUIDToString(f.task)}}, "a question asked outside a run has no run link"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			input := questionSetInput(1, f.brian)
+			input.Links = tc.links
+			_, err := f.svc.Ask(context.Background(), f.workspace, f.other, input)
+			wantQuestionRefusal(t, err, 422)
+			if err.Error() != tc.message {
+				t.Fatalf("member link refusal = %v", err)
+			}
+		})
+	}
+	input := questionSetInput(1, f.brian)
+	input.Links = []question.LinkRef{{Type: "issue", Ref: util.UUIDToString(f.issue)}}
+	outsider := util.MustParseUUID(f.fx.User(t, "Outside", "member-ask-outside-"+fmt.Sprint(time.Now().UnixNano())+"@example.test"))
+	for _, actor := range []QuestionActor{{Type: "member", ID: outsider}, {Type: "system", ID: f.anouk}, {Type: "agent", ID: f.agent}} {
+		_, err := f.svc.Ask(context.Background(), f.workspace, actor, input)
+		wantQuestionRefusal(t, err, 403)
+	}
+	for _, table := range []string{"question", "question_link", "question_answerer", "question_answer", "question_event"} {
+		if got := f.fx.Count(t, `SELECT count(*) FROM `+table+` WHERE workspace_id = $1`, f.workspace); got != 0 {
+			t.Fatalf("refused member ask persisted %d %s rows", got, table)
+		}
+	}
+}
+
+func TestQuestionMemberMutationsPublishWithoutRunInputOrWake(t *testing.T) {
+	ctx := context.Background()
+	f := newQuestionFixture(t)
+	f.fx.Exec(t, `UPDATE agent_runtime SET provider = 'omp' WHERE id = $1`, f.runtime)
+	enableRunInputTestTask(t, f.fx, f.task, f.issue)
+	notifications := &runInputNotifications{}
+	f.svc.RunInputs = &RunInputService{Queries: f.svc.Queries, Notifier: notifications}
+	input := questionSetInput(2, f.brian)
+	input.Links = []question.LinkRef{{Type: "issue", Ref: util.UUIDToString(f.issue)}}
+	asked, err := f.svc.Ask(ctx, f.workspace, f.other, input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	first, declined := asked.Questions[0], asked.Questions[1]
+	var publications []protocol.QuestionEventPayload
+	f.svc.Bus.Subscribe(protocol.EventQuestionUpdated, func(event events.Event) {
+		if event.WorkspaceID != util.UUIDToString(f.workspace) || event.ActorType != "member" || event.ActorID != util.UUIDToString(f.brian) {
+			t.Errorf("mutation attribution = %+v", event)
+		}
+		payload := event.Payload.(protocol.QuestionEventPayload)
+		if got := f.fx.Count(t, `SELECT count(*) FROM question_event WHERE id = $1`, payload.EventID); got != 1 {
+			t.Errorf("update event preceded commit: %+v", payload)
+		}
+		publications = append(publications, payload)
+	})
+	for _, tc := range []struct {
+		reason string
+		id     string
+		action func() (QuestionDTO, error)
+	}{
+		{"answered", first.ID, func() (QuestionDTO, error) {
+			return f.svc.Answer(ctx, f.workspace, util.MustParseUUID(first.ID), f.answerer, AnswerQuestionInput{Value: json.RawMessage(`{"option":"per line"}`), Wake: true})
+		}},
+		{"answer_edited", first.ID, func() (QuestionDTO, error) {
+			return f.svc.Answer(ctx, f.workspace, util.MustParseUUID(first.ID), f.answerer, AnswerQuestionInput{Value: json.RawMessage(`{"option":"per total"}`), Wake: true})
+		}},
+		{"ask_back", first.ID, func() (QuestionDTO, error) {
+			return f.svc.AskBack(ctx, f.workspace, util.MustParseUUID(first.ID), f.answerer, "Which invoice?")
+		}},
+		{"answered", declined.ID, func() (QuestionDTO, error) {
+			return f.svc.Answer(ctx, f.workspace, util.MustParseUUID(declined.ID), f.answerer, AnswerQuestionInput{Value: json.RawMessage(`{"declined":true}`), Wake: true})
+		}},
+	} {
+		t.Run(tc.reason+"-"+tc.id, func(t *testing.T) {
+			before := len(publications)
+			row, err := tc.action()
+			if err != nil || row.Status != "answered" || len(row.Answers) != 1 {
+				t.Fatalf("member question %s = %+v, %v", tc.reason, row, err)
+			}
+			if row.WakeTargets == nil || len(row.WakeTargets) != 0 || row.WakeAvailable || row.UnseenAnswerCount != 0 {
+				t.Fatalf("member answer offered agent state: %+v", row)
+			}
+			if len(publications) != before+1 {
+				t.Fatalf("mutation publications = %d, want %d", len(publications), before+1)
+			}
+			payload := publications[before]
+			if payload.QuestionID != tc.id || payload.AskID != asked.AskID || payload.Reason != tc.reason || payload.EventID == "" || payload.IssueID != util.UUIDToString(f.issue) {
+				t.Fatalf("member update payload = %+v", payload)
+			}
+			last := row.Events[len(row.Events)-1]
+			if last.Kind != tc.reason || last.ID != payload.EventID {
+				t.Fatalf("mutation history = %+v, publication = %+v", row.Events, payload)
+			}
+			if tc.reason == "ask_back" && !strings.Contains(string(last.Details), "Which invoice?") {
+				t.Fatalf("ask back text missing: %s", last.Details)
+			}
+			if tc.id == declined.ID && !question.Declined(row.Answers[0].Value) {
+				t.Fatalf("decline not readable: %+v", row.Answers)
+			}
+			if got := f.fx.Count(t, `SELECT count(*) FROM task_supplement WHERE task_id = $1`, f.task); got != 0 || len(notifications.calls) != 0 {
+				t.Fatalf("member mutation delivered run input: receipts=%d notifications=%v", got, notifications.calls)
+			}
+			unseen, err := f.svc.CountUnseenAnswers(ctx, f.workspace, f.agent, f.issue, pgtype.UUID{})
+			if err != nil || unseen != 0 {
+				t.Fatalf("member answer entered agent unseen scope: %d, %v", unseen, err)
+			}
+			f.wantNoNewTask(t)
+		})
+	}
+	for _, target := range []pgtype.UUID{{}, f.agent} {
+		_, err := f.svc.Wake(ctx, f.workspace, util.MustParseUUID(first.ID), f.answerer, target)
+		wantQuestionRefusal(t, err, 422)
+		if err.Error() != "a question a member asked wakes no agent" {
+			t.Fatalf("member wake refusal = %v", err)
+		}
+	}
+	_, err = f.svc.Close(ctx, f.workspace, util.MustParseUUID(first.ID), f.other)
+	wantQuestionRefusal(t, err, 403)
+	_, err = f.svc.Withdraw(ctx, f.workspace, util.MustParseUUID(first.ID), f.other)
+	wantQuestionRefusal(t, err, 403)
+	_, err = f.svc.AddLinks(ctx, f.workspace, util.MustParseUUID(first.ID), f.other, input.Links)
+	wantQuestionRefusal(t, err, 403)
+	f.wantNoNewTask(t)
+}
+
+func TestQuestionMemberAskerFilterAcrossListTabs(t *testing.T) {
+	ctx := context.Background()
+	f := newQuestionFixture(t)
+	input := questionSetInput(1, f.brian)
+	input.Links = []question.LinkRef{{Type: "issue", Ref: util.UUIDToString(f.issue)}}
+	asked, err := f.svc.Ask(ctx, f.workspace, f.other, input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	member := asked.Questions[0]
+	agent := f.ask(t)
+	for _, tab := range []string{"for_me", "all_open", "on_my_work", "answered"} {
+		t.Run(tab, func(t *testing.T) {
+			if tab == "answered" {
+				f.answer(t, member, f.answerer, "per line")
+				f.answer(t, agent, f.answerer, "per line")
+			}
+			for _, tc := range []struct {
+				asker    pgtype.UUID
+				id       string
+				memberID string
+				agentID  string
+			}{
+				{f.anouk, member.ID, util.UUIDToString(f.anouk), ""},
+				{f.agent, agent.ID, "", util.UUIDToString(f.agent)},
+			} {
+				filters := QuestionRowFilters{AskerIDs: []pgtype.UUID{tc.asker}}
+				// The parent form executes the same Below projection as On my work
+				// without depending on which member owns the fixture issue.
+				queryTab := tab
+				if tab == "on_my_work" {
+					queryTab = "all_open"
+					filters.Parent = &QuestionPageObject{Type: "issue", ID: f.issue}
+				}
+				page, err := f.svc.ListRows(ctx, f.workspace, f.brian, queryTab, filters, nil, 10)
+				if err != nil || len(page.Rows) != 1 {
+					t.Fatalf("%s by asker = %+v, %v", tab, page, err)
+				}
+				row := page.Rows[0]
+				if row.ID != tc.id || row.AskerUserID != tc.memberID || row.AskerAgentID != tc.agentID {
+					t.Fatalf("%s filtered identity = %+v", tab, row)
+				}
+			}
+		})
+	}
+}
+
+func TestQuestionAgentAskRetainsRunLinkAndRunInput(t *testing.T) {
+	ctx := context.Background()
+	f := newQuestionFixture(t)
+	f.fx.Exec(t, `UPDATE agent_runtime SET provider = 'omp' WHERE id = $1`, f.runtime)
+	enableRunInputTestTask(t, f.fx, f.task, f.issue)
+	notifications := &runInputNotifications{}
+	f.svc.RunInputs = &RunInputService{Queries: f.svc.Queries, Notifier: notifications}
+	row := f.ask(t)
+	if row.AskerUserID != "" || row.AskerAgentID != util.UUIDToString(f.agent) || row.AskedInTaskID != util.UUIDToString(f.task) || len(row.Links) != 2 || row.Links[1] != (QuestionLinkDTO{"task", util.UUIDToString(f.task), 1}) {
+		t.Fatalf("agent ask identity or run link changed: %+v", row)
+	}
+	answered := f.answer(t, row, f.answerer, "per line")
+	event := answered.Events[len(answered.Events)-1]
+	receipt, err := f.svc.Queries.GetTaskSupplementForRun(ctx, db.GetTaskSupplementForRunParams{WorkspaceID: f.workspace, TaskID: f.task, ItemID: util.MustParseUUID(event.ID)})
+	if err != nil || receipt.ItemKind != "answer" || !strings.Contains(receipt.Content.String, "Brian answered Pieter's question") || !strings.Contains(receipt.Content.String, "per line") {
+		t.Fatalf("agent answer run input = %+v, %v", receipt, err)
+	}
+	if notifications.calls[util.UUIDToString(f.task)] != util.UUIDToString(f.runtime) {
+		t.Fatalf("asking run not notified: %+v", notifications.calls)
+	}
+	f.wantNoNewTask(t)
+}
+
+func TestQuestionExactlyOneAskerConstraint(t *testing.T) {
+	f := newQuestionFixture(t)
+	row := f.ask(t)
+	for _, tc := range []struct {
+		name              string
+		agent, task, user pgtype.UUID
+	}{
+		{"no asker", pgtype.UUID{}, pgtype.UUID{}, pgtype.UUID{}},
+		{"agent without run", f.agent, pgtype.UUID{}, pgtype.UUID{}},
+		{"run without agent", pgtype.UUID{}, f.task, pgtype.UUID{}},
+		{"both askers", f.agent, f.task, f.brian},
+		{"member with agent", f.agent, pgtype.UUID{}, f.brian},
+		{"member with run", pgtype.UUID{}, f.task, f.brian},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := f.fx.Pool.Exec(context.Background(), `UPDATE question SET asker_agent_id = $1, asked_in_task_id = $2, asker_user_id = $3 WHERE id = $4`, tc.agent, tc.task, tc.user, row.ID)
+			var violation *pgconn.PgError
+			if !errors.As(err, &violation) || violation.Code != "23514" || violation.ConstraintName != "question_one_asker" {
+				t.Fatalf("invalid asker identity = %v, want question_one_asker check violation", err)
+			}
+		})
+	}
+	stored, err := f.svc.Queries.GetQuestion(context.Background(), db.GetQuestionParams{ID: util.MustParseUUID(row.ID), WorkspaceID: f.workspace})
+	if err != nil || stored.AskerAgentID != f.agent || stored.AskedInTaskID != f.task || stored.AskerUserID.Valid {
+		t.Fatalf("invalid identity writes changed the agent question: %+v, %v", stored, err)
+	}
 }

@@ -8,11 +8,13 @@ import { useWorkspacePaths } from "@multica/core/paths";
 import {
   EMPTY_QUESTION_ROW_FILTERS,
   groupQuestionRows,
+  questionAsker,
   questionFilterCount,
   questionRowsOptions,
   useQuestionFilters,
   useQuestionsOpenCount,
   useQuestionsViewStore,
+  type QuestionAsker,
   type QuestionGrouping,
   type QuestionListFilter,
   type QuestionRowGroup,
@@ -243,7 +245,7 @@ function groupLabelText(group: QuestionRowGroup): string {
   return group.key;
 }
 
-/** A group's heading: the linked issue, the due bucket or the asking agent, and its row count. */
+/** A group's heading: the linked issue, the due bucket or the asker (agent or member), and its row count. */
 export function GroupHeading({ group }: { group: QuestionRowGroup }) {
   const { t } = useT("questions");
   const { getActorName } = useActorName();
@@ -260,8 +262,8 @@ export function GroupHeading({ group }: { group: QuestionRowGroup }) {
       {group.kind === "due" && <span className="font-medium">{t(($) => $.page.due[group.key])}</span>}
       {group.kind === "asker" && (
         <>
-          <ActorAvatar actorType="agent" actorId={group.agentId} size="xs" />
-          <span className="min-w-0 truncate font-medium">{getActorName("agent", group.agentId)}</span>
+          <ActorAvatar actorType={group.asker.type} actorId={group.asker.id} size="xs" />
+          <span className="min-w-0 truncate font-medium">{getActorName(group.asker.type, group.asker.id)}</span>
         </>
       )}
       <span className="shrink-0 tabular-nums text-muted-foreground">{group.rows.length}</span>
@@ -304,12 +306,13 @@ function options(seen: readonly string[], picked: readonly string[], label: (val
 
 function QuestionsFilterMenu({ wsId, rows, filters }: { wsId: string; rows: readonly QuestionRow[]; filters: QuestionRowFilters }) {
   const { t } = useT("questions");
-  const { getActorName } = useActorName();
+  const { getActorName, hasActor } = useActorName();
   const toggleFilter = useQuestionsViewStore((s) => s.toggleFilter);
   const toggleBlocking = useQuestionsViewStore((s) => s.toggleBlocking);
   const clearFilters = useQuestionsViewStore((s) => s.clearFilters);
   const activeCount = questionFilterCount(filters);
   const linkTitles = new Map(rows.map((row) => [row.link.id, row.link.identifier ?? row.link.title]));
+  const askers = new Map(rows.map(questionAsker).map((asker) => [asker.id, asker] as const));
 
   const dimensions: { key: QuestionListFilter; label: string; options: FilterOption[] }[] = [
     {
@@ -320,11 +323,15 @@ function QuestionsFilterMenu({ wsId, rows, filters }: { wsId: string; rows: read
     {
       key: "asker_ids",
       label: t(($) => $.page.filters.asker),
-      options: options(rows.map((row) => row.asker_agent_id), filters.asker_ids, (value) => ({
-        value,
-        label: getActorName("agent", value),
-        icon: <ActorAvatar actorType="agent" actorId={value} size="xs" />,
-      })),
+      options: options([...askers.keys()], filters.asker_ids, (value) => {
+        // A picked asker no loaded row has is a member when the member list knows the id, else an agent.
+        const asker: QuestionAsker = askers.get(value) ?? { type: hasActor("member", value) ? "member" : "agent", id: value };
+        return {
+          value,
+          label: getActorName(asker.type, asker.id),
+          icon: <ActorAvatar actorType={asker.type} actorId={asker.id} size="xs" />,
+        };
+      }),
     },
     {
       key: "answerer_ids",

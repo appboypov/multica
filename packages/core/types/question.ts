@@ -297,8 +297,12 @@ export type QuestionEvent = { [K in QuestionEventKind]: QuestionEventOf<K> }[Que
 interface QuestionBase {
   id: string;
   workspace_id: string;
+  /** The asking agent; `""` for a question a member asked outside a run. */
   asker_agent_id: string;
+  /** The run the agent asked in; `""` for a question a member asked outside a run. */
   asked_in_task_id: string;
+  /** The member who asked outside a run; `""` for an agent's question. */
+  asker_user_id: string;
   /** The id of the first question of its ask; a one-question ask has `ask_id = id`. */
   ask_id: string;
   /** 0-based place in its ask. */
@@ -431,7 +435,10 @@ interface QuestionRowBase {
   prompt: string;
   status: QuestionStatus;
   answer_policy: AnswerPolicy;
+  /** The asking agent; `""` for a question a member asked outside a run. */
   asker_agent_id: string;
+  /** The member who asked outside a run; `""` for an agent's question. */
+  asker_user_id: string;
   /** The current answerers' user ids. */
   answerer_ids: string[];
   /** Date-only, YYYY-MM-DD, as issue due dates are. */

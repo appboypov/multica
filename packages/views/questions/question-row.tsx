@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { useAuthStore } from "@multica/core/auth";
 import { useWorkspaceId } from "@multica/core/hooks";
 import { createLogger } from "@multica/core/logger";
-import { useAnswerQuestion, viaLabel } from "@multica/core/questions";
+import { questionAsker, useAnswerQuestion, viaLabel } from "@multica/core/questions";
 import type { QuestionRow, YesNoAnswerValue } from "@multica/core/types";
 import { Button } from "@multica/ui/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@multica/ui/components/ui/popover";
@@ -54,6 +54,7 @@ export function QuestionListRow({ row, onOpen }: QuestionListRowProps) {
   const pending = answer.isPending;
   const TypeIcon = TYPE_ICONS[row.answer_type];
   const via = viaLabel(row.via, null, (key, params) => t(($) => $.via[key], params));
+  const asker = questionAsker(row);
 
   const send = (choice: YesNoAnswerValue["choice"], why?: string) => {
     if (!answersInPlace || pending) return;
@@ -176,7 +177,7 @@ export function QuestionListRow({ row, onOpen }: QuestionListRowProps) {
           policy={row.answer_policy}
           answererCount={row.answerer_ids.length}
         />
-        <ActorAvatar actorType="agent" actorId={row.asker_agent_id} size="sm" />
+        <ActorAvatar actorType={asker.type} actorId={asker.id} size="sm" />
         {!row.due_date && !row.my_answer && (
           <span className="w-14 shrink-0 text-right text-caption text-muted-foreground">{timeAgo(row.created_at)}</span>
         )}

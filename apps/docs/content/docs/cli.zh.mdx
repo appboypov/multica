@@ -176,7 +176,7 @@ multica runtime activity <runtime-id>
 | 命令 | 用途 |
 | --- | --- |
 | `issue` | 创建、更新、分配和搜索任务；管理评论、订阅、标签、属性与执行记录 |
-| `question` | 在智能体运行中向成员提问、读取回答，并关闭或撤回问题 |
+| `question` | 在智能体运行中，或以成员身份通过 `--on` 在 issue 上向成员提问、读取回答，并关闭或撤回问题 |
 | `project` | 管理项目 |
 | `label`、`property` | 管理工作区标签和自定义属性 |
 | `agent`、`skill`、`squad` | 管理智能体、skill 和小队 |
@@ -258,7 +258,7 @@ CLI 配置文件包含可代表你访问 Multica 的令牌。不要提交到仓�
 | | `usage <issue-id>` | 查看聚合 token 用量 | |
 | | `rerun <id>` | 按当前指派重新入队执行 | |
 | | `cancel-task <task-id>` | 取消进行中或排队中的运行 | `--issue` |
-| `question` | `ask` | 在智能体运行中向成员提出一个问题或一组问题；输出 ask id，再输出每个问题的 id 和提问（`--output json` 输出 API 响应） | 一个问题：`--prompt` / `--prompt-file`、`--context`、`--type`（`text`、`yes_no`、`single_choice`、`multiple_choice`、`confirm_facts`、`ranking`、`scale`、`number`、`date`、`person`、`file`、`approval`）、设置 flag `--option`、`--fact`、`--item`、`--accept`（可重复）、`--allow-other`、`--why-on-no`、`--min`、`--max`、`--min-label`、`--max-label`、`--unit`、`--date-kind`、`--allow`、`--length`、`--placeholder`、`--subject`、`--link-url`、`--link-title`；`--suggest`（`multiple_choice` 和 `ranking` 可重复）。多个问题：`--questions-file`（JSON 数组，含 1–20 个 API 格式的 `{prompt, context_line, answer_type, settings, suggested_answer}`；不能与单个问题的 flag 同用）、`--title`（1–200 个字符；多于一个问题时必填）。共用：`--answerer`（可重复；成员的名称、邮箱或 id）、`--squad`（小队名称或 id；由其成员回答；可与 `--answerer` 同用）、`--policy`（`any_one`（默认）或 `each`）、`--due`（`YYYY-MM-DD`）、`--blocks-work`（默认开启；`--blocks-work=false` 关闭）；`--on <link>`（提问所在的对象，位置 0）、`--link <link>`（可重复，保持顺序；合计最多 10 个链接）。未指定 `--on` 时第一个 `--link` 位于位置 0；两者都未指定时问题提在运行所在的 issue 上。提问的运行总是排在它们之后。`<link>` 是 issue key 或 id（`WORK-415`），或 `issue:<key 或 id>`、`project:<id 或前缀>`、`autopilot:<id 或前缀>`、`agent:<名称或 id>`、`squad:<id 或前缀>`、`skill:<id 或前缀>`、`run:<id>`、`comment:<id>`；`run:` 和 `comment:` 也接受提问运行所在 issue 上的运行或评论的 id 前缀。所有链接都在发送任何请求之前解析；未知类型或无法解析的引用会直接失败，不会提问 |
+| `question` | `ask` | 在智能体运行中，或以成员身份在运行之外于 `--on` 指定的 issue 上，向成员提出一个问题或一组问题；输出 ask id，再输出每个问题的 id 和提问（`--output json` 输出 API 响应） | 一个问题：`--prompt` / `--prompt-file`、`--context`、`--type`（`text`、`yes_no`、`single_choice`、`multiple_choice`、`confirm_facts`、`ranking`、`scale`、`number`、`date`、`person`、`file`、`approval`）、设置 flag `--option`、`--fact`、`--item`、`--accept`（可重复）、`--allow-other`、`--why-on-no`、`--min`、`--max`、`--min-label`、`--max-label`、`--unit`、`--date-kind`、`--allow`、`--length`、`--placeholder`、`--subject`、`--link-url`、`--link-title`；`--suggest`（`multiple_choice` 和 `ranking` 可重复）。多个问题：`--questions-file`（JSON 数组，含 1–20 个 API 格式的 `{prompt, context_line, answer_type, settings, suggested_answer}`；不能与单个问题的 flag 同用）、`--title`（1–200 个字符；多于一个问题时必填）。共用：`--answerer`（可重复；成员的名称、邮箱或 id）、`--squad`（小队名称或 id；由其成员回答；可与 `--answerer` 同用）、`--policy`（`any_one`（默认）或 `each`）、`--due`（`YYYY-MM-DD`）、`--blocks-work`（默认开启；`--blocks-work=false` 关闭）；`--on <link>`（提问所在的对象，位置 0）、`--link <link>`（可重复，保持顺序；合计最多 10 个链接）。在运行中，未指定 `--on` 时第一个 `--link` 位于位置 0；两者都未指定时问题提在运行所在的 issue 上。提问的运行总是排在它们之后。在运行之外（成员登录），`--on` 指定提问所在的 issue 且为必填；不会链接任何运行。`<link>` 是 issue key 或 id（`WORK-415`），或 `issue:<key 或 id>`、`project:<id 或前缀>`、`autopilot:<id 或前缀>`、`agent:<名称或 id>`、`squad:<id 或前缀>`、`skill:<id 或前缀>`、`run:<id>`、`comment:<id>`；`run:` 和 `comment:` 也接受提问运行所在 issue 上的运行或评论的 id 前缀。所有链接都在发送任何请求之前解析；未知类型或无法解析的引用会直接失败，不会提问 |
 | | `link <question-id> <link>...` | 为智能体提出的问题添加链接，排在已有链接之后；输出其链接的位置和类型 | `<link>` 形式与 `ask --on` 相同；全部在请求之前解析 |
 | | `answers <question-id>` | 查看问题的状态、链接（位置和类型）、回答和线程 | |
 | | `close <question-id>` | 关闭问题 | |

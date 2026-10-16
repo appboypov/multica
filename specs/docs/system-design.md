@@ -613,8 +613,10 @@ classDiagram
   class question {
     +uuid id
     +uuid workspace_id
-    +uuid asker_agent_id
-    +uuid asked_in_task_id
+    +uuid_nullable asker_agent_id
+    +uuid_nullable asked_in_task_id
+    +uuid_nullable asker_user_id
+    +check question_one_asker
     +uuid ask_id
     +int ask_position
     +text ask_title
@@ -745,6 +747,7 @@ classDiagram
   workspace "1" --> "*" question : workspace_id
   agent "1" --> "*" question : asker_agent_id
   agent_task_queue "1" --> "*" question : asked_in_task_id
+  user "1" --> "*" question : asker_user_id
   question "*" --> "1" question : ask_id
   question "1" --> "*" question_link : question_id
   question_link ..> issue : link_id
@@ -770,6 +773,7 @@ classDiagram
     +text ask_title
     +text answer_policy
     +text status
+    +uuid_nullable asker_user_id
   }
   class Question {
     +string id
@@ -778,6 +782,9 @@ classDiagram
     +string|null ask_title
     +AnswerPolicy answer_policy
     +QuestionStatus status
+    +string asker_agent_id
+    +string asked_in_task_id
+    +string asker_user_id
   }
   class QuestionAskResult {
     +string ask_id
@@ -795,6 +802,8 @@ classDiagram
 ```
 
 `QuestionRow` is sqlc's `db.Question` in `server/pkg/db/generated/models.go`, generated from the migrations. The client `Question` and `QuestionAskResult` contracts live in `packages/core/types/question.ts`; `packages/core/api/schemas.ts` parses question responses. The server's question and ask DTOs live in `server/internal/service/question.go`; `POST /api/questions` creates one transactional ask and returns `{ask_id, questions}`. `server/internal/question/policy.go` derives status from current answerers under `any_one` or `each`. Created and overdue events carry the ask's question IDs so the notification listener sends one inbox item per current answerer per ask. The event payload is declared in `server/pkg/protocol/events.go` and `packages/core/types/events.ts`.
+
+A question has exactly one asker (`question_one_asker`): an agent in a run, with `asker_agent_id` and `asked_in_task_id`, or a member outside a run, with `asker_user_id`. `Question` and the list rows carry all three ids as strings: `asker_user_id` is `""` for an agent's question, and `asker_agent_id` and `asked_in_task_id` are `""` for a member's. A member asks through `POST /api/questions` or `multica question ask --on <issue>`; the first link is that issue and no run is linked, so the answers reach no run as input and the question offers no Wake (ADR-0021).
 
 ## Absent
 

@@ -56,6 +56,7 @@ type QuestionRowDTO struct {
 	Status       string                `json:"status"`
 	AnswerPolicy string                `json:"answer_policy"`
 	AskerAgentID string                `json:"asker_agent_id"`
+	AskerUserID  string                `json:"asker_user_id"`
 	AnswererIDs  []string              `json:"answerer_ids"`
 	DueDate      *string               `json:"due_date"`
 	BlocksWork   bool                  `json:"blocks_work"`
@@ -81,7 +82,7 @@ func (s *QuestionService) ListRows(ctx context.Context, workspaceID, viewerID pg
 	}
 	params := db.ListQuestionRowsForMemberParams{
 		WorkspaceID: workspaceID, ViewerID: viewerID,
-		AnswerType: filters.AnswerTypes, AskerAgentID: filters.AskerIDs,
+		AnswerType: filters.AnswerTypes, AskerIds: filters.AskerIDs,
 		AnswererUserID: filters.AnswererIDs, LinkIds: filters.LinkIDs,
 		BlocksWork: pgtype.Bool{Bool: filters.BlocksWork, Valid: filters.BlocksWork},
 		Limit:      int32(limit + 1),
@@ -109,7 +110,7 @@ func (s *QuestionService) ListRows(ctx context.Context, workspaceID, viewerID pg
 		rows, err := s.Queries.ListQuestionRowsBelow(ctx, db.ListQuestionRowsBelowParams{
 			WorkspaceID: workspaceID, ViewerID: viewerID,
 			IssueIds: issueIDs, ProjectIds: projectIDs,
-			AnswerType: params.AnswerType, AskerAgentID: params.AskerAgentID,
+			AnswerType: params.AnswerType, AskerIds: params.AskerIds,
 			AnswererUserID: params.AnswererUserID, LinkIds: params.LinkIds,
 			BlocksWork: params.BlocksWork, CursorTime: params.CursorTime,
 			CursorID: params.CursorID, Limit: params.Limit,
@@ -241,6 +242,7 @@ func questionRowDTO(row db.ListQuestionRowsForMemberRow) QuestionRowDTO {
 		Prompt: row.Prompt, AnswerType: row.AnswerType, Settings: row.Settings,
 		Status: row.Status, AnswerPolicy: row.AnswerPolicy,
 		AskerAgentID: util.UUIDToString(row.AskerAgentID),
+		AskerUserID:  util.UUIDToString(row.AskerUserID),
 		AnswererIDs:  make([]string, len(row.AnswererIds)),
 		BlocksWork:   row.BlocksWork, CreatedAt: questionTime(row.CreatedAt),
 		Link: QuestionRowLinkDTO{Type: row.LinkType, ID: util.UUIDToString(row.LinkID)},

@@ -3,6 +3,7 @@
 
 import { addDaysDateOnly, isPastDateOnly, todayDateOnly } from "../issues/date";
 import type { QuestionRow, QuestionRowLink } from "../types/question";
+import { questionAsker, type QuestionAsker } from "./asker";
 
 export type QuestionGrouping = "link" | "due" | "asker";
 
@@ -13,7 +14,7 @@ const DUE_BUCKETS: readonly QuestionDueBucket[] = ["overdue", "today", "this_wee
 export type QuestionRowGroup =
   | { kind: "link"; key: string; link: QuestionRowLink; rows: QuestionRow[] }
   | { kind: "due"; key: QuestionDueBucket; rows: QuestionRow[] }
-  | { kind: "asker"; key: string; agentId: string; rows: QuestionRow[] };
+  | { kind: "asker"; key: string; asker: QuestionAsker; rows: QuestionRow[] };
 
 /** Where a row's due date falls; only an open question is overdue. */
 export function dueBucket(row: QuestionRow): QuestionDueBucket {
@@ -47,11 +48,12 @@ export function groupQuestionRows(rows: readonly QuestionRow[], grouping: Questi
 
   const groups = new Map<string, QuestionRowGroup>();
   for (const row of rows) {
-    const key = grouping === "link" ? row.link.id : row.asker_agent_id;
+    const asker = grouping === "asker" ? questionAsker(row) : null;
+    const key = asker ? asker.id : row.link.id;
     const group = groups.get(key);
     if (group) group.rows.push(row);
-    else if (grouping === "link") groups.set(key, { kind: "link", key, link: row.link, rows: [row] });
-    else groups.set(key, { kind: "asker", key, agentId: row.asker_agent_id, rows: [row] });
+    else if (asker) groups.set(key, { kind: "asker", key, asker, rows: [row] });
+    else groups.set(key, { kind: "link", key, link: row.link, rows: [row] });
   }
   return [...groups.values()];
 }

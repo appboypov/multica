@@ -41,7 +41,16 @@ type WakeRequest struct {
 	AgentID *string `json:"agent_id,omitempty"`
 }
 
-func (h *Handler) questionActor(w http.ResponseWriter, r *http.Request, agentOnly, humanOnly bool) (pgtype.UUID, service.QuestionActor, bool) {
+type questionRole uint8
+
+const (
+	questionRoleReader questionRole = iota
+	questionRoleAgent
+	questionRoleMember
+	questionRoleAsker
+)
+
+func (h *Handler) questionActor(w http.ResponseWriter, r *http.Request, role questionRole) (pgtype.UUID, service.QuestionActor, bool) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
 		return pgtype.UUID{}, service.QuestionActor{}, false
@@ -56,20 +65,28 @@ func (h *Handler) questionActor(w http.ResponseWriter, r *http.Request, agentOnl
 		return pgtype.UUID{}, service.QuestionActor{}, false
 	}
 	actorType, actorID := h.resolveActor(r, userID, workspaceID)
-	if agentOnly && (actorType != "agent" || r.Header.Get("X-Actor-Source") != "task_token") {
+	if role == questionRoleAgent && (actorType != "agent" || r.Header.Get("X-Actor-Source") != "task_token") {
 		writeError(w, http.StatusForbidden, "only agents ask questions")
 		return ws, service.QuestionActor{}, false
 	}
-	if humanOnly && (actorType != "member" || isMachineCredentialActor(r)) {
+	if role == questionRoleMember && (actorType != "member" || isMachineCredentialActor(r)) {
 		writeError(w, http.StatusForbidden, "only members answer, ask back, reassign or wake questions")
 		return ws, service.QuestionActor{}, false
+	}
+	if role == questionRoleAsker {
+		agentInRun := actorType == "agent" && r.Header.Get("X-Actor-Source") == "task_token" && r.Header.Get("X-Task-ID") != ""
+		member := actorType == "member" && !isMachineCredentialActor(r)
+		if !agentInRun && !member {
+			writeError(w, http.StatusForbidden, "only agents in a run or members ask questions")
+			return ws, service.QuestionActor{}, false
+		}
 	}
 	id, ok := parseUUIDOrBadRequest(w, actorID, "actor_id")
 	if !ok {
 		return ws, service.QuestionActor{}, false
 	}
 	actor := service.QuestionActor{Type: actorType, ID: id}
-	if agentOnly {
+	if role == questionRoleAgent || (role == questionRoleAsker && actorType == "agent") {
 		actor.TaskID, ok = parseUUIDOrBadRequest(w, r.Header.Get("X-Task-ID"), "task_id")
 		if !ok {
 			return ws, actor, false
@@ -98,7 +115,7 @@ func questionID(w http.ResponseWriter, r *http.Request) (pgtype.UUID, bool) {
 }
 
 func (h *Handler) AskQuestion(w http.ResponseWriter, r *http.Request) {
-	ws, actor, ok := h.questionActor(w, r, true, false)
+	ws, actor, ok := h.questionActor(w, r, questionRoleAsker)
 	if !ok {
 		return
 	}
@@ -134,7 +151,7 @@ func (h *Handler) AskQuestion(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) ListIssueQuestions(w http.ResponseWriter, r *http.Request) {
-	if _, _, ok := h.questionActor(w, r, false, false); !ok {
+	if _, _, ok := h.questionActor(w, r, questionRoleReader); !ok {
 		return
 	}
 	issue, ok := h.loadIssueForUser(w, r, chi.URLParam(r, "id"))
@@ -150,7 +167,7 @@ func (h *Handler) ListIssueQuestions(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) GetQuestion(w http.ResponseWriter, r *http.Request) {
-	ws, _, ok := h.questionActor(w, r, false, false)
+	ws, _, ok := h.questionActor(w, r, questionRoleReader)
 	if !ok {
 		return
 	}
@@ -167,7 +184,7 @@ func (h *Handler) GetQuestion(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) AnswerQuestion(w http.ResponseWriter, r *http.Request) {
-	ws, actor, ok := h.questionActor(w, r, false, true)
+	ws, actor, ok := h.questionActor(w, r, questionRoleMember)
 	if !ok {
 		return
 	}
@@ -189,7 +206,7 @@ func (h *Handler) AnswerQuestion(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) AskBackQuestion(w http.ResponseWriter, r *http.Request) {
-	ws, actor, ok := h.questionActor(w, r, false, true)
+	ws, actor, ok := h.questionActor(w, r, questionRoleMember)
 	if !ok {
 		return
 	}
@@ -213,7 +230,7 @@ func (h *Handler) AskBackQuestion(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) ReassignQuestion(w http.ResponseWriter, r *http.Request) {
-	ws, actor, ok := h.questionActor(w, r, false, true)
+	ws, actor, ok := h.questionActor(w, r, questionRoleMember)
 	if !ok {
 		return
 	}
@@ -242,7 +259,7 @@ func (h *Handler) ReassignQuestion(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) CloseQuestion(w http.ResponseWriter, r *http.Request) {
-	ws, actor, ok := h.questionActor(w, r, true, false)
+	ws, actor, ok := h.questionActor(w, r, questionRoleAgent)
 	if !ok {
 		return
 	}
@@ -259,7 +276,7 @@ func (h *Handler) CloseQuestion(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) WithdrawQuestion(w http.ResponseWriter, r *http.Request) {
-	ws, actor, ok := h.questionActor(w, r, true, false)
+	ws, actor, ok := h.questionActor(w, r, questionRoleAgent)
 	if !ok {
 		return
 	}
@@ -276,7 +293,7 @@ func (h *Handler) WithdrawQuestion(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) WakeQuestion(w http.ResponseWriter, r *http.Request) {
-	ws, actor, ok := h.questionActor(w, r, false, true)
+	ws, actor, ok := h.questionActor(w, r, questionRoleMember)
 	if !ok {
 		return
 	}

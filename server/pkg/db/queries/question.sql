@@ -1,4 +1,4 @@
--- Questions agents ask members during an issue run (ADR-0002). Every query is
+-- Questions agents ask in a run or members ask on an issue (ADR-0021). Every query is
 -- scoped by workspace_id; the service validates ids and runs the multi-row
 -- writes of one action in one transaction.
 
@@ -6,11 +6,11 @@
 -- One question of an ask: a one-question ask passes ask_id = id and
 -- ask_position 0; ask_title is set only when the ask holds several.
 INSERT INTO question (
-    id, workspace_id, asker_agent_id, asked_in_task_id, prompt, context_line,
+    id, workspace_id, asker_agent_id, asked_in_task_id, asker_user_id, prompt, context_line,
     answer_type, settings, suggested_answer, due_date, blocks_work,
     ask_id, ask_position, ask_title, answer_policy
 ) VALUES (
-    @id, @workspace_id, @asker_agent_id, @asked_in_task_id, @prompt, sqlc.narg('context_line'),
+    @id, @workspace_id, sqlc.narg('asker_agent_id'), sqlc.narg('asked_in_task_id'), sqlc.narg('asker_user_id'), @prompt, sqlc.narg('context_line'),
     @answer_type, @settings, sqlc.narg('suggested_answer'), sqlc.narg('due_date'), @blocks_work,
     @ask_id, @ask_position, sqlc.narg('ask_title'), @answer_policy
 )

@@ -22,6 +22,7 @@
     "due_date": "Répondre avant le {{date}}",
     "asked_during_run": "a demandé pendant l'exécution n° {{number}} · {{time}}",
     "asked_during_a_run": "a demandé pendant une exécution · {{time}}",
+    "asked": "a demandé · {{time}}",
     "asked_to": "Posée à",
     "waiting_for": "En attente de {{names}}",
     "add_note": "Ajouter une note",
@@ -61,7 +62,8 @@
   "each": {
     "answered": "{{answered}} sur {{total}} ont répondu",
     "waiting": "en attente",
-    "line": "{{name}} voit chaque réponse dès son arrivée et clôt la question quand il y en a assez."
+    "line": "{{name}} voit chaque réponse dès son arrivée et clôt la question quand il y en a assez.",
+    "line_member": "{{name}} voit chaque réponse dès son arrivée."
   },
   "hints": {
     "text": "Les mentions, liens et pièces jointes fonctionnent comme dans les commentaires.",

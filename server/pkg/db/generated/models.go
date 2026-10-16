@@ -1371,6 +1371,7 @@ type Question struct {
 	AskPosition       int32              `json:"ask_position"`
 	AskTitle          pgtype.Text        `json:"ask_title"`
 	AnswerPolicy      string             `json:"answer_policy"`
+	AskerUserID       pgtype.UUID        `json:"asker_user_id"`
 }
 
 type QuestionAnswer struct {

@@ -84,10 +84,12 @@ type questionAskItem struct {
 }
 
 const questionLinkHelp = `Links: --on <link> is where the question is asked (position 0); repeatable
---link <link> adds more links in the given order, at most 10 together. Without
---on the first --link takes position 0; without either the question is asked on
-the run's issue. The asking run is always linked after them. Add links later
-with: multica question link <question-id> <link>...
+--link <link> adds more links in the given order, at most 10 together. In a
+run, without --on the first --link takes position 0; without either the
+question is asked on the run's issue. The asking run is always linked after
+them. Outside a run (a member login), --on names the issue the question is
+asked on and is required; no run is linked. Add links later with:
+multica question link <question-id> <link>...
 
 A link is a bare issue key or ID (WORK-415), or <type>:<ref>:
   issue:<key or ID>        project:<ID or prefix>    autopilot:<ID or prefix>
@@ -211,6 +213,11 @@ func runQuestionAsk(cmd *cobra.Command, _ []string) error {
 	client, err := newAPIClient(cmd)
 	if err != nil {
 		return err
+	}
+	// Outside a run no run's issue stands in for the place of the question,
+	// so --on must name the issue it is asked on; refused before any request.
+	if client.TaskID == "" && (!cmd.Flags().Changed("on") || linkInputs[0].ref.Type != questionrules.LinkTypeIssue) {
+		return fmt.Errorf("a question asked outside a run needs --on with an issue")
 	}
 	ctx, cancel := cli.APIContext(cmd.Context())
 	defer cancel()

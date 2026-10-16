@@ -9,7 +9,7 @@
 WITH selected AS (
     SELECT q.id, q.ask_id, q.ask_position, q.ask_title, q.prompt,
            q.answer_type, q.settings, q.status, q.answer_policy,
-           q.asker_agent_id, q.due_date, q.blocks_work, q.created_at,
+           q.asker_agent_id, q.asker_user_id, q.due_date, q.blocks_work, q.created_at,
            l.link_type, l.link_id,
            a.value AS my_answer_value, a.updated_at AS my_answer_updated_at
     FROM question q
@@ -32,8 +32,9 @@ WITH selected AS (
       AND a.id IS NULL
       AND (COALESCE(cardinality(sqlc.narg('answer_type')::text[]), 0) = 0
            OR q.answer_type = ANY(sqlc.narg('answer_type')::text[]))
-      AND (COALESCE(cardinality(sqlc.narg('asker_agent_id')::uuid[]), 0) = 0
-           OR q.asker_agent_id = ANY(sqlc.narg('asker_agent_id')::uuid[]))
+      AND (COALESCE(cardinality(sqlc.narg('asker_ids')::uuid[]), 0) = 0
+           OR (q.asker_agent_id = ANY(sqlc.narg('asker_ids')::uuid[])
+               OR q.asker_user_id = ANY(sqlc.narg('asker_ids')::uuid[])))
       AND (COALESCE(cardinality(sqlc.narg('answerer_user_id')::uuid[]), 0) = 0
            OR EXISTS (
                SELECT 1 FROM question_answerer r
@@ -65,7 +66,7 @@ ORDER BY selected.created_at ASC, selected.id ASC;
 WITH selected AS (
     SELECT q.id, q.ask_id, q.ask_position, q.ask_title, q.prompt,
            q.answer_type, q.settings, q.status, q.answer_policy,
-           q.asker_agent_id, q.due_date, q.blocks_work, q.created_at,
+           q.asker_agent_id, q.asker_user_id, q.due_date, q.blocks_work, q.created_at,
            l.link_type, l.link_id,
            a.value AS my_answer_value, a.updated_at AS my_answer_updated_at
     FROM question q
@@ -81,8 +82,9 @@ WITH selected AS (
       AND q.status IN ('open', 'partly_answered')
       AND (COALESCE(cardinality(sqlc.narg('answer_type')::text[]), 0) = 0
            OR q.answer_type = ANY(sqlc.narg('answer_type')::text[]))
-      AND (COALESCE(cardinality(sqlc.narg('asker_agent_id')::uuid[]), 0) = 0
-           OR q.asker_agent_id = ANY(sqlc.narg('asker_agent_id')::uuid[]))
+      AND (COALESCE(cardinality(sqlc.narg('asker_ids')::uuid[]), 0) = 0
+           OR (q.asker_agent_id = ANY(sqlc.narg('asker_ids')::uuid[])
+               OR q.asker_user_id = ANY(sqlc.narg('asker_ids')::uuid[])))
       AND (COALESCE(cardinality(sqlc.narg('answerer_user_id')::uuid[]), 0) = 0
            OR EXISTS (
                SELECT 1 FROM question_answerer r
@@ -114,7 +116,7 @@ ORDER BY selected.created_at ASC, selected.id ASC;
 WITH selected AS (
     SELECT q.id, q.ask_id, q.ask_position, q.ask_title, q.prompt,
            q.answer_type, q.settings, q.status, q.answer_policy,
-           q.asker_agent_id, q.due_date, q.blocks_work, q.created_at,
+           q.asker_agent_id, q.asker_user_id, q.due_date, q.blocks_work, q.created_at,
            l.link_type, l.link_id,
            a.value AS my_answer_value, a.updated_at AS my_answer_updated_at
     FROM question_answer a
@@ -129,8 +131,9 @@ WITH selected AS (
       AND a.answerer_user_id = sqlc.arg('viewer_id')::uuid
       AND (COALESCE(cardinality(sqlc.narg('answer_type')::text[]), 0) = 0
            OR q.answer_type = ANY(sqlc.narg('answer_type')::text[]))
-      AND (COALESCE(cardinality(sqlc.narg('asker_agent_id')::uuid[]), 0) = 0
-           OR q.asker_agent_id = ANY(sqlc.narg('asker_agent_id')::uuid[]))
+      AND (COALESCE(cardinality(sqlc.narg('asker_ids')::uuid[]), 0) = 0
+           OR (q.asker_agent_id = ANY(sqlc.narg('asker_ids')::uuid[])
+               OR q.asker_user_id = ANY(sqlc.narg('asker_ids')::uuid[])))
       AND (COALESCE(cardinality(sqlc.narg('answerer_user_id')::uuid[]), 0) = 0
            OR EXISTS (
                SELECT 1 FROM question_answerer r
@@ -217,7 +220,7 @@ WITH RECURSIVE subtree AS (
 ), selected AS (
     SELECT q.id, q.ask_id, q.ask_position, q.ask_title, q.prompt,
            q.answer_type, q.settings, q.status, q.answer_policy,
-           q.asker_agent_id, q.due_date, q.blocks_work, q.created_at,
+           q.asker_agent_id, q.asker_user_id, q.due_date, q.blocks_work, q.created_at,
            l.link_type, l.link_id,
            a.value AS my_answer_value, a.updated_at AS my_answer_updated_at
     FROM question q
@@ -234,8 +237,9 @@ WITH RECURSIVE subtree AS (
       AND q.id IN (SELECT question_id FROM below)
       AND (COALESCE(cardinality(sqlc.narg('answer_type')::text[]), 0) = 0
            OR q.answer_type = ANY(sqlc.narg('answer_type')::text[]))
-      AND (COALESCE(cardinality(sqlc.narg('asker_agent_id')::uuid[]), 0) = 0
-           OR q.asker_agent_id = ANY(sqlc.narg('asker_agent_id')::uuid[]))
+      AND (COALESCE(cardinality(sqlc.narg('asker_ids')::uuid[]), 0) = 0
+           OR (q.asker_agent_id = ANY(sqlc.narg('asker_ids')::uuid[])
+               OR q.asker_user_id = ANY(sqlc.narg('asker_ids')::uuid[])))
       AND (COALESCE(cardinality(sqlc.narg('answerer_user_id')::uuid[]), 0) = 0
            OR EXISTS (
                SELECT 1 FROM question_answerer r

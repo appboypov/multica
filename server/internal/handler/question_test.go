@@ -2,6 +2,7 @@ package handler
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"mime/multipart"
@@ -9,10 +10,16 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/multica-ai/multica/server/internal/auth"
+	"github.com/multica-ai/multica/server/internal/middleware"
 	"github.com/multica-ai/multica/server/internal/question"
 	"github.com/multica-ai/multica/server/internal/service"
 	"github.com/multica-ai/multica/server/internal/testutil"
+	db "github.com/multica-ai/multica/server/pkg/db/generated"
+	"github.com/multica-ai/multica/server/pkg/dbid"
 )
 
 type questionAPIFixture struct{ AgentID, IssueID, TaskID, RuntimeID string }
@@ -65,8 +72,8 @@ func askQuestionForTest(t *testing.T, fx questionAPIFixture) string {
 	return out.Questions[0].ID
 }
 
-func TestQuestionAPI_MemberCannotAsk(t *testing.T) {
-	testutil.Call(t, testHandler.AskQuestion, newRequest("POST", "/api/questions", questionAskBody(testUserID))).Want(403)
+func TestQuestionAPI_MemberNeedsIssueLink(t *testing.T) {
+	testutil.Call(t, testHandler.AskQuestion, newRequest("POST", "/api/questions", questionAskBody(testUserID))).Want(422)
 }
 
 func TestQuestionAPI_AgentAnswererRejectedByName(t *testing.T) {
@@ -348,5 +355,217 @@ func TestQuestionAPI_SquadUUIDSuppliesAnswerers(t *testing.T) {
 		if len(q.Answerers) != 1 || q.Answerers[0].UserID != testUserID {
 			t.Fatalf("squad UUID did not supply its human answerer: %+v", q.Answerers)
 		}
+	}
+}
+
+func cleanupMemberQuestionAsk(t *testing.T, askID string) {
+	t.Helper()
+	dbfx.Cleanup(t, `DELETE FROM question WHERE ask_id = $1`, askID)
+	for _, table := range []string{"question_link", "question_answerer", "question_answer", "question_event"} {
+		dbfx.Cleanup(t, `DELETE FROM `+table+` WHERE question_id IN (SELECT id FROM question WHERE ask_id = $1)`, askID)
+	}
+}
+
+func TestQuestionAPI_AuthenticatedMemberPATAsksOnIssue(t *testing.T) {
+	fx := newQuestionAPIFixture(t)
+	token, _ := insertTestPAT(t, time.Now().Add(time.Hour))
+	protected := middleware.Auth(testHandler.Queries, nil, nil, nil)(http.HandlerFunc(testHandler.AskQuestion))
+	body := questionAskBody(testUserID)
+	body["links"] = []QuestionLinkRequest{{Type: "issue", ID: fx.IssueID}}
+	r := newRequest("POST", "/api/questions", body)
+	r.Header.Set("Authorization", "Bearer "+token)
+	r.Header.Del("X-User-ID")
+	// A member PAT cannot turn itself into a run by replaying these headers.
+	r.Header.Set("X-Actor-Source", "task_token")
+	r.Header.Set("X-Agent-ID", fx.AgentID)
+	r.Header.Set("X-Task-ID", fx.TaskID)
+	var out service.QuestionAskResult
+	testutil.Call(t, protected.ServeHTTP, r).Want(201).JSON(&out)
+	cleanupMemberQuestionAsk(t, out.AskID)
+	if len(out.Questions) != 1 || out.AskID == "" {
+		t.Fatalf("member PAT ask = %+v", out)
+	}
+	row := out.Questions[0]
+	if row.AskerUserID != testUserID || row.AskerAgentID != "" || row.AskedInTaskID != "" || len(row.Links) != 1 || row.Links[0].LinkType != "issue" || row.Links[0].LinkID != fx.IssueID || row.WakeAvailable || len(row.WakeTargets) != 0 {
+		t.Fatalf("member PAT wire identity or links = %+v", row)
+	}
+	listProtected := middleware.Auth(testHandler.Queries, nil, nil, nil)(middleware.RequireWorkspaceMember(testHandler.Queries)(http.HandlerFunc(testHandler.ListQuestions)))
+	listRequest := newRequest("GET", "/api/questions?tab=all_open&asker_id="+testUserID+"&link_id="+fx.IssueID, nil)
+	listRequest.Header.Set("Authorization", "Bearer "+token)
+	var listed QuestionRowPageResponse
+	testutil.Call(t, listProtected.ServeHTTP, listRequest).Want(200).JSON(&listed)
+	if len(listed.Rows) != 1 || listed.Rows[0].ID != row.ID || listed.Rows[0].AskerUserID != testUserID || listed.Rows[0].AskerAgentID != "" {
+		t.Fatalf("member asker list response = %+v", listed)
+	}
+}
+
+func TestQuestionAPI_CloudCredentialCannotAskOrSpoofMember(t *testing.T) {
+	fx := newQuestionAPIFixture(t)
+	body := questionAskBody(testUserID)
+	body["links"] = []QuestionLinkRequest{{Type: "issue", ID: fx.IssueID}}
+	// Pin the handler backstop for an already-authenticated machine request.
+	r := newRequest("POST", "/api/questions", body)
+	r.Header.Set("X-Actor-Source", "cloud_pat")
+	testutil.Call(t, testHandler.AskQuestion, r).Want(403)
+	verified := 0
+	fleet := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		verified++
+		if r.Method != "POST" || r.URL.Path != "/api/v1/pat/verify" {
+			t.Errorf("unexpected fleet request: %s %s", r.Method, r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{"valid": true, "owner_id": testUserID, "instance_id": "question-test-node", "instance_record_id": fx.RuntimeID})
+	}))
+	defer fleet.Close()
+	verifier := auth.NewCloudPATVerifier(auth.CloudPATVerifierConfig{FleetBaseURL: fleet.URL})
+	protected := middleware.Auth(testHandler.Queries, nil, verifier, nil)(http.HandlerFunc(testHandler.AskQuestion))
+	r = newRequest("POST", "/api/questions", body)
+	r.Header.Set("Authorization", "Bearer mcn_question_test")
+	r.Header.Set("X-Actor-Source", "member")
+	r.Header.Set("X-Agent-ID", fx.AgentID)
+	r.Header.Set("X-Task-ID", fx.TaskID)
+	testutil.Call(t, protected.ServeHTTP, r).Want(403)
+	if verified != 1 {
+		t.Fatalf("cloud credential did not reach real authentication: verify calls=%d", verified)
+	}
+	if got := dbfx.Count(t, `SELECT count(*) FROM question q JOIN question_link l ON l.question_id = q.id WHERE l.link_type = 'issue' AND l.link_id = $1`, fx.IssueID); got != 0 {
+		t.Fatalf("refused machine asks persisted %d questions", got)
+	}
+}
+
+func TestQuestionAPI_AuthenticatedTaskTokenKeepsAgentAndRunLink(t *testing.T) {
+	fx := newQuestionAPIFixture(t)
+	token, err := auth.GenerateAgentTaskToken()
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = testHandler.Queries.CreateTaskToken(context.Background(), db.CreateTaskTokenParams{
+		ID: dbid.NewV7(), TokenHash: auth.HashToken(token), TaskID: parseUUID(fx.TaskID),
+		AgentID: parseUUID(fx.AgentID), WorkspaceID: parseUUID(testWorkspaceID), UserID: parseUUID(testUserID),
+		ExpiresAt: pgtype.Timestamptz{Time: time.Now().Add(time.Hour), Valid: true},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	protected := middleware.Auth(testHandler.Queries, nil, nil, nil)(http.HandlerFunc(testHandler.AskQuestion))
+	r := newRequest("POST", "/api/questions", questionAskBody(testUserID))
+	r.Header.Set("Authorization", "Bearer "+token)
+	r.Header.Del("X-User-ID")
+	r.Header.Set("X-Actor-Source", "member")
+	var out service.QuestionAskResult
+	testutil.Call(t, protected.ServeHTTP, r).Want(201).JSON(&out)
+	if len(out.Questions) != 1 {
+		t.Fatalf("task-token ask = %+v", out)
+	}
+	row := out.Questions[0]
+	if row.AskerUserID != "" || row.AskerAgentID != fx.AgentID || row.AskedInTaskID != fx.TaskID || len(row.Links) != 2 || row.Links[0].LinkID != fx.IssueID || row.Links[1].LinkType != "task" || row.Links[1].LinkID != fx.TaskID {
+		t.Fatalf("task-token identity or run link changed: %+v", row)
+	}
+}
+
+func TestQuestionAPI_MemberQuestionMutationAndRoleGates(t *testing.T) {
+	fx := newQuestionAPIFixture(t)
+	token, _ := insertTestPAT(t, time.Now().Add(time.Hour))
+	body := questionSetBody(3, testUserID)
+	body["links"] = []QuestionLinkRequest{{Type: "issue", ID: fx.IssueID}}
+	var asked service.QuestionAskResult
+	testutil.Call(t, testHandler.AskQuestion, newRequest("POST", "/api/questions", body)).Want(201).JSON(&asked)
+	cleanupMemberQuestionAsk(t, asked.AskID)
+	if len(asked.Questions) != 3 {
+		t.Fatalf("member set = %+v", asked)
+	}
+	memberRequest := func(id string, body any) *http.Request {
+		r := withURLParam(newRequest("POST", "/api/questions/"+id, body), "id", id)
+		r.Header.Set("Authorization", "Bearer "+token)
+		return r
+	}
+	callMember := func(action http.HandlerFunc, id string, body any, status int) *testutil.Response {
+		t.Helper()
+		protected := middleware.Auth(testHandler.Queries, nil, nil, nil)(action)
+		return testutil.Call(t, protected.ServeHTTP, memberRequest(id, body)).Want(status)
+	}
+	id := asked.Questions[0].ID
+	for i, choice := range []string{"yes", "no"} {
+		var row service.QuestionDTO
+		callMember(testHandler.AnswerQuestion, id, map[string]any{"value": map[string]any{"choice": choice}, "wake": true}, 200).JSON(&row)
+		reason := "answered"
+		if i > 0 {
+			reason = "answer_edited"
+		}
+		if row.Status != "answered" || len(row.Answers) != 1 || row.Answers[0].DisplayText == "" || row.Events[len(row.Events)-1].Kind != reason {
+			t.Fatalf("member answer HTTP response = %+v", row)
+		}
+		var value question.YesNoAnswerValue
+		if err := json.Unmarshal(row.Answers[0].Value, &value); err != nil || value.Choice != choice {
+			t.Fatalf("member answer value = %s, %v", row.Answers[0].Value, err)
+		}
+	}
+	var replied service.QuestionDTO
+	callMember(testHandler.AskBackQuestion, id, map[string]any{"text": "Which plan?"}, 200).JSON(&replied)
+	if replied.Events[len(replied.Events)-1].Kind != "ask_back" {
+		t.Fatalf("member ask back HTTP response = %+v", replied)
+	}
+	var declined service.QuestionDTO
+	callMember(testHandler.AnswerQuestion, asked.Questions[1].ID, map[string]any{"value": map[string]any{"declined": true}, "wake": true}, 200).JSON(&declined)
+	if declined.Status != "answered" || len(declined.Answers) != 1 || !question.Declined(declined.Answers[0].Value) {
+		t.Fatalf("member decline HTTP response = %+v", declined)
+	}
+	reassigned := dbfx.User(t, "New question answerer", "member-question-reassign-"+fx.IssueID+"@multica.test")
+	dbfx.Member(t, testWorkspaceID, reassigned, "member")
+	var moved service.QuestionDTO
+	callMember(testHandler.ReassignQuestion, asked.Questions[2].ID, map[string]any{"user_id": reassigned, "note": "Your decision"}, 200).JSON(&moved)
+	if len(moved.Answerers) != 1 || moved.Answerers[0].UserID != reassigned {
+		t.Fatalf("member reassign HTTP response = %+v", moved)
+	}
+	callMember(testHandler.CloseQuestion, id, nil, 403)
+	callMember(testHandler.WithdrawQuestion, id, nil, 403)
+	callMember(testHandler.AddQuestionLinks, id, map[string]any{"links": []QuestionLinkRequest{{Type: "issue", ID: fx.IssueID}}}, 403)
+	callMember(testHandler.WakeQuestion, id, nil, 422)
+	callMember(testHandler.WakeQuestion, id, map[string]any{"agent_id": fx.AgentID}, 422)
+	for _, action := range []http.HandlerFunc{testHandler.AnswerQuestion, testHandler.AskBackQuestion, testHandler.ReassignQuestion, testHandler.WakeQuestion} {
+		testutil.Call(t, action, fx.agentRequest("POST", id, nil)).Want(403)
+		machine := memberRequest(id, nil)
+		machine.Header.Set("X-Actor-Source", "cloud_pat")
+		testutil.Call(t, action, machine).Want(403)
+	}
+	if got := dbfx.Count(t, `SELECT count(*) FROM agent_task_queue WHERE issue_id = $1`, fx.IssueID); got != 1 {
+		t.Fatalf("member HTTP mutations queued a run: %d tasks", got)
+	}
+}
+
+func TestQuestionAPI_AskerRequiresAuthenticatedMemberOrTaskToken(t *testing.T) {
+	fx := newQuestionAPIFixture(t)
+	for _, tc := range []struct {
+		name    string
+		request func() *http.Request
+		status  int
+	}{
+		{"unauthenticated", func() *http.Request {
+			r := newRequest("POST", "/api/questions", questionAskBody(testUserID))
+			r.Header.Del("X-User-ID")
+			return r
+		}, 401},
+		{"agent without task token", func() *http.Request {
+			r := fx.agentRequest("POST", "", questionAskBody(testUserID))
+			r.Header.Del("X-Actor-Source")
+			return r
+		}, 403},
+		{"task token without run", func() *http.Request {
+			r := fx.agentRequest("POST", "", questionAskBody(testUserID))
+			r.Header.Del("X-Task-ID")
+			return r
+		}, 403},
+		{"malformed task UUID", func() *http.Request {
+			r := fx.agentRequest("POST", "", questionAskBody(testUserID))
+			r.Header.Set("X-Task-ID", "not-a-uuid")
+			return r
+		}, 400},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			testutil.Call(t, testHandler.AskQuestion, tc.request()).Want(tc.status)
+		})
+	}
+	if got := dbfx.Count(t, `SELECT count(*) FROM question WHERE asker_agent_id = $1`, fx.AgentID); got != 0 {
+		t.Fatalf("refused task asks persisted %d questions", got)
 	}
 }

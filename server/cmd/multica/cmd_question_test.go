@@ -9,12 +9,16 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/multica-ai/multica/server/internal/cli"
 )
 
 const questionTestMember = "356c8712-6100-4fb2-ac42-513770588468"
 const questionTestAgent = "a57c0511-1ebc-471d-a314-438ca16cc75d"
 const questionTestSquad = "0b7f5d3e-2c41-4f8a-9a63-7d2e1c4b5a90"
 const questionTestArchivedSquad = "9e1d2c3b-4a5f-4e6d-8c7b-1a2f3e4d5c6b"
+const questionTestTask = "5d2c8e41-7b3a-4f19-9c6e-2a8b1d4f7e30"
+const questionTestIssue = "c4e8a1f2-3b6d-4e9a-8f17-6d2b9c0a5e14"
 
 func questionTestServer(t *testing.T, questionHandler http.HandlerFunc) *httptest.Server {
 	t.Helper()
@@ -35,7 +39,7 @@ func questionTestServer(t *testing.T, questionHandler http.HandlerFunc) *httptes
 	t.Cleanup(srv.Close)
 	t.Setenv("MULTICA_SERVER_URL", srv.URL)
 	t.Setenv("MULTICA_WORKSPACE_ID", "ws-1")
-	t.Setenv("MULTICA_TOKEN", "mat_test-token")
+	questionTestMemberLogin(t)
 	return srv
 }
 
@@ -51,7 +55,30 @@ func questionNoRequestServer(t *testing.T) {
 	t.Cleanup(srv.Close)
 	t.Setenv("MULTICA_SERVER_URL", srv.URL)
 	t.Setenv("MULTICA_WORKSPACE_ID", "ws-1")
+	questionTestMemberLogin(t)
+}
+
+// questionTestMemberLogin is a member's own terminal: a member token and no
+// agent run in context, whatever the shell running the tests exports.
+func questionTestMemberLogin(t *testing.T) {
+	t.Helper()
+	t.Setenv("MULTICA_TOKEN", "mul_test-token")
+	t.Setenv("MULTICA_AGENT_ID", "")
+	t.Setenv("MULTICA_TASK_ID", "")
+	t.Setenv("MULTICA_DAEMON_PORT", "")
+	t.Setenv(cli.TaskConfigRootEnv, "")
+	t.Setenv(cli.AgentQuestionsEnv, "")
+}
+
+// questionTestRun puts the CLI in Joeri's run on an issue whose Agent
+// questions setting is on, as the daemon does: a task token, the agent and
+// task ids, and cli.AgentQuestionsEnv.
+func questionTestRun(t *testing.T) {
+	t.Helper()
 	t.Setenv("MULTICA_TOKEN", "mat_test-token")
+	t.Setenv("MULTICA_AGENT_ID", questionTestAgent)
+	t.Setenv("MULTICA_TASK_ID", questionTestTask)
+	t.Setenv(cli.AgentQuestionsEnv, "1")
 }
 
 func onlyQuestion(t *testing.T, body map[string]any) map[string]any {
@@ -105,6 +132,7 @@ func TestQuestionAskMapsAllAnswerTypesAndSuggestions(t *testing.T) {
 				}
 				_, _ = w.Write([]byte(`{"ask_id":"q-1","questions":[{"id":"q-1","ask_id":"q-1","prompt":"What is the invoice rule?"}]}`))
 			})
+			questionTestRun(t)
 			cmd := newQuestionCommand()
 			var out bytes.Buffer
 			cmd.SetOut(&out)
@@ -162,6 +190,7 @@ func TestQuestionAskResolvesMemberNamesEmailsIDsAndDeduplicates(t *testing.T) {
 		}
 		_, _ = w.Write([]byte(`{"ask_id":"q-1","questions":[{"id":"q-1","status":"open"}]}`))
 	})
+	questionTestRun(t)
 	cmd := newQuestionCommand()
 	var out bytes.Buffer
 	cmd.SetOut(&out)
@@ -186,6 +215,7 @@ func TestQuestionAskRejectsAgentBeforeQuestionPOST(t *testing.T) {
 		t.Run(answerer, func(t *testing.T) {
 			posts := 0
 			questionTestServer(t, func(w http.ResponseWriter, r *http.Request) { posts++; w.WriteHeader(http.StatusInternalServerError) })
+			questionTestRun(t)
 			cmd := newQuestionCommand()
 			cmd.SetArgs([]string{"ask", "--prompt", "OK?", "--type", "yes_no", "--answerer", answerer})
 			err := cmd.Execute()
@@ -241,6 +271,7 @@ func TestQuestionAskPromptFileAndDefaults(t *testing.T) {
 		}
 		_, _ = w.Write([]byte(`{"ask_id":"q-1","questions":[{"id":"q-1"}]}`))
 	})
+	questionTestRun(t)
 	const prompt = "检查发票\nKeep literal \\n and real newlines"
 	if err := os.WriteFile("prompt.md", []byte(prompt+"\n"), 0600); err != nil {
 		t.Fatal(err)
@@ -288,6 +319,7 @@ func TestQuestionAskQuestionsFileMapsToQuestions(t *testing.T) {
 		}
 		_, _ = w.Write([]byte(response))
 	})
+	questionTestRun(t)
 	if err := os.WriteFile("questions.json", []byte(questions), 0600); err != nil {
 		t.Fatal(err)
 	}
@@ -346,6 +378,7 @@ func TestQuestionAskSquadAndBlocksWork(t *testing.T) {
 				}
 				_, _ = w.Write([]byte(`{"ask_id":"q-1","questions":[{"id":"q-1","prompt":"OK?"}]}`))
 			})
+			questionTestRun(t)
 			cmd := newQuestionCommand()
 			cmd.SetOut(&bytes.Buffer{})
 			cmd.SetArgs(append([]string{"ask", "--prompt", "OK?", "--type", "yes_no"}, tc.flags...))
@@ -367,6 +400,7 @@ func TestQuestionAskArchivedOrUnknownSquadNeverPosts(t *testing.T) {
 		t.Run(squad, func(t *testing.T) {
 			posts := 0
 			questionTestServer(t, func(w http.ResponseWriter, r *http.Request) { posts++; w.WriteHeader(http.StatusInternalServerError) })
+			questionTestRun(t)
 			cmd := newQuestionCommand()
 			cmd.SetArgs([]string{"ask", "--prompt", "OK?", "--type", "yes_no", "--squad", squad})
 			if err := cmd.Execute(); err == nil || !strings.Contains(err.Error(), squad) {
@@ -418,6 +452,127 @@ func TestQuestionAskRefusalsBeforeAnyRequest(t *testing.T) {
 			if err == nil || !strings.Contains(strings.ToLower(err.Error()), strings.ToLower(tc.errorTerm)) {
 				t.Fatalf("expected %q refusal, got %v", tc.errorTerm, err)
 			}
+		})
+	}
+}
+
+// questionIssueTestServer serves WORK-1 as questionTestIssue and records the
+// one POST /api/questions with the run headers it carried.
+func questionIssueTestServer(t *testing.T, body *map[string]any, headers *http.Header) {
+	t.Helper()
+	questionTestServer(t, func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/api/issues/WORK-1":
+			_, _ = w.Write([]byte(`{"id":"` + questionTestIssue + `","identifier":"WORK-1"}`))
+		case r.Method == http.MethodPost && r.URL.Path == "/api/questions":
+			if *headers != nil {
+				t.Errorf("second question POST")
+			}
+			*headers = r.Header.Clone()
+			if err := json.NewDecoder(r.Body).Decode(body); err != nil {
+				t.Error(err)
+			}
+			_, _ = w.Write([]byte(`{"ask_id":"q-1","questions":[{"id":"q-1","prompt":"Pass the plan?"}]}`))
+		default:
+			t.Errorf("unexpected request %s %s", r.Method, r.URL.Path)
+			w.WriteHeader(http.StatusInternalServerError)
+		}
+	})
+}
+
+func TestQuestionAskOutsideARunWithoutAnIssueOnNeverRequests(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		args []string
+	}{
+		{"no --on", nil},
+		{"--on a project", []string{"--on", "project:1f2e3d4c"}},
+		{"--on an agent", []string{"--on", "agent:Joeri"}},
+		{"only --link an issue", []string{"--link", "WORK-1"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			questionNoRequestServer(t)
+			cmd := newQuestionCommand()
+			cmd.SetArgs(append([]string{"ask", "--prompt", "Pass the plan?", "--type", "yes_no", "--answerer", "Brian"}, tc.args...))
+			err := cmd.Execute()
+			if err == nil || err.Error() != "a question asked outside a run needs --on with an issue" {
+				t.Fatalf("expected the outside-a-run refusal, got %v", err)
+			}
+		})
+	}
+}
+
+func TestQuestionAskOutsideARunPostsTheIssueFirstAndNoRun(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		on   string
+	}{
+		{"bare key", "WORK-1"},
+		{"issue: key", "issue:WORK-1"},
+		{"bare ID", questionTestIssue},
+		{"issue: ID", "issue:" + questionTestIssue},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var body map[string]any
+			var headers http.Header
+			questionIssueTestServer(t, &body, &headers)
+			cmd := newQuestionCommand()
+			var out bytes.Buffer
+			cmd.SetOut(&out)
+			cmd.SetArgs([]string{"ask", "--on", tc.on, "--prompt", "Pass the plan?", "--type", "yes_no", "--answerer", "Brian"})
+			if err := cmd.Execute(); err != nil {
+				t.Fatal(err)
+			}
+			if headers == nil {
+				t.Fatal("the question was not posted")
+			}
+			assertQuestionJSON(t, body["links"], `[{"type":"issue","id":"`+questionTestIssue+`"}]`)
+			if headers.Get("X-Task-ID") != "" || headers.Get("X-Agent-ID") != "" {
+				t.Fatalf("member ask sent run headers: %v", headers)
+			}
+			if !reflect.DeepEqual(body["answerer_ids"], []any{questionTestMember}) {
+				t.Fatalf("wrong member IDs: %v", body["answerer_ids"])
+			}
+			if out.String() != "q-1\nq-1 · Pass the plan?\n" {
+				t.Fatalf("output=%q", out.String())
+			}
+		})
+	}
+}
+
+// In a run the issue rule does not apply: the server defaults the place to
+// the run's issue and links the run, so the CLI sends what it always sent.
+func TestQuestionAskInARunKeepsItsLinks(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		args  []string
+		links string
+	}{
+		{"no --on or --link", nil, ""},
+		{"--link without --on", []string{"--link", "WORK-1"}, `[{"type":"issue","id":"` + questionTestIssue + `"}]`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var body map[string]any
+			var headers http.Header
+			questionIssueTestServer(t, &body, &headers)
+			questionTestRun(t)
+			cmd := newQuestionCommand()
+			cmd.SetOut(&bytes.Buffer{})
+			cmd.SetArgs(append([]string{"ask", "--prompt", "Pass the plan?", "--type", "yes_no", "--answerer", "Brian"}, tc.args...))
+			if err := cmd.Execute(); err != nil {
+				t.Fatal(err)
+			}
+			if headers.Get("X-Task-ID") != questionTestTask || headers.Get("X-Agent-ID") != questionTestAgent {
+				t.Fatalf("ask lost its run: %v", headers)
+			}
+			links, sent := body["links"]
+			if tc.links == "" {
+				if sent {
+					t.Fatalf("links sent without --on or --link: %v", links)
+				}
+				return
+			}
+			assertQuestionJSON(t, links, tc.links)
 		})
 	}
 }

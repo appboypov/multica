@@ -1,6 +1,7 @@
 "use client";
 
 import { Check, Clock, Users } from "lucide-react";
+import { questionAsker } from "@multica/core/questions";
 import type { Question } from "@multica/core/types";
 import { useActorName } from "@multica/core/workspace/hooks";
 import { Badge } from "@multica/ui/components/ui/badge";
@@ -35,12 +36,15 @@ export function AnswerCountPill({ question }: { question: Question }) {
 
 /**
  * An Each question's answerers: one chip per answerer with their answer or
- * "waiting", and the line that says the asker reads each answer as it arrives.
+ * "waiting", and the line that says the asker reads each answer as it arrives;
+ * only an agent's line says it closes the question.
  */
 export function AnswererProgress({ question }: { question: Question }) {
   const { t } = useT("questions");
   const { getActorName } = useActorName();
   const answers = currentAnswers(question);
+  const asker = questionAsker(question);
+  const askerName = getActorName(asker.type, asker.id);
 
   return (
     <div className="flex flex-col gap-2">
@@ -68,7 +72,9 @@ export function AnswererProgress({ question }: { question: Question }) {
         })}
       </ul>
       <p className="text-caption text-muted-foreground">
-        {t(($) => $.each.line, { name: getActorName("agent", question.asker_agent_id) })}
+        {asker.type === "member"
+          ? t(($) => $.each.line_member, { name: askerName })
+          : t(($) => $.each.line, { name: askerName })}
       </p>
     </div>
   );

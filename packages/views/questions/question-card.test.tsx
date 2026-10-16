@@ -41,7 +41,9 @@ vi.mock("@multica/core/hooks", () => ({ useWorkspaceId: () => "ws-1" }));
 vi.mock("@multica/core/workspace/hooks", () => ({
   useActorName: () => ({
     getActorName: (type: string, id: string) =>
-      type === "agent" ? "Pieter" : id === "user-brian" ? "Brian" : id === "user-anouk" ? "Anouk" : "Someone",
+      type === "agent"
+        ? "Pieter"
+        : id === "user-brian" ? "Brian" : id === "user-anouk" ? "Anouk" : id === "user-skuddy" ? "Skuddy" : "Someone",
   }),
 }));
 vi.mock("@multica/core/workspace/queries", () => ({
@@ -179,6 +181,7 @@ function base(): Omit<TypedQuestion<"single_choice">, "answer_type" | "settings"
     workspace_id: "ws-1",
     asker_agent_id: "agent-pieter",
     asked_in_task_id: "task-3",
+    asker_user_id: "",
     ask_id: "q-1",
     ask_position: 0,
     ask_title: null,
@@ -513,6 +516,92 @@ describe("QuestionCard", () => {
       renderCard(answered({ due_date: "2026-10-14" }));
       expect(screen.getByText("Per invoice line")).toBeInTheDocument();
       expect(screen.queryByText("Overdue")).not.toBeInTheDocument();
+    });
+  });
+
+  describe("a minute after the ask", () => {
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2026-10-15T12:00:00"));
+      return () => vi.useRealTimers();
+    });
+
+    const aMinuteAgo = () => new Date(Date.now() - 60_000).toISOString();
+    /** Skuddy's question, asked outside a run with his member login. */
+    const skuddys = (overrides: Partial<TypedQuestion<"single_choice">> = {}) =>
+      singleChoice({ asker_agent_id: "", asked_in_task_id: "", asker_user_id: "user-skuddy", created_at: aMinuteAgo(), ...overrides });
+    const brianAnswered = {
+      id: "a-1",
+      answerer_user_id: "user-brian",
+      value: { option: "Per invoice line" },
+      display_text: "Per invoice line",
+      note: null,
+      created_at: "2026-10-15T11:59:30Z",
+      updated_at: "2026-10-15T11:59:30Z",
+    };
+    const eachOfBrianAndAnouk = {
+      answer_policy: "each" as const,
+      status: "partly_answered" as const,
+      answerers: [
+        { user_id: "user-brian", assigned_at: "2026-10-15T11:59:00Z" },
+        { user_id: "user-anouk", assigned_at: "2026-10-15T11:59:00Z" },
+      ],
+      answers: [brianAnswered],
+    };
+
+    // Scenario: Skuddy's card
+    it("names Skuddy on his question with when he asked and no run number", () => {
+      renderCard(skuddys());
+      expect(screen.getByText("Skuddy")).toBeInTheDocument();
+      expect(screen.getByText("asked · 1m ago")).toBeInTheDocument();
+      expect(screen.queryByText(/asked during/)).not.toBeInTheDocument();
+    });
+
+    // Scenario: Pieter's card is unchanged
+    it("names Pieter's run on his question and offers Wake Pieter beside Send", () => {
+      renderCard(singleChoice({ created_at: aMinuteAgo() }));
+      expect(screen.getByText("Pieter")).toBeInTheDocument();
+      expect(screen.getByText("asked during run #3 · 1m ago")).toBeInTheDocument();
+      expect(screen.getByRole("checkbox", { name: "Wake Pieter" })).toHaveAttribute("aria-checked", "true");
+    });
+
+    // Scenario: Brian answers Skuddy's last question
+    it("offers no Wake beside Send on Skuddy's last open question, and sends without waking", () => {
+      renderCard(skuddys());
+      expect(screen.getByRole("button", { name: "Accept suggestion" })).toBeInTheDocument();
+      expect(screen.queryByRole("checkbox", { name: /Wake/ })).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "Accept suggestion" }));
+      expect(answerMutate).toHaveBeenCalledWith({ value: { option: "Per invoice line" } }, expect.anything());
+    });
+
+    it("names Skuddy on his set and offers no Wake on its last question still open for Brian", () => {
+      const questions = [
+        skuddys({ ask_title: "VAT", status: "answered", answers: [brianAnswered] }),
+        skuddys({ id: "q-2", ask_id: "q-1", ask_position: 1, ask_title: "VAT", prompt: "Which VAT rate applies?" }),
+      ];
+      renderWithI18n(
+        <QueryClientProvider client={client}>
+          <QuestionSetCard questions={questions} issueId="issue-442" runNumber={3} />
+        </QueryClientProvider>,
+      );
+      expect(screen.getByText("Skuddy")).toBeInTheDocument();
+      expect(screen.getByText("asked · 1m ago")).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("tab", { name: /Which VAT rate applies/ }));
+      expect(screen.getByRole("button", { name: "Accept suggestion" })).toBeInTheDocument();
+      expect(screen.queryByRole("checkbox", { name: /Wake/ })).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "Accept suggestion" }));
+      expect(answerMutate).toHaveBeenCalledWith({ value: { option: "Per invoice line" } }, expect.anything());
+    });
+
+    // Scenario: Progress line of Skuddy's question
+    it("says only that Skuddy sees each answer, while Pieter's line says he closes the question", () => {
+      const { unmount } = renderCard(skuddys(eachOfBrianAndAnouk));
+      expect(screen.getByText("Skuddy sees each answer as it arrives.")).toBeInTheDocument();
+      expect(screen.queryByText(/closes the question/)).not.toBeInTheDocument();
+      unmount();
+
+      renderCard(singleChoice(eachOfBrianAndAnouk));
+      expect(screen.getByText("Pieter sees each answer as it arrives and closes the question when he has enough.")).toBeInTheDocument();
     });
   });
 

@@ -22,6 +22,7 @@
     "due_date": "{{date}} 前回答",
     "asked_during_run": "在运行 #{{number}} 中提问 · {{time}}",
     "asked_during_a_run": "在运行中提问 · {{time}}",
+    "asked": "提问 · {{time}}",
     "asked_to": "提问对象",
     "waiting_for": "等待 {{names}} 回答",
     "add_note": "添加备注",
@@ -60,7 +61,8 @@
   "each": {
     "answered": "{{answered}}/{{total}} 人已回答",
     "waiting": "等待中",
-    "line": "每收到一个回答，{{name}} 都会立即看到，回答足够时会关闭问题。"
+    "line": "每收到一个回答，{{name}} 都会立即看到，回答足够时会关闭问题。",
+    "line_member": "每收到一个回答，{{name}} 都会立即看到。"
   },
   "hints": {
     "text": "提及、链接和附件的用法与评论相同。",

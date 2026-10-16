@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useWorkspaceId } from "@multica/core/hooks";
 import { issueDetailOptions } from "@multica/core/issues/queries";
 import { useWorkspacePaths } from "@multica/core/paths";
+import { questionAsker } from "@multica/core/questions";
 import type { Question } from "@multica/core/types";
 import { useActorName } from "@multica/core/workspace/hooks";
 import { Skeleton } from "@multica/ui/components/ui/skeleton";
@@ -40,6 +41,7 @@ export function AnswerAllContext({ entry, question, upNext, onJump }: AnswerAllC
   const paths = useWorkspacePaths();
   const { data: issue, isPending } = useQuery(issueDetailOptions(wsId, entry.issueId));
   const summary = firstParagraph(issue?.description);
+  const asker = question ? questionAsker(question) : null;
 
   return (
     <aside className="flex min-w-0 flex-col gap-4 text-body">
@@ -58,12 +60,12 @@ export function AnswerAllContext({ entry, question, upNext, onJump }: AnswerAllC
           </AppLink>
         )}
         {summary && <p className="line-clamp-4 text-caption text-muted-foreground">{summary}</p>}
-        {question && (
+        {question && asker && (
           <div className="flex items-center gap-2 text-caption text-muted-foreground">
-            <ActorAvatar actorType="agent" actorId={question.asker_agent_id} size="xs" />
+            <ActorAvatar actorType={asker.type} actorId={asker.id} size="xs" />
             <span className="truncate">
               {t(($) => $.answer_all.asked_by, {
-                name: getActorName("agent", question.asker_agent_id),
+                name: getActorName(asker.type, asker.id),
                 time: timeAgo(question.created_at),
               })}
             </span>

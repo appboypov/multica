@@ -12,6 +12,7 @@ function question<T extends AnswerType>(
     workspace_id: "ws-1",
     asker_agent_id: "agent-pieter",
     asked_in_task_id: "task-3",
+    asker_user_id: "",
     ask_id: "q-1",
     ask_position: 0,
     ask_title: null,

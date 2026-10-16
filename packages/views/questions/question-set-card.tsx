@@ -14,6 +14,7 @@ import {
   isLastOpenFor,
   isOpen,
   isOpenFor,
+  questionAsker,
   questionDraftKey,
   questionMutationKeys,
   setProgress,
@@ -28,12 +29,11 @@ import { Button } from "@multica/ui/components/ui/button";
 import { Checkbox } from "@multica/ui/components/ui/checkbox";
 import { Textarea } from "@multica/ui/components/ui/textarea";
 import { cn } from "@multica/ui/lib/utils";
-import { ActorAvatar } from "../common/actor-avatar";
-import { useT, useTimeAgo } from "../i18n";
+import { useT } from "../i18n";
 import { AnswerControl, handleAnswerKey, useAnswerControlLink } from "./answer-controls/answer-control";
 import { draftError, valueToSend, type AnswerDraft } from "./answer-controls/draft";
 import { AnswerCountPill, AnswererProgress, showsAnswererProgress } from "./answerer-progress";
-import { AnswerLine, QuestionCard, QuestionHistory } from "./question-card";
+import { AnswerLine, AskedBy, QuestionCard, QuestionHistory } from "./question-card";
 import { ReassignPicker } from "./reassign-picker";
 import { RunInputMarks } from "../issues/components/run-input-marks";
 import { TYPE_ICONS } from "./type-icon";
@@ -105,13 +105,13 @@ function StackedQuestionSet({
 
 function TabbedQuestionSet({ questions, issueId, runNumber, activeQuestionId }: Omit<QuestionSetCardProps, "layout" | "focusedQuestionId">) {
   const { t } = useT("questions");
-  const timeAgo = useTimeAgo();
   const { getActorName } = useActorName();
   const userId = useAuthStore((s) => s.user?.id);
   const wsId = useWorkspaceId();
 
   const first = questions[0]!;
-  const agentName = getActorName("agent", first.asker_agent_id);
+  const asker = questionAsker(first);
+  const askerName = getActorName(asker.type, asker.id);
   const requested = activeQuestionId ? questions.findIndex((q) => q.id === activeQuestionId) : -1;
   const [active, setActive] = useState(() => (requested >= 0 ? requested : Math.max(questions.findIndex((q) => isOpenFor(q, userId)), 0)));
   useEffect(() => {
@@ -148,8 +148,8 @@ function TabbedQuestionSet({ questions, issueId, runNumber, activeQuestionId }: 
   const forYou = questions.some((q) => isOpenFor(q, userId));
   const blocksWork = questions.some((q) => isOpen(q) && q.blocks_work);
   const progress = setProgress(questions);
-  // Sending the viewer's last open question of the set offers to wake the asker.
-  const offersWake = canAnswer && editingId !== current.id && isLastOpenFor(questions, current.id, userId);
+  // Sending the viewer's last open question of an agent's set offers to wake the asker.
+  const offersWake = asker.type === "agent" && canAnswer && editingId !== current.id && isLastOpenFor(questions, current.id, userId);
 
   const activate = (index: number) => {
     setActive(index);
@@ -259,15 +259,7 @@ function TabbedQuestionSet({ questions, issueId, runNumber, activeQuestionId }: 
         )}
       </div>
 
-      <div className="flex items-center gap-2 text-body">
-        <ActorAvatar actorType="agent" actorId={first.asker_agent_id} size="sm" />
-        <span className="font-medium">{agentName}</span>
-        <span className="truncate text-caption text-muted-foreground">
-          {runNumber !== undefined
-            ? t(($) => $.card.asked_during_run, { number: runNumber, time: timeAgo(first.created_at) })
-            : t(($) => $.card.asked_during_a_run, { time: timeAgo(first.created_at) })}
-        </span>
-      </div>
+      <AskedBy question={first} runNumber={runNumber} />
 
       {first.ask_title && <p className="text-title-sm font-semibold">{first.ask_title}</p>}
 
@@ -327,7 +319,7 @@ function TabbedQuestionSet({ questions, issueId, runNumber, activeQuestionId }: 
                 <AnswerLine question={answerable} error={error} serverError={serverError} uploading={uploading} />
                 {askBackText !== null && (
                   <AskBackField
-                    agentName={agentName}
+                    askerName={askerName}
                     text={askBackText}
                     pending={askingBack}
                     onChange={setAskBackText}
@@ -423,7 +415,7 @@ function TabbedQuestionSet({ questions, issueId, runNumber, activeQuestionId }: 
           {offersWake ? (
             <label className="flex items-center gap-1.5 text-caption text-muted-foreground">
               <Checkbox checked={wakeAfter} disabled={pending} onCheckedChange={(checked) => setWakeAfter(checked === true)} />
-              {t(($) => $.card.wake, { name: agentName })}
+              {t(($) => $.card.wake, { name: askerName })}
             </label>
           ) : (
             <WakeButtons questions={questions} issueId={issueId} />
@@ -461,14 +453,14 @@ function QuestionHeading({ question }: { question: Question }) {
 }
 
 function AskBackField({
-  agentName,
+  askerName,
   text,
   pending,
   onChange,
   onCancel,
   onSend,
 }: {
-  agentName: string;
+  askerName: string;
   text: string;
   pending: boolean;
   onChange: (text: string) => void;
@@ -482,8 +474,8 @@ function AskBackField({
         autoFocus
         value={text}
         disabled={pending}
-        aria-label={t(($) => $.card.ask_back_label, { name: agentName })}
-        placeholder={t(($) => $.card.ask_back_placeholder, { name: agentName })}
+        aria-label={t(($) => $.card.ask_back_label, { name: askerName })}
+        placeholder={t(($) => $.card.ask_back_placeholder, { name: askerName })}
         className="min-h-12 border-0 p-1 shadow-none focus-visible:ring-0"
         onChange={(event) => onChange(event.target.value)}
         onKeyDown={(event) => {

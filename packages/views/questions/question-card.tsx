@@ -16,6 +16,7 @@ import {
   isLastOpenFor,
   isOpen,
   isOpenFor,
+  questionAsker,
   questionDraftKey,
   questionMutationKeys,
   useAnswerQuestion,
@@ -137,7 +138,7 @@ export function QuestionCard({
       editing={editing}
       onDone={() => clearDraft(draftKey)}
       focused={focused}
-      offersWake={isLastOpenFor(askQuestions, question.id, userId)}
+      offersWake={questionAsker(question).type === "agent" && isLastOpenFor(askQuestions, question.id, userId)}
     />
   );
 }
@@ -220,13 +221,13 @@ function OpenQuestion({
   editing: boolean;
   onDone: () => void;
   focused: boolean;
-  /** The viewer's last open question of its ask: Send offers to wake its asker. */
+  /** The viewer's last open question of an agent's ask: Send offers to wake its asker. */
   offersWake: boolean;
 }) {
   const { t } = useT("questions");
-  const timeAgo = useTimeAgo();
   const { getActorName } = useActorName();
-  const agentName = getActorName("agent", question.asker_agent_id);
+  const asker = questionAsker(question);
+  const askerName = getActorName(asker.type, asker.id);
   const answerable = question.answer_type === "unknown" ? null : question;
   const controls = isAnswerer && answerable !== null;
   const TypeIcon = TYPE_ICONS[question.answer_type];
@@ -251,15 +252,7 @@ function OpenQuestion({
         <CardBadges question={question} />
       </div>
 
-      <div className="flex items-center gap-2 text-body">
-        <ActorAvatar actorType="agent" actorId={question.asker_agent_id} size="sm" />
-        <span className="font-medium">{agentName}</span>
-        <span className="truncate text-caption text-muted-foreground">
-          {runNumber !== undefined
-            ? t(($) => $.card.asked_during_run, { number: runNumber, time: timeAgo(question.created_at) })
-            : t(($) => $.card.asked_during_a_run, { time: timeAgo(question.created_at) })}
-        </span>
-      </div>
+      <AskedBy question={question} runNumber={runNumber} />
 
       <div className="flex flex-col gap-1">
         <p className="text-title-sm font-semibold">{question.prompt}</p>
@@ -275,7 +268,7 @@ function OpenQuestion({
           key={editing ? "editing" : "open"}
           question={answerable}
           issueId={issueId}
-          agentName={agentName}
+          askerName={askerName}
           draftKey={draftKey}
           editing={editing}
           onDone={onDone}
@@ -300,6 +293,32 @@ function CardBadges({ question }: { question: Question }) {
       {showsAnswererProgress(question) && <AnswerCountPill question={question} />}
       <QuestionBadges blocksWork={question.blocks_work} dueDate={question.due_date} open={isOpen(question)} />
     </span>
+  );
+}
+
+/**
+ * The asker's avatar and name, and when it asked: an agent's question reads its
+ * run, "asked during run #3 · 1m ago"; a member's question, asked outside a run,
+ * reads "asked · 1m ago".
+ */
+export function AskedBy({ question, runNumber }: { question: Question; runNumber?: number }) {
+  const { t } = useT("questions");
+  const timeAgo = useTimeAgo();
+  const { getActorName } = useActorName();
+  const asker = questionAsker(question);
+  const time = timeAgo(question.created_at);
+  return (
+    <div className="flex items-center gap-2 text-body">
+      <ActorAvatar actorType={asker.type} actorId={asker.id} size="sm" />
+      <span className="font-medium">{getActorName(asker.type, asker.id)}</span>
+      <span className="truncate text-caption text-muted-foreground">
+        {asker.type === "member"
+          ? t(($) => $.card.asked, { time })
+          : runNumber !== undefined
+            ? t(($) => $.card.asked_during_run, { number: runNumber, time })
+            : t(($) => $.card.asked_during_a_run, { time })}
+      </span>
+    </div>
   );
 }
 
@@ -408,7 +427,7 @@ function WaitingFooter({ question }: { question: Question }) {
 function AnswerForm({
   question,
   issueId,
-  agentName,
+  askerName,
   draftKey,
   editing,
   onDone,
@@ -417,7 +436,7 @@ function AnswerForm({
 }: {
   question: AnswerableQuestion;
   issueId: string;
-  agentName: string;
+  askerName: string;
   /** Where the unsent answer, note and ask back live, so they outlast the card. */
   draftKey: string;
   editing: boolean;
@@ -560,8 +579,8 @@ function AnswerForm({
             autoFocus
             value={askBackText}
             disabled={askingBack}
-            aria-label={t(($) => $.card.ask_back_label, { name: agentName })}
-            placeholder={t(($) => $.card.ask_back_placeholder, { name: agentName })}
+            aria-label={t(($) => $.card.ask_back_label, { name: askerName })}
+            placeholder={t(($) => $.card.ask_back_placeholder, { name: askerName })}
             className="min-h-12 border-0 p-1 shadow-none focus-visible:ring-0"
             onChange={(event) => update({ askBackText: event.target.value })}
             onKeyDown={(event) => {
@@ -613,7 +632,7 @@ function AnswerForm({
           {offersWake && (
             <label className="flex items-center gap-1.5 text-caption text-muted-foreground">
               <Checkbox checked={wakeAfter} disabled={pending} onCheckedChange={(checked) => setWakeAfter(checked === true)} />
-              {t(($) => $.card.wake, { name: agentName })}
+              {t(($) => $.card.wake, { name: askerName })}
             </label>
           )}
           <Button type="button" disabled={value === null || error !== null || (accepting && !suggestionShown) || pending || uploading} onClick={send}>

@@ -22,6 +22,7 @@
     "due_date": "Answer by {{date}}",
     "asked_during_run": "asked during run #{{number}} · {{time}}",
     "asked_during_a_run": "asked during a run · {{time}}",
+    "asked": "asked · {{time}}",
     "asked_to": "Asked to",
     "waiting_for": "Waiting for {{names}}",
     "add_note": "Add a note",
@@ -61,7 +62,8 @@
   "each": {
     "answered": "{{answered}} of {{total}} answered",
     "waiting": "waiting",
-    "line": "{{name}} sees each answer as it arrives and closes the question when he has enough."
+    "line": "{{name}} sees each answer as it arrives and closes the question when he has enough.",
+    "line_member": "{{name}} sees each answer as it arrives."
   },
   "hints": {
     "text": "Mentions, links and attachments work as in comments.",

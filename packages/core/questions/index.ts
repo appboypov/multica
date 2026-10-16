@@ -8,6 +8,7 @@ export {
 export {
   questionMutationKeys, useAnswerQuestion, useAskBackQuestion, useReassignQuestion, useWakeQuestionAgent,
 } from "./mutations";
+export { questionAsker, type QuestionAsker } from "./asker";
 export {
   dueBucket, groupQuestionRows, sessionOrder, type QuestionDueBucket, type QuestionGrouping, type QuestionRowGroup,
 } from "./rows";
