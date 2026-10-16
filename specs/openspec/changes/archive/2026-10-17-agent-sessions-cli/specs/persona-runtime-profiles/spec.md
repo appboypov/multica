@@ -1,3 +1,7 @@
+## Purpose
+
+Run each MadSpec persona through its office alias while keeping model and thinking choices made in Multica.
+
 ## ADDED Requirements
 
 ### Requirement: A runtime profile for each persona agent
@@ -6,6 +10,7 @@ The persona sync SHALL give Skuddy, Mitchel, Pieter, Pit, Edwin, Anouk, Joeri, T
 
 #### Scenario: Mitchel's profile
 
+- **GIVEN** Mitchel's office alias is available
 - **WHEN** the sync runs
 - **THEN** a runtime profile with command `mitchel` and runtime type omp exists
 - **AND** the agent Mitchel runs on it
@@ -27,6 +32,7 @@ The persona sync SHALL give Skuddy, Mitchel, Pieter, Pit, Edwin, Anouk, Joeri, T
 
 #### Scenario: The helper agents
 
+- **GIVEN** Herdr, Astra, Fable and Haiku have runtimes and Tika is a member
 - **WHEN** the sync runs
 - **THEN** Herdr, Astra, Fable and Haiku run on the runtimes they ran on before
 - **AND** no profile exists for Tika
