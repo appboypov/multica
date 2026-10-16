@@ -99,6 +99,7 @@ An issue a member created SHALL be a Waiting for your review to-do while it is I
 - **THEN** Brian's inbox shows only the Question to-do for WORK-424
 
 #### Scenario: In Progress is no review to-do
+- **GIVEN** Brian created WORK-425
 - **WHEN** Joeri moves WORK-425, which Brian created, to In Progress
 - **THEN** Brian has no to-do for WORK-425
 
