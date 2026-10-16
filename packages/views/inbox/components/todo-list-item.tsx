@@ -97,12 +97,13 @@ export function TodoListItem({
               </Badge>
             )}
             {!todo.overdue && (
-              <span className="text-caption text-muted-foreground [@media(hover:hover)]:group-hover:hidden [@media(hover:hover)]:group-focus-within:hidden">
+              <span className={cn("text-caption text-muted-foreground", todo.kind !== "check" && todo.kind !== "trust_proposal" && "[@media(hover:hover)]:group-hover:hidden [@media(hover:hover)]:group-focus-within:hidden")}>
                 {timeAgo(todo.created_at)}
               </span>
             )}
             {/* Pointer-only: revealed on hover and on keyboard focus in the
                 row. Touch has neither; the detail head carries Mark done. */}
+            {todo.kind !== "check" && todo.kind !== "trust_proposal" && (
             <button
               type="button"
               title={markDoneLabel}
@@ -115,6 +116,7 @@ export function TodoListItem({
             >
               <Check className="size-3.5" />
             </button>
+            )}
           </div>
         </div>
         <p className="mt-0.5 flex min-w-0 items-center gap-1.5 text-caption text-muted-foreground">

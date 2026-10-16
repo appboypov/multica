@@ -66,6 +66,33 @@
     "answered_on_issue": "{{type}} is answered on its issue.",
     "unavailable": "This question can't be shown here."
   },
+  "checks": {
+    "detail": "Work check",
+    "kind": "Kind",
+    "mode": "Mode",
+    "kind_labels": { "data_model": "Data model", "data_flow": "Data flow", "design": "Design", "prototype": "Prototype", "feature": "Feature", "improvement": "Improvement", "agent_tool": "Agent tool", "release": "Release" },
+    "before_work": "Check before anyone builds on this work.",
+    "on_staging": "Check on staging after merge. Feedback becomes new work.",
+    "before_release": "Check before the beta or production release. Release needs your pass.",
+    "sampled": "This is a sample of automatic checks. Feedback returns this kind to checked work.",
+    "open_work": "Open work",
+    "proposal_record": "{{passed}} passed, {{feedback}} with feedback. Clean streak: {{streak}}.",
+    "proposal_effect": "Yes makes this kind automatic for this project, with regular samples. No keeps human checks and starts a fresh streak.",
+    "feedback_label": "Feedback",
+    "pass": "Pass",
+    "send_feedback": "Send feedback",
+    "yes": "Yes, make automatic",
+    "no": "No, keep checking",
+    "answer_failed": "Could not save your answer. Please try again.",
+    "project_trust": "Project check trust",
+    "passed": "Human passes",
+    "automatic_passed": "Automatic passes",
+    "automatic": "Automatic",
+    "checked": "Checked",
+    "loading": "Loading trust record…",
+    "trust_failed": "Could not load the trust record.",
+    "retry": "Try again"
+  },
   "todos": {
     "mark_done": "Mark done",
     "overdue": "Overdue",
@@ -81,6 +108,8 @@
       "quota_reached": "Quota limit reached",
       "quick_create_failed": "Quick create failed",
       "review": "Waiting for your review",
+      "check": "Check for you",
+      "trust_proposal": "Automatic checks proposal",
       "other": "To-do"
     },
     "leaves": {

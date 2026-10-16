@@ -66,6 +66,33 @@
     "answered_on_issue": "Une question de type {{type}} se répond sur sa tâche.",
     "unavailable": "Cette question ne peut pas être affichée ici."
   },
+  "checks": {
+    "detail": "Vérification du travail",
+    "kind": "Type",
+    "mode": "Mode",
+    "kind_labels": { "data_model": "Modèle de données", "data_flow": "Flux de données", "design": "Design", "prototype": "Prototype", "feature": "Fonctionnalité", "improvement": "Amélioration", "agent_tool": "Outil d’agent", "release": "Version" },
+    "before_work": "Vérifiez avant que ce travail serve de base.",
+    "on_staging": "Vérifiez sur staging après fusion. Les retours créent du travail.",
+    "before_release": "Vérifiez avant la sortie bêta ou production. Votre accord est requis.",
+    "sampled": "Ceci est un échantillon. Un retour rétablit les vérifications humaines pour ce type.",
+    "open_work": "Ouvrir le travail",
+    "proposal_record": "{{passed}} réussites, {{feedback}} retours. Série sans retour : {{streak}}.",
+    "proposal_effect": "Oui automatise ce type pour ce projet avec des échantillons réguliers. Non garde les vérifications humaines et démarre une nouvelle série.",
+    "feedback_label": "Retour",
+    "pass": "Valider",
+    "send_feedback": "Envoyer un retour",
+    "yes": "Oui, automatiser",
+    "no": "Non, vérifier",
+    "answer_failed": "Impossible d’enregistrer votre réponse. Réessayez.",
+    "project_trust": "Confiance des vérifications du projet",
+    "passed": "Validations humaines",
+    "automatic_passed": "Validations automatiques",
+    "automatic": "Automatique",
+    "checked": "Vérifié",
+    "loading": "Chargement du bilan…",
+    "trust_failed": "Impossible de charger le bilan.",
+    "retry": "Réessayer"
+  },
   "todos": {
     "mark_done": "Marquer comme fait",
     "overdue": "En retard",
@@ -81,6 +108,8 @@
       "quota_reached": "Limite de quota atteinte",
       "quick_create_failed": "Création rapide échouée",
       "review": "En attente de votre revue",
+      "check": "Vérification pour vous",
+      "trust_proposal": "Proposition de vérifications automatiques",
       "other": "À faire"
     },
     "leaves": {

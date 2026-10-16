@@ -16,6 +16,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { Todo, TodoKind } from "@multica/core/types";
+import { isCheckKind } from "@multica/core/types";
 import { cn } from "@multica/ui/lib/utils";
 import { useT } from "../../i18n";
 
@@ -36,6 +37,8 @@ const KIND_ICONS: Record<TodoKind, { Icon: LucideIcon; className: string }> = {
   quota_reached: { Icon: Gauge, className: "text-warning" },
   quick_create_failed: { Icon: TriangleAlert, className: "text-warning" },
   review: { Icon: GitPullRequest, className: "text-info" },
+  check: { Icon: BadgeCheck, className: "text-brand" },
+  trust_proposal: { Icon: BadgeCheck, className: "text-info" },
 };
 
 function isKnownKind(kind: string): kind is TodoKind {
@@ -67,6 +70,11 @@ export function useTodoKindLabel() {
     (todo: Pick<Todo, "kind" | "question_answer_type" | "details">): string => {
       if (isApproval(todo)) return t(($) => $.todos.kinds.approval);
       if (isUnconfirmedQuickCreate(todo)) return t(($) => $.types.quick_create_unconfirmed);
+      const checkKind = todo.details?.check_kind;
+      const todoKind = todo.kind;
+      if ((todoKind === "check" || todoKind === "trust_proposal") && isCheckKind(checkKind)) {
+        return `${t(($) => $.todos.kinds[todoKind])} · ${t(($) => $.checks.kind_labels[checkKind])}`;
+      }
       return isKnownKind(todo.kind) ? t(($) => $.todos.kinds[todo.kind as TodoKind]) : t(($) => $.todos.kinds.other);
     },
     [t],

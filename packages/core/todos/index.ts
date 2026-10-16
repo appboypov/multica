@@ -2,3 +2,4 @@ export { todoKeys, todoListOptions, todoSummaryOptions, todoCountForWorkspace, h
 export { useMarkTodoDone } from "./mutations";
 export { onTodoOpened, onTodoClosed, onTodosInvalidate, onTodoSummaryInvalidate } from "./ws-updaters";
 export type { Todo, TodoKind, TodoWorkspaceCount } from "../types/todo";
+export { useProjectCheckTrust, useAnswerCheckTodo } from "./checks";

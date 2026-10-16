@@ -12,6 +12,7 @@ import { useStatusLabel } from "../../issues/utils/status-label";
 import { InboxQuestionBody } from "./inbox-question-pane";
 import { TodoIssueBody, TodoMentionBody, TodoRunBody, TodoSystemBody } from "./todo-detail-bodies";
 import { TodoKindIcon, useTodoKindLabel } from "./todo-display";
+import { TodoCheckBody } from "./todo-check-body";
 
 /** Where "Open on …" lands on the issue: the question's card or the comment. */
 export interface TodoIssueTarget {
@@ -26,6 +27,8 @@ function useLeavesLine(wsId: string) {
   return (todo: Todo): string => {
     const identifier = todo.issue_identifier ?? todo.issue_title ?? todo.title;
     switch (todo.kind) {
+      case "check":
+      case "trust_proposal":
       case "question":
         return t(($) => $.todos.leaves.question);
       case "mention":
@@ -53,6 +56,7 @@ function useLeavesLine(wsId: string) {
 /** What the member acts on, per kind. */
 function TodoBody({ todo, onOpenIssue }: { todo: Todo; onOpenIssue: (target: TodoIssueTarget) => void }) {
   const { issue_id: issueId, question_id: todoQuestionId } = todo;
+  if (todo.kind === "check" || todo.kind === "trust_proposal") return <TodoCheckBody key={todo.id} todo={todo} />;
   if (todo.kind === "question" && todoQuestionId) {
     return (
       <InboxQuestionBody
@@ -119,10 +123,12 @@ export function TodoDetailPane({
               {t(($) => $.todos.open_autopilot)}
             </Button>
           ) : null}
+          {todo.kind !== "check" && todo.kind !== "trust_proposal" && (
           <Button type="button" variant="outline" size="sm" onClick={onMarkDone}>
             <Check />
             {t(($) => $.todos.mark_done)}
           </Button>
+          )}
         </span>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto p-6">

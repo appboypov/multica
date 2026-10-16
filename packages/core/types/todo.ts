@@ -3,6 +3,7 @@ import type { IssueStatus } from "./issue";
 export const TODO_KINDS = [
   "question", "mention", "assigned", "agent_blocked", "run_failed",
   "autopilot_paused", "quota_reached", "quick_create_failed", "review",
+  "check", "trust_proposal",
 ] as const;
 
 export type TodoKind = (typeof TODO_KINDS)[number];
@@ -49,4 +50,26 @@ export interface TodoClosedPayload {
   kind: TodoKind;
   /** Null when the to-do left without being done, such as a review hidden by an open question. */
   done_by: "handled" | "member" | null;
+}
+
+export interface CheckTrust {
+  project_id: string;
+  kind: string;
+  member_id: string;
+  passed: number;
+  feedback: number;
+  automatic_passed: number;
+  streak: number;
+  automatic: boolean;
+  automatic_opens: number;
+  proposal_id: string | null;
+}
+
+export type CheckAnswer = "pass" | "feedback" | "yes" | "no";
+
+export const CHECK_KINDS = ["data_model", "data_flow", "design", "prototype", "feature", "improvement", "agent_tool", "release"] as const;
+export type CheckKind = (typeof CHECK_KINDS)[number];
+
+export function isCheckKind(kind: unknown): kind is CheckKind {
+  return typeof kind === "string" && CHECK_KINDS.some((value) => value === kind);
 }

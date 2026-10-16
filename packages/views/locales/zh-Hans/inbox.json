@@ -64,6 +64,33 @@
     "answered_on_issue": "{{type}}问题需在其任务中回答。",
     "unavailable": "无法在此显示这个问题。"
   },
+  "checks": {
+    "detail": "工作检查",
+    "kind": "类型",
+    "mode": "模式",
+    "kind_labels": { "data_model": "数据模型", "data_flow": "数据流", "design": "设计", "prototype": "原型", "feature": "功能", "improvement": "改进", "agent_tool": "智能体工具", "release": "发布" },
+    "before_work": "在其他人基于这项工作继续构建之前检查。",
+    "on_staging": "合并后在预发布环境检查。反馈将成为新工作。",
+    "before_release": "在测试版或正式版发布之前检查。发布需要你通过。",
+    "sampled": "这是自动检查的抽样。反馈会使此类型恢复人工检查。",
+    "open_work": "打开工作",
+    "proposal_record": "{{passed}} 项通过，{{feedback}} 项反馈。连续通过：{{streak}} 项。",
+    "proposal_effect": "同意后，此项目的此类型将自动通过，并定期抽样。拒绝则保留人工检查，重新计算连续通过次数。",
+    "feedback_label": "反馈",
+    "pass": "通过",
+    "send_feedback": "发送反馈",
+    "yes": "同意，启用自动检查",
+    "no": "拒绝，保留人工检查",
+    "answer_failed": "无法保存回答，请重试。",
+    "project_trust": "项目检查信任记录",
+    "passed": "人工通过",
+    "automatic_passed": "自动通过",
+    "automatic": "自动",
+    "checked": "人工检查",
+    "loading": "正在加载记录…",
+    "trust_failed": "无法加载信任记录。",
+    "retry": "重试"
+  },
   "todos": {
     "mark_done": "标记为完成",
     "overdue": "已逾期",
@@ -79,6 +106,8 @@
       "quota_reached": "已达配额上限",
       "quick_create_failed": "快速创建失败",
       "review": "等待你的评审",
+      "check": "给你的检查",
+      "trust_proposal": "自动检查提议",
       "other": "待办"
     },
     "leaves": {

@@ -64,6 +64,33 @@
     "answered_on_issue": "{{type}} 질문은 해당 태스크에서 답변합니다.",
     "unavailable": "이 질문을 여기에 표시할 수 없습니다."
   },
+  "checks": {
+    "detail": "작업 확인",
+    "kind": "종류",
+    "mode": "모드",
+    "kind_labels": { "data_model": "데이터 모델", "data_flow": "데이터 흐름", "design": "디자인", "prototype": "프로토타입", "feature": "기능", "improvement": "개선", "agent_tool": "에이전트 도구", "release": "릴리스" },
+    "before_work": "다른 작업이 이를 기반으로 진행되기 전에 확인하세요.",
+    "on_staging": "병합 후 스테이징에서 확인합니다. 피드백은 새 작업이 됩니다.",
+    "before_release": "베타 또는 프로덕션 릴리스 전에 확인합니다. 통과 답변이 필요합니다.",
+    "sampled": "자동 확인의 표본입니다. 피드백을 보내면 이 종류는 수동 확인으로 돌아갑니다.",
+    "open_work": "작업 열기",
+    "proposal_record": "통과 {{passed}}건, 피드백 {{feedback}}건. 연속 통과: {{streak}}건.",
+    "proposal_effect": "예를 선택하면 이 프로젝트의 이 종류를 정기 표본과 함께 자동화합니다. 아니요를 선택하면 수동 확인을 유지하고 연속 통과를 다시 셉니다.",
+    "feedback_label": "피드백",
+    "pass": "통과",
+    "send_feedback": "피드백 보내기",
+    "yes": "예, 자동화",
+    "no": "아니요, 확인 유지",
+    "answer_failed": "답변을 저장하지 못했습니다. 다시 시도하세요.",
+    "project_trust": "프로젝트 확인 신뢰 기록",
+    "passed": "수동 통과",
+    "automatic_passed": "자동 통과",
+    "automatic": "자동",
+    "checked": "수동 확인",
+    "loading": "기록 불러오는 중…",
+    "trust_failed": "기록을 불러오지 못했습니다.",
+    "retry": "다시 시도"
+  },
   "todos": {
     "mark_done": "완료로 표시",
     "overdue": "기한 지남",
@@ -79,6 +106,8 @@
       "quota_reached": "할당량 한도 도달",
       "quick_create_failed": "빠른 생성 실패",
       "review": "내 리뷰 대기 중",
+      "check": "나에게 온 확인 요청",
+      "trust_proposal": "자동 확인 제안",
       "other": "할 일"
     },
     "leaves": {

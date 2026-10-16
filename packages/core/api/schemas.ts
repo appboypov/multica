@@ -3350,6 +3350,19 @@ export const TodoClosedPayloadSchema = z.object({
 export const EMPTY_TODOS: Todo[] = [];
 export const EMPTY_TODO_SUMMARY: TodoWorkspaceCount[] = [];
 
+export const CheckTrustListSchema = z.array(z.object({
+  project_id: z.string(),
+  kind: z.string(),
+  member_id: z.string(),
+  passed: z.number().int().nonnegative(),
+  feedback: z.number().int().nonnegative(),
+  automatic_passed: z.number().int().nonnegative().default(0),
+  streak: z.number().int().nonnegative(),
+  automatic: z.boolean(),
+  automatic_opens: z.number().int().nonnegative().default(0),
+  proposal_id: z.string().nullish().default(null),
+}).loose());
+
 // ---------------------------------------------------------------------------
 // Inbox items (`/api/inbox` and `/api/inbox/archived` GET).
 // Lenient per the usual rules: `severity` / `type` / `recipient_type` stay

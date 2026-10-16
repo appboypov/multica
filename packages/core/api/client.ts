@@ -6,7 +6,7 @@ import type { IssueTemplate, IssueType, SetIssuePlacementRequest, ReleaseProgres
 import { IssueTemplatesResponseSchema, EMPTY_ISSUE_TEMPLATES_RESPONSE, WorklaneIssuesResponseSchema, MoveWorklaneIssueResponseSchema, EMPTY_WORKLANE_ISSUES_RESPONSE, ReleaseProgressResponseSchema, EMPTY_RELEASE_PROGRESS_RESPONSE } from "./schemas";
 import type { InboxFilters } from "../inbox/filter-store";
 import type { ArchivedInboxPage, ArchivedInboxFacets } from "../types/inbox";
-import type { Todo, TodoWorkspaceCount } from "../types/todo";
+import type { CheckAnswer, CheckTrust, Todo, TodoWorkspaceCount } from "../types/todo";
 import { configStore } from "../config";
 import type {
   AgentQuestionsSettings,
@@ -468,6 +468,7 @@ import {
   ArchivedInboxFacetsSchema,
   EMPTY_INBOX_ITEMS,
   TodoSchema,
+  CheckTrustListSchema,
   TodoListSchema,
   TodoSummarySchema,
   EMPTY_TODOS,
@@ -3101,6 +3102,24 @@ export class ApiClient {
     });
     if (!todo) throw new Error("Invalid Mark done response");
     return todo;
+  }
+
+  async answerCheckTodo(id: string, answer: CheckAnswer, note: string): Promise<Todo> {
+    const raw = await this.fetch<unknown>(`/api/todos/${encodeURIComponent(id)}/answer`, {
+      method: "POST", body: JSON.stringify({ answer, note }),
+    });
+    const todo = parseWithFallback<Todo | null>(raw, TodoSchema, null, { endpoint: "POST /api/todos/:id/answer" });
+    if (!todo) throw new Error("Invalid check answer response");
+    return todo;
+  }
+
+  async getProjectCheckTrust(projectId: string, signal?: AbortSignal): Promise<CheckTrust[]> {
+    const raw = await this.fetch<unknown>(`/api/projects/${encodeURIComponent(projectId)}/check-trust`, { signal });
+    const result = parseWithFallback<CheckTrust[] | null>(raw, CheckTrustListSchema, null, {
+      endpoint: "GET /api/projects/:id/check-trust",
+    });
+    if (!result) throw new Error("Invalid project check trust response");
+    return result;
   }
 
   // Inbox

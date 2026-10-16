@@ -64,6 +64,33 @@
     "answered_on_issue": "{{type}}の質問はタスク上で回答します。",
     "unavailable": "この質問はここに表示できません。"
   },
+  "checks": {
+    "detail": "作業の確認",
+    "kind": "種類",
+    "mode": "モード",
+    "kind_labels": { "data_model": "データモデル", "data_flow": "データフロー", "design": "デザイン", "prototype": "プロトタイプ", "feature": "機能", "improvement": "改善", "agent_tool": "エージェントツール", "release": "リリース" },
+    "before_work": "他の作業がこれを基に進む前に確認してください。",
+    "on_staging": "マージ後にステージングで確認します。フィードバックは次の作業になります。",
+    "before_release": "ベータ版または本番のリリース前に確認します。合格の回答が必要です。",
+    "sampled": "自動確認の抜き取りです。フィードバックすると、この種類は手動確認に戻ります。",
+    "open_work": "作業を開く",
+    "proposal_record": "合格 {{passed}} 件、フィードバック {{feedback}} 件。連続合格：{{streak}} 件。",
+    "proposal_effect": "承認すると、このプロジェクトのこの種類を定期的な抜き取り付きで自動化します。拒否すると手動確認を続け、連続合格を数え直します。",
+    "feedback_label": "フィードバック",
+    "pass": "合格",
+    "send_feedback": "フィードバックを送信",
+    "yes": "はい、自動化する",
+    "no": "いいえ、確認を続ける",
+    "answer_failed": "回答を保存できませんでした。再試行してください。",
+    "project_trust": "プロジェクトの確認実績",
+    "passed": "手動の合格",
+    "automatic_passed": "自動の合格",
+    "automatic": "自動",
+    "checked": "手動確認",
+    "loading": "実績を読み込み中…",
+    "trust_failed": "実績を読み込めませんでした。",
+    "retry": "再試行"
+  },
   "todos": {
     "mark_done": "完了にする",
     "overdue": "期限超過",
@@ -79,6 +106,8 @@
       "quota_reached": "クォータ上限に到達",
       "quick_create_failed": "クイック作成に失敗",
       "review": "あなたのレビュー待ち",
+      "check": "あなたへの確認依頼",
+      "trust_proposal": "確認の自動化の提案",
       "other": "ToDo"
     },
     "leaves": {
