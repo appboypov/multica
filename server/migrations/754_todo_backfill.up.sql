@@ -1,6 +1,6 @@
 -- Seed current obligations before retiring their notices. The migration runner
 -- sends this file as one implicit transaction, so an insert failure leaves the
--- notices untouched. Creator migration 743 runs first.
+-- notices untouched. Creator migration 753 runs first.
 -- A question's issue is the first issue its links reach, through an issue,
 -- comment or task link, as the live listener reads it; one that reaches none
 -- carries its ask's title or prompt.
