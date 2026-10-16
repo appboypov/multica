@@ -32,6 +32,7 @@ type QuestionRowLinkResponse struct {
 	Identifier *string `json:"identifier"`
 	Title      string  `json:"title"`
 	Status     *string `json:"status"`
+	MemberID   *string `json:"member_id,omitempty"`
 }
 
 // QuestionViaResponse identifies the first link that reaches the page's object.
@@ -74,7 +75,7 @@ type QuestionRowResponse struct {
 	CreatedAt    string                     `json:"created_at"`
 	Link         QuestionRowLinkResponse    `json:"link"`
 	Via          *QuestionViaResponse       `json:"via"`
-	OpenIssue    QuestionOpenIssueResponse  `json:"open_issue"`
+	OpenIssue    *QuestionOpenIssueResponse `json:"open_issue"`
 	MyAnswer     *QuestionRowAnswerResponse `json:"my_answer"`
 }
 
@@ -309,7 +310,7 @@ func questionRowResponse(row *service.QuestionRowDTO) QuestionRowResponse {
 		CreatedAt: row.CreatedAt,
 		Link: QuestionRowLinkResponse{
 			Type: row.Link.Type, ID: row.Link.ID,
-			Title: row.Link.Title,
+			Title: row.Link.Title, MemberID: row.Link.MemberID,
 		},
 	}
 	if row.Link.Identifier != "" {
@@ -325,7 +326,7 @@ func questionRowResponse(row *service.QuestionRowDTO) QuestionRowResponse {
 		}
 	}
 	if row.OpenIssue != nil {
-		resp.OpenIssue.ID = row.OpenIssue.ID
+		resp.OpenIssue = &QuestionOpenIssueResponse{ID: row.OpenIssue.ID}
 		if row.OpenIssue.Identifier != nil {
 			resp.OpenIssue.Identifier = *row.OpenIssue.Identifier
 		}

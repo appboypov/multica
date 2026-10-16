@@ -88,6 +88,37 @@ func newChatQuestionAPIFixture(t *testing.T) (questionAPIFixture, string) {
 	return fx, sessionID
 }
 
+func TestQuestionAPI_ChatListRowTargetsCreatorChat(t *testing.T) {
+	fx, sessionID := newChatQuestionAPIFixture(t)
+	id := askQuestionForTest(t, fx)
+	var page struct {
+		Rows []struct {
+			ID   string `json:"id"`
+			Link struct {
+				Type     string `json:"type"`
+				ID       string `json:"id"`
+				MemberID string `json:"member_id"`
+			} `json:"link"`
+			OpenIssue json.RawMessage `json:"open_issue"`
+		} `json:"rows"`
+	}
+	request := withChatTestWorkspaceCtx(t, newRequest("GET", "/api/questions?tab=for_me", nil))
+	testutil.Call(t, testHandler.ListQuestions, request).Want(200).JSON(&page)
+	for _, row := range page.Rows {
+		if row.ID != id {
+			continue
+		}
+		if row.Link.Type != "chat" || row.Link.ID != sessionID || row.Link.MemberID != testUserID {
+			t.Fatalf("chat row targets %+v, want chat %s belonging to %s", row.Link, sessionID, testUserID)
+		}
+		if string(row.OpenIssue) != "null" {
+			t.Fatalf("chat-only question opens an issue: %s", row.OpenIssue)
+		}
+		return
+	}
+	t.Fatalf("chat question %s missing from For me", id)
+}
+
 func TestQuestionAPI_CancelAuthorizationAndResponse(t *testing.T) {
 	fx := newQuestionAPIFixture(t)
 	id := askQuestionForTest(t, fx)
