@@ -541,6 +541,16 @@ func (h *Handler) DeleteRepository(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 500, "failed to clear repository releases from issues")
 		return
 	}
+	releaseIDs, err := qtx.ListReleaseIDsByRepository(r.Context(), db.ListReleaseIDsByRepositoryParams{WorkspaceID: repository.WorkspaceID, RepositoryID: repository.ID})
+	if err != nil {
+		writeError(w, 500, "failed to read repository releases")
+		return
+	}
+	releaseAttachmentURLs, err := cleanupReleaseDiscussion(r.Context(), qtx, repository.WorkspaceID, releaseIDs)
+	if err != nil {
+		writeError(w, 500, "failed to delete release discussions")
+		return
+	}
 	if err := qtx.DeleteReleaseMilestonesByRepository(r.Context(), db.DeleteReleaseMilestonesByRepositoryParams{
 		WorkspaceID: repository.WorkspaceID, RepositoryID: repository.ID,
 	}); err != nil {
@@ -574,6 +584,7 @@ func (h *Handler) DeleteRepository(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to delete repository")
 		return
 	}
+	h.deleteS3Objects(r.Context(), releaseAttachmentURLs)
 
 	repositoryID := uuidToString(repository.ID)
 	h.publish(protocol.EventRepositoryDeleted, workspaceID, "member", userID, protocol.RepositoryEventPayload{

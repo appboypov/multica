@@ -67,6 +67,10 @@ type Task struct {
 	AgentID              string                 `json:"agent_id"`
 	RuntimeID            string                 `json:"runtime_id"`
 	IssueID              string                 `json:"issue_id"`
+	ReleaseID            string                 `json:"release_id,omitempty"`
+	Release              *protocol.ClaimRelease `json:"release,omitempty"`
+	ReleaseTriggers      json.RawMessage        `json:"release_triggers,omitempty"`
+	DeliveredCommentIDs  []string               `json:"delivered_comment_ids,omitempty"`
 	WorkspaceID          string                 `json:"workspace_id"`
 	WorkspaceSlug        string                 `json:"workspace_slug,omitempty"`
 	IssueIdentifier      string                 `json:"issue_identifier,omitempty"`

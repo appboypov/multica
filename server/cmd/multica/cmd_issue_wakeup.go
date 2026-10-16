@@ -92,17 +92,21 @@ func newIssueWakeupCommand() *cobra.Command {
 }
 
 func runIssueWakeup(cmd *cobra.Command, args []string, action string) error {
+	return runSubjectWakeup(cmd, args, action, "issue")
+}
+
+func runSubjectWakeup(cmd *cobra.Command, args []string, action, subject string) error {
 	client, err := newAPIClient(cmd)
 	if err != nil {
 		return err
 	}
 	ctx, cancel := cli.APIContext(context.Background())
 	defer cancel()
-	ref, err := resolveIssueRef(ctx, client, args[0])
+	ref, err := resolveCommentSubject(ctx, client, args[0], subject)
 	if err != nil {
 		return err
 	}
-	path := "/api/issues/" + url.PathEscape(ref.ID) + "/wakeups"
+	path := "/api/" + subject + "s/" + url.PathEscape(ref.ID) + "/wakeups"
 	var result any
 	if action == "list" || action == "get" {
 		var rows []map[string]any
@@ -177,6 +181,12 @@ func runIssueWakeup(cmd *cobra.Command, args []string, action string) error {
 		ev, _ := cmd.Flags().GetStringSlice("event")
 		if len(ev) > 0 {
 			body["event_types"] = ev
+		}
+		if subject == "release" {
+			state, _ := cmd.Flags().GetString("until-issue-state")
+			if state != "done" && state != "ended" && state != "in_review" {
+				return fmt.Errorf("--until-issue-state takes done, ended or in_review")
+			}
 		}
 		condition, e := wakeupConditionFromFlags(ctx, cmd, client)
 		if e != nil {

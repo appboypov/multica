@@ -197,6 +197,18 @@ func squadOperatingProtocolFor(ownsIssueStatus bool) string {
 func buildSquadLeaderBriefing(ctx context.Context, q *db.Queries, squad db.Squad, ownsIssueStatus bool) string {
 	var sb strings.Builder
 	sb.WriteString(squadOperatingProtocolFor(ownsIssueStatus))
+	writeSquadPresentation(&sb, ctx, q, squad)
+	return sb.String()
+}
+
+func buildReleaseSquadLeaderBriefing(ctx context.Context, q *db.Queries, squad db.Squad) string {
+	var sb strings.Builder
+	sb.WriteString("## Release Squad Coordination\n\nYou are this squad's current leader coordinating the assigned release. Use the roster's skills and existing issue assignees to advance its fixed scope through the release workflow and human gates. Read and report on the release discussion; set release waits for prerequisites. This role owns release coordination, not a parent issue status or an issue evaluation. Shipment remains the explicit guarded release ship action.\n")
+	writeSquadPresentation(&sb, ctx, q, squad)
+	return sb.String()
+}
+
+func writeSquadPresentation(sb *strings.Builder, ctx context.Context, q *db.Queries, squad db.Squad) {
 	sb.WriteString("\n\n")
 	sb.WriteString(buildSquadRoster(ctx, q, squad))
 
@@ -206,7 +218,6 @@ func buildSquadLeaderBriefing(ctx context.Context, q *db.Queries, squad db.Squad
 		sb.WriteString(")\n\n")
 		sb.WriteString(trimmed)
 	}
-	return sb.String()
 }
 
 // buildSquadRoster renders the "## Squad Roster" section: a leader self-row

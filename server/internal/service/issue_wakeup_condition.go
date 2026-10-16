@@ -176,30 +176,55 @@ func validateCondition(ctx context.Context, tx pgx.Tx, issue db.Issue, raw json.
 		}
 		out = WakeupCondition{Type: c.Type, Event: c.Event}
 	case "other_issue":
-		id, err := uuidArg(c.IssueID, "issue_id")
+		var err error
+		out, err = validateOtherIssueCondition(ctx, tx, ws, issue.ID, c)
 		if err != nil {
 			return nil, nil, err
 		}
-		if id == issue.ID {
-			return nil, nil, badCondition("watch another issue, not this one")
-		}
-		if c.State != "done" && c.State != "ended" && c.State != "in_review" {
-			return nil, nil, badCondition("state must be done, ended or in_review")
-		}
-		var identifier string
-		err = tx.QueryRow(ctx, "SELECT ws.issue_prefix||'-'||i.number FROM issue i JOIN workspace ws ON ws.id=i.workspace_id WHERE i.workspace_id=$1 AND i.id=$2", ws, id).Scan(&identifier)
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, nil, badCondition("unknown issue")
-		}
-		if err != nil {
-			return nil, nil, err
-		}
-		out = WakeupCondition{Type: c.Type, IssueID: util.UUIDToString(id), State: c.State, Identifier: identifier}
 	default:
 		return nil, nil, badCondition("type must be issue_field, children_done, pull_request or other_issue")
 	}
 	normalized, _ := json.Marshal(out)
 	return normalized, events, nil
+}
+
+func validateOtherIssueCondition(ctx context.Context, tx pgx.Tx, ws, ownIssue pgtype.UUID, c WakeupCondition) (WakeupCondition, error) {
+	id, err := util.ParseUUID(c.IssueID)
+	if err != nil {
+		return WakeupCondition{}, badCondition("issue_id must be a UUID")
+	}
+	if ownIssue.Valid && id == ownIssue {
+		return WakeupCondition{}, badCondition("watch another issue, not this one")
+	}
+	if c.State != "done" && c.State != "ended" && c.State != "in_review" {
+		return WakeupCondition{}, badCondition("state must be done, ended or in_review")
+	}
+	var identifier string
+	err = tx.QueryRow(ctx, "SELECT ws.issue_prefix||'-'||i.number FROM issue i JOIN workspace ws ON ws.id=i.workspace_id WHERE i.workspace_id=$1 AND i.id=$2", ws, id).Scan(&identifier)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return WakeupCondition{}, badCondition("unknown issue")
+	}
+	if err != nil {
+		return WakeupCondition{}, err
+	}
+	return WakeupCondition{Type: "other_issue", IssueID: util.UUIDToString(id), State: c.State, Identifier: identifier}, nil
+}
+
+func validateReleaseCondition(ctx context.Context, tx pgx.Tx, ws pgtype.UUID, raw json.RawMessage) (json.RawMessage, error) {
+	var c WakeupCondition
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&c); err != nil {
+		return nil, badCondition("unreadable condition")
+	}
+	if c.Type != "other_issue" || c.Field != "" || len(c.Value) > 0 || c.AssigneeType != "" || c.AssigneeID != "" || c.LabelID != "" || c.PropertyID != "" || c.Stage != nil || c.EachStage || c.Event != "" {
+		return nil, badCondition("release conditions accept only other_issue")
+	}
+	normalized, err := validateOtherIssueCondition(ctx, tx, ws, pgtype.UUID{}, c)
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(normalized)
 }
 
 // evaluateCondition reports whether the predicate holds, a fingerprint of the

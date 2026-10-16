@@ -3,6 +3,7 @@ import type {
   ReleaseEditedDetails,
   ReleaseMovedDetails,
   ReleaseRemovedDetails,
+  ReleaseOwnerChangedDetails,
 } from "./release";
 import type { WorklaneSwitchedDetails, WorklaneKeptDetails } from "./activity";
 
@@ -146,6 +147,7 @@ export type WorklaneActivityAction =
   | "release_moved"
   | "release_removed"
   | "release_shipped"
+  | "release_owner_changed"
   | "worklane_switched"
   | "worklane_kept"
   | "unknown";
@@ -160,7 +162,7 @@ export interface WorklaneRenamedDetails {
   to: string;
 }
 
-interface WorklaneActivityEntryBase {
+export interface WorklaneActivityEntryBase {
   id: string;
   actor_type: string;
   actor_id: string | null;
@@ -175,6 +177,7 @@ export type WorklaneActivityEntry = WorklaneActivityEntryBase &
     | { action: "release_edited"; details: ReleaseEditedDetails }
     | { action: "release_moved"; details: ReleaseMovedDetails }
     | { action: "release_removed"; details: ReleaseRemovedDetails }
+    | { action: "release_owner_changed"; details: ReleaseOwnerChangedDetails }
     | { action: "worklane_switched"; details: WorklaneSwitchedDetails }
     | { action: "worklane_kept"; details: WorklaneKeptDetails }
     | { action: "unknown"; details: Record<string, unknown> }

@@ -892,15 +892,22 @@ export function useRealtimeSync(
         if (wsId) qc.invalidateQueries({ queryKey: organisationKeys.all(wsId) });
       },
       // A repository's release line changed (ADR-0010): refetch the
-      // workspace's releases, its worklanes, whose next issue follows release
-      // order and whose activity records each change, and the issues and
-      // progress that follow them.
+      // workspace's releases with their pages and owner activity, its
+      // worklanes, whose next issue follows release order and whose activity
+      // records each change, and the issues and progress that follow them.
       release_line: () => {
         const wsId = getCurrentWsId();
         if (!wsId) return;
         qc.invalidateQueries({ queryKey: releaseKeys.list(wsId) });
+        qc.invalidateQueries({ queryKey: releaseKeys.detailAll(wsId) });
+        qc.invalidateQueries({ queryKey: releaseKeys.activityAll(wsId) });
         qc.invalidateQueries({ queryKey: worklaneKeys.all(wsId) });
         invalidatePlacementReads(qc, wsId);
+      },
+      // release_comment:created refreshes the open release page's discussion.
+      release_comment: () => {
+        const wsId = getCurrentWsId();
+        if (wsId) qc.invalidateQueries({ queryKey: releaseKeys.commentsAll(wsId) });
       },
       // worklane:created, :updated and :deleted refresh the list, the
       // worklane's detail and its activity, all under one prefix.
@@ -1016,6 +1023,9 @@ export function useRealtimeSync(
         // PR list is keyed by issue id, not workspace, so we invalidate all
         // PR queries — the open issue detail page will refetch its own list.
         qc.invalidateQueries({ queryKey: ["github", "pull-requests"] });
+        // A release page lists its issues' pull requests.
+        const wsId = getCurrentWsId();
+        if (wsId) qc.invalidateQueries({ queryKey: releaseKeys.issuesAll(wsId) });
       },
       // Powers the agent presence cache: any task lifecycle change
       // (dispatch / completed / failed / cancelled) refreshes the

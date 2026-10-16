@@ -40,7 +40,7 @@ func (s *QuestionService) resolveLinks(ctx context.Context, q *db.Queries, works
 		case question.LinkTypeComment:
 			var comment db.Comment
 			comment, err = q.GetCommentInWorkspace(ctx, db.GetCommentInWorkspaceParams{ID: id, WorkspaceID: workspaceID})
-			if err == nil && comment.DeletedAt.Valid {
+			if err == nil && (comment.DeletedAt.Valid || !comment.IssueID.Valid) {
 				err = pgx.ErrNoRows
 			}
 			if err == nil {

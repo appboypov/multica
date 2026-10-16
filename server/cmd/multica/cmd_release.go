@@ -22,17 +22,21 @@ type releaseMilestoneDTO struct {
 	UpdatedAt string `json:"updated_at"`
 }
 type releaseDTO struct {
-	ID           string                `json:"id"`
-	RepositoryID string                `json:"repository_id"`
-	Position     int                   `json:"position"`
-	Version      string                `json:"version"`
-	Bump         *string               `json:"bump"`
-	Title        string                `json:"title"`
-	Description  string                `json:"description"`
-	ShippedAt    *string               `json:"shipped_at"`
-	CreatedAt    string                `json:"created_at"`
-	UpdatedAt    string                `json:"updated_at"`
-	Milestones   []releaseMilestoneDTO `json:"milestones"`
+	ID             string                `json:"id"`
+	RepositoryID   string                `json:"repository_id"`
+	Position       int                   `json:"position"`
+	Version        string                `json:"version"`
+	Bump           *string               `json:"bump"`
+	Title          string                `json:"title"`
+	Description    string                `json:"description"`
+	ShippedAt      *string               `json:"shipped_at"`
+	CreatedAt      string                `json:"created_at"`
+	UpdatedAt      string                `json:"updated_at"`
+	Milestones     []releaseMilestoneDTO `json:"milestones"`
+	OwnerType      *string               `json:"owner_type"`
+	OwnerID        *string               `json:"owner_id"`
+	OwnerName      *string               `json:"owner_name"`
+	OwnerAvatarURL *string               `json:"owner_avatar_url"`
 }
 type releaseListDTO struct {
 	Releases []releaseDTO `json:"releases"`
@@ -51,6 +55,7 @@ func newReleaseCommand() *cobra.Command {
 		{"move <release>", "Move a release earlier or later", exactArgs(1)},
 		{"remove <release>", "Remove an unshipped release", exactArgs(1)},
 		{"ship <release>", "Mark the next release shipped after publication", exactArgs(1)},
+		{"assign <release>", "Assign an agent or squad as release owner", exactArgs(1)},
 		{"add-issues <release> <issue>...", "Add issues to a release", cobra.MinimumNArgs(2)},
 	} {
 		cmd := &cobra.Command{Use: spec.use, Short: spec.short, Args: spec.args, RunE: runRelease}
@@ -65,6 +70,11 @@ func newReleaseCommand() *cobra.Command {
 			cmd.Flags().String("bump", "", "Version bump: patch, minor or major")
 			cmd.Flags().String("title", "", "Release title")
 			cmd.Flags().String("description", "", "Release description")
+		case "assign":
+			cmd.Flags().String("to", "", "Agent or squad name, UUID or UUID prefix")
+			cmd.Flags().Bool("unassign", false, "Remove the release owner")
+			cmd.MarkFlagsMutuallyExclusive("to", "unassign")
+			cmd.MarkFlagsOneRequired("to", "unassign")
 		case "move":
 			cmd.Flags().String("direction", "", "earlier or later")
 		}
@@ -86,6 +96,7 @@ func newReleaseCommand() *cobra.Command {
 		milestone.AddCommand(cmd)
 	}
 	root.AddCommand(milestone)
+	root.AddCommand(newReleaseCommentCommand(), newReleaseWakeupCommand())
 	return root
 }
 
@@ -204,6 +215,25 @@ func runRelease(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	path := "/api/releases/" + ref.ID
+	if action == "assign" {
+		body := map[string]any{"owner_type": nil, "owner_id": nil}
+		if unassign, _ := cmd.Flags().GetBool("unassign"); !unassign {
+			to, _ := cmd.Flags().GetString("to")
+			if strings.TrimSpace(to) == "" {
+				return fmt.Errorf("--to or --unassign is required")
+			}
+			kind, id, err := resolveAssignee(ctx, client, to, assigneeKinds{agent: true, squad: true})
+			if err != nil {
+				return err
+			}
+			body["owner_type"], body["owner_id"] = kind, id
+		}
+		var out releaseListDTO
+		if err := client.PutJSON(ctx, path+"/owner", body, &out); err != nil {
+			return err
+		}
+		return printReleases(cmd, out.Releases, false)
+	}
 	if action == "get" || action == "edit" {
 		var rel releaseDTO
 		if err := client.GetJSON(ctx, path, &rel); err != nil {
@@ -391,9 +421,13 @@ func printReleases(cmd *cobra.Command, releases []releaseDTO, single bool) error
 		if r.ShippedAt != nil {
 			state = "shipped"
 		}
-		rows[i] = []string{displayID(r.ID, full), displayID(r.RepositoryID, full), "v" + r.Version, r.Title, state}
+		owner := "—"
+		if r.OwnerName != nil {
+			owner = *r.OwnerName
+		}
+		rows[i] = []string{displayID(r.ID, full), displayID(r.RepositoryID, full), "v" + r.Version, r.Title, state, owner}
 	}
-	cli.PrintTable(os.Stdout, []string{"ID", "REPOSITORY", "VERSION", "TITLE", "STATE"}, rows)
+	cli.PrintTable(os.Stdout, []string{"ID", "REPOSITORY", "VERSION", "TITLE", "STATE", "OWNER"}, rows)
 	milestones := [][]string{}
 	for _, r := range releases {
 		for _, m := range r.Milestones {

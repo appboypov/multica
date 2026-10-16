@@ -268,3 +268,84 @@ WHERE id= @id AND status='dispatched' AND dispatched_at= @dispatched_at RETURNIN
 -- not finished: the run that made a change still knows about it.
 SELECT count(*) FROM agent_task_queue WHERE id=ANY(@ids::uuid[]) AND agent_id= @agent_id AND issue_id= @issue_id
  AND status IN ('dispatched','running','waiting_local_directory');
+
+-- Release waits. A release rule (release_id set, issue_id NULL) has no agent:
+-- each fire targets the release's current owner (an agent, or a squad's
+-- leader) resolved under the repository boundary at dispatch. A shipped or
+-- unowned release does not fire. People and agents set waits with the same
+-- kinds and timing as issue waits; release waits take no actor/agent/task
+-- filters.
+
+-- name: CreateReleaseWakeup :one
+-- Inserts only for an unshipped release of the workspace, held FOR KEY SHARE
+-- so a concurrent ship or removal cannot interleave; otherwise pgx.ErrNoRows.
+WITH target AS MATERIALIZED (
+    SELECT r.id, r.workspace_id FROM release r
+    WHERE r.id = @release_id AND r.workspace_id = @workspace_id AND r.shipped_at IS NULL
+    FOR KEY SHARE
+)
+INSERT INTO issue_wakeup(id,workspace_id,release_id,created_by,source_task_id,parent_comment_id,instruction,kind,mode,event_types,
+ interval_seconds,cron_expression,timezone,next_fire_at,expires_at,expiry_seconds,on_timeout,condition,max_fires)
+SELECT @id,target.workspace_id,target.id,sqlc.narg(created_by),sqlc.narg(source_task_id),sqlc.narg(parent_comment_id),@instruction,@kind,@mode,@event_types,
+ sqlc.narg(interval_seconds),sqlc.narg(cron_expression),@timezone,sqlc.narg(next_fire_at),sqlc.narg(expires_at),sqlc.narg(expiry_seconds),
+ sqlc.narg(on_timeout),sqlc.narg(condition),sqlc.narg(max_fires)
+FROM target
+RETURNING *;
+
+-- name: ListReleaseWakeups :many
+-- People's and agents' waits on a release (platform rules excluded), with the
+-- last run's status and who set each wait.
+SELECT sqlc.embed(w), t.status AS last_task_status,
+ (w.source_task_id IS NOT NULL)::bool AS created_by_agent, creator.name AS created_by_name,
+ (CASE WHEN creator_agent.id IS NOT NULL THEN creator_agent.id END)::uuid AS source_agent_id, creator_agent.name AS source_agent_name
+FROM issue_wakeup w
+LEFT JOIN "user" creator ON creator.id=w.created_by
+LEFT JOIN agent_task_queue creator_task ON creator_task.id=w.source_task_id
+LEFT JOIN agent creator_agent ON creator_agent.id=creator_task.agent_id AND creator_agent.workspace_id=w.workspace_id
+LEFT JOIN agent_task_queue t ON t.id=w.last_task_id AND t.release_id=w.release_id
+WHERE w.workspace_id= @workspace_id AND w.release_id= @release_id AND w.system_rule IS NULL
+ORDER BY w.created_at,w.id;
+
+-- name: DeleteReleaseWakeup :one
+-- Ends a person's or agent's wait; the platform coordination rule is not
+-- deletable here. Receipts go with it.
+WITH doomed AS (
+    SELECT w.id FROM issue_wakeup w
+    WHERE w.id= @id AND w.workspace_id= @workspace_id AND w.release_id= @release_id AND w.system_rule IS NULL
+), receipts AS (
+    DELETE FROM issue_wakeup_receipt WHERE wakeup_id IN (SELECT id FROM doomed)
+)
+DELETE FROM issue_wakeup WHERE id IN (SELECT id FROM doomed)
+RETURNING id;
+
+-- name: DeleteReleaseWakeups :exec
+-- Shipping or removal: every wait of the releases, the coordination rule
+-- included, and their receipts. Runs under the repository lock.
+WITH doomed AS (
+    SELECT w.id FROM issue_wakeup w
+    WHERE w.workspace_id= @workspace_id AND w.release_id=ANY(@release_ids::uuid[])
+    ORDER BY w.id
+    FOR UPDATE
+), receipts AS (
+    DELETE FROM issue_wakeup_receipt WHERE wakeup_id IN (SELECT id FROM doomed)
+)
+DELETE FROM issue_wakeup WHERE id IN (SELECT id FROM doomed);
+
+-- name: CountRecentReleaseWakeupTasks :one
+SELECT count(*) FROM agent_task_queue WHERE context->>'wakeup_id'= @wakeup_id::text AND release_id= @release_id AND created_at> @since;
+
+-- name: ListWaitingReleaseWakeups :many
+-- Rules of the release with inputs the next coordination run can take along.
+-- Read without locks; each one is locked and checked again before it joins.
+SELECT w.id FROM issue_wakeup w
+WHERE w.release_id= @release_id AND w.disabled_at IS NULL
+ AND EXISTS(SELECT 1 FROM issue_wakeup_receipt r WHERE r.wakeup_id=w.id AND r.revision=w.revision AND r.processed_at IS NULL
+  AND r.task_id IS NULL
+  AND (w.condition IS NULL OR r.event_type IN ('condition.met','wakeup.timeout','wakeup.manual')))
+ORDER BY w.created_at,w.id;
+
+-- name: CountActiveReleaseRunsOfAgent :one
+-- How many of these runs are the agent's own coordination runs on this
+-- release that have not finished.
+SELECT count(*) FROM agent_task_queue WHERE id=ANY(@ids::uuid[]) AND agent_id= @agent_id AND release_id= @release_id
+ AND status IN ('dispatched','running','waiting_local_directory');

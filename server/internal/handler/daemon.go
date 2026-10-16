@@ -2154,6 +2154,11 @@ func (h *Handler) finalizeClaimDelivery(
 	// Authorization rejected at the delivery boundary: settle through the
 	// existing failure path so the task never reaches the daemon.
 	switch authzErr.Reason {
+	case "release_owner_changed":
+		if _, cancelErr := h.TaskService.CancelTask(ctx, task.ID); cancelErr != nil {
+			return nil, nil, cancelErr
+		}
+		return nil, &claimBuildFailure{outcome: "release_owner_changed", status: http.StatusConflict, message: "release owner changed before task delivery", settled: true}, nil
 	case "error_agent_runtime_changed":
 		failure := h.failClaimedTaskBeforeLaunch(
 			ctx, task,
@@ -2434,6 +2439,10 @@ func claimResponseAgentIdentityMatches(resp AgentTaskResponse) bool {
 func (h *Handler) buildClaimedTaskResponse(r *http.Request, task *db.AgentTaskQueue, runtime db.AgentRuntime, runtimeID, runtimeWorkspaceID string) (resp AgentTaskResponse, deliveredCommentIDs []pgtype.UUID, issueSnapshot []byte, agentSkillCount, builtinSkillCount int, failure *claimBuildFailure) {
 	// Build response with fresh agent data (name + skills + custom_env + custom_args).
 	resp = taskToResponse(*task, runtimeWorkspaceID)
+	if task.ReleaseID.Valid && !requestHasClientCapability(r, protocol.DaemonCapabilityReleaseCoordinationV1) {
+		_, _ = h.TaskService.RequeueTaskAfterClaimFailure(r.Context(), *task)
+		return resp, nil, nil, 0, 0, &claimBuildFailure{outcome: "release_capability_required", status: http.StatusConflict, message: "daemon does not support native release coordination"}
+	}
 	if err := (&service.IssueWakeupService{Tasks: h.TaskService}).CheckClaim(r.Context(), *task); err != nil {
 		if !errors.Is(err, service.ErrWakeupForbidden) {
 			return resp, nil, nil, 0, 0, h.rejectClaimSourceLoad(r.Context(), task, err, "wakeup", resp.WakeupID)
@@ -2714,6 +2723,14 @@ func (h *Handler) buildClaimedTaskResponse(r *http.Request, task *db.AgentTaskQu
 	// Include workspace ID and repos so the daemon can set up worktrees.
 	// Project context, repo precedence and the tenant/failure rules around both
 	// live in resolveClaimProjectContext, which every claim path shares.
+	if task.ReleaseID.Valid {
+		comments, releaseErr := h.hydrateReleaseClaim(r.Context(), task, runtime, &resp)
+		if releaseErr != nil {
+			return resp, deliveredCommentIDs, issueSnapshot, agentSkillCount, builtinSkillCount,
+				h.rejectClaimSourceLoad(r.Context(), task, releaseErr, "release", uuidToString(task.ReleaseID))
+		}
+		deliveredCommentIDs = commentDataIDs(comments)
+	}
 	if task.IssueID.Valid {
 		issue, issueErr := h.Queries.GetIssue(r.Context(), task.IssueID)
 		if issueErr != nil {
@@ -3479,7 +3496,7 @@ func (h *Handler) buildClaimedTaskResponse(r *http.Request, task *db.AgentTaskQu
 	// prompt come from the task's context JSONB. Resolve workspace from
 	// there so the isolation check below has something to compare.
 	hasQuickCreate := false
-	if task.Context != nil && !task.IssueID.Valid && !task.ChatSessionID.Valid && !task.AutopilotRunID.Valid {
+	if task.Context != nil && !task.ReleaseID.Valid && !task.IssueID.Valid && !task.ChatSessionID.Valid && !task.AutopilotRunID.Valid {
 		var qc service.QuickCreateContext
 		if json.Unmarshal(task.Context, &qc) == nil && qc.Type == service.QuickCreateContextType {
 			hasQuickCreate = true
@@ -4193,7 +4210,7 @@ func (h *Handler) StartTask(w http.ResponseWriter, r *http.Request) {
 	taskID := chi.URLParam(r, "taskId")
 
 	// Verify the caller owns this task's workspace.
-	_, workspaceID, ok := h.requireDaemonTaskAccessWithWorkspace(w, r, taskID)
+	originalTask, workspaceID, ok := h.requireDaemonTaskAccessWithWorkspace(w, r, taskID)
 	if !ok {
 		return
 	}
@@ -4208,6 +4225,10 @@ func (h *Handler) StartTask(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, "invalid request body")
 			return
 		}
+	}
+	if originalTask.ReleaseID.Valid && !requestHasClientCapability(r, protocol.DaemonCapabilityReleaseCoordinationV1) {
+		writeError(w, http.StatusConflict, "daemon does not support native release coordination")
+		return
 	}
 	enableTaskSupplement := slices.Contains(req.Capabilities, protocol.DaemonCapabilityTaskSupplementV1)
 	var task *db.AgentTaskQueue
@@ -4236,7 +4257,7 @@ func (h *Handler) StartTask(w http.ResponseWriter, r *http.Request) {
 		slog.Warn("start task failed", "task_id", taskID, "error", err)
 		if errors.Is(err, pgx.ErrNoRows) {
 			status := http.StatusConflict
-			if legacy {
+			if legacy && !originalTask.ReleaseID.Valid {
 				status = http.StatusBadRequest
 			}
 			writeError(w, status, "task claim is stale or task is no longer startable")
@@ -4449,6 +4470,10 @@ func (h *Handler) CompleteTask(w http.ResponseWriter, r *http.Request) {
 	// missing continuity-gap flag.
 	task, transitioned, err := h.TaskService.CompleteTaskWithTransition(r.Context(), parseUUID(taskID), result, req.SessionID, req.WorkDir, req.BranchName, req.SessionRolloutMissing, req.RetiredSessionID, req.DurableWorkDir)
 	if err != nil {
+		if errors.Is(err, service.ErrReleaseResultEmpty) {
+			h.failTask(w, r, taskID, workspaceID, TaskFailRequest{Error: err.Error(), SessionID: req.SessionID, WorkDir: req.WorkDir, BranchName: req.BranchName})
+			return
+		}
 		// A CompleteTask error is an infrastructure failure (transaction /
 		// assistant-outcome write), not a bad request: an already-finalized
 		// callback is treated as idempotent success and returns no error. Return

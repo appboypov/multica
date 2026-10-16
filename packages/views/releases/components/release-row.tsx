@@ -9,32 +9,36 @@ import { AppLink } from "../../navigation";
 import { useT } from "../../i18n";
 import { ReleaseChip } from "./release-chips";
 import { ReleaseShippedDate } from "./release-shipped-date";
+import { ReleaseOwnerLabel } from "./release-owner-picker";
 
 /**
- * The release row's column template: name, issues, worklanes and the chevron.
- * A literal class so Tailwind sees it; Releases heads its columns with it.
+ * The release row's column template: name, owner, issues, worklanes and the
+ * chevron. A literal class so Tailwind sees it; Releases heads its columns with it.
  */
 export const RELEASE_ROW_COLS =
-  "grid-cols-[minmax(0,1fr)_minmax(6rem,10rem)_minmax(0,16rem)_1rem]";
+  "grid-cols-[minmax(0,1fr)_minmax(0,10rem)_minmax(6rem,10rem)_minmax(0,16rem)_1rem]";
 
 /**
  * One release on Releases: its version chip, its state, title, shipped date,
- * progress over every issue in it and the worklanes that hold them. The whole
- * row opens the target worklane's Timeline with the release in view. It has
- * no menu: Releases does not plan, edit or move releases.
+ * owner, progress over every issue in it and the worklanes that hold them.
+ * The whole row opens the release's page. It has no menu: Releases does not
+ * plan, edit or move releases.
  */
 export function ReleaseRow({ row, indent }: { row: ReleaseOverviewRow; indent: string }) {
   const { t } = useT("releases");
   const wsPaths = useWorkspacePaths();
-  const { release, state, setByHand, done, total, worklanes, target } = row;
-  const rowClass = cn(
-    "col-span-full grid min-h-11 items-center gap-x-3 border-b py-1.5 pr-3 transition-colors",
-    RELEASE_ROW_COLS,
-    indent,
-  );
+  const { release, state, setByHand, done, total, worklanes } = row;
 
-  const cells = (
-    <>
+  return (
+    <AppLink
+      href={wsPaths.releaseDetail(release.id)}
+      className={cn(
+        "col-span-full grid min-h-11 items-center gap-x-3 border-b py-1.5 pr-3 transition-colors",
+        "hover:bg-accent/40 focus-visible:bg-accent/40 focus-visible:outline-none",
+        RELEASE_ROW_COLS,
+        indent,
+      )}
+    >
       <span className="flex min-w-0 items-center gap-2">
         <ReleaseChip version={release.version} state={state} />
         <span className="shrink-0 text-caption text-muted-foreground">
@@ -48,6 +52,12 @@ export function ReleaseRow({ row, indent }: { row: ReleaseOverviewRow; indent: s
           </span>
         )}
       </span>
+      <ReleaseOwnerLabel
+        ownerType={release.owner_type}
+        ownerId={release.owner_id}
+        ownerName={release.owner_name}
+        className="text-caption"
+      />
       <span className="flex min-w-0 items-center gap-2">
         <Progress
           value={total > 0 ? (done / total) * 100 : 0}
@@ -76,24 +86,6 @@ export function ReleaseRow({ row, indent }: { row: ReleaseOverviewRow; indent: s
         )}
       </span>
       <ChevronRight aria-hidden="true" className="size-4 text-muted-foreground" />
-    </>
-  );
-
-  // A repository whose worklanes are not loaded has no Timeline to open yet.
-  if (!target) {
-    return (
-      <div className={rowClass}>
-        {cells}
-      </div>
-    );
-  }
-
-  return (
-    <AppLink
-      href={`${wsPaths.worklaneDetail(target.id)}?release=${encodeURIComponent(release.id)}`}
-      className={cn(rowClass, "hover:bg-accent/40 focus-visible:bg-accent/40 focus-visible:outline-none")}
-    >
-      {cells}
     </AppLink>
   );
 }

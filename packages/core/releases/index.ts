@@ -1,7 +1,17 @@
-export { releaseKeys, releaseListOptions, selectLine } from "./queries";
+export {
+  releaseKeys,
+  releaseListOptions,
+  releaseDetailOptions,
+  releaseIssuesOptions,
+  releaseCommentsOptions,
+  releaseActivityOptions,
+  selectLine,
+} from "./queries";
 export {
   usePlanRelease,
   useEditRelease,
+  useSetReleaseOwner,
+  useCreateReleaseComment,
   useMoveRelease,
   useRemoveRelease,
   useAddReleaseMilestone,
@@ -43,5 +53,5 @@ export type {
   VersionBefore,
   BumpOption,
 } from "./line";
-export { releaseOverview } from "./overview";
+export { releaseOverview, releaseTimelineTarget } from "./overview";
 export type { ReleaseOverview, ReleaseOverviewRepository, ReleaseOverviewRow } from "./overview";

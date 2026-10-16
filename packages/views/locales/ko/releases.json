@@ -122,13 +122,47 @@
     "moved_later": "{{actor}}님이 {{version}} {{title}}을(를) 뒤로 옮겼습니다",
     "moved": "{{actor}}님이 {{version}} {{title}}을(를) 옮겼습니다",
     "removed": "{{actor}}님이 {{version}} {{title}}을(를) 제거했습니다",
-    "change": "{{title}} {{from}} → {{to}}"
+    "change": "{{title}} {{from}} → {{to}}",
+    "owner_set": "{{actor}}님이 {{owner}}을(를) {{version}} {{title}}의 담당자로 지정했습니다",
+    "owner_changed": "{{actor}}님이 {{previous}} 대신 {{owner}}을(를) {{version}} {{title}}의 담당자로 지정했습니다",
+    "owner_removed": "{{actor}}님이 {{owner}}을(를) {{version}} {{title}}의 담당자에서 제외했습니다"
+  },
+  "owner": {
+    "label": "담당자",
+    "none": "담당자 없음",
+    "search": "에이전트와 스쿼드 검색…",
+    "agents": "에이전트",
+    "squads": "스쿼드",
+    "failed": "담당자를 저장하지 못했습니다. 다시 시도하세요."
+  },
+  "page": {
+    "issues": "이슈",
+    "no_issues": "이 릴리스에는 아직 이슈가 없습니다.",
+    "open_timeline": "타임라인에서 열기",
+    "not_found": "이 릴리스가 없거나 제거되었습니다.",
+    "back": "릴리스로 돌아가기",
+    "load_failed": "이 릴리스를 불러오지 못했습니다.",
+    "retry": "다시 시도",
+    "unassigned": "미할당",
+    "no_worklane": "worklane 없음"
+  },
+  "comments": {
+    "title": "댓글",
+    "empty": "아직 댓글이 없습니다.",
+    "placeholder": "댓글 작성…",
+    "reply_placeholder": "답글 작성…",
+    "send": "댓글 달기",
+    "reply": "답글",
+    "cancel": "취소",
+    "failed": "댓글을 보내지 못했습니다.",
+    "retry": "다시 시도"
   },
   "overview": {
     "title": "릴리스",
     "empty": "아직 릴리스가 없습니다.",
     "column_name": "이름",
     "column_issues": "이슈",
+    "column_owner": "담당자",
     "column_worklanes": "worklanes",
     "release_count_other": "릴리스 {{count}}개",
     "repository_count_other": "저장소 {{count}}개",

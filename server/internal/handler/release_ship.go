@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/multica-ai/multica/server/internal/releaseline"
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
 )
@@ -38,6 +39,9 @@ func (h *Handler) ShipRelease(w http.ResponseWriter, r *http.Request) {
 				return nil, &issueRefusalError{status: http.StatusConflict, payload: map[string]any{
 					"code": "release_not_ready", "error": "every issue must be Done and every linked pull request merged before shipping", "issues": issues,
 				}}
+			}
+			if err := cleanupReleaseCoordination(ctx, q, repo.WorkspaceID, []pgtype.UUID{rel.ID}); err != nil {
+				return nil, err
 			}
 			row, err := q.MarkReleaseShipped(ctx, db.MarkReleaseShippedParams{ID: rel.ID, WorkspaceID: repo.WorkspaceID})
 			if err != nil {

@@ -22,7 +22,7 @@ import {
   type ReleaseDraft,
 } from "@multica/core/releases";
 import { repositoryListOptions } from "@multica/core/repositories";
-import type { Release, ReleaseBump, Repository } from "@multica/core/types";
+import type { Release, ReleaseBump, ReleaseOwnerRequest, Repository } from "@multica/core/types";
 import { cn } from "@multica/ui/lib/utils";
 import { Button } from "@multica/ui/components/ui/button";
 import {
@@ -40,6 +40,7 @@ import { useLastTag, useReleaseLine } from "../use-release-line";
 import { problemMessage, refusalMessage } from "./release-messages";
 import { ReleaseIssuesField } from "./release-issues-field";
 import { ReleaseMilestones } from "./release-milestones";
+import { NO_OWNER, ReleaseOwnerLabel, ReleaseOwnerPicker } from "./release-owner-picker";
 
 type Choice = ReleaseBump | "custom";
 
@@ -149,6 +150,7 @@ function ReleaseForm({
   const customMessageId = useId();
   const titleId = useId();
   const descriptionId = useId();
+  const ownerId = useId();
   const planRelease = usePlanRelease();
   const editRelease = useEditRelease();
   const lastTag = useLastTag(repository);
@@ -160,6 +162,11 @@ function ReleaseForm({
   const [title, setTitle] = useState(release?.title ?? "");
   const [description, setDescription] = useState(release?.description ?? "");
   const [refusal, setRefusal] = useState<string | null>(null);
+  const [owner, setOwner] = useState<ReleaseOwnerRequest>(
+    release ? { owner_type: release.owner_type, owner_id: release.owner_id } : NO_OWNER,
+  );
+  // The server's name for the release's own owner, while the directory may still be loading.
+  const ownerName = release && owner.owner_id === release.owner_id ? release.owner_name : null;
 
   const targetId = release?.id ?? PLANNED_RELEASE_ID;
   const index = release ? line.releases.findIndex((r) => r.id === release.id) : line.releases.length;
@@ -215,7 +222,13 @@ function ReleaseForm({
     if (!ready) return;
     setRefusal(null);
     const fields = { title: title.trim(), description: description.trim() };
-    const body = choice === "custom" ? { ...fields, version } : { ...fields, bump: choice };
+    const versioned = choice === "custom" ? { ...fields, version } : { ...fields, bump: choice };
+    // Plan sends an owner only when one is picked; Edit only when it changed, so an
+    // unchanged owner is kept as it is on the server.
+    const ownerChanged = release
+      ? !shipped && (owner.owner_type !== release.owner_type || owner.owner_id !== release.owner_id)
+      : owner.owner_id !== null;
+    const body = ownerChanged ? { ...versioned, ...owner } : versioned;
     try {
       if (release) {
         await editRelease.mutateAsync({ id: release.id, repositoryId: repository.id, data: body });
@@ -375,6 +388,33 @@ function ReleaseForm({
             placeholder={t(($) => $.dialog.description_placeholder)}
             rows={3}
           />
+        </div>
+
+        <div className="space-y-1">
+          <div className="flex items-baseline justify-between">
+            <Label id={ownerId} className="text-caption text-muted-foreground">
+              {t(($) => $.owner.label)}
+            </Label>
+            <span className="text-caption text-muted-foreground">{t(($) => $.dialog.optional)}</span>
+          </div>
+          {shipped ? (
+            <div aria-labelledby={ownerId} role="group" className="flex h-9 items-center px-3 text-body">
+              <ReleaseOwnerLabel ownerType={release.owner_type} ownerId={release.owner_id} ownerName={release.owner_name} />
+            </div>
+          ) : (
+            <ReleaseOwnerPicker
+              ownerType={owner.owner_type}
+              ownerId={owner.owner_id}
+              ownerName={ownerName}
+              labelledBy={ownerId}
+              variant="field"
+              disabled={pending}
+              onChange={(next) => {
+                setOwner(next);
+                setRefusal(null);
+              }}
+            />
+          )}
         </div>
 
         {!release && worklaneId ? (

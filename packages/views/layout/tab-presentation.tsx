@@ -17,6 +17,7 @@ import { issueDetailOptions } from "@multica/core/issues/queries";
 import { projectDetailOptions } from "@multica/core/projects/queries";
 import { organisationDetailOptions } from "@multica/core/organisations";
 import { worklaneDetailOptions } from "@multica/core/worklanes";
+import { formatVersion, releaseDetailOptions } from "@multica/core/releases";
 import { autopilotDetailOptions } from "@multica/core/autopilots/queries";
 import {
   skillDetailOptions,
@@ -71,6 +72,7 @@ const PENDING_RESOURCE_KEYS: ReadonlySet<TabLabelKey> = new Set<TabLabelKey>([
   "project",
   "organisation",
   "worklane",
+  "release",
   "autopilot",
   "agent",
   "member",
@@ -157,6 +159,10 @@ function useTabEntityData(subject: TabSubject, wsId: string): TabEntityData {
     ...worklaneDetailOptions(wsId, subject.kind === "worklane" ? subject.id : NONE),
     enabled: false,
   }).data;
+  const release = useQuery({
+    ...releaseDetailOptions(wsId, subject.kind === "release" ? subject.id : NONE),
+    enabled: false,
+  }).data;
   const autopilot = useQuery({
     ...autopilotDetailOptions(
       wsId,
@@ -194,6 +200,9 @@ function useTabEntityData(subject: TabSubject, wsId: string): TabEntityData {
       break;
     case "worklane":
       if (worklane?.id) data.worklane = { name: worklane.name };
+      break;
+    case "release":
+      if (release?.id) data.release = { version: formatVersion(release.version), title: release.title };
       break;
     case "autopilot":
       if (autopilot) data.autopilot = { title: autopilot.autopilot.title };

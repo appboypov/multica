@@ -1,6 +1,6 @@
 import type { TFunction } from "i18next";
 import { formatVersion, type LinePreview } from "@multica/core/releases";
-import type { ReleaseRefusal } from "@multica/core/types";
+import type { ReleaseOwnerChangedDetails, ReleaseRefusal } from "@multica/core/types";
 
 /**
  * The red line under Version for a preview that breaks the line: the edited
@@ -110,4 +110,31 @@ export function refusalMessage(
     default:
       return refusal.error ?? t(($) => $.dialog.failed);
   }
+}
+
+/**
+ * One owner change as worklane activity and the release page word it: set,
+ * changed (instead of the previous owner) or removed. A name missing from an
+ * entry falls back to the actor directory; an entry naming no owner at all is
+ * not worded.
+ */
+export function ownerChangeMessage(
+  t: TFunction<"releases">,
+  actor: string,
+  details: ReleaseOwnerChangedDetails,
+  nameOf: (type: string, id: string) => string,
+): string | null {
+  const owner = details.owner_type && details.owner_id
+    ? details.owner_name ?? nameOf(details.owner_type, details.owner_id)
+    : null;
+  const previous = details.previous_owner_type && details.previous_owner_id
+    ? details.previous_owner_name ?? nameOf(details.previous_owner_type, details.previous_owner_id)
+    : null;
+  const release = { actor, version: formatVersion(details.version), title: details.title };
+  if (owner !== null && previous !== null) {
+    return t(($) => $.activity.owner_changed, { ...release, owner, previous });
+  }
+  if (owner !== null) return t(($) => $.activity.owner_set, { ...release, owner });
+  if (previous !== null) return t(($) => $.activity.owner_removed, { ...release, owner: previous });
+  return null;
 }

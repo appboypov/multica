@@ -6259,6 +6259,8 @@ func (d *Daemon) sendTerminalTaskReport(ctx context.Context, report terminalTask
 func gcMetaForTask(task Task) (execenv.GCMeta, bool) {
 	meta := execenv.GCMeta{WorkspaceID: task.WorkspaceID, TaskID: task.ID}
 	switch {
+	case task.ReleaseID != "":
+		meta.Kind = execenv.GCKindRelease
 	case task.ChatSessionID != "":
 		meta.Kind = execenv.GCKindChat
 		meta.ChatSessionID = task.ChatSessionID
@@ -7612,6 +7614,7 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, slot i
 	// via `multica repo checkout <url>`.
 	taskCtx := execenv.TaskContextForEnv{
 		IssueID:             task.IssueID,
+		ReleaseID:           task.ReleaseID,
 		TriggerCommentID:    task.TriggerCommentID,
 		TriggerThreadID:     task.TriggerThreadID,
 		CommentReplyTargets: commentReplyThreads(task),
@@ -8153,7 +8156,7 @@ func (d *Daemon) runTask(ctx context.Context, task Task, provider string, slot i
 	// command stamps the new issue with origin_type=quick_create +
 	// origin_id=<task_id> so the completion handler can find it
 	// deterministically (see GetIssueByOrigin).
-	if task.QuickCreatePrompt != "" {
+	if task.ReleaseID == "" && task.QuickCreatePrompt != "" {
 		agentEnv["MULTICA_QUICK_CREATE_TASK_ID"] = task.ID
 		if len(task.QuickCreateAttachmentIDs) > 0 {
 			if raw, err := json.Marshal(task.QuickCreateAttachmentIDs); err == nil {

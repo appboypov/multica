@@ -386,6 +386,9 @@ func (h *Handler) GetSearchIndexSnapshot(w http.ResponseWriter, r *http.Request)
 		Done:            len(issues) < limit,
 	}
 	for _, c := range comments {
+		if !c.IssueID.Valid {
+			continue
+		}
 		resp.Comments = append(resp.Comments, searchIndexComment(c.ID, c.IssueID, c.Content, c.CreatedAt))
 	}
 	if n := len(issues); n > 0 {
@@ -524,7 +527,7 @@ func (h *Handler) ListSearchIndexChanges(w http.ResponseWriter, r *http.Request)
 	}
 	liveComments := make(map[pgtype.UUID]bool, len(comments))
 	for _, c := range comments {
-		if c.DeletedAt.Valid {
+		if c.DeletedAt.Valid || !c.IssueID.Valid {
 			continue
 		}
 		liveComments[c.ID] = true

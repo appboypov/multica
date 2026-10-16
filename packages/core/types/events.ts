@@ -76,6 +76,7 @@ export type WSEventType =
   | "project:updated"
   | "project:deleted"
   | "release_line:updated"
+  | "release_comment:created"
   | "squad:created"
   | "squad:updated"
   | "squad:deleted"
@@ -106,6 +107,12 @@ export interface WSMessage<T = unknown> {
   payload: T;
   actor_id?: string;
   actor_type?: string;
+}
+
+/** A comment or reply was added on a release's page. */
+export interface ReleaseCommentCreatedPayload {
+  release_id: string;
+  comment_id: string;
 }
 
 export interface IssueCreatedPayload {

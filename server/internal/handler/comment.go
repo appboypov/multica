@@ -29,6 +29,7 @@ import (
 type CommentResponse struct {
 	ID             string  `json:"id"`
 	IssueID        string  `json:"issue_id"`
+	ReleaseID      *string `json:"release_id,omitempty"`
 	AuthorType     string  `json:"author_type"`
 	AuthorID       string  `json:"author_id"`
 	Content        string  `json:"content"`
@@ -116,6 +117,7 @@ func commentToResponse(c db.Comment, reactions []ReactionResponse, attachments [
 	return CommentResponse{
 		ID:             uuidToString(c.ID),
 		IssueID:        uuidToString(c.IssueID),
+		ReleaseID:      uuidToPtr(c.ReleaseID),
 		AuthorType:     c.AuthorType,
 		AuthorID:       uuidToString(c.AuthorID),
 		Content:        c.Content,
@@ -420,6 +422,10 @@ func (h *Handler) ListComments(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	h.listSubjectComments(w, r, issue, db.Release{})
+}
+
+func (h *Handler) listSubjectComments(w http.ResponseWriter, r *http.Request, issue db.Issue, release db.Release) {
 	q := r.URL.Query()
 
 	var sinceTime pgtype.Timestamptz
@@ -610,6 +616,7 @@ func (h *Handler) ListComments(w http.ResponseWriter, r *http.Request) {
 
 	result, err := h.fetchCommentsForList(r.Context(), fetchCommentsArgs{
 		Issue:         issue,
+		Release:       release,
 		Since:         sinceTime,
 		ThreadAnchor:  threadStr,
 		ThreadTail:    threadTail,
@@ -715,6 +722,7 @@ func (h *Handler) ListComments(w http.ResponseWriter, r *http.Request) {
 // which would silently downgrade the latter to the full-thread path.
 type fetchCommentsArgs struct {
 	Issue         db.Issue
+	Release       db.Release
 	Since         pgtype.Timestamptz
 	RootsOnly     bool
 	ThreadAnchor  string
@@ -763,6 +771,9 @@ type commentFetchError struct{ msg string }
 func (e *commentFetchError) Error() string { return e.msg }
 
 func (h *Handler) fetchCommentsForList(ctx context.Context, args fetchCommentsArgs) (fetchCommentsResult, error) {
+	if args.Release.ID.Valid {
+		return h.fetchReleaseCommentsForList(ctx, args)
+	}
 	issue := args.Issue
 
 	// Thread-scoped read. Server resolves the anchor → root via recursive
@@ -3461,6 +3472,10 @@ func (h *Handler) UpdateComment(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "comment not found")
 		return
 	}
+	if existing.ReleaseID.Valid {
+		h.updateReleaseComment(w, r, existing)
+		return
+	}
 
 	member, ok := h.workspaceMember(w, r, workspaceID)
 	if !ok {
@@ -3738,6 +3753,10 @@ func (h *Handler) DeleteComment(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		writeError(w, http.StatusNotFound, "comment not found")
+		return
+	}
+	if comment.ReleaseID.Valid {
+		h.deleteReleaseComment(w, r, comment)
 		return
 	}
 
@@ -4201,11 +4220,12 @@ func (h *Handler) ResolveComment(w http.ResponseWriter, r *http.Request) {
 	defer tx.Rollback(r.Context())
 	qtx := h.Queries.WithTx(tx)
 
-	cleared, err := qtx.ClearOtherThreadResolutions(r.Context(), db.ClearOtherThreadResolutionsParams{
-		TargetID:    comment.ID,
-		IssueID:     comment.IssueID,
-		WorkspaceID: comment.WorkspaceID,
-	})
+	var cleared []db.Comment
+	if comment.ReleaseID.Valid {
+		cleared, err = qtx.ClearOtherReleaseThreadResolutions(r.Context(), db.ClearOtherReleaseThreadResolutionsParams{TargetID: comment.ID, ReleaseID: comment.ReleaseID, WorkspaceID: comment.WorkspaceID})
+	} else {
+		cleared, err = qtx.ClearOtherThreadResolutions(r.Context(), db.ClearOtherThreadResolutionsParams{TargetID: comment.ID, IssueID: comment.IssueID, WorkspaceID: comment.WorkspaceID})
+	}
 	if err != nil {
 		slog.Warn("clear other thread resolutions failed", append(logger.RequestAttrs(r), "error", err, "comment_id", uuidToString(comment.ID))...)
 		writeError(w, http.StatusInternalServerError, "failed to resolve comment")
@@ -4238,13 +4258,18 @@ func (h *Handler) ResolveComment(w http.ResponseWriter, r *http.Request) {
 	// consumers (which patch a single comment in place) drop the stale
 	// resolution instead of showing two. Published after commit so no event ever
 	// describes an uncommitted state.
+	if comment.ReleaseID.Valid {
+		h.publishReleaseComment(r, comment)
+	}
 	for _, c := range cleared {
 		clearedID := uuidToString(c.ID)
 		clearedReactions := h.groupReactions(r, []pgtype.UUID{c.ID})
 		clearedAtt := h.groupAttachments(r, []pgtype.UUID{c.ID})
 		clearedResp := commentToResponse(c, clearedReactions[clearedID], clearedAtt[clearedID])
 		slog.Info("comment unresolved (replaced)", append(logger.RequestAttrs(r), "comment_id", clearedID)...)
-		h.publish(protocol.EventCommentUnresolved, workspaceID, actorType, actorID, map[string]any{"comment": clearedResp})
+		if !comment.ReleaseID.Valid {
+			h.publish(protocol.EventCommentUnresolved, workspaceID, actorType, actorID, map[string]any{"comment": clearedResp})
+		}
 	}
 
 	grouped := h.groupReactions(r, []pgtype.UUID{updated.ID})
@@ -4257,7 +4282,9 @@ func (h *Handler) ResolveComment(w http.ResponseWriter, r *http.Request) {
 	// still get their own events above — those rows did change.
 	if !wasResolved {
 		slog.Info("comment resolved", append(logger.RequestAttrs(r), "comment_id", cid)...)
-		h.publish(protocol.EventCommentResolved, workspaceID, actorType, actorID, map[string]any{"comment": resp})
+		if !comment.ReleaseID.Valid {
+			h.publish(protocol.EventCommentResolved, workspaceID, actorType, actorID, map[string]any{"comment": resp})
+		}
 	}
 	writeJSON(w, http.StatusOK, resp)
 }
@@ -4286,7 +4313,11 @@ func (h *Handler) UnresolveComment(w http.ResponseWriter, r *http.Request) {
 
 	if wasResolved {
 		slog.Info("comment unresolved", append(logger.RequestAttrs(r), "comment_id", cid)...)
-		h.publish(protocol.EventCommentUnresolved, workspaceID, actorType, actorID, map[string]any{"comment": resp})
+		if comment.ReleaseID.Valid {
+			h.publishReleaseComment(r, comment)
+		} else {
+			h.publish(protocol.EventCommentUnresolved, workspaceID, actorType, actorID, map[string]any{"comment": resp})
+		}
 	}
 	writeJSON(w, http.StatusOK, resp)
 }

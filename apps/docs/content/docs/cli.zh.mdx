@@ -7,6 +7,40 @@ import { Callout } from "fumadocs-ui/components/callout";
 
 Multica CLI 既负责连接本机运行时，也可以在终端中管理工作区、任务、智能体和自动化。这里介绍常用路径；当前版本支持的参数始终以命令自身的 `--help` 为准。
 
+## 发布负责人和协调
+
+`release get` 和 `release list --output json` 包含可为空的 `owner_type`、
+`owner_id`、`owner_name`、`owner_avatar_url`。负责人只能是智能体或小队，
+不能是成员。分配只修改负责人；已发布的版本不能更换负责人。
+
+```bash
+multica release assign <release> --to "Build squad"
+multica release assign <release> --unassign
+multica release comment list <release> --roots-only --summary --compact --output json
+multica release comment list <release> --thread <comment-id> --tail 30 --output json
+multica release comment add <release> --content-file ./result.md --parent <comment-id> --attachment ./report.pdf --output table
+multica release wakeup create <release> --until-issue WORK-501 --until-issue-state in_review --instruction-file ./wait.md --expires-in 72h --on-timeout wake
+multica release wakeup create <release> --kind every --every 1h --instruction "检查前置条件" --expires-in 72h
+multica release wakeup list <release> --output json
+multica release wakeup delete <release> <wakeup-id>
+```
+
+评论正文可从文件、标准输入或行内参数读取，三选一。智能体应使用工作目录内
+的 UTF-8 文件。回复必须属于同一工作区和同一发布，附件可重复指定本地路径。
+先用 roots/summary 扫描，再用 `--recent N` 限制完整讨论串，
+`--thread` 加 `--tail N` 限制回复，或 `--since <RFC3339>` 增量读取。
+向前翻页时同时提供 `--before` 和 `--before-id`。
+
+唤醒触发时会查找当前负责人。支持同工作区任务条件：`done`、包含取消的
+`ended`、`in_review`；也支持 `at`、`every`、`cron` 时间安排，以及现有
+的指令、过期和超时选项。成员评论会唤醒负责人，智能体的报告不会递归唤醒。
+小队仅由当前队长执行；负责人没有可用运行时时，分配仍然保存。
+
+协调保留既定范围、任务顺序、负责人、父任务、工作泳道、版本和发布线位置。
+全部任务完成不会自动发布。先完成原有发布流程和人工审批，再显式执行
+`multica release ship <release>` 并通过现有检查。发布会清理唤醒和未开始的
+协调运行，正在执行发布的运行仍可提交结果。
+
 ## 安装
 
 **macOS / Linux**

@@ -30,7 +30,7 @@ describe("release milestones API boundary", () => {
     const client = new ApiClient("https://api.example.test");
     respond({ releases: [release] });
     await expect(client.listReleases()).resolves.toEqual({ releases: [release] });
-    respond(release);
+    respond({ release });
     await expect(client.getRelease(release.id)).resolves.toEqual(release);
     respond({ releases: [release] });
     await expect(client.editRelease(release.id, { title: "First", version: "1.0.0" })).resolves.toEqual({ releases: [release] });

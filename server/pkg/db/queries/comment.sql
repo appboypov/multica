@@ -555,7 +555,7 @@ WITH locked_issue AS MATERIALIZED (
               comment.parent_id, comment.workspace_id, comment.resolved_at,
               comment.resolved_by_type, comment.resolved_by_id, comment.source_task_id,
               comment.quick_action_id, comment.via_plugin_id, comment.revision,
-              comment.deleted_at, target.did_change
+              comment.deleted_at, comment.release_id, target.did_change
 ), touched_issue AS (
     UPDATE issue
     SET revision = issue.revision + 1,
@@ -573,7 +573,7 @@ SELECT updated_comment.id, updated_comment.issue_id, updated_comment.author_type
        updated_comment.resolved_by_type, updated_comment.resolved_by_id,
        updated_comment.source_task_id, updated_comment.quick_action_id,
        updated_comment.via_plugin_id, updated_comment.revision,
-       updated_comment.deleted_at,
+       updated_comment.deleted_at, updated_comment.release_id,
        COALESCE((SELECT revision FROM touched_issue), 0)::bigint AS issue_revision
 FROM updated_comment;
 
@@ -869,3 +869,265 @@ FROM comment c
 JOIN ancestor_ids path ON path.id = c.id
 ORDER BY c.id
 FOR UPDATE OF c;
+
+-- Release discussion. A release comment has release_id set and issue_id NULL
+-- (comment_subject_check). Every query and every recursive level below pins
+-- both workspace_id and release_id, so a stray parent reference can never pull
+-- an issue's or another release's comments into a release response.
+
+-- name: ListCommentsForRelease :many
+-- The newest @row_limit comments of a release, returned oldest first.
+SELECT c.* FROM comment c
+WHERE c.id IN (
+    SELECT recent.id FROM comment recent
+    WHERE recent.release_id = sqlc.arg(release_id) AND recent.workspace_id = sqlc.arg(workspace_id)
+    ORDER BY recent.created_at DESC, recent.id DESC
+    LIMIT sqlc.arg(row_limit)
+)
+ORDER BY c.created_at ASC, c.id ASC;
+
+-- name: ListCommentsByIDsForRelease :many
+SELECT * FROM comment
+WHERE id = ANY(sqlc.arg(ids)::uuid[])
+  AND release_id = sqlc.arg(release_id)
+  AND workspace_id = sqlc.arg(workspace_id)
+ORDER BY created_at ASC, id ASC;
+
+-- name: ListChildCommentsForReleaseParents :many
+-- One descendant level for a bounded parent set; mirrors
+-- ListChildCommentsForParents.
+SELECT * FROM comment
+WHERE parent_id = ANY(sqlc.arg(parent_ids)::uuid[])
+  AND release_id = sqlc.arg(release_id)
+  AND workspace_id = sqlc.arg(workspace_id)
+  AND (created_at, id) <= (sqlc.arg(through_at)::timestamptz, sqlc.arg(through_id)::uuid)
+ORDER BY parent_id ASC, created_at ASC, id ASC
+LIMIT sqlc.arg(row_limit);
+
+-- name: ListCommentsSinceForRelease :many
+SELECT * FROM comment
+WHERE release_id = sqlc.arg(release_id) AND workspace_id = sqlc.arg(workspace_id)
+  AND created_at > sqlc.arg(since)
+ORDER BY created_at ASC, id ASC
+LIMIT sqlc.arg(row_limit);
+
+-- name: ListRootCommentsForRelease :many
+-- The newest @row_limit release threads, oldest first, each with its reply
+-- count and last activity over the whole subtree.
+WITH RECURSIVE selected_roots AS (
+    SELECT c.id, c.created_at FROM comment c
+    WHERE c.release_id = sqlc.arg(release_id) AND c.workspace_id = sqlc.arg(workspace_id)
+      AND c.parent_id IS NULL
+    ORDER BY c.created_at DESC, c.id DESC
+    LIMIT sqlc.arg(row_limit)
+), membership(id, root_id, comment_created_at) AS (
+    SELECT sr.id, sr.id, sr.created_at FROM selected_roots sr
+    UNION ALL
+    SELECT c.id, m.root_id, c.created_at FROM comment c
+    JOIN membership m ON c.parent_id = m.id
+    WHERE c.release_id = sqlc.arg(release_id) AND c.workspace_id = sqlc.arg(workspace_id)
+), thread_stats AS (
+    SELECT root_id, (COUNT(*) - 1)::int AS reply_count,
+           MAX(comment_created_at)::timestamptz AS last_activity_at
+    FROM membership GROUP BY root_id
+)
+SELECT sqlc.embed(c), ts.reply_count, ts.last_activity_at
+FROM selected_roots sr
+JOIN comment c ON c.id = sr.id
+JOIN thread_stats ts ON ts.root_id = sr.id
+ORDER BY c.created_at ASC, c.id ASC;
+
+-- name: ListRootCommentsSinceForRelease :many
+WITH RECURSIVE selected_roots AS (
+    SELECT c.id, c.created_at FROM comment c
+    WHERE c.release_id = sqlc.arg(release_id) AND c.workspace_id = sqlc.arg(workspace_id)
+      AND c.parent_id IS NULL AND c.created_at > sqlc.arg(since)
+    ORDER BY c.created_at ASC, c.id ASC
+    LIMIT sqlc.arg(row_limit)
+), membership(id, root_id, comment_created_at) AS (
+    SELECT sr.id, sr.id, sr.created_at FROM selected_roots sr
+    UNION ALL
+    SELECT c.id, m.root_id, c.created_at FROM comment c
+    JOIN membership m ON c.parent_id = m.id
+    WHERE c.release_id = sqlc.arg(release_id) AND c.workspace_id = sqlc.arg(workspace_id)
+), thread_stats AS (
+    SELECT root_id, (COUNT(*) - 1)::int AS reply_count,
+           MAX(comment_created_at)::timestamptz AS last_activity_at
+    FROM membership GROUP BY root_id
+)
+SELECT sqlc.embed(c), ts.reply_count, ts.last_activity_at
+FROM selected_roots sr
+JOIN comment c ON c.id = sr.id
+JOIN thread_stats ts ON ts.root_id = sr.id
+ORDER BY c.created_at ASC, c.id ASC;
+
+-- name: ListThreadCommentsForReleasePaged :many
+-- The thread root of @anchor_id plus its newest @reply_limit replies before
+-- the optional (before_at, before_id) cursor, returned oldest first. The root
+-- is always included.
+WITH RECURSIVE root_of AS (
+    SELECT c.id, c.parent_id FROM comment c
+    WHERE c.id = sqlc.arg(anchor_id) AND c.release_id = sqlc.arg(release_id) AND c.workspace_id = sqlc.arg(workspace_id)
+    UNION ALL
+    SELECT p.id, p.parent_id FROM comment p
+    JOIN root_of r ON p.id = r.parent_id
+    WHERE p.release_id = sqlc.arg(release_id) AND p.workspace_id = sqlc.arg(workspace_id)
+), thread_root AS (
+    SELECT id FROM root_of WHERE parent_id IS NULL LIMIT 1
+), descendants AS (
+    SELECT c.id, c.created_at FROM comment c JOIN thread_root tr ON c.id = tr.id
+    UNION
+    SELECT c.id, c.created_at FROM comment c
+    JOIN descendants d ON c.parent_id = d.id
+    WHERE c.release_id = sqlc.arg(release_id) AND c.workspace_id = sqlc.arg(workspace_id)
+), reply_page AS (
+    SELECT d.id FROM descendants d
+    WHERE d.id NOT IN (SELECT id FROM thread_root)
+      AND (sqlc.arg(has_cursor)::boolean = FALSE
+           OR (d.created_at, d.id) < (sqlc.arg(before_at)::timestamptz, sqlc.arg(before_id)::uuid))
+    ORDER BY d.created_at DESC, d.id DESC
+    LIMIT sqlc.arg(reply_limit)
+)
+SELECT c.* FROM comment c
+WHERE c.id IN (SELECT id FROM thread_root UNION ALL SELECT id FROM reply_page)
+ORDER BY c.created_at ASC, c.id ASC;
+
+-- name: ListRecentThreadCommentsForRelease :many
+-- The @thread_limit most recently active release threads, complete, oldest
+-- active thread first; the cursor pages back by (last activity, root id).
+WITH RECURSIVE membership(id, root_id, comment_created_at) AS (
+    SELECT c.id, c.id AS root_id, c.created_at FROM comment c
+    WHERE c.release_id = sqlc.arg(release_id) AND c.workspace_id = sqlc.arg(workspace_id)
+      AND c.parent_id IS NULL
+    UNION ALL
+    SELECT c.id, m.root_id, c.created_at FROM comment c
+    JOIN membership m ON c.parent_id = m.id
+    WHERE c.release_id = sqlc.arg(release_id) AND c.workspace_id = sqlc.arg(workspace_id)
+), thread_stats AS (
+    SELECT root_id, MAX(comment_created_at)::timestamptz AS last_activity_at
+    FROM membership GROUP BY root_id
+), picked AS (
+    SELECT ts.root_id, ts.last_activity_at FROM thread_stats ts
+    WHERE (sqlc.arg(has_cursor)::boolean = FALSE
+           OR (ts.last_activity_at, ts.root_id) < (sqlc.arg(before_at)::timestamptz, sqlc.arg(before_id)::uuid))
+    ORDER BY ts.last_activity_at DESC, ts.root_id DESC
+    LIMIT sqlc.arg(thread_limit)
+)
+SELECT sqlc.embed(c), p.root_id AS thread_root_id, p.last_activity_at AS thread_last_activity_at
+FROM picked p
+JOIN membership m ON m.root_id = p.root_id
+JOIN comment c ON c.id = m.id
+ORDER BY p.last_activity_at ASC, p.root_id ASC, c.created_at ASC, c.id ASC;
+
+-- name: CountReleaseComments :one
+SELECT count(*) FROM comment
+WHERE release_id = $1 AND workspace_id = $2;
+
+-- name: CreateReleaseComment :one
+-- Writes a release comment. The release row is held FOR KEY SHARE so removal
+-- (which locks the release FOR UPDATE) cannot interleave; a shipped release
+-- still accepts discussion. A parent must be a comment of the same release in
+-- the same workspace, otherwise the insert selects nothing and the query
+-- returns pgx.ErrNoRows. A member root or reply is captured for the owner by
+-- the capture_comment_wakeup trigger in this transaction.
+WITH target AS MATERIALIZED (
+    SELECT r.id, r.workspace_id FROM release r
+    WHERE r.id = sqlc.arg(release_id) AND r.workspace_id = sqlc.arg(workspace_id)
+    FOR KEY SHARE
+)
+INSERT INTO comment (release_id, workspace_id, author_type, author_id, content, type, parent_id, source_task_id, quick_action_id, id)
+SELECT target.id, target.workspace_id, sqlc.arg(author_type), sqlc.arg(author_id), sqlc.arg(content), sqlc.arg(type),
+       sqlc.narg(parent_id), sqlc.narg(source_task_id), sqlc.narg(quick_action_id), COALESCE(sqlc.narg('id')::uuid, gen_random_uuid())
+FROM target
+WHERE sqlc.narg(parent_id)::uuid IS NULL OR EXISTS (
+    SELECT 1 FROM comment parent
+    WHERE parent.id = sqlc.narg(parent_id)::uuid AND parent.release_id = target.id AND parent.workspace_id = target.workspace_id
+)
+RETURNING *;
+
+-- name: GetReleaseComment :one
+SELECT * FROM comment
+WHERE id = $1 AND workspace_id = $2 AND release_id = $3;
+
+-- name: LockReleaseCommentAncestorPath :many
+WITH RECURSIVE ancestor_ids AS (
+  SELECT c.id, c.parent_id, 1::integer AS depth, ARRAY[c.id]::uuid[] AS visited_ids
+  FROM comment c
+  WHERE c.id = sqlc.arg(comment_id)
+    AND c.workspace_id = sqlc.arg(workspace_id)
+    AND c.release_id = sqlc.arg(release_id)
+
+  UNION ALL
+
+  SELECT parent.id, parent.parent_id, path.depth + 1, path.visited_ids || parent.id
+  FROM ancestor_ids path
+  JOIN comment parent ON parent.id = path.parent_id
+  WHERE parent.workspace_id = sqlc.arg(workspace_id)
+    AND parent.release_id = sqlc.arg(release_id)
+    AND path.depth <= 256
+    AND NOT parent.id = ANY(path.visited_ids)
+)
+SELECT c.id
+FROM comment c
+JOIN ancestor_ids path ON path.id = c.id
+ORDER BY c.id
+FOR UPDATE OF c;
+
+-- name: GetReleaseReportBySourceTask :one
+-- The single report a coordination run posted, used to keep completion
+-- idempotent: a retried completion finds the earlier report instead of
+-- posting a second one.
+SELECT * FROM comment
+WHERE workspace_id = $1 AND release_id = $2 AND source_task_id = $3
+  AND author_type = 'agent'
+ORDER BY created_at ASC, id ASC
+LIMIT 1;
+
+-- name: DeleteReleaseComments :exec
+-- Removal of releases: their discussions, reactions and supplement references
+-- go with them. Attachments are deleted first by DeleteReleaseCommentAttachments
+-- so their stored files can be cleaned.
+WITH doomed AS (
+    SELECT c.id FROM comment c
+    WHERE c.workspace_id = sqlc.arg(workspace_id) AND c.release_id = ANY(sqlc.arg(release_ids)::uuid[])
+), reactions AS (
+    DELETE FROM comment_reaction WHERE comment_reaction.comment_id IN (SELECT doomed.id FROM doomed)
+)
+DELETE FROM comment WHERE comment.id IN (SELECT doomed.id FROM doomed);
+
+-- name: ClearOtherReleaseThreadResolutions :many
+-- ClearOtherThreadResolutions for a release thread: the walk never leaves the
+-- release.
+WITH RECURSIVE root_of AS (
+    SELECT c.id, c.parent_id
+    FROM comment c
+    WHERE c.id = @target_id AND c.release_id = @release_id AND c.workspace_id = @workspace_id
+    UNION ALL
+    SELECT p.id, p.parent_id
+    FROM comment p
+    JOIN root_of r ON p.id = r.parent_id
+    WHERE p.release_id = @release_id AND p.workspace_id = @workspace_id
+),
+thread_root AS (
+    SELECT id FROM root_of WHERE parent_id IS NULL LIMIT 1
+),
+descendants AS (
+    SELECT c.id
+    FROM comment c
+    JOIN thread_root tr ON c.id = tr.id
+    UNION
+    SELECT c.id
+    FROM comment c
+    JOIN descendants d ON c.parent_id = d.id
+    WHERE c.release_id = @release_id AND c.workspace_id = @workspace_id
+)
+UPDATE comment SET
+    resolved_at = NULL,
+    resolved_by_type = NULL,
+    resolved_by_id = NULL,
+    revision = revision + 1,
+    updated_at = now()
+WHERE comment.id IN (SELECT id FROM descendants)
+  AND comment.id <> @target_id
+  AND comment.resolved_at IS NOT NULL
+RETURNING *;

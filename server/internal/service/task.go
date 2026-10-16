@@ -3041,6 +3041,15 @@ func (s *TaskService) CancelTaskWithResult(ctx context.Context, taskID pgtype.UU
 		// other connection while the pointer still names the previous turn's
 		// session, and a queued follow-up can resume that older session.
 		err = s.runInTx(ctx, func(qtx *db.Queries) error {
+			snapshot, snapshotErr := qtx.GetAgentTask(ctx, taskID)
+			if snapshotErr != nil {
+				return snapshotErr
+			}
+			if snapshot.ReleaseID.Valid {
+				if _, err := qtx.LockReleaseTaskRepository(ctx, taskID); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+					return err
+				}
+			}
 			if err := lockChatSessionForTaskWrite(ctx, qtx, taskID); err != nil {
 				return err
 			}
@@ -3922,6 +3931,12 @@ func (s *TaskService) FinalizeTaskClaim(
 	}
 	receipt := task.DeliveredCommentIds
 	err := s.runInTx(ctx, func(qtx *db.Queries) error {
+		if task.ReleaseID.Valid {
+			if err := lockCurrentReleaseTask(ctx, qtx, task); err != nil {
+				return &ClaimDeliveryAuthzError{Reason: "release_owner_changed", Detail: err.Error()}
+			}
+			questionsEnabled = false
+		}
 		if authorize != nil {
 			if err := authorize(qtx, &token); err != nil {
 				return fmt.Errorf("authorize claim delivery: %w", err)
@@ -3987,16 +4002,42 @@ func (s *TaskService) FinalizeTaskClaim(
 // SQL CAS includes dispatched_at so a late handler cannot roll back a newer
 // reclaim. This is not a fresh enqueue: do not duplicate queued analytics.
 func (s *TaskService) RequeueTaskAfterClaimFailure(ctx context.Context, task db.AgentTaskQueue) (*db.AgentTaskQueue, error) {
-	requeued, err := s.Queries.RequeueAgentTaskAfterClaimFailure(ctx, db.RequeueAgentTaskAfterClaimFailureParams{
-		TaskID:       task.ID,
-		RuntimeID:    task.RuntimeID,
-		DispatchedAt: task.DispatchedAt,
+	var requeued db.AgentTaskQueue
+	err := s.runInTx(ctx, func(q *db.Queries) error {
+		if task.ReleaseID.Valid {
+			if err := lockCurrentReleaseTask(ctx, q, task); err != nil {
+				if !errors.Is(err, pgx.ErrNoRows) {
+					return err
+				}
+				current, lockErr := q.LockAgentTaskStartClaim(ctx, db.LockAgentTaskStartClaimParams{ID: task.ID, RuntimeID: task.RuntimeID, DispatchedAt: task.DispatchedAt})
+				if lockErr != nil {
+					return lockErr
+				}
+				if current.Status == "running" {
+					return pgx.ErrNoRows
+				}
+				requeued, lockErr = q.CancelAgentTask(ctx, task.ID)
+				if lockErr != nil {
+					return lockErr
+				}
+				return SettleTerminalTaskState(ctx, q, requeued)
+			}
+		}
+		var err error
+		requeued, err = q.RequeueAgentTaskAfterClaimFailure(ctx, db.RequeueAgentTaskAfterClaimFailureParams{
+			TaskID: task.ID, RuntimeID: task.RuntimeID, DispatchedAt: task.DispatchedAt,
+		})
+		return err
 	})
 	if err != nil {
 		return nil, fmt.Errorf("requeue task after claim failure: %w", err)
 	}
 	s.forgetTaskReclaim(requeued)
 	s.ReconcileAgentStatus(ctx, requeued.AgentID)
+	if requeued.Status == "cancelled" {
+		s.broadcastTaskEvent(ctx, protocol.EventTaskCancelled, requeued)
+		return &requeued, nil
+	}
 	s.broadcastTaskEvent(ctx, protocol.EventTaskQueued, requeued)
 	s.notifyTaskAvailable(requeued)
 	slog.Info("task requeued after claim finalization failure",
@@ -4306,9 +4347,24 @@ func (s *TaskService) maybeLogClaimSlow(agentID pgtype.UUID, outcome string, sta
 // Issue status is NOT changed here — the agent manages it via the CLI.
 func (s *TaskService) StartTask(ctx context.Context, taskID pgtype.UUID, supplementSupport ...bool) (*db.AgentTaskQueue, error) {
 	enableTaskSupplement := len(supplementSupport) > 0 && supplementSupport[0]
-	task, err := s.Queries.StartAgentTaskWithSupplement(ctx, db.StartAgentTaskWithSupplementParams{
-		TaskID:               taskID,
-		EnableTaskSupplement: enableTaskSupplement,
+	var task db.AgentTaskQueue
+	err := s.runInTx(ctx, func(qtx *db.Queries) error {
+		snapshot, err := qtx.GetAgentTask(ctx, taskID)
+		if err != nil {
+			return err
+		}
+		if snapshot.ReleaseID.Valid {
+			if err := lockCurrentReleaseTask(ctx, qtx, snapshot); err != nil {
+				return err
+			}
+		}
+		task, err = qtx.StartAgentTaskWithSupplement(ctx, db.StartAgentTaskWithSupplementParams{
+			TaskID: taskID, EnableTaskSupplement: enableTaskSupplement && !snapshot.ReleaseID.Valid,
+		})
+		if err == nil && task.ReleaseID.Valid {
+			err = consumeReleaseTaskInputs(ctx, qtx, task)
+		}
+		return err
 	})
 	if err != nil {
 		return nil, fmt.Errorf("start task: %w", err)
@@ -4330,6 +4386,15 @@ func (s *TaskService) StartTaskForClaim(ctx context.Context, claim db.LockAgentT
 	}
 	defer tx.Rollback(ctx)
 	qtx := s.Queries.WithTx(tx)
+	snapshot, err := qtx.GetAgentTask(ctx, claim.ID)
+	if err != nil {
+		return nil, err
+	}
+	if snapshot.ReleaseID.Valid && snapshot.Status != "running" {
+		if err := lockCurrentReleaseTask(ctx, qtx, snapshot); err != nil {
+			return nil, err
+		}
+	}
 	task, err := qtx.LockAgentTaskStartClaim(ctx, claim)
 	if err != nil {
 		return nil, fmt.Errorf("lock task start claim: %w", err)
@@ -4338,10 +4403,15 @@ func (s *TaskService) StartTaskForClaim(ctx context.Context, claim db.LockAgentT
 	if !replay {
 		task, err = qtx.StartAgentTaskWithSupplement(ctx, db.StartAgentTaskWithSupplementParams{
 			TaskID:               task.ID,
-			EnableTaskSupplement: len(supplementSupport) > 0 && supplementSupport[0],
+			EnableTaskSupplement: len(supplementSupport) > 0 && supplementSupport[0] && !task.ReleaseID.Valid,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("start claimed task: %w", err)
+		}
+		if task.ReleaseID.Valid {
+			if err := consumeReleaseTaskInputs(ctx, qtx, task); err != nil {
+				return nil, err
+			}
 		}
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -4516,7 +4586,20 @@ func (s *TaskService) CompleteTaskWithTransition(ctx context.Context, taskID pgt
 	// task inside the completion transaction below. It is broadcast (chat:done)
 	// only after the transaction commits.
 	var chatAssistantMsg *db.ChatMessage
+	var releaseReport *db.Comment
 	if err := s.runInTx(ctx, func(qtx *db.Queries) error {
+		snapshot, err := qtx.GetAgentTask(ctx, taskID)
+		if err != nil {
+			return err
+		}
+		releaseExists := false
+		if snapshot.ReleaseID.Valid {
+			_, err := qtx.LockReleaseTaskRepository(ctx, taskID)
+			if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+				return err
+			}
+			releaseExists = err == nil
+		}
 		if err := lockChatSessionForTaskWrite(ctx, qtx, taskID); err != nil {
 			return err
 		}
@@ -4534,6 +4617,13 @@ func (s *TaskService) CompleteTaskWithTransition(ctx context.Context, taskID pgt
 			return err
 		}
 		task = t
+		if t.ReleaseID.Valid && releaseExists {
+			report, err := writeReleaseCompletionReport(ctx, qtx, t, result)
+			if err != nil {
+				return err
+			}
+			releaseReport = report
+		}
 
 		// Atomic with the status flip: a crash between the two would leave a
 		// finished obligation looking pending forever.
@@ -4623,6 +4713,14 @@ func (s *TaskService) CompleteTaskWithTransition(ctx context.Context, taskID pgt
 
 	slog.Info("task completed", "task_id", util.UUIDToString(task.ID), "issue_id", util.UUIDToString(task.IssueID))
 	s.captureTaskCompleted(ctx, task)
+	if releaseReport != nil {
+		s.Bus.Publish(events.Event{
+			Type:        protocol.EventReleaseCommentCreated,
+			WorkspaceID: s.ResolveTaskWorkspaceID(ctx, task),
+			ActorType:   "agent", ActorID: util.UUIDToString(task.AgentID),
+			Payload: protocol.ReleaseCommentEventPayload{ReleaseID: util.UUIDToString(task.ReleaseID), CommentID: util.UUIDToString(releaseReport.ID)},
+		})
+	}
 
 	// Invariant: every completed issue task must have at least one agent
 	// comment on the issue, so the user always sees something when a run
@@ -5007,6 +5105,20 @@ func (s *TaskService) FailTaskWithTransition(ctx context.Context, taskID pgtype.
 	var task db.AgentTaskQueue
 	var retried *db.AgentTaskQueue
 	if err := s.runInTx(ctx, func(qtx *db.Queries) error {
+		snapshot, err := qtx.GetAgentTask(ctx, taskID)
+		if err != nil {
+			return err
+		}
+		if snapshot.ReleaseID.Valid {
+			if err := lockCurrentReleaseTask(ctx, qtx, snapshot); err != nil {
+				if !errors.Is(err, pgx.ErrNoRows) {
+					return err
+				}
+				// A running former owner may finish, but cannot schedule another
+				// turn against a replaced, shipped or removed release.
+				wantRetry = false
+			}
+		}
 		if err := lockChatSessionForTaskWrite(ctx, qtx, taskID); err != nil {
 			return err
 		}
@@ -5143,7 +5255,7 @@ func (s *TaskService) FailTaskWithTransition(ctx context.Context, taskID pgtype.
 		// parent's failed status, and losing that leaves the task stuck in
 		// 'running' — so both a Triage issue and an unreadable status skip the
 		// retry instead of returning, exactly as the ErrNoRows case below does.
-		if createRetry {
+		if createRetry && !t.ReleaseID.Valid {
 			if gerr := guardIssueNotInTriage(ctx, qtx, t.IssueID, OriginDerived); gerr != nil {
 				slog.Info("fail task auto-retry skipped: issue does not run",
 					"task_id", util.UUIDToString(taskID),
@@ -5154,7 +5266,7 @@ func (s *TaskService) FailTaskWithTransition(ctx context.Context, taskID pgtype.
 			}
 		}
 		if createRetry {
-			child, cerr := qtx.CreateRetryTask(ctx, db.CreateRetryTaskParams{
+			child, cerr := createRetryTaskForSubject(ctx, qtx, t, db.CreateRetryTaskParams{
 				NewTaskID:            dbid.NewV7(),
 				ID:                   taskID,
 				FireAt:               retryFireAt,
@@ -5507,11 +5619,11 @@ func retryEligible(failureReason string, t db.AgentTaskQueue) bool {
 		t.Attempt < retryAttemptCeiling(failureReason, t.MaxAttempts) &&
 		!t.AutopilotRunID.Valid &&
 		!IsTriageTask(t) &&
-		(t.IssueID.Valid || t.ChatSessionID.Valid || isSourceContextQuickCreateTask(t))
+		(t.IssueID.Valid || t.ReleaseID.Valid || t.ChatSessionID.Valid || isSourceContextQuickCreateTask(t))
 }
 
 func isSourceContextQuickCreateTask(task db.AgentTaskQueue) bool {
-	if len(task.Context) == 0 || task.IssueID.Valid || task.ChatSessionID.Valid || task.AutopilotRunID.Valid {
+	if len(task.Context) == 0 || task.ReleaseID.Valid || task.IssueID.Valid || task.ChatSessionID.Valid || task.AutopilotRunID.Valid {
 		return false
 	}
 	var quickCreate QuickCreateContext
@@ -5621,6 +5733,14 @@ func (s *TaskService) MaybeRetryFailedTask(ctx context.Context, parent db.AgentT
 	}
 	defer tx.Rollback(ctx)
 	qtx := s.Queries.WithTx(tx)
+	if parent.ReleaseID.Valid {
+		if err := lockCurrentReleaseTask(ctx, qtx, parent); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return nil, nil
+			}
+			return nil, err
+		}
+	}
 	if err := lockChatSessionForTaskWrite(ctx, qtx, parent.ID); err != nil {
 		return nil, err
 	}
@@ -5664,16 +5784,18 @@ func (s *TaskService) MaybeRetryFailedTask(ctx context.Context, parent db.AgentT
 	} else if successor {
 		return nil, nil
 	}
-	if err := guardIssueNotInTriage(ctx, qtx, parent.IssueID, OriginDerived); err != nil {
-		if errors.Is(err, ErrIssueInTriage) {
-			slog.Info("task auto-retry skipped: issue is in triage",
-				"parent_task_id", util.UUIDToString(parent.ID),
-				"issue_id", util.UUIDToString(parent.IssueID))
-			return nil, nil
+	if !parent.ReleaseID.Valid {
+		if err := guardIssueNotInTriage(ctx, qtx, parent.IssueID, OriginDerived); err != nil {
+			if errors.Is(err, ErrIssueInTriage) {
+				slog.Info("task auto-retry skipped: issue is in triage",
+					"parent_task_id", util.UUIDToString(parent.ID),
+					"issue_id", util.UUIDToString(parent.IssueID))
+				return nil, nil
+			}
+			return nil, err
 		}
-		return nil, err
 	}
-	child, err := qtx.CreateRetryTask(ctx, db.CreateRetryTaskParams{
+	child, err := createRetryTaskForSubject(ctx, qtx, parent, db.CreateRetryTaskParams{
 		NewTaskID:            dbid.NewV7(),
 		ID:                   parent.ID,
 		FireAt:               retryFireAt,
@@ -6141,6 +6263,15 @@ func (s *TaskService) RecoverOrphanedTasksForRuntime(ctx context.Context, runtim
 // non-chat tasks keep their existing behavior.
 func (s *TaskService) CancelTasksForArchivedAgent(ctx context.Context, agentID pgtype.UUID) ([]db.AgentTaskQueue, error) {
 	cancelled, err := s.terminateTasksInTx(ctx, func(qtx *db.Queries) ([]db.AgentTaskQueue, error) {
+		targets, err := qtx.ListReleaseTaskLockTargetsByAgent(ctx, agentID)
+		if err != nil {
+			return nil, err
+		}
+		for _, taskID := range targets {
+			if _, err := qtx.LockReleaseTaskRepository(ctx, taskID); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+				return nil, err
+			}
+		}
 		return qtx.CancelAgentTasksByAgent(ctx, agentID)
 	})
 	if err != nil {
@@ -6302,6 +6433,11 @@ func SettleTerminalTaskState(ctx context.Context, q *db.Queries, tasks ...db.Age
 
 	taskIDs := make([]pgtype.UUID, 0, len(tasks))
 	for _, task := range tasks {
+		if task.ReleaseID.Valid && !task.StartedAt.Valid {
+			if err := q.ReleaseUnstartedReleaseTaskReceipts(ctx, task.ID); err != nil {
+				return fmt.Errorf("release unstarted coordination inputs: %w", err)
+			}
+		}
 		taskIDs = append(taskIDs, task.ID)
 	}
 	if _, err := q.SettleTerminalTaskSupplements(ctx, taskIDs); err != nil {
@@ -7393,6 +7529,9 @@ func taskEvent(eventType, workspaceID string, task db.AgentTaskQueue, extra ...m
 		TaskID:      util.UUIDToString(task.ID),
 		Payload:     payload,
 	}
+	if task.ReleaseID.Valid {
+		payload["release_id"] = util.UUIDToString(task.ReleaseID)
+	}
 	if task.ChatSessionID.Valid {
 		chatSessionID := util.UUIDToString(task.ChatSessionID)
 		payload["chat_session_id"] = chatSessionID
@@ -7487,6 +7626,20 @@ func (s *TaskService) ResolveTaskWorkspaceIDChecked(ctx context.Context, task db
 		}
 	}
 
+	if task.ReleaseID.Valid {
+		release, err := s.Queries.GetReleaseForTask(ctx, task.ID)
+		if err == nil {
+			return util.UUIDToString(release.WorkspaceID), nil
+		}
+		note(err)
+		if errors.Is(err, pgx.ErrNoRows) {
+			agent, agentErr := s.Queries.GetAgent(ctx, task.AgentID)
+			if agentErr == nil {
+				return util.UUIDToString(agent.WorkspaceID), nil
+			}
+			note(agentErr)
+		}
+	}
 	if task.IssueID.Valid {
 		issue, err := s.Queries.GetIssue(ctx, task.IssueID)
 		if err == nil {
@@ -7880,7 +8033,7 @@ func IssueIdentifier(issuePrefix string, number int32) string {
 // autopilot are never quick-create even if they happen to carry a
 // context blob, so those are filtered up front.
 func (s *TaskService) parseQuickCreateContext(task db.AgentTaskQueue) (QuickCreateContext, bool) {
-	if task.IssueID.Valid || task.ChatSessionID.Valid || task.AutopilotRunID.Valid {
+	if task.ReleaseID.Valid || task.IssueID.Valid || task.ChatSessionID.Valid || task.AutopilotRunID.Valid {
 		return QuickCreateContext{}, false
 	}
 	if len(task.Context) == 0 {
@@ -8214,4 +8367,26 @@ func agentToMap(a db.Agent) map[string]any {
 		"archived_at":          util.TimestampToPtr(a.ArchivedAt),
 		"archived_by":          util.UUIDToPtr(a.ArchivedBy),
 	}
+}
+
+// lockCurrentReleaseTask follows the release mutation lock order before task CAS.
+func lockCurrentReleaseTask(ctx context.Context, q *db.Queries, task db.AgentTaskQueue) error {
+	if _, err := q.LockReleaseTaskRepository(ctx, task.ID); err != nil {
+		return fmt.Errorf("lock release repository: %w", err)
+	}
+	release, err := q.GetReleaseForTask(ctx, task.ID)
+	if err != nil {
+		return err
+	}
+	agent, squadID, err := ResolveReleaseTaskOwner(ctx, q, release)
+	if errors.Is(err, ErrReleaseOwnerUnavailable) {
+		return pgx.ErrNoRows
+	}
+	if err != nil {
+		return err
+	}
+	if agent.ID != task.AgentID || agent.RuntimeID != task.RuntimeID || squadID != task.SquadID {
+		return pgx.ErrNoRows
+	}
+	return nil
 }

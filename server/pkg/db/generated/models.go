@@ -199,6 +199,7 @@ type AgentTaskQueue struct {
 	CancelledByName           pgtype.Text `json:"cancelled_by_name"`
 	IssueSnapshot             []byte      `json:"issue_snapshot"`
 	QuestionsEnabled          bool        `json:"questions_enabled"`
+	ReleaseID                 pgtype.UUID `json:"release_id"`
 }
 
 type AgentToLabel struct {
@@ -612,6 +613,7 @@ type Comment struct {
 	RecoverySettledAt  pgtype.Timestamptz `json:"recovery_settled_at"`
 	DeletedAt          pgtype.Timestamptz `json:"deleted_at"`
 	SuppressedAgentIds []pgtype.UUID      `json:"suppressed_agent_ids"`
+	ReleaseID          pgtype.UUID        `json:"release_id"`
 }
 
 type CommentReaction struct {
@@ -1076,6 +1078,7 @@ type IssueWakeup struct {
 	MaxFires        pgtype.Int4        `json:"max_fires"`
 	FireCount       int32              `json:"fire_count"`
 	PausedReason    pgtype.Text        `json:"paused_reason"`
+	ReleaseID       pgtype.UUID        `json:"release_id"`
 }
 
 type IssueWakeupReceipt struct {
@@ -1486,6 +1489,8 @@ type Release struct {
 	CreatedBy    pgtype.UUID        `json:"created_by"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	OwnerType    pgtype.Text        `json:"owner_type"`
+	OwnerID      pgtype.UUID        `json:"owner_id"`
 }
 
 type ReleaseMilestone struct {

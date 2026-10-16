@@ -20,7 +20,7 @@ vi.mock("@multica/core/api", async (importOriginal) => ({
 }));
 
 const milestone = { id: "m-1", release_id: "r-1", name: "UI prototype", date: "2026-11-02", created_at: "", updated_at: "" };
-const release: Release = { id: "r-1", repository_id: "repo-1", position: 0, version: "1.0.0", title: "First", description: "", bump: null, shipped_at: null, created_at: "", updated_at: "", milestones: [milestone] };
+const release: Release = { id: "r-1", repository_id: "repo-1", position: 0, version: "1.0.0", title: "First", description: "", bump: null, shipped_at: null, created_at: "", updated_at: "", milestones: [milestone], owner_type: null, owner_id: null, owner_name: null, owner_avatar_url: null };
 
 function mount(initial: Release = release) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });

@@ -27,6 +27,7 @@ func executeReleaseTest(t *testing.T, server string, args ...string) (string, er
 
 func TestReleaseMilestoneCLIAddGetEditRemove(t *testing.T) {
 	t.Setenv("MULTICA_TOKEN", "test-token")
+	t.Chdir(t.TempDir())
 	const releaseID = "11111111-1111-4111-8111-111111111111"
 	const milestoneID = "22222222-2222-4222-8222-222222222222"
 	release := releaseDTO{ID: releaseID, RepositoryID: "repo-1", Version: "1.0.0", Title: "First", Milestones: []releaseMilestoneDTO{}}
@@ -95,6 +96,7 @@ func TestReleaseMilestoneCLIAddGetEditRemove(t *testing.T) {
 
 func TestReleaseCLIExistingOperations(t *testing.T) {
 	t.Setenv("MULTICA_TOKEN", "test-token")
+	t.Chdir(t.TempDir())
 	const releaseID = "11111111-1111-4111-8111-111111111111"
 	const repoID = "33333333-3333-4333-8333-333333333333"
 	const projectID = "44444444-4444-4444-8444-444444444444"
@@ -176,6 +178,7 @@ func TestReleaseCLIExistingOperations(t *testing.T) {
 
 func TestReleaseCLIShip(t *testing.T) {
 	t.Setenv("MULTICA_TOKEN", "test-token")
+	t.Chdir(t.TempDir())
 	const id = "11111111-1111-4111-8111-111111111111"
 	shipped := "2026-10-15T12:00:00Z"
 	release := releaseDTO{ID: id, RepositoryID: "repo", Version: "1.0.0", Title: "Published", ShippedAt: &shipped}

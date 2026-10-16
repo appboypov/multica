@@ -122,13 +122,47 @@
     "moved_later": "{{actor}} 将 {{version}} {{title}} 推后",
     "moved": "{{actor}} 移动了 {{version}} {{title}}",
     "removed": "{{actor}} 移除了 {{version}} {{title}}",
-    "change": "{{title}} {{from}} → {{to}}"
+    "change": "{{title}} {{from}} → {{to}}",
+    "owner_set": "{{actor}} 将 {{owner}} 设为 {{version}} {{title}} 的负责人",
+    "owner_changed": "{{actor}} 将 {{owner}} 设为 {{version}} {{title}} 的负责人，替换 {{previous}}",
+    "owner_removed": "{{actor}} 移除了 {{owner}} 作为 {{version}} {{title}} 的负责人"
+  },
+  "owner": {
+    "label": "负责人",
+    "none": "无负责人",
+    "search": "搜索智能体和小队…",
+    "agents": "智能体",
+    "squads": "小队",
+    "failed": "无法保存负责人，请重试。"
+  },
+  "page": {
+    "issues": "任务",
+    "no_issues": "此版本还没有任务。",
+    "open_timeline": "在时间线中打开",
+    "not_found": "此版本不存在或已被移除。",
+    "back": "返回版本",
+    "load_failed": "无法加载此版本。",
+    "retry": "重试",
+    "unassigned": "未分配",
+    "no_worklane": "无 worklane"
+  },
+  "comments": {
+    "title": "评论",
+    "empty": "还没有评论。",
+    "placeholder": "写评论…",
+    "reply_placeholder": "写回复…",
+    "send": "评论",
+    "reply": "回复",
+    "cancel": "取消",
+    "failed": "评论发送失败。",
+    "retry": "重试"
   },
   "overview": {
     "title": "版本",
     "empty": "还没有版本。",
     "column_name": "名称",
     "column_issues": "任务",
+    "column_owner": "负责人",
     "column_worklanes": "worklanes",
     "release_count_other": "{{count}} 个版本",
     "repository_count_other": "{{count}} 个仓库",

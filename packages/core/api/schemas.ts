@@ -127,6 +127,10 @@ import type {
   ReleaseLineResponse,
   ListReleasesResponse,
   ReleaseRefusal,
+  ReleaseDetailResponse,
+  ReleaseIssuesResponse,
+  ReleaseComment,
+  ReleaseActivityResponse,
   RepositoryRefusal,
   IssueTemplate,
   IssueTemplatesResponse,
@@ -1881,6 +1885,17 @@ const ReleaseActivityDetailsShape = {
 
 const EmptyReleaseActivityDetails = { release_id: "", version: "", title: "" };
 
+const ReleaseOwnerTypeSchema = z.enum(["agent", "squad"]);
+
+const EMPTY_OWNER_CHANGE = {
+  owner_type: null,
+  owner_id: null,
+  owner_name: null,
+  previous_owner_type: null,
+  previous_owner_id: null,
+  previous_owner_name: null,
+};
+
 // An entry of a known action parses its details, each field with a default.
 // Any other action, from a newer server, is kept as `unknown` and not
 // rendered, so an older desktop app ignores the entries it cannot word.
@@ -1922,6 +1937,19 @@ const WorklaneActivityEntrySchema: z.ZodType<WorklaneActivityEntry> = z.union([
       direction: z.enum(["earlier", "later", "unknown"]).catch("unknown"),
       changes: z.array(ReleaseVersionChangeSchema).catch([]),
     }).loose().catch({ ...EmptyReleaseActivityDetails, direction: "unknown", changes: [] }),
+  }).loose(),
+  z.object({
+    ...WorklaneActivityShape,
+    action: z.literal("release_owner_changed"),
+    details: z.object({
+      ...ReleaseActivityDetailsShape,
+      owner_type: ReleaseOwnerTypeSchema.nullable().catch(null),
+      owner_id: z.string().nullable().catch(null),
+      owner_name: z.string().nullable().catch(null),
+      previous_owner_type: ReleaseOwnerTypeSchema.nullable().catch(null),
+      previous_owner_id: z.string().nullable().catch(null),
+      previous_owner_name: z.string().nullable().catch(null),
+    }).loose().catch({ ...EmptyReleaseActivityDetails, ...EMPTY_OWNER_CHANGE }),
   }).loose(),
   z.object({
     ...WorklaneActivityShape,
@@ -1971,6 +1999,30 @@ const ReleaseMilestonesSchema = z.array(z.unknown())
     return parsed.success ? [parsed.data] : [];
   })).catch([]);
 
+const NO_RELEASE_OWNER: Pick<Release, "owner_type" | "owner_id" | "owner_name" | "owner_avatar_url"> = {
+  owner_type: null,
+  owner_id: null,
+  owner_name: null,
+  owner_avatar_url: null,
+};
+
+const presentString = (value: unknown): string | null =>
+  typeof value === "string" && value !== "" ? value : null;
+
+// An owner is kept only as a known type with an id; a missing, malformed or
+// half-sent owner reads as no owner and the release itself stays readable.
+function releaseOwner(owner_type: unknown, owner_id: unknown, owner_name: unknown, owner_avatar_url: unknown) {
+  const type = ReleaseOwnerTypeSchema.safeParse(owner_type);
+  const id = presentString(owner_id);
+  if (!type.success || id === null) return NO_RELEASE_OWNER;
+  return {
+    owner_type: type.data,
+    owner_id: id,
+    owner_name: presentString(owner_name),
+    owner_avatar_url: presentString(owner_avatar_url),
+  };
+}
+
 export const ReleaseSchema: z.ZodType<Release> = z.object({
   id: z.string(),
   repository_id: z.string(),
@@ -1983,7 +2035,14 @@ export const ReleaseSchema: z.ZodType<Release> = z.object({
   created_at: z.string().default(""),
   updated_at: z.string().default(""),
   milestones: ReleaseMilestonesSchema,
-}).loose();
+  owner_type: z.unknown().optional(),
+  owner_id: z.unknown().optional(),
+  owner_name: z.unknown().optional(),
+  owner_avatar_url: z.unknown().optional(),
+}).loose().transform(({ owner_type, owner_id, owner_name, owner_avatar_url, ...release }) => ({
+  ...release,
+  ...releaseOwner(owner_type, owner_id, owner_name, owner_avatar_url),
+}));
 
 export const EMPTY_RELEASE: Release = {
   id: "",
@@ -1997,7 +2056,82 @@ export const EMPTY_RELEASE: Release = {
   created_at: "",
   updated_at: "",
   milestones: [],
+  ...NO_RELEASE_OWNER,
 };
+
+/** An unreadable release falls back to EMPTY_RELEASE, whose empty id the page shows as unreadable. */
+export const ReleaseDetailResponseSchema = z.object({ release: ReleaseSchema }).loose();
+export const EMPTY_RELEASE_DETAIL_RESPONSE: ReleaseDetailResponse = { release: EMPTY_RELEASE };
+
+// One malformed entry is dropped; the others keep their order.
+function wellFormedEntries<T extends z.ZodType>(schema: T) {
+  return z.array(z.unknown()).transform((rows) => rows.flatMap((row) => {
+    const parsed = schema.safeParse(row);
+    return parsed.success ? [parsed.data as z.output<T>] : [];
+  }));
+}
+
+const ReleaseIssuePullRequestSchema = z.object({
+  provider: z.string().catch(""),
+  number: z.number().catch(0),
+  url: z.string().catch(""),
+  title: z.string().catch(""),
+  state: z.string().catch(""),
+}).loose();
+
+const ReleaseIssueSchema = z.object({
+  id: z.string().min(1),
+  identifier: z.string().catch(""),
+  title: z.string().catch(""),
+  status: z.string().catch(""),
+  assignee_type: z.enum(["member", "agent", "squad"]).nullable().catch(null),
+  assignee_id: z.string().nullable().catch(null),
+  parent_issue_id: z.string().nullable().catch(null),
+  worklane_id: z.string().nullable().catch(null),
+  worklane_name: z.string().nullable().catch(null),
+  pull_requests: wellFormedEntries(ReleaseIssuePullRequestSchema).catch([]),
+}).loose();
+
+export const ReleaseIssuesResponseSchema = z.object({
+  issues: wellFormedEntries(ReleaseIssueSchema).default([]),
+}).loose();
+export const EMPTY_RELEASE_ISSUES_RESPONSE: ReleaseIssuesResponse = { issues: [] };
+
+export const ReleaseCommentSchema = z.object({
+  id: z.string().min(1),
+  release_id: z.string().catch(""),
+  author_type: z.enum(["member", "agent", "system"]),
+  author_id: z.string(),
+  content: z.string().default(""),
+  parent_id: z.string().nullable().default(null),
+  attachments: z.array(AttachmentSchema).catch([]).default([]),
+  created_at: z.string().default(""),
+  updated_at: z.string().default(""),
+  source_task_id: z.string().nullable().catch(null),
+}).loose();
+
+export const ReleaseCommentsSchema = wellFormedEntries(ReleaseCommentSchema);
+
+/** Answer of a comment write that failed validation: the empty id means nothing usable came back. */
+export const MALFORMED_RELEASE_COMMENT: ReleaseComment = {
+  id: "",
+  release_id: "",
+  author_type: "system",
+  author_id: "",
+  content: "",
+  parent_id: null,
+  attachments: [],
+  created_at: "",
+  updated_at: "",
+  source_task_id: null,
+};
+
+export const ReleaseActivityResponseSchema: z.ZodType<ReleaseActivityResponse> = z.object({
+  entries: z.array(WorklaneActivityEntrySchema.catch(UNKNOWN_WORKLANE_ACTIVITY_ENTRY))
+    .transform((entries) => entries.filter((entry) => entry.action === "release_owner_changed"))
+    .default([]),
+}).loose();
+export const EMPTY_RELEASE_ACTIVITY_RESPONSE: ReleaseActivityResponse = { entries: [] };
 
 const ReleaseListSchema = z.array(ReleaseSchema.catch(EMPTY_RELEASE))
   .transform((releases) => releases.filter((release) => release.id !== ""))
@@ -4517,6 +4651,13 @@ export const IssueWakeupSchema = z.object({
   condition: WakeupConditionSchema.nullish().catch(null),
   max_fires: z.number().int().nullish(), fire_count: z.number().int().nonnegative().optional().catch(undefined),
   paused_reason: z.enum(["max_fires", "loop", "rate"]).nullish().catch(null),
+});
+
+// A release's wait runs its owner of the firing moment, so the target may be empty.
+export const ReleaseWakeupSchema = IssueWakeupSchema.omit({ issue_id: true }).extend({
+  release_id: z.string(),
+  agent_id: z.string().default(""),
+  agent_name: z.string().default(""),
 });
 
 export const SystemWakeupSchema = z.object({

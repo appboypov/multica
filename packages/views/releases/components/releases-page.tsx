@@ -96,6 +96,7 @@ export function ReleasesPage() {
             gridClassName={RELEASE_ROW_COLS}
             columns={[
               t(($) => $.overview.column_name),
+              t(($) => $.overview.column_owner),
               t(($) => $.overview.column_issues),
               t(($) => $.overview.column_worklanes),
             ]}

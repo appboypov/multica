@@ -122,13 +122,47 @@
     "moved_later": "{{actor}} moved {{version}} {{title}} later",
     "moved": "{{actor}} moved {{version}} {{title}}",
     "removed": "{{actor}} removed {{version}} {{title}}",
-    "change": "{{title}} {{from}} → {{to}}"
+    "change": "{{title}} {{from}} → {{to}}",
+    "owner_set": "{{actor}} made {{owner}} owner of {{version}} {{title}}",
+    "owner_changed": "{{actor}} made {{owner}} owner of {{version}} {{title}} instead of {{previous}}",
+    "owner_removed": "{{actor}} removed {{owner}} as owner of {{version}} {{title}}"
+  },
+  "owner": {
+    "label": "Owner",
+    "none": "No owner",
+    "search": "Search agents and squads…",
+    "agents": "Agents",
+    "squads": "Squads",
+    "failed": "Couldn't save the owner. Try again."
+  },
+  "page": {
+    "issues": "Issues",
+    "no_issues": "No issues in this release yet.",
+    "open_timeline": "Open on Timeline",
+    "not_found": "This release doesn't exist or was removed.",
+    "back": "Back to releases",
+    "load_failed": "Couldn't load this release.",
+    "retry": "Try again",
+    "unassigned": "Unassigned",
+    "no_worklane": "No worklane"
+  },
+  "comments": {
+    "title": "Comments",
+    "empty": "No comments yet.",
+    "placeholder": "Write a comment…",
+    "reply_placeholder": "Write a reply…",
+    "send": "Comment",
+    "reply": "Reply",
+    "cancel": "Cancel",
+    "failed": "Couldn't send your comment.",
+    "retry": "Retry"
   },
   "overview": {
     "title": "Releases",
     "empty": "No releases yet.",
     "column_name": "Name",
     "column_issues": "Issues",
+    "column_owner": "Owner",
     "column_worklanes": "Worklanes",
     "release_count_one": "{{count}} release",
     "release_count_other": "{{count}} releases",

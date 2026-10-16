@@ -365,6 +365,43 @@ func (q *Queries) DeleteCommentAttachments(ctx context.Context, arg DeleteCommen
 	return items, nil
 }
 
+const deleteReleaseCommentAttachments = `-- name: DeleteReleaseCommentAttachments :many
+DELETE FROM attachment
+WHERE attachment.workspace_id = $1
+  AND attachment.comment_id IN (
+    SELECT c.id FROM comment c
+    WHERE c.workspace_id = $1 AND c.release_id = ANY($2::uuid[])
+  )
+RETURNING url
+`
+
+type DeleteReleaseCommentAttachmentsParams struct {
+	WorkspaceID pgtype.UUID   `json:"workspace_id"`
+	ReleaseIds  []pgtype.UUID `json:"release_ids"`
+}
+
+// Release removal: attachments of the releases' comments, returning their
+// storage URLs for cleanup after commit.
+func (q *Queries) DeleteReleaseCommentAttachments(ctx context.Context, arg DeleteReleaseCommentAttachmentsParams) ([]string, error) {
+	rows, err := q.db.Query(ctx, deleteReleaseCommentAttachments, arg.WorkspaceID, arg.ReleaseIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var url string
+		if err := rows.Scan(&url); err != nil {
+			return nil, err
+		}
+		items = append(items, url)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const deleteSourceContextAttachmentsByWorkspace = `-- name: DeleteSourceContextAttachmentsByWorkspace :exec
 DELETE FROM attachment
 WHERE workspace_id = $1
@@ -616,6 +653,44 @@ func (q *Queries) LinkAttachmentsToIssue(ctx context.Context, arg LinkAttachment
 	var i LinkAttachmentsToIssueRow
 	err := row.Scan(&i.LinkedCount, &i.IssueRevision)
 	return i, err
+}
+
+const linkAttachmentsToReleaseComment = `-- name: LinkAttachmentsToReleaseComment :execrows
+UPDATE attachment a SET comment_id = c.id
+FROM comment c
+WHERE c.id = $1 AND c.release_id = $2 AND c.workspace_id = $3
+  AND a.workspace_id = c.workspace_id
+  AND a.uploader_type = $4 AND a.uploader_id = $5
+  AND a.issue_id IS NULL AND a.chat_session_id IS NULL AND a.chat_message_id IS NULL
+  AND a.question_id IS NULL AND a.source_context_id IS NULL
+  AND (a.comment_id IS NULL OR a.comment_id = c.id)
+  AND a.id = ANY($6::uuid[])
+`
+
+type LinkAttachmentsToReleaseCommentParams struct {
+	CommentID     pgtype.UUID   `json:"comment_id"`
+	ReleaseID     pgtype.UUID   `json:"release_id"`
+	WorkspaceID   pgtype.UUID   `json:"workspace_id"`
+	UploaderType  string        `json:"uploader_type"`
+	UploaderID    pgtype.UUID   `json:"uploader_id"`
+	AttachmentIds []pgtype.UUID `json:"attachment_ids"`
+}
+
+// Binds eligible uploads to a comment of the release. The caller compares the
+// count with the requested set and refuses a partial link.
+func (q *Queries) LinkAttachmentsToReleaseComment(ctx context.Context, arg LinkAttachmentsToReleaseCommentParams) (int64, error) {
+	result, err := q.db.Exec(ctx, linkAttachmentsToReleaseComment,
+		arg.CommentID,
+		arg.ReleaseID,
+		arg.WorkspaceID,
+		arg.UploaderType,
+		arg.UploaderID,
+		arg.AttachmentIds,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const listAttachmentURLsByCommentID = `-- name: ListAttachmentURLsByCommentID :many
@@ -1314,6 +1389,59 @@ func (q *Queries) LockAttachmentsForIssueLink(ctx context.Context, arg LockAttac
 	return items, nil
 }
 
+const lockAttachmentsForReleaseCommentLink = `-- name: LockAttachmentsForReleaseCommentLink :many
+
+SELECT a.id FROM attachment a
+WHERE a.workspace_id = $1
+  AND a.uploader_type = $2 AND a.uploader_id = $3
+  AND a.issue_id IS NULL AND a.chat_session_id IS NULL AND a.chat_message_id IS NULL
+  AND a.question_id IS NULL AND a.source_context_id IS NULL
+  AND (a.comment_id IS NULL OR a.comment_id = $4)
+  AND a.id = ANY($5::uuid[])
+ORDER BY a.id
+FOR UPDATE
+`
+
+type LockAttachmentsForReleaseCommentLinkParams struct {
+	WorkspaceID   pgtype.UUID   `json:"workspace_id"`
+	UploaderType  string        `json:"uploader_type"`
+	UploaderID    pgtype.UUID   `json:"uploader_id"`
+	CommentID     pgtype.UUID   `json:"comment_id"`
+	AttachmentIds []pgtype.UUID `json:"attachment_ids"`
+}
+
+// Release comment attachments. An upload for a release comment belongs to no
+// issue, chat, question or source context; linking sets only comment_id to a
+// comment of that release. CreateReleaseComment holds the release FOR KEY
+// SHARE before these rows are locked: release -> comment -> attachment.
+// Pins the requested uploads and returns the ids still eligible for a release
+// comment: same workspace and uploader, unbound (or already on this comment).
+func (q *Queries) LockAttachmentsForReleaseCommentLink(ctx context.Context, arg LockAttachmentsForReleaseCommentLinkParams) ([]pgtype.UUID, error) {
+	rows, err := q.db.Query(ctx, lockAttachmentsForReleaseCommentLink,
+		arg.WorkspaceID,
+		arg.UploaderType,
+		arg.UploaderID,
+		arg.CommentID,
+		arg.AttachmentIds,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []pgtype.UUID{}
+	for rows.Next() {
+		var id pgtype.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const replaceCommentAttachments = `-- name: ReplaceCommentAttachments :execrows
 UPDATE attachment
 SET comment_id = CASE
@@ -1336,6 +1464,49 @@ type ReplaceCommentAttachmentsParams struct {
 
 func (q *Queries) ReplaceCommentAttachments(ctx context.Context, arg ReplaceCommentAttachmentsParams) (int64, error) {
 	result, err := q.db.Exec(ctx, replaceCommentAttachments, arg.CommentID, arg.IssueID, arg.AttachmentIds)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const replaceReleaseCommentAttachments = `-- name: ReplaceReleaseCommentAttachments :execrows
+UPDATE attachment a SET comment_id = CASE
+    WHEN a.id = ANY($1::uuid[]) THEN c.id
+    ELSE NULL
+END
+FROM comment c
+WHERE c.id = $2 AND c.release_id = $3 AND c.workspace_id = $4
+  AND a.workspace_id = c.workspace_id
+  AND a.issue_id IS NULL AND a.chat_session_id IS NULL AND a.chat_message_id IS NULL
+  AND a.question_id IS NULL AND a.source_context_id IS NULL
+  AND (
+    (a.comment_id = c.id AND NOT a.id = ANY($1::uuid[]))
+    OR (a.comment_id IS NULL AND a.id = ANY($1::uuid[])
+        AND a.uploader_type = $5 AND a.uploader_id = $6)
+  )
+`
+
+type ReplaceReleaseCommentAttachmentsParams struct {
+	AttachmentIds []pgtype.UUID `json:"attachment_ids"`
+	CommentID     pgtype.UUID   `json:"comment_id"`
+	ReleaseID     pgtype.UUID   `json:"release_id"`
+	WorkspaceID   pgtype.UUID   `json:"workspace_id"`
+	UploaderType  string        `json:"uploader_type"`
+	UploaderID    pgtype.UUID   `json:"uploader_id"`
+}
+
+// An edit's attachment set: requested unbound uploads join the comment,
+// attachments no longer requested leave it.
+func (q *Queries) ReplaceReleaseCommentAttachments(ctx context.Context, arg ReplaceReleaseCommentAttachmentsParams) (int64, error) {
+	result, err := q.db.Exec(ctx, replaceReleaseCommentAttachments,
+		arg.AttachmentIds,
+		arg.CommentID,
+		arg.ReleaseID,
+		arg.WorkspaceID,
+		arg.UploaderType,
+		arg.UploaderID,
+	)
 	if err != nil {
 		return 0, err
 	}

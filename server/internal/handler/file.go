@@ -506,6 +506,19 @@ func (h *Handler) UploadFile(w http.ResponseWriter, r *http.Request) {
 				writeError(w, http.StatusForbidden, "invalid comment_id")
 				return
 			}
+			if comment.ReleaseID.Valid {
+				if params.IssueID.Valid {
+					writeError(w, http.StatusForbidden, "comment does not belong to this issue")
+					return
+				}
+				if _, err := h.Queries.GetReleaseInWorkspace(r.Context(), db.GetReleaseInWorkspaceParams{ID: comment.ReleaseID, WorkspaceID: comment.WorkspaceID}); err != nil {
+					writeError(w, http.StatusForbidden, "invalid comment_id")
+					return
+				}
+			} else if params.IssueID.Valid && params.IssueID != comment.IssueID {
+				writeError(w, http.StatusForbidden, "comment does not belong to this issue")
+				return
+			}
 			params.CommentID = comment.ID
 		}
 		if chatSessionID := r.FormValue("chat_session_id"); chatSessionID != "" {

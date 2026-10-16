@@ -374,6 +374,9 @@ type AgentTaskResponse struct {
 	AgentID              string                 `json:"agent_id"`
 	RuntimeID            string                 `json:"runtime_id"`
 	IssueID              string                 `json:"issue_id"`
+	ReleaseID            string                 `json:"release_id,omitempty"`
+	Release              *protocol.ClaimRelease `json:"release,omitempty"`
+	ReleaseTriggers      json.RawMessage        `json:"release_triggers,omitempty"`
 	WorkspaceID          string                 `json:"workspace_id"`
 	WorkspaceSlug        string                 `json:"workspace_slug,omitempty"`
 	IssueIdentifier      string                 `json:"issue_identifier,omitempty"`
@@ -554,7 +557,7 @@ type AgentTaskResponse struct {
 	InitiatorID    string `json:"initiator_id,omitempty"`    // originator user UUID
 	InitiatorName  string `json:"initiator_name,omitempty"`  // originator display name
 	InitiatorEmail string `json:"initiator_email,omitempty"` // originator email
-	Kind           string `json:"kind"`                      // source discriminator: "comment" | "autopilot" | "chat" | "quick_create" | "direct" — quick-create remains stable after its result issue is linked
+	Kind           string `json:"kind"`                      // source discriminator: comment, autopilot, chat, release, quick_create or direct
 	// Attribution is the resolved accountable-human provenance for this run
 	// (MUL-4302 §9): the source label + precise flag, the initiator (accountable)
 	// and originator refs, the evidence pointer, and lineage. Always present (the
@@ -857,6 +860,7 @@ func taskToResponse(t db.AgentTaskQueue, workspaceID string) AgentTaskResponse {
 		AgentID:                uuidToString(t.AgentID),
 		RuntimeID:              uuidToString(t.RuntimeID),
 		IssueID:                uuidToString(t.IssueID),
+		ReleaseID:              uuidToString(t.ReleaseID),
 		WorkspaceID:            workspaceID,
 		Status:                 t.Status,
 		Priority:               t.Priority,
@@ -1051,6 +1055,9 @@ func basename(p string) string {
 // because completion links the newly created issue back onto the task. The
 // remaining issue tasks split into comment-triggered and direct runs.
 func computeTaskKind(t db.AgentTaskQueue) string {
+	if t.ReleaseID.Valid {
+		return "release"
+	}
 	if uuidToString(t.ChatSessionID) != "" {
 		return "chat"
 	}

@@ -78,3 +78,27 @@ WITH batch AS MATERIALIZED (
  ORDER BY e.processed_at LIMIT 1000 FOR UPDATE SKIP LOCKED
 )
 DELETE FROM issue_child_event d USING batch WHERE d.id=batch.id;
+
+-- name: GetReleaseCoordinationWakeup :one
+-- The release's platform coordination rule.
+SELECT * FROM issue_wakeup WHERE release_id= @release_id AND system_rule='release_coordination';
+
+-- name: CreateReleaseCoordinationWakeup :one
+-- The one coordination rule of an owned, unshipped release: an event rule for
+-- owner changes, member release comments and issue endings. It has no agent;
+-- each run targets the owner at dispatch. Two writers ensuring it keep the
+-- first row; the loser reads it back with GetReleaseCoordinationWakeup.
+INSERT INTO issue_wakeup(id,workspace_id,release_id,instruction,kind,mode,event_types,timezone,enabled,system_rule)
+SELECT @id,r.workspace_id,r.id,'','event','continuous',
+ ARRAY['release.owner_changed','release.comment.created','release.issue.ended']::text[],'UTC',true,'release_coordination'
+FROM release r WHERE r.id= @release_id AND r.workspace_id= @workspace_id AND r.shipped_at IS NULL
+ON CONFLICT (release_id,system_rule) WHERE system_rule IS NOT NULL AND release_id IS NOT NULL DO NOTHING
+RETURNING *;
+
+-- name: CaptureReleaseWakeupEvent :exec
+-- Records a release fact (release.owner_changed from the owner write) in the
+-- caller's transaction. Comment and issue-ending facts are captured by
+-- triggers. @coalesce_key folds repeated facts into one pending input; NULL
+-- keeps each fact.
+SELECT capture_release_wakeup(@release_id::uuid, @event_type::text, @event_key::text, NULL::uuid,
+ sqlc.narg(source_task_id)::uuid, @payload::jsonb, sqlc.narg(coalesce_key)::text);

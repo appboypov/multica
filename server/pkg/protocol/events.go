@@ -123,7 +123,8 @@ const (
 	// Release line events (ADR-0010). Every write to a repository's release
 	// line publishes release_line:updated with ReleaseLineEventPayload; the
 	// client reads the line again.
-	EventReleaseLineUpdated = "release_line:updated"
+	EventReleaseLineUpdated    = "release_line:updated"
+	EventReleaseCommentCreated = "release_comment:created"
 
 	// Organisation events. Both carry OrganisationEventPayload; there is no
 	// organisation:deleted because organisations go only with their workspace.
@@ -326,4 +327,10 @@ type IssueReleaseJoinedPayload struct {
 // AgentSessionsEventPayload is the payload of agent:sessions.
 type AgentSessionsEventPayload struct {
 	AgentID string `json:"agent_id"`
+}
+
+// ReleaseCommentEventPayload invalidates discussion on a native release.
+type ReleaseCommentEventPayload struct {
+	ReleaseID string `json:"release_id"`
+	CommentID string `json:"comment_id"`
 }

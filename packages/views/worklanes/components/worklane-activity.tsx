@@ -8,6 +8,7 @@ import type { ReleaseVersionChange, Worklane, WorklaneActivityEntry } from "@mul
 import { Skeleton } from "@multica/ui/components/ui/skeleton";
 import { ActorAvatar } from "../../common/actor-avatar";
 import { useLocale, useT } from "../../i18n";
+import { ownerChangeMessage } from "../../releases/components/release-messages";
 
 /**
  * The worklane's activity in the order it happened: who did it, what
@@ -129,6 +130,12 @@ function WorklaneActivityRow({ entry }: { entry: WorklaneActivityEntry }) {
       });
       changes = entry.details.changes;
       break;
+    case "release_owner_changed": {
+      const owned = ownerChangeMessage(tReleases, actor, entry.details, getActorName);
+      if (owned === null) return null;
+      sentence = owned;
+      break;
+    }
     default:
       return null;
   }

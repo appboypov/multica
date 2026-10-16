@@ -20,7 +20,7 @@ INSERT INTO release (
     $4, $5, $6,
     $7, $8
 )
-RETURNING id, workspace_id, repository_id, position, version, bump, title, description, shipped_at, created_by, created_at, updated_at
+RETURNING id, workspace_id, repository_id, position, version, bump, title, description, shipped_at, created_by, created_at, updated_at, owner_type, owner_id
 `
 
 type CreateReleaseParams struct {
@@ -60,6 +60,8 @@ func (q *Queries) CreateRelease(ctx context.Context, arg CreateReleaseParams) (R
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.OwnerType,
+		&i.OwnerID,
 	)
 	return i, err
 }
@@ -115,8 +117,39 @@ func (q *Queries) DeleteReleasesByRepository(ctx context.Context, arg DeleteRele
 	return err
 }
 
+const getReleaseForTask = `-- name: GetReleaseForTask :one
+SELECT r.id, r.workspace_id, r.repository_id, r.position, r.version, r.bump, r.title, r.description, r.shipped_at, r.created_by, r.created_at, r.updated_at, r.owner_type, r.owner_id FROM agent_task_queue t
+JOIN agent a ON a.id = t.agent_id
+JOIN release r ON r.id = t.release_id AND r.workspace_id = a.workspace_id
+WHERE t.id = $1
+`
+
+// The release of a coordination run, fenced by the run's agent workspace so a
+// task cannot name another tenant's release. No row: the release is gone.
+func (q *Queries) GetReleaseForTask(ctx context.Context, taskID pgtype.UUID) (Release, error) {
+	row := q.db.QueryRow(ctx, getReleaseForTask, taskID)
+	var i Release
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.RepositoryID,
+		&i.Position,
+		&i.Version,
+		&i.Bump,
+		&i.Title,
+		&i.Description,
+		&i.ShippedAt,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.OwnerType,
+		&i.OwnerID,
+	)
+	return i, err
+}
+
 const getReleaseInWorkspace = `-- name: GetReleaseInWorkspace :one
-SELECT id, workspace_id, repository_id, position, version, bump, title, description, shipped_at, created_by, created_at, updated_at FROM release
+SELECT id, workspace_id, repository_id, position, version, bump, title, description, shipped_at, created_by, created_at, updated_at, owner_type, owner_id FROM release
 WHERE id = $1 AND workspace_id = $2
 `
 
@@ -141,12 +174,321 @@ func (q *Queries) GetReleaseInWorkspace(ctx context.Context, arg GetReleaseInWor
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.OwnerType,
+		&i.OwnerID,
 	)
 	return i, err
 }
 
+const getReleaseInWorkspaceForUpdate = `-- name: GetReleaseInWorkspaceForUpdate :one
+SELECT id, workspace_id, repository_id, position, version, bump, title, description, shipped_at, created_by, created_at, updated_at, owner_type, owner_id FROM release
+WHERE id = $1 AND workspace_id = $2
+FOR UPDATE
+`
+
+type GetReleaseInWorkspaceForUpdateParams struct {
+	ID          pgtype.UUID `json:"id"`
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
+}
+
+// Removal locks the release row right after the repository, before it deletes
+// the release's waits, discussion and runs. A release comment insert holds the
+// release FOR KEY SHARE before its capture key-shares the release rule, so
+// taking the release first keeps removal from waiting on a rule that insert
+// holds while the insert waits on the release.
+func (q *Queries) GetReleaseInWorkspaceForUpdate(ctx context.Context, arg GetReleaseInWorkspaceForUpdateParams) (Release, error) {
+	row := q.db.QueryRow(ctx, getReleaseInWorkspaceForUpdate, arg.ID, arg.WorkspaceID)
+	var i Release
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.RepositoryID,
+		&i.Position,
+		&i.Version,
+		&i.Bump,
+		&i.Title,
+		&i.Description,
+		&i.ShippedAt,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.OwnerType,
+		&i.OwnerID,
+	)
+	return i, err
+}
+
+const getReleaseOwnerOriginator = `-- name: GetReleaseOwnerOriginator :one
+SELECT (COALESCE(
+    NULLIF(details->>'originator_user_id', ''),
+    CASE WHEN actor_type = 'member' THEN actor_id::text END
+))::uuid AS originator_user_id
+FROM activity_log
+WHERE workspace_id = $1
+  AND worklane_id IS NULL
+  AND action = 'release_owner_changed'
+  AND details->>'release_id' = $2::uuid::text
+ORDER BY created_at DESC, id DESC
+LIMIT 1
+`
+
+type GetReleaseOwnerOriginatorParams struct {
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
+	ReleaseID   pgtype.UUID `json:"release_id"`
+}
+
+// The principal of the latest owner assignment of a release, read from its
+// owner history: the recorded originator, else the member who changed the
+// owner. An automatic coordination run invokes the owner as this person, not
+// as the release creator or the actor of a triggering issue change. NULL when
+// the release has no owner history.
+func (q *Queries) GetReleaseOwnerOriginator(ctx context.Context, arg GetReleaseOwnerOriginatorParams) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, getReleaseOwnerOriginator, arg.WorkspaceID, arg.ReleaseID)
+	var originator_user_id pgtype.UUID
+	err := row.Scan(&originator_user_id)
+	return originator_user_id, err
+}
+
+const listReleaseIDsByProject = `-- name: ListReleaseIDsByProject :many
+SELECT release.id FROM release
+JOIN repository ON repository.id = release.repository_id AND repository.workspace_id = release.workspace_id
+WHERE release.workspace_id = $1 AND repository.project_id = $2
+ORDER BY release.id
+`
+
+type ListReleaseIDsByProjectParams struct {
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
+	ProjectID   pgtype.UUID `json:"project_id"`
+}
+
+func (q *Queries) ListReleaseIDsByProject(ctx context.Context, arg ListReleaseIDsByProjectParams) ([]pgtype.UUID, error) {
+	rows, err := q.db.Query(ctx, listReleaseIDsByProject, arg.WorkspaceID, arg.ProjectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []pgtype.UUID{}
+	for rows.Next() {
+		var id pgtype.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listReleaseIDsByRepository = `-- name: ListReleaseIDsByRepository :many
+SELECT id FROM release
+WHERE workspace_id = $1 AND repository_id = $2
+ORDER BY id
+`
+
+type ListReleaseIDsByRepositoryParams struct {
+	WorkspaceID  pgtype.UUID `json:"workspace_id"`
+	RepositoryID pgtype.UUID `json:"repository_id"`
+}
+
+func (q *Queries) ListReleaseIDsByRepository(ctx context.Context, arg ListReleaseIDsByRepositoryParams) ([]pgtype.UUID, error) {
+	rows, err := q.db.Query(ctx, listReleaseIDsByRepository, arg.WorkspaceID, arg.RepositoryID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []pgtype.UUID{}
+	for rows.Next() {
+		var id pgtype.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listReleaseIssuePullRequests = `-- name: ListReleaseIssuePullRequests :many
+SELECT link.issue_id, pr.id, 'github'::text AS provider, pr.pr_number AS number,
+       pr.title, pr.state, pr.html_url AS url, pr.branch, pr.merged_at
+FROM issue i
+JOIN issue_pull_request link ON link.issue_id = i.id
+JOIN github_pull_request pr ON pr.id = link.pull_request_id AND pr.workspace_id = i.workspace_id
+WHERE i.workspace_id = $1 AND i.release_id = $2
+UNION ALL
+SELECT link.issue_id, pr.id, pr.provider, pr.pr_number AS number,
+       pr.title, pr.state, pr.html_url AS url, pr.branch, pr.merged_at
+FROM issue i
+JOIN issue_vcs_pull_request link ON link.issue_id = i.id
+JOIN vcs_pull_request pr ON pr.id = link.pull_request_id AND pr.workspace_id = i.workspace_id
+WHERE i.workspace_id = $1 AND i.release_id = $2
+ORDER BY 1, 3, 4, 2
+`
+
+type ListReleaseIssuePullRequestsParams struct {
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
+	ReleaseID   pgtype.UUID `json:"release_id"`
+}
+
+type ListReleaseIssuePullRequestsRow struct {
+	IssueID  pgtype.UUID        `json:"issue_id"`
+	ID       pgtype.UUID        `json:"id"`
+	Provider string             `json:"provider"`
+	Number   int32              `json:"number"`
+	Title    string             `json:"title"`
+	State    string             `json:"state"`
+	Url      string             `json:"url"`
+	Branch   pgtype.Text        `json:"branch"`
+	MergedAt pgtype.Timestamptz `json:"merged_at"`
+}
+
+// GitHub and VCS pull requests linked to the issues of a release, in the
+// release's workspace.
+func (q *Queries) ListReleaseIssuePullRequests(ctx context.Context, arg ListReleaseIssuePullRequestsParams) ([]ListReleaseIssuePullRequestsRow, error) {
+	rows, err := q.db.Query(ctx, listReleaseIssuePullRequests, arg.WorkspaceID, arg.ReleaseID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListReleaseIssuePullRequestsRow{}
+	for rows.Next() {
+		var i ListReleaseIssuePullRequestsRow
+		if err := rows.Scan(
+			&i.IssueID,
+			&i.ID,
+			&i.Provider,
+			&i.Number,
+			&i.Title,
+			&i.State,
+			&i.Url,
+			&i.Branch,
+			&i.MergedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listReleaseIssues = `-- name: ListReleaseIssues :many
+SELECT i.id, i.number, (ws.issue_prefix || '-' || i.number)::text AS identifier,
+       i.title, i.status,
+       issue_effective_status(i.workspace_id, i.status)::text AS effective_status,
+       (CASE
+           WHEN i.status IN ('backlog', 'todo') THEN 'unstarted'
+           WHEN i.status IN ('in_progress', 'in_review', 'blocked') THEN 'started'
+           WHEN i.status = 'done' THEN 'done'
+           WHEN i.status = 'cancelled' THEN 'closed'
+           ELSE COALESCE(st.category, 'unstarted')
+       END)::text AS status_category,
+       i.assignee_type, i.assignee_id,
+       COALESCE(aa.name, asq.name, au.name, '')::text AS assignee_name,
+       COALESCE(aa.avatar_url, asq.avatar_url, au.avatar_url) AS assignee_avatar_url,
+       i.parent_issue_id,
+       COALESCE(ws.issue_prefix || '-' || parent.number, '')::text AS parent_identifier,
+       parent.title AS parent_title,
+       lane.id AS worklane_id, lane.name AS worklane_name, lane.is_main AS worklane_is_main,
+       i.lane_position, i.created_at, i.updated_at
+FROM release r
+JOIN issue i ON i.release_id = r.id AND i.workspace_id = r.workspace_id
+JOIN workspace ws ON ws.id = i.workspace_id
+LEFT JOIN issue_status st ON st.workspace_id = i.workspace_id AND st.key = i.status
+LEFT JOIN worklane lane ON lane.id = i.worklane_id AND lane.workspace_id = i.workspace_id AND lane.repository_id = r.repository_id
+LEFT JOIN issue parent ON parent.id = i.parent_issue_id AND parent.workspace_id = i.workspace_id
+LEFT JOIN agent aa ON i.assignee_type = 'agent' AND aa.id = i.assignee_id AND aa.workspace_id = i.workspace_id
+LEFT JOIN squad asq ON i.assignee_type = 'squad' AND asq.id = i.assignee_id AND asq.workspace_id = i.workspace_id
+LEFT JOIN "user" au ON i.assignee_type = 'member' AND au.id = i.assignee_id
+    AND EXISTS (SELECT 1 FROM member m WHERE m.user_id = au.id AND m.workspace_id = i.workspace_id)
+WHERE r.id = $1 AND r.workspace_id = $2
+ORDER BY (lane.id IS NULL) ASC, lane.is_main DESC, lane.position ASC, LOWER(lane.name) ASC, lane.id ASC,
+         i.lane_position ASC NULLS LAST, i.created_at ASC, i.id ASC
+`
+
+type ListReleaseIssuesParams struct {
+	ReleaseID   pgtype.UUID `json:"release_id"`
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
+}
+
+type ListReleaseIssuesRow struct {
+	ID                pgtype.UUID        `json:"id"`
+	Number            int32              `json:"number"`
+	Identifier        string             `json:"identifier"`
+	Title             string             `json:"title"`
+	Status            string             `json:"status"`
+	EffectiveStatus   string             `json:"effective_status"`
+	StatusCategory    string             `json:"status_category"`
+	AssigneeType      pgtype.Text        `json:"assignee_type"`
+	AssigneeID        pgtype.UUID        `json:"assignee_id"`
+	AssigneeName      string             `json:"assignee_name"`
+	AssigneeAvatarUrl pgtype.Text        `json:"assignee_avatar_url"`
+	ParentIssueID     pgtype.UUID        `json:"parent_issue_id"`
+	ParentIdentifier  string             `json:"parent_identifier"`
+	ParentTitle       pgtype.Text        `json:"parent_title"`
+	WorklaneID        pgtype.UUID        `json:"worklane_id"`
+	WorklaneName      pgtype.Text        `json:"worklane_name"`
+	WorklaneIsMain    pgtype.Bool        `json:"worklane_is_main"`
+	LanePosition      pgtype.Float8      `json:"lane_position"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+}
+
+// The one ordered issue projection of a release, read by the release page and
+// the coordination claim. Lanes follow the repository's worklane order (main
+// first, then position, name, id); within a lane lane_position, created_at, id.
+// Issues without a lane of this repository, including terminal issues whose
+// lane was removed, follow in created_at, id order. A read of existing order,
+// not a new rank.
+func (q *Queries) ListReleaseIssues(ctx context.Context, arg ListReleaseIssuesParams) ([]ListReleaseIssuesRow, error) {
+	rows, err := q.db.Query(ctx, listReleaseIssues, arg.ReleaseID, arg.WorkspaceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListReleaseIssuesRow{}
+	for rows.Next() {
+		var i ListReleaseIssuesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Number,
+			&i.Identifier,
+			&i.Title,
+			&i.Status,
+			&i.EffectiveStatus,
+			&i.StatusCategory,
+			&i.AssigneeType,
+			&i.AssigneeID,
+			&i.AssigneeName,
+			&i.AssigneeAvatarUrl,
+			&i.ParentIssueID,
+			&i.ParentIdentifier,
+			&i.ParentTitle,
+			&i.WorklaneID,
+			&i.WorklaneName,
+			&i.WorklaneIsMain,
+			&i.LanePosition,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listReleaseLine = `-- name: ListReleaseLine :many
-SELECT id, workspace_id, repository_id, position, version, bump, title, description, shipped_at, created_by, created_at, updated_at FROM release
+SELECT id, workspace_id, repository_id, position, version, bump, title, description, shipped_at, created_by, created_at, updated_at, owner_type, owner_id FROM release
 WHERE workspace_id = $1 AND repository_id = $2
 ORDER BY position ASC
 `
@@ -178,6 +520,111 @@ func (q *Queries) ListReleaseLine(ctx context.Context, arg ListReleaseLineParams
 			&i.CreatedBy,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.OwnerType,
+			&i.OwnerID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listReleaseOwnerActivity = `-- name: ListReleaseOwnerActivity :many
+SELECT id, workspace_id, issue_id, actor_type, actor_id, action, details, created_at, worklane_id, repository_id FROM activity_log
+WHERE workspace_id = $1
+  AND repository_id = $2
+  AND worklane_id IS NULL
+  AND action = 'release_owner_changed'
+  AND details->>'release_id' = $3::uuid::text
+ORDER BY created_at ASC, id ASC
+`
+
+type ListReleaseOwnerActivityParams struct {
+	WorkspaceID  pgtype.UUID `json:"workspace_id"`
+	RepositoryID pgtype.UUID `json:"repository_id"`
+	ReleaseID    pgtype.UUID `json:"release_id"`
+}
+
+// The release page's owner history: every repository-wide owner change of the
+// release, oldest first. No worklane creation cutoff applies here.
+func (q *Queries) ListReleaseOwnerActivity(ctx context.Context, arg ListReleaseOwnerActivityParams) ([]ActivityLog, error) {
+	rows, err := q.db.Query(ctx, listReleaseOwnerActivity, arg.WorkspaceID, arg.RepositoryID, arg.ReleaseID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ActivityLog{}
+	for rows.Next() {
+		var i ActivityLog
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.IssueID,
+			&i.ActorType,
+			&i.ActorID,
+			&i.Action,
+			&i.Details,
+			&i.CreatedAt,
+			&i.WorklaneID,
+			&i.RepositoryID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listReleaseOwnerProjections = `-- name: ListReleaseOwnerProjections :many
+SELECT r.id AS release_id, r.owner_type, r.owner_id,
+       COALESCE(a.name, s.name)::text AS owner_name,
+       COALESCE(a.avatar_url, s.avatar_url) AS owner_avatar_url
+FROM release r
+LEFT JOIN agent a ON r.owner_type = 'agent' AND a.id = r.owner_id AND a.workspace_id = r.workspace_id
+LEFT JOIN squad s ON r.owner_type = 'squad' AND s.id = r.owner_id AND s.workspace_id = r.workspace_id
+WHERE r.workspace_id = $1
+  AND r.id = ANY($2::uuid[])
+  AND r.owner_id IS NOT NULL
+`
+
+type ListReleaseOwnerProjectionsParams struct {
+	WorkspaceID pgtype.UUID   `json:"workspace_id"`
+	ReleaseIds  []pgtype.UUID `json:"release_ids"`
+}
+
+type ListReleaseOwnerProjectionsRow struct {
+	ReleaseID      pgtype.UUID `json:"release_id"`
+	OwnerType      pgtype.Text `json:"owner_type"`
+	OwnerID        pgtype.UUID `json:"owner_id"`
+	OwnerName      string      `json:"owner_name"`
+	OwnerAvatarUrl pgtype.Text `json:"owner_avatar_url"`
+}
+
+// Owner name and avatar for a batch of releases, resolved in the release's
+// workspace only. A deleted owner keeps its type/id with a NULL name until
+// the owner cleanup clears it.
+func (q *Queries) ListReleaseOwnerProjections(ctx context.Context, arg ListReleaseOwnerProjectionsParams) ([]ListReleaseOwnerProjectionsRow, error) {
+	rows, err := q.db.Query(ctx, listReleaseOwnerProjections, arg.WorkspaceID, arg.ReleaseIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListReleaseOwnerProjectionsRow{}
+	for rows.Next() {
+		var i ListReleaseOwnerProjectionsRow
+		if err := rows.Scan(
+			&i.ReleaseID,
+			&i.OwnerType,
+			&i.OwnerID,
+			&i.OwnerName,
+			&i.OwnerAvatarUrl,
 		); err != nil {
 			return nil, err
 		}
@@ -241,9 +688,42 @@ func (q *Queries) ListReleaseShippingBlockers(ctx context.Context, arg ListRelea
 	return items, nil
 }
 
+const listReleaseTaskLockTargetsByAgent = `-- name: ListReleaseTaskLockTargetsByAgent :many
+SELECT t.id AS task_id FROM agent_task_queue t
+JOIN agent a ON a.id = t.agent_id
+JOIN release r ON r.id = t.release_id AND r.workspace_id = a.workspace_id
+WHERE t.agent_id = $1
+  AND t.release_id IS NOT NULL
+  AND t.status IN ('queued', 'dispatched', 'running', 'waiting_local_directory', 'deferred')
+ORDER BY r.repository_id, r.id, t.id
+`
+
+// The agent's active coordination runs in repository, release, task order, so
+// an agent-wide cancellation can take each run's repository boundary
+// (LockReleaseTaskRepository) in one stable order before cancelling.
+func (q *Queries) ListReleaseTaskLockTargetsByAgent(ctx context.Context, agentID pgtype.UUID) ([]pgtype.UUID, error) {
+	rows, err := q.db.Query(ctx, listReleaseTaskLockTargetsByAgent, agentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []pgtype.UUID{}
+	for rows.Next() {
+		var task_id pgtype.UUID
+		if err := rows.Scan(&task_id); err != nil {
+			return nil, err
+		}
+		items = append(items, task_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listReleasesInWorkspace = `-- name: ListReleasesInWorkspace :many
 
-SELECT id, workspace_id, repository_id, position, version, bump, title, description, shipped_at, created_by, created_at, updated_at FROM release
+SELECT id, workspace_id, repository_id, position, version, bump, title, description, shipped_at, created_by, created_at, updated_at, owner_type, owner_id FROM release
 WHERE workspace_id = $1
 ORDER BY repository_id, position ASC
 `
@@ -273,6 +753,8 @@ func (q *Queries) ListReleasesInWorkspace(ctx context.Context, workspaceID pgtyp
 			&i.CreatedBy,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.OwnerType,
+			&i.OwnerID,
 		); err != nil {
 			return nil, err
 		}
@@ -375,10 +857,144 @@ func (q *Queries) LockReleaseLineOwners(ctx context.Context, arg LockReleaseLine
 	return id, err
 }
 
+const lockReleaseOwnerAgent = `-- name: LockReleaseOwnerAgent :one
+SELECT id, workspace_id, name, avatar_url, runtime_mode, runtime_config, visibility, status, max_concurrent_tasks, owner_id, created_at, updated_at, description, runtime_id, instructions, archived_at, archived_by, custom_env, custom_args, mcp_config, model, thinking_level, composio_toolkit_allowlist, permission_mode, kind, system_key, disabled_runtime_skills, service_tier, conversation_starters, instruction_selection, inherit_runtime_skills FROM agent
+WHERE id = $1 AND workspace_id = $2
+FOR SHARE
+`
+
+type LockReleaseOwnerAgentParams struct {
+	ID          pgtype.UUID `json:"id"`
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
+}
+
+// Under the repository boundary (after the squad), freezes the target agent's
+// archive state and runtime binding for claim, start and dispatch.
+func (q *Queries) LockReleaseOwnerAgent(ctx context.Context, arg LockReleaseOwnerAgentParams) (Agent, error) {
+	row := q.db.QueryRow(ctx, lockReleaseOwnerAgent, arg.ID, arg.WorkspaceID)
+	var i Agent
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.Name,
+		&i.AvatarUrl,
+		&i.RuntimeMode,
+		&i.RuntimeConfig,
+		&i.Visibility,
+		&i.Status,
+		&i.MaxConcurrentTasks,
+		&i.OwnerID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Description,
+		&i.RuntimeID,
+		&i.Instructions,
+		&i.ArchivedAt,
+		&i.ArchivedBy,
+		&i.CustomEnv,
+		&i.CustomArgs,
+		&i.McpConfig,
+		&i.Model,
+		&i.ThinkingLevel,
+		&i.ComposioToolkitAllowlist,
+		&i.PermissionMode,
+		&i.Kind,
+		&i.SystemKey,
+		&i.DisabledRuntimeSkills,
+		&i.ServiceTier,
+		&i.ConversationStarters,
+		&i.InstructionSelection,
+		&i.InheritRuntimeSkills,
+	)
+	return i, err
+}
+
+const lockReleaseOwnerSquad = `-- name: LockReleaseOwnerSquad :one
+SELECT id, workspace_id, name, description, leader_id, creator_id, created_at, updated_at, archived_at, archived_by, avatar_url, instructions FROM squad
+WHERE id = $1 AND workspace_id = $2
+FOR SHARE
+`
+
+type LockReleaseOwnerSquadParams struct {
+	ID          pgtype.UUID `json:"id"`
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
+}
+
+// Under the repository boundary, freezes a squad owner's leader for claim,
+// start and dispatch: a leader change waits for that transaction.
+func (q *Queries) LockReleaseOwnerSquad(ctx context.Context, arg LockReleaseOwnerSquadParams) (Squad, error) {
+	row := q.db.QueryRow(ctx, lockReleaseOwnerSquad, arg.ID, arg.WorkspaceID)
+	var i Squad
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.Name,
+		&i.Description,
+		&i.LeaderID,
+		&i.CreatorID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.ArchivedAt,
+		&i.ArchivedBy,
+		&i.AvatarUrl,
+		&i.Instructions,
+	)
+	return i, err
+}
+
+const lockReleaseTaskRepository = `-- name: LockReleaseTaskRepository :one
+WITH target AS MATERIALIZED (
+    SELECT r.repository_id, r.workspace_id FROM agent_task_queue t
+    JOIN agent a ON a.id = t.agent_id
+    JOIN release r ON r.id = t.release_id AND r.workspace_id = a.workspace_id
+    WHERE t.id = $1
+), owner_fence AS MATERIALIZED (
+    SELECT count(*) AS locked_count FROM (
+        SELECT repository.id FROM target
+        JOIN repository ON repository.id = target.repository_id AND repository.workspace_id = target.workspace_id
+        JOIN project ON project.id = repository.project_id AND project.workspace_id = repository.workspace_id
+        JOIN workspace ON workspace.id = repository.workspace_id
+        FOR KEY SHARE OF workspace, project
+    ) fenced
+)
+SELECT repository.id, repository.workspace_id, repository.project_id, repository.github_repo_id, repository.full_name, repository.private, repository.default_branch, repository.checkout_daemon_id, repository.checkout_path, repository.version_policy, repository.created_by, repository.created_at, repository.updated_at, repository.install_command, repository.last_tag FROM repository
+JOIN target ON repository.id = target.repository_id AND repository.workspace_id = target.workspace_id
+CROSS JOIN owner_fence
+WHERE owner_fence.locked_count > 0
+FOR UPDATE OF repository
+`
+
+// Claim finalize, start and completion of a coordination run take the
+// release-line boundary: workspace and project FOR KEY SHARE first, then the
+// repository FOR UPDATE, before lock_task_owner_rows and the task row. No row:
+// the release, its repository or their owners are gone.
+func (q *Queries) LockReleaseTaskRepository(ctx context.Context, taskID pgtype.UUID) (Repository, error) {
+	row := q.db.QueryRow(ctx, lockReleaseTaskRepository, taskID)
+	var i Repository
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.ProjectID,
+		&i.GithubRepoID,
+		&i.FullName,
+		&i.Private,
+		&i.DefaultBranch,
+		&i.CheckoutDaemonID,
+		&i.CheckoutPath,
+		&i.VersionPolicy,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.InstallCommand,
+		&i.LastTag,
+	)
+	return i, err
+}
+
 const markReleaseShipped = `-- name: MarkReleaseShipped :one
 UPDATE release SET shipped_at = now(), updated_at = now()
 WHERE id = $1 AND workspace_id = $2 AND shipped_at IS NULL
-RETURNING id, workspace_id, repository_id, position, version, bump, title, description, shipped_at, created_by, created_at, updated_at
+RETURNING id, workspace_id, repository_id, position, version, bump, title, description, shipped_at, created_by, created_at, updated_at, owner_type, owner_id
 `
 
 type MarkReleaseShippedParams struct {
@@ -402,6 +1018,8 @@ func (q *Queries) MarkReleaseShipped(ctx context.Context, arg MarkReleaseShipped
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.OwnerType,
+		&i.OwnerID,
 	)
 	return i, err
 }
@@ -414,7 +1032,7 @@ UPDATE release SET
     bump = $4,
     updated_at = now()
 WHERE id = $5 AND workspace_id = $6
-RETURNING id, workspace_id, repository_id, position, version, bump, title, description, shipped_at, created_by, created_at, updated_at
+RETURNING id, workspace_id, repository_id, position, version, bump, title, description, shipped_at, created_by, created_at, updated_at, owner_type, owner_id
 `
 
 type UpdateReleaseFieldsParams struct {
@@ -451,6 +1069,53 @@ func (q *Queries) UpdateReleaseFields(ctx context.Context, arg UpdateReleaseFiel
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.OwnerType,
+		&i.OwnerID,
+	)
+	return i, err
+}
+
+const updateReleaseOwner = `-- name: UpdateReleaseOwner :one
+UPDATE release SET
+    owner_type = $1,
+    owner_id = $2,
+    updated_at = now()
+WHERE id = $3 AND workspace_id = $4
+RETURNING id, workspace_id, repository_id, position, version, bump, title, description, shipped_at, created_by, created_at, updated_at, owner_type, owner_id
+`
+
+type UpdateReleaseOwnerParams struct {
+	OwnerType   pgtype.Text `json:"owner_type"`
+	OwnerID     pgtype.UUID `json:"owner_id"`
+	ID          pgtype.UUID `json:"id"`
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
+}
+
+// Runs under LockReleaseLineOwners + LockRepositoryForLine. Both NULL removes
+// the owner; release_owner_pair_check refuses a partial or unknown pair.
+func (q *Queries) UpdateReleaseOwner(ctx context.Context, arg UpdateReleaseOwnerParams) (Release, error) {
+	row := q.db.QueryRow(ctx, updateReleaseOwner,
+		arg.OwnerType,
+		arg.OwnerID,
+		arg.ID,
+		arg.WorkspaceID,
+	)
+	var i Release
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.RepositoryID,
+		&i.Position,
+		&i.Version,
+		&i.Bump,
+		&i.Title,
+		&i.Description,
+		&i.ShippedAt,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.OwnerType,
+		&i.OwnerID,
 	)
 	return i, err
 }

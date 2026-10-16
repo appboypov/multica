@@ -854,6 +854,15 @@ Releases belong to repositories. Use full UUIDs or unambiguous UUID prefixes;
 multica release list --repository owner/repo
 multica release list --project <project-id> --output json
 multica release get <release> --output json
+multica release assign <release> --to "Build squad"
+multica release assign <release> --unassign
+multica release comment list <release> --roots-only --summary --compact --output json
+multica release comment list <release> --thread <comment-id> --tail 30 --output json
+multica release comment add <release> --content-file ./result.md --parent <comment-id> --attachment ./report.pdf --output table
+multica release wakeup create <release> --until-issue WORK-501 --until-issue-state in_review --instruction-file ./wait.md --expires-in 72h --on-timeout wake
+multica release wakeup create <release> --kind every --every 1h --instruction "Check prerequisites" --expires-in 72h
+multica release wakeup list <release> --output json
+multica release wakeup delete <release> <wakeup-id>
 multica release plan owner/repo --bump minor --title "Account and profile"
 multica release plan owner/repo --version 2.0.0 --title "Next version" --description "..."
 multica release edit <release> --title "Updated title"
@@ -878,6 +887,32 @@ an empty release can be marked manually. The next unshipped release becomes
 next. Shipping fixes the version and position and prevents removal or new
 issues; title and description remain editable. It does not publish to GitHub
 and has no undo.
+
+Owners are optional agents or squads, never workspace members. JSON get/list
+include nullable `owner_type`, `owner_id`, `owner_name`, and `owner_avatar_url`.
+Assignment resolves workspace agents/squads using the same ambiguity rules as
+issue assignment and changes only the owner. A shipped release refuses owner
+changes. A squad runs only its current leader; an owner without a runnable
+runtime remains assigned without starting a run.
+
+Release comments use the same bounded roots/thread/recent/since and composite
+cursor flags as issue comments. `--recent N` limits threads, while
+`--thread <id> --tail N` limits replies. Replies must stay on the same release
+and workspace. Add accepts one of `--content`, `--content-file`, or
+`--content-stdin`; agents use a UTF-8 file inside their working directory.
+Attachments are repeatable local file paths. Member comments wake the current
+owner; agent reports do not recursively wake it.
+
+Release wakeups support create/list/delete, same-workspace `--until-issue`
+with `done`, `ended` (done or cancelled), or `in_review`, and `at`, `every`,
+or `cron` schedules. Existing instruction, expiry, timeout, timezone and
+max-fires options apply. Their target is the release owner at firing time,
+not a caller-selected agent. Shipping removes waits and cancels unstarted
+coordination; a running shipper may still report. Coordination preserves the
+specified issues, order, assignees, parents, worklanes, version and line position.
+Completing every issue never ships automatically: publication, human gates
+and the explicit guarded `release ship` command remain required.
+
 
 ## Projects
 

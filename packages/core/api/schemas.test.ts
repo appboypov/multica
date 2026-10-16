@@ -105,6 +105,16 @@ import type {
   RepositoryCheckoutRequest,
 } from "../types";
 import { parseWithFallback } from "./schema";
+import {
+  EMPTY_RELEASE,
+  EMPTY_RELEASE_ACTIVITY_RESPONSE,
+  EMPTY_RELEASE_DETAIL_RESPONSE,
+  ReleaseActivityResponseSchema,
+  ReleaseCommentsSchema,
+  ReleaseDetailResponseSchema,
+  ReleaseIssuesResponseSchema,
+  ReleasesResponseSchema,
+} from "./schemas";
 
 const baseIssue = {
   id: "11111111-1111-1111-1111-111111111111",
@@ -3184,5 +3194,66 @@ describe("AgentSessionsResponseSchema", () => {
         started_at: "",
       },
     ]);
+  });
+});
+
+describe("release owner and release page responses", () => {
+  const release = {
+    ...EMPTY_RELEASE,
+    id: "release-1",
+    repository_id: "repo-1",
+    version: "1.1.0",
+    title: "Account and profile",
+  };
+  const parseDetail = (body: unknown) =>
+    parseWithFallback(body, ReleaseDetailResponseSchema, EMPTY_RELEASE_DETAIL_RESPONSE, {
+      endpoint: "/api/releases/release-1",
+    }).release;
+
+  it("keeps a known owner with its name and avatar", () => {
+    expect(parseDetail({
+      release: { ...release, owner_type: "agent", owner_id: "agent-1", owner_name: "Kees", owner_avatar_url: "/a.png" },
+    })).toMatchObject({ id: "release-1", owner_type: "agent", owner_id: "agent-1", owner_name: "Kees", owner_avatar_url: "/a.png" });
+  });
+
+  it("reads a missing, unknown or half-sent owner as no owner and keeps the release", () => {
+    const noOwner = { owner_type: null, owner_id: null, owner_name: null, owner_avatar_url: null };
+    const { owner_type: _type, owner_id: _id, owner_name: _name, owner_avatar_url: _avatar, ...older } = release;
+    for (const owner of [
+      {},
+      { owner_type: "member", owner_id: "user-1", owner_name: "Brian" },
+      { owner_type: "agent", owner_id: null, owner_name: "Kees" },
+      { owner_type: null, owner_id: "agent-1" },
+      { owner_type: 7, owner_id: ["agent-1"] },
+    ]) {
+      expect(parseDetail({ release: { ...older, ...owner } })).toMatchObject({ id: "release-1", title: "Account and profile", ...noOwner });
+    }
+    const listed = parseWithFallback(
+      { releases: [{ ...older, owner_type: "robot", owner_id: "x" }] },
+      ReleasesResponseSchema,
+      { releases: [] },
+      { endpoint: "/api/releases" },
+    );
+    expect(listed.releases).toEqual([expect.objectContaining({ id: "release-1", ...noOwner })]);
+  });
+
+  it("drops only malformed release issues and comments, keeping order", () => {
+    const issue = { id: "i-1", identifier: "WORK-501", title: "Sign up", status: "todo", assignee_type: "agent", assignee_id: "a-1", parent_issue_id: null, worklane_id: "w-1", worklane_name: "Fan accounts", pull_requests: [] };
+    expect(ReleaseIssuesResponseSchema.parse({ issues: [issue, { title: "no id" }, { ...issue, id: "i-2", identifier: "WORK-502" }] }).issues.map((row) => row.identifier))
+      .toEqual(["WORK-501", "WORK-502"]);
+    const comment = { id: "c-1", release_id: "release-1", author_type: "member", author_id: "u-1", content: "Start", parent_id: null, created_at: "2026-01-01T00:00:00Z" };
+    expect(ReleaseCommentsSchema.parse([comment, { ...comment, id: "c-2", author_type: "robot" }, { ...comment, id: "c-3", parent_id: "c-1" }]).map((row) => row.id))
+      .toEqual(["c-1", "c-3"]);
+  });
+
+  it("keeps only owner changes in release activity", () => {
+    const entries = parseWithFallback({ entries: [
+      { id: "e-1", actor_type: "member", actor_id: "u-1", created_at: "", action: "release_planned", details: {} },
+      {
+        id: "e-2", actor_type: "member", actor_id: "u-1", created_at: "", action: "release_owner_changed",
+        details: { release_id: "release-1", version: "1.1.0", title: "Account and profile", owner_type: "agent", owner_id: "a-1", owner_name: "Pieter", previous_owner_type: null, previous_owner_id: null, previous_owner_name: null },
+      },
+    ] }, ReleaseActivityResponseSchema, EMPTY_RELEASE_ACTIVITY_RESPONSE, { endpoint: "/api/releases/release-1/activity" }).entries;
+    expect(entries.map((entry) => entry.id)).toEqual(["e-2"]);
   });
 });

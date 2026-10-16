@@ -308,3 +308,63 @@ ORDER BY id;
 DELETE FROM attachment
 WHERE workspace_id = sqlc.arg(workspace_id)
   AND source_context_id IS NOT NULL;
+
+-- Release comment attachments. An upload for a release comment belongs to no
+-- issue, chat, question or source context; linking sets only comment_id to a
+-- comment of that release. CreateReleaseComment holds the release FOR KEY
+-- SHARE before these rows are locked: release -> comment -> attachment.
+
+-- name: LockAttachmentsForReleaseCommentLink :many
+-- Pins the requested uploads and returns the ids still eligible for a release
+-- comment: same workspace and uploader, unbound (or already on this comment).
+SELECT a.id FROM attachment a
+WHERE a.workspace_id = sqlc.arg(workspace_id)
+  AND a.uploader_type = sqlc.arg(uploader_type) AND a.uploader_id = sqlc.arg(uploader_id)
+  AND a.issue_id IS NULL AND a.chat_session_id IS NULL AND a.chat_message_id IS NULL
+  AND a.question_id IS NULL AND a.source_context_id IS NULL
+  AND (a.comment_id IS NULL OR a.comment_id = sqlc.arg(comment_id))
+  AND a.id = ANY(sqlc.arg(attachment_ids)::uuid[])
+ORDER BY a.id
+FOR UPDATE;
+
+-- name: LinkAttachmentsToReleaseComment :execrows
+-- Binds eligible uploads to a comment of the release. The caller compares the
+-- count with the requested set and refuses a partial link.
+UPDATE attachment a SET comment_id = c.id
+FROM comment c
+WHERE c.id = sqlc.arg(comment_id) AND c.release_id = sqlc.arg(release_id) AND c.workspace_id = sqlc.arg(workspace_id)
+  AND a.workspace_id = c.workspace_id
+  AND a.uploader_type = sqlc.arg(uploader_type) AND a.uploader_id = sqlc.arg(uploader_id)
+  AND a.issue_id IS NULL AND a.chat_session_id IS NULL AND a.chat_message_id IS NULL
+  AND a.question_id IS NULL AND a.source_context_id IS NULL
+  AND (a.comment_id IS NULL OR a.comment_id = c.id)
+  AND a.id = ANY(sqlc.arg(attachment_ids)::uuid[]);
+
+-- name: ReplaceReleaseCommentAttachments :execrows
+-- An edit's attachment set: requested unbound uploads join the comment,
+-- attachments no longer requested leave it.
+UPDATE attachment a SET comment_id = CASE
+    WHEN a.id = ANY(sqlc.arg(attachment_ids)::uuid[]) THEN c.id
+    ELSE NULL
+END
+FROM comment c
+WHERE c.id = sqlc.arg(comment_id) AND c.release_id = sqlc.arg(release_id) AND c.workspace_id = sqlc.arg(workspace_id)
+  AND a.workspace_id = c.workspace_id
+  AND a.issue_id IS NULL AND a.chat_session_id IS NULL AND a.chat_message_id IS NULL
+  AND a.question_id IS NULL AND a.source_context_id IS NULL
+  AND (
+    (a.comment_id = c.id AND NOT a.id = ANY(sqlc.arg(attachment_ids)::uuid[]))
+    OR (a.comment_id IS NULL AND a.id = ANY(sqlc.arg(attachment_ids)::uuid[])
+        AND a.uploader_type = sqlc.arg(uploader_type) AND a.uploader_id = sqlc.arg(uploader_id))
+  );
+
+-- name: DeleteReleaseCommentAttachments :many
+-- Release removal: attachments of the releases' comments, returning their
+-- storage URLs for cleanup after commit.
+DELETE FROM attachment
+WHERE attachment.workspace_id = sqlc.arg(workspace_id)
+  AND attachment.comment_id IN (
+    SELECT c.id FROM comment c
+    WHERE c.workspace_id = sqlc.arg(workspace_id) AND c.release_id = ANY(sqlc.arg(release_ids)::uuid[])
+  )
+RETURNING url;

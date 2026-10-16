@@ -44,6 +44,7 @@ export type TabLabelKey =
   | "project"
   | "organisation"
   | "worklane"
+  | "release"
   | "autopilot"
   | "agent"
   | "member"
@@ -88,6 +89,8 @@ export interface TabEntityData {
   project?: { icon: string | null; title: string };
   organisation?: { name: string };
   worklane?: { name: string };
+  /** The release's version, with its leading `v`, and title. */
+  release?: { version: string; title: string };
   autopilot?: { title: string };
   /** Resolved display name for an actor subject. */
   actorName?: string;
@@ -204,6 +207,13 @@ export function resolveTabPresentation(
       return {
         visual: { kind: "icon", icon: "GitBranch" },
         title: textOr(data.worklane?.name, "worklane"),
+      };
+    case "release":
+      return {
+        visual: { kind: "icon", icon: "Tag" },
+        title: data.release
+          ? { kind: "text", text: `${data.release.version} ${data.release.title}`.trim() }
+          : { kind: "tab", tabKey: "release" },
       };
     case "autopilot":
       return {

@@ -1,5 +1,6 @@
 import { queryOptions, type QueryClient } from "@tanstack/react-query";
 import { api } from "../../api";
+import { releaseKeys } from "../../releases/queries";
 
 /** The issues of one worklane, every status, for its Timeline. */
 export const worklaneIssueKeys = {
@@ -27,8 +28,12 @@ export function releaseProgressOptions(wsId: string) {
   });
 }
 
-/** Worklane issues and progress move with every issue, placement or release write. */
+/**
+ * Worklane issues, progress and every release's issues move with every
+ * issue, placement or release write; an issue can leave one release for another.
+ */
 export function invalidatePlacementReads(qc: QueryClient, wsId: string) {
   qc.invalidateQueries({ queryKey: worklaneIssueKeys.all(wsId) });
   qc.invalidateQueries({ queryKey: releaseProgressKeys.list(wsId) });
+  qc.invalidateQueries({ queryKey: releaseKeys.issuesAll(wsId) });
 }

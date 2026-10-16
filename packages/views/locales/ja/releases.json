@@ -122,13 +122,47 @@
     "moved_later": "{{actor}} が {{version}} {{title}} を後ろへ移動しました",
     "moved": "{{actor}} が {{version}} {{title}} を移動しました",
     "removed": "{{actor}} が {{version}} {{title}} を削除しました",
-    "change": "{{title}} {{from}} → {{to}}"
+    "change": "{{title}} {{from}} → {{to}}",
+    "owner_set": "{{actor}} が {{owner}} を {{version}} {{title}} のオーナーにしました",
+    "owner_changed": "{{actor}} が {{previous}} に代えて {{owner}} を {{version}} {{title}} のオーナーにしました",
+    "owner_removed": "{{actor}} が {{owner}} を {{version}} {{title}} のオーナーから外しました"
+  },
+  "owner": {
+    "label": "オーナー",
+    "none": "オーナーなし",
+    "search": "エージェントとスクワッドを検索…",
+    "agents": "エージェント",
+    "squads": "スクワッド",
+    "failed": "オーナーを保存できませんでした。もう一度お試しください。"
+  },
+  "page": {
+    "issues": "タスク",
+    "no_issues": "このリリースにはまだタスクがありません。",
+    "open_timeline": "タイムラインで開く",
+    "not_found": "このリリースは存在しないか、削除されました。",
+    "back": "リリースに戻る",
+    "load_failed": "このリリースを読み込めませんでした。",
+    "retry": "再試行",
+    "unassigned": "未割り当て",
+    "no_worklane": "worklane なし"
+  },
+  "comments": {
+    "title": "コメント",
+    "empty": "まだコメントはありません。",
+    "placeholder": "コメントを書く…",
+    "reply_placeholder": "返信を書く…",
+    "send": "コメント",
+    "reply": "返信",
+    "cancel": "キャンセル",
+    "failed": "コメントを送信できませんでした。",
+    "retry": "再試行"
   },
   "overview": {
     "title": "リリース",
     "empty": "まだリリースがありません。",
     "column_name": "名前",
     "column_issues": "タスク",
+    "column_owner": "オーナー",
     "column_worklanes": "worklanes",
     "release_count_other": "{{count}} 件のリリース",
     "repository_count_other": "{{count}} 件のリポジトリ",

@@ -21,8 +21,38 @@ export interface ReleaseOverviewRow {
   total: number;
   /** The repository's worklanes that hold issues in the release, in their order. */
   worklanes: Worklane[];
-  /** The worklane whose Timeline the row opens: the first of `worklanes`, else `main`. */
-  target: Worklane | null;
+}
+
+/** Keys `worklane_id:release_id` of the worklanes that hold issues in each release. */
+function holdingKeys(progress: ReleaseProgressResponse): Set<string> {
+  return new Set(
+    progress.rows.filter((row) => row.total > 0).map((row) => `${row.worklane_id}:${row.release_id}`),
+  );
+}
+
+/**
+ * The worklane whose Timeline shows a release: the first worklane of its
+ * repository, in their order, that holds issues in it, else `main`; null
+ * while the repository's worklanes are unknown.
+ */
+export function releaseTimelineTarget({
+  release,
+  worklanes,
+  progress,
+}: {
+  release: Release;
+  worklanes: readonly Worklane[];
+  progress: ReleaseProgressResponse;
+}): Worklane | null {
+  const heldBy = holdingKeys(progress);
+  const repositoryWorklanes = sortWorklanes(
+    worklanes.filter((worklane) => worklane.repository_id === release.repository_id),
+  );
+  return (
+    repositoryWorklanes.find((worklane) => heldBy.has(`${worklane.id}:${release.id}`)) ??
+    repositoryWorklanes.find((worklane) => worklane.is_main) ??
+    null
+  );
 }
 
 export interface ReleaseOverviewRepository {
@@ -57,9 +87,7 @@ export function releaseOverview({
   order: WorkTreeOrder;
 }): ReleaseOverview {
   const totals = new Map(progress.releases.map((entry) => [entry.release_id, entry]));
-  const heldBy = new Set(
-    progress.rows.filter((row) => row.total > 0).map((row) => `${row.worklane_id}:${row.release_id}`),
-  );
+  const heldBy = holdingKeys(progress);
   const worklanesByRepository = new Map<string, Worklane[]>();
   for (const worklane of worklanes) {
     const list = worklanesByRepository.get(worklane.repository_id);
@@ -80,7 +108,6 @@ export function releaseOverview({
       const line = selectLine(releases, repository.id);
       const states = lineStates(toLine(line, repository.last_tag));
       const repositoryWorklanes = sortWorklanes(worklanesByRepository.get(repository.id) ?? []);
-      const main = repositoryWorklanes.find((worklane) => worklane.is_main) ?? null;
       const rows: ReleaseOverviewRow[] = [];
       for (const release of line) {
         const state = states.get(release.id);
@@ -96,7 +123,6 @@ export function releaseOverview({
           done: counts?.done ?? 0,
           total: counts?.total ?? 0,
           worklanes: holding,
-          target: holding[0] ?? main,
         });
       }
       return rows.length > 0 ? { repository, doesNotRelease: false, releases: rows } : null;

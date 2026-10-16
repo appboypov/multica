@@ -41,7 +41,10 @@ func (h *Handler) GetRelease(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to read release milestones")
 		return
 	}
-	writeJSON(w, http.StatusOK, rows[0])
+	writeJSON(w, http.StatusOK, struct {
+		ReleaseResponse
+		Release ReleaseResponse `json:"release"`
+	}{ReleaseResponse: rows[0], Release: rows[0]})
 }
 
 func (h *Handler) AddReleaseMilestone(w http.ResponseWriter, r *http.Request) {

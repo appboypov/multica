@@ -7,6 +7,42 @@ import { Callout } from "fumadocs-ui/components/callout";
 
 The Multica CLI both connects local runtimes and manages workspaces, issues, agents, and automations from the terminal. This page covers the common paths; the flags your installed version supports are always defined by each command's own `--help`.
 
+## Release ownership and coordination
+
+`release get` and `release list --output json` include nullable `owner_type`,
+`owner_id`, `owner_name`, and `owner_avatar_url`. An owner is an agent or squad,
+never a member. Assignment changes only ownership; shipped releases refuse it.
+
+```bash
+multica release assign <release> --to "Build squad"
+multica release assign <release> --unassign
+multica release comment list <release> --roots-only --summary --compact --output json
+multica release comment list <release> --thread <comment-id> --tail 30 --output json
+multica release comment add <release> --content-file ./result.md --parent <comment-id> --attachment ./report.pdf --output table
+multica release wakeup create <release> --until-issue WORK-501 --until-issue-state in_review --instruction-file ./wait.md --expires-in 72h --on-timeout wake
+multica release wakeup create <release> --kind every --every 1h --instruction "Check prerequisites" --expires-in 72h
+multica release wakeup list <release> --output json
+multica release wakeup delete <release> <wakeup-id>
+```
+
+Comments support file, stdin or inline content (choose one); agents use a UTF-8
+file in their working directory. Replies stay on the same release and workspace.
+Attachments are repeatable local paths. Bound history with roots/summary,
+`--recent N` complete threads, `--thread` plus `--tail N` replies, or
+`--since <RFC3339>`; use paired `--before` / `--before-id` cursors for older pages.
+
+Wakeups target the current owner when they fire. Use only same-workspace issue
+conditions (`done`, `ended` including cancellation, or `in_review`) or `at`,
+`every`, and `cron` schedules, with existing instruction, expiry and timeout
+options. Member comments wake the owner; agent reports do not. A squad routes
+only to its current leader. An owner without a runnable runtime remains saved.
+
+Coordination keeps the specified scope, issue order, assignees, parents,
+worklanes, version and line position. All issues done does not ship a release.
+Follow the existing publication workflow and human approvals, then explicitly
+run `multica release ship <release>` with its existing checks. Shipment clears
+waits and unstarted runs; a running shipper may still report.
+
 ## Installation
 
 **macOS / Linux**

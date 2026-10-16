@@ -2406,6 +2406,10 @@ func floatVal(m map[string]any, key string) float64 {
 // ---------------------------------------------------------------------------
 
 func runIssueCommentList(cmd *cobra.Command, args []string) error {
+	return runSubjectCommentList(cmd, args, "issue")
+}
+
+func runSubjectCommentList(cmd *cobra.Command, args []string, subject string) error {
 	client, err := newAPIClient(cmd)
 	if err != nil {
 		return err
@@ -2414,9 +2418,9 @@ func runIssueCommentList(cmd *cobra.Command, args []string) error {
 	ctx, cancel := cli.APIContext(context.Background())
 	defer cancel()
 
-	issueRef, err := resolveIssueRef(ctx, client, args[0])
+	issueRef, err := resolveCommentSubject(ctx, client, args[0], subject)
 	if err != nil {
-		return fmt.Errorf("resolve issue: %w", err)
+		return fmt.Errorf("resolve %s: %w", subject, err)
 	}
 
 	since, _ := cmd.Flags().GetString("since")
@@ -2508,7 +2512,7 @@ func runIssueCommentList(cmd *cobra.Command, args []string) error {
 		params.Set("before_id", beforeID)
 	}
 
-	path := "/api/issues/" + issueRef.ID + "/comments"
+	path := "/api/" + subject + "s/" + issueRef.ID + "/comments"
 	if len(params) > 0 {
 		path += "?" + params.Encode()
 	}
@@ -2577,6 +2581,10 @@ func runIssueCommentList(cmd *cobra.Command, args []string) error {
 }
 
 func runIssueCommentAdd(cmd *cobra.Command, args []string) error {
+	return runSubjectCommentAdd(cmd, args, "issue")
+}
+
+func runSubjectCommentAdd(cmd *cobra.Command, args []string, subject string) error {
 	content, hasContent, err := resolveTextFlag(cmd, "content")
 	if err != nil {
 		return err
@@ -2585,7 +2593,7 @@ func runIssueCommentAdd(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("--content, --content-stdin, or --content-file is required")
 	}
 	if err := guardLocalPathLinks(content, "comment body",
-		"Deliver the file itself with `multica issue comment add <issue-id> --attachment <path>` (repeatable) and drop the link."); err != nil {
+		fmt.Sprintf("Deliver the file itself with `multica %s comment add <%s-id> --attachment <path>` (repeatable) and drop the link.", subject, subject)); err != nil {
 		return err
 	}
 
@@ -2603,9 +2611,9 @@ func runIssueCommentAdd(cmd *cobra.Command, args []string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	issueRef, err := resolveIssueRef(ctx, client, args[0])
+	issueRef, err := resolveCommentSubject(ctx, client, args[0], subject)
 	if err != nil {
-		return fmt.Errorf("resolve issue: %w", err)
+		return fmt.Errorf("resolve %s: %w", subject, err)
 	}
 	issueID := issueRef.ID
 
@@ -2621,7 +2629,11 @@ func runIssueCommentAdd(cmd *cobra.Command, args []string) error {
 	}
 	var attachmentIDs []string
 	for _, att := range pending {
-		id, uploadErr := client.UploadFile(ctx, att.data, att.path, issueID)
+		attachmentSubject := issueID
+		if subject == "release" {
+			attachmentSubject = ""
+		}
+		id, uploadErr := client.UploadFile(ctx, att.data, att.path, attachmentSubject)
 		if uploadErr != nil {
 			return fmt.Errorf("upload attachment %s: %w", att.path, uploadErr)
 		}
@@ -2637,11 +2649,11 @@ func runIssueCommentAdd(cmd *cobra.Command, args []string) error {
 		body["attachment_ids"] = attachmentIDs
 	}
 	var result map[string]any
-	if err := client.PostJSON(ctx, "/api/issues/"+issueID+"/comments", body, &result); err != nil {
+	if err := client.PostJSON(ctx, "/api/"+subject+"s/"+issueID+"/comments", body, &result); err != nil {
 		return fmt.Errorf("add comment: %w", err)
 	}
 
-	fmt.Fprintf(os.Stderr, "Comment added to issue %s.\n", issueRef.Display)
+	fmt.Fprintf(os.Stderr, "Comment added to %s %s.\n", subject, issueRef.Display)
 
 	output, _ := cmd.Flags().GetString("output")
 	if output == "table" {

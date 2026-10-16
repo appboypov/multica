@@ -1,1 +1,1 @@
-export { ReleasesPage } from "./components";
+export { ReleasesPage, ReleaseDetailRoute } from "./components";

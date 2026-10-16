@@ -3,10 +3,14 @@ import { api, ApiError, parseWithFallback } from "../api";
 import { ReleaseRefusalSchema, UNKNOWN_RELEASE_REFUSAL } from "../api/schemas";
 import { useWorkspaceId } from "../hooks";
 import type {
+  CreateReleaseCommentRequest,
   EditReleaseRequest,
   ListReleasesResponse,
   PlanReleaseRequest,
+  Release,
+  ReleaseComment,
   ReleaseLineResponse,
+  ReleaseOwnerRequest,
   ReleaseRefusal,
   ReleaseMilestoneRequest,
 } from "../types";
@@ -16,8 +20,9 @@ import { invalidatePlacementReads, releaseProgressKeys } from "../issues/placeme
 
 /**
  * Every write answers with the repository's whole line: it replaces that
- * repository's releases in the workspace list without a second read.
- * Refresh progress metadata and the repository's worklane activity.
+ * repository's releases in the workspace list and in open release pages
+ * without a second read. Refresh progress metadata, the repository's
+ * worklane activity and the releases' owner activity.
  */
 function settleLine(
   qc: QueryClient,
@@ -36,7 +41,11 @@ function settleLine(
         }
       : old,
   );
+  for (const release of answer.releases) {
+    qc.setQueryData<Release>(releaseKeys.detail(wsId, release.id), (old) => (old ? release : old));
+  }
   qc.invalidateQueries({ queryKey: worklaneKeys.activityAll(wsId) });
+  qc.invalidateQueries({ queryKey: releaseKeys.activityAll(wsId) });
   qc.invalidateQueries({ queryKey: releaseProgressKeys.list(wsId) });
 }
 
@@ -67,6 +76,36 @@ export function useEditRelease() {
     mutationFn: ({ id, data }: { id: string; repositoryId: string; data: EditReleaseRequest }) =>
       api.editRelease(id, data),
     onSuccess: (answer, { repositoryId }) => settleLine(qc, wsId, repositoryId, answer),
+  });
+}
+
+/** Sets, changes or removes (both null) the owner of an unshipped release, once the server agrees. */
+export function useSetReleaseOwner() {
+  const qc = useQueryClient();
+  const wsId = useWorkspaceId();
+  return useMutation({
+    mutationFn: ({ id, owner }: { id: string; repositoryId: string; owner: ReleaseOwnerRequest }) =>
+      api.setReleaseOwner(id, owner),
+    onSuccess: (answer, { repositoryId }) => settleLine(qc, wsId, repositoryId, answer),
+  });
+}
+
+/**
+ * Posts a comment or reply on a release's page. The caller keeps the text
+ * until this succeeds, so a failed send can be retried without retyping.
+ */
+export function useCreateReleaseComment(releaseId: string) {
+  const qc = useQueryClient();
+  const wsId = useWorkspaceId();
+  return useMutation({
+    mutationFn: (data: CreateReleaseCommentRequest) => api.createReleaseComment(releaseId, data),
+    onSuccess: (comment) => {
+      if (!comment.id) return;
+      qc.setQueryData<ReleaseComment[]>(releaseKeys.comments(wsId, releaseId), (old) =>
+        old && !old.some((existing) => existing.id === comment.id) ? [...old, comment] : old,
+      );
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: releaseKeys.comments(wsId, releaseId) }),
   });
 }
 

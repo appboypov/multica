@@ -122,13 +122,47 @@
     "moved_later": "{{actor}} a reculé {{version}} {{title}}",
     "moved": "{{actor}} a déplacé {{version}} {{title}}",
     "removed": "{{actor}} a retiré {{version}} {{title}}",
-    "change": "{{title}} {{from}} → {{to}}"
+    "change": "{{title}} {{from}} → {{to}}",
+    "owner_set": "{{actor}} a fait de {{owner}} le responsable de {{version}} {{title}}",
+    "owner_changed": "{{actor}} a fait de {{owner}} le responsable de {{version}} {{title}} à la place de {{previous}}",
+    "owner_removed": "{{actor}} a retiré {{owner}} comme responsable de {{version}} {{title}}"
+  },
+  "owner": {
+    "label": "Responsable",
+    "none": "Aucun responsable",
+    "search": "Rechercher des agents et des escouades…",
+    "agents": "Agents",
+    "squads": "Escouades",
+    "failed": "Impossible d’enregistrer le responsable. Réessayez."
+  },
+  "page": {
+    "issues": "Tâches",
+    "no_issues": "Aucune tâche dans cette version pour l’instant.",
+    "open_timeline": "Ouvrir dans la chronologie",
+    "not_found": "Cette version n’existe pas ou a été retirée.",
+    "back": "Retour aux versions",
+    "load_failed": "Impossible de charger cette version.",
+    "retry": "Réessayer",
+    "unassigned": "Non assignée",
+    "no_worklane": "Aucune worklane"
+  },
+  "comments": {
+    "title": "Commentaires",
+    "empty": "Aucun commentaire pour l’instant.",
+    "placeholder": "Écrire un commentaire…",
+    "reply_placeholder": "Écrire une réponse…",
+    "send": "Commenter",
+    "reply": "Répondre",
+    "cancel": "Annuler",
+    "failed": "Impossible d’envoyer votre commentaire.",
+    "retry": "Réessayer"
   },
   "overview": {
     "title": "Versions",
     "empty": "Aucune version pour l’instant.",
     "column_name": "Nom",
     "column_issues": "Tâches",
+    "column_owner": "Responsable",
     "column_worklanes": "Worklanes",
     "release_count_one": "{{count}} version",
     "release_count_other": "{{count}} versions",

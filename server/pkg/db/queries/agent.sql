@@ -584,6 +584,8 @@ SELECT
     COALESCE(sqlc.narg('new_task_id')::uuid, gen_random_uuid())
 FROM agent_task_queue p
 WHERE p.id = $1
+  -- Release coordination runs retry through CreateReleaseRetryTask only.
+  AND p.release_id IS NULL
   AND lock_task_owner_rows(p.agent_id, p.issue_id, p.runtime_id)
 ON CONFLICT (issue_id, agent_id, (COALESCE(comment_thread_id, '00000000-0000-0000-0000-000000000000'::uuid))) WHERE status IN ('queued', 'dispatched')
        OR (status = 'deferred' AND context->>'channel_issue_media_pending' = 'true')
@@ -619,6 +621,7 @@ WHERE p.id = sqlc.arg(source_task_id)
   AND p.issue_id IS NULL
   AND p.chat_session_id IS NULL
   AND p.autopilot_run_id IS NULL
+  AND p.release_id IS NULL
   AND lock_task_owner_rows(p.agent_id, p.issue_id, p.runtime_id)
 RETURNING *;
 
@@ -633,7 +636,8 @@ WHERE id = sqlc.arg(task_id)
   AND status IN ('queued', 'deferred')
   AND issue_id IS NULL
   AND chat_session_id IS NULL
-  AND autopilot_run_id IS NULL;
+  AND autopilot_run_id IS NULL
+  AND release_id IS NULL;
 
 -- name: CancelAgentTasksByIssue :many
 -- Cancels every active task on the issue and returns the affected rows so the
@@ -835,6 +839,9 @@ WHERE id = (
                 OR r.visibility = 'private'
             )
             AND r.status = 'online'
+            -- A release coordination run is claimable only by a runtime
+            -- that declared the release-coordination contract.
+            AND (atq.release_id IS NULL OR r.metadata->'capabilities' @> '["release-coordination-v1"]'::jsonb)
             AND COALESCE(r.last_seen_at, r.updated_at) >=
                 now() - make_interval(secs => @runtime_stale_secs::double precision)
       )
@@ -849,12 +856,22 @@ WHERE id = (
                 atq.issue_id IS NULL
                 AND atq.chat_session_id IS NULL
                 AND atq.autopilot_run_id IS NULL
+                AND atq.release_id IS NULL
                 AND active.issue_id IS NULL
                 AND active.chat_session_id IS NULL
                 AND active.autopilot_run_id IS NULL
+                AND active.release_id IS NULL
               )
             )
       )
+      -- One coordination run per release at a time, whichever agent holds
+      -- it: a follow-up stays queued while an earlier run is still active.
+      AND (atq.release_id IS NULL OR NOT EXISTS (
+          SELECT 1 FROM agent_task_queue active_release
+          WHERE active_release.release_id = atq.release_id
+            AND active_release.id <> atq.id
+            AND active_release.status IN ('dispatched', 'running', 'waiting_local_directory')
+      ))
     ORDER BY atq.priority DESC, atq.created_at ASC, atq.id ASC
     LIMIT 1
     FOR UPDATE SKIP LOCKED
@@ -957,6 +974,7 @@ WHERE id = (
                 )
             )
             AND r.status = 'online'
+            AND (atq.release_id IS NULL OR r.metadata->'capabilities' @> '["release-coordination-v1"]'::jsonb)
             AND COALESCE(r.last_seen_at, r.updated_at) >=
                 now() - make_interval(secs => @runtime_stale_secs::double precision)
       )
@@ -1004,6 +1022,7 @@ WHERE id IN (
                 )
             )
             AND r.status = 'online'
+            AND (atq.release_id IS NULL OR r.metadata->'capabilities' @> '["release-coordination-v1"]'::jsonb)
             AND COALESCE(r.last_seen_at, r.updated_at) >=
                 now() - make_interval(secs => @runtime_stale_secs::double precision)
       )
@@ -2910,3 +2929,218 @@ RETURNING *;
 
 -- name: GetCommentThreadRootID :one
 SELECT comment_thread_root_id(@comment_id::uuid)::uuid AS id;
+
+-- Release coordination runs. A coordination task has release_id set and no
+-- issue, chat or autopilot run (agent_task_queue_release_subject_check). At
+-- most one unstarted run exists per release (idx_one_pending_task_per_release:
+-- queued, dispatched or waiting_local_directory); a queued follow-up may wait
+-- behind a running one. Claiming requires the runtime capability
+-- release-coordination-v1 and no other active run of the release.
+
+-- name: CreateReleaseWakeupTask :one
+-- The dispatcher's insert for a coordination run, mirroring CreateWakeupTask
+-- with the release in place of the issue. Fenced by the release (unshipped,
+-- in @workspace_id, held FOR KEY SHARE) and lock_task_owner_rows on the agent
+-- and runtime; a removed or shipped release or a deleted owner yields
+-- pgx.ErrNoRows. A unique violation on idx_one_pending_task_per_release means
+-- another unstarted run exists: merge into it with MergeReleaseTaskInput.
+WITH target AS MATERIALIZED (
+    SELECT r.id FROM release r
+    WHERE r.id = @release_id AND r.workspace_id = @workspace_id AND r.shipped_at IS NULL
+    FOR KEY SHARE
+)
+INSERT INTO agent_task_queue (
+    agent_id, runtime_id, release_id, status, priority, trigger_comment_id,
+    coalesced_comment_ids, trigger_summary, force_fresh_session, is_leader_task, handoff_note,
+    squad_id, context, originator_user_id, accountable_user_id, runtime_mcp_overlay, runtime_connected_apps,
+    originator_source, delegated_from_task_id, rule_version_id, rerun_of_task_id, trigger_evidence_kind, trigger_evidence_ref_id,
+    id
+)
+SELECT
+    @agent_id, @runtime_id, target.id, 'queued', @priority, sqlc.narg(trigger_comment_id),
+    COALESCE(sqlc.narg(coalesced_comment_ids)::uuid[], '{}'),
+    sqlc.narg(trigger_summary),
+    COALESCE(sqlc.narg('force_fresh_session')::boolean, FALSE),
+    COALESCE(sqlc.narg('is_leader_task')::boolean, FALSE),
+    sqlc.narg(handoff_note),
+    sqlc.narg(squad_id),
+    @wakeup_context::jsonb,
+    sqlc.narg(originator_user_id),
+    sqlc.narg(accountable_user_id),
+    sqlc.narg(runtime_mcp_overlay),
+    sqlc.narg(runtime_connected_apps),
+    sqlc.narg(originator_source),
+    sqlc.narg(delegated_from_task_id),
+    sqlc.narg(rule_version_id),
+    sqlc.narg(rerun_of_task_id),
+    sqlc.narg(trigger_evidence_kind),
+    sqlc.narg(trigger_evidence_ref_id),
+    COALESCE(sqlc.narg('id')::uuid, gen_random_uuid())
+FROM target
+WHERE lock_task_owner_rows(@agent_id, NULL, @runtime_id)
+RETURNING *;
+
+-- name: FindPendingReleaseTask :one
+-- The release's unstarted coordination run, locked.
+SELECT * FROM agent_task_queue
+WHERE release_id = @release_id
+  AND status IN ('queued', 'dispatched', 'waiting_local_directory')
+  AND started_at IS NULL
+ORDER BY created_at, id
+LIMIT 1
+FOR UPDATE;
+
+-- name: MergeReleaseTaskInput :one
+-- Folds new release inputs into the queued (not yet claimed) coordination run
+-- of the release: the comment ids join the planned set, the wakeup context
+-- (wakeup_id, revision, evidence) is replaced, and with @replace_attribution
+-- the whole attribution snapshot moves to the new trigger. pgx.ErrNoRows: the
+-- run was claimed meanwhile; enqueue a follow-up instead.
+UPDATE agent_task_queue
+SET coalesced_comment_ids = (
+        SELECT COALESCE(array_agg(DISTINCT e), '{}')
+        FROM unnest(coalesced_comment_ids || COALESCE(sqlc.narg(new_comment_ids)::uuid[], '{}') || ARRAY[trigger_comment_id]) AS e
+        WHERE e IS NOT NULL
+          AND e IS DISTINCT FROM COALESCE(sqlc.narg('new_trigger_comment_id')::uuid, trigger_comment_id)
+    ),
+    trigger_comment_id = COALESCE(sqlc.narg('new_trigger_comment_id')::uuid, trigger_comment_id),
+    trigger_summary = COALESCE(sqlc.narg('new_trigger_summary'), trigger_summary),
+    handoff_note = COALESCE(sqlc.narg('handoff_note'), handoff_note),
+    context = COALESCE(context, '{}'::jsonb) || @wakeup_context::jsonb,
+    originator_user_id = CASE WHEN @replace_attribution::bool THEN sqlc.narg('new_originator_user_id')::uuid ELSE originator_user_id END,
+    accountable_user_id = CASE WHEN @replace_attribution::bool THEN sqlc.narg('new_accountable_user_id')::uuid ELSE accountable_user_id END,
+    originator_source = CASE WHEN @replace_attribution::bool THEN sqlc.narg('new_originator_source')::text ELSE originator_source END,
+    delegated_from_task_id = CASE WHEN @replace_attribution::bool THEN sqlc.narg('new_delegated_from_task_id')::uuid ELSE delegated_from_task_id END,
+    rule_version_id = CASE WHEN @replace_attribution::bool THEN sqlc.narg('new_rule_version_id')::uuid ELSE rule_version_id END,
+    trigger_evidence_kind = CASE WHEN @replace_attribution::bool THEN sqlc.narg('new_trigger_evidence_kind')::text ELSE trigger_evidence_kind END,
+    trigger_evidence_ref_id = CASE WHEN @replace_attribution::bool THEN sqlc.narg('new_trigger_evidence_ref_id')::uuid ELSE trigger_evidence_ref_id END,
+    runtime_mcp_overlay = CASE WHEN @replace_attribution::bool THEN sqlc.narg('new_runtime_mcp_overlay')::jsonb ELSE runtime_mcp_overlay END,
+    runtime_connected_apps = CASE WHEN @replace_attribution::bool THEN sqlc.narg('new_runtime_connected_apps')::jsonb ELSE runtime_connected_apps END
+WHERE id = @id AND release_id = @release_id AND status = 'queued'
+RETURNING *;
+
+-- name: ConsumeReleaseTaskReceipts :many
+-- At run start, in the start transaction: the run's reserved inputs it
+-- actually delivered become processed; a member comment the claim omitted
+-- goes back to its rule for the next run. Each rule with newly consumed
+-- inputs fires once: fire_count counts the run, last_task_id names it, and a
+-- once-mode rule ends. Returns those rules so the caller can apply max_fires.
+-- (Data-modifying CTEs always run, so "returned" needs no reference.)
+WITH reserved AS (
+    SELECT r.id, r.wakeup_id,
+           (r.payload->>'comment_id' IS NULL
+            OR (r.payload->>'comment_id')::uuid = ANY(@delivered_comment_ids::uuid[])) AS delivered
+    FROM issue_wakeup_receipt r
+    WHERE r.task_id = @task_id AND r.processed_at IS NULL
+    ORDER BY r.id
+    FOR UPDATE
+), consumed AS (
+    UPDATE issue_wakeup_receipt r SET processed_at = now()
+    FROM reserved
+    WHERE r.id = reserved.id AND reserved.delivered
+    RETURNING r.wakeup_id
+), returned AS (
+    UPDATE issue_wakeup_receipt r SET task_id = NULL
+    FROM reserved
+    WHERE r.id = reserved.id AND NOT reserved.delivered
+    RETURNING r.id
+)
+UPDATE issue_wakeup w SET
+    fire_count = w.fire_count + 1,
+    last_task_id = @task_id,
+    enabled = CASE WHEN w.mode = 'once' AND w.system_rule IS NULL THEN false ELSE w.enabled END,
+    next_fire_at = CASE WHEN w.mode = 'once' AND w.system_rule IS NULL THEN NULL ELSE w.next_fire_at END,
+    updated_at = clock_timestamp()
+WHERE w.id IN (SELECT DISTINCT consumed.wakeup_id FROM consumed)
+  AND w.release_id IS NOT NULL
+RETURNING w.*;
+
+-- name: CancelUnstartedReleaseTasks :many
+-- Owner change, shipping or removal: unstarted coordination runs of the
+-- releases are cancelled with @reason, and the inputs they reserved go back
+-- to their rules (or with them, when the rules are deleted next).
+WITH cancelled AS (
+    UPDATE agent_task_queue t SET status = 'cancelled', completed_at = now(), error = @reason::text
+    WHERE t.release_id = ANY(@release_ids::uuid[])
+      AND t.status IN ('queued', 'dispatched', 'waiting_local_directory', 'deferred')
+      AND t.started_at IS NULL
+      AND t.release_id IN (SELECT rel.id FROM release rel WHERE rel.workspace_id = @workspace_id::uuid)
+    RETURNING t.*
+), released AS (
+    UPDATE issue_wakeup_receipt receipt SET task_id = NULL
+    WHERE receipt.task_id IN (SELECT cancelled.id FROM cancelled) AND receipt.processed_at IS NULL
+    RETURNING receipt.id
+)
+SELECT * FROM cancelled;
+
+-- name: CreateReleaseRetryTask :one
+-- CreateRetryTask for a coordination run: the same inherited columns, the
+-- release kept, fenced by the release (unshipped, held FOR KEY SHARE) and the
+-- agent/runtime owner rows. When another unstarted run of the release already
+-- holds idx_one_pending_task_per_release the retry yields to it. Either fence
+-- surfaces as pgx.ErrNoRows: no retry, the caller still commits its failure.
+WITH target AS MATERIALIZED (
+    SELECT r.id FROM agent_task_queue p
+    JOIN agent a ON a.id = p.agent_id
+    JOIN release r ON r.id = p.release_id AND r.workspace_id = a.workspace_id
+    WHERE p.id = sqlc.arg(parent_task_id) AND r.shipped_at IS NULL
+    FOR KEY SHARE OF r
+)
+INSERT INTO agent_task_queue (
+    agent_id, runtime_id, release_id,
+    status, priority, trigger_comment_id, coalesced_comment_ids, trigger_summary, context,
+    session_id, work_dir,
+    attempt, max_attempts, parent_task_id, force_fresh_session, is_leader_task,
+    squad_id, originator_user_id, accountable_user_id, runtime_mcp_overlay, runtime_connected_apps,
+    originator_source, delegated_from_task_id, rule_version_id,
+    trigger_evidence_kind, trigger_evidence_ref_id, retry_of_task_id,
+    fire_at, handoff_note, id
+)
+SELECT
+    p.agent_id, p.runtime_id, target.id,
+    CASE WHEN sqlc.narg(fire_at)::timestamptz IS NOT NULL THEN 'deferred' ELSE 'queued' END,
+    p.priority,
+    p.trigger_comment_id, p.coalesced_comment_ids, p.trigger_summary, p.context,
+    CASE WHEN p.failure_reason IS NOT DISTINCT FROM 'codex_semantic_inactivity' THEN NULL ELSE p.session_id END,
+    p.work_dir,
+    p.attempt + 1, COALESCE(sqlc.narg(max_attempts)::int, p.max_attempts), p.id,
+    p.failure_reason IS NOT DISTINCT FROM 'codex_semantic_inactivity',
+    p.is_leader_task, p.squad_id, p.originator_user_id, p.accountable_user_id,
+    sqlc.narg(runtime_mcp_overlay), sqlc.narg(runtime_connected_apps),
+    p.originator_source, p.delegated_from_task_id, p.rule_version_id,
+    p.trigger_evidence_kind, p.trigger_evidence_ref_id, p.id,
+    sqlc.narg(fire_at), p.handoff_note,
+    COALESCE(sqlc.narg('new_task_id')::uuid, gen_random_uuid())
+FROM agent_task_queue p
+JOIN target ON target.id = p.release_id
+WHERE p.id = sqlc.arg(parent_task_id)
+  AND lock_task_owner_rows(p.agent_id, NULL, p.runtime_id)
+ON CONFLICT (release_id) WHERE release_id IS NOT NULL AND status IN ('queued', 'dispatched', 'waiting_local_directory')
+DO NOTHING
+RETURNING *;
+
+-- name: ReleaseUnstartedReleaseTaskReceipts :exec
+-- A coordination run that ends before it started (cancelled, failed before
+-- start) hands its reserved inputs back to their rules for the next run.
+UPDATE issue_wakeup_receipt SET task_id = NULL
+WHERE task_id = @task_id AND processed_at IS NULL;
+
+-- name: CancelUnstartedReleaseWakeupTasks :many
+-- A release wait ended or changed: the unstarted coordination runs it fed
+-- (named in context or holding its reserved inputs) are cancelled, and every
+-- input those runs reserved, including other rules' inputs, goes back to its
+-- rule so the next run takes it.
+WITH cancelled AS (
+    UPDATE agent_task_queue t SET status = 'cancelled', completed_at = now(), error = 'Wakeup disabled or updated'
+    WHERE t.release_id = @release_id
+      AND t.status IN ('queued', 'dispatched', 'waiting_local_directory', 'deferred')
+      AND t.started_at IS NULL
+      AND (t.context->>'wakeup_id' = (@wakeup_id::uuid)::text
+           OR t.id IN (SELECT receipt.task_id FROM issue_wakeup_receipt receipt
+                       WHERE receipt.wakeup_id = @wakeup_id::uuid AND receipt.processed_at IS NULL AND receipt.task_id IS NOT NULL))
+    RETURNING t.*
+), released AS (
+    UPDATE issue_wakeup_receipt receipt SET task_id = NULL
+    WHERE receipt.task_id IN (SELECT cancelled.id FROM cancelled) AND receipt.processed_at IS NULL
+)
+SELECT * FROM cancelled;

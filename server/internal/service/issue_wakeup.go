@@ -680,6 +680,9 @@ func (s *IssueWakeupService) tick(ctx context.Context, workspaceIDs []pgtype.UUI
 		if w.SystemRule.Valid {
 			dispatch = s.dispatchSystem
 		}
+		if w.ReleaseID.Valid {
+			dispatch = s.dispatchRelease
+		}
 		if err = dispatch(ctx, w); err != nil {
 			errs = append(errs, fmt.Errorf("wakeup %s: %w", util.UUIDToString(w.ID), err))
 			outcomeCtx, cancel := context.WithTimeout(ctx, 100*time.Millisecond)
@@ -1193,6 +1196,29 @@ func (s *IssueWakeupService) CheckClaim(ctx context.Context, task db.AgentTaskQu
 	}
 	if err != nil {
 		return err
+	}
+	if task.ReleaseID.Valid {
+		if w.ReleaseID != task.ReleaseID || w.Revision != source.Revision || w.DisabledAt.Valid {
+			return ErrWakeupForbidden
+		}
+		release, err := s.Tasks.Queries.GetReleaseInWorkspace(ctx, db.GetReleaseInWorkspaceParams{ID: task.ReleaseID, WorkspaceID: w.WorkspaceID})
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrWakeupForbidden
+		}
+		if err != nil {
+			return err
+		}
+		agent, squad, err := ResolveReleaseTaskOwner(ctx, s.Tasks.Queries, release)
+		if errors.Is(err, ErrReleaseOwnerUnavailable) {
+			return ErrWakeupForbidden
+		}
+		if err != nil {
+			return err
+		}
+		if agent.ID != task.AgentID || squad != task.SquadID {
+			return ErrWakeupForbidden
+		}
+		return s.authorize(ctx, s.Tasks.Queries, w.WorkspaceID, task.OriginatorUserID, agent)
 	}
 	if w.SystemRule.Valid {
 		// A system rule's run targets the assignee resolved when it fired; it

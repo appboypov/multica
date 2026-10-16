@@ -4250,6 +4250,10 @@ func (h *Handler) UpdateIssue(w http.ResponseWriter, r *http.Request) {
 // callers should treat any non-zero status as a rejection and surface it back
 // to the client.
 func (h *Handler) validateAssigneePair(ctx context.Context, r *http.Request, workspaceID string, assigneeType pgtype.Text, assigneeID pgtype.UUID) (int, string) {
+	return h.validateAssigneePairWithQueries(ctx, r, h.Queries, workspaceID, assigneeType, assigneeID)
+}
+
+func (h *Handler) validateAssigneePairWithQueries(ctx context.Context, r *http.Request, q *db.Queries, workspaceID string, assigneeType pgtype.Text, assigneeID pgtype.UUID) (int, string) {
 	// Both unset → unassigned issue, valid.
 	if !assigneeType.Valid && !assigneeID.Valid {
 		return 0, ""
@@ -4264,7 +4268,7 @@ func (h *Handler) validateAssigneePair(ctx context.Context, r *http.Request, wor
 	}
 	switch assigneeType.String {
 	case "member":
-		if _, err := h.Queries.GetMemberByUserAndWorkspace(ctx, db.GetMemberByUserAndWorkspaceParams{
+		if _, err := q.GetMemberByUserAndWorkspace(ctx, db.GetMemberByUserAndWorkspaceParams{
 			UserID:      assigneeID,
 			WorkspaceID: wsUUID,
 		}); err != nil {
@@ -4272,7 +4276,7 @@ func (h *Handler) validateAssigneePair(ctx context.Context, r *http.Request, wor
 		}
 		return 0, ""
 	case "agent":
-		agent, err := h.Queries.GetAgentInWorkspace(ctx, db.GetAgentInWorkspaceParams{
+		agent, err := q.GetAgentInWorkspace(ctx, db.GetAgentInWorkspaceParams{
 			ID:          assigneeID,
 			WorkspaceID: wsUUID,
 		})
@@ -4297,7 +4301,7 @@ func (h *Handler) validateAssigneePair(ctx context.Context, r *http.Request, wor
 		}
 		return 0, ""
 	case "squad":
-		squad, err := h.Queries.GetSquadInWorkspace(ctx, db.GetSquadInWorkspaceParams{
+		squad, err := q.GetSquadInWorkspace(ctx, db.GetSquadInWorkspaceParams{
 			ID:          assigneeID,
 			WorkspaceID: wsUUID,
 		})
@@ -4307,7 +4311,7 @@ func (h *Handler) validateAssigneePair(ctx context.Context, r *http.Request, wor
 		if squad.ArchivedAt.Valid {
 			return http.StatusBadRequest, "cannot assign to an archived squad"
 		}
-		leader, err := h.Queries.GetAgent(ctx, squad.LeaderID)
+		leader, err := q.GetAgent(ctx, squad.LeaderID)
 		if err != nil || leader.ArchivedAt.Valid {
 			return http.StatusBadRequest, "squad leader is archived; cannot assign to this squad"
 		}

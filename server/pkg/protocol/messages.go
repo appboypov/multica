@@ -3,11 +3,12 @@ package protocol
 import "encoding/json"
 
 const (
-	DaemonCapabilitySkillBundlesV1      = "skill-bundles-v1"
-	DaemonCapabilityCoalescedCommentsV1 = "coalesced-comments-v1"
-	DaemonCapabilityExecutionManifestV1 = "execution-manifest-v1"
-	DaemonCapabilityAgentSkillV1        = "agent-skill-v1"
-	DaemonCapabilityRemoteMCPV1         = "remote-mcp-v1"
+	DaemonCapabilitySkillBundlesV1        = "skill-bundles-v1"
+	DaemonCapabilityCoalescedCommentsV1   = "coalesced-comments-v1"
+	DaemonCapabilityReleaseCoordinationV1 = "release-coordination-v1"
+	DaemonCapabilityExecutionManifestV1   = "execution-manifest-v1"
+	DaemonCapabilityAgentSkillV1          = "agent-skill-v1"
+	DaemonCapabilityRemoteMCPV1           = "remote-mcp-v1"
 	// DaemonCapabilitySourceContextQuickCreateV1 advertises support for the
 	// two-section quick-create prompt that keeps a new instruction separate
 	// from immutable historical source context.
@@ -597,4 +598,18 @@ type RepositoryCheckoutResult struct {
 	VersionFiles    []string                    `json:"version_files"`
 	LastTag         string                      `json:"last_tag,omitempty"`
 	InstallCommands []RepositoryInstallCommand  `json:"install_commands"`
+}
+
+// ClaimRelease is a fresh fixed-scope release snapshot, shared by server and daemon.
+type ClaimRelease struct {
+	ID             string          `json:"id"`
+	RepositoryID   string          `json:"repository_id"`
+	RepositoryName string          `json:"repository_name"`
+	ProjectID      string          `json:"project_id"`
+	Version        string          `json:"version"`
+	Title          string          `json:"title"`
+	Description    string          `json:"description"`
+	Issues         json.RawMessage `json:"issues"`
+	RemainingOpen  int             `json:"remaining_open"`
+	AllSuccessful  bool            `json:"all_successful"`
 }

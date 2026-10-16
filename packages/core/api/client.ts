@@ -208,6 +208,13 @@ import type {
   Release,
   ReleaseLineResponse,
   ReleaseMilestoneRequest,
+  ReleaseOwnerRequest,
+  ReleaseIssuesResponse,
+  ReleaseComment,
+  CreateReleaseCommentRequest,
+  ReleaseActivityResponse,
+  ReleaseWakeup,
+  ReleaseWakeupInput,
   PlanReleaseRequest,
   EditReleaseRequest,
   MoveReleaseRequest,
@@ -509,8 +516,16 @@ import {
   EMPTY_LIST_GITHUB_INSTALLATIONS_RESPONSE,
   EMPTY_LIST_GITHUB_REPOSITORIES_RESPONSE,
   ReleasesResponseSchema,
-  ReleaseSchema,
-  EMPTY_RELEASE,
+  ReleaseDetailResponseSchema,
+  EMPTY_RELEASE_DETAIL_RESPONSE,
+  ReleaseIssuesResponseSchema,
+  EMPTY_RELEASE_ISSUES_RESPONSE,
+  ReleaseCommentSchema,
+  ReleaseCommentsSchema,
+  MALFORMED_RELEASE_COMMENT,
+  ReleaseActivityResponseSchema,
+  EMPTY_RELEASE_ACTIVITY_RESPONSE,
+  ReleaseWakeupSchema,
   ReleaseLineResponseSchema,
   EMPTY_RELEASES_RESPONSE,
   EMPTY_RELEASE_LINE_RESPONSE,
@@ -4665,9 +4680,66 @@ export class ApiClient {
 
   async getRelease(id: string): Promise<Release> {
     const raw = await this.fetch<unknown>(`/api/releases/${id}`);
-    return parseWithFallback(raw, ReleaseSchema, EMPTY_RELEASE, {
+    return parseWithFallback(raw, ReleaseDetailResponseSchema, EMPTY_RELEASE_DETAIL_RESPONSE, {
       endpoint: "GET /api/releases/{id}",
+    }).release;
+  }
+
+  // Unshipped releases only; a shipped one answers 409 release_shipped.
+  async setReleaseOwner(id: string, data: ReleaseOwnerRequest): Promise<ReleaseLineResponse> {
+    const raw = await this.fetch<unknown>(`/api/releases/${encodeURIComponent(id)}/owner`, {
+      method: "PUT",
+      body: JSON.stringify(data),
     });
+    return parseWithFallback(raw, ReleaseLineResponseSchema, EMPTY_RELEASE_LINE_RESPONSE, {
+      endpoint: "PUT /api/releases/{id}/owner",
+    });
+  }
+
+  async listReleaseIssues(id: string): Promise<ReleaseIssuesResponse> {
+    const raw = await this.fetch<unknown>(`/api/releases/${encodeURIComponent(id)}/issues`);
+    return parseWithFallback(raw, ReleaseIssuesResponseSchema, EMPTY_RELEASE_ISSUES_RESPONSE, {
+      endpoint: "GET /api/releases/{id}/issues",
+    });
+  }
+
+  async listReleaseComments(id: string): Promise<ReleaseComment[]> {
+    const raw = await this.fetch<unknown>(`/api/releases/${encodeURIComponent(id)}/comments`);
+    return parseWithFallback<ReleaseComment[]>(raw, ReleaseCommentsSchema, [], {
+      endpoint: "GET /api/releases/{id}/comments",
+    });
+  }
+
+  async createReleaseComment(id: string, data: CreateReleaseCommentRequest): Promise<ReleaseComment> {
+    const raw = await this.fetch<unknown>(`/api/releases/${encodeURIComponent(id)}/comments`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+    return parseWithFallback<ReleaseComment>(raw, ReleaseCommentSchema, MALFORMED_RELEASE_COMMENT, {
+      endpoint: "POST /api/releases/{id}/comments",
+    });
+  }
+
+  async listReleaseActivity(id: string): Promise<ReleaseActivityResponse> {
+    const raw = await this.fetch<unknown>(`/api/releases/${encodeURIComponent(id)}/activity`);
+    return parseWithFallback(raw, ReleaseActivityResponseSchema, EMPTY_RELEASE_ACTIVITY_RESPONSE, {
+      endpoint: "GET /api/releases/{id}/activity",
+    });
+  }
+
+  async listReleaseWakeups(id: string): Promise<ReleaseWakeup[]> {
+    const raw = await this.fetch<unknown>(`/api/releases/${encodeURIComponent(id)}/wakeups`);
+    const parsed = parseWithFallback<ReleaseWakeup[] | null>(raw, ReleaseWakeupSchema.array(), null, { endpoint: "GET /api/releases/{id}/wakeups" });
+    if (!parsed) throw new Error("Could not load wakeups");
+    return parsed;
+  }
+
+  async createReleaseWakeup(id: string, input: ReleaseWakeupInput): Promise<void> {
+    await this.fetch(`/api/releases/${encodeURIComponent(id)}/wakeups`, { method: "POST", body: JSON.stringify(input) });
+  }
+
+  async deleteReleaseWakeup(id: string, wakeupId: string): Promise<void> {
+    await this.fetch(`/api/releases/${encodeURIComponent(id)}/wakeups/${encodeURIComponent(wakeupId)}`, { method: "DELETE" });
   }
 
   async planRelease(repositoryId: string, data: PlanReleaseRequest): Promise<ReleaseLineResponse> {

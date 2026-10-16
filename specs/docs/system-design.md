@@ -331,6 +331,38 @@ notification quiet window, then drains stdout and stderr before inspecting the
 final result. A bounded drain and process reap stop a lingering process without
 discarding final notifications emitted after stdin EOF.
 
+### Release coordination
+
+```mermaid
+flowchart LR
+  cli["cmd/multica/cmd_release*.go<br/>assign, comment, wakeup"]
+  api["internal/handler/release_owner.go,<br/>release_detail.go, release_comment*.go,<br/>release_wakeup.go"]
+  capture["migrations/757_release_coordination_capture.up.sql<br/>member comments and terminal issue transitions"]
+  receipts[("issue_wakeup<br/>issue_wakeup_receipt")]
+  dispatch["internal/service/release_coordination*.go<br/>IssueWakeupService.dispatchRelease"]
+  tasks["internal/service/task*.go<br/>native enqueue, finalize, start, result"]
+  claims["internal/handler/release_claim.go<br/>hydrateReleaseClaim"]
+  daemon["internal/daemon/prompt.go, execenv/<br/>release scope and release result surface"]
+  report["internal/service/task_release_result.go<br/>actual result or existing source-task comment"]
+  comments[("comment.release_id")]
+  events["release_line:updated<br/>release_comment:created"]
+
+  cli --> api
+  api -->|"repository-locked ownership write"| capture
+  api --> comments
+  comments -->|"member inserts"| capture
+  capture --> receipts
+  receipts --> dispatch
+  dispatch -->|"current owner or squad leader"| tasks
+  tasks -->|"release-coordination-v1"| claims
+  claims -->|"ordered issues, actors, exact comment receipts"| daemon
+  daemon -->|"explicit release comment"| api
+  tasks -->|"winning terminal transition"| report --> comments
+  api -->|"after commit"| events
+```
+
+Owner changes cancel unstarted runs; started runs keep their result surface. Claim and start recheck the release's owner, current squad leader, existence and shipment under the repository boundary. Dispatched inputs stay immutable; later facts remain pending for a follow-up. Shipping uses the existing explicit endpoint and removes waits without cancelling its running publisher.
+
 ### Web and desktop
 
 ```mermaid
@@ -360,6 +392,7 @@ flowchart TB
     composer["issues/components<br/>comment-input.tsx, reply-input.tsx, comment-trigger-chips.tsx;<br/>issues/hooks/use-recipient-actions.ts"]
     marks["issues/components/run-input-marks.tsx<br/>RunInputMarks: 👀 and ✅ with the agent's name<br/>on comments, answers, activity rows"]
     checkviews["inbox/components<br/>todo-check-body.tsx TodoCheckBody,<br/>todo-instruction-body.tsx TodoInstructionBody,<br/>project-check-record.tsx ProjectCheckRecord;<br/>projects/components/project-detail.tsx"]
+    releasepage["releases/components<br/>ReleaseDetailRoute, ReleaseDetail,<br/>ReleaseOwnerPicker, ReleaseComments"]
   end
   subgraph core["packages/core"]
     coreprovider["platform/core-provider.tsx<br/>CoreProvider"]
@@ -373,6 +406,7 @@ flowchart TB
     runinputtypes["types/run-input.ts<br/>RunInputMark, RunInputItemKind"]
     corequestions["questions<br/>queries.ts, mutations.ts,<br/>ws-updaters.ts, validate.ts validateAnswer"]
     corechecks["todos/checks.ts<br/>useAnswerCheckTodo, useProjectCheckTrust,<br/>useSetCheckSampling, useCheckHistory"]
+    releases["releases/queries.ts, mutations.ts<br/>workspace-scoped detail, issues,<br/>comments, activity and owner writes"]
     realtime["realtime/use-realtime-sync.ts<br/>useRealtimeSync, run_input:reacted refetches<br/>the timeline and question queries"]
     platform["platform<br/>workspace-storage.ts, persist-storage.ts"]
     qc["query-client.ts<br/>TanStack Query"]
@@ -386,6 +420,8 @@ flowchart TB
   webproviders --> coreprovider
   webnav --> navigation
   droutes --> layout
+  webroutes -->|"releases/[id]"| releasepage
+  droutes -->|"releases/:id workspace tab"| releasepage
   dnav --> navigation
   dmain --> dmanager --> daemon
   dmain --> preload
@@ -396,6 +432,10 @@ flowchart TB
   pages --> skillstab
   skillstab --> api
   skillstab --> ui
+  releasepage --> releases --> api
+  releasepage --> navigation
+  releasepage --> ui
+  realtime -->|"release_line:updated / release_comment:created"| releases
   pages --> projtable
   pages --> orgs
   pages --> group
@@ -545,6 +585,7 @@ classDiagram
     +uuid agent_id
     +uuid runtime_id
     +uuid issue_id
+    +uuid release_id
     +uuid chat_session_id
     +uuid autopilot_run_id
     +uuid trigger_comment_id
@@ -553,6 +594,32 @@ classDiagram
     +text failure_reason
     +uuid retry_of_task_id
     +jsonb context
+  }
+  class release {
+    +uuid id
+    +uuid workspace_id
+    +uuid repository_id
+    +text version
+    +text title
+    +text owner_type
+    +uuid owner_id
+    +timestamptz shipped_at
+  }
+  class issue_wakeup {
+    +uuid id
+    +uuid workspace_id
+    +uuid issue_id
+    +uuid release_id
+    +text system_rule
+    +jsonb condition
+    +bigint revision
+  }
+  class issue_wakeup_receipt {
+    +uuid id
+    +uuid wakeup_id
+    +text event_key
+    +uuid task_id
+    +timestamptz processed_at
   }
   class task_supplement {
     +uuid task_id
@@ -585,7 +652,9 @@ classDiagram
     +uuid workspace_id
     +uuid project_id
     +uuid parent_issue_id
+    +uuid release_id
     +uuid worklane_id
+    +float8 lane_position
     +int number
     +text status
     +text assignee_type
@@ -617,6 +686,7 @@ classDiagram
   class comment {
     +uuid id
     +uuid issue_id
+    +uuid release_id
     +uuid parent_id
     +text author_type
     +uuid author_id
@@ -907,6 +977,15 @@ classDiagram
   comment "1" --> "*" agent_task_queue : trigger_comment_id
   squad "1" --> "*" agent_task_queue : squad_id
   agent_task_queue "1" --> "*" agent_task_queue : retry_of_task_id, context inherited
+  release "1" --> "*" agent_task_queue : release_id
+  release "1" --> "*" issue : release_id
+  release "1" --> "*" comment : release_id
+  release "1" --> "*" issue_wakeup : release_id
+  release ..> agent : owner_id
+  release ..> squad : owner_id
+  issue "1" --> "*" issue_wakeup : issue_id
+  issue_wakeup "1" --> "*" issue_wakeup_receipt : wakeup_id
+  agent_task_queue "1" --> "*" issue_wakeup_receipt : task_id
   agent_task_queue "1" --> "*" task_message : task_id
   agent_task_queue "1" --> "*" task_supplement : task_id
   task_supplement ..> comment : item_id or comment_id

@@ -23,6 +23,7 @@
     "project": "Project",
     "organisation": "Organisation",
     "worklane": "Worklane",
+    "release": "Release",
     "autopilot": "Autopilot",
     "agent": "Agent",
     "member": "Member",

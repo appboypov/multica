@@ -47,17 +47,21 @@ const versionPolicyNone = "none"
 // ReleaseResponse is one release of a repository's line. Version has no
 // leading `v`; a null bump means the version was set by hand.
 type ReleaseResponse struct {
-	ID           string                     `json:"id"`
-	RepositoryID string                     `json:"repository_id"`
-	Position     int32                      `json:"position"`
-	Version      string                     `json:"version"`
-	Bump         *string                    `json:"bump"`
-	Title        string                     `json:"title"`
-	Description  string                     `json:"description"`
-	ShippedAt    *string                    `json:"shipped_at"`
-	CreatedAt    string                     `json:"created_at"`
-	UpdatedAt    string                     `json:"updated_at"`
-	Milestones   []ReleaseMilestoneResponse `json:"milestones"`
+	ID             string                     `json:"id"`
+	RepositoryID   string                     `json:"repository_id"`
+	Position       int32                      `json:"position"`
+	Version        string                     `json:"version"`
+	Bump           *string                    `json:"bump"`
+	Title          string                     `json:"title"`
+	Description    string                     `json:"description"`
+	ShippedAt      *string                    `json:"shipped_at"`
+	CreatedAt      string                     `json:"created_at"`
+	UpdatedAt      string                     `json:"updated_at"`
+	Milestones     []ReleaseMilestoneResponse `json:"milestones"`
+	OwnerType      *string                    `json:"owner_type"`
+	OwnerID        *string                    `json:"owner_id"`
+	OwnerName      *string                    `json:"owner_name"`
+	OwnerAvatarURL *string                    `json:"owner_avatar_url"`
 }
 
 func releaseToResponse(r db.Release) ReleaseResponse {
@@ -73,6 +77,8 @@ func releaseToResponse(r db.Release) ReleaseResponse {
 		CreatedAt:    timestampToString(r.CreatedAt),
 		UpdatedAt:    timestampToString(r.UpdatedAt),
 		Milestones:   []ReleaseMilestoneResponse{},
+		OwnerType:    textToPtr(r.OwnerType),
+		OwnerID:      uuidToPtr(r.OwnerID),
 	}
 }
 
@@ -95,6 +101,17 @@ func releasesToResponse(ctx context.Context, q *db.Queries, ws pgtype.UUID, rows
 	for _, milestone := range milestones {
 		i := positions[milestone.ReleaseID]
 		out[i].Milestones = append(out[i].Milestones, milestoneToResponse(milestone))
+	}
+	owners, err := q.ListReleaseOwnerProjections(ctx, db.ListReleaseOwnerProjectionsParams{WorkspaceID: ws, ReleaseIds: ids})
+	if err != nil {
+		return nil, err
+	}
+	for _, owner := range owners {
+		i := positions[owner.ReleaseID]
+		if owner.OwnerName != "" {
+			out[i].OwnerName = &owner.OwnerName
+		}
+		out[i].OwnerAvatarURL = textToPtr(owner.OwnerAvatarUrl)
 	}
 	return out, nil
 }
@@ -143,6 +160,7 @@ type releaseRequest struct {
 	Bump        *string  `json:"bump"`
 	Version     *string  `json:"version"`
 	IssueIDs    []string `json:"issue_ids"`
+	releaseOwnerRequest
 }
 
 // releaseFields are a validated releaseRequest: Bump is "" when Version was
@@ -279,6 +297,10 @@ func (h *Handler) runReleaseLineWrite(w http.ResponseWriter, r *http.Request, re
 	}
 	details, err := op.write(ctx, qtx, repo, before, after)
 	if err != nil {
+		if _, ok := err.(*releaseOwnerError); ok {
+			writeReleaseOwnerError(w, err)
+			return
+		}
 		if writePlacementError(w, err) {
 			return
 		}
@@ -477,6 +499,7 @@ func (h *Handler) PlanRelease(w http.ResponseWriter, r *http.Request) {
 	actorType, actorID := h.resolveActor(r, requestUserID(r), h.resolveWorkspaceID(r))
 	var issues []db.Issue
 	var activities []db.ActivityLog
+	var plannedID pgtype.UUID
 	h.runReleaseLineWrite(w, r, repositoryID, releaseLineWrite{
 		validate: func(w http.ResponseWriter) bool {
 			var ok bool
@@ -501,6 +524,10 @@ func (h *Handler) PlanRelease(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				return nil, err
 			}
+			plannedID = row.ID
+			if err = h.writeReleaseOwner(ctx, r, qtx, row, req.releaseOwnerRequest); err != nil {
+				return nil, err
+			}
 			issues, activities, err = h.placeIssuesInRelease(ctx, qtx, repo, row, ids, actorType, actorID)
 			if err != nil {
 				return nil, err
@@ -512,6 +539,7 @@ func (h *Handler) PlanRelease(w http.ResponseWriter, r *http.Request) {
 			}, nil
 		},
 		afterCommit: func() {
+			h.nudgeReleaseCoordination(r.Context(), plannedID)
 			h.publishIssueSnapshots(r.Context(), issues, actorType, actorID)
 			for _, issue := range issues {
 				service.PublishIssueReleaseJoined(h.Bus, issue, pgtype.UUID{}, actorType, actorID)
@@ -560,6 +588,9 @@ func (h *Handler) EditRelease(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				return nil, err
 			}
+			if err = h.writeReleaseOwner(ctx, r, qtx, row, req.releaseOwnerRequest); err != nil {
+				return nil, err
+			}
 			return map[string]any{
 				"release_id": id,
 				"version":    row.Version,
@@ -567,6 +598,7 @@ func (h *Handler) EditRelease(w http.ResponseWriter, r *http.Request) {
 				"changes":    releaseline.Changes(before, after),
 			}, nil
 		},
+		afterCommit:  func() { h.nudgeReleaseCoordination(r.Context(), rel.ID) },
 		wroteVersion: true,
 		action:       releaseActionEdited,
 		status:       http.StatusOK,
@@ -625,6 +657,7 @@ func (h *Handler) RemoveRelease(w http.ResponseWriter, r *http.Request) {
 	actorType, actorID := h.resolveActor(r, requestUserID(r), h.resolveWorkspaceID(r))
 	var issues []db.Issue
 	var activities []db.ActivityLog
+	var attachmentURLs []string
 	h.runReleaseLineWrite(w, r, rel.RepositoryID, releaseLineWrite{
 		releaseID: rel.ID,
 		change: func(line releaseline.Line) (releaseline.Line, *releaseline.Problem) {
@@ -643,6 +676,10 @@ func (h *Handler) RemoveRelease(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				return nil, err
 			}
+			attachmentURLs, err = cleanupReleaseDiscussion(ctx, qtx, repo.WorkspaceID, []pgtype.UUID{rel.ID})
+			if err != nil {
+				return nil, err
+			}
 			if err := qtx.DeleteReleaseMilestones(ctx, db.DeleteReleaseMilestonesParams{WorkspaceID: rel.WorkspaceID, ReleaseID: rel.ID}); err != nil {
 				return nil, err
 			}
@@ -657,6 +694,7 @@ func (h *Handler) RemoveRelease(w http.ResponseWriter, r *http.Request) {
 			}, nil
 		},
 		afterCommit: func() {
+			h.deleteS3Objects(r.Context(), attachmentURLs)
 			h.publishIssueSnapshots(r.Context(), issues, actorType, actorID)
 			service.PublishIssueActivities(h.Bus, rel.WorkspaceID, actorType, actorID, activities)
 		},

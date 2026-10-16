@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS idx_one_pending_task_per_release ON agent_task_queue (release_id) WHERE release_id IS NOT NULL AND status IN ('queued', 'dispatched', 'waiting_local_directory');

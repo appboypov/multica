@@ -4,6 +4,7 @@ import type { RouteObject } from "react-router-dom";
 import { IssueDetailPage } from "./pages/issue-detail-page";
 import { ProjectDetailPage } from "./pages/project-detail-page";
 import { WorklaneDetailPage } from "./pages/worklane-detail-page";
+import { ReleaseDetailPage } from "./pages/release-detail-page";
 import { AutopilotDetailPage } from "./pages/autopilot-detail-page";
 import { SkillDetailPage } from "./pages/skill-detail-page";
 import { AgentDetailPage } from "./pages/agent-detail-page";
@@ -171,6 +172,11 @@ export const appRoutes: RouteObject[] = [
             path: "releases",
             element: <ReleasesPage />,
             handle: { title: "Releases" },
+          },
+          {
+            path: "releases/:id",
+            element: <ReleaseDetailPage />,
+            handle: { title: "Release" },
           },
           {
             path: "worklanes/:id",

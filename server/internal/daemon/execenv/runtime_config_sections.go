@@ -1004,6 +1004,8 @@ func writeInlineBlocksPolicy(b *strings.Builder) {
 func writeOutput(b *strings.Builder, kind taskKind, ctx TaskContextForEnv) {
 	b.WriteString("## Output\n\n")
 	switch kind {
+	case kindRelease:
+		b.WriteString("Post the actual final result once on this release with `multica release comment add`, replying to the triggering comment when applicable. Use a UTF-8 --content-file inside the working directory; use --attachment for delivered files. A successful explicit source-task report is retained; otherwise the platform records your nonempty final result. Report real failures truthfully.\n\n")
 	case kindAutopilotRunOnly:
 		b.WriteString("This is a run-only autopilot task, so there may be no issue comment to post. Your final assistant output is captured automatically as the autopilot run result. Keep it concise and state the outcome.\n\n")
 		b.WriteString("**Delivering files here:** this surface is text-only — the run result carries no attachments. Describe what you produced; do not link its path.\n")
@@ -1132,6 +1134,8 @@ func buildMetaSkillContentSlim(provider string, ctx TaskContextForEnv) string {
 	writeWorkspaceContext(&b, ctx)
 
 	switch kind {
+	case kindRelease:
+		writeAvailableCommandsRelease(&b)
 	case kindQuickCreate:
 		writeAvailableCommandsQuickCreate(&b)
 	default:
@@ -1157,6 +1161,8 @@ func buildMetaSkillContentSlim(provider string, ctx TaskContextForEnv) string {
 
 	writeWorkflowHeader(&b)
 	switch kind {
+	case kindRelease:
+		b.WriteString("Keep the release's issues, order, assignees, parents, worklanes, version and position as specified. Follow your existing release workflow and every applicable human gate. Coordinate work through the existing issues and their assignees; use release wakeups for unmet prerequisites. Shipment is only the explicit `multica release ship` action after approval and its existing checks. Report on the release discussion. This run has no issue status or Multica questions.\n\n")
 	case kindChat:
 		writeWorkflowChat(&b)
 	case kindQuickCreate:
@@ -1185,4 +1191,9 @@ func buildMetaSkillContentSlim(provider string, ctx TaskContextForEnv) string {
 	writeOutput(&b, kind, ctx)
 
 	return b.String()
+}
+
+func writeAvailableCommandsRelease(b *strings.Builder) {
+	b.WriteString("## Available Commands\n\nUse `multica release --help` for release commands and `--output json` for reads.\n\n")
+	b.WriteString("- `multica release get <release> --output json`\n- `multica release comment list <release> --roots-only --summary --compact --output json`\n- `multica release comment list <release> --thread <id> --tail 30 --output json`\n- `multica release comment add <release> --content-file ./release-result.md [--parent <comment-id>] [--attachment <path>] --output table`\n- `multica release wakeup create <release> --until-issue <issue> --until-issue-state in_review --instruction-file ./wait.md --expires-in 72h --on-timeout wake`\n- `multica release wakeup list <release> --output json`\n- `multica release wakeup delete <release> <wakeup-id>`\n\n")
 }

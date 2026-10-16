@@ -583,6 +583,16 @@ func (h *Handler) DeleteProject(w http.ResponseWriter, r *http.Request) {
 	}
 	// Releases reference their repository, never the project, so they go
 	// before the project's repositories, in the same transaction.
+	releaseIDs, err := qtx.ListReleaseIDsByProject(r.Context(), db.ListReleaseIDsByProjectParams{WorkspaceID: project.WorkspaceID, ProjectID: project.ID})
+	if err != nil {
+		writeError(w, 500, "failed to read project releases")
+		return
+	}
+	releaseAttachmentURLs, err := cleanupReleaseDiscussion(r.Context(), qtx, project.WorkspaceID, releaseIDs)
+	if err != nil {
+		writeError(w, 500, "failed to delete release discussions")
+		return
+	}
 	if err := qtx.DeleteReleaseMilestonesByProject(r.Context(), db.DeleteReleaseMilestonesByProjectParams{
 		WorkspaceID: project.WorkspaceID, ProjectID: project.ID,
 	}); err != nil {
@@ -624,6 +634,7 @@ func (h *Handler) DeleteProject(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to commit project delete")
 		return
 	}
+	h.deleteS3Objects(r.Context(), releaseAttachmentURLs)
 	h.QuestionService.PublishLinkChanges(r.Context(), project.WorkspaceID, questionIDs)
 	h.publish(protocol.EventProjectDeleted, workspaceID, "member", userID, map[string]any{"project_id": uuidToString(project.ID)})
 	w.WriteHeader(http.StatusNoContent)
