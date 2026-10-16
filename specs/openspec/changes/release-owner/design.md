@@ -193,21 +193,21 @@ sequenceDiagram
 
 | Kind | Name | Change | Path |
 |---|---|---|---|
-| Model | Release owner and native release subjects | changed | `server/migrations/`, `server/pkg/db/queries/release.sql`, `comment.sql`, `wakeup.sql`, `system_wakeup.sql`, `agent.sql` |
+| Model | Release owner and native release subjects | changed | `server/migrations/`, `server/pkg/db/queries/release.sql`, `server/pkg/db/queries/comment.sql`, `server/pkg/db/queries/wakeup.sql`, `server/pkg/db/queries/system_wakeup.sql`, `server/pkg/db/queries/agent.sql` |
 | Data access | Generated models and queries | changed | `server/pkg/db/generated/` |
-| API | Owner, detail, issues, comments and waits | new | `server/internal/handler/release_owner.go`, `release_detail.go`, `release_comment.go`, `release_wakeup.go` |
-| API | Line writes, ship and teardown | changed | `server/internal/handler/release.go`, `release_ship.go`, `repository.go`, `project.go`, `server/pkg/db/queries/workspace_delete.sql` |
+| API | Owner, detail, issues, comments and waits | new | `server/internal/handler/release_owner.go`, `server/internal/handler/release_detail.go`, `server/internal/handler/release_comment.go`, `server/internal/handler/release_wakeup.go` |
+| API | Line writes, ship and teardown | changed | `server/internal/handler/release.go`, `server/internal/handler/release_ship.go`, `server/internal/handler/repository.go`, `server/internal/handler/project.go`, `server/pkg/db/queries/workspace_delete.sql` |
 | Service | Native release coordination | new | `server/internal/service/release_coordination.go` |
-| Service | Shared queue, wakeups and result delivery | changed | `server/internal/service/task.go`, `issue_wakeup.go`, `issue_wakeup_system.go`, `issue_wakeup_condition.go` |
-| Runtime | Release claim, squad brief and prompt | changed | `server/internal/handler/daemon.go`, `squad_briefing.go`, `server/internal/daemon/types.go`, `prompt.go`, `execenv/` |
+| Service | Shared queue, wakeups and result delivery | changed | `server/internal/service/task.go`, `server/internal/service/issue_wakeup.go`, `server/internal/service/issue_wakeup_system.go`, `server/internal/service/issue_wakeup_condition.go` |
+| Runtime | Release claim, squad brief and prompt | changed | `server/internal/handler/daemon.go`, `server/internal/handler/squad_briefing.go`, `server/internal/daemon/types.go`, `server/internal/daemon/prompt.go`, `server/internal/daemon/execenv/` |
 | API contract | Release subject and events | changed | `server/pkg/protocol/`, `packages/core/types/`, `packages/core/api/` |
 | Shared logic | Release reads, writes, navigation and realtime | changed | `packages/core/releases/`, `packages/core/paths/paths.ts`, `packages/core/realtime/use-realtime-sync.ts` |
-| Screen | Release detail, owner picker and discussion | new | `packages/views/releases/components/release-detail-route.tsx`, `release-detail.tsx`, `release-owner-picker.tsx`, `release-comments.tsx` |
+| Screen | Release detail, owner picker and discussion | new | `packages/views/releases/components/release-detail-route.tsx`, `packages/views/releases/components/release-detail.tsx`, `packages/views/releases/components/release-owner-picker.tsx`, `packages/views/releases/components/release-comments.tsx` |
 | Screen | Existing release entry points and history | changed | `packages/views/releases/components/`, `packages/views/worklanes/components/worklane-activity.tsx`, `packages/views/locales/` |
 | Route | Web detail route | new | `apps/web/app/[workspaceSlug]/(dashboard)/releases/[id]/page.tsx` |
 | Route | Desktop workspace tab | changed | `apps/desktop/src/renderer/src/routes.tsx` |
-| Tool | Release commands and runtime instructions | changed | `server/cmd/multica/cmd_release.go`, `cmd_issue_wakeup.go`, `server/internal/service/builtin_skills/multica-platform/`, `server/internal/daemon/execenv/runtime_config_sections.go` |
-| Documentation | Command reference and living architecture | changed | `CLI_AND_DAEMON.md`, `apps/docs/content/docs/cli.mdx`, `cli.zh.mdx`, `specs/docs/system-design.md` |
+| Tool | Release commands and runtime instructions | changed | `server/cmd/multica/cmd_release.go`, `server/cmd/multica/cmd_issue_wakeup.go`, `server/internal/service/builtin_skills/multica-platform/`, `server/internal/daemon/execenv/runtime_config_sections.go` |
+| Documentation | Command reference and living architecture | changed | `CLI_AND_DAEMON.md`, `apps/docs/content/docs/cli.mdx`, `apps/docs/content/docs/cli.zh.mdx`, `specs/docs/system-design.md` |
 | Agent workflow | Release-owned coordination | changed | `madspec:skills/madspec-releases/SKILL.md`, `madspec:skills/madspec-multica/SKILL.md` |
 | Decision | Native release coordination boundary | new | `adr/0022-releases-coordinate-as-native-task-subjects.md` |
 

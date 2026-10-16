@@ -19,7 +19,8 @@ flowchart LR
 | Core | API, schemas, queries and navigation | changed | `packages/core/api/`, `packages/core/releases/`, `packages/core/types/`, `packages/core/paths/paths.ts`, `packages/core/realtime/use-realtime-sync.ts` |
 | UI | Release detail and discussion | new | `packages/views/releases/components/release-detail-route.tsx`, `packages/views/releases/components/release-detail.tsx`, `packages/views/releases/components/release-owner-picker.tsx`, `packages/views/releases/components/release-comments.tsx` |
 | UI | Release entry points and translations | changed | `packages/views/releases/components/`, `packages/views/worklanes/components/worklane-activity.tsx`, `packages/views/locales/` |
-| Routes | Web and desktop detail | changed | `apps/web/app/[workspaceSlug]/(dashboard)/releases/[id]/page.tsx`, `apps/desktop/src/renderer/src/routes.tsx` |
+| Route | Web release detail | new | `apps/web/app/[workspaceSlug]/(dashboard)/releases/[id]/page.tsx` |
+| Route | Desktop workspace tab | changed | `apps/desktop/src/renderer/src/routes.tsx` |
 | Tools | CLI and builtin platform skill | changed | `server/cmd/multica/`, `server/internal/service/builtin_skills/multica-platform/`, `server/internal/daemon/execenv/runtime_config_sections.go` |
 | Docs | References and living architecture | changed | `CLI_AND_DAEMON.md`, `apps/docs/content/docs/cli.mdx`, `apps/docs/content/docs/cli.zh.mdx`, `specs/docs/system-design.md` |
 | Workflow | Release-owned agent instructions | changed | `madspec:skills/madspec-releases/SKILL.md`, `madspec:skills/madspec-multica/SKILL.md` |
