@@ -9,4 +9,4 @@ Backend and CLI are one pull request to `todo-inbox`. Shared inbox UI is a secon
 - [x] 3. Add authenticated API routes and CLI commands.
 - [x] 4. Show checks, proposals and project trust in the shared inbox.
 - [ ] 5. Run `check-todos-trust-backend` and `check-todos-trust-frontend` from `.crabbox.yaml`. These cover OpenSpec validation, Go tests and builds, frontend tests, typecheck and lint.
-- [ ] 6. Open both pull requests.
+- [x] 6. Open the [backend pull request](https://github.com/appboypov/multica/pull/84) and [shared inbox pull request](https://github.com/appboypov/multica/pull/85).
