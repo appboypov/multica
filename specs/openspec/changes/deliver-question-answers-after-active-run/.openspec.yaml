@@ -1,2 +1,8 @@
 schema: intent-driven
 created: 2026-10-16
+build:
+  status: ready-for-dev
+  type: bugfix
+  ticket: WORK-1177
+  context:
+    - "{project-root}/specs/docs/system-design.md"
