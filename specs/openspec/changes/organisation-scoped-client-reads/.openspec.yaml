@@ -1,2 +1,10 @@
 schema: intent-driven
 created: 2026-10-16
+build:
+  status: ready-for-dev
+  type: feature
+  ticket: WORK-1071
+  context:
+    - "{project-root}/designs/screens/client-access.md"
+    - "{project-root}/adr/0017-a-client-account-is-refused-outside-the-session-list.md"
+    - "{project-root}/adr/0021-client-memberships-hold-organisation-sets.md"
