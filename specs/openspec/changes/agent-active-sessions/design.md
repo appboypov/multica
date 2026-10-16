@@ -40,7 +40,8 @@ sequenceDiagram
 |---|---|---|---|
 | Endpoint | Daemon register, update, end, list own | new | `server/internal/handler/agent_session.go` |
 | Endpoint | `GET /api/agents/{id}/sessions` | new | `server/internal/handler/agent_session.go` |
-| Integration | Session follower: local register route, Herdr events, sweep | new | `server/internal/daemon/agent_sessions.go`, `server/internal/daemon/health.go` |
+| Integration | Session follower | new | `server/internal/daemon/agent_sessions.go` |
+| Local API | Session registration route | changed | `server/internal/daemon/health.go` |
 | Integration | Daemon client calls | changed | `server/internal/daemon/client.go` |
 | Routes | Daemon and member routes | changed | `server/cmd/server/router.go` |
 | Query | Session writes, including optional pane identity update | changed | `server/pkg/db/queries/agent_session.sql` |

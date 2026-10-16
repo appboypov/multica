@@ -264,7 +264,12 @@ func TestAgentSessionFollower_HerdrReconnectWhileSweepContinues(t *testing.T) {
 	f, client, processes, git := sessionFollowerFixture(t)
 	registerSessionFixture(t, f)
 	f.interval = 20 * time.Millisecond
-	f.socketPath = filepath.Join(t.TempDir(), "herdr.sock")
+	socketDir, err := os.MkdirTemp("", "herdr-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.RemoveAll(socketDir) })
+	f.socketPath = filepath.Join(socketDir, "herdr.sock")
 	listener, err := net.Listen("unix", f.socketPath)
 	if err != nil {
 		t.Fatal(err)
