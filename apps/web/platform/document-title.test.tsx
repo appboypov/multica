@@ -8,7 +8,7 @@
  * navigation behavior of `document.title`.
  */
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render } from "@testing-library/react";
+import { render, waitFor } from "@testing-library/react";
 
 const route = vi.hoisted(() => ({ pathname: "/acme/issues", search: "" }));
 vi.mock("next/navigation", () => ({
@@ -124,18 +124,18 @@ describe("WorkspaceDocumentTitle", () => {
     expect(document.title).toBe(SITE_TITLE);
   });
 
-  it("re-asserts the title when a navigation keeps the same page name", () => {
+  it("takes the tab name back when the route's metadata renders after the page", async () => {
     open("/acme/inbox");
     presentation.title = "Inbox";
-    const view = render(<WorkspaceDocumentTitle />);
+    render(<WorkspaceDocumentTitle />);
     expect(document.title).toBe("Inbox | Multica");
 
-    // A route change re-renders the target's metadata, resetting the title to
-    // the root default before our effect gets to run again.
-    document.title = SITE_TITLE;
-    open("/acme/inbox", "view=archived");
-    view.rerender(<WorkspaceDocumentTitle />);
+    // An app-router navigation renders the target's metadata after the page
+    // committed, putting the root default <title> back in <head> ahead of ours.
+    const metadataTitle = document.createElement("title");
+    metadataTitle.textContent = SITE_TITLE;
+    document.head.prepend(metadataTitle);
 
-    expect(document.title).toBe("Inbox | Multica");
+    await waitFor(() => expect(document.title).toBe("Inbox | Multica"));
   });
 });

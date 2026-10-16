@@ -39,14 +39,19 @@ export function WorkspaceDocumentTitle() {
   const documentTitle =
     subject.kind === "unknown" ? SITE_TITLE : formatDocumentTitle(title);
 
-  // `url` is a dependency even though `documentTitle` is what we write: an app
-  // router navigation re-renders the target route's metadata and resets
-  // document.title to the root default, so a move between two routes that
-  // happen to share a title (`/inbox` → `/inbox?view=archived`) has to
-  // re-assert it.
+  // An app-router navigation commits the page, and so this effect, before it
+  // renders the target route's metadata, which puts the root default <title>
+  // back in <head> ahead of ours. Watching <head> takes the tab name back
+  // every time that happens, also when two routes share a title
+  // (`/inbox` → `/inbox?view=archived`).
   useEffect(() => {
     document.title = documentTitle;
-  }, [documentTitle, url]);
+    const observer = new MutationObserver(() => {
+      if (document.title !== documentTitle) document.title = documentTitle;
+    });
+    observer.observe(document.head, { childList: true, subtree: true, characterData: true });
+    return () => observer.disconnect();
+  }, [documentTitle]);
 
   // Leaving the dashboard entirely (logout, workspace switcher, landing) drops
   // back to the site title so the stale issue name never outlives its page.
