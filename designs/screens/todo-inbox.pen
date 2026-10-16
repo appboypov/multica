@@ -912,7 +912,7 @@
                                           "id": "R6EnYP",
                                           "name": "Kind",
                                           "fill": "$S:muted-foreground",
-                                          "content": "Assigned to you · Back From QA",
+                                          "content": "Assigned to you · Todo",
                                           "fontFamily": "$S:font-sans",
                                           "fontSize": "$S:text-caption",
                                           "fontWeight": "normal"
@@ -2905,7 +2905,7 @@
                                           "id": "J0EY9M",
                                           "name": "Kind",
                                           "fill": "$S:muted-foreground",
-                                          "content": "Assigned to you · Back From QA",
+                                          "content": "Assigned to you · Todo",
                                           "fontFamily": "$S:font-sans",
                                           "fontSize": "$S:text-caption",
                                           "fontWeight": "normal"
@@ -4794,7 +4794,7 @@
                                           "id": "ofty3",
                                           "name": "Kind",
                                           "fill": "$S:muted-foreground",
-                                          "content": "Assigned to you · Back From QA",
+                                          "content": "Assigned to you · Todo",
                                           "fontFamily": "$S:font-sans",
                                           "fontSize": "$S:text-caption",
                                           "fontWeight": "normal"
@@ -6761,7 +6761,7 @@
                                           "id": "oT5qF",
                                           "name": "Kind",
                                           "fill": "$S:muted-foreground",
-                                          "content": "Assigned to you · Back From QA",
+                                          "content": "Assigned to you · Todo",
                                           "fontFamily": "$S:font-sans",
                                           "fontSize": "$S:text-caption",
                                           "fontWeight": "normal"
@@ -8642,7 +8642,7 @@
                                           "id": "CmjdW",
                                           "name": "Kind",
                                           "fill": "$S:muted-foreground",
-                                          "content": "Assigned to you · Back From QA",
+                                          "content": "Assigned to you · Todo",
                                           "fontFamily": "$S:font-sans",
                                           "fontSize": "$S:text-caption",
                                           "fontWeight": "normal"
@@ -12180,7 +12180,7 @@
                                           "id": "NdKpU",
                                           "name": "Kind",
                                           "fill": "$S:muted-foreground",
-                                          "content": "Assigned to you · Back From QA",
+                                          "content": "Assigned to you · Todo",
                                           "fontFamily": "$S:font-sans",
                                           "fontSize": "$S:text-caption",
                                           "fontWeight": "normal"
