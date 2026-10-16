@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { AgentTask, Attachment, Issue, IssueStatusEntry, Label, Question, TimelineEntry } from "@multica/core/types";
-import { EMPTY_QUESTION } from "@multica/core/api/schemas";
+import { EMPTY_QUESTION, EMPTY_QUESTION_OPEN_COUNT, EMPTY_QUESTION_ROW_PAGE } from "@multica/core/api/schemas";
 import { issueKeys } from "@multica/core/issues/queries";
 import { issueStatusKeys } from "@multica/core/issue-statuses";
 import { I18nProvider } from "@multica/core/i18n/react";
@@ -331,6 +331,9 @@ const mockApiObj = vi.hoisted(() => ({
   getActiveTasksForIssue: vi.fn().mockResolvedValue({ tasks: [] }),
   listTasksByIssue: vi.fn().mockResolvedValue([]),
   listIssueQuestions: vi.fn().mockResolvedValue([]),
+  // The Questions row counts and lists the open questions of the issue and everything below it.
+  getOpenQuestionCount: vi.fn().mockResolvedValue({ count: 0, blocking_count: 0 }),
+  listQuestionRows: vi.fn().mockResolvedValue({ rows: [], next_cursor: null }),
   rerunIssue: vi.fn(),
   listTaskMessages: vi.fn().mockResolvedValue([]),
   listChildIssues: vi.fn().mockResolvedValue({ issues: [] }),
@@ -739,6 +742,8 @@ describe("IssueDetail (shared)", () => {
     mockApiObj.getActiveTasksForIssue.mockResolvedValue({ tasks: [] });
     mockApiObj.listTasksByIssue.mockResolvedValue([]);
     mockApiObj.listIssueQuestions.mockResolvedValue([]);
+    mockApiObj.getOpenQuestionCount.mockResolvedValue(EMPTY_QUESTION_OPEN_COUNT);
+    mockApiObj.listQuestionRows.mockResolvedValue(EMPTY_QUESTION_ROW_PAGE);
     mockApiObj.listTaskMessages.mockResolvedValue([]);
     mockApiObj.rerunIssue.mockResolvedValue({ id: "task-rerun" });
     mockApiObj.listMembers.mockResolvedValue([
@@ -1159,6 +1164,7 @@ describe("IssueDetail (shared)", () => {
 
     it("reads the open count in the Questions row and jumps to the open card", async () => {
       mockApiObj.listIssueQuestions.mockResolvedValue([question]);
+      mockApiObj.getOpenQuestionCount.mockResolvedValue({ count: 1, blocking_count: 1 });
       renderIssueDetail();
 
       const row = await screen.findByRole("button", { name: /1 open/ });
@@ -1168,23 +1174,14 @@ describe("IssueDetail (shared)", () => {
       expect(document.getElementById("comment-question-q-1")!.firstElementChild).toHaveClass("ring-2");
     });
 
-    it("reads None open, with no jump, once no question is open", async () => {
+    it("keeps no Questions row while no question on or below the issue is open", async () => {
       mockApiObj.listIssueQuestions.mockResolvedValue([{ ...question, status: "answered" }]);
       renderIssueDetail();
 
-      const value = await screen.findByText("None open");
-      expect(screen.getByText("Questions")).toBeInTheDocument();
-      expect(value.closest("button")).toBeNull();
-      expect(screen.queryByRole("button", { name: /open/ })).not.toBeInTheDocument();
-    });
-
-    it("keeps no Questions row on an issue without questions", async () => {
-      renderIssueDetail();
-
-      await screen.findByText("Properties");
-      await waitFor(() => expect(mockApiObj.listIssueQuestions).toHaveBeenCalled());
+      await waitFor(() => expect(document.getElementById("comment-question-q-1")).not.toBeNull());
+      await waitFor(() => expect(mockApiObj.getOpenQuestionCount).toHaveBeenCalled());
       expect(screen.queryByText("Questions")).not.toBeInTheDocument();
-      expect(screen.queryByText("None open")).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /open/ })).not.toBeInTheDocument();
     });
   });
 
