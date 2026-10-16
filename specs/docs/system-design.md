@@ -104,6 +104,10 @@ flowchart LR
   protocol["pkg/protocol<br/>event and daemon wire types"]
   questions["internal/service/question.go<br/>QuestionService"]
   questionrules["internal/question<br/>answer-type registry, validation, display"]
+  questionwait["internal/service/question_wake_pending.go<br/>durable wake drain"]
+  questiontransition["internal/service/question_wake_transition.go<br/>shared lifecycle holders / exclusive delivery"]
+  questionrecovery["cmd/server/question_wake_reconciler.go<br/>startup and 30-second bounded sweep"]
+  questionpending[("question_wake_pending<br/>attribution and answer_anchor")]
   questioncli["cmd/multica/cmd_question.go<br/>multica question"]
   questionjob["internal/scheduler/jobs_question_overdue.go<br/>QuestionOverdueJob"]
   runinput["internal/service/run_input.go<br/>RunInputService.Deliver"]
@@ -141,6 +145,18 @@ flowchart LR
   questions --> questionrules
   questions --> sqlc
   questions -->|"EnqueueTaskForQuestionWake"| services
+  questions -->|"blocked Wake: persist or coalesce"| questionpending
+  questionwait -->|"issue lock: blockers, live scope,<br/>unseen input and handled receipts"| sqlc
+  questionwait --> questionpending
+  questionwait -->|"task + activity + woken event<br/>and intent deletion in one transaction"| services
+  services -->|"QuestionWakeDrainer after terminal<br/>comment and retry reconciliation"| questionwait
+  handlers -->|"issue delete, comment edit/delete:<br/>shared holders through replacement/recovery<br/>and synchronous nested callbacks"| questiontransition
+  questiontransition -->|"release holder, then try drain"| questionwait
+  questionwait -->|"nonblocking exclusive delivery lock"| questiontransition
+  questions -->|"try exclusive delivery lock;<br/>fenced: persist accepted wait"| questiontransition
+  questiontransition --> sqlc
+  main --> questionrecovery --> questionwait
+  daemonapi -->|"loadClaimQuestionAnswers:<br/>fresh input using context anchor"| sqlc
   daemonapi --> questionrules
   questions --> bus
   handlers -->|"comment create, text edit"| supp
@@ -471,6 +487,8 @@ classDiagram
     +uuid squad_id
     +text status
     +text failure_reason
+    +uuid retry_of_task_id
+    +jsonb context
   }
   class task_supplement {
     +uuid task_id
@@ -649,6 +667,15 @@ classDiagram
     +date due_date
     +bool blocks_work
   }
+  class question_wake_pending {
+    +uuid workspace_id
+    +uuid issue_id
+    +uuid agent_id
+    +uuid actor_user_id
+    +uuid source_question_id
+    +timestamptz answer_anchor
+    +timestamptz created_at
+  }
   class question_link {
     +uuid question_id
     +text link_type
@@ -727,6 +754,7 @@ classDiagram
   autopilot_run "1" --> "*" agent_task_queue : autopilot_run_id
   comment "1" --> "*" agent_task_queue : trigger_comment_id
   squad "1" --> "*" agent_task_queue : squad_id
+  agent_task_queue "1" --> "*" agent_task_queue : retry_of_task_id, context inherited
   agent_task_queue "1" --> "*" task_message : task_id
   agent_task_queue "1" --> "*" task_supplement : task_id
   task_supplement ..> comment : item_id or comment_id
@@ -779,9 +807,15 @@ classDiagram
   user "1" --> "*" question_answer : answerer_user_id
   question "1" --> "*" question_event : question_id
   question "1" --> "*" attachment : question_id
+  workspace "1" --> "*" question_wake_pending : workspace_id
+  issue "1" --> "*" question_wake_pending : issue_id
+  agent "1" --> "*" question_wake_pending : agent_id
+  user "1" --> "*" question_wake_pending : actor_user_id
+  question "1" --> "*" question_wake_pending : source_question_id
+  question_wake_pending ..> agent_task_queue : waits for blockers; carries answer_anchor into context
 ```
 
-`task_supplement` holds one receipt per item and run, keyed `(item_id, task_id)`: `item_kind` is `comment`, `comment_edit`, `answer` or `issue_change`, and `comment_id` stays set for comments and their edits only. `RunInputService.Deliver` writes a `pending` receipt for every running run with `task-supplement-v1` on the item's issues, except the actor's own agent's run and runs the composer excluded; `content` snapshots the item's text at delivery, with a comment's file names and ids. `multica issue react` sets `seen_at` (👀) or `handled_at` (✅) once, on a `delivered` receipt of the reacting run only. At run end only `handled_at` counts: a comment or edit for the agent without it replays as a follow-up run, and an answer without it stays unseen for Wake (ADR-0019, ADR-0020). Comment receipts and the `run_marks` of answers and activity entries carry these times to `packages/core/types/run-input.ts`.
+`task_supplement` holds one receipt per item and run, keyed `(item_id, task_id)`: `item_kind` is `comment`, `comment_edit`, `answer` or `issue_change`, and `comment_id` stays set for comments and their edits only. `RunInputService.Deliver` writes a `pending` receipt for every running run with `task-supplement-v1` on the item's issues, except the actor's own agent's run and runs the composer excluded; `content` snapshots the item's text at delivery, with a comment's file names and ids. `multica issue react` sets `seen_at` (👀) or `handled_at` (✅) once, on a `delivered` receipt of the reacting run only. At run end only `handled_at` counts: a comment or edit for the agent without it replays as a follow-up run, and an answer or ask-back without it stays unseen for Wake (ADR-0019, ADR-0022). Comment receipts and the `run_marks` of answers and activity entries carry these times to `packages/core/types/run-input.ts`.
 
 ### Client read contracts
 
@@ -863,6 +897,25 @@ classDiagram
 `QuestionRow` is sqlc's `db.Question` in `server/pkg/db/generated/models.go`, generated from the migrations. The client `Question` and `QuestionAskResult` contracts live in `packages/core/types/question.ts`; `packages/core/api/schemas.ts` parses question responses. The server's question and ask DTOs live in `server/internal/service/question.go`; `POST /api/questions` creates one transactional ask and returns `{ask_id, questions}`. `server/internal/question/policy.go` derives status from current answerers under `any_one` or `each`. Created and overdue events carry the ask's question IDs so the notification listener sends one inbox item per current answerer per ask. The event payload is declared in `server/pkg/protocol/events.go` and `packages/core/types/events.ts`.
 
 A question has exactly one asker (`question_one_asker`): an agent in a run, with `asker_agent_id` and `asked_in_task_id`, or a member outside a run, with `asker_user_id`. `Question` carries all three ids as strings; list rows carry `asker_agent_id` and `asker_user_id`. `asker_user_id` is `""` for an agent's question, and `asker_agent_id` and `asked_in_task_id` are `""` for a member's. A member asks through `POST /api/questions` or `multica question ask --on <issue>`; the first link is that issue and no run is linked, so the answers reach no run as input and the question offers no Wake (ADR-0021).
+
+### Question Wake lifecycle
+
+`QuestionService.Wake`, answers sent with `wake: true`, and ask-backs share the same scheduling path. `POST /api/questions/{id}/wake` returns HTTP 202 with the queued task ID for an immediate wake, or `task_id: ""` and the current `answer_count` when accepted but not queued. `QuestionWakeResult` in `packages/core/types/question.ts` and its parser in `packages/core/api/schemas.ts` accept both. Answers without Wake create no waiting intent or follow-up run; member questions wake no agent.
+
+`question_wake_pending` is keyed by `(workspace_id, issue_id, agent_id)` and stores no answer text. Its upsert retains the first member/source attribution and the earliest `answer_anchor`. Queued, dispatched, running and waiting-local-directory tasks and deferred retry children block a wake for that agent and issue. The intent is durable state, not an extra queue task.
+
+Workspace teardown removes `question_wake_pending` by `workspace_id` in `DeleteWorkspaceIssueRoots`, alongside the other question state. The deletion manifest classifies it as workspace-owned; other workspaces' waiting intents remain intact.
+
+`handler.New` wires `QuestionWakeDrainer` into `TaskService`. Single and bulk finished notifications drain once per agent/issue pair after terminal comment follow-ups and retry decisions. `cmd/server/question_wake_reconciler.go` uses `runPeriodicSweep` at startup and every 30 seconds to drain bounded batches after a restart or a missed callback. Both paths first settle retry-eligible failed tails belonging to the current wait through `MaybeRetryFailedTask`; parent-row locking and the child lookup arbitrate concurrent retry decisions. Historical or superseded failures are not retried for a wake.
+
+`question_wake_transition.go` brackets the issue and comment handlers' enclosing deletion/replacement operations with issue-scoped advisory transaction locks. Wake consumption takes a shared advisory lock before its row locks; terminal callbacks and recovery skip an active transition, while explicit Wake waits. The deferred finish releases the guard and drains waiting pairs after deletion, replacement or failure recovery. The guard uses a separate transaction so the enclosing writes can acquire issue rows. Connection loss releases it; durable intent remains recoverable.
+
+The shared drain locks the issue, pending intent and source question in that order, rechecks blockers and availability, and selects unseen answers and ask-backs from the live question links and parent tree. An event is handled only through this agent's `answer` receipt with `handled_at` set. No unseen input means deleting the intent without a task. Otherwise the transaction creates one task through `EnqueueTaskForQuestionWake`, records the first waker's activity and `woken` event, and deletes the intent. Notifications are published only after commit. Collisions or database/retry-settlement errors retain the intent. An archived agent or one without a runtime retains the wait and unseen input; a deleted target or invalid source scope is retired without a task.
+
+The retained input boundary travels from `question_wake_pending.answer_anchor` into the existing JSONB `agent_task_queue.context.question_wake_anchor`; merging it preserves other context keys such as `head_sha`, and retry tasks inherit context. For an accepted wait, the effective cutoff is the greater of that anchor and the latest claim of a subsequently started `question_wake`, excluding the task being hydrated and its retry ancestors. Ordinary retry claims do not advance it. Card counts, drain selection and `loadClaimQuestionAnswers` use the same calculation and handled-event checks; a changed answer has a fresh current event. The claim loads current answer text and ask-backs rather than an enqueue-time snapshot. Immediate wakes without a retained anchor use the latest-started-run cutoff.
+
+The daemon's `Task.QuestionAnswers` contract, live notices, prompt rendering and card visibility rules remain unchanged. [ADR-0022](../../adr/0022-an-accepted-wake-waits-durably-for-the-agent.md) owns the durable-wait and retained-boundary decision; [the CLI and daemon guide](../../CLI_AND_DAEMON.md#question-wake) describes the runtime behavior.
+
 
 ## Absent
 

@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"net/http"
 	"testing"
 
 	"github.com/multica-ai/multica/server/internal/service"
@@ -185,5 +186,166 @@ func TestClaim_QuestionWakeRetryKeepsAnswersAcrossRetryChain(t *testing.T) {
 				"parent_task_id": parentID, "attempt": attempt + 1,
 			})
 		}
+	}
+}
+
+func claimQuestionTaskForTest(t *testing.T, fx questionAPIFixture) *AgentTaskResponse {
+	t.Helper()
+	r := withURLParam(newDaemonTokenRequest("POST", "/", nil, testWorkspaceID, "question-wake-lifecycle"), "runtimeId", fx.RuntimeID)
+	var out struct {
+		Task *AgentTaskResponse `json:"task"`
+	}
+	testutil.Call(t, testHandler.ClaimTaskByRuntime, r).Want(http.StatusOK).JSON(&out)
+	if out.Task == nil {
+		t.Fatal("no task available for question wake lifecycle")
+	}
+	return out.Task
+}
+
+func startQuestionTaskForTest(t *testing.T, fx questionAPIFixture, task *AgentTaskResponse) {
+	t.Helper()
+	if task.DispatchedAt == nil {
+		t.Fatal("claimed task has no dispatch generation")
+	}
+	r := withURLParam(newDaemonTokenRequest("POST", "/", map[string]any{
+		"runtime_id": fx.RuntimeID, "dispatched_at": *task.DispatchedAt,
+	}, testWorkspaceID, "question-wake-lifecycle"), "taskId", task.ID)
+	testutil.Call(t, testHandler.StartTask, r).Want(http.StatusOK)
+}
+
+func TestQuestionWake_WaitsForTerminalAPIAndClaimsLatestAnswer(t *testing.T) {
+	for _, entry := range []string{"answer_with_wake", "manual_wake"} {
+		for _, terminal := range []string{"complete", "fail"} {
+			t.Run(entry+"/"+terminal, func(t *testing.T) {
+				fx := newQuestionAPIFixture(t)
+				id := askQuestionForTest(t, fx)
+				dbfx.Exec(t, "UPDATE agent_task_queue SET max_attempts=1 WHERE id=$1", fx.TaskID)
+				testutil.Call(t, testHandler.AnswerQuestion, withURLParam(newRequest("POST", "/", map[string]any{
+					"value": map[string]any{"option": "per line"}, "wake": entry == "answer_with_wake",
+				}), "id", id)).Want(http.StatusOK)
+				if entry == "manual_wake" {
+					var waiting service.QuestionWakeResult
+					testutil.Call(t, testHandler.WakeQuestion, withURLParam(newRequest("POST", "/", nil), "id", id)).Want(http.StatusAccepted).JSON(&waiting)
+					if waiting.TaskID != "" || waiting.AnswerCount != 1 {
+						t.Fatalf("active-run wake was not accepted as waiting: %+v", waiting)
+					}
+				}
+				if n := dbfx.Count(t, "SELECT count(*) FROM agent_task_queue WHERE agent_id=$1 AND issue_id=$2", fx.AgentID, fx.IssueID); n != 1 {
+					t.Fatalf("wake queued work before the running task ended: %d", n)
+				}
+				if n := dbfx.Count(t, "SELECT count(*) FROM question_wake_pending WHERE agent_id=$1 AND issue_id=$2", fx.AgentID, fx.IssueID); n != 1 {
+					t.Fatalf("wake was not persisted while run was ending: %d", n)
+				}
+				if n := dbfx.Count(t, "SELECT count(*) FROM question_event WHERE question_id=$1 AND kind='woken'", id); n != 0 {
+					t.Fatalf("waiting wake emitted %d premature woken events", n)
+				}
+				if n := dbfx.Count(t, "SELECT count(*) FROM activity_log WHERE issue_id=$1 AND action=$2", fx.IssueID, service.ActivityQuestionWake); n != 0 {
+					t.Fatalf("waiting wake emitted %d premature timeline activities", n)
+				}
+				testutil.Call(t, testHandler.AnswerQuestion, withURLParam(newRequest("POST", "/", map[string]any{
+					"value": map[string]any{"option": "per total"}, "note": "latest actual answer",
+				}), "id", id)).Want(http.StatusOK)
+				if terminal == "complete" {
+					r := completeTaskViaHandler(t, fx.TaskID, "Finished before reading the answer")
+					if r.Code != http.StatusOK {
+						t.Fatalf("complete ending run: %d %s", r.Code, r.Body.String())
+					}
+				} else {
+					r := failTaskViaHandler(t, fx.TaskID)
+					if r.Code != http.StatusOK {
+						t.Fatalf("fail ending run: %d %s", r.Code, r.Body.String())
+					}
+				}
+				if n := queuedTaskCountForAgentIssue(t, fx.IssueID, fx.AgentID); n != 1 {
+					t.Fatalf("terminal API queued %d followups, want one", n)
+				}
+				if n := dbfx.Count(t, "SELECT count(*) FROM question_wake_pending WHERE agent_id=$1 AND issue_id=$2", fx.AgentID, fx.IssueID); n != 0 {
+					t.Fatalf("terminal API did not consume accepted intent: %d", n)
+				}
+				task := claimQuestionTaskForTest(t, fx)
+				qa := task.QuestionAnswers
+				if task.ID == fx.TaskID || qa == nil || qa.AnswerCount != 1 || len(qa.Answers) != 1 {
+					t.Fatalf("next claim missing unseen input: %+v", task)
+				}
+				if qa.WakerName != handlerTestName || qa.Answers[0].QuestionID != id || qa.Answers[0].DisplayText != "per total" || qa.Answers[0].Note != "latest actual answer" {
+					t.Fatalf("next claim did not hydrate current answer and waker: %+v", qa)
+				}
+				if n := dbfx.Count(t, "SELECT count(*) FROM question_event WHERE question_id=$1 AND kind='woken' AND actor_id=$2", id, testUserID); n != 1 {
+					t.Fatalf("actual wake missing first-waker attribution: %d events", n)
+				}
+				if n := dbfx.Count(t, "SELECT count(*) FROM activity_log WHERE issue_id=$1 AND action=$2 AND actor_id=$3 AND details->>'answer_count'='1'", fx.IssueID, service.ActivityQuestionWake, testUserID); n != 1 {
+					t.Fatalf("actual wake missing attributed one-answer activity: %d", n)
+				}
+				startQuestionTaskForTest(t, fx, task)
+				r := completeTaskViaHandler(t, task.ID, "Processed answer")
+				if r.Code != http.StatusOK {
+					t.Fatalf("complete wake: %d %s", r.Code, r.Body.String())
+				}
+				if n := pendingTaskCountForAgentIssue(t, fx.IssueID, fx.AgentID); n != 0 {
+					t.Fatalf("consumed wake queued another task: %d", n)
+				}
+			})
+		}
+	}
+}
+
+func TestQuestionWake_QueuedClaimConsumesWaitAndPostClaimInputFollowsUp(t *testing.T) {
+	for _, postClaimInput := range []bool{false, true} {
+		name := "claim_consumes_all_input"
+		if postClaimInput {
+			name = "post_claim_input_starts_followup"
+		}
+		t.Run(name, func(t *testing.T) {
+			fx := newQuestionAPIFixture(t)
+			id := askQuestionForTest(t, fx)
+			dbfx.Exec(t, "UPDATE agent_task_queue SET status='completed',completed_at=now() WHERE id=$1", fx.TaskID)
+			answer := func(option, note string) {
+				t.Helper()
+				testutil.Call(t, testHandler.AnswerQuestion, withURLParam(newRequest("POST", "/", map[string]any{
+					"value": map[string]any{"option": option}, "note": note, "wake": true,
+				}), "id", id)).Want(http.StatusOK)
+			}
+			answer("per line", "before enqueue")
+			answer("per total", "before claim")
+			if n := queuedTaskCountForAgentIssue(t, fx.IssueID, fx.AgentID); n != 1 {
+				t.Fatalf("input before claim created %d tasks", n)
+			}
+			if n := dbfx.Count(t, "SELECT count(*) FROM question_wake_pending WHERE agent_id=$1 AND issue_id=$2", fx.AgentID, fx.IssueID); n != 1 {
+				t.Fatalf("wake behind queued task missing intent: %d", n)
+			}
+			first := claimQuestionTaskForTest(t, fx)
+			qa := first.QuestionAnswers
+			if qa == nil || qa.AnswerCount != 1 || len(qa.Answers) != 1 || qa.Answers[0].DisplayText != "per total" || qa.Answers[0].Note != "before claim" {
+				t.Fatalf("already queued wake did not receive waiting input: %+v", qa)
+			}
+			startQuestionTaskForTest(t, fx, first)
+			if postClaimInput {
+				answer("per line", "after claim")
+			}
+			r := completeTaskViaHandler(t, first.ID, "Finished queued wake")
+			if r.Code != http.StatusOK {
+				t.Fatalf("complete queued wake: %d %s", r.Code, r.Body.String())
+			}
+			if n := dbfx.Count(t, "SELECT count(*) FROM question_wake_pending WHERE agent_id=$1 AND issue_id=$2", fx.AgentID, fx.IssueID); n != 0 {
+				t.Fatalf("terminal API did not settle waiting intent: %d", n)
+			}
+			if !postClaimInput {
+				if n := pendingTaskCountForAgentIssue(t, fx.IssueID, fx.AgentID); n != 0 {
+					t.Fatalf("claim consumed all input but left %d redundant followups", n)
+				}
+				if n := dbfx.Count(t, "SELECT count(*) FROM agent_task_queue WHERE agent_id=$1 AND issue_id=$2", fx.AgentID, fx.IssueID); n != 2 {
+					t.Fatalf("claim consumed all input but created %d total tasks", n)
+				}
+				return
+			}
+			if n := queuedTaskCountForAgentIssue(t, fx.IssueID, fx.AgentID); n != 1 {
+				t.Fatalf("post-claim input queued %d followups", n)
+			}
+			next := claimQuestionTaskForTest(t, fx)
+			qa = next.QuestionAnswers
+			if next.ID == first.ID || qa == nil || qa.AnswerCount != 1 || len(qa.Answers) != 1 || qa.Answers[0].DisplayText != "per line" || qa.Answers[0].Note != "after claim" {
+				t.Fatalf("post-claim answer not carried into followup: %+v", next)
+			}
+		})
 	}
 }

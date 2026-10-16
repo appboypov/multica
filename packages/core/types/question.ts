@@ -375,6 +375,7 @@ export interface ReassignQuestionRequest {
 
 /** 202 body of `POST /api/questions/{id}/wake`. */
 export interface QuestionWakeResult {
+  /** Queued task ID, or "" when the wake is accepted but not queued yet. */
   task_id: string;
   answer_count: number;
 }

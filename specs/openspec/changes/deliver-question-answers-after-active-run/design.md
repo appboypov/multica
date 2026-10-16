@@ -20,6 +20,10 @@ flowchart LR
   api["QuestionService.Wake<br/>Answer / AskBack"]:::changed --> wait[(question_wake_pending)]:::new
   endrun["Task terminal reconciliation"]:::changed --> drain["Question wake drain"]:::new
   recovery["Server recovery sweep"]:::new --> drain
+  lifecycle["Issue deletion / comment edit or delete<br/>including synchronous nested callbacks"]:::changed --> guard["Shared transition holders"]:::new
+  guard -->|all holders settled| drain
+  drain -->|try exclusive delivery lock| guard
+  api -->|delivery fenced: accept without waiting| wait
   wait --> drain
   drain --> unseen["Canonical unseen queries<br/>current scope, receipt checks"]:::changed
   drain --> enqueue["EnqueueTaskForQuestionWake<br/>activity + woken event"]:::changed
@@ -94,8 +98,8 @@ sequenceDiagram
 | Queries | Waiting intents | new | `server/pkg/db/queries/question_wake_pending.sql` |
 | Queries | Unseen input and task/retry persistence | changed | `server/pkg/db/queries/question.sql`, `server/pkg/db/queries/question_reach.sql`, `server/pkg/db/queries/agent.sql` |
 | Service | Wake acceptance and drain | changed | `server/internal/service/question.go`, `server/internal/service/question_audience.go`, `server/internal/service/task.go` |
-| Service | Waiting-wake reconciliation | new | `server/internal/service/question_wake_pending.go` |
-| Lifecycle | Terminal handling and claim input | changed | `server/internal/handler/daemon.go` |
+| Service | Waiting-wake reconciliation and transition guards | new | `server/internal/service/question_wake_pending.go`, `server/internal/service/question_wake_transition.go` |
+| Lifecycle | Terminal handling, enclosing deletion/replacement and claim input | changed | `server/internal/handler/daemon.go`, `server/internal/handler/issue.go`, `server/internal/handler/comment.go` |
 | Composition | Task drainer wiring | changed | `server/internal/handler/handler.go` |
 | Recovery | Waiting-wake sweep and composition | new | `server/cmd/server/question_wake_reconciler.go` |
 | Composition | Recovery registration | changed | `server/cmd/server/main.go` |
@@ -155,6 +159,8 @@ For ask-backs, exclude an event with an `answer`-kind receipt whose `handled_at`
 ### Terminal ordering and recovery
 
 Wire a narrow `QuestionWakeDrainer` interface into the existing `TaskService` from `handler.New`, alongside the existing service composition. Invoke it from `NotifyTaskFinished` and its bulk counterpart `notifyTasksFinished`, once per agent/issue pair. Daemon completion/failure already calls those after `reconcileCommentsOnCompletion`; bulk orphan recovery calls them after `HandleFailedTasks` has made its retry decisions. Do not enqueue from inside `SettleTerminalTaskState`.
+
+`QuestionService.BeginQuestionWakeTransition` brackets issue single/batch deletion and comment edit/delete cancellation, replacement and failure recovery. It holds shared transaction-scoped advisory locks without locking issue rows needed by the enclosing writes. Synchronous subscribers can enter nested lifecycle operations while every enclosing holder continues to fence delivery. Wake consumption tries the exclusive counterpart before issue, pending and question row locks; it never waits on a transition or another delivery. Explicit Wake persists or coalesces acceptance without consuming while fenced; terminal callbacks and recovery retain the intent. Each deferred finish releases its holder and drains affected waiting pairs; consumption succeeds only after every holder settles, even if a request context was cancelled. Deleted targets are retired; replacement tasks keep the wait blocked. Connection loss releases the holder so the durable recovery sweep can resume.
 
 Queued, dispatched, running and waiting-local-directory tasks block. Deferred retry children also block; do not widen unrelated comment dedup queries. Before draining, settle any failed tail task belonging to this wait whose retry decision could still be outstanding: it completed after the intent was accepted, passes the existing `retryEligible` policy, has no retry child, and has no later successor in its thread in any state. Reuse `MaybeRetryFailedTask`, not a second retry policy. Serialize its parent-row read and child check in the retry transaction, including the existing failure path, so concurrent recovery cannot create duplicate deferred retries. Then re-read blockers under the wake's issue lock. Historical failures and superseded tasks are never retried by the wake drainer.
 

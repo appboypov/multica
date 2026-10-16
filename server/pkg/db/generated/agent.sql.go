@@ -4405,6 +4405,79 @@ func (q *Queries) GetAgentTaskForDelegatedFailureUpdate(ctx context.Context, id 
 	return i, err
 }
 
+const getAgentTaskForUpdate = `-- name: GetAgentTaskForUpdate :one
+SELECT id, agent_id, issue_id, status, priority, dispatched_at, started_at, completed_at, result, error, created_at, context, runtime_id, session_id, work_dir, trigger_comment_id, chat_session_id, autopilot_run_id, attempt, max_attempts, parent_task_id, failure_reason, trigger_summary, force_fresh_session, is_leader_task, wait_reason, initiator_user_id, handoff_note, prepare_lease_expires_at, squad_id, runtime_mcp_overlay, escalation_for_task_id, fire_at, originator_user_id, runtime_connected_apps, coalesced_comment_ids, delivered_comment_ids, chat_input_task_id, chat_finalize_deferred_at, originator_source, delegated_from_task_id, retry_of_task_id, rerun_of_task_id, rule_version_id, trigger_evidence_kind, trigger_evidence_ref_id, accountable_user_id, session_rollout_missing, retired_session_id, quick_actions_disabled, regenerate_quick_actions_for, branch_name, durable_work_dir, channel_context_revision, comment_thread_id, cancelled_by_type, cancelled_by_id, cancelled_by_name, issue_snapshot, questions_enabled FROM agent_task_queue WHERE id = $1 FOR UPDATE
+`
+
+// Retry creation holds this lock through the child lookup and insert.
+func (q *Queries) GetAgentTaskForUpdate(ctx context.Context, id pgtype.UUID) (AgentTaskQueue, error) {
+	row := q.db.QueryRow(ctx, getAgentTaskForUpdate, id)
+	var i AgentTaskQueue
+	err := row.Scan(
+		&i.ID,
+		&i.AgentID,
+		&i.IssueID,
+		&i.Status,
+		&i.Priority,
+		&i.DispatchedAt,
+		&i.StartedAt,
+		&i.CompletedAt,
+		&i.Result,
+		&i.Error,
+		&i.CreatedAt,
+		&i.Context,
+		&i.RuntimeID,
+		&i.SessionID,
+		&i.WorkDir,
+		&i.TriggerCommentID,
+		&i.ChatSessionID,
+		&i.AutopilotRunID,
+		&i.Attempt,
+		&i.MaxAttempts,
+		&i.ParentTaskID,
+		&i.FailureReason,
+		&i.TriggerSummary,
+		&i.ForceFreshSession,
+		&i.IsLeaderTask,
+		&i.WaitReason,
+		&i.InitiatorUserID,
+		&i.HandoffNote,
+		&i.PrepareLeaseExpiresAt,
+		&i.SquadID,
+		&i.RuntimeMcpOverlay,
+		&i.EscalationForTaskID,
+		&i.FireAt,
+		&i.OriginatorUserID,
+		&i.RuntimeConnectedApps,
+		&i.CoalescedCommentIds,
+		&i.DeliveredCommentIds,
+		&i.ChatInputTaskID,
+		&i.ChatFinalizeDeferredAt,
+		&i.OriginatorSource,
+		&i.DelegatedFromTaskID,
+		&i.RetryOfTaskID,
+		&i.RerunOfTaskID,
+		&i.RuleVersionID,
+		&i.TriggerEvidenceKind,
+		&i.TriggerEvidenceRefID,
+		&i.AccountableUserID,
+		&i.SessionRolloutMissing,
+		&i.RetiredSessionID,
+		&i.QuickActionsDisabled,
+		&i.RegenerateQuickActionsFor,
+		&i.BranchName,
+		&i.DurableWorkDir,
+		&i.ChannelContextRevision,
+		&i.CommentThreadID,
+		&i.CancelledByType,
+		&i.CancelledByID,
+		&i.CancelledByName,
+		&i.IssueSnapshot,
+		&i.QuestionsEnabled,
+	)
+	return i, err
+}
+
 const getAgentTaskInWorkspace = `-- name: GetAgentTaskInWorkspace :one
 SELECT atq.id, atq.agent_id, atq.issue_id, atq.status, atq.priority, atq.dispatched_at, atq.started_at, atq.completed_at, atq.result, atq.error, atq.created_at, atq.context, atq.runtime_id, atq.session_id, atq.work_dir, atq.trigger_comment_id, atq.chat_session_id, atq.autopilot_run_id, atq.attempt, atq.max_attempts, atq.parent_task_id, atq.failure_reason, atq.trigger_summary, atq.force_fresh_session, atq.is_leader_task, atq.wait_reason, atq.initiator_user_id, atq.handoff_note, atq.prepare_lease_expires_at, atq.squad_id, atq.runtime_mcp_overlay, atq.escalation_for_task_id, atq.fire_at, atq.originator_user_id, atq.runtime_connected_apps, atq.coalesced_comment_ids, atq.delivered_comment_ids, atq.chat_input_task_id, atq.chat_finalize_deferred_at, atq.originator_source, atq.delegated_from_task_id, atq.retry_of_task_id, atq.rerun_of_task_id, atq.rule_version_id, atq.trigger_evidence_kind, atq.trigger_evidence_ref_id, atq.accountable_user_id, atq.session_rollout_missing, atq.retired_session_id, atq.quick_actions_disabled, atq.regenerate_quick_actions_for, atq.branch_name, atq.durable_work_dir, atq.channel_context_revision, atq.comment_thread_id, atq.cancelled_by_type, atq.cancelled_by_id, atq.cancelled_by_name, atq.issue_snapshot, atq.questions_enabled FROM agent_task_queue atq
 JOIN agent a ON a.id = atq.agent_id
@@ -4830,6 +4903,82 @@ func (q *Queries) GetLatestTaskRolloutMissing(ctx context.Context, arg GetLatest
 	var session_rollout_missing bool
 	err := row.Scan(&session_rollout_missing)
 	return session_rollout_missing, err
+}
+
+const getRetryTaskForParent = `-- name: GetRetryTaskForParent :one
+SELECT id, agent_id, issue_id, status, priority, dispatched_at, started_at, completed_at, result, error, created_at, context, runtime_id, session_id, work_dir, trigger_comment_id, chat_session_id, autopilot_run_id, attempt, max_attempts, parent_task_id, failure_reason, trigger_summary, force_fresh_session, is_leader_task, wait_reason, initiator_user_id, handoff_note, prepare_lease_expires_at, squad_id, runtime_mcp_overlay, escalation_for_task_id, fire_at, originator_user_id, runtime_connected_apps, coalesced_comment_ids, delivered_comment_ids, chat_input_task_id, chat_finalize_deferred_at, originator_source, delegated_from_task_id, retry_of_task_id, rerun_of_task_id, rule_version_id, trigger_evidence_kind, trigger_evidence_ref_id, accountable_user_id, session_rollout_missing, retired_session_id, quick_actions_disabled, regenerate_quick_actions_for, branch_name, durable_work_dir, channel_context_revision, comment_thread_id, cancelled_by_type, cancelled_by_id, cancelled_by_name, issue_snapshot, questions_enabled FROM agent_task_queue
+WHERE retry_of_task_id = $1
+ORDER BY created_at, id
+LIMIT 1
+`
+
+// Every materialized child counts, including deferred and terminal attempts.
+func (q *Queries) GetRetryTaskForParent(ctx context.Context, retryOfTaskID pgtype.UUID) (AgentTaskQueue, error) {
+	row := q.db.QueryRow(ctx, getRetryTaskForParent, retryOfTaskID)
+	var i AgentTaskQueue
+	err := row.Scan(
+		&i.ID,
+		&i.AgentID,
+		&i.IssueID,
+		&i.Status,
+		&i.Priority,
+		&i.DispatchedAt,
+		&i.StartedAt,
+		&i.CompletedAt,
+		&i.Result,
+		&i.Error,
+		&i.CreatedAt,
+		&i.Context,
+		&i.RuntimeID,
+		&i.SessionID,
+		&i.WorkDir,
+		&i.TriggerCommentID,
+		&i.ChatSessionID,
+		&i.AutopilotRunID,
+		&i.Attempt,
+		&i.MaxAttempts,
+		&i.ParentTaskID,
+		&i.FailureReason,
+		&i.TriggerSummary,
+		&i.ForceFreshSession,
+		&i.IsLeaderTask,
+		&i.WaitReason,
+		&i.InitiatorUserID,
+		&i.HandoffNote,
+		&i.PrepareLeaseExpiresAt,
+		&i.SquadID,
+		&i.RuntimeMcpOverlay,
+		&i.EscalationForTaskID,
+		&i.FireAt,
+		&i.OriginatorUserID,
+		&i.RuntimeConnectedApps,
+		&i.CoalescedCommentIds,
+		&i.DeliveredCommentIds,
+		&i.ChatInputTaskID,
+		&i.ChatFinalizeDeferredAt,
+		&i.OriginatorSource,
+		&i.DelegatedFromTaskID,
+		&i.RetryOfTaskID,
+		&i.RerunOfTaskID,
+		&i.RuleVersionID,
+		&i.TriggerEvidenceKind,
+		&i.TriggerEvidenceRefID,
+		&i.AccountableUserID,
+		&i.SessionRolloutMissing,
+		&i.RetiredSessionID,
+		&i.QuickActionsDisabled,
+		&i.RegenerateQuickActionsFor,
+		&i.BranchName,
+		&i.DurableWorkDir,
+		&i.ChannelContextRevision,
+		&i.CommentThreadID,
+		&i.CancelledByType,
+		&i.CancelledByID,
+		&i.CancelledByName,
+		&i.IssueSnapshot,
+		&i.QuestionsEnabled,
+	)
+	return i, err
 }
 
 const getWorkspaceAgentActivity30d = `-- name: GetWorkspaceAgentActivity30d :many
@@ -7406,6 +7555,87 @@ func (q *Queries) MergeDelegatedFailureCommentIntoPendingTask(ctx context.Contex
 		arg.IssueID,
 		arg.AgentID,
 	)
+	var i AgentTaskQueue
+	err := row.Scan(
+		&i.ID,
+		&i.AgentID,
+		&i.IssueID,
+		&i.Status,
+		&i.Priority,
+		&i.DispatchedAt,
+		&i.StartedAt,
+		&i.CompletedAt,
+		&i.Result,
+		&i.Error,
+		&i.CreatedAt,
+		&i.Context,
+		&i.RuntimeID,
+		&i.SessionID,
+		&i.WorkDir,
+		&i.TriggerCommentID,
+		&i.ChatSessionID,
+		&i.AutopilotRunID,
+		&i.Attempt,
+		&i.MaxAttempts,
+		&i.ParentTaskID,
+		&i.FailureReason,
+		&i.TriggerSummary,
+		&i.ForceFreshSession,
+		&i.IsLeaderTask,
+		&i.WaitReason,
+		&i.InitiatorUserID,
+		&i.HandoffNote,
+		&i.PrepareLeaseExpiresAt,
+		&i.SquadID,
+		&i.RuntimeMcpOverlay,
+		&i.EscalationForTaskID,
+		&i.FireAt,
+		&i.OriginatorUserID,
+		&i.RuntimeConnectedApps,
+		&i.CoalescedCommentIds,
+		&i.DeliveredCommentIds,
+		&i.ChatInputTaskID,
+		&i.ChatFinalizeDeferredAt,
+		&i.OriginatorSource,
+		&i.DelegatedFromTaskID,
+		&i.RetryOfTaskID,
+		&i.RerunOfTaskID,
+		&i.RuleVersionID,
+		&i.TriggerEvidenceKind,
+		&i.TriggerEvidenceRefID,
+		&i.AccountableUserID,
+		&i.SessionRolloutMissing,
+		&i.RetiredSessionID,
+		&i.QuickActionsDisabled,
+		&i.RegenerateQuickActionsFor,
+		&i.BranchName,
+		&i.DurableWorkDir,
+		&i.ChannelContextRevision,
+		&i.CommentThreadID,
+		&i.CancelledByType,
+		&i.CancelledByID,
+		&i.CancelledByName,
+		&i.IssueSnapshot,
+		&i.QuestionsEnabled,
+	)
+	return i, err
+}
+
+const mergeQuestionWakeTaskAnchor = `-- name: MergeQuestionWakeTaskAnchor :one
+UPDATE agent_task_queue
+SET context = COALESCE(context, '{}'::jsonb) ||
+    jsonb_build_object('question_wake_anchor', $1::timestamptz)
+WHERE id = $2
+RETURNING id, agent_id, issue_id, status, priority, dispatched_at, started_at, completed_at, result, error, created_at, context, runtime_id, session_id, work_dir, trigger_comment_id, chat_session_id, autopilot_run_id, attempt, max_attempts, parent_task_id, failure_reason, trigger_summary, force_fresh_session, is_leader_task, wait_reason, initiator_user_id, handoff_note, prepare_lease_expires_at, squad_id, runtime_mcp_overlay, escalation_for_task_id, fire_at, originator_user_id, runtime_connected_apps, coalesced_comment_ids, delivered_comment_ids, chat_input_task_id, chat_finalize_deferred_at, originator_source, delegated_from_task_id, retry_of_task_id, rerun_of_task_id, rule_version_id, trigger_evidence_kind, trigger_evidence_ref_id, accountable_user_id, session_rollout_missing, retired_session_id, quick_actions_disabled, regenerate_quick_actions_for, branch_name, durable_work_dir, channel_context_revision, comment_thread_id, cancelled_by_type, cancelled_by_id, cancelled_by_name, issue_snapshot, questions_enabled
+`
+
+type MergeQuestionWakeTaskAnchorParams struct {
+	AnswerAnchor pgtype.Timestamptz `json:"answer_anchor"`
+	ID           pgtype.UUID        `json:"id"`
+}
+
+func (q *Queries) MergeQuestionWakeTaskAnchor(ctx context.Context, arg MergeQuestionWakeTaskAnchorParams) (AgentTaskQueue, error) {
+	row := q.db.QueryRow(ctx, mergeQuestionWakeTaskAnchor, arg.AnswerAnchor, arg.ID)
 	var i AgentTaskQueue
 	err := row.Scan(
 		&i.ID,

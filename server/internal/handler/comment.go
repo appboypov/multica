@@ -3465,6 +3465,12 @@ func (h *Handler) UpdateComment(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		triggerIssue = &issue
+		finish, err := h.QuestionService.BeginQuestionWakeTransition(r.Context(), issue.WorkspaceID, []pgtype.UUID{issue.ID})
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to prepare comment edit")
+			return
+		}
+		defer finish()
 		// A content edit is a NEW action, so its delegation lineage must key on THIS
 		// edit. Only the AGENT author re-editing its OWN comment carries the lineage
 		// forward (commentSourceTaskID re-stamps the current editing task) — so
@@ -3688,6 +3694,12 @@ func (h *Handler) DeleteComment(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "comment not found")
 		return
 	}
+	finish, err := h.QuestionService.BeginQuestionWakeTransition(r.Context(), comment.WorkspaceID, []pgtype.UUID{comment.IssueID})
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to prepare comment deletion")
+		return
+	}
+	defer finish()
 
 	// Cancel any active task whose planned batch contains this comment so the
 	// agent does not run with the now-deleted content already embedded. Must

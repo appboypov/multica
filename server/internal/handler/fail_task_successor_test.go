@@ -3,12 +3,14 @@ package handler
 import (
 	"context"
 	"errors"
+	"net/http"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/multica-ai/multica/server/internal/service"
 	"github.com/multica-ai/multica/server/internal/testutil"
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
 )
@@ -527,5 +529,90 @@ func TestPromoteDueDeferred_ToleratesConcurrentUncommittedEnqueue(t *testing.T) 
 	}
 	if err := <-promoted; err != nil {
 		t.Fatalf("a single contended row must not fail the claim: %v", err)
+	}
+}
+
+func TestFailTask_QuestionWakeWaitsThroughOrdinaryRetryChain(t *testing.T) {
+	for _, tc := range []struct {
+		name, reason, retryStatus string
+	}{
+		{"queued", "timeout", "queued"},
+		{"deferred", "runtime_offline", "deferred"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			fx := newQuestionAPIFixture(t)
+			id := askQuestionForTest(t, fx)
+			dbfx.Exec(t, "UPDATE agent_task_queue SET attempt=1,max_attempts=3 WHERE id=$1", fx.TaskID)
+			testutil.Call(t, testHandler.AnswerQuestion, withURLParam(newRequest("POST", "/", map[string]any{
+				"value": map[string]any{"option": "per total"}, "note": "retained across ordinary retries", "wake": true,
+			}), "id", id)).Want(http.StatusOK)
+			parentID := fx.TaskID
+			for attempt := 2; attempt <= 3; attempt++ {
+				r := withURLParam(newDaemonTokenRequest("POST", "/", map[string]any{
+					"error": "Run ended before reading the answer", "failure_reason": tc.reason,
+				}, testWorkspaceID, "question-wake-retry"), "taskId", parentID)
+				testutil.Call(t, testHandler.FailTask, r).Want(http.StatusOK)
+				var childID, status string
+				dbfx.QueryRow(t, "SELECT id::text,status FROM agent_task_queue WHERE retry_of_task_id=$1", parentID).Scan(&childID, &status)
+				if status != tc.retryStatus {
+					t.Fatalf("attempt %d status=%q, want %q", attempt, status, tc.retryStatus)
+				}
+				if n := dbfx.Count(t, "SELECT count(*) FROM agent_task_queue WHERE agent_id=$1 AND issue_id=$2 AND trigger_evidence_kind='question_wake'", fx.AgentID, fx.IssueID); n != 0 {
+					t.Fatalf("attempt %d let wake steal retry's place: %d woken tasks", attempt, n)
+				}
+				if n := dbfx.Count(t, "SELECT count(*) FROM question_wake_pending WHERE agent_id=$1 AND issue_id=$2", fx.AgentID, fx.IssueID); n != 1 {
+					t.Fatalf("attempt %d discarded durable wake: %d", attempt, n)
+				}
+				if status == "deferred" {
+					// Make the delay deterministic without sleeping, then prove that
+					// both a drain and a daemon claim leave the retry's slot alone.
+					dbfx.Exec(t, "UPDATE agent_task_queue SET fire_at=now()+interval '1 hour' WHERE id=$1", childID)
+					if err := testHandler.QuestionService.DrainQuestionWake(t.Context(), parseUUID(testWorkspaceID), parseUUID(fx.AgentID), parseUUID(fx.IssueID)); err != nil {
+						t.Fatalf("drain behind deferred retry: %v", err)
+					}
+					claim := withURLParam(newDaemonTokenRequest("POST", "/", nil, testWorkspaceID, "question-wake-retry"), "runtimeId", fx.RuntimeID)
+					var empty struct {
+						Task *AgentTaskResponse `json:"task"`
+					}
+					testutil.Call(t, testHandler.ClaimTaskByRuntime, claim).Want(http.StatusOK).JSON(&empty)
+					if empty.Task != nil {
+						t.Fatalf("deferred retry allowed a premature task: %+v", empty.Task)
+					}
+					dbfx.Exec(t, "UPDATE agent_task_queue SET fire_at=now()-interval '1 minute' WHERE id=$1", childID)
+					if err := testHandler.TaskService.PromoteDueDeferredTasksForRuntime(t.Context(), parseUUID(fx.RuntimeID)); err != nil {
+						t.Fatalf("promote retry: %v", err)
+					}
+				}
+				child := claimQuestionTaskForTest(t, fx)
+				if child.ID != childID || child.QuestionAnswers != nil {
+					t.Fatalf("ordinary retry unexpectedly received question input: %+v", child)
+				}
+				startQuestionTaskForTest(t, fx, child)
+				var question service.QuestionDTO
+				testutil.Call(t, testHandler.GetQuestion, withURLParam(newRequest("GET", "/", nil), "id", id)).Want(http.StatusOK).JSON(&question)
+				if question.UnseenAnswerCount != 1 {
+					t.Fatalf("ordinary retry claim moved accepted answer boundary: %+v", question)
+				}
+				parentID = childID
+			}
+			completed := completeTaskViaHandler(t, parentID, "Retries finished without seeing the question")
+			if completed.Code != http.StatusOK {
+				t.Fatalf("complete ordinary retry: %d %s", completed.Code, completed.Body.String())
+			}
+			if n := queuedTaskCountForAgentIssue(t, fx.IssueID, fx.AgentID); n != 1 {
+				t.Fatalf("retry chain released %d followups, want one", n)
+			}
+			wake := claimQuestionTaskForTest(t, fx)
+			qa := wake.QuestionAnswers
+			if qa == nil || qa.AnswerCount != 1 || len(qa.Answers) != 1 || qa.Answers[0].QuestionID != id || qa.Answers[0].DisplayText != "per total" || qa.Answers[0].Note != "retained across ordinary retries" {
+				t.Fatalf("wake lost answer across ordinary retry claims: %+v", qa)
+			}
+			if n := dbfx.Count(t, "SELECT count(*) FROM agent_task_queue WHERE agent_id=$1 AND issue_id=$2", fx.AgentID, fx.IssueID); n != 4 {
+				t.Fatalf("three ordinary attempts and one wake produced %d tasks", n)
+			}
+			if n := dbfx.Count(t, "SELECT count(*) FROM question_wake_pending WHERE agent_id=$1 AND issue_id=$2", fx.AgentID, fx.IssueID); n != 0 {
+				t.Fatalf("final wake did not consume intent: %d", n)
+			}
+		})
 	}
 }

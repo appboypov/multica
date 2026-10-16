@@ -1,3 +1,5 @@
+// @vitest-environment node
+
 import { describe, expect, it } from "vitest";
 import {
   AppConfigSchema,
@@ -2964,8 +2966,14 @@ describe("QuestionWakeResultSchema", () => {
       endpoint: "POST /api/questions/:id/wake",
     });
 
-  it("reads the queued task and its answer count", () => {
-    expect(parseWake({ task_id: "task-4", answer_count: 1 })).toEqual({ task_id: "task-4", answer_count: 1 });
+  it.each([
+    { task_id: "task-4", answer_count: 1 },
+    { task_id: "", answer_count: 2 },
+    { task_id: "", answer_count: 0 },
+  ])("reads an accepted wake response without fallback: %j", (response) => {
+    const result = parseWake(response);
+    expect(result).toEqual(response);
+    expect(result).not.toBe(EMPTY_QUESTION_WAKE_RESULT);
   });
 
   it("defaults a missing or malformed answer count", () => {
@@ -2973,10 +2981,12 @@ describe("QuestionWakeResultSchema", () => {
     expect(parseWake({ task_id: "task-4", answer_count: "one" })).toEqual({ task_id: "task-4", answer_count: 0 });
   });
 
-  it("falls back when the task id is missing", () => {
-    expect(parseWake({ answer_count: 1 })).toEqual(EMPTY_QUESTION_WAKE_RESULT);
-    expect(parseWake(null)).toEqual(EMPTY_QUESTION_WAKE_RESULT);
-  });
+  it.each([{ answer_count: 1 }, { task_id: null, answer_count: 1 }, { task_id: 42, answer_count: 1 }, null])(
+    "falls back when the task id is missing or malformed: %j",
+    (response) => {
+      expect(parseWake(response)).toBe(EMPTY_QUESTION_WAKE_RESULT);
+    },
+  );
 });
 
 describe("RepositoryCheckoutRequestSchema", () => {

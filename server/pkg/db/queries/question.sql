@@ -194,33 +194,19 @@ WHERE id = @id
   AND status IN ('open', 'partly_answered')
   AND overdue_notified_at IS NULL;
 
--- The caller resolves the target's wake scope. All three queries use the same
--- pair-specific anchor; exclude_task_id leaves the claiming run out.
+-- The caller resolves the target's live wake scope. Each selector uses the same
+-- effective cutoff, with an optional retained anchor and claiming retry exclusion.
 
 -- name: CountUnseenQuestionAnswers :one
-WITH RECURSIVE excluded_tasks AS (
-    SELECT id, retry_of_task_id FROM agent_task_queue
-    WHERE id = sqlc.narg('exclude_task_id')::uuid
-      AND agent_id = @agent_id AND issue_id = @issue_id
-    UNION ALL
-    SELECT t.id, t.retry_of_task_id FROM agent_task_queue t
-    JOIN excluded_tasks child ON t.id = child.retry_of_task_id
-    WHERE t.agent_id = @agent_id AND t.issue_id = @issue_id
-)
 SELECT count(*)::bigint AS unseen_count
 FROM question_answer a
 JOIN question q ON q.id = a.question_id AND q.workspace_id = a.workspace_id
 WHERE a.workspace_id = @workspace_id
   AND q.id = ANY(@question_ids::uuid[])
   AND q.status IN ('open', 'partly_answered', 'answered')
-  AND a.updated_at > COALESCE((
-      SELECT max(t.dispatched_at) FROM agent_task_queue t
-      JOIN agent agent ON agent.id = t.agent_id AND agent.workspace_id = @workspace_id
-      WHERE t.issue_id = @issue_id AND t.agent_id = @agent_id
-        AND t.dispatched_at IS NOT NULL
-        AND t.started_at IS NOT NULL
-        AND t.id NOT IN (SELECT id FROM excluded_tasks)
-  ), '-infinity'::timestamptz)
+  AND a.updated_at > (SELECT question_wake_answer_cutoff(
+      @workspace_id::uuid, @issue_id::uuid, @agent_id::uuid,
+      sqlc.narg('exclude_task_id')::uuid, sqlc.narg('answer_anchor')::timestamptz))
   AND NOT EXISTS (
       SELECT 1 FROM task_supplement s
       JOIN agent_task_queue handled_run ON handled_run.id = s.task_id
@@ -241,15 +227,6 @@ WHERE a.workspace_id = @workspace_id
   );
 
 -- name: ListUnseenQuestionAnswers :many
-WITH RECURSIVE excluded_tasks AS (
-    SELECT id, retry_of_task_id FROM agent_task_queue
-    WHERE id = sqlc.narg('exclude_task_id')::uuid
-      AND agent_id = @agent_id AND issue_id = @issue_id
-    UNION ALL
-    SELECT t.id, t.retry_of_task_id FROM agent_task_queue t
-    JOIN excluded_tasks child ON t.id = child.retry_of_task_id
-    WHERE t.agent_id = @agent_id AND t.issue_id = @issue_id
-)
 SELECT a.id, a.question_id, a.answerer_user_id, a.value, a.note, a.created_at, a.updated_at,
        q.prompt, q.answer_type, q.settings, q.asker_agent_id,
        asker.name AS asker_name, u.name AS answerer_name
@@ -260,14 +237,9 @@ JOIN "user" u ON u.id = a.answerer_user_id
 WHERE a.workspace_id = @workspace_id
   AND q.id = ANY(@question_ids::uuid[])
   AND q.status IN ('open', 'partly_answered', 'answered')
-  AND a.updated_at > COALESCE((
-      SELECT max(t.dispatched_at) FROM agent_task_queue t
-      JOIN agent agent ON agent.id = t.agent_id AND agent.workspace_id = @workspace_id
-      WHERE t.issue_id = @issue_id AND t.agent_id = @agent_id
-        AND t.dispatched_at IS NOT NULL
-        AND t.started_at IS NOT NULL
-        AND t.id NOT IN (SELECT id FROM excluded_tasks)
-  ), '-infinity'::timestamptz)
+  AND a.updated_at > (SELECT question_wake_answer_cutoff(
+      @workspace_id::uuid, @issue_id::uuid, @agent_id::uuid,
+      sqlc.narg('exclude_task_id')::uuid, sqlc.narg('answer_anchor')::timestamptz))
   AND NOT EXISTS (
       SELECT 1 FROM task_supplement s
       JOIN agent_task_queue handled_run ON handled_run.id = s.task_id
@@ -291,15 +263,6 @@ ORDER BY a.updated_at ASC, a.id ASC;
 -- name: ListUnseenQuestionAskBacks :many
 -- Ask-backs are no answers: they count toward nothing and ride along in the
 -- next woken run, against the same anchor.
-WITH RECURSIVE excluded_tasks AS (
-    SELECT id, retry_of_task_id FROM agent_task_queue
-    WHERE id = sqlc.narg('exclude_task_id')::uuid
-      AND agent_id = @agent_id AND issue_id = @issue_id
-    UNION ALL
-    SELECT t.id, t.retry_of_task_id FROM agent_task_queue t
-    JOIN excluded_tasks child ON t.id = child.retry_of_task_id
-    WHERE t.agent_id = @agent_id AND t.issue_id = @issue_id
-)
 SELECT e.id, e.question_id, e.actor_id, e.details, e.created_at,
        q.prompt, q.asker_agent_id, asker.name AS asker_name, u.name AS actor_name
 FROM question_event e
@@ -310,14 +273,16 @@ WHERE e.workspace_id = @workspace_id
   AND e.kind = 'ask_back'
   AND q.id = ANY(@question_ids::uuid[])
   AND q.status IN ('open', 'partly_answered', 'answered')
-  AND e.created_at > COALESCE((
-      SELECT max(t.dispatched_at) FROM agent_task_queue t
-      JOIN agent agent ON agent.id = t.agent_id AND agent.workspace_id = @workspace_id
-      WHERE t.issue_id = @issue_id AND t.agent_id = @agent_id
-        AND t.dispatched_at IS NOT NULL
-        AND t.started_at IS NOT NULL
-        AND t.id NOT IN (SELECT id FROM excluded_tasks)
-  ), '-infinity'::timestamptz)
+  AND e.created_at > (SELECT question_wake_answer_cutoff(
+      @workspace_id::uuid, @issue_id::uuid, @agent_id::uuid,
+      sqlc.narg('exclude_task_id')::uuid, sqlc.narg('answer_anchor')::timestamptz))
+  AND NOT EXISTS (
+      SELECT 1 FROM task_supplement s
+      JOIN agent_task_queue handled_run ON handled_run.id = s.task_id
+      WHERE s.workspace_id = e.workspace_id AND s.item_kind = 'answer'
+        AND s.item_id = e.id AND s.handled_at IS NOT NULL
+        AND handled_run.agent_id = @agent_id
+  )
 ORDER BY e.created_at ASC, e.id ASC;
 
 -- name: DeleteQuestionLinksTo :many

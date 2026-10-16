@@ -1412,6 +1412,16 @@ type QuestionLink struct {
 	Position    int32       `json:"position"`
 }
 
+type QuestionWakePending struct {
+	WorkspaceID      pgtype.UUID        `json:"workspace_id"`
+	IssueID          pgtype.UUID        `json:"issue_id"`
+	AgentID          pgtype.UUID        `json:"agent_id"`
+	ActorUserID      pgtype.UUID        `json:"actor_user_id"`
+	SourceQuestionID pgtype.UUID        `json:"source_question_id"`
+	AnswerAnchor     pgtype.Timestamptz `json:"answer_anchor"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+}
+
 type QuickAction struct {
 	ID            pgtype.UUID        `json:"id"`
 	WorkspaceID   pgtype.UUID        `json:"workspace_id"`

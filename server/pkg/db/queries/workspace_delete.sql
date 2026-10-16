@@ -559,6 +559,9 @@ WITH deleted_wakeup_receipts AS (
 deleted_child_events AS (
  DELETE FROM issue_child_event WHERE workspace_id=$1
 ),
+deleted_question_wake_pending AS (
+    DELETE FROM question_wake_pending WHERE question_wake_pending.workspace_id = $1
+),
 deleted_question_events AS (
     DELETE FROM question_event WHERE question_event.workspace_id = $1
 ),

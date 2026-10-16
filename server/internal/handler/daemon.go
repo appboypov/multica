@@ -3732,18 +3732,22 @@ func (h *Handler) loadClaimQuestionAnswers(ctx context.Context, task db.AgentTas
 	if !task.IssueID.Valid {
 		return nil, errors.New("question wake has no issue")
 	}
+	answerAnchor, err := service.QuestionWakeAnswerAnchor(task)
+	if err != nil {
+		return nil, err
+	}
 	scope, err := h.QuestionService.WakeScope(ctx, workspaceID, task.AgentID, task.IssueID)
 	if err != nil {
 		return nil, err
 	}
 	answers, err := h.Queries.ListUnseenQuestionAnswers(ctx, db.ListUnseenQuestionAnswersParams{
-		WorkspaceID: workspaceID, IssueID: task.IssueID, AgentID: task.AgentID, ExcludeTaskID: task.ID, QuestionIds: scope,
+		WorkspaceID: workspaceID, IssueID: task.IssueID, AgentID: task.AgentID, ExcludeTaskID: task.ID, QuestionIds: scope, AnswerAnchor: answerAnchor,
 	})
 	if err != nil {
 		return nil, err
 	}
 	askBacks, err := h.Queries.ListUnseenQuestionAskBacks(ctx, db.ListUnseenQuestionAskBacksParams{
-		WorkspaceID: workspaceID, IssueID: task.IssueID, AgentID: task.AgentID, ExcludeTaskID: task.ID, QuestionIds: scope,
+		WorkspaceID: workspaceID, IssueID: task.IssueID, AgentID: task.AgentID, ExcludeTaskID: task.ID, QuestionIds: scope, AnswerAnchor: answerAnchor,
 	})
 	if err != nil {
 		return nil, err

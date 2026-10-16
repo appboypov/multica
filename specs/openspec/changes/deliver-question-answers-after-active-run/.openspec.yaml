@@ -1,7 +1,8 @@
 schema: intent-driven
 created: 2026-10-16
 build:
-  status: ready-for-dev
+  status: built
+  baseline_revision: 42f6bc5f12fec6f433d90c45cf0f2ff7580e1cb5
   type: bugfix
   ticket: WORK-1177
   context:

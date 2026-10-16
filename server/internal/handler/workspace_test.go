@@ -545,6 +545,7 @@ RETURNING id
 			_, _ = testPool.Exec(context.Background(), `DELETE FROM runtime_profile WHERE workspace_id = $1`, workspaceID)
 			_, _ = testPool.Exec(context.Background(), `DELETE FROM channel_media_pending_object WHERE workspace_id = $1`, workspaceID)
 			_, _ = testPool.Exec(context.Background(), `DELETE FROM organisation WHERE workspace_id = $1`, workspaceID)
+			_, _ = testPool.Exec(context.Background(), `DELETE FROM question_wake_pending WHERE workspace_id = $1`, workspaceID)
 		}
 	})
 
@@ -600,6 +601,12 @@ VALUES ($1, $2, gen_random_uuid(), 's3://workspace-delete/tenant-isolation')
 INSERT INTO organisation (workspace_id, name, key)
 VALUES ($1, 'Workspace delete tenant isolation', 'tenant-isolation')
 `, fixture.workspaceID)
+		dbfx.Exec(t, `
+INSERT INTO question_wake_pending (
+	workspace_id, issue_id, agent_id, actor_user_id, source_question_id, answer_anchor
+)
+VALUES ($1, $2, gen_random_uuid(), $3, gen_random_uuid(), now())
+`, fixture.workspaceID, fixture.issueID, testUserID)
 	}
 
 	request := newRequest(http.MethodDelete, "/api/workspaces/"+targetWorkspaceID, nil)
@@ -615,6 +622,7 @@ VALUES ($1, 'Workspace delete tenant isolation', 'tenant-isolation')
 		"task_usage_hourly_dirty":      "workspace_id",
 		"channel_media_pending_object": "workspace_id",
 		"organisation":                 "workspace_id",
+		"question_wake_pending":         "workspace_id",
 	} {
 		var count int
 		dbfx.QueryRow(t, `
@@ -630,6 +638,12 @@ SELECT COUNT(*) FROM `+table+` WHERE `+predicate+` = $1
 	dbfx.QueryRow(t, `SELECT COUNT(*) FROM organisation WHERE workspace_id = $1`, targetWorkspaceID).Scan(&targetOrganisations)
 	if targetOrganisations != 0 {
 		t.Fatalf("target organisation rows = %d, want 0", targetOrganisations)
+	}
+
+	var targetPendingWakes int
+	dbfx.QueryRow(t, `SELECT COUNT(*) FROM question_wake_pending WHERE workspace_id = $1`, targetWorkspaceID).Scan(&targetPendingWakes)
+	if targetPendingWakes != 0 {
+		t.Fatalf("target pending wake rows = %d, want 0", targetPendingWakes)
 	}
 
 	var neighborMediaState string

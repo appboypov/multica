@@ -4788,9 +4788,9 @@ export const EMPTY_AGENT_QUESTIONS_SETTINGS: AgentQuestionsSettings = {
   brief_section: "",
 };
 
-// 202 of `POST /api/questions/{id}/wake`: the queued run and the answers it carries.
+// 202 of `POST /api/questions/{id}/wake`: "" means accepted but not queued yet.
 export const QuestionWakeResultSchema = z.object({
-  task_id: z.string().min(1),
+  task_id: z.string(),
   answer_count: z.number().int().nonnegative().catch(0),
 }).loose();
 

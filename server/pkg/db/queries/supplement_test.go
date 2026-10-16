@@ -2,6 +2,7 @@ package queries_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -18,9 +19,9 @@ import (
 )
 
 type runInputFixture struct {
-	fx                                    *testutil.Fixture
-	q                                     *db.Queries
-	workspace, author, agent, issue, task pgtype.UUID
+	fx                                             *testutil.Fixture
+	q                                              *db.Queries
+	workspace, author, agent, issue, task, runtime pgtype.UUID
 }
 
 func newRunInputFixture(t *testing.T) *runInputFixture {
@@ -59,7 +60,7 @@ func newRunInputFixture(t *testing.T) *runInputFixture {
 	fx.Cleanup(t, "DELETE FROM task_supplement WHERE task_id = $1", task)
 	return &runInputFixture{
 		fx: fx, q: db.New(pool), workspace: util.MustParseUUID(workspace), author: util.MustParseUUID(author),
-		agent: util.MustParseUUID(agent), issue: util.MustParseUUID(issue), task: util.MustParseUUID(task),
+		agent: util.MustParseUUID(agent), issue: util.MustParseUUID(issue), task: util.MustParseUUID(task), runtime: util.MustParseUUID(runtime),
 	}
 }
 
@@ -267,5 +268,266 @@ func TestRunInputClaimAndIdempotencyForEveryKind(t *testing.T) {
 				t.Fatalf("duplicate claim = %v", err)
 			}
 		})
+	}
+}
+
+func (f *runInputFixture) waitingWake(t *testing.T, question pgtype.UUID) db.QuestionWakePending {
+	t.Helper()
+	anchor, err := f.q.GetQuestionWakeAnswerAnchor(t.Context(), db.GetQuestionWakeAnswerAnchorParams{
+		WorkspaceID: f.workspace, IssueID: f.issue, AgentID: f.agent,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	row, err := f.q.UpsertQuestionWakePending(t.Context(), db.UpsertQuestionWakePendingParams{
+		WorkspaceID: f.workspace, IssueID: f.issue, AgentID: f.agent,
+		ActorUserID: f.author, SourceQuestionID: question, AnswerAnchor: anchor,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.fx.Cleanup(t, "DELETE FROM question_wake_pending WHERE workspace_id = $1", f.workspace)
+	return row
+}
+
+func (f *runInputFixture) questionInput(t *testing.T, at time.Time) (pgtype.UUID, pgtype.UUID) {
+	t.Helper()
+	question := dbid.NewV7()
+	f.fx.Insert(t, "question", testutil.Cols{
+		"id": question, "workspace_id": f.workspace, "asker_agent_id": f.agent,
+		"asked_in_task_id": f.task, "ask_id": question, "ask_position": 0,
+		"prompt": "Which toolbar?", "answer_type": "text", "status": "answered",
+	})
+	answer := util.MustParseUUID(f.fx.Insert(t, "question_answer", testutil.Cols{
+		"id": dbid.NewV7(), "workspace_id": f.workspace, "question_id": question,
+		"answerer_user_id": f.author, "value": testutil.Raw(`'{"text":"header"}'::jsonb`),
+		"created_at": at, "updated_at": at,
+	}))
+	f.fx.Insert(t, "question_event", testutil.Cols{
+		"id": dbid.NewV7(), "workspace_id": f.workspace, "question_id": question,
+		"kind": "answered", "actor_type": "member", "actor_id": f.author, "created_at": at,
+	})
+	return question, answer
+}
+
+func (f *runInputFixture) wantQuestionInput(t *testing.T, question, exclude pgtype.UUID, anchor pgtype.Timestamptz, want int64, wantBacks int) {
+	t.Helper()
+	count, err := f.q.CountUnseenQuestionAnswers(t.Context(), db.CountUnseenQuestionAnswersParams{
+		WorkspaceID: f.workspace, IssueID: f.issue, AgentID: f.agent, QuestionIds: []pgtype.UUID{question},
+		ExcludeTaskID: exclude, AnswerAnchor: anchor,
+	})
+	if err != nil || count != want {
+		t.Fatalf("unseen count = %d, %v; want %d", count, err, want)
+	}
+	answers, err := f.q.ListUnseenQuestionAnswers(t.Context(), db.ListUnseenQuestionAnswersParams{
+		WorkspaceID: f.workspace, IssueID: f.issue, AgentID: f.agent, QuestionIds: []pgtype.UUID{question},
+		ExcludeTaskID: exclude, AnswerAnchor: anchor,
+	})
+	if err != nil || int64(len(answers)) != want {
+		t.Fatalf("claim answers = %d, %v; want %d", len(answers), err, want)
+	}
+	backs, err := f.q.ListUnseenQuestionAskBacks(t.Context(), db.ListUnseenQuestionAskBacksParams{
+		WorkspaceID: f.workspace, IssueID: f.issue, AgentID: f.agent, QuestionIds: []pgtype.UUID{question},
+		ExcludeTaskID: exclude, AnswerAnchor: anchor,
+	})
+	if err != nil || len(backs) != wantBacks {
+		t.Fatalf("claim ask-backs = %d, %v; want %d", len(backs), err, wantBacks)
+	}
+}
+
+func TestQuestionWakeRetainsInputAcrossOrdinaryRetryAndExcludesClaimingLineage(t *testing.T) {
+	f := newRunInputFixture(t)
+	at := time.Now().UTC().Add(-30 * time.Minute).Truncate(time.Microsecond)
+	question, answer := f.questionInput(t, at)
+	f.fx.Insert(t, "question_event", testutil.Cols{
+		"id": dbid.NewV7(), "workspace_id": f.workspace, "question_id": question,
+		"kind": "ask_back", "actor_type": "member", "actor_id": f.author, "created_at": at,
+	})
+	pending := f.waitingWake(t, question)
+	retry := util.MustParseUUID(f.fx.Task(t, util.UUIDToString(f.agent), testutil.Cols{
+		"runtime_id": f.runtime, "issue_id": f.issue, "status": "completed", "retry_of_task_id": f.task,
+		"created_at": at.Add(time.Minute), "dispatched_at": at.Add(time.Minute), "started_at": at.Add(time.Minute),
+	}))
+	// Ordinary retries do not receive question input and cannot move the wait.
+	f.wantQuestionInput(t, question, pgtype.UUID{}, pgtype.Timestamptz{}, 1, 1)
+	if err := f.q.DeleteQuestionWakePending(t.Context(), db.DeleteQuestionWakePendingParams{
+		WorkspaceID: f.workspace, IssueID: f.issue, AgentID: f.agent,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	// Without a retained wait, the ordinary latest-started cutoff still applies.
+	f.wantQuestionInput(t, question, pgtype.UUID{}, pgtype.Timestamptz{}, 0, 0)
+	f.wantQuestionInput(t, question, pgtype.UUID{}, pending.AnswerAnchor, 1, 1)
+	wake := util.MustParseUUID(f.fx.Task(t, util.UUIDToString(f.agent), testutil.Cols{
+		"runtime_id": f.runtime, "issue_id": f.issue, "status": "completed", "trigger_evidence_kind": "question_wake",
+		"created_at": at.Add(2 * time.Minute), "dispatched_at": at.Add(2 * time.Minute), "started_at": at.Add(2 * time.Minute),
+	}))
+	// A previously queued wake did receive the answer and ask-back at claim.
+	f.wantQuestionInput(t, question, pgtype.UUID{}, pending.AnswerAnchor, 0, 0)
+	// Hydrating that wake must not exclude its own input.
+	f.wantQuestionInput(t, question, wake, pending.AnswerAnchor, 1, 1)
+	f.fx.Exec(t, "UPDATE question_answer SET updated_at = $2 WHERE id = $1", answer, at.Add(3*time.Minute))
+	f.fx.Insert(t, "question_event", testutil.Cols{
+		"id": dbid.NewV7(), "workspace_id": f.workspace, "question_id": question,
+		"kind": "answer_edited", "actor_type": "member", "actor_id": f.author, "created_at": at.Add(3 * time.Minute),
+	})
+	// Input after the other wake's claim remains unseen.
+	f.wantQuestionInput(t, question, pgtype.UUID{}, pending.AnswerAnchor, 1, 0)
+	f.fx.Exec(t, `UPDATE agent_task_queue SET retry_of_task_id = $2,
+		trigger_evidence_kind = 'question_wake', dispatched_at = $3, started_at = $3 WHERE id = $1`,
+		retry, wake, at.Add(4*time.Minute))
+	// Retry hydration excludes its own question-wake ancestors as well.
+	f.wantQuestionInput(t, question, retry, pending.AnswerAnchor, 1, 1)
+}
+
+func TestQuestionWakeAskBackRequiresHandledReceiptForThisAgent(t *testing.T) {
+	f := newRunInputFixture(t)
+	question, _ := f.questionInput(t, time.Now().UTC())
+	back := util.MustParseUUID(f.fx.Insert(t, "question_event", testutil.Cols{
+		"id": dbid.NewV7(), "workspace_id": f.workspace, "question_id": question,
+		"kind": "ask_back", "actor_type": "member", "actor_id": f.author,
+	}))
+	f.waitingWake(t, question)
+	f.receipt(t, "answer", back, pgtype.UUID{})
+	f.deliver(t, back)
+	f.wantQuestionInput(t, question, pgtype.UUID{}, pgtype.Timestamptz{}, 1, 1)
+	if _, err := f.q.MarkRunInputSeen(t.Context(), db.MarkRunInputSeenParams{TaskID: f.task, ItemID: back}); err != nil {
+		t.Fatal(err)
+	}
+	f.wantQuestionInput(t, question, pgtype.UUID{}, pgtype.Timestamptz{}, 1, 1)
+	if _, err := f.q.MarkRunInputHandled(t.Context(), db.MarkRunInputHandledParams{TaskID: f.task, ItemID: back}); err != nil {
+		t.Fatal(err)
+	}
+	f.wantQuestionInput(t, question, pgtype.UUID{}, pgtype.Timestamptz{}, 1, 0)
+	f.fx.Insert(t, "question_event", testutil.Cols{
+		"id": dbid.NewV7(), "workspace_id": f.workspace, "question_id": question,
+		"kind": "ask_back", "actor_type": "member", "actor_id": f.author,
+	})
+	f.wantQuestionInput(t, question, pgtype.UUID{}, pgtype.Timestamptz{}, 1, 1)
+	other := f.fx.Agent(t, "Other agent", "")
+	f.fx.Exec(t, "UPDATE agent_task_queue SET agent_id = $2 WHERE id = $1", f.task, other)
+	f.wantQuestionInput(t, question, pgtype.UUID{}, pgtype.Timestamptz{}, 1, 2)
+}
+
+func TestQuestionWakePendingCoalescesAttributionAndEarliestAnchor(t *testing.T) {
+	f := newRunInputFixture(t)
+	first := f.waitingWake(t, dbid.NewV7())
+	earlier := pgtype.Timestamptz{InfinityModifier: pgtype.NegativeInfinity, Valid: true}
+	row, err := f.q.UpsertQuestionWakePending(t.Context(), db.UpsertQuestionWakePendingParams{
+		WorkspaceID: f.workspace, IssueID: f.issue, AgentID: f.agent,
+		ActorUserID: dbid.NewV7(), SourceQuestionID: dbid.NewV7(), AnswerAnchor: earlier,
+	})
+	if err != nil || row.ActorUserID != first.ActorUserID || row.SourceQuestionID != first.SourceQuestionID ||
+		row.CreatedAt != first.CreatedAt || row.AnswerAnchor != earlier {
+		t.Fatalf("coalesced wait = %+v, %v; first = %+v", row, err, first)
+	}
+	reloaded, err := f.q.GetQuestionWakePending(t.Context(), db.GetQuestionWakePendingParams{
+		WorkspaceID: f.workspace, IssueID: f.issue, AgentID: f.agent,
+	})
+	if err != nil || reloaded != row {
+		t.Fatalf("persisted wait = %+v, %v; want %+v", reloaded, err, row)
+	}
+	f.fx.Exec(t, `UPDATE agent_task_queue SET context = '{"head_sha":"abc","other":true}' WHERE id = $1`, f.task)
+	task, err := f.q.MergeQuestionWakeTaskAnchor(t.Context(), db.MergeQuestionWakeTaskAnchorParams{ID: f.task, AnswerAnchor: earlier})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var context map[string]any
+	if err := json.Unmarshal(task.Context, &context); err != nil {
+		t.Fatal(err)
+	}
+	if context["head_sha"] != "abc" || context["other"] != true || context["question_wake_anchor"] != "-infinity" {
+		t.Fatalf("merged context = %s", task.Context)
+	}
+	f.fx.Exec(t, "UPDATE agent_task_queue SET status = 'failed' WHERE id = $1", f.task)
+	retry, err := f.q.CreateRetryTask(t.Context(), db.CreateRetryTaskParams{ID: f.task})
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.fx.Cleanup(t, "DELETE FROM agent_task_queue WHERE id = $1", retry.ID)
+	if string(retry.Context) != string(task.Context) {
+		t.Fatalf("retry context = %s; want %s", retry.Context, task.Context)
+	}
+}
+
+func TestQuestionWakeBlockersAndCurrentWaitFailedTails(t *testing.T) {
+	f := newRunInputFixture(t)
+	pending := f.waitingWake(t, dbid.NewV7())
+	for _, tc := range []struct {
+		status string
+		retry  bool
+		want   bool
+	}{
+		{"queued", false, true}, {"dispatched", false, true}, {"running", false, true},
+		{"waiting_local_directory", false, true}, {"deferred", false, false},
+		{"deferred", true, true}, {"completed", false, false}, {"failed", false, false},
+	} {
+		f.fx.Exec(t, "UPDATE agent_task_queue SET status = $2, retry_of_task_id = $3 WHERE id = $1",
+			f.task, tc.status, pgtype.UUID{Bytes: dbid.NewV7().Bytes, Valid: tc.retry})
+		got, err := f.q.HasActiveQuestionWakeTask(t.Context(), db.HasActiveQuestionWakeTaskParams{
+			WorkspaceID: f.workspace, IssueID: f.issue, AgentID: f.agent,
+		})
+		if err != nil || got != tc.want {
+			t.Fatalf("blocker %s retry=%t = %t, %v; want %t", tc.status, tc.retry, got, err, tc.want)
+		}
+	}
+	wantCandidates := func(want int) {
+		t.Helper()
+		rows, err := f.q.ListQuestionWakeRetryCandidates(t.Context(), db.ListQuestionWakeRetryCandidatesParams{
+			WorkspaceID: f.workspace, IssueID: f.issue, AgentID: f.agent,
+		})
+		if err != nil || len(rows) != want || (want == 1 && rows[0].ID != f.task) {
+			t.Fatalf("retry candidates = %+v, %v; want %d", rows, err, want)
+		}
+	}
+	f.fx.Exec(t, "UPDATE agent_task_queue SET completed_at = $2 WHERE id = $1", f.task, pending.CreatedAt.Time.Add(-time.Minute))
+	wantCandidates(0)
+	f.fx.Exec(t, "UPDATE agent_task_queue SET completed_at = $2 WHERE id = $1", f.task, pending.CreatedAt.Time.Add(time.Minute))
+	wantCandidates(1)
+	successor := util.MustParseUUID(f.fx.Task(t, util.UUIDToString(f.agent), testutil.Cols{
+		"runtime_id": f.runtime, "issue_id": f.issue, "status": "cancelled", "retry_of_task_id": f.task,
+	}))
+	wantCandidates(0)
+	child, err := f.q.GetRetryTaskForParent(t.Context(), f.task)
+	if err != nil || child.ID != successor {
+		t.Fatalf("materialized cancelled retry = %+v, %v", child, err)
+	}
+	// A later successor in any state also supersedes the tail without retry lineage.
+	f.fx.Exec(t, "UPDATE agent_task_queue SET retry_of_task_id = NULL WHERE id = $1", successor)
+	wantCandidates(0)
+}
+
+func TestQuestionWakePendingRecoveryPagesPastUnavailableTargets(t *testing.T) {
+	f := newRunInputFixture(t)
+	f.waitingWake(t, dbid.NewV7())
+	// Missing target rows remain visible to recovery for retirement. Equal times
+	// require pagination to use the whole identity tuple.
+	issue1 := util.MustParseUUID("00000000-0000-0000-0000-000000000001")
+	issue2 := util.MustParseUUID("00000000-0000-0000-0000-000000000002")
+	at := pgtype.Timestamptz{Time: time.Now().UTC().Add(24 * time.Hour).Truncate(time.Microsecond), Valid: true}
+	for _, issue := range []pgtype.UUID{issue1, issue2} {
+		if _, err := f.q.UpsertQuestionWakePending(t.Context(), db.UpsertQuestionWakePendingParams{
+			WorkspaceID: f.workspace, IssueID: issue, AgentID: f.agent, ActorUserID: f.author,
+			SourceQuestionID: dbid.NewV7(), AnswerAnchor: pgtype.Timestamptz{InfinityModifier: pgtype.NegativeInfinity, Valid: true},
+		}); err != nil {
+			t.Fatal(err)
+		}
+		f.fx.Exec(t, "UPDATE question_wake_pending SET created_at = $3 WHERE workspace_id = $1 AND issue_id = $2",
+			f.workspace, issue, at)
+	}
+	page, err := f.q.ListQuestionWakePending(t.Context(), db.ListQuestionWakePendingParams{
+		AfterCreatedAt: at, AfterWorkspaceID: f.workspace, AfterIssueID: pgtype.UUID{Valid: true},
+		AfterAgentID: pgtype.UUID{Valid: true}, MaxRows: 1,
+	})
+	if err != nil || len(page) != 1 || page[0].IssueID != issue1 || page[0].WorkspaceID != f.workspace {
+		t.Fatalf("first recovery page = %+v, %v", page, err)
+	}
+	cursor := page[0]
+	page, err = f.q.ListQuestionWakePending(t.Context(), db.ListQuestionWakePendingParams{
+		AfterCreatedAt: cursor.CreatedAt, AfterWorkspaceID: cursor.WorkspaceID,
+		AfterIssueID: cursor.IssueID, AfterAgentID: cursor.AgentID, MaxRows: 1,
+	})
+	if err != nil || len(page) != 1 || page[0].IssueID != issue2 || page[0].WorkspaceID != f.workspace {
+		t.Fatalf("second recovery page = %+v, %v", page, err)
 	}
 }

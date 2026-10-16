@@ -61,8 +61,8 @@ func (s *QuestionService) wakeScope(ctx context.Context, q *db.Queries, workspac
 	return q.ListQuestionWakeScope(ctx, db.ListQuestionWakeScopeParams{WorkspaceID: workspaceID, AgentID: agentID, IssueID: issueID})
 }
 
-// CountUnseenAnswers uses the same scope and pair anchor as claim delivery.
-// At claim, excludeTaskID is the claiming task; at Wake it is an invalid UUID.
+// CountUnseenAnswers uses the canonical pair cutoff, including a durable wait's
+// retained anchor. At claim, excludeTaskID excludes the task and retry ancestors.
 func (s *QuestionService) CountUnseenAnswers(ctx context.Context, workspaceID, agentID, issueID, excludeTaskID pgtype.UUID) (int64, error) {
 	return s.countUnseenAnswers(ctx, s.Queries, workspaceID, agentID, issueID, excludeTaskID)
 }
@@ -76,7 +76,7 @@ func (s *QuestionService) countUnseenAnswers(ctx context.Context, q *db.Queries,
 		return 0, nil
 	}
 	return q.CountUnseenQuestionAnswers(ctx, db.CountUnseenQuestionAnswersParams{
-		WorkspaceID: workspaceID, QuestionIds: ids, AgentID: agentID, IssueID: issueID, ExcludeTaskID: excludeTaskID,
+		WorkspaceID: workspaceID, QuestionIds: ids, AgentID: agentID, IssueID: issueID, ExcludeTaskID: excludeTaskID, AnswerAnchor: pgtype.Timestamptz{},
 	})
 }
 
@@ -88,7 +88,7 @@ func (s *QuestionService) hasUnseenAskBacks(ctx context.Context, q *db.Queries, 
 		return false, err
 	}
 	askBacks, err := q.ListUnseenQuestionAskBacks(ctx, db.ListUnseenQuestionAskBacksParams{
-		WorkspaceID: workspaceID, QuestionIds: ids, AgentID: agentID, IssueID: issueID,
+		WorkspaceID: workspaceID, QuestionIds: ids, AgentID: agentID, IssueID: issueID, AnswerAnchor: pgtype.Timestamptz{},
 	})
 	return len(askBacks) > 0, err
 }

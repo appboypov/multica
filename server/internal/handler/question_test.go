@@ -31,9 +31,12 @@ func newQuestionAPIFixture(t *testing.T) questionAPIFixture {
 	issue := dbfx.Issue(t, t.Name())
 	task := dbfx.Task(t, agent, testutil.Cols{"runtime_id": runtime, "issue_id": issue, "status": "running", "started_at": testutil.Raw("now()-interval '1 hour'"), "questions_enabled": true})
 	// Task tokens and activity rows are run-owned, without database cascades.
-	dbfx.Cleanup(t, "DELETE FROM task_token WHERE task_id IN (SELECT id FROM agent_task_queue WHERE agent_id=$1)", agent)
 	dbfx.Cleanup(t, "DELETE FROM agent_task_queue WHERE agent_id=$1", agent)
+	dbfx.Cleanup(t, "DELETE FROM task_token WHERE task_id IN (SELECT id FROM agent_task_queue WHERE agent_id=$1)", agent)
 	dbfx.Cleanup(t, "DELETE FROM activity_log WHERE issue_id=$1", issue)
+	dbfx.Cleanup(t, "DELETE FROM question_wake_pending WHERE agent_id=$1", agent)
+	dbfx.Cleanup(t, "DELETE FROM task_supplement_capability WHERE task_id IN (SELECT id FROM agent_task_queue WHERE agent_id=$1)", agent)
+	dbfx.Cleanup(t, "DELETE FROM task_supplement WHERE task_id IN (SELECT id FROM agent_task_queue WHERE agent_id=$1)", agent)
 	for _, table := range []string{"question", "question_link", "question_answerer", "question_answer", "question_event"} {
 		if table == "question" {
 			dbfx.Cleanup(t, "DELETE FROM question WHERE asker_agent_id=$1", agent)
@@ -133,7 +136,7 @@ func TestQuestionAPI_CloseOnlyAskingAgentAndClosedAnswerCannotEdit(t *testing.T)
 	}
 }
 
-func TestQuestionAPI_MemberWakeAcceptedThenConflict(t *testing.T) {
+func TestQuestionAPI_MemberWakeAcceptedImmediatelyAndWhileQueued(t *testing.T) {
 	fx := newQuestionAPIFixture(t)
 	id := askQuestionForTest(t, fx)
 	dbfx.Exec(t, "UPDATE agent_task_queue SET status='completed',completed_at=now() WHERE id=$1", fx.TaskID)
@@ -143,7 +146,56 @@ func TestQuestionAPI_MemberWakeAcceptedThenConflict(t *testing.T) {
 	if wake.TaskID == "" || wake.AnswerCount != 1 {
 		t.Fatalf("wake response: %+v", wake)
 	}
-	testutil.Call(t, testHandler.WakeQuestion, withURLParam(newRequest("POST", "/", nil), "id", id)).Want(409)
+	var waiting service.QuestionWakeResult
+	testutil.Call(t, testHandler.WakeQuestion, withURLParam(newRequest("POST", "/", nil), "id", id)).Want(202).JSON(&waiting)
+	if waiting.TaskID != "" || waiting.AnswerCount != 1 {
+		t.Fatalf("queued wake response: %+v", waiting)
+	}
+	if n := dbfx.Count(t, "SELECT count(*) FROM agent_task_queue WHERE agent_id=$1 AND issue_id=$2 AND status='queued'", fx.AgentID, fx.IssueID); n != 1 {
+		t.Fatalf("repeated wake created %d queued tasks", n)
+	}
+}
+
+func TestQuestionAPI_WaitingWakeAcceptedAndAuthorizationPreserved(t *testing.T) {
+	fx := newQuestionAPIFixture(t)
+	id := askQuestionForTest(t, fx)
+	testutil.Call(t, testHandler.AnswerQuestion, withURLParam(newRequest("POST", "/", map[string]any{
+		"value": map[string]any{"option": "per line"},
+	}), "id", id)).Want(200)
+	token, _ := insertTestPAT(t, time.Now().Add(time.Hour))
+	protected := middleware.Auth(testHandler.Queries, nil, nil, nil)(http.HandlerFunc(testHandler.WakeQuestion))
+	r := withURLParam(newRequest("POST", "/api/questions/"+id+"/wake", nil), "id", id)
+	r.Header.Set("Authorization", "Bearer "+token)
+	var waiting service.QuestionWakeResult
+	testutil.Call(t, protected.ServeHTTP, r).Want(http.StatusAccepted).JSON(&waiting)
+	if waiting.TaskID != "" || waiting.AnswerCount != 1 {
+		t.Fatalf("waiting wake response: %+v", waiting)
+	}
+	if n := dbfx.Count(t, "SELECT count(*) FROM agent_task_queue WHERE agent_id=$1 AND issue_id=$2", fx.AgentID, fx.IssueID); n != 1 {
+		t.Fatalf("waiting wake created an extra task: %d", n)
+	}
+	if n := dbfx.Count(t, "SELECT count(*) FROM question_wake_pending WHERE workspace_id=$1 AND issue_id=$2 AND agent_id=$3", testWorkspaceID, fx.IssueID, fx.AgentID); n != 1 {
+		t.Fatalf("accepted wake missing durable intent: %d", n)
+	}
+
+	unauthenticated := withURLParam(newRequest("POST", "/", nil), "id", id)
+	testutil.Call(t, protected.ServeHTTP, unauthenticated).Want(http.StatusUnauthorized)
+	testutil.Call(t, testHandler.WakeQuestion, fx.agentRequest("POST", id, nil)).Want(http.StatusForbidden)
+	machine := withURLParam(newRequest("POST", "/", nil), "id", id)
+	machine.Header.Set("X-Actor-Source", "cloud_pat")
+	testutil.Call(t, testHandler.WakeQuestion, machine).Want(http.StatusForbidden)
+	outsider := dbfx.User(t, "Wake outsider", "wake-outsider-"+fx.IssueID+"@multica.test")
+	forbidden := withURLParam(newRequest("POST", "/", nil), "id", id)
+	forbidden.Header.Set("X-User-ID", outsider)
+	testutil.Call(t, testHandler.WakeQuestion, forbidden).Want(http.StatusForbidden)
+	wrongWorkspace := dbfx.Workspace(t, "Wake other workspace", "wake-other-"+fx.IssueID)
+	dbfx.Member(t, wrongWorkspace, testUserID, "member")
+	crossWorkspace := withURLParam(newRequest("POST", "/", nil), "id", id)
+	crossWorkspace.Header.Set("X-Workspace-ID", wrongWorkspace)
+	testutil.Call(t, testHandler.WakeQuestion, crossWorkspace).Want(http.StatusNotFound)
+	if n := dbfx.Count(t, "SELECT count(*) FROM question_wake_pending WHERE agent_id=$1", fx.AgentID); n != 1 {
+		t.Fatalf("unauthorized wake changed accepted intent: %d", n)
+	}
 }
 
 func TestQuestionAPI_WorkspaceScopeAndUUIDInput(t *testing.T) {

@@ -50,29 +50,15 @@ func (q *Queries) AppendQuestionLinks(ctx context.Context, arg AppendQuestionLin
 
 const countUnseenQuestionAnswers = `-- name: CountUnseenQuestionAnswers :one
 
-WITH RECURSIVE excluded_tasks AS (
-    SELECT id, retry_of_task_id FROM agent_task_queue
-    WHERE id = $5::uuid
-      AND agent_id = $4 AND issue_id = $3
-    UNION ALL
-    SELECT t.id, t.retry_of_task_id FROM agent_task_queue t
-    JOIN excluded_tasks child ON t.id = child.retry_of_task_id
-    WHERE t.agent_id = $4 AND t.issue_id = $3
-)
 SELECT count(*)::bigint AS unseen_count
 FROM question_answer a
 JOIN question q ON q.id = a.question_id AND q.workspace_id = a.workspace_id
 WHERE a.workspace_id = $1
   AND q.id = ANY($2::uuid[])
   AND q.status IN ('open', 'partly_answered', 'answered')
-  AND a.updated_at > COALESCE((
-      SELECT max(t.dispatched_at) FROM agent_task_queue t
-      JOIN agent agent ON agent.id = t.agent_id AND agent.workspace_id = $1
-      WHERE t.issue_id = $3 AND t.agent_id = $4
-        AND t.dispatched_at IS NOT NULL
-        AND t.started_at IS NOT NULL
-        AND t.id NOT IN (SELECT id FROM excluded_tasks)
-  ), '-infinity'::timestamptz)
+  AND a.updated_at > (SELECT question_wake_answer_cutoff(
+      $1::uuid, $3::uuid, $4::uuid,
+      $5::uuid, $6::timestamptz))
   AND NOT EXISTS (
       SELECT 1 FROM task_supplement s
       JOIN agent_task_queue handled_run ON handled_run.id = s.task_id
@@ -94,15 +80,16 @@ WHERE a.workspace_id = $1
 `
 
 type CountUnseenQuestionAnswersParams struct {
-	WorkspaceID   pgtype.UUID   `json:"workspace_id"`
-	QuestionIds   []pgtype.UUID `json:"question_ids"`
-	IssueID       pgtype.UUID   `json:"issue_id"`
-	AgentID       pgtype.UUID   `json:"agent_id"`
-	ExcludeTaskID pgtype.UUID   `json:"exclude_task_id"`
+	WorkspaceID   pgtype.UUID        `json:"workspace_id"`
+	QuestionIds   []pgtype.UUID      `json:"question_ids"`
+	IssueID       pgtype.UUID        `json:"issue_id"`
+	AgentID       pgtype.UUID        `json:"agent_id"`
+	ExcludeTaskID pgtype.UUID        `json:"exclude_task_id"`
+	AnswerAnchor  pgtype.Timestamptz `json:"answer_anchor"`
 }
 
-// The caller resolves the target's wake scope. All three queries use the same
-// pair-specific anchor; exclude_task_id leaves the claiming run out.
+// The caller resolves the target's live wake scope. Each selector uses the same
+// effective cutoff, with an optional retained anchor and claiming retry exclusion.
 func (q *Queries) CountUnseenQuestionAnswers(ctx context.Context, arg CountUnseenQuestionAnswersParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countUnseenQuestionAnswers,
 		arg.WorkspaceID,
@@ -110,6 +97,7 @@ func (q *Queries) CountUnseenQuestionAnswers(ctx context.Context, arg CountUnsee
 		arg.IssueID,
 		arg.AgentID,
 		arg.ExcludeTaskID,
+		arg.AnswerAnchor,
 	)
 	var unseen_count int64
 	err := row.Scan(&unseen_count)
@@ -875,15 +863,6 @@ func (q *Queries) ListQuestionsByIssue(ctx context.Context, arg ListQuestionsByI
 }
 
 const listUnseenQuestionAnswers = `-- name: ListUnseenQuestionAnswers :many
-WITH RECURSIVE excluded_tasks AS (
-    SELECT id, retry_of_task_id FROM agent_task_queue
-    WHERE id = $5::uuid
-      AND agent_id = $4 AND issue_id = $3
-    UNION ALL
-    SELECT t.id, t.retry_of_task_id FROM agent_task_queue t
-    JOIN excluded_tasks child ON t.id = child.retry_of_task_id
-    WHERE t.agent_id = $4 AND t.issue_id = $3
-)
 SELECT a.id, a.question_id, a.answerer_user_id, a.value, a.note, a.created_at, a.updated_at,
        q.prompt, q.answer_type, q.settings, q.asker_agent_id,
        asker.name AS asker_name, u.name AS answerer_name
@@ -894,14 +873,9 @@ JOIN "user" u ON u.id = a.answerer_user_id
 WHERE a.workspace_id = $1
   AND q.id = ANY($2::uuid[])
   AND q.status IN ('open', 'partly_answered', 'answered')
-  AND a.updated_at > COALESCE((
-      SELECT max(t.dispatched_at) FROM agent_task_queue t
-      JOIN agent agent ON agent.id = t.agent_id AND agent.workspace_id = $1
-      WHERE t.issue_id = $3 AND t.agent_id = $4
-        AND t.dispatched_at IS NOT NULL
-        AND t.started_at IS NOT NULL
-        AND t.id NOT IN (SELECT id FROM excluded_tasks)
-  ), '-infinity'::timestamptz)
+  AND a.updated_at > (SELECT question_wake_answer_cutoff(
+      $1::uuid, $3::uuid, $4::uuid,
+      $5::uuid, $6::timestamptz))
   AND NOT EXISTS (
       SELECT 1 FROM task_supplement s
       JOIN agent_task_queue handled_run ON handled_run.id = s.task_id
@@ -924,11 +898,12 @@ ORDER BY a.updated_at ASC, a.id ASC
 `
 
 type ListUnseenQuestionAnswersParams struct {
-	WorkspaceID   pgtype.UUID   `json:"workspace_id"`
-	QuestionIds   []pgtype.UUID `json:"question_ids"`
-	IssueID       pgtype.UUID   `json:"issue_id"`
-	AgentID       pgtype.UUID   `json:"agent_id"`
-	ExcludeTaskID pgtype.UUID   `json:"exclude_task_id"`
+	WorkspaceID   pgtype.UUID        `json:"workspace_id"`
+	QuestionIds   []pgtype.UUID      `json:"question_ids"`
+	IssueID       pgtype.UUID        `json:"issue_id"`
+	AgentID       pgtype.UUID        `json:"agent_id"`
+	ExcludeTaskID pgtype.UUID        `json:"exclude_task_id"`
+	AnswerAnchor  pgtype.Timestamptz `json:"answer_anchor"`
 }
 
 type ListUnseenQuestionAnswersRow struct {
@@ -954,6 +929,7 @@ func (q *Queries) ListUnseenQuestionAnswers(ctx context.Context, arg ListUnseenQ
 		arg.IssueID,
 		arg.AgentID,
 		arg.ExcludeTaskID,
+		arg.AnswerAnchor,
 	)
 	if err != nil {
 		return nil, err
@@ -988,15 +964,6 @@ func (q *Queries) ListUnseenQuestionAnswers(ctx context.Context, arg ListUnseenQ
 }
 
 const listUnseenQuestionAskBacks = `-- name: ListUnseenQuestionAskBacks :many
-WITH RECURSIVE excluded_tasks AS (
-    SELECT id, retry_of_task_id FROM agent_task_queue
-    WHERE id = $5::uuid
-      AND agent_id = $4 AND issue_id = $3
-    UNION ALL
-    SELECT t.id, t.retry_of_task_id FROM agent_task_queue t
-    JOIN excluded_tasks child ON t.id = child.retry_of_task_id
-    WHERE t.agent_id = $4 AND t.issue_id = $3
-)
 SELECT e.id, e.question_id, e.actor_id, e.details, e.created_at,
        q.prompt, q.asker_agent_id, asker.name AS asker_name, u.name AS actor_name
 FROM question_event e
@@ -1007,23 +974,26 @@ WHERE e.workspace_id = $1
   AND e.kind = 'ask_back'
   AND q.id = ANY($2::uuid[])
   AND q.status IN ('open', 'partly_answered', 'answered')
-  AND e.created_at > COALESCE((
-      SELECT max(t.dispatched_at) FROM agent_task_queue t
-      JOIN agent agent ON agent.id = t.agent_id AND agent.workspace_id = $1
-      WHERE t.issue_id = $3 AND t.agent_id = $4
-        AND t.dispatched_at IS NOT NULL
-        AND t.started_at IS NOT NULL
-        AND t.id NOT IN (SELECT id FROM excluded_tasks)
-  ), '-infinity'::timestamptz)
+  AND e.created_at > (SELECT question_wake_answer_cutoff(
+      $1::uuid, $3::uuid, $4::uuid,
+      $5::uuid, $6::timestamptz))
+  AND NOT EXISTS (
+      SELECT 1 FROM task_supplement s
+      JOIN agent_task_queue handled_run ON handled_run.id = s.task_id
+      WHERE s.workspace_id = e.workspace_id AND s.item_kind = 'answer'
+        AND s.item_id = e.id AND s.handled_at IS NOT NULL
+        AND handled_run.agent_id = $4
+  )
 ORDER BY e.created_at ASC, e.id ASC
 `
 
 type ListUnseenQuestionAskBacksParams struct {
-	WorkspaceID   pgtype.UUID   `json:"workspace_id"`
-	QuestionIds   []pgtype.UUID `json:"question_ids"`
-	IssueID       pgtype.UUID   `json:"issue_id"`
-	AgentID       pgtype.UUID   `json:"agent_id"`
-	ExcludeTaskID pgtype.UUID   `json:"exclude_task_id"`
+	WorkspaceID   pgtype.UUID        `json:"workspace_id"`
+	QuestionIds   []pgtype.UUID      `json:"question_ids"`
+	IssueID       pgtype.UUID        `json:"issue_id"`
+	AgentID       pgtype.UUID        `json:"agent_id"`
+	ExcludeTaskID pgtype.UUID        `json:"exclude_task_id"`
+	AnswerAnchor  pgtype.Timestamptz `json:"answer_anchor"`
 }
 
 type ListUnseenQuestionAskBacksRow struct {
@@ -1047,6 +1017,7 @@ func (q *Queries) ListUnseenQuestionAskBacks(ctx context.Context, arg ListUnseen
 		arg.IssueID,
 		arg.AgentID,
 		arg.ExcludeTaskID,
+		arg.AnswerAnchor,
 	)
 	if err != nil {
 		return nil, err

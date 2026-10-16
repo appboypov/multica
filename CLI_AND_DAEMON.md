@@ -256,6 +256,22 @@ You need at least one installed. The daemon registers each detected CLI as an av
 4. Heartbeats are sent periodically (default: 15s) so the server knows the daemon is alive
 5. On shutdown, all runtimes are deregistered
 
+#### Question Wake
+
+**Wake**, an answer sent with `wake: true`, and an ask back use the same server scheduling path for the asking agent on the question's issue. An answer sent without Wake starts no run, including after the active run ends. A member's question wakes no agent.
+
+When the agent has a queued, dispatched, running or waiting-local-directory task on that issue, or a pending deferred retry, the server accepts the wake and stores one durable `question_wake_pending` intent per workspace, issue and agent. Repeated wakes coalesce, retaining the first member and source question for attribution and the earliest answer boundary. This intent is not an agent task. `POST /api/questions/{id}/wake` returns HTTP 202 with `task_id: ""` and the current `answer_count` for an accepted wait; an immediate wake returns the queued task's nonempty ID.
+
+After a task ends and comment follow-ups and retry decisions are settled, the server drains the waiting intent under the issue lock. Retry children keep their place ahead of the wake. The drain re-reads the live question scope and current answers and ask-backs, excluding events the agent marked ✅ through a handled input receipt. Delivery or 👀 alone does not count as handling. If nothing remains unseen, the intent is removed without a run. Otherwise, creating one `question_wake` task, recording who woke whom with how many answers, and deleting the intent happen in one transaction. No woken timeline event is emitted merely for accepting a wait. An archived agent or one without a runtime keeps its wait and unseen input; a deleted or invalid source is retired without an orphan task.
+
+Issue deletion, including batch deletion, retires the wait after deletion without starting a wake. Comment edits and deletions keep it waiting through cancellation, replacement and failure recovery. A replacement that is queued, dispatched or running keeps its place ahead of the wake; cancellation without replacement lets eligible answers drain.
+
+The wait survives a server restart. A startup recovery sweep and a bounded sweep every 30 seconds call the same drain, including settling any unresolved retry decision for a failed tail task of this wait. Errors retain the intent for another attempt.
+
+The intent stores its pre-wait answer cutoff as `answer_anchor`; the queued wake carries it in the existing task JSON context as `question_wake_anchor`, which retries inherit. An ordinary retry's claim cannot advance that boundary and lose the accepted input. A later started `question_wake` that actually received question input can advance it; the claiming wake and its retry ancestors are excluded from that calculation. Card counts, drain selection and claim input use this same effective boundary. The daemon still receives fresh answers and ask-backs at claim through `Task.QuestionAnswers`, not an enqueue-time text snapshot.
+
+Live answer and ask-back notices continue to reach running runs independently of the waiting intent. The daemon protocol and card visibility rules are unchanged. See [the question lifecycle and service/data relations](specs/docs/system-design.md#question-wake-lifecycle) and [ADR-0022](adr/0022-an-accepted-wake-waits-durably-for-the-agent.md).
+
 ### Issue and pull-request worktrees
 
 An issue in a worklane runs in that lane's worktree on the lowercase issue-key branch; the `main` lane uses the repository's checkout. Issues without a worklane keep their persistent issue worktrees.

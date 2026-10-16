@@ -182,5 +182,6 @@ SELECT EXISTS (
     JOIN agent a ON a.id = t.agent_id AND a.workspace_id = @workspace_id
     JOIN issue i ON i.id = t.issue_id AND i.workspace_id = @workspace_id
     WHERE t.agent_id = @agent_id AND t.issue_id = @issue_id
-      AND t.status IN ('queued', 'dispatched', 'running', 'waiting_local_directory')
+      AND (t.status IN ('queued', 'dispatched', 'running', 'waiting_local_directory')
+        OR (t.status = 'deferred' AND t.retry_of_task_id IS NOT NULL))
 )::boolean AS has_active;

@@ -754,6 +754,24 @@ SELECT * FROM agent_task_queue
 WHERE id = $1
 FOR UPDATE;
 
+-- name: GetAgentTaskForUpdate :one
+-- Retry creation holds this lock through the child lookup and insert.
+SELECT * FROM agent_task_queue WHERE id = @id FOR UPDATE;
+
+-- name: GetRetryTaskForParent :one
+-- Every materialized child counts, including deferred and terminal attempts.
+SELECT * FROM agent_task_queue
+WHERE retry_of_task_id = @retry_of_task_id
+ORDER BY created_at, id
+LIMIT 1;
+
+-- name: MergeQuestionWakeTaskAnchor :one
+UPDATE agent_task_queue
+SET context = COALESCE(context, '{}'::jsonb) ||
+    jsonb_build_object('question_wake_anchor', @answer_anchor::timestamptz)
+WHERE id = @id
+RETURNING *;
+
 -- name: HasRetryTaskForParent :one
 -- Defense-in-depth for the recovery path: a delegated failure with any retry
 -- child is still intermediate and must not wake its coordinator.

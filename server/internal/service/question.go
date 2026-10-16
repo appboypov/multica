@@ -684,10 +684,8 @@ func (s *QuestionService) recomputeStatus(ctx context.Context, q *db.Queries, ro
 	return q.SetQuestionStatus(ctx, db.SetQuestionStatusParams{ID: row.ID, WorkspaceID: row.WorkspaceID, Status: question.DeriveStatus(row.AnswerPolicy, answererIDs, answeredIDs), FromStatuses: []string{row.Status}})
 }
 
-// Answer saves the actor's answer, or their edit of it. With input.Wake it then
-// wakes the asking agent; when the asker cannot be woken now, such as while it
-// still runs on the issue, the answer stays unseen and rides along in its next
-// woken run.
+// Answer saves the actor's answer or edit. With Wake, the asking agent starts
+// once its existing tasks and retries on the issue have finished.
 func (s *QuestionService) Answer(ctx context.Context, workspaceID, questionID pgtype.UUID, actor QuestionActor, input AnswerQuestionInput) (QuestionDTO, error) {
 	result, err := s.mutate(ctx, workspaceID, questionID, actor, false, func(q *db.Queries, row db.Question) (db.Question, string, any, error) {
 		if !question.IsOpen(row.Status) && row.Status != "answered" {
@@ -735,10 +733,8 @@ func (s *QuestionService) Answer(ctx context.Context, workspaceID, questionID pg
 	return result, nil
 }
 
-// AskBack replies in the question's thread, keeps the question open and wakes
-// the asking agent so it reads the reply. When the asker cannot be woken now,
-// such as while it still runs on the issue, the reply stays unseen and rides
-// along in its next woken run.
+// AskBack replies in the question's thread, keeps its status and requests the
+// same durable wake as an answer sent with Wake.
 func (s *QuestionService) AskBack(ctx context.Context, workspaceID, questionID pgtype.UUID, actor QuestionActor, text string) (QuestionDTO, error) {
 	result, err := s.mutate(ctx, workspaceID, questionID, actor, false, func(q *db.Queries, row db.Question) (db.Question, string, any, error) {
 		if !question.IsOpen(row.Status) && row.Status != "answered" {
@@ -928,16 +924,11 @@ func (s *QuestionService) hydrate(ctx context.Context, q *db.Queries, workspaceI
 }
 
 func (s *QuestionService) Wake(ctx context.Context, workspaceID, questionID pgtype.UUID, actor QuestionActor, agentID pgtype.UUID) (QuestionWakeResult, error) {
-	tx, err := s.TxStarter.Begin(ctx)
-	if err != nil {
+	if err := s.requireMember(ctx, s.Queries, workspaceID, actor); err != nil {
 		return QuestionWakeResult{}, err
 	}
-	defer tx.Rollback(ctx)
-	q := s.Queries.WithTx(tx)
-	if err := s.requireMember(ctx, q, workspaceID, actor); err != nil {
-		return QuestionWakeResult{}, err
-	}
-	row, err := q.GetQuestionForUpdate(ctx, db.GetQuestionForUpdateParams{ID: questionID, WorkspaceID: workspaceID})
+	// Resolve without a write lock: every writer takes issue, pending, question.
+	row, err := s.Queries.GetQuestion(ctx, db.GetQuestionParams{ID: questionID, WorkspaceID: workspaceID})
 	if err != nil {
 		return QuestionWakeResult{}, questionLoadError(err)
 	}
@@ -947,35 +938,48 @@ func (s *QuestionService) Wake(ctx context.Context, workspaceID, questionID pgty
 	if !agentID.Valid {
 		agentID = row.AskerAgentID
 	}
-	targets, err := s.wakeTargets(ctx, q, workspaceID, row)
+	issueID, err := s.questionWakeIssue(ctx, s.Queries, workspaceID, row, agentID)
 	if err != nil {
 		return QuestionWakeResult{}, err
 	}
-	var issueID pgtype.UUID
-	for _, target := range targets {
-		if target.AgentID == util.UUIDToString(agentID) {
-			issueID, err = util.ParseUUID(target.IssueID)
-			if err != nil {
-				return QuestionWakeResult{}, err
-			}
-			break
-		}
+	initialAgent, err := s.Queries.GetAgentInWorkspace(ctx, db.GetAgentInWorkspaceParams{ID: agentID, WorkspaceID: workspaceID})
+	if err != nil {
+		return QuestionWakeResult{}, err
 	}
-	// The asker keeps its own issue target when unavailable, so Wake can
-	// return the availability refusal for that run.
-	if !issueID.Valid && agentID == row.AskerAgentID {
-		asking, err := q.GetAgentTaskInWorkspace(ctx, db.GetAgentTaskInWorkspaceParams{ID: row.AskedInTaskID, WorkspaceID: workspaceID})
-		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
-			return QuestionWakeResult{}, err
-		}
-		issueID = asking.IssueID
+	if initialAgent.ArchivedAt.Valid || !initialAgent.RuntimeID.Valid {
+		return QuestionWakeResult{}, questionRefusal(422, "agent must be active and have a runtime")
 	}
-	if !issueID.Valid {
-		name := util.UUIDToString(agentID)
-		if agent, err := q.GetAgentInWorkspace(ctx, db.GetAgentInWorkspaceParams{ID: agentID, WorkspaceID: workspaceID}); err == nil {
-			name = agent.Name
-		}
-		return QuestionWakeResult{}, questionRefusal(422, name+" is not offered Wake on this question")
+	if err := s.settleQuestionWakeRetries(ctx, workspaceID, agentID, issueID); err != nil {
+		return QuestionWakeResult{}, err
+	}
+	tx, canDeliver, err := s.beginQuestionWakeDelivery(ctx, issueID)
+	if err != nil {
+		return QuestionWakeResult{}, err
+	}
+	defer tx.Rollback(ctx)
+	q := s.Queries.WithTx(tx)
+	if err := s.requireMember(ctx, q, workspaceID, actor); err != nil {
+		return QuestionWakeResult{}, err
+	}
+	issue, err := q.LockIssueForDescriptionUpdate(ctx, db.LockIssueForDescriptionUpdateParams{ID: issueID, WorkspaceID: workspaceID})
+	if err != nil {
+		return QuestionWakeResult{}, questionLoadError(err)
+	}
+	pending, err := q.GetQuestionWakePendingForUpdate(ctx, db.GetQuestionWakePendingForUpdateParams{WorkspaceID: workspaceID, IssueID: issueID, AgentID: agentID})
+	waiting := err == nil
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return QuestionWakeResult{}, err
+	}
+	row, err = q.GetQuestionForUpdate(ctx, db.GetQuestionForUpdateParams{ID: questionID, WorkspaceID: workspaceID})
+	if err != nil {
+		return QuestionWakeResult{}, questionLoadError(err)
+	}
+	currentIssue, err := s.questionWakeIssue(ctx, q, workspaceID, row, agentID)
+	if err != nil {
+		return QuestionWakeResult{}, err
+	}
+	if currentIssue != issueID {
+		return QuestionWakeResult{}, questionRefusal(422, "Wake target changed")
 	}
 	agent, err := q.GetAgentInWorkspace(ctx, db.GetAgentInWorkspaceParams{ID: agentID, WorkspaceID: workspaceID})
 	if err != nil {
@@ -984,61 +988,77 @@ func (s *QuestionService) Wake(ctx context.Context, workspaceID, questionID pgty
 	if agent.ArchivedAt.Valid || !agent.RuntimeID.Valid {
 		return QuestionWakeResult{}, questionRefusal(422, "agent must be active and have a runtime")
 	}
-	// One issue lock serializes wakes even when they came from different cards.
-	// The pending-task unique index also arbitrates against other enqueue paths.
-	issue, err := q.LockIssueForDescriptionUpdate(ctx, db.LockIssueForDescriptionUpdateParams{ID: issueID, WorkspaceID: workspaceID})
-	if err != nil {
-		return QuestionWakeResult{}, questionLoadError(err)
-	}
-	active, err := q.HasActiveQuestionWakeTask(ctx, db.HasActiveQuestionWakeTaskParams{WorkspaceID: workspaceID, IssueID: issue.ID, AgentID: agentID})
+	count, err := s.countUnseenAnswers(ctx, q, workspaceID, agentID, issueID, pgtype.UUID{})
 	if err != nil {
 		return QuestionWakeResult{}, err
 	}
-	if active {
-		return QuestionWakeResult{}, ErrDuplicatePendingTask
-	}
-	count, err := s.countUnseenAnswers(ctx, q, workspaceID, agentID, issue.ID, pgtype.UUID{})
+	askBacks, err := s.hasUnseenAskBacks(ctx, q, workspaceID, agentID, issueID)
 	if err != nil {
 		return QuestionWakeResult{}, err
 	}
-	if count == 0 {
-		askBacks, err := s.hasUnseenAskBacks(ctx, q, workspaceID, agentID, issue.ID)
+	blocked, err := s.questionWakeBlocked(ctx, q, workspaceID, agentID, issueID)
+	if err != nil {
+		return QuestionWakeResult{}, err
+	}
+	if !canDeliver || blocked {
+		anchor, err := q.GetQuestionWakeAnswerAnchor(ctx, db.GetQuestionWakeAnswerAnchorParams{WorkspaceID: workspaceID, IssueID: issueID, AgentID: agentID})
 		if err != nil {
 			return QuestionWakeResult{}, err
 		}
-		if !askBacks {
-			return QuestionWakeResult{}, questionRefusal(422, "there are no unseen answers")
+		if _, err := q.UpsertQuestionWakePending(ctx, db.UpsertQuestionWakePendingParams{WorkspaceID: workspaceID, IssueID: issueID, AgentID: agentID, ActorUserID: actor.ID, SourceQuestionID: row.ID, AnswerAnchor: anchor}); err != nil {
+			return QuestionWakeResult{}, err
+		}
+		if err := tx.Commit(ctx); err != nil {
+			return QuestionWakeResult{}, err
+		}
+		return QuestionWakeResult{AnswerCount: count}, nil
+	}
+	if !waiting && count == 0 && !askBacks {
+		return QuestionWakeResult{}, questionRefusal(422, "there are no unseen answers")
+	}
+	if !waiting {
+		anchor, err := q.GetQuestionWakeAnswerAnchor(ctx, db.GetQuestionWakeAnswerAnchorParams{WorkspaceID: workspaceID, IssueID: issueID, AgentID: agentID})
+		if err != nil {
+			return QuestionWakeResult{}, err
+		}
+		if _, err := q.UpsertQuestionWakePending(ctx, db.UpsertQuestionWakePendingParams{WorkspaceID: workspaceID, IssueID: issueID, AgentID: agentID, ActorUserID: actor.ID, SourceQuestionID: row.ID, AnswerAnchor: anchor}); err != nil {
+			return QuestionWakeResult{}, err
 		}
 	}
-	task, err := s.Tasks.EnqueueTaskForQuestionWake(ctx, tx, issue, agentID, actor.ID, row.ID, count)
+	// An unrelated enqueue need not hold the issue lock. Preserve acceptance
+	// if it takes the pending slot after our blocker read.
+	if _, err := tx.Exec(ctx, "SAVEPOINT question_wake_enqueue"); err != nil {
+		return QuestionWakeResult{}, err
+	}
+	var delivery *questionWakeDelivery
+	if waiting {
+		delivery, err = s.drainQuestionWakeLocked(ctx, tx, issue, pending)
+	} else {
+		delivery, err = s.enqueueQuestionWake(ctx, tx, issue, row, actor, agentID, count, pgtype.Timestamptz{})
+	}
+	if errors.Is(err, ErrDuplicatePendingTask) {
+		if _, rollbackErr := tx.Exec(ctx, "ROLLBACK TO SAVEPOINT question_wake_enqueue"); rollbackErr != nil {
+			return QuestionWakeResult{}, rollbackErr
+		}
+		if err := tx.Commit(ctx); err != nil {
+			return QuestionWakeResult{}, err
+		}
+		return QuestionWakeResult{AnswerCount: count}, nil
+	}
 	if err != nil {
 		return QuestionWakeResult{}, err
 	}
-	result := QuestionWakeResult{TaskID: util.UUIDToString(task.ID), AnswerCount: count}
-	details, err := json.Marshal(struct {
-		AgentID     string `json:"agent_id"`
-		AnswerCount int64  `json:"answer_count"`
-		TaskID      string `json:"task_id"`
-	}{util.UUIDToString(agentID), count, result.TaskID})
-	if err != nil {
-		return QuestionWakeResult{}, err
-	}
-	if _, err := q.CreateActivity(ctx, db.CreateActivityParams{ID: dbid.NewV7(), WorkspaceID: workspaceID, IssueID: issue.ID, ActorType: pgtype.Text{String: "member", Valid: true}, ActorID: actor.ID, Action: ActivityQuestionWake, Details: details}); err != nil {
-		return QuestionWakeResult{}, err
-	}
-	eventID, err := s.writeEvent(ctx, q, row, actor, "woken", result)
-	if err != nil {
-		return QuestionWakeResult{}, err
-	}
-	if _, err := q.SetQuestionStatus(ctx, db.SetQuestionStatusParams{ID: row.ID, WorkspaceID: workspaceID, Status: row.Status, FromStatuses: []string{row.Status}}); err != nil {
-		return QuestionWakeResult{}, err
+	if !waiting {
+		if err := q.DeleteQuestionWakePending(ctx, db.DeleteQuestionWakePendingParams{WorkspaceID: workspaceID, IssueID: issueID, AgentID: agentID}); err != nil {
+			return QuestionWakeResult{}, err
+		}
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return QuestionWakeResult{}, err
 	}
-	s.Tasks.BroadcastTaskQueued(ctx, task)
-	s.Tasks.NotifyTaskEnqueued(ctx, task)
-	s.publish(ctx, QuestionDTO{ID: util.UUIDToString(row.ID), AskID: util.UUIDToString(row.AskID), WorkspaceID: util.UUIDToString(workspaceID)}, actor, "woken", eventID)
-	slog.Info("question agent woken", "question_id", util.UUIDToString(row.ID), "task_id", result.TaskID, "answer_count", count)
-	return result, nil
+	if delivery == nil {
+		return QuestionWakeResult{}, questionRefusal(422, "there are no unseen answers")
+	}
+	s.publishQuestionWake(ctx, delivery)
+	return delivery.result, nil
 }

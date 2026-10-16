@@ -52,6 +52,7 @@ func newQuestionFixture(t *testing.T) *questionFixture {
 	fx.Cleanup(t, `DELETE FROM question_answerer WHERE workspace_id = $1`, workspace)
 	fx.Cleanup(t, `DELETE FROM question_answer WHERE workspace_id = $1`, workspace)
 	fx.Cleanup(t, `DELETE FROM question_event WHERE workspace_id = $1`, workspace)
+	fx.Cleanup(t, `DELETE FROM question_wake_pending WHERE workspace_id = $1`, workspace)
 	queries := db.New(pool)
 	bus := events.New()
 	f := &questionFixture{fx: fx, workspace: util.MustParseUUID(workspace), issue: util.MustParseUUID(issue), task: util.MustParseUUID(task), runtime: util.MustParseUUID(runtime), agent: util.MustParseUUID(agent), brian: util.MustParseUUID(brian), anouk: util.MustParseUUID(anouk)}
@@ -309,9 +310,16 @@ func TestQuestionAnyOneAndWithdrawal(t *testing.T) {
 			}
 			_, err = f.svc.Answer(ctx, f.workspace, id, f.answerer, AnswerQuestionInput{Value: json.RawMessage(`{"option":"per line"}`)})
 			wantQuestionRefusal(t, err, 422)
-			_, err = f.svc.Wake(ctx, f.workspace, id, f.answerer, pgtype.UUID{})
-			if !errors.Is(err, ErrDuplicatePendingTask) {
-				t.Fatalf("withdrawn wake must retain the active-task guard: %v", err)
+			waiting, err := f.svc.Wake(ctx, f.workspace, id, f.answerer, pgtype.UUID{})
+			if err != nil || waiting.TaskID != "" || waiting.AnswerCount != 0 {
+				t.Fatalf("withdrawn wake wait = %+v, %v", waiting, err)
+			}
+			f.finishAskingRun(t)
+			if err := f.svc.DrainQuestionWake(ctx, f.workspace, f.agent, f.issue); err != nil {
+				t.Fatal(err)
+			}
+			if n := f.fx.Count(t, `SELECT count(*) FROM question_wake_pending WHERE issue_id = $1`, f.issue); n != 0 {
+				t.Fatalf("withdrawn question retained %d empty waits", n)
 			}
 			f.wantNoNewTask(t)
 		})
@@ -405,7 +413,7 @@ func TestQuestionUnseenSurvivesClaimThatNeverStarts(t *testing.T) {
 	}
 }
 
-func TestQuestionWakeRefusesEveryActiveTask(t *testing.T) {
+func TestQuestionWakeAcceptsEveryActiveTask(t *testing.T) {
 	for _, status := range []string{"queued", "dispatched", "running", "waiting_local_directory"} {
 		t.Run(status, func(t *testing.T) {
 			f := newQuestionFixture(t)
@@ -417,12 +425,15 @@ func TestQuestionWakeRefusesEveryActiveTask(t *testing.T) {
 			if err != nil || row.WakeAvailable {
 				t.Fatalf("active card = %+v, %v", row, err)
 			}
-			_, err = f.svc.Wake(context.Background(), f.workspace, util.MustParseUUID(row.ID), f.answerer, pgtype.UUID{})
-			if !errors.Is(err, ErrDuplicatePendingTask) {
-				t.Fatalf("wake with %s = %v, want duplicate", status, err)
+			wake, err := f.svc.Wake(context.Background(), f.workspace, util.MustParseUUID(row.ID), f.answerer, pgtype.UUID{})
+			if err != nil || wake.TaskID != "" || wake.AnswerCount != 1 {
+				t.Fatalf("wake with %s = %+v, %v", status, wake, err)
+			}
+			if got := f.fx.Count(t, `SELECT count(*) FROM question_wake_pending WHERE issue_id = $1 AND agent_id = $2`, f.issue, f.agent); got != 1 {
+				t.Fatalf("accepted wake has %d durable intents", got)
 			}
 			if got := f.fx.Count(t, `SELECT count(*) FROM activity_log WHERE issue_id = $1 AND action = 'question_wake'`, f.issue); got != 0 {
-				t.Fatalf("refused wake wrote %d activities", got)
+				t.Fatalf("waiting wake wrote %d activities", got)
 			}
 		})
 	}
@@ -558,9 +569,9 @@ func TestQuestionWakeCommitsOneAttributedTaskActivityAndEvent(t *testing.T) {
 	if actorID != util.UUIDToString(f.anouk) || activity.AgentID != util.UUIDToString(f.agent) || activity.TaskID != result.TaskID || activity.AnswerCount != 1 {
 		t.Fatalf("wake activity actor=%s details=%+v", actorID, activity)
 	}
-	_, err = f.svc.Wake(ctx, f.workspace, id, f.other, pgtype.UUID{})
-	if !errors.Is(err, ErrDuplicatePendingTask) {
-		t.Fatalf("second wake = %v", err)
+	waiting, err := f.svc.Wake(ctx, f.workspace, id, f.other, pgtype.UUID{})
+	if err != nil || waiting.TaskID != "" {
+		t.Fatalf("second wake = %+v, %v", waiting, err)
 	}
 	if n := f.fx.Count(t, `SELECT count(*) FROM agent_task_queue WHERE issue_id = $1`, f.issue); n != 2 {
 		t.Fatalf("task count = %d, want asking run plus one wake", n)
@@ -592,22 +603,24 @@ func TestQuestionConcurrentWakesAcrossCardsDeduplicate(t *testing.T) {
 		}(row.ID)
 	}
 	close(start)
-	wins, duplicates := 0, 0
+	queued, waiting := 0, 0
 	for range 2 {
 		out := <-results
-		if out.err == nil {
-			wins++
-			if out.result.AnswerCount != 2 {
-				t.Errorf("wake count = %d, want both answers", out.result.AnswerCount)
-			}
-		} else if errors.Is(out.err, ErrDuplicatePendingTask) {
-			duplicates++
-		} else {
+		if out.err != nil {
 			t.Errorf("concurrent wake: %v", out.err)
+			continue
+		}
+		if out.result.AnswerCount != 2 {
+			t.Errorf("wake count = %d, want both answers", out.result.AnswerCount)
+		}
+		if out.result.TaskID == "" {
+			waiting++
+		} else {
+			queued++
 		}
 	}
-	if wins != 1 || duplicates != 1 {
-		t.Fatalf("concurrent wake wins=%d duplicates=%d", wins, duplicates)
+	if queued != 1 || waiting != 1 {
+		t.Fatalf("concurrent wake queued=%d waiting=%d", queued, waiting)
 	}
 	if n := f.fx.Count(t, `SELECT count(*) FROM agent_task_queue WHERE issue_id = $1`, f.issue); n != 2 {
 		t.Fatalf("concurrent wake tasks = %d", n)
@@ -1167,13 +1180,13 @@ func TestQuestionSetWakeFromAnyStatusKeepsStatusAndGetsAllUnseenAnswers(t *testi
 			if err != nil || row.Status != status || row.WakeAvailable {
 				t.Fatalf("wake must not change question status: %+v, %v", row, err)
 			}
-			_, err = f.svc.Wake(ctx, f.workspace, id, f.answerer, pgtype.UUID{})
-			if !errors.Is(err, ErrDuplicatePendingTask) {
-				t.Fatalf("wake active guard = %v", err)
+			waiting, err := f.svc.Wake(ctx, f.workspace, id, f.answerer, pgtype.UUID{})
+			if err != nil || waiting.TaskID != "" {
+				t.Fatalf("wake active acceptance = %+v, %v", waiting, err)
 			}
-			_, err = f.svc.Wake(ctx, f.workspace, util.MustParseUUID(result.Questions[0].ID), f.answerer, pgtype.UUID{})
-			if !errors.Is(err, ErrDuplicatePendingTask) {
-				t.Fatalf("wake active guard across cards = %v", err)
+			waiting, err = f.svc.Wake(ctx, f.workspace, util.MustParseUUID(result.Questions[0].ID), f.answerer, pgtype.UUID{})
+			if err != nil || waiting.TaskID != "" {
+				t.Fatalf("wake active acceptance across cards = %+v, %v", waiting, err)
 			}
 		})
 	}
@@ -1218,11 +1231,11 @@ func TestQuestionTerminalWakeKeepsBusyAndUnavailableGuards(t *testing.T) {
 					}
 				}
 				before := f.fx.Count(t, `SELECT count(*) FROM agent_task_queue WHERE issue_id = $1`, f.issue)
-				_, err = f.svc.Wake(ctx, f.workspace, id, f.answerer, pgtype.UUID{})
+				waiting, err := f.svc.Wake(ctx, f.workspace, id, f.answerer, pgtype.UUID{})
 				if state == "archived" || state == "no runtime" {
 					wantQuestionRefusal(t, err, 422)
-				} else if !errors.Is(err, ErrDuplicatePendingTask) {
-					t.Fatalf("terminal wake with %s = %v, want duplicate", state, err)
+				} else if err != nil || waiting.TaskID != "" {
+					t.Fatalf("terminal wake with %s = %+v, %v", state, waiting, err)
 				}
 				if got := f.fx.Count(t, `SELECT count(*) FROM agent_task_queue WHERE issue_id = $1`, f.issue); got != before {
 					t.Fatalf("refused terminal wake created a task: got %d, want %d", got, before)

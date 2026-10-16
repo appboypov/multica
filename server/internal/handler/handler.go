@@ -235,7 +235,7 @@ type Handler struct {
 	// RepositoryCheckoutStore holds checkout checks and clones on runtimes
 	// (ADR-0006).
 	RepositoryCheckoutStore RepositoryCheckoutStore
-	FeatureFlags          *featureflag.Service
+	FeatureFlags            *featureflag.Service
 	// IssueStatusCatalog reads the workspace status catalog. Defaults to
 	// Queries; a test can substitute a counting wrapper to assert HOW MANY
 	// catalog reads a request performs, which is the only property that
@@ -533,6 +533,7 @@ func New(queries *db.Queries, txStarter txStarter, hub *realtime.Hub, bus *event
 		LLM: llmClient,
 		cfg: cfg,
 	}
+	taskSvc.QuestionWakeDrainer = h.QuestionService
 	h.WebhookDeliveryWorker = NewWebhookDeliveryWorker(h)
 	// The default passthrough scheduler reports sweeper-race recoveries so the
 	// daemon:register refresh fires even without the production batched wiring.

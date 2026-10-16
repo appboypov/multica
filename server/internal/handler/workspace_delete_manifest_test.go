@@ -120,6 +120,7 @@ var workspaceDeletionManifest = map[string]workspaceDeleteAction{
 	"question_answerer":                  workspaceDelete,
 	"question_event":                     workspaceDelete,
 	"question_link":                      workspaceDelete,
+	"question_wake_pending":              workspaceDelete,
 	"release":                            workspaceDelete,
 	"release_milestone":                  workspaceDelete,
 	"repository":                         workspaceDelete,

@@ -4429,6 +4429,12 @@ func (h *Handler) DeleteIssue(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	finish, err := h.QuestionService.BeginQuestionWakeTransition(r.Context(), issue.WorkspaceID, []pgtype.UUID{issue.ID})
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to prepare issue deletion")
+		return
+	}
+	defer finish()
 
 	h.TaskService.CancelTasksForIssue(r.Context(), issue.ID)
 	// Fail any linked autopilot runs before delete (ON DELETE SET NULL clears issue_id).
@@ -5054,6 +5060,14 @@ func (h *Handler) BatchDeleteIssues(w http.ResponseWriter, r *http.Request) {
 		seenIssueIDs[issueUUID] = struct{}{}
 		issues = append(issues, issue)
 		excludedIDs = append(excludedIDs, issue.ID)
+	}
+	finish, err := h.QuestionService.BeginQuestionWakeTransition(r.Context(), wsUUID, excludedIDs)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to prepare issue deletion")
+		return
+	}
+	defer finish()
+	for _, issue := range issues {
 		h.TaskService.CancelTasksForIssue(r.Context(), issue.ID)
 		_ = h.AutopilotService.FailAutopilotRunsByIssue(r.Context(), issue.ID)
 	}

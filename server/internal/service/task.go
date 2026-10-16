@@ -36,14 +36,20 @@ import (
 	"github.com/multica-ai/multica/server/pkg/taskfailure"
 )
 
+// QuestionWakeDrainer consumes accepted wakes after terminal reconciliation.
+type QuestionWakeDrainer interface {
+	DrainQuestionWake(ctx context.Context, workspaceID, agentID, issueID pgtype.UUID) error
+}
+
 type TaskService struct {
-	Queries   *db.Queries
-	TxStarter TxStarter
-	Hub       *realtime.Hub
-	Bus       *events.Bus
-	Analytics analytics.Client
-	Metrics   *obsmetrics.BusinessMetrics
-	Wakeup    TaskWakeupNotifier
+	Queries             *db.Queries
+	TxStarter           TxStarter
+	Hub                 *realtime.Hub
+	Bus                 *events.Bus
+	Analytics           analytics.Client
+	Metrics             *obsmetrics.BusinessMetrics
+	Wakeup              TaskWakeupNotifier
+	QuestionWakeDrainer QuestionWakeDrainer
 	// Entitlements supplies Cloud's workspace-scoped issue-count instruction.
 	// Nil keeps self-hosted and isolated test services unlimited.
 	Entitlements entitlement.Provider
@@ -4954,6 +4960,9 @@ func (s *TaskService) FailTaskWithTransition(ctx context.Context, taskID pgtype.
 		if err := lockChatSessionForTaskWrite(ctx, qtx, taskID); err != nil {
 			return err
 		}
+		if _, err := qtx.GetAgentTaskForUpdate(ctx, taskID); err != nil {
+			return err
+		}
 		t, err := qtx.FailAgentTask(ctx, db.FailAgentTaskParams{
 			ID:             taskID,
 			Error:          pgtype.Text{String: errMsg, Valid: true},
@@ -5056,7 +5065,15 @@ func (s *TaskService) FailTaskWithTransition(ctx context.Context, taskID pgtype.
 		// ON CONFLICT DO NOTHING, which yields the slot instead of raising and so
 		// can never abort this transaction — which also carries the parent's
 		// failed status.
-		createRetry := wantRetry
+		createRetry := wantRetry && retryEligible(failureReason, t)
+		if createRetry {
+			_, childErr := qtx.GetRetryTaskForParent(ctx, taskID)
+			if childErr == nil {
+				createRetry = false
+			} else if !errors.Is(childErr, pgx.ErrNoRows) {
+				return childErr
+			}
+		}
 		if createRetry {
 			successor, herr := hasRunnableSuccessor(ctx, qtx, t)
 			if herr != nil {
@@ -5543,20 +5560,8 @@ func (s *TaskService) MaybeRetryFailedTask(ctx context.Context, parent db.AgentT
 	if delay := retryDelayForAttempt(reason, parent.Attempt); delay > 0 {
 		retryFireAt = pgtype.Timestamptz{Time: time.Now().Add(delay), Valid: true}
 	}
-	// Same advisory slot check as FailTask's path, for the same reason: skip the
-	// work when a successor is already visible. Losing the race is handled by
-	// CreateRetryTask yielding the slot, which this caller reads as "no retry".
-	if successor, herr := hasRunnableSuccessor(ctx, s.Queries, parent); herr != nil {
-		slog.Warn("task auto-retry: successor check failed; attempting retry anyway",
-			"parent_task_id", util.UUIDToString(parent.ID), "error", herr)
-	} else if successor {
-		slog.Info("task auto-retry skipped: a successor is already pending",
-			"parent_task_id", util.UUIDToString(parent.ID),
-			"issue_id", util.UUIDToString(parent.IssueID),
-			"agent_id", util.UUIDToString(parent.AgentID),
-		)
-		return nil, nil
-	}
+	// Parent and child arbitration below is transactional, including deferred
+	// retries which do not occupy the ordinary pending-task unique index.
 	if s.TxStarter == nil {
 		return nil, errors.New("task auto-retry: transaction starter is required")
 	}
@@ -5566,6 +5571,49 @@ func (s *TaskService) MaybeRetryFailedTask(ctx context.Context, parent db.AgentT
 	}
 	defer tx.Rollback(ctx)
 	qtx := s.Queries.WithTx(tx)
+	if err := lockChatSessionForTaskWrite(ctx, qtx, parent.ID); err != nil {
+		return nil, err
+	}
+	parent, err = qtx.GetAgentTaskForUpdate(ctx, parent.ID)
+	if err != nil {
+		return nil, err
+	}
+	reason = parent.FailureReason.String
+	if parent.Status != "failed" || !retryEligible(reason, parent) {
+		return nil, nil
+	}
+	if _, err := qtx.GetRetryTaskForParent(ctx, parent.ID); err == nil {
+		return nil, nil
+	} else if !errors.Is(err, pgx.ErrNoRows) {
+		return nil, err
+	}
+	if agentErr == nil && parent.IssueID.Valid {
+		_, waitErr := qtx.GetQuestionWakePending(ctx, db.GetQuestionWakePendingParams{WorkspaceID: agent.WorkspaceID, IssueID: parent.IssueID, AgentID: parent.AgentID})
+		if waitErr != nil && !errors.Is(waitErr, pgx.ErrNoRows) {
+			return nil, waitErr
+		}
+		if waitErr == nil {
+			candidates, err := qtx.ListQuestionWakeRetryCandidates(ctx, db.ListQuestionWakeRetryCandidatesParams{WorkspaceID: agent.WorkspaceID, IssueID: parent.IssueID, AgentID: parent.AgentID})
+			if err != nil {
+				return nil, err
+			}
+			current := false
+			for _, candidate := range candidates {
+				if candidate.ID == parent.ID {
+					current = true
+					break
+				}
+			}
+			if !current {
+				return nil, nil
+			}
+		}
+	}
+	if successor, err := hasRunnableSuccessor(ctx, qtx, parent); err != nil {
+		return nil, err
+	} else if successor {
+		return nil, nil
+	}
 	if err := guardIssueNotInTriage(ctx, qtx, parent.IssueID, OriginDerived); err != nil {
 		if errors.Is(err, ErrIssueInTriage) {
 			slog.Info("task auto-retry skipped: issue is in triage",
@@ -7227,6 +7275,7 @@ func (s *TaskService) NotifyTaskEnqueued(ctx context.Context, task db.AgentTaskQ
 func (s *TaskService) NotifyTaskFinished(task db.AgentTaskQueue) {
 	s.forgetTaskReclaim(task)
 	s.notifyRuntimeMayHaveWork(task.RuntimeID, "")
+	s.drainFinishedQuestionWakes([]db.AgentTaskQueue{task})
 }
 
 // notifyTasksFinished is the batch form used by bulk terminal transitions.
@@ -7245,6 +7294,44 @@ func (s *TaskService) notifyTasksFinished(tasks []db.AgentTaskQueue) {
 		}
 		seen[runtimeKey] = struct{}{}
 		s.notifyRuntimeMayHaveWork(task.RuntimeID, "")
+	}
+	s.drainFinishedQuestionWakes(tasks)
+}
+
+func (s *TaskService) drainFinishedQuestionWakes(tasks []db.AgentTaskQueue) {
+	if s.QuestionWakeDrainer == nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	type pair struct{ agent, issue pgtype.UUID }
+	seen := make(map[pair]struct{}, len(tasks))
+	for _, task := range tasks {
+		if !task.AgentID.Valid || !task.IssueID.Valid {
+			continue
+		}
+		key := pair{task.AgentID, task.IssueID}
+		if _, found := seen[key]; found {
+			continue
+		}
+		seen[key] = struct{}{}
+		issue, err := s.Queries.GetIssue(ctx, task.IssueID)
+		if errors.Is(err, pgx.ErrNoRows) {
+			// A deleted issue cannot host a task. Resolve its workspace from
+			// the task's agent so recovery can retire the durable intent.
+			agent, agentErr := s.Queries.GetAgent(ctx, task.AgentID)
+			if agentErr != nil {
+				slog.Error("resolve finished question wake workspace", "task_id", util.UUIDToString(task.ID), "error", agentErr)
+				continue
+			}
+			issue.WorkspaceID = agent.WorkspaceID
+		} else if err != nil {
+			slog.Error("resolve finished question wake issue", "task_id", util.UUIDToString(task.ID), "error", err)
+			continue
+		}
+		if err := s.QuestionWakeDrainer.DrainQuestionWake(ctx, issue.WorkspaceID, task.AgentID, task.IssueID); err != nil {
+			slog.Error("drain finished question wake", "task_id", util.UUIDToString(task.ID), "error", err)
+		}
 	}
 }
 
