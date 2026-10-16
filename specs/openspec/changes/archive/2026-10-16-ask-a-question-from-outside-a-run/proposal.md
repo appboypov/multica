@@ -15,9 +15,9 @@ sequenceDiagram
 
 | Kind | Name | Change | Path |
 |---|---|---|---|
-| Spec delta | questions | changed | `specs/openspec/changes/ask-a-question-from-outside-a-run/specs/questions/spec.md` |
-| Spec delta | agent-question-tooling | changed | `specs/openspec/changes/ask-a-question-from-outside-a-run/specs/agent-question-tooling/spec.md` |
-| Spec delta | agent-wake | changed | `specs/openspec/changes/ask-a-question-from-outside-a-run/specs/agent-wake/spec.md` |
+| Spec delta | questions | changed | `specs/openspec/changes/archive/2026-10-16-ask-a-question-from-outside-a-run/specs/questions/spec.md` |
+| Spec delta | agent-question-tooling | changed | `specs/openspec/changes/archive/2026-10-16-ask-a-question-from-outside-a-run/specs/agent-question-tooling/spec.md` |
+| Spec delta | agent-wake | changed | `specs/openspec/changes/archive/2026-10-16-ask-a-question-from-outside-a-run/specs/agent-wake/spec.md` |
 
 ## Why
 
