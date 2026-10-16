@@ -1,7 +1,7 @@
 # client-default-deny Specification
 
 ## Purpose
-Client credentials reach only the explicit session routes and receive no workspace data or live events.
+Client credentials reach only the explicit session and client-read routes and receive no other workspace data or live events.
 
 ## Requirements
 
@@ -12,7 +12,9 @@ Multica SHALL refuse a client's request on every route before the route's own ha
 |---|---|
 | Authentication | Log in, refresh the session and log out |
 | Own invitation | Read, accept or decline an invitation addressed to them |
-| Current membership | Read their own role and organisation, as `client-membership` says |
+| Current membership | Read their own role and organisations, as `client-membership` says |
+| Own waits | List their own open waits and read one by its ID, as `client-reads` says |
+| Planned work | List the planned work of their organisations, as `client-reads` says |
 
 #### Scenario: A write route
 - **GIVEN** Rizgar is a client of Rebl Records
@@ -21,7 +23,7 @@ Multica SHALL refuse a client's request on every route before the route's own ha
 
 #### Scenario: A read route
 - **GIVEN** Rizgar is a client of Rebl Records
-- **WHEN** Rizgar lists the workspace's issues, projects or members
+- **WHEN** Rizgar lists the workspace's issues, projects, releases or members through their workspace routes
 - **THEN** each request is refused and returns no workspace data
 
 #### Scenario: A route added later
@@ -32,15 +34,15 @@ Multica SHALL refuse a client's request on every route before the route's own ha
 
 #### Scenario: The session list stays open
 - **GIVEN** Rizgar is a client of Rebl Records
-- **WHEN** Rizgar refreshes his session, reads his current membership and logs out
+- **WHEN** Rizgar refreshes his session, reads his current membership, lists his waits, lists planned work and logs out
 - **THEN** each request succeeds
 
 ### Requirement: A client is refused on direct resource IDs
 Multica MUST refuse a client's request that names a workspace resource by its ID or key, such as an issue, a comment, a project or an attachment, outside the session list.
 
 #### Scenario: Opening an issue by its key
-- **GIVEN** Rizgar is a client of Rebl Records and WORK-12 is in a Rebl Records project
-- **WHEN** Rizgar requests WORK-12 by its key or its ID
+- **GIVEN** Rizgar is a client of Rebl Records and WORK-12 is his own wait in a Rebl Records project, on a release
+- **WHEN** Rizgar requests WORK-12 by its key or its ID through the workspace's issue route
 - **THEN** the request is refused and returns none of WORK-12's fields
 
 #### Scenario: Downloading an attachment by its ID
