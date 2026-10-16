@@ -1622,6 +1622,8 @@ func TestDashboardFailuresByAgentUsesExactWindow(t *testing.T) {
 		t.Skip("database not available")
 	}
 	ctx := context.Background()
+	now := pinDayWindowClock(t, time.Date(2026, 10, 15, 23, 59, 0, 0, time.UTC))
+	yesterdayNoon := time.Date(now.Year(), now.Month(), now.Day()-1, 12, 0, 0, 0, time.UTC)
 
 	var runtimeID, agentID string
 	dbfx.QueryRow(t, `SELECT id FROM agent_runtime WHERE workspace_id = $1 LIMIT 1`, testWorkspaceID).Scan(&runtimeID)
@@ -1636,15 +1638,14 @@ func TestDashboardFailuresByAgentUsesExactWindow(t *testing.T) {
 	`, testWorkspaceID, testUserID).Scan(&issueID)
 	t.Cleanup(func() { testPool.Exec(ctx, `DELETE FROM issue WHERE id = $1`, issueID) })
 
-	// One failure at noon YESTERDAY (UTC). days=1 means "today", so neither
-	// endpoint may count it. Noon avoids the midnight edge in either
-	// direction.
+	// The fixture and request share a pinned UTC day, independent of the
+	// database session's calendar date. days=1 must exclude yesterday's noon.
 	dbfx.Task(t, agentID, testutil.Cols{
 		"issue_id":       issueID,
 		"runtime_id":     runtimeID,
 		"status":         "failed",
-		"started_at":     testutil.Raw("((CURRENT_DATE - 1)::timestamp + interval '11 hours') AT TIME ZONE 'UTC'"),
-		"completed_at":   testutil.Raw("((CURRENT_DATE - 1)::timestamp + interval '12 hours') AT TIME ZONE 'UTC'"),
+		"started_at":     yesterdayNoon.Add(-time.Hour),
+		"completed_at":   yesterdayNoon,
 		"failure_reason": "timeout",
 		"created_at":     testutil.Raw("now()"),
 	})
@@ -1708,6 +1709,8 @@ func TestDashboardPerAgentRollupsUseExactWindow(t *testing.T) {
 		t.Skip("database not available")
 	}
 	ctx := context.Background()
+	now := pinDayWindowClock(t, time.Date(2026, 10, 15, 23, 59, 0, 0, time.UTC))
+	yesterdayNoon := time.Date(now.Year(), now.Month(), now.Day()-1, 12, 0, 0, 0, time.UTC)
 
 	var runtimeID, agentID string
 	dbfx.QueryRow(t, `SELECT id FROM agent_runtime WHERE workspace_id = $1 LIMIT 1`, testWorkspaceID).Scan(&runtimeID)
@@ -1722,8 +1725,8 @@ func TestDashboardPerAgentRollupsUseExactWindow(t *testing.T) {
 	`, testWorkspaceID, testUserID).Scan(&issueID)
 	t.Cleanup(func() { testPool.Exec(ctx, `DELETE FROM issue WHERE id = $1`, issueID) })
 
-	// A token bucket at noon YESTERDAY, under a provider/model pair no other
-	// fixture uses so the assertion can't be satisfied by ambient rows.
+	// A token bucket at noon yesterday on the request's pinned UTC calendar,
+	// under a provider/model pair no other fixture uses.
 	// Seeded straight into task_usage_hourly (same shortcut as the tz-bucket
 	// test) — the rollup's own source column is task_usage.created_at, which
 	// is `now()`-defaulted and awkward to backdate.
@@ -1739,23 +1742,22 @@ func TestDashboardPerAgentRollupsUseExactWindow(t *testing.T) {
 			input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, event_count
 		)
 		VALUES (
-			((CURRENT_DATE - 1)::timestamp + interval '12 hours') AT TIME ZONE 'UTC',
+			$6,
 			$1, $2, $3, NULL, $4, $5,
 			7777, 0, 0, 0, 1
 		)
 		ON CONFLICT ON CONSTRAINT uq_task_usage_hourly_key DO UPDATE
 			SET input_tokens = EXCLUDED.input_tokens
-	`, testWorkspaceID, runtimeID, agentID, windowProvider, windowModel)
+	`, testWorkspaceID, runtimeID, agentID, windowProvider, windowModel, yesterdayNoon)
 
-	// A terminal task that ran for 900s and completed at noon yesterday, for
-	// the agent-runtime half. Noon keeps both fixtures clear of the midnight
-	// edge in either direction.
+	// A terminal task that ran for 900s and completed at the same UTC noon,
+	// for the agent-runtime half.
 	dbfx.Task(t, agentID, testutil.Cols{
 		"issue_id":     issueID,
 		"runtime_id":   runtimeID,
 		"status":       "completed",
-		"started_at":   testutil.Raw("((CURRENT_DATE - 1)::timestamp + interval '11 hours 45 minutes') AT TIME ZONE 'UTC'"),
-		"completed_at": testutil.Raw("((CURRENT_DATE - 1)::timestamp + interval '12 hours') AT TIME ZONE 'UTC'"),
+		"started_at":   yesterdayNoon.Add(-15 * time.Minute),
+		"completed_at": yesterdayNoon,
 		"created_at":   testutil.Raw("now()"),
 	})
 

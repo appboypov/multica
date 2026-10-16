@@ -410,6 +410,8 @@ This runs:
 Notes:
 
 - Go tests create their own fixture data
+- Dashboard exact-window fixtures share a pinned UTC clock with their requests.
+  Their timestamps are bound parameters, independent of PostgreSQL's session date.
 - E2E tests create their own workspace and issue fixtures
 - the check flow starts backend/frontend only if they are not already running
 
