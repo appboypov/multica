@@ -6,6 +6,7 @@ import (
 
 	"github.com/multica-ai/multica/server/internal/events"
 	"github.com/multica-ai/multica/server/internal/handler"
+	"github.com/multica-ai/multica/server/internal/service"
 	"github.com/multica-ai/multica/server/internal/testutil"
 	"github.com/multica-ai/multica/server/internal/util"
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
@@ -122,7 +123,7 @@ func TestSubscriberAgentFiledIssueUsesMemberCreator(t *testing.T) {
 	queries := db.New(testPool)
 	bus := events.New()
 	registerSubscriberListeners(bus, testPool)
-	registerActivityListeners(bus, queries)
+	registerActivityListeners(bus, queries, &service.RunInputService{Queries: queries})
 	agentID, runtimeID := firstFixtureAgent(t)
 	task := createAgentTaskWithOriginator(t, agentID, runtimeID, util.MustParseUUID(testUserID))
 	for _, origin := range []string{"agent_create", "quick_create"} {
