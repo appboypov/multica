@@ -107,11 +107,11 @@ The sync SHALL export `skills/` from MadSpec and `skills/` and `agents/` from ev
 
 The sync SHALL read only workers named by roster teams from `agents/<worker-id>.md` in each lead's office. YAML frontmatter SHALL supply name, description, skills and ordered models. The body SHALL be the instructions, with no frontmatter or instruction selection. Primary model, effort, skill arguments and fallback overlays SHALL follow the persona rules above. Worker identity SHALL be `MADSPEC_WORKER=<worker-id>`.
 
-#### Scenario: Backend Junior
+#### Scenario: Junior Backend
 
-- **GIVEN** the roster names backend-junior in Joeri's team
+- **GIVEN** the roster names junior-backend in Joeri's team
 - **WHEN** the sync runs
-- **THEN** Backend Junior uses that file's body, primary model and ordered fallbacks on the local omp runtime
+- **THEN** Junior Backend uses that file's body, primary model and ordered fallbacks on the local omp runtime
 
 ### Requirement: Dry run is read-only
 

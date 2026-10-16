@@ -316,11 +316,11 @@ def test_sync_writes_overlays_before_agents_and_deletes_those_no_agent_names(rep
     assert "write overlay" not in capsys.readouterr().out
 
 
-def worker_file(root, worker="backend-junior", body="# Backend Junior\n\nDo the assigned task.\n"):
+def worker_file(root, worker="junior-backend", body="# Junior Backend\n\nDo the assigned task.\n"):
     write(root / "skills" / "madspec" / "roster.toml",
           '[[teams]]\nid = "backend"\nlead = "as-product-manager"\nworkers = ["' + worker + '"]\n')
     return write(root / "offices" / "mitchel" / "agents" / f"{worker}.md",
-                 '---\nname: Backend Junior\ndescription: "Junior worker."\nskills: madspec-function-builder, madspec-development\n'
+                 '---\nname: Junior Backend\ndescription: "Junior worker."\nskills: madspec-function-builder, madspec-development\n'
                  'model: openai-codex/gpt-6-luna:high, anthropic/claude-haiku-5-5:high\n---\n\n' + body)
 
 
@@ -329,23 +329,23 @@ def test_worker_uses_file_body_models_skills_and_marker(repo, fallback_dir):
     write(repo / "offices" / "mitchel" / "agents" / "madspec-polisher.md", "Not a roster worker.")
     people, _ = multica_sync.read_personas(repo, CHECKOUT)
     workers, problems = multica_sync.read_workers(repo, people)
-    worker = workers["backend-junior"]
+    worker = workers["junior-backend"]
 
     assert problems == {}
-    assert set(workers) == {"backend-junior"}
-    assert worker.instructions == "# Backend Junior\n\nDo the assigned task.\n"
+    assert set(workers) == {"junior-backend"}
+    assert worker.instructions == "# Junior Backend\n\nDo the assigned task.\n"
     assert worker.instruction_selection == []
     assert (worker.name, worker.model, worker.thinking_level, worker.marker) == (
-        "Backend Junior", "openai-codex/gpt-6-luna", "high", "MADSPEC_WORKER")
+        "Junior Backend", "openai-codex/gpt-6-luna", "high", "MADSPEC_WORKER")
     assert worker.custom_args == ["--skills=madspec-function-builder,madspec-development",
-                                  f"--config={fallback_dir / 'backend-junior.yml'}"]
+                                  f"--config={fallback_dir / 'junior-backend.yml'}"]
     api = FakeMultica([])
-    assert multica_sync.Sync(api, repo, CHECKOUT).run("Backend Junior") == 0
+    assert multica_sync.Sync(api, repo, CHECKOUT).run("Junior Backend") == 0
     assert api.writes[0][2]["runtime_id"] == "omp"
     assert api.writes[0][2]["instructions"] == worker.instructions
-    assert api.writes[1] == ("PUT", "/api/agents/Backend Junior/env",
-                             {"custom_env": {"MADSPEC_WORKER": "backend-junior"}})
-    assert api.missing_at_create == {"Backend Junior": []}
+    assert api.writes[1] == ("PUT", "/api/agents/Junior Backend/env",
+                             {"custom_env": {"MADSPEC_WORKER": "junior-backend"}})
+    assert api.missing_at_create == {"Junior Backend": []}
 
 
 def test_unmanaged_agent_is_unchanged_without_adoption(repo, fallback_dir, capsys):
@@ -368,7 +368,7 @@ def test_dry_run_reports_create_update_archive_adopt_and_overlays_without_writes
     assert list(fallback_dir.iterdir()) == [removed]
     assert removed.read_text() == "keep this content"
     output = capsys.readouterr().out
-    for text in ("would create agent Backend Junior", "would update agent Mitchel", "would adopt agent Mitchel",
+    for text in ("would create agent Junior Backend", "would update agent Mitchel", "would adopt agent Mitchel",
                  "would archive agent Gone", "would write overlay", "would delete overlay"):
         assert text in output
     assert "hidden" not in output
@@ -397,26 +397,26 @@ def test_office_personas_are_discovered(repo, name, skill):
 
 def test_missing_worker_is_reported_without_archiving_its_agent(repo):
     worker_file(repo).unlink()
-    api = FakeMultica([{"id": "worker", "name": "Backend Junior", "has_custom_env": True}],
-                     {"worker": {"MADSPEC_WORKER": "backend-junior"}})
+    api = FakeMultica([{"id": "worker", "name": "Junior Backend", "has_custom_env": True}],
+                     {"worker": {"MADSPEC_WORKER": "junior-backend"}})
     assert multica_sync.Sync(api, repo, CHECKOUT).run(None) == 1
     assert not any(path.endswith("/archive") for _, path, _ in api.writes)
 
 
 def test_worker_without_models_is_reported(repo):
     path = worker_file(repo)
-    path.write_text('---\nname: Backend Junior\n---\n\nInstructions.\n')
+    path.write_text('---\nname: Junior Backend\n---\n\nInstructions.\n')
     people, _ = multica_sync.read_personas(repo, CHECKOUT)
     workers, problems = multica_sync.read_workers(repo, people)
     assert workers == {}
-    assert "worker needs a name, models and instructions" in problems["backend-junior"]
+    assert "worker needs a name, models and instructions" in problems["junior-backend"]
 
 
 def test_export_offices_reads_main_and_keeps_worker_body(tmp_path, monkeypatch):
     offices = tmp_path / "offices-source"
     office = offices / "luuk"
     write(office / "skills" / "as-data-engineer" / "SKILL.md", "Persona.\n")
-    worker = write(office / "agents" / "data-junior.md", "Merged worker.\n")
+    worker = write(office / "agents" / "junior-data.md", "Merged worker.\n")
     git(office, "init", "-q", "-b", "main")
     git(office, "add", "-A")
     git(office, "commit", "-qm", "main")
@@ -426,7 +426,7 @@ def test_export_offices_reads_main_and_keeps_worker_body(tmp_path, monkeypatch):
     monkeypatch.setattr(multica_sync, "OFFICES", offices)
     multica_sync.export_offices(offices, destination)
     assert (destination / "luuk" / ".git").is_dir()
-    assert (destination / "luuk" / "agents" / "data-junior.md").read_text() == "Merged worker.\n"
+    assert (destination / "luuk" / "agents" / "junior-data.md").read_text() == "Merged worker.\n"
 
 
 def test_roster_personas_receives_both_roots(tmp_path, monkeypatch):
@@ -481,12 +481,12 @@ def test_all_34_roster_workers_are_loaded_but_helpers_are_not(repo):
 
 def test_worker_yaml_model_list_preserves_fallback_order(repo):
     path = worker_file(repo)
-    path.write_text('---\nname: Data Junior\nskills: [madspec-development]\nmodel:\n'
+    path.write_text('---\nname: Junior Data\nskills: [madspec-development]\nmodel:\n'
                     '  - google-antigravity/gemini-3.8-flash:high\n'
                     '  - github-copilot/gemini-3.8-flash:high\n'
                     '  - anthropic/claude-haiku-5-5:high\n---\n\nDo the task.\n')
     people, _ = multica_sync.read_personas(repo, CHECKOUT)
     workers, problems = multica_sync.read_workers(repo, people)
     assert problems == {}
-    assert multica_sync.fallback_chain(workers["backend-junior"].models) == {
+    assert multica_sync.fallback_chain(workers["junior-backend"].models) == {
         "google-antigravity/gemini-3.8-flash": ["github-copilot/gemini-3.8-flash:high", "anthropic/claude-haiku-5-5:high"]}
