@@ -78,10 +78,33 @@ func primaryIssueWorktree(task Task, daemonID string) string {
 	return path
 }
 
+// resolveRealPath resolves existing parents as well as the path itself, so a
+// destination has the same lock key before and after a worktree is created.
 func resolveRealPath(absPath string) (string, error) {
-	path, err := filepath.EvalSymlinks(absPath)
-	if os.IsNotExist(err) { return filepath.Clean(absPath), nil }
-	return path, err
+	path := filepath.Clean(absPath)
+	var missing []string
+	for {
+		real, err := filepath.EvalSymlinks(path)
+		if err == nil {
+			for i := len(missing) - 1; i >= 0; i-- {
+				real = filepath.Join(real, missing[i])
+			}
+			return real, nil
+		}
+		if !os.IsNotExist(err) {
+			return "", err
+		}
+		// A dangling symlink is occupied, not a missing parent to create.
+		if _, statErr := os.Lstat(path); statErr == nil || !os.IsNotExist(statErr) {
+			return "", err
+		}
+		parent := filepath.Dir(path)
+		if parent == path {
+			return "", err
+		}
+		missing = append(missing, filepath.Base(path))
+		path = parent
+	}
 }
 
 // acquireIssueWorktreeLocks takes locks in canonical path order, avoiding a
@@ -128,6 +151,7 @@ func (d *Daemon) acquireIssueWorktreeLocks(ctx context.Context, task *Task, logg
 	}
 	return releaseAll, false
 }
+
 // LocalPathLocker serialises agent tasks that share the same on-disk path.
 // The lock is owned for the entire lifetime of a task (claim → context
 // write → agent execution → result report), not just the agent execution

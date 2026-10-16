@@ -225,14 +225,27 @@ func (h *Handler) claimWorklane(ctx context.Context, task *db.AgentTaskQueue, ru
 		return repos, h.failClaimedTaskBeforeLaunch(ctx, task, message, taskfailure.ReasonWorklaneElsewhere,
 			"error_worklane_elsewhere", http.StatusConflict, "worklane lives on another machine")
 	}
+	pullRequests, err := h.Queries.ListPullRequestsByIssue(ctx, issue.ID)
+	if err != nil {
+		return loadFailed("pull requests", err)
+	}
+	pullRequestBranch := ""
+	for _, pr := range pullRequests {
+		if pr.WorkspaceID == issue.WorkspaceID && pr.State == "open" && pr.Branch.Valid && pr.Branch.String != "" &&
+			strings.EqualFold(pr.RepoOwner+"/"+pr.RepoName, repo.FullName) {
+			pullRequestBranch = pr.Branch.String
+			break
+		}
+	}
 	block := &protocol.ClaimWorklane{
-		ID:            uuidToString(wl.ID),
-		Name:          wl.Name,
-		Path:          path,
-		DaemonID:      daemonID,
-		DaemonName:    worklaneMachineName,
-		Branch:        textToPtr(wl.Branch),
-		DefaultBranch: repo.DefaultBranch,
+		ID:                uuidToString(wl.ID),
+		Name:              wl.Name,
+		Path:              path,
+		DaemonID:          daemonID,
+		DaemonName:        worklaneMachineName,
+		Branch:            textToPtr(wl.Branch),
+		DefaultBranch:     repo.DefaultBranch,
+		PullRequestBranch: pullRequestBranch,
 	}
 	repoID := uuidToString(repo.ID)
 	for i := range repos {

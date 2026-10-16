@@ -556,14 +556,16 @@ type ClaimRepository struct {
 
 // ClaimWorklane is the issue's worklane in its repository. For main, the
 // path and daemon are the repository's checkout. Branch nil means detached.
+// PullRequestBranch is the repository's linked open PR branch, when present.
 type ClaimWorklane struct {
-	ID            string  `json:"id"`
-	Name          string  `json:"name"`
-	Path          string  `json:"path"`
-	DaemonID      string  `json:"daemon_id"`
-	DaemonName    string  `json:"daemon_name"`
-	Branch        *string `json:"branch"`
-	DefaultBranch string  `json:"default_branch"`
+	ID                string  `json:"id"`
+	Name              string  `json:"name"`
+	Path              string  `json:"path"`
+	DaemonID          string  `json:"daemon_id"`
+	DaemonName        string  `json:"daemon_name"`
+	Branch            *string `json:"branch"`
+	DefaultBranch     string  `json:"default_branch"`
+	PullRequestBranch string  `json:"pull_request_branch,omitempty"`
 }
 
 // RepositoryCheckoutFailure is one failed part of a checkout check: code is

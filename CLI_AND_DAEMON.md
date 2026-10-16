@@ -256,6 +256,16 @@ You need at least one installed. The daemon registers each detected CLI as an av
 4. Heartbeats are sent periodically (default: 15s) so the server knows the daemon is alive
 5. On shutdown, all runtimes are deregistered
 
+### Issue and pull-request worktrees
+
+An issue in a worklane runs in that lane's worktree on the lowercase issue-key branch; the `main` lane uses the repository's checkout. Issues without a worklane keep their persistent issue worktrees.
+
+For a linked open pull request in the lane's repository, the claim carries the PR's actual branch. Before taking a task path lock, the daemon selects its recorded or Git-registered `.pull-requests/{branch}` worktree. When none exists, it selects `~/Worktrees/{organisation key}/{repo}/.pull-requests/{branch}` (without the organisation segment when absent) and creates it under the PR path lock and repository Git lock. Existing local branch history is preserved; an origin-only branch is fetched explicitly and checked out with its pushed changes, not cut from the default branch.
+
+Later PR runs validate the repository and branch and reuse the tree, including review-fix commits and uncommitted files, without fetching, resetting or rebasing. The daemon records the PR tree's path and branch as the issue's worktree; it does not switch or report the lane's branch or create lane activity. An occupied path, wrong repository or branch, failed fetch, or a branch already checked out elsewhere fails environment preparation rather than falling back to the lane or forcing another checkout.
+
+The selected path is locked for the whole task, even when the PR directory does not exist yet. A builder in the lane and a verifier in its earlier issue's PR tree can run concurrently, with the lane's branch, commits and files untouched. Two runs targeting the same PR tree remain serialized: the second enters `waiting_local_directory` for the PR directory, not the lane. Symlink aliases of a missing or existing directory share the same lock.
+
 ### Configuration
 
 Daemon behavior is configured via flags or environment variables:

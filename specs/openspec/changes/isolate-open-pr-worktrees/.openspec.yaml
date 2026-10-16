@@ -1,9 +1,10 @@
 schema: intent-driven
 created: 2026-10-16
 build:
-  status: ready-for-dev
+  status: built
   type: bugfix
   ticket: WORK-1201
+  baseline_revision: 0edde11c57c149d8001697bdfac2ba9f72cfff33
   context:
     - '{project-root}/specs/docs/system-design.md'
     - '{project-root}/adr/0014-a-worklanes-issues-work-in-its-worktree-on-their-own-branch.md'

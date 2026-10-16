@@ -210,7 +210,7 @@ flowchart TB
   update["handleUpdate"]
   poll["daemon.go<br/>pollLoop"]
   task["daemon.go<br/>handleTask, runTask"]
-  worktrees["issue_worktree.go, worklane_task.go<br/>resolve lane or registered PR worktree,<br/>lock selected path, prepare branch"]
+  worktrees["issue_worktree.go, worklane_task.go<br/>resolve lane or PR destination before locking;<br/>execenv/pull_request_worktree.go creates/reuses PR history"]
   execenv["execenv<br/>Prepare, Reuse, InjectRuntimeConfig,<br/>While you run section with task-supplement-v1"]
   prompt["prompt.go<br/>BuildPrompt, buildQuestionAnswersBlock"]
   supp["task_supplement.go<br/>runTaskSupplementLoop,<br/>formatTaskSupplementInstruction: [Multica notice] with item id"]
@@ -241,10 +241,11 @@ flowchart TB
   actions --> update
   poll -->|"ClaimTasks"| client
   client -.->|"Task.QuestionAnswers on question_wake claim"| task
+  client -.->|"ClaimWorklane.pull_request_branch"| worktrees
   poll --> task
   task --> selection
   task --> worktrees --> execenv
-  worktrees -->|"lane branch reports only"| client
+  worktrees -->|"record PR worktree; branch reports only for lane runs"| client
   task --> prompt
   task --> repocache
   task --> skillcache

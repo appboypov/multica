@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/multica-ai/multica/server/internal/daemon/execenv"
 	"github.com/multica-ai/multica/server/internal/worklanehead"
@@ -19,25 +21,112 @@ type worklaneBranchHeldError struct{ message string }
 func (e *worklaneBranchHeldError) Error() string { return e.message }
 func (e *worklaneBranchHeldError) Unwrap() error { return errWorklaneBranchHeld }
 
-// worklaneTaskPath reuses the issue branch's registered pull-request worktree.
-// Resolving before locking keeps an earlier issue off the lane's active tree.
+// worklaneTaskPath resolves the PR destination before taking any task lock,
+// including when the linked PR's worktree has not been created yet.
 func worklaneTaskPath(ctx context.Context, task Task, repo protocol.ClaimRepository) (string, error) {
 	path, err := execenv.ExpandWorklanePath(repo.Worklane.Path)
 	if err != nil {
 		return "", err
 	}
-	wanted := worklanehead.Branch(task.IssueIdentifier)
+	wanted := worklaneTaskBranch(task, repo)
 	if wanted == "" {
 		return "", fmt.Errorf("worklane issue task has no issue identifier")
 	}
-	held, err := checkoutGit(ctx, path, "for-each-ref", "--format=%(worktreepath)", "--count=1", "refs/heads/"+wanted)
+	checkout, err := execenv.ExpandWorklanePath(worklaneTaskCheckout(repo))
 	if err != nil {
-		return "", fmt.Errorf("find the issue branch's worktree: %w", err)
+		return "", err
 	}
-	if held != "" && filepath.Base(held) == wanted && filepath.Base(filepath.Dir(held)) == ".pull-requests" {
-		return held, nil
+	if repo.Worklane.PullRequestBranch != "" {
+		branch, err := checkoutGit(ctx, checkout, "check-ref-format", "--branch", wanted)
+		if err != nil || branch != wanted {
+			return "", fmt.Errorf("invalid pull-request branch %q", wanted)
+		}
 	}
-	return path, nil
+	selected := ""
+	if repo.WorktreePath != "" {
+		recorded, err := execenv.ExpandWorklanePath(repo.WorktreePath)
+		if err != nil {
+			return "", err
+		}
+		if isPullRequestTaskPath(recorded, wanted) {
+			selected = recorded
+		}
+	}
+	if selected == "" {
+		held, err := checkoutGit(ctx, checkout, "for-each-ref", "--format=%(refname)\t%(worktreepath)", "refs/heads/"+wanted)
+		if err != nil {
+			return "", fmt.Errorf("find the PR branch's worktree: %w", err)
+		}
+		for held != "" {
+			var ref string
+			ref, held, _ = strings.Cut(held, "\n")
+			name, tree, _ := strings.Cut(ref, "\t")
+			if name == "refs/heads/"+wanted && isPullRequestTaskPath(tree, wanted) {
+				selected = tree
+				break
+			}
+		}
+	}
+	if selected == "" && repo.Worklane.PullRequestBranch != "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", err
+		}
+		_, name, ok := strings.Cut(repo.FullName, "/")
+		if !ok || name == "" || name == "." || name == ".." || filepath.Base(name) != name {
+			return "", fmt.Errorf("invalid repository %q", repo.FullName)
+		}
+		org := task.OrganisationKey
+		if org == "." || org == ".." || filepath.Base(org) != org && org != "" {
+			return "", fmt.Errorf("invalid organisation key %q", org)
+		}
+		root, err := resolveRealPath(filepath.Join(home, "Worktrees", org, name, ".pull-requests"))
+		if err != nil {
+			return "", err
+		}
+		selected, err = resolveRealPath(filepath.Join(root, filepath.FromSlash(wanted)))
+		if err != nil {
+			return "", err
+		}
+		relative, err := filepath.Rel(root, selected)
+		if err != nil || relative == "." || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
+			return "", fmt.Errorf("pull-request branch %q escapes its worktree root", wanted)
+		}
+	}
+	if selected == "" {
+		return path, nil
+	}
+	selected, err = resolveRealPath(selected)
+	if err != nil {
+		return "", err
+	}
+	lanePath, err := resolveRealPath(path)
+	if err != nil {
+		return "", err
+	}
+	if selected == lanePath {
+		return "", fmt.Errorf("pull-request worktree %s is the active worklane", selected)
+	}
+	return selected, nil
+}
+
+func worklaneTaskBranch(task Task, repo protocol.ClaimRepository) string {
+	if repo.Worklane.PullRequestBranch != "" {
+		return repo.Worklane.PullRequestBranch
+	}
+	return worklanehead.Branch(task.IssueIdentifier)
+}
+
+func worklaneTaskCheckout(repo protocol.ClaimRepository) string {
+	if repo.CheckoutPath != "" && repo.CheckoutDaemonID == repo.Worklane.DaemonID {
+		return repo.CheckoutPath
+	}
+	return repo.Worklane.Path
+}
+
+func isPullRequestTaskPath(path, branch string) bool {
+	suffix := filepath.Join(".pull-requests", filepath.FromSlash(branch))
+	return path != "" && strings.HasSuffix(filepath.Clean(path), string(filepath.Separator)+suffix)
 }
 
 // prepareWorklaneTask runs with the selected worktree's path lock held.
@@ -47,11 +136,7 @@ func (d *Daemon) prepareWorklaneTask(ctx context.Context, task *Task, repo *prot
 	if err != nil {
 		return err
 	}
-	branch, err := execenv.WorklaneBranch(path)
-	if err != nil {
-		return err
-	}
-	wanted := worklanehead.Branch(task.IssueIdentifier)
+	wanted := worklaneTaskBranch(*task, *repo)
 	if wanted == "" {
 		return fmt.Errorf("worklane issue task has no issue identifier")
 	}
@@ -59,12 +144,21 @@ func (d *Daemon) prepareWorklaneTask(ctx context.Context, task *Task, repo *prot
 	if err != nil {
 		return err
 	}
-	if path != lanePath {
-		if branch != wanted {
-			return fmt.Errorf("pull-request worktree %s holds %s, want %s", path, branch, wanted)
+	if repo.Worklane.PullRequestBranch != "" || path != lanePath {
+		path, err = execenv.PreparePullRequestWorktree(ctx, worklaneTaskCheckout(*repo), path, wanted, logger)
+		if err != nil {
+			return err
 		}
+		if err := d.client.RecordIssueWorktree(ctx, task.ID, repo.ID, path, wanted); err != nil {
+			return fmt.Errorf("record the pull-request worktree: %w", err)
+		}
+		repo.WorktreePath = path
 		logger.Debug("using pull-request worktree", "path", path, "branch", wanted, "worklane", lane.Name)
 		return nil
+	}
+	branch, err := execenv.WorklaneBranch(path)
+	if err != nil {
+		return err
 	}
 	if branch != wanted {
 		if err := execenv.CanLeave(path); err != nil {
