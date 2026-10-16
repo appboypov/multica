@@ -28,7 +28,7 @@ Removing or changing a release's owner MUST NOT cancel a coordination run that a
 - **AND** when WORK-501 in v1.1.0 is done afterwards, no run of Pieter is queued
 
 ### Requirement: A coordination run receives the release and its issues
-A coordination run's input SHALL hold the release's repository, version, title and description, and every issue in the release in its order on the release with its key, title, status, assignee, parent, worklane and linked pull requests, and the reason the run started: the owner change, the issue that ended, or the wait that fired.
+A coordination run's input SHALL hold the release's repository, version, title and description, and every issue in the release in its order on the release with its key, title, status, assignee, parent, worklane and linked pull requests, and the reason the run started: the owner change, the issue that ended, the wait that fired, or the comment on the release page that woke it.
 
 #### Scenario: First run after assignment
 - **GIVEN** v1.1.0 Account and profile on appboypov/rebl holds WORK-501 Sign-in (in progress, Joeri, worklane Fan accounts and push) and then WORK-502 Profile page (backlog, Anouk, worklane Fan accounts and push)
@@ -44,6 +44,36 @@ A coordination run's input SHALL state that the release's issues, their order, t
 - **WHEN** Pieter's coordination run on v1.1.0 Account and profile starts
 - **THEN** its input says the issues of v1.1.0, their order, assignees, parents and worklanes, and v1.1.0's version and place stay as Brian set them
 - **AND** says v1.1.0 goes through the release workflow with Brian's gates and ships only through `release ship`
+
+### Requirement: A member's comment on the release page wakes its owner
+A comment or reply by a member on the page of a release with an owner SHALL queue a coordination run of the owner, a squad's leader for a squad, whose input holds that comment; when the owner already has a queued coordination run on the release, the comment SHALL ride along in that run instead of queueing another. A comment on a release without an owner MUST NOT queue a run.
+
+#### Scenario: Brian comments
+- **GIVEN** Pieter owns v1.1.0 Account and profile and has no queued run on it
+- **WHEN** Brian comments "Start WORK-502 once WORK-501's pull request is open." on v1.1.0's page
+- **THEN** a coordination run of Pieter on v1.1.0 is queued whose input holds that comment
+
+#### Scenario: Two comments before the run starts
+- **GIVEN** Pieter owns v1.1.0 Account and profile and Brian's first comment queued Pieter's run
+- **WHEN** Brian comments again before that run starts
+- **THEN** Pieter still has one queued coordination run on v1.1.0
+
+#### Scenario: No owner
+- **WHEN** Brian comments on the page of v1.0.1 Membership hardening, which has no owner
+- **THEN** the comment shows and no run is queued
+
+### Requirement: A coordination run reports on the release page
+A coordination run SHALL post its result as a comment on its release's page, and the owner SHALL be able to read and add comments on its release with `multica release comment list` and `multica release comment add`, replies included.
+
+#### Scenario: Pieter reports
+- **GIVEN** Pieter's coordination run on v1.1.0 Account and profile moved WORK-502 out of backlog
+- **WHEN** the run ends
+- **THEN** v1.1.0's page shows Pieter's comment with the run's result
+
+#### Scenario: Reply to Brian
+- **GIVEN** Brian's comment on v1.1.0's page woke Pieter
+- **WHEN** Pieter's run replies with `multica release comment add` to that comment
+- **THEN** v1.1.0's page shows Pieter's reply under Brian's comment
 
 ### Requirement: The owner wakes when an issue of its release ends
 When an issue in a release with an owner becomes done or cancelled, the platform SHALL queue a coordination run of the owner, a squad's leader for a squad, whose input names that issue, how it ended, and the issues still open in order; when the last open issue becomes done and every issue is done, the run's input SHALL say every issue of the release is done.
