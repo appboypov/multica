@@ -44,6 +44,7 @@ vi.mock("@tanstack/react-query", () => ({
 
 vi.mock("@multica/core/projects/queries", () => ({
   projectDetailOptions: () => ({ queryKey: ["project-detail"] }),
+  projectListOptions: () => ({ queryKey: ["projects"] }),
 }));
 
 vi.mock("@multica/core/projects/mutations", () => ({

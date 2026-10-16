@@ -331,6 +331,8 @@ const mockApiObj = vi.hoisted(() => ({
   getActiveTasksForIssue: vi.fn().mockResolvedValue({ tasks: [] }),
   listTasksByIssue: vi.fn().mockResolvedValue([]),
   listIssueQuestions: vi.fn().mockResolvedValue([]),
+  getOpenQuestionCount: vi.fn().mockResolvedValue({ count: 0, blocking_count: 0 }),
+  listQuestionRows: vi.fn().mockResolvedValue({ rows: [] }),
   rerunIssue: vi.fn(),
   listTaskMessages: vi.fn().mockResolvedValue([]),
   listChildIssues: vi.fn().mockResolvedValue({ issues: [] }),
@@ -739,6 +741,8 @@ describe("IssueDetail (shared)", () => {
     mockApiObj.getActiveTasksForIssue.mockResolvedValue({ tasks: [] });
     mockApiObj.listTasksByIssue.mockResolvedValue([]);
     mockApiObj.listIssueQuestions.mockResolvedValue([]);
+    mockApiObj.getOpenQuestionCount.mockResolvedValue({ count: 0, blocking_count: 0 });
+    mockApiObj.listQuestionRows.mockResolvedValue({ rows: [] });
     mockApiObj.listTaskMessages.mockResolvedValue([]);
     mockApiObj.rerunIssue.mockResolvedValue({ id: "task-rerun" });
     mockApiObj.listMembers.mockResolvedValue([
@@ -1159,6 +1163,7 @@ describe("IssueDetail (shared)", () => {
 
     it("reads the open count in the Questions row and jumps to the open card", async () => {
       mockApiObj.listIssueQuestions.mockResolvedValue([question]);
+      mockApiObj.getOpenQuestionCount.mockResolvedValue({ count: 1, blocking_count: 1 });
       renderIssueDetail();
 
       const row = await screen.findByRole("button", { name: /1 open/ });
@@ -1168,23 +1173,12 @@ describe("IssueDetail (shared)", () => {
       expect(document.getElementById("comment-question-q-1")!.firstElementChild).toHaveClass("ring-2");
     });
 
-    it("reads None open, with no jump, once no question is open", async () => {
-      mockApiObj.listIssueQuestions.mockResolvedValue([{ ...question, status: "answered" }]);
-      renderIssueDetail();
-
-      const value = await screen.findByText("None open");
-      expect(screen.getByText("Questions")).toBeInTheDocument();
-      expect(value.closest("button")).toBeNull();
-      expect(screen.queryByRole("button", { name: /open/ })).not.toBeInTheDocument();
-    });
-
     it("keeps no Questions row on an issue without questions", async () => {
       renderIssueDetail();
 
       await screen.findByText("Properties");
-      await waitFor(() => expect(mockApiObj.listIssueQuestions).toHaveBeenCalled());
+      await waitFor(() => expect(mockApiObj.getOpenQuestionCount).toHaveBeenCalled());
       expect(screen.queryByText("Questions")).not.toBeInTheDocument();
-      expect(screen.queryByText("None open")).not.toBeInTheDocument();
     });
   });
 

@@ -3,6 +3,7 @@ import { render } from "@testing-library/react";
 import { configureShortcutPlatform } from "@multica/core/shortcuts";
 import { openCreateIssueWithPreference } from "@multica/core/issues/stores";
 import { useRef } from "react";
+import type * as CorePaths from "@multica/core/paths";
 import { useChatInputFocus } from "../chat/components/use-chat-input-focus";
 import { GlobalShortcuts } from "./global-shortcuts";
 
@@ -28,22 +29,10 @@ vi.mock("@multica/core/issues/stores", () => ({
 vi.mock("@multica/core/modals", () => ({
   useModalStore: { getState: () => ({ modal: null }) },
 }));
-vi.mock("@multica/core/paths", () => ({
-  useWorkspacePaths: () => ({
-    inbox: () => "/acme/inbox",
-    chat: () => "/acme/chat",
-    myIssues: () => "/acme/my-issues",
-    issues: () => "/acme/issues",
-    projects: () => "/acme/projects",
-    autopilots: () => "/acme/autopilots",
-    agents: () => "/acme/agents",
-    squads: () => "/acme/squads",
-    usage: () => "/acme/usage",
-    runtimes: () => "/acme/runtimes",
-    skills: () => "/acme/skills",
-    settings: () => "/acme/settings",
-  }),
-}));
+vi.mock("@multica/core/paths", async (importOriginal) => {
+  const actual = await importOriginal<typeof CorePaths>();
+  return { useWorkspacePaths: () => actual.paths.workspace("acme") };
+});
 vi.mock("@multica/ui/components/ui/sidebar", () => ({
   useSidebar: () => ({ toggleSidebar: h.toggleSidebar }),
 }));
