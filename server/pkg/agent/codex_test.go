@@ -4033,9 +4033,11 @@ func TestCodexExecuteLegacyFirstTurnMessageSatisfiesProgress(t *testing.T) {
 		`read line`+"\n"+
 		`echo '{"jsonrpc":"2.0","id":3,"result":{}}'`+"\n"+
 		`echo '{"jsonrpc":"2.0","method":"codex/event","params":{"msg":{"type":"task_started"}}}'`+"\n"+
-		`sleep 0.05`+"\n"+
+		// Keep progress flowing longer than both watchdogs, without relying
+		// on a single shell sleep waking inside the first-progress window.
+		`i=0; while [ "$i" -lt 20 ]; do`+"\n"+
 		`echo '{"jsonrpc":"2.0","method":"codex/event","params":{"msg":{"type":"agent_message","message":"legacy alive"}}}'`+"\n"+
-		`sleep 0.07`+"\n"+
+		`sleep 0.005; i=$((i + 1)); done`+"\n"+
 		`echo '{"jsonrpc":"2.0","method":"codex/event","params":{"msg":{"type":"task_complete"}}}'`+"\n")
 
 	result := executeFakeCodex(t, fakePath, ExecOptions{
@@ -4065,11 +4067,12 @@ func TestCodexExecuteSemanticInactivityAllowsContinuousMessages(t *testing.T) {
 		`read line`+"\n"+
 		`echo '{"jsonrpc":"2.0","id":3,"result":{}}'`+"\n"+
 		`echo '{"jsonrpc":"2.0","method":"turn/started","params":{"threadId":"thr-progress","turn":{"id":"turn-progress"}}}'`+"\n"+
-		`sleep 0.05`+"\n"+
 		`echo '{"jsonrpc":"2.0","method":"item/completed","params":{"threadId":"thr-progress","item":{"type":"agentMessage","id":"msg-1","text":"still working"}}}'`+"\n"+
-		`sleep 0.05`+"\n"+
-		`echo '{"jsonrpc":"2.0","method":"item/completed","params":{"threadId":"thr-progress","item":{"type":"commandExecution","id":"cmd-1","aggregatedOutput":"ok"}}}'`+"\n"+
-		`sleep 0.05`+"\n"+
+		// Emit work throughout a turn longer than both watchdogs. Short gaps
+		// leave room for subprocess scheduling under the race detector.
+		`i=0; while [ "$i" -lt 30 ]; do`+"\n"+
+		`printf '{"jsonrpc":"2.0","method":"item/completed","params":{"threadId":"thr-progress","item":{"type":"commandExecution","id":"cmd-%s","aggregatedOutput":"ok"}}}\n' "$i"`+"\n"+
+		`sleep 0.005; i=$((i + 1)); done`+"\n"+
 		`echo '{"jsonrpc":"2.0","method":"turn/completed","params":{"threadId":"thr-progress","turn":{"id":"turn-progress","status":"completed"}}}'`+"\n")
 
 	result := executeFakeCodex(t, fakePath, ExecOptions{

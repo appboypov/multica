@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -55,7 +56,26 @@ func TestMain(m *testing.M) {
 		// -race the runtime sleeps atexit_sleep_ms (1s by default) before every
 		// exit, which each of those fake CLIs would otherwise add to its test.
 		os.Setenv("GORACE", strings.TrimSpace(os.Getenv("GORACE")+" atexit_sleep_ms=0"))
-		os.Exit(m.Run())
+		// Synthetic Codex threads have no rollout in the user's home. Keep
+		// their usage fallback inside an empty, package-owned session root.
+		codexHome, err := os.MkdirTemp("", "multica-codex-tests-")
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		if err := os.Mkdir(filepath.Join(codexHome, "sessions"), 0o755); err != nil {
+			os.RemoveAll(codexHome)
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		if err := os.Setenv("CODEX_HOME", codexHome); err != nil {
+			os.RemoveAll(codexHome)
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		code := m.Run()
+		os.RemoveAll(codexHome)
+		os.Exit(code)
 	case "usage_fixture":
 		runFakeClaudeUsageFixture()
 		os.Exit(0)
