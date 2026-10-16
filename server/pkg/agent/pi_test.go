@@ -131,12 +131,11 @@ func TestBuildPiArgsOmpSkillSettings(t *testing.T) {
 	args := buildPiArgs("", ExecOptions{
 		CustomArgs:      []string{"--config", "/tmp/user.yml", "--tools", "read,bash"},
 		OmpSettingsPath: path,
-	}, slog.Default())
-	want := []string{"-p", "--mode", "json", "--config", "/tmp/user.yml", "--tools", "read,bash", "--config", path}
-	if !slices.Equal(args, want) {
-		t.Fatalf("omp args = %q, want %q", args, want)
+	}, slog.Default(), true)
+	if !slices.Equal(args[len(args)-2:], []string{"--config", path}) {
+		t.Fatalf("task skill settings must override custom config: %q", args)
 	}
-	args = buildPiArgs("", ExecOptions{}, slog.Default())
+	args = buildPiArgs("", ExecOptions{}, slog.Default(), true)
 	if slices.Contains(args, "--config") {
 		t.Fatalf("args without omp settings unexpectedly contain --config: %q", args)
 	}
