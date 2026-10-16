@@ -10,13 +10,13 @@ flowchart LR
   end
   sessions -->|"resolveAgent, GET /api/agents/{id}/sessions"| server["Server"]
   register -->|"resolveAgent"| server
-  register -->|"POST 127.0.0.1:&lt;health port&gt;/sessions"| daemon["Daemon"]
+  register -->|"POST 127.0.0.1:{health port}/sessions"| daemon["Daemon"]
   subgraph sync["madspec-sync/multica_sync.py"]
     profiles["ensure profile per persona"]:::new
     move["move agent onto its profile runtime"]:::changed
   end
   profiles -->|"POST /api/workspaces/{ws}/runtime-profiles"| server
-  profiles -->|"multica --profile &lt;daemon profile&gt; runtime profile set-path"| cfg["Daemon's CLI config"]
+  profiles -->|"multica --profile {daemon profile} runtime profile set-path"| cfg["Daemon's CLI config"]
   move -->|"PUT /api/agents/{id}"| server
 ```
 
