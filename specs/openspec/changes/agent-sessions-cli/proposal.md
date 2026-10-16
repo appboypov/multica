@@ -31,7 +31,7 @@ Success signal: `multica agent sessions mitchel` lists every running Mitchel ses
 
 - `multica agent sessions <agent>` lists an agent's active sessions, as a table or JSON.
 - `multica agent register-session <agent> --pid --cwd [--pane]` registers a session started by hand with the local daemon.
-- `madspec-sync` gives every agent with an office, Tika excluded, its own runtime profile whose command is the agent's alias, and moves the agent onto it. A run then starts the agent the way its alias does by hand. Paul gets his profile now; his agent, which WORK-1058 brings, goes onto it once it exists.
+- `madspec-sync` gives every agent with an office, Tika excluded, its own runtime profile whose command is the agent's alias, and moves the agent onto it. A run then starts the agent the way its alias does by hand. The shared office roster resolves Paul's approved MadSpec persona so the sync creates his active agent on that profile.
 
 ## Capabilities
 

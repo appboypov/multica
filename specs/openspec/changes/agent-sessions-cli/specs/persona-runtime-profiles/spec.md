@@ -16,17 +16,14 @@ The persona sync SHALL give Skuddy, Mitchel, Pieter, Pit, Edwin, Anouk, Joeri, T
 - **WHEN** the sync runs
 - **THEN** the profile `guus` exists again and Guus runs on it
 
-#### Scenario: Paul before his agent exists
+#### Scenario: Paul's approved persona is in MadSpec
 
-- **GIVEN** Multica has no agent Paul
-- **WHEN** the sync runs
+- **GIVEN** Multica has no agent Paul, his git-backed office has no persona skill, and MadSpec holds the approved `as-ai-engineer` skill whose agent name is Paul
+- **WHEN** the full sync runs with the profile runtime registered
 - **THEN** a runtime profile with command `paul` and runtime type omp exists
-
-#### Scenario: Paul's agent arrives
-
-- **GIVEN** the profile `paul` exists and Multica now has the agent Paul
-- **WHEN** the sync runs
-- **THEN** the agent Paul runs on the profile `paul`
+- **AND** an active agent Paul runs on it, seeded from the approved persona model and thinking level
+- **AND** the alias loads that same approved persona through the shared office roster
+- **AND** later syncs preserve model and thinking edits made in Multica and leave Roos archived
 
 #### Scenario: The helper agents
 

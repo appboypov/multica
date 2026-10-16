@@ -55,6 +55,8 @@ Resolves the agent, then posts `{workspace_id, agent_id, pid, cwd, herdr_pane_id
 
 `madspec-sync` takes the personas from `roster.py --personas` and works on those that are not a member, Paul included:
 
+The shared MadSpec roster matches each office command to the agent name in its office skills first, then MadSpec's skills. This resolves the approved `as-ai-engineer` persona for both sync and alias launch without an office copy or a Paul-specific path.
+
 - **Profile.** `GET /api/workspaces/{ws}/runtime-profiles`; when no profile has `command_name` the alias, `POST` one with `display_name` the persona's name, `runtime_type` `omp`, `command_name` the alias. Then it pins the path: `multica --profile <p> runtime profile set-path <profile id> --path ~/.local/bin/<alias>`, with `<p>` the running daemon's profile from `multica daemon status --output json`, only when the CLI config does not already hold that path. Outside a task, status probes only the requested profile: discover the daemon among the default and existing local profiles, selecting the one for this sync's server and workspace. No matching daemon, or several matches, fails before writes. So the daemon never depends on its own `PATH`.
 - **Runtime.** The agent, when it exists, goes to the local `agent_runtime` whose `profile_id` is that profile. When the daemon has not registered it yet, the sync reports that persona as failed ("start the daemon, then run the sync again") and goes on.
 - **Fields.** `instruction_selection` becomes `[]` and `instructions` empty: the alias loads the office `AGENTS.md` and the persona skill, so a selection would load it twice. `custom_args` keeps only the fallback overlay `--config=<file>`; `--skills=` goes, since the alias passes it. New agents take their initial model and thinking level from the current office configuration returned by `roster.py --personas`. Existing agents keep their model and thinking level, including later edits in Multica; updates omit those fields. The daemon's `--model` comes after the alias's own, so it wins.
@@ -64,13 +66,13 @@ Resolves the agent, then posts `{workspace_id, agent_id, pid, cwd, herdr_pane_id
 ## Risks / Trade-offs
 
 - The sync now depends on the running daemon: on its profile for the path and on its registration for the runtime. It fails a persona with a clear message rather than leaving the agent on the shared runtime.
-- A session of a persona whose agent does not exist yet (Paul before WORK-1058) has nothing to register against: `register-session` fails and the persona command ignores it.
+- A session of a persona whose agent does not exist yet has nothing to register against: `register-session` fails and the persona command ignores it.
 
 ## Migration Plan
 
 1. Merge `agent-active-sessions` and this change; release the CLI.
-2. Merge `persona-offices` in MadSpec and run `make symlinks`, so every alias exists in `~/.local/bin`.
-3. Run the sync: 12 profiles, 11 agents moved; Paul's agent follows once it exists.
+2. Merge `persona-offices` and the shared office/persona discovery fix in MadSpec and run `make symlinks`, so every alias exists in `~/.local/bin`.
+3. Run the full sync: create Paul's active agent from the approved persona and move the existing persona agents onto their profiles; leave Roos archived.
 
 Rollback: the sync of the commit before puts the agents back on the shared omp runtime with their selections; the profiles stay unused.
 

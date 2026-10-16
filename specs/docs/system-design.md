@@ -363,6 +363,29 @@ flowchart LR
 
 Owner changes cancel unstarted runs; started runs keep their result surface. Claim and start recheck the release's owner, current squad leader, existence and shipment under the repository boundary. Dispatched inputs stay immutable; later facts remain pending for a follow-up. Shipping uses the existing explicit endpoint and removes waits without cancelling its running publisher.
 
+### Agent CLI and persona sync
+
+```mermaid
+flowchart LR
+  sessions["cmd/multica/cmd_agent_sessions.go<br/>agent sessions, agent register-session"]
+  local["internal/daemon/health.go<br/>POST /sessions"]
+  api["Go server<br/>agent sessions, agents, runtime profiles, runtimes"]
+  sync["madspec-sync/multica_sync.py<br/>Sync, Machine"]
+  roster["MadSpec roster.personas<br/>persona offices and shared skills"]
+  config["Local CLI config<br/>profile_command_overrides"]
+  daemon["Daemon<br/>profile runtimes"]
+  alias["Persona alias<br/>office AGENTS.md and persona skill"]
+  projects["madspec-sync/multica_projects.py<br/>built-in omp checkout runtime"]
+
+  sessions -->|"list"| api
+  sessions -->|"register"| local
+  roster --> sync
+  sync -->|"profiles and agents"| api
+  sync -->|"runtime profile set-path"| config
+  config --> daemon
+  daemon -->|"launch"| alias
+  projects -->|"checkout checks"| api
+```
 ### Web and desktop
 
 ```mermaid
