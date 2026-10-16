@@ -1,12 +1,12 @@
 # worklane-agent-worktree Specification
 
 ## Purpose
-Lets an agent work a worklane's issue in that worklane's worktree on the issue's branch, one at a time.
+Lets an agent work a worklane's active issue in its worktree and an open pull request in its registered worktree, on the issue's branch.
 
 ## Requirements
 
 ### Requirement: An agent works a worklane's issue in that worklane's worktree on the issue's branch
-An agent's task on an issue of a worklane SHALL run in that worklane's worktree on the issue's branch, cut from `origin/{default branch}` when it does not exist yet; a task on an issue of `main` SHALL run in the repository's checkout on the issue's branch. Every task on the same issue SHALL work on the same branch.
+An agent's task on an issue of a worklane SHALL run in that worklane's worktree on the issue's branch, cut from `origin/{default branch}` when it does not exist yet; a task on an issue of `main` SHALL run in the repository's checkout on the issue's branch. When Git registers that branch in its `.pull-requests/{branch}` worktree, builder and verifier tasks SHALL run there and leave the lane's active branch and activity unchanged. Every task on the same issue SHALL work on the same branch.
 
 #### Scenario: REBL-21 in Fan accounts and push
 - **GIVEN** Fan accounts and push has its worktree `~/Worktrees/rebl/rebl/fan-accounts-and-push` on Brian's Mac and is Free
@@ -24,8 +24,14 @@ An agent's task on an issue of a worklane SHALL run in that worklane's worktree 
 - **WHEN** Brian comments on REBL-21 and the agent takes a new task on it
 - **THEN** it works in `~/Worktrees/rebl/rebl/fan-accounts-and-push` on REBL-21's branch with that commit
 
+#### Scenario: An earlier issue has an open pull request
+- **GIVEN** REBL-21's branch is checked out in `.pull-requests/rebl-21` and the lane holds REBL-24's branch with uncommitted and unpushed work
+- **WHEN** a builder or verifier takes a task on REBL-21
+- **THEN** the task starts in `.pull-requests/rebl-21` on REBL-21's branch
+- **AND** the lane keeps REBL-24's branch, commits, files and activity
+
 ### Requirement: A worklane runs one task at a time
-A worklane SHALL run one agent task at a time in its worktree; a task on one of its issues SHALL start once no other task runs there.
+A worklane SHALL run one agent task at a time in its worktree; a task using that worktree SHALL start once no other task runs there. A task using a registered pull-request worktree SHALL hold that worktree's path lock instead, so the lane's active issue can run independently.
 
 #### Scenario: Two tasks on Fan accounts and push
 - **GIVEN** an agent's task on REBL-21 runs in `~/Worktrees/rebl/rebl/fan-accounts-and-push`

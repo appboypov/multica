@@ -5794,7 +5794,7 @@ func (d *Daemon) handleTask(ctx context.Context, task Task, slot int) {
 	// fires only after execenv.Prepare/Reuse has put env.WorkDir on disk,
 	// so consumers that read status==running can resolve the workdir path
 	// without racing the daemon's os.MkdirAll.
-	localRelease, abort := d.acquireIssueWorktreeLocks(ctx, task, taskLog)
+	localRelease, abort := d.acquireIssueWorktreeLocks(ctx, &task, taskLog)
 	if abort {
 		return
 	}

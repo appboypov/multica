@@ -10,8 +10,8 @@ UJ-2 gives an issue a worktree per repository at `~/Worktrees/{organisation key}
 
 ## Decision
 
-- An agent's task on an issue in a worklane runs in that worklane's worktree, or in the repository's checkout for `main`, on the issue's branch: the issue key in lowercase, cut from the fetched `origin/{default_branch}` when it does not exist. Such an issue gets no issue worktree. Issues without a worklane keep UJ-2's issue worktree.
-- A worklane runs one task at a time: the daemon's path lock on the worktree serialises its tasks.
+- An agent's task on an issue in a worklane runs in that worklane's worktree, or in the repository's checkout for `main`, on the issue's branch: the issue key in lowercase, cut from the fetched `origin/{default_branch}` when it does not exist. When that branch is checked out in its registered `.pull-requests/{branch}` worktree, the task runs there instead, leaving the lane's branch and activity unchanged. Such an issue gets no issue worktree. Issues without a worklane keep UJ-2's issue worktree.
+- The daemon resolves the task's worktree before taking its path lock and holds that lock for the task. Runs in the pull request's worktree and in the lane's worktree can proceed independently.
 - A task whose agent's runtime is on another machine than the worklane's fails at claim with `worklane_elsewhere`, naming both machines.
 - The worktree changes branch only when it holds nothing uncommitted and no commit missing from its remote. Otherwise a task fails with `worklane_branch_held`, and a switch after a merge keeps the branch and says why in the worklane's activity.
 - When the pull request on the worklane's branch merges into the default branch, the server asks the daemon to switch the worktree to the worklane's next issue's branch, or to detach it at `origin/{default_branch}` when none is left.
@@ -22,7 +22,7 @@ UJ-2 gives an issue a worktree per repository at `~/Worktrees/{organisation key}
 
 ## Consequences
 
-- One worktree per worklane holds all its work, so an agent never works a worklane's issue elsewhere.
+- The lane's worktree holds its active issue; an open pull request can be worked independently in its pull-request worktree.
 - Busy reflects what the worktree actually holds: an issue moved to In Progress without a task leaves the worklane Free.
 - A switch request lost with a machine or a server restart costs nothing: the next task switches anyway.
 - An issue moved between worklanes while its branch is checked out in the first one fails its next task with git's message until the first worklane leaves the branch.

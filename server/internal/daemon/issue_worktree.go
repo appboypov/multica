@@ -86,16 +86,20 @@ func resolveRealPath(absPath string) (string, error) {
 
 // acquireIssueWorktreeLocks takes locks in canonical path order, avoiding a
 // deadlock when two issue tasks share more than one repository.
-func (d *Daemon) acquireIssueWorktreeLocks(ctx context.Context, task Task, logger *slog.Logger) (func(), bool) {
+func (d *Daemon) acquireIssueWorktreeLocks(ctx context.Context, task *Task, logger *slog.Logger) (func(), bool) {
 	var paths []string
 	if task.IssueID != "" {
-		for _, repo := range task.Repositories {
+		for i := range task.Repositories {
+			repo := &task.Repositories[i]
 			recorded := repo.WorktreePath
 			if repo.Worklane != nil {
 				if repo.Worklane.DaemonID != d.cfg.DaemonID { continue }
-				recorded = repo.Worklane.Path
+				var err error
+				recorded, err = worklaneTaskPath(ctx, *task, *repo)
+				if err != nil { d.reportTerminalTask(ctx, terminalTaskReport{kind: terminalTaskReportFail, taskID: task.ID, errorMessage: err.Error(), failureReason: "environment_prepare_failed"}); return nil, true }
+				repo.WorktreePath = recorded
 			} else if repo.CheckoutDaemonID != d.cfg.DaemonID { continue }
-			path, err := issueWorktreePath(task, repo.FullName, recorded, repo.WorklanePaths)
+			path, err := issueWorktreePath(*task, repo.FullName, recorded, repo.WorklanePaths)
 			if err != nil { d.reportTerminalTask(ctx, terminalTaskReport{kind: terminalTaskReportFail, taskID: task.ID, errorMessage: err.Error(), failureReason: "environment_prepare_failed"}); return nil, true }
 			path, err = resolveRealPath(path)
 			if err != nil { d.reportTerminalTask(ctx, terminalTaskReport{kind: terminalTaskReportFail, taskID: task.ID, errorMessage: err.Error(), failureReason: "environment_prepare_failed"}); return nil, true }
