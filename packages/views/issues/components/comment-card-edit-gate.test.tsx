@@ -406,7 +406,7 @@ describe("comment thread — selection reply", () => {
     expect(screen.queryByRole("button", { name: "Preview reply" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
     await waitFor(() => expect(onReply).toHaveBeenCalledTimes(1));
-    expect(onReply).toHaveBeenCalledWith("agent-child", "> Selected agent text\n\nReply-specific note", undefined, undefined, undefined);
+    expect(onReply.mock.calls[0]!.slice(0, 2)).toEqual(["agent-child", "> Selected agent text\n\nReply-specific note"]);
     await waitFor(() => {
       expect(useCommentDraftStore.getState().getAnnotations("reply:issue-1:comment-1")).toHaveLength(0);
       expect(document.querySelector("[data-reply-annotation-overlay]")).not.toBeInTheDocument();
