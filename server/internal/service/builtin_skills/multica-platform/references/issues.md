@@ -212,11 +212,9 @@ replacement, preserve the lifecycle meaning (`done` to `done`, `closed` to
 Archival does not move issues automatically. Historical issues on previously
 archived statuses remain readable via an explicit status filter.
 
-- **`backlog`** parks assignments: the assignee is set but no run starts.
-- Leaving **`backlog` or `blocked`** starts the assigned agent's run, or the squad
-  leader's run. The target must differ from the current status and be neither
-  `backlog` nor a status in the `done` or `closed` category. Assignment to
-  `blocked` can still start a run.
+- **`backlog`** parks assignments; assignment to **`blocked`** can start a run.
+- Leaving **`backlog` or `blocked`** starts the assigned agent's run (the leader for squads).
+  The target must differ from the current status and be neither `backlog` nor in the `done` or `closed` category.
 - **`in_progress` / `in_review` / `done`** are agent-managed CLI mutations, not automatic
   side effects of a task starting or finishing. The runtime brief asks agents to
   write the state the issue is in whenever their work changes it — not from
