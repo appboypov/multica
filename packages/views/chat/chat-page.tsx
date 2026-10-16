@@ -98,21 +98,27 @@ export function ChatPage() {
   }, [c.activeSessionId]);
 
   // Two-way sync between the URL (`?session=`) and the chat store's
-  // activeSessionId. Both effects read the LIVE store value via
+  // activeSessionId. The store → URL effect reads the LIVE store value via
   // `useChatStore.getState()` rather than the render-captured `c.activeSessionId`.
-  // That is what keeps them from fighting on mount: a naive mirror effect fires
-  // with the stale (null) snapshot and "corrects" the URL by stripping the
+  // That is what keeps the effects from fighting on mount: a naive mirror effect
+  // fires with the stale (null) snapshot and "corrects" the URL by stripping the
   // session before the URL→store effect has applied — breaking deep links and
   // making selection / new-chat feel unresponsive. Reading getState() sees the
   // value the sibling effect just wrote, so the reconciliation converges in one
   // pass and is idempotent under StrictMode's double-invoke.
 
   // URL → store: deep link, refresh, notification click, back/forward.
+  // Always apply the URL session, even when the in-memory value already
+  // matches: until the workspace rehydration that setCurrentWorkspace defers to
+  // a microtask has run, the store still holds state read before a workspace
+  // was known, so "already equal" does not mean "persisted for this workspace".
+  // Skipping the write let that rehydration replace a valid deep-linked
+  // session with the workspace's empty persisted selection, and the store → URL
+  // effect then stripped `?session=`. setActiveSession persists into the
+  // current workspace's slot, which the rehydration then reads back.
   useEffect(() => {
     if (!isCurrentChatRoute || getCurrentSlug() !== workspaceSlug) return;
-    if (urlSession !== useChatStore.getState().activeSessionId) {
-      c.setActiveSession(urlSession);
-    }
+    c.setActiveSession(urlSession);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reconcile URL/route changes, not store updates
   }, [isCurrentChatRoute, workspaceSlug, urlSession]);
 

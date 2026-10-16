@@ -101,6 +101,12 @@ vi.mock("@multica/core/platform", async (importOriginal) => ({
 const storeRef = vi.hoisted(() => ({
   current: { activeSessionId: null as string | null },
 }));
+// The current workspace's persisted selection slot. Like the real store
+// (packages/core/chat/store.ts setActiveSession), setActiveSession writes it;
+// workspace rehydration replaces the in-memory selection with it.
+const persistedSessionRef = vi.hoisted(() => ({
+  current: null as string | null,
+}));
 const storeListeners = vi.hoisted(() => new Set<() => void>());
 const availableAgentsRef = vi.hoisted(() => ({ current: [] as Agent[] }));
 const agentsSettledRef = vi.hoisted(() => ({ current: true }));
@@ -108,6 +114,7 @@ const mockStartNewChat = vi.hoisted(() => vi.fn());
 const mockToastError = vi.hoisted(() => vi.fn());
 const mockSetActiveSession = vi.hoisted(() =>
   vi.fn((id: string | null) => {
+    persistedSessionRef.current = id;
     storeRef.current = { ...storeRef.current, activeSessionId: id };
     storeListeners.forEach((l) => l());
   }),
@@ -254,6 +261,7 @@ function renderPage(search: string, { strict = false } = {}) {
 beforeEach(() => {
   vi.clearAllMocks();
   storeRef.current = { activeSessionId: null };
+  persistedSessionRef.current = null;
   storeListeners.clear();
   availableAgentsRef.current = [agent];
   agentsSettledRef.current = true;
@@ -329,6 +337,30 @@ describe("ChatPage URL synchronization", () => {
     expect(mockSetActiveSession).toHaveBeenCalledWith("session-1");
     expect(storeRef.current.activeSessionId).toBe("session-1");
     expect(replace).not.toHaveBeenCalled();
+  });
+
+  it("keeps a deep-linked session through workspace rehydration with empty workspace storage", () => {
+    // The chat store boots before any workspace is known
+    // (core-provider.tsx), so its in-memory selection can already equal the
+    // linked id while this workspace's persisted slot is empty. The
+    // setCurrentWorkspace rehydration then lands after the page's mount
+    // effects and replaces the selection with that slot.
+    storeRef.current = { activeSessionId: "session-1" };
+    const { replace } = renderPage("session=session-1");
+
+    act(() => {
+      storeRef.current = {
+        ...storeRef.current,
+        activeSessionId: persistedSessionRef.current,
+      };
+      storeListeners.forEach((l) => l());
+    });
+
+    expect(storeRef.current.activeSessionId).toBe("session-1");
+    expect(replace).not.toHaveBeenCalled();
+    expect(
+      screen.queryByText("Pick a conversation, or start a new one with +"),
+    ).not.toBeInTheDocument();
   });
 
   it("mirrors thread selection and clearing while the chat route is current", () => {
