@@ -110,15 +110,9 @@ export function BatchActionToolbar({
     }
   };
 
-  // Batch status changes apply directly — no run-confirm modal (MUL-4155).
-  // done/cancelled can never start a run, and a backlog → active promotion now
-  // starts its run the same way a single-issue status change or the CLI does,
-  // without an extra confirmation step (product decision on MUL-4155). The
-  // status change was previously routed through the pre-trigger modal, which for
-  // the common done/cancelled case only rendered a misleading "现在开始处理？ →
-  // 不会开始处理" box. Agent/squad assignment still confirms via
-  // handleBatchAssignee — that is the only batch action that should preview a
-  // run fan-out.
+  // Batch status changes apply directly without a run-confirm modal.
+  // Leaving backlog or blocked for an active status starts the assignee's run.
+  // Agent and squad assignment confirms through handleBatchAssignee.
   const handleBatchStatus = (updates: Partial<UpdateIssueRequest>) => {
     if (!updates.status) return;
     void handleBatchUpdate(updates);
@@ -126,12 +120,8 @@ export function BatchActionToolbar({
 
   const handleBatchAssignee = (updates: Partial<UpdateIssueRequest>) => {
     if ((updates.assignee_type === "agent" || updates.assignee_type === "squad") && updates.assignee_id) {
-      // Backlog never starts a run on assign (parking lot), so if every selected
-      // issue is in backlog the confirm modal would only render an empty "won't
-      // start" box — apply directly, matching handleBatchStatus's backlog short-
-      // circuit. A mixed selection still routes through the modal: the non-backlog
-      // issues will trigger and need confirmation.
-      // Only the fixed Backlog key parks work; custom Unstarted does not.
+      // Only backlog parks assignments. Blocked and custom unstarted statuses
+      // can start a run on assignment and need confirmation in a mixed selection.
       const allBacklog = selectedIssues.every((i) => i.status === "backlog");
       if (!allBacklog) {
         openModal("issue-run-confirm", {

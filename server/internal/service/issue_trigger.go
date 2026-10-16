@@ -17,7 +17,7 @@ const (
 	// is being handed to an agent/squad. Parks silently on backlog.
 	RunSourceAssign RunEnqueueSource = "assign"
 	// RunSourceStatus covers promoting an already-assigned issue out of
-	// backlog into an active status.
+	// backlog or blocked into an active status.
 	RunSourceStatus RunEnqueueSource = "status"
 )
 
@@ -31,9 +31,9 @@ const (
 // gate so it never leaks a private agent's readiness to a member who cannot
 // see it. A nil func is treated as allow-all.
 //
-// IsSelfLoop reports whether promoting this issue out of backlog would be the
-// calling agent re-triggering its own running task. Only the status source
-// consults it. A nil func means "not a self-loop".
+// IsSelfLoop reports whether leaving backlog or blocked would be the calling
+// agent re-triggering its own running task. Only the status source consults it.
+// A nil func means "not a self-loop".
 //
 // SuppressActiveSelfAssignment reports whether a direct agent assignment is a
 // trusted agent claiming ownership for itself while the target (issue, agent)
@@ -85,10 +85,9 @@ func allowAllAgents(db.Agent) bool { return true }
 // CreateAgentTask, guarded by the (issue_id, agent_id) partial unique index
 // over pending (queued/dispatched) tasks; the pending check below mirrors that
 // guard, and only the status source needs it:
-//   - status source (backlog → active) can re-fire against an assignee that
-//     already holds a pending task (e.g. one a @mention raised while the issue
-//     sat in backlog); the check keeps preview from promising a run the unique
-//     index would coalesce away.
+//   - status source (backlog or blocked to active) can re-fire against an assignee
+//     that already holds a pending task, such as one raised by a mention; the
+//     check keeps preview from promising a run the unique index would coalesce.
 //   - assign source (create / assignee change) skips the check: a create
 //     targets a fresh issue with no prior task, and a reassignment no longer
 //     cancels existing tasks (#4963 / MUL-4113) — in the rare case the new
@@ -104,10 +103,10 @@ func (s *IssueService) WillEnqueueRun(ctx context.Context, in IssueTriggerInput,
 		canAccess = allowAllAgents
 	}
 
-	// Only the fixed backlog key parks work. Leaving it for another unstarted
-	// or started status can enqueue a run; custom statuses do not inherit parking.
-	// Effective preserves built-in behavior and resolves custom terminal categories
-	// so moving to done/closed cannot start work.
+	// Backlog parks assignments. Leaving backlog or blocked for another
+	// non-terminal status can enqueue a run; custom statuses do not inherit
+	// these triggers. Effective resolves custom terminal categories so moving
+	// to done/closed cannot start work.
 	currentStatus := issuestatus.Effective(ctx, s.Queries, issue.WorkspaceID, issue.Status)
 	prevStatus := issuestatus.Effective(ctx, s.Queries, issue.WorkspaceID, in.PrevStatus)
 
@@ -131,8 +130,8 @@ func (s *IssueService) WillEnqueueRun(ctx context.Context, in IssueTriggerInput,
 			return IssueRunTrigger{}, false
 		}
 		source = RunSourceAssign
-	case in.StatusChanged && prevStatus == "backlog" &&
-		currentStatus != "backlog" &&
+	case in.StatusChanged && (prevStatus == "backlog" || prevStatus == "blocked") &&
+		currentStatus != prevStatus && currentStatus != "backlog" &&
 		currentStatus != "done" && currentStatus != "cancelled":
 		if probe.IsSelfLoop != nil && probe.IsSelfLoop() {
 			return IssueRunTrigger{}, false

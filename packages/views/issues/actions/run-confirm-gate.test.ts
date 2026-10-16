@@ -72,6 +72,12 @@ describe("runConfirmIntent — assign", () => {
     ).toEqual({ issueIds: ["issue-1"], mode: "assign", assigneeType: "agent", assigneeId: "a-2" });
   });
 
+  it("confirms assignment to a blocked issue", () => {
+    expect(
+      runConfirmIntent(issue({ status: "blocked" }), { assignee_type: "agent", assignee_id: "a-2" }, CATALOG),
+    ).toEqual({ issueIds: ["issue-1"], mode: "assign", assigneeType: "agent", assigneeId: "a-2" });
+  });
+
   it.each([
     ["built-in backlog", "backlog", undefined],
   ])("applies directly for a parked issue (%s) — assigning there never starts a run", (_label, status, carried) => {
@@ -106,6 +112,10 @@ describe("runConfirmIntent — promote", () => {
     ["custom unstarted target is not parked", "backlog", "later"],
     ["a non-todo target that still starts a run", "backlog", "in_progress"],
     ["a custom in_review target", "backlog", "qa"],
+    ["blocked to todo", "blocked", "todo"],
+    ["blocked to in progress", "blocked", "in_progress"],
+    ["blocked to custom unstarted", "blocked", "rework"],
+    ["blocked to custom started", "blocked", "qa"],
   ])("confirms the promotion (%s)", (_label, from, to) => {
     expect(runConfirmIntent(issue({ status: from }), { status: to }, CATALOG)).toEqual({
       issueIds: ["issue-1"],
@@ -131,6 +141,10 @@ describe("runConfirmIntent — promote", () => {
     ["cancelling the issue", { status: "backlog" }, "cancelled"],
     ["custom unstarted origin has no promotion trigger", { status: "later" }, "rework"],
     ["the same status again", { status: "backlog" }, "backlog"],
+    ["blocked to backlog", { status: "blocked" }, "backlog"],
+    ["blocked to done", { status: "blocked" }, "done"],
+    ["blocked to cancelled", { status: "blocked" }, "cancelled"],
+    ["blocked unchanged", { status: "blocked" }, "blocked"],
   ])("applies directly when no run starts (%s)", (_label, from, to) => {
     expect(runConfirmIntent(issue(from as Partial<GateIssue>), { status: to }, CATALOG)).toBeNull();
   });

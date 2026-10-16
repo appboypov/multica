@@ -62,9 +62,9 @@ const NEVER_STARTS: IssueStatusCategory[] = ["done", "closed"];
  *   issue is on the fixed backlog key, because assigning into that status
  *   never starts a run (`server/internal/service/issue_trigger.go`) and the
  *   dialog would promise something that cannot happen.
- * - **promote**: moving an already-owned issue out of the fixed backlog status.
- *   That status change alone starts the run (`RunSourceStatus`), so it earns
- *   the same dialog when the target is not terminal, including custom statuses.
+ * - **promote**: moving an already-owned issue out of backlog or blocked.
+ *   That status change starts the run (`RunSourceStatus`), so it earns the same
+ *   dialog when the target is not backlog or terminal, including custom statuses.
  *
  * Unresolvable categories fail toward confirming: a dialog the user dismisses
  * costs a click, a silent start costs an unwanted agent run.
@@ -75,12 +75,12 @@ export function runConfirmIntent(
   catalog: Pick<IssueStatusCatalog, "entryOf">,
 ): RunConfirmIntent | null {
   const issueCategory = resolveStatusCategory(issue.status, issue.status_category, catalog);
-  const parked = issue.status === "backlog";
+  const inBacklog = issue.status === "backlog";
 
   if (
     (updates.assignee_type === "agent" || updates.assignee_type === "squad") &&
     updates.assignee_id &&
-    !parked
+    !inBacklog
   ) {
     return {
       issueIds: [issue.id],
@@ -95,7 +95,7 @@ export function runConfirmIntent(
     updates.status &&
     updates.status !== issue.status &&
     // Unknown counts as possibly-parked: the write may promote, so confirm.
-    (parked || issueCategory === null) &&
+    (inBacklog || issue.status === "blocked" || issueCategory === null) &&
     (owner === "agent" || owner === "squad") &&
     issue.assignee_id
   ) {

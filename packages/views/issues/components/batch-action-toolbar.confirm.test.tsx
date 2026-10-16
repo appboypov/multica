@@ -100,13 +100,11 @@ beforeEach(() => {
 });
 
 describe("BatchActionToolbar status routing (MUL-4155)", () => {
-  it("applies every status target directly, never opening the run-confirm modal", () => {
+  it.each(["backlog", "blocked"])("applies every status target directly from %s", (from) => {
     for (const status of [...ACTIVE_STATUSES, ...TERMINAL_STATUSES, "backlog"]) {
       batchUpdate.mockClear();
       openModal.mockClear();
-      // A backlog issue in the selection is the case that historically could
-      // start a run — it still must not pop the confirm modal now.
-      const { unmount } = render(<BatchActionToolbar issues={[makeIssue({ status: "backlog" })]} />);
+      const { unmount } = render(<BatchActionToolbar issues={[makeIssue({ status: from })]} />);
       fireEvent.click(screen.getByTestId(`status-${status}`));
       expect(openModal).not.toHaveBeenCalled();
       expect(batchUpdate).toHaveBeenCalledWith({ ids: ["a"], updates: { status } });
@@ -114,14 +112,24 @@ describe("BatchActionToolbar status routing (MUL-4155)", () => {
     }
   });
 
-  it("still routes agent assignment through the run-confirm modal", () => {
-    render(<BatchActionToolbar issues={[makeIssue({ status: "todo" })]} />);
+  it.each(["todo", "blocked"])("confirms agent assignment to %s", (status) => {
+    render(<BatchActionToolbar issues={[makeIssue({ status })]} />);
     fireEvent.click(screen.getByTestId("assign-agent"));
     expect(openModal).toHaveBeenCalledWith(
       "issue-run-confirm",
       expect.objectContaining({ issueIds: ["a"], mode: "assign", assigneeType: "agent", assigneeId: "agent-1" }),
     );
     expect(batchUpdate).not.toHaveBeenCalled();
+  });
+
+  it("applies assignment directly when every selected issue is in backlog", () => {
+    render(<BatchActionToolbar issues={[makeIssue({ status: "backlog" })]} />);
+    fireEvent.click(screen.getByTestId("assign-agent"));
+    expect(openModal).not.toHaveBeenCalled();
+    expect(batchUpdate).toHaveBeenCalledWith({
+      ids: ["a"],
+      updates: { assignee_type: "agent", assignee_id: "agent-1" },
+    });
   });
 
   it("applies member assignment directly (never starts a run)", () => {
