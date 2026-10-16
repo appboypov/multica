@@ -10,8 +10,10 @@ C4Container
     Container(server, "Go server", "Go, Chi", "Changed: three projected user-scoped reads")
     ContainerDb(database, "PostgreSQL", "sqlc, pgx", "Existing membership, issue and placement data")
   }
-  Rel(contact, server, "Own waits and planned work", "Authenticated HTTPS")
-  Rel(server, database, "Live membership and visibility predicates", "SQL")
+  Rel(contact, server, "Client reads", "HTTPS")
+  Rel(server, database, "Scoped SQL")
+  UpdateRelStyle(contact, server, $textColor="#888888", $lineColor="#888888", $offsetY="-60")
+  UpdateRelStyle(server, database, $textColor="#888888", $lineColor="#888888", $offsetX="-30", $offsetY="-40")
 ```
 
 ### Server components and data flow
