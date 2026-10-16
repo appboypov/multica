@@ -1082,9 +1082,19 @@ func TestQuestionSetWakeFromAnyStatusKeepsStatusAndGetsAllUnseenAnswers(t *testi
 			if err != nil {
 				t.Fatal(err)
 			}
+			wantCount := int64(2)
+			switch status {
+			case "partly_answered":
+				wantCount = 3
+			case "answered":
+				wantCount = 4
+			}
 			row, err = f.svc.Get(ctx, f.workspace, id)
-			if err != nil || row.Status != status || !row.WakeAvailable || row.UnseenAnswerCount < 2 {
+			if err != nil || row.Status != status || !row.WakeAvailable || row.UnseenAnswerCount != wantCount {
 				t.Fatalf("wake must be offered from %s: %+v, %v", status, row, err)
+			}
+			if len(row.WakeTargets) != 1 || row.WakeTargets[0].AgentID != util.UUIDToString(f.agent) || row.WakeTargets[0].IssueID != util.UUIDToString(f.issue) || row.WakeTargets[0].UnseenAnswerCount != wantCount || !row.WakeTargets[0].WakeAvailable {
+				t.Fatalf("wake targets from %s = %+v", status, row.WakeTargets)
 			}
 			f.wantNoNewTask(t)
 			wake, err := f.svc.Wake(ctx, f.workspace, id, f.other, pgtype.UUID{})
@@ -1103,15 +1113,82 @@ func TestQuestionSetWakeFromAnyStatusKeepsStatusAndGetsAllUnseenAnswers(t *testi
 			if err != nil || int64(len(unseen)) != wake.AnswerCount {
 				t.Fatalf("queued run must receive all unseen answers: %+v, %v", unseen, err)
 			}
+			if status == "closed" || status == "withdrawn" {
+				for _, answer := range unseen {
+					if answer.QuestionID == id {
+						t.Fatalf("terminal question's own answer must not be delivered: %+v", answer)
+					}
+				}
+			}
 			row, err = f.svc.Get(ctx, f.workspace, id)
 			if err != nil || row.Status != status || row.WakeAvailable {
 				t.Fatalf("wake must not change question status: %+v, %v", row, err)
 			}
-			_, err = f.svc.Wake(ctx, f.workspace, util.MustParseUUID(result.Questions[0].ID), f.answerer, pgtype.UUID{})
+			_, err = f.svc.Wake(ctx, f.workspace, id, f.answerer, pgtype.UUID{})
 			if !errors.Is(err, ErrDuplicatePendingTask) {
 				t.Fatalf("wake active guard = %v", err)
 			}
+			_, err = f.svc.Wake(ctx, f.workspace, util.MustParseUUID(result.Questions[0].ID), f.answerer, pgtype.UUID{})
+			if !errors.Is(err, ErrDuplicatePendingTask) {
+				t.Fatalf("wake active guard across cards = %v", err)
+			}
 		})
+	}
+}
+
+func TestQuestionTerminalWakeKeepsBusyAndUnavailableGuards(t *testing.T) {
+	for _, status := range []string{"closed", "withdrawn"} {
+		for _, state := range []string{"queued", "dispatched", "running", "waiting_local_directory", "archived", "no runtime"} {
+			t.Run(status+"/"+state, func(t *testing.T) {
+				ctx := context.Background()
+				f := newQuestionFixture(t)
+				other := f.ask(t)
+				row := f.ask(t)
+				f.finishAskingRun(t)
+				f.answer(t, other, f.answerer, "per line")
+				row = f.answer(t, row, f.answerer, "per total")
+				id := util.MustParseUUID(row.ID)
+				var err error
+				if status == "closed" {
+					_, err = f.svc.Close(ctx, f.workspace, id, f.asker)
+				} else {
+					_, err = f.svc.Withdraw(ctx, f.workspace, id, f.asker)
+				}
+				if err != nil {
+					t.Fatal(err)
+				}
+				switch state {
+				case "archived":
+					f.fx.Exec(t, `UPDATE agent SET archived_at = now() WHERE id = $1`, f.agent)
+				case "no runtime":
+					f.fx.Exec(t, `UPDATE agent SET runtime_id = NULL WHERE id = $1`, f.agent)
+				default:
+					f.fx.Task(t, util.UUIDToString(f.agent), testutil.Cols{"runtime_id": f.runtime, "issue_id": f.issue, "status": state})
+				}
+				row, err = f.svc.Get(ctx, f.workspace, id)
+				if err != nil || row.Status != status || row.WakeAvailable || row.UnseenAnswerCount != 1 {
+					t.Fatalf("terminal card with %s = %+v, %v", state, row, err)
+				}
+				for _, target := range row.WakeTargets {
+					if target.WakeAvailable {
+						t.Fatalf("terminal card offers unavailable target: %+v", target)
+					}
+				}
+				before := f.fx.Count(t, `SELECT count(*) FROM agent_task_queue WHERE issue_id = $1`, f.issue)
+				_, err = f.svc.Wake(ctx, f.workspace, id, f.answerer, pgtype.UUID{})
+				if state == "archived" || state == "no runtime" {
+					wantQuestionRefusal(t, err, 422)
+				} else if !errors.Is(err, ErrDuplicatePendingTask) {
+					t.Fatalf("terminal wake with %s = %v, want duplicate", state, err)
+				}
+				if got := f.fx.Count(t, `SELECT count(*) FROM agent_task_queue WHERE issue_id = $1`, f.issue); got != before {
+					t.Fatalf("refused terminal wake created a task: got %d, want %d", got, before)
+				}
+				if got := f.fx.Count(t, `SELECT count(*) FROM activity_log WHERE issue_id = $1 AND action = 'question_wake'`, f.issue); got != 0 {
+					t.Fatalf("refused terminal wake wrote %d activities", got)
+				}
+			})
+		}
 	}
 }
 

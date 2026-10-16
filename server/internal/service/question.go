@@ -860,7 +860,7 @@ func (s *QuestionService) hydrate(ctx context.Context, q *db.Queries, workspaceI
 				break
 			}
 		}
-		if !found && (row.Status == "open" || row.Status == "partly_answered" || row.Status == "answered") {
+		if !found {
 			// An archived asker is no Wake target, but the card still counts the
 			// answers it has not seen on its run's issue.
 			asking, err := q.GetAgentTaskInWorkspace(ctx, db.GetAgentTaskInWorkspaceParams{ID: row.AskedInTaskID, WorkspaceID: workspaceID})
@@ -909,8 +909,8 @@ func (s *QuestionService) Wake(ctx context.Context, workspaceID, questionID pgty
 			break
 		}
 	}
-	// The asker keeps its own issue run as the Wake target after the question
-	// ends, so the active-task and unseen-answer guards still answer for it.
+	// The asker keeps its own issue target when unavailable, so Wake can
+	// return the availability refusal for that run.
 	if !issueID.Valid && agentID == row.AskerAgentID {
 		asking, err := q.GetAgentTaskInWorkspace(ctx, db.GetAgentTaskInWorkspaceParams{ID: row.AskedInTaskID, WorkspaceID: workspaceID})
 		if err != nil && !errors.Is(err, pgx.ErrNoRows) {

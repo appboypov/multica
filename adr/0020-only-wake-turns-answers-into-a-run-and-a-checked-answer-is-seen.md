@@ -15,6 +15,7 @@ With ADR-0019 an answer reaches the asking agent's running run at its next step,
 - The only path from questions to a run stays an explicit Wake by a member, as ADR-0003 decided; a delivered answer, ✅ or not, never queues a run.
 - "Unseen" keeps one definition in one query: the answers to that agent's questions on the issue updated after the claim of that agent's last run on the issue, as ADR-0003 counts them, minus each answer whose latest `answered` or `answer_edited` event has a receipt with `handled_at` for a run of that agent.
 - Wake's count and the woken run's input use that same definition.
+- A card of any question status offers Wake for eligible targets with in-scope unseen answers. A closed or withdrawn question's own answers stay outside that scope; Wake preserves its status.
 
 ## Consequences
 

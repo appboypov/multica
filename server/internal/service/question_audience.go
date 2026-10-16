@@ -86,7 +86,7 @@ func (s *QuestionService) WakeTargets(ctx context.Context, workspaceID pgtype.UU
 
 func (s *QuestionService) wakeTargets(ctx context.Context, q *db.Queries, workspaceID pgtype.UUID, row db.Question) ([]QuestionWakeTargetDTO, error) {
 	result := make([]QuestionWakeTargetDTO, 0)
-	if row.WorkspaceID != workspaceID || (row.Status != "open" && row.Status != "partly_answered" && row.Status != "answered") {
+	if row.WorkspaceID != workspaceID {
 		return result, nil
 	}
 	asking, err := q.GetAgentTaskInWorkspace(ctx, db.GetAgentTaskInWorkspaceParams{ID: row.AskedInTaskID, WorkspaceID: workspaceID})
