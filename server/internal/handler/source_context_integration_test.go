@@ -680,6 +680,19 @@ func TestCommentSourceContextLifecycle(t *testing.T) {
 	if _, err := cleanupTx.Exec(ctx, `LOCK TABLE issue_source_context_object_intent IN SHARE ROW EXCLUSIVE MODE`); err != nil {
 		t.Fatalf("lock target intent table: %v", err)
 	}
+	// The global sweep skips rows owned by another transaction, even when
+	// unrelated test runs leave an equally old or larger due backlog.
+	unrelatedTx, err := cleanupLockConn.Begin(ctx)
+	if err != nil {
+		t.Fatalf("begin unrelated intent row locks: %v", err)
+	}
+	defer unrelatedTx.Rollback(ctx)
+	if _, err := unrelatedTx.Exec(ctx, `
+		SELECT storage_key FROM issue_source_context_object_intent
+		WHERE source_context_id <> $1 FOR UPDATE
+	`, contextID); err != nil {
+		t.Fatalf("lock unrelated intents out of target sweep: %v", err)
+	}
 	if _, err := cleanupTx.Exec(ctx, `
 		UPDATE issue_source_context_object_intent
 		SET created_at = now() - interval '2 hours', next_attempt_at = '-infinity'::timestamptz
@@ -694,8 +707,11 @@ func TestCommentSourceContextLifecycle(t *testing.T) {
 	cleaned, err := testHandler.TaskService.CleanupSourceContextObjectIntents(ctx, 10)
 	testHandler.TaskService.SourceContextStorage = originalObjectStore
 	testHandler.TaskService.Queries = originalQueries
-	if err != nil || cleaned < 3 {
-		t.Fatalf("cleanup target delete intents = %d, err=%v", cleaned, err)
+	if err != nil || cleaned != 3 {
+		t.Fatalf("cleanup target delete intents = %d, err=%v, want 3", cleaned, err)
+	}
+	if err := cleanupTx.QueryRow(ctx, `SELECT count(*) FROM issue_source_context_object_intent WHERE source_context_id = $1`, contextID).Scan(&intentCount); err != nil || intentCount != 0 {
+		t.Fatalf("remaining target delete intents = %d, err=%v, want 0", intentCount, err)
 	}
 	if err := cleanupTx.Commit(ctx); err != nil {
 		t.Fatalf("commit isolated target intent cleanup: %v", err)

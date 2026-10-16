@@ -432,6 +432,8 @@ Notes:
   Their timestamps are bound parameters, independent of PostgreSQL's session date.
 - sweeper fixtures own their runtime heartbeat and agent, so reconnect-grace
   assertions do not depend on another test's liveness state
+- the source-context lifecycle fixture locks unrelated intent rows in a separate
+  transaction; query-plan regressions use a private temporary table and statistics
 - Go tests ignore the task identity of a daemon-managed agent task: the CLI
   packages clear the variables the daemon injects, and `cmd/multica` runs from
   a temporary working directory so the daemon's task marker above a checkout is

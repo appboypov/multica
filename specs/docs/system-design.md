@@ -187,6 +187,10 @@ flowchart LR
   dhub --- protocol
 ```
 
+Source-context object cleanup materializes one due intent before updating its lease
+(`server/pkg/db/queries/source_context.sql`). Each attempt owns at most one intent;
+the round limit bounds attempts, including failed object deletions.
+
 ### Daemon
 
 ```mermaid

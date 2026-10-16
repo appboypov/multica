@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -148,6 +149,64 @@ func TestCleanupSourceContextObjectIntentsBoundsAttemptsNotSuccesses(t *testing.
 	}
 	if due != 1 {
 		t.Fatalf("still-due seeded intents = %d, want 1 (the two attempted rows carry a retry backoff)", due)
+	}
+}
+
+func TestCleanupSourceContextObjectIntentsClaimsOnlyAttemptedRows(t *testing.T) {
+	pool := newResolveOriginatorPool(t)
+	ctx := context.Background()
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatalf("begin intent claim regression: %v", err)
+	}
+	defer tx.Rollback(ctx)
+	// Private table statistics and planner settings exercise a nested-loop
+	// rescan without changing the shared integration database's query plans.
+	if _, err := tx.Exec(ctx, `
+		CREATE TEMP TABLE issue_source_context_object_intent
+			(LIKE public.issue_source_context_object_intent INCLUDING ALL) ON COMMIT DROP;
+		SET LOCAL enable_hashjoin = off;
+		SET LOCAL enable_mergejoin = off;
+		SET LOCAL enable_material = off;
+		SET LOCAL enable_indexscan = off;
+		SET LOCAL enable_bitmapscan = off;
+	`); err != nil {
+		t.Fatalf("prepare isolated intent query plan: %v", err)
+	}
+	for i := 1; i <= 13; i++ {
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO issue_source_context_object_intent (
+				storage_key, workspace_id, source_context_id, attachment_id,
+				object_url, created_at, next_attempt_at
+			) VALUES ($1, $2, $3, $4, $5, now() - interval '2 hours', '-infinity'::timestamptz)
+		`, fmt.Sprintf("claim-budget/%02d", i), dbid.NewV7(), dbid.NewV7(), dbid.NewV7(), "https://objects.example/clone"); err != nil {
+			t.Fatalf("seed claim intent %d: %v", i, err)
+		}
+		if i == 1 {
+			if _, err := tx.Exec(ctx, `ANALYZE pg_temp.issue_source_context_object_intent`); err != nil {
+				t.Fatalf("seed sparse intent statistics: %v", err)
+			}
+		}
+	}
+	store := &failingSourceContextObjectStore{}
+	svc := &TaskService{Queries: db.New(tx), SourceContextStorage: store}
+	if cleaned, err := svc.CleanupSourceContextObjectIntents(ctx, 1); err != nil || cleaned != 0 {
+		t.Fatalf("failed-store cleanup = %d, err=%v, want 0", cleaned, err)
+	}
+	if got := store.attemptCount(); got != 1 {
+		t.Fatalf("delete attempts = %d, want 1", got)
+	}
+	var pending, backedOff, leased int
+	if err := tx.QueryRow(ctx, `
+		SELECT count(*) FILTER (WHERE state = 'pending'),
+		       count(*) FILTER (WHERE state = 'deleting' AND lease_token IS NULL AND next_attempt_at > now()),
+		       count(*) FILTER (WHERE lease_token IS NOT NULL)
+		FROM issue_source_context_object_intent
+	`).Scan(&pending, &backedOff, &leased); err != nil {
+		t.Fatalf("inspect intent ownership after one attempt: %v", err)
+	}
+	if pending != 12 || backedOff != 1 || leased != 0 {
+		t.Fatalf("one attempt left pending=%d backed_off=%d leased=%d, want 12/1/0", pending, backedOff, leased)
 	}
 }
 
