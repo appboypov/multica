@@ -729,6 +729,10 @@ func main() {
 	taskSvc, autopilotSvc := backgroundServices(h)
 	registerAutopilotListeners(bus, autopilotSvc)
 	registerIssueWorktreeListeners(bus, h)
+	registerDeciderListeners(sweepCtx, bus, &service.DeciderService{
+		Queries: h.Queries, TxStarter: pool, Tasks: taskSvc, Bus: bus,
+		Judge: service.TypeSafeDecider{APIKey: os.Getenv("TYPESAFE_API_KEY")},
+	})
 
 	// Construct a LivenessStore that mirrors the one wired into the HTTP
 	// handler. Both the heartbeat write path (handler) and the sweeper read

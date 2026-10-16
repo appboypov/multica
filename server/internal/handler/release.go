@@ -513,6 +513,9 @@ func (h *Handler) PlanRelease(w http.ResponseWriter, r *http.Request) {
 		},
 		afterCommit: func() {
 			h.publishIssueSnapshots(r.Context(), issues, actorType, actorID)
+			for _, issue := range issues {
+				service.PublishIssueReleaseJoined(h.Bus, issue, pgtype.UUID{}, actorType, actorID)
+			}
 			service.PublishIssueActivities(h.Bus, parseUUIDOrNull(h.resolveWorkspaceID(r)), actorType, actorID, activities)
 		},
 		action: releaseActionPlanned,

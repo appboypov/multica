@@ -2,10 +2,11 @@ package protocol
 
 // Event types for WebSocket communication between server, web clients, and daemon.
 const (
-	// Issue events. issue:created carries from_template when created from a
-	// template. Type and placement changes use issue:updated, not new events.
+	// Issue creation carries from_template. Type and placement snapshots use
+	// issue:updated; committed release joins also have a membership event.
 	EventIssueCreated            = "issue:created"
 	EventIssueUpdated            = "issue:updated"
+	EventIssueReleaseJoined      = "issue:release_joined"
 	EventIssueDeleted            = "issue:deleted"
 	EventIssueMetadataChanged    = "issue_metadata:changed"
 	EventIssueAttachmentsChanged = "issue_attachments:changed"
@@ -311,4 +312,10 @@ type WorklaneEventPayload struct {
 // ReleaseLineEventPayload is the payload of release_line:updated.
 type ReleaseLineEventPayload struct {
 	RepositoryID string `json:"repository_id"`
+}
+
+// IssueReleaseJoinedPayload names committed issue membership.
+type IssueReleaseJoinedPayload struct {
+	IssueID   string `json:"issue_id"`
+	ReleaseID string `json:"release_id"`
 }

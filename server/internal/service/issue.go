@@ -584,6 +584,7 @@ func (s *IssueService) Create(ctx context.Context, p IssueCreateParams, opts Iss
 	}
 
 	s.publishIssueCreated(issue, attachments, labels, actorType, actorID, opts)
+	PublishIssueReleaseJoined(s.Bus, issue, pgtype.UUID{}, actorType, actorID)
 	PublishIssueActivities(s.Bus, issue.WorkspaceID, actorType, actorID, activities)
 	s.captureCreatedAnalytics(issue, actorType, actorID, opts)
 	if opts.AssignedAgentRunFireAt.IsZero() {

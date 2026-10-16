@@ -294,6 +294,7 @@ func (h *Handler) SetIssuePlacement(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.publishIssueSnapshots(ctx, []db.Issue{updated}, actorType, actorID)
+	service.PublishIssueReleaseJoined(h.Bus, updated, issue.ReleaseID, actorType, actorID)
 	service.PublishIssueActivities(h.Bus, issue.WorkspaceID, actorType, actorID, activities)
 	resp := issueToResponse(updated, h.getIssuePrefix(ctx, issue.WorkspaceID))
 	h.fillStatusCategory(ctx, issue.WorkspaceID, &resp)
@@ -425,6 +426,9 @@ func (h *Handler) AddIssuesToRelease(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.publishIssueSnapshots(ctx, issues, actorType, actorID)
+	for _, issue := range issues {
+		service.PublishIssueReleaseJoined(h.Bus, issue, pgtype.UUID{}, actorType, actorID)
+	}
 	service.PublishIssueActivities(h.Bus, repo.WorkspaceID, actorType, actorID, activities)
 	h.publish(protocol.EventReleaseLineUpdated, uuidToString(repo.WorkspaceID), actorType, actorID, protocol.ReleaseLineEventPayload{RepositoryID: uuidToString(repo.ID)})
 	responses := make([]IssueResponse, len(issues))
