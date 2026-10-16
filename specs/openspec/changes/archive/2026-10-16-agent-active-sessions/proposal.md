@@ -43,7 +43,7 @@ None.
 ## Impact
 
 - Server: an API over the model of `agent-session-model`; runs are read from the task queue.
-- Daemon: subscribes to Herdr's socket events (`pane_agent_status_changed`, `pane_closed`, `pane_exited`).
+- Daemon: subscribes to Herdr's socket events (`pane.agent_status_changed`, `pane_closed`, `pane_exited`, `pane_moved`).
 - The CLI, the agent page and the persona sync are WORK-1088 and WORK-1089.
 - Check for the technical design, from Pieter's open points that Brian passed on: Multica runs inherit the daemon's `HERDR_*` variables, so a run must never be matched to the daemon's pane.
 
