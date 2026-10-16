@@ -7,33 +7,38 @@ Delta against [Multica system design](../../../docs/system-design.md). Green add
 ```mermaid
 C4Container
   title Release owner container delta
-  Person(member, "Workspace member", "Sets the owner and comments")
   System_Boundary(multica, "Multica") {
     Container(web, "Web", "Next.js", "Release detail route")
     Container(desktop, "Desktop", "Electron", "Release detail route")
-    Container(server, "Server", "Go / Chi", "Release APIs and existing wakeup dispatcher")
-    ContainerDb(db, "Database", "PostgreSQL", "Native release subjects in shared tables")
+    Container(server, "Server", "Go / Chi", "Release APIs and wakeup dispatcher")
+    ContainerDb(db, "Database", "PostgreSQL", "Native release subjects")
   }
   Boundary(machine, "Runtime machine") {
-    Container(daemon, "Daemon", "Go", "Existing claim, start and execution lifecycle")
+    Container(daemon, "Daemon", "Go", "Claim, start and execution")
     Container(agent, "Owner agent or squad leader", "Installed agent CLI", "Release workflow and reports")
-    Container(cli, "multica CLI", "Go / Cobra", "Release assignment, comments and waits")
+    Container(cli, "multica CLI", "Go / Cobra", "Assignment, comments and waits")
   }
-  Rel(member, web, "Uses")
-  Rel(member, desktop, "Uses")
-  Rel(web, server, "REST and WebSocket")
-  Rel(desktop, server, "REST and WebSocket")
-  Rel(server, db, "Transactions and sqlc")
-  Rel(daemon, server, "Claims release tasks and reports completion")
-  Rel(daemon, agent, "Launches with release brief")
-  Rel(agent, cli, "Coordinates existing issues and reports")
-  Rel(cli, server, "Authenticated REST")
-  UpdateElementStyle(web, $bgColor="#fff1cc")
-  UpdateElementStyle(desktop, $bgColor="#fff1cc")
-  UpdateElementStyle(server, $bgColor="#fff1cc")
-  UpdateElementStyle(db, $bgColor="#fff1cc")
-  UpdateElementStyle(daemon, $bgColor="#fff1cc")
-  UpdateElementStyle(cli, $bgColor="#fff1cc")
+  Rel(web, server, "REST / WebSocket")
+  Rel(desktop, server, "REST / WebSocket")
+  Rel(server, db, "sqlc")
+  Rel(daemon, server, "Claim / result")
+  Rel(daemon, agent, "Release brief")
+  Rel(agent, cli, "Coordinate")
+  Rel(cli, server, "REST")
+  UpdateElementStyle(web, $bgColor="#fff1cc", $fontColor="#172117")
+  UpdateElementStyle(desktop, $bgColor="#fff1cc", $fontColor="#172117")
+  UpdateElementStyle(server, $bgColor="#fff1cc", $fontColor="#172117")
+  UpdateElementStyle(db, $bgColor="#fff1cc", $fontColor="#172117")
+  UpdateElementStyle(daemon, $bgColor="#fff1cc", $fontColor="#172117")
+  UpdateElementStyle(cli, $bgColor="#fff1cc", $fontColor="#172117")
+  UpdateRelStyle(web, server, $textColor="#888888", $lineColor="#888888", $offsetX="-65", $offsetY="-20")
+  UpdateRelStyle(desktop, server, $textColor="#888888", $lineColor="#888888", $offsetX="65", $offsetY="-20")
+  UpdateRelStyle(server, db, $textColor="#888888", $lineColor="#888888", $offsetY="-15")
+  UpdateRelStyle(daemon, server, $textColor="#888888", $lineColor="#888888", $offsetY="-25")
+  UpdateRelStyle(daemon, agent, $textColor="#888888", $lineColor="#888888", $offsetY="-20")
+  UpdateRelStyle(agent, cli, $textColor="#888888", $lineColor="#888888", $offsetX="40")
+  UpdateRelStyle(cli, server, $textColor="#888888", $lineColor="#888888", $offsetY="30")
+  UpdateLayoutConfig($c4ShapeInRow="2", $c4BoundaryInRow="2")
 ```
 
 ### Server and daemon components
@@ -213,7 +218,7 @@ sequenceDiagram
 
 ## Context
 
-This is a standalone own-work feature, not a journey. The approved [proposal](proposal.md) and five spec deltas own behavior. Brian approved optional assignment; the release-page answer fixes comments and replies as the reporting surface. The technical plan adds no approval gate.
+This is a standalone own-work feature, not a journey. The approved [proposal](proposal.md) and four spec deltas own behavior. Brian approved optional assignment; the release-page answer fixes comments and replies as the reporting surface. The technical plan adds no approval gate.
 
 ### Code map and findings
 
