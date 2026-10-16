@@ -77,6 +77,8 @@ flowchart LR
   mw["internal/middleware<br/>Auth, DaemonAuth, workspace gates"]
   clientgate["internal/middleware/client_gate.go<br/>clientGate, clientSessionRoutes"]
   membership["internal/handler/membership.go<br/>GET /api/me/memberships"]
+  clientreads["internal/handler/client_read.go<br/>GET /api/me/waits, /api/me/waits/{id},<br/>/api/me/planned-work"]
+  clientqueries["pkg/db/queries/client_read.sql<br/>live membership, narrow projections"]
   authpkg["internal/auth<br/>JWT, PAT, daemon tokens"]
   handlers["internal/handler<br/>Handler, one file per resource"]
   daemonapi["internal/handler<br/>daemon.go, daemon_ws.go<br/>/api/daemon/*"]
@@ -119,6 +121,7 @@ flowchart LR
   router --> mw --> authpkg
   mw --> clientgate --> handlers
   clientgate --> membership --> sqlc
+  clientgate --> clientreads --> clientqueries --> sqlc
   clientgate --> sqlc
   clientgate --> daemonapi
   mw --> publicapi
@@ -763,6 +766,44 @@ classDiagram
 ```
 
 `task_supplement` holds one receipt per item and run, keyed `(item_id, task_id)`: `item_kind` is `comment`, `comment_edit`, `answer` or `issue_change`, and `comment_id` stays set for comments and their edits only. `RunInputService.Deliver` writes a `pending` receipt for every running run with `task-supplement-v1` on the item's issues, except the actor's own agent's run and runs the composer excluded; `content` snapshots the item's text at delivery, with a comment's file names and ids. `multica issue react` sets `seen_at` (👀) or `handled_at` (✅) once, on a `delivered` receipt of the reacting run only. At run end only `handled_at` counts: a comment or edit for the agent without it replays as a follow-up run, and an answer without it stays unseen for Wake (ADR-0019, ADR-0020). Comment receipts and the `run_marks` of answers and activity entries carry these times to `packages/core/types/run-input.ts`.
+
+### Client read contracts
+
+`server/internal/handler/client_read.go` maps scoped query rows to these response models. Wait detail returns `ClientWaitResponse` directly; lists include the visible total before pagination.
+
+```mermaid
+classDiagram
+  class ClientWaitResponse {
+    +string id
+    +string title
+    +string|null description
+    +string|null due_date
+    +string organisation_name
+  }
+  class ClientWaitListResponse {
+    +ClientWaitResponse[] waits
+    +int64 total
+  }
+  class ClientPlannedWorkResponse {
+    +string id
+    +string title
+    +string status
+    +string organisation_name
+    +string project_name
+    +ClientReleaseResponse release
+  }
+  class ClientPlannedWorkListResponse {
+    +ClientPlannedWorkResponse[] issues
+    +int64 total
+  }
+  class ClientReleaseResponse {
+    +string version
+    +bool shipped
+  }
+  ClientWaitListResponse *-- ClientWaitResponse : waits
+  ClientPlannedWorkListResponse *-- ClientPlannedWorkResponse : issues
+  ClientPlannedWorkResponse *-- ClientReleaseResponse : release
+```
 
 ### Question contracts
 

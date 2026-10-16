@@ -86,6 +86,8 @@ func routerClientSession(method, requestPath string) bool {
 		{"GET", "/api/me"}, {"POST", "/api/auth/refresh"},
 		{"POST", "/api/cli-token"}, {"POST", "/api/tokens"},
 		{"GET", "/api/me/memberships"}, {"GET", "/api/invitations"},
+		{"GET", "/api/me/waits"}, {"GET", "/api/me/waits/*"},
+		{"GET", "/api/me/planned-work"},
 		{"GET", "/api/invitations/*"}, {"POST", "/api/invitations/*/accept"},
 		{"POST", "/api/invitations/*/decline"},
 	} {
@@ -187,7 +189,7 @@ func TestClientGateRouterDefaultDeny(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if protected == 0 || daemon == 0 || bridge == 0 || sessions != 9 {
+	if protected == 0 || daemon == 0 || bridge == 0 || sessions != 12 {
 		t.Fatalf("route coverage missing: protected=%d daemon=%d bridge=%d sessions=%d", protected, daemon, bridge, sessions)
 	}
 }
@@ -224,6 +226,172 @@ func TestClientGateRouterSessions(t *testing.T) {
 			if w.Code != tc.want {
 				t.Fatalf("session endpoint: got %d, want %d: %s", w.Code, tc.want, w.Body.String())
 			}
+		})
+	}
+}
+
+func TestClientGateRouterClientReads(t *testing.T) {
+	fixture := newClientGateFixture(t)
+	const privateDescription = "Full staff description: private gate sentinel"
+	const privateProperty = "private gate property sentinel"
+	propertyID := uuid.NewString()
+	properties, err := json.Marshal(map[string]any{propertyID: privateProperty})
+	if err != nil {
+		t.Fatal(err)
+	}
+	releasedWait := func(workspaceID, organisationID, clientID string) (projectID, releaseID, waitID string) {
+		projectID = fixture.rows.Project(t, "Gate client project", testutil.Cols{
+			"workspace_id": workspaceID, "organisation_id": organisationID,
+		})
+		repositoryID := fixture.rows.Insert(t, "repository", testutil.Cols{
+			"workspace_id": workspaceID, "project_id": projectID, "github_repo_id": 1,
+			"full_name": "gate/" + uuid.NewString(), "private": true,
+			"default_branch": "main", "checkout_daemon_id": "test", "checkout_path": t.TempDir(),
+			"version_policy": "tags", "last_tag": "",
+		})
+		releaseID = fixture.rows.Insert(t, "release", testutil.Cols{
+			"workspace_id": workspaceID, "repository_id": repositoryID, "position": 0,
+			"version": "1.0.0", "title": "Gate release",
+		})
+		waitID = fixture.rows.Issue(t, "Released client wait", testutil.Cols{
+			"workspace_id": workspaceID, "project_id": projectID, "release_id": releaseID,
+			"type": "chore", "assignee_type": "member", "assignee_id": clientID,
+			"description": privateDescription, "properties": properties,
+		})
+		labelID := fixture.rows.Insert(t, "issue_label", testutil.Cols{
+			"workspace_id": workspaceID, "resource_type": "issue", "name": "Client wait", "color": "#3b82f6",
+		})
+		fixture.rows.InsertNoID(t, "issue_to_label", testutil.Cols{
+			"issue_id": waitID, "label_id": labelID,
+		}, "issue_id = $1 AND label_id = $2", waitID, labelID)
+		return
+	}
+	projectID, releaseID, waitID := releasedWait(fixture.workspaceID, fixture.organisationID, fixture.clientID)
+	attachmentID := fixture.rows.Insert(t, "attachment", testutil.Cols{
+		"workspace_id": fixture.workspaceID, "issue_id": waitID,
+		"uploader_type": "member", "uploader_id": fixture.staffID,
+		"filename": "private.txt", "url": "https://example.invalid/private.txt",
+		"content_type": "text/plain", "size_bytes": 1,
+	})
+	foreignWorkspaceID := fixture.rows.Workspace(t, "Foreign gate workspace", "gate-foreign-"+uuid.NewString())
+	foreignOrganisationID := fixture.rows.Insert(t, "organisation", testutil.Cols{
+		"workspace_id": foreignWorkspaceID, "name": "Foreign gate organisation", "key": "gate-foreign",
+	})
+	foreignClientID := fixture.rows.User(t, "Foreign gate client", "gate-foreign-"+uuid.NewString()+"@example.invalid")
+	fixture.rows.Member(t, foreignWorkspaceID, foreignClientID, "client", testutil.Cols{
+		"organisation_ids": []string{foreignOrganisationID},
+	})
+	foreignProjectID, foreignReleaseID, foreignWaitID := releasedWait(foreignWorkspaceID, foreignOrganisationID, foreignClientID)
+	forgedQuery := "?workspace_id=" + foreignWorkspaceID + "&user_id=" + foreignClientID +
+		"&assignee_id=" + foreignClientID + "&organisation_id=" + foreignOrganisationID +
+		"&project_id=" + foreignProjectID + "&release_id=" + foreignReleaseID + "&issue_id=" + foreignWaitID +
+		"&fields=*&include=properties&open_only=false"
+
+	var staffIssue struct {
+		ID          string         `json:"id"`
+		Identifier  string         `json:"identifier"`
+		Description string         `json:"description"`
+		Properties  map[string]any `json:"properties"`
+	}
+	staffReq := httptest.NewRequest("GET", "/api/issues/"+waitID, nil)
+	staffReq.Header.Set("Authorization", "Bearer "+fixture.staffJWT)
+	staffReq.Header.Set("X-Workspace-ID", fixture.workspaceID)
+	testutil.Call(t, fixture.router.ServeHTTP, staffReq).Want(200).JSON(&staffIssue)
+	if staffIssue.ID != waitID || staffIssue.Identifier == "" || staffIssue.Description != privateDescription ||
+		len(staffIssue.Properties) != 1 || staffIssue.Properties[propertyID] != privateProperty {
+		t.Fatalf("staff issue must retain full description and properties: %+v", staffIssue)
+	}
+
+	for _, credential := range []struct{ name, token string }{
+		{"JWT", fixture.clientJWT}, {"PAT", fixture.clientPAT},
+	} {
+		t.Run(credential.name, func(t *testing.T) {
+			for _, scope := range []struct{ name, workspaceID, userID, query string }{
+				{"session", "", "", ""},
+				{"foreign identity and workspace", foreignWorkspaceID, foreignClientID, forgedQuery},
+				{"forged staff identity", foreignWorkspaceID, fixture.staffID, forgedQuery},
+				{"malformed workspace", "not-a-uuid", foreignClientID, forgedQuery},
+			} {
+				t.Run(scope.name, func(t *testing.T) {
+					for _, endpoint := range []struct{ path, listKey string }{
+						{"/api/me/waits", "waits"},
+						{"/api/me/waits/" + waitID, ""},
+						{"/api/me/planned-work", "issues"},
+					} {
+						req := httptest.NewRequest("GET", endpoint.path+scope.query, nil)
+						req.Header.Set("Authorization", "Bearer "+credential.token)
+						req.Header.Set("X-Workspace-ID", scope.workspaceID)
+						req.Header.Set("X-User-ID", scope.userID)
+						response := testutil.Call(t, fixture.router.ServeHTTP, req).Want(200).Map()
+						if endpoint.listKey == "" {
+							if response["id"] != waitID {
+								t.Fatalf("wait detail changed authenticated principal: %v", response)
+							}
+							continue
+						}
+						rows, ok := response[endpoint.listKey].([]any)
+						if !ok || len(rows) != 1 || response["total"] != float64(1) {
+							t.Fatalf("%s must use session scope: %v", endpoint.path, response)
+						}
+						row, ok := rows[0].(map[string]any)
+						if !ok || row["id"] != waitID {
+							t.Fatalf("%s returned another principal's work: %v", endpoint.path, rows)
+						}
+					}
+					req := httptest.NewRequest("GET", "/api/me/waits/"+foreignWaitID+scope.query, nil)
+					req.Header.Set("Authorization", "Bearer "+credential.token)
+					req.Header.Set("X-Workspace-ID", scope.workspaceID)
+					req.Header.Set("X-User-ID", scope.userID)
+					testutil.Call(t, fixture.router.ServeHTTP, req).Want(404)
+				})
+			}
+
+			for _, endpoint := range []struct{ method, path string }{
+				{"GET", "/api/issues"},
+				{"GET", "/api/issues?assignee_id=" + fixture.clientID + "&release_id=" + releaseID},
+				{"GET", "/api/issues/" + waitID},
+				{"GET", "/api/issues/" + staffIssue.Identifier},
+				{"GET", "/api/issues/" + waitID + "/comments"},
+				{"POST", "/api/issues/query"},
+				{"POST", "/api/issues/table/rows"},
+				{"GET", "/api/projects"},
+				{"GET", "/api/projects?organisation_id=" + fixture.organisationID},
+				{"GET", "/api/projects/" + projectID},
+				{"GET", "/api/releases"},
+				{"GET", "/api/releases?project_id=" + projectID},
+				{"GET", "/api/releases/" + releaseID},
+				{"GET", "/api/attachments/" + attachmentID + "/download"},
+			} {
+				t.Run(endpoint.method+" "+endpoint.path, func(t *testing.T) {
+					req := httptest.NewRequest(endpoint.method, endpoint.path, strings.NewReader("{}"))
+					req.Header.Set("Content-Type", "application/json")
+					req.Header.Set("Authorization", "Bearer "+credential.token)
+					req.Header.Set("X-Workspace-ID", fixture.workspaceID)
+					req.Header.Set("X-User-ID", fixture.staffID)
+					response := testutil.Call(t, fixture.router.ServeHTTP, req).Want(403)
+					if strings.TrimSpace(response.Text()) != routerClientGateError {
+						t.Fatalf("ordinary resource must be refused before its handler: %s", response.Text())
+					}
+				})
+			}
+		})
+	}
+	for _, endpoint := range []string{"/api/me/waits", "/api/me/waits/" + waitID, "/api/me/planned-work"} {
+		t.Run("staff refused "+endpoint, func(t *testing.T) {
+			req := httptest.NewRequest("GET", endpoint+forgedQuery, nil)
+			req.Header.Set("Authorization", "Bearer "+fixture.staffJWT)
+			req.Header.Set("X-Workspace-ID", fixture.workspaceID)
+			req.Header.Set("X-User-ID", fixture.clientID)
+			response := testutil.Call(t, fixture.router.ServeHTTP, req).Want(403).Map()
+			if response["error"] != "client membership required" {
+				t.Fatalf("staff must fail the client membership guard: %v", response)
+			}
+		})
+		t.Run("unauthenticated "+endpoint, func(t *testing.T) {
+			req := httptest.NewRequest("GET", endpoint, nil)
+			req.Header.Set("X-User-ID", fixture.clientID)
+			req.Header.Set("X-Workspace-ID", fixture.workspaceID)
+			testutil.Call(t, fixture.router.ServeHTTP, req).Want(401)
 		})
 	}
 }

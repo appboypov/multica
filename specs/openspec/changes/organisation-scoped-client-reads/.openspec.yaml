@@ -1,9 +1,10 @@
 schema: intent-driven
 created: 2026-10-16
 build:
-  status: ready-for-dev
+  status: built
   type: feature
   ticket: WORK-1071
+  baseline_revision: bcaabf054f501c760ae00a4fe991d5652ef23abe
   context:
     - "{project-root}/designs/screens/client-access.md"
     - "{project-root}/adr/0017-a-client-account-is-refused-outside-the-session-list.md"

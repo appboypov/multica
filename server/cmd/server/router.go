@@ -1660,6 +1660,9 @@ func NewRouterWithOptions(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus
 		// --- User-scoped routes (no workspace context required) ---
 		r.Get("/api/me", h.GetMe)
 		r.Get("/api/me/memberships", h.ListMyMemberships)
+		r.Get("/api/me/waits", h.ListClientWaits)
+		r.Get("/api/me/waits/{id}", h.GetClientWait)
+		r.Get("/api/me/planned-work", h.ListClientPlannedWork)
 		r.Patch("/api/me", h.UpdateMe)
 		r.Patch("/api/me/onboarding", h.PatchOnboarding)
 		r.Post("/api/me/onboarding/complete", h.CompleteOnboarding)
