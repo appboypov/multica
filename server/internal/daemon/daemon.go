@@ -390,11 +390,12 @@ type repoCacheBackend interface {
 
 // Daemon is the local agent runtime that polls for and executes tasks.
 type Daemon struct {
-	cfg        Config
-	client     *Client
-	repoCache  repoCacheBackend
-	skillCache *SkillBundleCache
-	logger     *slog.Logger
+	cfg             Config
+	client          *Client
+	repoCache       repoCacheBackend
+	skillCache      *SkillBundleCache
+	logger          *slog.Logger
+	sessionFollower *agentSessionFollower
 
 	// terminalReports is the durable outbox for complete/fail callbacks. The
 	// sender hook is production-wired through Client and overridable in focused
@@ -2081,6 +2082,7 @@ func (d *Daemon) clearWSHeartbeatAcks() {
 func (d *Daemon) Run(ctx context.Context) error {
 	// Wrap context so handleUpdate can cancel the daemon for restart.
 	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	d.cancelFunc = cancel
 	d.setLifecycleCtx(ctx)
 	d.rootCtx = ctx
@@ -2148,6 +2150,15 @@ func (d *Daemon) Run(ctx context.Context) error {
 	// "starting" until d.ready is set after preflight, so a slow or *failing*
 	// preflight is never misreported as a started daemon. resolveAuth has
 	// already run, so a missing token still fails fast before we begin serving.
+	d.sessionFollower = newAgentSessionFollower(d.client, d.cfg.DaemonID, func() []string {
+		d.mu.Lock()
+		defer d.mu.Unlock()
+		ids := make([]string, 0, len(d.workspaces))
+		for id := range d.workspaces {
+			ids = append(ids, id)
+		}
+		return ids
+	}, d.logger)
 	go d.serveHealth(ctx, healthLn, time.Now())
 
 	// Renew the PAT before the first API call, then do the initial
@@ -2161,6 +2172,19 @@ func (d *Daemon) Run(ctx context.Context) error {
 
 	// Deregister runtimes on shutdown (uses a fresh context since ctx will be cancelled).
 	defer d.deregisterRuntimes()
+
+	// Session shutdown stops observation, not the independently running
+	// sessions: the next daemon loads and reconciles those same rows.
+	sessionCtx, stopSessions := context.WithCancel(ctx)
+	sessionsDone := make(chan struct{})
+	go func() {
+		defer close(sessionsDone)
+		d.sessionFollower.run(sessionCtx)
+	}()
+	defer func() {
+		stopSessions()
+		<-sessionsDone
+	}()
 
 	// Start workspace sync loop to discover newly created workspaces.
 	go d.workspaceSyncLoop(ctx)

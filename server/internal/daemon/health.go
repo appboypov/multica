@@ -412,6 +412,7 @@ func (d *Daemon) serveHealth(ctx context.Context, ln net.Listener, startedAt tim
 	mux.HandleFunc("/health", d.healthHandler(startedAt))
 	mux.HandleFunc("/shutdown", d.shutdownHandler())
 	mux.HandleFunc("/repo/checkout", d.repoCheckoutHandler())
+	mux.HandleFunc("/sessions", d.sessionsHandler())
 
 	srv := &http.Server{Handler: mux}
 
@@ -423,6 +424,48 @@ func (d *Daemon) serveHealth(ctx context.Context, ln net.Listener, startedAt tim
 	d.logger.Info("health server listening", "addr", ln.Addr().String())
 	if err := srv.Serve(ln); err != nil && err != http.ErrServerClosed {
 		d.logger.Warn("health server error", "error", err)
+	}
+}
+
+func (d *Daemon) sessionsHandler() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		var request localSessionRegistration
+		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+			http.Error(w, "invalid request body: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		d.mu.Lock()
+		_, served := d.workspaces[request.WorkspaceID]
+		d.mu.Unlock()
+		if !served {
+			http.Error(w, "workspace is not served by this daemon", http.StatusBadRequest)
+			return
+		}
+		if request.AgentID == "" || request.CWD == "" {
+			http.Error(w, "agent_id and cwd are required", http.StatusBadRequest)
+			return
+		}
+		if d.sessionFollower == nil {
+			http.Error(w, "session follower is not available", http.StatusServiceUnavailable)
+			return
+		}
+		id, err := d.sessionFollower.register(r.Context(), request)
+		if err != nil {
+			status := http.StatusBadGateway
+			if errors.Is(err, errSessionProcessGone) {
+				status = http.StatusBadRequest
+			}
+			d.logger.Warn("register agent session", "workspace_id", request.WorkspaceID, "error", err)
+			http.Error(w, err.Error(), status)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(map[string]string{"id": id})
 	}
 }
 

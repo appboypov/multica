@@ -4,9 +4,12 @@
 flowchart LR
   classDef new fill:#d9f2d9,stroke:#2e7d32,color:#172117
   register["register-session<br/>(CLI, WORK-1088)"] -->|"POST /sessions (127.0.0.1)"| follower["Daemon<br/>session follower"]:::new
-  herdr["Herdr socket<br/>pane.agent_status_changed,<br/>pane.closed, pane.exited"] --> follower
-  follower -->|"every 30 s: PID, git branch"| follower
-  follower -->|"/api/daemon/agent-sessions"| api["Server<br/>agent sessions handler"]:::new
+  herdr["Herdr socket"] -->|"global pane.closed / pane.exited / pane.moved"| lifecycle["Lifecycle observer"]:::new
+  herdr -->|"pane.agent_status_changed per pane"| status["Independently retried status observers"]:::new
+  lifecycle --> follower
+  status --> follower
+  follower -->|"every 30 s: PID, git, persistence retry"| follower
+  follower -->|"/api/daemon/agent-sessions<br/>PATCH optional herdr_pane_id"| api["Server<br/>agent sessions handler"]:::new
   api --> table[("agent_session")]
   queue[("agent_task_queue")] -->|"ListAgentSessions"| api
   api -->|"GET /api/agents/{id}/sessions"| readers["CLI, agent page"]
@@ -27,7 +30,9 @@ sequenceDiagram
   D-->>C: 201 {id}
   H-)D: pane.agent_status_changed w12:p0 working
   D->>S: PATCH /api/daemon/agent-sessions/{id}
-  H-)D: pane.closed w12:p0
+  H-)D: pane_moved {previous_pane_id: w12:p0, pane: {pane_id: w13:p0}}
+  D->>S: PATCH /api/daemon/agent-sessions/{id} {herdr_pane_id: w13:p0, ...}
+  H-)D: pane_closed w13:p0
   D->>S: DELETE /api/daemon/agent-sessions/{id}
 ```
 
@@ -38,12 +43,17 @@ sequenceDiagram
 | Integration | Session follower: local register route, Herdr events, sweep | new | `server/internal/daemon/agent_sessions.go`, `server/internal/daemon/health.go` |
 | Integration | Daemon client calls | changed | `server/internal/daemon/client.go` |
 | Routes | Daemon and member routes | changed | `server/cmd/server/router.go` |
+| Query | Session writes, including optional pane identity update | changed | `server/pkg/db/queries/agent_session.sql` |
+| Generated query | sqlc session parameters and queries | changed | `server/pkg/db/generated/agent_session.sql.go` |
+| Tests | Follower lifecycle and process/git sweep regressions | new | `server/internal/daemon/agent_sessions_test.go` |
+| Tests | Socket observer isolation regressions | new | `server/internal/daemon/agent_sessions_isolation_test.go` |
+| Tests | Session API contract and ownership | new | `server/internal/handler/agent_session_test.go` |
 
 ## Context
 
 - Team: Backend (lead Joeri, from `roster.py`). It builds on `agent-session-model` (WORK-1057): the table, `ListAgentSessions`, the event `agent:sessions` and ADR-0017. The CLI commands and persona sync are `agent-sessions-cli` (WORK-1088), the page `agent-page-sessions` (WORK-1089).
 - The daemon serves a local listener on `127.0.0.1:<health port>` (`internal/daemon/health.go`: `/health`, `/shutdown`, `/repo/checkout`). Daemon routes live under `DaemonAuth` (`cmd/server/router.go` 1557-1617); agent routes under `/api/agents/{id}` (`router.go` 2322), next to `GET /tasks`, in the workspace-member group; a run's `mat_` task token passes them.
-- Herdr's socket API (protocol 22): `events.subscribe` with `subscriptions` of type `pane.agent_status_changed` (status `idle`, `working`, `blocked`, `done`, `unknown`), `pane.closed` and `pane.exited`, each event carrying `pane_id` (`herdr api schema --json`). The socket is `HERDR_SOCKET_PATH`, `~/.config/herdr/herdr.sock` on this Mac.
+- Herdr's socket API (protocol 22): `events.subscribe` accepts `pane.agent_status_changed` for a specific `pane_id` and the global lifecycle subscriptions `pane.closed`, `pane.exited` and `pane.moved`. Status messages use `pane.agent_status_changed`; lifecycle messages use `pane_closed`, `pane_exited` and `pane_moved`. Close/exit messages carry `data.pane_id`; moves carry `data.previous_pane_id` and `data.pane.pane_id`. Status values are `idle`, `working`, `blocked`, `done` and `unknown`. The socket is `HERDR_SOCKET_PATH`, `~/.config/herdr/herdr.sock` on this Mac.
 - Runs inherit the daemon's environment, `HERDR_PANE_ID` of the daemon's pane included (`pkg/agent` merges `os.Environ()`).
 
 ## Goals / Non-Goals
@@ -62,12 +72,15 @@ The daemon owns this because only it outlives the session on the same machine, s
 
 ### 2. Herdr keeps a pane's session current
 
-The session follower connects to `HERDR_SOCKET_PATH`, else `~/.config/herdr/herdr.sock`, and subscribes to `pane.agent_status_changed`, `pane.closed` and `pane.exited`. It acts only on panes of sessions it follows; every other pane's event is dropped.
+The session follower connects to `HERDR_SOCKET_PATH`, else `~/.config/herdr/herdr.sock`, with one global lifecycle connection for `pane.closed`, `pane.exited` and `pane.moved`, and independently retried per-pane `pane.agent_status_changed` observers. Only non-ending sessions contribute status panes, including when a server `DELETE` fails. A missing-pane status rejection leaves the still-running process registered and other panes' observers and the lifecycle connection unaffected. It acts only on panes of sessions it follows; every other pane's event is dropped.
 
 - `pane.agent_status_changed`: the new status, and the folder's branch and repository read again; a `PATCH` when any of them changed.
-- `pane.closed`, `pane.exited`: a `DELETE`.
+- `pane_closed`, `pane_exited`: a `DELETE`.
+- `pane_moved`: match `data.previous_pane_id`, replace the observed identity (`session.pane`) with `data.pane.pane_id`, and retarget status observation. Persist the identity through `PATCH`; `persistedPane` tracks the last successful write independently, so a failed write is retried by the existing sweep even when status and git metadata are unchanged.
 
-No socket, or a dropped one: the follower logs it once and connects again every 30 s; the sweep keeps sessions correct meanwhile.
+No socket, or a dropped observer: the follower logs unavailability and retries the affected observer every 30 s; the sweep keeps sessions correct meanwhile.
+
+`AgentSessionUpdate.HerdrPaneID` is `*string` with `json:"herdr_pane_id,omitempty"`: a nonnil value updates identity; omission preserves the database value through `COALESCE(sqlc.narg('herdr_pane_id'), herdr_pane_id)`. The existing workspace and daemon ownership guards apply unchanged.
 
 ### 3. The sweep catches every other end
 
@@ -80,7 +93,7 @@ Daemon routes, under `DaemonAuth`, each checking that the workspace is one the d
 | Route | Does |
 |---|---|
 | `POST /api/daemon/agent-sessions` | `UpsertAgentSession`; the agent must be in the workspace |
-| `PATCH /api/daemon/agent-sessions/{id}` | `UpdateAgentSession`: `status`, `repository`, `branch` |
+| `PATCH /api/daemon/agent-sessions/{id}` | `UpdateAgentSession`: `status`, `repository`, `branch`, optional `herdr_pane_id` |
 | `DELETE /api/daemon/agent-sessions/{id}` | `DeleteAgentSession`; an unknown id is `204` too, so a retry is harmless |
 | `GET /api/daemon/agent-sessions?workspace_id=` | `ListAgentSessionsForDaemon` |
 

@@ -30,12 +30,13 @@ WHERE agent_session.workspace_id = EXCLUDED.workspace_id
 RETURNING *;
 
 -- name: UpdateAgentSession :one
--- The daemon saw the session's status, repository or branch change. Only the
+-- The daemon saw the session's status, pane, repository or branch change. Only the
 -- daemon that follows the session changes it.
 UPDATE agent_session SET
     status = sqlc.arg('status'),
     repository = sqlc.narg('repository'),
     branch = sqlc.narg('branch'),
+    herdr_pane_id = COALESCE(sqlc.narg('herdr_pane_id'), herdr_pane_id),
     updated_at = now()
 WHERE id = sqlc.arg('id')
   AND workspace_id = sqlc.arg('workspace_id')

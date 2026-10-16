@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/multica-ai/multica/server/pkg/agent"
+	db "github.com/multica-ai/multica/server/pkg/db/generated"
 	"github.com/multica-ai/multica/server/pkg/protocol"
 	"github.com/multica-ai/multica/server/pkg/remotemcp"
 )
@@ -1112,6 +1113,90 @@ func (c *Client) Register(ctx context.Context, req map[string]any) (*RegisterRes
 		return nil, err
 	}
 	return &resp, nil
+}
+
+// AgentSessionRegistration is the daemon's machine-observed session identity.
+type AgentSessionRegistration struct {
+	WorkspaceID      string    `json:"workspace_id"`
+	DaemonID         string    `json:"daemon_id"`
+	AgentID          string    `json:"agent_id"`
+	PID              int       `json:"pid"`
+	ProcessStartedAt time.Time `json:"process_started_at"`
+	HerdrPaneID      *string   `json:"herdr_pane_id"`
+	WorkDir          string    `json:"work_dir"`
+	Repository       *string   `json:"repository"`
+	Branch           *string   `json:"branch"`
+	Status           string    `json:"status"`
+}
+
+type AgentSessionUpdate struct {
+	WorkspaceID string  `json:"workspace_id"`
+	DaemonID    string  `json:"daemon_id"`
+	Status      string  `json:"status"`
+	HerdrPaneID *string `json:"herdr_pane_id,omitempty"`
+	Repository  *string `json:"repository"`
+	Branch      *string `json:"branch"`
+}
+
+func (c *Client) RegisterAgentSession(ctx context.Context, registration AgentSessionRegistration) (string, error) {
+	var response struct {
+		ID string `json:"id"`
+	}
+	if err := c.postJSON(ctx, "/api/daemon/agent-sessions", registration, &response); err != nil {
+		return "", err
+	}
+	return response.ID, nil
+}
+
+func (c *Client) UpdateAgentSession(ctx context.Context, id string, update AgentSessionUpdate) error {
+	return c.agentSessionWrite(ctx, http.MethodPatch, "/api/daemon/agent-sessions/"+url.PathEscape(id), update)
+}
+
+func (c *Client) EndAgentSession(ctx context.Context, workspaceID, daemonID, id string) error {
+	query := url.Values{"workspace_id": {workspaceID}, "daemon_id": {daemonID}}
+	return c.agentSessionWrite(ctx, http.MethodDelete, "/api/daemon/agent-sessions/"+url.PathEscape(id)+"?"+query.Encode(), nil)
+}
+
+func (c *Client) ListAgentSessions(ctx context.Context, workspaceID, daemonID string) ([]db.AgentSession, error) {
+	var response struct {
+		Sessions []db.AgentSession `json:"sessions"`
+	}
+	query := url.Values{"workspace_id": {workspaceID}, "daemon_id": {daemonID}}
+	if err := c.getJSON(ctx, "/api/daemon/agent-sessions?"+query.Encode(), &response); err != nil {
+		return nil, err
+	}
+	return response.Sessions, nil
+}
+
+func (c *Client) agentSessionWrite(ctx context.Context, method, path string, body any) error {
+	var reader io.Reader
+	if body != nil {
+		data, err := json.Marshal(body)
+		if err != nil {
+			return err
+		}
+		reader = bytes.NewReader(data)
+	}
+	req, err := http.NewRequestWithContext(ctx, method, c.baseURL+path, reader)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if c.token != "" {
+		req.Header.Set("Authorization", "Bearer "+c.token)
+	}
+	c.setIdentityHeaders(req)
+	response, err := c.client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		data, _ := io.ReadAll(io.LimitReader(response.Body, 4096))
+		return &requestError{Method: method, Path: path, StatusCode: response.StatusCode, Body: strings.TrimSpace(string(data))}
+	}
+	_, err = io.Copy(io.Discard, response.Body)
+	return err
 }
 
 type WorkspaceReposResponse struct {

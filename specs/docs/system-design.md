@@ -272,6 +272,11 @@ flowchart TB
   backends["pkg/agent<br/>claude.go, codex.go, pi.go, cursor.go,<br/>opencode.go, copilot.go, hermes.go, traecli.go, ..."]
   procs["processtree"]
   gc["gc.go<br/>gcLoop"]
+  sessions["agent_sessions.go<br/>Session follower, process/git sweep, pane identity persistence"]
+  localSessions["health.go<br/>POST /sessions"]
+  herdr["Herdr<br/>events.subscribe"]
+  lifecycle["agent_sessions.go<br/>Global lifecycle connection"]
+  statusObservers["agent_sessions.go<br/>Independent per-pane status observers"]
   server["Go server<br/>/api/daemon/*"]
 
   cmd --> config --> run
@@ -280,6 +285,12 @@ flowchart TB
   run --> ws
   run --> poll
   run --> gc
+  run --> localSessions
+  run --> sessions
+  localSessions --> sessions
+  herdr -->|"pane.closed / pane.exited / pane.moved"| lifecycle --> sessions
+  herdr -->|"pane.agent_status_changed"| statusObservers --> sessions
+  sessions --> client
   hb --> client
   ws --> actions
   hb --> actions
@@ -1177,7 +1188,9 @@ An answer or Undo request reaches the opening agent in this order: a receipt on 
 
 `server/pkg/db/queries/agent_session.sql` owns the registered-session writes and the combined `ListAgentSessions` query. Its inputs are `agent_session`, `agent_runtime`, `agent_task_queue`, `worklane`, `issue_worktree`, `repository`, `agent`, `issue` and `workspace`; sqlc emits `AgentSession` and `ListAgentSessionsRow` in `server/pkg/db/generated/`. Lane runs follow `issue.worklane_id` to the workspace-scoped lane and repository, with branch derived from the workspace prefix and issue number (ADR-0014); non-lane runs follow `issue_worktree` to repository (ADR-0007). Workspace teardown removes registered sessions with the agents.
 
-The client contract `AgentSession` and its `{sessions}` response live in `packages/core/types/agent.ts`, with boundary schemas in `packages/core/api/schemas.ts`. The `agent:sessions` event carries `{agent_id}` in `server/pkg/protocol/events.go` and `packages/core/types/events.ts`. This data layer defines no HTTP route or UI consumer.
+The client contract `AgentSession` and its `{sessions}` response live in `packages/core/types/agent.ts`, with boundary schemas in `packages/core/api/schemas.ts`. The `agent:sessions` event carries `{agent_id}` in `server/pkg/protocol/events.go` and `packages/core/types/events.ts`. `server/internal/handler/agent_session.go` serves the daemon's register, update, end and list routes under `/api/daemon/agent-sessions` and the member-facing `GET /api/agents/{id}/sessions`; `server/cmd/server/router.go` applies their daemon and member authentication. Writes enforce workspace and daemon ownership and publish `agent:sessions`.
+
+`server/internal/daemon/health.go` accepts local `POST /sessions` with `workspace_id`, `agent_id`, `pid`, `cwd` and optional `herdr_pane_id`. `agent_sessions.go` registers the process through `client.go`, owns a global Herdr lifecycle connection and independent per-pane status observers for registered panes, reloads sessions per served workspace on startup, and reconciles process start time, repository and branch every 30 seconds. Its observed/persisted pane identity state feeds optional `AgentSessionUpdate.HerdrPaneID` writes through `client.go` to the handler and `UpdateAgentSession` query; see the [observer isolation and reconciliation design](../openspec/changes/agent-active-sessions/design.md#2-herdr-keeps-a-panes-session-current). Daemon shutdown stops observation without ending independently running sessions. Multica runs remain sourced from the task queue and never inherit the daemon's Herdr pane.
 
 ## Absent
 

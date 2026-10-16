@@ -250,10 +250,11 @@ UPDATE agent_session SET
     status = $1,
     repository = $2,
     branch = $3,
+    herdr_pane_id = COALESCE($4, herdr_pane_id),
     updated_at = now()
-WHERE id = $4
-  AND workspace_id = $5
-  AND daemon_id = $6
+WHERE id = $5
+  AND workspace_id = $6
+  AND daemon_id = $7
 RETURNING id, workspace_id, agent_id, daemon_id, pid, process_started_at, herdr_pane_id, work_dir, repository, branch, status, started_at, updated_at
 `
 
@@ -261,18 +262,20 @@ type UpdateAgentSessionParams struct {
 	Status      string      `json:"status"`
 	Repository  pgtype.Text `json:"repository"`
 	Branch      pgtype.Text `json:"branch"`
+	HerdrPaneID pgtype.Text `json:"herdr_pane_id"`
 	ID          pgtype.UUID `json:"id"`
 	WorkspaceID pgtype.UUID `json:"workspace_id"`
 	DaemonID    string      `json:"daemon_id"`
 }
 
-// The daemon saw the session's status, repository or branch change. Only the
+// The daemon saw the session's status, pane, repository or branch change. Only the
 // daemon that follows the session changes it.
 func (q *Queries) UpdateAgentSession(ctx context.Context, arg UpdateAgentSessionParams) (AgentSession, error) {
 	row := q.db.QueryRow(ctx, updateAgentSession,
 		arg.Status,
 		arg.Repository,
 		arg.Branch,
+		arg.HerdrPaneID,
 		arg.ID,
 		arg.WorkspaceID,
 		arg.DaemonID,
