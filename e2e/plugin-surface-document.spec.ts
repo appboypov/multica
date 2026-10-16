@@ -1,89 +1,90 @@
-import { expect, test } from "@playwright/test";
-import { buildSurfaceDocument } from "../packages/views/plugins/surface-document";
+import { expect, test, type Page } from "@playwright/test";
+import { buildSurfaceFrameDocument } from "../packages/views/plugins/surface-document";
 
 /**
- * Real Chromium coverage for behavior jsdom does not implement: executing a
- * sandboxed srcdoc document, reporting errors from a dynamically inserted
- * script, and firing page lifecycle events when the host rewrites srcdoc.
+ * Real Chromium coverage for the hosted-frame wrapper's terminal signals, which
+ * jsdom cannot exercise: a cross-origin guest document loading, failing and
+ * navigating inside the wrapper's sandboxed child frame.
  */
 
-test.describe("plugin surface document (real Chromium, sandboxed srcdoc)", () => {
-  test("a host-authored srcdoc reload is not reported as hostile navigation", async ({ page }) => {
-    const first = buildSurfaceDocument({
-      code: "parent.postMessage({ type: 'plugin-test-ran' }, '*');",
-      grantedScopes: [],
-      theme: {},
+const CONTENT_ORIGIN = "https://plugin-content.example.test";
+
+type SurfaceSignals = { errors: number; navigated: number };
+
+declare global {
+  interface Window {
+    /** Terminal signals the test host page counts from the wrapper. */
+    signals?: SurfaceSignals;
+  }
+}
+
+async function mountWrapper(page: Page): Promise<void> {
+  const wrapper = buildSurfaceFrameDocument({
+    url: `${CONTENT_ORIGIN}/plugin-surfaces/first`,
+    bridgeToken: "proof",
+  });
+  // The host arms its listener before srcdoc is assigned, as PluginSurfaceFrame does.
+  await page.setContent(`<script>
+    window.signals = { errors: 0, navigated: 0 };
+    addEventListener("message", event => {
+      if (event.source !== document.getElementById("host").contentWindow) return;
+      if (event.data?.type === "multica:plugin-surface-error") window.signals.errors += 1;
+      if (event.data?.type === "multica:plugin-surface-navigated") window.signals.navigated += 1;
     });
-    const themed = buildSurfaceDocument({
-      code: "parent.postMessage({ type: 'plugin-test-ran' }, '*');",
-      grantedScopes: [],
-      theme: { "--background": "white" },
-    });
+  </script><iframe id="host" sandbox="allow-scripts allow-same-origin"></iframe>`);
+  await page.locator("#host").evaluate((frame, srcdoc) => {
+    (frame as HTMLIFrameElement).srcdoc = srcdoc as string;
+  }, wrapper);
+}
 
-    await page.setContent("<!doctype html><body></body>");
-    await page.evaluate((srcdoc) => {
-      const state = { ran: 0, navigated: 0 };
-      (window as unknown as { __surfaceState: typeof state }).__surfaceState = state;
-      window.addEventListener("message", (event) => {
-        const type = (event.data as { type?: string } | null)?.type;
-        if (type === "plugin-test-ran") state.ran++;
-        if (type === "multica:plugin-surface-navigated") state.navigated++;
-      });
-      const frame = document.createElement("iframe");
-      frame.id = "surface";
-      frame.sandbox.add("allow-scripts");
-      frame.srcdoc = srcdoc;
-      document.body.appendChild(frame);
-    }, first);
+function readSignals(page: Page): Promise<SurfaceSignals | null> {
+  return page.evaluate(() => window.signals ?? null);
+}
 
-    await expect.poll(() => page.evaluate(() =>
-      (window as unknown as { __surfaceState: { ran: number } }).__surfaceState.ran,
-    )).toBe(1);
+test.describe("plugin surface document (real Chromium, hosted frame)", () => {
+  test("a guest's first-line error reaches the host once", async ({ page }) => {
+    await page.route(`${CONTENT_ORIGIN}/**`, (route) =>
+      route.fulfill({
+        contentType: "text/html",
+        headers: { "Content-Security-Policy": "default-src 'none'; script-src 'unsafe-inline'" },
+        body: `<!doctype html><script>
+          addEventListener("error", () => parent.postMessage({ type: "multica:plugin-surface-error" }, "*"));
+        </script><script>
+          throw new Error("plugin failed during bootstrap");
+        </script><script>
+          parent.postMessage({ type: "multica:plugin-surface-error" }, "*");
+        </script>`,
+      }),
+    );
 
-    await page.evaluate((srcdoc) => {
-      document.querySelector<HTMLIFrameElement>("#surface")!.srcdoc = srcdoc;
-    }, themed);
-    await expect.poll(() => page.evaluate(() =>
-      (window as unknown as { __surfaceState: { ran: number } }).__surfaceState.ran,
-    )).toBe(2);
+    await mountWrapper(page);
 
-    expect(await page.evaluate(() =>
-      (window as unknown as { __surfaceState: { navigated: number } }).__surfaceState.navigated,
-    )).toBe(0);
+    await expect.poll(() => readSignals(page)).toEqual({ errors: 1, navigated: 0 });
   });
 
-  test("reports a synchronous plugin error even when the host listener mounts late", async ({ page }) => {
-    const documentWithError = buildSurfaceDocument({
-      code: "throw new Error('plugin failed during bootstrap');",
-      grantedScopes: [],
-      theme: {},
-    });
-
-    await page.setContent("<!doctype html><body></body>");
-    await page.evaluate((srcdoc) => {
-      const frame = document.createElement("iframe");
-      frame.id = "surface";
-      frame.sandbox.add("allow-scripts");
-      frame.srcdoc = srcdoc;
-      document.body.appendChild(frame);
-    }, documentWithError);
-
-    // The guest has already executed and failed before the host starts
-    // listening. A one-shot postMessage is lost in this ordering.
-    await page.waitForTimeout(300);
-    await page.evaluate(() => {
-      (window as unknown as { __surfaceErrors: number }).__surfaceErrors = 0;
-      window.addEventListener("message", (event) => {
-        if ((event.data as { type?: string } | null)?.type !== "multica:plugin-surface-error") return;
-        const frame = document.querySelector<HTMLIFrameElement>("#surface")!;
-        if (event.source !== frame.contentWindow) return;
-        (window as unknown as { __surfaceErrors: number }).__surfaceErrors++;
-        frame.contentWindow!.postMessage({ type: "multica:plugin-surface-error-ack" }, "*");
+  test("the guest's own load is not a navigation, but a second document is", async ({ page }) => {
+    let requests = 0;
+    await page.route(`${CONTENT_ORIGIN}/**`, (route) => {
+      requests += 1;
+      const first = route.request().url().endsWith("/first");
+      return route.fulfill({
+        contentType: "text/html",
+        headers: { "Content-Security-Policy": "default-src 'none'; script-src 'unsafe-inline'" },
+        body: first
+          ? `<!doctype html><button id="go" onclick="location.assign('/plugin-surfaces/second')">go</button>`
+          : `<!doctype html><p>second</p>`,
       });
     });
 
-    await expect.poll(() => page.evaluate(() =>
-      (window as unknown as { __surfaceErrors: number }).__surfaceErrors,
-    )).toBe(1);
+    await mountWrapper(page);
+
+    const guest = page.frameLocator("#host").frameLocator("iframe");
+    await expect(guest.locator("#go")).toBeVisible();
+    expect(await readSignals(page)).toEqual({ errors: 0, navigated: 0 });
+
+    await guest.locator("#go").click();
+
+    await expect.poll(() => readSignals(page)).toEqual({ errors: 0, navigated: 1 });
+    expect(requests).toBe(2);
   });
 });
