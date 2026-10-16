@@ -11,9 +11,9 @@ flowchart LR
 |---|---|---|---|
 | Team | Backend, lead Joeri | changed | `server/` |
 | Contract | Existing wake response parser | changed | `packages/core/api/schemas.ts`, `packages/core/types/question.ts` |
-| Plan | One bug-fix pull request, four dependent groups | new | `specs/openspec/changes/deliver-question-answers-after-active-run/tasks.md` |
+| Plan | One bug-fix pull request, four dependent groups | new | `specs/openspec/changes/archive/2026-10-16-deliver-question-answers-after-active-run/tasks.md` |
 
-All groups belong to Backend and ship together on the existing branch `deliver-question-answers-after-active-run`, based on `main`. Services and API workers implement the groups; no journey passes, separate model PR or frontend screen work is needed. Behavior is in the [agent-wake](specs/agent-wake/spec.md) and [live-run-input](specs/live-run-input/spec.md) deltas; technical decisions are in [design.md](design.md) and [ADR-0022](../../../../adr/0022-an-accepted-wake-waits-durably-for-the-agent.md).
+All groups belong to Backend and ship together on the existing branch `deliver-question-answers-after-active-run`, based on `main`. Services and API workers implement the groups; no journey passes, separate model PR or frontend screen work is needed. Behavior is in the [agent-wake](specs/agent-wake/spec.md) and [live-run-input](specs/live-run-input/spec.md) deltas; technical decisions are in [design.md](design.md) and [ADR-0022](../../../../../adr/0022-an-accepted-wake-waits-durably-for-the-agent.md).
 
 ## 1. Backend: persistence
 

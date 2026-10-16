@@ -11,7 +11,7 @@ flowchart LR
 | Kind | Name | Change | Path |
 |---|---|---|---|
 | Decision | Durable accepted wake | new | `adr/0022-an-accepted-wake-waits-durably-for-the-agent.md` |
-| Manifest | Change ADR review | new | `specs/openspec/changes/deliver-question-answers-after-active-run/adr.md` |
+| Manifest | Change ADR review | new | `specs/openspec/changes/archive/2026-10-16-deliver-question-answers-after-active-run/adr.md` |
 
 ## ADR Review Manifest
 
@@ -57,4 +57,4 @@ Superseded context: `0003-only-wake-turns-answers-into-a-run.md` by ADR-0020; `0
 
 ## New Durable ADRs Created
 
-- [ADR-0022](../../../../adr/0022-an-accepted-wake-waits-durably-for-the-agent.md): accepted Wake persists until it can be consumed atomically, and intervening retries cannot silently discard its input.
+- [ADR-0022](../../../../../adr/0022-an-accepted-wake-waits-durably-for-the-agent.md): accepted Wake persists until it can be consumed atomically, and intervening retries cannot silently discard its input.

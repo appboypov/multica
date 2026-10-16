@@ -1,6 +1,6 @@
 ## At a glance
 
-Delta against [the existing system view](../../../docs/system-design.md). Web, desktop, mobile and daemon containers keep their entry points; scheduling changes inside the Go server.
+Delta against [the existing system view](../../../../docs/system-design.md). Web, desktop, mobile and daemon containers keep their entry points; scheduling changes inside the Go server.
 
 ```mermaid
 C4Container

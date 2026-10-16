@@ -22,7 +22,7 @@ Every running run on an issue SHALL receive each new comment, edited comment, an
 - **AND** Thomas's run receives the comment before its next model step
 
 ### Requirement: An answer reaches the running runs on the question's issues
-When a person sends or changes an answer, or asks back, on a question linked to an issue, each running run on that issue SHALL receive the answer or ask-back as a notice, and no run SHALL be queued for it.
+When a person sends or changes an answer, or asks back, on a question linked to an issue, each running run on that issue SHALL receive the answer or ask-back as a notice, and no run SHALL be queued for it while that run runs.
 
 #### Scenario: Brian answers while Thomas runs
 - **GIVEN** Thomas asked Brian a question on WORK-434 and Thomas's run on WORK-434 is running
