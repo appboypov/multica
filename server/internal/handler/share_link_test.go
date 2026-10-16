@@ -894,7 +894,7 @@ func TestJoinByShareLink_PendingClientInvitationSettlesNothing(t *testing.T) {
 	invitationID := dbfx.Insert(t, "workspace_invitation", testutil.Cols{
 		"workspace_id": testWorkspaceID, "inviter_id": testUserID,
 		"invitee_email": email, "invitee_user_id": userID,
-		"role": "client", "organisation_id": organisationID,
+		"role": "client", "organisation_ids": []string{organisationID},
 		"expires_at": testutil.Raw("now() + interval '1 day'"),
 	})
 	link := createTestShareLink(t, testWorkspaceID, "member", 1, 24)

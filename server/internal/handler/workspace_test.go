@@ -1544,7 +1544,7 @@ func clientTestMember(t *testing.T, workspaceID, role, organisationID string) (s
 	userID := dbfx.User(t, "Client lifecycle contact", "client-member-"+uuid.NewString()+"@multica.ai")
 	cols := testutil.Cols{"workspace_id": workspaceID, "user_id": userID, "role": role}
 	if organisationID != "" {
-		cols["organisation_id"] = organisationID
+		cols["organisation_ids"] = []string{organisationID}
 	}
 	return userID, dbfx.Insert(t, "member", cols)
 }
@@ -1560,19 +1560,20 @@ func TestUpdateMember_ClientOrganisationAndRoles(t *testing.T) {
 		name            string
 		from            string
 		to              string
-		organisation    *string
+		organisation    []string
 		otherMembership bool
 		status          int
 	}{
-		{name: "move client organisation", from: "client", to: "client", organisation: &otherOrganisationID, status: http.StatusOK},
+		{name: "move client organisation", from: "client", to: "client", organisation: []string{otherOrganisationID}, status: http.StatusOK},
 		{name: "client to member", from: "client", to: "member", status: http.StatusOK},
+		{name: "client to member explicit empty set", from: "client", to: "member", organisation: []string{}, status: http.StatusOK},
 		{name: "client to admin", from: "client", to: "admin", status: http.StatusOK},
 		{name: "client to owner", from: "client", to: "owner", status: http.StatusOK},
-		{name: "member to client", from: "member", to: "client", organisation: &organisationID, status: http.StatusOK},
+		{name: "member to client", from: "member", to: "client", organisation: []string{organisationID}, status: http.StatusOK},
 		{name: "member without organisation", from: "member", to: "client", status: http.StatusBadRequest},
-		{name: "foreign organisation", from: "member", to: "client", organisation: &foreignOrganisationID, status: http.StatusBadRequest},
-		{name: "staff cannot keep organisation", from: "client", to: "member", organisation: &organisationID, status: http.StatusBadRequest},
-		{name: "other membership", from: "member", to: "client", organisation: &organisationID, otherMembership: true, status: http.StatusConflict},
+		{name: "foreign organisation", from: "member", to: "client", organisation: []string{foreignOrganisationID}, status: http.StatusBadRequest},
+		{name: "staff cannot keep organisation", from: "client", to: "member", organisation: []string{organisationID}, status: http.StatusBadRequest},
+		{name: "other membership", from: "member", to: "client", organisation: []string{organisationID}, otherMembership: true, status: http.StatusConflict},
 		{name: "staff role change preserved", from: "member", to: "admin", status: http.StatusOK},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -1585,7 +1586,7 @@ func TestUpdateMember_ClientOrganisationAndRoles(t *testing.T) {
 				dbfx.Member(t, foreignWorkspaceID, userID, "member")
 			}
 			req := newRequest("PATCH", "/api/workspaces/"+testWorkspaceID+"/members/"+memberID, UpdateMemberRequest{
-				Role: tc.to, OrganisationID: tc.organisation,
+				Role: tc.to, OrganisationIDs: tc.organisation,
 			})
 			req = withURLParams(req, "id", testWorkspaceID, "memberId", memberID)
 			rec := testutil.Call(t, testHandler.UpdateMember, req).Want(tc.status)
@@ -1594,7 +1595,7 @@ func TestUpdateMember_ClientOrganisationAndRoles(t *testing.T) {
 				t.Fatal(err)
 			}
 			if tc.status != http.StatusOK {
-				if member.Role != tc.from || uuidToString(member.OrganisationID) != binding {
+				if member.Role != tc.from || (binding == "" && len(member.OrganisationIds) != 0) || (binding != "" && (len(member.OrganisationIds) != 1 || uuidToString(member.OrganisationIds[0]) != binding)) {
 					t.Fatalf("refused update changed membership: %+v", member)
 				}
 				return
@@ -1605,10 +1606,10 @@ func TestUpdateMember_ClientOrganisationAndRoles(t *testing.T) {
 				t.Fatalf("updated identity/role mismatch: %+v", response)
 			}
 			if tc.to == "client" {
-				if response.OrganisationID == nil || *response.OrganisationID != *tc.organisation || uuidToString(member.OrganisationID) != *tc.organisation {
+				if len(response.OrganisationIDs) != 1 || response.OrganisationIDs[0] != tc.organisation[0] || len(member.OrganisationIds) != 1 || uuidToString(member.OrganisationIds[0]) != tc.organisation[0] {
 					t.Fatalf("client binding mismatch: %+v", response)
 				}
-			} else if member.OrganisationID.Valid || response.OrganisationID != nil {
+			} else if len(member.OrganisationIds) != 0 || len(response.OrganisationIDs) != 0 {
 				t.Fatalf("staff retained organisation: %+v", response)
 			}
 		})
@@ -1619,6 +1620,8 @@ func TestUpdateMember_DemotionRevokesStaffStateBeforePublishingCleanup(t *testin
 	fx := setupRevocationFixture(t, "handler-tests-client-demotion", "daemon-client-demotion")
 	dbfx.Exec(t, `UPDATE member SET role='member' WHERE id=$1`, fx.MemberID)
 	organisationID := clientTestOrganisation(t, fx.WorkspaceID)
+	otherOrganisationID := clientTestOrganisation(t, fx.WorkspaceID)
+	expected := []string{organisationID, otherOrganisationID}
 	actionID := dbfx.Insert(t, "quick_action", testutil.Cols{
 		"workspace_id": fx.WorkspaceID, "name": "Client former action", "description": "",
 		"assignee_type": "agent", "assignee_id": fx.AgentID, "prompt": "private",
@@ -1633,9 +1636,10 @@ func TestUpdateMember_DemotionRevokesStaffStateBeforePublishingCleanup(t *testin
 			if e.Type == protocol.EventMemberUpdated {
 				payload := e.Payload.(map[string]any)
 				member := payload["member"].(MemberWithUserResponse)
-				if member.Role != "client" || member.UserID != fx.TargetUserID || member.OrganisationID == nil || *member.OrganisationID != organisationID {
+				if member.Role != "client" || member.UserID != fx.TargetUserID {
 					t.Errorf("demotion event missing gate identity: %+v", member)
 				}
+				assertOrganisationSet(t, member.OrganisationIDs, expected)
 				var persistedRole string
 				dbfx.QueryRow(t, `SELECT role FROM member WHERE id=$1`, fx.MemberID).Scan(&persistedRole)
 				if persistedRole != "client" {
@@ -1644,9 +1648,7 @@ func TestUpdateMember_DemotionRevokesStaffStateBeforePublishingCleanup(t *testin
 			}
 		})
 	}
-	req := newRequest("PATCH", "/api/workspaces/"+fx.WorkspaceID+"/members/"+fx.MemberID, UpdateMemberRequest{
-		Role: "client", OrganisationID: &organisationID,
-	})
+	req := newRequest("PATCH", "/api/workspaces/"+fx.WorkspaceID+"/members/"+fx.MemberID, UpdateMemberRequest{Role: "client", OrganisationIDs: expected})
 	req.Header.Set("X-Workspace-ID", fx.WorkspaceID)
 	req = withURLParams(req, "id", fx.WorkspaceID, "memberId", fx.MemberID)
 	testutil.Call(t, h.UpdateMember, req).Want(http.StatusOK)
@@ -1676,9 +1678,7 @@ func TestUpdateMember_DemotionRollsBackAllStaffStateOnCommitFailure(t *testing.T
 	eventsPublished := 0
 	h.Bus.Subscribe(protocol.EventMemberUpdated, func(events.Event) { eventsPublished++ })
 	h.Bus.Subscribe(protocol.EventAgentArchived, func(events.Event) { eventsPublished++ })
-	req := newRequest("PATCH", "/api/workspaces/"+fx.WorkspaceID+"/members/"+fx.MemberID, UpdateMemberRequest{
-		Role: "client", OrganisationID: &organisationID,
-	})
+	req := newRequest("PATCH", "/api/workspaces/"+fx.WorkspaceID+"/members/"+fx.MemberID, UpdateMemberRequest{Role: "client", OrganisationIDs: []string{organisationID}})
 	req.Header.Set("X-Workspace-ID", fx.WorkspaceID)
 	req = withURLParams(req, "id", fx.WorkspaceID, "memberId", fx.MemberID)
 	testutil.Call(t, h.UpdateMember, req).Want(http.StatusInternalServerError)
@@ -1710,9 +1710,7 @@ func TestUpdateMember_DemotionInvalidatesDaemonAndMembershipCaches(t *testing.T)
 	if _, ok := h.DaemonTokenCache.Get(ctx, fx.TokenHash); !ok || !h.MembershipCache.Get(ctx, fx.TargetUserID, fx.WorkspaceID) {
 		t.Fatal("cache priming failed")
 	}
-	req := newRequest("PATCH", "/api/workspaces/"+fx.WorkspaceID+"/members/"+fx.MemberID, UpdateMemberRequest{
-		Role: "client", OrganisationID: &organisationID,
-	})
+	req := newRequest("PATCH", "/api/workspaces/"+fx.WorkspaceID+"/members/"+fx.MemberID, UpdateMemberRequest{Role: "client", OrganisationIDs: []string{organisationID}})
 	req.Header.Set("X-Workspace-ID", fx.WorkspaceID)
 	req = withURLParams(req, "id", fx.WorkspaceID, "memberId", fx.MemberID)
 	testutil.Call(t, h.UpdateMember, req).Want(http.StatusOK)
@@ -1780,7 +1778,7 @@ func TestListMyMemberships_MinimalClientAndStaffResponses(t *testing.T) {
 			if tc.role != "" {
 				cols := testutil.Cols{"workspace_id": testWorkspaceID, "user_id": userID, "role": tc.role}
 				if tc.organisation != "" {
-					cols["organisation_id"] = tc.organisation
+					cols["organisation_ids"] = []string{tc.organisation}
 				}
 				dbfx.Insert(t, "member", cols)
 			}
@@ -1808,6 +1806,9 @@ func TestListMyMemberships_MinimalClientAndStaffResponses(t *testing.T) {
 				if err := json.Unmarshal(raw, &got); err != nil {
 					t.Fatal(err)
 				}
+				if got.Organisations == nil || row["organisations"] == nil || row["organisation"] != nil {
+					t.Fatalf("membership does not expose only the plural array: %s", raw)
+				}
 				if got.WorkspaceID == "" || got.WorkspaceName == "" || got.WorkspaceSlug == "" {
 					t.Fatalf("membership omits workspace identity: %+v", got)
 				}
@@ -1815,10 +1816,10 @@ func TestListMyMemberships_MinimalClientAndStaffResponses(t *testing.T) {
 					t.Fatalf("membership role changed: %+v", got)
 				}
 				if tc.wantOrganisation {
-					if got.Organisation == nil || got.Organisation.ID != organisationID || got.Organisation.Name == "" {
+					if len(got.Organisations) != 1 || got.Organisations[0].ID != organisationID || got.Organisations[0].Name == "" {
 						t.Fatalf("client organisation absent: %+v", got)
 					}
-				} else if got.Organisation != nil {
+				} else if len(got.Organisations) != 0 {
 					t.Fatalf("invalid/staff organisation exposed: %+v", got)
 				}
 			}
@@ -1846,12 +1847,12 @@ func TestUpdateMember_OnlyStaffDemotionRevokesState(t *testing.T) {
 			fx := setupRevocationFixture(t, "client-preserve-"+suffix, "client-preserve-daemon-"+suffix)
 			organisationID := clientTestOrganisation(t, fx.WorkspaceID)
 			if tc.from == "client" {
-				dbfx.Exec(t, `UPDATE member SET role='client', organisation_id=$2 WHERE id=$1`, fx.MemberID, organisationID)
+				dbfx.Exec(t, `UPDATE member SET role='client', organisation_ids=ARRAY[$2::uuid] WHERE id=$1`, fx.MemberID, organisationID)
 			}
 			body := UpdateMemberRequest{Role: tc.to}
 			if tc.withOrganisation {
 				otherOrganisationID := clientTestOrganisation(t, fx.WorkspaceID)
-				body.OrganisationID = &otherOrganisationID
+				body.OrganisationIDs = []string{otherOrganisationID}
 			}
 			req := newRequest("PATCH", "/api/workspaces/"+fx.WorkspaceID+"/members/"+fx.MemberID, body)
 			req.Header.Set("X-Workspace-ID", fx.WorkspaceID)
@@ -1887,9 +1888,7 @@ func TestUpdateMember_ClientChangePreservesOwnerGuards(t *testing.T) {
 	})
 	memberID := dbfx.Member(t, workspaceID, testUserID, "owner")
 	organisationID := clientTestOrganisation(t, workspaceID)
-	req := newRequest("PATCH", "/api/workspaces/"+workspaceID+"/members/"+memberID, UpdateMemberRequest{
-		Role: "client", OrganisationID: &organisationID,
-	})
+	req := newRequest("PATCH", "/api/workspaces/"+workspaceID+"/members/"+memberID, UpdateMemberRequest{Role: "client", OrganisationIDs: []string{organisationID}})
 	req.Header.Set("X-Workspace-ID", workspaceID)
 	req = withURLParams(req, "id", workspaceID, "memberId", memberID)
 	testutil.Call(t, testHandler.UpdateMember, req).Want(http.StatusBadRequest)

@@ -18,7 +18,7 @@ const member = {
   workspace_id: "ws-1",
   user_id: "user-1",
   role: "member",
-  organisation_id: null,
+  organisation_ids: [],
   created_at: "2026-10-15T10:00:00Z",
   name: "Sam",
   email: "sam@example.test",
@@ -30,7 +30,7 @@ const clientMember = {
   id: "membership-client",
   user_id: "user-client",
   role: "client",
-  organisation_id: "org-1",
+  organisation_ids: ["org-1", "org-2"],
   name: "Rizgar",
   email: "rizgar@rebl.nl",
   avatar_url: null,
@@ -43,7 +43,7 @@ const invitation = {
   invitee_email: "sam@example.test",
   invitee_user_id: "user-1",
   role: "member",
-  organisation_id: null,
+  organisation_ids: [],
   status: "pending",
   created_at: "2026-10-15T10:00:00Z",
   updated_at: "2026-10-15T10:01:00Z",
@@ -59,7 +59,7 @@ const clientInvitation = {
   invitee_email: "rizgar@rebl.nl",
   invitee_user_id: null,
   role: "client",
-  organisation_id: "org-1",
+  organisation_ids: ["org-1", "org-2"],
 };
 
 const malformedLists = [

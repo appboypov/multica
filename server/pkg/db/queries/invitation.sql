@@ -1,15 +1,24 @@
 -- name: CreateInvitation :one
-INSERT INTO workspace_invitation (id, workspace_id, inviter_id, invitee_email, invitee_user_id, role, expires_at, organisation_id)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+INSERT INTO workspace_invitation (id, workspace_id, inviter_id, invitee_email, invitee_user_id, role, expires_at, organisation_ids)
+VALUES ($1, $2, $3, $4, $5, $6, $7, COALESCE(sqlc.narg(organisation_ids)::uuid[], '{}'::uuid[]))
 RETURNING *;
+
+-- name: GetInvitationForResponse :one
+SELECT wi.id, wi.workspace_id, wi.inviter_id, wi.invitee_email, wi.invitee_user_id,
+       wi.role, wi.status, wi.created_at, wi.updated_at, wi.expires_at,
+       ARRAY(SELECT o.id FROM organisation o WHERE o.workspace_id = wi.workspace_id AND o.id = ANY(wi.organisation_ids) ORDER BY o.id)::uuid[] AS organisation_ids
+FROM workspace_invitation wi
+WHERE wi.id = $1;
 
 -- name: GetInvitation :one
 SELECT * FROM workspace_invitation
 WHERE id = $1;
 
 -- name: ListPendingInvitationsByWorkspace :many
-SELECT wi.*,
-       u.name  AS inviter_name,
+SELECT wi.id, wi.workspace_id, wi.inviter_id, wi.invitee_email, wi.invitee_user_id,
+       wi.role, wi.status, wi.created_at, wi.updated_at, wi.expires_at,
+       ARRAY(SELECT o.id FROM organisation o WHERE o.workspace_id = wi.workspace_id AND o.id = ANY(wi.organisation_ids) ORDER BY o.id)::uuid[] AS organisation_ids,
+       u.name AS inviter_name,
        u.email AS inviter_email
 FROM workspace_invitation wi
 JOIN "user" u ON u.id = wi.inviter_id
@@ -17,7 +26,9 @@ WHERE wi.workspace_id = $1 AND wi.status = 'pending' AND wi.expires_at > now()
 ORDER BY wi.created_at DESC;
 
 -- name: ListPendingInvitationsForUser :many
-SELECT wi.*,
+SELECT wi.id, wi.workspace_id, wi.inviter_id, wi.invitee_email, wi.invitee_user_id,
+       wi.role, wi.status, wi.created_at, wi.updated_at, wi.expires_at,
+       ARRAY(SELECT o.id FROM organisation o WHERE o.workspace_id = wi.workspace_id AND o.id = ANY(wi.organisation_ids) ORDER BY o.id)::uuid[] AS organisation_ids,
        w.name AS workspace_name,
        u.name AS inviter_name,
        u.email AS inviter_email

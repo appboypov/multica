@@ -22,17 +22,17 @@ import (
 
 // InvitationResponse is the JSON shape returned for a workspace invitation.
 type InvitationResponse struct {
-	ID             string  `json:"id"`
-	WorkspaceID    string  `json:"workspace_id"`
-	InviterID      string  `json:"inviter_id"`
-	InviteeEmail   string  `json:"invitee_email"`
-	InviteeUserID  *string `json:"invitee_user_id"`
-	Role           string  `json:"role"`
-	OrganisationID *string `json:"organisation_id"`
-	Status         string  `json:"status"`
-	CreatedAt      string  `json:"created_at"`
-	UpdatedAt      string  `json:"updated_at"`
-	ExpiresAt      string  `json:"expires_at"`
+	ID              string   `json:"id"`
+	WorkspaceID     string   `json:"workspace_id"`
+	InviterID       string   `json:"inviter_id"`
+	InviteeEmail    string   `json:"invitee_email"`
+	InviteeUserID   *string  `json:"invitee_user_id"`
+	Role            string   `json:"role"`
+	OrganisationIDs []string `json:"organisation_ids"`
+	Status          string   `json:"status"`
+	CreatedAt       string   `json:"created_at"`
+	UpdatedAt       string   `json:"updated_at"`
+	ExpiresAt       string   `json:"expires_at"`
 	// Enriched fields (present in list responses).
 	InviterName   string `json:"inviter_name,omitempty"`
 	InviterEmail  string `json:"inviter_email,omitempty"`
@@ -41,17 +41,17 @@ type InvitationResponse struct {
 
 func invitationToResponse(inv db.WorkspaceInvitation) InvitationResponse {
 	return InvitationResponse{
-		ID:             uuidToString(inv.ID),
-		WorkspaceID:    uuidToString(inv.WorkspaceID),
-		InviterID:      uuidToString(inv.InviterID),
-		InviteeEmail:   inv.InviteeEmail,
-		InviteeUserID:  uuidToPtr(inv.InviteeUserID),
-		Role:           inv.Role,
-		OrganisationID: uuidToPtr(inv.OrganisationID),
-		Status:         inv.Status,
-		CreatedAt:      timestampToString(inv.CreatedAt),
-		UpdatedAt:      timestampToString(inv.UpdatedAt),
-		ExpiresAt:      timestampToString(inv.ExpiresAt),
+		ID:              uuidToString(inv.ID),
+		WorkspaceID:     uuidToString(inv.WorkspaceID),
+		InviterID:       uuidToString(inv.InviterID),
+		InviteeEmail:    inv.InviteeEmail,
+		InviteeUserID:   uuidToPtr(inv.InviteeUserID),
+		Role:            inv.Role,
+		OrganisationIDs: organisationIDsResponse(inv.OrganisationIds),
+		Status:          inv.Status,
+		CreatedAt:       timestampToString(inv.CreatedAt),
+		UpdatedAt:       timestampToString(inv.UpdatedAt),
+		ExpiresAt:       timestampToString(inv.ExpiresAt),
 	}
 }
 
@@ -92,7 +92,7 @@ func (h *Handler) CreateInvitation(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "cannot invite as owner")
 		return
 	}
-	organisationID, ok := membershipOrganisation(w, r, h.Queries, requester.WorkspaceID, role, req.OrganisationID, "a client invitation needs an organisation of this workspace")
+	organisationIDs, ok := membershipOrganisations(w, r, h.Queries, requester.WorkspaceID, role, req.OrganisationIDs, "a client invitation needs organisations of this workspace")
 	if !ok {
 		return
 	}
@@ -191,8 +191,8 @@ func (h *Handler) CreateInvitation(w http.ResponseWriter, r *http.Request) {
 	createParams := db.CreateInvitationParams{
 		ID: uuidToPG(invitationID), WorkspaceID: requester.WorkspaceID, InviterID: requester.UserID,
 		InviteeEmail: email, InviteeUserID: inviteeUserID, Role: role,
-		OrganisationID: organisationID,
-		ExpiresAt:      pgtype.Timestamptz{Time: expiresAt, Valid: true},
+		OrganisationIds: organisationIDs,
+		ExpiresAt:       pgtype.Timestamptz{Time: expiresAt, Valid: true},
 	}
 	var inv db.WorkspaceInvitation
 	if h.seatCapacityEnabled() || inviteeUserID.Valid {
@@ -304,19 +304,19 @@ func (h *Handler) ListWorkspaceInvitations(w http.ResponseWriter, r *http.Reques
 	resp := make([]InvitationResponse, len(rows))
 	for i, row := range rows {
 		resp[i] = InvitationResponse{
-			ID:             uuidToString(row.ID),
-			WorkspaceID:    uuidToString(row.WorkspaceID),
-			InviterID:      uuidToString(row.InviterID),
-			InviteeEmail:   row.InviteeEmail,
-			InviteeUserID:  uuidToPtr(row.InviteeUserID),
-			Role:           row.Role,
-			OrganisationID: uuidToPtr(row.OrganisationID),
-			Status:         row.Status,
-			CreatedAt:      timestampToString(row.CreatedAt),
-			UpdatedAt:      timestampToString(row.UpdatedAt),
-			ExpiresAt:      timestampToString(row.ExpiresAt),
-			InviterName:    row.InviterName,
-			InviterEmail:   row.InviterEmail,
+			ID:              uuidToString(row.ID),
+			WorkspaceID:     uuidToString(row.WorkspaceID),
+			InviterID:       uuidToString(row.InviterID),
+			InviteeEmail:    row.InviteeEmail,
+			InviteeUserID:   uuidToPtr(row.InviteeUserID),
+			Role:            row.Role,
+			OrganisationIDs: organisationIDsResponse(row.OrganisationIds),
+			Status:          row.Status,
+			CreatedAt:       timestampToString(row.CreatedAt),
+			UpdatedAt:       timestampToString(row.UpdatedAt),
+			ExpiresAt:       timestampToString(row.ExpiresAt),
+			InviterName:     row.InviterName,
+			InviterEmail:    row.InviterEmail,
 		}
 	}
 
@@ -404,7 +404,7 @@ func (h *Handler) GetMyInvitation(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	inv, err := h.Queries.GetInvitation(r.Context(), invitationUUID)
+	inv, err := h.Queries.GetInvitationForResponse(r.Context(), invitationUUID)
 	if err != nil {
 		writeError(w, http.StatusNotFound, "invitation not found")
 		return
@@ -421,7 +421,7 @@ func (h *Handler) GetMyInvitation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp := invitationToResponse(inv)
+	resp := invitationToResponse(db.WorkspaceInvitation(inv))
 
 	// Enrich with workspace name and inviter name.
 	if ws, err := h.Queries.GetWorkspace(r.Context(), inv.WorkspaceID); err == nil {
@@ -464,20 +464,20 @@ func (h *Handler) ListMyInvitations(w http.ResponseWriter, r *http.Request) {
 	resp := make([]InvitationResponse, len(rows))
 	for i, row := range rows {
 		resp[i] = InvitationResponse{
-			ID:             uuidToString(row.ID),
-			WorkspaceID:    uuidToString(row.WorkspaceID),
-			InviterID:      uuidToString(row.InviterID),
-			InviteeEmail:   row.InviteeEmail,
-			InviteeUserID:  uuidToPtr(row.InviteeUserID),
-			Role:           row.Role,
-			OrganisationID: uuidToPtr(row.OrganisationID),
-			Status:         row.Status,
-			CreatedAt:      timestampToString(row.CreatedAt),
-			UpdatedAt:      timestampToString(row.UpdatedAt),
-			ExpiresAt:      timestampToString(row.ExpiresAt),
-			WorkspaceName:  row.WorkspaceName,
-			InviterName:    row.InviterName,
-			InviterEmail:   row.InviterEmail,
+			ID:              uuidToString(row.ID),
+			WorkspaceID:     uuidToString(row.WorkspaceID),
+			InviterID:       uuidToString(row.InviterID),
+			InviteeEmail:    row.InviteeEmail,
+			InviteeUserID:   uuidToPtr(row.InviteeUserID),
+			Role:            row.Role,
+			OrganisationIDs: organisationIDsResponse(row.OrganisationIds),
+			Status:          row.Status,
+			CreatedAt:       timestampToString(row.CreatedAt),
+			UpdatedAt:       timestampToString(row.UpdatedAt),
+			ExpiresAt:       timestampToString(row.ExpiresAt),
+			WorkspaceName:   row.WorkspaceName,
+			InviterName:     row.InviterName,
+			InviterEmail:    row.InviterEmail,
 		}
 	}
 
@@ -534,7 +534,12 @@ func (h *Handler) AcceptInvitation(w http.ResponseWriter, r *http.Request) {
 			})
 			switch {
 			case memberErr == nil:
-				writeJSON(w, http.StatusOK, h.memberWithUserResponse(member, user))
+				projected, err := h.Queries.GetMemberForResponse(r.Context(), member.ID)
+				if err != nil {
+					writeError(w, http.StatusInternalServerError, "failed to load membership")
+					return
+				}
+				writeJSON(w, http.StatusOK, h.memberWithUserResponse(db.Member(projected), user))
 				return
 			case errors.Is(memberErr, pgx.ErrNoRows):
 				// The membership from the first accept is gone; fall through
@@ -572,18 +577,15 @@ func (h *Handler) AcceptInvitation(w http.ResponseWriter, r *http.Request) {
 	if !checkMembershipAdmission(w, r, qtx, user.ID, inv.Role) {
 		return
 	}
-	if inv.Role == "client" {
-		_, err := qtx.GetOrganisationInWorkspace(r.Context(), db.GetOrganisationInWorkspaceParams{
-			ID: inv.OrganisationID, WorkspaceID: inv.WorkspaceID,
-		})
-		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				writeError(w, http.StatusConflict, "the organisation of this invitation no longer exists")
-			} else {
-				writeError(w, http.StatusInternalServerError, "failed to load organisation")
-			}
-			return
-		}
+	// Re-project inside the transaction so acceptance copies only survivors.
+	surviving, err := qtx.GetInvitationForResponse(r.Context(), inv.ID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to load invitation")
+		return
+	}
+	if inv.Role == "client" && len(surviving.OrganisationIds) == 0 {
+		writeError(w, http.StatusConflict, "the organisations of this invitation no longer exist")
+		return
 	}
 	capacityActive, err := h.beginCapacityConsume(r.Context(), uuid.UUID(inv.WorkspaceID.Bytes), uuid.UUID(inv.ID.Bytes), uuid.UUID(inv.ID.Bytes), uuid.UUID(user.ID.Bytes))
 	if err != nil {
@@ -598,10 +600,10 @@ func (h *Handler) AcceptInvitation(w http.ResponseWriter, r *http.Request) {
 	}
 
 	member, err := qtx.CreateMember(r.Context(), db.CreateMemberParams{
-		WorkspaceID:    accepted.WorkspaceID,
-		UserID:         user.ID,
-		Role:           accepted.Role,
-		OrganisationID: accepted.OrganisationID,
+		WorkspaceID:     accepted.WorkspaceID,
+		UserID:          user.ID,
+		Role:            accepted.Role,
+		OrganisationIds: surviving.OrganisationIds,
 	})
 	if err != nil {
 		if isUniqueViolation(err) {

@@ -685,12 +685,13 @@ func newWorkspaceMemberInviteTestCmd() *cobra.Command {
 	cmd.Flags().String("workspace-id", "", "")
 	cmd.Flags().String("profile", "", "")
 	cmd.Flags().String("role", "member", "")
-	cmd.Flags().String("organisation", "", "")
+	cmd.Flags().StringArray("organisation", nil, "")
 	cmd.Flags().String("output", "json", "")
 	return cmd
 }
 
 func TestRunWorkspaceMemberInvitePostsInvitation(t *testing.T) {
+	t.Chdir(t.TempDir())
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("MULTICA_TOKEN", "test-token")
 	t.Setenv("MULTICA_WORKSPACE_ID", "workspace-123")
@@ -733,12 +734,15 @@ func TestRunWorkspaceMemberInvitePostsInvitation(t *testing.T) {
 	if gotBody["role"] != "member" {
 		t.Fatalf("body role = %v, want member (default)", gotBody["role"])
 	}
-	if _, present := gotBody["organisation_id"]; present {
-		t.Fatalf("staff invitation must not include organisation_id: %#v", gotBody)
+	for _, field := range []string{"organisation_ids", "organisation_id"} {
+		if _, present := gotBody[field]; present {
+			t.Fatalf("staff invitation must not include %s: %#v", field, gotBody)
+		}
 	}
 }
 
 func TestRunWorkspaceMemberInviteUsesWorkspaceArgAndRoleFlag(t *testing.T) {
+	t.Chdir(t.TempDir())
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("MULTICA_TOKEN", "test-token")
 
@@ -806,17 +810,17 @@ func TestRunWorkspaceMemberInviteRejectsUnknownRole(t *testing.T) {
 
 func TestRunWorkspaceMemberInviteOrganisationRulesBeforeRequests(t *testing.T) {
 	for _, tc := range []struct {
-		name         string
-		role         string
-		organisation string
-		setFlag      bool
-		wantError    string
+		name          string
+		role          string
+		organisations []string
+		wantError     string
 	}{
 		{name: "client needs organisation", role: "client", wantError: "a client invitation needs --organisation"},
-		{name: "client needs nonblank organisation", role: "client", organisation: "  ", setFlag: true, wantError: "a client invitation needs --organisation"},
-		{name: "member cannot bind organisation", role: "member", organisation: "rebl-records", setFlag: true, wantError: "--organisation is only allowed with --role client"},
-		{name: "admin cannot bind organisation", role: "admin", organisation: "rebl-records", setFlag: true, wantError: "--organisation is only allowed with --role client"},
-		{name: "staff cannot pass empty organisation flag", role: "member", setFlag: true, wantError: "--organisation is only allowed with --role client"},
+		{name: "client needs nonblank organisation", role: "client", organisations: []string{"  "}, wantError: "a client invitation needs --organisation"},
+		{name: "client refuses a blank choice beside a key", role: "client", organisations: []string{"rebl-records", " "}, wantError: "--organisation must not be blank"},
+		{name: "member cannot bind organisation", role: "member", organisations: []string{"rebl-records"}, wantError: "--organisation is only allowed with --role client"},
+		{name: "admin cannot bind organisations", role: "admin", organisations: []string{"rebl-records", "rebl-music"}, wantError: "--organisation is only allowed with --role client"},
+		{name: "staff cannot pass empty organisation flag", role: "member", organisations: []string{""}, wantError: "--organisation is only allowed with --role client"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Setenv("HOME", t.TempDir())
@@ -830,8 +834,8 @@ func TestRunWorkspaceMemberInviteOrganisationRulesBeforeRequests(t *testing.T) {
 
 			cmd := newWorkspaceMemberInviteTestCmd()
 			_ = cmd.Flags().Set("role", tc.role)
-			if tc.setFlag {
-				_ = cmd.Flags().Set("organisation", tc.organisation)
+			for _, organisation := range tc.organisations {
+				_ = cmd.Flags().Set("organisation", organisation)
 			}
 			// A slug would require a workspace lookup if validation ran too late.
 			err := runWorkspaceMemberInvite(cmd, []string{"contact@client.nl", "rebl"})
@@ -846,57 +850,13 @@ func TestRunWorkspaceMemberInviteOrganisationRulesBeforeRequests(t *testing.T) {
 }
 
 func TestRunWorkspaceMemberInviteUnknownOrganisation(t *testing.T) {
-	t.Chdir(t.TempDir())
-	t.Setenv("HOME", t.TempDir())
-	t.Setenv("MULTICA_AGENT_ID", "")
-	t.Setenv("MULTICA_TASK_ID", "")
-	t.Setenv("MULTICA_DAEMON_PORT", "")
-
-	var requests atomic.Int32
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		requests.Add(1)
-		if r.Method != http.MethodGet || r.URL.Path != "/api/organisations" {
-			t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
-			http.NotFound(w, r)
-			return
-		}
-		if got := r.Header.Get("X-Workspace-ID"); got != "ws-1" {
-			t.Errorf("workspace header = %q, want ws-1", got)
-		}
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"organisations": []map[string]any{{"id": "org-other", "key": "another"}},
-			"total":         1,
-		})
-	}))
-	defer srv.Close()
-	setCLITestServerEnv(t, srv.URL)
-
-	cmd := newWorkspaceMemberInviteTestCmd()
-	_ = cmd.Flags().Set("role", "client")
-	_ = cmd.Flags().Set("organisation", "missing")
-	err := runWorkspaceMemberInvite(cmd, []string{"contact@client.nl"})
-	if err == nil || err.Error() != "organisation missing not found" {
-		t.Fatalf("error = %v, want organisation not found", err)
-	}
-	if got := requests.Load(); got != 1 {
-		t.Fatalf("requests = %d, want only the organisation lookup and no invitation", got)
-	}
-}
-
-func TestRunWorkspaceMemberInviteClientOrganisation(t *testing.T) {
-	const workspaceID = "11111111-1111-1111-1111-111111111111"
-	const organisationID = "ABCDEF12-3456-7890-ABCD-1234567890AB"
 	for _, tc := range []struct {
-		name         string
-		organisation string
-		workspaceArg string
-		output       string
-		wantRequests int32
+		name          string
+		organisations []string
+		wantError     string
 	}{
-		{name: "case insensitive key in resolved workspace", organisation: "ReBl-ReCoRdS", workspaceArg: "rebl", output: "json", wantRequests: 3},
-		{name: "UUID direct with positional workspace", organisation: organisationID, workspaceArg: workspaceID, output: "table", wantRequests: 1},
-		{name: "key in default workspace with table output", organisation: "rebl-records", output: "table", wantRequests: 2},
+		{name: "one unknown key", organisations: []string{"missing"}, wantError: "organisation missing not found"},
+		{name: "unknown keys beside a known key and UUID", organisations: []string{"missing", "another", "22222222-2222-2222-2222-222222222222", "gone"}, wantError: "organisations missing, gone not found"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Chdir(t.TempDir())
@@ -906,6 +866,93 @@ func TestRunWorkspaceMemberInviteClientOrganisation(t *testing.T) {
 			t.Setenv("MULTICA_DAEMON_PORT", "")
 
 			var requests atomic.Int32
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				requests.Add(1)
+				if r.Method != http.MethodGet || r.URL.Path != "/api/organisations" {
+					t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
+					http.NotFound(w, r)
+					return
+				}
+				if got := r.Header.Get("X-Workspace-ID"); got != "ws-1" {
+					t.Errorf("workspace header = %q, want ws-1", got)
+				}
+				w.Header().Set("Content-Type", "application/json")
+				_ = json.NewEncoder(w).Encode(map[string]any{
+					"organisations": []map[string]any{{"id": "org-other", "key": "another"}},
+					"total":         1,
+				})
+			}))
+			defer srv.Close()
+			setCLITestServerEnv(t, srv.URL)
+
+			cmd := newWorkspaceMemberInviteTestCmd()
+			_ = cmd.Flags().Set("role", "client")
+			for _, organisation := range tc.organisations {
+				_ = cmd.Flags().Set("organisation", organisation)
+			}
+			err := runWorkspaceMemberInvite(cmd, []string{"contact@client.nl"})
+			if err == nil || err.Error() != tc.wantError {
+				t.Fatalf("error = %v, want %q", err, tc.wantError)
+			}
+			if got := requests.Load(); got != 1 {
+				t.Fatalf("requests = %d, want only the organisation lookup and no invitation", got)
+			}
+		})
+	}
+}
+
+func TestRunWorkspaceMemberInviteClientOrganisations(t *testing.T) {
+	const workspaceID = "11111111-1111-1111-1111-111111111111"
+	const recordsID = "abcdef12-3456-7890-abcd-1234567890ab"
+	const musicID = "22222222-2222-2222-2222-222222222222"
+	const otherID = "33333333-3333-3333-3333-333333333333"
+	for _, tc := range []struct {
+		name          string
+		organisations []string
+		workspaceArg  string
+		output        string
+		wantRequests  int32
+		wantIDs       []string
+	}{
+		{
+			name:          "several case insensitive keys in resolved workspace",
+			organisations: []string{"ReBl-ReCoRdS", "rebl-music"},
+			workspaceArg:  "rebl",
+			output:        "json",
+			wantRequests:  3,
+			wantIDs:       []string{recordsID, musicID},
+		},
+		{
+			name:          "UUIDs direct with positional workspace",
+			organisations: []string{strings.ToUpper(musicID), recordsID},
+			workspaceArg:  workspaceID,
+			output:        "table",
+			wantRequests:  1,
+			wantIDs:       []string{musicID, recordsID},
+		},
+		{
+			name:          "mixed keys and UUIDs in default workspace",
+			organisations: []string{"rebl-records", otherID, "rebl-music"},
+			output:        "table",
+			wantRequests:  2,
+			wantIDs:       []string{recordsID, otherID, musicID},
+		},
+		{
+			name:          "duplicate keys and UUIDs are one choice",
+			organisations: []string{"rebl-records", strings.ToUpper(recordsID), "REBL-RECORDS", " rebl-music ", musicID},
+			output:        "json",
+			wantRequests:  2,
+			wantIDs:       []string{recordsID, musicID},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Chdir(t.TempDir())
+			t.Setenv("HOME", t.TempDir())
+			t.Setenv("MULTICA_AGENT_ID", "")
+			t.Setenv("MULTICA_TASK_ID", "")
+			t.Setenv("MULTICA_DAEMON_PORT", "")
+
+			var requests, lookups atomic.Int32
 			var gotBody map[string]any
 			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				requests.Add(1)
@@ -916,18 +963,17 @@ func TestRunWorkspaceMemberInviteClientOrganisation(t *testing.T) {
 						{"id": workspaceID, "slug": "rebl", "name": "Rebl"},
 					})
 				case "GET /api/organisations":
-					if tc.organisation == organisationID {
-						t.Error("UUID must not trigger an organisation lookup")
-					}
+					lookups.Add(1)
 					if got := r.Header.Get("X-Workspace-ID"); got != workspaceID {
 						t.Errorf("organisation workspace = %q, want %q", got, workspaceID)
 					}
 					_ = json.NewEncoder(w).Encode(map[string]any{
 						"organisations": []map[string]any{
-							{"id": "another-org", "key": "another"},
-							{"id": organisationID, "key": "rebl-records"},
+							{"id": otherID, "key": "another"},
+							{"id": recordsID, "key": "rebl-records"},
+							{"id": musicID, "key": "rebl-music"},
 						},
-						"total": 2,
+						"total": 3,
 					})
 				case "POST /api/workspaces/" + workspaceID + "/members":
 					if got := r.Header.Get("X-Workspace-ID"); got != workspaceID {
@@ -940,10 +986,11 @@ func TestRunWorkspaceMemberInviteClientOrganisation(t *testing.T) {
 					}
 					w.WriteHeader(http.StatusCreated)
 					_ = json.NewEncoder(w).Encode(map[string]any{
-						"invitee_email":   gotBody["email"],
-						"role":            gotBody["role"],
-						"organisation_id": gotBody["organisation_id"],
-						"status":          "pending",
+						"id":               "invitation-1",
+						"invitee_email":    gotBody["email"],
+						"role":             gotBody["role"],
+						"organisation_ids": gotBody["organisation_ids"],
+						"status":           "pending",
 					})
 				default:
 					t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
@@ -958,7 +1005,9 @@ func TestRunWorkspaceMemberInviteClientOrganisation(t *testing.T) {
 
 			cmd := newWorkspaceMemberInviteTestCmd()
 			_ = cmd.Flags().Set("role", " CLIENT ")
-			_ = cmd.Flags().Set("organisation", tc.organisation)
+			for _, organisation := range tc.organisations {
+				_ = cmd.Flags().Set("organisation", organisation)
+			}
 			_ = cmd.Flags().Set("output", tc.output)
 			args := []string{"Contact@Client.nl"}
 			if tc.workspaceArg != "" {
@@ -973,19 +1022,29 @@ func TestRunWorkspaceMemberInviteClientOrganisation(t *testing.T) {
 			if got := requests.Load(); got != tc.wantRequests {
 				t.Errorf("requests = %d, want %d", got, tc.wantRequests)
 			}
-			if gotBody["email"] != "contact@client.nl" || gotBody["role"] != "client" || gotBody["organisation_id"] != organisationID || len(gotBody) != 3 {
-				t.Fatalf("invitation body = %#v, want client email, role and organisation binding", gotBody)
+			if got := lookups.Load(); got > 1 {
+				t.Errorf("organisation lookups = %d, want at most one", got)
+			}
+			wantIDs := strings.Join(tc.wantIDs, ",")
+			if gotBody["email"] != "contact@client.nl" || gotBody["role"] != "client" || len(gotBody) != 3 {
+				t.Fatalf("invitation body = %#v, want only client email, role and organisation_ids", gotBody)
+			}
+			if got := strings.Join(jsonStrings(t, gotBody["organisation_ids"]), ","); got != wantIDs {
+				t.Fatalf("invitation organisation_ids = %s, want %s", got, wantIDs)
 			}
 			if tc.output == "json" {
 				var invitation map[string]any
 				if err := json.Unmarshal([]byte(out), &invitation); err != nil {
 					t.Fatalf("decode output: %v", err)
 				}
-				if invitation["organisation_id"] != organisationID || invitation["role"] != "client" {
-					t.Errorf("invitation output = %#v, want client organisation", invitation)
+				if invitation["id"] != "invitation-1" || invitation["role"] != "client" || invitation["status"] != "pending" {
+					t.Errorf("invitation output = %#v, want the API response", invitation)
+				}
+				if got := strings.Join(jsonStrings(t, invitation["organisation_ids"]), ","); got != wantIDs {
+					t.Errorf("output organisation_ids = %s, want %s", got, wantIDs)
 				}
 			} else {
-				for _, want := range []string{"contact@client.nl", "client", "organisation: " + organisationID, "pending"} {
+				for _, want := range []string{"contact@client.nl", "client", "organisations: " + strings.Join(tc.wantIDs, ", "), "pending"} {
 					if !strings.Contains(out, want) {
 						t.Errorf("table output %q does not contain %q", out, want)
 					}
@@ -993,4 +1052,22 @@ func TestRunWorkspaceMemberInviteClientOrganisation(t *testing.T) {
 			}
 		})
 	}
+}
+
+// jsonStrings reads a decoded JSON array of strings.
+func jsonStrings(t *testing.T, value any) []string {
+	t.Helper()
+	values, ok := value.([]any)
+	if !ok {
+		t.Fatalf("value %#v is not a JSON array", value)
+	}
+	strs := make([]string, 0, len(values))
+	for _, v := range values {
+		s, ok := v.(string)
+		if !ok {
+			t.Fatalf("array element %#v is not a string", v)
+		}
+		strs = append(strs, s)
+	}
+	return strs
 }

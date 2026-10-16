@@ -72,9 +72,10 @@ var workspaceMemberInviteCmd = &cobra.Command{
 		"(--workspace-id / MULTICA_WORKSPACE_ID / profile default).\n\n" +
 		"Role defaults to 'member'; pass '--role admin' to invite an admin, or " +
 		"'--role client --organisation <key-or-id>' to invite a client contact " +
-		"for one organisation of this workspace. --organisation is required " +
-		"for clients and not allowed for other roles. Owners cannot be invited.",
-	Example: "  multica workspace member invite contact@client.nl --role client --organisation rebl-records",
+		"for organisations of this workspace. Repeat --organisation to invite " +
+		"the contact for several organisations; at least one is required for " +
+		"clients and none is allowed for other roles. Owners cannot be invited.",
+	Example: "  multica workspace member invite contact@client.nl --role client --organisation rebl-records --organisation rebl-music",
 	Args:    cobra.RangeArgs(1, 2),
 	RunE:    runWorkspaceMemberInvite,
 }
@@ -187,7 +188,7 @@ func init() {
 	workspaceGetCmd.Flags().String("output", "json", "Output format: table or json")
 	workspaceMemberListCmd.Flags().String("output", "table", "Output format: table or json")
 	workspaceMemberInviteCmd.Flags().String("role", "member", "Member role to grant: member, admin or client (owner is not allowed)")
-	workspaceMemberInviteCmd.Flags().String("organisation", "", "Organisation key (case-insensitive) or UUID; required only for --role client")
+	workspaceMemberInviteCmd.Flags().StringArray("organisation", nil, "Organisation key (case-insensitive) or UUID; repeat for several organisations; required only for --role client")
 	workspaceMemberInviteCmd.Flags().String("output", "table", "Output format: table or json")
 
 	workspaceUpdateCmd.Flags().String("name", "", "New workspace name")
@@ -849,13 +850,25 @@ func runWorkspaceMemberInvite(cmd *cobra.Command, args []string) error {
 	default:
 		return fmt.Errorf("invalid --role %q; expected member, admin or client", role)
 	}
-	organisation, _ := cmd.Flags().GetString("organisation")
-	organisation = strings.TrimSpace(organisation)
-	if role == "client" {
+	organisationArgs, _ := cmd.Flags().GetStringArray("organisation")
+	organisations := make([]string, 0, len(organisationArgs))
+	blankOrganisation := false
+	for _, organisation := range organisationArgs {
+		organisation = strings.TrimSpace(organisation)
 		if organisation == "" {
+			blankOrganisation = true
+			continue
+		}
+		organisations = append(organisations, organisation)
+	}
+	if role == "client" {
+		if len(organisations) == 0 {
 			return fmt.Errorf("a client invitation needs --organisation")
 		}
-	} else if organisation != "" || cmd.Flags().Changed("organisation") {
+		if blankOrganisation {
+			return fmt.Errorf("--organisation must not be blank")
+		}
+	} else if cmd.Flags().Changed("organisation") {
 		return fmt.Errorf("--organisation is only allowed with --role client")
 	}
 
@@ -878,29 +891,11 @@ func runWorkspaceMemberInvite(cmd *cobra.Command, args []string) error {
 
 	body := map[string]any{"email": email, "role": role}
 	if role == "client" {
-		organisationID := organisation
-		if !uuidRegexp.MatchString(organisation) {
-			var result struct {
-				Organisations []struct {
-					ID  string `json:"id"`
-					Key string `json:"key"`
-				} `json:"organisations"`
-			}
-			if err := client.GetJSON(ctx, "/api/organisations", &result); err != nil {
-				return fmt.Errorf("list organisations: %w", err)
-			}
-			organisationID = ""
-			for _, org := range result.Organisations {
-				if strings.EqualFold(org.Key, organisation) {
-					organisationID = org.ID
-					break
-				}
-			}
-			if organisationID == "" {
-				return fmt.Errorf("organisation %s not found", organisation)
-			}
+		organisationIDs, err := resolveInvitationOrganisations(ctx, client, organisations)
+		if err != nil {
+			return err
 		}
-		body["organisation_id"] = organisationID
+		body["organisation_ids"] = organisationIDs
 	}
 	var inv map[string]any
 	if err := client.PostJSON(ctx, "/api/workspaces/"+wsID+"/members", body, &inv); err != nil {
@@ -913,11 +908,84 @@ func runWorkspaceMemberInvite(cmd *cobra.Command, args []string) error {
 	}
 
 	if role == "client" {
-		fmt.Fprintf(os.Stdout, "Invitation sent to %s (role: %s, organisation: %s, status: %s)\n",
-			strVal(inv, "invitee_email"), strVal(inv, "role"), strVal(inv, "organisation_id"), strVal(inv, "status"))
+		fmt.Fprintf(os.Stdout, "Invitation sent to %s (role: %s, organisations: %s, status: %s)\n",
+			strVal(inv, "invitee_email"), strVal(inv, "role"), strings.Join(invitationOrganisationIDs(inv), ", "), strVal(inv, "status"))
 	} else {
 		fmt.Fprintf(os.Stdout, "Invitation sent to %s (role: %s, status: %s)\n",
 			strVal(inv, "invitee_email"), strVal(inv, "role"), strVal(inv, "status"))
 	}
 	return nil
+}
+
+// resolveInvitationOrganisations turns --organisation keys and UUIDs into
+// the deduplicated organisation_ids of a client invitation, in the order they
+// were first named. Keys resolve case-insensitively from one organisations
+// list request; UUIDs pass through without a lookup and the server validates
+// that they belong to the workspace.
+func resolveInvitationOrganisations(ctx context.Context, client *cli.APIClient, organisations []string) ([]string, error) {
+	var keyIDs map[string]string
+	for _, organisation := range organisations {
+		if !uuidRegexp.MatchString(organisation) {
+			keyIDs = map[string]string{}
+			break
+		}
+	}
+	if keyIDs != nil {
+		var result struct {
+			Organisations []struct {
+				ID  string `json:"id"`
+				Key string `json:"key"`
+			} `json:"organisations"`
+		}
+		if err := client.GetJSON(ctx, "/api/organisations", &result); err != nil {
+			return nil, fmt.Errorf("list organisations: %w", err)
+		}
+		for _, org := range result.Organisations {
+			key := strings.ToLower(org.Key)
+			if _, seen := keyIDs[key]; !seen {
+				keyIDs[key] = org.ID
+			}
+		}
+	}
+
+	ids := make([]string, 0, len(organisations))
+	seen := make(map[string]bool, len(organisations))
+	var missing []string
+	for _, organisation := range organisations {
+		id := organisation
+		if !uuidRegexp.MatchString(organisation) {
+			id = keyIDs[strings.ToLower(organisation)]
+			if id == "" {
+				missing = append(missing, organisation)
+				continue
+			}
+		}
+		id = strings.ToLower(id)
+		if seen[id] {
+			continue
+		}
+		seen[id] = true
+		ids = append(ids, id)
+	}
+	switch len(missing) {
+	case 0:
+		return ids, nil
+	case 1:
+		return nil, fmt.Errorf("organisation %s not found", missing[0])
+	default:
+		return nil, fmt.Errorf("organisations %s not found", strings.Join(missing, ", "))
+	}
+}
+
+// invitationOrganisationIDs reads the organisation_ids of an invitation
+// response for text output.
+func invitationOrganisationIDs(inv map[string]any) []string {
+	values, _ := inv["organisation_ids"].([]any)
+	ids := make([]string, 0, len(values))
+	for _, value := range values {
+		if id, ok := value.(string); ok {
+			ids = append(ids, id)
+		}
+	}
+	return ids
 }

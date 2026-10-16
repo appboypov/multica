@@ -140,22 +140,22 @@ func (h *Handler) workspaceToResponse(w db.Workspace) WorkspaceResponse {
 }
 
 type MemberResponse struct {
-	ID             string  `json:"id"`
-	WorkspaceID    string  `json:"workspace_id"`
-	UserID         string  `json:"user_id"`
-	Role           string  `json:"role"`
-	OrganisationID *string `json:"organisation_id"`
-	CreatedAt      string  `json:"created_at"`
+	ID              string   `json:"id"`
+	WorkspaceID     string   `json:"workspace_id"`
+	UserID          string   `json:"user_id"`
+	Role            string   `json:"role"`
+	OrganisationIDs []string `json:"organisation_ids"`
+	CreatedAt       string   `json:"created_at"`
 }
 
 func memberToResponse(m db.Member) MemberResponse {
 	return MemberResponse{
-		ID:             uuidToString(m.ID),
-		WorkspaceID:    uuidToString(m.WorkspaceID),
-		UserID:         uuidToString(m.UserID),
-		Role:           m.Role,
-		OrganisationID: uuidToPtr(m.OrganisationID),
-		CreatedAt:      timestampToString(m.CreatedAt),
+		ID:              uuidToString(m.ID),
+		WorkspaceID:     uuidToString(m.WorkspaceID),
+		UserID:          uuidToString(m.UserID),
+		Role:            m.Role,
+		OrganisationIDs: organisationIDsResponse(m.OrganisationIds),
+		CreatedAt:       timestampToString(m.CreatedAt),
 	}
 }
 
@@ -292,10 +292,10 @@ func (h *Handler) CreateWorkspace(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_, err = qtx.CreateMember(r.Context(), db.CreateMemberParams{
-		WorkspaceID:    ws.ID,
-		UserID:         parseUUID(userID),
-		Role:           "owner",
-		OrganisationID: pgtype.UUID{},
+		WorkspaceID:     ws.ID,
+		UserID:          parseUUID(userID),
+		Role:            "owner",
+		OrganisationIds: []pgtype.UUID{},
 	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to add owner: "+err.Error())
@@ -499,7 +499,7 @@ func (h *Handler) ListMembers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	members, err := h.Queries.ListMembers(r.Context(), member.WorkspaceID)
+	members, err := h.Queries.ListMembersForResponse(r.Context(), member.WorkspaceID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to list members")
 		return
@@ -507,22 +507,22 @@ func (h *Handler) ListMembers(w http.ResponseWriter, r *http.Request) {
 
 	resp := make([]MemberResponse, len(members))
 	for i, m := range members {
-		resp[i] = memberToResponse(m)
+		resp[i] = memberToResponse(db.Member(m))
 	}
 
 	writeJSON(w, http.StatusOK, resp)
 }
 
 type MemberWithUserResponse struct {
-	ID             string  `json:"id"`
-	WorkspaceID    string  `json:"workspace_id"`
-	UserID         string  `json:"user_id"`
-	Role           string  `json:"role"`
-	OrganisationID *string `json:"organisation_id"`
-	CreatedAt      string  `json:"created_at"`
-	Name           string  `json:"name"`
-	Email          string  `json:"email"`
-	AvatarURL      *string `json:"avatar_url"`
+	ID              string   `json:"id"`
+	WorkspaceID     string   `json:"workspace_id"`
+	UserID          string   `json:"user_id"`
+	Role            string   `json:"role"`
+	OrganisationIDs []string `json:"organisation_ids"`
+	CreatedAt       string   `json:"created_at"`
+	Name            string   `json:"name"`
+	Email           string   `json:"email"`
+	AvatarURL       *string  `json:"avatar_url"`
 }
 
 func (h *Handler) ListMembersWithUser(w http.ResponseWriter, r *http.Request) {
@@ -541,15 +541,15 @@ func (h *Handler) ListMembersWithUser(w http.ResponseWriter, r *http.Request) {
 	resp := make([]MemberWithUserResponse, len(members))
 	for i, m := range members {
 		resp[i] = MemberWithUserResponse{
-			ID:             uuidToString(m.ID),
-			WorkspaceID:    uuidToString(m.WorkspaceID),
-			UserID:         uuidToString(m.UserID),
-			Role:           m.Role,
-			OrganisationID: uuidToPtr(m.OrganisationID),
-			CreatedAt:      timestampToString(m.CreatedAt),
-			Name:           m.UserName,
-			Email:          m.UserEmail,
-			AvatarURL:      h.resolveAvatarURLPtr(textToPtr(m.UserAvatarUrl)),
+			ID:              uuidToString(m.ID),
+			WorkspaceID:     uuidToString(m.WorkspaceID),
+			UserID:          uuidToString(m.UserID),
+			Role:            m.Role,
+			OrganisationIDs: organisationIDsResponse(m.OrganisationIds),
+			CreatedAt:       timestampToString(m.CreatedAt),
+			Name:            m.UserName,
+			Email:           m.UserEmail,
+			AvatarURL:       h.resolveAvatarURLPtr(textToPtr(m.UserAvatarUrl)),
 		}
 	}
 
@@ -557,22 +557,22 @@ func (h *Handler) ListMembersWithUser(w http.ResponseWriter, r *http.Request) {
 }
 
 type CreateMemberRequest struct {
-	Email          string  `json:"email"`
-	Role           string  `json:"role"`
-	OrganisationID *string `json:"organisation_id"`
+	Email           string   `json:"email"`
+	Role            string   `json:"role"`
+	OrganisationIDs []string `json:"organisation_ids"`
 }
 
 func (h *Handler) memberWithUserResponse(member db.Member, user db.User) MemberWithUserResponse {
 	return MemberWithUserResponse{
-		ID:             uuidToString(member.ID),
-		WorkspaceID:    uuidToString(member.WorkspaceID),
-		UserID:         uuidToString(member.UserID),
-		Role:           member.Role,
-		OrganisationID: uuidToPtr(member.OrganisationID),
-		CreatedAt:      timestampToString(member.CreatedAt),
-		Name:           user.Name,
-		Email:          user.Email,
-		AvatarURL:      h.resolveAvatarURLPtr(textToPtr(user.AvatarUrl)),
+		ID:              uuidToString(member.ID),
+		WorkspaceID:     uuidToString(member.WorkspaceID),
+		UserID:          uuidToString(member.UserID),
+		Role:            member.Role,
+		OrganisationIDs: organisationIDsResponse(member.OrganisationIds),
+		CreatedAt:       timestampToString(member.CreatedAt),
+		Name:            user.Name,
+		Email:           user.Email,
+		AvatarURL:       h.resolveAvatarURLPtr(textToPtr(user.AvatarUrl)),
 	}
 }
 
@@ -591,8 +591,8 @@ func normalizeMemberRole(role string) (string, bool) {
 }
 
 type UpdateMemberRequest struct {
-	Role           string  `json:"role"`
-	OrganisationID *string `json:"organisation_id"`
+	Role            string   `json:"role"`
+	OrganisationIDs []string `json:"organisation_ids"`
 }
 
 func (h *Handler) UpdateMember(w http.ResponseWriter, r *http.Request) {
@@ -666,7 +666,7 @@ func (h *Handler) UpdateMember(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	organisationID, ok := membershipOrganisation(w, r, qtx, target.WorkspaceID, role, req.OrganisationID, "a client needs an organisation of this workspace")
+	organisationIDs, ok := membershipOrganisations(w, r, qtx, target.WorkspaceID, role, req.OrganisationIDs, "a client needs organisations of this workspace")
 	if !ok {
 		return
 	}
@@ -695,7 +695,7 @@ func (h *Handler) UpdateMember(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	updatedMember, err := qtx.UpdateMemberRole(r.Context(), db.UpdateMemberRoleParams{
-		ID: target.ID, Role: role, OrganisationID: organisationID,
+		ID: target.ID, Role: role, OrganisationIds: organisationIDs,
 	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to update member")

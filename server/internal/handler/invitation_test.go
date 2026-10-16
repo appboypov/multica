@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -868,19 +869,19 @@ func TestCreateInvitation_ClientRules(t *testing.T) {
 	for _, tc := range []struct {
 		name          string
 		role          string
-		organisation  *string
+		organisation  []string
 		existingRole  string
 		requesterRole string
 		status        int
 	}{
-		{name: "client", role: "client", organisation: &organisationID, status: http.StatusCreated},
+		{name: "client", role: "client", organisation: []string{organisationID}, status: http.StatusCreated},
 		{name: "missing organisation", role: "client", status: http.StatusBadRequest},
-		{name: "foreign organisation", role: "client", organisation: &foreignOrganisationID, status: http.StatusBadRequest},
-		{name: "staff organisation", role: "member", organisation: &organisationID, status: http.StatusBadRequest},
-		{name: "client with staff membership", role: "client", organisation: &organisationID, existingRole: "member", status: http.StatusConflict},
+		{name: "foreign organisation", role: "client", organisation: []string{foreignOrganisationID}, status: http.StatusBadRequest},
+		{name: "staff organisation", role: "member", organisation: []string{organisationID}, status: http.StatusBadRequest},
+		{name: "client with staff membership", role: "client", organisation: []string{organisationID}, existingRole: "member", status: http.StatusConflict},
 		{name: "staff invite to client account", role: "member", existingRole: "client", status: http.StatusConflict},
-		{name: "member requester", role: "client", organisation: &organisationID, requesterRole: "member", status: http.StatusForbidden},
-		{name: "admin requester", role: "client", organisation: &organisationID, requesterRole: "admin", status: http.StatusCreated},
+		{name: "member requester", role: "client", organisation: []string{organisationID}, requesterRole: "member", status: http.StatusForbidden},
+		{name: "admin requester", role: "client", organisation: []string{organisationID}, requesterRole: "admin", status: http.StatusCreated},
 		{name: "staff preserved", role: "admin", status: http.StatusCreated},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -889,7 +890,7 @@ func TestCreateInvitation_ClientRules(t *testing.T) {
 			if tc.existingRole != "" {
 				cols := testutil.Cols{"workspace_id": foreignWorkspaceID, "user_id": userID, "role": tc.existingRole}
 				if tc.existingRole == "client" {
-					cols["organisation_id"] = foreignOrganisationID
+					cols["organisation_ids"] = []string{foreignOrganisationID}
 				}
 				dbfx.Insert(t, "member", cols)
 			}
@@ -899,7 +900,7 @@ func TestCreateInvitation_ClientRules(t *testing.T) {
 				dbfx.Member(t, testWorkspaceID, requesterID, tc.requesterRole)
 			}
 			req := newRequest("POST", "/api/workspaces/"+testWorkspaceID+"/members", CreateMemberRequest{
-				Email: email, Role: tc.role, OrganisationID: tc.organisation,
+				Email: email, Role: tc.role, OrganisationIDs: tc.organisation,
 			})
 			req.Header.Set("X-User-ID", requesterID)
 			req = withURLParam(req, "id", testWorkspaceID)
@@ -916,12 +917,8 @@ func TestCreateInvitation_ClientRules(t *testing.T) {
 			if invitation.Role != tc.role || invitation.Status != "pending" || invitation.InviteeUserID == nil || *invitation.InviteeUserID != userID {
 				t.Fatalf("invitation identity/role changed: %+v", invitation)
 			}
-			if tc.organisation == nil {
-				if invitation.OrganisationID != nil {
-					t.Fatalf("staff has organisation: %+v", invitation)
-				}
-			} else if invitation.OrganisationID == nil || *invitation.OrganisationID != *tc.organisation {
-				t.Fatalf("organisation not preserved: %+v", invitation)
+			if len(invitation.OrganisationIDs) != len(tc.organisation) || (len(tc.organisation) > 0 && invitation.OrganisationIDs[0] != tc.organisation[0]) {
+				t.Fatalf("organisations not preserved: %+v", invitation)
 			}
 		})
 	}
@@ -953,7 +950,7 @@ func TestAcceptInvitation_ClientRules(t *testing.T) {
 			if tc.existingRole != "" {
 				cols := testutil.Cols{"workspace_id": otherWorkspaceID, "user_id": userID, "role": tc.existingRole}
 				if tc.existingRole == "client" {
-					cols["organisation_id"] = otherOrganisationID
+					cols["organisation_ids"] = []string{otherOrganisationID}
 				}
 				dbfx.Insert(t, "member", cols)
 			}
@@ -963,7 +960,7 @@ func TestAcceptInvitation_ClientRules(t *testing.T) {
 				"expires_at": testutil.Raw("now() + interval '1 day'"),
 			}
 			if tc.organisation != "" {
-				cols["organisation_id"] = tc.organisation
+				cols["organisation_ids"] = []string{tc.organisation}
 			}
 			invitationID := dbfx.Insert(t, "workspace_invitation", cols)
 			req := newRequest("POST", "/api/invitations/"+invitationID+"/accept", nil)
@@ -984,7 +981,7 @@ func TestAcceptInvitation_ClientRules(t *testing.T) {
 			if status != "accepted" || member.Role != tc.role || member.UserID != userID {
 				t.Fatalf("acceptance changed identity or role: %+v status=%s", member, status)
 			}
-			if tc.role == "client" && (member.OrganisationID == nil || *member.OrganisationID != organisationID) {
+			if tc.role == "client" && (len(member.OrganisationIDs) != 1 || member.OrganisationIDs[0] != organisationID) {
 				t.Fatalf("acceptance lost organisation: %+v", member)
 			}
 			// A later acceptance retry must not upgrade the client either.
@@ -1012,7 +1009,7 @@ func TestAcceptInvitation_ClientFailureLeavesInvitationPending(t *testing.T) {
 			}
 			invitationID := dbfx.Insert(t, "workspace_invitation", testutil.Cols{
 				"workspace_id": testWorkspaceID, "inviter_id": testUserID,
-				"invitee_email": email, "role": "client", "organisation_id": organisationID,
+				"invitee_email": email, "role": "client", "organisation_ids": []string{organisationID},
 				"expires_at": testutil.Raw("now() + interval '1 day'"),
 			})
 			h := *testHandler
@@ -1048,7 +1045,7 @@ func TestAcceptInvitation_ClientSerializesWithEveryStaffMembershipWrite(t *testi
 			organisationID := clientTestOrganisation(t, testWorkspaceID)
 			invitationID := dbfx.Insert(t, "workspace_invitation", testutil.Cols{
 				"workspace_id": testWorkspaceID, "inviter_id": testUserID,
-				"invitee_email": email, "role": "client", "organisation_id": organisationID,
+				"invitee_email": email, "role": "client", "organisation_ids": []string{organisationID},
 				"expires_at": testutil.Raw("now() + interval '1 day'"),
 			})
 			dbfx.Cleanup(t, `DELETE FROM member WHERE user_id=$1`, userID)
@@ -1128,6 +1125,10 @@ func TestAcceptInvitation_ClientSerializesWithEveryStaffMembershipWrite(t *testi
 func TestClientMembership_LaterLoginAndLogoutPreserveBinding(t *testing.T) {
 	organisationID := clientTestOrganisation(t, testWorkspaceID)
 	userID, memberID := clientTestMember(t, testWorkspaceID, "client", organisationID)
+	otherOrganisationID := clientTestOrganisation(t, testWorkspaceID)
+	expected := []string{organisationID, otherOrganisationID}
+	slices.Sort(expected)
+	dbfx.Exec(t, `UPDATE member SET organisation_ids=$2::uuid[] WHERE id=$1`, memberID, expected)
 	var email string
 	dbfx.QueryRow(t, `SELECT email FROM "user" WHERE id=$1`, userID).Scan(&email)
 	dbfx.Insert(t, "verification_code", testutil.Cols{
@@ -1149,10 +1150,10 @@ func TestClientMembership_LaterLoginAndLogoutPreserveBinding(t *testing.T) {
 		Memberships []MyMembershipResponse `json:"memberships"`
 	}
 	testutil.Call(t, protected.ServeHTTP, membershipsReq).Want(http.StatusOK).JSON(&response)
-	if len(response.Memberships) != 1 || response.Memberships[0].Role != "client" ||
-		response.Memberships[0].Organisation == nil || response.Memberships[0].Organisation.ID != organisationID {
+	if len(response.Memberships) != 1 || response.Memberships[0].Role != "client" || len(response.Memberships[0].Organisations) != 2 {
 		t.Fatalf("later login changed membership: %+v", response)
 	}
+	assertOrganisationSet(t, []string{response.Memberships[0].Organisations[0].ID, response.Memberships[0].Organisations[1].ID}, expected)
 	logoutReq := httptest.NewRequest("POST", "/auth/logout", nil)
 	logoutRec := testutil.Call(t, testHandler.Logout, logoutReq).Want(http.StatusOK)
 	cleared := make(map[string]bool)
@@ -1167,11 +1168,13 @@ func TestClientMembership_LaterLoginAndLogoutPreserveBinding(t *testing.T) {
 		}
 	}
 	testutil.Call(t, protected.ServeHTTP, httptest.NewRequest("GET", "/api/me/memberships", nil)).Want(http.StatusUnauthorized)
-	var role, binding string
-	dbfx.QueryRow(t, `SELECT role, organisation_id::text FROM member WHERE id=$1`, memberID).Scan(&role, &binding)
-	if role != "client" || binding != organisationID {
-		t.Fatalf("login/logout mutated membership: %s %s", role, binding)
+	var role string
+	var bindings []string
+	dbfx.QueryRow(t, `SELECT role, organisation_ids::text[] FROM member WHERE id=$1`, memberID).Scan(&role, &bindings)
+	if role != "client" {
+		t.Fatalf("login/logout mutated membership: %s %v", role, bindings)
 	}
+	assertOrganisationSet(t, bindings, expected)
 }
 
 func TestUpdateMember_DemotionSerializesWithStaffInvitationAcceptance(t *testing.T) {
@@ -1187,9 +1190,7 @@ func TestUpdateMember_DemotionSerializesWithStaffInvitationAcceptance(t *testing
 		"role": "member", "expires_at": testutil.Raw("now() + interval '1 day'"),
 	})
 	dbfx.Cleanup(t, `DELETE FROM member WHERE workspace_id=$1 AND user_id=$2`, otherWorkspaceID, fx.TargetUserID)
-	demotionReq := newRequest("PATCH", "/api/workspaces/"+fx.WorkspaceID+"/members/"+fx.MemberID, UpdateMemberRequest{
-		Role: "client", OrganisationID: &organisationID,
-	})
+	demotionReq := newRequest("PATCH", "/api/workspaces/"+fx.WorkspaceID+"/members/"+fx.MemberID, UpdateMemberRequest{Role: "client", OrganisationIDs: []string{organisationID}})
 	demotionReq.Header.Set("X-Workspace-ID", fx.WorkspaceID)
 	demotionReq = withURLParams(demotionReq, "id", fx.WorkspaceID, "memberId", fx.MemberID)
 	acceptReq := newRequest("POST", "/api/invitations/"+invitationID+"/accept", nil)

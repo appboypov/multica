@@ -3,6 +3,7 @@ package handler
 import (
 	"errors"
 	"net/http"
+	"slices"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -15,11 +16,11 @@ type MembershipOrganisationResponse struct {
 }
 
 type MyMembershipResponse struct {
-	WorkspaceID   string                          `json:"workspace_id"`
-	WorkspaceName string                          `json:"workspace_name"`
-	WorkspaceSlug string                          `json:"workspace_slug"`
-	Role          string                          `json:"role"`
-	Organisation  *MembershipOrganisationResponse `json:"organisation"`
+	WorkspaceID   string                           `json:"workspace_id"`
+	WorkspaceName string                           `json:"workspace_name"`
+	WorkspaceSlug string                           `json:"workspace_slug"`
+	Role          string                           `json:"role"`
+	Organisations []MembershipOrganisationResponse `json:"organisations"`
 }
 
 func (h *Handler) ListMyMemberships(w http.ResponseWriter, r *http.Request) {
@@ -37,45 +38,66 @@ func (h *Handler) ListMyMemberships(w http.ResponseWriter, r *http.Request) {
 		memberships[i] = MyMembershipResponse{
 			WorkspaceID: uuidToString(row.WorkspaceID), WorkspaceName: row.WorkspaceName,
 			WorkspaceSlug: row.WorkspaceSlug, Role: row.Role,
+			Organisations: make([]MembershipOrganisationResponse, len(row.OrganisationIds)),
 		}
-		if row.Role == "client" && row.OrganisationID.Valid {
-			memberships[i].Organisation = &MembershipOrganisationResponse{
-				ID: uuidToString(row.OrganisationID), Name: row.OrganisationName.String,
+		for j, id := range row.OrganisationIds {
+			memberships[i].Organisations[j] = MembershipOrganisationResponse{
+				ID: uuidToString(id), Name: row.OrganisationNames[j],
 			}
 		}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"memberships": memberships})
 }
 
-// membershipOrganisation validates the binding before any membership write.
-func membershipOrganisation(w http.ResponseWriter, r *http.Request, queries *db.Queries, workspaceID pgtype.UUID, role string, organisation *string, missingMessage string) (pgtype.UUID, bool) {
+// membershipOrganisations validates the complete set before any membership write.
+func membershipOrganisations(w http.ResponseWriter, r *http.Request, queries *db.Queries, workspaceID pgtype.UUID, role string, organisations []string, missingMessage string) ([]pgtype.UUID, bool) {
 	if role != "client" {
-		if organisation != nil {
-			writeError(w, http.StatusBadRequest, "staff membership must not have an organisation")
-			return pgtype.UUID{}, false
+		if len(organisations) != 0 {
+			writeError(w, http.StatusBadRequest, "staff membership must not have organisations")
+			return nil, false
 		}
-		return pgtype.UUID{}, true
+		return []pgtype.UUID{}, true
 	}
-	if organisation == nil {
+	if len(organisations) == 0 {
 		writeError(w, http.StatusBadRequest, missingMessage)
-		return pgtype.UUID{}, false
+		return nil, false
 	}
-	organisationID, ok := parseUUIDOrBadRequest(w, *organisation, "organisation id")
-	if !ok {
-		return pgtype.UUID{}, false
-	}
-	_, err := queries.GetOrganisationInWorkspace(r.Context(), db.GetOrganisationInWorkspaceParams{
-		ID: organisationID, WorkspaceID: workspaceID,
-	})
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			writeError(w, http.StatusBadRequest, missingMessage)
-		} else {
-			writeError(w, http.StatusInternalServerError, "failed to load organisation")
+	ids := make([]pgtype.UUID, 0, len(organisations))
+	seen := make(map[[16]byte]struct{}, len(organisations))
+	for _, organisation := range organisations {
+		id, ok := parseUUIDOrBadRequest(w, organisation, "organisation id")
+		if !ok {
+			return nil, false
 		}
-		return pgtype.UUID{}, false
+		if _, exists := seen[id.Bytes]; exists {
+			continue
+		}
+		_, err := queries.GetOrganisationInWorkspace(r.Context(), db.GetOrganisationInWorkspaceParams{
+			ID: id, WorkspaceID: workspaceID,
+		})
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				writeError(w, http.StatusBadRequest, missingMessage)
+			} else {
+				writeError(w, http.StatusInternalServerError, "failed to load organisation")
+			}
+			return nil, false
+		}
+		seen[id.Bytes] = struct{}{}
+		ids = append(ids, id)
 	}
-	return organisationID, true
+	slices.SortFunc(ids, func(a, b pgtype.UUID) int {
+		return slices.Compare(a.Bytes[:], b.Bytes[:])
+	})
+	return ids, true
+}
+
+func organisationIDsResponse(ids []pgtype.UUID) []string {
+	result := make([]string, len(ids))
+	for i, id := range ids {
+		result[i] = uuidToString(id)
+	}
+	return result
 }
 
 // checkMembershipAdmission must run under LockUserForMembership when a row is

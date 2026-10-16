@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"path"
@@ -55,7 +56,7 @@ func newClientGateFixture(t *testing.T) clientGateFixture {
 		"workspace_id": workspaceID, "name": "Gate organisation", "key": "gate-organisation",
 	})
 	rows.Member(t, workspaceID, staffID, "owner")
-	rows.Member(t, workspaceID, clientID, "client", testutil.Cols{"organisation_id": organisationID})
+	rows.Member(t, workspaceID, clientID, "client", testutil.Cols{"organisation_ids": []string{organisationID}})
 	clientJWT, err := generateTestJWT(clientID, clientEmail, "Gate client")
 	if err != nil {
 		t.Fatal(err)
@@ -196,7 +197,7 @@ func TestClientGateRouterSessions(t *testing.T) {
 	invitationID := fixture.rows.Insert(t, "workspace_invitation", testutil.Cols{
 		"workspace_id": fixture.workspaceID, "inviter_id": fixture.staffID,
 		"invitee_email": fixture.clientEmail, "invitee_user_id": fixture.clientID,
-		"role": "client", "organisation_id": fixture.organisationID,
+		"role": "client", "organisation_ids": []string{fixture.organisationID},
 		"status": "accepted", "expires_at": time.Now().Add(time.Hour),
 	})
 	for _, tc := range []struct {
@@ -259,6 +260,51 @@ func TestClientGateRouterNoMembership(t *testing.T) {
 		fixture.router.ServeHTTP(w, req)
 		if w.Code != 200 {
 			t.Fatalf("user without memberships must pass gate on %s: %d: %s", requestPath, w.Code, w.Body.String())
+		}
+	}
+}
+
+func TestClientGateRouterOrganisationSetsRemainClosedAfterDeletion(t *testing.T) {
+	fixture := newClientGateFixture(t)
+	other := fixture.rows.Insert(t, "organisation", testutil.Cols{
+		"workspace_id": fixture.workspaceID, "name": "Second gate organisation", "key": "gate-second",
+	})
+	fixture.rows.Exec(t, `UPDATE member SET organisation_ids=$2::uuid[] WHERE user_id=$1`, fixture.clientID, []string{fixture.organisationID, other})
+	for _, remaining := range []int{2, 1, 0} {
+		if remaining == 1 {
+			fixture.rows.Exec(t, `DELETE FROM organisation WHERE id=$1`, fixture.organisationID)
+		} else if remaining == 0 {
+			fixture.rows.Exec(t, `DELETE FROM organisation WHERE id=$1`, other)
+		}
+		for _, endpoint := range []struct{ method, path string }{
+			{"GET", "/api/issues"}, {"POST", "/api/issues"}, {"GET", "/api/workspaces"},
+		} {
+			req := httptest.NewRequest(endpoint.method, endpoint.path, strings.NewReader("{}"))
+			req.Header.Set("Authorization", "Bearer "+fixture.clientJWT)
+			req.Header.Set("X-Workspace-ID", fixture.workspaceID)
+			w := httptest.NewRecorder()
+			fixture.router.ServeHTTP(w, req)
+			if w.Code != http.StatusForbidden || strings.TrimSpace(w.Body.String()) != routerClientGateError {
+				t.Fatalf("%d organisations opened %s %s: %d %s", remaining, endpoint.method, endpoint.path, w.Code, w.Body.String())
+			}
+		}
+		req := httptest.NewRequest("GET", "/api/me/memberships", nil)
+		req.Header.Set("Authorization", "Bearer "+fixture.clientJWT)
+		w := httptest.NewRecorder()
+		fixture.router.ServeHTTP(w, req)
+		var response struct {
+			Memberships []struct {
+				Role          string `json:"role"`
+				Organisations []struct {
+					ID string `json:"id"`
+				} `json:"organisations"`
+			} `json:"memberships"`
+		}
+		if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
+			t.Fatal(err)
+		}
+		if w.Code != http.StatusOK || len(response.Memberships) != 1 || response.Memberships[0].Role != "client" || response.Memberships[0].Organisations == nil || len(response.Memberships[0].Organisations) != remaining {
+			t.Fatalf("survivor discovery for %d organisations: %d %s", remaining, w.Code, w.Body.String())
 		}
 	}
 }

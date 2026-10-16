@@ -1186,12 +1186,12 @@ type MaintenanceJob struct {
 }
 
 type Member struct {
-	ID             pgtype.UUID        `json:"id"`
-	WorkspaceID    pgtype.UUID        `json:"workspace_id"`
-	UserID         pgtype.UUID        `json:"user_id"`
-	Role           string             `json:"role"`
-	CreatedAt      pgtype.Timestamptz `json:"created_at"`
-	OrganisationID pgtype.UUID        `json:"organisation_id"`
+	ID              pgtype.UUID        `json:"id"`
+	WorkspaceID     pgtype.UUID        `json:"workspace_id"`
+	UserID          pgtype.UUID        `json:"user_id"`
+	Role            string             `json:"role"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	OrganisationIds []pgtype.UUID      `json:"organisation_ids"`
 }
 
 type NotificationPreference struct {
@@ -1864,17 +1864,17 @@ type Workspace struct {
 }
 
 type WorkspaceInvitation struct {
-	ID             pgtype.UUID        `json:"id"`
-	WorkspaceID    pgtype.UUID        `json:"workspace_id"`
-	InviterID      pgtype.UUID        `json:"inviter_id"`
-	InviteeEmail   string             `json:"invitee_email"`
-	InviteeUserID  pgtype.UUID        `json:"invitee_user_id"`
-	Role           string             `json:"role"`
-	Status         string             `json:"status"`
-	CreatedAt      pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
-	ExpiresAt      pgtype.Timestamptz `json:"expires_at"`
-	OrganisationID pgtype.UUID        `json:"organisation_id"`
+	ID              pgtype.UUID        `json:"id"`
+	WorkspaceID     pgtype.UUID        `json:"workspace_id"`
+	InviterID       pgtype.UUID        `json:"inviter_id"`
+	InviteeEmail    string             `json:"invitee_email"`
+	InviteeUserID   pgtype.UUID        `json:"invitee_user_id"`
+	Role            string             `json:"role"`
+	Status          string             `json:"status"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	ExpiresAt       pgtype.Timestamptz `json:"expires_at"`
+	OrganisationIds []pgtype.UUID      `json:"organisation_ids"`
 }
 
 type WorkspaceMcpServer struct {

@@ -397,10 +397,10 @@ func (h *Handler) JoinByShareLink(w http.ResponseWriter, r *http.Request) {
 	}
 
 	member, err := qtx.CreateMember(r.Context(), db.CreateMemberParams{
-		WorkspaceID:    link.WorkspaceID,
-		UserID:         user.ID,
-		Role:           link.Role,
-		OrganisationID: pgtype.UUID{},
+		WorkspaceID:     link.WorkspaceID,
+		UserID:          user.ID,
+		Role:            link.Role,
+		OrganisationIds: []pgtype.UUID{},
 	})
 	if err != nil {
 		if isUniqueViolation(err) {

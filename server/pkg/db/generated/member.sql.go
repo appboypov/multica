@@ -24,16 +24,16 @@ func (q *Queries) CountMembershipsByUser(ctx context.Context, userID pgtype.UUID
 }
 
 const createMember = `-- name: CreateMember :one
-INSERT INTO member (workspace_id, user_id, role, organisation_id)
-VALUES ($1, $2, $3, $4)
-RETURNING id, workspace_id, user_id, role, created_at, organisation_id
+INSERT INTO member (workspace_id, user_id, role, organisation_ids)
+VALUES ($1, $2, $3, COALESCE($4::uuid[], '{}'::uuid[]))
+RETURNING id, workspace_id, user_id, role, created_at, organisation_ids
 `
 
 type CreateMemberParams struct {
-	WorkspaceID    pgtype.UUID `json:"workspace_id"`
-	UserID         pgtype.UUID `json:"user_id"`
-	Role           string      `json:"role"`
-	OrganisationID pgtype.UUID `json:"organisation_id"`
+	WorkspaceID     pgtype.UUID   `json:"workspace_id"`
+	UserID          pgtype.UUID   `json:"user_id"`
+	Role            string        `json:"role"`
+	OrganisationIds []pgtype.UUID `json:"organisation_ids"`
 }
 
 func (q *Queries) CreateMember(ctx context.Context, arg CreateMemberParams) (Member, error) {
@@ -41,7 +41,7 @@ func (q *Queries) CreateMember(ctx context.Context, arg CreateMemberParams) (Mem
 		arg.WorkspaceID,
 		arg.UserID,
 		arg.Role,
-		arg.OrganisationID,
+		arg.OrganisationIds,
 	)
 	var i Member
 	err := row.Scan(
@@ -50,7 +50,7 @@ func (q *Queries) CreateMember(ctx context.Context, arg CreateMemberParams) (Mem
 		&i.UserID,
 		&i.Role,
 		&i.CreatedAt,
-		&i.OrganisationID,
+		&i.OrganisationIds,
 	)
 	return i, err
 }
@@ -65,7 +65,7 @@ func (q *Queries) DeleteMember(ctx context.Context, id pgtype.UUID) error {
 }
 
 const getMember = `-- name: GetMember :one
-SELECT id, workspace_id, user_id, role, created_at, organisation_id FROM member
+SELECT id, workspace_id, user_id, role, created_at, organisation_ids FROM member
 WHERE id = $1
 `
 
@@ -78,13 +78,13 @@ func (q *Queries) GetMember(ctx context.Context, id pgtype.UUID) (Member, error)
 		&i.UserID,
 		&i.Role,
 		&i.CreatedAt,
-		&i.OrganisationID,
+		&i.OrganisationIds,
 	)
 	return i, err
 }
 
 const getMemberByUserAndWorkspace = `-- name: GetMemberByUserAndWorkspace :one
-SELECT id, workspace_id, user_id, role, created_at, organisation_id FROM member
+SELECT id, workspace_id, user_id, role, created_at, organisation_ids FROM member
 WHERE user_id = $1 AND workspace_id = $2
 `
 
@@ -102,7 +102,37 @@ func (q *Queries) GetMemberByUserAndWorkspace(ctx context.Context, arg GetMember
 		&i.UserID,
 		&i.Role,
 		&i.CreatedAt,
-		&i.OrganisationID,
+		&i.OrganisationIds,
+	)
+	return i, err
+}
+
+const getMemberForResponse = `-- name: GetMemberForResponse :one
+SELECT m.id, m.workspace_id, m.user_id, m.role, m.created_at,
+       ARRAY(SELECT o.id FROM organisation o WHERE o.workspace_id = m.workspace_id AND o.id = ANY(m.organisation_ids) ORDER BY o.id)::uuid[] AS organisation_ids
+FROM member m
+WHERE m.id = $1
+`
+
+type GetMemberForResponseRow struct {
+	ID              pgtype.UUID        `json:"id"`
+	WorkspaceID     pgtype.UUID        `json:"workspace_id"`
+	UserID          pgtype.UUID        `json:"user_id"`
+	Role            string             `json:"role"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	OrganisationIds []pgtype.UUID      `json:"organisation_ids"`
+}
+
+func (q *Queries) GetMemberForResponse(ctx context.Context, id pgtype.UUID) (GetMemberForResponseRow, error) {
+	row := q.db.QueryRow(ctx, getMemberForResponse, id)
+	var i GetMemberForResponseRow
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.UserID,
+		&i.Role,
+		&i.CreatedAt,
+		&i.OrganisationIds,
 	)
 	return i, err
 }
@@ -122,7 +152,7 @@ func (q *Queries) IsClientAccount(ctx context.Context, userID pgtype.UUID) (bool
 }
 
 const listMembers = `-- name: ListMembers :many
-SELECT id, workspace_id, user_id, role, created_at, organisation_id FROM member
+SELECT id, workspace_id, user_id, role, created_at, organisation_ids FROM member
 WHERE workspace_id = $1
 ORDER BY created_at ASC
 `
@@ -142,7 +172,51 @@ func (q *Queries) ListMembers(ctx context.Context, workspaceID pgtype.UUID) ([]M
 			&i.UserID,
 			&i.Role,
 			&i.CreatedAt,
-			&i.OrganisationID,
+			&i.OrganisationIds,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listMembersForResponse = `-- name: ListMembersForResponse :many
+SELECT m.id, m.workspace_id, m.user_id, m.role, m.created_at,
+       ARRAY(SELECT o.id FROM organisation o WHERE o.workspace_id = m.workspace_id AND o.id = ANY(m.organisation_ids) ORDER BY o.id)::uuid[] AS organisation_ids
+FROM member m
+WHERE m.workspace_id = $1
+ORDER BY created_at ASC
+`
+
+type ListMembersForResponseRow struct {
+	ID              pgtype.UUID        `json:"id"`
+	WorkspaceID     pgtype.UUID        `json:"workspace_id"`
+	UserID          pgtype.UUID        `json:"user_id"`
+	Role            string             `json:"role"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	OrganisationIds []pgtype.UUID      `json:"organisation_ids"`
+}
+
+func (q *Queries) ListMembersForResponse(ctx context.Context, workspaceID pgtype.UUID) ([]ListMembersForResponseRow, error) {
+	rows, err := q.db.Query(ctx, listMembersForResponse, workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListMembersForResponseRow{}
+	for rows.Next() {
+		var i ListMembersForResponseRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.UserID,
+			&i.Role,
+			&i.CreatedAt,
+			&i.OrganisationIds,
 		); err != nil {
 			return nil, err
 		}
@@ -155,7 +229,8 @@ func (q *Queries) ListMembers(ctx context.Context, workspaceID pgtype.UUID) ([]M
 }
 
 const listMembersWithUser = `-- name: ListMembersWithUser :many
-SELECT m.id, m.workspace_id, m.user_id, m.role, m.organisation_id, m.created_at,
+SELECT m.id, m.workspace_id, m.user_id, m.role, m.created_at,
+       ARRAY(SELECT o.id FROM organisation o WHERE o.workspace_id = m.workspace_id AND o.id = ANY(m.organisation_ids) ORDER BY o.id)::uuid[] AS organisation_ids,
        u.name as user_name, u.email as user_email, u.avatar_url as user_avatar_url
 FROM member m
 JOIN "user" u ON u.id = m.user_id
@@ -164,15 +239,15 @@ ORDER BY m.created_at ASC
 `
 
 type ListMembersWithUserRow struct {
-	ID             pgtype.UUID        `json:"id"`
-	WorkspaceID    pgtype.UUID        `json:"workspace_id"`
-	UserID         pgtype.UUID        `json:"user_id"`
-	Role           string             `json:"role"`
-	OrganisationID pgtype.UUID        `json:"organisation_id"`
-	CreatedAt      pgtype.Timestamptz `json:"created_at"`
-	UserName       string             `json:"user_name"`
-	UserEmail      string             `json:"user_email"`
-	UserAvatarUrl  pgtype.Text        `json:"user_avatar_url"`
+	ID              pgtype.UUID        `json:"id"`
+	WorkspaceID     pgtype.UUID        `json:"workspace_id"`
+	UserID          pgtype.UUID        `json:"user_id"`
+	Role            string             `json:"role"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	OrganisationIds []pgtype.UUID      `json:"organisation_ids"`
+	UserName        string             `json:"user_name"`
+	UserEmail       string             `json:"user_email"`
+	UserAvatarUrl   pgtype.Text        `json:"user_avatar_url"`
 }
 
 func (q *Queries) ListMembersWithUser(ctx context.Context, workspaceID pgtype.UUID) ([]ListMembersWithUserRow, error) {
@@ -189,8 +264,8 @@ func (q *Queries) ListMembersWithUser(ctx context.Context, workspaceID pgtype.UU
 			&i.WorkspaceID,
 			&i.UserID,
 			&i.Role,
-			&i.OrganisationID,
 			&i.CreatedAt,
+			&i.OrganisationIds,
 			&i.UserName,
 			&i.UserEmail,
 			&i.UserAvatarUrl,
@@ -207,21 +282,21 @@ func (q *Queries) ListMembersWithUser(ctx context.Context, workspaceID pgtype.UU
 
 const listMyMemberships = `-- name: ListMyMemberships :many
 SELECT m.workspace_id, w.name AS workspace_name, w.slug AS workspace_slug, m.role,
-       o.id AS organisation_id, o.name AS organisation_name
+       ARRAY(SELECT o.id FROM organisation o WHERE m.role = 'client' AND o.workspace_id = m.workspace_id AND o.id = ANY(m.organisation_ids) ORDER BY o.id)::uuid[] AS organisation_ids,
+       ARRAY(SELECT o.name FROM organisation o WHERE m.role = 'client' AND o.workspace_id = m.workspace_id AND o.id = ANY(m.organisation_ids) ORDER BY o.id)::text[] AS organisation_names
 FROM member m
 JOIN workspace w ON w.id = m.workspace_id
-LEFT JOIN organisation o ON o.id = m.organisation_id AND o.workspace_id = m.workspace_id
 WHERE m.user_id = $1
 ORDER BY m.created_at ASC
 `
 
 type ListMyMembershipsRow struct {
-	WorkspaceID      pgtype.UUID `json:"workspace_id"`
-	WorkspaceName    string      `json:"workspace_name"`
-	WorkspaceSlug    string      `json:"workspace_slug"`
-	Role             string      `json:"role"`
-	OrganisationID   pgtype.UUID `json:"organisation_id"`
-	OrganisationName pgtype.Text `json:"organisation_name"`
+	WorkspaceID       pgtype.UUID   `json:"workspace_id"`
+	WorkspaceName     string        `json:"workspace_name"`
+	WorkspaceSlug     string        `json:"workspace_slug"`
+	Role              string        `json:"role"`
+	OrganisationIds   []pgtype.UUID `json:"organisation_ids"`
+	OrganisationNames []string      `json:"organisation_names"`
 }
 
 func (q *Queries) ListMyMemberships(ctx context.Context, userID pgtype.UUID) ([]ListMyMembershipsRow, error) {
@@ -238,8 +313,8 @@ func (q *Queries) ListMyMemberships(ctx context.Context, userID pgtype.UUID) ([]
 			&i.WorkspaceName,
 			&i.WorkspaceSlug,
 			&i.Role,
-			&i.OrganisationID,
-			&i.OrganisationName,
+			&i.OrganisationIds,
+			&i.OrganisationNames,
 		); err != nil {
 			return nil, err
 		}
@@ -289,19 +364,19 @@ func (q *Queries) LockUserForMembership(ctx context.Context, id pgtype.UUID) err
 }
 
 const updateMemberRole = `-- name: UpdateMemberRole :one
-UPDATE member SET role = $2, organisation_id = $3
+UPDATE member SET role = $2, organisation_ids = COALESCE($3::uuid[], '{}'::uuid[])
 WHERE id = $1
-RETURNING id, workspace_id, user_id, role, created_at, organisation_id
+RETURNING id, workspace_id, user_id, role, created_at, organisation_ids
 `
 
 type UpdateMemberRoleParams struct {
-	ID             pgtype.UUID `json:"id"`
-	Role           string      `json:"role"`
-	OrganisationID pgtype.UUID `json:"organisation_id"`
+	ID              pgtype.UUID   `json:"id"`
+	Role            string        `json:"role"`
+	OrganisationIds []pgtype.UUID `json:"organisation_ids"`
 }
 
 func (q *Queries) UpdateMemberRole(ctx context.Context, arg UpdateMemberRoleParams) (Member, error) {
-	row := q.db.QueryRow(ctx, updateMemberRole, arg.ID, arg.Role, arg.OrganisationID)
+	row := q.db.QueryRow(ctx, updateMemberRole, arg.ID, arg.Role, arg.OrganisationIds)
 	var i Member
 	err := row.Scan(
 		&i.ID,
@@ -309,7 +384,7 @@ func (q *Queries) UpdateMemberRole(ctx context.Context, arg UpdateMemberRolePara
 		&i.UserID,
 		&i.Role,
 		&i.CreatedAt,
-		&i.OrganisationID,
+		&i.OrganisationIds,
 	)
 	return i, err
 }

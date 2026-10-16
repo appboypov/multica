@@ -396,14 +396,14 @@ classDiagram
     +uuid workspace_id
     +uuid user_id
     +text role
-    +uuid organisation_id
+    +uuid[] organisation_ids
   }
   class workspace_invitation {
     +uuid id
     +uuid workspace_id
     +text invitee_email
     +text role
-    +uuid organisation_id
+    +uuid[] organisation_ids
     +text status
   }
   class agent {
@@ -677,8 +677,8 @@ classDiagram
   workspace "1" --> "*" member : workspace_id
   user "1" --> "*" member : user_id
   workspace "1" --> "*" workspace_invitation : workspace_id
-  organisation "0..1" --> "*" member : organisation_id
-  organisation "0..1" --> "*" workspace_invitation : organisation_id
+  organisation "*" --> "*" member : organisation_ids, soft references
+  organisation "*" --> "*" workspace_invitation : organisation_ids, soft references
   workspace "1" --> "*" agent : workspace_id
   workspace "1" --> "*" issue : workspace_id
   workspace "1" --> "*" project : workspace_id
