@@ -38,6 +38,15 @@ describe("TodoCheckBody", () => {
     expect(screen.getByRole("button", { name: "Pass" })).toBeDisabled();
     expect(screen.getByRole("alert")).toHaveTextContent("Could not save your answer");
   });
+  it("keeps Pass and Feedback on for a kind this app does not know", () => {
+    renderWithI18n(<TodoCheckBody todo={todoFixture({ kind: "check", details: { ...details, check_kind: "security_review" } })} />);
+    expect(screen.getByRole("heading", { name: "Check for you" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Pass" }));
+    expect(state.mutate).toHaveBeenCalledWith({ id: "todo-1", answer: "pass", note: "" });
+    fireEvent.change(screen.getByLabelText("Feedback"), { target: { value: "Missing audit log" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send feedback" }));
+    expect(state.mutate).toHaveBeenLastCalledWith({ id: "todo-1", answer: "feedback", note: "Missing audit log" });
+  });
   it("shows project trust and protects work links", () => {
     renderWithI18n(<TodoCheckBody todo={todoFixture({ kind: "check", details: { ...details, link: "javascript:alert(1)" } })} />);
     expect(screen.queryByRole("link", { name: "Open work" })).not.toBeInTheDocument();

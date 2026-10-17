@@ -27,8 +27,8 @@ export function TodoCheckBody({ todo }: { todo: Todo }) {
     <Textarea id={`check-note-${todo.id}`} value={note} onChange={(event) => setNote(event.target.value)} disabled={answer.isPending} rows={4} />
     {answer.isError && <p role="alert" className="text-body text-destructive">{t(($) => $.checks.answer_failed)}</p>}
     <div className="flex flex-wrap items-center gap-2" aria-busy={answer.isPending}>
-      <Button type="button" disabled={!kind || answer.isPending} onClick={() => answer.mutate({ id: todo.id, answer: "pass", note })}>{t(($) => $.checks.pass)}</Button>
-      <Button type="button" variant="outline" disabled={!kind || answer.isPending || !note.trim()} onClick={() => answer.mutate({ id: todo.id, answer: "feedback", note })}>{t(($) => $.checks.send_feedback)}</Button>
+      <Button type="button" disabled={answer.isPending} onClick={() => answer.mutate({ id: todo.id, answer: "pass", note })}>{t(($) => $.checks.pass)}</Button>
+      <Button type="button" variant="outline" disabled={answer.isPending || !note.trim()} onClick={() => answer.mutate({ id: todo.id, answer: "feedback", note })}>{t(($) => $.checks.send_feedback)}</Button>
     </div>
     {projectId && <ProjectCheckRecord projectId={projectId} />}
   </section>;
