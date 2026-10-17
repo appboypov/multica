@@ -1342,7 +1342,7 @@ func TestQuestionMemberAskOnIssueKeepsLinksAndPublishesAfterCommit(t *testing.T)
 		if row.AskerUserID != util.UUIDToString(f.anouk) || row.AskerAgentID != "" || row.AskedInTaskID != "" || row.AskID != result.AskID || row.AskPosition != int32(i) {
 			t.Fatalf("member question identity = %+v", row)
 		}
-		if len(row.Links) != 2 || row.Links[0] != (QuestionLinkDTO{"issue", util.UUIDToString(f.issue), 0}) || row.Links[1] != (QuestionLinkDTO{"issue", second, 1}) {
+		if len(row.Links) != 2 || row.Links[0] != (QuestionLinkDTO{LinkType: "issue", LinkID: util.UUIDToString(f.issue), Position: 0}) || row.Links[1] != (QuestionLinkDTO{LinkType: "issue", LinkID: second, Position: 1}) {
 			t.Fatalf("member links = %+v; want issue then extra issue, no run", row.Links)
 		}
 		if row.WakeTargets == nil || len(row.WakeTargets) != 0 || row.WakeAvailable || row.UnseenAnswerCount != 0 {
@@ -1364,7 +1364,7 @@ func TestQuestionMemberAskOnIssueKeepsLinksAndPublishesAfterCommit(t *testing.T)
 	if event.WorkspaceID != util.UUIDToString(f.workspace) || event.ActorType != "member" || event.ActorID != util.UUIDToString(f.anouk) || payload.AskID != result.AskID || payload.QuestionID != result.Questions[0].ID || len(payload.QuestionIDs) != 2 || payload.QuestionIDs[1] != result.Questions[1].ID || payload.EventID == "" {
 		t.Fatalf("member created publication = %+v, payload = %+v", event, payload)
 	}
-	listed, err := f.svc.ListForIssue(ctx, f.workspace, f.issue)
+	listed, err := f.svc.ListForLink(ctx, f.workspace, question.LinkTypeIssue, f.issue)
 	if err != nil || len(listed) != 2 || listed[0].AskerUserID != util.UUIDToString(f.anouk) {
 		t.Fatalf("member issue cards = %+v, %v", listed, err)
 	}
@@ -1479,7 +1479,7 @@ func TestQuestionMemberMutationsPublishWithoutRunInputOrWake(t *testing.T) {
 			if got := f.fx.Count(t, `SELECT count(*) FROM task_supplement WHERE task_id = $1`, f.task); got != 0 || len(notifications.calls) != 0 {
 				t.Fatalf("member mutation delivered run input: receipts=%d notifications=%v", got, notifications.calls)
 			}
-			unseen, err := f.svc.CountUnseenAnswers(ctx, f.workspace, f.agent, f.issue, pgtype.UUID{})
+			unseen, err := f.svc.CountUnseenAnswers(ctx, f.workspace, f.agent, QuestionWakeScope{IssueID: f.issue}, pgtype.UUID{})
 			if err != nil || unseen != 0 {
 				t.Fatalf("member answer entered agent unseen scope: %d, %v", unseen, err)
 			}
@@ -1557,7 +1557,7 @@ func TestQuestionAgentAskRetainsRunLinkAndRunInput(t *testing.T) {
 	notifications := &runInputNotifications{}
 	f.svc.RunInputs = &RunInputService{Queries: f.svc.Queries, Notifier: notifications}
 	row := f.ask(t)
-	if row.AskerUserID != "" || row.AskerAgentID != util.UUIDToString(f.agent) || row.AskedInTaskID != util.UUIDToString(f.task) || len(row.Links) != 2 || row.Links[1] != (QuestionLinkDTO{"task", util.UUIDToString(f.task), 1}) {
+	if row.AskerUserID != "" || row.AskerAgentID != util.UUIDToString(f.agent) || row.AskedInTaskID != util.UUIDToString(f.task) || len(row.Links) != 2 || row.Links[1] != (QuestionLinkDTO{LinkType: "task", LinkID: util.UUIDToString(f.task), Position: 1}) {
 		t.Fatalf("agent ask identity or run link changed: %+v", row)
 	}
 	answered := f.answer(t, row, f.answerer, "per line")

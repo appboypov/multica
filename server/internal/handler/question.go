@@ -208,7 +208,7 @@ func (h *Handler) AnswerQuestion(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) CancelQuestion(w http.ResponseWriter, r *http.Request) {
-	ws, actor, ok := h.questionActor(w, r, false, true)
+	ws, actor, ok := h.questionActor(w, r, questionRoleMember)
 	if !ok {
 		return
 	}

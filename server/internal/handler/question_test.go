@@ -146,7 +146,6 @@ func TestQuestionAPI_CancelAuthorizationAndResponse(t *testing.T) {
 	}
 }
 
-
 func TestQuestionAPI_AgentAnswererRejectedByName(t *testing.T) {
 	fx := newQuestionAPIFixture(t)
 	joeri := dbfx.Agent(t, "Joeri", fx.RuntimeID)
