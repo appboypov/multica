@@ -540,6 +540,60 @@ func TestWorklanePullRequestUsesLocalLaneWhenCheckoutIsElsewhere(t *testing.T) {
 	assertLaneRoutingRecord(t, events, task.ID, f.pr, f.branch)
 }
 
+func TestWorklanePullRequestReusesTreeOfCheckoutOrStandaloneLane(t *testing.T) {
+	for _, owner := range []string{"checkout", "lane"} {
+		for _, location := range []string{"default", "registered"} {
+			t.Run(owner+"_"+location, func(t *testing.T) {
+				f := newLaneRoutingFixture(t, "review/work-1021")
+				// The lane is a standalone clone; the checkout is another clone
+				// of the same repository with its own Git directory.
+				checkout := filepath.Join(t.TempDir(), "checkout")
+				laneRoutingGit(t, filepath.Dir(checkout), "clone", laneRoutingGit(t, f.lane, "remote", "get-url", "origin"), checkout)
+				tree := f.pr
+				if location == "registered" {
+					var err error
+					if tree, err = resolveRealPath(filepath.Join(t.TempDir(), "elsewhere", ".pull-requests", filepath.FromSlash(f.branch))); err != nil {
+						t.Fatal(err)
+					}
+				}
+				source := map[string]string{"checkout": checkout, "lane": f.lane}[owner]
+				laneRoutingGit(t, source, "worktree", "add", tree, f.branch)
+				laneRoutingGit(t, tree, "config", "user.name", "Test")
+				laneRoutingGit(t, tree, "config", "user.email", "test@example.com")
+				laneRoutingWrite(t, tree, "review.txt", "committed review fix\n")
+				laneRoutingGit(t, tree, "add", "review.txt")
+				laneRoutingGit(t, tree, "commit", "-m", "review fix")
+				laneRoutingWrite(t, tree, "scratch.txt", "unsaved review notes\n")
+				head := laneRoutingGit(t, tree, "rev-parse", "HEAD")
+				status := laneRoutingGit(t, tree, "status", "--porcelain")
+				laneHead := laneRoutingGit(t, f.lane, "rev-parse", "HEAD")
+				laneStatus := laneRoutingGit(t, f.lane, "status", "--porcelain")
+				// Reuse must not fetch, so neither clone can reach origin.
+				for _, clone := range []string{checkout, f.lane} {
+					laneRoutingGit(t, clone, "remote", "set-url", "origin", filepath.Join(t.TempDir(), "missing.git"))
+				}
+				d, events := newLaneRoutingDaemon(t)
+				task := f.task("standalone-pr")
+				task.Repositories[0].CheckoutPath = checkout
+				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+				defer cancel()
+				result := awaitLaneRoutingTask(t, ctx, startLaneRoutingTask(ctx, d, task))
+				if got := primaryIssueWorktree(result.task, "local"); got != tree {
+					t.Fatalf("PR directory = %s, want %s", got, tree)
+				}
+				if got := laneRoutingGit(t, tree, "rev-parse", "HEAD"); got != head {
+					t.Fatalf("review fix HEAD changed: %s", got)
+				}
+				if got := laneRoutingGit(t, tree, "status", "--porcelain"); got != status {
+					t.Fatalf("review fix status changed: %s", got)
+				}
+				assertLaneRoutingRecord(t, events, task.ID, tree, f.branch)
+				assertLaneRoutingBuilderUnchanged(t, f, laneHead, laneStatus)
+			})
+		}
+	}
+}
+
 func TestWorklanePullRequestRecordFailureNeverReportsLane(t *testing.T) {
 	f := newLaneRoutingFixture(t, "review/work-1021")
 	events := make(chan laneRoutingEvent, 4)

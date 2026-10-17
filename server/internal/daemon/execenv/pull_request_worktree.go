@@ -12,14 +12,21 @@ import (
 )
 
 // PreparePullRequestWorktree runs with the destination's task path lock held.
-// Existing trees are validated without changing their refs, index or files.
+// sources are the task's local Git repositories; the first one creates a
+// missing tree. An existing tree is reused when it is a worktree of any
+// source, without changing its refs, index or files.
 // A missing tree starts at the PR branch's history, never the default branch.
-func PreparePullRequestWorktree(ctx context.Context, checkoutPath, path, branch string, logger *slog.Logger) (string, error) {
-	checkoutPath, err := ExpandWorklanePath(checkoutPath)
-	if err != nil {
-		return "", err
+func PreparePullRequestWorktree(ctx context.Context, sources []string, path, branch string, logger *slog.Logger) (string, error) {
+	expanded := make([]string, len(sources))
+	for i, source := range sources {
+		var err error
+		if expanded[i], err = ExpandWorklanePath(source); err != nil {
+			return "", err
+		}
 	}
-	path, err = ExpandWorklanePath(path)
+	sources = expanded
+	checkoutPath := sources[0]
+	path, err := ExpandWorklanePath(path)
 	if err != nil {
 		return "", err
 	}
@@ -33,12 +40,8 @@ func PreparePullRequestWorktree(ctx context.Context, checkoutPath, path, branch 
 	}
 	defer unlock()
 	if _, err := os.Lstat(path); err == nil {
-		checkoutCommon, commonErr := runGitTrimmed(checkoutPath, "rev-parse", "--path-format=absolute", "--git-common-dir")
-		pathCommon, pathErr := runGitTrimmed(path, "rev-parse", "--path-format=absolute", "--git-common-dir")
-		root, rootErr := runGitTrimmed(path, "rev-parse", "--show-toplevel")
-		checkoutRoot, checkoutErr := runGitTrimmed(checkoutPath, "rev-parse", "--show-toplevel")
-		if commonErr != nil || pathErr != nil || rootErr != nil || checkoutErr != nil || !sameWorklanePath(root, path) || sameWorklanePath(checkoutRoot, path) || !sameWorklanePath(checkoutCommon, pathCommon) {
-			return "", fmt.Errorf("%s is not a worktree of the checkout %s", path, checkoutPath)
+		if !isWorktreeOfSources(path, sources) {
+			return "", fmt.Errorf("%s is not a worktree of %s", path, strings.Join(sources, " or "))
 		}
 		current, err := runGitTrimmed(path, "symbolic-ref", "--quiet", "--short", "HEAD")
 		if err != nil || current != branch {
@@ -79,4 +82,30 @@ func PreparePullRequestWorktree(ctx context.Context, checkoutPath, path, branch 
 		return "", fmt.Errorf("create pull-request worktree: %s: %w", strings.TrimSpace(out), err)
 	}
 	return path, nil
+}
+
+// isWorktreeOfSources is true when path is the top level of a worktree that
+// shares a source's Git directory without being any source's own tree.
+func isWorktreeOfSources(path string, sources []string) bool {
+	root, err := runGitTrimmed(path, "rev-parse", "--show-toplevel")
+	if err != nil || !sameWorklanePath(root, path) {
+		return false
+	}
+	common, err := runGitTrimmed(path, "rev-parse", "--path-format=absolute", "--git-common-dir")
+	if err != nil {
+		return false
+	}
+	shared := false
+	for _, source := range sources {
+		sourceRoot, err := runGitTrimmed(source, "rev-parse", "--show-toplevel")
+		if err != nil || sameWorklanePath(sourceRoot, path) {
+			return false
+		}
+		sourceCommon, err := runGitTrimmed(source, "rev-parse", "--path-format=absolute", "--git-common-dir")
+		if err != nil {
+			return false
+		}
+		shared = shared || sameWorklanePath(sourceCommon, common)
+	}
+	return shared
 }

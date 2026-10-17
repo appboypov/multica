@@ -32,12 +32,14 @@ func worklaneTaskPath(ctx context.Context, task Task, repo protocol.ClaimReposit
 	if wanted == "" {
 		return "", fmt.Errorf("worklane issue task has no issue identifier")
 	}
-	checkout, err := execenv.ExpandWorklanePath(worklaneTaskCheckout(repo))
-	if err != nil {
-		return "", err
+	sources := worklaneTaskSources(repo)
+	for i, source := range sources {
+		if sources[i], err = execenv.ExpandWorklanePath(source); err != nil {
+			return "", err
+		}
 	}
 	if repo.Worklane.PullRequestBranch != "" {
-		branch, err := checkoutGit(ctx, checkout, "check-ref-format", "--branch", wanted)
+		branch, err := checkoutGit(ctx, sources[0], "check-ref-format", "--branch", wanted)
 		if err != nil || branch != wanted {
 			return "", fmt.Errorf("invalid pull-request branch %q", wanted)
 		}
@@ -52,8 +54,11 @@ func worklaneTaskPath(ctx context.Context, task Task, repo protocol.ClaimReposit
 			selected = recorded
 		}
 	}
-	if selected == "" {
-		held, err := checkoutGit(ctx, checkout, "for-each-ref", "--format=%(refname)\t%(worktreepath)", "refs/heads/"+wanted)
+	for _, source := range sources {
+		if selected != "" {
+			break
+		}
+		held, err := checkoutGit(ctx, source, "for-each-ref", "--format=%(refname)\t%(worktreepath)", "refs/heads/"+wanted)
 		if err != nil {
 			return "", fmt.Errorf("find the PR branch's worktree: %w", err)
 		}
@@ -117,11 +122,18 @@ func worklaneTaskBranch(task Task, repo protocol.ClaimRepository) string {
 	return worklanehead.Branch(task.IssueIdentifier)
 }
 
-func worklaneTaskCheckout(repo protocol.ClaimRepository) string {
-	if repo.CheckoutPath != "" && repo.CheckoutDaemonID == repo.Worklane.DaemonID {
-		return repo.CheckoutPath
+// worklaneTaskSources lists the task's local Git repositories, the one that
+// creates missing PR trees first. A checkout is local only on the lane's
+// daemon. The lane may be a standalone clone whose PR trees the checkout
+// does not know.
+func worklaneTaskSources(repo protocol.ClaimRepository) []string {
+	if repo.CheckoutPath == "" || repo.CheckoutDaemonID != repo.Worklane.DaemonID {
+		return []string{repo.Worklane.Path}
 	}
-	return repo.Worklane.Path
+	if repo.CheckoutPath == repo.Worklane.Path {
+		return []string{repo.CheckoutPath}
+	}
+	return []string{repo.CheckoutPath, repo.Worklane.Path}
 }
 
 func isPullRequestTaskPath(path, branch string) bool {
@@ -145,7 +157,7 @@ func (d *Daemon) prepareWorklaneTask(ctx context.Context, task *Task, repo *prot
 		return err
 	}
 	if repo.Worklane.PullRequestBranch != "" || path != lanePath {
-		path, err = execenv.PreparePullRequestWorktree(ctx, worklaneTaskCheckout(*repo), path, wanted, logger)
+		path, err = execenv.PreparePullRequestWorktree(ctx, worklaneTaskSources(*repo), path, wanted, logger)
 		if err != nil {
 			return err
 		}
