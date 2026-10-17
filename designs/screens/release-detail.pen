@@ -1,0 +1,2103 @@
+{
+  "version": "2.21",
+  "children": [
+    {
+      "type": "frame",
+      "id": "NQcGd",
+      "x": 0,
+      "y": 0,
+      "name": "Release detail · default",
+      "clip": true,
+      "width": 1440,
+      "height": 900,
+      "fill": "$L:app-shell",
+      "children": [
+        {
+          "id": "PHxEr",
+          "type": "ref",
+          "ref": "L:aSVx6",
+          "name": "App sidebar",
+          "height": "fill_container",
+          "descendants": {
+            "L:qSICc": {
+              "fill": "#00000000"
+            },
+            "L:qSICc/L:fVZGR": {
+              "fill": "$L:muted-foreground"
+            },
+            "L:qSICc/L:hOvR0": {
+              "fill": "$L:muted-foreground",
+              "fontWeight": "normal"
+            },
+            "L:AIzGY": {
+              "fill": "$L:sidebar-accent"
+            },
+            "L:AIzGY/L:irWtm": {
+              "fill": "$L:foreground"
+            },
+            "L:AIzGY/L:eld4j": {
+              "fill": "$L:foreground",
+              "fontWeight": "500"
+            }
+          }
+        },
+        {
+          "type": "frame",
+          "id": "VFGGV",
+          "name": "Main",
+          "width": "fill_container",
+          "height": "fill_container",
+          "fill": "$L:page-canvas",
+          "layout": "vertical",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "cqedo",
+              "name": "Release page",
+              "width": 768,
+              "layout": "vertical",
+              "gap": 32,
+              "padding": [
+                32,
+                24
+              ],
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "GlDah",
+                  "name": "Header",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 12,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "MEffI",
+                      "name": "Repository",
+                      "fill": "$L:muted-foreground",
+                      "content": "appboypov/rebl",
+                      "fontFamily": "$L:font-sans",
+                      "fontSize": "$L:text-label",
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "ggnvn",
+                      "name": "Version and state",
+                      "gap": 8,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "id": "nOoqQ",
+                          "type": "ref",
+                          "ref": "L:aCLgS",
+                          "name": "Version chip",
+                          "cornerRadius": 10,
+                          "padding": [
+                            0,
+                            8
+                          ],
+                          "descendants": {
+                            "L:e0MCN": {
+                              "enabled": false
+                            },
+                            "L:uo2SE": {
+                              "content": "v1.1.0"
+                            }
+                          }
+                        },
+                        {
+                          "type": "text",
+                          "id": "r0Cyb",
+                          "name": "State",
+                          "fill": "$L:brand",
+                          "content": "Next release",
+                          "fontFamily": "$L:font-sans",
+                          "fontSize": "$L:text-caption",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "cLIwE",
+                      "name": "Title",
+                      "fill": "$L:foreground",
+                      "content": "Account and profile",
+                      "fontFamily": "$L:font-sans",
+                      "fontSize": "$L:text-title-lg",
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "AR7SV",
+                      "name": "Description",
+                      "fill": "$L:muted-foreground",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Sign-up, profile editing and avatars for fan accounts.",
+                      "fontFamily": "$L:font-sans",
+                      "fontSize": "$L:text-body",
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "byQPz",
+                      "name": "Owner",
+                      "gap": 12,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "CLPJM",
+                          "name": "Owner label",
+                          "fill": "$L:muted-foreground",
+                          "content": "Owner",
+                          "fontFamily": "$L:font-sans",
+                          "fontSize": "$L:text-label",
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "zSVrU",
+                          "name": "Owner picker",
+                          "gap": 8,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "id": "xQxCN",
+                              "type": "ref",
+                              "ref": "L:Xvewu",
+                              "name": "Owner avatar"
+                            },
+                            {
+                              "type": "text",
+                              "id": "uB4CP",
+                              "name": "Owner name",
+                              "fill": "$L:foreground",
+                              "content": "Pieter",
+                              "fontFamily": "$L:font-sans",
+                              "fontSize": "$L:text-label",
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "oFcN4",
+                      "name": "Open on Timeline",
+                      "fill": "$L:primary",
+                      "content": "Open on Timeline",
+                      "fontFamily": "$L:font-sans",
+                      "fontSize": "$L:text-label",
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "zT67Y",
+                  "name": "Issues",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 12,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "SYtZo",
+                      "name": "Issues heading",
+                      "fill": "$L:foreground",
+                      "content": "Issues",
+                      "fontFamily": "$L:font-sans",
+                      "fontSize": "$L:text-body-lg",
+                      "fontWeight": "500"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "X1Rqb",
+                      "name": "Issue list",
+                      "clip": true,
+                      "width": "fill_container",
+                      "cornerRadius": "$L:radius-lg",
+                      "stroke": "$L:border",
+                      "strokeWidth": 1,
+                      "layout": "vertical",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "HvMIH",
+                          "name": "Issue DEV-1",
+                          "width": "fill_container",
+                          "stroke": "$L:border",
+                          "strokeWidth": {
+                            "bottom": 1
+                          },
+                          "gap": 12,
+                          "padding": [
+                            8,
+                            12
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "id": "Vk7f7",
+                              "type": "ref",
+                              "ref": "L:f6v3T",
+                              "name": "Status"
+                            },
+                            {
+                              "type": "text",
+                              "id": "Y31HXQ",
+                              "name": "Identifier",
+                              "fill": "$L:muted-foreground",
+                              "textGrowth": "fixed-width",
+                              "width": 40,
+                              "content": "DEV-1",
+                              "fontFamily": "$L:font-sans",
+                              "fontSize": "$L:text-caption",
+                              "fontWeight": "normal"
+                            },
+                            {
+                              "type": "text",
+                              "id": "N9ZmAi",
+                              "name": "Title",
+                              "fill": "$L:foreground",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "Sign-up with email and code",
+                              "fontFamily": "$L:font-sans",
+                              "fontSize": "$L:text-label",
+                              "fontWeight": "normal"
+                            },
+                            {
+                              "type": "frame",
+                              "id": "aEJsu",
+                              "name": "Assignee",
+                              "width": 160,
+                              "gap": 6,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "id": "g1ynWs",
+                                  "type": "ref",
+                                  "ref": "L:Xvewu",
+                                  "name": "Assignee avatar",
+                                  "width": 16,
+                                  "height": 16
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "OgmVP",
+                                  "name": "Assignee name",
+                                  "fill": "$L:muted-foreground",
+                                  "content": "Pieter",
+                                  "fontFamily": "$L:font-sans",
+                                  "fontSize": "$L:text-caption",
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "rRSay",
+                              "name": "Worklane",
+                              "width": 160,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "IuYw9",
+                                  "name": "Worklane name",
+                                  "fill": "$L:muted-foreground",
+                                  "content": "Fan accounts and push",
+                                  "fontFamily": "$L:font-sans",
+                                  "fontSize": "$L:text-caption",
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "o5WhmL",
+                          "name": "Issue DEV-2",
+                          "width": "fill_container",
+                          "stroke": "$L:border",
+                          "strokeWidth": {
+                            "bottom": 1
+                          },
+                          "gap": 12,
+                          "padding": [
+                            8,
+                            12
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "id": "d8Wff",
+                              "type": "ref",
+                              "ref": "L:aJZqJ",
+                              "name": "Status"
+                            },
+                            {
+                              "type": "text",
+                              "id": "IZKk8",
+                              "name": "Identifier",
+                              "fill": "$L:muted-foreground",
+                              "textGrowth": "fixed-width",
+                              "width": 40,
+                              "content": "DEV-2",
+                              "fontFamily": "$L:font-sans",
+                              "fontSize": "$L:text-caption",
+                              "fontWeight": "normal"
+                            },
+                            {
+                              "type": "text",
+                              "id": "TXjhH",
+                              "name": "Title",
+                              "fill": "$L:foreground",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "Edit profile name and avatar",
+                              "fontFamily": "$L:font-sans",
+                              "fontSize": "$L:text-label",
+                              "fontWeight": "normal"
+                            },
+                            {
+                              "type": "frame",
+                              "id": "E1wfz",
+                              "name": "Assignee",
+                              "width": 160,
+                              "gap": 6,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "i23OUU",
+                                  "name": "Assignee name",
+                                  "fill": "$L:muted-foreground",
+                                  "content": "Unassigned",
+                                  "fontFamily": "$L:font-sans",
+                                  "fontSize": "$L:text-caption",
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "WOByh",
+                              "name": "Worklane",
+                              "width": 160,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "QWnj2",
+                                  "name": "Worklane name",
+                                  "fill": "$L:muted-foreground",
+                                  "content": "Fan accounts and push",
+                                  "fontFamily": "$L:font-sans",
+                                  "fontSize": "$L:text-caption",
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "STEeU",
+                          "name": "Issue DEV-3",
+                          "width": "fill_container",
+                          "stroke": "$L:border",
+                          "gap": 12,
+                          "padding": [
+                            8,
+                            12
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "id": "V2i7R",
+                              "type": "ref",
+                              "ref": "L:QUXmm",
+                              "name": "Status"
+                            },
+                            {
+                              "type": "text",
+                              "id": "KGkJs",
+                              "name": "Identifier",
+                              "fill": "$L:muted-foreground",
+                              "textGrowth": "fixed-width",
+                              "width": 40,
+                              "content": "DEV-3",
+                              "fontFamily": "$L:font-sans",
+                              "fontSize": "$L:text-caption",
+                              "fontWeight": "normal"
+                            },
+                            {
+                              "type": "text",
+                              "id": "d4yU0",
+                              "name": "Title",
+                              "fill": "$L:foreground",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "Show account page",
+                              "fontFamily": "$L:font-sans",
+                              "fontSize": "$L:text-label",
+                              "fontWeight": "normal"
+                            },
+                            {
+                              "type": "frame",
+                              "id": "os2ZO",
+                              "name": "Assignee",
+                              "width": 160,
+                              "gap": 6,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "xNLrI",
+                                  "name": "Assignee name",
+                                  "fill": "$L:muted-foreground",
+                                  "content": "Unassigned",
+                                  "fontFamily": "$L:font-sans",
+                                  "fontSize": "$L:text-caption",
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "N7vp9",
+                              "name": "Worklane",
+                              "width": 160,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "Q3icC0",
+                                  "name": "Worklane name",
+                                  "fill": "$L:muted-foreground",
+                                  "content": "Fan accounts and push",
+                                  "fontFamily": "$L:font-sans",
+                                  "fontSize": "$L:text-caption",
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "sHeiQ",
+                  "name": "Comments",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 12,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "FAGcc",
+                      "name": "Comments heading",
+                      "fill": "$L:foreground",
+                      "content": "Comments",
+                      "fontFamily": "$L:font-sans",
+                      "fontSize": "$L:text-body-lg",
+                      "fontWeight": "500"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "GL1GN",
+                      "name": "Thread",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 12,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "fyN03",
+                          "name": "Root comment",
+                          "width": "fill_container",
+                          "gap": 12,
+                          "children": [
+                            {
+                              "id": "B9HJl",
+                              "type": "ref",
+                              "ref": "L:UEn9u",
+                              "name": "Avatar",
+                              "fill": "$L:sidebar-accent",
+                              "descendants": {
+                                "L:Ugbzg": {
+                                  "content": "D",
+                                  "fill": "$L:muted-foreground"
+                                }
+                              }
+                            },
+                            {
+                              "type": "frame",
+                              "id": "PIl5E",
+                              "name": "Body",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "n5SAb7",
+                                  "name": "Byline",
+                                  "gap": 8,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "y27hjP",
+                                      "name": "Author",
+                                      "fill": "$L:foreground",
+                                      "content": "dev",
+                                      "fontFamily": "$L:font-sans",
+                                      "fontSize": "$L:text-label",
+                                      "fontWeight": "500"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "bzSS2",
+                                      "name": "Date",
+                                      "fill": "$L:muted-foreground",
+                                      "content": "October 17, 2026 at 4:34 AM",
+                                      "fontFamily": "$L:font-sans",
+                                      "fontSize": "$L:text-caption",
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "zEbfE",
+                                  "name": "Line 1",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "RuTME",
+                                      "name": "Text",
+                                      "fill": "$L:foreground",
+                                      "content": "I start with ",
+                                      "fontFamily": "$L:font-sans",
+                                      "fontSize": "$L:text-body",
+                                      "fontWeight": "normal"
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "FXUQp",
+                                      "name": "Issue mention DEV-1",
+                                      "height": 22,
+                                      "fill": "$L:surface",
+                                      "cornerRadius": "$L:radius-md",
+                                      "stroke": "$L:surface-border",
+                                      "strokeWidth": 1,
+                                      "gap": 6,
+                                      "padding": [
+                                        0,
+                                        6
+                                      ],
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "id": "MLNQU",
+                                          "type": "ref",
+                                          "ref": "L:f6v3T",
+                                          "name": "Status"
+                                        },
+                                        {
+                                          "type": "ellipse",
+                                          "id": "c3BHDu",
+                                          "name": "Progress ring",
+                                          "width": 12,
+                                          "height": 12,
+                                          "stroke": "$L:muted-foreground",
+                                          "strokeWidth": 1
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "ts3Ez",
+                                          "name": "Identifier",
+                                          "fill": "$L:muted-foreground",
+                                          "content": "DEV-1",
+                                          "fontFamily": "$L:font-mono",
+                                          "fontSize": "$L:text-caption",
+                                          "fontWeight": "normal"
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "ZPENe",
+                                          "name": "Title",
+                                          "fill": "$L:foreground",
+                                          "content": "Sign-up with email and code",
+                                          "fontFamily": "$L:font-sans",
+                                          "fontSize": "$L:text-caption",
+                                          "fontWeight": "normal"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "kdPKy",
+                                      "name": "Text",
+                                      "fill": "$L:foreground",
+                                      "content": ", then ",
+                                      "fontFamily": "$L:font-sans",
+                                      "fontSize": "$L:text-body",
+                                      "fontWeight": "normal"
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "mneIV",
+                                      "name": "Issue mention DEV-2",
+                                      "height": 22,
+                                      "fill": "$L:surface",
+                                      "cornerRadius": "$L:radius-md",
+                                      "stroke": "$L:surface-border",
+                                      "strokeWidth": 1,
+                                      "gap": 6,
+                                      "padding": [
+                                        0,
+                                        6
+                                      ],
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "id": "D5TYL",
+                                          "type": "ref",
+                                          "ref": "L:aJZqJ",
+                                          "name": "Status"
+                                        },
+                                        {
+                                          "type": "ellipse",
+                                          "id": "lmeVj",
+                                          "name": "Progress ring",
+                                          "width": 12,
+                                          "height": 12,
+                                          "stroke": "$L:muted-foreground",
+                                          "strokeWidth": 1
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "uTT3Q",
+                                          "name": "Identifier",
+                                          "fill": "$L:muted-foreground",
+                                          "content": "DEV-2",
+                                          "fontFamily": "$L:font-mono",
+                                          "fontSize": "$L:text-caption",
+                                          "fontWeight": "normal"
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "bmjyR",
+                                          "name": "Title",
+                                          "fill": "$L:foreground",
+                                          "content": "Edit profile name and avatar",
+                                          "fontFamily": "$L:font-sans",
+                                          "fontSize": "$L:text-caption",
+                                          "fontWeight": "normal"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "nZ9Cr",
+                                      "name": "Text",
+                                      "fill": "$L:foreground",
+                                      "content": " once",
+                                      "fontFamily": "$L:font-sans",
+                                      "fontSize": "$L:text-body",
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "EBPLv",
+                                  "name": "Line 2",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "XDbnQ",
+                                      "name": "Text",
+                                      "fill": "$L:foreground",
+                                      "content": "its pull request is open.",
+                                      "fontFamily": "$L:font-sans",
+                                      "fontSize": "$L:text-body",
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "id": "NUicW",
+                                  "type": "ref",
+                                  "ref": "L:GlbnA",
+                                  "name": "Reply",
+                                  "descendants": {
+                                    "L:jrrID": {
+                                      "enabled": false
+                                    },
+                                    "L:zc0if": {
+                                      "content": "Reply",
+                                      "fill": "$L:foreground"
+                                    }
+                                  }
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "BsQYj",
+                          "name": "Replies",
+                          "width": "fill_container",
+                          "padding": [
+                            0,
+                            0,
+                            0,
+                            32
+                          ],
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "szApV",
+                              "name": "Reply list",
+                              "width": "fill_container",
+                              "stroke": "$L:border",
+                              "strokeWidth": {
+                                "left": 1
+                              },
+                              "layout": "vertical",
+                              "gap": 12,
+                              "padding": [
+                                0,
+                                0,
+                                0,
+                                16
+                              ],
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "AZkiw",
+                                  "name": "Reply 1",
+                                  "width": "fill_container",
+                                  "gap": 12,
+                                  "children": [
+                                    {
+                                      "id": "S2tcyc",
+                                      "type": "ref",
+                                      "ref": "L:UEn9u",
+                                      "name": "Avatar",
+                                      "fill": "$L:sidebar-accent",
+                                      "descendants": {
+                                        "L:Ugbzg": {
+                                          "content": "D",
+                                          "fill": "$L:muted-foreground"
+                                        }
+                                      }
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "y7pD2T",
+                                      "name": "Body",
+                                      "width": "fill_container",
+                                      "layout": "vertical",
+                                      "gap": 4,
+                                      "children": [
+                                        {
+                                          "type": "frame",
+                                          "id": "PBDWA",
+                                          "name": "Byline",
+                                          "gap": 8,
+                                          "alignItems": "center",
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "n8mX5W",
+                                              "name": "Author",
+                                              "fill": "$L:foreground",
+                                              "content": "dev",
+                                              "fontFamily": "$L:font-sans",
+                                              "fontSize": "$L:text-label",
+                                              "fontWeight": "500"
+                                            },
+                                            {
+                                              "type": "text",
+                                              "id": "U3Yz6",
+                                              "name": "Date",
+                                              "fill": "$L:muted-foreground",
+                                              "content": "October 17, 2026 at 4:34 AM",
+                                              "fontFamily": "$L:font-sans",
+                                              "fontSize": "$L:text-caption",
+                                              "fontWeight": "normal"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "HbWmh",
+                                          "name": "Line 1",
+                                          "gap": 4,
+                                          "alignItems": "center",
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "WuCY4",
+                                              "name": "Text",
+                                              "fill": "$L:foreground",
+                                              "content": "Sounds good. Keep ",
+                                              "fontFamily": "$L:font-sans",
+                                              "fontSize": "$L:text-body",
+                                              "fontWeight": "normal"
+                                            },
+                                            {
+                                              "type": "frame",
+                                              "id": "rgMiT",
+                                              "name": "Issue mention DEV-3",
+                                              "height": 22,
+                                              "fill": "$L:surface",
+                                              "cornerRadius": "$L:radius-md",
+                                              "stroke": "$L:surface-border",
+                                              "strokeWidth": 1,
+                                              "gap": 6,
+                                              "padding": [
+                                                0,
+                                                6
+                                              ],
+                                              "alignItems": "center",
+                                              "children": [
+                                                {
+                                                  "id": "DNVOZ",
+                                                  "type": "ref",
+                                                  "ref": "L:QUXmm",
+                                                  "name": "Status"
+                                                },
+                                                {
+                                                  "type": "ellipse",
+                                                  "id": "cz82l",
+                                                  "name": "Progress ring",
+                                                  "width": 12,
+                                                  "height": 12,
+                                                  "stroke": "$L:muted-foreground",
+                                                  "strokeWidth": 1
+                                                },
+                                                {
+                                                  "type": "text",
+                                                  "id": "Qs68R",
+                                                  "name": "Identifier",
+                                                  "fill": "$L:muted-foreground",
+                                                  "content": "DEV-3",
+                                                  "fontFamily": "$L:font-mono",
+                                                  "fontSize": "$L:text-caption",
+                                                  "fontWeight": "normal"
+                                                },
+                                                {
+                                                  "type": "text",
+                                                  "id": "ytLWz",
+                                                  "name": "Title",
+                                                  "fill": "$L:foreground",
+                                                  "content": "Show account page",
+                                                  "fontFamily": "$L:font-sans",
+                                                  "fontSize": "$L:text-caption",
+                                                  "fontWeight": "normal"
+                                                }
+                                              ]
+                                            },
+                                            {
+                                              "type": "text",
+                                              "id": "DJBIi",
+                                              "name": "Text",
+                                              "fill": "$L:foreground",
+                                              "content": " for last.",
+                                              "fontFamily": "$L:font-sans",
+                                              "fontSize": "$L:text-body",
+                                              "fontWeight": "normal"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "id": "gR6SI",
+                                          "type": "ref",
+                                          "ref": "L:GlbnA",
+                                          "name": "Reply",
+                                          "descendants": {
+                                            "L:jrrID": {
+                                              "enabled": false
+                                            },
+                                            "L:zc0if": {
+                                              "content": "Reply",
+                                              "fill": "$L:foreground"
+                                            }
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "e70dl",
+                                  "name": "Reply 2",
+                                  "width": "fill_container",
+                                  "gap": 12,
+                                  "children": [
+                                    {
+                                      "id": "Xx4ix",
+                                      "type": "ref",
+                                      "ref": "L:UEn9u",
+                                      "name": "Avatar",
+                                      "fill": "$L:sidebar-accent",
+                                      "descendants": {
+                                        "L:Ugbzg": {
+                                          "content": "D",
+                                          "fill": "$L:muted-foreground"
+                                        }
+                                      }
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "SGYya",
+                                      "name": "Body",
+                                      "width": "fill_container",
+                                      "layout": "vertical",
+                                      "gap": 4,
+                                      "children": [
+                                        {
+                                          "type": "frame",
+                                          "id": "cKv95",
+                                          "name": "Byline",
+                                          "gap": 8,
+                                          "alignItems": "center",
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "i2khaK",
+                                              "name": "Author",
+                                              "fill": "$L:foreground",
+                                              "content": "dev",
+                                              "fontFamily": "$L:font-sans",
+                                              "fontSize": "$L:text-label",
+                                              "fontWeight": "500"
+                                            },
+                                            {
+                                              "type": "text",
+                                              "id": "I2XM2",
+                                              "name": "Date",
+                                              "fill": "$L:muted-foreground",
+                                              "content": "October 17, 2026 at 4:34 AM",
+                                              "fontFamily": "$L:font-sans",
+                                              "fontSize": "$L:text-caption",
+                                              "fontWeight": "normal"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "nThYj",
+                                          "name": "Line 1",
+                                          "gap": 4,
+                                          "alignItems": "center",
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "iyqvT",
+                                              "name": "Text",
+                                              "fill": "$L:foreground",
+                                              "content": "Understood, ",
+                                              "fontFamily": "$L:font-sans",
+                                              "fontSize": "$L:text-body",
+                                              "fontWeight": "normal"
+                                            },
+                                            {
+                                              "type": "frame",
+                                              "id": "k0q6lR",
+                                              "name": "Issue mention DEV-3",
+                                              "height": 22,
+                                              "fill": "$L:surface",
+                                              "cornerRadius": "$L:radius-md",
+                                              "stroke": "$L:surface-border",
+                                              "strokeWidth": 1,
+                                              "gap": 6,
+                                              "padding": [
+                                                0,
+                                                6
+                                              ],
+                                              "alignItems": "center",
+                                              "children": [
+                                                {
+                                                  "id": "fNjjG",
+                                                  "type": "ref",
+                                                  "ref": "L:QUXmm",
+                                                  "name": "Status"
+                                                },
+                                                {
+                                                  "type": "ellipse",
+                                                  "id": "s6ioGS",
+                                                  "name": "Progress ring",
+                                                  "width": 12,
+                                                  "height": 12,
+                                                  "stroke": "$L:muted-foreground",
+                                                  "strokeWidth": 1
+                                                },
+                                                {
+                                                  "type": "text",
+                                                  "id": "T0I95",
+                                                  "name": "Identifier",
+                                                  "fill": "$L:muted-foreground",
+                                                  "content": "DEV-3",
+                                                  "fontFamily": "$L:font-mono",
+                                                  "fontSize": "$L:text-caption",
+                                                  "fontWeight": "normal"
+                                                },
+                                                {
+                                                  "type": "text",
+                                                  "id": "wTxJ1",
+                                                  "name": "Title",
+                                                  "fill": "$L:foreground",
+                                                  "content": "Show account page",
+                                                  "fontFamily": "$L:font-sans",
+                                                  "fontSize": "$L:text-caption",
+                                                  "fontWeight": "normal"
+                                                }
+                                              ]
+                                            },
+                                            {
+                                              "type": "text",
+                                              "id": "FobbJ",
+                                              "name": "Text",
+                                              "fill": "$L:foreground",
+                                              "content": " waits for the profile page.",
+                                              "fontFamily": "$L:font-sans",
+                                              "fontSize": "$L:text-body",
+                                              "fontWeight": "normal"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "id": "wv3xS",
+                                          "type": "ref",
+                                          "ref": "L:GlbnA",
+                                          "name": "Reply",
+                                          "descendants": {
+                                            "L:jrrID": {
+                                              "enabled": false
+                                            },
+                                            "L:zc0if": {
+                                              "content": "Reply",
+                                              "fill": "$L:foreground"
+                                            }
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "RQVKo",
+                      "name": "Composer",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 8,
+                      "children": [
+                        {
+                          "id": "U88rx",
+                          "type": "ref",
+                          "ref": "L:yDwwx",
+                          "name": "Comment box",
+                          "width": "fill_container",
+                          "height": 80,
+                          "descendants": {
+                            "L:pYMEy": {
+                              "content": "Write a comment…"
+                            }
+                          }
+                        },
+                        {
+                          "type": "frame",
+                          "id": "P84hqm",
+                          "name": "Actions",
+                          "width": "fill_container",
+                          "justifyContent": "end",
+                          "children": [
+                            {
+                              "id": "oNMJn",
+                              "type": "ref",
+                              "ref": "L:Ugg3j",
+                              "name": "Comment",
+                              "height": 28,
+                              "opacity": 0.5,
+                              "descendants": {
+                                "L:sP3ne": {
+                                  "enabled": false
+                                },
+                                "L:QwYQ9": {
+                                  "content": "Comment"
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "KLQfd",
+      "x": 1560,
+      "y": 0,
+      "name": "Release detail · issues failed",
+      "clip": true,
+      "width": 1440,
+      "height": 900,
+      "fill": "$L:app-shell",
+      "children": [
+        {
+          "id": "cyYTn",
+          "type": "ref",
+          "ref": "L:aSVx6",
+          "name": "App sidebar",
+          "height": "fill_container",
+          "descendants": {
+            "L:qSICc": {
+              "fill": "#00000000"
+            },
+            "L:qSICc/L:fVZGR": {
+              "fill": "$L:muted-foreground"
+            },
+            "L:qSICc/L:hOvR0": {
+              "fill": "$L:muted-foreground",
+              "fontWeight": "normal"
+            },
+            "L:AIzGY": {
+              "fill": "$L:sidebar-accent"
+            },
+            "L:AIzGY/L:irWtm": {
+              "fill": "$L:foreground"
+            },
+            "L:AIzGY/L:eld4j": {
+              "fill": "$L:foreground",
+              "fontWeight": "500"
+            }
+          }
+        },
+        {
+          "type": "frame",
+          "id": "AEu7L",
+          "name": "Main",
+          "width": "fill_container",
+          "height": "fill_container",
+          "fill": "$L:page-canvas",
+          "layout": "vertical",
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "xGVki",
+              "name": "Release page",
+              "width": 768,
+              "layout": "vertical",
+              "gap": 32,
+              "padding": [
+                32,
+                24
+              ],
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "O2MNmD",
+                  "name": "Header",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 12,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "VPLVl",
+                      "name": "Repository",
+                      "fill": "$L:muted-foreground",
+                      "content": "appboypov/rebl",
+                      "fontFamily": "$L:font-sans",
+                      "fontSize": "$L:text-label",
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "qziwI",
+                      "name": "Version and state",
+                      "gap": 8,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "id": "GMelb",
+                          "type": "ref",
+                          "ref": "L:aCLgS",
+                          "name": "Version chip",
+                          "cornerRadius": 10,
+                          "padding": [
+                            0,
+                            8
+                          ],
+                          "descendants": {
+                            "L:e0MCN": {
+                              "enabled": false
+                            },
+                            "L:uo2SE": {
+                              "content": "v1.1.0"
+                            }
+                          }
+                        },
+                        {
+                          "type": "text",
+                          "id": "K8sMiR",
+                          "name": "State",
+                          "fill": "$L:brand",
+                          "content": "Next release",
+                          "fontFamily": "$L:font-sans",
+                          "fontSize": "$L:text-caption",
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "BvXrh",
+                      "name": "Title",
+                      "fill": "$L:foreground",
+                      "content": "Account and profile",
+                      "fontFamily": "$L:font-sans",
+                      "fontSize": "$L:text-title-lg",
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "Vekxh",
+                      "name": "Description",
+                      "fill": "$L:muted-foreground",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Sign-up, profile editing and avatars for fan accounts.",
+                      "fontFamily": "$L:font-sans",
+                      "fontSize": "$L:text-body",
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "BiYi6",
+                      "name": "Owner",
+                      "gap": 12,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "ApNcQ",
+                          "name": "Owner label",
+                          "fill": "$L:muted-foreground",
+                          "content": "Owner",
+                          "fontFamily": "$L:font-sans",
+                          "fontSize": "$L:text-label",
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "vtiPW",
+                          "name": "Owner picker",
+                          "gap": 8,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "id": "gLZIN",
+                              "type": "ref",
+                              "ref": "L:Xvewu",
+                              "name": "Owner avatar"
+                            },
+                            {
+                              "type": "text",
+                              "id": "em1sH",
+                              "name": "Owner name",
+                              "fill": "$L:foreground",
+                              "content": "Pieter",
+                              "fontFamily": "$L:font-sans",
+                              "fontSize": "$L:text-label",
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "QKGV9",
+                      "name": "Open on Timeline",
+                      "fill": "$L:primary",
+                      "content": "Open on Timeline",
+                      "fontFamily": "$L:font-sans",
+                      "fontSize": "$L:text-label",
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "x4mjSS",
+                  "name": "Issues",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 12,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "J4Yc5n",
+                      "name": "Issues heading",
+                      "fill": "$L:foreground",
+                      "content": "Issues",
+                      "fontFamily": "$L:font-sans",
+                      "fontSize": "$L:text-body-lg",
+                      "fontWeight": "500"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "u0Ob9U",
+                      "name": "Issues failed",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 8,
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "CLNHG",
+                          "name": "Message",
+                          "fill": "$L:destructive",
+                          "content": "Couldn't load the issues of this release.",
+                          "fontFamily": "$L:font-sans",
+                          "fontSize": "$L:text-label",
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "id": "E7EEZ",
+                          "type": "ref",
+                          "ref": "L:v2G260",
+                          "name": "Try again",
+                          "height": 28,
+                          "descendants": {
+                            "L:c7Sgv": {
+                              "enabled": false
+                            },
+                            "L:OemMw": {
+                              "content": "Try again"
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "Vu1B3",
+                  "name": "Comments",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 12,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "PP23z",
+                      "name": "Comments heading",
+                      "fill": "$L:foreground",
+                      "content": "Comments",
+                      "fontFamily": "$L:font-sans",
+                      "fontSize": "$L:text-body-lg",
+                      "fontWeight": "500"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "xpP2Y",
+                      "name": "Thread",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 12,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "H6sh2R",
+                          "name": "Root comment",
+                          "width": "fill_container",
+                          "gap": 12,
+                          "children": [
+                            {
+                              "id": "se4eW",
+                              "type": "ref",
+                              "ref": "L:UEn9u",
+                              "name": "Avatar",
+                              "fill": "$L:sidebar-accent",
+                              "descendants": {
+                                "L:Ugbzg": {
+                                  "content": "D",
+                                  "fill": "$L:muted-foreground"
+                                }
+                              }
+                            },
+                            {
+                              "type": "frame",
+                              "id": "MArKC",
+                              "name": "Body",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "T8rJ9o",
+                                  "name": "Byline",
+                                  "gap": 8,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "IJsYb",
+                                      "name": "Author",
+                                      "fill": "$L:foreground",
+                                      "content": "dev",
+                                      "fontFamily": "$L:font-sans",
+                                      "fontSize": "$L:text-label",
+                                      "fontWeight": "500"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "S6d3jK",
+                                      "name": "Date",
+                                      "fill": "$L:muted-foreground",
+                                      "content": "October 17, 2026 at 4:34 AM",
+                                      "fontFamily": "$L:font-sans",
+                                      "fontSize": "$L:text-caption",
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "RHmvq",
+                                  "name": "Line 1",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "q0VN3r",
+                                      "name": "Text",
+                                      "fill": "$L:foreground",
+                                      "content": "I start with ",
+                                      "fontFamily": "$L:font-sans",
+                                      "fontSize": "$L:text-body",
+                                      "fontWeight": "normal"
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "iTseV",
+                                      "name": "Issue mention DEV-1",
+                                      "height": 22,
+                                      "fill": "$L:surface",
+                                      "cornerRadius": "$L:radius-md",
+                                      "stroke": "$L:surface-border",
+                                      "strokeWidth": 1,
+                                      "gap": 6,
+                                      "padding": [
+                                        0,
+                                        6
+                                      ],
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "id": "T13yuc",
+                                          "type": "ref",
+                                          "ref": "L:f6v3T",
+                                          "name": "Status"
+                                        },
+                                        {
+                                          "type": "ellipse",
+                                          "id": "C5ksXi",
+                                          "name": "Progress ring",
+                                          "width": 12,
+                                          "height": 12,
+                                          "stroke": "$L:muted-foreground",
+                                          "strokeWidth": 1
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "D9yuEt",
+                                          "name": "Identifier",
+                                          "fill": "$L:muted-foreground",
+                                          "content": "DEV-1",
+                                          "fontFamily": "$L:font-mono",
+                                          "fontSize": "$L:text-caption",
+                                          "fontWeight": "normal"
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "ElAwp",
+                                          "name": "Title",
+                                          "fill": "$L:foreground",
+                                          "content": "Sign-up with email and code",
+                                          "fontFamily": "$L:font-sans",
+                                          "fontSize": "$L:text-caption",
+                                          "fontWeight": "normal"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "guU2a",
+                                      "name": "Text",
+                                      "fill": "$L:foreground",
+                                      "content": ", then ",
+                                      "fontFamily": "$L:font-sans",
+                                      "fontSize": "$L:text-body",
+                                      "fontWeight": "normal"
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "n9MWcS",
+                                      "name": "Issue mention DEV-2",
+                                      "height": 22,
+                                      "fill": "$L:surface",
+                                      "cornerRadius": "$L:radius-md",
+                                      "stroke": "$L:surface-border",
+                                      "strokeWidth": 1,
+                                      "gap": 6,
+                                      "padding": [
+                                        0,
+                                        6
+                                      ],
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "id": "C3UgHD",
+                                          "type": "ref",
+                                          "ref": "L:aJZqJ",
+                                          "name": "Status"
+                                        },
+                                        {
+                                          "type": "ellipse",
+                                          "id": "P4gvOe",
+                                          "name": "Progress ring",
+                                          "width": 12,
+                                          "height": 12,
+                                          "stroke": "$L:muted-foreground",
+                                          "strokeWidth": 1
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "O0qtC",
+                                          "name": "Identifier",
+                                          "fill": "$L:muted-foreground",
+                                          "content": "DEV-2",
+                                          "fontFamily": "$L:font-mono",
+                                          "fontSize": "$L:text-caption",
+                                          "fontWeight": "normal"
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "usl9s",
+                                          "name": "Title",
+                                          "fill": "$L:foreground",
+                                          "content": "Edit profile name and avatar",
+                                          "fontFamily": "$L:font-sans",
+                                          "fontSize": "$L:text-caption",
+                                          "fontWeight": "normal"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "Gellh",
+                                      "name": "Text",
+                                      "fill": "$L:foreground",
+                                      "content": " once",
+                                      "fontFamily": "$L:font-sans",
+                                      "fontSize": "$L:text-body",
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "GZqrB",
+                                  "name": "Line 2",
+                                  "gap": 4,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "u7g43",
+                                      "name": "Text",
+                                      "fill": "$L:foreground",
+                                      "content": "its pull request is open.",
+                                      "fontFamily": "$L:font-sans",
+                                      "fontSize": "$L:text-body",
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "id": "nncFZ",
+                                  "type": "ref",
+                                  "ref": "L:GlbnA",
+                                  "name": "Reply",
+                                  "descendants": {
+                                    "L:jrrID": {
+                                      "enabled": false
+                                    },
+                                    "L:zc0if": {
+                                      "content": "Reply",
+                                      "fill": "$L:foreground"
+                                    }
+                                  }
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "cIwDV",
+                          "name": "Replies",
+                          "width": "fill_container",
+                          "padding": [
+                            0,
+                            0,
+                            0,
+                            32
+                          ],
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "G3zOk",
+                              "name": "Reply list",
+                              "width": "fill_container",
+                              "stroke": "$L:border",
+                              "strokeWidth": {
+                                "left": 1
+                              },
+                              "layout": "vertical",
+                              "gap": 12,
+                              "padding": [
+                                0,
+                                0,
+                                0,
+                                16
+                              ],
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "oEKHm",
+                                  "name": "Reply 1",
+                                  "width": "fill_container",
+                                  "gap": 12,
+                                  "children": [
+                                    {
+                                      "id": "X6Rmc",
+                                      "type": "ref",
+                                      "ref": "L:UEn9u",
+                                      "name": "Avatar",
+                                      "fill": "$L:sidebar-accent",
+                                      "descendants": {
+                                        "L:Ugbzg": {
+                                          "content": "D",
+                                          "fill": "$L:muted-foreground"
+                                        }
+                                      }
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "NMU0h",
+                                      "name": "Body",
+                                      "width": "fill_container",
+                                      "layout": "vertical",
+                                      "gap": 4,
+                                      "children": [
+                                        {
+                                          "type": "frame",
+                                          "id": "G63fxN",
+                                          "name": "Byline",
+                                          "gap": 8,
+                                          "alignItems": "center",
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "PGVb6",
+                                              "name": "Author",
+                                              "fill": "$L:foreground",
+                                              "content": "dev",
+                                              "fontFamily": "$L:font-sans",
+                                              "fontSize": "$L:text-label",
+                                              "fontWeight": "500"
+                                            },
+                                            {
+                                              "type": "text",
+                                              "id": "M5rClh",
+                                              "name": "Date",
+                                              "fill": "$L:muted-foreground",
+                                              "content": "October 17, 2026 at 4:34 AM",
+                                              "fontFamily": "$L:font-sans",
+                                              "fontSize": "$L:text-caption",
+                                              "fontWeight": "normal"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "DP9RM",
+                                          "name": "Line 1",
+                                          "gap": 4,
+                                          "alignItems": "center",
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "IIeCn",
+                                              "name": "Text",
+                                              "fill": "$L:foreground",
+                                              "content": "Sounds good. Keep ",
+                                              "fontFamily": "$L:font-sans",
+                                              "fontSize": "$L:text-body",
+                                              "fontWeight": "normal"
+                                            },
+                                            {
+                                              "type": "frame",
+                                              "id": "Gi3L2",
+                                              "name": "Issue mention DEV-3",
+                                              "height": 22,
+                                              "fill": "$L:surface",
+                                              "cornerRadius": "$L:radius-md",
+                                              "stroke": "$L:surface-border",
+                                              "strokeWidth": 1,
+                                              "gap": 6,
+                                              "padding": [
+                                                0,
+                                                6
+                                              ],
+                                              "alignItems": "center",
+                                              "children": [
+                                                {
+                                                  "id": "lgQ4a",
+                                                  "type": "ref",
+                                                  "ref": "L:QUXmm",
+                                                  "name": "Status"
+                                                },
+                                                {
+                                                  "type": "ellipse",
+                                                  "id": "s32WqZ",
+                                                  "name": "Progress ring",
+                                                  "width": 12,
+                                                  "height": 12,
+                                                  "stroke": "$L:muted-foreground",
+                                                  "strokeWidth": 1
+                                                },
+                                                {
+                                                  "type": "text",
+                                                  "id": "fqfel",
+                                                  "name": "Identifier",
+                                                  "fill": "$L:muted-foreground",
+                                                  "content": "DEV-3",
+                                                  "fontFamily": "$L:font-mono",
+                                                  "fontSize": "$L:text-caption",
+                                                  "fontWeight": "normal"
+                                                },
+                                                {
+                                                  "type": "text",
+                                                  "id": "Uf78U",
+                                                  "name": "Title",
+                                                  "fill": "$L:foreground",
+                                                  "content": "Show account page",
+                                                  "fontFamily": "$L:font-sans",
+                                                  "fontSize": "$L:text-caption",
+                                                  "fontWeight": "normal"
+                                                }
+                                              ]
+                                            },
+                                            {
+                                              "type": "text",
+                                              "id": "vJNDf",
+                                              "name": "Text",
+                                              "fill": "$L:foreground",
+                                              "content": " for last.",
+                                              "fontFamily": "$L:font-sans",
+                                              "fontSize": "$L:text-body",
+                                              "fontWeight": "normal"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "id": "VEBhn",
+                                          "type": "ref",
+                                          "ref": "L:GlbnA",
+                                          "name": "Reply",
+                                          "descendants": {
+                                            "L:jrrID": {
+                                              "enabled": false
+                                            },
+                                            "L:zc0if": {
+                                              "content": "Reply",
+                                              "fill": "$L:foreground"
+                                            }
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "CLPs5",
+                                  "name": "Reply 2",
+                                  "width": "fill_container",
+                                  "gap": 12,
+                                  "children": [
+                                    {
+                                      "id": "aq2oY",
+                                      "type": "ref",
+                                      "ref": "L:UEn9u",
+                                      "name": "Avatar",
+                                      "fill": "$L:sidebar-accent",
+                                      "descendants": {
+                                        "L:Ugbzg": {
+                                          "content": "D",
+                                          "fill": "$L:muted-foreground"
+                                        }
+                                      }
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "czkK0",
+                                      "name": "Body",
+                                      "width": "fill_container",
+                                      "layout": "vertical",
+                                      "gap": 4,
+                                      "children": [
+                                        {
+                                          "type": "frame",
+                                          "id": "rT0jy",
+                                          "name": "Byline",
+                                          "gap": 8,
+                                          "alignItems": "center",
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "Aqlrm",
+                                              "name": "Author",
+                                              "fill": "$L:foreground",
+                                              "content": "dev",
+                                              "fontFamily": "$L:font-sans",
+                                              "fontSize": "$L:text-label",
+                                              "fontWeight": "500"
+                                            },
+                                            {
+                                              "type": "text",
+                                              "id": "un8PM",
+                                              "name": "Date",
+                                              "fill": "$L:muted-foreground",
+                                              "content": "October 17, 2026 at 4:34 AM",
+                                              "fontFamily": "$L:font-sans",
+                                              "fontSize": "$L:text-caption",
+                                              "fontWeight": "normal"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "rPbPo",
+                                          "name": "Line 1",
+                                          "gap": 4,
+                                          "alignItems": "center",
+                                          "children": [
+                                            {
+                                              "type": "text",
+                                              "id": "rZomE",
+                                              "name": "Text",
+                                              "fill": "$L:foreground",
+                                              "content": "Understood, ",
+                                              "fontFamily": "$L:font-sans",
+                                              "fontSize": "$L:text-body",
+                                              "fontWeight": "normal"
+                                            },
+                                            {
+                                              "type": "frame",
+                                              "id": "PbUTE",
+                                              "name": "Issue mention DEV-3",
+                                              "height": 22,
+                                              "fill": "$L:surface",
+                                              "cornerRadius": "$L:radius-md",
+                                              "stroke": "$L:surface-border",
+                                              "strokeWidth": 1,
+                                              "gap": 6,
+                                              "padding": [
+                                                0,
+                                                6
+                                              ],
+                                              "alignItems": "center",
+                                              "children": [
+                                                {
+                                                  "id": "EThfM",
+                                                  "type": "ref",
+                                                  "ref": "L:QUXmm",
+                                                  "name": "Status"
+                                                },
+                                                {
+                                                  "type": "ellipse",
+                                                  "id": "RHNWd",
+                                                  "name": "Progress ring",
+                                                  "width": 12,
+                                                  "height": 12,
+                                                  "stroke": "$L:muted-foreground",
+                                                  "strokeWidth": 1
+                                                },
+                                                {
+                                                  "type": "text",
+                                                  "id": "RLXJV",
+                                                  "name": "Identifier",
+                                                  "fill": "$L:muted-foreground",
+                                                  "content": "DEV-3",
+                                                  "fontFamily": "$L:font-mono",
+                                                  "fontSize": "$L:text-caption",
+                                                  "fontWeight": "normal"
+                                                },
+                                                {
+                                                  "type": "text",
+                                                  "id": "hcE6w",
+                                                  "name": "Title",
+                                                  "fill": "$L:foreground",
+                                                  "content": "Show account page",
+                                                  "fontFamily": "$L:font-sans",
+                                                  "fontSize": "$L:text-caption",
+                                                  "fontWeight": "normal"
+                                                }
+                                              ]
+                                            },
+                                            {
+                                              "type": "text",
+                                              "id": "JsFKY",
+                                              "name": "Text",
+                                              "fill": "$L:foreground",
+                                              "content": " waits for the profile page.",
+                                              "fontFamily": "$L:font-sans",
+                                              "fontSize": "$L:text-body",
+                                              "fontWeight": "normal"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "id": "Zcv9x",
+                                          "type": "ref",
+                                          "ref": "L:GlbnA",
+                                          "name": "Reply",
+                                          "descendants": {
+                                            "L:jrrID": {
+                                              "enabled": false
+                                            },
+                                            "L:zc0if": {
+                                              "content": "Reply",
+                                              "fill": "$L:foreground"
+                                            }
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "k9abM",
+                      "name": "Composer",
+                      "width": "fill_container",
+                      "layout": "vertical",
+                      "gap": 8,
+                      "children": [
+                        {
+                          "id": "qdWrL",
+                          "type": "ref",
+                          "ref": "L:yDwwx",
+                          "name": "Comment box",
+                          "width": "fill_container",
+                          "height": 80,
+                          "descendants": {
+                            "L:pYMEy": {
+                              "content": "Write a comment…"
+                            }
+                          }
+                        },
+                        {
+                          "type": "frame",
+                          "id": "y2YMKj",
+                          "name": "Actions",
+                          "width": "fill_container",
+                          "justifyContent": "end",
+                          "children": [
+                            {
+                              "id": "y9cRO",
+                              "type": "ref",
+                              "ref": "L:Ugg3j",
+                              "name": "Comment",
+                              "height": 28,
+                              "opacity": 0.5,
+                              "descendants": {
+                                "L:sP3ne": {
+                                  "enabled": false
+                                },
+                                "L:QwYQ9": {
+                                  "content": "Comment"
+                                }
+                              }
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "imports": {
+    "L": "../systems/multica.lib.pen"
+  },
+  "fileToken": "269afb59-6c51-4050-a2b2-036ff5f8b2f0"
+}
