@@ -40,14 +40,15 @@ func TestUpdateRepository_WorkInCheckoutRoundTrip(t *testing.T) {
 		"workspace_id": testWorkspaceID, "installation_id": rand.Int64N(1 << 40), "account_login": "test",
 	})
 	repoID := dbfx.Insert(t, "repository", testutil.Cols{
-		"workspace_id": testWorkspaceID, "github_repo_id": 1, "full_name": "test/" + name, "private": true,
+		"workspace_id": testWorkspaceID, "project_id": dbfx.Project(t, "Work in checkout project"),
+		"github_repo_id": 1, "full_name": "test/" + name, "private": true,
 		"default_branch": "main", "checkout_daemon_id": uuid.NewString(), "checkout_path": "/test/checkout",
 		"version_policy": "none",
 	})
 	for _, want := range []bool{true, false} {
 		var out RepositoryResponse
 		req := withURLParam(newRequest(http.MethodPut, "/api/repositories/"+repoID, map[string]any{"work_in_checkout": want}), "id", repoID)
-		testutil.Call(testHandler.UpdateRepository, req).Want(http.StatusOK).JSON(&out)
+		testutil.Call(t, testHandler.UpdateRepository, req).Want(http.StatusOK).JSON(&out)
 		var stored bool
 		dbfx.QueryRow(t, "SELECT work_in_checkout FROM repository WHERE id = $1", repoID).Scan(&stored)
 		if out.WorkInCheckout != want || stored != want {

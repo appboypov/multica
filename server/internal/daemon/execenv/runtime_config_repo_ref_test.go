@@ -3,6 +3,8 @@ package execenv
 import (
 	"strings"
 	"testing"
+
+	"github.com/multica-ai/multica/server/pkg/protocol"
 )
 
 // A project pins a repo to a branch because its work lives on that line
@@ -131,5 +133,23 @@ func TestWorktreeRuleReachesEveryCodeTaskKind(t *testing.T) {
 				t.Errorf("brief must not send the agent to `multica repo checkout`; got:\n%s", out)
 			}
 		})
+	}
+}
+
+// A repository that works in its checkout (ADR-0031) sends the agent into that
+// checkout, so the brief never forbids it or asks for a worktree.
+func TestBriefSendsCheckoutWorkToTheCheckout(t *testing.T) {
+	t.Parallel()
+	out := buildMetaSkillContent("claude", TaskContextForEnv{IssueID: "i-1", AgentName: "Eve", AgentID: "eve-1",
+		Repositories: []protocol.ClaimRepository{{
+			FullName: "appboypov/multica", DefaultBranch: "main", WorktreePath: "/repos/multica",
+			Worklane: &protocol.ClaimWorklane{Name: "main", Path: "/repos/multica", InCheckout: true},
+		}},
+	})
+	if !strings.Contains(out, "Checkout Rule:") || !strings.Contains(out, "checkout `/repos/multica`, on this task's branch") {
+		t.Errorf("brief must send the agent to the checkout; got:\n%s", out)
+	}
+	if strings.Contains(out, "never change code in the repository's normal checkout") || strings.Contains(out, worktreeRule) {
+		t.Errorf("brief must not send the agent away from the checkout; got:\n%s", out)
 	}
 }

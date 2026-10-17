@@ -647,3 +647,168 @@ func TestWorklaneRunWithoutPullRequestUsesLane(t *testing.T) {
 		t.Fatalf("run directory = %q, want %q", got, lane)
 	}
 }
+
+// newCheckoutRoutingFixture is a clean checkout on main of a repository that
+// works in its checkout (ADR-0031), with the PR branch review/work-1021 only
+// on origin. HOME holds no Worktrees folder.
+func newCheckoutRoutingFixture(t *testing.T) (checkout, home string) {
+	t.Helper()
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	home = filepath.Join(root, "home")
+	checkout = filepath.Join(home, "Repos", "repo")
+	if err := os.MkdirAll(checkout, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("HOME", home)
+	t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
+	t.Setenv("GIT_CONFIG_GLOBAL", os.DevNull)
+	t.Setenv("GIT_TERMINAL_PROMPT", "0")
+	origin := filepath.Join(root, "origin.git")
+	laneRoutingGit(t, root, "init", "--bare", "-b", "main", origin)
+	laneRoutingGit(t, checkout, "init", "-b", "main")
+	laneRoutingGit(t, checkout, "config", "user.name", "Test")
+	laneRoutingGit(t, checkout, "config", "user.email", "test@example.com")
+	laneRoutingWrite(t, checkout, "shared.txt", "base\n")
+	laneRoutingGit(t, checkout, "add", "shared.txt")
+	laneRoutingGit(t, checkout, "commit", "-m", "initial")
+	laneRoutingGit(t, checkout, "remote", "add", "origin", origin)
+	laneRoutingGit(t, checkout, "push", "-u", "origin", "main")
+	laneRoutingGit(t, checkout, "switch", "-c", "review/work-1021")
+	laneRoutingWrite(t, checkout, "pr.txt", "pushed PR content\n")
+	laneRoutingGit(t, checkout, "add", "pr.txt")
+	laneRoutingGit(t, checkout, "commit", "-m", "PR changes")
+	laneRoutingGit(t, checkout, "push", "origin", "review/work-1021")
+	laneRoutingGit(t, checkout, "switch", "main")
+	laneRoutingGit(t, checkout, "branch", "-D", "review/work-1021")
+	laneRoutingGit(t, checkout, "update-ref", "-d", "refs/remotes/origin/review/work-1021")
+	return checkout, home
+}
+
+func checkoutRoutingTask(checkout, id, pullRequestBranch string) Task {
+	return Task{ID: id, IssueID: "issue", IssueKey: "work-1021", IssueIdentifier: "WORK-1021", OrganisationKey: "org", Repositories: []protocol.ClaimRepository{{
+		ID: "repository", FullName: "test/repo", CheckoutPath: checkout, CheckoutDaemonID: "local",
+		Worklane: &protocol.ClaimWorklane{ID: "main-lane", Name: "main", Path: checkout, DaemonID: "local", DefaultBranch: "main", PullRequestBranch: pullRequestBranch, InCheckout: true},
+	}}}
+}
+
+func assertCheckoutRoutingReport(t *testing.T, events <-chan laneRoutingEvent, taskID, branch string) {
+	t.Helper()
+	for {
+		select {
+		case event := <-events:
+			if event.path != "/api/daemon/tasks/"+taskID+"/worklane-branch" {
+				continue
+			}
+			if event.body["worklane_id"] != "main-lane" || event.body["branch"] != branch {
+				t.Fatalf("branch report = %+v, want main-lane on %s", event.body, branch)
+			}
+			return
+		default:
+			t.Fatalf("task %s reported no branch for main", taskID)
+		}
+	}
+}
+
+func TestWorkInCheckoutRunsInTheCheckout(t *testing.T) {
+	for _, tc := range []struct {
+		name, pullRequestBranch, branch, file string
+	}{
+		{name: "issue branch", branch: "work-1021", file: "shared.txt"},
+		{name: "pull-request branch only on origin", pullRequestBranch: "review/work-1021", branch: "review/work-1021", file: "pr.txt"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			checkout, home := newCheckoutRoutingFixture(t)
+			d, events := newLaneRoutingDaemon(t)
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			result := awaitLaneRoutingTask(t, ctx, startLaneRoutingTask(ctx, d, checkoutRoutingTask(checkout, "task", tc.pullRequestBranch)))
+			if got := primaryIssueWorktree(result.task, "local"); got != checkout {
+				t.Fatalf("run directory = %q, want the checkout %q", got, checkout)
+			}
+			if got := laneRoutingGit(t, checkout, "branch", "--show-current"); got != tc.branch {
+				t.Fatalf("checkout branch = %q, want %q", got, tc.branch)
+			}
+			if _, err := os.Stat(filepath.Join(checkout, tc.file)); err != nil {
+				t.Fatalf("checkout lacks %s: %v", tc.file, err)
+			}
+			if _, err := os.Stat(filepath.Join(home, "Worktrees")); !os.IsNotExist(err) {
+				t.Fatalf("a worktree folder appeared: %v", err)
+			}
+			assertCheckoutRoutingReport(t, events, "task", tc.branch)
+		})
+	}
+}
+
+func TestWorkInCheckoutSerializesTasks(t *testing.T) {
+	checkout, _ := newCheckoutRoutingFixture(t)
+	d, events := newLaneRoutingDaemon(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	first := checkoutRoutingTask(checkout, "first", "")
+	release, abort := d.acquireIssueWorktreeLocks(ctx, &first, d.logger)
+	if abort {
+		t.Fatal("first lock aborted")
+	}
+	second := startLaneRoutingTask(ctx, d, checkoutRoutingTask(checkout, "second", ""))
+	select {
+	case event := <-events:
+		if event.path != "/api/daemon/tasks/second/wait-local-directory" {
+			t.Fatalf("second task did not wait for the checkout: %+v", event)
+		}
+	case <-ctx.Done():
+		t.Fatal("second task did not contend on the checkout")
+	}
+	select {
+	case result := <-second:
+		if result.release != nil {
+			result.release()
+		}
+		t.Fatalf("second task started while the first held the checkout: %v", result.err)
+	default:
+	}
+	if err := d.prepareIssueWorktrees(ctx, &first, d.logger); err != nil {
+		t.Fatal(err)
+	}
+	release()
+	awaitLaneRoutingTask(t, ctx, second)
+}
+
+func TestWorkInCheckoutRefusesToLeaveWork(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		leave func(t *testing.T, checkout string)
+		want  string
+	}{
+		{name: "uncommitted change", want: "main holds uncommitted changes on main", leave: func(t *testing.T, checkout string) {
+			laneRoutingWrite(t, checkout, "shared.txt", "dirty\n")
+		}},
+		{name: "unpushed commits", want: "main holds 2 commits on main that are not pushed", leave: func(t *testing.T, checkout string) {
+			laneRoutingGit(t, checkout, "commit", "--allow-empty", "-m", "one")
+			laneRoutingGit(t, checkout, "commit", "--allow-empty", "-m", "two")
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			checkout, _ := newCheckoutRoutingFixture(t)
+			tc.leave(t, checkout)
+			d, _ := newLaneRoutingDaemon(t)
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			task := checkoutRoutingTask(checkout, "task", "")
+			release, abort := d.acquireIssueWorktreeLocks(ctx, &task, d.logger)
+			if abort {
+				t.Fatal("lock aborted")
+			}
+			defer release()
+			err := d.prepareIssueWorktrees(ctx, &task, d.logger)
+			if err == nil || err.Error() != tc.want {
+				t.Fatalf("prepare err = %v, want %q", err, tc.want)
+			}
+			if got := laneRoutingGit(t, checkout, "branch", "--show-current"); got != "main" {
+				t.Fatalf("checkout switched to %q", got)
+			}
+		})
+	}
+}

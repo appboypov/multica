@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/multica-ai/multica/server/internal/service"
 	"github.com/multica-ai/multica/server/internal/testutil"
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
 	"github.com/multica-ai/multica/server/pkg/protocol"
@@ -340,18 +341,54 @@ func TestClaimTask_WorkInCheckoutOnAnotherMachine(t *testing.T) {
 	}
 }
 
+func TestClaimTask_CheckoutHoldingTheIssueBranch(t *testing.T) {
+	if testHandler == nil {
+		t.Skip("database not available")
+	}
+	for _, tc := range []struct {
+		name   string
+		held   bool
+		inMain bool
+	}{
+		{name: "main holds the issue's branch", held: true, inMain: true},
+		{name: "main holds another branch"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f, mainID := newCheckoutClaimFixture(t, false)
+			dbfx.Exec(t, "UPDATE repository SET work_in_checkout = false WHERE id = $1", f.repoID)
+			if tc.held {
+				var prefix string
+				var number int32
+				dbfx.QueryRow(t, "SELECT w.issue_prefix, i.number FROM issue i JOIN workspace w ON w.id = i.workspace_id WHERE i.id = $1", f.issueID).Scan(&prefix, &number)
+				dbfx.Exec(t, "UPDATE worklane SET branch = $2 WHERE id = $1", mainID, strings.ToLower(service.IssueIdentifier(prefix, number)))
+			}
+			var out struct {
+				Task *AgentTaskResponse `json:"task"`
+			}
+			f.claim(t, testHandler, testWorkspaceID, http.StatusOK).JSON(&out)
+			if out.Task == nil || len(out.Task.Repositories) != 1 {
+				t.Fatalf("expected one claimed repository, got %+v", out.Task)
+			}
+			lane := out.Task.Repositories[0].Worklane
+			if inMain := lane != nil && lane.ID == mainID && lane.InCheckout && lane.Path == "/test/checkout"; inMain != tc.inMain {
+				t.Fatalf("worklane context = %+v, want in the checkout = %v", lane, tc.inMain)
+			}
+		})
+	}
+}
+
 func TestReportWorklaneBranch_WorkInCheckout(t *testing.T) {
 	if testHandler == nil {
 		t.Skip("database not available")
 	}
-	report := func(f worklaneClaimFixture, worklaneID string) *testutil.Response {
+	report := func(t *testing.T, f worklaneClaimFixture, worklaneID string) *testutil.Response {
 		req := newDaemonTokenRequest(http.MethodPost, "/api/daemon/tasks/"+f.taskID+"/worklane-branch",
 			map[string]string{"branch": "work-1400", "worklane_id": worklaneID}, testWorkspaceID, f.daemonID)
-		return testutil.Call(testHandler.ReportWorklaneBranch, withURLParam(req, "taskId", f.taskID))
+		return testutil.Call(t, testHandler.ReportWorklaneBranch, withURLParam(req, "taskId", f.taskID))
 	}
 	t.Run("main of a repository that works in its checkout", func(t *testing.T) {
 		f, mainID := newCheckoutClaimFixture(t, false)
-		report(f, mainID).Want(http.StatusOK)
+		report(t, f, mainID).Want(http.StatusOK)
 		var branch string
 		dbfx.QueryRow(t, "SELECT branch FROM worklane WHERE id = $1", mainID).Scan(&branch)
 		if branch != "work-1400" {
@@ -361,6 +398,12 @@ func TestReportWorklaneBranch_WorkInCheckout(t *testing.T) {
 	t.Run("main of a repository that works in worktrees", func(t *testing.T) {
 		f, mainID := newCheckoutClaimFixture(t, true)
 		dbfx.Exec(t, "UPDATE repository SET work_in_checkout = false WHERE id = $1", f.repoID)
-		report(f, mainID).Want(http.StatusConflict)
+		report(t, f, mainID).Want(http.StatusConflict)
+	})
+	t.Run("main of a repository that works in worktrees and holds the branch", func(t *testing.T) {
+		f, mainID := newCheckoutClaimFixture(t, false)
+		dbfx.Exec(t, "UPDATE repository SET work_in_checkout = false WHERE id = $1", f.repoID)
+		dbfx.Exec(t, "UPDATE worklane SET branch = 'work-1400' WHERE id = $1", mainID)
+		report(t, f, mainID).Want(http.StatusOK)
 	})
 }
