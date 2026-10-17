@@ -1,6 +1,6 @@
 schema: intent-driven
 created: 2026-10-13
-build:
+x-build:
   status: built
   type: feature
   ticket: 'DAS-452'

@@ -1,6 +1,6 @@
 schema: intent-driven
 created: 2026-10-12
-build:
+x-build:
   status: built
   baseline_revision: 2a26a3bfdd698b1f653b6a656f938e3a04129814
   type: feature

@@ -1,7 +1,7 @@
 schema: intent-driven
 created: 2026-10-15
 retire_capabilities: true
-build:
+x-build:
   status: built
   baseline_revision: f3a2dbcb4518e090a78602d25fe5e64d78e62f8e
   type: feature
