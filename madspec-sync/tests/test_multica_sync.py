@@ -381,6 +381,24 @@ def test_dry_run_reports_create_update_archive_adopt_and_overlays_without_writes
     assert "hidden" not in output
 
 
+def test_preview_lists_the_overlay_deletes_of_the_write_run(repo, fallback_dir, capsys):
+    gone, skuddy = write(fallback_dir / "gone.yml", "retry: {}\n"), write(fallback_dir / "skuddy.yml", "retry: {}\n")
+
+    def api() -> FakeMultica:
+        return FakeMultica([
+            {"id": "gone", "name": "Gone", "archived_at": None, "has_custom_env": True, "custom_args": [f"--config={gone}"]},
+            {"id": "s", "name": "Skuddy", "archived_at": None, "has_custom_env": True, "custom_args": [f"--config={skuddy}"]},
+        ], {"gone": {"MADSPEC_PERSONA": "gone"}, "s": {"MADSPEC_PERSONA": "skuddy"}})
+
+    deletes = []
+    for dry_run in (True, False):
+        assert multica_sync.Sync(api(), repo, CHECKOUT, dry_run=dry_run).run(None) == 0
+        output = capsys.readouterr().out.splitlines()
+        deletes.append([line.removeprefix("would ") for line in output if "delete overlay" in line])
+    assert deletes[0] == deletes[1] == [f"delete overlay {gone}", f"delete overlay {skuddy}"]
+    assert sorted(path.name for path in fallback_dir.iterdir()) == ["mitchel.yml"]
+
+
 def test_adoption_preserves_other_environment_and_requires_unique_name(repo):
     agents = [{"id": "m", "name": "Mitchel", "has_custom_env": True}]
     api = FakeMultica(agents, {"m": {"SECRET": "hidden"}})

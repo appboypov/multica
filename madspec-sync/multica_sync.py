@@ -25,6 +25,7 @@ import tomllib
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 
 import yaml
@@ -350,7 +351,8 @@ def is_open(agent: dict) -> bool:
 
 
 def named_overlays(agents: list[dict]) -> set[Path]:
-    """The `--config=` files active agents still name, including an update that failed."""
+    """The `--config=` files active agents name. The sync records each write it makes or previews
+    on `agents`, so a write run and its preview see the same agents, and a failed update keeps its files."""
     return {
         Path(arg.removeprefix("--config="))
         for agent in agents
@@ -456,8 +458,7 @@ class Sync:
             self.sync_agent(persona, runtime, agents, markers, envs)
         if target is None:
             self.archive_gone(agents, markers, set(found) | set(problems))
-            current_agents = self.api.call("GET", "/api/agents?include_archived=true")
-            self.delete_overlays(found, named_overlays(current_agents))
+            self.delete_overlays(found, named_overlays(agents))
         return 1 if self.failed else 0
 
     def read_envs(self, agents: list[dict]) -> dict[str, dict[str, str]]:
@@ -500,6 +501,7 @@ class Sync:
         agent_id = agent["id"]
         if agent.get("archived_at") is not None:
             self.write("POST", f"/api/agents/{agent_id}/restore")
+            agent["archived_at"] = None
             self.say(f"restore agent {persona.name}")
         changes = []
         if take_over:
@@ -514,6 +516,7 @@ class Sync:
             fields.update(OPEN_TO_WORKSPACE)
         if fields:
             self.write("PUT", f"/api/agents/{agent_id}", fields)
+            agent.update(fields)
             changes.extend(fields)
         if changes:
             self.say(f"update agent {persona.name} ({', '.join(changes)})")
@@ -526,6 +529,7 @@ class Sync:
                 continue
             try:
                 self.write("POST", f"/api/agents/{agent['id']}/archive")
+                agent["archived_at"] = datetime.now(timezone.utc).isoformat()
                 self.say(f"archive agent {agent.get('name')}")
             except ApiError as error:
                 self.fail(f"agent {agent.get('name')}: {error}")
