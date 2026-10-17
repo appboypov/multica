@@ -5,8 +5,12 @@
 #
 # The arguments are the repo-relative files the checkout changes against
 # origin/main. Unit tests then run only for test files that import one of
-# them. Without arguments, or when a package manifest, lockfile, TypeScript
-# or Vitest config, or test setup file changed, every unit test runs.
+# them, Go tests only for the changed packages and the packages that import
+# them, e2e only for the specs whose first name word starts a changed folder
+# or file name, and the madspec-sync tests only when madspec-sync changed.
+# Without arguments, as on main, everything runs. A package manifest or
+# lockfile change runs every unit test and every e2e spec, as do the changes
+# named in all_unit_tests, go_packages and e2e_specs.
 #
 # Every stage runs to its end and records its exit status; a stage that fails
 # fails the check, and a check that runs past its 10-minute budget is flagged
@@ -114,15 +118,82 @@ record_go_pass() {
     --data-binary '' "$TURBO_API/v8/artifacts/$1?slug=$TURBO_TEAM"
 }
 
-# The e2e stage needs the schema even when the Go stage is skipped.
+# Prints the Go import paths whose tests the change reaches: the packages of
+# the changed files under server/ and every package that imports them, also
+# from its tests. Prints "all" when every package runs and nothing when the
+# change touches no Go.
+go_packages() {
+  [ ${#CHANGED[@]} -eq 0 ] && { echo all; return; }
+  local f dir dirs=()
+  for f in "${CHANGED[@]}"; do
+    case "$f" in
+      server/go.mod | server/go.sum | server/migrations/* | scripts/test-go.sh | scripts/test-go.test.sh | \
+        scripts/go-test-with-agent-cli-guard.sh | scripts/agent-cli-command-names.txt) echo all; return ;;
+      server/*) ;;
+      *) continue ;;
+    esac
+    # A file with no Go code beside it, such as an embedded asset, belongs to
+    # the nearest folder above it that holds Go code.
+    dir=$(dirname "$f")
+    while [ "$dir" != server ] && ! compgen -G "$dir/*.go" >/dev/null; do dir=$(dirname "$dir"); done
+    [ "$dir" != server ] && dirs+=("./${dir#server/}")
+  done
+  [ ${#dirs[@]} -gt 0 ] || return 0
+  (
+    cd server &&
+      go list -f '{{.ImportPath}} {{join .Deps " "}} {{join .TestImports " "}} {{join .XTestImports " "}}' ./... |
+      awk -v changed="$(go list "${dirs[@]}" | tr '\n' ' ')" '
+        BEGIN { n = split(changed, c, " "); for (i = 1; i <= n; i++) hit[c[i]] = 1 }
+        { for (i = 1; i <= NF; i++) if ($i in hit) { print $1; next } }'
+  )
+}
+
+# Prints the e2e specs the change reaches, or "all".
+e2e_specs() {
+  [ ${#CHANGED[@]} -eq 0 ] && { echo all; return; }
+  local f spec word seg
+  for f in "${CHANGED[@]}"; do
+    case "$f" in
+      e2e/*.spec.ts) ;;
+      e2e/* | playwright.config.* | package.json | */package.json | pnpm-lock.yaml | pnpm-workspace.yaml) echo all; return ;;
+    esac
+  done
+  for spec in e2e/*.spec.ts; do
+    word=$(basename "$spec")
+    word=${word%%[-.]*}
+    for f in "${CHANGED[@]}"; do
+      [ "$f" = "$spec" ] && { echo "$spec"; continue 2; }
+      case "$f" in e2e/*) continue ;; esac
+      for seg in ${f//\// }; do
+        case "$seg" in "$word"*) echo "$spec"; continue 3 ;; esac
+      done
+    done
+  done
+}
+
+madspec_sync_changed() {
+  [ ${#CHANGED[@]} -eq 0 ] && return 0
+  local f
+  for f in "${CHANGED[@]}"; do
+    case "$f" in madspec-sync/*) return 0 ;; esac
+  done
+  return 1
+}
+
 migrate_stage() {
   (cd server && with_services_env go run ./cmd/migrate up)
 }
 
 go_stage() {
-  bash scripts/test-go.test.sh &&
-    with_services_env bash scripts/test-go.sh &&
-    (cd server && go vet ./...)
+  if [ "$GO_PACKAGES" = all ]; then
+    bash scripts/test-go.test.sh &&
+      with_services_env bash scripts/test-go.sh &&
+      (cd server && go vet ./...)
+  else
+    # shellcheck disable=SC2086 # one import path per word
+    with_services_env bash scripts/test-go.sh $GO_PACKAGES &&
+      (cd server && go vet $GO_PACKAGES)
+  fi
 }
 
 e2e_stage() {
@@ -131,7 +202,12 @@ e2e_stage() {
   with_services_env pnpm dev:web >"$RUN/frontend.log" 2>&1 &
   until curl -sf "http://localhost:$BACKPORT/health" >/dev/null; do sleep 1; done
   until curl -sf "http://localhost:$WEBPORT/" >/dev/null; do sleep 1; done
-  with_services_env pnpm exec playwright test --reporter=line
+  if [ "$E2E_SPECS" = all ]; then
+    with_services_env pnpm exec playwright test --reporter=line
+  else
+    # shellcheck disable=SC2086 # one spec path per word
+    with_services_env pnpm exec playwright test --reporter=line $E2E_SPECS
+  fi
 }
 
 "$PGBIN/initdb" -D "$RUN/pg" -U multica --auth=trust >/dev/null
@@ -150,17 +226,42 @@ fi
 stage ui-exports pnpm check:ui-exports
 stage ui-radii pnpm check:ui-radii
 
-stage migrate migrate_stage
+GO_PACKAGES=$(go_packages | tr '\n' ' ')
+GO_PACKAGES=${GO_PACKAGES% }
+E2E_SPECS=$(e2e_specs | tr '\n' ' ')
+E2E_SPECS=${E2E_SPECS% }
 GO_KEY=$(go_inputs_key)
-if go_passed "$GO_KEY"; then
-  RESULTS+=("go=skipped (same inputs passed before)")
-else
-  stage go go_stage
-  [ "$LAST_RC" -ne 0 ] || record_go_pass "$GO_KEY"
+GO_CACHED=0
+[ "$GO_PACKAGES" = all ] && go_passed "$GO_KEY" && GO_CACHED=1
+
+if { [ -n "$GO_PACKAGES" ] && [ "$GO_CACHED" -eq 0 ]; } || [ -n "$E2E_SPECS" ]; then
+  stage migrate migrate_stage
 fi
 
-stage e2e e2e_stage
-stage madspec-sync uv run --with pytest --with pyyaml pytest -p no:cacheprovider -q madspec-sync/tests
+if [ -z "$GO_PACKAGES" ]; then
+  RESULTS+=("go=skipped (no Go change)")
+elif [ "$GO_CACHED" -eq 1 ]; then
+  RESULTS+=("go=skipped (same inputs passed before)")
+else
+  echo "full-check: Go packages: $GO_PACKAGES"
+  stage go go_stage
+  # Only a run of every package marks the inputs as passed, so main still
+  # runs them all after a merge.
+  [ "$LAST_RC" -ne 0 ] || [ "$GO_PACKAGES" != all ] || record_go_pass "$GO_KEY"
+fi
+
+if [ -z "$E2E_SPECS" ]; then
+  RESULTS+=("e2e=skipped (no spec reaches the change)")
+else
+  echo "full-check: e2e specs: $E2E_SPECS"
+  stage e2e e2e_stage
+fi
+
+if madspec_sync_changed; then
+  stage madspec-sync uv run --with pytest --with pyyaml pytest -p no:cacheprovider -q madspec-sync/tests
+else
+  RESULTS+=("madspec-sync=skipped (not changed)")
+fi
 
 echo
 echo "full-check summary ($((SECONDS - START))s of ${BUDGET_SEC}s budget)"

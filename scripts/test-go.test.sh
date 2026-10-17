@@ -77,7 +77,7 @@ expect_usage_failure() {
     cat "$CALLS_FILE" >&2
     exit 1
   fi
-  if ! grep -q '^usage: .*test-go.sh \[--race\] \[--only regular|agent\]$' "$OUTPUT_FILE"; then
+  if ! grep -q '^usage: .*test-go.sh \[--race\] \[--only regular|agent\] \[package \.\.\.\]$' "$OUTPUT_FILE"; then
     echo "$label did not print usage" >&2
     cat "$OUTPUT_FILE" >&2
     exit 1
@@ -94,6 +94,16 @@ expect_calls "--only regular" "$regular_call"
 # Option order must not matter: CI spells it one way, humans another.
 PATH="$BIN_DIR:$PATH" bash "$SCRIPT_DIR/test-go.sh" --only agent --race
 expect_calls "--only agent" "$agent_call"
+
+# Package arguments run only those packages; agent packages keep the throttle.
+PATH="$BIN_DIR:$PATH" bash "$SCRIPT_DIR/test-go.sh" \
+  github.com/multica-ai/multica/server/internal/daemon \
+  github.com/multica-ai/multica/server/pkg/agent/internal/testutil
+expect_calls "package arguments" "test github.com/multica-ai/multica/server/internal/daemon
+test -p 2 -parallel 2 github.com/multica-ai/multica/server/pkg/agent/internal/testutil"
+
+PATH="$BIN_DIR:$PATH" bash "$SCRIPT_DIR/test-go.sh" github.com/multica-ai/multica/server/internal/daemon
+expect_calls "regular package only" "test github.com/multica-ai/multica/server/internal/daemon"
 
 expect_usage_failure "unknown option" --unknown
 expect_usage_failure "unknown --only scope" --only everything

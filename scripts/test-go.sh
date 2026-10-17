@@ -6,7 +6,7 @@ REPO_ROOT=$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)
 GUARD_SCRIPT="$SCRIPT_DIR/go-test-with-agent-cli-guard.sh"
 
 usage() {
-  echo "usage: $0 [--race] [--only regular|agent]" >&2
+  echo "usage: $0 [--race] [--only regular|agent] [package ...]" >&2
 }
 
 # The suite is two `go test` invocations: every package outside pkg/agent at
@@ -15,6 +15,7 @@ usage() {
 # both for `make test`, check.sh, and the release workflow.
 go_test_args=(test)
 only=all
+selected=()
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --race)
@@ -31,29 +32,42 @@ while [ "$#" -gt 0 ]; do
       esac
       shift 2
       ;;
-    *)
+    -*)
       usage
       exit 2
+      ;;
+    *)
+      selected+=("$1")
+      shift
       ;;
   esac
 done
 
 cd "$REPO_ROOT/server"
 
-if [ "$only" != agent ]; then
+# Package arguments limit the run to those import paths; without them every
+# package runs.
+if [ "${#selected[@]}" -gt 0 ]; then
+  packages=$(printf '%s\n' "${selected[@]}")
+else
   packages=$(go list ./...)
-  regular_packages=()
-  for package in $packages; do
-    case "$package" in
-      */pkg/agent|*/pkg/agent/*) ;;
-      *) regular_packages+=("$package") ;;
-    esac
-  done
+fi
+regular_packages=()
+agent_packages=()
+for package in $packages; do
+  case "$package" in
+    */pkg/agent|*/pkg/agent/*) agent_packages+=("$package") ;;
+    *) regular_packages+=("$package") ;;
+  esac
+done
+[ "${#selected[@]}" -gt 0 ] || agent_packages=(./pkg/agent/...)
+
+if [ "$only" != agent ] && [ "${#regular_packages[@]}" -gt 0 ]; then
   "$GUARD_SCRIPT" -- go "${go_test_args[@]}" "${regular_packages[@]}"
 fi
 
-if [ "$only" != regular ]; then
+if [ "$only" != regular ] && [ "${#agent_packages[@]}" -gt 0 ]; then
   # Subprocess-backed agent tests have hard deadlines. Limit both package and
   # within-package parallelism so race builds do not starve their parent loops.
-  "$GUARD_SCRIPT" -- go "${go_test_args[@]}" -p 2 -parallel 2 ./pkg/agent/...
+  "$GUARD_SCRIPT" -- go "${go_test_args[@]}" -p 2 -parallel 2 "${agent_packages[@]}"
 fi
