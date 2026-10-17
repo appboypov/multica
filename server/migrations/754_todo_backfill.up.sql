@@ -48,31 +48,34 @@ WHERE i.creator_type = 'member' AND i.status = 'in_review'
   AND NOT COALESCE(i.assignee_type = 'member' AND i.assignee_id = i.creator_id, false)
 ON CONFLICT (workspace_id, member_id, kind, source_key) WHERE done_at IS NULL DO NOTHING;
 
--- Read the latest run that failed or was dispatched, and attribute it to its
--- originator, accountable member, source run's originator, then source run's
--- accountable member. A newer run closes the failure only once dispatched, and
--- a later status change closes it too, as both do live.
+-- Open a to-do for every failed run, attributed to its originator, accountable
+-- member, source run's originator, then source run's accountable member. As
+-- live, a run dispatched or started after the failure closes it, and so does
+-- a later status change to anything but Blocked.
 INSERT INTO todo (workspace_id, member_id, kind, source_key, issue_id, task_id,
                   actor_type, actor_id, title, created_at)
 SELECT i.workspace_id, m.user_id, 'run_failed', t.id::text, i.id, t.id,
        'agent', t.agent_id, i.title, COALESCE(t.completed_at, t.created_at)
-FROM issue i
-JOIN LATERAL (
-    SELECT t.* FROM agent_task_queue t
-    JOIN agent a ON a.id = t.agent_id AND a.workspace_id = i.workspace_id
-    WHERE t.issue_id = i.id
-      AND (t.status = 'failed' OR COALESCE(t.dispatched_at, t.started_at) IS NOT NULL)
-    ORDER BY t.created_at DESC, t.id DESC LIMIT 1
-) t ON t.status = 'failed'
+FROM agent_task_queue t
+JOIN issue i ON i.id = t.issue_id
+JOIN agent a ON a.id = t.agent_id AND a.workspace_id = i.workspace_id
 LEFT JOIN agent_task_queue source ON source.id = t.delegated_from_task_id
     AND EXISTS (SELECT 1 FROM agent a WHERE a.id = source.agent_id AND a.workspace_id = i.workspace_id)
 JOIN member m ON m.workspace_id = i.workspace_id
     AND m.user_id = COALESCE(t.originator_user_id, t.accountable_user_id, source.originator_user_id, source.accountable_user_id)
-WHERE NOT EXISTS (
+WHERE t.status = 'failed'
+  AND NOT EXISTS (
+    SELECT 1 FROM agent_task_queue later
+    WHERE later.issue_id = i.id AND later.id <> t.id
+      AND COALESCE(later.dispatched_at, later.started_at) > COALESCE(t.completed_at, t.created_at)
+  )
+  AND NOT EXISTS (
     SELECT 1 FROM activity_log s
-    WHERE s.workspace_id = i.workspace_id AND s.issue_id = i.id AND s.action = 'status_changed'
+    WHERE s.workspace_id = i.workspace_id AND s.issue_id = i.id
+      AND s.action IN ('status_changed', 'duplicate_marked', 'duplicate_unmarked')
+      AND s.details->>'to' <> 'blocked'
       AND s.created_at > COALESCE(t.completed_at, t.created_at)
-)
+  )
 ON CONFLICT (workspace_id, member_id, kind, source_key) WHERE done_at IS NULL DO NOTHING;
 
 INSERT INTO todo (workspace_id, member_id, kind, source_key, issue_id, task_id,
