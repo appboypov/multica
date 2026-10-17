@@ -869,7 +869,7 @@ flowchart LR
   events --> notices --> updates
 ```
 
-`server/pkg/db/queries/todo.sql` and its generated sqlc queries own persistence. The recipient `member_id` is a user's ID (`member.user_id`), not the membership row's ID. Optional source and actor IDs are logical references without foreign keys. `kind` distinguishes question, mention, assigned, agent-blocked, run-failed, autopilot-paused, quota-reached, quick-create-failed and review rows; `details` retains system-action data.
+`server/pkg/db/queries/todo.sql` and its generated sqlc queries own persistence. The recipient `member_id` is a user's ID (`member.user_id`), not the membership row's ID. `OpenTodo` inserts a row only while that user is a member of the workspace. Optional source and actor IDs are logical references without foreign keys. A to-do's actor is a member or an agent; a system event opens it without one. `kind` distinguishes question, mention, assigned, agent-blocked, run-failed, autopilot-paused, quota-reached, quick-create-failed and review rows; `details` retains system-action data.
 
 Agent-blocked and run-failed to-dos select the first non-null member ID from the run's `originator_user_id`, its `accountable_user_id`, the `delegated_from_task_id` source run's `originator_user_id`, then that source run's `accountable_user_id`. Source runs and recipients belong to the same workspace. The lifecycle listener and migration 754 use this order; unattributed work opens no to-do.
 
