@@ -9,7 +9,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import multica_sync  # noqa: E402
 
 CHECKOUT = Path("/main-checkout")
-TWO_MODELS = '["anthropic/claude-opus-5-5:high", "openai-codex/gpt-6.1-sol:high"]'
+TWO_MODELS = ["anthropic/claude-opus-5-5:high", "openai-codex/gpt-6.1-sol:high"]
 
 
 def write(path: Path, text: str) -> Path:
@@ -18,18 +18,24 @@ def write(path: Path, text: str) -> Path:
     return path
 
 
-def persona_skill(root: Path, skill: str, name: str, models: str | None = TWO_MODELS, body: str = "Body.\n") -> None:
-    model = f"model = {models}\n" if models is not None else ""
-    write(root / "skills" / skill / "customize.toml", f'[agent]\nname = "{name}"\n{model}\n[[agent.menu]]\ncode = "X"\ndescription = "x"\nskill = "demo-skill"\n')
-    write(root / "skills" / skill / "SKILL.md", f'---\nname: {skill}\ndescription: "{name}, a persona."\n---\n# {name}\n\n{body}')
+def persona_skill(root: Path, skill: str, name: str, models: list[str] = TWO_MODELS, skills: list[str] | None = None) -> dict:
+    """Write a persona's `SKILL.md` and return the entry `roster.personas` reports for it."""
+    write(root / "skills" / skill / "SKILL.md", f'---\nname: {skill}\ndescription: "{name}, a persona."\n---\n# {name}\n\nBody.\n')
+    return {"command": name.lower(), "name": name, "skill": skill, "models": models, "skills": skills}
 
 
 @pytest.fixture
 def repo(tmp_path: Path) -> Path:
     write(tmp_path / "skills" / "demo-skill" / "SKILL.md", "---\nname: demo-skill\n---\n")
-    persona_skill(tmp_path, "as-product-manager", "Mitchel")
-    persona_skill(tmp_path, "as-chief-of-staff", "Skuddy", models='["x/y"]')
     return tmp_path
+
+
+@pytest.fixture
+def roster(repo: Path) -> list[dict]:
+    return [
+        persona_skill(repo, "as-product-manager", "Mitchel", skills=["as-product-manager", "demo-skill"]),
+        persona_skill(repo, "as-chief-of-staff", "Skuddy", models=["x/y"]),
+    ]
 
 
 @pytest.fixture(autouse=True)
@@ -39,8 +45,8 @@ def fallback_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return folder
 
 
-def test_a_persona_runs_as_its_skill_with_its_skills_and_fallbacks(repo, fallback_dir):
-    personas, problems = multica_sync.read_personas(repo, CHECKOUT)
+def test_a_persona_runs_as_its_skill_with_its_skills_and_fallbacks(repo, roster, fallback_dir):
+    personas, problems = multica_sync.read_personas(repo, CHECKOUT, roster)
     mitchel = personas["mitchel"]
 
     assert problems == {}
@@ -57,11 +63,11 @@ def test_a_persona_runs_as_its_skill_with_its_skills_and_fallbacks(repo, fallbac
     assert multica_sync.fallback_chain(mitchel.models) == {"anthropic/claude-opus-5-5": ["openai-codex/gpt-6.1-sol:high"]}
 
 
-def test_guus_selects_his_whole_skill_folder(repo):
-    persona_skill(repo, "as-ux-designer", "Guus")
+def test_guus_selects_his_whole_skill_folder(repo, roster):
+    roster.append(persona_skill(repo, "as-ux-designer", "Guus"))
     checkout = Path("/Users/codaveto/Repos/Ventures/madspec")
 
-    personas, problems = multica_sync.read_personas(repo, checkout)
+    personas, problems = multica_sync.read_personas(repo, checkout, roster)
     guus = personas["guus"]
 
     assert problems == {}
@@ -72,16 +78,16 @@ def test_guus_selects_his_whole_skill_folder(repo):
     )
 
 
-def test_a_persona_with_every_skill_and_one_model_gets_no_arguments(repo):
-    skuddy = multica_sync.read_personas(repo, CHECKOUT)[0]["skuddy"]
+def test_a_persona_with_every_skill_and_one_model_gets_no_arguments(repo, roster):
+    skuddy = multica_sync.read_personas(repo, CHECKOUT, roster)[0]["skuddy"]
 
     assert (skuddy.model, skuddy.thinking_level, skuddy.custom_args) == ("x/y", "", [])
 
 
-def test_a_persona_without_a_model_is_a_problem_and_no_agent(repo):
-    persona_skill(repo, "as-verifier", "Sarkout", models=None)
+def test_a_persona_without_a_model_is_a_problem_and_no_agent(repo, roster):
+    roster.append(persona_skill(repo, "as-verifier", "Sarkout", models=[]))
 
-    personas, problems = multica_sync.read_personas(repo, CHECKOUT)
+    personas, problems = multica_sync.read_personas(repo, CHECKOUT, roster)
 
     assert "sarkout" not in personas
     assert problems == {"sarkout": "skills/as-verifier/customize.toml has no [agent] model"}
@@ -100,8 +106,8 @@ def test_thinking_level_is_only_a_known_suffix(model, expected):
 
 
 @pytest.fixture
-def mitchel(repo) -> multica_sync.Persona:
-    return multica_sync.read_personas(repo, CHECKOUT)[0]["mitchel"]
+def mitchel(repo, roster) -> multica_sync.Persona:
+    return multica_sync.read_personas(repo, CHECKOUT, roster)[0]["mitchel"]
 
 
 @pytest.mark.parametrize(
@@ -210,10 +216,10 @@ class FakeMultica:
         return {}
 
 
-def test_sync_restores_and_takes_over_an_archived_persona_agent(repo, mitchel):
+def test_sync_restores_and_takes_over_an_archived_persona_agent(repo, roster, mitchel):
     api = FakeMultica([{"id": "m", "name": "Mitchel", "archived_at": "t", "has_custom_env": False, "runtime_id": "", **multica_sync.OPEN_TO_WORKSPACE}])
 
-    assert multica_sync.Sync(api, repo, CHECKOUT).run("Mitchel") == 0
+    assert multica_sync.Sync(api, repo, CHECKOUT, roster).run("Mitchel") == 0
 
     assert api.writes[0] == ("POST", "/api/agents/m/restore", None)
     assert api.writes[1] == ("PUT", "/api/agents/m/env", {"custom_env": {"MADSPEC_PERSONA": "mitchel"}})
@@ -223,9 +229,9 @@ def test_sync_restores_and_takes_over_an_archived_persona_agent(repo, mitchel):
 
 
 @pytest.mark.parametrize("selection", [None, [], ["/other/skill"]])
-def test_sync_rewrites_a_stale_selection_and_leaves_equal_fields(repo, selection, capsys):
-    persona_skill(repo, "as-ux-designer", "Guus", models='["x/y"]')
-    guus = multica_sync.read_personas(repo, CHECKOUT)[0]["guus"]
+def test_sync_rewrites_a_stale_selection_and_leaves_equal_fields(repo, roster, selection, capsys):
+    roster.append(persona_skill(repo, "as-ux-designer", "Guus", models=["x/y"]))
+    guus = multica_sync.read_personas(repo, CHECKOUT, roster)[0]["guus"]
     agent = {
         **guus.fields(),
         **multica_sync.OPEN_TO_WORKSPACE,
@@ -236,7 +242,7 @@ def test_sync_rewrites_a_stale_selection_and_leaves_equal_fields(repo, selection
     }
     api = FakeMultica([agent], {"g": {"MADSPEC_PERSONA": "guus"}})
 
-    assert multica_sync.Sync(api, repo, CHECKOUT).run("Guus") == 0
+    assert multica_sync.Sync(api, repo, CHECKOUT, roster).run("Guus") == 0
 
     assert api.writes == [("PUT", "/api/agents/g", {"instruction_selection": guus.instruction_selection})]
     assert capsys.readouterr().out == "update agent Guus (instruction_selection)\n"
@@ -244,12 +250,12 @@ def test_sync_rewrites_a_stale_selection_and_leaves_equal_fields(repo, selection
     agent["instruction_selection"] = list(guus.instruction_selection)
     api.writes.clear()
 
-    assert multica_sync.Sync(api, repo, CHECKOUT).run("guus") == 0
+    assert multica_sync.Sync(api, repo, CHECKOUT, roster).run("guus") == 0
     assert api.writes == []
     assert capsys.readouterr().out == ""
 
 
-def test_full_sync_archives_only_its_agents_whose_persona_is_gone(repo):
+def test_full_sync_archives_only_its_agents_whose_persona_is_gone(repo, roster):
     api = FakeMultica(
         [
             {"id": "gone", "name": "Fallon", "archived_at": None, "has_custom_env": True},
@@ -258,13 +264,13 @@ def test_full_sync_archives_only_its_agents_whose_persona_is_gone(repo):
         envs={"gone": {"MADSPEC_PERSONA": "fallon"}, "foreign": {"OTHER": "x"}},
     )
 
-    assert multica_sync.Sync(api, repo, CHECKOUT).run(None) == 0
+    assert multica_sync.Sync(api, repo, CHECKOUT, roster).run(None) == 0
 
     archived = [path for method, path, _ in api.writes if path.endswith("/archive")]
     assert archived == ["/api/agents/gone/archive"]
 
 
-def test_sync_writes_overlays_before_agents_and_deletes_those_no_agent_names(repo, fallback_dir, capsys):
+def test_sync_writes_overlays_before_agents_and_deletes_those_no_agent_names(repo, roster, fallback_dir, capsys):
     removed = write(fallback_dir / "removed.yml", "retry: {}\n")
     still_named = write(fallback_dir / "unreadable.yml", "retry: {}\n")
     api = FakeMultica([
@@ -272,7 +278,7 @@ def test_sync_writes_overlays_before_agents_and_deletes_those_no_agent_names(rep
         {"id": "unreadable", "name": "Unreadable", "archived_at": None, "custom_args": [f"--config={still_named}"]},
     ])
 
-    assert multica_sync.Sync(api, repo, CHECKOUT).run(None) == 0
+    assert multica_sync.Sync(api, repo, CHECKOUT, roster).run(None) == 0
 
     assert api.missing_at_create == {"Mitchel": [], "Skuddy": []}
     overlay = (fallback_dir / "mitchel.yml").read_text(encoding="utf-8").splitlines()
@@ -285,5 +291,5 @@ def test_sync_writes_overlays_before_agents_and_deletes_those_no_agent_names(rep
     assert sorted(path.name for path in fallback_dir.iterdir()) == ["mitchel.yml", "unreadable.yml"]
 
     capsys.readouterr()
-    assert multica_sync.Sync(api, repo, CHECKOUT).run(None) == 0
+    assert multica_sync.Sync(api, repo, CHECKOUT, roster).run(None) == 0
     assert "write overlay" not in capsys.readouterr().out

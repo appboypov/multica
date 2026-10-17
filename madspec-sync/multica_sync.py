@@ -67,9 +67,6 @@ sys.dont_write_bytecode = True
 
 # The MadSpec checkout the sync reads its personas, skills and roster from.
 MADSPEC = Path.home() / "Repos" / "Ventures" / "madspec"
-sys.path.insert(0, str(MADSPEC / "skills" / "madspec" / "scripts"))
-
-from roster import personas  # noqa: E402
 
 MAIN_REF = "refs/remotes/origin/main"
 SOURCES = ("skills",)
@@ -116,11 +113,15 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Sync the MadSpec personas to Multica agents.")
     parser.add_argument("persona", nargs="?", help="sync only this persona, by name or command")
     args = parser.parse_args()
+    sys.path.insert(0, str(MADSPEC / "skills" / "madspec" / "scripts"))
+    from roster import personas
+
     try:
         api = Multica(load_config(CONFIG))
         with tempfile.TemporaryDirectory(prefix="multica-sync-") as tree:
             export_main(MADSPEC, Path(tree))
-            return Sync(api, Path(tree), MADSPEC).run(args.persona)
+            roster = personas(Path(tree) / "skills")
+            return Sync(api, Path(tree), MADSPEC, roster).run(args.persona)
     except (ApiError, ValueError) as error:
         print(f"failed: {error}", file=sys.stderr, flush=True)
         return 1
@@ -230,11 +231,12 @@ def read_persona(found: dict, tree: Path, checkout: Path) -> Persona:
     )
 
 
-def read_personas(tree: Path, checkout: Path) -> tuple[dict[str, Persona], dict[str, str]]:
-    """Every persona of the tree's `skills/` by command, and the personas that failed with why."""
+def read_personas(tree: Path, checkout: Path, roster: list[dict]) -> tuple[dict[str, Persona], dict[str, str]]:
+    """Every persona of `roster`, the personas `roster.personas` reports for the tree's `skills/`,
+    by command, and the personas that failed with why."""
     found: dict[str, Persona] = {}
     problems: dict[str, str] = {}
-    for persona in personas(tree / "skills"):
+    for persona in roster:
         try:
             found[persona["command"]] = read_persona(persona, tree, checkout)
         except ValueError as error:
@@ -347,10 +349,11 @@ def reason(raw: bytes) -> str:
 class Sync:
     """One run of the sync against Multica."""
 
-    def __init__(self, api: Multica, tree: Path, checkout: Path) -> None:
+    def __init__(self, api: Multica, tree: Path, checkout: Path, roster: list[dict]) -> None:
         self.api = api
         self.tree = tree
         self.checkout = checkout
+        self.roster = roster
         self.failed = False
 
     def say(self, line: str) -> None:
@@ -361,7 +364,7 @@ class Sync:
         print(f"failed: {line}", file=sys.stderr, flush=True)
 
     def run(self, target: str | None) -> int:
-        found, problems = read_personas(self.tree, self.checkout)
+        found, problems = read_personas(self.tree, self.checkout, self.roster)
         for command, problem in problems.items():
             if target is None or target.lower() == command:
                 self.fail(f"persona {command}: {problem}")
