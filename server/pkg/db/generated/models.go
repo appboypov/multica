@@ -1485,13 +1485,22 @@ type Repository struct {
 }
 
 type RoutineDecision struct {
-	ID          string             `json:"id"`
-	WorkspaceID pgtype.UUID        `json:"workspace_id"`
-	IssueID     pgtype.UUID        `json:"issue_id"`
-	Input       []byte             `json:"input"`
-	TaskID      pgtype.UUID        `json:"task_id"`
-	Outcome     string             `json:"outcome"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	ID              string             `json:"id"`
+	WorkspaceID     pgtype.UUID        `json:"workspace_id"`
+	IssueID         pgtype.UUID        `json:"issue_id"`
+	Input           []byte             `json:"input"`
+	TaskID          pgtype.UUID        `json:"task_id"`
+	JevConfidence   pgtype.Float8      `json:"jev_confidence"`
+	Proposal        []byte             `json:"proposal"`
+	Decider         pgtype.Text        `json:"decider"`
+	QuestionID      pgtype.UUID        `json:"question_id"`
+	ReviewMode      pgtype.Text        `json:"review_mode"`
+	AppliedChoice   pgtype.Text        `json:"applied_choice"`
+	WorkTaskID      pgtype.UUID        `json:"work_task_id"`
+	AutomaticNumber pgtype.Int8        `json:"automatic_number"`
+	Reviews         []byte             `json:"reviews"`
+	Outcome         string             `json:"outcome"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 }
 
 type RuntimeProfile struct {

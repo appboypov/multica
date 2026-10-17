@@ -21,26 +21,26 @@ import (
 )
 
 type deciderEffects struct {
-	in deciderInput
-	updated *db.Issue
-	before *db.Issue
-	opened []db.Todo
-	closed []db.Todo
-	queued []db.AgentTaskQueue
+	in        deciderInput
+	updated   *db.Issue
+	before    *db.Issue
+	opened    []db.Todo
+	closed    []db.Todo
+	queued    []db.AgentTaskQueue
 	cancelled []db.AgentTaskQueue
-	comments []db.CreateCommentRow
-	question *protocol.QuestionEventPayload
+	comments  []db.CreateCommentRow
+	question  *protocol.QuestionEventPayload
 }
 
 type deciderReview struct {
-	Verdict string `json:"verdict"`
-	Choice string `json:"choice"`
-	Note string `json:"note"`
-	ProposedChoice string `json:"proposed_choice"`
-	Decider string `json:"decider"`
-	JevConfidence float64 `json:"jev_confidence"`
-	MemberID string `json:"member_id"`
-	AnsweredAt time.Time `json:"answered_at"`
+	Verdict        string    `json:"verdict"`
+	Choice         string    `json:"choice"`
+	Note           string    `json:"note"`
+	ProposedChoice string    `json:"proposed_choice"`
+	Decider        string    `json:"decider"`
+	JevConfidence  float64   `json:"jev_confidence"`
+	MemberID       string    `json:"member_id"`
+	AnsweredAt     time.Time `json:"answered_at"`
 }
 
 func (s *DeciderService) openConfirmation(ctx context.Context, tx pgx.Tx, key string, in deciderInput, answer DeciderAnswer, maker string, confidence float64, mode string, threshold float64, effects *deciderEffects) error {
