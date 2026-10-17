@@ -778,12 +778,9 @@ func writeWorkflowAutopilot(b *strings.Builder) {
 // is the single discovery point for the comment-read surface; repeating them per
 // step is what made this one bloat in the first place.
 //
-// Squad leaders keep one status bullet: a dispatch turn leaves the parent
-// mid-flight, so its end-of-turn fact is in_progress, and completion waits for
-// the re-trigger (member update / stage barrier) that confirms the overall
-// goal is met. Flipping the parent on the dispatch turn would mark unfinished
-// multi-stage work as complete; see the Squad Operating Protocol and
-// the sub-issue wakeup (service/issue_wakeup_system.go).
+// A dispatch turn leaves the parent in_progress until the overall goal is met.
+// Own work without delegation follows the shared completion rules. The Squad
+// Operating Protocol defines the leader's choice of who takes each step.
 //
 // ctx.IsSquadLeader is a PER-TASK role, not agent configuration: branching on
 // it here does move brief bytes when the same agent runs leader one turn and
@@ -810,7 +807,7 @@ func writeWorkflowIssue(b *strings.Builder, ctx TaskContextForEnv) {
 	b.WriteString("- The issue's work continues beyond this turn — you dispatched sub-issues, or delivered one part with more underway → `in_progress`.\n")
 	b.WriteString("- You cannot proceed without something you are missing → `blocked`, and post a comment explaining the blocker unless your Agent Identity forbids issue comments.\n")
 	if ctx.IsSquadLeader {
-		b.WriteString("- Squad leader: dispatching members is not delivery - a dispatch turn leaves the parent `in_progress`. Only on a later turn (a member update or stage-barrier re-trigger) where you confirm the overall goal is met does the completion rule above apply.\n")
+		b.WriteString("- Squad leader: dispatching members is not delivery - a dispatch turn leaves the parent `in_progress`. For your own work without delegation, apply the completion rules above when the overall goal is met. Follow the status authority in your Squad Operating Protocol.\n")
 	}
 	// A custom catalog needs one reminder that workflow updates use exact keys.
 	if len(ctx.IssueStatuses) > 0 {

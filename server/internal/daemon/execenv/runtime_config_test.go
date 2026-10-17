@@ -530,10 +530,8 @@ func TestIssueWorkflowHonorsAgentIdentity(t *testing.T) {
 	}
 }
 
-// A squad leader's dispatch turn must not read as completion: the end-of-turn
-// fact is in_progress, and completion waits for the re-trigger that confirms
-// the overall goal is met. The leader must not close out the parent on the
-// very turn it hands work to members.
+// Dispatch keeps the parent active. Own work without delegation can complete
+// under the same delivery rules as other issue work.
 func TestSquadLeaderIssueWorkflowKeepsParentInProgress(t *testing.T) {
 	t.Parallel()
 	const issueID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
@@ -545,13 +543,18 @@ func TestSquadLeaderIssueWorkflowKeepsParentInProgress(t *testing.T) {
 	for _, want := range []string{
 		"dispatching members is not delivery",
 		"a dispatch turn leaves the parent `in_progress`",
-		"where you confirm the overall goal is met",
+		"For your own work without delegation",
+		"when the overall goal is met",
+		"Follow the status authority in your Squad Operating Protocol",
 		// The shared no-write default still governs leader conversation turns.
 		"questions, discussion, and acknowledgements never touch status",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("squad-leader issue brief missing %q\n---\n%s", want, out)
 		}
+	}
+	if strings.Contains(out, "Only on a later turn") {
+		t.Error("own work must not wait for a member trigger to complete")
 	}
 }
 

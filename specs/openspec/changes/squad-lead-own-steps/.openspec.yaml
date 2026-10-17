@@ -1,0 +1,14 @@
+schema: intent-driven
+created: 2026-10-16
+x-build:
+  status: built
+  baseline_revision: 2a24e44
+  type: fix
+  ticket: ""
+  context:
+    - "{project-root}/AGENTS.md"
+    - "{project-root}/server/internal/handler/squad_briefing.go"
+    - "{project-root}/server/internal/daemon/execenv/runtime_config_sections.go"
+  verification:
+    status: not_run
+    reason: "The assignment defers every check to the parent on Crabbox."

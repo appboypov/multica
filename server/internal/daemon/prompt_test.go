@@ -345,6 +345,41 @@ func TestBuildPromptSquadLeaderReplyCarveOutIgnoresTriggerAuthor(t *testing.T) {
 	}
 }
 
+func TestBuildPromptSquadLeaderOwnWorkRequiresReply(t *testing.T) {
+	t.Parallel()
+
+	for _, triggerCommentID := range []string{"", "comment-456"} {
+		out := BuildPrompt(Task{
+			IssueID:               "issue-123",
+			TriggerCommentID:      triggerCommentID,
+			TriggerCommentContent: "Please report your decision.",
+			TriggerAuthorType:     "member",
+			IsLeaderTask:          true,
+			LeaderRoleResolved:    true,
+			Agent: &AgentData{
+				Instructions: "Read your persona skill and do your own next step.",
+			},
+		}, "claude")
+
+		want := "then complete it"
+		if triggerCommentID != "" {
+			want = "post your reply as a comment"
+		}
+		if !strings.Contains(out, want) {
+			t.Errorf("trigger=%q: leader's own work lost delivery instruction %q", triggerCommentID, want)
+		}
+		for _, forbidden := range []string{
+			"Stop after dispatching",
+			"NOT to do the work yourself",
+			"Do NOT do the implementation work yourself",
+		} {
+			if strings.Contains(out, forbidden) {
+				t.Errorf("trigger=%q: prompt overrides own work with %q", triggerCommentID, forbidden)
+			}
+		}
+	}
+}
+
 // TestTaskIsSquadLeaderReadsProtocolFields pins the role signal to the wire
 // fields a current server sets when (and only when) it injects a squad-leader
 // briefing, and pins the legacy fallback to what BOTH pre-capability server

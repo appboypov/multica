@@ -154,6 +154,14 @@ agent instructions. The briefing includes:
 - Squad Roster;
 - Squad Instructions, only when `instructions` is non-empty.
 
+On every trigger, the leader reads the issue and its Agent Identity (including
+its persona skill) to choose the next step. It does steps that belong to its
+own role and delegates steps that fit a member better by @mention. It may do
+its own step, then delegate the next step in the same turn. It stops after
+delegation. Without delegation, it delivers its result as a comment and follows
+the issue status rules below. Every turn records squad activity; the protocol
+defines when `no_action` allows a silent exit.
+
 Roster entries include member name, member type, mention markdown, and non-empty
 role. For agent members the roster also lists their assigned skills
 (`skills: a, b`, or `no skills assigned` when the agent has none) so the leader

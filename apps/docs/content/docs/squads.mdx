@@ -32,10 +32,10 @@ When a non-Backlog issue is assigned to a squad, Multica immediately enqueues a 
 
 1. **Leader claims the run.** The agent runtime picks up the run on its next poll, same as any other agent assignment.
 2. **Leader is briefed.** On claim, Multica appends three sections to the leader's system prompt — see [What the leader sees on every turn](#what-the-leader-sees-on-every-turn) below.
-3. **Leader posts one delegation comment.** The comment `@`-mentions the chosen member(s) using the exact mention markdown from the roster — that mention triggers a new run for each mentioned agent.
+3. **Leader chooses the next step.** It reads the issue and its Agent Identity, including its persona skill. It does steps that belong to its own role. If a member fits the next step better, it posts one comment with the result so far and an `@`-mention using the exact mention markdown from the roster. That mention starts a run for each chosen agent. The leader can do its own step and then delegate in the same turn.
 4. **Leader records its evaluation** via `multica squad activity <issue-id> action --reason "..."`. This writes an entry to the issue's activity timeline so humans can see the leader actually evaluated the trigger.
 5. **The dispatch turn leaves the parent `in_progress`.** Same agent-managed status contract as a direct agent assignment — coordinating the squad is working the parent's ask, so the parent moves from `todo` to `in_progress`, and dispatching members is not delivery, so it stays there while the squad works.
-6. **Leader stops.** The leader does not do the implementation itself. When the delegated member posts back - or when a sub-issue / stage barrier closes - the leader is re-triggered to read the update and either delegate the next step, escalate, move the parent to `in_review` once the overall goal is met and awaits acceptance, or stay silent. When the parent is finished and awaits nobody, the leader may set `done`. A human reviewer or existing integrations can also set it (for example a PR with close intent that merges).
+6. **Leader stops after delegation.** Member updates, member completion, and `@`-mentions can wake the leader to assess the next step again. Without delegation, the leader delivers its own result as a comment and follows the [issue completion rule](/issues#status): `in_review` when the overall goal is met and awaits acceptance, or `done` when finished and awaiting nobody. When no action is needed, the protocol's `no_action` rule applies.
 
 If the issue is in **Backlog**, the leader is not triggered — Backlog is a parking lot, same rule as for direct agent assignment.
 
@@ -43,7 +43,7 @@ If the issue is in **Backlog**, the leader is not triggered — Backlog is a par
 
 On each squad-leader run, three blocks are appended to the leader's instructions:
 
-- **Squad Operating Protocol** - a hard-coded rule set: read the issue, delegate by `@`-mention, be terse (don't restate the issue body - the assignee can read it), record an evaluation every turn, **stop after dispatching** - the dispatch turn ends with the parent `in_progress` - and apply the [issue completion rule](/issues#status) only once the overall goal is met. This protocol is system-managed and not editable.
+- **Squad Operating Protocol**: system-managed rules for the [execution flow above](#execution-flow-after-assignment), terse delegation, activity records, and silent `no_action` turns. This protocol is not editable.
 
   The status half of that protocol is **scoped to issues actually assigned to this squad**. A leader woken by an `@squad` mention on someone else's issue gets the same roster and delegation rules, but is told explicitly **not** to touch that issue's status — status stays with the issue's own assignee.
 - **Squad Roster** — the leader's self-row plus one row per non-archived member. Each row carries the exact mention markdown (`[@Name](mention://agent/<uuid>)` or `[@Name](mention://member/<uuid>)`) the leader should paste — typing a plain `@name` won't trigger anyone.

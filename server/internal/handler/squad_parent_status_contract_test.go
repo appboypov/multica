@@ -71,11 +71,15 @@ func TestSquadAssignedLeaderCanWrapUpOnCommentTurn(t *testing.T) {
 		// completion is reached on the confirming turn, not on dispatch.
 		"dispatching members is not delivery",
 		"a dispatch turn leaves the parent `in_progress`",
-		"where you confirm the overall goal is met",
+		"when the overall goal is met",
+		"For your own work without delegation",
 	} {
 		if !strings.Contains(brief, want) {
 			t.Errorf("leader runtime brief missing %q\n--- brief ---\n%s", want, brief)
 		}
+	}
+	if strings.Contains(brief, "Only on a later turn") {
+		t.Error("the leader's own work can finish without a member re-trigger")
 	}
 }
 

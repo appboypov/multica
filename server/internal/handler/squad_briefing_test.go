@@ -42,13 +42,13 @@ func TestSquadOperatingProtocolScopesParentStatusOwnership(t *testing.T) {
 	}
 
 	// Everything that is not the status responsibility is identical, so a
-	// guest leader still coordinates, delegates, and records activity.
+	// guest leader can do its own steps, delegate, and record activity.
 	owner := squadOperatingProtocolFor(true)
 	for _, shared := range []string{
 		"## Squad Operating Protocol",
 		"Delegate by @mention",
 		"Record your evaluation",
-		"Stop after dispatching",
+		"Stop only after delegation",
 		"Never both for the same work.",
 	} {
 		if !strings.Contains(owner, shared) || !strings.Contains(guest, shared) {
@@ -62,6 +62,42 @@ func TestSquadOperatingProtocolScopesParentStatusOwnership(t *testing.T) {
 	// rules in the brief and the per-turn prompt refer to by name.
 	if !strings.Contains(guest, "## Squad Operating Protocol") {
 		t.Error("guest-leader protocol lost its section header")
+	}
+}
+
+func TestSquadOperatingProtocolAllowsOwnStepsBeforeDelegation(t *testing.T) {
+	t.Parallel()
+
+	for _, ownsStatus := range []bool{true, false} {
+		protocol := strings.Join(strings.Fields(squadOperatingProtocolFor(ownsStatus)), " ")
+		for _, want := range []string{
+			"Read the issue and your Agent Identity on every trigger",
+			"persona skill",
+			"do it in this turn within your Agent Identity limits",
+			"when a member fits the next step better",
+			"complete your own step, then delegate the next step in the same turn",
+			"Include the result of your own step",
+			"Stop only after delegation",
+			"own work without delegation",
+			"authority under responsibility 6",
+			"a result or delegation comment",
+			"a delegated member posts an update",
+			"a delegated member finishes",
+			"someone @mentions you again",
+		} {
+			if !strings.Contains(protocol, want) {
+				t.Errorf("ownsStatus=%v: missing leader step rule %q", ownsStatus, want)
+			}
+		}
+		for _, forbidden := range []string{
+			"NOT to do the work yourself",
+			"Do NOT do the implementation work yourself",
+			"do not open files",
+		} {
+			if strings.Contains(protocol, forbidden) {
+				t.Errorf("ownsStatus=%v: blanket work ban %q", ownsStatus, forbidden)
+			}
+		}
 	}
 }
 
