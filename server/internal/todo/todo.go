@@ -42,6 +42,10 @@ func (s Service) Open(ctx context.Context, p db.OpenTodoParams) error {
 	if len(p.Details) == 0 {
 		p.Details = []byte(`{}`)
 	}
+	// A to-do names a member or an agent as its actor. A system event opens it without one.
+	if p.ActorType.String != "member" && p.ActorType.String != "agent" {
+		p.ActorType, p.ActorID = pgtype.Text{}, pgtype.UUID{}
+	}
 	row, err := s.Queries.OpenTodo(ctx, p)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil

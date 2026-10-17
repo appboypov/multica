@@ -1,13 +1,18 @@
 -- name: OpenTodo :one
+-- Only a current member of the workspace gets a to-do.
 INSERT INTO todo (
     id, workspace_id, member_id, kind, source_key, issue_id, question_id,
     comment_id, task_id, autopilot_id, actor_type, actor_id, title, body, details
-) VALUES (
-    @id, @workspace_id, @member_id, @kind, @source_key,
+)
+SELECT
+    @id::uuid, @workspace_id::uuid, @member_id::uuid, @kind::text, @source_key::text,
     sqlc.narg('issue_id')::uuid, sqlc.narg('question_id')::uuid,
     sqlc.narg('comment_id')::uuid, sqlc.narg('task_id')::uuid,
     sqlc.narg('autopilot_id')::uuid, sqlc.narg('actor_type')::text,
-    sqlc.narg('actor_id')::uuid, @title, sqlc.narg('body')::text, @details
+    sqlc.narg('actor_id')::uuid, @title::text, sqlc.narg('body')::text, @details::jsonb
+WHERE EXISTS (
+    SELECT 1 FROM member m
+    WHERE m.workspace_id = @workspace_id::uuid AND m.user_id = @member_id::uuid
 )
 ON CONFLICT (workspace_id, member_id, kind, source_key) WHERE done_at IS NULL
 DO NOTHING

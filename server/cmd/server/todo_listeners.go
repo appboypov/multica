@@ -156,7 +156,11 @@ func questionTodos(ctx context.Context, svc todo.Service, e events.Event) error 
 			if answered[answerer.UserID] {
 				continue
 			}
-			if err := svc.Open(ctx, db.OpenTodoParams{WorkspaceID: workspace, MemberID: answerer.UserID, Kind: todo.Question, SourceKey: id, IssueID: issueID, QuestionID: questionID, ActorType: util.StrToText("agent"), ActorID: row.AskerAgentID, Title: title, Body: util.StrToText(row.Prompt)}); err != nil {
+			actorType, actorID := "agent", row.AskerAgentID
+			if row.AskerUserID.Valid {
+				actorType, actorID = "member", row.AskerUserID
+			}
+			if err := svc.Open(ctx, db.OpenTodoParams{WorkspaceID: workspace, MemberID: answerer.UserID, Kind: todo.Question, SourceKey: id, IssueID: issueID, QuestionID: questionID, ActorType: util.StrToText(actorType), ActorID: actorID, Title: title, Body: util.StrToText(row.Prompt)}); err != nil {
 				return err
 			}
 		}
@@ -209,7 +213,7 @@ func mentionTodos(ctx context.Context, svc todo.Service, e events.Event) error {
 			}
 		}
 	} else {
-		issue, ok := p["issue"].(handler.IssueResponse)
+		issue, ok := payloadIssue(p)
 		if !ok || issue.Description == nil {
 			return nil
 		}
@@ -290,7 +294,7 @@ func assignedTodos(ctx context.Context, svc todo.Service, e events.Event) error 
 	if !ok {
 		return nil
 	}
-	issue, ok := p["issue"].(handler.IssueResponse)
+	issue, ok := payloadIssue(p)
 	if !ok {
 		return nil
 	}
@@ -338,7 +342,7 @@ func agentTodos(ctx context.Context, svc todo.Service, e events.Event) error {
 	}
 	var issueID, taskID string
 	if e.Type == protocol.EventIssueUpdated {
-		issue, ok := p["issue"].(handler.IssueResponse)
+		issue, ok := payloadIssue(p)
 		if !ok {
 			return nil
 		}
@@ -429,7 +433,7 @@ func reviewTodos(ctx context.Context, svc todo.Service, e events.Event) error {
 	if !ok {
 		return nil
 	}
-	issue, ok := p["issue"].(handler.IssueResponse)
+	issue, ok := payloadIssue(p)
 	if !ok || issue.CreatorType != "member" {
 		return nil
 	}
@@ -460,6 +464,28 @@ func reviewTodos(ctx context.Context, svc todo.Service, e events.Event) error {
 		return err
 	}
 	return svc.Open(ctx, db.OpenTodoParams{WorkspaceID: workspace, MemberID: member, Kind: todo.Review, SourceKey: issue.ID, IssueID: issueID, ActorType: util.StrToText(e.ActorType), ActorID: optionalUUID(e.ActorID), Title: issue.Title})
+}
+
+// payloadIssue reads the issue of an issue event. Handlers publish an
+// IssueResponse and services publish IssueToMap, which has the same JSON shape.
+func payloadIssue(p map[string]any) (handler.IssueResponse, bool) {
+	switch issue := p["issue"].(type) {
+	case handler.IssueResponse:
+		return issue, true
+	case map[string]any:
+		raw, err := json.Marshal(issue)
+		if err != nil {
+			slog.Error("encode issue event payload", "error", err)
+			return handler.IssueResponse{}, false
+		}
+		var response handler.IssueResponse
+		if err := json.Unmarshal(raw, &response); err != nil {
+			slog.Error("decode issue event payload", "error", err)
+			return handler.IssueResponse{}, false
+		}
+		return response, true
+	}
+	return handler.IssueResponse{}, false
 }
 
 func autopilotTodos(ctx context.Context, svc todo.Service, e events.Event) error {
