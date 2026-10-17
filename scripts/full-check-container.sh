@@ -14,8 +14,10 @@
 #
 # Every stage runs to its end and records its exit status; a stage that fails
 # fails the check, and a check that runs past its 10-minute budget is flagged
-# as slow. TURBO_API, TURBO_TOKEN and TURBO_TEAM name the Turborepo cache
-# server on the Mac, so a package whose
+# as slow. E2e server readiness has a shared 120-second startup deadline.
+# A server exit or failed readiness prints both server logs and fails only e2e.
+# TURBO_API, TURBO_TOKEN and TURBO_TEAM name the Turborepo cache server on
+# the Mac, so a package whose
 # inputs are unchanged replays its earlier result, and the Go stage is skipped
 # when its inputs match a run that passed. Ports and the database reach only
 # the stages that start servers: turbo hashes them, so exporting them
@@ -196,12 +198,41 @@ go_stage() {
   fi
 }
 
+wait_e2e_servers() {
+  local backend_pid=$1 frontend_pid=$2 deadline=$((SECONDS + 120))
+  while :; do
+    if ! kill -0 "$backend_pid" 2>/dev/null; then
+      echo "full-check: backend exited before e2e readiness" >&2
+      break
+    fi
+    if ! kill -0 "$frontend_pid" 2>/dev/null; then
+      echo "full-check: frontend exited before e2e readiness" >&2
+      break
+    fi
+    if [ "$SECONDS" -ge "$deadline" ]; then
+      echo "full-check: e2e servers not ready within 120 seconds" >&2
+      break
+    fi
+    if curl -sf --connect-timeout 1 --max-time 2 "http://localhost:$BACKPORT/health" >/dev/null &&
+      curl -sf --connect-timeout 1 --max-time 2 "http://localhost:$WEBPORT/" >/dev/null; then
+      return 0
+    fi
+    sleep 1
+  done
+  echo "--- backend startup log" >&2
+  cat "$RUN/backend.log" >&2
+  echo "--- frontend startup log" >&2
+  cat "$RUN/frontend.log" >&2
+  return 1
+}
+
 e2e_stage() {
   (cd server && go build -o "$RUN/server" ./cmd/server) || return
   (cd server && with_services_env "$RUN/server") >"$RUN/backend.log" 2>&1 &
+  local backend_pid=$!
   with_services_env pnpm dev:web >"$RUN/frontend.log" 2>&1 &
-  until curl -sf "http://localhost:$BACKPORT/health" >/dev/null; do sleep 1; done
-  until curl -sf "http://localhost:$WEBPORT/" >/dev/null; do sleep 1; done
+  local frontend_pid=$!
+  wait_e2e_servers "$backend_pid" "$frontend_pid" || return 1
   if [ "$E2E_SPECS" = all ]; then
     with_services_env pnpm exec playwright test --reporter=line
   else
