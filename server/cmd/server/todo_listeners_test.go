@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/multica-ai/multica/server/internal/events"
 	"github.com/multica-ai/multica/server/internal/handler"
 	"github.com/multica-ai/multica/server/internal/service"
@@ -130,6 +131,76 @@ func TestTodoQuestionWithoutIssue(t *testing.T) {
 	}
 	if fx.Count(t, "SELECT count(*) FROM todo WHERE workspace_id = $1 AND member_id = $2 AND kind = 'question' AND issue_id IS NULL AND title = 'Approve?' AND done_at IS NULL", fx.WorkspaceID, fx.UserID) != 1 {
 		t.Fatal("question without an issue opened no to-do")
+	}
+}
+
+// Deleting one of two linked issues keeps the question open; its open to-do
+// follows the issue it still reaches, and a to-do already marked done stays done.
+func TestTodoQuestionSurvivesLinkedIssueDeletion(t *testing.T) {
+	fx, svc := todoListenerFixture(t)
+	ctx := context.Background()
+	other := fx.User(t, "Anouk", dbid.NewV7().String()+"@todo.test")
+	fx.Member(t, fx.WorkspaceID, other, "member")
+	deleted, kept := fx.Issue(t, "Deleted"), fx.Issue(t, "Kept")
+	id := dbid.NewV7()
+	fx.Insert(t, "question", testutil.Cols{"id": id, "ask_id": id, "ask_position": 0, "workspace_id": fx.WorkspaceID, "asker_agent_id": dbid.NewV7(), "asked_in_task_id": dbid.NewV7(), "prompt": "Approve?", "answer_type": "approval"})
+	for position, issue := range []string{deleted, kept} {
+		fx.Exec(t, "INSERT INTO question_link (question_id, workspace_id, link_type, link_id, position) VALUES ($1, $2, 'issue', $3, $4)", id, fx.WorkspaceID, issue, position)
+	}
+	for _, user := range []string{fx.UserID, other} {
+		fx.Exec(t, "INSERT INTO question_answerer (question_id, user_id, workspace_id) VALUES ($1, $2, $3)", id, user, fx.WorkspaceID)
+	}
+	created := events.Event{Type: protocol.EventQuestionCreated, WorkspaceID: fx.WorkspaceID, Payload: protocol.QuestionEventPayload{QuestionID: util.UUIDToString(id), IssueID: deleted}}
+	if err := questionTodos(ctx, svc, created); err != nil {
+		t.Fatal(err)
+	}
+	fx.Exec(t, "UPDATE todo SET done_at = now(), done_by = 'member' WHERE workspace_id = $1 AND member_id = $2", fx.WorkspaceID, other)
+
+	var listenerErr error
+	svc.Bus.Subscribe(protocol.EventQuestionUpdated, func(e events.Event) {
+		if err := questionTodos(ctx, svc, e); err != nil {
+			listenerErr = err
+		}
+	})
+	var opened []string
+	svc.Bus.Subscribe(protocol.EventTodoOpened, func(e events.Event) {
+		opened = append(opened, e.Payload.(map[string]any)["member_id"].(string))
+	})
+	questions := &service.QuestionService{Queries: svc.Queries, TxStarter: testPool, Bus: svc.Bus}
+	workspace := parseUUID(fx.WorkspaceID)
+	tx, err := testPool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback(ctx)
+	questionIDs, err := questions.DropLinksOfIssues(ctx, svc.Queries.WithTx(tx), workspace, []pgtype.UUID{parseUUID(deleted)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.Exec(ctx, "DELETE FROM issue WHERE id = $1", deleted); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		t.Fatal(err)
+	}
+	questions.PublishLinkChanges(ctx, workspace, questionIDs)
+	if listenerErr != nil {
+		t.Fatal(listenerErr)
+	}
+
+	rows, err := svc.Queries.ListOpenTodos(ctx, db.ListOpenTodosParams{WorkspaceID: workspace, MemberID: parseUUID(fx.UserID)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 1 || util.UUIDToString(rows[0].IssueID) != kept || rows[0].Title != "Kept" || util.UUIDToString(rows[0].QuestionID) != util.UUIDToString(id) {
+		t.Fatalf("open question left the answerer's Inbox: %+v", rows)
+	}
+	if !reflect.DeepEqual(opened, []string{fx.UserID}) {
+		t.Fatalf("todo opened events = %v, want one for the answerer", opened)
+	}
+	if fx.Count(t, "SELECT count(*) FROM todo WHERE workspace_id = $1 AND member_id = $2 AND done_at IS NULL", fx.WorkspaceID, other) != 0 ||
+		fx.Count(t, "SELECT count(*) FROM todo WHERE workspace_id = $1 AND member_id = $2 AND issue_id = $3 AND done_by = 'member'", fx.WorkspaceID, other, deleted) != 1 {
+		t.Fatal("a to-do marked done came back or moved")
 	}
 }
 

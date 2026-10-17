@@ -97,6 +97,18 @@ func questionTodos(ctx context.Context, svc todo.Service, e events.Event) error 
 				return err
 			}
 		}
+		// A deleted linked issue publishes linked; the to-do follows the issue the
+		// open question still reaches, so its answerer still sees it.
+		if p.Reason == protocol.QuestionReasonLinked {
+			issueID, title, err := questionTodoTarget(ctx, svc, workspace, row, p.IssueID)
+			if err != nil {
+				return err
+			}
+			if err := svc.MoveFromDeletedIssue(ctx, db.MoveTodosFromDeletedIssueParams{IssueID: issueID, Title: title, WorkspaceID: workspace, Kind: todo.Question, SourceKey: id}); err != nil {
+				return err
+			}
+			continue
+		}
 		if e.Type != protocol.EventQuestionCreated && p.Reason != protocol.QuestionReasonReassigned {
 			continue
 		}
@@ -131,23 +143,9 @@ func questionTodos(ctx context.Context, svc todo.Service, e events.Event) error 
 				reassignedTo = details.UserID
 			}
 		}
-		// A question that reaches no issue still asks the member something; its
-		// to-do carries the ask's title, or the prompt for a single question.
-		var issueID pgtype.UUID
-		title := row.Prompt
-		if row.AskTitle.Valid {
-			title = row.AskTitle.String
-		}
-		if p.IssueID != "" {
-			issueID, err = util.ParseUUID(p.IssueID)
-			if err != nil {
-				return err
-			}
-			issue, err := svc.Queries.GetIssueInWorkspace(ctx, db.GetIssueInWorkspaceParams{ID: issueID, WorkspaceID: workspace})
-			if err != nil {
-				return err
-			}
-			title = issue.Title
+		issueID, title, err := questionTodoTarget(ctx, svc, workspace, row, p.IssueID)
+		if err != nil {
+			return err
 		}
 		for _, answerer := range answerers {
 			if p.Reason == protocol.QuestionReasonReassigned && util.UUIDToString(answerer.UserID) != reassignedTo {
@@ -166,6 +164,27 @@ func questionTodos(ctx context.Context, svc todo.Service, e events.Event) error 
 		}
 	}
 	return nil
+}
+
+// A question that reaches no issue still asks the member something; its to-do
+// carries the ask's title, or the prompt for a single question.
+func questionTodoTarget(ctx context.Context, svc todo.Service, workspace pgtype.UUID, row db.Question, issue string) (pgtype.UUID, string, error) {
+	title := row.Prompt
+	if row.AskTitle.Valid {
+		title = row.AskTitle.String
+	}
+	if issue == "" {
+		return pgtype.UUID{}, title, nil
+	}
+	issueID, err := util.ParseUUID(issue)
+	if err != nil {
+		return pgtype.UUID{}, "", err
+	}
+	found, err := svc.Queries.GetIssueInWorkspace(ctx, db.GetIssueInWorkspaceParams{ID: issueID, WorkspaceID: workspace})
+	if err != nil {
+		return pgtype.UUID{}, "", err
+	}
+	return issueID, found.Title, nil
 }
 
 func mentionTodos(ctx context.Context, svc todo.Service, e events.Event) error {

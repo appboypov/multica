@@ -557,6 +557,70 @@ func (q *Queries) MarkTodoDone(ctx context.Context, arg MarkTodoDoneParams) (Tod
 	return i, err
 }
 
+const moveTodosFromDeletedIssue = `-- name: MoveTodosFromDeletedIssue :many
+UPDATE todo t
+SET issue_id = $1::uuid, title = $2
+WHERE t.workspace_id = $3 AND t.kind = $4 AND t.source_key = $5
+  AND t.done_at IS NULL AND t.issue_id IS NOT NULL
+  AND NOT EXISTS (SELECT 1 FROM issue i WHERE i.id = t.issue_id AND i.workspace_id = t.workspace_id)
+RETURNING t.id, t.workspace_id, t.member_id, t.kind, t.source_key, t.issue_id, t.question_id, t.comment_id, t.task_id, t.autopilot_id, t.actor_type, t.actor_id, t.title, t.body, t.details, t.created_at, t.done_at, t.done_by
+`
+
+type MoveTodosFromDeletedIssueParams struct {
+	IssueID     pgtype.UUID `json:"issue_id"`
+	Title       string      `json:"title"`
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
+	Kind        string      `json:"kind"`
+	SourceKey   string      `json:"source_key"`
+}
+
+// An open to-do whose issue is gone follows its source to the issue it still
+// reaches, or to none. Done to-dos keep their issue.
+func (q *Queries) MoveTodosFromDeletedIssue(ctx context.Context, arg MoveTodosFromDeletedIssueParams) ([]Todo, error) {
+	rows, err := q.db.Query(ctx, moveTodosFromDeletedIssue,
+		arg.IssueID,
+		arg.Title,
+		arg.WorkspaceID,
+		arg.Kind,
+		arg.SourceKey,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Todo{}
+	for rows.Next() {
+		var i Todo
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.MemberID,
+			&i.Kind,
+			&i.SourceKey,
+			&i.IssueID,
+			&i.QuestionID,
+			&i.CommentID,
+			&i.TaskID,
+			&i.AutopilotID,
+			&i.ActorType,
+			&i.ActorID,
+			&i.Title,
+			&i.Body,
+			&i.Details,
+			&i.CreatedAt,
+			&i.DoneAt,
+			&i.DoneBy,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const openTodo = `-- name: OpenTodo :one
 INSERT INTO todo (
     id, workspace_id, member_id, kind, source_key, issue_id, question_id,

@@ -85,6 +85,22 @@ func (s Service) CloseInWorkspace(ctx context.Context, p db.CloseTodosInWorkspac
 	return s.PublishClosed(ctx, rows)
 }
 
+// MoveFromDeletedIssue publishes moved rows as opened: their deleted issue hid them.
+func (s Service) MoveFromDeletedIssue(ctx context.Context, p db.MoveTodosFromDeletedIssueParams) error {
+	rows, err := s.Queries.MoveTodosFromDeletedIssue(ctx, p)
+	if err != nil {
+		return fmt.Errorf("move %s todos: %w", p.Kind, err)
+	}
+	if len(rows) == 0 {
+		return nil
+	}
+	ids := make([]pgtype.UUID, len(rows))
+	for i, row := range rows {
+		ids[i] = row.ID
+	}
+	return s.publishChanges(ctx, ids, true)
+}
+
 // PublishClosed also serves member-driven completion after its database write.
 func (s Service) PublishClosed(ctx context.Context, rows []db.Todo) error {
 	if len(rows) == 0 {
