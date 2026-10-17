@@ -1,8 +1,8 @@
 ---
 name: multica-platform
-description: "Use for Multica platform actions the runtime brief does not fully cover: issue and PR contracts, charts and files in comments, mentions, agents, squads, autopilots, projects, runtimes, skill import. Not for the product code you are working on."
+description: "Use for Multica platform actions the runtime brief does not fully cover: issue and PR contracts, charts and files in comments, mentions, agents, squads, autopilots, projects, runtimes, skill import, and MadSpec planning in Multica. Not for the product code you are working on."
 user-invocable: false
-allowed-tools: Bash(multica *), Bash(git *), Bash(gh *)
+allowed-tools: Bash(multica *), Bash(git *), Bash(gh *), Bash(uv run *), Bash(bun *)
 ---
 
 # Operating Multica
@@ -27,6 +27,11 @@ Read the invariants below, then open the reference(s) your task actually needs
 | `references/projects.md` | Projects and their durable resources (`github_repo`, `local_directory`, worktree mode) |
 | `references/runtimes.md` | Runtimes, daemons, `repo checkout`, and the task CLI boundary |
 | `references/skill-import.md` | Importing a skill into this workspace from a URL or a local archive |
+| `references/madspec-planning.md` | MadSpec planning in Multica: sessions, questions, runs, the issue tree, tasks, journeys, lanes, releases, client waits, client updates and the improvement report |
+| `scripts/tickets.py` | Reading and writing a MadSpec ticket tree, as `references/madspec-planning.md` "Scripts" says |
+| `scripts/labels.py` | The ticket labels the workspace lacks, as `references/madspec-planning.md` "Scripts" says |
+| `scripts/team_state.py` | The open work of one MadSpec endeavour, as `references/madspec-planning.md` "Scripts" says |
+| `scripts/words.ts` | Brian's issue comments and question answers in a time window, as `references/madspec-planning.md` "Scripts" says |
 
 Open what the task needs. A single-domain task usually needs one; a task that
 crosses domains needs each domain it touches — creating a squad, assigning it an

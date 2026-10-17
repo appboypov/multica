@@ -236,8 +236,8 @@ func TestPlatformSkillRoutingTableMatchesItsReferences(t *testing.T) {
 	shipped := make(map[string]bool, len(skill.Files))
 	for _, f := range skill.Files {
 		shipped[f.Path] = true
-		if !strings.HasPrefix(f.Path, "references/") {
-			t.Errorf("supporting file %q is not under references/; the routing table only addresses that directory", f.Path)
+		if !strings.HasPrefix(f.Path, "references/") && !strings.HasPrefix(f.Path, "scripts/") {
+			t.Errorf("supporting file %q is not under references/ or scripts/; the routing table only addresses those directories", f.Path)
 		}
 		if !strings.Contains(body, f.Path) {
 			t.Errorf("SKILL.md routing table never names %q, so nothing can reach it", f.Path)
@@ -352,14 +352,15 @@ func TestPlatformSkillDescriptionNamesEveryDomain(t *testing.T) {
 	// These are task nouns, not section headings: a task arrives as "set up an
 	// autopilot", never as "Core model".
 	triggerWords := map[string]string{
-		"references/issues.md":       "issue",
-		"references/mentions.md":     "mention",
-		"references/agents.md":       "agent",
-		"references/squads.md":       "squad",
-		"references/autopilots.md":   "autopilot",
-		"references/projects.md":     "project",
-		"references/runtimes.md":     "runtime",
-		"references/skill-import.md": "skill import",
+		"references/issues.md":           "issue",
+		"references/mentions.md":         "mention",
+		"references/agents.md":           "agent",
+		"references/squads.md":           "squad",
+		"references/autopilots.md":       "autopilot",
+		"references/projects.md":         "project",
+		"references/runtimes.md":         "runtime",
+		"references/skill-import.md":     "skill import",
+		"references/madspec-planning.md": "madspec planning",
 	}
 
 	skill, ok := findSkill(t, PlatformSkillName)
@@ -370,6 +371,9 @@ func TestPlatformSkillDescriptionNamesEveryDomain(t *testing.T) {
 	desc := strings.ToLower(fm["description"])
 
 	for _, f := range skill.Files {
+		if !strings.HasPrefix(f.Path, "references/") {
+			continue
+		}
 		word, mapped := triggerWords[f.Path]
 		if !mapped {
 			t.Errorf("reference %q has no trigger word; add one here and to the description, "+
@@ -432,6 +436,7 @@ func TestPlatformSkillCoversPlatformContracts(t *testing.T) {
 				"references/projects.md",
 				"references/runtimes.md",
 				"references/skill-import.md",
+				"references/madspec-planning.md",
 				// Invariants deduplicated out of the eight merged bodies. Each
 				// was repeated in most of them; the router is now their only
 				// home, so losing one here loses it everywhere.
