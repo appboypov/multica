@@ -122,6 +122,9 @@ flowchart LR
   decider["internal/service/decider*.go<br/>DeciderService, TypeSafeDecider"]
   deciderlisteners["cmd/server/decider_listeners.go"]
   typesafe["TypeSafe API<br/>/v1/systemone, TYPESAFE_API_KEY"]
+  checkh["internal/handler/check.go, check_record.go<br/>/api/todos/checks, /api/todos/{id}/answer,<br/>/api/todos/{id}/undo-result, /api/todos/check-settings,<br/>/api/projects/{id}/check-trust"]
+  checks["internal/service/check.go, check_instruction.go,<br/>check_record.go<br/>QuestionService checks, instruction notes, records"]
+  todocli["cmd/multica/cmd_todo.go<br/>multica todo"]
   orgh["internal/handler<br/>organisation.go, project.go<br/>/api/organisations, organisation_id"]
   projsync["madspec-sync/multica_projects.py<br/>organisations, Product projects,<br/>single-repo merges"]
   marks[("~/.local/state/madspec/multica<br/>brain-sync.json, repository_projects")]
@@ -217,6 +220,12 @@ flowchart LR
   decider -->|"issue:updated decider_applied,<br/>comment:created, question:created"| bus
   questions -->|"answered, answer_edited: reviewConfirmation"| decider
   handlers -->|"settings.decider: AuthorizeDeciderSettings"| decider
+  todocli -->|"REST /api/todos/checks, /api/todos/{id}/answer,<br/>/api/todos/{id}/undo-result"| router
+  handlers --> checkh --> checks
+  checks --> sqlc
+  checks -->|"PublishOpened, PublishClosed"| todos
+  checks -->|"answer or Undo: new queued or deferred run"| services
+  checks -->|"NotifyTaskSupplementAvailable"| dhub
   sched --> sqlc
   sweepers --> sqlc
   handlers --> integ
@@ -339,6 +348,7 @@ flowchart TB
     questions["questions<br/>question-card.tsx QuestionCard,<br/>answer-controls AnswerControl,<br/>reassign-picker.tsx, wake-button.tsx"]
     composer["issues/components<br/>comment-input.tsx, reply-input.tsx, comment-trigger-chips.tsx;<br/>issues/hooks/use-recipient-actions.ts"]
     marks["issues/components/run-input-marks.tsx<br/>RunInputMarks: 👀 and ✅ with the agent's name<br/>on comments, answers, activity rows"]
+    checkviews["inbox/components<br/>todo-check-body.tsx TodoCheckBody,<br/>todo-instruction-body.tsx TodoInstructionBody,<br/>project-check-record.tsx ProjectCheckRecord;<br/>projects/components/project-detail.tsx"]
   end
   subgraph core["packages/core"]
     coreprovider["platform/core-provider.tsx<br/>CoreProvider"]
@@ -351,6 +361,7 @@ flowchart TB
     steering["issues/run-steering.ts<br/>resolveRecipientAction, recipientRouting:<br/>Add to current run by default"]
     runinputtypes["types/run-input.ts<br/>RunInputMark, RunInputItemKind"]
     corequestions["questions<br/>queries.ts, mutations.ts,<br/>ws-updaters.ts, validate.ts validateAnswer"]
+    corechecks["todos/checks.ts<br/>useAnswerCheckTodo, useProjectCheckTrust,<br/>useSetCheckSampling, useCheckHistory"]
     realtime["realtime/use-realtime-sync.ts<br/>useRealtimeSync, run_input:reacted refetches<br/>the timeline and question queries"]
     platform["platform<br/>workspace-storage.ts, persist-storage.ts"]
     qc["query-client.ts<br/>TanStack Query"]
@@ -389,6 +400,11 @@ flowchart TB
   questions --> marks
   marks --> runinputtypes
   marks --> ui
+  pages --> checkviews
+  checkviews --> corechecks
+  checkviews --> ui
+  corechecks --> api
+  corechecks --> qc
   corequestions --> api
   corequestions --> qc
   realtime --> corequestions
@@ -702,6 +718,21 @@ classDiagram
     +text outcome
     +timestamptz created_at
   }
+  class check_settings {
+    +uuid workspace_id
+    +int sample_every
+  }
+  class project_check_trust {
+    +uuid workspace_id
+    +uuid project_id
+    +text kind
+    +uuid member_id
+    +int passed
+    +int feedback
+    +int automatic_passed
+    +bool sampling
+    +int sample_opens
+  }
   class attachment {
     +uuid id
     +uuid workspace_id
@@ -859,6 +890,10 @@ classDiagram
   comment "1" --> "*" todo : comment_id
   agent_task_queue "1" --> "*" todo : task_id
   autopilot "1" --> "*" todo : autopilot_id
+  workspace "1" --> "0..1" check_settings : workspace_id
+  project "1" --> "*" project_check_trust : project_id
+  user "1" --> "*" project_check_trust : member_id
+  project_check_trust ..> todo : project_id, kind in check details
   todo ..> user : actor_id when member
   todo ..> agent : actor_id when agent
   workspace "1" --> "*" routine_decision : workspace_id
@@ -1019,7 +1054,7 @@ flowchart LR
   subscribers -->|"recipients by reason"| notices
 ```
 
-`server/pkg/db/queries/todo.sql` and its generated sqlc queries own persistence. The recipient `member_id` is a user's ID (`member.user_id`), not the membership row's ID. `OpenTodo` inserts a row only while that user is a member of the workspace. Optional source and actor IDs are logical references without foreign keys. A to-do's actor is a member or an agent; a system event opens it without one. `kind` distinguishes question, mention, assigned, agent-blocked, run-failed, autopilot-paused, quota-reached, quick-create-failed and review rows; `details` retains system-action data.
+`server/pkg/db/queries/todo.sql` and its generated sqlc queries own persistence. The recipient `member_id` is a user's ID (`member.user_id`), not the membership row's ID. `OpenTodo` inserts a row only while that user is a member of the workspace. Optional source and actor IDs are logical references without foreign keys. A to-do's actor is a member or an agent; a system event opens it without one. `kind` distinguishes question, mention, assigned, agent-blocked, run-failed, autopilot-paused, quota-reached, quick-create-failed, review, check and instruction-change rows; `details` retains system-action data.
 
 Agent-blocked and run-failed to-dos select the first non-null member ID from the run's `originator_user_id`, its `accountable_user_id`, the `delegated_from_task_id` source run's `originator_user_id`, then that source run's `accountable_user_id`. Source runs and recipients belong to the same workspace. The lifecycle listener and migration 754 use this order; unattributed work opens no to-do.
 
@@ -1051,6 +1086,43 @@ The retained input boundary travels from `question_wake_pending.answer_anchor` i
 
 The daemon's `Task.QuestionAnswers` contract, live notices, prompt rendering and card visibility rules remain unchanged. [ADR-0022](../../adr/0022-an-accepted-wake-waits-durably-for-the-agent.md) owns the durable-wait and retained-boundary decision; [the CLI and daemon guide](../../CLI_AND_DAEMON.md#question-wake) describes the runtime behavior.
 
+### Checks and instruction notes
+
+```mermaid
+sequenceDiagram
+  participant Agent as Opening agent run
+  participant API as Go server, internal/service/check*.go
+  participant DB as todo, project_check_trust, check_settings
+  participant Brian as Recipient in the inbox
+  Agent->>API: multica todo check → POST /api/todos/checks
+  API->>DB: lock record, open check or store automatic pass
+  API-->>Brian: todo:opened
+  Brian->>API: POST /api/todos/{id}/answer pass or feedback
+  API->>DB: store answer and count
+  API-->>Agent: answer message
+  Agent->>API: multica todo instruction-note → POST /api/todos/checks/{id}/instruction-note
+  API-->>Brian: instruction_change to-do
+  Brian->>API: POST /api/todos/{id}/answer keep or undo
+  API-->>Agent: Undo request message
+  Agent->>API: multica todo undo-result → POST /api/todos/{id}/undo-result
+  Brian->>API: POST /api/todos/{id}/answer keep closes the note
+```
+
+| Route | Caller |
+|---|---|
+| `POST /api/todos/checks` | `multica todo check` |
+| `GET /api/todos/checks/{id}` | `multica todo get` |
+| `POST /api/todos/{id}/answer` | `multica todo answer`; `ApiClient.answerCheckTodo` through `useAnswerCheckTodo` in `TodoCheckBody` and `TodoInstructionBody` |
+| `POST /api/todos/checks/{id}/instruction-note` | `multica todo instruction-note` |
+| `POST /api/todos/{id}/undo-result` | `multica todo undo-result` |
+| `GET`, `PUT /api/todos/check-settings` | `multica todo settings` |
+| `GET /api/projects/{id}/check-trust` | `multica todo trust`; `ApiClient.getProjectCheckTrust` through `useProjectCheckTrust` in `ProjectCheckRecord` |
+| `PUT /api/projects/{id}/check-trust/{kind}` | `ApiClient.setCheckSampling` through `useSetCheckSampling` in `ProjectCheckRecord` |
+| `GET /api/projects/{id}/check-trust/{kind}/history` | `ApiClient.getCheckHistory` through `useCheckHistory` in `ProjectCheckRecord` |
+
+Check kinds are `data_model`, `data_flow`, `design`, `prototype`, `feature`, `improvement`, `agent_tool` and `release`. A check is a `todo` row of kind `check` whose `details` hold `project_id`, `check_kind`, the work link, the sample flags and the answer. An instruction note is kind `instruction_change` with `source_key` set to its check's id. `project_check_trust` holds one record per project and kind with its recipient, counts and sampling mode; `check_settings` holds the workspace's `sample_every`. The app parts ship in the shared inbox pull request; `ProjectCheckRecord` also renders on the project page.
+
+An answer or Undo request reaches the opening agent in this order: a receipt on its running run with `task-supplement-v1`, the handoff note of its unclaimed queued or deferred run, or a new run with the message. A dispatched run's prompt is already built, so behind it the new run is deferred and `PromoteDueDeferredTasksForRuntime` queues it once the slot frees. Every check read inside a check transaction uses that transaction.
 
 ## Absent
 

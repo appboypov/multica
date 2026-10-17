@@ -38,7 +38,7 @@ Brian answers the instruction note with `keep` or `undo` through the answer endp
 
 ## Transactions and delivery
 
-Check opens lock the workspace, project and record. Each human answer is stored once with its count update. Mode changes lock the record and require its recipient. Answers and Undo requests send a durable run input to an active opening agent or queue that agent with the message in its handoff note. Notifications follow commit. Automatic pass results are returned in the create response without another run.
+Check opens lock the workspace, project and record. Each human answer is stored once with its count update. Mode changes lock the record and require its recipient. Answers and Undo requests send a durable run input to an active opening agent, add the message to the handoff note of its unclaimed queued or deferred run, or create a run with the message. A dispatched run's prompt is already built, so behind it that run is deferred until the dispatched run frees its slot. Reads inside a check transaction use that transaction. Notifications follow commit. Automatic pass results are returned in the create response without another run.
 
 Project deletion removes its check and instruction notes and record in the same transaction. Workspace deletion removes its settings and records. Parent locks prevent a check open from leaving an orphan during deletion.
 
