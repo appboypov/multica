@@ -86,7 +86,7 @@
     "leaves": {
       "question": "Leaves your inbox once you answer it.",
       "mention": "Leaves your inbox once you comment on {{identifier}}.",
-      "assigned": "Leaves your inbox once {{identifier}} moves to another status.",
+      "assigned": "Leaves your inbox once {{identifier}} moves out of {{status}}.",
       "agent_blocked": "Leaves your inbox once {{identifier}} is no longer Blocked or the agent runs again.",
       "run_failed": "Leaves your inbox once an agent runs on {{identifier}} again.",
       "review": "Leaves your inbox once {{identifier}} leaves In Review.",
@@ -97,6 +97,7 @@
     },
     "created_by_you": "created by you",
     "assigned_to_you": "assigned to you",
+    "assigned_to_you_by": "assigned to you by {{name}}",
     "reply_to": "Reply to {{name}}…",
     "comment_unavailable": "This comment can't be shown here.",
     "run_label": "Run #{{number}}",

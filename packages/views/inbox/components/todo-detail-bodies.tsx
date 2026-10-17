@@ -19,11 +19,14 @@ import { cn } from "@multica/ui/lib/utils";
 import { ActorAvatar } from "../../common/actor-avatar";
 import { ReadonlyContent } from "../../editor";
 import { useT, useTimeAgo } from "../../i18n";
+import { PillButton } from "../../common/pill-button";
 import { CommentInput } from "../../issues/components/comment-input";
 import { PullRequestList } from "../../issues/components/pull-request-list";
 import { ReplyInput } from "../../issues/components/reply-input";
 import { StatusIcon } from "../../issues/components/status-icon";
 import { runNumbersByTask } from "../../issues/components/task-run-labels";
+import { useIssueActions } from "../../issues/actions/use-issue-actions";
+import { StatusPicker } from "../../issues/components/pickers";
 import { useIssueTimeline } from "../../issues/hooks/use-issue-timeline";
 import { useStatusLabel } from "../../issues/utils/status-label";
 import { useNavigation } from "../../navigation";
@@ -143,10 +146,10 @@ function TodoCommentMention({ todo, issueId }: { todo: Todo; issueId: string }) 
   const userId = useAuthStore((s) => s.user?.id);
   const { getActorName } = useActorName();
   const { timeline, loading, submitReply } = useIssueTimeline(issueId, userId);
-  const { mention, before } = useMemo(() => {
+  const { mention, before, threadRootId } = useMemo(() => {
     const comments = visibleComments(timeline);
     const index = comments.findIndex((entry) => entry.id === todo.comment_id);
-    if (index < 0) return { mention: null, before: null };
+    if (index < 0) return { mention: null, before: null, threadRootId: null };
     const found = comments[index]!;
     // The comment it answers: the latest earlier one in its thread, or the
     // latest earlier top-level comment.
@@ -154,7 +157,15 @@ function TodoCommentMention({ todo, issueId }: { todo: Todo; issueId: string }) 
     const previous = found.parent_id
       ? earlier.find((entry) => entry.id === found.parent_id || entry.parent_id === found.parent_id)
       : earlier.find((entry) => !entry.parent_id);
-    return { mention: found, before: previous ?? null };
+    // The thread's top-level comment keys the reply draft, as the issue page's thread does.
+    const byId = new Map(timeline.filter((entry) => entry.type === "comment").map((entry) => [entry.id, entry]));
+    const seen = new Set<string>();
+    let root = found;
+    while (root.parent_id && byId.has(root.parent_id) && !seen.has(root.id)) {
+      seen.add(root.id);
+      root = byId.get(root.parent_id)!;
+    }
+    return { mention: found, before: previous ?? null, threadRootId: root.id };
   }, [timeline, todo.comment_id]);
 
   if (loading) return <Skeleton className="h-32 w-full rounded-xl" />;
@@ -170,6 +181,7 @@ function TodoCommentMention({ todo, issueId }: { todo: Todo; issueId: string }) 
         <ReplyInput
           issueId={issueId}
           parentId={mention.parent_id ?? mention.id}
+          draftKey={`reply:${issueId}:${threadRootId}`}
           placeholder={t(($) => $.todos.reply_to, { name: author })}
           avatarType="member"
           avatarId={userId}
@@ -181,8 +193,9 @@ function TodoCommentMention({ todo, issueId }: { todo: Todo; issueId: string }) 
   );
 }
 
-/** The issue's status with what ties the member to it: "created by you" or "assigned to you". */
-function TodoIssueStatus({ todo, relation }: { todo: Todo; relation: string }) {
+/** Waiting for your review: the issue's status with "created by you". */
+function TodoIssueStatus({ todo }: { todo: Todo }) {
+  const { t } = useT("inbox");
   const { categoryOf, colorOf, iconOf } = useIssueStatuses(todo.workspace_id);
   const statusLabelOf = useStatusLabel(todo.workspace_id);
   if (!todo.issue_status) return null;
@@ -196,17 +209,38 @@ function TodoIssueStatus({ todo, relation }: { todo: Todo; relation: string }) {
         className="size-4 shrink-0"
       />
       <span className="font-medium">{statusLabelOf(todo.issue_status)}</span>
-      <span className="text-caption text-muted-foreground">· {relation}</span>
+      <span className="text-caption text-muted-foreground">· {t(($) => $.todos.created_by_you)}</span>
+    </div>
+  );
+}
+
+/** Assigned to you: the issue's status as a menu that changes it in place, with who assigned it. */
+function TodoAssignedStatus({ todo, issueId }: { todo: Todo; issueId: string }) {
+  const { t } = useT("inbox");
+  const { getActorName } = useActorName();
+  const { data: issue } = useQuery(issueDetailOptions(todo.workspace_id, issueId));
+  const actions = useIssueActions(issue ?? null);
+  const status = issue?.status ?? todo.issue_status;
+  if (!status) return null;
+  return (
+    <div className="flex items-center gap-1.5 text-body">
+      <StatusPicker status={status} onUpdate={actions.updateField} triggerRender={<PillButton />} align="start" />
+      <span className="text-caption text-muted-foreground">
+        ·{" "}
+        {todo.actor_type && todo.actor_id
+          ? t(($) => $.todos.assigned_to_you_by, { name: getActorName(todo.actor_type, todo.actor_id) })
+          : t(($) => $.todos.assigned_to_you)}
+      </span>
     </div>
   );
 }
 
 /**
- * Waiting for your review and Assigned to you: the issue's status, the pull
- * requests for a review, the latest comment and a comment box.
+ * Waiting for your review and Assigned to you: the issue's status, which an
+ * assignee changes in place, the pull requests for a review, the latest
+ * comment and a comment box.
  */
 export function TodoIssueBody({ todo, issueId }: { todo: Todo; issueId: string }) {
-  const { t } = useT("inbox");
   const userId = useAuthStore((s) => s.user?.id);
   const { timeline, submitComment } = useIssueTimeline(issueId, userId);
   const isReview = todo.kind === "review";
@@ -214,10 +248,7 @@ export function TodoIssueBody({ todo, issueId }: { todo: Todo; issueId: string }
   const latest = useMemo(() => visibleComments(timeline).at(-1) ?? null, [timeline]);
   return (
     <div className="flex flex-col gap-4">
-      <TodoIssueStatus
-        todo={todo}
-        relation={isReview ? t(($) => $.todos.created_by_you) : t(($) => $.todos.assigned_to_you)}
-      />
+      {isReview ? <TodoIssueStatus todo={todo} /> : <TodoAssignedStatus todo={todo} issueId={issueId} />}
       {isReview && !!pullRequests?.pull_requests.length && (
         <div className="rounded-xl border bg-card p-2">
           <PullRequestList issueId={issueId} identifier={todo.issue_identifier ?? ""} />

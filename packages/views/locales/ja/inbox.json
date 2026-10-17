@@ -84,7 +84,7 @@
     "leaves": {
       "question": "回答すると受信箱から消えます。",
       "mention": "{{identifier}} にコメントすると受信箱から消えます。",
-      "assigned": "{{identifier}} が別のステータスに移ると受信箱から消えます。",
+      "assigned": "{{identifier}} が {{status}} から移ると受信箱から消えます。",
       "agent_blocked": "{{identifier}} がブロック中でなくなるか、エージェントが再実行すると受信箱から消えます。",
       "run_failed": "{{identifier}} でエージェントが再実行すると受信箱から消えます。",
       "review": "{{identifier}} がレビュー中でなくなると受信箱から消えます。",
@@ -95,6 +95,7 @@
     },
     "created_by_you": "あなたが作成",
     "assigned_to_you": "あなたに割り当て",
+    "assigned_to_you_by": "{{name}} があなたに割り当て",
     "reply_to": "{{name}} に返信…",
     "comment_unavailable": "このコメントはここに表示できません。",
     "run_label": "実行 #{{number}}",

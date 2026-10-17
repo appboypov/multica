@@ -84,7 +84,7 @@
     "leaves": {
       "question": "답변하면 받은편지함에서 사라집니다.",
       "mention": "{{identifier}}에 댓글을 달면 받은편지함에서 사라집니다.",
-      "assigned": "{{identifier}}이(가) 다른 상태로 바뀌면 받은편지함에서 사라집니다.",
+      "assigned": "{{identifier}}이(가) {{status}} 상태에서 바뀌면 받은편지함에서 사라집니다.",
       "agent_blocked": "{{identifier}}이(가) 더 이상 차단 상태가 아니거나 에이전트가 다시 실행되면 받은편지함에서 사라집니다.",
       "run_failed": "{{identifier}}에서 에이전트가 다시 실행되면 받은편지함에서 사라집니다.",
       "review": "{{identifier}}이(가) 리뷰 중 상태를 벗어나면 받은편지함에서 사라집니다.",
@@ -95,6 +95,7 @@
     },
     "created_by_you": "내가 만듦",
     "assigned_to_you": "나에게 할당됨",
+    "assigned_to_you_by": "{{name}}님이 나에게 할당함",
     "reply_to": "{{name}}에게 답장…",
     "comment_unavailable": "이 댓글은 여기에 표시할 수 없습니다.",
     "run_label": "실행 #{{number}}",
