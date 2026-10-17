@@ -81,6 +81,16 @@ func (s Service) PublishOpened(ctx context.Context, row db.Todo) error {
 	return nil
 }
 
+// PublishClosed runs after a caller's transaction commits, for rows it closed.
+func (s Service) PublishClosed(ctx context.Context, rows []db.Todo) error {
+	changes, err := visibilityChanges(ctx, s.Queries, rows, false)
+	if err != nil {
+		return err
+	}
+	s.publish(changes)
+	return nil
+}
+
 func (s Service) Close(ctx context.Context, p db.CloseTodosParams) error {
 	_, err := s.write(ctx, false, func(q *db.Queries) ([]db.Todo, error) {
 		rows, err := q.CloseTodos(ctx, p)
