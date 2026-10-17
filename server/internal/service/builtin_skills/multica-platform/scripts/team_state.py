@@ -22,7 +22,7 @@
   stage), each earlier step of its journey that is neither closed nor assigned to the verifier; and each open
   `Client wait` issue of its release that comes before it in its lane.
 - Repositories, from git and GitHub: per repository its checkouts, the default branch and that branch's `checks`;
-  `changes`, the OpenSpec changes of every checkout and worktree with their `build:` map; `prs`, the open pull
+  `changes`, the OpenSpec changes of every checkout and worktree with their `x-build:` map; `prs`, the open pull
   requests with their checks, comments, reviews, review threads, the changes their files touch and the Multica
   issues their title or branch names.
 - Client messages: the latest WhatsApp messages, through Beeper Desktop, of every chat in the agent file of each
@@ -411,7 +411,7 @@ def merged_archives(checkout: Path) -> set[str]:
 
 
 def read_build(text: str) -> dict:
-    """The scalar keys of the top-level `build:` map, as written."""
+    """The scalar keys of the top-level `x-build:` map, as written."""
     out, inside, indent = {}, False, None
     for line in text.splitlines():
         if not line.strip() or line.lstrip().startswith("#"):
@@ -419,10 +419,10 @@ def read_build(text: str) -> dict:
         if not line[0].isspace():
             if inside:
                 break
-            if line.startswith("build:"):
-                rest = line[len("build:"):].split(" #")[0].strip()
+            if line.startswith("x-build:"):
+                rest = line[len("x-build:"):].split(" #")[0].strip()
                 if rest not in ("", "{}"):
-                    raise ValueError(f"build: is no map: {rest}")
+                    raise ValueError(f"x-build: is no map: {rest}")
                 inside = True
             continue
         if inside:

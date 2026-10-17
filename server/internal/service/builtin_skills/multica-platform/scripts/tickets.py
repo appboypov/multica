@@ -32,7 +32,7 @@ refining is refined once its change holds spec deltas.
 One story is one OpenSpec change. A story with no change is `planned`. The OpenSpec root is
 `specs/openspec/` when the project holds it, else `openspec/` (docs/contract.md). A change in
 `<openspec-home>/openspec/changes/<change>/` gives the story its `status`, `assignee`, `blocked_at`,
-and `blocked_reason` from the `build:` map of its `.openspec.yaml`; an archived change
+and `blocked_reason` from the `x-build:` map of its `.openspec.yaml`; an archived change
 (`<openspec-home>/openspec/changes/archive/<YYYY-MM-DD>-<change>/`) is done once its archive folder is
 on the default branch (`origin/HEAD`, else `main`, else `master`): merged. A change is archived on its
 pull request's branch before the merge, so an archive the default branch lacks is still in-review.
@@ -64,7 +64,7 @@ blocks.
                                  and set the story's metadata `change` to it; the name defaults to the
                                  title's kebab slug
   mark   <ref> <status> [--assignee <who>] [--blocked <reason>]
-                                 set a story's status in the `build:` map of its change's .openspec.yaml,
+                                 set a story's status in the `x-build:` map of its change's .openspec.yaml,
                                  or a spike's under `## Build` in its issue's description; --blocked sets
                                  blocked_at and blocked_reason, else both are cleared
 
@@ -206,14 +206,14 @@ def _one_of(value, allowed: tuple, where: str, field: str):
 
 
 def build_span(lines: list[str]):
-    """(header index, end index, key indent) of the top-level `build:` map; None without one."""
+    """(header index, end index, key indent) of the top-level `x-build:` map; None without one."""
     for i, line in enumerate(lines):
         m = TOP_KEY_RE.match(line)
-        if not m or m.group(1) != "build":
+        if not m or m.group(1) != "x-build":
             continue
         rest = m.group(2).split(" #")[0].strip()
         if rest not in ("", "{}"):
-            raise TicketError("the build: map in .openspec.yaml must be a block map")
+            raise TicketError("the x-build: map in .openspec.yaml must be a block map")
         end = i + 1
         while end < len(lines) and (not lines[end].strip() or lines[end][:1] in (" ", "\t")):
             end += 1
@@ -265,7 +265,7 @@ def set_keys(body: list[str], indent: int, updates: dict) -> list[str]:
 
 
 def read_build(text: str) -> dict:
-    """The scalar keys of the `build:` map."""
+    """The scalar keys of the `x-build:` map."""
     lines = text.splitlines()
     span = build_span(lines)
     if span is None:
@@ -275,18 +275,18 @@ def read_build(text: str) -> dict:
 
 
 def write_build(text: str, updates: dict) -> str:
-    """`text` with each key of `updates` set in the `build:` map, or removed when its value is None."""
+    """`text` with each key of `updates` set in the `x-build:` map, or removed when its value is None."""
     lines = text.splitlines()
     span = build_span(lines)
     if span is None:
         while lines and not lines[-1].strip():
             lines.pop()
-        lines.append("build:")
+        lines.append("x-build:")
         i, end, indent = len(lines) - 1, len(lines), 2
     else:
         i, end, indent = span
         if TOP_KEY_RE.match(lines[i]).group(2).split(" #")[0].strip() == "{}":
-            lines[i] = "build:"
+            lines[i] = "x-build:"
     lines[i + 1 : end] = set_keys(lines[i + 1 : end], indent, updates)
     return "\n".join(lines) + "\n"
 
@@ -427,7 +427,7 @@ def read_change(row: dict, changes: list[Path], where: str, repo: str | None) ->
     if path.is_dir():
         meta = path / ".openspec.yaml"
         build = read_build(meta.read_text(encoding="utf-8")) if meta.is_file() else {}
-        status = _one_of(build.get("status", ""), STATUSES, f"{name}/.openspec.yaml", "build.status")
+        status = _one_of(build.get("status", ""), STATUSES, f"{name}/.openspec.yaml", "x-build.status")
         row.update(
             {
                 "status": status,
@@ -979,7 +979,7 @@ def mark_spike(t: dict, args) -> dict:
 
 
 def cmd_mark(args) -> dict:
-    """Write status, assignee, and the blocked fields to the `build:` map of the story's change,
+    """Write status, assignee, and the blocked fields to the `x-build:` map of the story's change,
     or to a spike's issue description."""
     tree = _tree(args)
     t = resolve_ticket(tree, args.ref)
