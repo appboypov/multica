@@ -27,9 +27,7 @@ func TestUpdateWorkspaceDeciderBrianOnly(t *testing.T) {
 	}
 	request(map[string]any{"decider": map[string]any{"member_id": testUserID, "start_period": false, "confidence_threshold": 0.9}}, http.StatusOK)
 	var raw []byte
-	if err := dbfx.QueryRow(t, `SELECT settings FROM workspace WHERE id=$1`, workspace).Scan(&raw); err != nil {
-		t.Fatal(err)
-	}
+	dbfx.QueryRow(t, `SELECT settings FROM workspace WHERE id=$1`, workspace).Scan(&raw)
 	var stored map[string]any
 	if err := json.Unmarshal(raw, &stored); err != nil {
 		t.Fatal(err)

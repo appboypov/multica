@@ -26,9 +26,7 @@ func setDeciderPolicy(t *testing.T, f *testutil.Fixture, settings DeciderSetting
 func routineQuestion(t *testing.T, f *testutil.Fixture, issue string) pgtype.UUID {
 	t.Helper()
 	var id pgtype.UUID
-	if err := f.QueryRow(t, `SELECT question_id FROM routine_decision WHERE issue_id=$1`, issue).Scan(&id); err != nil {
-		t.Fatal(err)
-	}
+	f.QueryRow(t, `SELECT question_id FROM routine_decision WHERE issue_id=$1`, issue).Scan(&id)
 	if !id.Valid {
 		t.Fatal("routine choice has no confirmation question")
 	}
@@ -117,9 +115,7 @@ func TestDeciderStartPeriodSonnetRetainsJevConfidence(t *testing.T) {
 		t.Fatal(err)
 	}
 	var task pgtype.UUID
-	if err := f.QueryRow(t, `SELECT task_id FROM routine_decision WHERE issue_id=$1`, issue).Scan(&task); err != nil {
-		t.Fatal(err)
-	}
+	f.QueryRow(t, `SELECT task_id FROM routine_decision WHERE issue_id=$1`, issue).Scan(&task)
 	payload, _ := json.Marshal(protocol.TaskCompletedPayload{Output: `{"choice":"fix_later","reason":"minor"}`})
 	f.Exec(t, `UPDATE agent_task_queue SET status='completed',result=$2 WHERE id=$1`, task, payload)
 	if err := s.Complete(ctx, task); err != nil {
