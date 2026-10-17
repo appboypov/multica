@@ -24,7 +24,6 @@ func checkoutGit(ctx context.Context, path string, args ...string) (string, erro
 	return strings.TrimSpace(string(out)), nil
 }
 
-
 var repositoryVersionTag = regexp.MustCompile(`^v([0-9]+)\.([0-9]+)\.([0-9]+)$`)
 
 // checkRepositoryCheckout reads only local refs; it never fetches during a
@@ -91,14 +90,20 @@ func checkRepositoryCheckout(ctx context.Context, request protocol.DaemonHeartbe
 		var highest [3]uint64
 		for _, tag := range strings.Split(tags, "\n") {
 			parts := repositoryVersionTag.FindStringSubmatch(tag)
-			if parts == nil { continue }
+			if parts == nil {
+				continue
+			}
 			var version [3]uint64
 			valid := true
 			for i := range version {
 				version[i], err = strconv.ParseUint(parts[i+1], 10, 64)
-				if err != nil { valid = false }
+				if err != nil {
+					valid = false
+				}
 			}
-			if !valid { continue }
+			if !valid {
+				continue
+			}
 			if result.LastTag == "" || version[0] > highest[0] || (version[0] == highest[0] && version[1] > highest[1]) || (version[0] == highest[0] && version[1] == highest[1] && version[2] > highest[2]) {
 				highest, result.LastTag = version, tag
 			}
@@ -109,7 +114,9 @@ func checkRepositoryCheckout(ctx context.Context, request protocol.DaemonHeartbe
 
 func (d *Daemon) handleRepositoryCheckout(ctx context.Context, runtimeID string, request protocol.DaemonHeartbeatPendingRepositoryCheckout) {
 	limit := 30 * time.Second
-	if request.Clone { limit = 10 * time.Minute }
+	if request.Clone {
+		limit = 10 * time.Minute
+	}
 	runCtx, cancel := context.WithTimeout(ctx, limit)
 	defer cancel()
 	result := checkRepositoryCheckout(runCtx, request)

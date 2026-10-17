@@ -418,7 +418,7 @@ func (h *Handler) ReportRepositoryCheckoutResult(w http.ResponseWriter, r *http.
 }
 
 // backfillRepositoryInstallCommand gives a repository from before install
-// commands the first command a passed check found, or '' (None), when the
+// commands the first command a passed check found, or ” (None), when the
 // check names its checkout and its command is still NULL (design.md
 // decision 7). Each row it sets publishes repository:updated.
 func (h *Handler) backfillRepositoryInstallCommand(ctx context.Context, req *RuntimeRepositoryCheckoutRequest, result *protocol.RepositoryCheckoutResult) {

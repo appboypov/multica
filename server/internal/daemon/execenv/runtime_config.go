@@ -112,7 +112,6 @@ func sanitizeEmailForBrief(email string) string {
 	return email
 }
 
-
 // InjectRuntimeConfig writes the meta skill content into the runtime-specific
 // config file so the agent discovers its environment through its native mechanism.
 //

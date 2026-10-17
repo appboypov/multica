@@ -2085,8 +2085,8 @@ func TestClaimTask_ProjectGithubReposOverrideWorkspaceRepos(t *testing.T) {
 
 	var resp struct {
 		Task *struct {
-			Repos            []RepoData            `json:"repos"`
-			ProjectID        string                `json:"project_id"`
+			Repos        []RepoData                 `json:"repos"`
+			ProjectID    string                     `json:"project_id"`
 			Repositories []protocol.ClaimRepository `json:"repositories"`
 		} `json:"task"`
 	}
@@ -2309,12 +2309,12 @@ func TestClaimTask_AutopilotRunOnly_PopulatesWorkspaceAndProjectContext(t *testi
 
 	var resp struct {
 		Task *struct {
-			WorkspaceID        string                `json:"workspace_id"`
-			ThreadName         string                `json:"thread_name"`
-			Repos              []RepoData            `json:"repos"`
-			ProjectID          string                `json:"project_id"`
-			ProjectTitle       string                `json:"project_title"`
-			ProjectDescription string                `json:"project_description"`
+			WorkspaceID        string                     `json:"workspace_id"`
+			ThreadName         string                     `json:"thread_name"`
+			Repos              []RepoData                 `json:"repos"`
+			ProjectID          string                     `json:"project_id"`
+			ProjectTitle       string                     `json:"project_title"`
+			ProjectDescription string                     `json:"project_description"`
 			Repositories       []protocol.ClaimRepository `json:"repositories"`
 		} `json:"task"`
 	}

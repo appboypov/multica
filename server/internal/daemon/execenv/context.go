@@ -229,7 +229,6 @@ func writeTaskContextMarker(workDir string, ctx TaskContextForEnv, manifest *sid
 	return nil
 }
 
-
 // writeProjectRepositories keeps repository identity and paths available to the
 // task-scoped CLI. The sidecar manifest restores any pre-existing user file.
 func writeProjectRepositories(workDir string, ctx TaskContextForEnv, manifest *sidecarManifest) error {
@@ -241,7 +240,9 @@ func writeProjectRepositories(workDir string, ctx TaskContextForEnv, manifest *s
 		return err
 	}
 	data, err := json.MarshalIndent(ctx.Repositories, "", "  ")
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	if err := recordWriteFile(filepath.Join(dir, "repositories.json"), data, 0o644, manifest); err != nil && !errors.Is(err, errPathPreExists) {
 		return err
 	}

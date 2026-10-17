@@ -221,7 +221,6 @@ func TestGitRootLockTimeoutDoesNotAdviseDeletingTheLock(t *testing.T) {
 	}
 }
 
-
 // Every failure through runGitStdout used to arrive as "exit status 1": stderr
 // was captured by cmd.Output() and then dropped on the floor.
 func TestRunGitSurfacesStderrInTheError(t *testing.T) {
@@ -235,5 +234,3 @@ func TestRunGitSurfacesStderrInTheError(t *testing.T) {
 		t.Errorf("error dropped git's stderr: %v", err)
 	}
 }
-
-

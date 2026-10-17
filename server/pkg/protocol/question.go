@@ -10,26 +10,26 @@ type QuestionAnswers struct {
 }
 
 type QuestionAnswerData struct {
-	QuestionID   string `json:"question_id"`
-	AskerAgentID string `json:"asker_agent_id,omitempty"`
-	AskerName    string `json:"asker_name,omitempty"`
+	QuestionID   string           `json:"question_id"`
+	AskerAgentID string           `json:"asker_agent_id,omitempty"`
+	AskerName    string           `json:"asker_name,omitempty"`
 	Via          *QuestionViaData `json:"via,omitempty"`
-	Prompt       string `json:"prompt"`
-	DisplayText  string `json:"display_text"`
-	Note         string `json:"note"`
-	AnswererName string `json:"answerer_name"`
-	UpdatedAt    string `json:"updated_at"`
+	Prompt       string           `json:"prompt"`
+	DisplayText  string           `json:"display_text"`
+	Note         string           `json:"note"`
+	AnswererName string           `json:"answerer_name"`
+	UpdatedAt    string           `json:"updated_at"`
 }
 
 type QuestionAskBackData struct {
-	QuestionID string `json:"question_id"`
-	AskerAgentID string `json:"asker_agent_id,omitempty"`
-	AskerName    string `json:"asker_name,omitempty"`
+	QuestionID   string           `json:"question_id"`
+	AskerAgentID string           `json:"asker_agent_id,omitempty"`
+	AskerName    string           `json:"asker_name,omitempty"`
 	Via          *QuestionViaData `json:"via,omitempty"`
-	Prompt     string `json:"prompt"`
-	Text       string `json:"text"`
-	ActorName  string `json:"actor_name"`
-	CreatedAt  string `json:"created_at"`
+	Prompt       string           `json:"prompt"`
+	Text         string           `json:"text"`
+	ActorName    string           `json:"actor_name"`
+	CreatedAt    string           `json:"created_at"`
 }
 
 type QuestionViaData struct {

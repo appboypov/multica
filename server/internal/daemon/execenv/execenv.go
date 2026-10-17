@@ -138,12 +138,12 @@ type TaskContextForEnv struct {
 	AgentInstructions             string // agent identity/persona instructions, injected into CLAUDE.md
 	AgentSkills                   []SkillContextForEnv
 	DisabledRuntimeSkills         []RuntimeSkillRefForEnv
-	Repos                         []RepoContextForEnv     // workspace repos available for checkout
-	ProjectID                     string                  // active project for this task, when present
-	ProjectTitle                  string                  // human-readable project title
-	ProjectDescription            string                  // durable project-level context, rendered into the brief's Project Context section
+	Repos                         []RepoContextForEnv // workspace repos available for checkout
+	ProjectID                     string              // active project for this task, when present
+	ProjectTitle                  string              // human-readable project title
+	ProjectDescription            string              // durable project-level context, rendered into the brief's Project Context section
 	Repositories                  []protocol.ClaimRepository
-	ChatSessionID                 string                  // non-empty for chat tasks
+	ChatSessionID                 string // non-empty for chat tasks
 	// ChatChannelType is the IM platform behind a chat session ("slack",
 	// "feishu", "wecom"); empty for a web/mobile chat. It names the surface in
 	// the brief's copy; what that surface can DELIVER is the separate field
@@ -495,7 +495,6 @@ func Prepare(params PrepareParams, logger *slog.Logger) (*Environment, error) {
 		return nil, fmt.Errorf("execenv: restrict task-local Multica config directory: %w", err)
 	}
 	prepareSucceeded := false
-
 
 	env := &Environment{
 		RootDir:           envRoot,

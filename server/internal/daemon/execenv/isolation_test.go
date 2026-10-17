@@ -123,8 +123,6 @@ func TestPreparationHelperRoundTripsReuse(t *testing.T) {
 	}
 }
 
-
-
 // TestPreparationHelperAcceptsFieldsFromAnOlderParent pins the version-skew
 // half of the helper protocol. The parent is the running daemon process and
 // the helper is the binary currently at its executable path, so an upgrade

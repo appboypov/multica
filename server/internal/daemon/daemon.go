@@ -6049,7 +6049,6 @@ func taskRunFailureReason(err error) string {
 	return taskfailure.Classify(err.Error()).String()
 }
 
-
 // reportTaskResult writes the final task disposition back to the server.
 //
 // Fail closed: only an explicit "completed" status is reported as success.
@@ -9683,7 +9682,6 @@ func convertReposForEnv(repos []RepoData) []execenv.RepoContextForEnv {
 	}
 	return result
 }
-
 
 // markActiveEnvRoot records that a task is currently using the given env root,
 // so the GC loop won't reclaim its artifacts mid-execution. Calls are

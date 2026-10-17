@@ -11,6 +11,7 @@ import (
 )
 
 const gitTimeout = 2 * time.Minute
+
 // runGit runs git in dir and returns combined output. Callers inspect the
 // output for git's own error text, so stdout and stderr stay merged.
 func runGit(dir string, args ...string) (string, error) {

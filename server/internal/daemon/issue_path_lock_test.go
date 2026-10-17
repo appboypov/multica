@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 )
+
 func TestLocalPathLockerSerializes(t *testing.T) {
 	locker := NewLocalPathLocker()
 	const path = "/some/path"

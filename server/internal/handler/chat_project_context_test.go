@@ -345,12 +345,12 @@ func TestClaimTaskByRuntime_ChatProjectContext(t *testing.T) {
 
 	var response struct {
 		Task *struct {
-			ID                 string                `json:"id"`
-			ProjectID          string                `json:"project_id"`
-			ProjectTitle       string                `json:"project_title"`
-			ProjectDescription string                `json:"project_description"`
+			ID                 string                     `json:"id"`
+			ProjectID          string                     `json:"project_id"`
+			ProjectTitle       string                     `json:"project_title"`
+			ProjectDescription string                     `json:"project_description"`
 			Repositories       []protocol.ClaimRepository `json:"repositories"`
-			Repos              []RepoData            `json:"repos"`
+			Repos              []RepoData                 `json:"repos"`
 		} `json:"task"`
 	}
 	if err := json.NewDecoder(w.Body).Decode(&response); err != nil {

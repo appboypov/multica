@@ -11,6 +11,7 @@ import (
 	"sync"
 	"testing"
 )
+
 func worktreeTestLogger() *slog.Logger {
 	return slog.New(slog.NewTextHandler(io.Discard, nil))
 }

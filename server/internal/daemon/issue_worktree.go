@@ -16,21 +16,35 @@ import (
 )
 
 func issueWorktreePath(task Task, fullName, recorded string, worklanePaths []string) (string, error) {
-	if recorded != "" { return execenv.ExpandWorklanePath(recorded) }
+	if recorded != "" {
+		return execenv.ExpandWorklanePath(recorded)
+	}
 	home, err := os.UserHomeDir()
-	if err != nil { return "", err }
+	if err != nil {
+		return "", err
+	}
 	_, repo, ok := strings.Cut(fullName, "/")
-	if !ok || repo == "" || filepath.Base(repo) != repo || repo == ".." { return "", fmt.Errorf("invalid repository %q", fullName) }
+	if !ok || repo == "" || filepath.Base(repo) != repo || repo == ".." {
+		return "", fmt.Errorf("invalid repository %q", fullName)
+	}
 	key := task.IssueKey
-	if key == "" { key = strings.ToLower(task.IssueIdentifier) }
-	if key == "" || filepath.Base(key) != key || key == ".." { return "", fmt.Errorf("invalid issue key %q", key) }
+	if key == "" {
+		key = strings.ToLower(task.IssueIdentifier)
+	}
+	if key == "" || filepath.Base(key) != key || key == ".." {
+		return "", fmt.Errorf("invalid issue key %q", key)
+	}
 	organisation := task.OrganisationKey
-	if organisation != "" && (filepath.Base(organisation) != organisation || organisation == "..") { return "", fmt.Errorf("invalid organisation key %q", organisation) }
+	if organisation != "" && (filepath.Base(organisation) != organisation || organisation == "..") {
+		return "", fmt.Errorf("invalid organisation key %q", organisation)
+	}
 	return execenv.IssueWorktreePath(filepath.Join(home, "Worktrees", organisation, repo, key), key, worklanePaths)
 }
 
 func (d *Daemon) prepareIssueWorktrees(ctx context.Context, task *Task, logger *slog.Logger) error {
-	if task.IssueID == "" { return nil }
+	if task.IssueID == "" {
+		return nil
+	}
 	for i := range task.Repositories {
 		repo := &task.Repositories[i]
 		if repo.Worklane != nil {
@@ -42,9 +56,13 @@ func (d *Daemon) prepareIssueWorktrees(ctx context.Context, task *Task, logger *
 			}
 			continue
 		}
-		if repo.CheckoutDaemonID != d.cfg.DaemonID { continue }
+		if repo.CheckoutDaemonID != d.cfg.DaemonID {
+			continue
+		}
 		path, err := issueWorktreePath(*task, repo.FullName, repo.WorktreePath, repo.WorklanePaths)
-		if err != nil { return err }
+		if err != nil {
+			return err
+		}
 		worklanePaths := repo.WorklanePaths
 		if repo.WorktreePath != "" {
 			worklanePaths = nil // Later tasks reuse the recorded issue path.
@@ -53,17 +71,25 @@ func (d *Daemon) prepareIssueWorktrees(ctx context.Context, task *Task, logger *
 			CheckoutPath: repo.CheckoutPath, Path: path, Branch: task.IssueKey, DefaultBranch: repo.DefaultBranch,
 			WorklanePaths: worklanePaths,
 		}, logger)
-		if err != nil { return err }
+		if err != nil {
+			return err
+		}
 		branch, err := checkoutGit(ctx, path, "symbolic-ref", "--quiet", "--short", "HEAD")
-		if err != nil { return fmt.Errorf("issue worktree has no branch: %w", err) }
-		if err := d.client.RecordIssueWorktree(ctx, task.ID, repo.ID, path, branch); err != nil { return err }
+		if err != nil {
+			return fmt.Errorf("issue worktree has no branch: %w", err)
+		}
+		if err := d.client.RecordIssueWorktree(ctx, task.ID, repo.ID, path, branch); err != nil {
+			return err
+		}
 		repo.WorktreePath = path
 	}
 	return nil
 }
 
 func primaryIssueWorktree(task Task, daemonID string) string {
-	if task.IssueID == "" { return "" }
+	if task.IssueID == "" {
+		return ""
+	}
 	for _, repo := range task.Repositories {
 		if repo.Worklane != nil && repo.Worklane.DaemonID == daemonID {
 			return repo.WorktreePath
@@ -71,8 +97,12 @@ func primaryIssueWorktree(task Task, daemonID string) string {
 	}
 	path := ""
 	for _, repo := range task.Repositories {
-		if repo.CheckoutDaemonID != daemonID { continue }
-		if path != "" { return "" }
+		if repo.CheckoutDaemonID != daemonID {
+			continue
+		}
+		if path != "" {
+			return ""
+		}
 		path = repo.WorktreePath
 	}
 	return path
@@ -116,22 +146,39 @@ func (d *Daemon) acquireIssueWorktreeLocks(ctx context.Context, task *Task, logg
 			repo := &task.Repositories[i]
 			recorded := repo.WorktreePath
 			if repo.Worklane != nil {
-				if repo.Worklane.DaemonID != d.cfg.DaemonID { continue }
+				if repo.Worklane.DaemonID != d.cfg.DaemonID {
+					continue
+				}
 				var err error
 				recorded, err = worklaneTaskPath(ctx, *task, *repo)
-				if err != nil { d.reportTerminalTask(ctx, terminalTaskReport{kind: terminalTaskReportFail, taskID: task.ID, errorMessage: err.Error(), failureReason: "environment_prepare_failed"}); return nil, true }
+				if err != nil {
+					d.reportTerminalTask(ctx, terminalTaskReport{kind: terminalTaskReportFail, taskID: task.ID, errorMessage: err.Error(), failureReason: "environment_prepare_failed"})
+					return nil, true
+				}
 				repo.WorktreePath = recorded
-			} else if repo.CheckoutDaemonID != d.cfg.DaemonID { continue }
+			} else if repo.CheckoutDaemonID != d.cfg.DaemonID {
+				continue
+			}
 			path, err := issueWorktreePath(*task, repo.FullName, recorded, repo.WorklanePaths)
-			if err != nil { d.reportTerminalTask(ctx, terminalTaskReport{kind: terminalTaskReportFail, taskID: task.ID, errorMessage: err.Error(), failureReason: "environment_prepare_failed"}); return nil, true }
+			if err != nil {
+				d.reportTerminalTask(ctx, terminalTaskReport{kind: terminalTaskReportFail, taskID: task.ID, errorMessage: err.Error(), failureReason: "environment_prepare_failed"})
+				return nil, true
+			}
 			path, err = resolveRealPath(path)
-			if err != nil { d.reportTerminalTask(ctx, terminalTaskReport{kind: terminalTaskReportFail, taskID: task.ID, errorMessage: err.Error(), failureReason: "environment_prepare_failed"}); return nil, true }
+			if err != nil {
+				d.reportTerminalTask(ctx, terminalTaskReport{kind: terminalTaskReportFail, taskID: task.ID, errorMessage: err.Error(), failureReason: "environment_prepare_failed"})
+				return nil, true
+			}
 			paths = append(paths, path)
 		}
 	}
 	sort.Strings(paths)
 	releases := make([]func(), 0, len(paths))
-	releaseAll := func() { for i := len(releases)-1; i >= 0; i-- { releases[i]() } }
+	releaseAll := func() {
+		for i := len(releases) - 1; i >= 0; i-- {
+			releases[i]()
+		}
+	}
 	waitCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	for _, path := range paths {
@@ -140,13 +187,28 @@ func (d *Daemon) acquireIssueWorktreeLocks(ctx context.Context, task *Task, logg
 			d.resourceWaitTasks.Add(1)
 			counted = true
 			reason := filepath.Base(path)
-			if holder != "" { reason += " (held by task " + shortID(holder) + ")" }
-			if err := d.client.MarkTaskWaitingLocalDirectory(waitCtx, task.ID, reason); err != nil { logger.Warn("mark issue worktree waiting failed", "error", err) }
+			if holder != "" {
+				reason += " (held by task " + shortID(holder) + ")"
+			}
+			if err := d.client.MarkTaskWaitingLocalDirectory(waitCtx, task.ID, reason); err != nil {
+				logger.Warn("mark issue worktree waiting failed", "error", err)
+			}
 			cancelled := d.watchTaskCancellation(waitCtx, task.ID, 5*time.Second, logger)
-			go func() { select { case <-cancelled: cancel(); case <-waitCtx.Done(): } }()
+			go func() {
+				select {
+				case <-cancelled:
+					cancel()
+				case <-waitCtx.Done():
+				}
+			}()
 		})
-		if counted { d.resourceWaitTasks.Add(-1) }
-		if err != nil { releaseAll(); return nil, true }
+		if counted {
+			d.resourceWaitTasks.Add(-1)
+		}
+		if err != nil {
+			releaseAll()
+			return nil, true
+		}
 		releases = append(releases, release)
 	}
 	return releaseAll, false

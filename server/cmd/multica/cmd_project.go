@@ -57,16 +57,6 @@ var projectStatusCmd = &cobra.Command{
 	RunE:  runProjectStatus,
 }
 
-
-
-
-
-
-
-
-
-
-
 var validProjectStatuses = []string{
 	"planned", "in_progress", "paused", "completed", "cancelled",
 }
@@ -108,7 +98,6 @@ func init() {
 	projectCreateCmd.Flags().String("start-date", "", "Start date (calendar day, YYYY-MM-DD)")
 	projectCreateCmd.Flags().String("due-date", "", "Due date (calendar day, YYYY-MM-DD)")
 	projectCreateCmd.Flags().String("output", "json", "Output format: table or json")
-
 
 	// project update
 	projectUpdateCmd.Flags().String("title", "", "New title")
@@ -278,7 +267,6 @@ func runProjectCreate(cmd *cobra.Command, _ []string) error {
 	if v, _ := cmd.Flags().GetString("due-date"); v != "" {
 		body["due_date"] = v
 	}
-
 
 	var result map[string]any
 	if err := client.PostJSON(ctx, "/api/projects", body, &result); err != nil {

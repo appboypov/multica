@@ -380,7 +380,6 @@ func TestPrepareThenCleanupSidecarsRepeatedCycles(t *testing.T) {
 // round-trip to the .multica/project/resources.json branch — a separate
 // sidecar write that creates its own intermediate directory tree.
 
-
 // TestCleanupSidecarsNoOpWhenManifestMissing pins backward compatibility
 // with envRoots that predate the manifest mechanism (older daemons, GC'd
 // scratch dirs, fresh tempdirs). Cleanup must be a silent no-op rather
@@ -747,7 +746,6 @@ func TestPrepareThenCleanupSidecarsIssueContextCollisionPerProvider(t *testing.T
 // resources.json` — the other Multica-only namespace file. Same
 // invariant: pre-existing user content survives the round-trip
 // untouched even when the task ships project resources of its own.
-
 
 // TestAllocateCollisionFreeSkillDir pins the slug-suffix policy:
 // first try the natural slug, then `-multica`, then `-multica-2`,
