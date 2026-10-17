@@ -8,6 +8,7 @@ import { Button } from "@multica/ui/components/ui/button";
 import { cn } from "@multica/ui/lib/utils";
 import { useT, useTimeAgo } from "../../i18n";
 import { useNavigation } from "../../navigation";
+import { useStatusLabel } from "../../issues/utils/status-label";
 import { InboxQuestionBody } from "./inbox-question-pane";
 import { TodoIssueBody, TodoMentionBody, TodoRunBody, TodoSystemBody } from "./todo-detail-bodies";
 import { TodoKindIcon, useTodoKindLabel } from "./todo-display";
@@ -19,8 +20,9 @@ export interface TodoIssueTarget {
 }
 
 /** The line that says what makes the to-do leave the Inbox. */
-function useLeavesLine() {
+function useLeavesLine(wsId: string) {
   const { t } = useT("inbox");
+  const statusLabelOf = useStatusLabel(wsId);
   return (todo: Todo): string => {
     const identifier = todo.issue_identifier ?? todo.issue_title ?? todo.title;
     switch (todo.kind) {
@@ -29,7 +31,7 @@ function useLeavesLine() {
       case "mention":
         return t(($) => $.todos.leaves.mention, { identifier });
       case "assigned":
-        return t(($) => $.todos.leaves.assigned, { identifier });
+        return t(($) => $.todos.leaves.assigned, { identifier, status: statusLabelOf(todo.issue_status ?? "") });
       case "agent_blocked":
         return t(($) => $.todos.leaves.agent_blocked, { identifier });
       case "run_failed":
@@ -51,7 +53,7 @@ function useLeavesLine() {
 /** What the member acts on, per kind. */
 function TodoBody({ todo, onOpenIssue }: { todo: Todo; onOpenIssue: (target: TodoIssueTarget) => void }) {
   const { issue_id: issueId, question_id: todoQuestionId } = todo;
-  if (todo.kind === "question" && issueId && todoQuestionId) {
+  if (todo.kind === "question" && todoQuestionId) {
     return (
       <InboxQuestionBody
         issueId={issueId}
@@ -90,7 +92,7 @@ export function TodoDetailPane({
   const { t } = useT("inbox");
   const timeAgo = useTimeAgo();
   const kindLabel = useTodoKindLabel();
-  const leavesLine = useLeavesLine();
+  const leavesLine = useLeavesLine(todo.workspace_id);
   const { push } = useNavigation();
   const wsPaths = useWorkspacePaths();
   const autopilotId = todo.autopilot_id;

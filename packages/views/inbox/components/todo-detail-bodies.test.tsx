@@ -1,6 +1,7 @@
 import { fireEvent, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { TimelineEntry } from "@multica/core/types";
+import { useCommentDraftStore, type CommentDraftKey } from "@multica/core/issues/stores";
+import type { Attachment, TimelineEntry } from "@multica/core/types";
 import { renderWithI18n } from "../../test/i18n";
 import { todoFixture } from "../../test/todo-fixture";
 import { TodoIssueBody, TodoMentionBody, TodoRunBody, TodoSystemBody } from "./todo-detail-bodies";
@@ -9,13 +10,15 @@ const state = vi.hoisted(() => ({
   timeline: [] as TimelineEntry[],
   tasks: [] as Array<{ id: string; agent_id: string; created_at: string }>,
   pullRequests: [] as unknown[],
-  issue: null as { id: string; description: string | null } | null,
+  issue: null as { id: string; description: string | null; status?: string } | null,
 }));
 const updateAutopilot = vi.hoisted(() => vi.fn());
 const submitReply = vi.hoisted(() => vi.fn());
 const submitComment = vi.hoisted(() => vi.fn());
 const push = vi.hoisted(() => vi.fn());
 const replyProps = vi.hoisted(() => [] as Array<Record<string, unknown>>);
+const updateField = vi.hoisted(() => vi.fn());
+const actionsIssue = vi.hoisted(() => ({ current: undefined as unknown }));
 
 vi.mock("@tanstack/react-query", () => ({
   useQuery: (options: { queryKey: readonly unknown[] }) => ({
@@ -50,10 +53,25 @@ vi.mock("../../editor", () => ({ ReadonlyContent: ({ content }: { content: strin
 vi.mock("../../issues/components/comment-input", () => ({ CommentInput: () => <div data-testid="comment-input" /> }));
 vi.mock("../../issues/components/pull-request-list", () => ({ PullRequestList: () => <div data-testid="pull-requests" /> }));
 vi.mock("../../issues/components/reply-input", () => ({
-  ReplyInput: (props: Record<string, unknown>) => {
+  // Shows the text and uploads its draft key holds, as the reply box hydrates them.
+  ReplyInput: (props: Record<string, unknown> & { draftKey?: CommentDraftKey }) => {
     replyProps.push(props);
-    return <div data-testid="reply-input" />;
+    const key = props.draftKey;
+    const text = useCommentDraftStore((s) => (key ? s.getDraft(key) : undefined));
+    const uploads = useCommentDraftStore((s) => (key ? s.getUploads(key).length : 0));
+    return <div data-testid="reply-input" data-uploads={uploads}>{text}</div>;
   },
+}));
+vi.mock("../../issues/actions/use-issue-actions", () => ({
+  useIssueActions: (issue: unknown) => {
+    actionsIssue.current = issue;
+    return { updateField };
+  },
+}));
+vi.mock("../../issues/components/pickers", () => ({
+  StatusPicker: ({ status, onUpdate }: { status: string; onUpdate: (updates: { status: string }) => void }) => (
+    <button type="button" onClick={() => onUpdate({ status: "in_progress" })}>{status}</button>
+  ),
 }));
 vi.mock("../../issues/components/status-icon", () => ({ StatusIcon: () => <span data-testid="status-icon" /> }));
 vi.mock("../../issues/components/task-run-labels", () => ({
@@ -121,6 +139,26 @@ describe("TodoMentionBody", () => {
     expect(replyProps.at(-1)).toMatchObject({ parentId: "root" });
   });
 
+  it("keeps the reply draft of the mention's thread, shared with that thread on the issue page", () => {
+    state.timeline = [
+      comment("root", "Thread start"),
+      comment("c-2", "First reply", { parent_id: "root" }),
+      comment("c-3", "@Brian nested", { parent_id: "c-2" }),
+    ];
+    const threadKey = "reply:issue-412:root" as const;
+    useCommentDraftStore.getState().setDraft(threadKey, "Half-written answer");
+    useCommentDraftStore.getState().setAttachments(threadKey, [{ id: "att-1" } as Attachment]);
+    const mention = todoFixture({ id: "todo-mention", kind: "mention", comment_id: "c-3" });
+    const first = renderWithI18n(<TodoMentionBody key={mention.id} todo={mention} issueId="issue-412" />);
+    first.unmount();
+    renderWithI18n(<TodoMentionBody todo={todoFixture({ id: "todo-other", kind: "mention", comment_id: "c-2" })} issueId="issue-412" />).unmount();
+    renderWithI18n(<TodoMentionBody key={mention.id} todo={mention} issueId="issue-412" />);
+    const reply = screen.getByTestId("reply-input");
+    expect(reply).toHaveTextContent("Half-written answer");
+    expect(reply).toHaveAttribute("data-uploads", "1");
+    useCommentDraftStore.getState().clearDraft(threadKey);
+  });
+
   it("says when the comment is gone", () => {
     renderWithI18n(<TodoMentionBody todo={todoFixture({ kind: "mention", comment_id: "deleted" })} issueId="issue-412" />);
     expect(screen.getByText("This comment can't be shown here.")).toBeInTheDocument();
@@ -162,11 +200,20 @@ describe("TodoIssueBody", () => {
     expect(screen.getByTestId("comment-input")).toBeInTheDocument();
   });
 
-  it("shows an assignment without pull requests", () => {
+  it("changes an assignment's status in place, names who assigned it and shows no pull requests", () => {
     state.pullRequests = [{ id: "pr-1" }];
-    renderWithI18n(<TodoIssueBody todo={todoFixture({ kind: "assigned", issue_status: "todo", question_id: null })} issueId="issue-412" />);
-    expect(screen.getByText(/assigned to you/)).toBeInTheDocument();
+    state.issue = { id: "issue-412", description: null, status: "todo" };
+    renderWithI18n(<TodoIssueBody todo={todoFixture({ kind: "assigned", issue_status: "todo", question_id: null, actor_type: "member", actor_id: "member-mark" })} issueId="issue-412" />);
+    expect(screen.getByText(/assigned to you by Anouk/)).toBeInTheDocument();
     expect(screen.queryByTestId("pull-requests")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "todo" }));
+    expect(actionsIssue.current).toBe(state.issue);
+    expect(updateField).toHaveBeenCalledWith({ status: "in_progress" });
+  });
+
+  it("says the assignment is the member's when no one assigned it", () => {
+    renderWithI18n(<TodoIssueBody todo={todoFixture({ kind: "assigned", issue_status: "todo", question_id: null, actor_type: null, actor_id: null })} issueId="issue-412" />);
+    expect(screen.getByText(/assigned to you$/)).toBeInTheDocument();
   });
 });
 

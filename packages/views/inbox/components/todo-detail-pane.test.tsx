@@ -21,6 +21,7 @@ vi.mock("./todo-detail-bodies", () => ({
   TodoRunBody: ({ todo }: { todo: Todo }) => <div data-testid="run-body" data-kind={todo.kind} />,
   TodoSystemBody: ({ todo }: { todo: Todo }) => <div data-testid="system-body" data-kind={todo.kind} />,
 }));
+vi.mock("../../issues/utils/status-label", () => ({ useStatusLabel: () => (status: string) => (status === "todo" ? "Todo" : status) }));
 
 function renderPane(todo: Todo, handlers: { onMarkDone?: () => void; onOpenIssue?: (target: unknown) => void } = {}) {
   return renderWithI18n(
@@ -45,6 +46,14 @@ describe("TodoDetailPane", () => {
     expect(onOpenIssue).toHaveBeenLastCalledWith({ questionId: "q-1" });
     fireEvent.click(screen.getByTestId("question-body"));
     expect(onOpenIssue).toHaveBeenLastCalledWith({ questionId: "q-2" });
+  });
+
+  it("shows the card of a question without an issue and opens no issue", () => {
+    renderPane(todoFixture({ issue_id: null, issue_identifier: null, issue_title: null, question_id: "q-7", title: "Approve the export" }));
+    expect(screen.getByRole("heading", { name: "Approve the export" })).toBeInTheDocument();
+    expect(screen.getByTestId("question-body")).toHaveTextContent("q-7");
+    expect(screen.queryByTestId("system-body")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Open on/ })).not.toBeInTheDocument();
   });
 
   it("opens a mention's issue at its comment and names the issue in the leaves line", () => {
@@ -82,5 +91,10 @@ describe("TodoDetailPane", () => {
     expect(screen.queryByRole("button", { name: /Open on/ })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Open autopilot" }));
     expect(push).toHaveBeenCalledWith("/acme/autopilots/ap-1");
+  });
+
+  it("says an assignment leaves once its issue moves out of its status", () => {
+    renderPane(todoFixture({ kind: "assigned", issue_identifier: "WORK-427", issue_status: "todo", question_id: null }));
+    expect(screen.getByText("Leaves your inbox once WORK-427 moves out of Todo.")).toBeInTheDocument();
   });
 });

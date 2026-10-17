@@ -84,7 +84,7 @@
     "leaves": {
       "question": "你回答后即离开收件箱。",
       "mention": "你在 {{identifier}} 上评论后即离开收件箱。",
-      "assigned": "{{identifier}} 变为其他状态后即离开收件箱。",
+      "assigned": "{{identifier}} 移出 {{status}} 后即离开收件箱。",
       "agent_blocked": "{{identifier}} 不再受阻或智能体再次运行后即离开收件箱。",
       "run_failed": "智能体在 {{identifier}} 上再次运行后即离开收件箱。",
       "review": "{{identifier}} 离开评审中后即离开收件箱。",
@@ -95,6 +95,7 @@
     },
     "created_by_you": "由你创建",
     "assigned_to_you": "分配给你",
+    "assigned_to_you_by": "由 {{name}} 分配给你",
     "reply_to": "回复 {{name}}…",
     "comment_unavailable": "此评论无法在这里显示。",
     "run_label": "运行 #{{number}}",

@@ -86,7 +86,7 @@
     "leaves": {
       "question": "Quitte votre boîte une fois que vous y répondez.",
       "mention": "Quitte votre boîte une fois que vous commentez {{identifier}}.",
-      "assigned": "Quitte votre boîte une fois que {{identifier}} change de statut.",
+      "assigned": "Quitte votre boîte une fois que {{identifier}} sort de {{status}}.",
       "agent_blocked": "Quitte votre boîte une fois que {{identifier}} n'est plus Bloqué ou que l'agent s'exécute à nouveau.",
       "run_failed": "Quitte votre boîte une fois qu'un agent s'exécute à nouveau sur {{identifier}}.",
       "review": "Quitte votre boîte une fois que {{identifier}} quitte En revue.",
@@ -97,6 +97,7 @@
     },
     "created_by_you": "créé par vous",
     "assigned_to_you": "assigné à vous",
+    "assigned_to_you_by": "assigné à vous par {{name}}",
     "reply_to": "Répondre à {{name}}…",
     "comment_unavailable": "Ce commentaire ne peut pas être affiché ici.",
     "run_label": "Exécution n°{{number}}",
