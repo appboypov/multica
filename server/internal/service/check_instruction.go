@@ -64,7 +64,7 @@ func (s *QuestionService) OpenInstructionNote(ctx context.Context, ws, checkID p
 	if !check.DoneAt.Valid || details.Answer != "feedback" { return nil, questionRefusal(422, "an instruction note needs an answered feedback check") }
 	var existing pgtype.UUID
 	err = tx.QueryRow(ctx, "SELECT id FROM todo WHERE workspace_id=$1 AND kind='instruction_change' AND source_key=$2 ORDER BY created_at LIMIT 1", ws, util.UUIDToString(checkID)).Scan(&existing)
-	if err == nil { return s.GetCheck(ctx, ws, existing, actor) }
+	if err == nil { return readCheck(ctx, tx, q, ws, existing, actor) }
 	if !errors.Is(err, pgx.ErrNoRows) { return nil, err }
 	data, err := json.Marshal(InstructionNoteDetails{CheckID:util.UUIDToString(checkID), ProjectID:details.ProjectID, Kind:details.Kind, InstructionNoteInput:in})
 	if err != nil { return nil, err }
@@ -89,7 +89,7 @@ func (s *QuestionService) AnswerInstructionNote(ctx context.Context, ws, id pgty
 	if err := tx.QueryRow(ctx,"SELECT member_id FROM todo WHERE id=$1 AND workspace_id=$2",id,ws).Scan(&member); err != nil { return nil, err }
 	if member != actor.ID { return nil, questionRefusal(404,"instruction note not found") }
 	if row.Kind != "instruction_change" { return nil, questionRefusal(422,"this to-do is not an instruction note") }
-	if row.DoneAt.Valid { return s.GetCheck(ctx,ws,id,actor) }
+	if row.DoneAt.Valid { return readCheck(ctx,tx,q,ws,id,actor) }
 	var details InstructionNoteDetails
 	if err := json.Unmarshal(row.Details,&details); err != nil { return nil,err }
 	var task db.AgentTaskQueue
@@ -98,7 +98,7 @@ func (s *QuestionService) AnswerInstructionNote(ctx context.Context, ws, id pgty
 	case "keep":
 		_,err=tx.Exec(ctx,"UPDATE todo SET done_at=now(),done_by='member' WHERE id=$1 AND workspace_id=$2",id,ws)
 	case "undo":
-		if details.UndoRequested { return s.GetCheck(ctx,ws,id,actor) }
+		if details.UndoRequested { return readCheck(ctx,tx,q,ws,id,actor) }
 		details.UndoRequested=true
 		data,marshalErr:=json.Marshal(details);if marshalErr!=nil{return nil,marshalErr}
 		_,err=tx.Exec(ctx,"UPDATE todo SET details=$3 WHERE id=$1 AND workspace_id=$2",id,ws,data)
@@ -128,7 +128,7 @@ func (s *QuestionService) ReportInstructionUndo(ctx context.Context, ws,id pgtyp
 	var details InstructionNoteDetails
 	if err:=json.Unmarshal(row.Details,&details);err!=nil{return nil,err}
 	if !details.UndoRequested{return nil,questionRefusal(422,"undo was not requested")}
-	if details.UndoNote!=""{return s.GetCheck(ctx,ws,id,actor)}
+	if details.UndoNote!=""{return readCheck(ctx,tx,q,ws,id,actor)}
 	if row.DoneAt.Valid{return nil,questionRefusal(422,"instruction note is closed")}
 	details.UndoNote,details.UndoLink=in.Note,in.Link
 	data,err:=json.Marshal(details);if err!=nil{return nil,err}

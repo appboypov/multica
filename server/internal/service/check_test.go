@@ -6,9 +6,12 @@ import (
 	"fmt"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/multica-ai/multica/server/internal/util"
+	db "github.com/multica-ai/multica/server/pkg/db/generated"
 )
 
 func checkFixture(t *testing.T) (*questionFixture, CheckInput) {
@@ -220,5 +223,46 @@ func TestCheckDeleteParentData(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestCheckPathsHoldOneConnection(t *testing.T) {
+	f, in := checkFixture(t)
+	check := openCheck(t, f, in)
+	answerCheck(t, f, check, "feedback")
+	cfg := f.fx.Pool.Config()
+	cfg.MaxConns, cfg.MinConns = 1, 0
+	one, err := pgxpool.NewWithConfig(context.Background(), cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(one.Close)
+	svc := *f.svc
+	svc.Queries, svc.TxStarter = db.New(one), one
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	must := func(step string) func(map[string]any, error) map[string]any {
+		return func(row map[string]any, err error) map[string]any {
+			t.Helper()
+			if err != nil {
+				t.Fatalf("%s: %v", step, err)
+			}
+			return row
+		}
+	}
+	must("read")(svc.GetCheck(ctx, f.workspace, check, f.asker))
+	must("answer retry")(svc.AnswerCheck(ctx, f.workspace, check, f.answerer, "pass", ""))
+	input := InstructionNoteInput{File: "skills/totals.md", Link: "https://example.test/commit", Note: "Round totals before display"}
+	note := util.MustParseUUID(must("note")(svc.OpenInstructionNote(ctx, f.workspace, check, f.asker, input))["id"].(string))
+	must("note retry")(svc.OpenInstructionNote(ctx, f.workspace, check, f.asker, input))
+	must("undo")(f.svc.AnswerCheck(ctx, f.workspace, note, f.answerer, "undo", ""))
+	must("undo retry")(svc.AnswerCheck(ctx, f.workspace, note, f.answerer, "undo", ""))
+	report := InstructionNoteInput{Link: "https://example.test/revert", Note: "Reverted"}
+	must("undo result")(svc.ReportInstructionUndo(ctx, f.workspace, note, f.asker, report))
+	must("undo result retry")(svc.ReportInstructionUndo(ctx, f.workspace, note, f.asker, report))
+	must("keep")(svc.AnswerCheck(ctx, f.workspace, note, f.answerer, "keep", ""))
+	must("keep retry")(svc.AnswerCheck(ctx, f.workspace, note, f.answerer, "keep", ""))
+	if _, err := svc.CheckSettings(ctx, f.workspace, f.answerer, &CheckSettings{4}); err != nil {
+		t.Fatalf("settings: %v", err)
 	}
 }

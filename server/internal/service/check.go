@@ -187,15 +187,21 @@ func (s *QuestionService) GetCheck(ctx context.Context, ws, id pgtype.UUID, acto
 		return nil, err
 	}
 	defer tx.Rollback(ctx)
+	return readCheck(ctx, tx, s.Queries.WithTx(tx), ws, id, actor)
+}
+
+// readCheck reads on the caller's transaction, so a check path that holds a
+// connection never waits for a second one.
+func readCheck(ctx context.Context, tx pgx.Tx, q *db.Queries, ws, id pgtype.UUID, actor QuestionActor) (map[string]any, error) {
 	var member, opener pgtype.UUID
-	err = tx.QueryRow(ctx, "SELECT member_id, actor_id FROM todo WHERE id=$1 AND workspace_id=$2 AND kind IN ('check','instruction_change')", id, ws).Scan(&member, &opener)
+	err := tx.QueryRow(ctx, "SELECT member_id, actor_id FROM todo WHERE id=$1 AND workspace_id=$2 AND kind IN ('check','instruction_change')", id, ws).Scan(&member, &opener)
 	if err != nil {
 		return nil, questionLoadError(err)
 	}
 	if (actor.Type == "member" && actor.ID != member) || (actor.Type == "agent" && actor.ID != opener) {
 		return nil, questionRefusal(404, "check not found")
 	}
-	row, err := s.Queries.GetTodoForMember(ctx, db.GetTodoForMemberParams{ID: id, WorkspaceID: ws, MemberID: member})
+	row, err := q.GetTodoForMember(ctx, db.GetTodoForMemberParams{ID: id, WorkspaceID: ws, MemberID: member})
 	if err != nil {
 		return nil, err
 	}
@@ -240,7 +246,7 @@ func (s *QuestionService) AnswerCheck(ctx context.Context, ws, id pgtype.UUID, a
 		return nil, err
 	}
 	if done.Valid {
-		return s.GetCheck(ctx, ws, id, actor)
+		return readCheck(ctx, tx, q, ws, id, actor)
 	}
 	if answer != "pass" && answer != "feedback" {
 		return nil, questionRefusal(422, "answer must be pass or feedback")
@@ -320,7 +326,7 @@ func (s *QuestionService) CheckSettings(ctx context.Context, ws pgtype.UUID, act
 		if err := tx.QueryRow(ctx, "SELECT id FROM workspace WHERE id=$1 FOR KEY SHARE", ws).Scan(new(pgtype.UUID)); err != nil {
 			return CheckSettings{}, questionLoadError(err)
 		}
-		member, err := s.Queries.GetMemberByUserAndWorkspace(ctx, db.GetMemberByUserAndWorkspaceParams{UserID: actor.ID, WorkspaceID: ws})
+		member, err := s.Queries.WithTx(tx).GetMemberByUserAndWorkspace(ctx, db.GetMemberByUserAndWorkspaceParams{UserID: actor.ID, WorkspaceID: ws})
 		if err != nil {
 			return CheckSettings{}, err
 		}
