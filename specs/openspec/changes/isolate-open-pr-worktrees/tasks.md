@@ -10,7 +10,8 @@ flowchart LR
 | API group | Backend / madspec-api-builder | changed | server/pkg/protocol/messages.go; server/internal/handler/worklane_branch.go |
 | Service group | Backend / madspec-service-builder | changed | server/internal/daemon/worklane_task.go; server/internal/daemon/issue_worktree.go |
 | Git preparation | Branch-owned PR worktree | new | server/internal/daemon/execenv/pull_request_worktree.go |
-| Tests | Claim selection and simultaneous tasks | changed | server/internal/handler/worklane_branch_test.go; server/internal/daemon/worklane_task_test.go |
+| Tests | Claim selection | new | server/internal/handler/worklane_branch_test.go |
+| Tests | Simultaneous tasks | changed | server/internal/daemon/worklane_task_test.go |
 | Docs | PR worktree selection and waits | changed | CLI_AND_DAEMON.md |
 | System map | Daemon worktree flow | changed | specs/docs/system-design.md |
 
