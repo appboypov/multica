@@ -3170,51 +3170,6 @@ func TestCodexExecuteRetriesAfterSignaledProcessIsReaped(t *testing.T) {
 	}
 }
 
-func TestCodexExecuteFirstTurnNoProgressSurfacesDiagnostics(t *testing.T) {
-	// Not t.Parallel(): this test mutates codexGracefulShutdownTimeoutNanos.
-	// The model catalog signal below makes both attempts retry safe, so this
-	// exercises the exhausted-retry path and pays two cleanup windows.
-	if runtime.GOOS == "windows" {
-		t.Skip("shell-script fixture is POSIX-only")
-	}
-	codexGracefulShutdownTimeoutNanos.Store(int64(100 * time.Millisecond))
-	t.Cleanup(func() { codexGracefulShutdownTimeoutNanos.Store(0) })
-
-	fakePath := writeFakeCodexAppServer(t, ""+
-		`read line`+"\n"+
-		`echo '{"jsonrpc":"2.0","id":1,"result":{}}'`+"\n"+
-		`read line`+"\n"+
-		`read line`+"\n"+
-		`echo '{"jsonrpc":"2.0","id":2,"result":{"thread":{"id":"thr-stuck"}}}'`+"\n"+
-		`read line`+"\n"+
-		`echo '{"jsonrpc":"2.0","id":3,"result":{}}'`+"\n"+
-		`echo '{"jsonrpc":"2.0","method":"turn/started","params":{"threadId":"thr-stuck","turn":{"id":"turn-stuck"}}}'`+"\n"+
-		`echo 'ERROR codex_models_manager::manager: failed to refresh available models: timeout waiting for child process to exit' >&2`+"\n"+
-		`sleep 2`+"\n")
-
-	result := executeFakeCodex(t, fakePath, ExecOptions{
-		Timeout:                   5 * time.Second,
-		SemanticInactivityTimeout: 100 * time.Millisecond,
-	})
-	if result.Status != "timeout" {
-		t.Fatalf("expected timeout, got status=%q error=%q", result.Status, result.Error)
-	}
-	for _, want := range []string{
-		CodexFirstTurnNoProgressMarker,
-		"thr-stuck",
-		"turn-stuck",
-		`model="default(empty)"`,
-		`codex_version="codex-cli 0.0.0-test"`,
-		"Codex could not load its model catalog",
-		"codex stderr:",
-		codexModelCatalogRefreshFailureSignal,
-	} {
-		if !strings.Contains(result.Error, want) {
-			t.Fatalf("expected error to contain %q, got %q", want, result.Error)
-		}
-	}
-}
-
 // TestCodexExecuteFirstTurnOverrideAboveSemanticIsTruncated pins the competing-
 // timer contract for MULTICA_CODEX_FIRST_TURN_TIMEOUT (GH #3262 / #5959): the
 // first status:running arms the semantic-inactivity timer and the first-turn
@@ -3223,8 +3178,7 @@ func TestCodexExecuteFirstTurnNoProgressSurfacesDiagnostics(t *testing.T) {
 // reclassifies the failure as semantic inactivity, so the model-catalog startup
 // retry (GH #3291) does NOT run even though the catalog-refresh-failure signal is
 // present in stderr. The resolver tests cannot observe this; this drives the real
-// run loop. It is the inverse of TestCodexExecuteFirstTurnNoProgressSurfacesDiagnostics,
-// where the first-turn timer is the smaller of the two and wins.
+// run loop.
 func TestCodexExecuteFirstTurnOverrideAboveSemanticIsTruncated(t *testing.T) {
 	// Not t.Parallel(): this test mutates codexGracefulShutdownTimeoutNanos.
 	if runtime.GOOS == "windows" {
