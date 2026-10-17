@@ -146,7 +146,7 @@ func (s *DeciderService) applyChoice(ctx context.Context, tx pgx.Tx, key string,
 		}
 		effects.updated = &updated
 		if choice == "fix_now" {
-			queued, err := s.Tasks.enqueueMentionTaskWithQueries(ctx, q, updated, assigneeID, pgtype.UUID{}, nil, false, pgtype.UUID{}, false, "Fix this post-merge bug. "+reason, pgtype.UUID{}, pgtype.UUID{}, OriginNamed, nil)
+			queued, err := s.Tasks.enqueueMentionTaskWithQueries(ctx, q, updated, assigneeID, pgtype.UUID{}, nil, false, pgtype.UUID{}, false, "Fix this post-merge bug. "+reason, pgtype.UUID{}, pgtype.UUID{}, OriginNamed, nil, false)
 			if err != nil {
 				return err
 			}

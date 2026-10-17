@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -223,6 +224,39 @@ func TestCheckDeleteParentData(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestCheckAnswerWaitsBehindDispatchedRun(t *testing.T) {
+	ctx := context.Background()
+	f, in := checkFixture(t)
+	f.fx.Exec(t, "UPDATE agent_task_queue SET status='dispatched', dispatched_at=now(), started_at=NULL WHERE id=$1", f.task)
+	first := openCheck(t, f, in)
+	answerCheck(t, f, first, "feedback")
+	var claimed pgtype.Text
+	f.fx.QueryRow(t, "SELECT handoff_note FROM agent_task_queue WHERE id=$1", f.task).Scan(&claimed)
+	if claimed.Valid {
+		t.Fatalf("the dispatched run's prompt is already built: %q", claimed.String)
+	}
+	second := openCheck(t, f, in)
+	answerCheck(t, f, second, "pass")
+	if got := f.fx.Count(t, "SELECT count(*) FROM agent_task_queue WHERE issue_id=$1 AND id<>$2", f.issue, f.task); got != 1 {
+		t.Fatalf("both answers belong in one successor run, got %d runs", got)
+	}
+	var successor pgtype.UUID
+	var status, handoff string
+	f.fx.QueryRow(t, "SELECT id, status, handoff_note FROM agent_task_queue WHERE issue_id=$1 AND id<>$2", f.issue, f.task).Scan(&successor, &status, &handoff)
+	if status != "deferred" || !strings.Contains(handoff, util.UUIDToString(first)) || !strings.Contains(handoff, "multica todo instruction-note") || !strings.Contains(handoff, util.UUIDToString(second)) {
+		t.Fatalf("successor %s must carry both answers: %q", status, handoff)
+	}
+	promoted, err := f.svc.Queries.PromoteDueDeferredTasksForRuntime(ctx, db.PromoteDueDeferredTasksForRuntimeParams{RuntimeID: f.runtime, RuntimeStaleSecs: 300})
+	if err != nil || len(promoted) != 0 {
+		t.Fatalf("the successor waits while the dispatched run holds the slot: %+v %v", promoted, err)
+	}
+	f.fx.Exec(t, "UPDATE agent_task_queue SET status='running', started_at=now() WHERE id=$1", f.task)
+	promoted, err = f.svc.Queries.PromoteDueDeferredTasksForRuntime(ctx, db.PromoteDueDeferredTasksForRuntimeParams{RuntimeID: f.runtime, RuntimeStaleSecs: 300})
+	if err != nil || len(promoted) != 1 || promoted[0].ID != successor || promoted[0].Status != "queued" {
+		t.Fatalf("the successor queues once the slot frees: %+v %v", promoted, err)
 	}
 }
 

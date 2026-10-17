@@ -151,12 +151,15 @@ func (s *QuestionService) deliverCheckMessage(ctx context.Context, tx pgx.Tx,q *
 		notified=append(notified,run)
 	}
 	if len(notified)>0{return task,notified,nil}
+	// A dispatched run's prompt is already built, so only an unclaimed run carries
+	// the message. Behind a dispatched run it waits in a deferred successor.
 	var pending pgtype.UUID
-	err=tx.QueryRow(ctx,`SELECT id FROM agent_task_queue WHERE issue_id=$1 AND agent_id=$2 AND status IN ('queued','dispatched') AND comment_thread_id IS NULL ORDER BY created_at LIMIT 1 FOR UPDATE`,issue.ID,agentID).Scan(&pending)
-	if err==nil {
+	var status string
+	err=tx.QueryRow(ctx,`SELECT id,status FROM agent_task_queue WHERE issue_id=$1 AND agent_id=$2 AND status IN ('queued','deferred','dispatched') AND comment_thread_id IS NULL ORDER BY status='dispatched',created_at LIMIT 1 FOR UPDATE`,issue.ID,agentID).Scan(&pending,&status)
+	if err==nil&&status!="dispatched" {
 		_,err=tx.Exec(ctx,`UPDATE agent_task_queue SET handoff_note=concat_ws(E'\n\n',NULLIF(handoff_note,''),$2::text) WHERE id=$1`,pending,content)
-	} else if errors.Is(err,pgx.ErrNoRows) {
-		task,err=s.Tasks.enqueueMentionTaskWithQueries(ctx,q,issue,agentID,pgtype.UUID{},nil,false,pgtype.UUID{},false,content,authorID,pgtype.UUID{},OriginNamed,nil)
+	} else if behind:=err==nil;behind||errors.Is(err,pgx.ErrNoRows) {
+		task,err=s.Tasks.enqueueMentionTaskWithQueries(ctx,q,issue,agentID,pgtype.UUID{},nil,false,pgtype.UUID{},false,content,authorID,pgtype.UUID{},OriginNamed,nil,behind)
 	}
 	return task,nil,err
 }

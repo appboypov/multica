@@ -1438,7 +1438,7 @@ func (s *TaskService) enqueueMentionTask(ctx context.Context, issue db.Issue, ag
 }
 
 func (s *TaskService) enqueueMentionTaskWithCommentPlan(ctx context.Context, issue db.Issue, agentID pgtype.UUID, triggerCommentID pgtype.UUID, coalescedCommentIDs []pgtype.UUID, isLeader bool, squadID pgtype.UUID, forceFreshSession bool, handoffNote string, actorUserID pgtype.UUID, rerunOfTaskID pgtype.UUID, origin RunOrigin) (db.AgentTaskQueue, error) {
-	task, err := s.enqueueMentionTaskWithQueries(ctx, s.Queries, issue, agentID, triggerCommentID, coalescedCommentIDs, isLeader, squadID, forceFreshSession, handoffNote, actorUserID, rerunOfTaskID, origin, nil)
+	task, err := s.enqueueMentionTaskWithQueries(ctx, s.Queries, issue, agentID, triggerCommentID, coalescedCommentIDs, isLeader, squadID, forceFreshSession, handoffNote, actorUserID, rerunOfTaskID, origin, nil, false)
 	if err != nil {
 		return db.AgentTaskQueue{}, err
 	}
@@ -1466,7 +1466,7 @@ func (s *TaskService) EnqueueTaskForQuestionWake(ctx context.Context, tx pgx.Tx,
 		noun = "answer"
 	}
 	wake := &questionTaskWake{QuestionID: questionID, Summary: fmt.Sprintf("Woken by %s with %d %s", user.Name, answerCount, noun)}
-	return s.enqueueMentionTaskWithQueries(ctx, q, issue, agentID, pgtype.UUID{}, nil, false, pgtype.UUID{}, false, "", actorUserID, pgtype.UUID{}, OriginNamed, wake)
+	return s.enqueueMentionTaskWithQueries(ctx, q, issue, agentID, pgtype.UUID{}, nil, false, pgtype.UUID{}, false, "", actorUserID, pgtype.UUID{}, OriginNamed, wake, false)
 }
 
 // EnqueueChatTaskForQuestionWake writes a turn without inventing a user message.
@@ -1515,7 +1515,9 @@ func (s *TaskService) EnqueueChatTaskForQuestionWake(ctx context.Context, tx pgx
 	return task, nil
 }
 
-func (s *TaskService) enqueueMentionTaskWithQueries(ctx context.Context, q *db.Queries, issue db.Issue, agentID pgtype.UUID, triggerCommentID pgtype.UUID, coalescedCommentIDs []pgtype.UUID, isLeader bool, squadID pgtype.UUID, forceFreshSession bool, handoffNote string, actorUserID pgtype.UUID, rerunOfTaskID pgtype.UUID, origin RunOrigin, wake *questionTaskWake) (db.AgentTaskQueue, error) {
+// deferred creates the task as a due deferred successor, for a caller whose
+// message must wait behind a dispatched task that already holds the pending slot.
+func (s *TaskService) enqueueMentionTaskWithQueries(ctx context.Context, q *db.Queries, issue db.Issue, agentID pgtype.UUID, triggerCommentID pgtype.UUID, coalescedCommentIDs []pgtype.UUID, isLeader bool, squadID pgtype.UUID, forceFreshSession bool, handoffNote string, actorUserID pgtype.UUID, rerunOfTaskID pgtype.UUID, origin RunOrigin, wake *questionTaskWake, deferred bool) (db.AgentTaskQueue, error) {
 	if err := guardIssueNotInTriage(ctx, q, issue.ID, origin); err != nil {
 		return db.AgentTaskQueue{}, err
 	}
@@ -1563,6 +1565,7 @@ func (s *TaskService) enqueueMentionTaskWithQueries(ctx context.Context, q *db.Q
 		RuntimeID:            agent.RuntimeID,
 		IssueID:              issue.ID,
 		Priority:             priorityToInt(issue.Priority),
+		Deferred:             pgtype.Bool{Bool: deferred, Valid: deferred},
 		TriggerCommentID:     triggerCommentID,
 		CoalescedCommentIds:  coalescedCommentIDs,
 		TriggerSummary:       triggerSummary,

@@ -550,6 +550,11 @@ type ChatSession struct {
 	ExplicitlyCreatedAt pgtype.Timestamptz `json:"explicitly_created_at"`
 }
 
+type CheckSetting struct {
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
+	SampleEvery int32       `json:"sample_every"`
+}
+
 type ClientUsageDaily struct {
 	UserID          pgtype.UUID        `json:"user_id"`
 	ClientType      string             `json:"client_type"`
@@ -1350,6 +1355,18 @@ type Project struct {
 	StartDate      pgtype.Date        `json:"start_date"`
 	DueDate        pgtype.Date        `json:"due_date"`
 	OrganisationID pgtype.UUID        `json:"organisation_id"`
+}
+
+type ProjectCheckTrust struct {
+	WorkspaceID     pgtype.UUID `json:"workspace_id"`
+	ProjectID       pgtype.UUID `json:"project_id"`
+	Kind            string      `json:"kind"`
+	MemberID        pgtype.UUID `json:"member_id"`
+	Passed          int32       `json:"passed"`
+	Feedback        int32       `json:"feedback"`
+	AutomaticPassed int32       `json:"automatic_passed"`
+	Sampling        bool        `json:"sampling"`
+	SampleOpens     int32       `json:"sample_opens"`
 }
 
 type Question struct {
