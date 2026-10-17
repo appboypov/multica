@@ -126,4 +126,41 @@ describe("todo realtime", () => {
     expect(handlers["todo:closed"]).toBeUndefined();
     qc.clear();
   });
+
+  it("removes a hidden review from the list and count from its event alone, also when the refresh fails", async () => {
+    const qc = createQueryClient();
+    qc.setQueryDefaults(["todos"], { retry: false });
+    const review: Todo = { ...todo, id: "review-1", kind: "review", workspace_id: "ws-active", question_id: null, question_answer_type: null };
+    let offline = false;
+    setApiInstance({
+      listTodos: async () => { if (offline) throw new Error("offline"); return [review]; },
+      getTodoSummary: async () => { if (offline) throw new Error("offline"); return [{ workspace_id: "ws-active", count: 1 }]; },
+    } as unknown as ApiClient);
+    const handlers: Record<string, (payload: unknown) => void | Promise<void>> = {};
+    const ws = {
+      on: (event: string, handler: (payload: unknown) => void | Promise<void>) => {
+        handlers[event] = handler;
+        return () => { delete handlers[event]; };
+      },
+      onAny: () => () => {},
+      onReconnect: () => () => {},
+    } as unknown as WSClient;
+    const stores = { authStore: { getState: () => ({ user: { id: "member-1" } }) } } as unknown as RealtimeSyncStores;
+    function Wrapper({ children }: { children: ReactNode }) {
+      return <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
+    }
+    const shell = renderHook(() => {
+      useRealtimeSync(ws, stores);
+      return { list: useQuery(todoListOptions("ws-active")), summary: useQuery(todoSummaryOptions()) };
+    }, { wrapper: Wrapper });
+    await waitFor(() => expect(shell.result.current.list.data).toEqual([review]));
+    await waitFor(() => expect(shell.result.current.summary.data?.[0]?.count).toBe(1));
+    offline = true;
+    await act(async () => { await handlers["todo:closed"]!({ member_id: "member-1", todo_id: review.id, kind: "review", done_by: null }); });
+    await waitFor(() => expect([shell.result.current.list.isError, shell.result.current.summary.isError]).toEqual([true, true]));
+    expect(shell.result.current.list.data).toEqual([]);
+    expect(shell.result.current.summary.data).toEqual([{ workspace_id: "ws-active", count: 0 }]);
+    shell.unmount();
+    qc.clear();
+  });
 });

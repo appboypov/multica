@@ -1,5 +1,5 @@
 import type { QueryClient, QueryKey } from "@tanstack/react-query";
-import type { Todo } from "../types/todo";
+import type { Todo, TodoWorkspaceCount } from "../types/todo";
 import { todoKeys } from "./queries";
 
 async function refreshTodoQuery(qc: QueryClient, queryKey: QueryKey) {
@@ -28,13 +28,18 @@ export async function onTodoOpened(qc: QueryClient, todo: Todo) {
 
 export async function onTodoClosed(qc: QueryClient, id: string) {
   // The close payload intentionally has no workspace id. Remove only this row
-  // from existing lists, then refresh the server projections in every cached
+  // from existing lists and lower its workspace's count, so it leaves even when
+  // the refresh fails, then refresh the server projections in every cached
   // workspace (a hidden review can become visible when its question closes).
   await qc.cancelQueries({ queryKey: ["todos"] });
   for (const query of qc.getQueryCache().findAll({ queryKey: ["todos"] })) {
-    if (query.queryKey[2] === "list") {
-      qc.setQueryData<Todo[]>(query.queryKey, (rows) => rows?.filter((row) => row.id !== id));
-    }
+    if (query.queryKey[2] !== "list") continue;
+    const closed = (query.state.data as Todo[] | undefined)?.find((row) => row.id === id);
+    if (!closed) continue;
+    qc.setQueryData<Todo[]>(query.queryKey, (rows) => rows?.filter((row) => row.id !== id));
+    // A delta, as Mark done applies: a repeated event finds no row and lowers nothing.
+    qc.setQueryData<TodoWorkspaceCount[]>(todoKeys.summary(), (summary) => summary?.map((entry) =>
+      entry.workspace_id === closed.workspace_id ? { ...entry, count: Math.max(0, entry.count - 1) } : entry));
   }
   await qc.invalidateQueries({ queryKey: ["todos"] });
 }

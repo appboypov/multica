@@ -47,5 +47,6 @@ export interface TodoClosedPayload {
   member_id: string;
   todo_id: string;
   kind: TodoKind;
-  done_by: "handled" | "member";
+  /** Null when the to-do left without being done, such as a review hidden by an open question. */
+  done_by: "handled" | "member" | null;
 }

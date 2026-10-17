@@ -3325,7 +3325,7 @@ export const TodoClosedPayloadSchema = z.object({
   member_id: z.string(),
   todo_id: z.string(),
   kind: z.string(),
-  done_by: z.string(),
+  done_by: z.string().nullable(),
 }).loose();
 export const EMPTY_TODOS: Todo[] = [];
 export const EMPTY_TODO_SUMMARY: TodoWorkspaceCount[] = [];
