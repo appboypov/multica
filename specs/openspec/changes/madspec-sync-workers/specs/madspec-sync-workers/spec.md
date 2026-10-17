@@ -1,12 +1,12 @@
 ## ADDED Requirements
 
-### Requirement: Office workers and personas sync by hand
-The manual sync SHALL read office personas with both roster roots and create one managed local omp agent per roster worker, using its body as instructions and its model list as the primary model and ordered fallbacks.
+### Requirement: Agents and workers sync by hand
+The manual sync SHALL create one managed local omp agent per folder of the agents repo with an `agent.toml`, using its `AGENTS.md` as instructions and its model list as the primary model and ordered fallbacks.
 
 #### Scenario: A worker is synced
-- **GIVEN** a roster worker file in its lead office
+- **GIVEN** a worker folder with its `agent.toml` and `AGENTS.md`
 - **WHEN** the sync runs
-- **THEN** its managed agent has that name, instructions, model, effort and fallback chain
+- **THEN** its managed agent has that name, instructions, model and effort
 
 ### Requirement: Preview preserves user data
 Dry run SHALL report proposed creates and changes without writing API or overlay state. Every sync SHALL leave squads and unmanaged agents unchanged, except for an explicit unambiguous `--adopt NAME`.
@@ -21,6 +21,6 @@ Dry run SHALL report proposed creates and changes without writing API or overlay
 - **THEN** it reports the conflict without changing the agent
 
 #### Scenario: Adopt Lukas by name
-- **GIVEN** one unmanaged agent named Lukas and his office persona
+- **GIVEN** one unmanaged agent named Lukas and his folder
 - **WHEN** the sync runs with --adopt Lukas
-- **THEN** that agent becomes managed, keeps other environment values and receives his office configuration
+- **THEN** that agent becomes managed, keeps other environment values and receives his folder's configuration

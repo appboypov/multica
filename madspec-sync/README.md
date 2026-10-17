@@ -1,8 +1,8 @@
 # madspec-sync
 
-Two manual tools fill the local Multica workspace from MadSpec and its agent offices. They run only when started by hand.
+Two manual tools fill the local Multica workspace from the agents repo and the brain. They run only when started by hand.
 
-- `multica_sync.py` syncs managed personas and roster workers to local omp agents. Configuration comes from `origin/main` in MadSpec and each git-backed office. Workers use their agent file body as instructions. Personas select their whole skill folder, whose disk content the daemon reads at task start. Source paths, model rules, ownership and dry-run behavior are defined in [specs/multica-agents.md](specs/multica-agents.md).
+- `multica_sync.py` syncs the agents and workers of the agents repo, `~/Repos/Agents`, to local omp agents. Configuration comes from each folder's `agent.toml` on `origin/main`. Each agent selects its folder's `AGENTS.md`, whose disk content the daemon reads at task start. Source paths, model rules, ownership and dry-run behavior are defined in [specs/multica-agents.md](specs/multica-agents.md).
 - `multica_projects.py` fills Multica organisations, one project per brain Product and each Product's repositories. It applies Add repository's checkout checks and picks the first version file found, or tags. The projects UJ-1 kept merge into the Product's project only once their repositories are added there, and are deleted only once empty. Spec: [specs/multica-projects.md](specs/multica-projects.md).
 
 The linked specifications are the sync tools' contracts. When the Product sync
@@ -21,31 +21,31 @@ An absent repository must be visible to the workspace's GitHub App and have exac
 Run from the root of this checkout:
 
 ```sh
-uv run madspec-sync/multica_sync.py --dry-run  # preview personas and workers
-uv run madspec-sync/multica_sync.py           # sync personas and workers
-uv run madspec-sync/multica_sync.py mitchel   # one persona or worker by name or ID
+uv run madspec-sync/multica_sync.py --dry-run  # preview agents and workers
+uv run madspec-sync/multica_sync.py           # sync agents and workers
+uv run madspec-sync/multica_sync.py mitchel   # one agent or worker by name or folder
 uv run madspec-sync/multica_sync.py Lukas --adopt Lukas --dry-run
 uv run madspec-sync/multica_sync.py Lukas --adopt Lukas
 uv run madspec-sync/multica_projects.py        # organisations, Products, guarded single-repo merges
-uv run --with pytest --with pyyaml pytest -p no:cacheprovider madspec-sync/tests
+uv run --with pytest pytest -p no:cacheprovider madspec-sync/tests
 uv run --with pytest pytest -p no:cacheprovider madspec-sync/tests/test_multica_projects.py
 ```
 
 Use repeatable `--adopt NAME` only for an existing unmanaged agent that should come under the sync. Each name must have one match. Other unmanaged agents and all squads stay unchanged. Dry run makes no API or overlay writes.
 
-## Persona instructions
+## Agent instructions
 
 For Guus on Brian's Mac, the sync writes these agent fields:
 
 ```json
 {
   "instruction_selection": [
-    "/Users/codaveto/Repos/Ventures/madspec/skills/as-ux-designer"
+    "/Users/codaveto/Repos/Agents/guus/AGENTS.md"
   ],
-  "instructions": "`{skill-root}` is /Users/codaveto/Repos/Ventures/madspec/skills/as-ux-designer. Your instructions are the as-ux-designer skill below; follow it.\n\n{selection}"
+  "instructions": "Your instructions are /Users/codaveto/Repos/Agents/guus/AGENTS.md below; follow them.\n\n{selection}"
 }
 ```
 
-The path uses the sync user's home folder. At task start, the runtime's daemon replaces `{selection}` with the selected folder's tree and text files as they are on disk, including supporting files below the skill folder. Multica stores the paths, not the skill content. A missing or unreadable selection fails the task with `instruction_selection_error`, without a retry.
+The path uses the sync user's home folder. At task start, the runtime's daemon replaces `{selection}` with the file as it is on disk. Multica stores the path, not the file's content. A missing or unreadable selection fails the task with `instruction_selection_error`, without a retry.
 
-Run the sync as the local omp runtime's owner: only that owner may set or change an agent's selection. The model, thinking level, `--skills=` and fallback `--config=` come from the office's `origin/main`. Office-only persona skills use their office path.
+Run the sync as the local omp runtime's owner: only that owner may set or change an agent's selection. The name, description, model, thinking level and fallback `--config=` come from the folder's `agent.toml` on `origin/main`.

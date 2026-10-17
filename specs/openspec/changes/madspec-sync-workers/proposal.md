@@ -1,9 +1,9 @@
-# Sync the MadSpec workers
+# Sync the agents and workers
 
 ## Why
 
-Team leads hand work to named Multica workers. The manual sync must read their office agent files and the current persona roster API.
+Multica's agents and workers must stay equal to their folders in the agents repo. The manual sync reads those folders.
 
 ## What changes
 
-Sync roster workers and office personas to managed omp agents. Preview changes with a read-only dry run. Keep unmanaged agents and squads unchanged.
+Sync each agent and worker folder of the agents repo to a managed omp agent. Preview changes with a read-only dry run. Keep unmanaged agents and squads unchanged.

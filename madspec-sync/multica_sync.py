@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["PyYAML>=6.0"]
 # ///
-"""Sync managed MadSpec personas and roster workers to local omp agents.
+"""Sync the agents and workers of the agents repo to local omp agents.
 
-Source configuration comes from origin/main in MadSpec and the agent offices.
-The contract is specs/multica-agents.md. Run by hand; --dry-run previews every
-API and overlay write. --adopt NAME allows one named unmanaged agent to join
-the sync. Squads are outside this tool.
+Source configuration comes from origin/main in the agents repo. The contract is
+specs/multica-agents.md. Run by hand; --dry-run previews every API and overlay
+write. --adopt NAME allows one named unmanaged agent to join the sync. Squads
+are outside this tool.
 """
 
 from __future__ import annotations
@@ -16,7 +15,6 @@ from __future__ import annotations
 import argparse
 import io
 import json
-import os
 import subprocess
 import sys
 import tarfile
@@ -28,27 +26,17 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
-import yaml
-
 sys.dont_write_bytecode = True
 
-# The MadSpec checkout the sync reads its personas, skills and roster from.
-MADSPEC = Path.home() / "Repos" / "Ventures" / "madspec"
-sys.path.insert(0, str(MADSPEC / "skills" / "madspec" / "scripts"))
-
+# The agents repo: one folder per agent or worker, each with its `agent.toml` and `AGENTS.md`.
 OFFICES = Path.home() / "Repos" / "Agents"
 
-
-def personas(offices_root: Path, skills_root: Path) -> list[dict]:
-    """Read the installed MadSpec roster with both source roots."""
-    from roster import personas as report
-
-    return report(offices_root, skills_root)
-
 MAIN_REF = "refs/remotes/origin/main"
-SOURCES = ("skills",)
+SOURCES = (":(glob)*/agent.toml", ":(glob)*/AGENTS.md")
+# The folder names of workers start with their level.
+WORKER_LEVELS = ("junior-", "medior-", "senior-")
 CONFIG = Path.home() / ".multica" / "profiles" / "local" / "config.json"
-# The fallback overlays the sync writes, one per persona with more than one model: derived state, outside the MadSpec checkout.
+# The fallback overlays the sync writes, one per agent with more than one model: derived state, outside the agents repo.
 FALLBACK_DIR = Path.home() / ".local" / "state" / "madspec" / "multica"
 MARKER = "MADSPEC_PERSONA"
 WORKER_MARKER = "MADSPEC_WORKER"
@@ -62,10 +50,9 @@ OPEN_TO_WORKSPACE = {"visibility": "workspace", "permission_mode": "public_to", 
 
 @dataclass(frozen=True)
 class Persona:
-    """A Multica agent as its persona skill defines it."""
+    """A Multica agent as its folder in the agents repo defines it."""
 
     command: str
-    skill: str
     name: str
     description: str
     instructions: str
@@ -90,17 +77,16 @@ class Unreachable(ApiError):
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Sync managed MadSpec personas and workers to Multica.")
-    parser.add_argument("persona", nargs="?", help="sync only this persona or worker, by name or command")
+    parser = argparse.ArgumentParser(description="Sync the agents and workers of the agents repo to Multica.")
+    parser.add_argument("persona", nargs="?", help="sync only this agent or worker, by name or folder")
     parser.add_argument("--dry-run", action="store_true", help="print proposed changes without writing")
     parser.add_argument("--adopt", action="append", default=[], metavar="NAME", help="manage one existing same-name agent; repeat for each name")
     args = parser.parse_args()
     try:
         api = Multica(load_config(CONFIG))
         with tempfile.TemporaryDirectory(prefix="multica-sync-") as tree:
-            export_main(MADSPEC, Path(tree))
-            export_offices(OFFICES, Path(tree) / "offices")
-            return Sync(api, Path(tree), MADSPEC, dry_run=args.dry_run, adopt=args.adopt).run(args.persona)
+            export_main(OFFICES, Path(tree))
+            return Sync(api, Path(tree), OFFICES, dry_run=args.dry_run, adopt=args.adopt).run(args.persona)
     except (ApiError, ValueError, OSError) as error:
         print(f"failed: {error}", file=sys.stderr, flush=True)
         return 1
@@ -109,48 +95,20 @@ def main() -> int:
 # --- Main ---
 
 
-def export_main(repo: Path, into: Path, sources: tuple[str, ...] = SOURCES, *, snapshot: Path | None = None) -> None:
-    """Write the sync's sources as `MAIN_REF` holds them into the folder `into`.
+def export_main(repo: Path, into: Path) -> None:
+    """Write each folder's `agent.toml` and `AGENTS.md` as `MAIN_REF` holds them into the folder `into`.
 
     Raises ValueError when git cannot read `MAIN_REF` or the archive cannot be extracted.
     """
     try:
-        archive = git(repo, "archive", "--format=tar", MAIN_REF, *sources)
+        archive = git(repo, "archive", "--format=tar", MAIN_REF, "--", *SOURCES)
     except ValueError as error:
         raise ValueError(f"cannot read {MAIN_REF}: {error}") from error
     try:
         with tarfile.open(fileobj=io.BytesIO(archive)) as tar:
-            links = [member for member in tar.getmembers() if member.issym()]
-            tar.extractall(into, members=[member for member in tar.getmembers() if not member.issym()], filter="data")
-            for member in links:
-                target = (repo / member.name).parent / member.linkname
-                resolved = target.resolve()
-                root = snapshot or into
-                if resolved.is_relative_to(OFFICES):
-                    destination = root / "offices" / resolved.relative_to(OFFICES)
-                elif resolved.is_relative_to(MADSPEC):
-                    destination = root / resolved.relative_to(MADSPEC)
-                else:
-                    raise ValueError(f"source link is outside MadSpec and its offices: {member.name}")
-                path = into / member.name
-                path.parent.mkdir(parents=True, exist_ok=True)
-                path.symlink_to(os.path.relpath(destination, path.parent))
+            tar.extractall(into, filter="data")
     except tarfile.TarError as error:
         raise ValueError(f"cannot extract {MAIN_REF}: {error}") from error
-
-
-def export_offices(root: Path, into: Path) -> None:
-    """Export each git-backed office; its marker lets roster identify the snapshot."""
-    for office in sorted(root.iterdir()):
-        if not office.is_dir() or not (office / ".git").exists():
-            continue
-        present = git(office, "ls-tree", "--name-only", MAIN_REF).decode().splitlines()
-        sources = tuple(name for name in ("skills", "agents") if name in present)
-        destination = into / office.name
-        destination.mkdir(parents=True)
-        if sources:
-            export_main(office, destination, sources, snapshot=into.parent)
-        (destination / ".git").mkdir()
 
 
 def git(repo: Path, *args: str) -> bytes:
@@ -163,11 +121,11 @@ def git(repo: Path, *args: str) -> bytes:
         raise ValueError(str(error)) from error
 
 
-# --- Persona skills ---
+# --- Agent definitions ---
 
 
 def split_model(value: str) -> tuple[str, str]:
-    """A `model` entry as the model and its thinking level, `""` without a level suffix."""
+    """A `models` entry as the model and its thinking level, `""` without a level suffix."""
     model, colon, level = value.rpartition(":")
     if colon and level in THINKING_LEVELS:
         return model, level
@@ -175,7 +133,7 @@ def split_model(value: str) -> tuple[str, str]:
 
 
 def fallback_chain(models: list[str]) -> dict[str, list[str]] | None:
-    """omp's `retry.fallbackChains` of a `model` list: the first model without its level
+    """omp's `retry.fallbackChains` of a `models` list: the first model without its level
     to the other entries in order, each with its level; None for one model."""
     if len(models) < 2:
         return None
@@ -183,7 +141,7 @@ def fallback_chain(models: list[str]) -> dict[str, list[str]] | None:
 
 
 def fallback_overlay(command: str) -> Path:
-    """The fallback overlay file of the persona started with `command`."""
+    """The fallback overlay file of the agent in the folder `command`."""
     return FALLBACK_DIR / f"{command}.yml"
 
 
@@ -199,111 +157,55 @@ def overlay_text(source: str, chain: dict[str, list[str]]) -> str:
     return "\n".join(lines) + "\n"
 
 
-def arguments(skills: list[str] | None, fallback: Path | None) -> list[str]:
-    """The omp arguments of a persona's agent, in a fixed order."""
-    args = []
-    if skills is not None:
-        args.append(f"--skills={','.join(skills)}")
-    if fallback is not None:
-        args.append(f"--config={fallback}")
-    return args
+def read_persona(folder: Path, checkout: Path) -> Persona:
+    """The agent the folder's `agent.toml` and `AGENTS.md` define.
 
-
-def read_persona(found: dict, tree: Path, checkout: Path) -> Persona:
-    """The agent of a persona `roster.personas` reports.
-
-    Raises ValueError when the persona has no `model` or no `SKILL.md`.
+    Raises ValueError when `agent.toml` is unreadable, has no name or no models, or `AGENTS.md` is missing.
     """
-    skill = found["skill"]
-    models = found["models"]
-    if not models:
-        raise ValueError(f"skills/{skill}/customize.toml has no [agent] model")
-    source_root = tree / "offices" / found["command"] / "skills" / skill
-    if not (source_root / "SKILL.md").is_file():
-        raise ValueError(f"offices/{found['command']}/skills/{skill}/SKILL.md does not exist")
-    skill_root = checkout / "skills" / skill
-    if not (tree / "skills" / skill).exists():
-        skill_root = OFFICES / found["command"] / "skills" / skill
+    command = folder.name
+    source = f"{command}/agent.toml"
+    try:
+        definition = tomllib.loads((folder / "agent.toml").read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, tomllib.TOMLDecodeError) as error:
+        raise ValueError(f"{source}: {error}") from error
+    name, title, models = definition.get("name"), definition.get("title", ""), definition.get("models")
+    if not isinstance(name, str) or not name.strip() or not isinstance(title, str):
+        raise ValueError(f"{source} needs a name, and a title that is text")
+    if not isinstance(models, list) or not models or not all(isinstance(model, str) and model for model in models):
+        raise ValueError(f"{source} has no models")
+    if not (folder / "AGENTS.md").is_file():
+        raise ValueError(f"{command}/AGENTS.md does not exist")
+    instructions = checkout / command / "AGENTS.md"
     model, thinking_level = split_model(models[0])
-    fallback = fallback_overlay(found["command"]) if fallback_chain(models) else None
     return Persona(
-        command=found["command"],
-        skill=skill,
-        name=found["name"],
-        description=f"Runs the {skill} skill.",
-        instructions=f"`{{skill-root}}` is {skill_root}. Your instructions are the {skill} skill below; follow it.\n\n"
-        "{selection}",
-        instruction_selection=[str(skill_root)],
+        command=command,
+        name=name,
+        description=title,
+        instructions=f"Your instructions are {instructions} below; follow them.\n\n{{selection}}",
+        instruction_selection=[str(instructions)],
         model=model,
         thinking_level=thinking_level,
-        custom_args=arguments(found["skills"], fallback),
+        custom_args=[f"--config={fallback_overlay(command)}"] if fallback_chain(models) else [],
         models=models,
-        source=f"offices/{found['command']}/skills/{skill}/customize.toml",
+        marker=WORKER_MARKER if command.startswith(WORKER_LEVELS) else MARKER,
+        source=source,
     )
 
 
 def read_personas(tree: Path, checkout: Path) -> tuple[dict[str, Persona], dict[str, str]]:
-    """Every persona of the tree's `skills/` by command, and the personas that failed with why.
+    """Every agent of the tree by folder name, and the folders that failed with why.
 
-    Only persona skills hold a `customize.toml`, so an office with one the roster matched to no
-    persona has a persona it cannot read.
+    A folder is an agent when it holds an `agent.toml`.
     """
     found: dict[str, Persona] = {}
     problems: dict[str, str] = {}
-    for persona in personas(tree / "offices", tree / "skills"):
-        command = persona["command"]
-        if persona["skill"] is None:
-            configs = sorted((tree / "offices" / command / "skills").glob("*/customize.toml"))
-            if configs:
-                problems[command] = f"offices/{command}/skills/{configs[0].parent.name}/customize.toml names no readable agent {command}"
+    for folder in sorted(tree.iterdir()):
+        if not (folder / "agent.toml").is_file():
             continue
         try:
-            found[command] = read_persona(persona, tree, checkout)
+            found[folder.name] = read_persona(folder, checkout)
         except ValueError as error:
-            problems[command] = str(error)
-    return found, problems
-
-
-def read_workers(tree: Path, people: dict[str, Persona]) -> tuple[dict[str, Persona], dict[str, str]]:
-    """Read only team worker IDs from the roster, not session helper files."""
-    found: dict[str, Persona] = {}
-    problems: dict[str, str] = {}
-    roster = tomllib.loads((tree / "skills" / "madspec" / "roster.toml").read_text(encoding="utf-8"))
-    leads = {persona.skill: persona.command for persona in people.values()}
-    for team in roster.get("teams", []):
-        for worker in team.get("workers", []):
-            try:
-                office = leads.get(team["lead"])
-                if office is None:
-                    raise ValueError(f"team {team['id']} has no readable lead persona")
-                if worker in found or worker in people or Path(worker).name != worker:
-                    raise ValueError(f"worker id is duplicated or invalid: {worker}")
-                path = tree / "offices" / office / "agents" / f"{worker}.md"
-                text = path.read_text(encoding="utf-8")
-                if not text.startswith("---\n"):
-                    raise ValueError(f"{path}: missing frontmatter")
-                _, header, body = text.split("---\n", 2)
-                metadata = yaml.safe_load(header)
-                if not isinstance(metadata, dict):
-                    raise ValueError(f"{path}: frontmatter must be a mapping")
-                def entries(key: str) -> list[str]:
-                    value = metadata.get(key, [])
-                    if isinstance(value, str):
-                        value = [item.strip() for item in value.split(",")]
-                    if not isinstance(value, list) or not all(isinstance(item, str) and item for item in value):
-                        raise ValueError(f"{path}: {key} must be a list or comma-separated text")
-                    return value
-                models, skills = entries("model"), entries("skills")
-                name, description = metadata.get("name"), metadata.get("description", "")
-                if not isinstance(name, str) or not name.strip() or not models or not body.strip() or not isinstance(description, str):
-                    raise ValueError(f"{path}: worker needs a name, models and instructions")
-                model, level = split_model(models[0])
-                fallback = fallback_overlay(worker) if fallback_chain(models) else None
-                found[worker] = Persona(worker, worker, name, description, body.lstrip("\n"), [], model, level,
-                                        arguments(skills or None, fallback), models, WORKER_MARKER,
-                                        f"offices/{office}/agents/{worker}.md")
-            except (OSError, ValueError, yaml.YAMLError) as error:
-                problems[worker] = str(error)
+            problems[folder.name] = str(error)
     return found, problems
 
 
@@ -433,9 +335,6 @@ class Sync:
 
     def run(self, target: str | None) -> int:
         found, problems = read_personas(self.tree, self.checkout)
-        workers, worker_problems = read_workers(self.tree, found)
-        found.update(workers)
-        problems.update(worker_problems)
         for command, problem in problems.items():
             if target is None or target.lower() == command:
                 self.fail(f"persona {command}: {problem}")
