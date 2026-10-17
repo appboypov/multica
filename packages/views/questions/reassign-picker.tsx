@@ -30,7 +30,7 @@ export function ReassignPicker({
   disabled = false,
 }: {
   question: Question;
-  issueId: string;
+  issueId: string | null;
   disabled?: boolean;
 }) {
   const { t } = useT("questions");

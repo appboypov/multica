@@ -6,7 +6,7 @@ import { invalidateIssueQuestions, invalidateQuestionRows } from "./ws-updaters"
 import { issueKeys } from "../issues/queries";
 
 /** Answers, ask-backs and reassignments also move the Questions page's rows and count. */
-function useAnsweringInvalidation(wsId: string, issueId: string) {
+function useAnsweringInvalidation(wsId: string, issueId: string | null) {
   const qc = useQueryClient();
   return (id: string) => Promise.all([
     invalidateIssueQuestions(qc, wsId, issueId, id),
@@ -23,7 +23,7 @@ export const questionMutationKeys = {
   askBack: (wsId: string, questionId: string) => ["questions", wsId, "ask-back", questionId] as const,
 };
 
-export function useAnswerQuestion(wsId: string, issueId: string, questionId: string) {
+export function useAnswerQuestion(wsId: string, issueId: string | null, questionId: string) {
   const invalidate = useAnsweringInvalidation(wsId, issueId);
   const draftKey = questionDraftKey(wsId, questionId);
   return useMutation({
@@ -38,7 +38,7 @@ export function useAnswerQuestion(wsId: string, issueId: string, questionId: str
   });
 }
 
-export function useAskBackQuestion(wsId: string, issueId: string, questionId: string) {
+export function useAskBackQuestion(wsId: string, issueId: string | null, questionId: string) {
   const invalidate = useAnsweringInvalidation(wsId, issueId);
   const draftKey = questionDraftKey(wsId, questionId);
   return useMutation({
@@ -49,7 +49,7 @@ export function useAskBackQuestion(wsId: string, issueId: string, questionId: st
   });
 }
 
-export function useReassignQuestion(wsId: string, issueId: string) {
+export function useReassignQuestion(wsId: string, issueId: string | null) {
   const invalidate = useAnsweringInvalidation(wsId, issueId);
   return useMutation({
     mutationFn: ({ id, ...data }: { id: string } & ReassignQuestionRequest) => api.reassignQuestion(id, data),
@@ -57,15 +57,18 @@ export function useReassignQuestion(wsId: string, issueId: string) {
   });
 }
 
-export function useWakeQuestionAgent(wsId: string, issueId: string) {
+export function useWakeQuestionAgent(wsId: string, issueId: string | null) {
   const qc = useQueryClient();
   return useMutation({
     // `target` is one of the question's wake targets; without it the asking agent wakes on this issue.
     mutationFn: ({ id, target }: { id: string; target?: { agentId: string; issueId: string } }) =>
       api.wakeQuestionAgent(id, target?.agentId),
-    onSettled: (_data, _error, { id, target }) => Promise.all([
-      invalidateIssueQuestions(qc, wsId, issueId, id),
-      qc.invalidateQueries({ queryKey: issueKeys.timeline(target?.issueId ?? issueId) }),
-    ]),
+    onSettled: (_data, _error, { id, target }) => {
+      const timelineIssueId = target?.issueId ?? issueId;
+      return Promise.all([
+        invalidateIssueQuestions(qc, wsId, issueId, id),
+        timelineIssueId && qc.invalidateQueries({ queryKey: issueKeys.timeline(timelineIssueId) }),
+      ]);
+    },
   });
 }

@@ -16,7 +16,7 @@ const logger = createLogger("questions.wake");
  * One **Wake <agent>** per wake target of the questions that can be woken now,
  * the asking agent first: "Wake Pieter", "Wake Joeri".
  */
-export function WakeButtons({ questions, issueId }: { questions: readonly Question[]; issueId: string }) {
+export function WakeButtons({ questions, issueId }: { questions: readonly Question[]; issueId: string | null }) {
   return (
     <>
       {wakeOffers(questions).map((offer) => (
@@ -27,7 +27,7 @@ export function WakeButtons({ questions, issueId }: { questions: readonly Questi
 }
 
 /** **Wake <agent>**: the one way an answer turns into a run (ADR-0003), on the target's issue. */
-function WakeButton({ offer: { question, target }, issueId }: { offer: WakeOffer; issueId: string }) {
+function WakeButton({ offer: { question, target }, issueId }: { offer: WakeOffer; issueId: string | null }) {
   const { t } = useT("questions");
   const wsId = useWorkspaceId();
   const { getActorName } = useActorName();

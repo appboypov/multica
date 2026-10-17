@@ -49,8 +49,8 @@ const logger = createLogger("questions.card");
 
 export interface QuestionCardProps {
   question: Question;
-  /** The issue the card shows on, whose questions refresh after each action. */
-  issueId: string;
+  /** The issue the card shows on, whose questions refresh after each action; null for a question without an issue. */
+  issueId: string | null;
   /** The asking run's place among its agent's runs on the issue, for "asked during run #N". */
   runNumber?: number;
   /**
@@ -147,7 +147,7 @@ export function QuestionCard({
 // Folded: prompt → answer · who · when, Edit answer, Wake <agent>
 // ---------------------------------------------------------------------------
 
-function FoldedQuestion({ question, issueId, hideWake, onEdit }: { question: Question; issueId: string; hideWake: boolean; onEdit?: () => void }) {
+function FoldedQuestion({ question, issueId, hideWake, onEdit }: { question: Question; issueId: string | null; hideWake: boolean; onEdit?: () => void }) {
   const { t } = useT("questions");
   const timeAgo = useTimeAgo();
   const { getActorName } = useActorName();
@@ -213,7 +213,7 @@ function OpenQuestion({
   offersWake,
 }: {
   question: Question;
-  issueId: string;
+  issueId: string | null;
   runNumber?: number;
   answerElsewhere?: ReactNode;
   isAnswerer: boolean;
@@ -435,7 +435,7 @@ function AnswerForm({
   offersWake,
 }: {
   question: AnswerableQuestion;
-  issueId: string;
+  issueId: string | null;
   askerName: string;
   /** Where the unsent answer, note and ask back live, so they outlast the card. */
   draftKey: string;
