@@ -1,2 +1,8 @@
 schema: intent-driven
 created: 2026-10-17
+build:
+  status: draft
+  type: feature
+  ticket: WORK-1243
+  context:
+    - "{project-root}/apps/docs/content/docs/developers/conventions.mdx"
