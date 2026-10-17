@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -59,6 +60,15 @@ var repoCheckoutCmd = &cobra.Command{
 	RunE: runRepoCheckout,
 }
 
+var repoUpdateCmd = &cobra.Command{
+	Use:   "update <owner/name>",
+	Short: "Change a project repository's settings",
+	Long: "Changes a repository of a project. --work-in-project-folder=true makes every issue task of the " +
+		"repository work in its checkout instead of a worktree, one task at a time.",
+	Args: exactArgs(1),
+	RunE: runRepoUpdate,
+}
+
 var (
 	repoCheckoutRef   string
 	repoCheckoutFresh bool
@@ -77,10 +87,14 @@ func init() {
 	repoCheckoutCmd.Flags().StringVar(&repoCheckoutRef, "ref", "", "branch, tag, or commit to check out instead of the remote default branch")
 	repoCheckoutCmd.Flags().BoolVar(&repoCheckoutFresh, "fresh", false, "discard an existing checkout's uncommitted changes and untracked files and start over on a new branch from the latest default branch (or --ref); commits stay on the old branch")
 
+	repoUpdateCmd.Flags().Bool("work-in-project-folder", false, "work every issue task in the repository's checkout (true or false)")
+	repoUpdateCmd.Flags().String("output", "json", "Output format: table or json")
+
 	repoCmd.AddCommand(repoListCmd)
 	repoCmd.AddCommand(repoAddCmd)
 	repoCmd.AddCommand(repoRemoveCmd)
 	repoCmd.AddCommand(repoCheckoutCmd)
+	repoCmd.AddCommand(repoUpdateCmd)
 }
 
 type workspaceRepo struct {
@@ -337,6 +351,39 @@ func runRepoRemove(cmd *cobra.Command, args []string) error {
 		rows = append(rows, []string{repo.URL, repo.Description})
 	}
 	cli.PrintTable(os.Stdout, []string{"REMOVED URL", "DESCRIPTION"}, rows)
+	return nil
+}
+
+func runRepoUpdate(cmd *cobra.Command, args []string) error {
+	if !cmd.Flags().Changed("work-in-project-folder") {
+		return fmt.Errorf("nothing to update: pass --work-in-project-folder=<true|false>")
+	}
+	workInCheckout, _ := cmd.Flags().GetBool("work-in-project-folder")
+	client, _, err := repoCommandClient(cmd)
+	if err != nil {
+		return err
+	}
+	ctx, cancel := cli.APIContext(context.Background())
+	defer cancel()
+	repositories, err := laneRepositories(ctx, client)
+	if err != nil {
+		return err
+	}
+	id, err := laneRepositoryID(repositories, args[0])
+	if err != nil {
+		return err
+	}
+	var updated struct {
+		FullName       string `json:"full_name"`
+		WorkInCheckout bool   `json:"work_in_checkout"`
+	}
+	if err := client.PutJSON(ctx, "/api/repositories/"+url.PathEscape(id), map[string]bool{"work_in_checkout": workInCheckout}, &updated); err != nil {
+		return err
+	}
+	if format, _ := cmd.Flags().GetString("output"); format == "json" {
+		return cli.PrintJSON(os.Stdout, updated)
+	}
+	cli.PrintTable(os.Stdout, []string{"REPOSITORY", "WORK IN PROJECT FOLDER"}, [][]string{{updated.FullName, strconv.FormatBool(updated.WorkInCheckout)}})
 	return nil
 }
 

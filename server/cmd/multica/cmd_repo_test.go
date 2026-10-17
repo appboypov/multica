@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -355,5 +356,56 @@ func TestRepoCheckoutRetryDelay(t *testing.T) {
 	}
 	if got := repoCheckoutRetryDelay("invalid", now); got != time.Second {
 		t.Fatalf("default delay = %s, want 1s", got)
+	}
+}
+
+func newRepoUpdateTestServer(t *testing.T, puts *[]map[string]bool) *httptest.Server {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/api/repositories":
+			json.NewEncoder(w).Encode(map[string]any{"repositories": []map[string]string{{"id": "repo-1", "full_name": "appboypov/multica"}}})
+		case r.Method == http.MethodPut && r.URL.Path == "/api/repositories/repo-1":
+			var body map[string]bool
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				t.Errorf("decode put body: %v", err)
+			}
+			*puts = append(*puts, body)
+			json.NewEncoder(w).Encode(map[string]any{"id": "repo-1", "full_name": "appboypov/multica", "work_in_checkout": body["work_in_checkout"]})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	return srv
+}
+
+func TestRunRepoUpdateSendsWorkInProjectFolder(t *testing.T) {
+	for _, want := range []bool{true, false} {
+		var puts []map[string]bool
+		cmd := newRepoRegistryTestCmd(newRepoUpdateTestServer(t, &puts).URL)
+		cmd.Flags().Bool("work-in-project-folder", false, "")
+		_ = cmd.Flags().Set("work-in-project-folder", strconv.FormatBool(want))
+		output, err := captureStdout(t, func() error { return runRepoUpdate(cmd, []string{"AppBoyPov/Multica"}) })
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(puts) != 1 || len(puts[0]) != 1 || puts[0]["work_in_checkout"] != want {
+			t.Fatalf("puts = %v, want one work_in_checkout=%v", puts, want)
+		}
+		if !strings.Contains(output, `"work_in_checkout": `+strconv.FormatBool(want)) {
+			t.Fatalf("output = %s", output)
+		}
+	}
+}
+
+func TestRunRepoUpdateUnknownRepository(t *testing.T) {
+	var puts []map[string]bool
+	cmd := newRepoRegistryTestCmd(newRepoUpdateTestServer(t, &puts).URL)
+	cmd.Flags().Bool("work-in-project-folder", false, "")
+	_ = cmd.Flags().Set("work-in-project-folder", "true")
+	err := runRepoUpdate(cmd, []string{"appboypov/nope"})
+	if err == nil || err.Error() != `repository "appboypov/nope" not found in this workspace` || len(puts) != 0 {
+		t.Fatalf("err = %v, puts = %v", err, puts)
 	}
 }
