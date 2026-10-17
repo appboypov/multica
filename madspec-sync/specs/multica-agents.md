@@ -18,7 +18,7 @@ Every folder of the agents repo with an `agent.toml` SHALL be an agent in the lo
 
 ### Requirement: An agent runs its AGENTS.md
 
-An agent SHALL be named after its `agent.toml` `name` and carry its `title` as the description. It SHALL select its folder's `AGENTS.md` through `~/Repos/Agents/<folder>/AGENTS.md`, the single absolute path in `instruction_selection`. Its instructions SHALL be `Your instructions are <that file> below; follow them.`, a blank line, then `{selection}`. At task start, the daemon SHALL fill `{selection}` with the file from disk, including uncommitted edits. Multica SHALL store the path, not a copy of the file. Its model and thinking level SHALL be the first entry of the `models` list and its `:level`. With more than one model, its only argument SHALL be `--config=` with a fallback overlay whose chain holds the other entries in order; with one model it SHALL have no arguments.
+An agent SHALL be named after its `agent.toml` `name` and carry its `title` as the description. It SHALL select its folder's `AGENTS.md` through `~/Repos/Agents/<folder>/AGENTS.md`, the single absolute path in `instruction_selection`. Its instructions SHALL be `<SystemIdentity>`, `{selection}` and `</SystemIdentity>`, each on its own line. At task start, the daemon SHALL fill `{selection}` with the file from disk, including uncommitted edits. Multica SHALL store the path, not a copy of the file. Its model and thinking level SHALL be the first entry of the `models` list and its `:level`. With more than one model, its only argument SHALL be `--config=` with a fallback overlay whose chain holds the other entries in order; with one model it SHALL have no arguments.
 
 #### Scenario: Mitchel
 
@@ -42,7 +42,7 @@ An agent SHALL be named after its `agent.toml` `name` and carry its `title` as t
 
 - **WHEN** the sync runs
 - **THEN** Guus has `instruction_selection: ["/Users/codaveto/Repos/Agents/guus/AGENTS.md"]`
-- **AND** instructions `Your instructions are /Users/codaveto/Repos/Agents/guus/AGENTS.md below; follow them.`, a blank line, then `{selection}`
+- **AND** instructions `<SystemIdentity>`, `{selection}` and `</SystemIdentity>`, each on its own line
 
 #### Scenario: A stale selection is corrected
 

@@ -42,7 +42,7 @@ For Guus on Brian's Mac, the sync writes these agent fields:
   "instruction_selection": [
     "/Users/codaveto/Repos/Agents/guus/AGENTS.md"
   ],
-  "instructions": "Your instructions are /Users/codaveto/Repos/Agents/guus/AGENTS.md below; follow them.\n\n{selection}"
+  "instructions": "<SystemIdentity>\n{selection}\n</SystemIdentity>"
 }
 ```
 

@@ -181,7 +181,7 @@ def read_persona(folder: Path, checkout: Path) -> Persona:
         command=command,
         name=name,
         description=title,
-        instructions=f"Your instructions are {instructions} below; follow them.\n\n{{selection}}",
+        instructions="<SystemIdentity>\n{selection}\n</SystemIdentity>",
         instruction_selection=[str(instructions)],
         model=model,
         thinking_level=thinking_level,

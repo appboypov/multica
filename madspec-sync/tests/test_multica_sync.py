@@ -48,7 +48,7 @@ def test_an_agent_runs_its_agents_md_with_its_fallbacks(repo, fallback_dir):
     assert mitchel.fields() == {
         "name": "Mitchel",
         "description": "Product Manager",
-        "instructions": "Your instructions are /agents/mitchel/AGENTS.md below; follow them.\n\n{selection}",
+        "instructions": "<SystemIdentity>\n{selection}\n</SystemIdentity>",
         "instruction_selection": ["/agents/mitchel/AGENTS.md"],
         "model": "anthropic/claude-opus-5-5",
         "thinking_level": "high",

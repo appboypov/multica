@@ -43,8 +43,9 @@ export interface InstructionsFieldProps {
 /**
  * The agent instructions text with the files and folders selected on the
  * agent's runtime. Only the runtime's owner browses and removes paths;
- * anyone else sees them read-only. The first selection inserts
- * `{selection}` at the cursor so the daemon loads the paths there.
+ * anyone else sees them read-only. The first selection inserts the
+ * `<SystemIdentity>` block with `{selection}` at the cursor so the daemon
+ * loads the paths there.
  */
 export function InstructionsField({
   id,

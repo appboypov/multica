@@ -220,7 +220,7 @@ test("The first selection adds the placeholder / A first selection into typed te
   const browser = await openPath(page, selection.skills, "as-ux-designer");
   await browser.getByRole("checkbox", { name: "as-ux-designer", exact: true }).check();
   await browser.getByRole("button", { name: "Add", exact: true }).click();
-  await expect(text).toHaveValue("Follow this.{selection}");
+  await expect(text).toHaveValue("Follow this.<SystemIdentity>\n{selection}\n</SystemIdentity>");
   await expect(chips(page)).toHaveText([selection.folder]);
 });
 

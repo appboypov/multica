@@ -1,4 +1,5 @@
 export const SELECTION_PLACEHOLDER = "{selection}";
+export const SELECTION_BLOCK = `<SystemIdentity>\n${SELECTION_PLACEHOLDER}\n</SystemIdentity>`;
 
 export function appendSelection(current: string[], added: string[]): string[] {
   const selection = [...current];
@@ -18,11 +19,11 @@ export function insertSelectionPlaceholder(
 ): { text: string; cursor: number } {
   if (cursor !== null) {
     return {
-      text: text.slice(0, cursor) + SELECTION_PLACEHOLDER + text.slice(cursor),
-      cursor: cursor + SELECTION_PLACEHOLDER.length,
+      text: text.slice(0, cursor) + SELECTION_BLOCK + text.slice(cursor),
+      cursor: cursor + SELECTION_BLOCK.length,
     };
   }
-  const nextText = (text ? `${text}\n\n` : "") + SELECTION_PLACEHOLDER;
+  const nextText = (text ? `${text}\n\n` : "") + SELECTION_BLOCK;
   return { text: nextText, cursor: nextText.length };
 }
 

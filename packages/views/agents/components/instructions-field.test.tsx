@@ -177,7 +177,7 @@ describe("InstructionsField", () => {
     expect(screen.queryByRole("button", { name: "Browse" })).toBeNull();
   });
 
-  it("inserts {selection} at the cursor on the first add, then only appends", async () => {
+  it("inserts the SystemIdentity block at the cursor on the first add, then only appends", async () => {
     const { onChange, onSelectionChange, user } = renderField({
       value: "Follow this. Then go.",
     });
@@ -186,24 +186,30 @@ describe("InstructionsField", () => {
 
     await addThroughBrowser(user, "as-ux-designer");
 
-    expect(textarea()).toHaveValue("Follow this.{selection} Then go.");
-    expect(textarea().selectionStart).toBe(23);
+    expect(textarea()).toHaveValue(
+      "Follow this.<SystemIdentity>\n{selection}\n</SystemIdentity> Then go.",
+    );
+    expect(textarea().selectionStart).toBe(58);
     expect(onSelectionChange).toHaveBeenLastCalledWith([UX]);
 
     onChange.mockClear();
     await addThroughBrowser(user, "as-product-manager");
 
     expect(onChange).not.toHaveBeenCalled();
-    expect(textarea()).toHaveValue("Follow this.{selection} Then go.");
+    expect(textarea()).toHaveValue(
+      "Follow this.<SystemIdentity>\n{selection}\n</SystemIdentity> Then go.",
+    );
     expect(onSelectionChange).toHaveBeenLastCalledWith([UX, PM]);
   });
 
-  it("appends {selection} after a blank line when the text never had focus", async () => {
+  it("appends the SystemIdentity block after a blank line when the text never had focus", async () => {
     const { user } = renderField({ value: "Follow this." });
 
     await addThroughBrowser(user, "as-ux-designer");
 
-    expect(textarea()).toHaveValue("Follow this.\n\n{selection}");
+    expect(textarea()).toHaveValue(
+      "Follow this.\n\n<SystemIdentity>\n{selection}\n</SystemIdentity>",
+    );
   });
 
   it("removes a chip from the selection", async () => {

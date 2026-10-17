@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
 import {
-  SELECTION_PLACEHOLDER,
+  SELECTION_BLOCK,
   appendSelection,
   insertSelectionPlaceholder,
   selectionWarning,
@@ -34,22 +34,22 @@ describe("insertSelectionPlaceholder", () => {
   it.each([0, 7, 12])("inserts at cursor %i and places the cursor after the placeholder", (cursor) => {
     const text = "Follow this.";
     expect(insertSelectionPlaceholder(text, cursor)).toEqual({
-      text: text.slice(0, cursor) + SELECTION_PLACEHOLDER + text.slice(cursor),
-      cursor: cursor + SELECTION_PLACEHOLDER.length,
+      text: text.slice(0, cursor) + SELECTION_BLOCK + text.slice(cursor),
+      cursor: cursor + SELECTION_BLOCK.length,
     });
   });
 
   it("appends after a blank line when there is no cursor", () => {
     expect(insertSelectionPlaceholder("Follow this.", null)).toEqual({
-      text: "Follow this.\n\n{selection}",
-      cursor: "Follow this.\n\n{selection}".length,
+      text: "Follow this.\n\n<SystemIdentity>\n{selection}\n</SystemIdentity>",
+      cursor: "Follow this.\n\n<SystemIdentity>\n{selection}\n</SystemIdentity>".length,
     });
   });
 
   it.each([null, 0])("inserts alone in empty text with cursor %s", (cursor) => {
     expect(insertSelectionPlaceholder("", cursor)).toEqual({
-      text: SELECTION_PLACEHOLDER,
-      cursor: SELECTION_PLACEHOLDER.length,
+      text: SELECTION_BLOCK,
+      cursor: SELECTION_BLOCK.length,
     });
   });
 });

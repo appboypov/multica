@@ -131,13 +131,15 @@ describe("AgentConfigurationPanel instructions field", () => {
     await user.click(screen.getByRole("button", { name: "Add" }));
 
     expect(screen.getByLabelText("Instructions")).toHaveValue(
-      "Follow this.\n\n{selection}",
+      "Follow this.\n\n<SystemIdentity>\n{selection}\n</SystemIdentity>",
     );
     const request = buildCreateAgentRequest({
       draft: latestDraft(),
       runtimeId: RUNTIME.id,
     });
-    expect(request.instructions).toBe("Follow this.\n\n{selection}");
+    expect(request.instructions).toBe(
+      "Follow this.\n\n<SystemIdentity>\n{selection}\n</SystemIdentity>",
+    );
     expect(request.instruction_selection).toEqual([UX_DESIGNER]);
   });
 });
