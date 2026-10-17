@@ -21,8 +21,9 @@ const ANSWERED_IN_PLACE: ReadonlySet<Question["answer_type"]> = new Set(["yes_no
 /**
  * The question a to-do or an inbox item is about: its card, answerable in
  * place for Yes / No, Single choice and Approval, and for any other type the
- * way to its card on the issue. A set shows the set's title and each of its
- * questions.
+ * way to its card on the issue. A question without an issue is answered in
+ * place whatever its type. A set on an issue shows the set's title and each of
+ * its questions.
  */
 export function InboxQuestionBody({
   issueId,
@@ -30,7 +31,8 @@ export function InboxQuestionBody({
   fallbackIdentifier,
   onOpenIssue,
 }: {
-  issueId: string;
+  /** The issue the question belongs to; null for a question without an issue. */
+  issueId: string | null;
   questionId: string;
   /** Names the issue in "Open on …" until the issue has loaded. */
   fallbackIdentifier: string;
@@ -41,21 +43,21 @@ export function InboxQuestionBody({
   const { t: tQuestions } = useT("questions");
   const wsId = useWorkspaceId();
   const { data: question, isPending } = useQuestion(wsId, questionId);
-  const { data: issue } = useQuery(issueDetailOptions(wsId, issueId));
-  const { data: tasks } = useQuery(issueTasksOptions(issueId));
+  const { data: issue } = useQuery({ ...issueDetailOptions(wsId, issueId ?? ""), enabled: !!issueId });
+  const { data: tasks } = useQuery(issueTasksOptions(issueId ?? ""));
   const runNumber = useMemo(
     () => (question && tasks ? runNumbersByTask(tasks).get(question.asked_in_task_id) : undefined),
     [question, tasks],
   );
 
   const shown = question && question.id !== "" ? question : null;
-  const isSet = !!shown && shown.ask_title !== null;
-  const { data: issueQuestions } = useQuery({ ...issueQuestionsOptions(wsId, issueId), enabled: isSet && !!wsId && !!issueId });
+  // A set's questions are listed per issue; without an issue the card shows on its own.
+  const isSet = !!shown && shown.ask_title !== null && !!issueId;
+  const { data: issueQuestions } = useQuery({ ...issueQuestionsOptions(wsId, issueId ?? ""), enabled: isSet && !!wsId });
   const setQuestions = useMemo(
     () => (isSet && issueQuestions ? groupQuestionCards(issueQuestions).find((card) => card.askId === shown?.ask_id)?.questions ?? null : null),
     [isSet, issueQuestions, shown],
   );
-  const inPlace = !!shown && ANSWERED_IN_PLACE.has(shown.answer_type);
   const openLabel = t(($) => $.question_pane.open_on, { identifier: issue?.identifier ?? fallbackIdentifier });
   const openButton = (activeQuestionId?: string) => (
     <Button type="button" size="sm" className="ml-auto shrink-0" onClick={() => onOpenIssue(activeQuestionId)}>
@@ -100,14 +102,14 @@ export function InboxQuestionBody({
         issueId={issueId}
         runNumber={runNumber}
         askQuestions={[shown]}
-        answerElsewhere={inPlace ? undefined : answeredOnIssue(shown)}
+        answerElsewhere={!issueId || ANSWERED_IN_PLACE.has(shown.answer_type) ? undefined : answeredOnIssue(shown)}
       />
     );
   }
   return (
     <div className="flex items-center gap-3 rounded-xl border bg-card p-3.5">
       <p className="text-caption text-muted-foreground">{t(($) => $.question_pane.unavailable)}</p>
-      {openButton()}
+      {issueId && openButton()}
     </div>
   );
 }

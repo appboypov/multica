@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type * as Questions from "@multica/core/questions";
 import type { InboxItem, Issue, Question } from "@multica/core/types";
 import { renderWithI18n } from "../../test/i18n";
-import { InboxQuestionPane } from "./inbox-question-pane";
+import { InboxQuestionBody, InboxQuestionPane } from "./inbox-question-pane";
 
 const answerMutate = vi.fn();
 let question: Question | undefined;
@@ -174,5 +174,36 @@ describe("InboxQuestionPane", () => {
       expect.objectContaining({ id: "q-2", value: { option: "Per invoice line" }, wake: true }),
       expect.anything(),
     );
+  });
+
+  describe("without an issue", () => {
+    function renderBody() {
+      const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      renderWithI18n(
+        <QueryClientProvider client={client}>
+          <InboxQuestionBody issueId={null} questionId="q-1" fallbackIdentifier="Approve the export" onOpenIssue={vi.fn()} />
+        </QueryClientProvider>,
+      );
+    }
+
+    it("answers an Approval question in place", () => {
+      question = { ...base(), answer_type: "approval", settings: { subject: "The export" }, suggested_answer: null };
+      renderBody();
+      fireEvent.click(screen.getByRole("button", { name: "Approve" }));
+      fireEvent.click(screen.getByRole("button", { name: /Send/ }));
+      expect(answerMutate).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "q-1", value: { decision: "approve" } }),
+        expect.anything(),
+      );
+      expect(screen.queryByRole("button", { name: /Open on/ })).not.toBeInTheDocument();
+    });
+
+    it("answers a Ranking question in place, since it has no issue to open", () => {
+      question = { ...base(), answer_type: "ranking", settings: { items: ["Speed", "Cost", "Quality"] }, suggested_answer: null };
+      renderBody();
+      expect(screen.queryByText("Ranking is answered on its issue.")).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Send/ })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /Open on/ })).not.toBeInTheDocument();
+    });
   });
 });

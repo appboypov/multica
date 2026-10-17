@@ -4,9 +4,10 @@ import type { Question } from "../types/question";
 import { issueKeys } from "../issues/queries";
 import { questionKeys } from "./queries";
 
-export async function invalidateIssueQuestions(qc: QueryClient, wsId: string, issueId: string, questionId?: string) {
+/** Refreshes the questions an issue shows; `issueId` null refreshes only the question `questionId`. */
+export async function invalidateIssueQuestions(qc: QueryClient, wsId: string, issueId: string | null, questionId?: string) {
   const filters: QueryFilters[] = [
-    { queryKey: questionKeys.byIssue(wsId, issueId) },
+    ...(issueId ? [{ queryKey: questionKeys.byIssue(wsId, issueId) }] : []),
     {
       queryKey: questionKeys.details(wsId),
       predicate: (query) => {
@@ -14,7 +15,7 @@ export async function invalidateIssueQuestions(qc: QueryClient, wsId: string, is
         const question = query.state.data as Question | undefined;
         // An unresolved detail has no link information yet; refetching avoids
         // keeping an in-flight snapshot from before this event indefinitely.
-        return !question || question.links.some((link) => link.link_type === "issue" && link.link_id === issueId);
+        return !question || (!!issueId && question.links.some((link) => link.link_type === "issue" && link.link_id === issueId));
       },
     },
   ];
