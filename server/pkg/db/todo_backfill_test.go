@@ -191,6 +191,17 @@ func TestTodoBackfillAgentFailures(t *testing.T) {
 	backfillTask(t, fx, agent, runtime, testutil.Cols{"issue_id": retryIssue, "status": "queued", "created_at": now.Add(-time.Hour)})
 	unattributedIssue := fx.Issue(t, "No human")
 	unattributed := backfillTask(t, fx, agent, runtime, testutil.Cols{"issue_id": unattributedIssue, "status": "failed", "originator_user_id": nil, "accountable_user_id": nil})
+	secondAgent := fx.Agent(t, "Second backfill agent", runtime)
+	twoFailuresIssue := fx.Issue(t, "Two runs failed")
+	firstFailure := backfillTask(t, fx, agent, runtime, testutil.Cols{"issue_id": twoFailuresIssue, "status": "failed", "created_at": now.Add(-2 * time.Hour), "dispatched_at": now.Add(-2 * time.Hour), "completed_at": now.Add(-time.Hour)})
+	secondFailure := backfillTask(t, fx, secondAgent, runtime, testutil.Cols{"issue_id": twoFailuresIssue, "status": "failed", "created_at": now.Add(-90 * time.Minute), "dispatched_at": now.Add(-90 * time.Minute), "completed_at": now.Add(-30 * time.Minute)})
+	// The older-created run dispatched after the failure is what closes it, not creation order.
+	lateDispatchIssue := fx.Issue(t, "Older run dispatched after failure")
+	closedByOlderRun := backfillTask(t, fx, agent, runtime, testutil.Cols{"issue_id": lateDispatchIssue, "status": "failed", "created_at": now.Add(-time.Hour), "completed_at": now.Add(-30 * time.Minute)})
+	backfillTask(t, fx, agent, runtime, testutil.Cols{"issue_id": lateDispatchIssue, "status": "completed", "created_at": now.Add(-2 * time.Hour), "dispatched_at": now.Add(-10 * time.Minute)})
+	blockedAfterIssue := fx.Issue(t, "Blocked after failure", testutil.Cols{"status": "blocked"})
+	blockedAfterFailure := backfillTask(t, fx, agent, runtime, testutil.Cols{"issue_id": blockedAfterIssue, "status": "failed", "created_at": now.Add(-time.Hour), "completed_at": now.Add(-30 * time.Minute)})
+	fx.Insert(t, "activity_log", testutil.Cols{"workspace_id": fx.WorkspaceID, "issue_id": blockedAfterIssue, "actor_type": "member", "actor_id": fx.UserID, "action": "status_changed", "details": `{"from":"in_progress","to":"blocked"}`, "created_at": now.Add(-10 * time.Minute)})
 	blocked := func(assigneeType, assigneeID, actorType string, resumed bool) string {
 		issue := fx.Issue(t, "Blocked", testutil.Cols{"status": "blocked", "assignee_type": assigneeType, "assignee_id": assigneeID})
 		backfillTask(t, fx, agent, runtime, testutil.Cols{"issue_id": issue, "status": "completed", "created_at": now.Add(-2 * time.Hour), "dispatched_at": now.Add(-90 * time.Minute), "started_at": now.Add(-time.Hour)})
@@ -210,17 +221,43 @@ func TestTodoBackfillAgentFailures(t *testing.T) {
 	runningBlocked := blocked("agent", agent, "agent", true)
 	queuedBlocked := blocked("agent", agent, "agent", false)
 	backfillTask(t, fx, agent, runtime, testutil.Cols{"issue_id": queuedBlocked, "status": "queued", "created_at": now})
+	duplicateChanges := []struct {
+		name, action, status, details string
+		want                          int
+	}{
+		{"cancelled as duplicate", "duplicate_marked", "cancelled", `{"from":"in_progress","to":"cancelled"}`, 0},
+		{"reopened duplicate", "duplicate_unmarked", "todo", `{"from":"cancelled","to":"todo"}`, 0},
+		{"marked without status change", "duplicate_marked", "in_progress", `{}`, 1},
+		{"unmarked without status change", "duplicate_unmarked", "in_progress", `{}`, 1},
+		{"marked while moving to blocked", "duplicate_marked", "blocked", `{"from":"in_progress","to":"blocked"}`, 1},
+		{"unmarked while moving to blocked", "duplicate_unmarked", "blocked", `{"from":"cancelled","to":"blocked"}`, 1},
+	}
+	duplicateFailures := make([]string, len(duplicateChanges))
+	for index, change := range duplicateChanges {
+		issue := fx.Issue(t, change.name, testutil.Cols{"status": change.status})
+		duplicateFailures[index] = backfillTask(t, fx, agent, runtime, testutil.Cols{"issue_id": issue, "status": "failed", "created_at": now.Add(-time.Hour), "completed_at": now.Add(-30 * time.Minute)})
+		fx.Insert(t, "activity_log", testutil.Cols{"workspace_id": fx.WorkspaceID, "issue_id": issue, "actor_type": "member", "actor_id": fx.UserID, "action": change.action, "details": change.details, "created_at": now.Add(-10 * time.Minute)})
+	}
 	tx := applyTodoBackfill(t, fx)
 	wantBackfilled(t, tx, fx, "run_failed", failed, 1)
 	wantBackfilled(t, tx, fx, "run_failed", moved, 0)
 	wantBackfilled(t, tx, fx, "run_failed", stale, 0)
 	wantBackfilled(t, tx, fx, "run_failed", awaitingRetry, 1)
 	wantBackfilled(t, tx, fx, "run_failed", unattributed, 0)
+	wantBackfilled(t, tx, fx, "run_failed", firstFailure, 1)
+	wantBackfilled(t, tx, fx, "run_failed", secondFailure, 1)
+	wantBackfilled(t, tx, fx, "run_failed", closedByOlderRun, 0)
+	wantBackfilled(t, tx, fx, "run_failed", blockedAfterFailure, 1)
 	wantBackfilled(t, tx, fx, "agent_blocked", agentBlocked, 1)
 	wantBackfilled(t, tx, fx, "agent_blocked", squadBlocked, 1)
 	wantBackfilled(t, tx, fx, "agent_blocked", memberBlocked, 0)
 	wantBackfilled(t, tx, fx, "agent_blocked", runningBlocked, 0)
 	wantBackfilled(t, tx, fx, "agent_blocked", queuedBlocked, 1)
+	for index, change := range duplicateChanges {
+		t.Run(change.name, func(t *testing.T) {
+			wantBackfilled(t, tx, fx, "run_failed", duplicateFailures[index], change.want)
+		})
+	}
 }
 
 func TestTodoBackfillAgentFailureAttribution(t *testing.T) {
