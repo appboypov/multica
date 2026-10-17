@@ -48,11 +48,11 @@ func TestCheckRecordAndInstructionAPI(t *testing.T) {
 	testutil.Call(t,testHandler.OpenCheck,fx.agentRequest("POST","",body)).Want(http.StatusCreated).JSON(&row)
 	check:=row["id"].(string)
 	testutil.Call(t,testHandler.AnswerCheck,withURLParam(newRequest("POST","/",map[string]string{"answer":"feedback","note":"Round totals"}),"id",check)).Want(http.StatusOK)
-	request:=withURLParam(withURLParam(newRequest("PUT","/",map[string]bool{"sampling":true}),"id",project),"kind","feature")
+	request:=withURLParams(newRequest("PUT","/",map[string]bool{"sampling":true}),"id",project,"kind","feature")
 	testutil.Call(t,testHandler.SetCheckSampling,request).Want(http.StatusOK).JSON(&row)
 	if row["sampling"]!=true {t.Fatalf("mode: %+v",row)}
 	var history []map[string]any
-	testutil.Call(t,testHandler.CheckHistory,withURLParam(withURLParam(newRequest("GET","/",nil),"id",project),"kind","feature")).Want(http.StatusOK).JSON(&history)
+	testutil.Call(t,testHandler.CheckHistory,withURLParams(newRequest("GET","/",nil),"id",project,"kind","feature")).Want(http.StatusOK).JSON(&history)
 	if len(history)!=1||history[0]["answer"]!="feedback"{t.Fatalf("history: %+v",history)}
 	note:=map[string]string{"file":"skills/totals.md","link":"https://example.test/commit","note":"Round totals before display"}
 	testutil.Call(t,testHandler.OpenInstructionNote,fx.agentRequest("POST",check,note)).Want(http.StatusCreated).JSON(&row)
