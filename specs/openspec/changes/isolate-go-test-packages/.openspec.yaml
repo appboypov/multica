@@ -1,3 +1,9 @@
 schema: intent-driven
 created: 2026-10-17
 skip_specs: true
+build:
+  status: 'ready-for-dev'
+  type: 'bugfix'
+  ticket: ''
+  context:
+    - '{project-root}/AGENTS.md'
