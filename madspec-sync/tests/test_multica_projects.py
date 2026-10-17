@@ -21,6 +21,16 @@ MADSPEC = Product("brain-madspec", "MadSpec", (DAS.id,))
 HQ = Product("brain-hq", "DAS HQ", (DAS.id,))
 
 
+def test_repository_checks_use_the_builtin_runtime_among_persona_profiles():
+    runtimes = [
+        {"id": "mitchel", "provider": "omp", "runtime_mode": "local", "profile_id": "profile-mitchel"},
+        {"id": "builtin", "provider": "omp", "runtime_mode": "local"},
+        {"id": "remote", "provider": "omp", "runtime_mode": "cloud"},
+    ]
+
+    assert sync.omp_runtime(runtimes) == "builtin"
+
+
 def repository(name, product=MADSPEC.id, checkouts=None):
     return Repository("brain-" + name, "appboypov/" + name, () if product is None else (product,),
                       (REPOS / "Ventures" / name,) if checkouts is None else tuple(checkouts))
@@ -389,7 +399,7 @@ class FakeMultica(Workspace):
             if parsed.path == self.fail_read:
                 raise FakeApiError("Multica is unreachable")
             if path == "/api/runtimes":
-                return [{"id": "runtime", "daemon_id": DAEMON}]
+                return [{"id": "runtime", "provider": "omp", "runtime_mode": "local", "daemon_id": DAEMON}]
             if path == "/api/organisations":
                 return {"organisations": deepcopy(self.organisations)}
             if path == "/api/projects":
@@ -467,8 +477,7 @@ class Shell:
                                model=SimpleNamespace(api_key=lambda: "fake", ModelError=FakeApiError),
                                REPOS_ROOT=REPOS, local_checkouts=lambda: self.checkouts)
         external = SimpleNamespace(CONFIG=tmp_path / "config.json", load_config=lambda path: self.config,
-                                   Multica=lambda config: self.api, ApiError=FakeApiError,
-                                   omp_runtime=lambda runtimes: runtimes[0]["id"])
+                                   Multica=lambda config: self.api, ApiError=FakeApiError)
         monkeypatch.setattr(sync, "MARK_FILE", self.mark_path)
         monkeypatch.setattr(sync, "load_dependencies", lambda: (team, external))
 

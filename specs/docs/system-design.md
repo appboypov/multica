@@ -371,10 +371,10 @@ flowchart LR
   local["internal/daemon/health.go<br/>POST /sessions"]
   api["Go server<br/>agent sessions, agents, runtime profiles, runtimes"]
   sync["madspec-sync/multica_sync.py<br/>Sync, Machine"]
-  roster["MadSpec roster.personas<br/>persona offices and shared skills"]
+  roster["Agents repo<br/>~/Repos/Agents/*/agent.toml"]
   config["Local CLI config<br/>profile_command_overrides"]
   daemon["Daemon<br/>profile runtimes"]
-  alias["Persona alias<br/>office AGENTS.md and persona skill"]
+  alias["Agent alias<br/>~/.local/bin/*, loads AGENTS.md"]
   projects["madspec-sync/multica_projects.py<br/>built-in omp checkout runtime"]
 
   sessions -->|"list"| api
@@ -386,6 +386,7 @@ flowchart LR
   daemon -->|"launch"| alias
   projects -->|"checkout checks"| api
 ```
+
 ### Web and desktop
 
 ```mermaid

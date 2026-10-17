@@ -253,7 +253,7 @@ The sync SHALL print one line per write or identity mark and per reported object
 
 ### Requirement: The sync runs by hand with one profile lock
 
-The tool SHALL run only when started by hand from the Multica checkout. It SHALL load the brain and checkout readers from MadSpec's `team_state.py` in `~/Repos/Ventures/madspec`, and the workspace transport and local omp runtime selection from this folder's `multica_sync.py`. Credentials SHALL come from `~/.multica/profiles/local/config.json`. A missing dependency SHALL fail without writes.
+The tool SHALL run only when started by hand from the Multica checkout. It SHALL load the brain and checkout readers from MadSpec's `team_state.py` in `~/Repos/Ventures/madspec`, and the workspace transport from this folder's `multica_sync.py`; it SHALL select the built-in local omp runtime for checkout checks itself, excluding persona runtime profiles. Credentials SHALL come from `~/.multica/profiles/local/config.json`. A missing dependency SHALL fail without writes.
 
 Runs of one profile SHALL hold `projects.lock` next to that profile's config across reads, plan and writes. A waiting run SHALL plan from the completed prior run's server data and mark file. A short `brain-sync.lock` beside the global mark file SHALL serialize its read/modify/rename operations across profiles.
 

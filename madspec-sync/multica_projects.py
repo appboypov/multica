@@ -300,6 +300,19 @@ def load_module(name: str, path: Path) -> ModuleType:
     return module
 
 
+def omp_runtime(runtimes: list[dict]) -> str:
+    """The built-in local omp runtime used for repository checkout checks."""
+    found = [
+        runtime for runtime in runtimes
+        if runtime.get("provider") == "omp" and runtime.get("runtime_mode") == "local" and not runtime.get("profile_id")
+    ]
+    if len(found) == 1:
+        return found[0]["id"]
+    shown = found or runtimes
+    listing = ", ".join(f"{runtime.get('name')} ({runtime.get('provider')}, {runtime.get('runtime_mode')})" for runtime in shown)
+    raise ValueError(f"need one local omp runtime, found {len(found)}; runtimes: {listing or 'none'}")
+
+
 def links(properties: dict, name: str) -> tuple[str, ...]:
     values = properties.get(name, [])
     if not isinstance(values, list) or any(not isinstance(value, str) or not value for value in values):
@@ -362,7 +375,7 @@ def read_multica(api, multica_sync: ModuleType, brain: Brain, marks: dict) -> tu
     checks = {}
     if candidates:
         runtimes = api.call("GET", "/api/runtimes")
-        runtime_id = multica_sync.omp_runtime(runtimes)
+        runtime_id = omp_runtime(runtimes)
         runtime = next(runtime for runtime in runtimes if runtime["id"] == runtime_id)
         if not runtime.get("daemon_id"):
             raise ValueError("the local omp runtime has no daemon_id")

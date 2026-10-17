@@ -2,7 +2,7 @@
 
 Two manual tools fill the local Multica workspace from the agents repo and the brain. They run only when started by hand.
 
-- `multica_sync.py` syncs the agents and workers of the agents repo, `~/Repos/Agents`, to local omp agents. Configuration comes from each folder's `agent.toml` on `origin/main`. Each agent selects its folder's `AGENTS.md`, whose disk content the daemon reads at task start. Source paths, model rules, ownership and dry-run behavior are defined in [specs/multica-agents.md](specs/multica-agents.md).
+- `multica_sync.py` syncs the agents and workers of the agents repo, `~/Repos/Agents`, to local omp agents. Configuration comes from each folder's `agent.toml` on `origin/main`. Each agent gets an omp runtime profile whose command is its alias in `~/.local/bin`, and runs on that profile's local runtime. Source paths, model rules, ownership and dry-run behavior are defined in [specs/multica-agents.md](specs/multica-agents.md).
 - `multica_projects.py` fills Multica organisations, one project per brain Product and each Product's repositories. It applies Add repository's checkout checks and picks the first version file found, or tags. The projects UJ-1 kept merge into the Product's project only once their repositories are added there, and are deleted only once empty. Spec: [specs/multica-projects.md](specs/multica-projects.md).
 
 The linked specifications are the sync tools' contracts. When the Product sync
@@ -31,25 +31,16 @@ uv run --with pytest --with pyyaml pytest -p no:cacheprovider madspec-sync/tests
 uv run --with pytest --with pyyaml pytest -p no:cacheprovider madspec-sync/tests/test_multica_projects.py
 ```
 
-Use repeatable `--adopt NAME` only for an existing unmanaged agent that should come under the sync. Each name must have one match. Other unmanaged agents and all squads stay unchanged. Dry run makes no API or overlay writes.
+Use repeatable `--adopt NAME` only for an existing unmanaged agent that should come under the sync. Each name must have one match. Other unmanaged agents and all squads stay unchanged. Dry run makes no API, path pin or overlay writes.
 
 The Product sync tests fake the brain reader and Multica HTTP transport,
 including the GitHub App repository list and runtime checkout checks. They
 follow [the Product sync contract](specs/multica-projects.md) without live calls.
 
-## Agent instructions
+## Agent runtimes
 
-For Guus on Brian's Mac, the sync writes these agent fields:
+Run the agent sync with the daemon running for the same server and workspace. It finds the daemon among the default and named CLI profiles, then pins each alias in that daemon profile's local config. It fails before writes when no matching daemon runs. After a changed pin, restart the daemon for the path to take effect.
 
-```json
-{
-  "instruction_selection": [
-    "/Users/codaveto/Repos/Agents/guus/AGENTS.md"
-  ],
-  "instructions": "<SystemIdentity>\n{selection}\n</SystemIdentity>"
-}
-```
+An agent's `instructions` is empty and `instruction_selection` is `[]`: its alias loads the folder's `AGENTS.md` from disk at each start. Only the fallback `--config=` overlay stays in `custom_args`. The name, description and fallback `--config=` come from the folder's `agent.toml` on `origin/main`. The sync seeds model and thinking level when it creates an agent; later syncs leave both fields as set in Multica.
 
-The path uses the sync user's home folder. At task start, the runtime's daemon replaces `{selection}` with the file as it is on disk. Multica stores the path, not the file's content. A missing or unreadable selection fails the task with `instruction_selection_error`, without a retry.
-
-Run the sync as the local omp runtime's owner: only that owner may set or change an agent's selection. The name, description, model, thinking level and fallback `--config=` come from the folder's `agent.toml` on `origin/main`.
+A folder without an `agent.toml`, such as Tika's, gets no profile. Herdr, Astra, Fable and Haiku keep their runtimes. If a new profile has no runtime registered on the daemon yet, that agent fails with instructions to restart the daemon and run the sync again.

@@ -4,10 +4,12 @@
 # ///
 """Sync the agents and workers of the agents repo to local omp agents.
 
-Source configuration comes from origin/main in the agents repo. The contract is
-specs/multica-agents.md. Run by hand; --dry-run previews every API and overlay
-write. --adopt NAME allows one named unmanaged agent to join the sync. Squads
-are outside this tool.
+Source configuration comes from origin/main in the agents repo. Each agent runs
+on its own runtime profile, whose command is its alias in ~/.local/bin, so a
+run starts the agent the way its alias does by hand. The contract is
+specs/multica-agents.md. Run by hand, with the Multica daemon running;
+--dry-run previews every API, pin and overlay write. --adopt NAME allows one
+named unmanaged agent to join the sync. Squads are outside this tool.
 """
 
 from __future__ import annotations
@@ -35,7 +37,13 @@ MAIN_REF = "refs/remotes/origin/main"
 SOURCES = (":(glob)*/agent.toml", ":(glob)*/AGENTS.md")
 # The folder names of workers start with their level.
 WORKER_LEVELS = ("junior-", "medior-", "senior-")
-CONFIG = Path.home() / ".multica" / "profiles" / "local" / "config.json"
+MULTICA_HOME = Path.home() / ".multica"
+CONFIG = MULTICA_HOME / "profiles" / "local" / "config.json"
+# The `multica` CLI the sync asks for the daemon's status and pins profile paths with.
+MULTICA_CLI = "multica"
+# The folder `tools/symlinks.sh` of the agents repo puts every agent's alias in.
+ALIASES = Path.home() / ".local" / "bin"
+PROFILE_RUNTIME_TYPE = "omp"
 # The fallback overlays the sync writes, one per agent with more than one model: derived state, outside the agents repo.
 FALLBACK_DIR = Path.home() / ".local" / "state" / "madspec" / "multica"
 MARKER = "MADSPEC_PERSONA"
@@ -44,8 +52,8 @@ WORKER_MARKER = "MADSPEC_WORKER"
 KEEP_ENV = "****"
 # omp's thinking levels.
 THINKING_LEVELS = {"off", "minimal", "low", "medium", "high", "xhigh", "max"}
-AGENT_FIELDS = ("name", "description", "instructions", "instruction_selection", "model", "thinking_level", "custom_args")
 OPEN_TO_WORKSPACE = {"visibility": "workspace", "permission_mode": "public_to", "invocation_targets": [{"target_type": "workspace"}]}
+NO_RUNTIME = "its runtime profile has no runtime on the running daemon; restart the daemon, then run the sync again"
 
 
 @dataclass(frozen=True)
@@ -55,8 +63,6 @@ class Persona:
     command: str
     name: str
     description: str
-    instructions: str
-    instruction_selection: list[str]
     model: str
     thinking_level: str
     custom_args: list[str]
@@ -65,7 +71,12 @@ class Persona:
     source: str = ""
 
     def fields(self) -> dict[str, object]:
-        return {key: getattr(self, key) for key in AGENT_FIELDS}
+        """The agent fields every sync keeps equal to the folder."""
+        return {"name": self.name, "description": self.description, "instructions": "", "instruction_selection": [], "custom_args": self.custom_args}
+
+    def seed(self) -> dict[str, str]:
+        """The fields only a new agent takes from the folder: Multica owns them afterwards."""
+        return {"model": self.model, "thinking_level": self.thinking_level}
 
 
 class ApiError(Exception):
@@ -83,10 +94,12 @@ def main() -> int:
     parser.add_argument("--adopt", action="append", default=[], metavar="NAME", help="manage one existing same-name agent; repeat for each name")
     args = parser.parse_args()
     try:
-        api = Multica(load_config(CONFIG))
+        config = load_config(CONFIG)
+        api = Multica(config)
+        machine = Machine(config["server_url"], config["workspace_id"])
         with tempfile.TemporaryDirectory(prefix="multica-sync-") as tree:
             export_main(OFFICES, Path(tree))
-            return Sync(api, Path(tree), OFFICES, dry_run=args.dry_run, adopt=args.adopt).run(args.persona)
+            return Sync(api, Path(tree), machine, dry_run=args.dry_run, adopt=args.adopt).run(args.persona)
     except (ApiError, ValueError, OSError) as error:
         print(f"failed: {error}", file=sys.stderr, flush=True)
         return 1
@@ -157,7 +170,7 @@ def overlay_text(source: str, chain: dict[str, list[str]]) -> str:
     return "\n".join(lines) + "\n"
 
 
-def read_persona(folder: Path, checkout: Path) -> Persona:
+def read_persona(folder: Path) -> Persona:
     """The agent the folder's `agent.toml` and `AGENTS.md` define.
 
     Raises ValueError when `agent.toml` is unreadable, has no name or no models, or `AGENTS.md` is missing.
@@ -175,14 +188,11 @@ def read_persona(folder: Path, checkout: Path) -> Persona:
         raise ValueError(f"{source} has no models")
     if not (folder / "AGENTS.md").is_file():
         raise ValueError(f"{command}/AGENTS.md does not exist")
-    instructions = checkout / command / "AGENTS.md"
     model, thinking_level = split_model(models[0])
     return Persona(
         command=command,
         name=name,
         description=title,
-        instructions="<SystemIdentity>\n{selection}\n</SystemIdentity>",
-        instruction_selection=[str(instructions)],
         model=model,
         thinking_level=thinking_level,
         custom_args=[f"--config={fallback_overlay(command)}"] if fallback_chain(models) else [],
@@ -192,7 +202,7 @@ def read_persona(folder: Path, checkout: Path) -> Persona:
     )
 
 
-def read_personas(tree: Path, checkout: Path) -> tuple[dict[str, Persona], dict[str, str]]:
+def read_personas(tree: Path) -> tuple[dict[str, Persona], dict[str, str]]:
     """Every agent of the tree by folder name, and the folders that failed with why.
 
     A folder is an agent when it holds an `agent.toml`.
@@ -203,7 +213,7 @@ def read_personas(tree: Path, checkout: Path) -> tuple[dict[str, Persona], dict[
         if not (folder / "agent.toml").is_file():
             continue
         try:
-            found[folder.name] = read_persona(folder, checkout)
+            found[folder.name] = read_persona(folder)
         except ValueError as error:
             problems[folder.name] = str(error)
     return found, problems
@@ -212,14 +222,16 @@ def read_personas(tree: Path, checkout: Path) -> tuple[dict[str, Persona], dict[
 # --- Comparing with Multica ---
 
 
-def omp_runtime(runtimes: list[dict]) -> str:
-    """The id of the one runtime with provider omp in local mode."""
-    found = [runtime for runtime in runtimes if runtime.get("provider") == "omp" and runtime.get("runtime_mode") == "local"]
-    if len(found) == 1:
-        return found[0]["id"]
-    shown = found or runtimes
-    listing = ", ".join(f"{runtime.get('name')} ({runtime.get('provider')}, {runtime.get('runtime_mode')})" for runtime in shown)
-    raise ValueError(f"need one local omp runtime, found {len(found)}; runtimes: {listing or 'none'}")
+def profile_runtime(runtimes: list[dict], profile_id: str, daemon_id: str) -> str | None:
+    """The local runtime the running daemon registered for a runtime profile."""
+    return next(
+        (
+            runtime["id"]
+            for runtime in runtimes
+            if runtime.get("profile_id") == profile_id and runtime.get("daemon_id") == daemon_id and runtime.get("runtime_mode") == "local"
+        ),
+        None,
+    )
 
 
 def match_agent(persona: Persona, agents: list[dict], markers: dict[str, str], adopt: bool = False) -> tuple[dict | None, bool]:
@@ -238,8 +250,13 @@ def match_agent(persona: Persona, agents: list[dict], markers: dict[str, str], a
 
 
 def agent_changes(agent: dict, persona: Persona) -> dict[str, object]:
-    """The fields the agent differs in, with the persona's values."""
-    current = {**agent, "custom_args": agent.get("custom_args") or []}
+    """The fields the agent differs in, with the persona's values; never its model or thinking level."""
+    current = {
+        **agent,
+        "instructions": agent.get("instructions") or "",
+        "instruction_selection": agent.get("instruction_selection") or [],
+        "custom_args": agent.get("custom_args") or [],
+    }
     return {key: value for key, value in persona.fields().items() if current.get(key) != value}
 
 
@@ -283,6 +300,7 @@ class Multica:
 
     def __init__(self, config: dict[str, str]) -> None:
         self.url = config["server_url"].rstrip("/")
+        self.workspace_id = config["workspace_id"]
         self.headers = {
             "Authorization": f"Bearer {config['token']}",
             "X-Workspace-ID": config["workspace_id"],
@@ -310,13 +328,80 @@ def reason(raw: bytes) -> str:
         return text
 
 
+class Machine:
+    """This machine's Multica daemon and CLI configs, through the `multica` CLI."""
+
+    def __init__(self, server_url: str, workspace_id: str, home: Path = MULTICA_HOME, cli: str = MULTICA_CLI) -> None:
+        self.server_url = server_url.rstrip("/")
+        self.workspace_id = workspace_id
+        self.home = home
+        self.cli = cli
+
+    def running_daemon(self) -> dict | None:
+        """The status of the daemon running against the sync's server and workspace: the
+        default CLI profile's, else the one among the CLI profiles in `<home>/profiles`.
+
+        None when no daemon serves them; raises ValueError when more than one does.
+        """
+        status = self.daemon_status("")
+        if self.serves(status):
+            return status
+        folder = self.home / "profiles"
+        profiles = sorted(path.name for path in folder.iterdir() if path.is_dir()) if folder.is_dir() else []
+        found = {status["daemon_id"]: status for status in map(self.daemon_status, profiles) if self.serves(status)}
+        if len(found) > 1:
+            listed = ", ".join(sorted(str(status.get("profile")) for status in found.values()))
+            raise ValueError(f"more than one Multica daemon serves {self.server_url} workspace {self.workspace_id}: profiles {listed}")
+        return next(iter(found.values()), None)
+
+    def serves(self, status: dict) -> bool:
+        return (
+            status.get("status") == "running"
+            and bool(status.get("daemon_id"))
+            and str(status.get("server_url", "")).rstrip("/") == self.server_url
+            and any(workspace.get("id") == self.workspace_id for workspace in status.get("workspaces") or [])
+        )
+
+    def daemon_status(self, profile: str) -> dict:
+        """`multica daemon status --output json` of a CLI profile; empty when it cannot be read."""
+        try:
+            result = subprocess.run([self.cli, *self.profile_flag(profile), "daemon", "status", "--output", "json"], capture_output=True, check=False)
+            status = json.loads(result.stdout)
+        except (OSError, ValueError):
+            return {}
+        return status if result.returncode == 0 and isinstance(status, dict) else {}
+
+    def pinned(self, profile: str, profile_id: str) -> str | None:
+        """The executable path the CLI config of a profile pins a runtime profile to."""
+        path = self.home / "config.json" if profile == "" else self.home / "profiles" / profile / "config.json"
+        try:
+            config = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return None
+        return (config.get("profile_command_overrides") or {}).get(profile_id) if isinstance(config, dict) else None
+
+    def pin(self, profile: str, profile_id: str, path: Path) -> None:
+        """Pin a runtime profile's executable in the CLI config of a profile; raises ValueError when the CLI fails."""
+        command = [self.cli, *self.profile_flag(profile), "runtime", "profile", "set-path", profile_id, "--path", str(path)]
+        try:
+            subprocess.run(command, capture_output=True, check=True)
+        except subprocess.CalledProcessError as error:
+            raise ValueError(f"runtime profile set-path {profile_id}: {error.stderr.decode('utf-8', errors='replace').strip()}") from error
+        except OSError as error:
+            raise ValueError(f"runtime profile set-path {profile_id}: {error}") from error
+
+    @staticmethod
+    def profile_flag(profile: str) -> list[str]:
+        return ["--profile", profile] if profile else []
+
+
 class Sync:
     """One run of the sync against Multica."""
 
-    def __init__(self, api: Multica, tree: Path, checkout: Path, *, dry_run: bool = False, adopt: list[str] | None = None) -> None:
+    def __init__(self, api: Multica, tree: Path, machine: Machine, *, dry_run: bool = False, adopt: list[str] | None = None) -> None:
         self.api = api
         self.tree = tree
-        self.checkout = checkout
+        self.machine = machine
         self.failed = False
         self.dry_run = dry_run
         self.adopt = set(adopt or [])
@@ -334,7 +419,7 @@ class Sync:
         print(f"failed: {line}", file=sys.stderr, flush=True)
 
     def run(self, target: str | None) -> int:
-        found, problems = read_personas(self.tree, self.checkout)
+        found, problems = read_personas(self.tree)
         for command, problem in problems.items():
             if target is None or target.lower() == command:
                 self.fail(f"persona {command}: {problem}")
@@ -349,16 +434,57 @@ class Sync:
             self.fail(f"no selected persona or worker is named {name}")
         if self.failed and self.adopt - names:
             return 1
-        runtime = omp_runtime(self.api.call("GET", "/api/runtimes"))
+        try:
+            daemon = self.machine.running_daemon()
+        except ValueError as error:
+            self.fail(str(error))
+            return 1
+        if daemon is None:
+            self.fail("the Multica daemon is not running; start it with `multica daemon start`, then run the sync again")
+            return 1
+        profiles = self.ensure_profiles(selected, str(daemon.get("profile") or ""))
+        runtimes = self.api.call("GET", "/api/runtimes")
         agents = self.api.call("GET", "/api/agents?include_archived=true")
         envs = self.read_envs(agents)
         markers = {agent_id: env.get(MARKER) or env[WORKER_MARKER] for agent_id, env in envs.items() if env.get(MARKER) or env.get(WORKER_MARKER)}
         for persona in selected:
-            self.sync_agent(persona, runtime, agents, markers, envs)
+            if persona.command in profiles:
+                profile_id = profiles[persona.command]
+                runtime = profile_runtime(runtimes, profile_id, daemon["daemon_id"]) if profile_id else None
+                self.sync_agent(persona, runtime, agents, markers, envs)
         if target is None:
             self.archive_gone(agents, markers, set(found) | set(problems))
             self.delete_overlays(found, named_overlays(agents))
         return 1 if self.failed else 0
+
+    def ensure_profiles(self, selected: list[Persona], daemon_profile: str) -> dict[str, str | None]:
+        """The runtime profile id of each persona by command, None for a profile a dry run would create.
+
+        A persona whose profile failed is left out.
+        """
+        path = f"/api/workspaces/{self.api.workspace_id}/runtime-profiles"
+        listed = self.api.call("GET", path).get("runtime_profiles") or []
+        ids: dict[str, str | None] = {}
+        for persona in selected:
+            alias = ALIASES / persona.command
+            try:
+                profile = next((profile for profile in listed if profile.get("command_name") == persona.command), None)
+                if profile is None:
+                    body = {"display_name": persona.name, "runtime_type": PROFILE_RUNTIME_TYPE, "command_name": persona.command}
+                    profile = self.write("POST", path, body)
+                    self.say(f"create runtime profile {persona.command}")
+                if profile is None:
+                    self.say(f"pin runtime profile {persona.command} to {alias}")
+                    ids[persona.command] = None
+                    continue
+                if self.machine.pinned(daemon_profile, profile["id"]) != str(alias):
+                    if not self.dry_run:
+                        self.machine.pin(daemon_profile, profile["id"], alias)
+                    self.say(f"pin runtime profile {persona.command} to {alias}; restart the daemon for the path to take effect")
+                ids[persona.command] = profile["id"]
+            except (ApiError, ValueError) as error:
+                self.fail(f"persona {persona.name}: {error}")
+        return ids
 
     def read_envs(self, agents: list[dict]) -> dict[str, dict[str, str]]:
         """The env of every agent that has one, by agent id."""
@@ -372,12 +498,15 @@ class Sync:
                 self.fail(f"agent {agent.get('name')}: {error}")
         return envs
 
-    def sync_agent(self, persona: Persona, runtime: str, agents: list[dict], markers: dict[str, str], envs: dict[str, dict[str, str]]) -> None:
+    def sync_agent(self, persona: Persona, runtime: str | None, agents: list[dict], markers: dict[str, str], envs: dict[str, dict[str, str]]) -> None:
         agent, take_over = match_agent(persona, agents, markers, persona.name in self.adopt)
         if agent is None and any(item.get("name") == persona.name and item["id"] not in markers for item in agents):
             self.fail(f"agent {persona.name}: unmanaged name conflict; use --adopt with one unambiguous name")
             return
         if agent is not None and agent.get("has_custom_env") and agent["id"] not in envs:
+            return
+        if runtime is None:
+            self.fail(f"persona {persona.name}: {NO_RUNTIME}")
             return
         if not self.write_overlay(persona):
             return
@@ -386,7 +515,7 @@ class Sync:
                 if any(item.get("has_custom_env") and item["id"] not in envs for item in agents):
                     self.fail(f"persona {persona.name}: cannot identify an existing agent while an environment is unreadable")
                     return
-                agent = self.write("POST", "/api/agents", {**persona.fields(), "runtime_id": runtime, **OPEN_TO_WORKSPACE})
+                agent = self.write("POST", "/api/agents", {**persona.fields(), **persona.seed(), "runtime_id": runtime, **OPEN_TO_WORKSPACE})
                 self.say(f"create agent {persona.name}")
                 if agent is not None:
                     self.write("PUT", f"/api/agents/{agent['id']}/env", {"custom_env": {persona.marker: persona.command}})

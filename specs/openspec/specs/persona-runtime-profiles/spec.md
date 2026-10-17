@@ -2,17 +2,17 @@
 
 ## Purpose
 
-Run each MadSpec persona through its office alias while keeping model and thinking choices made in Multica.
+Run each agent and worker of the agents repo through its alias while keeping model and thinking choices made in Multica.
 
 ## Requirements
 
-### Requirement: A runtime profile for each persona agent
+### Requirement: A runtime profile for each agent
 
-The persona sync SHALL give Skuddy, Mitchel, Pieter, Pit, Edwin, Anouk, Joeri, Thomas, Guus, Sarkout, Hermila and Paul each a runtime profile whose command is the agent's alias and whose runtime type is the agent's kind, omp today, and SHALL put each of them that exists as a Multica agent on its profile. Tika MUST NOT get a profile, and Herdr, Astra, Fable and Haiku SHALL keep their runtimes.
+The persona sync SHALL give every folder of the agents repo with an `agent.toml`, workers included, a runtime profile whose command is the folder's alias and whose runtime type is omp, and SHALL put the folder's Multica agent on it. A folder without an `agent.toml`, such as Tika's, MUST NOT get a profile, and Herdr, Astra, Fable and Haiku SHALL keep their runtimes.
 
 #### Scenario: Mitchel's profile
 
-- **GIVEN** Mitchel's office alias is available
+- **GIVEN** Mitchel's alias is available
 - **WHEN** the sync runs
 - **THEN** a runtime profile with command `mitchel` and runtime type omp exists
 - **AND** the agent Mitchel runs on it
@@ -23,18 +23,16 @@ The persona sync SHALL give Skuddy, Mitchel, Pieter, Pit, Edwin, Anouk, Joeri, T
 - **WHEN** the sync runs
 - **THEN** the profile `guus` exists again and Guus runs on it
 
-#### Scenario: Paul's approved persona is in MadSpec
+#### Scenario: A new agent keeps its Multica edits
 
-- **GIVEN** Multica has no agent Paul, his git-backed office has no persona skill, and MadSpec holds the approved `as-ai-engineer` skill whose agent name is Paul
+- **GIVEN** Multica has no agent Paul and `paul/agent.toml` names his models
 - **WHEN** the full sync runs with the profile runtime registered
-- **THEN** a runtime profile with command `paul` and runtime type omp exists
-- **AND** an active agent Paul runs on it, seeded from the approved persona model and thinking level
-- **AND** the alias loads that same approved persona through the shared office roster
-- **AND** later syncs preserve model and thinking edits made in Multica and leave Roos archived
+- **THEN** an active agent Paul runs on his profile, seeded from the first entry of his models
+- **AND** later syncs preserve model and thinking edits made in Multica and leave archived agents archived
 
 #### Scenario: The helper agents
 
-- **GIVEN** Herdr, Astra, Fable and Haiku have runtimes and Tika is a member
+- **GIVEN** Herdr, Astra, Fable and Haiku have runtimes and Tika's folder has no `agent.toml`
 - **WHEN** the sync runs
 - **THEN** Herdr, Astra, Fable and Haiku run on the runtimes they ran on before
 - **AND** no profile exists for Tika
