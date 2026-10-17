@@ -204,7 +204,9 @@ describe("AnswerAllPage with a question from Brian's chat", () => {
   it("lets Anouk answer it and wake Pieter in Brian's chat", async () => {
     renderPage("question=q-chat");
 
-    fireEvent.click(await screen.findByRole("button", { name: /Accept suggestion/ }));
+    // Her last open question offers Wake Pieter with the answer; unchecked, the wake bar wakes him later.
+    fireEvent.click(await screen.findByRole("checkbox", { name: "Wake Pieter" }));
+    fireEvent.click(screen.getByRole("button", { name: /Accept suggestion/ }));
     await waitFor(() => expect(api.answerQuestion).toHaveBeenCalledWith("q-chat", expect.objectContaining({ value: { option: "Per invoice line" } })));
     expect(api.answerQuestion.mock.calls[0]![1]).not.toHaveProperty("wake");
 
