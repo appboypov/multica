@@ -1,4 +1,4 @@
--- Reverse 746: restore 745's issue-only cutoff.
+-- Reverse 747: restore 745's issue-only cutoff.
 DROP FUNCTION question_wake_answer_cutoff(uuid, uuid, uuid, uuid, uuid, timestamptz);
 
 CREATE FUNCTION question_wake_answer_cutoff(

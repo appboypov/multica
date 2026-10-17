@@ -1,7 +1,7 @@
--- Reverse 745: restore migration 710's CHECKs on question_link.link_type and
+-- Reverse 746: restore migration 710's CHECKs on question_link.link_type and
 -- question_event.kind and migration 575's on question.status. The narrower
 -- CHECKs refuse the rows written under the wider ones, so clear them first:
--- cancelled questions become withdrawn, the nearest end status before 745,
+-- cancelled questions become withdrawn, the nearest end status before 746,
 -- and cancelled events and chat links are deleted. Rollback loses who
 -- cancelled, the cancel note and the chat a question was asked in; those
 -- questions keep their answers and the run link every ask writes.

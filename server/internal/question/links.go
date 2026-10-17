@@ -6,7 +6,7 @@ import (
 )
 
 // Link types of question_link.link_type (design.md decision 1, migrations 710
-// and 745). A sub-issue is an issue link to an issue with a parent; a run is a
+// and 746). A sub-issue is an issue link to an issue with a parent; a run is a
 // task link; a chat is a chat session, where a question asked in a chat turn
 // is asked.
 const (
