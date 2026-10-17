@@ -1,0 +1,13 @@
+profile: multica
+sync:
+  delete: true
+  gitSeed: true
+  exclude:
+    - node_modules
+    - .env
+    - .env.worktree
+run:
+  preflightTools:
+    - go
+    - node
+    - npm
