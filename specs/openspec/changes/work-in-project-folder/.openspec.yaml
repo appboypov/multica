@@ -1,2 +1,8 @@
 schema: intent-driven
 created: 2026-10-17
+build:
+  status: 'ready-for-dev'
+  type: 'feature'
+  ticket: 'WORK-1327'
+  context:
+    - '{project-root}/AGENTS.md'
