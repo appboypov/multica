@@ -3,11 +3,12 @@
 -- notices untouched. Creator migration 753 runs first.
 -- A question's issue is the first issue its links reach, through an issue,
 -- comment or task link, as the live listener reads it; one that reaches none
--- carries its ask's title or prompt.
+-- carries its ask's title or prompt. Its actor is the member or agent who asked.
 INSERT INTO todo (workspace_id, member_id, kind, source_key, issue_id,
                   question_id, actor_type, actor_id, title, body, created_at)
 SELECT q.workspace_id, qa.user_id, 'question', q.id::text, i.id,
-       q.id, 'agent', q.asker_agent_id, COALESCE(i.title, q.ask_title, q.prompt), q.prompt, q.created_at
+       q.id, CASE WHEN q.asker_user_id IS NOT NULL THEN 'member' ELSE 'agent' END,
+       COALESCE(q.asker_user_id, q.asker_agent_id), COALESCE(i.title, q.ask_title, q.prompt), q.prompt, q.created_at
 FROM question q
 JOIN question_answerer qa ON qa.question_id = q.id AND qa.workspace_id = q.workspace_id
 JOIN member m ON m.workspace_id = q.workspace_id AND m.user_id = qa.user_id
@@ -47,9 +48,10 @@ WHERE i.creator_type = 'member' AND i.status = 'in_review'
   AND NOT COALESCE(i.assignee_type = 'member' AND i.assignee_id = i.creator_id, false)
 ON CONFLICT (workspace_id, member_id, kind, source_key) WHERE done_at IS NULL DO NOTHING;
 
--- Read the latest run and attribute it to its originator, accountable member,
--- source run's originator, then source run's accountable member.
--- A later status change closes the failure, as it does live.
+-- Read the latest run that failed or was dispatched, and attribute it to its
+-- originator, accountable member, source run's originator, then source run's
+-- accountable member. A newer run closes the failure only once dispatched, and
+-- a later status change closes it too, as both do live.
 INSERT INTO todo (workspace_id, member_id, kind, source_key, issue_id, task_id,
                   actor_type, actor_id, title, created_at)
 SELECT i.workspace_id, m.user_id, 'run_failed', t.id::text, i.id, t.id,
@@ -59,6 +61,7 @@ JOIN LATERAL (
     SELECT t.* FROM agent_task_queue t
     JOIN agent a ON a.id = t.agent_id AND a.workspace_id = i.workspace_id
     WHERE t.issue_id = i.id
+      AND (t.status = 'failed' OR COALESCE(t.dispatched_at, t.started_at) IS NOT NULL)
     ORDER BY t.created_at DESC, t.id DESC LIMIT 1
 ) t ON t.status = 'failed'
 LEFT JOIN agent_task_queue source ON source.id = t.delegated_from_task_id

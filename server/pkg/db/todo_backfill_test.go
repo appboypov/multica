@@ -141,6 +141,36 @@ func TestTodoBackfillQuestionThroughComment(t *testing.T) {
 	}
 }
 
+func TestTodoBackfillQuestionAsker(t *testing.T) {
+	fx, _ := todoFixture(t)
+	member := fx.User(t, "Asking member", "asker-"+dbid.NewV7().String()+"@example.test")
+	fx.Member(t, fx.WorkspaceID, member, "member")
+	agent := dbid.NewV7().String()
+	askers := []struct {
+		actorType, actorID string
+		cols               testutil.Cols
+	}{
+		{"member", member, testutil.Cols{"asker_user_id": member}},
+		{"agent", agent, testutil.Cols{"asker_agent_id": agent, "asked_in_task_id": dbid.NewV7()}},
+	}
+	questions := make([]string, len(askers))
+	for index, asker := range askers {
+		id := dbid.NewV7()
+		cols := testutil.Cols{"id": id, "workspace_id": fx.WorkspaceID, "ask_id": id, "ask_position": 0, "prompt": "Approve?", "answer_type": "approval", "status": "open"}
+		for key, value := range asker.cols {
+			cols[key] = value
+		}
+		questions[index] = fx.Insert(t, "question", cols)
+		fx.InsertNoID(t, "question_answerer", testutil.Cols{"workspace_id": fx.WorkspaceID, "question_id": questions[index], "user_id": fx.UserID}, "question_id=$1 AND user_id=$2", questions[index], fx.UserID)
+	}
+	tx := applyTodoBackfill(t, fx)
+	for index, asker := range askers {
+		if got := backfillCount(t, tx, `SELECT count(*) FROM todo WHERE workspace_id=$1 AND member_id=$2 AND question_id=$3 AND actor_type=$4 AND actor_id=$5 AND done_at IS NULL`, fx.WorkspaceID, fx.UserID, questions[index], asker.actorType, asker.actorID); got != 1 {
+			t.Errorf("%s-asked question has %d to-dos naming its asker, want 1", asker.actorType, got)
+		}
+	}
+}
+
 func TestTodoBackfillAgentFailures(t *testing.T) {
 	fx, _ := todoFixture(t)
 	runtime := fx.Runtime(t, "Backfill runtime")
@@ -155,7 +185,10 @@ func TestTodoBackfillAgentFailures(t *testing.T) {
 	fx.Insert(t, "activity_log", testutil.Cols{"workspace_id": fx.WorkspaceID, "issue_id": movedIssue, "actor_type": "member", "actor_id": fx.UserID, "action": "status_changed", "details": `{"from":"in_progress","to":"done"}`, "created_at": now.Add(-10 * time.Minute)})
 	resumedIssue := fx.Issue(t, "Resumed")
 	stale := backfillTask(t, fx, agent, runtime, testutil.Cols{"issue_id": resumedIssue, "status": "failed", "created_at": now.Add(-2 * time.Hour)})
-	backfillTask(t, fx, agent, runtime, testutil.Cols{"issue_id": resumedIssue, "status": "completed", "created_at": now.Add(-time.Hour)})
+	backfillTask(t, fx, agent, runtime, testutil.Cols{"issue_id": resumedIssue, "status": "completed", "created_at": now.Add(-time.Hour), "dispatched_at": now.Add(-time.Hour)})
+	retryIssue := fx.Issue(t, "Retry not started")
+	awaitingRetry := backfillTask(t, fx, agent, runtime, testutil.Cols{"issue_id": retryIssue, "status": "failed", "created_at": now.Add(-2 * time.Hour), "completed_at": now.Add(-90 * time.Minute)})
+	backfillTask(t, fx, agent, runtime, testutil.Cols{"issue_id": retryIssue, "status": "queued", "created_at": now.Add(-time.Hour)})
 	unattributedIssue := fx.Issue(t, "No human")
 	unattributed := backfillTask(t, fx, agent, runtime, testutil.Cols{"issue_id": unattributedIssue, "status": "failed", "originator_user_id": nil, "accountable_user_id": nil})
 	blocked := func(assigneeType, assigneeID, actorType string, resumed bool) string {
@@ -181,6 +214,7 @@ func TestTodoBackfillAgentFailures(t *testing.T) {
 	wantBackfilled(t, tx, fx, "run_failed", failed, 1)
 	wantBackfilled(t, tx, fx, "run_failed", moved, 0)
 	wantBackfilled(t, tx, fx, "run_failed", stale, 0)
+	wantBackfilled(t, tx, fx, "run_failed", awaitingRetry, 1)
 	wantBackfilled(t, tx, fx, "run_failed", unattributed, 0)
 	wantBackfilled(t, tx, fx, "agent_blocked", agentBlocked, 1)
 	wantBackfilled(t, tx, fx, "agent_blocked", squadBlocked, 1)
