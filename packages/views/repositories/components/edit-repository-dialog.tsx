@@ -22,16 +22,18 @@ import {
   DialogTitle,
 } from "@multica/ui/components/ui/dialog";
 import { Label } from "@multica/ui/components/ui/label";
+import { Switch } from "@multica/ui/components/ui/switch";
 import { useT } from "../../i18n";
 import { CheckoutField, type CheckoutValue } from "./checkout-field";
 import { ReleasesField } from "./releases-field";
 import { InstallField } from "./install-field";
 
 /**
- * Edit repository: the repository stays fixed; its Checkout, Releases and
- * Install are filled in. Save sends a check id only when the checkout changed,
- * and then only once the new checkout passes its check. The check runs on open,
- * so a repository from before install commands gets the command it finds.
+ * Edit repository: the repository stays fixed; its Checkout, Releases, Install
+ * and Work in the project folder are filled in. Save sends a check id only
+ * when the checkout changed, and then only once the new checkout passes its
+ * check. The check runs on open, so a repository from before install commands
+ * gets the command it finds.
  */
 export function EditRepositoryDialog({
   onClose,
@@ -71,6 +73,9 @@ function EditRepositoryForm({
   const [check, setCheck] = useState<RepositoryCheckoutRequest | null>(null);
   const [policy, setPolicy] = useState<VersionPolicy | null>(repository.version_policy);
   const [install, setInstall] = useState<string | null>(repository.install_command);
+  // Null follows the saved value, so a change from elsewhere shows until the switch is flipped here.
+  const [workEdit, setWorkInCheckout] = useState<boolean | null>(null);
+  const workInCheckout = workEdit ?? repository.work_in_checkout;
   const [serverError, setServerError] = useState<string | null>(null);
   const wsId = useWorkspaceId();
   const { data: releases } = useQuery(releaseListOptions(wsId));
@@ -85,8 +90,9 @@ function EditRepositoryForm({
   const policyChanged = policy !== null && policy !== repository.version_policy;
   const stopsReleasingTooEarly = policy === "none" && unshipped.length > 0;
   const installChanged = install !== null && install.trim() !== repository.install_command;
+  const workChanged = workInCheckout !== repository.work_in_checkout;
   const canSave =
-    (checkoutChanged ? !!check?.passed : policyChanged || installChanged) &&
+    (checkoutChanged ? !!check?.passed : policyChanged || installChanged || workChanged) &&
     policy !== null &&
     !stopsReleasingTooEarly &&
     install !== null &&
@@ -101,6 +107,7 @@ function EditRepositoryForm({
         id: repository.id,
         version_policy: policy,
         install_command: install.trim(),
+        work_in_checkout: workInCheckout,
         ...(checkoutChanged && check ? { checkout_check_id: check.id } : {}),
       });
       onClose();
@@ -167,6 +174,15 @@ function EditRepositoryForm({
             onChange={setInstall}
             finding
           />
+
+          <div className="flex items-center justify-between gap-4">
+            <Label htmlFor="repository-work-in-checkout">{t(($) => $.edit.work_in_checkout)}</Label>
+            <Switch
+              id="repository-work-in-checkout"
+              checked={workInCheckout}
+              onCheckedChange={setWorkInCheckout}
+            />
+          </div>
 
           {serverError ? (
             <p role="alert" className="text-caption text-destructive">

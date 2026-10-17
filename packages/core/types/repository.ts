@@ -43,6 +43,11 @@ export interface Repository {
   install_command: string | null;
   /** null while not known, "" for no tag, otherwise a version without `v`. */
   last_tag: string | null;
+  /**
+   * "Work in the project folder": every issue task of the repository works in
+   * its checkout instead of a worktree (ADR-0031).
+   */
+  work_in_checkout: boolean;
 }
 
 export interface ListRepositoriesResponse {
@@ -79,6 +84,7 @@ export interface UpdateRepositoryRequest {
   checkout_check_id?: string;
   version_policy?: VersionPolicy;
   install_command?: string;
+  work_in_checkout?: boolean;
 }
 
 /** Starts a checkout check, or a clone then the check, on a runtime. */

@@ -15,7 +15,8 @@
     "submitting": "저장 중…",
     "cancel": "취소",
     "toast_saved": "{{name}}을(를) 저장했습니다",
-    "failed": "저장소를 저장하지 못했습니다"
+    "failed": "저장소를 저장하지 못했습니다",
+    "work_in_checkout": "프로젝트 폴더에서 작업"
   },
   "picker": {
     "label": "저장소",

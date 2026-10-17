@@ -1582,6 +1582,8 @@ export const RepositorySchema: z.ZodType<Repository> = z.object({
   // commands starts the check that finds it.
   install_command: z.string().nullable().default(null),
   last_tag: z.string().nullable().default(null),
+  // Off for a repository from a server before the setting.
+  work_in_checkout: z.boolean().catch(false),
 }).loose();
 
 export const EMPTY_REPOSITORY: Repository = {
@@ -1600,6 +1602,7 @@ export const EMPTY_REPOSITORY: Repository = {
   version_policy: "none",
   install_command: null,
   last_tag: null,
+  work_in_checkout: false,
 };
 
 export const ListRepositoriesResponseSchema = z.object({

@@ -16,7 +16,8 @@
     "submitting": "Saving…",
     "cancel": "Cancel",
     "toast_saved": "{{name}} saved",
-    "failed": "Could not save the repository"
+    "failed": "Could not save the repository",
+    "work_in_checkout": "Work in the project folder"
   },
   "picker": {
     "label": "Repository",

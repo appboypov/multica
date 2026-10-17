@@ -16,7 +16,8 @@
     "submitting": "Enregistrement…",
     "cancel": "Annuler",
     "toast_saved": "{{name}} enregistré",
-    "failed": "Impossible d'enregistrer le dépôt"
+    "failed": "Impossible d'enregistrer le dépôt",
+    "work_in_checkout": "Travailler dans le dossier du projet"
   },
   "picker": {
     "label": "Dépôt",

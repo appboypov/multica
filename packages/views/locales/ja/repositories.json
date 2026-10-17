@@ -15,7 +15,8 @@
     "submitting": "保存中…",
     "cancel": "キャンセル",
     "toast_saved": "{{name}} を保存しました",
-    "failed": "リポジトリを保存できませんでした"
+    "failed": "リポジトリを保存できませんでした",
+    "work_in_checkout": "プロジェクトフォルダで作業"
   },
   "picker": {
     "label": "リポジトリ",

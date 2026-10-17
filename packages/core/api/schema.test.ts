@@ -62,6 +62,25 @@ describe("ApiClient schema fallback", () => {
     });
   });
 
+  describe("listRepositories", () => {
+    it("reads Work in the project folder as off when it is missing or malformed", async () => {
+      stubFetchJson({
+        repositories: [
+          { id: "repo-old", workspace_id: "ws-1", project_id: "p-1", full_name: "test/old" },
+          { id: "repo-bad", workspace_id: "ws-1", project_id: "p-1", full_name: "test/bad", work_in_checkout: "yes" },
+          { id: "repo-on", workspace_id: "ws-1", project_id: "p-1", full_name: "test/on", work_in_checkout: true },
+        ],
+      });
+      const client = new ApiClient("https://api.example.test");
+      const { repositories } = await client.listRepositories();
+      expect(repositories.map((r) => [r.id, r.work_in_checkout])).toEqual([
+        ["repo-old", false],
+        ["repo-bad", false],
+        ["repo-on", true],
+      ]);
+    });
+  });
+
   describe("listTimeline", () => {
     it("falls back to an empty array when the body is null", async () => {
       stubFetchJson(null);

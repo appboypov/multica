@@ -15,7 +15,8 @@
     "submitting": "正在保存…",
     "cancel": "取消",
     "toast_saved": "已保存 {{name}}",
-    "failed": "无法保存仓库"
+    "failed": "无法保存仓库",
+    "work_in_checkout": "在项目文件夹中工作"
   },
   "picker": {
     "label": "仓库",
