@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -26,6 +27,12 @@ func (s *IssueWakeupService) dispatchRelease(ctx context.Context, prev db.IssueW
 	}
 	if err != nil {
 		return err
+	}
+	skip := func(reason string) {
+		slog.Info("release coordination skipped", "release_id", util.UUIDToString(snapshot.ID), "wakeup_id", util.UUIDToString(prev.ID), "reason", reason)
+	}
+	drop := func(reason string, facts int) {
+		slog.Warn("release coordination dropped facts", "release_id", util.UUIDToString(snapshot.ID), "wakeup_id", util.UUIDToString(prev.ID), "reason", reason, "facts", facts)
 	}
 	candidate, _, candidateErr := ResolveReleaseTaskOwner(ctx, s.Tasks.Queries, snapshot)
 	if candidateErr != nil && !errors.Is(candidateErr, ErrReleaseOwnerUnavailable) {
@@ -81,6 +88,7 @@ func (s *IssueWakeupService) dispatchRelease(ctx context.Context, prev db.IssueW
 			return err
 		}
 		if !fenced {
+			skip("owner rows are being torn down")
 			return tx.Commit(ctx)
 		}
 	}
@@ -92,6 +100,7 @@ func (s *IssueWakeupService) dispatchRelease(ctx context.Context, prev db.IssueW
 		return err
 	}
 	if w.Revision != prev.Revision || w.DisabledAt.Valid || rel.ShippedAt.Valid {
+		skip("rule changed, disabled or release shipped")
 		return tx.Commit(ctx)
 	}
 	var now time.Time
@@ -120,6 +129,7 @@ func (s *IssueWakeupService) dispatchRelease(ctx context.Context, prev db.IssueW
 		return tx.Commit(ctx)
 	}
 	if ownerErr != nil {
+		drop("release has no runnable owner", len(receipts))
 		if err = q.ConsumeWakeupReceipts(ctx, db.ConsumeWakeupReceiptsParams{Ids: receiptIDs(receipts)}); err != nil {
 			return err
 		}
@@ -137,6 +147,7 @@ func (s *IssueWakeupService) dispatchRelease(ctx context.Context, prev db.IssueW
 	}
 	if err == nil && pending.Status != "queued" {
 		// Input is frozen at dispatch; facts remain undelivered for the next turn.
+		skip("pending run already dispatched")
 		if err = advance(w.LastTaskID); err != nil {
 			return err
 		}
@@ -149,12 +160,14 @@ func (s *IssueWakeupService) dispatchRelease(ctx context.Context, prev db.IssueW
 	if candidate.ID != agent.ID || candidate.RuntimeID != agent.RuntimeID || prepared != attr || preparedTrigger != triggerComment {
 		// Credentials were prepared before locks. A newer deliberate trigger
 		// keeps its receipts until its complete authority can be prepared.
+		skip("owner or trigger changed while preparing the run")
 		if err = advance(w.LastTaskID); err != nil {
 			return err
 		}
 		return tx.Commit(ctx)
 	}
 	if !CanMemberInvokeAgent(ctx, q, agent, attr.UserID, rel.WorkspaceID) {
+		drop("trigger principal cannot invoke the owner", len(receipts))
 		if err = q.ConsumeWakeupReceipts(ctx, db.ConsumeWakeupReceiptsParams{Ids: receiptIDs(receipts)}); err != nil {
 			return err
 		}
@@ -163,20 +176,28 @@ func (s *IssueWakeupService) dispatchRelease(ctx context.Context, prev db.IssueW
 		}
 		return tx.Commit(ctx)
 	}
-	var recent int64
-	if err = tx.QueryRow(ctx, "SELECT count(*) FROM agent_task_queue WHERE release_id=$1 AND created_at>$2", rel.ID, now.Add(-time.Hour)).Scan(&recent); err != nil {
-		return err
-	}
-	if !pending.ID.Valid && recent >= wakeupHourlyRunLimit {
-		if err = q.PauseIssueWakeup(ctx, db.PauseIssueWakeupParams{ID: w.ID, PausedReason: pgtype.Text{String: wakeupPausedRate, Valid: true}, BlockRuns: true}); err != nil {
+	if !pending.ID.Valid {
+		// The limit-th newest run of the last hour ages out first; until then the
+		// facts stay pending and the rule rests, so it resumes on its own.
+		var limitedSince time.Time
+		err = tx.QueryRow(ctx, "SELECT created_at FROM agent_task_queue WHERE release_id=$1 AND created_at>$2 ORDER BY created_at DESC OFFSET $3 LIMIT 1", rel.ID, now.Add(-time.Hour), wakeupHourlyRunLimit-1).Scan(&limitedSince)
+		if err == nil {
+			resume := limitedSince.Add(time.Hour)
+			slog.Info("release coordination deferred by hourly run limit", "release_id", util.UUIDToString(rel.ID), "wakeup_id", util.UUIDToString(w.ID), "limit", wakeupHourlyRunLimit, "resume_at", resume)
+			if err = q.AdvanceIssueWakeup(ctx, db.AdvanceIssueWakeupParams{ID: w.ID, Enabled: enabled, NextFireAt: pgtype.Timestamptz{Time: resume, Valid: true}, LastTaskID: w.LastTaskID}); err != nil {
+				return err
+			}
+			return tx.Commit(ctx)
+		}
+		if !errors.Is(err, pgx.ErrNoRows) {
 			return err
 		}
-		return tx.Commit(ctx)
 	}
 	note, evidence := mergeWakeupEvidence(w, pending, receipts)
 	context := map[string]any{"release_id": util.UUIDToString(rel.ID), "wakeup_id": util.UUIDToString(w.ID), "wakeup_revision": w.Revision, "wakeup_evidence": evidence, "handoff_note": note, "wakeup_system": w.SystemRule.String}
 	task, err := s.Tasks.EnqueueReleaseTaskTx(ctx, q, ReleaseTaskEnqueueParams{Release: rel, Agent: agent, SquadID: squadID, Context: context, Attribution: attr, TriggerCommentID: triggerComment, CommentIDs: commentIDs, ReplaceAttribution: len(commentIDs) > 0, RuntimeMCPOverlay: overlay, ConnectedApps: connectedApps})
 	if errors.Is(err, ErrReleaseTaskDispatched) {
+		skip("pending run was claimed meanwhile")
 		return tx.Commit(ctx)
 	}
 	if err != nil {

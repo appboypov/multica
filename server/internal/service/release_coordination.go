@@ -48,7 +48,9 @@ func ResolveReleaseTaskOwner(ctx context.Context, q *db.Queries, release db.Rele
 	if err != nil {
 		return db.Agent{}, squadID, err
 	}
-	if !verdict.Ready() {
+	// Like issue assignment, an offline owner's run waits for its runtime; only
+	// an owner nothing will ever claim for is unavailable.
+	if verdict.Blocked() {
 		return db.Agent{}, squadID, ErrReleaseOwnerUnavailable
 	}
 	return agent, squadID, nil

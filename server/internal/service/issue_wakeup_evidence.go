@@ -49,7 +49,9 @@ func mergeWakeupEvidence(w db.IssueWakeup, previous db.AgentTaskQueue, receipts 
 		// as one bounded legacy item instead of trusting a stale structured summary.
 		evidence = wakeupEvidence{Version: 1, Legacy: previous.HandoffNote.String}
 	}
-	if w.Kind != "event" {
+	// A timed issue rule owns its pending run, so its new turn replaces the old
+	// facts. Every rule of a release feeds one shared run and keeps them.
+	if w.Kind != "event" && !w.ReleaseID.Valid {
 		evidence = wakeupEvidence{Version: 1}
 	}
 

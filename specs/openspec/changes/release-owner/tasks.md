@@ -145,4 +145,6 @@ Companion workflow pull request: https://github.com/appboypov/madspec/pull/213. 
 
 Final verification: release handlers plus existing chat/issue claims and release-then-lane pagination pass together (10.208s). The full service suite passes (139.337s); database query/migration and daemon suites pass. The full handler suite exceeds its ten-minute timeout and its shared runtime heartbeat ages beyond the 150-second claim window; it is not reported green. Final frontend runs pass 273 release-component/locale cases, 13 core release cases and 4 release-schema cases. Isolated smoke workspaces and temporary scripts are removed, and the managed API/web processes are stopped.
 
+Owner deletion: deleting a squad archives it and then removes it as owner of its unshipped releases the way Edit release removes an owner, cancelling unstarted coordination while started runs finish; no other owner takes over. Agents are archived rather than deleted and stay owner, blocked until restored or replaced, the same as an archived issue assignee. `multica release assign --to` an archived agent sends it to the server, which answers "cannot assign to archived agent".
+
 ## Plan Change Log

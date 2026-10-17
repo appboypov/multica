@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -72,6 +73,7 @@ func (s *TaskService) EnqueueReleaseTaskTx(ctx context.Context, q *db.Queries, p
 			NewOriginatorUserID: p.Attribution.UserID, NewAccountableUserID: p.Attribution.AccountableUserID, NewOriginatorSource: source,
 			NewDelegatedFromTaskID: delegated, NewRuleVersionID: p.Attribution.RuleVersionID, NewTriggerEvidenceKind: evidenceKind, NewTriggerEvidenceRefID: evidenceRef,
 			NewRuntimeMcpOverlay: p.RuntimeMCPOverlay, NewRuntimeConnectedApps: p.ConnectedApps,
+			AgentID: p.Agent.ID, RuntimeID: p.Agent.RuntimeID, SquadID: p.SquadID, IsLeaderTask: p.SquadID.Valid,
 		})
 		if errors.Is(err, pgx.ErrNoRows) {
 			return db.AgentTaskQueue{}, ErrReleaseTaskDispatched
@@ -128,6 +130,7 @@ func consumeReleaseTaskInputs(ctx context.Context, q *db.Queries, task db.AgentT
 	}
 	for _, rule := range rules {
 		if rule.Enabled && rule.MaxFires.Valid && rule.FireCount >= rule.MaxFires.Int32 {
+			slog.Info("release wakeup paused at its firing limit", "release_id", util.UUIDToString(task.ReleaseID), "wakeup_id", util.UUIDToString(rule.ID), "max_fires", rule.MaxFires.Int32)
 			if err := q.PauseIssueWakeup(ctx, db.PauseIssueWakeupParams{ID: rule.ID, PausedReason: pgtype.Text{String: wakeupPausedMaxFires, Valid: true}, BlockRuns: false}); err != nil {
 				return fmt.Errorf("pause release wakeup at firing limit: %w", err)
 			}

@@ -8536,9 +8536,13 @@ SET coalesced_comment_ids = (
     rule_version_id = CASE WHEN $6::bool THEN $11::uuid ELSE rule_version_id END,
     trigger_evidence_kind = CASE WHEN $6::bool THEN $12::text ELSE trigger_evidence_kind END,
     trigger_evidence_ref_id = CASE WHEN $6::bool THEN $13::uuid ELSE trigger_evidence_ref_id END,
-    runtime_mcp_overlay = CASE WHEN $6::bool THEN $14::jsonb ELSE runtime_mcp_overlay END,
-    runtime_connected_apps = CASE WHEN $6::bool THEN $15::jsonb ELSE runtime_connected_apps END
-WHERE id = $16 AND release_id = $17 AND status = 'queued'
+    runtime_mcp_overlay = CASE WHEN $6::bool OR agent_id <> $14 THEN $15::jsonb ELSE runtime_mcp_overlay END,
+    runtime_connected_apps = CASE WHEN $6::bool OR agent_id <> $14 THEN $16::jsonb ELSE runtime_connected_apps END,
+    agent_id = $14,
+    runtime_id = $17,
+    squad_id = $18::uuid,
+    is_leader_task = $19::bool
+WHERE id = $20 AND release_id = $21 AND status = 'queued'
 RETURNING id, agent_id, issue_id, status, priority, dispatched_at, started_at, completed_at, result, error, created_at, context, runtime_id, session_id, work_dir, trigger_comment_id, chat_session_id, autopilot_run_id, attempt, max_attempts, parent_task_id, failure_reason, trigger_summary, force_fresh_session, is_leader_task, wait_reason, initiator_user_id, handoff_note, prepare_lease_expires_at, squad_id, runtime_mcp_overlay, escalation_for_task_id, fire_at, originator_user_id, runtime_connected_apps, coalesced_comment_ids, delivered_comment_ids, chat_input_task_id, chat_finalize_deferred_at, originator_source, delegated_from_task_id, retry_of_task_id, rerun_of_task_id, rule_version_id, trigger_evidence_kind, trigger_evidence_ref_id, accountable_user_id, session_rollout_missing, retired_session_id, quick_actions_disabled, regenerate_quick_actions_for, branch_name, durable_work_dir, channel_context_revision, comment_thread_id, cancelled_by_type, cancelled_by_id, cancelled_by_name, issue_snapshot, questions_enabled, release_id
 `
 
@@ -8556,8 +8560,12 @@ type MergeReleaseTaskInputParams struct {
 	NewRuleVersionID        pgtype.UUID   `json:"new_rule_version_id"`
 	NewTriggerEvidenceKind  pgtype.Text   `json:"new_trigger_evidence_kind"`
 	NewTriggerEvidenceRefID pgtype.UUID   `json:"new_trigger_evidence_ref_id"`
+	AgentID                 pgtype.UUID   `json:"agent_id"`
 	NewRuntimeMcpOverlay    []byte        `json:"new_runtime_mcp_overlay"`
 	NewRuntimeConnectedApps []byte        `json:"new_runtime_connected_apps"`
+	RuntimeID               pgtype.UUID   `json:"runtime_id"`
+	SquadID                 pgtype.UUID   `json:"squad_id"`
+	IsLeaderTask            bool          `json:"is_leader_task"`
 	ID                      pgtype.UUID   `json:"id"`
 	ReleaseID               pgtype.UUID   `json:"release_id"`
 }
@@ -8565,8 +8573,10 @@ type MergeReleaseTaskInputParams struct {
 // Folds new release inputs into the queued (not yet claimed) coordination run
 // of the release: the comment ids join the planned set, the wakeup context
 // (wakeup_id, revision, evidence) is replaced, and with @replace_attribution
-// the whole attribution snapshot moves to the new trigger. pgx.ErrNoRows: the
-// run was claimed meanwhile; enqueue a follow-up instead.
+// the whole attribution snapshot moves to the new trigger. The run always
+// targets the current owner: a changed agent, runtime or squad leader takes it
+// over with an overlay built for it. pgx.ErrNoRows: the run was claimed
+// meanwhile; enqueue a follow-up instead.
 func (q *Queries) MergeReleaseTaskInput(ctx context.Context, arg MergeReleaseTaskInputParams) (AgentTaskQueue, error) {
 	row := q.db.QueryRow(ctx, mergeReleaseTaskInput,
 		arg.NewCommentIds,
@@ -8582,8 +8592,12 @@ func (q *Queries) MergeReleaseTaskInput(ctx context.Context, arg MergeReleaseTas
 		arg.NewRuleVersionID,
 		arg.NewTriggerEvidenceKind,
 		arg.NewTriggerEvidenceRefID,
+		arg.AgentID,
 		arg.NewRuntimeMcpOverlay,
 		arg.NewRuntimeConnectedApps,
+		arg.RuntimeID,
+		arg.SquadID,
+		arg.IsLeaderTask,
 		arg.ID,
 		arg.ReleaseID,
 	)
@@ -8749,7 +8763,7 @@ WHERE t.runtime_id = ANY($1::uuid[])
   )
   AND (
     t.fire_at > now()
-    OR NOT EXISTS (
+    OR (NOT EXISTS (
       SELECT 1 FROM agent_task_queue occupant
       WHERE occupant.issue_id = t.issue_id
         AND occupant.agent_id = t.agent_id
@@ -8760,6 +8774,12 @@ WHERE t.runtime_id = ANY($1::uuid[])
           OR (occupant.status = 'deferred' AND occupant.context->>'channel_issue_media_pending' = 'true')
         )
     )
+    AND NOT EXISTS (
+      SELECT 1 FROM agent_task_queue occupant
+      WHERE occupant.release_id = t.release_id
+        AND occupant.id <> t.id
+        AND occupant.status IN ('queued', 'dispatched', 'waiting_local_directory')
+    ))
   )
 `
 
@@ -8771,7 +8791,7 @@ type NextDeferredTaskFireAtForRuntimesParams struct {
 // Returns the next future deferred task for a daemon's authorized runtime set,
 // or an eligible task that crossed fire_at during this claim. Overdue tasks
 // whose runtime is offline/stale or that are blocked by an existing issue+agent
-// occupant are omitted so they cannot cause a tight poll loop. Keep both fences
+// or release occupant are omitted so they cannot cause a tight poll loop. Keep the fences
 // in sync with PromoteDueDeferredTasksForRuntimes: a task that cannot be
 // promoted must not advertise an immediate follow-up claim. The response
 // converts the timestamp to a relative delay, avoiding any dependency on
@@ -8865,10 +8885,15 @@ const promoteDueDeferredTasksForRuntime = `-- name: PromoteDueDeferredTasksForRu
 WITH due AS (
     SELECT t.id,
            t.issue_id,
+           t.release_id,
            row_number() OVER (
                PARTITION BY t.issue_id, t.agent_id, t.comment_thread_id
                ORDER BY t.priority DESC, t.created_at ASC, t.id
-           ) AS rn
+           ) AS rn,
+           row_number() OVER (
+               PARTITION BY t.release_id
+               ORDER BY t.priority DESC, t.created_at ASC, t.id
+           ) AS release_rn
     FROM agent_task_queue t
     WHERE t.runtime_id = $1
       AND t.status = 'deferred'
@@ -8891,10 +8916,16 @@ WITH due AS (
             OR (occupant.status = 'deferred' AND occupant.context->>'channel_issue_media_pending' = 'true')
           )
       )
+      AND NOT EXISTS (
+        SELECT 1 FROM agent_task_queue occupant
+        WHERE occupant.release_id = t.release_id
+          AND occupant.id <> t.id
+          AND occupant.status IN ('queued', 'dispatched', 'waiting_local_directory')
+      )
 )
 UPDATE agent_task_queue
 SET status = 'queued'
-WHERE id IN (SELECT id FROM due WHERE issue_id IS NULL OR rn = 1)
+WHERE id IN (SELECT id FROM due WHERE CASE WHEN release_id IS NOT NULL THEN release_rn = 1 ELSE issue_id IS NULL OR rn = 1 END)
 RETURNING id, agent_id, issue_id, status, priority, dispatched_at, started_at, completed_at, result, error, created_at, context, runtime_id, session_id, work_dir, trigger_comment_id, chat_session_id, autopilot_run_id, attempt, max_attempts, parent_task_id, failure_reason, trigger_summary, force_fresh_session, is_leader_task, wait_reason, initiator_user_id, handoff_note, prepare_lease_expires_at, squad_id, runtime_mcp_overlay, escalation_for_task_id, fire_at, originator_user_id, runtime_connected_apps, coalesced_comment_ids, delivered_comment_ids, chat_input_task_id, chat_finalize_deferred_at, originator_source, delegated_from_task_id, retry_of_task_id, rerun_of_task_id, rule_version_id, trigger_evidence_kind, trigger_evidence_ref_id, accountable_user_id, session_rollout_missing, retired_session_id, quick_actions_disabled, regenerate_quick_actions_for, branch_name, durable_work_dir, channel_context_revision, comment_thread_id, cancelled_by_type, cancelled_by_id, cancelled_by_name, issue_snapshot, questions_enabled, release_id
 `
 
@@ -8916,8 +8947,10 @@ type PromoteDueDeferredTasksForRuntimeParams struct {
 // promote at most ONE row per (issue, agent, thread) so a single statement cannot collide
 // with itself. A skipped row stays deferred with fire_at in the past and is
 // promoted by a later tick once the slot frees, so nothing is lost — the human's
-// rerun simply goes first. Chat / quick-create rows (issue_id NULL) are outside
-// the index and bypass both fences.
+// rerun simply goes first. A release row's slot is idx_one_pending_task_per_release:
+// one unstarted run per release whatever its agent, so it is fenced by the
+// release instead. Chat / quick-create rows (issue_id and release_id NULL) are
+// outside both indexes and bypass the fences.
 func (q *Queries) PromoteDueDeferredTasksForRuntime(ctx context.Context, arg PromoteDueDeferredTasksForRuntimeParams) ([]AgentTaskQueue, error) {
 	rows, err := q.db.Query(ctx, promoteDueDeferredTasksForRuntime, arg.RuntimeID, arg.RuntimeStaleSecs)
 	if err != nil {
@@ -9004,10 +9037,15 @@ const promoteDueDeferredTasksForRuntimes = `-- name: PromoteDueDeferredTasksForR
 WITH due AS (
     SELECT t.id,
            t.issue_id,
+           t.release_id,
            row_number() OVER (
                PARTITION BY t.issue_id, t.agent_id, t.comment_thread_id
                ORDER BY t.priority DESC, t.created_at ASC, t.id
-           ) AS rn
+           ) AS rn,
+           row_number() OVER (
+               PARTITION BY t.release_id
+               ORDER BY t.priority DESC, t.created_at ASC, t.id
+           ) AS release_rn
     FROM agent_task_queue t
     WHERE t.runtime_id = ANY($1::uuid[])
       AND t.status = 'deferred'
@@ -9030,10 +9068,16 @@ WITH due AS (
             OR (occupant.status = 'deferred' AND occupant.context->>'channel_issue_media_pending' = 'true')
           )
       )
+      AND NOT EXISTS (
+        SELECT 1 FROM agent_task_queue occupant
+        WHERE occupant.release_id = t.release_id
+          AND occupant.id <> t.id
+          AND occupant.status IN ('queued', 'dispatched', 'waiting_local_directory')
+      )
 )
 UPDATE agent_task_queue
 SET status = 'queued'
-WHERE id IN (SELECT id FROM due WHERE issue_id IS NULL OR rn = 1)
+WHERE id IN (SELECT id FROM due WHERE CASE WHEN release_id IS NOT NULL THEN release_rn = 1 ELSE issue_id IS NULL OR rn = 1 END)
 RETURNING id, agent_id, issue_id, status, priority, dispatched_at, started_at, completed_at, result, error, created_at, context, runtime_id, session_id, work_dir, trigger_comment_id, chat_session_id, autopilot_run_id, attempt, max_attempts, parent_task_id, failure_reason, trigger_summary, force_fresh_session, is_leader_task, wait_reason, initiator_user_id, handoff_note, prepare_lease_expires_at, squad_id, runtime_mcp_overlay, escalation_for_task_id, fire_at, originator_user_id, runtime_connected_apps, coalesced_comment_ids, delivered_comment_ids, chat_input_task_id, chat_finalize_deferred_at, originator_source, delegated_from_task_id, retry_of_task_id, rerun_of_task_id, rule_version_id, trigger_evidence_kind, trigger_evidence_ref_id, accountable_user_id, session_rollout_missing, retired_session_id, quick_actions_disabled, regenerate_quick_actions_for, branch_name, durable_work_dir, channel_context_revision, comment_thread_id, cancelled_by_type, cancelled_by_id, cancelled_by_name, issue_snapshot, questions_enabled, release_id
 `
 

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -224,7 +225,11 @@ func runRelease(cmd *cobra.Command, args []string) error {
 			}
 			kind, id, err := resolveAssignee(ctx, client, to, assigneeKinds{agent: true, squad: true})
 			if err != nil {
-				return err
+				archived, ok := archivedAgentMatch(ctx, client, to)
+				if !ok {
+					return err
+				}
+				kind, id = "agent", archived
 			}
 			body["owner_type"], body["owner_id"] = kind, id
 		}
@@ -441,4 +446,23 @@ func printReleases(cmd *cobra.Command, releases []releaseDTO, single bool) error
 		cli.PrintTable(os.Stdout, []string{"MILESTONE ID", "RELEASE", "NAME", "DATE"}, milestones)
 	}
 	return nil
+}
+
+// archivedAgentMatch finds an archived agent that assignee lookup leaves out,
+// so the owner write answers with the server's archived-agent refusal instead
+// of "not found".
+func archivedAgentMatch(ctx context.Context, client *cli.APIClient, name string) (string, bool) {
+	var agents []map[string]any
+	path := "/api/agents?" + url.Values{"workspace_id": {client.WorkspaceID}, "include_archived": {"true"}}.Encode()
+	if err := getAssigneeJSON(ctx, client, path, &agents); err != nil {
+		return "", false
+	}
+	var candidates []assigneeCandidate
+	for _, a := range agents {
+		if strVal(a, "archived_at") != "" {
+			candidates = append(candidates, assigneeCandidate{assigneeMatch: assigneeMatch{Type: "agent", ID: strVal(a, "id"), Name: strVal(a, "name")}})
+		}
+	}
+	_, id, err := matchAssignee(name, assigneeKinds{agent: true}, candidates)
+	return id, err == nil
 }

@@ -804,6 +804,54 @@ func (q *Queries) ListUnshippedReleaseHeads(ctx context.Context, arg ListUnshipp
 	return items, nil
 }
 
+const listUnshippedReleasesOwnedBy = `-- name: ListUnshippedReleasesOwnedBy :many
+SELECT id, workspace_id, repository_id, position, version, bump, title, description, shipped_at, created_by, created_at, updated_at, owner_type, owner_id FROM release
+WHERE workspace_id = $1 AND owner_type = $2 AND owner_id = $3 AND shipped_at IS NULL
+ORDER BY id
+`
+
+type ListUnshippedReleasesOwnedByParams struct {
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
+	OwnerType   pgtype.Text `json:"owner_type"`
+	OwnerID     pgtype.UUID `json:"owner_id"`
+}
+
+// Releases a deleted owner leaves behind; each is re-read under its line locks.
+func (q *Queries) ListUnshippedReleasesOwnedBy(ctx context.Context, arg ListUnshippedReleasesOwnedByParams) ([]Release, error) {
+	rows, err := q.db.Query(ctx, listUnshippedReleasesOwnedBy, arg.WorkspaceID, arg.OwnerType, arg.OwnerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Release{}
+	for rows.Next() {
+		var i Release
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.RepositoryID,
+			&i.Position,
+			&i.Version,
+			&i.Bump,
+			&i.Title,
+			&i.Description,
+			&i.ShippedAt,
+			&i.CreatedBy,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.OwnerType,
+			&i.OwnerID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const lockReleaseIssuesForShipping = `-- name: LockReleaseIssuesForShipping :many
 SELECT id FROM issue
 WHERE workspace_id = $1 AND release_id = $2

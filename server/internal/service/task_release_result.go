@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -16,6 +17,8 @@ import (
 )
 
 var ErrReleaseResultEmpty = errors.New("release coordination ended without a nonempty result or explicit release report")
+
+const oversizedReleaseReportNotice = "This coordination run completed, but its output was too large to post safely. The raw output was not posted."
 
 // The task status CAS and this write share one transaction. A replay cannot
 // insert another report, and deleting the release cannot recreate its subject.
@@ -38,6 +41,10 @@ func writeReleaseCompletionReport(ctx context.Context, q *db.Queries, task db.Ag
 	body := redact.Text(payload.Output)
 	if strings.TrimSpace(body) == "" {
 		return nil, ErrReleaseResultEmpty
+	}
+	// Same bound as an issue run's synthesized fallback comment.
+	if utf8.RuneCountInString(body) > maxSynthesizedFallbackCommentRunes {
+		body = oversizedReleaseReportNotice
 	}
 	var parentID pgtype.UUID
 	if task.TriggerCommentID.Valid && len(task.DeliveredCommentIds) <= 1 {

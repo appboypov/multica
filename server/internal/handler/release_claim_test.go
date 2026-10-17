@@ -85,6 +85,40 @@ func TestNativeReleaseClaimHydratesScopeWithoutQuickCreate(t *testing.T) {
 	}
 }
 
+func TestNativeReleaseFinalizeKeepsOwnerLockFailuresRetryable(t *testing.T) {
+	releaseID, _, _, taskID, _ := nativeReleaseTaskFixture(t, "dispatched")
+	ctx := context.Background()
+	task, err := testHandler.Queries.GetAgentTask(ctx, parseUUID(taskID))
+	if err != nil {
+		t.Fatal(err)
+	}
+	holder, err := testPool.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer holder.Rollback(ctx)
+	if _, err := holder.Exec(ctx, "SELECT 1 FROM repository WHERE id=(SELECT repository_id FROM release WHERE id=$1) FOR UPDATE", releaseID); err != nil {
+		t.Fatal(err)
+	}
+	waitCtx, cancel := context.WithTimeout(ctx, 300*time.Millisecond)
+	defer cancel()
+	_, err = testHandler.TaskService.FinalizeTaskClaim(waitCtx, task, db.CreateTaskTokenParams{
+		TokenHash: "release-lock-timeout-" + taskID, TaskID: task.ID, AgentID: task.AgentID,
+		WorkspaceID: parseUUID(testWorkspaceID), UserID: parseUUID(testUserID),
+		ExpiresAt: pgtype.Timestamptz{Time: time.Now().Add(time.Hour), Valid: true},
+	}, nil, false, nil, nil, false)
+	var authzErr *service.ClaimDeliveryAuthzError
+	if err == nil || errors.As(err, &authzErr) {
+		t.Fatalf("a lock wait failure must stay retryable, got %v", err)
+	}
+	if err := holder.Rollback(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if n := dbfx.Count(t, "SELECT count(*) FROM agent_task_queue WHERE id=$1 AND status='dispatched'", taskID); n != 1 {
+		t.Fatal("a lock wait failure settled the release task")
+	}
+}
+
 func TestNativeReleaseStartRejectsUnsupportedStaleAndShipped(t *testing.T) {
 	for _, legacy := range []bool{true, false} {
 		for _, cause := range []string{"unsupported", "owner", "shipped", "removed"} {
@@ -138,6 +172,19 @@ func TestNativeReleaseCompletionStoresActualResultAndDeduplicates(t *testing.T) 
 				t.Fatalf("real result changed: %q", stored)
 			}
 		})
+	}
+}
+
+func TestNativeReleaseOversizedResultPostsBoundedNotice(t *testing.T) {
+	releaseID, _, _, taskID, _ := nativeReleaseTaskFixture(t, "running")
+	payload, _ := json.Marshal(protocol.TaskCompletedPayload{Output: strings.Repeat("raw stream ", 2000)})
+	if _, changed, err := testHandler.TaskService.CompleteTaskWithTransition(context.Background(), parseUUID(taskID), payload, "", "", "", false, "", ""); err != nil || !changed {
+		t.Fatalf("completion changed=%v err=%v", changed, err)
+	}
+	var stored string
+	dbfx.QueryRow(t, "SELECT content FROM comment WHERE release_id=$1 AND source_task_id=$2 AND deleted_at IS NULL", releaseID, taskID).Scan(&stored)
+	if strings.Contains(stored, "raw stream") || len(stored) > 256 {
+		t.Fatalf("oversized release result reached the thread: %d bytes", len(stored))
 	}
 }
 

@@ -80,3 +80,45 @@ func TestReleaseOwnerPrivateAndSquadRefusalsUseAssignmentPolicy(t *testing.T) {
 		t.Fatalf("refusal wrote %d owner activities", n)
 	}
 }
+
+func TestDeleteSquadClearsReleaseOwnershipAndUnstartedCoordination(t *testing.T) {
+	_, repo, release := milestoneReleaseFixture(t, testWorkspaceID)
+	leader := dbfx.Agent(t, "Deleted squad leader", testRuntimeID)
+	squad := dbfx.Squad(t, "Deleted release squad", leader)
+	dbfx.Exec(t, "UPDATE release SET owner_type='squad', owner_id=$2 WHERE id=$1", release, squad)
+	subject := testutil.Cols{"issue_id": nil, "release_id": release, "runtime_id": testRuntimeID, "squad_id": squad, "is_leader_task": true}
+	queued := dbfx.Task(t, leader, subject)
+	running := dbfx.Task(t, leader, testutil.Cols{"issue_id": nil, "release_id": release, "runtime_id": testRuntimeID, "squad_id": squad, "is_leader_task": true, "status": "running", "started_at": time.Now()})
+
+	testutil.Call(t, testHandler.DeleteSquad, squadScopeReq(testUserID, "DELETE", "/api/squads", nil, map[string]string{"id": squad})).Want(204)
+
+	if n := dbfx.Count(t, "SELECT count(*) FROM release WHERE id=$1 AND owner_type IS NULL AND owner_id IS NULL", release); n != 1 {
+		t.Fatal("deleted squad still owns the release")
+	}
+	if n := dbfx.Count(t, "SELECT count(*) FROM agent_task_queue WHERE id=$1 AND status='cancelled'", queued); n != 1 {
+		t.Fatal("unstarted coordination run was not cancelled")
+	}
+	if n := dbfx.Count(t, "SELECT count(*) FROM agent_task_queue WHERE id=$1 AND status='running'", running); n != 1 {
+		t.Fatal("started coordination run was stopped")
+	}
+	if n := dbfx.Count(t, "SELECT count(*) FROM activity_log WHERE repository_id=$1 AND action='release_owner_changed' AND details->>'previous_owner_id'=$2 AND details->>'owner_id' IS NULL", repo, squad); n != 1 {
+		t.Fatalf("owner removal activities = %d", n)
+	}
+	if n := dbfx.Count(t, "SELECT count(*) FROM agent_task_queue WHERE release_id=$1 AND status='queued'", release); n != 0 {
+		t.Fatalf("deletion handed the release to another owner: %d queued runs", n)
+	}
+}
+
+func TestReleaseOwnerAvatarUsesAvatarURLPolicy(t *testing.T) {
+	withAvatarStorage(t, &mockStorageNoCdn{}, "")
+	_, _, release := milestoneReleaseFixture(t, testWorkspaceID)
+	agent := dbfx.Agent(t, "Private avatar owner", "", testutil.Cols{"avatar_url": "https://cdn.example.com/" + testAvatarKey})
+	var out struct {
+		Releases []ReleaseResponse `json:"releases"`
+	}
+	testutil.Call(t, testHandler.SetReleaseOwner, milestoneRequest("PUT", release, map[string]any{"owner_type": "agent", "owner_id": agent})).Want(200).JSON(&out)
+	want := avatarURLPathPrefix + signAvatarKey(testAvatarKey) + "/" + testAvatarKey
+	if len(out.Releases) != 1 || out.Releases[0].OwnerAvatarURL == nil || *out.Releases[0].OwnerAvatarURL != want {
+		t.Fatalf("owner avatar = %+v, want %q", out.Releases, want)
+	}
+}

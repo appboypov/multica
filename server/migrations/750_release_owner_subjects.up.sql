@@ -16,7 +16,7 @@ ALTER TABLE release
 ALTER TABLE release DROP CONSTRAINT IF EXISTS release_owner_pair_check;
 ALTER TABLE release ADD CONSTRAINT release_owner_pair_check CHECK (
     (owner_type IS NULL AND owner_id IS NULL)
-    OR (owner_type IN ('agent', 'squad') AND owner_id IS NOT NULL)
+    OR (owner_type IS NOT NULL AND owner_type IN ('agent', 'squad') AND owner_id IS NOT NULL)
 );
 
 -- A release run has release_id and none of the other subjects; every existing

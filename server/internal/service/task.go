@@ -3933,6 +3933,9 @@ func (s *TaskService) FinalizeTaskClaim(
 	err := s.runInTx(ctx, func(qtx *db.Queries) error {
 		if task.ReleaseID.Valid {
 			if err := lockCurrentReleaseTask(ctx, qtx, task); err != nil {
+				if !errors.Is(err, pgx.ErrNoRows) {
+					return fmt.Errorf("lock current release owner: %w", err)
+				}
 				return &ClaimDeliveryAuthzError{Reason: "release_owner_changed", Detail: err.Error()}
 			}
 			questionsEnabled = false

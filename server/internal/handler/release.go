@@ -82,7 +82,7 @@ func releaseToResponse(r db.Release) ReleaseResponse {
 	}
 }
 
-func releasesToResponse(ctx context.Context, q *db.Queries, ws pgtype.UUID, rows []db.Release) ([]ReleaseResponse, error) {
+func (h *Handler) releasesToResponse(ctx context.Context, q *db.Queries, ws pgtype.UUID, rows []db.Release) ([]ReleaseResponse, error) {
 	out := make([]ReleaseResponse, len(rows))
 	if len(rows) == 0 {
 		return out, nil
@@ -111,7 +111,7 @@ func releasesToResponse(ctx context.Context, q *db.Queries, ws pgtype.UUID, rows
 		if owner.OwnerName != "" {
 			out[i].OwnerName = &owner.OwnerName
 		}
-		out[i].OwnerAvatarURL = textToPtr(owner.OwnerAvatarUrl)
+		out[i].OwnerAvatarURL = h.resolveAvatarURLPtr(textToPtr(owner.OwnerAvatarUrl))
 	}
 	return out, nil
 }
@@ -144,7 +144,7 @@ func (h *Handler) ListReleases(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to list releases")
 		return
 	}
-	releases, err := releasesToResponse(r.Context(), h.Queries, wsUUID, rows)
+	releases, err := h.releasesToResponse(r.Context(), h.Queries, wsUUID, rows)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to list release milestones")
 		return
@@ -339,7 +339,7 @@ func (h *Handler) runReleaseLineWrite(w http.ResponseWriter, r *http.Request, re
 		writeError(w, http.StatusInternalServerError, "failed to read release line")
 		return
 	}
-	responses, err := releasesToResponse(ctx, qtx, wsUUID, line)
+	responses, err := h.releasesToResponse(ctx, qtx, wsUUID, line)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to read release milestones")
 		return

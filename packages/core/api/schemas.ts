@@ -2100,7 +2100,7 @@ export const EMPTY_RELEASE_ISSUES_RESPONSE: ReleaseIssuesResponse = { issues: []
 export const ReleaseCommentSchema = z.object({
   id: z.string().min(1),
   release_id: z.string().catch(""),
-  author_type: z.enum(["member", "agent", "system"]),
+  author_type: z.enum(["member", "agent", "system"]).catch("system"),
   author_id: z.string(),
   content: z.string().default(""),
   parent_id: z.string().nullable().default(null),

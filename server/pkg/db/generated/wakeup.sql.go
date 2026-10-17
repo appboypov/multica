@@ -1190,7 +1190,10 @@ WITH candidates AS (
  UNION
  SELECT id FROM issue_wakeup WHERE enabled AND condition IS NOT NULL AND next_fire_at<=now()
  UNION
- SELECT wakeup_id FROM issue_wakeup_receipt WHERE processed_at IS NULL
+ -- A release coordination rule deferred by its hourly limit rests until next_fire_at.
+ SELECT r.wakeup_id FROM issue_wakeup_receipt r JOIN issue_wakeup rw ON rw.id=r.wakeup_id
+ WHERE r.processed_at IS NULL
+  AND (rw.system_rule IS DISTINCT FROM 'release_coordination' OR rw.next_fire_at IS NULL OR rw.next_fire_at<=now())
 )
 SELECT w.id, w.workspace_id, w.issue_id, w.agent_id, w.created_by, w.source_task_id, w.parent_comment_id, w.instruction, w.kind, w.mode, w.event_types, w.filter_agent_id, w.filter_task_id, w.interval_seconds, w.cron_expression, w.timezone, w.next_fire_at, w.enabled, w.disabled_at, w.revision, w.last_task_id, w.last_error, w.created_at, w.updated_at, w.filter_actor_type, w.filter_actor_id, w.expires_at, w.expiry_seconds, w.on_timeout, w.timed_out_at, w.system_rule, w.customized_at, w.condition, w.condition_state, w.max_fires, w.fire_count, w.paused_reason, w.release_id FROM candidates c JOIN issue_wakeup w ON w.id=c.id
 WHERE $1::uuid[] IS NULL OR w.workspace_id = ANY($1::uuid[])

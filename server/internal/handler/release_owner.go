@@ -193,7 +193,7 @@ func (h *Handler) SetReleaseOwner(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 500, "failed to read release line")
 		return
 	}
-	out, err := releasesToResponse(ctx, q, rel.WorkspaceID, line)
+	out, err := h.releasesToResponse(ctx, q, rel.WorkspaceID, line)
 	if err != nil {
 		writeError(w, 500, "failed to read release owners")
 		return
@@ -205,6 +205,55 @@ func (h *Handler) SetReleaseOwner(w http.ResponseWriter, r *http.Request) {
 	h.nudgeReleaseCoordination(r.Context(), rel.ID)
 	h.publishReleaseLine(r, rel.RepositoryID)
 	writeJSON(w, 200, map[string]any{"releases": out})
+}
+
+// clearDeletedReleaseOwner removes a deleted owner from its unshipped releases,
+// one release line at a time, the way Edit release removes an owner: unstarted
+// coordination is cancelled, started runs keep running, and nothing is handed
+// to another owner.
+func (h *Handler) clearDeletedReleaseOwner(r *http.Request, workspaceID pgtype.UUID, ownerType string, ownerID pgtype.UUID) error {
+	ctx := r.Context()
+	owned, err := h.Queries.ListUnshippedReleasesOwnedBy(ctx, db.ListUnshippedReleasesOwnedByParams{WorkspaceID: workspaceID, OwnerType: strToText(ownerType), OwnerID: ownerID})
+	if err != nil {
+		return err
+	}
+	none := releaseOwnerRequest{OwnerType: json.RawMessage("null"), OwnerID: json.RawMessage("null")}
+	for _, rel := range owned {
+		tx, err := h.TxStarter.Begin(ctx)
+		if err != nil {
+			return err
+		}
+		q := h.Queries.WithTx(tx)
+		err = func() error {
+			if _, err := q.LockReleaseLineOwners(ctx, db.LockReleaseLineOwnersParams{ID: rel.RepositoryID, WorkspaceID: rel.WorkspaceID}); err != nil {
+				return err
+			}
+			if _, err := q.LockRepositoryForLine(ctx, db.LockRepositoryForLineParams{ID: rel.RepositoryID, WorkspaceID: rel.WorkspaceID}); err != nil {
+				return err
+			}
+			current, err := q.GetReleaseInWorkspace(ctx, db.GetReleaseInWorkspaceParams{ID: rel.ID, WorkspaceID: rel.WorkspaceID})
+			if err != nil {
+				return err
+			}
+			if current.ShippedAt.Valid || current.OwnerType.String != ownerType || current.OwnerID != ownerID {
+				return nil
+			}
+			if err := h.writeReleaseOwner(ctx, r, q, current, none); err != nil {
+				return err
+			}
+			return tx.Commit(ctx)
+		}()
+		tx.Rollback(ctx)
+		if errors.Is(err, pgx.ErrNoRows) {
+			continue
+		}
+		if err != nil {
+			return fmt.Errorf("clear owner of release %s: %w", uuidToString(rel.ID), err)
+		}
+		slog.Info("release owner cleared after owner deletion", "release_id", uuidToString(rel.ID), "owner_type", ownerType, "owner_id", uuidToString(ownerID))
+		h.publishReleaseLine(r, rel.RepositoryID)
+	}
+	return nil
 }
 
 func writeReleaseOwnerError(w http.ResponseWriter, err error) {

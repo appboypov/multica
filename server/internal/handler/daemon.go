@@ -2155,6 +2155,8 @@ func (h *Handler) finalizeClaimDelivery(
 	// existing failure path so the task never reaches the daemon.
 	switch authzErr.Reason {
 	case "release_owner_changed":
+		slog.Warn("task claim: release owner changed before delivery; cancelling task",
+			"task_id", uuidToString(task.ID), "release_id", uuidToString(task.ReleaseID), "detail", authzErr.Detail)
 		if _, cancelErr := h.TaskService.CancelTask(ctx, task.ID); cancelErr != nil {
 			return nil, nil, cancelErr
 		}

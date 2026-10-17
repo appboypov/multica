@@ -3242,8 +3242,8 @@ describe("release owner and release page responses", () => {
     expect(ReleaseIssuesResponseSchema.parse({ issues: [issue, { title: "no id" }, { ...issue, id: "i-2", identifier: "WORK-502" }] }).issues.map((row) => row.identifier))
       .toEqual(["WORK-501", "WORK-502"]);
     const comment = { id: "c-1", release_id: "release-1", author_type: "member", author_id: "u-1", content: "Start", parent_id: null, created_at: "2026-01-01T00:00:00Z" };
-    expect(ReleaseCommentsSchema.parse([comment, { ...comment, id: "c-2", author_type: "robot" }, { ...comment, id: "c-3", parent_id: "c-1" }]).map((row) => row.id))
-      .toEqual(["c-1", "c-3"]);
+    const comments = ReleaseCommentsSchema.parse([comment, { ...comment, id: "c-2", author_type: "robot" }, { ...comment, id: "c-3", parent_id: "c-1" }, { ...comment, id: "" }]);
+    expect(comments.map((row) => [row.id, row.author_type])).toEqual([["c-1", "member"], ["c-2", "system"], ["c-3", "member"]]);
   });
 
   it("keeps only owner changes in release activity", () => {

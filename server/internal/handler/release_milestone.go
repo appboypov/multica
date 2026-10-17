@@ -36,7 +36,7 @@ func (h *Handler) GetRelease(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	rows, err := releasesToResponse(r.Context(), h.Queries, rel.WorkspaceID, []db.Release{rel})
+	rows, err := h.releasesToResponse(r.Context(), h.Queries, rel.WorkspaceID, []db.Release{rel})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to read release milestones")
 		return
@@ -157,7 +157,7 @@ func (h *Handler) writeReleaseMilestone(w http.ResponseWriter, r *http.Request, 
 		writeError(w, 500, "failed to read release line")
 		return
 	}
-	responses, err := releasesToResponse(ctx, q, ws, line)
+	responses, err := h.releasesToResponse(ctx, q, ws, line)
 	if err != nil {
 		writeError(w, 500, "failed to read release milestones")
 		return

@@ -273,6 +273,12 @@ JOIN repository ON repository.id = release.repository_id AND repository.workspac
 WHERE release.workspace_id = sqlc.arg('workspace_id') AND repository.project_id = sqlc.arg('project_id')
 ORDER BY release.id;
 
+-- name: ListUnshippedReleasesOwnedBy :many
+-- Releases a deleted owner leaves behind; each is re-read under its line locks.
+SELECT * FROM release
+WHERE workspace_id = $1 AND owner_type = $2 AND owner_id = $3 AND shipped_at IS NULL
+ORDER BY id;
+
 -- name: GetReleaseOwnerOriginator :one
 -- The principal of the latest owner assignment of a release, read from its
 -- owner history: the recorded originator, else the member who changed the

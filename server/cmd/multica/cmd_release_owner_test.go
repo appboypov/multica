@@ -59,6 +59,41 @@ func TestReleaseAssignUsesWorkspaceAgentSquadResolver(t *testing.T) {
 	}
 }
 
+func TestReleaseAssignArchivedAgentShowsServerRefusal(t *testing.T) {
+	t.Setenv("MULTICA_TOKEN", "test-token")
+	t.Chdir(t.TempDir())
+	const releaseID = "11111111-1111-4111-8111-111111111111"
+	const archivedID = "55555555-5555-4555-8555-555555555555"
+	var bodies []map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == "GET" && r.URL.Path == "/api/agents" && r.URL.Query().Get("include_archived") == "true":
+			json.NewEncoder(w).Encode([]map[string]any{{"id": archivedID, "name": "Kees", "archived_at": "2026-10-16T10:00:00Z"}})
+		case r.Method == "GET" && r.URL.Path == "/api/agents":
+			json.NewEncoder(w).Encode([]map[string]any{})
+		case r.Method == "GET" && strings.HasSuffix(r.URL.Path, "/squads"):
+			json.NewEncoder(w).Encode([]map[string]any{})
+		case r.Method == "PUT" && r.URL.Path == "/api/releases/"+releaseID+"/owner":
+			var body map[string]any
+			json.NewDecoder(r.Body).Decode(&body)
+			bodies = append(bodies, body)
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]any{"error": "cannot assign to archived agent"})
+		default:
+			t.Errorf("unexpected route %s %s", r.Method, r.URL.Path)
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+	_, err := executeReleaseTest(t, srv.URL, "assign", releaseID, "--to", "Kees")
+	if err == nil || !strings.Contains(err.Error(), "cannot assign to archived agent") {
+		t.Fatalf("archived agent error = %v", err)
+	}
+	if len(bodies) != 1 || bodies[0]["owner_id"] != archivedID {
+		t.Fatalf("owner writes = %v", bodies)
+	}
+}
+
 func TestReleaseCommentFileReplyAndBoundedRead(t *testing.T) {
 	t.Setenv("MULTICA_TOKEN", "test-token")
 	t.Chdir(t.TempDir())

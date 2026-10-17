@@ -78,7 +78,10 @@ WITH candidates AS (
  UNION
  SELECT id FROM issue_wakeup WHERE enabled AND condition IS NOT NULL AND next_fire_at<=now()
  UNION
- SELECT wakeup_id FROM issue_wakeup_receipt WHERE processed_at IS NULL
+ -- A release coordination rule deferred by its hourly limit rests until next_fire_at.
+ SELECT r.wakeup_id FROM issue_wakeup_receipt r JOIN issue_wakeup rw ON rw.id=r.wakeup_id
+ WHERE r.processed_at IS NULL
+  AND (rw.system_rule IS DISTINCT FROM 'release_coordination' OR rw.next_fire_at IS NULL OR rw.next_fire_at<=now())
 )
 SELECT w.* FROM candidates c JOIN issue_wakeup w ON w.id=c.id
 WHERE sqlc.narg('workspace_ids')::uuid[] IS NULL OR w.workspace_id = ANY(sqlc.narg('workspace_ids')::uuid[])

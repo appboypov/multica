@@ -552,6 +552,13 @@ func (h *Handler) DeleteSquad(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to archive squad")
 		return
 	}
+	// After the archive no assignment can pick this squad, so the sweep
+	// cannot miss a release that gains it as owner meanwhile.
+	if err := h.clearDeletedReleaseOwner(r, squad.WorkspaceID, "squad", squad.ID); err != nil {
+		slog.Warn("clear release owners of deleted squad failed", "squad_id", uuidToString(squad.ID), "error", err)
+		writeError(w, http.StatusInternalServerError, "failed to clear release owners of squad")
+		return
+	}
 
 	h.publish(protocol.EventSquadDeleted, workspaceID, "member", userID, map[string]any{
 		"squad_id":  uuidToString(squad.ID),

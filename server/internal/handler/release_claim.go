@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
@@ -21,6 +22,10 @@ func (h *Handler) hydrateReleaseClaim(ctx context.Context, task *db.AgentTaskQue
 		return nil, pgx.ErrNoRows
 	}
 	agent, squadID, err := service.ResolveReleaseTaskOwner(ctx, h.Queries, rel)
+	if errors.Is(err, service.ErrReleaseOwnerUnavailable) {
+		// A stale owner can never run this task; a read failure redelivers it.
+		return nil, pgx.ErrNoRows
+	}
 	if err != nil {
 		return nil, err
 	}

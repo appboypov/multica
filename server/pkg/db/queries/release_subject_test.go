@@ -174,6 +174,8 @@ VALUES ($1, $2, $3, '', 'event', 'continuous', 'release_coordination')`, newID()
 
 	_, err = f.pool.Exec(ctx, `UPDATE release SET owner_id = NULL WHERE id = $1`, f.release)
 	requireCheckViolation(t, err, "release_owner_pair_check")
+	_, err = f.pool.Exec(ctx, `UPDATE release SET owner_type = NULL WHERE id = $1`, f.release)
+	requireCheckViolation(t, err, "release_owner_pair_check")
 }
 
 func TestReleaseCoordinationRuleIsOnePerRelease(t *testing.T) {
