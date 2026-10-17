@@ -944,7 +944,7 @@ flowchart LR
   events["Question, comment, issue<br/>and task events"]
   listeners["cmd/server/todo_listeners.go"]
   producers["Task and autopilot services<br/>failure monitor"]
-  service["internal/todo<br/>Open, Close<br/>MoveFromDeletedIssue"]
+  service["internal/todo<br/>Open, Close, MarkDone<br/>MoveFromDeletedIssue"]
   rows[("todo<br/>migration 750; indexes 751–752")]
   api["internal/handler/todo.go<br/>list, summary, done"]
   bus["events.Bus"]
@@ -962,8 +962,8 @@ flowchart LR
   service -->|"todo:opened, todo:closed"| bus
   bus --> realtime --> clients
   clients -->|"GET /api/todos, /api/todos/summary<br/>POST /api/todos/{id}/done"| api
-  api --> rows
-  api -->|"completion publication"| service
+  api -->|"list and summary"| rows
+  api -->|"MarkDone"| service
   events --> notices --> updates
   backfill -->|"creator row, unless the member<br/>left the issue or its tree"| subscribers
   subscribers -->|"recipients by reason"| notices
@@ -973,7 +973,7 @@ flowchart LR
 
 Agent-blocked and run-failed to-dos select the first non-null member ID from the run's `originator_user_id`, its `accountable_user_id`, the `delegated_from_task_id` source run's `originator_user_id`, then that source run's `accountable_user_id`. Source runs and recipients belong to the same workspace. The lifecycle listener and migration 754 use this order; unattributed work opens no to-do.
 
-Open rows have `done_at IS NULL`. The partial unique index on `(workspace_id, member_id, kind, source_key)` makes repeated opens inert; closing changes only open rows and records `done_by` as `handled` or `member`. The second partial index supports workspace/member reads by descending `created_at`. `internal/todo.Service` publishes visible-list transitions, after commit for transactional producers. The visibility query compares the changed rows and affected reviews before and after the write, so questions hide and reveal reviews without completing them. Its `Response` projection is shared by the HTTP handler and `todo:opened`; `todo:closed` identifies the row and completion reason, or null when the row is hidden.
+Open rows have `done_at IS NULL`. The partial unique index on `(workspace_id, member_id, kind, source_key)` makes repeated opens inert; closing changes only open rows and records `done_by` as `handled` or `member`. The second partial index supports workspace/member reads by descending `created_at`. `internal/todo.Service` runs each write and its visibility query in one transaction and publishes visible-list transitions after commit; a transactional producer publishes after its own commit. The visibility query compares the changed rows and affected reviews before and after the write, so questions hide and reveal reviews without completing them. Before it runs, the transaction locks each member and issue its question and review rows touch, so concurrent question writes see each other and a review hides and reveals once. Its `Response` projection is shared by the HTTP handler and `todo:opened`; `todo:closed` identifies the row and completion reason, or null when the row is hidden.
 
 List and summary queries share the visible-open-row projection: live issue/question fields, no rows for missing issues, and no review row while an open question row exists for that member on the issue. Lists order overdue before newest. The list and Mark done routes are workspace-scoped; the summary is account-level across current memberships and omits zero-count workspaces. Mark done is member-private and idempotent. The summary supplies Inbox, workspace-switcher and desktop badge counts.
 

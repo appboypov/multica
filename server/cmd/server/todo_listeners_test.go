@@ -13,7 +13,10 @@ import (
 	"github.com/multica-ai/multica/server/pkg/dbid"
 	"github.com/multica-ai/multica/server/pkg/protocol"
 	"reflect"
+	"slices"
+	"sync"
 	"testing"
+	"time"
 )
 
 func TestTodoRealtimeIsMemberPrivate(t *testing.T) {
@@ -38,7 +41,7 @@ func todoListenerFixture(t *testing.T) (*testutil.Fixture, todo.Service) {
 	fx.WorkspaceID = fx.Workspace(t, "Todo listeners", "todos-"+suffix)
 	fx.Member(t, fx.WorkspaceID, fx.UserID, "owner")
 	fx.Cleanup(t, "DELETE FROM todo WHERE workspace_id = $1", fx.WorkspaceID)
-	return fx, todo.Service{Queries: db.New(testPool), Bus: events.New()}
+	return fx, todo.Service{Queries: db.New(testPool), TxStarter: testPool, Bus: events.New()}
 }
 
 func TestTodoQuestionTransitions(t *testing.T) {
@@ -618,12 +621,139 @@ func TestTodoReviewRealtimeVisibility(t *testing.T) {
 	}
 }
 
+func TestTodoConcurrentQuestionsHideAndRevealReviewOnce(t *testing.T) {
+	fx, svc := todoListenerFixture(t)
+	ctx := context.Background()
+	issueID := fx.Issue(t, "Review", testutil.Cols{"status": "in_review"})
+	workspace, _ := util.ParseUUID(fx.WorkspaceID)
+	member, _ := util.ParseUUID(fx.UserID)
+	issue, _ := util.ParseUUID(issueID)
+	var mu sync.Mutex
+	var delivered []string
+	record := func(e events.Event) {
+		payload := e.Payload.(map[string]any)
+		kind, _ := payload["kind"].(string)
+		if row, ok := payload["todo"].(map[string]any); ok {
+			kind = row["kind"].(string)
+		}
+		mu.Lock()
+		defer mu.Unlock()
+		delivered = append(delivered, e.Type+":"+kind)
+	}
+	svc.Bus.Subscribe(protocol.EventTodoOpened, record)
+	svc.Bus.Subscribe(protocol.EventTodoClosed, record)
+	listed := func() []string {
+		t.Helper()
+		rows, err := svc.Queries.ListOpenTodos(ctx, db.ListOpenTodosParams{WorkspaceID: workspace, MemberID: member})
+		if err != nil {
+			t.Fatal(err)
+		}
+		kinds := make([]string, len(rows))
+		for i, row := range rows {
+			kinds[i] = row.Kind
+		}
+		return kinds
+	}
+	err := reviewTodos(ctx, svc, events.Event{
+		Type: protocol.EventIssueCreated, WorkspaceID: fx.WorkspaceID,
+		Payload: map[string]any{"issue": handler.IssueResponse{
+			ID: issueID, Status: "in_review", CreatorType: "member", CreatorID: fx.UserID,
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	delivered = nil
+	questions := make([]string, 2)
+	for i := range questions {
+		id := dbid.NewV7()
+		fx.Insert(t, "question", testutil.Cols{"id": id, "ask_id": id, "ask_position": 0, "workspace_id": fx.WorkspaceID, "asker_agent_id": dbid.NewV7(), "asked_in_task_id": dbid.NewV7(), "prompt": "Approve?", "answer_type": "approval"})
+		fx.Exec(t, "INSERT INTO question_answerer (question_id, user_id, workspace_id) VALUES ($1, $2, $3)", id, fx.UserID, fx.WorkspaceID)
+		questions[i] = util.UUIDToString(id)
+	}
+	// together holds the review's visibility while both question events run, so
+	// both writes land before either decides whether the review shows.
+	together := func(eventType, reason string) []string {
+		t.Helper()
+		tx, err := testPool.Begin(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer tx.Rollback(ctx)
+		if err := svc.Queries.WithTx(tx).LockTodoReviewVisibility(ctx, db.LockTodoReviewVisibilityParams{WorkspaceID: workspace, MemberID: member, IssueID: issue}); err != nil {
+			t.Fatal(err)
+		}
+		var holder int32
+		if err := tx.QueryRow(ctx, "SELECT pg_backend_pid()").Scan(&holder); err != nil {
+			t.Fatal(err)
+		}
+		errs := make(chan error, len(questions))
+		for _, id := range questions {
+			go func() {
+				errs <- questionTodos(ctx, svc, events.Event{
+					Type: eventType, WorkspaceID: fx.WorkspaceID, ActorID: fx.UserID,
+					Payload: protocol.QuestionEventPayload{QuestionID: id, IssueID: issueID, Reason: reason},
+				})
+			}()
+		}
+		for deadline := time.Now().Add(10 * time.Second); ; time.Sleep(10 * time.Millisecond) {
+			var waiting int64
+			if err := testPool.QueryRow(ctx, "SELECT count(*) FROM pg_stat_activity WHERE $1 = ANY(pg_blocking_pids(pid))", holder).Scan(&waiting); err != nil {
+				t.Fatal(err)
+			}
+			if waiting == int64(len(questions)) {
+				break
+			}
+			if time.Now().After(deadline) {
+				t.Fatalf("%d of %d question writes wait for the review", waiting, len(questions))
+			}
+		}
+		if err := tx.Commit(ctx); err != nil {
+			t.Fatal(err)
+		}
+		for range questions {
+			if err := <-errs; err != nil {
+				t.Fatal(err)
+			}
+		}
+		mu.Lock()
+		defer mu.Unlock()
+		got := delivered
+		delivered = nil
+		slices.Sort(got)
+		return got
+	}
+
+	got := together(protocol.EventQuestionCreated, "")
+	want := []string{protocol.EventTodoClosed + ":" + todo.Review, protocol.EventTodoOpened + ":" + todo.Question, protocol.EventTodoOpened + ":" + todo.Question}
+	slices.Sort(want)
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("opening events = %v, want %v", got, want)
+	}
+	if kinds := listed(); !reflect.DeepEqual(kinds, []string{todo.Question, todo.Question}) {
+		t.Fatalf("list after opening = %v", kinds)
+	}
+
+	for _, id := range questions {
+		fx.Exec(t, "UPDATE question SET status = 'answered' WHERE id = $1", id)
+	}
+	got = together(protocol.EventQuestionUpdated, protocol.QuestionReasonAnswered)
+	want = []string{protocol.EventTodoClosed + ":" + todo.Question, protocol.EventTodoClosed + ":" + todo.Question, protocol.EventTodoOpened + ":" + todo.Review}
+	slices.Sort(want)
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("closing events = %v, want %v", got, want)
+	}
+	if kinds := listed(); !reflect.DeepEqual(kinds, []string{todo.Review}) {
+		t.Fatalf("list after closing = %v", kinds)
+	}
+}
+
 func TestTodoAutopilotPauseAndResume(t *testing.T) {
 	q := db.New(testPool)
 	ap := seedAutopilot(t, q, "Todo pause", "member", parseUUID(testUserID), pickFixtureAgent(t))
 	t.Cleanup(func() { testPool.Exec(context.Background(), "DELETE FROM todo WHERE autopilot_id = $1", ap.ID) })
 	bus := events.New()
-	registerTodoListeners(bus, q)
+	registerTodoListeners(bus, q, testPool)
 	opened, closed := 0, 0
 	bus.Subscribe(protocol.EventTodoOpened, func(events.Event) { opened++ })
 	bus.Subscribe(protocol.EventTodoClosed, func(events.Event) { closed++ })

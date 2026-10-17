@@ -63,7 +63,7 @@ func TestNotification_MalformedMemberMentionPreservesValidRecipients(t *testing.
 
 			queries := db.New(testPool)
 			bus := newNotificationBus(t, queries)
-			registerTodoListeners(bus, queries)
+			registerTodoListeners(bus, queries, testPool)
 			var inboxEvents []events.Event
 			bus.Subscribe(protocol.EventInboxNew, func(e events.Event) {
 				inboxEvents = append(inboxEvents, e)

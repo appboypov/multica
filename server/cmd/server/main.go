@@ -616,7 +616,7 @@ func main() {
 	registerSubscriberListeners(bus, pool)
 	registerActivityListeners(bus, queries, &service.RunInputService{Queries: queries, Notifier: daemonWakeup})
 	registerNotificationListeners(bus, queries)
-	registerTodoListeners(bus, queries)
+	registerTodoListeners(bus, queries, pool)
 
 	metricsConfig := obsmetrics.ConfigFromEnv()
 	var metricsServer *http.Server

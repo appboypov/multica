@@ -517,6 +517,25 @@ func (q *Queries) ListTodoVisibilityChanges(ctx context.Context, arg ListTodoVis
 	return items, nil
 }
 
+const lockTodoReviewVisibility = `-- name: LockTodoReviewVisibility :exec
+SELECT pg_advisory_xact_lock(hashtextextended(
+    $1::uuid::text || ':' || $2::uuid::text || ':'
+        || $3::uuid::text || ':todo_review', 0
+))
+`
+
+type LockTodoReviewVisibilityParams struct {
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
+	MemberID    pgtype.UUID `json:"member_id"`
+	IssueID     pgtype.UUID `json:"issue_id"`
+}
+
+// Serializes the writes that decide whether a member's review on an issue is visible.
+func (q *Queries) LockTodoReviewVisibility(ctx context.Context, arg LockTodoReviewVisibilityParams) error {
+	_, err := q.db.Exec(ctx, lockTodoReviewVisibility, arg.WorkspaceID, arg.MemberID, arg.IssueID)
+	return err
+}
+
 const markTodoDone = `-- name: MarkTodoDone :one
 UPDATE todo
 SET done_at = now(), done_by = 'member'

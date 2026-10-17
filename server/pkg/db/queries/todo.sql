@@ -138,6 +138,13 @@ WHERE id = @id AND workspace_id = @workspace_id AND member_id = @member_id
   AND done_at IS NULL
 RETURNING *;
 
+-- name: LockTodoReviewVisibility :exec
+-- Serializes the writes that decide whether a member's review on an issue is visible.
+SELECT pg_advisory_xact_lock(hashtextextended(
+    sqlc.arg('workspace_id')::uuid::text || ':' || sqlc.arg('member_id')::uuid::text || ':'
+        || sqlc.arg('issue_id')::uuid::text || ':todo_review', 0
+));
+
 -- name: ListTodoVisibilityChanges :many
 -- Reconstruct visibility before this write, including reviews affected by questions.
 WITH changed AS (

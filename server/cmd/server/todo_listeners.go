@@ -17,8 +17,8 @@ import (
 	"github.com/multica-ai/multica/server/pkg/protocol"
 )
 
-func registerTodoListeners(bus *events.Bus, queries *db.Queries) {
-	svc := todo.Service{Queries: queries, Bus: bus}
+func registerTodoListeners(bus *events.Bus, queries *db.Queries, txStarter todo.TxStarter) {
+	svc := todo.Service{Queries: queries, TxStarter: txStarter, Bus: bus}
 	for _, kind := range []string{protocol.EventQuestionCreated, protocol.EventQuestionUpdated} {
 		bus.Subscribe(kind, func(e events.Event) {
 			if err := questionTodos(context.Background(), svc, e); err != nil {

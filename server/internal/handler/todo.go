@@ -79,7 +79,7 @@ func (h *Handler) MarkTodoDone(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, todo.Response(row))
 		return
 	}
-	closed, err := h.Queries.MarkTodoDone(r.Context(), db.MarkTodoDoneParams(params))
+	closed, err := (todo.Service{Queries: h.Queries, TxStarter: h.TxStarter, Bus: h.Bus}).MarkDone(r.Context(), db.MarkTodoDoneParams(params))
 	if errors.Is(err, pgx.ErrNoRows) {
 		// A concurrent member action or source event may already have closed it.
 		row, err = h.Queries.GetTodoForMember(r.Context(), params)
@@ -89,7 +89,6 @@ func (h *Handler) MarkTodoDone(w http.ResponseWriter, r *http.Request) {
 		}
 	} else if err == nil {
 		row.DoneAt, row.DoneBy = closed.DoneAt, closed.DoneBy
-		err = (todo.Service{Queries: h.Queries, Bus: h.Bus}).PublishClosed(r.Context(), []db.Todo{closed})
 	}
 	if err != nil {
 		slog.Error("failed to mark todo done", "todo_id", uuidToString(id), "error", err)
