@@ -40,4 +40,4 @@ None.
 
 ## Impact
 
-The server's squad briefing, the daemon's leader status guidance, prompt contract tests, builtin squad reference, and squad guides in all five languages. No API, database, trigger, squad member behavior, or live data changes.
+The server's squad briefing, the daemon's leader status guidance, prompt and builtin skill contract tests, builtin squad and issue references, and squad guides in all five languages. No API, database, trigger, squad member behavior, or live data changes.

@@ -19,8 +19,8 @@ flowchart LR
 
 - [x] 1.1 Update `squad_briefing.go` to choose own steps or member delegation on every trigger while keeping activity and status boundaries.
 - [x] 1.2 Update the leader bullet in `writeWorkflowIssue` so own delivery can complete without a member re-trigger.
-- [x] 1.3 Update handler, daemon, and execenv prompt contract tests, including the composed status contract.
-- [x] 1.4 Update builtin `references/squads.md` and all five `apps/docs/content/docs/squads*.mdx` guides.
+- [x] 1.3 Update handler, daemon, execenv, and builtin skill contract tests, including the composed status contract.
+- [x] 1.4 Update builtin `references/squads.md`, `references/issues.md`, and all five `apps/docs/content/docs/squads*.mdx` guides.
 
 ## 2. Deferred verification
 
@@ -31,3 +31,4 @@ No checks run in this assignment, as requested. Run these through Crabbox on the
 - [ ] 2.3 Execenv tests: `TestSquadLeaderIssueWorkflowKeepsParentInProgress`, `TestIssueWorkflowHonorsAgentIdentity`, and `TestProtocolHeadingInInstructionsGetsNoLeaderBrief`.
 - [ ] 2.4 Check Go formatting for the touched Go files and Markdown formatting for the docs.
 - [ ] 2.5 Run `cd specs && npx --yes @fission-ai/openspec@1.13.0 validate squad-lead-own-steps --type change --strict`.
+- [ ] 2.6 Builtin skill test: `TestPlatformSkillCoversPlatformContracts`.

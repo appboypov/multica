@@ -522,6 +522,10 @@ func TestPlatformSkillCoversPlatformContracts(t *testing.T) {
 				"multica issue react <item> ✅",
 				"Leave an item that is not relevant to your work unmarked",
 				"an item for you without ✅ gets its normal handling again",
+				// The runtime brief lets a squad leader's own work without
+				// delegation complete the issue in that turn. A reference
+				// that waits for a later trigger contradicts it.
+				"own work without delegation meets the overall",
 			},
 			notWant: []string{
 				"--no-start",
@@ -543,6 +547,7 @@ func TestPlatformSkillCoversPlatformContracts(t *testing.T) {
 				"Start from the trigger, not from memory",
 				"multica issue comment list <issue-id> --thread <trigger-comment-id>",
 				"multica issue comment add <issue-id> --parent <trigger-comment-id>",
+				"later re-trigger that confirms",
 			},
 		},
 		{
@@ -622,12 +627,15 @@ func TestPlatformSkillCoversPlatformContracts(t *testing.T) {
 				// the router's bounded-reads rule.
 				"--roots-only --summary --compact --output json",
 				"--thread <thread-id> --tail 30 --compact --output json",
+				// Same completion rule as references/issues.md and the brief.
+				"own work without delegation meets the overall",
 			},
 			notWant: []string{
 				// MUL-5696: no unbounded comment pull. Both shapes contradict
 				// the brief's "two bounded reads, never one bulk pull".
 				"multica issue comment list <issue-id> --output json",
 				"--recent 10",
+				"later re-trigger that confirms",
 			},
 		},
 		{
