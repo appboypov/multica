@@ -32,6 +32,7 @@ C4Container
   System_Ext(chat, "Chat platforms", "Slack, Lark/Feishu, DingTalk, WeCom, Telegram")
   System_Ext(composio, "Composio", "App connections and MCP sessions")
   System_Ext(llmapi, "LLM API", "OpenAI-compatible, server/pkg/llm")
+  System_Ext(typesafe, "TypeSafe", "Typed choice API, api.typesafe.ai")
   System_Ext(mail, "Email", "Resend or SMTP")
   System_Ext(google, "Google OAuth", "Login")
   System_Ext(cloud, "Multica Cloud", "Cloud runtime and billing, Stripe webhook forwarded")
@@ -60,6 +61,7 @@ C4Container
   Rel(server, chat, "Bot APIs, Socket Mode, streams", "server/internal/integrations")
   Rel(server, composio, "Connects apps", "server/pkg/composio")
   Rel(server, llmapi, "Titles, quick actions")
+  Rel(server, typesafe, "Asks routine choices", "server/internal/service/decider_judgment.go")
   Rel(server, mail, "Sends login codes, invitations")
   Rel(server, google, "Exchanges OAuth code")
   Rel(server, cloud, "Proxies runtime and billing", "server/internal/cloudruntime")
@@ -117,6 +119,9 @@ flowchart LR
   todos["internal/todo<br/>Service, Response"]
   todolisteners["cmd/server/todo_listeners.go"]
   todoh["internal/handler/todo.go<br/>GET /api/todos, /api/todos/summary<br/>POST /api/todos/{id}/done"]
+  decider["internal/service/decider*.go<br/>DeciderService, TypeSafeDecider"]
+  deciderlisteners["cmd/server/decider_listeners.go"]
+  typesafe["TypeSafe API<br/>/v1/systemone, TYPESAFE_API_KEY"]
   orgh["internal/handler<br/>organisation.go, project.go<br/>/api/organisations, organisation_id"]
   projsync["madspec-sync/multica_projects.py<br/>organisations, Product projects,<br/>single-repo merges"]
   marks[("~/.local/state/madspec/multica<br/>brain-sync.json, repository_projects")]
@@ -204,6 +209,14 @@ flowchart LR
   services --> todos
   todos --> sqlc
   todos -->|"todo:opened, todo:closed"| bus
+  bus -->|"issue:created, issue:updated status_changed,<br/>issue:release_joined, task:completed/failed/cancelled"| deciderlisteners --> decider
+  decider -->|"Decide: action and reason"| typesafe
+  decider -->|"Decider task, fix-now lead task"| services
+  decider -->|"routine_decision"| sqlc
+  decider -->|"review and question to-dos"| todos
+  decider -->|"issue:updated decider_applied,<br/>comment:created, question:created"| bus
+  questions -->|"answered, answer_edited: reviewConfirmation"| decider
+  handlers -->|"settings.decider: AuthorizeDeciderSettings"| decider
   sched --> sqlc
   sweepers --> sqlc
   handlers --> integ
@@ -671,6 +684,24 @@ classDiagram
     +timestamptz done_at
     +text done_by
   }
+  class routine_decision {
+    +text id
+    +uuid workspace_id
+    +uuid issue_id
+    +jsonb input
+    +uuid task_id
+    +float jev_confidence
+    +jsonb proposal
+    +text decider
+    +uuid question_id
+    +text review_mode
+    +text applied_choice
+    +uuid work_task_id
+    +bigint automatic_number
+    +jsonb reviews
+    +text outcome
+    +timestamptz created_at
+  }
   class attachment {
     +uuid id
     +uuid workspace_id
@@ -830,6 +861,11 @@ classDiagram
   autopilot "1" --> "*" todo : autopilot_id
   todo ..> user : actor_id when member
   todo ..> agent : actor_id when agent
+  workspace "1" --> "*" routine_decision : workspace_id
+  issue "1" --> "*" routine_decision : issue_id
+  agent_task_queue "1" --> "*" routine_decision : task_id
+  agent_task_queue "1" --> "*" routine_decision : work_task_id
+  question "1" --> "0..1" routine_decision : question_id
   issue "1" --> "*" attachment : issue_id
   comment "1" --> "*" attachment : comment_id
   agent "1" --> "*" channel_installation : agent_id
@@ -855,6 +891,8 @@ classDiagram
   question "1" --> "*" question_wake_pending : source_question_id
   question_wake_pending ..> agent_task_queue : waits for blockers; carries answer_anchor into context
 ```
+
+`routine_decision` is one receipt per rule and issue or release state. Its `id` is the SHA-256 of its input without the start period and threshold. A release decision's `issue_id` is the issue whose event made the release ready. `outcome` starts as `judging` and is `pending` while a Decider task runs. A proposal waits as `awaiting_brian` until Brian answers; every decision ends as `applied`, `stale` or `failed`. `reviews` appends Brian's agreed or corrected entries. `automatic_number` is unique per workspace and `question_id` is unique (migrations 781 and 782).
 
 `task_supplement` holds one receipt per item and run, keyed `(item_id, task_id)`: `item_kind` is `comment`, `comment_edit`, `answer` or `issue_change`, and `comment_id` stays set for comments and their edits only. `RunInputService.Deliver` writes a `pending` receipt for every running run with `task-supplement-v1` on the item's issues, except the actor's own agent's run and runs the composer excluded; `content` snapshots the item's text at delivery, with a comment's file names and ids. `multica issue react` sets `seen_at` (👀) or `handled_at` (✅) once, on a `delivered` receipt of the reacting run only. At run end only `handled_at` counts: a comment or edit for the agent without it replays as a follow-up run, and an answer or ask-back without it stays unseen for Wake (ADR-0019, ADR-0022). Comment receipts and the `run_marks` of answers and activity entries carry these times to `packages/core/types/run-input.ts`.
 
