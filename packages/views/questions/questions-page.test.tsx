@@ -73,6 +73,7 @@ function row(id: string, prompt: string, link: QuestionRowLink, answererId: stri
     status: "open",
     answer_policy: "any_one",
     asker_agent_id: "agent-pieter",
+    asker_user_id: "",
     answerer_ids: [answererId],
     due_date: null,
     blocks_work: false,

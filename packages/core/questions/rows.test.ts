@@ -17,7 +17,7 @@ function row(id: string, asker: { asker_agent_id: string; asker_user_id: string 
     due_date: null,
     blocks_work: false,
     created_at: "2026-10-15T12:00:00Z",
-    link: { type: "issue", id: "issue-442", identifier: "WORK-442", title: "Ask from outside a run", status: "in_progress" },
+    link: { type: "issue", id: "issue-442", identifier: "WORK-442", title: "Ask from outside a run", status: "in_progress", member_id: null },
     via: null,
     open_issue: { id: "issue-442", identifier: "WORK-442" },
     my_answer: null,

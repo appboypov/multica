@@ -731,7 +731,7 @@ describe("QuestionCard", () => {
   // Scenario: Brian answers the last question, on Answer all's One page
   it("offers Wake Pieter on One page for a one-question ask and a set's last question still open for Brian", () => {
     const set = (first: Question) => [first, singleChoice({ id: "q-2", ask_id: "q-1", ask_position: 1, ask_title: "VAT", prompt: "Which VAT rate applies?" })];
-    const entry = (id: string, askId: string) => ({ id, askId, askTitle: askId === "q-1" ? "VAT" : null, issueId: "issue-412", identifier: "WORK-412" });
+    const entry = (id: string, askId: string) => ({ id, askId, askTitle: askId === "q-1" ? "VAT" : null, place: { issueId: "issue-412", identifier: "WORK-412" } });
     const session = [entry("s-1", "s-1"), entry("q-1", "q-1"), entry("q-2", "q-1")];
     const page = (questions: Question[]) => (
       <QueryClientProvider client={client}>

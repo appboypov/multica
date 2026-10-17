@@ -44,7 +44,7 @@ export function ChatQuestionCards({ cards, chatSessionId, landingQuestionId, hig
             ref={highlighted ? revealCard : undefined}
           >
             {card.questions.length === 1 ? (
-              <QuestionCard question={card.questions[0]!} scope={scope} />
+              <QuestionCard question={card.questions[0]!} scope={scope} askQuestions={card.questions} />
             ) : (
               <QuestionSetCard
                 questions={card.questions}
