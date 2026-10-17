@@ -944,7 +944,7 @@ flowchart LR
   events["Question, comment, issue<br/>and task events"]
   listeners["cmd/server/todo_listeners.go"]
   producers["Task and autopilot services<br/>failure monitor"]
-  service["internal/todo<br/>Open, Close"]
+  service["internal/todo<br/>Open, Close<br/>MoveFromDeletedIssue"]
   rows[("todo<br/>migration 750; indexes 751–752")]
   api["internal/handler/todo.go<br/>list, summary, done"]
   bus["events.Bus"]
@@ -955,7 +955,8 @@ flowchart LR
   backfill["migration 753<br/>creator backfill"]
   subscribers[("issue_subscriber")]
 
-  events --> listeners --> service
+  events --> listeners
+  listeners -->|"Open, Close<br/>question linked: MoveFromDeletedIssue"| service
   producers --> service
   service --> rows
   service -->|"todo:opened, todo:closed"| bus
