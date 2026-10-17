@@ -326,7 +326,7 @@ func (f *runInputFixture) wantQuestionInput(t *testing.T, question, exclude pgty
 	if err != nil || int64(len(answers)) != want {
 		t.Fatalf("claim answers = %d, %v; want %d", len(answers), err, want)
 	}
-	backs, err := f.q.ListUnseenQuestionAskBacks(t.Context(), db.ListUnseenQuestionAskBacksParams{
+	backs, err := f.q.ListUnseenQuestionEvents(t.Context(), db.ListUnseenQuestionEventsParams{
 		WorkspaceID: f.workspace, IssueID: f.issue, AgentID: f.agent, QuestionIds: []pgtype.UUID{question},
 		ExcludeTaskID: exclude, AnswerAnchor: anchor,
 	})
