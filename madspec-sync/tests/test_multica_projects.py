@@ -65,7 +65,7 @@ class Workspace:
 
     def directory(self, project_id, key, path=None, daemon=DAEMON, mode="worktree"):
         resource = {"id": f"{project_id}-r{len(self.resources[project_id])}", "resource_type": "local_directory",
-                    "resource_ref": {"local_path": str(path or REPOS / "Ventures" / sync.name_of(key)),
+                    "resource_ref": {"local_path": str(path or REPOS / "Ventures" / key.rsplit("/", 1)[-1]),
                                      "daemon_id": daemon, "execution_mode": mode, "label": "madspec:" + key},
                     "label": "madspec:" + key}
         self.resources[project_id].append(resource)
@@ -81,7 +81,7 @@ class Workspace:
         self.checks[key.lower()] = passed_check(key)
 
     def kept(self, project_id="repository", key="appboypov/madspec", brain_id="brain-repository", issue_count=3):
-        self.project(project_id, sync.name_of(key), issue_count=issue_count)
+        self.project(project_id, key.rsplit("/", 1)[-1], issue_count=issue_count)
         self.directory(project_id, key)
         self.marks["repository_projects"][brain_id] = project_id
 
@@ -161,7 +161,7 @@ def test_madspec_merges_its_three_marked_repository_projects():
     workspace = Workspace().placed()
     repositories = tuple(repository(name) for name in ("madspec", "plannotator", "omp-anytype-inbox"))
     for repo, count in zip(repositories, (10, 2, 1)):
-        workspace.kept(sync.name_of(repo.key), repo.key, repo.id, count)
+        workspace.kept(repo.key.rsplit("/", 1)[-1], repo.key, repo.id, count)
         workspace.visible(repo.key)
     before = deepcopy((workspace.projects, workspace.resources, workspace.issues, workspace.marks))
     desired = workspace.plan(brain(repositories=repositories))
