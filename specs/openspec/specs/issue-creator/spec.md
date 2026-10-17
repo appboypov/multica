@@ -1,7 +1,8 @@
 # issue-creator Specification
 
 ## Purpose
-Makes the member an agent works for the creator of the issues the agent makes, including issues made before this rule.
+
+Credits issues created by an agent to the member the run works for while retaining the filing agent's activity attribution.
 
 ## Requirements
 
@@ -9,6 +10,7 @@ Makes the member an agent works for the creator of the issues the agent makes, i
 An issue an agent creates in a run or a quick create SHALL have the member the run works for as its creator. The issue's origin SHALL still name the run, so its activity shows which agent filed it. An agent run that works for no member SHALL stay the creator.
 
 #### Scenario: Quick create
+- **GIVEN** Skuddy can file issues for Brian
 - **WHEN** Brian quick-creates "Fix the login timeout" and Skuddy files it as WORK-430
 - **THEN** WORK-430's creator is Brian and its activity shows that Skuddy created it
 

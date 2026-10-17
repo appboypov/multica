@@ -1,7 +1,8 @@
 # todo-inbox Specification
 
 ## Purpose
-Gives each member one list of the things that need them, such as questions, mentions, assigned issues and failed runs.
+
+Lists the actions waiting on a member, closes them when handled, and keeps informational notices in Updates.
 
 ## Requirements
 
@@ -32,6 +33,7 @@ A member SHALL have a to-do for each open question they are an answerer of. It S
 A comment that @mentions a member SHALL give that member a to-do, unless they wrote it. It SHALL leave once the member posts any comment on that issue.
 
 #### Scenario: Mentioned
+- **GIVEN** WORK-418 exists in Brian's workspace
 - **WHEN** Pieter posts a comment on WORK-418 that mentions Brian
 - **THEN** Brian has a Mention to-do for that comment
 
@@ -44,6 +46,7 @@ A comment that @mentions a member SHALL give that member a to-do, unless they wr
 An issue assigned to a member SHALL be a to-do while it is in Todo, Blocked or In Review. It SHALL leave once the issue moves to another status or another assignee. A move to another of these statuses SHALL open a new to-do.
 
 #### Scenario: Assigned in Todo
+- **GIVEN** WORK-420 is in Todo
 - **WHEN** Skuddy assigns WORK-420 in Todo to Brian
 - **THEN** Brian has an Assigned to-do for WORK-420
 
@@ -53,6 +56,7 @@ An issue assigned to a member SHALL be a to-do while it is in Todo, Blocked or I
 - **THEN** the to-do leaves
 
 #### Scenario: Backlog is no to-do
+- **GIVEN** WORK-421 is in Backlog
 - **WHEN** Skuddy assigns WORK-421 in Backlog to Brian
 - **THEN** Brian has no to-do for WORK-421
 
@@ -70,6 +74,7 @@ An issue assigned to an agent that the agent moves to Blocked in a run, and an a
 - **THEN** the to-do leaves
 
 #### Scenario: Run failed
+- **GIVEN** Joeri works on WORK-423 in a run Brian started
 - **WHEN** Joeri's run on WORK-423, which Brian started, fails
 - **THEN** Brian has a Run failed to-do for WORK-423
 
@@ -90,6 +95,7 @@ A paused autopilot, a reached autopilot quota limit and a failed quick create SH
 An issue a member created SHALL be a Waiting for your review to-do while it is In Review, unless the member is its assignee. It SHALL leave once the issue leaves In Review. While an open question for the member is on the same issue, only the question SHALL show.
 
 #### Scenario: Review
+- **GIVEN** Brian created WORK-424
 - **WHEN** Joeri moves WORK-424, which Brian created, to In Review
 - **THEN** Brian has a Waiting for your review to-do for WORK-424
 
@@ -133,9 +139,11 @@ The to-dos SHALL list one row per to-do, overdue first, then newest first. The I
 The inbox notice list SHALL no longer get question, mention, failed run, paused autopilot, quota and quick create failure notices. Those notices that were not archived SHALL be archived once their to-dos exist.
 
 #### Scenario: Comment on a followed issue
+- **GIVEN** Brian follows WORK-419
 - **WHEN** Pieter comments on WORK-419, which Brian follows, without mentioning him
 - **THEN** Brian gets a New comment notice in Updates and no to-do
 
 #### Scenario: Mention
+- **GIVEN** WORK-419 exists in Brian's workspace
 - **WHEN** Pieter mentions Brian on WORK-419
 - **THEN** Brian gets a Mention to-do and no Mentioned notice
