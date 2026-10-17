@@ -42,6 +42,16 @@ SET done_at = now(), done_by = 'handled'
 WHERE workspace_id = @workspace_id AND kind = @kind AND done_at IS NULL
 RETURNING *;
 
+-- name: MoveTodosFromDeletedIssue :many
+-- An open to-do whose issue is gone follows its source to the issue it still
+-- reaches, or to none. Done to-dos keep their issue.
+UPDATE todo t
+SET issue_id = sqlc.narg('issue_id')::uuid, title = @title
+WHERE t.workspace_id = @workspace_id AND t.kind = @kind AND t.source_key = @source_key
+  AND t.done_at IS NULL AND t.issue_id IS NOT NULL
+  AND NOT EXISTS (SELECT 1 FROM issue i WHERE i.id = t.issue_id AND i.workspace_id = t.workspace_id)
+RETURNING t.*;
+
 -- name: ListOpenTodos :many
 WITH issue_projection AS (
     SELECT i.id, i.workspace_id, i.title, i.status, i.due_date,
