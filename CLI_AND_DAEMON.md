@@ -256,6 +256,8 @@ You need at least one installed. The daemon registers each detected CLI as an av
 4. Heartbeats are sent periodically (default: 15s) so the server knows the daemon is alive
 5. On shutdown, all runtimes are deregistered
 
+Kiro closes stdin after the prompt response and drains stdout and stderr before cancellation. Final ACP notifications remain part of the result during the bounded two-second drain.
+
 #### Question Wake
 
 **Wake**, an answer sent with `wake: true`, and an ask back use the same server scheduling path for the asking agent on the question's issue. An answer sent without Wake starts no run, including after the active run ends. A member's question wakes no agent.

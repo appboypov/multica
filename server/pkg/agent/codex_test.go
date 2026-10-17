@@ -4046,8 +4046,29 @@ func waitForCodexMarker(t *testing.T, path string, within time.Duration) {
 	t.Fatalf("timed out waiting for %s", path)
 }
 
+func TestCodexTurnTimeoutKind(t *testing.T) {
+	now := time.Now()
+	for _, tc := range []struct {
+		name     string
+		first    time.Time
+		expected codexTimeoutKind
+	}{
+		{"first progress expires first", now.Add(-20 * time.Millisecond), codexTimeoutFirstTurnNoProgress},
+		{"semantic expires first", now.Add(20 * time.Millisecond), codexTimeoutSemanticInactivity},
+		{"equal deadlines retain startup classification", now, codexTimeoutFirstTurnNoProgress},
+		{"progress already observed", time.Time{}, codexTimeoutSemanticInactivity},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := codexTurnTimeoutKind(now, tc.first); got != tc.expected {
+				t.Fatalf("timeout kind = %v, want %v", got, tc.expected)
+			}
+		})
+	}
+}
+
 func TestCodexExecuteLegacyFirstTurnMessageSatisfiesProgress(t *testing.T) {
-	t.Parallel()
+	// This checks a 100ms inactivity window across subprocess sleeps. Run
+	// without competing parallel fixtures that can delay the scheduled writes.
 	if runtime.GOOS == "windows" {
 		t.Skip("shell-script fixture is POSIX-only")
 	}
