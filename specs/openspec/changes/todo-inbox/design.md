@@ -13,6 +13,8 @@ flowchart LR
     H[handler/todo.go]:::new
     DB[(todo)]:::new
     IB[(inbox_item)]
+    M753[migration 753]:::new
+    SUB[(issue_subscriber)]
   end
   subgraph clients [web and desktop]
     CORE[packages/core/todos]:::new
@@ -20,6 +22,8 @@ flowchart LR
   end
   BUS --> L --> TD --> DB
   BUS --> N --> IB
+  M753 -->|creator row, unless the member left the issue or its tree| SUB
+  SUB -->|recipients by reason| N
   S --> TD
   TD -->|todo:opened, todo:closed| BUS
   H --> DB
@@ -71,7 +75,7 @@ sequenceDiagram
 | Migration | `todo` table | new | `server/migrations/750_todo.up.sql` |
 | Migration | open-row unique index, `CONCURRENTLY` | new | `server/migrations/751_todo_open_index.up.sql` |
 | Migration | open list index, `CONCURRENTLY` | new | `server/migrations/752_todo_list_index.up.sql` |
-| Migration | creator of agent-made issues | new | `server/migrations/753_issue_creator_backfill.up.sql` |
+| Migration | creator of agent-made issues, and the member's creator subscription | new | `server/migrations/753_issue_creator_backfill.up.sql` |
 | Migration | open to-dos from today's data, archive moved notices | new | `server/migrations/754_todo_backfill.up.sql` |
 | Queries | open, close, list, summary, mark done | new | `server/pkg/db/queries/todo.sql` |
 | Package | `Open`, `Close`, kinds, events | new | `server/internal/todo/` |
@@ -124,7 +128,7 @@ These `inbox_item` types are no longer made: `question_asked`, `question_reassig
 
 `CreateIssue` already resolves the run behind an agent's create: `X-Task-ID` for `agent_create`, `origin_id` for `quick_create`. When that run has an `originator_user_id`, the issue's creator is that member; `ActorID` and the origin stay the agent and its run. Production has 91 such issues, all with an originator who is a workspace member. Migration 753 sets the same for them, before migration 754 opens the review to-dos of their creators.
 
-`attribution.DelegatedSubscriber` acts only on agent creators, so the member now follows these issues through the ordinary creator subscription.
+`attribution.DelegatedSubscriber` acts only on agent creators, so the member now follows these issues through the ordinary creator subscription. On the issues migration 753 corrects, it turns the member's active `delegated` subscription into `creator`, and gives a member without a row a `creator` row; issues from before the delegated rule have none. A member who unsubscribed from the issue, or from a tree above it, stays unsubscribed.
 
 ## API contract
 

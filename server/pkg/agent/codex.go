@@ -301,6 +301,15 @@ const (
 	codexTimeoutFirstTurnNoProgress
 )
 
+// Timer delivery can be delayed until both deadlines have passed. Classify by
+// deadline order so scheduler choice cannot change startup retry eligibility.
+func codexTurnTimeoutKind(semanticDeadline, firstProgressDeadline time.Time) codexTimeoutKind {
+	if !firstProgressDeadline.IsZero() && !firstProgressDeadline.After(semanticDeadline) {
+		return codexTimeoutFirstTurnNoProgress
+	}
+	return codexTimeoutSemanticInactivity
+}
+
 type codexTimeoutDiagnostic struct {
 	Kind         codexTimeoutKind
 	Timeout      time.Duration
@@ -1706,6 +1715,7 @@ func (b *codexBackend) executeOnce(ctx context.Context, prompt string, opts Exec
 		var firstTurnNoProgressTimer *time.Timer
 		var firstTurnNoProgressTimerC <-chan time.Time
 		firstTurnStarted := false
+		var firstTurnNoProgressDeadline time.Time
 		firstTurnProgressObserved := false
 		stopFirstTurnNoProgressTimer := func() {
 			if firstTurnNoProgressTimer == nil {
@@ -1716,69 +1726,41 @@ func (b *codexBackend) executeOnce(ctx context.Context, prompt string, opts Exec
 		}
 		defer stopFirstTurnNoProgressTimer()
 
+		observeActivity := func(activity string) {
+			lastSemanticActivity = time.Now()
+			lastSemanticActivityDescription = activity
+			resetTimer(semanticTimer, semanticInactivityTimeout)
+			if activity == "status:running" && !firstTurnStarted {
+				firstTurnStarted = true
+				firstItemWait.start(lastSemanticActivity, c.activeTurnID())
+				firstTurnNoProgressDeadline = lastSemanticActivity.Add(firstTurnNoProgressTimeout)
+				firstTurnNoProgressTimer = time.NewTimer(firstTurnNoProgressTimeout)
+				firstTurnNoProgressTimerC = firstTurnNoProgressTimer.C
+			} else if firstTurnStarted && !firstTurnProgressObserved && isCodexFirstTurnProgressActivity(activity) {
+				firstTurnProgressObserved = true
+				if activity == "error:terminal" {
+					finishFirstItemWait("turn_failed")
+				} else {
+					finishFirstItemWait("progress")
+				}
+				firstTurnNoProgressDeadline = time.Time{}
+				stopFirstTurnNoProgressTimer()
+			}
+			if !firstTurnNoProgressDeadline.IsZero() {
+				resetTimer(firstTurnNoProgressTimer, time.Until(firstTurnNoProgressDeadline))
+			}
+		}
 		for waitingForTurn {
+			timeoutReady := false
 			select {
 			case aborted := <-turnDone:
 				finishTurn(aborted)
 			case activity := <-semanticActivityCh:
-				lastSemanticActivity = time.Now()
-				lastSemanticActivityDescription = activity
-				resetTimer(semanticTimer, semanticInactivityTimeout)
-				if activity == "status:running" && !firstTurnStarted {
-					firstTurnStarted = true
-					firstItemWait.start(time.Now(), c.activeTurnID())
-					firstTurnNoProgressTimer = time.NewTimer(firstTurnNoProgressTimeout)
-					firstTurnNoProgressTimerC = firstTurnNoProgressTimer.C
-				} else if firstTurnStarted && !firstTurnProgressObserved && isCodexFirstTurnProgressActivity(activity) {
-					firstTurnProgressObserved = true
-					if activity == "error:terminal" {
-						finishFirstItemWait("turn_failed")
-					} else {
-						finishFirstItemWait("progress")
-					}
-					stopFirstTurnNoProgressTimer()
-				}
+				observeActivity(activity)
 			case <-firstTurnNoProgressTimerC:
-				waitingForTurn = false
-				finishFirstItemWait("no_progress_timeout")
-				finalStatus = "timeout"
-				turnID := c.activeTurnID()
-				timeoutDiagnostic = codexTimeoutDiagnostic{
-					Kind:         codexTimeoutFirstTurnNoProgress,
-					Timeout:      firstTurnNoProgressTimeout,
-					LastActivity: lastSemanticActivityDescription,
-					ThreadID:     threadID,
-					TurnID:       turnID,
-					Model:        opts.Model,
-				}
-				b.cfg.Logger.Warn(CodexFirstTurnNoProgressMarker,
-					"pid", cmd.Process.Pid,
-					"thread_id", threadID,
-					"turn_id", turnID,
-					"timeout", firstTurnNoProgressTimeout.String(),
-					"last_activity", lastSemanticActivityDescription,
-				)
+				timeoutReady = true
 			case <-semanticTimer.C:
-				waitingForTurn = false
-				finishFirstItemWait("semantic_inactivity_timeout")
-				finalStatus = "timeout"
-				turnID := c.activeTurnID()
-				timeoutDiagnostic = codexTimeoutDiagnostic{
-					Kind:         codexTimeoutSemanticInactivity,
-					Timeout:      semanticInactivityTimeout,
-					LastActivity: lastSemanticActivityDescription,
-					ThreadID:     threadID,
-					TurnID:       turnID,
-					Model:        opts.Model,
-				}
-				b.cfg.Logger.Warn(CodexSemanticInactivityMarker,
-					"pid", cmd.Process.Pid,
-					"thread_id", threadID,
-					"turn_id", turnID,
-					"timeout", semanticInactivityTimeout.String(),
-					"last_activity", lastSemanticActivityDescription,
-					"idle_for", time.Since(lastSemanticActivity).Round(time.Millisecond).String(),
-				)
+				timeoutReady = true
 			case <-runCtx.Done():
 				finishRunContextDone()
 				if !interruptCodexTurn(c, threadID, turnDone, opts.TurnInterruptTimeout, b.cfg.Logger) {
@@ -1802,6 +1784,66 @@ func (b *codexBackend) executeOnce(ctx context.Context, prompt string, opts Exec
 						finalError = processExitErr.Error()
 					}
 				}
+			}
+			if !timeoutReady {
+				continue
+			}
+			// A queued completion or progress event takes precedence over an
+			// expired watchdog. The reader may run ahead of this goroutine.
+			select {
+			case aborted := <-turnDone:
+				finishTurn(aborted)
+				continue
+			default:
+			}
+			select {
+			case activity := <-semanticActivityCh:
+				observeActivity(activity)
+				continue
+			default:
+			}
+			switch codexTurnTimeoutKind(lastSemanticActivity.Add(semanticInactivityTimeout), firstTurnNoProgressDeadline) {
+			case codexTimeoutFirstTurnNoProgress:
+				waitingForTurn = false
+				finishFirstItemWait("no_progress_timeout")
+				finalStatus = "timeout"
+				turnID := c.activeTurnID()
+				timeoutDiagnostic = codexTimeoutDiagnostic{
+					Kind:         codexTimeoutFirstTurnNoProgress,
+					Timeout:      firstTurnNoProgressTimeout,
+					LastActivity: lastSemanticActivityDescription,
+					ThreadID:     threadID,
+					TurnID:       turnID,
+					Model:        opts.Model,
+				}
+				b.cfg.Logger.Warn(CodexFirstTurnNoProgressMarker,
+					"pid", cmd.Process.Pid,
+					"thread_id", threadID,
+					"turn_id", turnID,
+					"timeout", firstTurnNoProgressTimeout.String(),
+					"last_activity", lastSemanticActivityDescription,
+				)
+			case codexTimeoutSemanticInactivity:
+				waitingForTurn = false
+				finishFirstItemWait("semantic_inactivity_timeout")
+				finalStatus = "timeout"
+				turnID := c.activeTurnID()
+				timeoutDiagnostic = codexTimeoutDiagnostic{
+					Kind:         codexTimeoutSemanticInactivity,
+					Timeout:      semanticInactivityTimeout,
+					LastActivity: lastSemanticActivityDescription,
+					ThreadID:     threadID,
+					TurnID:       turnID,
+					Model:        opts.Model,
+				}
+				b.cfg.Logger.Warn(CodexSemanticInactivityMarker,
+					"pid", cmd.Process.Pid,
+					"thread_id", threadID,
+					"turn_id", turnID,
+					"timeout", semanticInactivityTimeout.String(),
+					"last_activity", lastSemanticActivityDescription,
+					"idle_for", time.Since(lastSemanticActivity).Round(time.Millisecond).String(),
+				)
 			}
 		}
 

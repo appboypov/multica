@@ -448,12 +448,17 @@ func (b *kiroBackend) Execute(ctx context.Context, prompt string, opts ExecOptio
 		duration := time.Since(startTime)
 		b.cfg.Logger.Info("kiro finished", "pid", cmd.Process.Pid, "status", finalStatus, "duration", duration.Round(time.Millisecond).String())
 
+		// EOF lets Kiro finish writing its final notifications. Keep the
+		// process alive until both readers finish or the drain bound expires.
 		stdin.Close()
+		if !waitForHermesPipeDrain(readerDone, stderrDone, kiroReaderDrainGrace) {
+			b.cfg.Logger.Warn("kiro did not close output pipes after stdin EOF; forcing shutdown",
+				"pid", cmd.Process.Pid,
+				"grace", kiroReaderDrainGrace.String(),
+			)
+		}
 		cancel()
-
 		<-readerDone
-		// Ensure the stderr copier has drained before consulting the
-		// provider-error sniffer; see hermes.go for the failure mode.
 		<-stderrDone
 
 		finalOutput, providerErrorOutput := deliverable.result()
