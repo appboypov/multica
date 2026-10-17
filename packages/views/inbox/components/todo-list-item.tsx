@@ -2,7 +2,7 @@
 
 import { Check, CalendarClock, Settings } from "lucide-react";
 import { paths, useWorkspaceSlug } from "@multica/core/paths";
-import type { Todo } from "@multica/core/types";
+import { canMarkTodoDone, type Todo } from "@multica/core/types";
 import { useActorName } from "@multica/core/workspace/hooks";
 import { Badge } from "@multica/ui/components/ui/badge";
 import { cn } from "@multica/ui/lib/utils";
@@ -97,13 +97,13 @@ export function TodoListItem({
               </Badge>
             )}
             {!todo.overdue && (
-              <span className={cn("text-caption text-muted-foreground", todo.kind !== "check" && todo.kind !== "instruction_change" && "[@media(hover:hover)]:group-hover:hidden [@media(hover:hover)]:group-focus-within:hidden")}>
+              <span className={cn("text-caption text-muted-foreground", canMarkTodoDone(todo.kind) && "[@media(hover:hover)]:group-hover:hidden [@media(hover:hover)]:group-focus-within:hidden")}>
                 {timeAgo(todo.created_at)}
               </span>
             )}
             {/* Pointer-only: revealed on hover and on keyboard focus in the
                 row. Touch has neither; the detail head carries Mark done. */}
-            {todo.kind !== "check" && todo.kind !== "instruction_change" && (
+            {canMarkTodoDone(todo.kind) && (
             <button
               type="button"
               title={markDoneLabel}

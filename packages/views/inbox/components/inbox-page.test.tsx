@@ -175,6 +175,24 @@ describe("InboxPage", () => {
     expect(screen.getByTestId("todo-detail")).toHaveAttribute("data-todo-id", "b");
   });
 
+  it("E marks the selected to-do done", () => {
+    nav.searchParams = new URLSearchParams("todo=b");
+    renderPage();
+    fireEvent.keyDown(document, { key: "e", code: "KeyE" });
+    expect(markDoneMutate).toHaveBeenCalledWith("b", expect.anything());
+    expect(replace).toHaveBeenLastCalledWith("/acme/inbox?todo=c");
+  });
+
+  it.each(["check", "instruction_change"] as const)("E on a %s sends no request and keeps the selection", (kind) => {
+    listState.data = [a, todoFixture({ id: "held", title: "Held", kind }), c];
+    nav.searchParams = new URLSearchParams("todo=held");
+    renderPage();
+    fireEvent.keyDown(document, { key: "e", code: "KeyE" });
+    expect(markDoneMutate).not.toHaveBeenCalled();
+    expect(replace).not.toHaveBeenCalled();
+    expect(screen.getByTestId("todo-detail")).toHaveAttribute("data-todo-id", "held");
+  });
+
   it("selects the next row once the selected to-do leaves by itself", () => {
     nav.searchParams = new URLSearchParams("todo=a");
     const { rerender } = renderPage();

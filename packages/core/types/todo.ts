@@ -8,6 +8,11 @@ export const TODO_KINDS = [
 
 export type TodoKind = (typeof TODO_KINDS)[number];
 
+/** Check and instruction notes close only through their own answer, never through Mark done. */
+export function canMarkTodoDone(kind: TodoKind): boolean {
+  return kind !== "check" && kind !== "instruction_change";
+}
+
 export interface Todo {
   id: string;
   workspace_id: string;

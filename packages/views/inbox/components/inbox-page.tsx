@@ -15,7 +15,7 @@ import {
   shortcutMatchesEvent,
 } from "@multica/core/shortcuts";
 import { todoListOptions, useMarkTodoDone } from "@multica/core/todos";
-import type { Todo } from "@multica/core/types";
+import { canMarkTodoDone, type Todo } from "@multica/core/types";
 import { isImeComposing } from "@multica/core/utils";
 import { ErrorBoundary } from "@multica/ui/components/common/error-boundary";
 import { Button } from "@multica/ui/components/ui/button";
@@ -122,7 +122,8 @@ export function InboxPage() {
   }, [todos, selectedId, setSelectedId, listFetching]);
 
   const markDone = useMarkTodoDone();
-  const handleMarkDone = (id: string) => {
+  const handleMarkDone = ({ id, kind }: Todo) => {
+    if (!canMarkTodoDone(kind)) return;
     if (id === selectedId && todos) {
       setOpenedIssue(null);
       setSelectedId(nextTodoAfter(id, todos, todos.filter((todo) => todo.id !== id)));
@@ -137,7 +138,7 @@ export function InboxPage() {
   // calling the latest handler.
   const markSelectedDoneRef = useRef<(() => void) | null>(null);
   useEffect(() => {
-    markSelectedDoneRef.current = selected ? () => handleMarkDone(selected.id) : null;
+    markSelectedDoneRef.current = selected ? () => handleMarkDone(selected) : null;
   });
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -207,7 +208,7 @@ export function InboxPage() {
             todo={todo}
             isSelected={todo.id === selectedId}
             onClick={() => handleSelect(todo)}
-            onMarkDone={() => handleMarkDone(todo.id)}
+            onMarkDone={() => handleMarkDone(todo)}
           />
         </div>
       ))}
@@ -260,7 +261,7 @@ export function InboxPage() {
           key={selected.id}
           todo={selected}
           leadingAction={compactBackAction}
-          onMarkDone={() => handleMarkDone(selected.id)}
+          onMarkDone={() => handleMarkDone(selected)}
           onOpenIssue={(target) => openIssue(selected, target)}
         />
       )}

@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { ArrowUpRight, Check } from "lucide-react";
 import { useWorkspacePaths } from "@multica/core/paths";
-import type { Todo } from "@multica/core/types";
+import { canMarkTodoDone, type Todo } from "@multica/core/types";
 import { Button } from "@multica/ui/components/ui/button";
 import { cn } from "@multica/ui/lib/utils";
 import { useT, useTimeAgo } from "../../i18n";
@@ -126,7 +126,7 @@ export function TodoDetailPane({
               {t(($) => $.todos.open_autopilot)}
             </Button>
           ) : null}
-          {todo.kind !== "check" && todo.kind !== "instruction_change" && (
+          {canMarkTodoDone(todo.kind) && (
           <Button type="button" variant="outline" size="sm" onClick={onMarkDone}>
             <Check />
             {t(($) => $.todos.mark_done)}
