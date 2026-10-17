@@ -69,8 +69,13 @@ vi.mock("../../issues/actions/use-issue-actions", () => ({
   },
 }));
 vi.mock("../../issues/components/pickers", () => ({
-  StatusPicker: ({ status, onUpdate }: { status: string; onUpdate: (updates: { status: string }) => void }) => (
-    <button type="button" onClick={() => onUpdate({ status: "in_progress" })}>{status}</button>
+  // The pill the picker opens from: a disabled trigger offers no pick.
+  StatusPicker: ({ status, onUpdate, triggerRender }: {
+    status: string;
+    onUpdate: (updates: { status: string }) => void;
+    triggerRender?: { props: { disabled?: boolean } };
+  }) => (
+    <button type="button" disabled={triggerRender?.props.disabled} onClick={() => onUpdate({ status: "in_progress" })}>{status}</button>
   ),
 }));
 vi.mock("../../issues/components/status-icon", () => ({ StatusIcon: () => <span data-testid="status-icon" /> }));
@@ -107,6 +112,7 @@ beforeEach(() => {
   state.pullRequests = [];
   state.issue = null;
   updateAutopilot.mockClear();
+  updateField.mockClear();
   push.mockClear();
   replyProps.length = 0;
 });
@@ -209,6 +215,14 @@ describe("TodoIssueBody", () => {
     fireEvent.click(screen.getByRole("button", { name: "todo" }));
     expect(actionsIssue.current).toBe(state.issue);
     expect(updateField).toHaveBeenCalledWith({ status: "in_progress" });
+  });
+
+  it("offers no status pick for an assignment until its issue has loaded", () => {
+    renderWithI18n(<TodoIssueBody todo={todoFixture({ kind: "assigned", issue_status: "todo", question_id: null })} issueId="issue-412" />);
+    const pill = screen.getByRole("button", { name: "todo" });
+    expect(pill).toBeDisabled();
+    fireEvent.click(pill);
+    expect(updateField).not.toHaveBeenCalled();
   });
 
   it("says the assignment is the member's when no one assigned it", () => {

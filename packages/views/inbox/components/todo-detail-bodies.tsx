@@ -224,7 +224,8 @@ function TodoAssignedStatus({ todo, issueId }: { todo: Todo; issueId: string }) 
   if (!status) return null;
   return (
     <div className="flex items-center gap-1.5 text-body">
-      <StatusPicker status={status} onUpdate={actions.updateField} triggerRender={<PillButton />} align="start" />
+      {/* The pick waits for the issue: until it has loaded, the actions have no issue to change. */}
+      <StatusPicker status={status} onUpdate={actions.updateField} triggerRender={<PillButton disabled={!issue} />} align="start" />
       <span className="text-caption text-muted-foreground">
         ·{" "}
         {todo.actor_type && todo.actor_id
