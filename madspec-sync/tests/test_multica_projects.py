@@ -426,7 +426,7 @@ class FakeMultica(Workspace):
             return value
         if path == "/api/issues/batch-update":
             ids = body["issue_ids"]
-            moved = ids if self.batch_updated is None else ids[:self.batch_updated]
+            moved = ids if not self.batch_updated else ids[:self.batch_updated.pop(0)]
             for issue_id in moved:
                 source = next(values for values in self.issues.values() if issue_id in values)
                 source.remove(issue_id)
@@ -599,7 +599,7 @@ def test_failed_moves_or_fresh_read_never_delete_the_repository_project(shell, m
             shell.api.fail_read = "/api/issues"
         return result
     if failure == "partial":
-        shell.api.batch_updated = 2
+        shell.api.batch_updated = [2]
     monkeypatch.setattr(shell.api, "call", after_moves)
     assert sync.main() == 1
     assert "repository" in {value["id"] for value in shell.api.projects}
@@ -824,14 +824,18 @@ def test_failed_project_mark_keeps_source_and_next_run_takes_over_unmarked_creat
     assert len(shell.api.issues["new-MadSpec"]) == 1
 
 
-def test_partial_move_next_run_finishes_from_remaining_source_issues(shell):
-    shell.keep_source()
-    shell.api.batch_updated = 2
+def test_partial_move_of_101_issues_keeps_source_and_next_run_moves_the_rest(shell):
+    shell.keep_source(issue_count=101)
+    shell.api.batch_updated = [100, 0]
     assert sync.main() == 1
-    assert len(shell.api.issues["repository"]) == 1
-    shell.api.batch_updated = None
+    assert len(shell.api.issues["new-MadSpec"]) == 100
+    assert shell.api.issues["repository"] == ["repository-issue-100"]
+    assert not any(method == "DELETE" for method, _, _ in shell.api.writes)
+    moves = len(shell.api.writes)
     assert sync.main() == 0
-    assert len(shell.api.issues["new-MadSpec"]) == 3
+    batches = [body["issue_ids"] for _, path, body in shell.api.writes[moves:] if path == "/api/issues/batch-update"]
+    assert batches == [["repository-issue-100"]]
+    assert len(shell.api.issues["new-MadSpec"]) == 101
     assert "repository" not in shell.api.issues
 
 
