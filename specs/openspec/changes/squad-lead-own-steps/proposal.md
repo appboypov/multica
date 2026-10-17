@@ -2,11 +2,16 @@
 
 ```mermaid
 flowchart LR
-  trigger[Leader trigger] --> choose[Read issue and Agent Identity]
-  choose --> own[Do own role step]
-  choose --> member[Delegate member step]
-  own --> choose
-  member --> stop[Record activity and stop]
+  classDef new fill:#d9f2d9,stroke:#2e7d32,color:#172117
+  classDef changed fill:#fff1cc,stroke:#b7791f,color:#172117
+  trigger[Leader trigger] --> choose[Read issue and Agent Identity]:::changed
+  choose -->|Leader's step| own[Do own role step]:::new
+  choose -->|Member fits better| delegate[Mention suitable member]
+  own --> next[Assess next step]:::new
+  next -->|Member fits better| delegate
+  next -->|No delegation| deliver[Deliver own result and apply status rules]:::new
+  delegate --> stop[Record activity and end turn]:::changed
+  deliver --> stop
 ```
 
 | Part | Scope |

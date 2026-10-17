@@ -2,21 +2,26 @@
 
 ```mermaid
 flowchart LR
+  classDef new fill:#d9f2d9,stroke:#2e7d32,color:#172117
+  classDef changed fill:#fff1cc,stroke:#b7791f,color:#172117
   subgraph server[Go server]
-    protocol[squad_briefing.go]
+    protocol[squad_briefing.go]:::changed
     claim[Leader claim]
     protocol --> claim
   end
   subgraph daemon[Daemon]
-    workflow[runtime_config_sections.go]
+    workflow[runtime_config_sections.go]:::changed
     turn[Leader turn]
     workflow --> turn
   end
   claim -->|Instructions| turn
-  turn --> own[Own role step]
-  own --> next[Assess next step]
-  next --> delegate[Mention member]
-  delegate --> stop[Record activity and end turn]
+  turn -->|Leader's step| own[Own role step]:::new
+  turn -->|Member fits better| delegate[Mention member]
+  own --> next[Assess next step]:::new
+  next -->|Member fits better| delegate
+  next -->|No delegation| deliver[Deliver result and apply status rules]:::new
+  delegate --> stop[Record activity and end turn]:::changed
+  deliver --> stop
 ```
 
 | Surface | Responsibility |
