@@ -1481,6 +1481,7 @@ type Repository struct {
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
 	InstallCommand   pgtype.Text        `json:"install_command"`
 	LastTag          pgtype.Text        `json:"last_tag"`
+	WorkInCheckout   bool               `json:"work_in_checkout"`
 }
 
 type RuntimeProfile struct {

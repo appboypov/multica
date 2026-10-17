@@ -540,11 +540,14 @@ func (c *Client) MarkTaskWaitingLocalDirectory(ctx context.Context, taskID, reas
 	}, nil)
 }
 
-// ReportWorklaneBranch tells the server the branch a worklane's worktree
-// switched to before the task started there (UJ-6 design.md decision 6).
-func (c *Client) ReportWorklaneBranch(ctx context.Context, taskID, branch string) error {
+// ReportWorklaneBranch tells the server the branch the worklane's worktree
+// switched to before the task started there (UJ-6 design.md decision 6). The
+// worklane is the one the claim gave, which may be main for a repository that
+// works in its checkout (ADR-0031).
+func (c *Client) ReportWorklaneBranch(ctx context.Context, taskID, worklaneID, branch string) error {
 	return c.postJSON(ctx, fmt.Sprintf("/api/daemon/tasks/%s/worklane-branch", taskID), map[string]any{
-		"branch": branch,
+		"branch":      branch,
+		"worklane_id": worklaneID,
 	}, nil)
 }
 

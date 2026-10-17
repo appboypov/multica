@@ -77,6 +77,15 @@ UPDATE repository SET
 WHERE id = sqlc.arg('id') AND workspace_id = sqlc.arg('workspace_id')
 RETURNING *;
 
+-- name: UpdateRepositoryWorkInCheckout :one
+-- With it on, every issue task of the repository works in its checkout
+-- (ADR-0031).
+UPDATE repository SET
+    work_in_checkout = sqlc.arg('work_in_checkout'),
+    updated_at = now()
+WHERE id = sqlc.arg('id') AND workspace_id = sqlc.arg('workspace_id')
+RETURNING *;
+
 -- name: BackfillRepositoryInstallCommand :many
 -- A passed check fills the install command of a repository from before this
 -- column, when it names that repository and its checkout. Returns the rows it

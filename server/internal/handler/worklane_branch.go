@@ -7,12 +7,14 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/multica-ai/multica/server/internal/middleware"
+	"github.com/multica-ai/multica/server/internal/service"
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
 	"github.com/multica-ai/multica/server/pkg/protocol"
 	"github.com/multica-ai/multica/server/pkg/taskfailure"
@@ -34,14 +36,19 @@ func worklaneLocation(wl db.Worklane, repo db.Repository) (daemonID, path string
 }
 
 // ReportWorklaneBranchRequest is the branch the daemon switched a worklane's
-// worktree to before it started a task there.
+// worktree to before it started a task there. WorklaneID names the worklane
+// the claim gave, which is main for a repository that works in its checkout;
+// empty means the issue's worklane.
 type ReportWorklaneBranchRequest struct {
-	Branch string `json:"branch"`
+	Branch     string `json:"branch"`
+	WorklaneID string `json:"worklane_id"`
 }
 
 // ReportWorklaneBranch records the branch of the worklane of the task's
-// issue: POST /api/daemon/tasks/{taskId}/worklane-branch. The task's runtime
-// must sit on the worklane's machine (UJ-6 design.md decision 6).
+// issue, or of the main worklane of a repository in the issue's project that
+// works in its checkout (ADR-0031): POST
+// /api/daemon/tasks/{taskId}/worklane-branch. The task's runtime must sit on
+// the worklane's machine (UJ-6 design.md decision 6).
 func (h *Handler) ReportWorklaneBranch(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	taskID := chi.URLParam(r, "taskId")
@@ -73,11 +80,17 @@ func (h *Handler) ReportWorklaneBranch(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to load issue")
 		return
 	}
-	if !issue.WorklaneID.Valid {
+	worklaneID := issue.WorklaneID
+	if req.WorklaneID != "" {
+		if worklaneID, ok = parseUUIDOrBadRequest(w, req.WorklaneID, "worklane_id"); !ok {
+			return
+		}
+	}
+	if !worklaneID.Valid {
 		writeError(w, http.StatusConflict, "issue is not in a worklane")
 		return
 	}
-	wl, err := h.Queries.GetWorklaneInWorkspace(ctx, db.GetWorklaneInWorkspaceParams{ID: issue.WorklaneID, WorkspaceID: wsUUID})
+	wl, err := h.Queries.GetWorklaneInWorkspace(ctx, db.GetWorklaneInWorkspaceParams{ID: worklaneID, WorkspaceID: wsUUID})
 	if err != nil {
 		if isNotFound(err) {
 			writeError(w, http.StatusNotFound, "worklane not found")
@@ -93,6 +106,23 @@ func (h *Handler) ReportWorklaneBranch(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		writeError(w, http.StatusInternalServerError, "failed to load repository")
+		return
+	}
+	ofIssue := wl.ID == issue.WorklaneID
+	inCheckout := false
+	if !ofIssue && wl.IsMain && (repo.WorkInCheckout || wl.Branch.String == branch) {
+		inCheckout = issue.ProjectID.Valid && repo.ProjectID == issue.ProjectID
+		if !inCheckout && issue.WorklaneID.Valid {
+			lane, err := h.Queries.GetWorklaneInWorkspace(ctx, db.GetWorklaneInWorkspaceParams{ID: issue.WorklaneID, WorkspaceID: wsUUID})
+			if err != nil && !isNotFound(err) {
+				writeError(w, http.StatusInternalServerError, "failed to load worklane")
+				return
+			}
+			inCheckout = err == nil && lane.RepositoryID == repo.ID
+		}
+	}
+	if !ofIssue && !inCheckout {
+		writeError(w, http.StatusConflict, "the worklane is not the issue's worklane")
 		return
 	}
 	daemonID, _ := worklaneLocation(wl, repo)
@@ -177,14 +207,14 @@ func createWorklaneActivity(ctx context.Context, q *db.Queries, wl db.Worklane, 
 	return err
 }
 
-// claimWorklane fills the worklane block of the claim for the repository of
-// the issue's worklane, adding that repository when the project block lacks
-// it. A runtime on another machine fails the task before launch with
-// worklane_elsewhere (UJ-6 design.md decision 6).
+// claimWorklane fills the worklane block of the claim, adding a repository
+// the project block lacks. The repository of the issue's worklane gets that
+// worklane. A repository that works in its checkout (ADR-0031) gets its main
+// worklane with InCheckout instead, for every issue of its project and
+// whichever worklane the issue is in. A runtime on another machine than the
+// issue's worklane fails the task before launch with worklane_elsewhere (UJ-6
+// design.md decision 6); an issue in no worklane there gets no block.
 func (h *Handler) claimWorklane(ctx context.Context, task *db.AgentTaskQueue, runtime db.AgentRuntime, agentName string, issue db.Issue, repos []protocol.ClaimRepository) ([]protocol.ClaimRepository, *claimBuildFailure) {
-	if !issue.WorklaneID.Valid {
-		return repos, nil
-	}
 	loadFailed := func(what string, err error) ([]protocol.ClaimRepository, *claimBuildFailure) {
 		slog.Error("issue claim: load worklane context failed; preserving task for redelivery",
 			"task_id", uuidToString(task.ID), "issue_id", uuidToString(issue.ID), "what", what, "error", err)
@@ -193,65 +223,130 @@ func (h *Handler) claimWorklane(ctx context.Context, task *db.AgentTaskQueue, ru
 		}
 		return repos, &claimBuildFailure{outcome: "error_worklane_context", status: http.StatusInternalServerError, message: "failed to load worklane context"}
 	}
-	wl, err := h.Queries.GetWorklaneInWorkspace(ctx, db.GetWorklaneInWorkspaceParams{ID: issue.WorklaneID, WorkspaceID: issue.WorkspaceID})
-	if errors.Is(err, pgx.ErrNoRows) {
-		return repos, nil
+	var lane db.Worklane
+	if issue.WorklaneID.Valid {
+		wl, err := h.Queries.GetWorklaneInWorkspace(ctx, db.GetWorklaneInWorkspaceParams{ID: issue.WorklaneID, WorkspaceID: issue.WorkspaceID})
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return loadFailed("worklane", err)
+		}
+		lane = wl
 	}
-	if err != nil {
-		return loadFailed("worklane", err)
+	var candidates []db.Repository
+	if issue.ProjectID.Valid {
+		rows, err := h.Queries.ListRepositoriesByProject(ctx, db.ListRepositoriesByProjectParams{ProjectID: issue.ProjectID, WorkspaceID: issue.WorkspaceID})
+		if err != nil {
+			return loadFailed("project repositories", err)
+		}
+		candidates = rows
 	}
-	repo, err := h.Queries.GetRepositoryInWorkspace(ctx, db.GetRepositoryInWorkspaceParams{ID: wl.RepositoryID, WorkspaceID: issue.WorkspaceID})
-	if errors.Is(err, pgx.ErrNoRows) {
-		return repos, nil
+	if lane.ID.Valid && !slices.ContainsFunc(candidates, func(r db.Repository) bool { return r.ID == lane.RepositoryID }) {
+		repo, err := h.Queries.GetRepositoryInWorkspace(ctx, db.GetRepositoryInWorkspaceParams{ID: lane.RepositoryID, WorkspaceID: issue.WorkspaceID})
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return loadFailed("repository", err)
+		}
+		if err == nil {
+			candidates = append(candidates, repo)
+		}
 	}
-	if err != nil {
-		return loadFailed("repository", err)
-	}
-	daemonID, path := worklaneLocation(wl, repo)
-	if daemonID == "" || path == "" {
+	if len(candidates) == 0 {
 		return repos, nil
 	}
 	machines, err := h.Queries.ListAgentRuntimes(ctx, issue.WorkspaceID)
 	if err != nil {
 		return loadFailed("runtimes", err)
 	}
-	worklaneMachineName := daemonMachineName(machines, daemonID)
-	if runtime.DaemonID.String != daemonID {
-		runtimeMachineName := daemonMachineName(machines, runtime.DaemonID.String)
-		if runtimeMachineName == "" {
-			runtimeMachineName = runtime.Name
+	issueKey := ""
+	// Every machine gate runs before the pull-request read, so an open PR
+	// never bypasses it.
+	type claimLane struct {
+		repo       db.Repository
+		wl         db.Worklane
+		path       string
+		inCheckout bool
+	}
+	var lanes []claimLane
+	for _, repo := range candidates {
+		wl := lane
+		ofLane := lane.ID.Valid && lane.RepositoryID == repo.ID
+		main, err := h.Queries.GetMainWorklane(ctx, db.GetMainWorklaneParams{RepositoryID: repo.ID, WorkspaceID: issue.WorkspaceID})
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return loadFailed("main worklane", err)
 		}
-		message := fmt.Sprintf("%s runs on %s; %s lives on %s", agentName, runtimeMachineName, wl.Name, worklaneMachineName)
-		return repos, h.failClaimedTaskBeforeLaunch(ctx, task, message, taskfailure.ReasonWorklaneElsewhere,
-			"error_worklane_elsewhere", http.StatusConflict, "worklane lives on another machine")
+		inCheckout := err == nil && repo.WorkInCheckout
+		if err == nil && !inCheckout && main.Branch.Valid {
+			// git keeps a branch in one place: an issue whose branch the
+			// checkout still holds goes on there, also with the setting off.
+			if issueKey == "" {
+				ws, err := h.Queries.GetWorkspace(ctx, issue.WorkspaceID)
+				if err != nil {
+					return loadFailed("workspace", err)
+				}
+				issueKey = strings.ToLower(service.IssueIdentifier(ws.IssuePrefix, issue.Number))
+			}
+			inCheckout = main.Branch.String == issueKey
+		}
+		if inCheckout {
+			wl = main
+		} else if !ofLane {
+			continue
+		}
+		daemonID, path := worklaneLocation(wl, repo)
+		if daemonID == "" || path == "" {
+			continue
+		}
+		if runtime.DaemonID.String != daemonID {
+			if !ofLane {
+				continue
+			}
+			runtimeMachineName := daemonMachineName(machines, runtime.DaemonID.String)
+			if runtimeMachineName == "" {
+				runtimeMachineName = runtime.Name
+			}
+			message := fmt.Sprintf("%s runs on %s; %s lives on %s", agentName, runtimeMachineName, wl.Name, daemonMachineName(machines, daemonID))
+			return repos, h.failClaimedTaskBeforeLaunch(ctx, task, message, taskfailure.ReasonWorklaneElsewhere,
+				"error_worklane_elsewhere", http.StatusConflict, "worklane lives on another machine")
+		}
+		lanes = append(lanes, claimLane{repo: repo, wl: wl, path: path, inCheckout: inCheckout})
+	}
+	if len(lanes) == 0 {
+		return repos, nil
 	}
 	pullRequests, err := h.Queries.ListPullRequestsByIssue(ctx, issue.ID)
 	if err != nil {
 		return loadFailed("pull requests", err)
 	}
-	pullRequestBranch := ""
-	for _, pr := range pullRequests {
-		if pr.WorkspaceID == issue.WorkspaceID && pr.State == "open" && pr.Branch.Valid && pr.Branch.String != "" &&
-			strings.EqualFold(pr.RepoOwner+"/"+pr.RepoName, repo.FullName) {
-			pullRequestBranch = pr.Branch.String
-			break
+	for _, l := range lanes {
+		pullRequestBranch := ""
+		for _, pr := range pullRequests {
+			if pr.WorkspaceID == issue.WorkspaceID && pr.State == "open" && pr.Branch.Valid && pr.Branch.String != "" &&
+				strings.EqualFold(pr.RepoOwner+"/"+pr.RepoName, l.repo.FullName) {
+				pullRequestBranch = pr.Branch.String
+				break
+			}
 		}
+		repos = withClaimWorklane(repos, l.repo, &protocol.ClaimWorklane{
+			ID:                uuidToString(l.wl.ID),
+			Name:              l.wl.Name,
+			Path:              l.path,
+			DaemonID:          runtime.DaemonID.String,
+			DaemonName:        daemonMachineName(machines, runtime.DaemonID.String),
+			Branch:            textToPtr(l.wl.Branch),
+			DefaultBranch:     l.repo.DefaultBranch,
+			PullRequestBranch: pullRequestBranch,
+			InCheckout:        l.inCheckout,
+		})
 	}
-	block := &protocol.ClaimWorklane{
-		ID:                uuidToString(wl.ID),
-		Name:              wl.Name,
-		Path:              path,
-		DaemonID:          daemonID,
-		DaemonName:        worklaneMachineName,
-		Branch:            textToPtr(wl.Branch),
-		DefaultBranch:     repo.DefaultBranch,
-		PullRequestBranch: pullRequestBranch,
-	}
+	return repos, nil
+}
+
+// withClaimWorklane sets the repository's worklane block, adding the
+// repository when the project block lacks it.
+func withClaimWorklane(repos []protocol.ClaimRepository, repo db.Repository, block *protocol.ClaimWorklane) []protocol.ClaimRepository {
 	repoID := uuidToString(repo.ID)
 	for i := range repos {
 		if repos[i].ID == repoID {
 			repos[i].Worklane = block
-			return repos, nil
+			return repos
 		}
 	}
 	return append(repos, protocol.ClaimRepository{
@@ -261,7 +356,7 @@ func (h *Handler) claimWorklane(ctx context.Context, task *db.AgentTaskQueue, ru
 		CheckoutDaemonID: repo.CheckoutDaemonID,
 		CheckoutPath:     repo.CheckoutPath,
 		Worklane:         block,
-	}), nil
+	})
 }
 
 // daemonMachineName is the machine name of a daemon as the Runtimes page

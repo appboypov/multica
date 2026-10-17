@@ -58,20 +58,9 @@ func PreparePullRequestWorktree(ctx context.Context, sources []string, path, bra
 	if _, err := runGitTrimmed(checkoutPath, "show-ref", "--verify", "refs/heads/"+branch); err == nil {
 		args = append(args, path, branch)
 	} else {
-		// An explicit refspec refreshes only this PR branch even when the
-		// checkout's configured fetch refspec excludes it. A failed fetch
-		// must not reuse a stale remote-tracking ref.
-		ref := "refs/remotes/origin/" + branch
-		fetchCtx, cancel := context.WithTimeout(ctx, worklaneFetchTimeout)
-		cmd := exec.CommandContext(fetchCtx, "git", "-C", checkoutPath, "fetch", "--no-tags", "origin", "+refs/heads/"+branch+":"+ref)
-		cmd.WaitDelay = 5 * time.Second
-		out, err := cmd.CombinedOutput()
-		cancel()
+		ref, err := fetchPullRequestBranch(ctx, checkoutPath, branch)
 		if err != nil {
-			return "", fmt.Errorf("fetch pull-request branch %q: %s: %w", branch, lastLines(string(out), worklaneErrorLines), err)
-		}
-		if _, err := runGitTrimmed(checkoutPath, "rev-parse", "--verify", ref+"^{commit}"); err != nil {
-			return "", fmt.Errorf("resolve pull-request branch %q: %w", branch, err)
+			return "", err
 		}
 		args = append(args, "-b", branch, path, ref)
 	}
@@ -82,6 +71,54 @@ func PreparePullRequestWorktree(ctx context.Context, sources []string, path, bra
 		return "", fmt.Errorf("create pull-request worktree: %s: %w", strings.TrimSpace(out), err)
 	}
 	return path, nil
+}
+
+// SwitchPullRequestBranch switches a checkout to an open pull request's
+// branch in place (ADR-0031): its local branch when it exists, else a branch
+// made from the freshly fetched origin branch, never from the default branch.
+// The caller holds the checkout's path lock and has checked CanLeave.
+func SwitchPullRequestBranch(ctx context.Context, path, branch string, logger *slog.Logger) error {
+	checked, err := runGitTrimmed(path, "check-ref-format", "--branch", branch)
+	if err != nil || checked != branch {
+		return fmt.Errorf("invalid pull-request branch %q", branch)
+	}
+	unlock, err := lockGitRoot(path, logger)
+	if err != nil {
+		return err
+	}
+	defer unlock()
+	args := []string{"switch", branch}
+	if _, err := runGitTrimmed(path, "show-ref", "--verify", "--quiet", "refs/heads/"+branch); err != nil {
+		ref, err := fetchPullRequestBranch(ctx, path, branch)
+		if err != nil {
+			return err
+		}
+		args = []string{"switch", "-c", branch, ref}
+	}
+	if out, err := runGit(path, args...); err != nil {
+		return fmt.Errorf("git %s: %s: %w", strings.Join(args, " "), strings.TrimSpace(out), err)
+	}
+	return nil
+}
+
+// fetchPullRequestBranch refreshes only the PR branch with an explicit
+// refspec, even when the checkout's configured fetch refspec excludes it, and
+// returns its remote-tracking ref. A failed fetch must not reuse a stale
+// remote-tracking ref.
+func fetchPullRequestBranch(ctx context.Context, checkoutPath, branch string) (string, error) {
+	ref := "refs/remotes/origin/" + branch
+	fetchCtx, cancel := context.WithTimeout(ctx, worklaneFetchTimeout)
+	cmd := exec.CommandContext(fetchCtx, "git", "-C", checkoutPath, "fetch", "--no-tags", "origin", "+refs/heads/"+branch+":"+ref)
+	cmd.WaitDelay = 5 * time.Second
+	out, err := cmd.CombinedOutput()
+	cancel()
+	if err != nil {
+		return "", fmt.Errorf("fetch pull-request branch %q: %s: %w", branch, lastLines(string(out), worklaneErrorLines), err)
+	}
+	if _, err := runGitTrimmed(checkoutPath, "rev-parse", "--verify", ref+"^{commit}"); err != nil {
+		return "", fmt.Errorf("resolve pull-request branch %q: %w", branch, err)
+	}
+	return ref, nil
 }
 
 // isWorktreeOfSources is true when path is the top level of a worktree that

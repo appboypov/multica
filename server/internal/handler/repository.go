@@ -34,6 +34,7 @@ type RepositoryResponse struct {
 	VersionPolicy    string  `json:"version_policy"`
 	InstallCommand   *string `json:"install_command"`
 	LastTag          *string `json:"last_tag"`
+	WorkInCheckout   bool    `json:"work_in_checkout"`
 	CreatedBy        *string `json:"created_by"`
 	CreatedAt        string  `json:"created_at"`
 	UpdatedAt        string  `json:"updated_at"`
@@ -53,6 +54,7 @@ func repositoryToResponse(r db.Repository) RepositoryResponse {
 		VersionPolicy:    r.VersionPolicy,
 		InstallCommand:   textToPtr(r.InstallCommand),
 		LastTag:          textToPtr(r.LastTag),
+		WorkInCheckout:   r.WorkInCheckout,
 		CreatedAt:        timestampToString(r.CreatedAt),
 		UpdatedAt:        timestampToString(r.UpdatedAt),
 	}
@@ -77,6 +79,7 @@ type UpdateRepositoryRequest struct {
 	CheckoutCheckID *string `json:"checkout_check_id"`
 	VersionPolicy   *string `json:"version_policy"`
 	InstallCommand  *string `json:"install_command"`
+	WorkInCheckout  *bool   `json:"work_in_checkout"`
 }
 
 // foundInstallCommand is the first install command a passed check found, or
@@ -347,8 +350,9 @@ func (h *Handler) loadRepositoryInWorkspace(w http.ResponseWriter, r *http.Reque
 	return repository, true
 }
 
-// UpdateRepository edits the checkout and the version policy. The repository
-// itself is fixed: no field changes full_name.
+// UpdateRepository edits the checkout, the version policy, the install command
+// and whether issue tasks work in the checkout. The repository itself is
+// fixed: no field changes full_name.
 func (h *Handler) UpdateRepository(w http.ResponseWriter, r *http.Request) {
 	var req UpdateRepositoryRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -435,6 +439,16 @@ func (h *Handler) UpdateRepository(w http.ResponseWriter, r *http.Request) {
 			WorkspaceID:    repository.WorkspaceID,
 		}); err != nil {
 			writeError(w, http.StatusInternalServerError, "failed to update repository install command")
+			return
+		}
+	}
+	if req.WorkInCheckout != nil {
+		if updated, err = qtx.UpdateRepositoryWorkInCheckout(r.Context(), db.UpdateRepositoryWorkInCheckoutParams{
+			WorkInCheckout: *req.WorkInCheckout,
+			ID:             repository.ID,
+			WorkspaceID:    repository.WorkspaceID,
+		}); err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to update repository work in checkout")
 			return
 		}
 	}

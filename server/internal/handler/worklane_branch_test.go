@@ -258,3 +258,109 @@ func TestClaimWorklane_WithoutWorklaneDoesNotLoadPullRequests(t *testing.T) {
 		t.Fatalf("non-lane claim = %+v, failure = %+v", got, failure)
 	}
 }
+
+// newCheckoutClaimFixture is a repository that works in its checkout, with
+// its main worklane, and an issue of its project in the lane "Claim lane" or
+// in no worklane.
+func newCheckoutClaimFixture(t *testing.T, inLane bool) (worklaneClaimFixture, string) {
+	t.Helper()
+	f := newWorklaneClaimFixture(t, true, false)
+	dbfx.Exec(t, "UPDATE repository SET work_in_checkout = true WHERE id = $1", f.repoID)
+	mainID := dbfx.Insert(t, "worklane", testutil.Cols{
+		"workspace_id": testWorkspaceID, "repository_id": f.repoID, "name": "main", "is_main": true,
+		"branch": "main",
+	})
+	if !inLane {
+		dbfx.Exec(t, "UPDATE issue SET worklane_id = NULL WHERE id = $1", f.issueID)
+	}
+	return f, mainID
+}
+
+func TestClaimTask_WorkInCheckoutRoutesToMain(t *testing.T) {
+	if testHandler == nil {
+		t.Skip("database not available")
+	}
+	for _, tc := range []struct {
+		name   string
+		inLane bool
+		pr     bool
+		want   string
+	}{
+		{name: "issue in no worklane", want: ""},
+		{name: "issue in another worklane", inLane: true, want: ""},
+		{name: "issue with an open pull request", pr: true, want: "review/actual-head"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f, mainID := newCheckoutClaimFixture(t, tc.inLane)
+			if tc.pr {
+				f.pullRequests(t, worklaneClaimPullRequest{})
+			}
+			var out struct {
+				Task *AgentTaskResponse `json:"task"`
+			}
+			f.claim(t, testHandler, testWorkspaceID, http.StatusOK).JSON(&out)
+			if out.Task == nil || len(out.Task.Repositories) != 1 {
+				t.Fatalf("expected one claimed repository, got %+v", out.Task)
+			}
+			lane := out.Task.Repositories[0].Worklane
+			if lane == nil || lane.ID != mainID || !lane.InCheckout || lane.Path != "/test/checkout" || lane.DaemonID != f.daemonID {
+				t.Fatalf("worklane context = %+v, want main in the checkout", lane)
+			}
+			if lane.PullRequestBranch != tc.want {
+				t.Errorf("pull request branch = %q, want %q", lane.PullRequestBranch, tc.want)
+			}
+		})
+	}
+}
+
+func TestClaimTask_WorkInCheckoutOnAnotherMachine(t *testing.T) {
+	if testHandler == nil {
+		t.Skip("database not available")
+	}
+	for _, inLane := range []bool{false, true} {
+		t.Run(map[bool]string{false: "issue in no worklane", true: "issue in a worklane"}[inLane], func(t *testing.T) {
+			f, _ := newCheckoutClaimFixture(t, inLane)
+			dbfx.Exec(t, "UPDATE repository SET checkout_daemon_id = $2 WHERE id = $1", f.repoID, uuid.NewString())
+			var out struct {
+				Task *AgentTaskResponse `json:"task"`
+			}
+			f.claim(t, testHandler, testWorkspaceID, http.StatusOK).JSON(&out)
+			var status, reason string
+			dbfx.QueryRow(t, "SELECT status, COALESCE(failure_reason, '') FROM agent_task_queue WHERE id = $1", f.taskID).Scan(&status, &reason)
+			if inLane {
+				if out.Task != nil || status != "failed" || reason != taskfailure.ReasonWorklaneElsewhere.String() {
+					t.Fatalf("lane task on another machine: task %+v, %q/%q, want failed/worklane_elsewhere", out.Task, status, reason)
+				}
+				return
+			}
+			if out.Task == nil || len(out.Task.Repositories) != 1 || out.Task.Repositories[0].Worklane != nil || status == "failed" {
+				t.Fatalf("issue without a lane on another machine: task %+v, status %q, want no worklane block", out.Task, status)
+			}
+		})
+	}
+}
+
+func TestReportWorklaneBranch_WorkInCheckout(t *testing.T) {
+	if testHandler == nil {
+		t.Skip("database not available")
+	}
+	report := func(f worklaneClaimFixture, worklaneID string) *testutil.Response {
+		req := newDaemonTokenRequest(http.MethodPost, "/api/daemon/tasks/"+f.taskID+"/worklane-branch",
+			map[string]string{"branch": "work-1400", "worklane_id": worklaneID}, testWorkspaceID, f.daemonID)
+		return testutil.Call(testHandler.ReportWorklaneBranch, withURLParam(req, "taskId", f.taskID))
+	}
+	t.Run("main of a repository that works in its checkout", func(t *testing.T) {
+		f, mainID := newCheckoutClaimFixture(t, false)
+		report(f, mainID).Want(http.StatusOK)
+		var branch string
+		dbfx.QueryRow(t, "SELECT branch FROM worklane WHERE id = $1", mainID).Scan(&branch)
+		if branch != "work-1400" {
+			t.Fatalf("main branch = %q, want work-1400", branch)
+		}
+	})
+	t.Run("main of a repository that works in worktrees", func(t *testing.T) {
+		f, mainID := newCheckoutClaimFixture(t, true)
+		dbfx.Exec(t, "UPDATE repository SET work_in_checkout = false WHERE id = $1", f.repoID)
+		report(f, mainID).Want(http.StatusConflict)
+	})
+}

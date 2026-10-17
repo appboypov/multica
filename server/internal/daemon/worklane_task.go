@@ -22,7 +22,8 @@ func (e *worklaneBranchHeldError) Error() string { return e.message }
 func (e *worklaneBranchHeldError) Unwrap() error { return errWorklaneBranchHeld }
 
 // worklaneTaskPath resolves the PR destination before taking any task lock,
-// including when the linked PR's worktree has not been created yet.
+// including when the linked PR's worktree has not been created yet. A
+// repository that works in its checkout (ADR-0031) always gets the checkout.
 func worklaneTaskPath(ctx context.Context, task Task, repo protocol.ClaimRepository) (string, error) {
 	path, err := execenv.ExpandWorklanePath(repo.Worklane.Path)
 	if err != nil {
@@ -31,6 +32,9 @@ func worklaneTaskPath(ctx context.Context, task Task, repo protocol.ClaimReposit
 	wanted := worklaneTaskBranch(task, repo)
 	if wanted == "" {
 		return "", fmt.Errorf("worklane issue task has no issue identifier")
+	}
+	if repo.Worklane.InCheckout {
+		return path, nil
 	}
 	sources := worklaneTaskSources(repo)
 	for i, source := range sources {
@@ -141,7 +145,9 @@ func isPullRequestTaskPath(path, branch string) bool {
 	return path != "" && strings.HasSuffix(filepath.Clean(path), string(filepath.Separator)+suffix)
 }
 
-// prepareWorklaneTask runs with the selected worktree's path lock held.
+// prepareWorklaneTask runs with the selected worktree's path lock held. A
+// repository that works in its checkout switches the checkout itself, also to
+// a PR branch.
 func (d *Daemon) prepareWorklaneTask(ctx context.Context, task *Task, repo *protocol.ClaimRepository, logger *slog.Logger) error {
 	lane := repo.Worklane
 	path, err := execenv.ExpandWorklanePath(repo.WorktreePath)
@@ -156,7 +162,7 @@ func (d *Daemon) prepareWorklaneTask(ctx context.Context, task *Task, repo *prot
 	if err != nil {
 		return err
 	}
-	if repo.Worklane.PullRequestBranch != "" || path != lanePath {
+	if !lane.InCheckout && (lane.PullRequestBranch != "" || path != lanePath) {
 		path, err = execenv.PreparePullRequestWorktree(ctx, worklaneTaskSources(*repo), path, wanted, logger)
 		if err != nil {
 			return err
@@ -185,13 +191,18 @@ func (d *Daemon) prepareWorklaneTask(ctx context.Context, task *Task, repo *prot
 			}
 			return err
 		}
-		if err := execenv.SwitchBranch(ctx, path, wanted, lane.DefaultBranch, logger); err != nil {
+		if lane.InCheckout && lane.PullRequestBranch != "" {
+			err = execenv.SwitchPullRequestBranch(ctx, path, wanted, logger)
+		} else {
+			err = execenv.SwitchBranch(ctx, path, wanted, lane.DefaultBranch, logger)
+		}
+		if err != nil {
 			return err
 		}
 	}
 	// Report even if a previous attempt switched locally but its report was
 	// lost. The server records no duplicate activity when the branch matches.
-	if err := d.client.ReportWorklaneBranch(ctx, task.ID, wanted); err != nil {
+	if err := d.client.ReportWorklaneBranch(ctx, task.ID, lane.ID, wanted); err != nil {
 		return fmt.Errorf("report the worklane branch: %w", err)
 	}
 	repo.WorktreePath = path

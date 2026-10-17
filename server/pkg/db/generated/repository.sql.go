@@ -20,7 +20,7 @@ WHERE workspace_id = $2
   AND checkout_daemon_id = $4
   AND checkout_path = $5
   AND install_command IS NULL
-RETURNING id, workspace_id, project_id, github_repo_id, full_name, private, default_branch, checkout_daemon_id, checkout_path, version_policy, created_by, created_at, updated_at, install_command, last_tag
+RETURNING id, workspace_id, project_id, github_repo_id, full_name, private, default_branch, checkout_daemon_id, checkout_path, version_policy, created_by, created_at, updated_at, install_command, last_tag, work_in_checkout
 `
 
 type BackfillRepositoryInstallCommandParams struct {
@@ -65,6 +65,7 @@ func (q *Queries) BackfillRepositoryInstallCommand(ctx context.Context, arg Back
 			&i.UpdatedAt,
 			&i.InstallCommand,
 			&i.LastTag,
+			&i.WorkInCheckout,
 		); err != nil {
 			return nil, err
 		}
@@ -85,7 +86,7 @@ WHERE workspace_id = $2
   AND checkout_daemon_id = $4
   AND checkout_path = $5
   AND last_tag IS NULL
-RETURNING id, workspace_id, project_id, github_repo_id, full_name, private, default_branch, checkout_daemon_id, checkout_path, version_policy, created_by, created_at, updated_at, install_command, last_tag
+RETURNING id, workspace_id, project_id, github_repo_id, full_name, private, default_branch, checkout_daemon_id, checkout_path, version_policy, created_by, created_at, updated_at, install_command, last_tag, work_in_checkout
 `
 
 type BackfillRepositoryLastTagParams struct {
@@ -131,6 +132,7 @@ func (q *Queries) BackfillRepositoryLastTag(ctx context.Context, arg BackfillRep
 			&i.UpdatedAt,
 			&i.InstallCommand,
 			&i.LastTag,
+			&i.WorkInCheckout,
 		); err != nil {
 			return nil, err
 		}
@@ -154,7 +156,7 @@ INSERT INTO repository (
     $9, $10,
     $11, $12
 )
-RETURNING id, workspace_id, project_id, github_repo_id, full_name, private, default_branch, checkout_daemon_id, checkout_path, version_policy, created_by, created_at, updated_at, install_command, last_tag
+RETURNING id, workspace_id, project_id, github_repo_id, full_name, private, default_branch, checkout_daemon_id, checkout_path, version_policy, created_by, created_at, updated_at, install_command, last_tag, work_in_checkout
 `
 
 type CreateRepositoryParams struct {
@@ -210,6 +212,7 @@ func (q *Queries) CreateRepository(ctx context.Context, arg CreateRepositoryPara
 		&i.UpdatedAt,
 		&i.InstallCommand,
 		&i.LastTag,
+		&i.WorkInCheckout,
 	)
 	return i, err
 }
@@ -247,7 +250,7 @@ func (q *Queries) DeleteRepository(ctx context.Context, arg DeleteRepositoryPara
 }
 
 const getRepositoryInWorkspace = `-- name: GetRepositoryInWorkspace :one
-SELECT id, workspace_id, project_id, github_repo_id, full_name, private, default_branch, checkout_daemon_id, checkout_path, version_policy, created_by, created_at, updated_at, install_command, last_tag FROM repository
+SELECT id, workspace_id, project_id, github_repo_id, full_name, private, default_branch, checkout_daemon_id, checkout_path, version_policy, created_by, created_at, updated_at, install_command, last_tag, work_in_checkout FROM repository
 WHERE id = $1 AND workspace_id = $2
 `
 
@@ -275,13 +278,14 @@ func (q *Queries) GetRepositoryInWorkspace(ctx context.Context, arg GetRepositor
 		&i.UpdatedAt,
 		&i.InstallCommand,
 		&i.LastTag,
+		&i.WorkInCheckout,
 	)
 	return i, err
 }
 
 const listRepositories = `-- name: ListRepositories :many
 
-SELECT id, workspace_id, project_id, github_repo_id, full_name, private, default_branch, checkout_daemon_id, checkout_path, version_policy, created_by, created_at, updated_at, install_command, last_tag FROM repository
+SELECT id, workspace_id, project_id, github_repo_id, full_name, private, default_branch, checkout_daemon_id, checkout_path, version_policy, created_by, created_at, updated_at, install_command, last_tag, work_in_checkout FROM repository
 WHERE workspace_id = $1
 ORDER BY LOWER(full_name) ASC
 `
@@ -313,6 +317,7 @@ func (q *Queries) ListRepositories(ctx context.Context, workspaceID pgtype.UUID)
 			&i.UpdatedAt,
 			&i.InstallCommand,
 			&i.LastTag,
+			&i.WorkInCheckout,
 		); err != nil {
 			return nil, err
 		}
@@ -325,7 +330,7 @@ func (q *Queries) ListRepositories(ctx context.Context, workspaceID pgtype.UUID)
 }
 
 const listRepositoriesByProject = `-- name: ListRepositoriesByProject :many
-SELECT id, workspace_id, project_id, github_repo_id, full_name, private, default_branch, checkout_daemon_id, checkout_path, version_policy, created_by, created_at, updated_at, install_command, last_tag FROM repository
+SELECT id, workspace_id, project_id, github_repo_id, full_name, private, default_branch, checkout_daemon_id, checkout_path, version_policy, created_by, created_at, updated_at, install_command, last_tag, work_in_checkout FROM repository
 WHERE project_id = $1 AND workspace_id = $2
 ORDER BY LOWER(full_name) ASC
 `
@@ -360,6 +365,7 @@ func (q *Queries) ListRepositoriesByProject(ctx context.Context, arg ListReposit
 			&i.UpdatedAt,
 			&i.InstallCommand,
 			&i.LastTag,
+			&i.WorkInCheckout,
 		); err != nil {
 			return nil, err
 		}
@@ -372,7 +378,7 @@ func (q *Queries) ListRepositoriesByProject(ctx context.Context, arg ListReposit
 }
 
 const lockRepositoryForLine = `-- name: LockRepositoryForLine :one
-SELECT id, workspace_id, project_id, github_repo_id, full_name, private, default_branch, checkout_daemon_id, checkout_path, version_policy, created_by, created_at, updated_at, install_command, last_tag FROM repository
+SELECT id, workspace_id, project_id, github_repo_id, full_name, private, default_branch, checkout_daemon_id, checkout_path, version_policy, created_by, created_at, updated_at, install_command, last_tag, work_in_checkout FROM repository
 WHERE id = $1 AND workspace_id = $2
 FOR UPDATE
 `
@@ -403,6 +409,7 @@ func (q *Queries) LockRepositoryForLine(ctx context.Context, arg LockRepositoryF
 		&i.UpdatedAt,
 		&i.InstallCommand,
 		&i.LastTag,
+		&i.WorkInCheckout,
 	)
 	return i, err
 }
@@ -413,7 +420,7 @@ UPDATE repository SET
     checkout_path = $2,
     updated_at = now()
 WHERE id = $3 AND workspace_id = $4
-RETURNING id, workspace_id, project_id, github_repo_id, full_name, private, default_branch, checkout_daemon_id, checkout_path, version_policy, created_by, created_at, updated_at, install_command, last_tag
+RETURNING id, workspace_id, project_id, github_repo_id, full_name, private, default_branch, checkout_daemon_id, checkout_path, version_policy, created_by, created_at, updated_at, install_command, last_tag, work_in_checkout
 `
 
 type UpdateRepositoryCheckoutParams struct {
@@ -449,6 +456,7 @@ func (q *Queries) UpdateRepositoryCheckout(ctx context.Context, arg UpdateReposi
 		&i.UpdatedAt,
 		&i.InstallCommand,
 		&i.LastTag,
+		&i.WorkInCheckout,
 	)
 	return i, err
 }
@@ -459,7 +467,7 @@ UPDATE repository SET
     default_branch = $2,
     updated_at = now()
 WHERE id = $3 AND workspace_id = $4
-RETURNING id, workspace_id, project_id, github_repo_id, full_name, private, default_branch, checkout_daemon_id, checkout_path, version_policy, created_by, created_at, updated_at, install_command, last_tag
+RETURNING id, workspace_id, project_id, github_repo_id, full_name, private, default_branch, checkout_daemon_id, checkout_path, version_policy, created_by, created_at, updated_at, install_command, last_tag, work_in_checkout
 `
 
 type UpdateRepositoryGithubParams struct {
@@ -495,6 +503,7 @@ func (q *Queries) UpdateRepositoryGithub(ctx context.Context, arg UpdateReposito
 		&i.UpdatedAt,
 		&i.InstallCommand,
 		&i.LastTag,
+		&i.WorkInCheckout,
 	)
 	return i, err
 }
@@ -504,7 +513,7 @@ UPDATE repository SET
     install_command = $1,
     updated_at = now()
 WHERE id = $2 AND workspace_id = $3
-RETURNING id, workspace_id, project_id, github_repo_id, full_name, private, default_branch, checkout_daemon_id, checkout_path, version_policy, created_by, created_at, updated_at, install_command, last_tag
+RETURNING id, workspace_id, project_id, github_repo_id, full_name, private, default_branch, checkout_daemon_id, checkout_path, version_policy, created_by, created_at, updated_at, install_command, last_tag, work_in_checkout
 `
 
 type UpdateRepositoryInstallCommandParams struct {
@@ -533,6 +542,7 @@ func (q *Queries) UpdateRepositoryInstallCommand(ctx context.Context, arg Update
 		&i.UpdatedAt,
 		&i.InstallCommand,
 		&i.LastTag,
+		&i.WorkInCheckout,
 	)
 	return i, err
 }
@@ -542,7 +552,7 @@ UPDATE repository SET
     version_policy = $1,
     updated_at = now()
 WHERE id = $2 AND workspace_id = $3
-RETURNING id, workspace_id, project_id, github_repo_id, full_name, private, default_branch, checkout_daemon_id, checkout_path, version_policy, created_by, created_at, updated_at, install_command, last_tag
+RETURNING id, workspace_id, project_id, github_repo_id, full_name, private, default_branch, checkout_daemon_id, checkout_path, version_policy, created_by, created_at, updated_at, install_command, last_tag, work_in_checkout
 `
 
 type UpdateRepositoryVersionPolicyParams struct {
@@ -570,6 +580,47 @@ func (q *Queries) UpdateRepositoryVersionPolicy(ctx context.Context, arg UpdateR
 		&i.UpdatedAt,
 		&i.InstallCommand,
 		&i.LastTag,
+		&i.WorkInCheckout,
+	)
+	return i, err
+}
+
+const updateRepositoryWorkInCheckout = `-- name: UpdateRepositoryWorkInCheckout :one
+UPDATE repository SET
+    work_in_checkout = $1,
+    updated_at = now()
+WHERE id = $2 AND workspace_id = $3
+RETURNING id, workspace_id, project_id, github_repo_id, full_name, private, default_branch, checkout_daemon_id, checkout_path, version_policy, created_by, created_at, updated_at, install_command, last_tag, work_in_checkout
+`
+
+type UpdateRepositoryWorkInCheckoutParams struct {
+	WorkInCheckout bool        `json:"work_in_checkout"`
+	ID             pgtype.UUID `json:"id"`
+	WorkspaceID    pgtype.UUID `json:"workspace_id"`
+}
+
+// With it on, every issue task of the repository works in its checkout
+// (ADR-0031).
+func (q *Queries) UpdateRepositoryWorkInCheckout(ctx context.Context, arg UpdateRepositoryWorkInCheckoutParams) (Repository, error) {
+	row := q.db.QueryRow(ctx, updateRepositoryWorkInCheckout, arg.WorkInCheckout, arg.ID, arg.WorkspaceID)
+	var i Repository
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.ProjectID,
+		&i.GithubRepoID,
+		&i.FullName,
+		&i.Private,
+		&i.DefaultBranch,
+		&i.CheckoutDaemonID,
+		&i.CheckoutPath,
+		&i.VersionPolicy,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.InstallCommand,
+		&i.LastTag,
+		&i.WorkInCheckout,
 	)
 	return i, err
 }

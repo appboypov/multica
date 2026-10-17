@@ -268,19 +268,27 @@ func writeAvailableCommands(b *strings.Builder, ctx TaskContextForEnv) {
 	b.WriteString("- `multica issue wakeup <create|list|get|update|disable|trigger|delete|runs|events>` — persist an event, condition or time wakeup on this issue, then finish the current run. When the platform can check the fact itself, use a condition (`--until-status`, `--until-pr checks`, `--until-children-done`, `--until-issue`) so no run starts before it holds. Use `--event comment.created --filter-actor-type member --filter-actor-id USER_ID` to wait for a specific member to comment. See `multica issue wakeup --help` and the multica-platform issues reference.\n")
 	b.WriteString("- `multica issue children <id> [--output json]` — list a parent's sub-issues grouped by stage.\n")
 	b.WriteString("- `multica issue comment add <issue-id> [--content \"...\" | --content-file <path> | --content-stdin] [--parent <comment-id>] [--attachment <path>]` — post a comment. Agent-authored bodies MUST use `--content-file`; see `## Comment Formatting` for why. `multica issue comment add --help` for full flags.\n")
-	hasIssueWorktree := false
+	hasIssueWorktree, inCheckout := false, false
 	if ctx.IssueID != "" {
 		for _, repo := range ctx.Repositories {
-			if repo.WorktreePath != "" {
+			if repo.WorktreePath == "" {
+				continue
+			}
+			if repo.Worklane != nil && repo.Worklane.InCheckout {
+				inCheckout = true
+			} else {
 				hasIssueWorktree = true
-				break
 			}
 		}
 	}
-	if hasIssueWorktree {
+	switch {
+	case hasIssueWorktree:
 		b.WriteString("\nWorktree Rule: work in the issue worktree listed for the repository, on its branch. Commit and push there; never change code in the repository's normal checkout. `multica repo checkout owner/name` reuses this issue worktree and prints its path.\n\n")
-	} else {
+	case !inCheckout:
 		b.WriteString("\n" + worktreeRule)
+	}
+	if inCheckout {
+		b.WriteString("\nCheckout Rule: a repository listed with its checkout works in that checkout, on the branch the task switched it to. Commit and push there; never create a worktree for it.\n\n")
 	}
 	b.WriteString("Git commits use the user's configured identity. Preserve it unless the user requests another identity. In a worktree, an intentional task-local override takes `git config extensions.worktreeConfig true` once, then `git config --worktree user.name` / `user.email`; plain `git config` or `--local` writes into the repository's shared config and affects every worktree. Never change global Git identity for a task.\n\n")
 	// Squad maintenance is squad-leader surface: an agent that leads no squad
@@ -437,7 +445,9 @@ func writeRepositories(b *strings.Builder, ctx TaskContextForEnv) {
 		b.WriteString("Project repositories (also in `.multica/project/repositories.json`):\n\n")
 		for _, repo := range ctx.Repositories {
 			fmt.Fprintf(b, "- **%s** — default branch `%s`", repo.FullName, repo.DefaultBranch)
-			if ctx.IssueID != "" && repo.WorktreePath != "" {
+			if ctx.IssueID != "" && repo.WorktreePath != "" && repo.Worklane != nil && repo.Worklane.InCheckout {
+				fmt.Fprintf(b, "; checkout `%s`, on this task's branch", repo.WorktreePath)
+			} else if ctx.IssueID != "" && repo.WorktreePath != "" {
 				fmt.Fprintf(b, "; issue worktree `%s`", repo.WorktreePath)
 			} else if repo.CheckoutPath != "" {
 				fmt.Fprintf(b, "; checkout `%s`", repo.CheckoutPath)

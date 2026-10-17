@@ -221,6 +221,38 @@ func (q *Queries) DeleteWorklanesByRepository(ctx context.Context, arg DeleteWor
 	return items, nil
 }
 
+const getMainWorklane = `-- name: GetMainWorklane :one
+SELECT id, workspace_id, repository_id, name, folder, daemon_id, is_main, position, created_at, updated_at, path, branch FROM worklane
+WHERE repository_id = $1 AND workspace_id = $2 AND is_main
+`
+
+type GetMainWorklaneParams struct {
+	RepositoryID pgtype.UUID `json:"repository_id"`
+	WorkspaceID  pgtype.UUID `json:"workspace_id"`
+}
+
+// The repository's worklane main, where every issue task of a repository that
+// works in its checkout runs (ADR-0031).
+func (q *Queries) GetMainWorklane(ctx context.Context, arg GetMainWorklaneParams) (Worklane, error) {
+	row := q.db.QueryRow(ctx, getMainWorklane, arg.RepositoryID, arg.WorkspaceID)
+	var i Worklane
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.RepositoryID,
+		&i.Name,
+		&i.Folder,
+		&i.DaemonID,
+		&i.IsMain,
+		&i.Position,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Path,
+		&i.Branch,
+	)
+	return i, err
+}
+
 const getWorklaneInWorkspace = `-- name: GetWorklaneInWorkspace :one
 SELECT id, workspace_id, repository_id, name, folder, daemon_id, is_main, position, created_at, updated_at, path, branch FROM worklane
 WHERE id = $1 AND workspace_id = $2

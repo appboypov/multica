@@ -83,6 +83,12 @@ WHERE workspace_id = sqlc.arg('workspace_id')
   AND path IS NOT NULL
 ORDER BY position ASC;
 
+-- name: GetMainWorklane :one
+-- The repository's worklane main, where every issue task of a repository that
+-- works in its checkout runs (ADR-0031).
+SELECT * FROM worklane
+WHERE repository_id = $1 AND workspace_id = $2 AND is_main;
+
 -- name: CountOtherWorklanes :one
 -- The worklanes of a repository besides main: a repository that has any
 -- cannot be deleted.
