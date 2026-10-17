@@ -1,0 +1,3 @@
+.svelte-check/
+build/
+node_modules/

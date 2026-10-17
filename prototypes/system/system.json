@@ -1,0 +1,1163 @@
+{
+  "product": "Multica",
+  "description": "System design",
+  "question": "What does Multica's code run today, around an issue's pull requests?",
+  "source": "Multica · code at 7fc83d223",
+  "zooms": [
+    {
+      "id": "00",
+      "title": "Zoom map",
+      "description": "Each zoom opens one part of the zoom above it",
+      "icon": "map",
+      "parent": null,
+      "view": "map"
+    },
+    {
+      "id": "01",
+      "title": "Multica in its world",
+      "description": "Who and what touches it",
+      "icon": "globe",
+      "parent": "00",
+      "view": "diagram",
+      "pathRoot": "",
+      "height": 480,
+      "nodes": [
+        {
+          "id": "member",
+          "kind": "outside",
+          "name": "Member",
+          "icon": "user",
+          "caption": "web, desktop, mobile",
+          "badge": "Actor",
+          "x": 40,
+          "y": 60,
+          "w": 232,
+          "h": 104
+        },
+        {
+          "id": "agent",
+          "kind": "outside",
+          "name": "Agent CLI",
+          "icon": "terminal",
+          "caption": "Claude Code, Codex and others",
+          "badge": "Runtime",
+          "x": 40,
+          "y": 300,
+          "w": 232,
+          "h": 104
+        },
+        {
+          "id": "multica",
+          "kind": "focus",
+          "name": "Multica",
+          "icon": "box",
+          "path": "Makefile",
+          "badge": "System",
+          "opens": "02",
+          "parts": [
+            "Web and desktop apps",
+            "Mobile app",
+            "Go server",
+            "Daemon and CLI",
+            "PostgreSQL",
+            "Redis"
+          ],
+          "x": 520,
+          "y": 120,
+          "w": 272,
+          "h": 289
+        },
+        {
+          "id": "github",
+          "kind": "outside",
+          "name": "GitHub",
+          "icon": "globe",
+          "caption": "Multica GitHub App",
+          "badge": "External",
+          "x": 1032,
+          "y": 60,
+          "w": 232,
+          "h": 104
+        }
+      ],
+      "edges": [
+        {
+          "id": "use",
+          "from": "member",
+          "to": "multica",
+          "style": "call",
+          "data": "issues, comments",
+          "trigger": "HTTPS, WS",
+          "points": [[272, 140], [520, 140]],
+          "label": [396, 140]
+        },
+        {
+          "id": "cli",
+          "from": "agent",
+          "to": "multica",
+          "style": "call",
+          "data": "argv",
+          "trigger": "multica CLI",
+          "points": [[272, 340], [520, 340]],
+          "label": [396, 340]
+        },
+        {
+          "id": "spawn",
+          "from": "multica",
+          "to": "agent",
+          "style": "call",
+          "data": "run brief",
+          "trigger": "daemon starts a run",
+          "points": [[520, 384], [272, 384]],
+          "label": [396, 384]
+        },
+        {
+          "id": "webhook",
+          "from": "github",
+          "to": "multica",
+          "style": "event",
+          "data": "pull_request",
+          "trigger": "webhook",
+          "points": [[1032, 140], [792, 140]],
+          "label": [912, 140]
+        },
+        {
+          "id": "snapshot",
+          "from": "multica",
+          "to": "github",
+          "style": "call",
+          "data": "checks, mergeability",
+          "trigger": "GraphQL",
+          "points": [[792, 300], [1148, 300], [1148, 164]],
+          "label": [970, 300]
+        }
+      ],
+      "boundaries": []
+    },
+    {
+      "id": "02",
+      "title": "Inside Multica",
+      "description": "Apps, server, daemon and stores · docs site and madspec-sync stay out: nothing here calls them",
+      "icon": "box",
+      "parent": "01",
+      "view": "diagram",
+      "pathRoot": "",
+      "height": 920,
+      "nodes": [
+        {
+          "id": "member",
+          "kind": "outside",
+          "name": "Member",
+          "icon": "user",
+          "caption": "browser, app",
+          "badge": "Actor",
+          "x": 0,
+          "y": 120,
+          "w": 232,
+          "h": 104
+        },
+        {
+          "id": "agent",
+          "kind": "outside",
+          "name": "Agent CLI",
+          "icon": "terminal",
+          "caption": "one run per task",
+          "badge": "Runtime",
+          "x": 0,
+          "y": 560,
+          "w": 232,
+          "h": 104
+        },
+        {
+          "id": "github",
+          "kind": "outside",
+          "name": "GitHub",
+          "icon": "globe",
+          "caption": "Multica GitHub App",
+          "badge": "External",
+          "x": 680,
+          "y": 790,
+          "w": 232,
+          "h": 104
+        },
+        {
+          "id": "apps",
+          "kind": "focus",
+          "name": "Web and desktop",
+          "icon": "app-window",
+          "path": "packages/views/",
+          "badge": "React apps",
+          "opens": "06",
+          "parts": ["apps/web Next.js", "apps/desktop Electron", "packages/core", "packages/views"],
+          "x": 320,
+          "y": 70,
+          "w": 232,
+          "h": 241
+        },
+        {
+          "id": "mobile",
+          "kind": "node",
+          "name": "Mobile app",
+          "icon": "app-window",
+          "path": "apps/mobile/app/_layout.tsx",
+          "badge": "Expo",
+          "x": 320,
+          "y": 360,
+          "w": 232,
+          "h": 104
+        },
+        {
+          "id": "daemon",
+          "kind": "focus",
+          "name": "Daemon and CLI",
+          "icon": "terminal",
+          "path": "server/cmd/multica/",
+          "badge": "Go CLI",
+          "opens": "05",
+          "parts": ["multica commands", "daemon poll and run", "run brief"],
+          "x": 320,
+          "y": 520,
+          "w": 232,
+          "h": 217
+        },
+        {
+          "id": "server",
+          "kind": "focus",
+          "name": "Go server",
+          "icon": "server",
+          "path": "server/cmd/server/main.go:327",
+          "badge": "Service",
+          "opens": "03",
+          "parts": [
+            "router and auth",
+            "handlers",
+            "sqlc queries",
+            "realtime hub",
+            "GitHub snapshot"
+          ],
+          "x": 680,
+          "y": 70,
+          "w": 232,
+          "h": 265
+        },
+        {
+          "id": "pg",
+          "kind": "node",
+          "name": "PostgreSQL",
+          "icon": "database",
+          "path": "server/migrations/",
+          "badge": "Database",
+          "x": 1028,
+          "y": 70,
+          "w": 232,
+          "h": 104
+        },
+        {
+          "id": "migrate",
+          "kind": "node",
+          "name": "Migrator",
+          "icon": "workflow",
+          "path": "server/cmd/migrate/main.go",
+          "badge": "Go",
+          "x": 1028,
+          "y": 250,
+          "w": 232,
+          "h": 104
+        },
+        {
+          "id": "redis",
+          "kind": "node",
+          "name": "Redis",
+          "icon": "zap",
+          "caption": "realtime relay",
+          "badge": "Optional",
+          "x": 1028,
+          "y": 430,
+          "w": 232,
+          "h": 104
+        }
+      ],
+      "edges": [
+        {
+          "id": "use",
+          "from": "member",
+          "to": "apps",
+          "style": "call",
+          "data": "pages",
+          "trigger": "browser",
+          "points": [[232, 170], [320, 170]],
+          "label": [276, 170]
+        },
+        {
+          "id": "mobile-use",
+          "from": "member",
+          "to": "mobile",
+          "style": "call",
+          "data": "screens",
+          "trigger": "app",
+          "points": [[116, 224], [116, 412], [320, 412]],
+          "label": [200, 412]
+        },
+        {
+          "id": "api",
+          "from": "apps",
+          "to": "server",
+          "style": "call",
+          "data": "JSON",
+          "trigger": "HTTPS, WS",
+          "points": [[552, 170], [680, 170]],
+          "label": [616, 170]
+        },
+        {
+          "id": "mobile-api",
+          "from": "mobile",
+          "to": "server",
+          "style": "call",
+          "data": "JSON",
+          "trigger": "HTTPS",
+          "points": [[552, 412], [620, 412], [620, 300], [680, 300]],
+          "label": [620, 356]
+        },
+        {
+          "id": "daemon-api",
+          "from": "daemon",
+          "to": "server",
+          "style": "call",
+          "data": "claims",
+          "trigger": "/api/daemon",
+          "points": [[552, 600], [760, 600], [760, 335]],
+          "label": [656, 600]
+        },
+        {
+          "id": "cli",
+          "from": "agent",
+          "to": "daemon",
+          "style": "call",
+          "data": "argv",
+          "trigger": "multica",
+          "points": [[232, 610], [320, 610]],
+          "label": [276, 610]
+        },
+        {
+          "id": "spawn",
+          "from": "daemon",
+          "to": "agent",
+          "style": "call",
+          "data": "brief",
+          "trigger": "spawn",
+          "points": [[320, 690], [116, 690], [116, 664]],
+          "label": [218, 690]
+        },
+        {
+          "id": "sql",
+          "from": "server",
+          "to": "pg",
+          "style": "call",
+          "data": "SQL",
+          "trigger": "pgx",
+          "points": [[912, 120], [1028, 120]],
+          "label": [970, 120]
+        },
+        {
+          "id": "ddl",
+          "from": "migrate",
+          "to": "pg",
+          "style": "call",
+          "data": "DDL",
+          "trigger": "make migrate",
+          "points": [[1144, 250], [1144, 174]],
+          "label": [1144, 212]
+        },
+        {
+          "id": "relay",
+          "from": "server",
+          "to": "redis",
+          "style": "event",
+          "data": "events",
+          "trigger": "pub/sub",
+          "points": [[912, 300], [970, 300], [970, 482], [1028, 482]],
+          "label": [970, 391]
+        },
+        {
+          "id": "webhook",
+          "from": "github",
+          "to": "server",
+          "style": "event",
+          "data": "pull_request",
+          "trigger": "webhook",
+          "points": [[830, 790], [830, 335]],
+          "label": [830, 500]
+        },
+        {
+          "id": "snapshot",
+          "from": "server",
+          "to": "github",
+          "style": "call",
+          "data": "checks",
+          "trigger": "GraphQL",
+          "points": [[880, 335], [880, 790]],
+          "label": [880, 660]
+        }
+      ],
+      "boundaries": [
+        {
+          "label": "Multica · from zoom 01",
+          "up": "01",
+          "x": 290,
+          "y": 20,
+          "w": 974,
+          "h": 730
+        }
+      ]
+    },
+    {
+      "id": "03",
+      "title": "Inside the Go server",
+      "description": "The parts a pull request passes · paths under server/",
+      "icon": "server",
+      "parent": "02",
+      "view": "diagram",
+      "pathRoot": "server/",
+      "height": 960,
+      "nodes": [
+        {
+          "id": "client",
+          "kind": "outside",
+          "name": "Clients",
+          "icon": "app-window",
+          "caption": "apps, multica CLI",
+          "badge": "Outside",
+          "x": 40,
+          "y": 20,
+          "w": 260,
+          "h": 104
+        },
+        {
+          "id": "github",
+          "kind": "outside",
+          "name": "GitHub",
+          "icon": "globe",
+          "caption": "Multica GitHub App",
+          "badge": "External",
+          "x": 960,
+          "y": 830,
+          "w": 260,
+          "h": 104
+        },
+        {
+          "id": "router",
+          "kind": "node",
+          "name": "Router",
+          "icon": "door-open",
+          "path": "server/cmd/server/router.go:403",
+          "badge": "chi",
+          "x": 40,
+          "y": 230,
+          "w": 260,
+          "h": 104
+        },
+        {
+          "id": "auth",
+          "kind": "node",
+          "name": "Auth",
+          "icon": "settings",
+          "path": "server/internal/middleware/auth.go:59",
+          "badge": "Middleware",
+          "x": 40,
+          "y": 400,
+          "w": 260,
+          "h": 104
+        },
+        {
+          "id": "webhook",
+          "kind": "node",
+          "name": "Webhook",
+          "icon": "door-open",
+          "path": "server/internal/handler/github.go:1198",
+          "badge": "Handler",
+          "x": 40,
+          "y": 600,
+          "w": 260,
+          "h": 104
+        },
+        {
+          "id": "prh",
+          "kind": "focus",
+          "name": "Pull request handlers",
+          "icon": "file-code",
+          "path": "server/internal/handler/",
+          "badge": "Handlers",
+          "opens": "04",
+          "parts": [
+            "ListPullRequestsForIssue",
+            "LinkIssuePullRequest",
+            "UnlinkIssuePullRequest",
+            "mirrorPullRequestForWorkspace"
+          ],
+          "x": 470,
+          "y": 230,
+          "w": 280,
+          "h": 241
+        },
+        {
+          "id": "queries",
+          "kind": "node",
+          "name": "GitHub queries",
+          "icon": "database",
+          "path": "server/pkg/db/queries/github.sql:137",
+          "badge": "sqlc",
+          "x": 960,
+          "y": 230,
+          "w": 260,
+          "h": 104
+        },
+        {
+          "id": "hub",
+          "kind": "node",
+          "name": "Realtime hub",
+          "icon": "zap",
+          "path": "server/internal/realtime/hub.go:324",
+          "badge": "WebSocket",
+          "x": 960,
+          "y": 400,
+          "w": 260,
+          "h": 104
+        },
+        {
+          "id": "snapshot",
+          "kind": "node",
+          "name": "Snapshot pool",
+          "icon": "camera",
+          "path": "server/internal/integrations/ghsnapshot/",
+          "badge": "Workers",
+          "x": 960,
+          "y": 600,
+          "w": 260,
+          "h": 104
+        }
+      ],
+      "edges": [
+        {
+          "id": "request",
+          "from": "client",
+          "to": "router",
+          "style": "call",
+          "data": "request",
+          "trigger": "/api/*",
+          "points": [[260, 124], [260, 230]],
+          "label": [260, 147]
+        },
+        {
+          "id": "chain",
+          "from": "router",
+          "to": "auth",
+          "style": "call",
+          "data": "request",
+          "trigger": "middleware",
+          "points": [[170, 334], [170, 400]],
+          "label": [170, 367]
+        },
+        {
+          "id": "user",
+          "from": "auth",
+          "to": "prh",
+          "style": "call",
+          "data": "X-User-ID",
+          "trigger": "requireUserID",
+          "points": [[300, 440], [470, 440]],
+          "label": [385, 440]
+        },
+        {
+          "id": "hook",
+          "from": "github",
+          "to": "webhook",
+          "style": "event",
+          "data": "pull_request",
+          "trigger": "webhook",
+          "points": [[960, 890], [170, 890], [170, 704]],
+          "label": [560, 890]
+        },
+        {
+          "id": "mirror",
+          "from": "webhook",
+          "to": "prh",
+          "style": "call",
+          "data": "payload",
+          "trigger": "handlePullRequestEvent",
+          "points": [[300, 650], [600, 650], [600, 471]],
+          "label": [450, 650]
+        },
+        {
+          "id": "rows",
+          "from": "prh",
+          "to": "queries",
+          "style": "call",
+          "data": "rows",
+          "trigger": "sqlc",
+          "points": [[750, 282], [960, 282]],
+          "label": [855, 282]
+        },
+        {
+          "id": "publish",
+          "from": "prh",
+          "to": "hub",
+          "style": "event",
+          "data": "pull_request:updated",
+          "trigger": "publish",
+          "points": [[750, 440], [960, 440]],
+          "label": [855, 440]
+        },
+        {
+          "id": "enqueue",
+          "from": "prh",
+          "to": "snapshot",
+          "style": "call",
+          "data": "pull request",
+          "trigger": "Enqueue",
+          "points": [[700, 471], [700, 680], [960, 680]],
+          "label": [830, 680]
+        },
+        {
+          "id": "applied",
+          "from": "snapshot",
+          "to": "hub",
+          "style": "event",
+          "data": "PR id",
+          "trigger": "onApplied",
+          "points": [[1090, 600], [1090, 504]],
+          "label": [1090, 552]
+        },
+        {
+          "id": "graphql",
+          "from": "snapshot",
+          "to": "github",
+          "style": "call",
+          "data": "checks",
+          "trigger": "FetchPRSnapshot",
+          "points": [[1090, 704], [1090, 830]],
+          "label": [1090, 767]
+        },
+        {
+          "id": "push",
+          "from": "hub",
+          "to": "client",
+          "style": "event",
+          "data": "events",
+          "trigger": "WebSocket",
+          "points": [[1220, 450], [1244, 450], [1244, 72], [300, 72]],
+          "label": [770, 72]
+        }
+      ],
+      "boundaries": [
+        {
+          "label": "Go server · from zoom 02",
+          "up": "02",
+          "x": 0,
+          "y": 170,
+          "w": 1264,
+          "h": 620
+        }
+      ]
+    },
+    {
+      "id": "04",
+      "title": "Pull request link paths",
+      "description": "List, link and webhook paths · handler paths under server/internal/handler/",
+      "icon": "file-code",
+      "parent": "03",
+      "view": "paths",
+      "pathRoot": "server/internal/handler/",
+      "tables": [
+        {
+          "kind": "calls",
+          "title": "List path",
+          "hint": "indent = called by the row above",
+          "summary": "list path",
+          "columns": ["Function", "File", "Output"],
+          "rows": [
+            {
+              "name": "ListPullRequestsForIssue",
+              "indent": 0,
+              "path": "server/internal/handler/github.go:1088"
+            },
+            {
+              "name": "loadIssueForUser",
+              "indent": 1,
+              "path": "server/internal/handler/handler.go:1063"
+            },
+            {
+              "name": "ListPullRequestsByIssue",
+              "indent": 1,
+              "path": "server/pkg/db/queries/github.sql:137",
+              "out": {
+                "style": "data",
+                "text": "rows"
+              }
+            },
+            {
+              "name": "issuePullRequestRowToResponse",
+              "indent": 1,
+              "path": "server/internal/handler/github.go:233"
+            },
+            {
+              "name": "prLinkSource",
+              "indent": 1,
+              "path": "server/internal/handler/pr_auto_complete.go:354"
+            },
+            {
+              "name": "decidePRAutoComplete",
+              "indent": 1,
+              "path": "server/internal/handler/pr_auto_complete.go:170",
+              "out": {
+                "style": "data",
+                "text": "JSON"
+              }
+            }
+          ]
+        },
+        {
+          "kind": "calls",
+          "title": "Link path",
+          "hint": "indent = called by the row above",
+          "summary": "link path",
+          "columns": ["Function", "File", "Output"],
+          "rows": [
+            {
+              "name": "LinkIssuePullRequest",
+              "indent": 0,
+              "path": "server/internal/handler/pr_auto_complete.go:459"
+            },
+            {
+              "name": "requireUserID",
+              "indent": 1,
+              "path": "server/internal/handler/handler.go:924"
+            },
+            {
+              "name": "findPullRequestForLink",
+              "indent": 1,
+              "path": "server/internal/handler/pr_auto_complete.go:416"
+            },
+            {
+              "name": "normalizePullRequestURL",
+              "indent": 2,
+              "path": "server/internal/handler/pr_auto_complete.go:389"
+            },
+            {
+              "name": "FindGitHubPullRequestByURL",
+              "indent": 2,
+              "path": "server/pkg/db/queries/github.sql:275"
+            },
+            {
+              "name": "LinkIssueToPullRequestManually",
+              "indent": 1,
+              "path": "server/pkg/db/queries/github.sql:246"
+            },
+            {
+              "name": "publishIssuePullRequestsChanged",
+              "indent": 1,
+              "path": "server/internal/handler/pr_auto_complete.go:676",
+              "out": {
+                "style": "event",
+                "text": "WebSocket"
+              }
+            }
+          ]
+        },
+        {
+          "kind": "calls",
+          "title": "Webhook path",
+          "hint": "indent = called by the row above",
+          "summary": "webhook path",
+          "columns": ["Function", "File", "Output"],
+          "rows": [
+            {
+              "name": "HandleGitHubWebhook",
+              "indent": 0,
+              "path": "server/internal/handler/github.go:1198"
+            },
+            {
+              "name": "handlePullRequestEvent",
+              "indent": 1,
+              "path": "server/internal/handler/github.go:1405"
+            },
+            {
+              "name": "mirrorPullRequestForWorkspace",
+              "indent": 2,
+              "path": "server/internal/handler/github.go:1670"
+            },
+            {
+              "name": "UpsertGitHubPullRequest",
+              "indent": 3,
+              "path": "server/pkg/db/queries/github.sql:82",
+              "out": {
+                "style": "data",
+                "text": "github_pull_request"
+              }
+            },
+            {
+              "name": "reconcileAutoLinks",
+              "indent": 3,
+              "path": "server/internal/handler/github.go:1804",
+              "out": {
+                "style": "data",
+                "text": "issue_pull_request"
+              }
+            }
+          ]
+        },
+        {
+          "kind": "facts",
+          "title": "Routes",
+          "hint": "under /api/issues/{id}",
+          "summary": "routes",
+          "columns": ["Route", "File"],
+          "rows": [
+            ["GET /pull-requests", "server/cmd/server/router.go:2085"],
+            ["POST /pull-requests", "server/cmd/server/router.go:2086"],
+            ["DELETE /pull-requests/{prId}", "server/cmd/server/router.go:2087"],
+            ["PUT /pr-auto-complete", "server/cmd/server/router.go:2088"],
+            ["POST /api/webhooks/github", "server/cmd/server/router.go:1528"]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "05",
+      "title": "Inside the daemon and CLI",
+      "description": "One CLI read and one run's brief · daemon paths under server/internal/daemon/",
+      "icon": "terminal",
+      "parent": "02",
+      "view": "paths",
+      "pathRoot": "server/internal/daemon/",
+      "tables": [
+        {
+          "kind": "calls",
+          "title": "CLI pull-requests",
+          "hint": "indent = called by the row above",
+          "summary": "CLI path",
+          "columns": ["Function", "File", "Output"],
+          "rows": [
+            {
+              "name": "issuePullRequestsCmd",
+              "indent": 0,
+              "path": "server/cmd/multica/cmd_issue.go:250"
+            },
+            {
+              "name": "runIssuePullRequests",
+              "indent": 1,
+              "path": "server/cmd/multica/cmd_issue.go:1055"
+            },
+            {
+              "name": "newAPIClient",
+              "indent": 2,
+              "path": "server/cmd/multica/cmd_agent.go:258"
+            },
+            {
+              "name": "resolveIssueRef",
+              "indent": 2,
+              "path": "server/cmd/multica/cmd_id_resolver.go:146",
+              "out": {
+                "style": "call",
+                "text": "GET"
+              }
+            },
+            {
+              "name": "client.GetJSON",
+              "indent": 2,
+              "path": "server/cmd/multica/cmd_issue.go:1070",
+              "out": {
+                "style": "call",
+                "text": "GET"
+              }
+            }
+          ]
+        },
+        {
+          "kind": "calls",
+          "title": "Run path",
+          "hint": "indent = called by the row above",
+          "summary": "run path",
+          "columns": ["Function", "File", "Output"],
+          "rows": [
+            {
+              "name": "pollLoop",
+              "indent": 0,
+              "path": "server/internal/daemon/daemon.go:5358"
+            },
+            {
+              "name": "handleTask",
+              "indent": 1,
+              "path": "server/internal/daemon/daemon.go:5731"
+            },
+            {
+              "name": "runTask",
+              "indent": 2,
+              "path": "server/internal/daemon/daemon.go:7470"
+            },
+            {
+              "name": "InjectRuntimeConfig",
+              "indent": 3,
+              "path": "server/internal/daemon/execenv/runtime_config.go:140",
+              "out": {
+                "style": "data",
+                "text": "run brief"
+              }
+            },
+            {
+              "name": "BuildPrompt",
+              "indent": 3,
+              "path": "server/internal/daemon/prompt.go:274",
+              "out": {
+                "style": "call",
+                "text": "agent CLI"
+              }
+            }
+          ]
+        },
+        {
+          "kind": "facts",
+          "title": "Brief sections",
+          "hint": "what InjectRuntimeConfig writes",
+          "summary": "sections",
+          "columns": ["Section", "File"],
+          "rows": [
+            ["Slim brief", "server/internal/daemon/execenv/runtime_config_sections.go:1108"],
+            ["Available Commands", "server/internal/daemon/execenv/runtime_config_sections.go:256"]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "06",
+      "title": "Inside the issue page",
+      "description": "The Pull requests section · view paths under packages/views/issues/components/",
+      "icon": "app-window",
+      "parent": "02",
+      "view": "paths",
+      "pathRoot": "packages/views/issues/components/",
+      "tables": [
+        {
+          "kind": "calls",
+          "title": "Pull requests section",
+          "hint": "indent = called by the row above",
+          "summary": "render path",
+          "columns": ["Part", "File", "Output"],
+          "rows": [
+            {
+              "name": "PullRequestsSection",
+              "indent": 0,
+              "path": "packages/views/issues/components/pull-requests-section.tsx:35"
+            },
+            {
+              "name": "PullRequestList",
+              "indent": 1,
+              "path": "packages/views/issues/components/pull-request-list.tsx:73"
+            },
+            {
+              "name": "issuePullRequestsOptions",
+              "indent": 2,
+              "path": "packages/core/github/queries.ts:35"
+            },
+            {
+              "name": "listIssuePullRequests",
+              "indent": 3,
+              "path": "packages/core/api/client.ts:5358",
+              "out": {
+                "style": "call",
+                "text": "GET"
+              }
+            },
+            {
+              "name": "PullRequestRow",
+              "indent": 2,
+              "path": "packages/views/issues/components/pull-request-list.tsx:382"
+            },
+            {
+              "name": "useLinkIssuePullRequest",
+              "indent": 1,
+              "path": "packages/core/github/mutations.ts:17"
+            },
+            {
+              "name": "linkIssuePullRequest",
+              "indent": 2,
+              "path": "packages/core/api/client.ts:5369",
+              "out": {
+                "style": "call",
+                "text": "POST"
+              }
+            }
+          ]
+        },
+        {
+          "kind": "facts",
+          "title": "Wiring",
+          "hint": "where the section lives and refreshes",
+          "summary": "wiring",
+          "columns": ["Part", "File"],
+          "rows": [
+            ["Issue page mount", "packages/views/issues/components/issue-detail.tsx:3258"],
+            ["Response schema", "packages/core/api/schemas.ts:481"],
+            ["Realtime refetch", "packages/core/realtime/use-realtime-sync.ts:987"]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "07",
+      "title": "Pull request models",
+      "description": "Tables behind an issue's pull requests · paths under server/migrations/",
+      "icon": "database",
+      "parent": "02",
+      "view": "diagram",
+      "pathRoot": "server/migrations/",
+      "height": 700,
+      "nodes": [
+        {
+          "id": "workspace",
+          "kind": "node",
+          "name": "workspace",
+          "icon": "folder",
+          "path": "server/migrations/001_init.up.sql:15",
+          "badge": "Table",
+          "x": 440,
+          "y": 40,
+          "w": 270,
+          "h": 104
+        },
+        {
+          "id": "issue",
+          "kind": "node",
+          "name": "issue",
+          "icon": "list-todo",
+          "path": "server/migrations/001_init.up.sql:52",
+          "badge": "Table · parent_issue_id",
+          "x": 40,
+          "y": 300,
+          "w": 232,
+          "h": 104
+        },
+        {
+          "id": "ipr",
+          "kind": "node",
+          "name": "issue_pull_request",
+          "icon": "tag",
+          "path": "server/migrations/079_github_integration.up.sql:45",
+          "badge": "Link · linked_by_type",
+          "x": 440,
+          "y": 300,
+          "w": 270,
+          "h": 104
+        },
+        {
+          "id": "gpr",
+          "kind": "node",
+          "name": "github_pull_request",
+          "icon": "file-code",
+          "path": "server/migrations/079_github_integration.up.sql:20",
+          "badge": "Table",
+          "x": 960,
+          "y": 300,
+          "w": 270,
+          "h": 104
+        },
+        {
+          "id": "excl",
+          "kind": "node",
+          "name": "issue_pull_request_exclusion",
+          "icon": "tag",
+          "path": "server/migrations/545_pr_auto_complete.up.sql:22",
+          "badge": "Removed links",
+          "x": 440,
+          "y": 560,
+          "w": 270,
+          "h": 104
+        },
+        {
+          "id": "inst",
+          "kind": "node",
+          "name": "github_installation",
+          "icon": "settings",
+          "path": "server/migrations/079_github_integration.up.sql:4",
+          "badge": "Table",
+          "x": 960,
+          "y": 560,
+          "w": 270,
+          "h": 104
+        }
+      ],
+      "edges": [
+        {
+          "id": "ws-issue",
+          "from": "workspace",
+          "to": "issue",
+          "style": "data",
+          "data": "workspace_id",
+          "trigger": "1 to many",
+          "points": [[440, 92], [156, 92], [156, 300]],
+          "label": [298, 92]
+        },
+        {
+          "id": "ws-gpr",
+          "from": "workspace",
+          "to": "gpr",
+          "style": "data",
+          "data": "workspace_id",
+          "trigger": "1 to many",
+          "points": [[710, 92], [1095, 92], [1095, 300]],
+          "label": [902, 92]
+        },
+        {
+          "id": "issue-ipr",
+          "from": "issue",
+          "to": "ipr",
+          "style": "data",
+          "data": "issue_id",
+          "trigger": "1 to many",
+          "points": [[272, 352], [440, 352]],
+          "label": [356, 352]
+        },
+        {
+          "id": "gpr-ipr",
+          "from": "gpr",
+          "to": "ipr",
+          "style": "data",
+          "data": "pull_request_id",
+          "trigger": "1 to many",
+          "points": [[960, 352], [710, 352]],
+          "label": [835, 352]
+        },
+        {
+          "id": "issue-excl",
+          "from": "issue",
+          "to": "excl",
+          "style": "data",
+          "data": "issue_id",
+          "trigger": "1 to many",
+          "points": [[156, 404], [156, 612], [440, 612]],
+          "label": [298, 612]
+        },
+        {
+          "id": "gpr-excl",
+          "from": "gpr",
+          "to": "excl",
+          "style": "data",
+          "data": "pull_request_id",
+          "trigger": "1 to many",
+          "points": [[960, 380], [835, 380], [835, 640], [710, 640]],
+          "label": [835, 510]
+        },
+        {
+          "id": "inst-gpr",
+          "from": "inst",
+          "to": "gpr",
+          "style": "data",
+          "data": "installation_id",
+          "trigger": "1 to many",
+          "points": [[1095, 560], [1095, 404]],
+          "label": [1095, 482]
+        }
+      ],
+      "boundaries": []
+    }
+  ]
+}
