@@ -857,6 +857,8 @@ flowchart LR
   clients["Web and desktop clients"]
   updates[("inbox_item<br/>informational Updates")]
   notices["notification_listeners.go"]
+  backfill["migration 753<br/>creator backfill"]
+  subscribers[("issue_subscriber")]
 
   events --> listeners --> service
   producers --> service
@@ -867,6 +869,8 @@ flowchart LR
   api --> rows
   api -->|"completion publication"| service
   events --> notices --> updates
+  backfill -->|"creator row, unless the member<br/>left the issue or its tree"| subscribers
+  subscribers -->|"recipients by reason"| notices
 ```
 
 `server/pkg/db/queries/todo.sql` and its generated sqlc queries own persistence. The recipient `member_id` is a user's ID (`member.user_id`), not the membership row's ID. `OpenTodo` inserts a row only while that user is a member of the workspace. Optional source and actor IDs are logical references without foreign keys. A to-do's actor is a member or an agent; a system event opens it without one. `kind` distinguishes question, mention, assigned, agent-blocked, run-failed, autopilot-paused, quota-reached, quick-create-failed and review rows; `details` retains system-action data.
@@ -877,7 +881,7 @@ Open rows have `done_at IS NULL`. The partial unique index on `(workspace_id, me
 
 List and summary queries share the visible-open-row projection: live issue/question fields, no rows for missing issues, and no review row while an open question row exists for that member on the issue. Lists order overdue before newest. The list and Mark done routes are workspace-scoped; the summary is account-level across current memberships and omits zero-count workspaces. Mark done is member-private and idempotent. The summary supplies Inbox, workspace-switcher and desktop badge counts.
 
-`inbox_item` remains the storage behind `/api/inbox` for Updates, separate from actionable to-dos. Question, mention, failed-run, paused-autopilot, quota and failed/unconfirmed quick-create notices no longer originate there. Migration 753 corrects agent-created issues to their run's originator member without changing actor/origin attribution; migration 754 then seeds still-open to-dos and archives the moved notices. [ADR-0017](../../adr/0017-a-to-do-is-a-row-the-server-opens-and-closes.md) records the storage decision.
+`inbox_item` remains the storage behind `/api/inbox` for Updates, separate from actionable to-dos. Question, mention, failed-run, paused-autopilot, quota and failed/unconfirmed quick-create notices no longer originate there. Migration 753 corrects agent-created issues to their run's originator member without changing actor/origin attribution, and makes that member's `issue_subscriber` row an active `creator` row unless they unsubscribed from the issue or a tree above it; migration 754 then seeds still-open to-dos and archives the moved notices. [ADR-0017](../../adr/0017-a-to-do-is-a-row-the-server-opens-and-closes.md) records the storage decision.
 
 A question has exactly one asker (`question_one_asker`): an agent in a run, with `asker_agent_id` and `asked_in_task_id`, or a member outside a run, with `asker_user_id`. `Question` carries all three ids as strings; list rows carry `asker_agent_id` and `asker_user_id`. `asker_user_id` is `""` for an agent's question, and `asker_agent_id` and `asked_in_task_id` are `""` for a member's. A member asks through `POST /api/questions` or `multica question ask --on <issue>`; the first link is that issue and no run is linked, so the answers reach no run as input and the question offers no Wake (ADR-0021).
 

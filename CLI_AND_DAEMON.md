@@ -256,6 +256,8 @@ You need at least one installed. The daemon registers each detected CLI as an av
 4. Heartbeats are sent periodically (default: 15s) so the server knows the daemon is alive
 5. On shutdown, all runtimes are deregistered
 
+Kiro closes stdin after the prompt response and drains stdout and stderr before cancellation. Final ACP notifications remain part of the result during the bounded two-second drain.
+
 ### Configuration
 
 Daemon behavior is configured via flags or environment variables:
