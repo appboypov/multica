@@ -232,10 +232,9 @@ archived statuses remain readable via an explicit status filter.
   planning, and review all count as the work exactly when they are what the
   issue asks for (a review-the-PR issue is being worked the moment reviewing
   starts). Questions, discussion, or acknowledgements never move the status.
-  Squad leaders: dispatching members is not delivery — a dispatch turn
-  leaves the parent `in_progress`. The same completion rule applies when the
-  leader's own work without delegation meets the overall goal, or when a
-  later trigger confirms it is met after delegation.
+  Squad leaders: dispatching members is not delivery — a dispatch turn leaves
+  the parent `in_progress`. The same completion rule applies when own work
+  without delegation meets the overall goal, or a later trigger confirms it.
 - **`in_review`** is an accepted issue status. Some workflows use it while a PR
   is open and awaiting review; moving to it is an explicit mutation.
 - **`done`** on a child issue can wake its parent's assignee (see Stages).
