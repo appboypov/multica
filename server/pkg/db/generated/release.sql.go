@@ -1005,7 +1005,7 @@ WITH target AS MATERIALIZED (
         FOR KEY SHARE OF workspace, project
     ) fenced
 )
-SELECT repository.id, repository.workspace_id, repository.project_id, repository.github_repo_id, repository.full_name, repository.private, repository.default_branch, repository.checkout_daemon_id, repository.checkout_path, repository.version_policy, repository.created_by, repository.created_at, repository.updated_at, repository.install_command, repository.last_tag FROM repository
+SELECT repository.id, repository.workspace_id, repository.project_id, repository.github_repo_id, repository.full_name, repository.private, repository.default_branch, repository.checkout_daemon_id, repository.checkout_path, repository.version_policy, repository.created_by, repository.created_at, repository.updated_at, repository.install_command, repository.last_tag, repository.work_in_checkout FROM repository
 JOIN target ON repository.id = target.repository_id AND repository.workspace_id = target.workspace_id
 CROSS JOIN owner_fence
 WHERE owner_fence.locked_count > 0
@@ -1035,6 +1035,7 @@ func (q *Queries) LockReleaseTaskRepository(ctx context.Context, taskID pgtype.U
 		&i.UpdatedAt,
 		&i.InstallCommand,
 		&i.LastTag,
+		&i.WorkInCheckout,
 	)
 	return i, err
 }
