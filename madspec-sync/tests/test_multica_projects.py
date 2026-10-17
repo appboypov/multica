@@ -378,6 +378,7 @@ class FakeMultica(Workspace):
         self.fail_create = None
         self.fail_repository = False
         self.batch_updated = None
+        self.closed = set()
         self.polls = {}
 
     def call(self, method, path, body=None):
@@ -401,9 +402,13 @@ class FakeMultica(Workspace):
                 return deepcopy(self.polls[path.rsplit("/", 1)[1]].pop(0))
             if parsed.path == "/api/issues":
                 query = parse_qs(parsed.query)
-                ids = self.issues[query["project_id"][0]]
+                statuses = {value for values in query.get("statuses", query.get("status", [])) for value in values.split(",")}
+                # The server drops closed issues for open_only=true or a status filter that does not name them.
+                ids = [value for value in self.issues[query["project_id"][0]] if value not in self.closed
+                       or ("true" not in query.get("open_only", []) and (not statuses or "done" in statuses))]
                 offset, limit = int(query["offset"][0]), int(query["limit"][0])
-                return {"issues": [{"id": value} for value in ids[offset:offset + limit]], "total": len(ids)}
+                return {"issues": [{"id": value, "status": "done" if value in self.closed else "todo"}
+                                   for value in ids[offset:offset + limit]], "total": len(ids)}
             raise AssertionError(path)
         if method == "POST" and path == check_path:
             return deepcopy(self.checks[body["full_name"].lower()])
@@ -836,6 +841,14 @@ def test_partial_move_of_101_issues_keeps_source_and_next_run_moves_the_rest(she
     batches = [body["issue_ids"] for _, path, body in shell.api.writes[moves:] if path == "/api/issues/batch-update"]
     assert batches == [["repository-issue-100"]]
     assert len(shell.api.issues["new-MadSpec"]) == 101
+    assert "repository" not in shell.api.issues
+
+
+def test_closed_issues_move_with_the_open_ones(shell):
+    shell.keep_source(issue_count=3)
+    shell.api.closed.add("repository-issue-1")
+    assert sync.main() == 0
+    assert shell.api.issues["new-MadSpec"] == [f"repository-issue-{index}" for index in range(3)]
     assert "repository" not in shell.api.issues
 
 
