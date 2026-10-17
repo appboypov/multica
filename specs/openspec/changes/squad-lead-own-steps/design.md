@@ -24,12 +24,27 @@ flowchart LR
   deliver --> stop
 ```
 
-| Surface | Responsibility |
-|---|---|
-| `squadOperatingProtocolHeader` | Step selection, own work, delegation, activity, stop rule |
-| `squadOperatingProtocolHardRules` | Identity limits, roster mentions, one comment, no duplicate dispatch |
-| `writeWorkflowIssue` | Result delivery and status facts within protocol authority |
-| Builtin reference and squad guides | Explain the behavior without runtime configuration |
+| Kind | Name | Change | Path |
+|---|---|---|---|
+| Handler protocol | `squadOperatingProtocolHeader`, `squadOperatingProtocolHardRules` | changed | `server/internal/handler/squad_briefing.go` |
+| Handler test | Squad Operating Protocol tests | changed | `server/internal/handler/squad_briefing_test.go` |
+| Handler test | Parent status contract test | changed | `server/internal/handler/squad_parent_status_contract_test.go` |
+| Runtime brief | `writeWorkflowIssue` leader status bullet | changed | `server/internal/daemon/execenv/runtime_config_sections.go` |
+| Runtime brief test | Leader issue workflow tests | changed | `server/internal/daemon/execenv/runtime_config_test.go` |
+| Daemon test | `TestBuildPromptSquadLeaderOwnWorkRequiresReply` | changed | `server/internal/daemon/prompt_test.go` |
+| Builtin reference | Squads reference | changed | `server/internal/service/builtin_skills/multica-platform/references/squads.md` |
+| Builtin reference | Issues reference | changed | `server/internal/service/builtin_skills/multica-platform/references/issues.md` |
+| Builtin skill test | `TestPlatformSkillCoversPlatformContracts` | changed | `server/internal/service/builtin_skills_test.go` |
+| Guide | Squads guide, English | changed | `apps/docs/content/docs/squads.mdx` |
+| Guide | Squads guide, Chinese | changed | `apps/docs/content/docs/squads.zh.mdx` |
+| Guide | Squads guide, French | changed | `apps/docs/content/docs/squads.fr.mdx` |
+| Guide | Squads guide, Japanese | changed | `apps/docs/content/docs/squads.ja.mdx` |
+| Guide | Squads guide, Korean | changed | `apps/docs/content/docs/squads.ko.mdx` |
+| OpenSpec | Change metadata | new | `specs/openspec/changes/squad-lead-own-steps/.openspec.yaml` |
+| OpenSpec | Proposal | new | `specs/openspec/changes/squad-lead-own-steps/proposal.md` |
+| OpenSpec | Design | new | `specs/openspec/changes/squad-lead-own-steps/design.md` |
+| OpenSpec | Tasks | new | `specs/openspec/changes/squad-lead-own-steps/tasks.md` |
+| OpenSpec | `squad-leader-steps` spec delta | new | `specs/openspec/changes/squad-lead-own-steps/specs/squad-leader-steps/spec.md` |
 
 ## Context
 
