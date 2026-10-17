@@ -88,7 +88,7 @@ func (h *Handler) AnswerCheck(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) ListCheckTrust(w http.ResponseWriter, r *http.Request) {
-	ws, _, ok := h.questionActor(w, r, questionRoleReader)
+	ws, actor, ok := h.questionActor(w, r, questionRoleReader)
 	if !ok {
 		return
 	}
@@ -100,6 +100,9 @@ func (h *Handler) ListCheckTrust(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		writeQuestionError(w, err)
 		return
+	}
+	for index := range result {
+		result[index].CanManage = actor.Type == "member" && result[index].MemberID == uuidToString(actor.ID)
 	}
 	writeJSON(w, 200, result)
 }

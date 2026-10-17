@@ -66,16 +66,37 @@ func TestTodoSettingsCLI(t *testing.T) {
 		if r.Method == "PUT" {
 			var body map[string]int
 			_ = json.NewDecoder(r.Body).Decode(&body)
-			if body["streak_length"] != 8 || body["sample_every"] != 5 {
+			if len(body) != 1 || body["sample_every"] != 8 {
 				t.Fatalf("settings %+v", body)
 			}
 		}
-		_ = json.NewEncoder(w).Encode(map[string]int{"streak_length": 5, "sample_every": 5})
+		_ = json.NewEncoder(w).Encode(map[string]int{"sample_every": 8})
 	})
 	cmd := newTodoCommand()
 	cmd.SetOut(&bytes.Buffer{})
-	cmd.SetArgs([]string{"settings", "--streak-length", "8"})
+	cmd.SetArgs([]string{"settings", "--sample-every", "8"})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestTodoInstructionReportsCLI(t *testing.T) {
+	for _,action:=range []string{"instruction-note","undo-result"} {
+		t.Run(action,func(t *testing.T) {
+			questionTestServer(t,func(w http.ResponseWriter,r *http.Request){
+				path:="/api/todos/check-id/undo-result"
+				if action=="instruction-note"{path="/api/todos/checks/check-id/instruction-note"}
+				if r.Method!="POST"||r.URL.Path!=path{t.Fatalf("unexpected %s %s",r.Method,r.URL.Path)}
+				var body map[string]string
+				if err:=json.NewDecoder(r.Body).Decode(&body);err!=nil{t.Fatal(err)}
+				if body["link"]!="https://example.test/commit"||body["note"]!="Use rounded totals" {t.Fatalf("report: %+v",body)}
+				if action=="instruction-note"&&body["file"]!="skills/totals.md"{t.Fatalf("file: %+v",body)}
+				_ =json.NewEncoder(w).Encode(map[string]string{"id":"note-id"})
+			})
+			cmd:=newTodoCommand();cmd.SetOut(&bytes.Buffer{})
+			args:=[]string{action,"check-id","--link","https://example.test/commit","--note","Use rounded totals"}
+			if action=="instruction-note"{args=append(args,"--file","skills/totals.md")}
+			cmd.SetArgs(args);if err:=cmd.Execute();err!=nil{t.Fatal(err)}
+		})
 	}
 }

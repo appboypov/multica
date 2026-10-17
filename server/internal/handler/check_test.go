@@ -30,9 +30,36 @@ func TestCheckAPIOpenAnswerAndTrust(t *testing.T) {
 	}
 	var states []map[string]any
 	testutil.Call(t, testHandler.ListCheckTrust, withURLParam(newRequest("GET", "/", nil), "id", project)).Want(http.StatusOK).JSON(&states)
-	if len(states) != 1 || states[0]["passed"] != float64(1) || states[0]["automatic"] != false {
+	if len(states) != 1 || states[0]["passed"] != float64(1) || states[0]["sampling"] != false || states[0]["can_manage"] != true {
 		t.Fatalf("trust %+v", states)
 	}
 	body["member_id"] = "not-a-uuid"
 	testutil.Call(t, testHandler.OpenCheck, fx.agentRequest("POST", "", body)).Want(http.StatusBadRequest)
+}
+
+func TestCheckRecordAndInstructionAPI(t *testing.T) {
+	fx:=newQuestionAPIFixture(t)
+	project:=dbfx.Project(t,"Check record API")
+	dbfx.Exec(t,"UPDATE issue SET project_id=$2 WHERE id=$1",fx.IssueID,project)
+	dbfx.Cleanup(t,"DELETE FROM todo WHERE details->>'project_id'=$1",project)
+	dbfx.Cleanup(t,"DELETE FROM project_check_trust WHERE project_id=$1",project)
+	body:=map[string]string{"issue_id":fx.IssueID,"project_id":project,"member_id":testUserID,"kind":"feature","link":"https://example.test/work","title":"Check totals"}
+	var row map[string]any
+	testutil.Call(t,testHandler.OpenCheck,fx.agentRequest("POST","",body)).Want(http.StatusCreated).JSON(&row)
+	check:=row["id"].(string)
+	testutil.Call(t,testHandler.AnswerCheck,withURLParam(newRequest("POST","/",map[string]string{"answer":"feedback","note":"Round totals"}),"id",check)).Want(http.StatusOK)
+	request:=withURLParam(withURLParam(newRequest("PUT","/",map[string]bool{"sampling":true}),"id",project),"kind","feature")
+	testutil.Call(t,testHandler.SetCheckSampling,request).Want(http.StatusOK).JSON(&row)
+	if row["sampling"]!=true {t.Fatalf("mode: %+v",row)}
+	var history []map[string]any
+	testutil.Call(t,testHandler.CheckHistory,withURLParam(withURLParam(newRequest("GET","/",nil),"id",project),"kind","feature")).Want(http.StatusOK).JSON(&history)
+	if len(history)!=1||history[0]["answer"]!="feedback"{t.Fatalf("history: %+v",history)}
+	note:=map[string]string{"file":"skills/totals.md","link":"https://example.test/commit","note":"Round totals before display"}
+	testutil.Call(t,testHandler.OpenInstructionNote,fx.agentRequest("POST",check,note)).Want(http.StatusCreated).JSON(&row)
+	id:=row["id"].(string)
+	testutil.Call(t,inboxWorkspaceHandler(testHandler.MarkTodoDone),todoDoneRequest(id,testWorkspaceID)).Want(http.StatusUnprocessableEntity)
+	testutil.Call(t,testHandler.AnswerCheck,withURLParam(newRequest("POST","/",map[string]string{"answer":"undo"}),"id",id)).Want(http.StatusOK)
+	testutil.Call(t,testHandler.ReportInstructionUndo,fx.agentRequest("POST",id,map[string]string{"link":"https://example.test/revert","note":"Reverted the instruction"})).Want(http.StatusOK)
+	testutil.Call(t,testHandler.AnswerCheck,withURLParam(newRequest("POST","/",map[string]string{"answer":"keep"}),"id",id)).Want(http.StatusOK).JSON(&row)
+	if row["done_at"]==nil {t.Fatal("Keep must close the note")}
 }

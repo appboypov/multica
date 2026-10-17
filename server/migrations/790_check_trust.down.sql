@@ -1,6 +1,6 @@
 DROP TABLE IF EXISTS project_check_trust;
 DROP TABLE IF EXISTS check_settings;
-DELETE FROM todo WHERE kind IN ('check', 'trust_proposal');
+DELETE FROM todo WHERE kind IN ('check', 'instruction_change');
 ALTER TABLE todo DROP CONSTRAINT IF EXISTS todo_kind_check;
 ALTER TABLE todo ADD CONSTRAINT todo_kind_check CHECK (kind IN (
     'question', 'mention', 'assigned', 'agent_blocked', 'run_failed',

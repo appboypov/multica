@@ -80,7 +80,7 @@ func (h *Handler) MarkTodoDone(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, todo.Response(row))
 		return
 	}
-	if row.Kind == "check" || row.Kind == "trust_proposal" {
+	if row.Kind == "check" || row.Kind == "instruction_change" {
 		writeError(w, http.StatusUnprocessableEntity, "answer this to-do to handle it")
 		return
 	}
