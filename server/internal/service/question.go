@@ -618,6 +618,11 @@ func (s *QuestionService) mutate(ctx context.Context, workspaceID, questionID pg
 	if err != nil {
 		return QuestionDTO{}, err
 	}
+	decider := DeciderService{Queries: s.Queries, TxStarter: s.TxStarter, Tasks: s.Tasks, Bus: s.Bus}
+	decisionEffects, err := decider.reviewConfirmation(ctx, tx, row, actor, reason)
+	if err != nil {
+		return QuestionDTO{}, err
+	}
 	eventID, err := s.writeEvent(ctx, q, row, actor, reason, details)
 	if err != nil {
 		return QuestionDTO{}, err
@@ -637,6 +642,7 @@ func (s *QuestionService) mutate(ctx context.Context, workspaceID, questionID pg
 	if err := tx.Commit(ctx); err != nil {
 		return QuestionDTO{}, err
 	}
+	decider.publishDecision(ctx, decisionEffects)
 	if len(issueIDs) > 0 {
 		if _, err := s.RunInputs.Deliver(ctx, issueIDs, RunInputActor{Type: actor.Type, ID: actor.ID}, input, RunInputChoice{}); err != nil {
 			// The answer is committed; a delivery error must not invite a

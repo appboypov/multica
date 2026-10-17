@@ -11,7 +11,6 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/multica-ai/multica/server/internal/events"
-	"github.com/multica-ai/multica/server/internal/todo"
 	"github.com/multica-ai/multica/server/internal/util"
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
 	"github.com/multica-ai/multica/server/pkg/dbid"
@@ -48,7 +47,10 @@ func (in deciderInput) context() json.RawMessage {
 	for _, i := range in.Members {
 		members = append(members, view(i))
 	}
-	raw, _ := json.Marshal(map[string]any{"settings": in.Settings, "rule": in.Rule, "issue": view(in.Issue), "release": in.Release, "members": members})
+	settings := in.Settings
+	settings.StartPeriod = nil
+	settings.ConfidenceThreshold = nil
+	raw, _ := json.Marshal(map[string]any{"settings": settings, "rule": in.Rule, "issue": view(in.Issue), "release": in.Release, "members": members})
 	return raw
 }
 func (in deciderInput) key() string { return fmt.Sprintf("%x", sha256.Sum256(in.context())) }
@@ -198,6 +200,17 @@ func (s *DeciderService) start(ctx context.Context, issue db.Issue, settings Dec
 	if err = answer.validate(rule); err != nil {
 		return s.finish(ctx, key, DeciderAnswer{}, "Jev", "Decision failed: invalid typed answer")
 	}
+	tx, err = s.TxStarter.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	if _, err = tx.Exec(ctx, `UPDATE routine_decision SET jev_confidence=$2 WHERE id=$1`, key, answer.Confidence); err != nil {
+		tx.Rollback(ctx)
+		return err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return err
+	}
 	if answer.Confidence < settings.threshold() {
 		if err := s.enqueue(ctx, key, in, state); err != nil {
 			return s.finish(ctx, key, DeciderAnswer{}, "Decider agent", "Decision failed: could not queue the configured Sonnet 5.5 agent")
@@ -294,7 +307,7 @@ func (s *DeciderService) Complete(ctx context.Context, taskID pgtype.UUID) error
 	if err != nil {
 		return err
 	}
-	return s.finish(ctx, key, answer, "Decider agent "+agent.Name+" ("+util.UUIDToString(agent.ID)+")", "")
+	return s.finish(ctx, key, answer, "Decider agent "+agent.Name+" (Sonnet 5.5; "+util.UUIDToString(agent.ID)+")", "")
 }
 
 func (s *DeciderService) finish(ctx context.Context, key string, answer DeciderAnswer, actor, failure string) error {
@@ -305,7 +318,8 @@ func (s *DeciderService) finish(ctx context.Context, key string, answer DeciderA
 	defer tx.Rollback(ctx)
 	var raw []byte
 	var outcome string
-	if err = tx.QueryRow(ctx, `SELECT input,outcome FROM routine_decision WHERE id=$1 FOR UPDATE`, key).Scan(&raw, &outcome); err != nil {
+	var confidence pgtype.Float8
+	if err = tx.QueryRow(ctx, `SELECT input,outcome,jev_confidence FROM routine_decision WHERE id=$1 FOR UPDATE`, key).Scan(&raw, &outcome, &confidence); err != nil {
 		return err
 	}
 	if outcome != "judging" && outcome != "pending" {
@@ -320,6 +334,9 @@ func (s *DeciderService) finish(ctx context.Context, key string, answer DeciderA
 		return err
 	}
 	q := s.Queries.WithTx(tx)
+	if _, err = tx.Exec(ctx, `SELECT id FROM workspace WHERE id=$1 FOR UPDATE`, in.Issue.WorkspaceID); err != nil {
+		return err
+	}
 	ws, err := q.GetWorkspace(ctx, in.Issue.WorkspaceID)
 	if err != nil {
 		return err
@@ -330,7 +347,18 @@ func (s *DeciderService) finish(ctx context.Context, key string, answer DeciderA
 	}
 	current.Settings = settings
 	stale := !ok || current.key() != key
-	body := fmt.Sprintf("Routine decision %s by %s: %s. Reason: %s", in.Rule.ID, actor, answer.Choice, in.Rule.Reasons[answer.Reason])
+	if failure == "" && !stale && strings.HasPrefix(actor, "Jev") && answer.Confidence < settings.threshold() {
+		if err = tx.Rollback(ctx); err != nil {
+			return err
+		}
+		current.Settings = settings
+		return s.enqueue(ctx, key, current, current.context())
+	}
+	maker := actor
+	if strings.HasPrefix(actor, "Decider agent") && confidence.Valid {
+		maker += fmt.Sprintf("; Jev confidence %.3f", confidence.Float64)
+	}
+	body := fmt.Sprintf("Routine decision %s by %s: %s. Reason: %s", in.Rule.ID, maker, answer.Choice, in.Rule.Reasons[answer.Reason])
 	outcome = "applied"
 	if failure != "" {
 		body = "Routine decision " + in.Rule.ID + " by " + actor + ". " + failure
@@ -338,67 +366,46 @@ func (s *DeciderService) finish(ctx context.Context, key string, answer DeciderA
 	} else if stale {
 		body += ". Not applied: the input changed."
 		outcome = "stale"
+	} else {
+		var member bool
+		if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM member WHERE workspace_id=$1 AND user_id=$2)`, in.Issue.WorkspaceID, util.MustParseUUID(in.Settings.MemberID)).Scan(&member); err != nil {
+			return err
+		}
+		if !member {
+			body += ". Not applied: the decider member is not in this workspace."
+			outcome = "failed"
+		}
 	}
-	var opened *db.Todo
-	var task *db.AgentTaskQueue
-	updated := in.Issue
+	effects := &deciderEffects{in: in}
 	if outcome == "applied" {
-		if in.Rule.Decision == "bug" {
-			status := "backlog"
-			assigneeType := in.Issue.AssigneeType
-			assigneeID := in.Issue.AssigneeID
-			if answer.Choice == "fix_now" {
-				status = "todo"
-				var props map[string]json.RawMessage
-				_ = json.Unmarshal(in.Issue.Properties, &props)
-				var kind string
-				_ = json.Unmarshal(props[in.Rule.KindProperty], &kind)
-				lead, err := q.GetAgent(ctx, util.MustParseUUID(in.Rule.LeadByKind[kind]))
-				if err != nil {
-					return err
-				}
-				if lead.WorkspaceID != in.Issue.WorkspaceID || lead.ArchivedAt.Valid {
-					return errors.New("kind lead must be active in this workspace")
-				}
-				assigneeID = lead.ID
-				assigneeType = pgtype.Text{String: "agent", Valid: true}
-			}
-			updated, err = q.UpdateIssue(ctx, db.UpdateIssueParams{ID: in.Issue.ID, ExpectedRevision: pgtype.Int8{Int64: current.Issue.Revision, Valid: true}, Status: pgtype.Text{String: status, Valid: true}, AssigneeType: assigneeType, AssigneeID: assigneeID, StartDate: in.Issue.StartDate, DueDate: in.Issue.DueDate, ParentIssueID: in.Issue.ParentIssueID, ProjectID: in.Issue.ProjectID, Stage: in.Issue.Stage, AgentQuestions: in.Issue.AgentQuestions, DuplicateOfIssueID: in.Issue.DuplicateOfIssueID})
-			if err != nil {
+		proposal, _ := json.Marshal(answer)
+		if _, err = tx.Exec(ctx, `UPDATE routine_decision SET proposal=$2,decider=$3 WHERE id=$1`, key, proposal, actor); err != nil {
+			return err
+		}
+		mode := "before"
+		if settings.startPeriod() {
+			outcome = "awaiting_brian"
+			body += ". Waiting for Brian's answer."
+		} else {
+			if err = s.applyChoice(ctx, tx, key, in, current.Issue, answer.Choice, in.Rule.Reasons[answer.Reason], pgtype.UUID{}, effects); err != nil {
 				return err
 			}
-			if answer.Choice == "fix_now" {
-				queued, err := s.Tasks.enqueueMentionTaskWithQueries(ctx, q, updated, assigneeID, pgtype.UUID{}, nil, false, pgtype.UUID{}, false, "Fix this post-merge bug. "+in.Rule.Reasons[answer.Reason], pgtype.UUID{}, pgtype.UUID{}, OriginNamed, nil)
-				if err != nil {
-					return err
-				}
-				task = &queued
+			var number int64
+			if err = tx.QueryRow(ctx, `SELECT COALESCE(max(automatic_number),0)+1 FROM routine_decision WHERE workspace_id=$1`, in.Issue.WorkspaceID).Scan(&number); err != nil {
+				return err
+			}
+			if _, err = tx.Exec(ctx, `UPDATE routine_decision SET automatic_number=$2 WHERE id=$1`, key, number); err != nil {
+				return err
+			}
+			if number%5 == 0 {
+				mode = "after"
+			} else {
+				mode = ""
 			}
 		}
-		if answer.Choice == "fix_later" || answer.Choice == "ready" {
-			member := util.MustParseUUID(in.Settings.MemberID)
-			var exists bool
-			if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM member WHERE workspace_id=$1 AND user_id=$2)`, in.Issue.WorkspaceID, member).Scan(&exists); err != nil {
+		if mode != "" {
+			if err = s.openConfirmation(ctx, tx, key, in, answer, maker, confidence.Float64, mode, settings.threshold(), effects); err != nil {
 				return err
-			}
-			if !exists {
-				return errors.New("decider member is not in this workspace")
-			}
-			source := "decider:bug:" + util.UUIDToString(in.Issue.ID)
-			title := "Plan bug: " + in.Issue.Title
-			details := map[string]any{"decision_id": key}
-			if answer.Choice == "ready" {
-				source = "decider:release:" + util.UUIDToString(in.Release.ID)
-				title = "Release check: " + in.Release.Version + " " + in.Release.Title
-				details["release_id"] = util.UUIDToString(in.Release.ID)
-			}
-			encoded, _ := json.Marshal(details)
-			row, e := q.OpenTodo(ctx, db.OpenTodoParams{ID: dbid.NewV7(), WorkspaceID: in.Issue.WorkspaceID, MemberID: member, Kind: todo.Review, SourceKey: source, IssueID: in.Issue.ID, Title: title, Body: pgtype.Text{String: in.Rule.Reasons[answer.Reason], Valid: true}, Details: encoded})
-			if e != nil && !errors.Is(e, pgx.ErrNoRows) {
-				return e
-			}
-			if e == nil {
-				opened = &row
 			}
 		}
 	}
@@ -412,25 +419,7 @@ func (s *DeciderService) finish(ctx context.Context, key string, answer DeciderA
 	if err = tx.Commit(ctx); err != nil {
 		return err
 	}
-	c := comment.Comment()
-	fields := commentEventFields(c)
-	fields["revision"] = c.Revision
-	s.Bus.Publish(events.Event{Type: protocol.EventCommentCreated, WorkspaceID: util.UUIDToString(in.Issue.WorkspaceID), ActorType: "system", Payload: map[string]any{"comment": fields, "issue_revision": comment.IssueRevision, "issue_title": in.Issue.Title, "issue_status": updated.Status}})
-	if outcome == "applied" && in.Rule.Decision == "bug" {
-		latest, err := s.Queries.GetIssueInWorkspace(ctx, db.GetIssueInWorkspaceParams{ID: updated.ID, WorkspaceID: updated.WorkspaceID})
-		if err != nil {
-			return err
-		}
-		s.Bus.Publish(events.Event{Type: protocol.EventIssueUpdated, WorkspaceID: util.UUIDToString(updated.WorkspaceID), ActorType: "system", Payload: map[string]any{"issue": IssueToMapResolved(ctx, s.Queries, latest, ws.IssuePrefix), "status_changed": in.Issue.Status != updated.Status, "assignee_changed": in.Issue.AssigneeID != updated.AssigneeID, "decider_applied": true}})
-	}
-	if opened != nil {
-		if err = (todo.Service{Queries: s.Queries, Bus: s.Bus}).PublishOpened(ctx, *opened); err != nil {
-			return err
-		}
-	}
-	if task != nil {
-		s.Tasks.broadcastTaskEvent(ctx, protocol.EventTaskQueued, *task)
-		s.Tasks.NotifyTaskEnqueued(ctx, *task)
-	}
+	effects.comments = append(effects.comments, comment)
+	s.publishDecision(ctx, effects)
 	return nil
 }

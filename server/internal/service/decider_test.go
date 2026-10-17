@@ -59,7 +59,8 @@ func deciderFixture(t *testing.T, choice string, confidence float64) (*DeciderSe
 	postMerge := "11111111-1111-4111-8111-111111111111"
 	kind := "22222222-2222-4222-8222-222222222222"
 	rule := DeciderRule{ID: "post-merge", Event: "status_entered", Status: "backlog", Decision: "bug", Question: "Should this post-merge bug be fixed now or later?", Reasons: map[string]string{"urgent": "The bug blocks current work", "minor": "The bug can wait"}, PostMergeProperty: postMerge, KindProperty: kind, LeadByKind: map[string]string{"backend": lead}}
-	settings := DeciderSettings{AgentID: agent, MemberID: f.UserID, Rules: []DeciderRule{rule}}
+	start := false
+	settings := DeciderSettings{AgentID: agent, MemberID: f.UserID, StartPeriod: &start, Rules: []DeciderRule{rule}}
 	raw, _ := json.Marshal(map[string]any{"decider": settings})
 	f.Exec(t, `UPDATE workspace SET settings=$2 WHERE id=$1`, f.WorkspaceID, raw)
 	issue := f.Issue(t, "Bug after merge", testutil.Cols{"status": "backlog", "type": "bug", "properties": fmt.Sprintf(`{%q:true,%q:"backend"}`, postMerge, kind)})
@@ -67,6 +68,7 @@ func deciderFixture(t *testing.T, choice string, confidence float64) (*DeciderSe
 	f.Cleanup(t, `DELETE FROM comment WHERE workspace_id=$1`, f.WorkspaceID)
 	f.Cleanup(t, `DELETE FROM todo WHERE workspace_id=$1`, f.WorkspaceID)
 	f.Cleanup(t, `DELETE FROM agent_task_queue WHERE agent_id IN (SELECT id FROM agent WHERE workspace_id=$1)`, f.WorkspaceID)
+	f.Cleanup(t, `DELETE FROM question WHERE workspace_id=$1`, f.WorkspaceID)
 	bus := events.New()
 	q := db.New(pool)
 	tasks := NewTaskService(q, pool, nil, bus)
@@ -92,6 +94,27 @@ func TestDeciderConfidentChoiceApplied(t *testing.T) {
 	f.QueryRow(t, `SELECT content FROM comment WHERE issue_id=$1`, id).Scan(&body)
 	if !strings.Contains(body, "Jev (confidence 0.960)") || !strings.Contains(body, "blocks current work") {
 		t.Fatalf("missing audit: %s", body)
+	}
+}
+
+func TestDeciderFormerMemberGetsNoTodo(t *testing.T) {
+	s, f, id, _, _ := deciderFixture(t, "fix_later", 0.96)
+	f.Exec(t, `DELETE FROM member WHERE workspace_id=$1 AND user_id=$2`, f.WorkspaceID, f.UserID)
+	if err := s.Handle(context.Background(), util.MustParseUUID(f.WorkspaceID), util.MustParseUUID(id), "status_entered"); err != nil {
+		t.Fatal(err)
+	}
+	if n := f.Count(t, `SELECT count(*) FROM todo WHERE workspace_id=$1 AND member_id=$2`, f.WorkspaceID, f.UserID); n != 0 {
+		t.Fatalf("former member got %d to-dos", n)
+	}
+	var outcome string
+	f.QueryRow(t, `SELECT outcome FROM routine_decision WHERE issue_id=$1`, id).Scan(&outcome)
+	if outcome != "failed" {
+		t.Fatalf("outcome=%s", outcome)
+	}
+	var body string
+	f.QueryRow(t, `SELECT content FROM comment WHERE issue_id=$1`, id).Scan(&body)
+	if !strings.Contains(body, "Not applied: the decider member is not in this workspace") {
+		t.Fatalf("audit does not report why: %s", body)
 	}
 }
 
@@ -174,7 +197,7 @@ func TestIssueReleaseJoinEvent(t *testing.T) {
 
 func TestDeciderSettingsConfidence(t *testing.T) {
 	s, err := ParseDeciderSettings([]byte(`{}`))
-	if err != nil || s.threshold() != 0.85 {
+	if err != nil || s.threshold() != 0.85 || !s.startPeriod() {
 		t.Fatalf("default: %#v %v", s, err)
 	}
 	if _, err := ParseDeciderSettings([]byte(`{"decider":{"agent_id":"bad","rules":[{}]}}`)); err == nil {

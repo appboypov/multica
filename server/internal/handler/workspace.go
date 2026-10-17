@@ -14,6 +14,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/multica-ai/multica/server/internal/analytics"
@@ -418,7 +419,26 @@ func (h *Handler) UpdateWorkspace(w http.ResponseWriter, r *http.Request) {
 	if req.Context != nil {
 		params.Context = pgtype.Text{String: *req.Context, Valid: true}
 	}
+	q := h.Queries
+	var settingsTx pgx.Tx
 	if req.Settings != nil {
+		var err error
+		settingsTx, err = h.TxStarter.Begin(r.Context())
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "could not start settings update")
+			return
+		}
+		defer settingsTx.Rollback(r.Context())
+		if _, err = settingsTx.Exec(r.Context(), `SELECT id FROM workspace WHERE id=$1 FOR UPDATE`, idUUID); err != nil {
+			writeError(w, http.StatusInternalServerError, "could not lock workspace settings")
+			return
+		}
+		q = h.Queries.WithTx(settingsTx)
+		existing, err := q.GetWorkspace(r.Context(), idUUID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "could not read workspace settings")
+			return
+		}
 		if incoming, ok := req.Settings.(map[string]any); ok {
 			// Only an old client's flip of the retired PR switch needs the
 			// stored value; see reconcilePRMergeSettings.
@@ -433,6 +453,14 @@ func (h *Handler) UpdateWorkspace(w http.ResponseWriter, r *http.Request) {
 		s, _ := json.Marshal(req.Settings)
 		if _, err := service.ParseDeciderSettings(s); err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		actorType, actorID := h.resolveActor(r, requestUserID(r), id)
+		if isMachineCredentialActor(r) {
+			actorType = "machine"
+		}
+		if err := service.AuthorizeDeciderSettings(existing.Settings, s, actorType, actorID); err != nil {
+			writeError(w, http.StatusForbidden, err.Error())
 			return
 		}
 		params.Settings = s
@@ -470,11 +498,17 @@ func (h *Handler) UpdateWorkspace(w http.ResponseWriter, r *http.Request) {
 		params.AvatarUrl = pgtype.Text{String: accepted, Valid: true}
 	}
 
-	ws, err := h.Queries.UpdateWorkspace(r.Context(), params)
+	ws, err := q.UpdateWorkspace(r.Context(), params)
 	if err != nil {
 		slog.Warn("update workspace failed", append(logger.RequestAttrs(r), "error", err, "workspace_id", id)...)
 		writeError(w, http.StatusInternalServerError, "failed to update workspace: "+err.Error())
 		return
+	}
+	if settingsTx != nil {
+		if err := settingsTx.Commit(r.Context()); err != nil {
+			writeError(w, http.StatusInternalServerError, "could not commit workspace settings")
+			return
+		}
 	}
 
 	slog.Info("workspace updated", append(logger.RequestAttrs(r), "workspace_id", id)...)

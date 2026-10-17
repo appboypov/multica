@@ -21,6 +21,7 @@ type DeciderSettings struct {
 	AgentID             string        `json:"agent_id"`
 	MemberID            string        `json:"member_id"`
 	ConfidenceThreshold *float64      `json:"confidence_threshold,omitempty"`
+	StartPeriod         *bool         `json:"start_period,omitempty"`
 	Rules               []DeciderRule `json:"rules"`
 }
 
@@ -92,6 +93,52 @@ func ParseDeciderSettings(settings []byte) (DeciderSettings, error) {
 		}
 	}
 	return s, nil
+}
+
+func (s DeciderSettings) startPeriod() bool {
+	return s.StartPeriod == nil || *s.StartPeriod
+}
+
+// AuthorizeDeciderSettings keeps the policy and its named member under human control.
+func AuthorizeDeciderSettings(stored, incoming []byte, actorType, actorID string) error {
+	var before, after map[string]json.RawMessage
+	if err := json.Unmarshal(stored, &before); err != nil {
+		return err
+	}
+	if err := json.Unmarshal(incoming, &after); err != nil {
+		return err
+	}
+	var b, a any
+	if len(before["decider"]) > 0 {
+		_ = json.Unmarshal(before["decider"], &b)
+	}
+	if len(after["decider"]) > 0 {
+		_ = json.Unmarshal(after["decider"], &a)
+	}
+	braw, _ := json.Marshal(b)
+	araw, _ := json.Marshal(a)
+	if bytes.Equal(braw, araw) {
+		return nil
+	}
+	current, err := ParseDeciderSettings(stored)
+	if err != nil {
+		return err
+	}
+	next, err := ParseDeciderSettings(incoming)
+	if err != nil {
+		return err
+	}
+	member := current.MemberID
+	if member == "" {
+		member = next.MemberID
+		if !next.startPeriod() || next.threshold() != DeciderDefaultConfidence {
+			return errors.New("decider setup starts with Brian's confirmation and confidence 0.85")
+		}
+	}
+	if actorType != "member" || actorID == "" || actorID != member {
+		return errors.New("only Brian can change decider settings")
+	}
+	return nil
 }
 
 func (s DeciderSettings) threshold() float64 {

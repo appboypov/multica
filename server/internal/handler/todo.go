@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -77,6 +78,12 @@ func (h *Handler) MarkTodoDone(w http.ResponseWriter, r *http.Request) {
 	}
 	if row.DoneAt.Valid {
 		writeJSON(w, http.StatusOK, todo.Response(row))
+		return
+	}
+	var details map[string]json.RawMessage
+	_ = json.Unmarshal(row.Details, &details)
+	if len(details["routine_decision_id"]) > 0 {
+		writeError(w, http.StatusUnprocessableEntity, "answer the routine choice to confirm or correct it")
 		return
 	}
 	closed, err := (todo.Service{Queries: h.Queries, TxStarter: h.TxStarter, Bus: h.Bus}).MarkDone(r.Context(), db.MarkTodoDoneParams(params))
