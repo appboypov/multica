@@ -9,11 +9,19 @@ export const todoKeys = {
   done: (wsId: string) => [...todoKeys.all(wsId), "done"] as const,
 };
 
+/**
+ * The server decides overdue from its own date when it lists the to-dos, so an
+ * open list refetches this often to show rows that became overdue past a date
+ * change, first.
+ */
+const TODO_OVERDUE_REFRESH_MS = 5 * 60 * 1000;
+
 export function todoListOptions(wsId: string) {
   return queryOptions({
     queryKey: todoKeys.list(wsId),
     queryFn: ({ signal }) => api.listTodos(signal),
     enabled: !!wsId,
+    refetchInterval: TODO_OVERDUE_REFRESH_MS,
   });
 }
 
