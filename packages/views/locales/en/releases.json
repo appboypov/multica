@@ -142,6 +142,7 @@
     "not_found": "This release doesn't exist or was removed.",
     "back": "Back to releases",
     "load_failed": "Couldn't load this release.",
+    "issues_failed": "Couldn't load the issues of this release.",
     "retry": "Try again",
     "unassigned": "Unassigned",
     "no_worklane": "No worklane"
@@ -155,6 +156,7 @@
     "reply": "Reply",
     "cancel": "Cancel",
     "failed": "Couldn't send your comment.",
+    "load_failed": "Couldn't load the comments.",
     "retry": "Retry"
   },
   "overview": {

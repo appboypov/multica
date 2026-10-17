@@ -17,7 +17,9 @@ import { repositoryListOptions } from "@multica/core/repositories";
 import type { Release, ReleaseIssue, ReleaseOwnerRequest } from "@multica/core/types";
 import { worklaneListOptions } from "@multica/core/worklanes";
 import { useActorName } from "@multica/core/workspace/hooks";
+import { Button } from "@multica/ui/components/ui/button";
 import { Skeleton } from "@multica/ui/components/ui/skeleton";
+import { Spinner } from "@multica/ui/components/ui/spinner";
 import { cn } from "@multica/ui/lib/utils";
 import { ActorAvatar } from "../../common/actor-avatar";
 import { StatusIcon } from "../../issues/components/status-icon";
@@ -75,7 +77,7 @@ export function ReleaseDetail({ release }: { release: Release }) {
           </span>
           <ReleaseShippedDate shippedAt={release.shipped_at} />
         </div>
-        <h1 className="text-xl font-semibold">{release.title}</h1>
+        <h1 className="text-title-lg font-semibold">{release.title}</h1>
         {release.description ? (
           <p className="text-body whitespace-pre-wrap text-muted-foreground">{release.description}</p>
         ) : null}
@@ -133,13 +135,32 @@ export function ReleaseDetail({ release }: { release: Release }) {
 function ReleaseIssueList({ releaseId }: { releaseId: string }) {
   const wsId = useWorkspaceId();
   const { t } = useT("releases");
-  const { data, isLoading } = useQuery(releaseIssuesOptions(wsId, releaseId));
+  const { data, isLoading, isError, isFetching, refetch } = useQuery(releaseIssuesOptions(wsId, releaseId));
   const issues = data ?? NO_ISSUES;
   if (isLoading) {
     return (
       <div className="flex flex-col gap-2">
         <Skeleton className="h-9 w-full" />
         <Skeleton className="h-9 w-full" />
+      </div>
+    );
+  }
+  // A failed read with nothing loaded is no empty release.
+  if (isError && data === undefined) {
+    return (
+      <div role="alert" className="flex flex-col items-start gap-2">
+        <p className="text-label text-destructive">{t(($) => $.page.issues_failed)}</p>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => void refetch()}
+          disabled={isFetching}
+          aria-busy={isFetching}
+        >
+          {isFetching ? <Spinner /> : null}
+          {t(($) => $.page.retry)}
+        </Button>
       </div>
     );
   }

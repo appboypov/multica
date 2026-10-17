@@ -46,6 +46,15 @@ export function ReleaseComments({ releaseId }: { releaseId: string }) {
   const comments = useQuery(releaseCommentsOptions(wsId, releaseId));
   const activity = useQuery(releaseActivityOptions(wsId, releaseId));
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
+  // A failed read with nothing loaded is no empty discussion.
+  const failed =
+    (comments.isError && comments.data === undefined) ||
+    (activity.isError && activity.data === undefined);
+  const retrying = comments.isFetching || activity.isFetching;
+  const retry = () => {
+    if (comments.isError) void comments.refetch();
+    if (activity.isError) void activity.refetch();
+  };
 
   const all = comments.data ?? NO_COMMENTS;
   const byId = new Map(all.map((comment) => [comment.id, comment]));
@@ -82,6 +91,21 @@ export function ReleaseComments({ releaseId }: { releaseId: string }) {
           <Skeleton className="h-16 w-full" />
           <Skeleton className="h-16 w-full" />
         </div>
+      ) : failed ? (
+        <div role="alert" className="flex flex-col items-start gap-2">
+          <p className="text-label text-destructive">{t(($) => $.comments.load_failed)}</p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={retry}
+            disabled={retrying}
+            aria-busy={retrying}
+          >
+            {retrying ? <Spinner /> : null}
+            {t(($) => $.comments.retry)}
+          </Button>
+        </div>
       ) : items.length === 0 ? (
         <p className="text-label text-muted-foreground">{t(($) => $.comments.empty)}</p>
       ) : (
@@ -98,8 +122,16 @@ export function ReleaseComments({ releaseId }: { releaseId: string }) {
                   <ol className="ml-8 flex flex-col gap-3 border-l border-border pl-4">
                     {(replies.get(item.id) ?? []).sort(byTime).map((reply) =>
                       reply.kind === "comment" ? (
-                        <li key={`comment:${reply.id}`}>
-                          <CommentView comment={reply.comment} />
+                        <li key={`comment:${reply.id}`} className="flex flex-col gap-3">
+                          <CommentView comment={reply.comment} onReply={() => setReplyingTo(reply.id)} />
+                          {replyingTo === reply.id ? (
+                            <CommentComposer
+                              releaseId={releaseId}
+                              parentId={reply.id}
+                              onSent={() => setReplyingTo(null)}
+                              onCancel={() => setReplyingTo(null)}
+                            />
+                          ) : null}
                         </li>
                       ) : null,
                     )}

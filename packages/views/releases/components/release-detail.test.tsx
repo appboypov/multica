@@ -249,6 +249,21 @@ describe("release page", () => {
     expect(await screen.findByText("No issues in this release yet.")).toBeTruthy();
   });
 
+  it("shows a failed read of the issues as an error with retry, never as no issues", async () => {
+    const user = userEvent.setup();
+    seed(planned);
+    api.listReleaseIssues.mockRejectedValue(new Error("network down"));
+    mount(<ReleaseDetailRoute releaseId="r-110" />);
+
+    expect(await screen.findByText("Couldn't load the issues of this release.")).toBeTruthy();
+    expect(screen.queryByText("No issues in this release yet.")).toBeNull();
+
+    api.listReleaseIssues.mockResolvedValue({ issues });
+    await user.click(screen.getByRole("button", { name: "Try again" }));
+    expect(await screen.findByRole("link", { name: /WORK-501/ })).toBeTruthy();
+    expect(screen.queryByText("Couldn't load the issues of this release.")).toBeNull();
+  });
+
   it("opens the Timeline of the first worklane holding the release with it in view", async () => {
     seed(planned);
     mount(<ReleaseDetailRoute releaseId="r-110" />);
@@ -336,6 +351,44 @@ describe("release discussion", () => {
     const thread = root.closest("li") as HTMLElement;
     expect(await within(thread).findByText(reply.content)).toBeTruthy();
     expect(screen.queryByRole("textbox", { name: "Write a reply…" })).toBeNull();
+  });
+
+  it("offers Reply on a reply and sends it with that reply as parent", async () => {
+    const user = userEvent.setup();
+    const reply = comment({ id: "c-2", parent_id: "c-1", content: "Review is open.", created_at: "2026-02-01T12:00:00Z" });
+    const answer = comment({ id: "c-3", parent_id: "c-2", content: "Review passed.", created_at: "2026-02-01T13:00:00Z" });
+    seed(planned, { comments: [pieterComment, reply] });
+    api.createReleaseComment.mockResolvedValue(answer);
+    mount(<ReleaseDetailRoute releaseId="r-110" />);
+
+    const nested = (await screen.findByText(reply.content)).closest("article") as HTMLElement;
+    await user.click(within(nested).getByRole("button", { name: "Reply" }));
+    const box = screen.getByRole("textbox", { name: "Write a reply…" });
+    await user.type(box, answer.content);
+    api.listReleaseComments.mockResolvedValue([pieterComment, reply, answer]);
+    await user.click(within(box.closest("form") as HTMLElement).getByRole("button", { name: "Reply" }));
+
+    await waitFor(() =>
+      expect(api.createReleaseComment).toHaveBeenCalledWith("r-110", { content: answer.content, parent_id: "c-2" }),
+    );
+    const thread = (await screen.findByText(pieterComment.content)).closest("li") as HTMLElement;
+    expect(await within(thread).findByText(answer.content)).toBeTruthy();
+    expect(screen.queryByRole("textbox", { name: "Write a reply…" })).toBeNull();
+  });
+
+  it("shows a failed read of the discussion as an error with Retry, never as no comments", async () => {
+    const user = userEvent.setup();
+    seed(planned);
+    api.listReleaseComments.mockRejectedValue(new Error("network down"));
+    mount(<ReleaseDetailRoute releaseId="r-110" />);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't load the comments.");
+    expect(screen.queryByText("No comments yet.")).toBeNull();
+
+    api.listReleaseComments.mockResolvedValue([pieterComment]);
+    await user.click(screen.getByRole("button", { name: "Retry" }));
+    expect(await screen.findByText(pieterComment.content)).toBeTruthy();
+    expect(screen.queryByText("Couldn't load the comments.")).toBeNull();
   });
 
   it("keeps the text when sending fails and sends it on Retry", async () => {

@@ -334,7 +334,6 @@ func TestLegacyRedirectsFollowTheDaemonsBrief(t *testing.T) {
 	}
 }
 
-
 // TestPlatformSkillCoversPlatformContracts re-homes the per-domain contract
 // anchors that each merged skill used to assert on its own body. They are
 // anchors, not prose review: if a contract leaves the payload, the brief

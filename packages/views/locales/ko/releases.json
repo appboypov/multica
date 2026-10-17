@@ -136,14 +136,15 @@
     "failed": "담당자를 저장하지 못했습니다. 다시 시도하세요."
   },
   "page": {
-    "issues": "이슈",
-    "no_issues": "이 릴리스에는 아직 이슈가 없습니다.",
+    "issues": "태스크",
+    "no_issues": "이 릴리스에는 아직 태스크가 없습니다.",
     "open_timeline": "타임라인에서 열기",
     "not_found": "이 릴리스가 없거나 제거되었습니다.",
     "back": "릴리스로 돌아가기",
     "load_failed": "이 릴리스를 불러오지 못했습니다.",
+    "issues_failed": "이 릴리스의 태스크를 불러오지 못했습니다.",
     "retry": "다시 시도",
-    "unassigned": "미할당",
+    "unassigned": "담당자 없음",
     "no_worklane": "worklane 없음"
   },
   "comments": {
@@ -155,6 +156,7 @@
     "reply": "답글",
     "cancel": "취소",
     "failed": "댓글을 보내지 못했습니다.",
+    "load_failed": "댓글을 불러오지 못했습니다.",
     "retry": "다시 시도"
   },
   "overview": {

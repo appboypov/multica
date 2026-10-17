@@ -130,9 +130,9 @@
   "owner": {
     "label": "Responsable",
     "none": "Aucun responsable",
-    "search": "Rechercher des agents et des escouades…",
+    "search": "Rechercher des agents et des squads…",
     "agents": "Agents",
-    "squads": "Escouades",
+    "squads": "Squads",
     "failed": "Impossible d’enregistrer le responsable. Réessayez."
   },
   "page": {
@@ -142,9 +142,10 @@
     "not_found": "Cette version n’existe pas ou a été retirée.",
     "back": "Retour aux versions",
     "load_failed": "Impossible de charger cette version.",
+    "issues_failed": "Impossible de charger les tâches de cette version.",
     "retry": "Réessayer",
-    "unassigned": "Non assignée",
-    "no_worklane": "Aucune worklane"
+    "unassigned": "Non assigné",
+    "no_worklane": "Aucun worklane"
   },
   "comments": {
     "title": "Commentaires",
@@ -155,6 +156,7 @@
     "reply": "Répondre",
     "cancel": "Annuler",
     "failed": "Impossible d’envoyer votre commentaire.",
+    "load_failed": "Impossible de charger les commentaires.",
     "retry": "Réessayer"
   },
   "overview": {

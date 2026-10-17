@@ -71,8 +71,15 @@ export function ReleaseColumn({
       >
         <div className="rounded-t-lg border-b border-border px-4 py-3">
           <div className="flex items-center gap-2">
-            <AppLink href={href} className="shrink-0 rounded-md">
-              <ReleaseChip version={release.version} state={state} />
+            <AppLink
+              href={href}
+              className="group/chip shrink-0 rounded-full focus-visible:outline-2 focus-visible:outline-ring"
+            >
+              <ReleaseChip
+                version={release.version}
+                state={state}
+                className="transition-colors group-hover/chip:bg-accent"
+              />
             </AppLink>
             <span className={cn("text-caption", next ? "text-brand" : "text-muted-foreground")}>
               {t(($) => $.column.state[state])}

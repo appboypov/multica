@@ -142,6 +142,7 @@
     "not_found": "此版本不存在或已被移除。",
     "back": "返回版本",
     "load_failed": "无法加载此版本。",
+    "issues_failed": "无法加载此版本的任务。",
     "retry": "重试",
     "unassigned": "未分配",
     "no_worklane": "无 worklane"
@@ -155,6 +156,7 @@
     "reply": "回复",
     "cancel": "取消",
     "failed": "评论发送失败。",
+    "load_failed": "无法加载评论。",
     "retry": "重试"
   },
   "overview": {

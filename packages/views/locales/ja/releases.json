@@ -142,6 +142,7 @@
     "not_found": "このリリースは存在しないか、削除されました。",
     "back": "リリースに戻る",
     "load_failed": "このリリースを読み込めませんでした。",
+    "issues_failed": "このリリースのタスクを読み込めませんでした。",
     "retry": "再試行",
     "unassigned": "未割り当て",
     "no_worklane": "worklane なし"
@@ -155,6 +156,7 @@
     "reply": "返信",
     "cancel": "キャンセル",
     "failed": "コメントを送信できませんでした。",
+    "load_failed": "コメントを読み込めませんでした。",
     "retry": "再試行"
   },
   "overview": {
