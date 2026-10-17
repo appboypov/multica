@@ -14,10 +14,10 @@ import (
 	"time"
 )
 
-// TestPrepareIsolated_PermanentFIFOBlockThenImmediateRetry is the lifecycle
-// regression for MUL-4923. The first real Codex Prepare blocks forever opening
-// a shared config FIFO. After the deadline, there must be no reader left on
-// that FIFO before an immediate retry mutates the same env root.
+// TestPrepareIsolated_PermanentFIFOBlockThenImmediateRetry exercises a real
+// Codex Prepare blocked reading a shared config FIFO. Cancellation waits until
+// the helper opens the FIFO. No reader may remain when an immediate retry
+// mutates the same env root.
 func TestPrepareIsolated_PermanentFIFOBlockThenImmediateRetry(t *testing.T) {
 	sharedCodexHome := t.TempDir()
 	t.Setenv("CODEX_HOME", sharedCodexHome)
@@ -38,28 +38,62 @@ func TestPrepareIsolated_PermanentFIFOBlockThenImmediateRetry(t *testing.T) {
 		},
 	}
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	ctx, cancel := context.WithTimeout(context.Background(), 250*time.Millisecond)
-	defer cancel()
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	var prepareErr error
+	go func() {
+		_, prepareErr = PrepareIsolated(ctx, preparationHelperTestCommand(), params, logger)
+		close(done)
+	}()
+	defer func() {
+		cancel()
+		<-done
+	}()
+
+	// Opening a non-blocking writer proves the helper reached the FIFO.
+	// Keep it open without writing so the helper cannot finish its read.
+	startup := time.NewTimer(10 * time.Second)
+	defer startup.Stop()
+	poll := time.NewTicker(10 * time.Millisecond)
+	defer poll.Stop()
+	for {
+		blockedWriter, err := os.OpenFile(fifo, os.O_WRONLY|syscall.O_NONBLOCK, 0)
+		if err == nil {
+			defer blockedWriter.Close()
+			break
+		}
+		if !errors.Is(err, syscall.ENXIO) {
+			t.Fatalf("wait for FIFO reader: %v", err)
+		}
+		select {
+		case <-done:
+			t.Fatalf("PrepareIsolated returned before blocking on FIFO: %v", prepareErr)
+		case <-startup.C:
+			t.Fatal("preparation helper did not open the config FIFO")
+		case <-poll.C:
+		}
+	}
 
 	startedAt := time.Now()
-	_, err := PrepareIsolated(ctx, preparationHelperTestCommand(), params, logger)
-	if !errors.Is(err, context.DeadlineExceeded) {
-		t.Fatalf("PrepareIsolated error = %v, want deadline exceeded", err)
+	cancel()
+	<-done
+	if !errors.Is(prepareErr, context.Canceled) {
+		t.Fatalf("PrepareIsolated error = %v, want context canceled", prepareErr)
 	}
 	if elapsed := time.Since(startedAt); elapsed > 3*time.Second {
-		t.Fatalf("PrepareIsolated took %s, want a bounded process termination", elapsed)
+		t.Fatalf("PrepareIsolated cancellation took %s, want a bounded process termination", elapsed)
 	}
 	if _, err := os.Stat(PredictRootDir(RootDirParams{WorkspacesRoot: params.WorkspacesRoot, WorkspaceID: params.WorkspaceID, WorkspaceSlug: params.WorkspaceSlug, TaskID: params.TaskID, IssueIdentifier: params.IssueIdentifier})); err != nil {
-		t.Fatalf("first helper did not reach environment preparation before timeout: %v", err)
+		t.Fatalf("first helper did not reach environment preparation before cancellation: %v", err)
 	}
 
 	// A non-blocking FIFO writer succeeds only while a reader is still alive.
-	// ENXIO therefore proves the timed-out helper was reaped before ownership
+	// ENXIO therefore proves the canceled helper was reaped before ownership
 	// returned to the caller; there is no old worker that can resume later.
 	writer, writerErr := os.OpenFile(fifo, os.O_WRONLY|syscall.O_NONBLOCK, 0)
 	if writerErr == nil {
 		writer.Close()
-		t.Fatal("timed-out preparation helper still has the FIFO open for reading")
+		t.Fatal("canceled preparation helper still has the FIFO open for reading")
 	}
 	if !errors.Is(writerErr, syscall.ENXIO) {
 		t.Fatalf("probe FIFO reader: %v, want ENXIO", writerErr)
