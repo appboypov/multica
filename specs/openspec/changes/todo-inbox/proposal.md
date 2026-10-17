@@ -50,5 +50,5 @@ Success signal: Brian opens Inbox and sees only what waits for him, with overdue
 ## Impact
 
 - Server: new `todo` table and queries, `internal/todo`, a listener file, three endpoints and two events. Notice creation for the moved types stops. Migrations open the current to-dos, archive the moved notices and fix the creator of existing agent-made issues.
-- Clients: web and desktop Inbox and a new Updates page, on the new endpoints and events. The phone app's Inbox tab waits on Brian's answer on WORK-449.
+- Clients: web and desktop Inbox and a new Updates page, on the new endpoints and events. The phone app is out of scope.
 - Brian follows the agent-made issues as their creator, so his creator notification settings apply to them instead of the delegated ones.

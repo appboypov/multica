@@ -13,7 +13,7 @@ WORK-449 turns the inbox into the to-dos of a member: things that wait for the m
 - `todo` keeps one row per to-do. `internal/todo` opens a row when the event that makes it happens and closes it, with `done_by = handled`, when the event that handles it happens. Mark done closes it with `done_by = member`.
 - A to-do is open while `done_at` is NULL. One open row per `(workspace_id, member_id, kind, source_key)`; a repeated open or close changes nothing.
 - Fields that change on their source, such as the issue's title, status and due date and the question's type, are read from the source when listing.
-- Every open and close publishes `todo:opened` or `todo:closed` to the member.
+- Every change to the member's visible list publishes `todo:opened` or `todo:closed` to that member. An open question hides the member's review on its issue without completing it, and closing the last question reveals it. Hiding publishes `todo:closed` with a null `done_by`, and a review that opens or closes while hidden publishes nothing.
 
 ## Consequences
 
