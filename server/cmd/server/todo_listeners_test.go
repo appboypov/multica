@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/multica-ai/multica/server/internal/events"
 	"github.com/multica-ai/multica/server/internal/handler"
+	"github.com/multica-ai/multica/server/internal/service"
 	"github.com/multica-ai/multica/server/internal/testutil"
 	"github.com/multica-ai/multica/server/internal/todo"
 	"github.com/multica-ai/multica/server/internal/util"
@@ -223,6 +224,7 @@ func TestTodoAssignedLifecycle(t *testing.T) {
 	}
 	apply("blocked", true)
 	other := fx.User(t, "Anouk", dbid.NewV7().String()+"@todo.test")
+	fx.Member(t, fx.WorkspaceID, other, "member")
 	issue.AssigneeID = &other
 	event.Payload = map[string]any{"issue": issue, "assignee_changed": true}
 	if err := assignedTodos(context.Background(), svc, event); err != nil {
@@ -578,5 +580,110 @@ func TestTodoAutopilotPauseAndResume(t *testing.T) {
 	bus.Publish(events.Event{Type: protocol.EventAutopilotDeleted, WorkspaceID: testWorkspaceID, Payload: map[string]any{"autopilot_id": util.UUIDToString(ap.ID)}})
 	if opened != 2 || closed != 2 {
 		t.Fatalf("delete opened=%d closed=%d", opened, closed)
+	}
+}
+
+func TestTodoQuestionNamesItsAsker(t *testing.T) {
+	fx, svc := todoListenerFixture(t)
+	member := fx.User(t, "Anouk", dbid.NewV7().String()+"@todo.test")
+	fx.Member(t, fx.WorkspaceID, member, "member")
+	agent := dbid.NewV7().String()
+	askers := []struct {
+		actorType, actorID string
+		cols               testutil.Cols
+	}{
+		{"member", member, testutil.Cols{"asker_user_id": member}},
+		{"agent", agent, testutil.Cols{"asker_agent_id": agent, "asked_in_task_id": dbid.NewV7()}},
+	}
+	for _, asker := range askers {
+		id := dbid.NewV7()
+		cols := testutil.Cols{"id": id, "ask_id": id, "ask_position": 0, "workspace_id": fx.WorkspaceID, "prompt": "Approve?", "answer_type": "approval"}
+		for key, value := range asker.cols {
+			cols[key] = value
+		}
+		question := fx.Insert(t, "question", cols)
+		fx.Exec(t, "INSERT INTO question_answerer (question_id, user_id, workspace_id) VALUES ($1, $2, $3)", question, fx.UserID, fx.WorkspaceID)
+		event := events.Event{Type: protocol.EventQuestionCreated, WorkspaceID: fx.WorkspaceID, Payload: protocol.QuestionEventPayload{QuestionID: question}}
+		if err := questionTodos(context.Background(), svc, event); err != nil {
+			t.Fatal(err)
+		}
+		if fx.Count(t, "SELECT count(*) FROM todo WHERE question_id = $1 AND member_id = $2 AND actor_type = $3 AND actor_id = $4 AND done_at IS NULL", question, fx.UserID, asker.actorType, asker.actorID) != 1 {
+			t.Fatalf("%s-asked question did not name its asker", asker.actorType)
+		}
+	}
+}
+
+func TestTodoFormerMemberGetsNoTodo(t *testing.T) {
+	fx, svc := todoListenerFixture(t)
+	former := fx.User(t, "Pieter", dbid.NewV7().String()+"@todo.test")
+	fx.Member(t, fx.WorkspaceID, former, "member")
+	runtime := fx.Runtime(t, "Former runtime")
+	agent := fx.Agent(t, "Joeri", runtime)
+	issue := fx.Issue(t, "Left behind")
+	task := fx.Task(t, agent, testutil.Cols{"runtime_id": runtime, "issue_id": issue, "status": "failed", "originator_user_id": former, "accountable_user_id": former})
+	fx.Exec(t, "DELETE FROM member WHERE workspace_id = $1 AND user_id = $2", fx.WorkspaceID, former)
+	opened := 0
+	svc.Bus.Subscribe(protocol.EventTodoOpened, func(events.Event) { opened++ })
+	event := events.Event{Type: protocol.EventTaskFailed, WorkspaceID: fx.WorkspaceID, ActorType: "agent", ActorID: agent, Payload: map[string]any{"issue_id": issue, "task_id": task}}
+	if err := agentTodos(context.Background(), svc, event); err != nil {
+		t.Fatal(err)
+	}
+	if fx.Count(t, "SELECT count(*) FROM todo WHERE workspace_id = $1 AND member_id = $2", fx.WorkspaceID, former) != 0 || opened != 0 {
+		t.Fatalf("former member got a to-do, %d opened events", opened)
+	}
+}
+
+// Handlers publish an IssueResponse and services publish IssueToMap. A system
+// actor such as PR automation or a failed run's status reset opens to-dos without an actor.
+func TestTodoIssueEventsFromHandlersAndServices(t *testing.T) {
+	for _, shape := range []string{"handler", "service"} {
+		t.Run(shape, func(t *testing.T) {
+			fx, svc := todoListenerFixture(t)
+			ctx := context.Background()
+			assignee := fx.User(t, "Anouk", dbid.NewV7().String()+"@todo.test")
+			fx.Member(t, fx.WorkspaceID, assignee, "member")
+			id := fx.Issue(t, "Shapes", testutil.Cols{"status": "in_review", "assignee_type": "member", "assignee_id": assignee, "description": "[Brian](mention://member/" + fx.UserID + ")"})
+			payload := func() any {
+				t.Helper()
+				row, err := svc.Queries.GetIssueInWorkspace(ctx, db.GetIssueInWorkspaceParams{ID: parseUUID(id), WorkspaceID: parseUUID(fx.WorkspaceID)})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if shape == "service" {
+					return service.IssueToMap(row, "")
+				}
+				description, assigneeType, assigneeID := row.Description.String, row.AssigneeType.String, util.UUIDToString(row.AssigneeID)
+				return handler.IssueResponse{ID: id, Title: row.Title, Status: row.Status, Description: &description, AssigneeType: &assigneeType, AssigneeID: &assigneeID, CreatorType: row.CreatorType, CreatorID: util.UUIDToString(row.CreatorID)}
+			}
+			apply := func(event events.Event) {
+				t.Helper()
+				for _, listener := range []func(context.Context, todo.Service, events.Event) error{mentionTodos, assignedTodos, agentTodos, reviewTodos} {
+					if err := listener(ctx, svc, event); err != nil {
+						t.Fatal(err)
+					}
+				}
+			}
+			open := func(kind, member, actorCondition string) int {
+				return fx.Count(t, "SELECT count(*) FROM todo WHERE issue_id = $1 AND kind = $2 AND member_id = $3 AND done_at IS NULL AND "+actorCondition, id, kind, member)
+			}
+			apply(events.Event{Type: protocol.EventIssueCreated, WorkspaceID: fx.WorkspaceID, ActorType: "agent", ActorID: dbid.NewV7().String(), Payload: map[string]any{"issue": payload()}})
+			if open(todo.Mention, fx.UserID, "actor_type = 'agent'") != 1 {
+				t.Fatal("description mention opened no to-do")
+			}
+			fx.Exec(t, "DELETE FROM todo WHERE issue_id = $1 AND kind IN ('assigned', 'review')", id)
+			apply(events.Event{Type: protocol.EventIssueUpdated, WorkspaceID: fx.WorkspaceID, ActorType: "system", Payload: map[string]any{"issue": payload(), "status_changed": true}})
+			if open(todo.Assigned, assignee, "actor_type IS NULL AND actor_id IS NULL") != 1 || open(todo.Review, fx.UserID, "actor_type IS NULL AND actor_id IS NULL") != 1 {
+				t.Fatal("system status change did not open assigned and review to-dos without an actor")
+			}
+			workspace, member := parseUUID(fx.WorkspaceID), parseUUID(fx.UserID)
+			if err := svc.Open(ctx, db.OpenTodoParams{WorkspaceID: workspace, MemberID: member, Kind: todo.AgentBlocked, SourceKey: id, IssueID: parseUUID(id), Title: "Shapes"}); err != nil {
+				t.Fatal(err)
+			}
+			fx.Exec(t, "UPDATE issue SET status = 'in_progress' WHERE id = $1", id)
+			apply(events.Event{Type: protocol.EventIssueUpdated, WorkspaceID: fx.WorkspaceID, ActorType: "system", Payload: map[string]any{"issue": payload(), "status_changed": true}})
+			if fx.Count(t, "SELECT count(*) FROM todo WHERE issue_id = $1 AND kind IN ('assigned', 'review', 'agent_blocked') AND done_at IS NULL", id) != 0 {
+				t.Fatal("leaving In Review kept issue to-dos open")
+			}
+		})
 	}
 }

@@ -561,12 +561,16 @@ const openTodo = `-- name: OpenTodo :one
 INSERT INTO todo (
     id, workspace_id, member_id, kind, source_key, issue_id, question_id,
     comment_id, task_id, autopilot_id, actor_type, actor_id, title, body, details
-) VALUES (
-    $1, $2, $3, $4, $5,
+)
+SELECT
+    $1::uuid, $2::uuid, $3::uuid, $4::text, $5::text,
     $6::uuid, $7::uuid,
     $8::uuid, $9::uuid,
     $10::uuid, $11::text,
-    $12::uuid, $13, $14::text, $15
+    $12::uuid, $13::text, $14::text, $15::jsonb
+WHERE EXISTS (
+    SELECT 1 FROM member m
+    WHERE m.workspace_id = $2::uuid AND m.user_id = $3::uuid
 )
 ON CONFLICT (workspace_id, member_id, kind, source_key) WHERE done_at IS NULL
 DO NOTHING
@@ -591,6 +595,7 @@ type OpenTodoParams struct {
 	Details     []byte      `json:"details"`
 }
 
+// Only a current member of the workspace gets a to-do.
 func (q *Queries) OpenTodo(ctx context.Context, arg OpenTodoParams) (Todo, error) {
 	row := q.db.QueryRow(ctx, openTodo,
 		arg.ID,
