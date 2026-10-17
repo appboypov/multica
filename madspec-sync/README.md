@@ -26,12 +26,16 @@ uv run madspec-sync/multica_sync.py           # sync agents and workers
 uv run madspec-sync/multica_sync.py mitchel   # one agent or worker by name or folder
 uv run madspec-sync/multica_sync.py Lukas --adopt Lukas --dry-run
 uv run madspec-sync/multica_sync.py Lukas --adopt Lukas
-uv run madspec-sync/multica_projects.py        # organisations, Products, guarded single-repo merges
-uv run --with pytest pytest -p no:cacheprovider madspec-sync/tests
-uv run --with pytest pytest -p no:cacheprovider madspec-sync/tests/test_multica_projects.py
+uv run madspec-sync/multica_projects.py        # organisations, Products, guarded repository merges
+uv run --with pytest --with pyyaml pytest -p no:cacheprovider madspec-sync/tests
+uv run --with pytest --with pyyaml pytest -p no:cacheprovider madspec-sync/tests/test_multica_projects.py
 ```
 
 Use repeatable `--adopt NAME` only for an existing unmanaged agent that should come under the sync. Each name must have one match. Other unmanaged agents and all squads stay unchanged. Dry run makes no API or overlay writes.
+
+The Product sync tests fake the brain reader and Multica HTTP transport,
+including the GitHub App repository list and runtime checkout checks. They
+follow [the Product sync contract](specs/multica-projects.md) without live calls.
 
 ## Agent instructions
 
