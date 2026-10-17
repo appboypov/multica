@@ -38,7 +38,7 @@ const KIND_ICONS: Record<TodoKind, { Icon: LucideIcon; className: string }> = {
   quick_create_failed: { Icon: TriangleAlert, className: "text-warning" },
   review: { Icon: GitPullRequest, className: "text-info" },
   check: { Icon: BadgeCheck, className: "text-brand" },
-  trust_proposal: { Icon: BadgeCheck, className: "text-info" },
+  instruction_change: { Icon: BadgeCheck, className: "text-info" },
 };
 
 function isKnownKind(kind: string): kind is TodoKind {
@@ -72,7 +72,7 @@ export function useTodoKindLabel() {
       if (isUnconfirmedQuickCreate(todo)) return t(($) => $.types.quick_create_unconfirmed);
       const checkKind = todo.details?.check_kind;
       const todoKind = todo.kind;
-      if ((todoKind === "check" || todoKind === "trust_proposal") && isCheckKind(checkKind)) {
+      if ((todoKind === "check" || todoKind === "instruction_change") && isCheckKind(checkKind)) {
         return `${t(($) => $.todos.kinds[todoKind])} · ${t(($) => $.checks.kind_labels[checkKind])}`;
       }
       return isKnownKind(todo.kind) ? t(($) => $.todos.kinds[todo.kind as TodoKind]) : t(($) => $.todos.kinds.other);

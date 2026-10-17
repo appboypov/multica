@@ -26,6 +26,7 @@ import { currentPath, useNavigation } from "../../navigation";
 import { TitleEditor, ContentEditor, type ContentEditorRef } from "../../editor";
 import { PriorityIcon } from "../../issues/components/priority-icon";
 import { ProjectRepositoriesSection } from "../../repositories/components/project-repositories-section";
+import { ProjectCheckRecord } from "../../inbox/components/project-check-record";
 import { repositoriesOfProject, repositoryListOptions } from "@multica/core/repositories";
 import { useWorklaneCounts } from "../../worklanes/use-worklane-counts";
 import { OrganisationPicker } from "./organisation-picker";
@@ -460,6 +461,7 @@ export function ProjectDetail({ projectId }: { projectId: string }) {
 
       {/* Repositories */}
       <ProjectRepositoriesSection wsId={wsId} projectId={projectId} />
+      <ProjectCheckRecord projectId={projectId} />
     </div>
   );
 

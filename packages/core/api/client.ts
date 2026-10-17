@@ -6,7 +6,7 @@ import type { IssueTemplate, IssueType, SetIssuePlacementRequest, ReleaseProgres
 import { IssueTemplatesResponseSchema, EMPTY_ISSUE_TEMPLATES_RESPONSE, WorklaneIssuesResponseSchema, MoveWorklaneIssueResponseSchema, EMPTY_WORKLANE_ISSUES_RESPONSE, ReleaseProgressResponseSchema, EMPTY_RELEASE_PROGRESS_RESPONSE } from "./schemas";
 import type { InboxFilters } from "../inbox/filter-store";
 import type { ArchivedInboxPage, ArchivedInboxFacets } from "../types/inbox";
-import type { CheckAnswer, CheckTrust, Todo, TodoWorkspaceCount } from "../types/todo";
+import type { CheckAnswer, CheckHistoryItem, CheckTrust, Todo, TodoWorkspaceCount } from "../types/todo";
 import { configStore } from "../config";
 import type {
   AgentQuestionsSettings,
@@ -469,6 +469,8 @@ import {
   EMPTY_INBOX_ITEMS,
   TodoSchema,
   CheckTrustListSchema,
+  CheckTrustSchema,
+  CheckHistorySchema,
   TodoListSchema,
   TodoSummarySchema,
   EMPTY_TODOS,
@@ -3119,6 +3121,22 @@ export class ApiClient {
       endpoint: "GET /api/projects/:id/check-trust",
     });
     if (!result) throw new Error("Invalid project check trust response");
+    return result;
+  }
+
+  async setCheckSampling(projectId: string, kind: string, sampling: boolean): Promise<CheckTrust> {
+    const raw = await this.fetch<unknown>(`/api/projects/${encodeURIComponent(projectId)}/check-trust/${encodeURIComponent(kind)}`, {
+      method: "PUT", body: JSON.stringify({ sampling }),
+    });
+    const result = parseWithFallback<CheckTrust | null>(raw, CheckTrustSchema, null, { endpoint: "PUT /api/projects/:id/check-trust/:kind" });
+    if (!result) throw new Error("Invalid check mode response");
+    return result;
+  }
+
+  async getCheckHistory(projectId: string, kind: string, signal?: AbortSignal): Promise<CheckHistoryItem[]> {
+    const raw = await this.fetch<unknown>(`/api/projects/${encodeURIComponent(projectId)}/check-trust/${encodeURIComponent(kind)}/history`, { signal });
+    const result = parseWithFallback<CheckHistoryItem[] | null>(raw, CheckHistorySchema, null, { endpoint: "GET /api/projects/:id/check-trust/:kind/history" });
+    if (!result) throw new Error("Invalid check history response");
     return result;
   }
 

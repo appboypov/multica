@@ -3,7 +3,7 @@ import type { IssueStatus } from "./issue";
 export const TODO_KINDS = [
   "question", "mention", "assigned", "agent_blocked", "run_failed",
   "autopilot_paused", "quota_reached", "quick_create_failed", "review",
-  "check", "trust_proposal",
+  "check", "instruction_change",
 ] as const;
 
 export type TodoKind = (typeof TODO_KINDS)[number];
@@ -59,13 +59,25 @@ export interface CheckTrust {
   passed: number;
   feedback: number;
   automatic_passed: number;
-  streak: number;
-  automatic: boolean;
-  automatic_opens: number;
-  proposal_id: string | null;
+  sampling: boolean;
+  sample_opens: number;
+  can_manage: boolean;
 }
 
-export type CheckAnswer = "pass" | "feedback" | "yes" | "no";
+export type CheckAnswer = "pass" | "feedback" | "keep" | "undo";
+
+export interface CheckHistoryItem {
+  id: string;
+  title: string;
+  project_id: string;
+  check_kind: string;
+  link: string;
+  sampled: boolean;
+  automatic: boolean;
+  answer: string;
+  note: string;
+  answered_at: string;
+}
 
 export const CHECK_KINDS = ["data_model", "data_flow", "design", "prototype", "feature", "improvement", "agent_tool", "release"] as const;
 export type CheckKind = (typeof CHECK_KINDS)[number];

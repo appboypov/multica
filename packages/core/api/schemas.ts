@@ -3350,17 +3350,22 @@ export const TodoClosedPayloadSchema = z.object({
 export const EMPTY_TODOS: Todo[] = [];
 export const EMPTY_TODO_SUMMARY: TodoWorkspaceCount[] = [];
 
-export const CheckTrustListSchema = z.array(z.object({
+export const CheckTrustSchema = z.object({
   project_id: z.string(),
   kind: z.string(),
   member_id: z.string(),
   passed: z.number().int().nonnegative(),
   feedback: z.number().int().nonnegative(),
   automatic_passed: z.number().int().nonnegative().default(0),
-  streak: z.number().int().nonnegative(),
-  automatic: z.boolean(),
-  automatic_opens: z.number().int().nonnegative().default(0),
-  proposal_id: z.string().nullish().default(null),
+  sampling: z.boolean(),
+  sample_opens: z.number().int().nonnegative(),
+  can_manage: z.boolean(),
+}).loose();
+export const CheckTrustListSchema = z.array(CheckTrustSchema);
+export const CheckHistorySchema = z.array(z.object({
+  id: z.string(), title: z.string(), project_id: z.string(), check_kind: z.string(),
+  link: z.string(), sampled: z.boolean(), automatic: z.boolean(),
+  answer: z.string(), note: z.string(), answered_at: z.string(),
 }).loose());
 
 // ---------------------------------------------------------------------------

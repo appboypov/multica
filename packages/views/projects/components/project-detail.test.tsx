@@ -22,6 +22,10 @@ vi.mock("@multica/ui/lib/clipboard", () => ({
   copyText: mocks.copyText,
 }));
 
+vi.mock("@multica/core/todos", () => ({
+  useProjectCheckTrust: () => ({ data: [], isPending: false, isError: false }),
+}));
+
 vi.mock("@tanstack/react-query", () => ({
   queryOptions: (options: unknown) => options,
   useQuery: (options: { queryKey?: readonly unknown[] }) => {
@@ -305,6 +309,10 @@ beforeEach(() => {
 });
 
 describe("ProjectDetail sharing", () => {
+  it("shows the project check record", () => {
+    renderProjectDetail();
+    expect(screen.getByRole("region", { name: "Project check record" })).toBeInTheDocument();
+  });
   it("copies the platform shareable URL instead of the renderer URL", async () => {
     const user = userEvent.setup();
     renderProjectDetail();

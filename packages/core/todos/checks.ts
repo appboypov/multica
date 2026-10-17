@@ -26,3 +26,21 @@ export function useAnswerCheckTodo() {
     },
   });
 }
+
+export function useSetCheckSampling() {
+  const wsId = useWorkspaceId();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ projectId, kind, sampling }: { projectId: string; kind: string; sampling: boolean }) => api.setCheckSampling(projectId, kind, sampling),
+    onSuccess: async () => { await qc.invalidateQueries({ queryKey: todoKeys.all(wsId) }); },
+  });
+}
+
+export function useCheckHistory(projectId: string, kind: string, enabled = true) {
+  const wsId = useWorkspaceId();
+  return useQuery({
+    queryKey: [...todoKeys.all(wsId), "history", projectId, kind],
+    queryFn: ({ signal }) => api.getCheckHistory(projectId, kind, signal),
+    enabled: !!wsId && !!projectId && enabled,
+  });
+}
