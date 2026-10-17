@@ -242,16 +242,24 @@ def read_persona(found: dict, tree: Path, checkout: Path) -> Persona:
 
 
 def read_personas(tree: Path, checkout: Path) -> tuple[dict[str, Persona], dict[str, str]]:
-    """Every persona of the tree's `skills/` by command, and the personas that failed with why."""
+    """Every persona of the tree's `skills/` by command, and the personas that failed with why.
+
+    Only persona skills hold a `customize.toml`, so an office with one the roster matched to no
+    persona has a persona it cannot read.
+    """
     found: dict[str, Persona] = {}
     problems: dict[str, str] = {}
     for persona in personas(tree / "offices", tree / "skills"):
+        command = persona["command"]
         if persona["skill"] is None:
+            configs = sorted((tree / "offices" / command / "skills").glob("*/customize.toml"))
+            if configs:
+                problems[command] = f"offices/{command}/skills/{configs[0].parent.name}/customize.toml names no readable agent {command}"
             continue
         try:
-            found[persona["command"]] = read_persona(persona, tree, checkout)
+            found[command] = read_persona(persona, tree, checkout)
         except ValueError as error:
-            problems[persona["command"]] = str(error)
+            problems[command] = str(error)
     return found, problems
 
 

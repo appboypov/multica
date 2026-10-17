@@ -51,17 +51,24 @@ def fallback_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 @pytest.fixture(autouse=True)
 def roster_api(monkeypatch):
-    """The two-root roster API, isolated from the host's MadSpec installation."""
+    """The two-root roster API, isolated from the host's MadSpec installation. Like `roster.personas`,
+    it gives an office without a readable persona no skill."""
     def report(offices_root, skills_root):
         assert offices_root.name == "offices"
         assert skills_root.name == "skills"
         found = []
         for office in sorted(offices_root.iterdir()):
+            entry = {"command": office.name, "skill": None, "name": office.name.title(), "models": [], "skills": None}
             for path in sorted((office / "skills").glob("*/customize.toml")):
-                agent = tomllib.loads(path.read_text())["agent"]
-                found.append({"command": office.name, "skill": path.parent.name, "name": agent["name"],
-                              "models": agent.get("model", []),
-                              "skills": None if office.name == "skuddy" else [path.parent.name, "demo-skill"]})
+                try:
+                    agent = tomllib.loads(path.read_text())["agent"]
+                except tomllib.TOMLDecodeError:
+                    continue
+                if agent["name"].lower() == office.name:
+                    entry = {"command": office.name, "skill": path.parent.name, "name": agent["name"],
+                             "models": agent.get("model", []),
+                             "skills": None if office.name == "skuddy" else [path.parent.name, "demo-skill"]}
+            found.append(entry)
         return found
     monkeypatch.setattr(multica_sync, "personas", report)
 
@@ -401,6 +408,19 @@ def test_missing_worker_is_reported_without_archiving_its_agent(repo):
                      {"worker": {"MADSPEC_WORKER": "junior-backend"}})
     assert multica_sync.Sync(api, repo, CHECKOUT).run(None) == 1
     assert not any(path.endswith("/archive") for _, path, _ in api.writes)
+
+
+def test_unreadable_persona_is_reported_and_its_agent_stays(repo, capsys):
+    write(repo / "skills" / "as-product-manager" / "customize.toml", "[agent\n")
+    write(repo / "offices" / "tika" / "skills" / "das-client-agents" / "SKILL.md", "A member without a persona.\n")
+    (repo / "offices" / "tika" / ".git").mkdir()
+    problem = "offices/mitchel/skills/as-product-manager/customize.toml names no readable agent mitchel"
+    assert multica_sync.read_personas(repo, CHECKOUT)[1] == {"mitchel": problem}
+    api = FakeMultica([{"id": "m", "name": "Mitchel", "archived_at": None, "has_custom_env": True}],
+                     {"m": {"MADSPEC_PERSONA": "mitchel"}})
+    assert multica_sync.Sync(api, repo, CHECKOUT).run(None) == 1
+    assert not any(path.endswith("/archive") for _, path, _ in api.writes)
+    assert f"persona mitchel: {problem}" in capsys.readouterr().err
 
 
 def test_worker_without_models_is_reported(repo):
