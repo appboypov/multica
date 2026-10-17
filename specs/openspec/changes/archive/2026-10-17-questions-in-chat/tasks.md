@@ -94,7 +94,7 @@ The branch is stacked on `ask-back-wakes-the-asker` (pull request 34); the Wake 
 
 ## 9. Archive
 
-- [ ] 9.1 `specs/openspec/changes/questions-in-chat/` -- run `openspec validate questions-in-chat --type change --strict`, sync the specs and archive the change -- own work has no acceptance test.
+- [x] 9.1 `specs/openspec/changes/questions-in-chat/` -- run `openspec validate questions-in-chat --type change --strict`, sync the specs and archive the change -- own work has no acceptance test.
 
 ## Implementation Notes
 

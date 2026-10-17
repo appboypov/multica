@@ -14,7 +14,7 @@ Sending, editing or cancelling MUST NOT queue or start any agent run unless it i
 - **THEN** no run is queued for Pieter or any other agent
 
 ### Requirement: Sending the last open question offers Wake
-When Brian sends or cancels the last question of an ask still open for him, or the only question of a one-question ask, the card SHALL show **Wake {agent}** as a checkbox beside Send and beside Cancel, checked by default. Sent checked, the answer or cancel wakes the asking agent with every answer and cancel it has not seen; when the agent cannot be woken now, such as while it still runs on the issue, the answer or cancel is saved and rides along in its next woken run.
+When Brian sends or cancels the last question of an ask still open for him, or the only question of a one-question ask, the card SHALL show **Wake {agent}** as a checkbox beside Send and beside Cancel, checked by default. Sent checked, the answer or cancel SHALL wake the asking agent with every answer and cancel it has not seen, as the call to Wake does; while the agent still has a queued, dispatched or running task on the issue, its woken run starts once it has none left there.
 
 #### Scenario: Brian answers the last question
 - **GIVEN** Brian answered the first of Pieter's two questions on WORK-412 and Pieter's run has ended
@@ -25,6 +25,11 @@ When Brian sends or cancels the last question of an ask still open for him, or t
 - **GIVEN** Pieter's one question on WORK-412 is open for Brian
 - **WHEN** Brian unchecks **Wake Pieter** and sends his answer
 - **THEN** no run is queued and the folded card offers **Wake Pieter**
+
+#### Scenario: Brian answers the last question while Pieter runs
+- **GIVEN** Pieter's run on WORK-412 is running and his one question there is open for Brian
+- **WHEN** Brian sends his answer with **Wake Pieter** checked and that run then ends without marking the answer ✅
+- **THEN** a new run of Pieter on WORK-412 starts with the answer in its input
 
 #### Scenario: Brian cancels the last question
 - **GIVEN** Brian answered the first of Pieter's two questions on WORK-412 and Pieter's run has ended
