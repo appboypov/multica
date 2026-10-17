@@ -1,7 +1,7 @@
 # releases-page Specification
 
 ## Purpose
-Lets Brian see every repository's unshipped releases across organisations with their progress and worklanes, and open a worklane's Timeline at a release.
+Lets Brian see every repository's unshipped releases across organisations with their progress and worklanes, and open each release's page.
 
 ## Requirements
 
@@ -64,28 +64,6 @@ Releases MUST NOT show a repository that releases and has no release on its line
 - **WHEN** Brian opens Releases
 - **THEN** it says "No releases yet."
 
-### Requirement: A release row opens a worklane's Timeline at that release
-A release row SHALL open the Timeline of the first worklane of the repository, in its order, that holds issues in the release, else of `main`, with that release in view. An organisation's name SHALL open its page and a project's name its page.
-
-#### Scenario: v1.1.0 Account and profile
-- **GIVEN** v1.1.0 Account and profile holds only REBL-24 of Fan accounts and push
-- **WHEN** Brian clicks the row v1.1.0 on Releases
-- **THEN** the Timeline of Fan accounts and push opens with v1.1.0 Account and profile in view
-
-#### Scenario: Issues in two worklanes
-- **GIVEN** v1.0.0 First production release holds issues of `main` and of Fan accounts and push
-- **WHEN** Brian clicks the row v1.0.0 on Releases
-- **THEN** the Timeline of `main` opens with v1.0.0 in view
-
-#### Scenario: A release without issues
-- **GIVEN** v1.0.1 Membership hardening holds no issue
-- **WHEN** Brian clicks the row v1.0.1 on Releases
-- **THEN** the Timeline of `main` of appboypov/rebl opens with v1.0.1 in view
-
-#### Scenario: An organisation and a project
-- **WHEN** Brian clicks Rebl Records and, back on Releases, Rebl
-- **THEN** Rebl Records' page opens, and then Rebl's page
-
 ### Requirement: Releases folds organisations, projects and repositories
 Releases SHALL open with every organisation, project and repository open, and SHALL fold each of them closed and open again, keeping its own row.
 
@@ -104,3 +82,14 @@ Releases MUST NOT offer Plan release, Edit release, Move earlier, Move later, Re
 #### Scenario: No release actions
 - **WHEN** Brian opens Releases and hovers the row v1.1.0 Account and profile
 - **THEN** none of Plan release, Edit release, Move earlier, Move later, Remove release or Add issue to release shows
+
+### Requirement: A release row opens the release's page
+A release row SHALL open the release's page. An organisation's name SHALL open its page and a project's name its page.
+
+#### Scenario: v1.1.0 Account and profile
+- **WHEN** Brian clicks the row v1.1.0 on Releases
+- **THEN** the page of v1.1.0 Account and profile opens
+
+#### Scenario: An organisation and a project
+- **WHEN** Brian clicks Rebl Records and, back on Releases, Rebl
+- **THEN** Rebl Records' page opens, and then Rebl's page
