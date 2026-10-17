@@ -590,8 +590,13 @@ def test_all_issue_ids_are_read_before_writes_and_moved_in_pages_of_100(shell):
     assert len(shell.api.issues["new-MadSpec"]) == 201
 
 
-@pytest.mark.parametrize("failure", ["partial", "late-issue", "fresh-read", "batch"])
-def test_failed_moves_or_fresh_read_never_delete_the_repository_project(shell, monkeypatch, failure):
+@pytest.mark.parametrize("failure,reason", [
+    ("partial", "only 2 of 3 issues moved; repository project kept"),
+    ("late-issue", "1 issues remain; repository project kept"),
+    ("fresh-read", "Multica is unreachable"),
+    ("batch", "move refused"),
+])
+def test_failed_moves_or_fresh_read_never_delete_the_repository_project(shell, monkeypatch, capsys, failure, reason):
     shell.keep_source()
     original = shell.api.call
     def after_moves(method, path, body=None):
@@ -609,6 +614,9 @@ def test_failed_moves_or_fresh_read_never_delete_the_repository_project(shell, m
     assert sync.main() == 1
     assert "repository" in {value["id"] for value in shell.api.projects}
     assert not any(method == "DELETE" for method, _, _ in shell.api.writes)
+    marks = sync.Marks(shell.mark_path, shell.config["server_url"], shell.config["workspace_id"])
+    assert marks.scope["repository_projects"] == {"brain-repository": "repository"}
+    assert f"failed: merge madspec: {reason}" in capsys.readouterr().err
 
 
 @pytest.mark.parametrize("source", [
