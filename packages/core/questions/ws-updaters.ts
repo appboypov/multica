@@ -5,16 +5,18 @@ import { issueKeys } from "../issues/queries";
 import { questionKeys } from "./queries";
 import type { QuestionScope } from "./scope";
 
-/** Refetches a list of linked questions and the cached questions linked to the same object. */
+/**
+ * Refetches a list of linked questions and the cached questions linked to the
+ * same object; without a list only the unresolved details and `questionId`.
+ */
 async function refetchLinkedQuestions(
   qc: QueryClient,
   wsId: string,
-  listKey: QueryKey,
-  link: { type: QuestionLinkType; id: string },
+  list: { key: QueryKey; link: { type: QuestionLinkType; id: string } } | null,
   questionId?: string,
 ) {
   const filters: QueryFilters[] = [
-    { queryKey: listKey },
+    ...(list ? [{ queryKey: list.key }] : []),
     {
       queryKey: questionKeys.details(wsId),
       predicate: (query) => {
@@ -22,7 +24,7 @@ async function refetchLinkedQuestions(
         const question = query.state.data as Question | undefined;
         // An unresolved detail has no link information yet; refetching avoids
         // keeping an in-flight snapshot from before this event indefinitely.
-        return !question || question.links.some((entry) => entry.link_type === link.type && entry.link_id === link.id);
+        return !question || (!!list && question.links.some((entry) => entry.link_type === list.link.type && entry.link_id === list.link.id));
       },
     },
   ];
@@ -33,18 +35,19 @@ async function refetchLinkedQuestions(
 }
 
 export function invalidateIssueQuestions(qc: QueryClient, wsId: string, issueId: string, questionId?: string) {
-  return refetchLinkedQuestions(qc, wsId, questionKeys.byIssue(wsId, issueId), { type: "issue", id: issueId }, questionId);
+  return refetchLinkedQuestions(qc, wsId, { key: questionKeys.byIssue(wsId, issueId), link: { type: "issue", id: issueId } }, questionId);
 }
 
 export function invalidateChatQuestions(qc: QueryClient, wsId: string, chatSessionId: string, questionId?: string) {
-  return refetchLinkedQuestions(qc, wsId, questionKeys.byChat(wsId, chatSessionId), { type: "chat", id: chatSessionId }, questionId);
+  return refetchLinkedQuestions(qc, wsId, { key: questionKeys.byChat(wsId, chatSessionId), link: { type: "chat", id: chatSessionId } }, questionId);
 }
 
-/** The questions of the issue or chat a card shows in. */
+/** The questions of the issue or chat a card shows in; a question without either refreshes on its own. */
 export function invalidateScopeQuestions(qc: QueryClient, wsId: string, scope: QuestionScope, questionId?: string) {
-  return "issueId" in scope
+  if ("chatSessionId" in scope) return invalidateChatQuestions(qc, wsId, scope.chatSessionId, questionId);
+  return scope.issueId
     ? invalidateIssueQuestions(qc, wsId, scope.issueId, questionId)
-    : invalidateChatQuestions(qc, wsId, scope.chatSessionId, questionId);
+    : refetchLinkedQuestions(qc, wsId, null, questionId);
 }
 
 /** The Questions page's rows and the sidebar count: refetched, never patched. */

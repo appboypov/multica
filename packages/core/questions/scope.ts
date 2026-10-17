@@ -1,10 +1,10 @@
 import type { QuestionWakeTarget } from "../types/question";
 
 /**
- * Where a question's card shows and its caches live: the issue it is on, or
- * the chat it was asked in (ADR-0018).
+ * Where a question's card shows and its caches live: the issue it is on, the
+ * chat it was asked in (ADR-0018), or neither for a question without an issue.
  */
-export type QuestionScope = { issueId: string } | { chatSessionId: string };
+export type QuestionScope = { issueId: string | null } | { chatSessionId: string };
 
 /** The scope a wake target's agent wakes in: its chat, else its issue. */
 export function wakeTargetScope(target: QuestionWakeTarget): QuestionScope {

@@ -92,7 +92,7 @@ export function useWakeQuestionAgent(wsId: string, scope: QuestionScope) {
         // one on an issue writes to its timeline.
         "chatSessionId" in woken
           ? invalidateScopeQuestions(qc, wsId, woken, id)
-          : qc.invalidateQueries({ queryKey: issueKeys.timeline(woken.issueId) }),
+          : woken.issueId && qc.invalidateQueries({ queryKey: issueKeys.timeline(woken.issueId) }),
       ]);
     },
   });
