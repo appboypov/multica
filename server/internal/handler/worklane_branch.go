@@ -256,15 +256,25 @@ func (h *Handler) claimWorklane(ctx context.Context, task *db.AgentTaskQueue, ru
 		return loadFailed("runtimes", err)
 	}
 	issueKey := ""
-	// Every machine gate runs before the pull-request read, so an open PR
-	// never bypasses it.
+	// A held checkout is a candidate only on its own machine. Resolve its
+	// PR branch after the other candidates pass their machine gates.
 	type claimLane struct {
-		repo       db.Repository
-		wl         db.Worklane
-		path       string
-		inCheckout bool
+		repo         db.Repository
+		wl           db.Worklane
+		path         string
+		inCheckout   bool
+		heldCheckout bool
 	}
 	var lanes []claimLane
+	failElsewhere := func(wl db.Worklane, daemonID string) *claimBuildFailure {
+		runtimeMachineName := daemonMachineName(machines, runtime.DaemonID.String)
+		if runtimeMachineName == "" {
+			runtimeMachineName = runtime.Name
+		}
+		message := fmt.Sprintf("%s runs on %s; %s lives on %s", agentName, runtimeMachineName, wl.Name, daemonMachineName(machines, daemonID))
+		return h.failClaimedTaskBeforeLaunch(ctx, task, message, taskfailure.ReasonWorklaneElsewhere,
+			"error_worklane_elsewhere", http.StatusConflict, "worklane lives on another machine")
+	}
 	for _, repo := range candidates {
 		wl := lane
 		ofLane := lane.ID.Valid && lane.RepositoryID == repo.ID
@@ -285,7 +295,10 @@ func (h *Handler) claimWorklane(ctx context.Context, task *db.AgentTaskQueue, ru
 			}
 			inCheckout = main.Branch.String == issueKey
 		}
-		if inCheckout {
+		mainDaemonID, mainPath := worklaneLocation(main, repo)
+		heldCheckout := !inCheckout && main.ID.Valid && main.Branch.Valid && main.Branch.String != "" &&
+			mainDaemonID != "" && mainDaemonID == runtime.DaemonID.String && mainPath != ""
+		if inCheckout || heldCheckout {
 			wl = main
 		} else if !ofLane {
 			continue
@@ -298,15 +311,9 @@ func (h *Handler) claimWorklane(ctx context.Context, task *db.AgentTaskQueue, ru
 			if !ofLane {
 				continue
 			}
-			runtimeMachineName := daemonMachineName(machines, runtime.DaemonID.String)
-			if runtimeMachineName == "" {
-				runtimeMachineName = runtime.Name
-			}
-			message := fmt.Sprintf("%s runs on %s; %s lives on %s", agentName, runtimeMachineName, wl.Name, daemonMachineName(machines, daemonID))
-			return repos, h.failClaimedTaskBeforeLaunch(ctx, task, message, taskfailure.ReasonWorklaneElsewhere,
-				"error_worklane_elsewhere", http.StatusConflict, "worklane lives on another machine")
+			return repos, failElsewhere(wl, daemonID)
 		}
-		lanes = append(lanes, claimLane{repo: repo, wl: wl, path: path, inCheckout: inCheckout})
+		lanes = append(lanes, claimLane{repo: repo, wl: wl, path: path, inCheckout: inCheckout, heldCheckout: heldCheckout})
 	}
 	if len(lanes) == 0 {
 		return repos, nil
@@ -322,6 +329,24 @@ func (h *Handler) claimWorklane(ctx context.Context, task *db.AgentTaskQueue, ru
 				strings.EqualFold(pr.RepoOwner+"/"+pr.RepoName, l.repo.FullName) {
 				pullRequestBranch = pr.Branch.String
 				break
+			}
+		}
+		if l.heldCheckout {
+			if l.wl.Branch.String == pullRequestBranch {
+				l.inCheckout = true
+			} else {
+				if !lane.ID.Valid || lane.RepositoryID != l.repo.ID {
+					continue
+				}
+				l.wl = lane
+				daemonID, path := worklaneLocation(l.wl, l.repo)
+				if daemonID == "" || path == "" {
+					continue
+				}
+				if runtime.DaemonID.String != daemonID {
+					return repos, failElsewhere(l.wl, daemonID)
+				}
+				l.path = path
 			}
 		}
 		repos = withClaimWorklane(repos, l.repo, &protocol.ClaimWorklane{

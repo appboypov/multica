@@ -1,0 +1,9 @@
+schema: intent-driven
+created: 2026-10-18
+x-build:
+  status: built
+  baseline_revision: '39bbbcef7f358f054e8c6baed962d53daa11d540'
+  type: bugfix
+  ticket: WORK-1330
+  context:
+    - '{project-root}/AGENTS.md'

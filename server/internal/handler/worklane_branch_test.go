@@ -377,6 +377,55 @@ func TestClaimTask_CheckoutHoldingTheIssueBranch(t *testing.T) {
 	}
 }
 
+func TestClaimTask_CheckoutHoldingThePullRequestBranch(t *testing.T) {
+	if testHandler == nil {
+		t.Skip("database not available")
+	}
+	for _, inLane := range []bool{false, true} {
+		t.Run(map[bool]string{false: "no worklane", true: "another worklane"}[inLane], func(t *testing.T) {
+			for _, tc := range []struct {
+				name   string
+				pr     worklaneClaimPullRequest
+				inMain bool
+			}{
+				{name: "linked open branch", inMain: true},
+				{name: "different branch", pr: worklaneClaimPullRequest{cols: testutil.Cols{"branch": "review/other"}}},
+				{name: "closed branch", pr: worklaneClaimPullRequest{cols: testutil.Cols{"state": "closed"}}},
+				{name: "another repository", pr: worklaneClaimPullRequest{cols: testutil.Cols{"repo_name": "other-repository"}}},
+				{name: "another workspace", pr: worklaneClaimPullRequest{foreignWorkspace: true}},
+				{name: "unlinked branch", pr: worklaneClaimPullRequest{unlinked: true}},
+			} {
+				t.Run(tc.name, func(t *testing.T) {
+					f, mainID := newCheckoutClaimFixture(t, inLane)
+					dbfx.Exec(t, "UPDATE repository SET work_in_checkout = false WHERE id = $1", f.repoID)
+					dbfx.Exec(t, "UPDATE worklane SET branch = 'review/actual-head' WHERE id = $1", mainID)
+					f.pullRequests(t, tc.pr)
+					var out struct {
+						Task *AgentTaskResponse `json:"task"`
+					}
+					f.claim(t, testHandler, testWorkspaceID, http.StatusOK).JSON(&out)
+					if out.Task == nil || len(out.Task.Repositories) != 1 {
+						t.Fatalf("expected one claimed repository, got %+v", out.Task)
+					}
+					lane := out.Task.Repositories[0].Worklane
+					if tc.inMain {
+						if lane == nil || lane.ID != mainID || !lane.InCheckout || lane.Path != "/test/checkout" ||
+							lane.Branch == nil || *lane.Branch != "review/actual-head" || lane.PullRequestBranch != "review/actual-head" {
+							t.Fatalf("worklane context = %+v, want held PR branch in the checkout", lane)
+						}
+					} else if inLane {
+						if lane == nil || lane.ID != f.laneID || lane.InCheckout || lane.Path != "/test/lane" {
+							t.Fatalf("worklane context = %+v, want issue's worklane", lane)
+						}
+					} else if lane != nil {
+						t.Fatalf("worklane context = %+v, want no worklane", lane)
+					}
+				})
+			}
+		})
+	}
+}
+
 func TestReportWorklaneBranch_WorkInCheckout(t *testing.T) {
 	if testHandler == nil {
 		t.Skip("database not available")
