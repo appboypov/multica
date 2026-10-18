@@ -47,20 +47,16 @@ type deciderReview struct {
 func (s *DeciderService) openConfirmation(ctx context.Context, tx pgx.Tx, key string, in deciderInput, answer DeciderAnswer, confidence float64, mode string, effects *deciderEffects) error {
 	q := s.Queries.WithTx(tx)
 	member := util.MustParseUUID(in.Settings.MemberID)
-	phase := "Nothing starts until you answer."
-	if mode == "after" {
-		phase = "This choice is already applied. Pick another one to change it."
-	}
 	proposed := in.Rule.choiceLabel(answer.Choice)
 	answerType := question.TypeSingleChoice
 	if in.Rule.Decision == "squad" && (len(in.Rule.Squads) < 2 || len(in.Rule.Squads) > 20) {
 		answerType = question.TypeText
 	}
-	work, err := deciderWorkContext(ctx, tx, in.Issue)
+	place, err := deciderPlace(ctx, tx, in.Issue)
 	if err != nil {
 		return err
 	}
-	prompt := fmt.Sprintf("%s\n\n%s\nProposed: %s\nWhy: %s\n%s", work, in.Rule.Question, proposed, in.Rule.Reasons[answer.Reason], phase)
+	prompt := deciderPrompt(in.Rule, in.Issue.Title, place, proposed, mode)
 	options := make([]string, 0, len(in.Rule.Squads))
 	for option := range in.Rule.options() {
 		options = append(options, in.Rule.choiceLabel(option))
@@ -76,7 +72,7 @@ func (s *DeciderService) openConfirmation(ctx context.Context, tx pgx.Tx, key st
 		suggestion, _ = json.Marshal(question.SingleChoiceAnswerValue{Option: &proposed})
 	}
 	id := dbid.NewV7()
-	row, err := q.CreateQuestion(ctx, db.CreateQuestionParams{ID: id, WorkspaceID: in.Issue.WorkspaceID, AskerUserID: member, Prompt: prompt, ContextLine: pgtype.Text{String: "Brian's routine decision check", Valid: true}, AnswerType: answerType, Settings: settings, SuggestedAnswer: suggestion, AskID: id, AnswerPolicy: question.PolicyEach})
+	row, err := q.CreateQuestion(ctx, db.CreateQuestionParams{ID: id, WorkspaceID: in.Issue.WorkspaceID, AskerUserID: member, Prompt: prompt, ContextLine: pgtype.Text{String: "Decider", Valid: true}, AnswerType: answerType, Settings: settings, SuggestedAnswer: suggestion, AskID: id, AnswerPolicy: question.PolicyEach})
 	if err != nil {
 		return err
 	}
@@ -102,43 +98,38 @@ func (s *DeciderService) openConfirmation(ctx context.Context, tx pgx.Tx, key st
 	return err
 }
 
-// deciderWorkContext tells Brian what the work is before he picks: its title,
-// its project with the project's repositories, and the opening of its
-// description.
-func deciderWorkContext(ctx context.Context, tx pgx.Tx, issue db.Issue) (string, error) {
-	lines := []string{"Work: " + issue.Title}
-	if issue.ProjectID.Valid {
-		var project, repos string
-		if err := tx.QueryRow(ctx, `SELECT p.title, coalesce(string_agg(r.full_name, ', ' ORDER BY r.full_name), '') FROM project p LEFT JOIN repository r ON r.project_id=p.id WHERE p.id=$1 GROUP BY p.title`, issue.ProjectID).Scan(&project, &repos); err != nil && !errors.Is(err, pgx.ErrNoRows) {
-			return "", err
-		}
-		if repos != "" {
-			project += " (" + repos + ")"
-		}
-		if project != "" {
-			lines = append(lines, "Project: "+project)
-		}
+// deciderPrompt asks Brian in one plain sentence, the way a colleague would.
+func deciderPrompt(rule DeciderRule, title, place, proposed, mode string) string {
+	work := fmt.Sprintf("%q", title)
+	if place != "" {
+		work += " in " + place
 	}
-	if summary := deciderSummary(issue.Description.String); summary != "" {
-		lines = append(lines, "What it is: "+summary)
+	if rule.Decision == "squad" {
+		if mode == "after" {
+			return fmt.Sprintf("The %s squad took %s. Pick another squad if that is wrong.", proposed, work)
+		}
+		return fmt.Sprintf("Should the %s squad take %s? Nothing starts until you answer.", proposed, work)
 	}
-	return strings.Join(lines, "\n"), nil
+	if mode == "after" {
+		return fmt.Sprintf("%s: %s\nThe decider chose %s. Pick the other choice if that is wrong.", work, rule.Question, proposed)
+	}
+	return fmt.Sprintf("%s: %s\nThe decider says %s. Nothing starts until you answer.", work, rule.Question, proposed)
 }
 
-// deciderSummary is the description's first paragraph, cut at a word near 300
-// characters.
-func deciderSummary(description string) string {
-	paragraph, _, _ := strings.Cut(strings.TrimSpace(description), "\n\n")
-	paragraph = strings.Join(strings.Fields(paragraph), " ")
-	const limit = 300
-	if len([]rune(paragraph)) <= limit {
-		return paragraph
+// deciderPlace names the issue's project, with its repository when the
+// project's name does not already say it.
+func deciderPlace(ctx context.Context, tx pgx.Tx, issue db.Issue) (string, error) {
+	if !issue.ProjectID.Valid {
+		return "", nil
 	}
-	cut := string([]rune(paragraph)[:limit])
-	if i := strings.LastIndex(cut, " "); i > 0 {
-		cut = cut[:i]
+	var project, repos string
+	if err := tx.QueryRow(ctx, `SELECT p.title, coalesce(string_agg(r.full_name, ', ' ORDER BY r.full_name), '') FROM project p LEFT JOIN repository r ON r.project_id=p.id WHERE p.id=$1 GROUP BY p.title`, issue.ProjectID).Scan(&project, &repos); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return "", err
 	}
-	return cut + "..."
+	if repos != "" && !strings.Contains(strings.ToLower(repos), strings.ToLower(project)) {
+		project += " (" + repos + ")"
+	}
+	return project, nil
 }
 
 // applyChoice changes only the chosen outcome, preserving the issue's other fields.

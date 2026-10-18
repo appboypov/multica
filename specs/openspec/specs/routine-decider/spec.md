@@ -52,7 +52,8 @@ The server SHALL route fix-now to the mapped kind's squad, fix-later to backlog 
 #### Scenario: Plain confirmation
 - **GIVEN** a choice that waits for Brian's answer
 - **WHEN** the question reaches his inbox
-- **THEN** it shows the rule's question, the proposed choice, its reason and whether work already started
+- **THEN** it asks in one plain sentence that names the work's title, its project and the proposed choice, such as "Should the Backend squad take "Fix login" in Multica?"
+- **AND** it says whether work already started
 - **AND** each squad option shows only its name, unless another squad has the same name
 
 #### Scenario: Squad choice on release join
