@@ -179,16 +179,16 @@ function useRoleLabels() {
   } as const;
 }
 
-/** The organisations of a client, one badge each. Unknown ids are skipped. */
+/** The organisations of a client, one badge each. Unknown ids are skipped. Long names truncate and keep their full name as the title. */
 function OrganisationBadges({ organisationIds }: { organisationIds: readonly string[] }) {
   const wsId = useWorkspaceId();
   const { data: organisations = [] } = useOrganisations(wsId);
   return organisations
     .filter((o) => organisationIds.includes(o.id))
     .map((o) => (
-      <Badge key={o.id} variant="secondary" className="shrink-0">
+      <Badge key={o.id} variant="secondary" className="min-w-0 max-w-full" title={o.name}>
         <Building2 aria-hidden="true" />
-        {o.name}
+        <span className="truncate">{o.name}</span>
       </Badge>
     ));
 }
@@ -232,8 +232,8 @@ function MemberRow({
     <div className="flex items-center gap-3 px-4 py-3">
       <ActorAvatar actorType="member" actorId={member.user_id} size="lg" />
       <div className="min-w-0 flex-1">
-        <div className="flex min-w-0 items-center gap-2">
-          <span className="truncate text-body font-medium">{member.name}</span>
+        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+          <span className="min-w-0 max-w-full truncate text-body font-medium">{member.name}</span>
           {isSelf ? (
             <Badge variant="secondary" className="shrink-0">
               {t(($) => $.members.you)}
@@ -282,13 +282,15 @@ function MemberRow({
                       const Icon = config.icon;
                       const wouldDemoteLastOwner =
                         isLastOwner && role !== "owner";
+                      // A client row's Client option is its current role. Organisations changes it.
+                      const unavailable = wouldDemoteLastOwner || role === "client";
                       return (
                         <DropdownMenuItem
                           key={role}
                           onClick={() =>
-                            wouldDemoteLastOwner ? undefined : onRoleChange(role)
+                            unavailable ? undefined : onRoleChange(role)
                           }
-                          disabled={wouldDemoteLastOwner}
+                          disabled={unavailable}
                           title={
                             wouldDemoteLastOwner
                               ? t(($) => $.members.cannot_demote_last_owner_title)
@@ -381,8 +383,8 @@ function InvitationRow({
         <Mail className="size-4 text-muted-foreground" aria-hidden="true" />
       </div>
       <div className="min-w-0 flex-1">
-        <div className="flex min-w-0 items-center gap-2">
-          <span className="truncate text-body font-medium">{invitation.invitee_email}</span>
+        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+          <span className="min-w-0 max-w-full truncate text-body font-medium">{invitation.invitee_email}</span>
           <OrganisationBadges organisationIds={invitation.organisation_ids} />
         </div>
         <div className="truncate text-caption text-muted-foreground">
@@ -873,8 +875,9 @@ export function MembersTab() {
         role: "client",
         organisation_ids: organisationIds,
       });
-      qc.invalidateQueries({ queryKey: workspaceKeys.members(wsId) });
       toast.success(t(($) => $.members.toast_organisations_updated));
+      // The row stays busy until the fresh set arrives, so the next edit starts from it.
+      await qc.invalidateQueries({ queryKey: workspaceKeys.members(wsId) });
     } catch (e) {
       toast.error(
         e instanceof Error ? e.message : t(($) => $.members.toast_organisations_failed),

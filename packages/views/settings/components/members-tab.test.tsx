@@ -8,6 +8,8 @@ import { renderWithI18n } from "../../test/i18n";
 
 const mockCreateMember = vi.hoisted(() => vi.fn());
 const mockUpdateMember = vi.hoisted(() => vi.fn());
+// The members refresh after a write; a test holds it pending to model a slow refetch.
+const mockInvalidateQueries = vi.hoisted(() => vi.fn(() => Promise.resolve()));
 // The URL the settings router holds; `setSearch` stands in for navigation.
 const url = vi.hoisted(() => {
   const listeners = new Set<() => void>();
@@ -43,7 +45,7 @@ vi.mock("@tanstack/react-query", () => ({
     return { data: data.summary };
   },
   useQueryClient: () => ({
-    invalidateQueries: vi.fn(),
+    invalidateQueries: mockInvalidateQueries,
     fetchQuery: vi.fn(),
   }),
 }));
@@ -307,6 +309,67 @@ describe("MembersTab", () => {
       "aria-disabled",
       "true",
     );
+  });
+
+  it("starts the next organisation edit from the refreshed set", async () => {
+    mockUpdateMember.mockResolvedValue({});
+    let finishRefresh = () => {};
+    mockInvalidateQueries.mockImplementationOnce(
+      () => new Promise<void>((resolve) => (finishRefresh = resolve)),
+    );
+    data.organisations.push({ id: "org-c", name: "Initech" });
+    data.members = [
+      member("user-1", "Ada Lovelace", "owner"),
+      member("user-4", "Nasir Client", "client", ["org-a"]),
+    ];
+    const user = userEvent.setup();
+    renderWithI18n(<MembersTab />);
+    const actions = () => screen.getByRole("button", { name: "Actions for Nasir Client" });
+
+    await user.click(actions());
+    await user.click(await screen.findByRole("menuitem", { name: "Organisations" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Globex" }));
+    await waitFor(() =>
+      expect(mockUpdateMember).toHaveBeenCalledWith("ws-1", "m-user-4", {
+        role: "client",
+        organisation_ids: ["org-a", "org-b"],
+      }),
+    );
+    await waitFor(() => expect(mockInvalidateQueries).toHaveBeenCalled());
+    expect(actions()).toBeDisabled();
+
+    data.members = [
+      member("user-1", "Ada Lovelace", "owner"),
+      member("user-4", "Nasir Client", "client", ["org-a", "org-b"]),
+    ];
+    await act(async () => finishRefresh());
+    await waitFor(() => expect(actions()).toBeEnabled());
+
+    await user.click(actions());
+    await user.click(await screen.findByRole("menuitem", { name: "Organisations" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Initech" }));
+    await waitFor(() =>
+      expect(mockUpdateMember).toHaveBeenLastCalledWith("ws-1", "m-user-4", {
+        role: "client",
+        organisation_ids: ["org-a", "org-b", "org-c"],
+      }),
+    );
+  });
+
+  it("keeps a client's current role from sending an update", async () => {
+    data.members = [
+      member("user-1", "Ada Lovelace", "owner"),
+      member("user-4", "Nasir Client", "client", ["org-a"]),
+    ];
+    const user = userEvent.setup();
+    renderWithI18n(<MembersTab />);
+
+    await user.click(screen.getByRole("button", { name: "Actions for Nasir Client" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Change role" }));
+    const current = await screen.findByRole("menuitem", { name: /^Client/ });
+    expect(current).toHaveAttribute("aria-disabled", "true");
+    fireEvent.click(current);
+    expect(mockUpdateMember).not.toHaveBeenCalled();
   });
 
   it("offers staff no client role", async () => {
