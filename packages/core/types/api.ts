@@ -619,10 +619,14 @@ export interface UpdateMeRequest {
 export interface CreateMemberRequest {
   email: string;
   role?: MemberRole;
+  /** Required for role `client`, absent for staff roles. */
+  organisation_ids?: string[];
 }
 
 export interface UpdateMemberRequest {
   role: MemberRole;
+  /** The client's complete organisation set; absent for staff roles. */
+  organisation_ids?: string[];
 }
 
 // Personal Access Tokens

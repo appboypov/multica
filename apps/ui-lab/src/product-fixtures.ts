@@ -51,6 +51,7 @@ export const members: MemberWithUser[] = [
     name: user.name,
     email: user.email,
     avatar_url: null,
+    organisation_ids: [],
   },
 ];
 const titles = en.fixtures.issues.titles;

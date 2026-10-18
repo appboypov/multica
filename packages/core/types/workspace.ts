@@ -1,4 +1,8 @@
-export type MemberRole = "owner" | "admin" | "member";
+/** Roles of the people who run the workspace. Share links grant only these. */
+export type StaffRole = "owner" | "admin" | "member";
+
+/** A `client` membership reads its organisations' work and writes nothing. */
+export type MemberRole = StaffRole | "client";
 
 export interface WorkspaceRepo {
   url: string;
@@ -98,6 +102,8 @@ export interface MemberWithUser {
   name: string;
   email: string;
   avatar_url: string | null;
+  /** A client's organisations; empty for staff. */
+  organisation_ids: string[];
 }
 
 export interface Invitation {
@@ -114,6 +120,8 @@ export interface Invitation {
   inviter_name?: string;
   inviter_email?: string;
   workspace_name?: string;
+  /** The organisations a client invitation is for; empty for staff. */
+  organisation_ids: string[];
 }
 
 export interface ShareLink {

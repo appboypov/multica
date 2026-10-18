@@ -70,7 +70,10 @@ const malformedLists = [
 ];
 
 describe("member API boundary", () => {
-  it.each(["client", "future-role"])("keeps every member and their fields when a row has role %s", async (role) => {
+  it.each([
+    ["client", "client"],
+    ["future-role", "member"],
+  ])("keeps every member and their fields when a row has role %s", async (role, parsed) => {
     const staff = [
       { ...member, id: "membership-owner", user_id: "user-owner", role: "owner" },
       { ...member, id: "membership-admin", user_id: "user-admin", role: "admin" },
@@ -81,7 +84,7 @@ describe("member API boundary", () => {
 
     await expect(client.listMembers("ws-1")).resolves.toEqual([
       ...staff,
-      { ...clientMember, role: "member" },
+      { ...clientMember, role: parsed },
     ]);
   });
 
@@ -93,12 +96,20 @@ describe("member API boundary", () => {
       id: "membership-client",
       workspace_id: "ws-1",
       user_id: "user-client",
-      role: "member",
+      role: "client",
       created_at: "",
       name: "",
       email: "",
       avatar_url: null,
+      organisation_ids: [],
     }]);
+  });
+
+  it("reads malformed organisations as none", async () => {
+    respond([{ ...clientMember, organisation_ids: "org-1" }]);
+    const client = new ApiClient("https://api.example.test");
+
+    await expect(client.listMembers("ws-1")).resolves.toEqual([{ ...clientMember, organisation_ids: [] }]);
   });
 
   it.each(malformedLists)("falls back to an empty list for $name", async ({ body }) => {
@@ -122,7 +133,10 @@ const invitationLists = [
 ];
 
 describe.each(invitationLists)("$name API boundary", ({ read }) => {
-  it.each(["client", "future-role"])("keeps every invitation and their fields when a row has role %s", async (role) => {
+  it.each([
+    ["client", "client"],
+    ["future-role", "member"],
+  ])("keeps every invitation and their fields when a row has role %s", async (role, parsed) => {
     const staff = [
       invitation,
       { ...invitation, id: "invitation-admin", role: "admin", status: "accepted" },
@@ -134,7 +148,7 @@ describe.each(invitationLists)("$name API boundary", ({ read }) => {
 
     await expect(read(client)).resolves.toEqual([
       ...staff,
-      { ...clientInvitation, role: "member" },
+      { ...clientInvitation, role: parsed },
     ]);
   });
 
@@ -151,6 +165,7 @@ describe.each(invitationLists)("$name API boundary", ({ read }) => {
       workspace_id: "ws-1",
       inviter_id: "user-owner",
       invitee_email: "rizgar@rebl.nl",
+      role: "client",
     }]);
   });
 
@@ -170,12 +185,15 @@ describe.each(invitationLists)("$name API boundary", ({ read }) => {
 });
 
 describe("single invitation API boundary", () => {
-  it.each(["client", "future-role"])("keeps the invitation and its fields when its role is %s", async (role) => {
+  it.each([
+    ["client", "client"],
+    ["future-role", "member"],
+  ])("keeps the invitation and its fields when its role is %s", async (role, parsed) => {
     respond({ ...clientInvitation, role });
     const client = new ApiClient("https://api.example.test");
 
     await expect(client.getInvitation("invitation-client")).resolves.toEqual({
-      ...clientInvitation, role: "member",
+      ...clientInvitation, role: parsed,
     });
   });
 
@@ -192,6 +210,7 @@ describe("single invitation API boundary", () => {
       workspace_id: "ws-1",
       inviter_id: "user-owner",
       invitee_email: "rizgar@rebl.nl",
+      role: "client",
     });
   });
 

@@ -4542,11 +4542,12 @@ export const MemberWithUserSchema = z.object({
   id: z.string(),
   workspace_id: z.string(),
   user_id: z.string(),
-  role: z.enum(["owner", "admin", "member"]).catch("member"),
+  role: z.enum(["owner", "admin", "member", "client"]).catch("member"),
   created_at: z.string().optional().default(""),
   name: z.string().optional().default(""),
   email: z.string().optional().default(""),
   avatar_url: z.string().nullable().optional().default(null),
+  organisation_ids: z.array(z.string()).catch([]),
 }).loose();
 
 export const MemberListSchema = z.array(MemberWithUserSchema).default([]);
@@ -4557,7 +4558,7 @@ export const InvitationSchema = z.object({
   inviter_id: z.string(),
   invitee_email: z.string(),
   invitee_user_id: z.string().nullable().optional().default(null),
-  role: z.enum(["owner", "admin", "member"]).catch("member"),
+  role: z.enum(["owner", "admin", "member", "client"]).catch("member"),
   status: z.enum(["pending", "accepted", "declined", "expired"]).catch("expired"),
   created_at: z.string().optional().default(""),
   updated_at: z.string().optional().default(""),
@@ -4565,6 +4566,7 @@ export const InvitationSchema = z.object({
   inviter_name: z.string().optional().default(""),
   inviter_email: z.string().optional().default(""),
   workspace_name: z.string().optional().default(""),
+  organisation_ids: z.array(z.string()).catch([]),
 }).loose();
 
 export const InvitationListSchema = z.array(InvitationSchema).default([]);
@@ -4583,6 +4585,7 @@ export const EMPTY_INVITATION: Invitation = {
   inviter_name: "",
   inviter_email: "",
   workspace_name: "",
+  organisation_ids: [],
 };
 
 export const JoinShareLinkResponseSchema = z.object({
@@ -4605,6 +4608,7 @@ export const EMPTY_JOIN_SHARE_LINK_RESPONSE: {
     name: "",
     email: "",
     avatar_url: null,
+    organisation_ids: [],
   },
   workspace_id: "",
   workspace_slug: "",
