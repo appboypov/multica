@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -55,8 +56,12 @@ func (s *DeciderService) openConfirmation(ctx context.Context, tx pgx.Tx, key st
 	if in.Rule.Decision == "squad" && (len(in.Rule.Squads) < 2 || len(in.Rule.Squads) > 20) {
 		answerType = question.TypeText
 	}
-	prompt := fmt.Sprintf("%s\nProposed: %s\nWhy: %s\n%s", in.Rule.Question, proposed, in.Rule.Reasons[answer.Reason], phase)
-	options := make([]string, 0, len(in.Rule.options()))
+	work, err := deciderWorkContext(ctx, tx, in.Issue)
+	if err != nil {
+		return err
+	}
+	prompt := fmt.Sprintf("%s\n\n%s\nProposed: %s\nWhy: %s\n%s", work, in.Rule.Question, proposed, in.Rule.Reasons[answer.Reason], phase)
+	options := make([]string, 0, len(in.Rule.Squads))
 	for option := range in.Rule.options() {
 		options = append(options, in.Rule.choiceLabel(option))
 	}
@@ -95,6 +100,45 @@ func (s *DeciderService) openConfirmation(ctx context.Context, tx pgx.Tx, key st
 	effects.question = &protocol.QuestionEventPayload{QuestionID: util.UUIDToString(id), AskID: util.UUIDToString(id), QuestionIDs: []string{util.UUIDToString(id)}, IssueID: util.UUIDToString(in.Issue.ID), IssueIDs: []string{util.UUIDToString(in.Issue.ID)}, Reason: "asked", EventID: eventID}
 	_, err = tx.Exec(ctx, `UPDATE routine_decision SET question_id=$2,review_mode=$3 WHERE id=$1`, key, id, mode)
 	return err
+}
+
+// deciderWorkContext tells Brian what the work is before he picks: its title,
+// its project with the project's repositories, and the opening of its
+// description.
+func deciderWorkContext(ctx context.Context, tx pgx.Tx, issue db.Issue) (string, error) {
+	lines := []string{"Work: " + issue.Title}
+	if issue.ProjectID.Valid {
+		var project, repos string
+		if err := tx.QueryRow(ctx, `SELECT p.title, coalesce(string_agg(r.full_name, ', ' ORDER BY r.full_name), '') FROM project p LEFT JOIN repository r ON r.project_id=p.id WHERE p.id=$1 GROUP BY p.title`, issue.ProjectID).Scan(&project, &repos); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return "", err
+		}
+		if repos != "" {
+			project += " (" + repos + ")"
+		}
+		if project != "" {
+			lines = append(lines, "Project: "+project)
+		}
+	}
+	if summary := deciderSummary(issue.Description.String); summary != "" {
+		lines = append(lines, "What it is: "+summary)
+	}
+	return strings.Join(lines, "\n"), nil
+}
+
+// deciderSummary is the description's first paragraph, cut at a word near 300
+// characters.
+func deciderSummary(description string) string {
+	paragraph, _, _ := strings.Cut(strings.TrimSpace(description), "\n\n")
+	paragraph = strings.Join(strings.Fields(paragraph), " ")
+	const limit = 300
+	if len([]rune(paragraph)) <= limit {
+		return paragraph
+	}
+	cut := string([]rune(paragraph)[:limit])
+	if i := strings.LastIndex(cut, " "); i > 0 {
+		cut = cut[:i]
+	}
+	return cut + "..."
 }
 
 // applyChoice changes only the chosen outcome, preserving the issue's other fields.
