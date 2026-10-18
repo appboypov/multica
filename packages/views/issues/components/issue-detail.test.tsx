@@ -1190,6 +1190,50 @@ describe("IssueDetail (shared)", () => {
       expect(screen.queryByText("Questions")).not.toBeInTheDocument();
       expect(screen.queryByRole("button", { name: /open/ })).not.toBeInTheDocument();
     });
+
+    describe("a question set's landing", () => {
+      const vatRate = { ...question, id: "q-2", ask_id: "q-1", ask_position: 1, prompt: "Which VAT rate applies?" } as Question;
+      const tab = (name: RegExp) => screen.getByRole("tab", { name });
+
+      function renderSetLanding(questions: Question[]) {
+        mockApiObj.listIssueQuestions.mockResolvedValue(questions);
+        const queryClient = createTestQueryClient();
+        const ui = (token: number) => (
+          <I18nProvider locale="en" resources={TEST_RESOURCES}>
+            <QueryClientProvider client={queryClient}>
+              <IssueDetail issueId="issue-1" highlightQuestionId="q-1" highlightRequestToken={token} />
+            </QueryClientProvider>
+          </I18nProvider>
+        );
+        const result = render(ui(0));
+        return { replay: (token: number) => result.rerender(ui(token)) };
+      }
+
+      it("opens the landing's question again on a fresh request after the reader moved to another tab", async () => {
+        const { replay } = renderSetLanding([{ ...question, ask_id: "q-1", ask_position: 0 }, vatRate]);
+        await waitFor(() => expect(tab(/round per invoice line/)).toHaveAttribute("aria-selected", "true"));
+
+        fireEvent.click(tab(/Which VAT rate applies/));
+        expect(tab(/round per invoice line/)).toHaveAttribute("aria-selected", "false");
+
+        replay(0);
+        expect(tab(/Which VAT rate applies/)).toHaveAttribute("aria-selected", "true");
+        replay(1);
+        expect(tab(/round per invoice line/)).toHaveAttribute("aria-selected", "true");
+      });
+
+      it("opens the landing's question on a fresh request over the Questions row's earlier jump", async () => {
+        mockApiObj.getOpenQuestionCount.mockResolvedValue({ count: 1, blocking_count: 1 });
+        const { replay } = renderSetLanding([{ ...question, ask_id: "q-1", ask_position: 0, status: "answered" } as Question, vatRate]);
+        await waitFor(() => expect(tab(/round per invoice line/)).toHaveAttribute("aria-selected", "true"));
+
+        fireEvent.click(await screen.findByRole("button", { name: /1 open/ }));
+        expect(tab(/Which VAT rate applies/)).toHaveAttribute("aria-selected", "true");
+
+        replay(1);
+        expect(tab(/round per invoice line/)).toHaveAttribute("aria-selected", "true");
+      });
+    });
   });
 
   it("hides every optional property row when none are set", async () => {
