@@ -168,19 +168,47 @@ func (r DeciderRule) options() map[string]string {
 	return map[string]string{"ready": "Ready for Brian's release check", "not_yet": "Not ready for Brian's release check"}
 }
 
-// choiceLabel is the answer option Brian reads. A squad shows its name, with
-// the start of its id only when another squad has the same name.
+// choiceLabel preserves unambiguous names and distinguishes every squad in the snapshot.
 func (r DeciderRule) choiceLabel(choice string) string {
-	if r.Decision == "squad" {
-		name := r.Squads[choice].Name
-		for id, squad := range r.Squads {
-			if id != choice && squad.Name == name {
-				return fmt.Sprintf("%s (%s)", name, choice[:8])
-			}
+	if r.Decision != "squad" {
+		return choice
+	}
+	name := r.Squads[choice].Name
+	duplicate := false
+	for id, squad := range r.Squads {
+		if id != choice && squad.Name == name {
+			duplicate = true
+			break
 		}
+	}
+	if !duplicate {
 		return name
 	}
-	return choice
+	// Distinct suffixes cannot collide with another squad's generated label.
+	width := 8
+	for id := range r.Squads {
+		if id == choice {
+			continue
+		}
+		for strings.HasPrefix(id, choice[:width]) {
+			width++
+		}
+	}
+	suffix := " (" + choice[:width] + ")"
+	label := name
+	for {
+		label += suffix
+		collision := false
+		for _, squad := range r.Squads {
+			if squad.Name == label {
+				collision = true
+				break
+			}
+		}
+		if !collision {
+			return label
+		}
+	}
 }
 
 type DeciderAnswer struct {
