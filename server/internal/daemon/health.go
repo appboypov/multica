@@ -540,22 +540,29 @@ func (d *Daemon) repoCheckoutHandler() http.HandlerFunc {
 					return
 				}
 				// Task preparation already selected and locked the authoritative path.
-				path, err := execenv.PrepareIssueWorktree(r.Context(), execenv.IssueWorktreeParams{
-					CheckoutPath: repo.CheckoutPath, Path: repo.WorktreePath,
-					Branch: strings.ToLower(task.IssueKey), DefaultBranch: repo.DefaultBranch,
-				}, d.logger)
-				if err != nil {
-					http.Error(w, err.Error(), http.StatusInternalServerError)
-					return
+				path := repo.WorktreePath
+				inCheckout := repo.Worklane != nil && repo.Worklane.InCheckout
+				if !inCheckout {
+					var err error
+					path, err = execenv.PrepareIssueWorktree(r.Context(), execenv.IssueWorktreeParams{
+						CheckoutPath: repo.CheckoutPath, Path: path,
+						Branch: strings.ToLower(task.IssueKey), DefaultBranch: repo.DefaultBranch,
+					}, d.logger)
+					if err != nil {
+						http.Error(w, err.Error(), http.StatusInternalServerError)
+						return
+					}
 				}
 				branch, err := checkoutGit(r.Context(), path, "symbolic-ref", "--quiet", "--short", "HEAD")
 				if err != nil {
 					http.Error(w, err.Error(), http.StatusInternalServerError)
 					return
 				}
-				if err := d.client.RecordIssueWorktree(r.Context(), task.ID, repo.ID, path, branch); err != nil {
-					http.Error(w, err.Error(), http.StatusInternalServerError)
-					return
+				if !inCheckout {
+					if err := d.client.RecordIssueWorktree(r.Context(), task.ID, repo.ID, path, branch); err != nil {
+						http.Error(w, err.Error(), http.StatusInternalServerError)
+						return
+					}
 				}
 				w.Header().Set("Content-Type", "application/json")
 				json.NewEncoder(w).Encode(repocache.WorktreeResult{Path: path, BranchName: branch})

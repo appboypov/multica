@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -692,6 +693,106 @@ func TestRepoCheckoutReturnsRetryableBusyToCapableClient(t *testing.T) {
 	}
 	if got := cache.lastCreateParams().LockWaitTimeout; got != repoCheckoutLockWaitTimeout {
 		t.Fatalf("lock wait timeout = %s, want %s", got, repoCheckoutLockWaitTimeout)
+	}
+}
+
+func TestRepoCheckoutReusesTaskCheckout(t *testing.T) {
+	for _, tc := range []struct {
+		name, pullRequestBranch, branch string
+	}{
+		{name: "issue branch", branch: "work-1021"},
+		{name: "pull request branch", pullRequestBranch: "review/work-1021", branch: "review/work-1021"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			checkout, _ := newCheckoutRoutingFixture(t)
+			d, events := newLaneRoutingDaemon(t)
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			result := awaitLaneRoutingTask(t, ctx, startLaneRoutingTask(ctx, d, checkoutRoutingTask(checkout, "task-1", tc.pullRequestBranch)))
+			d.registerActiveRepoCheckoutTask("mat_repo_checkout_test", activeRepoCheckoutTask{
+				WorkspaceID: "ws-checkout", TaskID: "task-1", WorkDir: checkout, Task: &result.task,
+			})
+			laneRoutingWrite(t, checkout, "shared.txt", "agent's unfinished work\n")
+			before := laneRoutingGit(t, checkout, "worktree", "list", "--porcelain")
+			status := laneRoutingGit(t, checkout, "status", "--porcelain")
+
+			body, err := json.Marshal(map[string]string{
+				"url": "test/repo", "workspace_id": "ws-checkout", "workdir": checkout, "task_id": "task-1",
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			rec := httptest.NewRecorder()
+			d.repoCheckoutHandler().ServeHTTP(rec, authorizedRepoCheckoutRequest(bytes.NewReader(body)))
+			if rec.Code != http.StatusOK {
+				t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+			}
+			for len(events) > 0 {
+				if event := <-events; strings.HasSuffix(event.path, "/issue-worktrees") {
+					t.Fatalf("checkout registered for issue-worktree cleanup: %+v", event)
+				}
+			}
+			var got repocache.WorktreeResult
+			if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+				t.Fatal(err)
+			}
+			if got.Path != checkout || got.BranchName != tc.branch {
+				t.Fatalf("checkout = %+v, want %s on %s", got, checkout, tc.branch)
+			}
+			if after := laneRoutingGit(t, checkout, "worktree", "list", "--porcelain"); after != before {
+				t.Fatalf("worktrees changed:\nbefore: %s\nafter: %s", before, after)
+			}
+			if after := laneRoutingGit(t, checkout, "status", "--porcelain"); after != status {
+				t.Fatalf("checkout changes lost:\nbefore: %s\nafter: %s", status, after)
+			}
+			content, err := os.ReadFile(filepath.Join(checkout, "shared.txt"))
+			if err != nil || string(content) != "agent's unfinished work\n" {
+				t.Fatalf("agent's work = %q: %v", content, err)
+			}
+		})
+	}
+}
+
+func TestRepoCheckoutRecordsIssueWorktree(t *testing.T) {
+	for _, worklane := range []bool{false, true} {
+		t.Run(fmt.Sprintf("worklane=%t", worklane), func(t *testing.T) {
+			checkout, home := newCheckoutRoutingFixture(t)
+			path := filepath.Join(home, "Worktrees", "repo", "work-1021")
+			laneRoutingGit(t, checkout, "worktree", "add", "-b", "work-1021", path, "main")
+			task := checkoutRoutingTask(checkout, "task-1", "")
+			task.Repositories[0].WorktreePath = path
+			if worklane {
+				task.Repositories[0].Worklane.InCheckout = false
+				task.Repositories[0].Worklane.Path = path
+			} else {
+				task.Repositories[0].Worklane = nil
+			}
+			d, events := newLaneRoutingDaemon(t)
+			d.registerActiveRepoCheckoutTask("mat_repo_checkout_test", activeRepoCheckoutTask{
+				WorkspaceID: "ws-checkout", TaskID: task.ID, WorkDir: path, Task: &task,
+			})
+			body, err := json.Marshal(map[string]string{
+				"url": "test/repo", "workspace_id": "ws-checkout", "workdir": path, "task_id": task.ID,
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			rec := httptest.NewRecorder()
+			d.repoCheckoutHandler().ServeHTTP(rec, authorizedRepoCheckoutRequest(bytes.NewReader(body)))
+			if rec.Code != http.StatusOK {
+				t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+			}
+			select {
+			case event := <-events:
+				if event.path != "/api/daemon/tasks/task-1/issue-worktrees" ||
+					event.body["path"] != path || event.body["branch"] != "work-1021" ||
+					event.body["repository_id"] != "repository" {
+					t.Fatalf("issue worktree record = %+v", event)
+				}
+			default:
+				t.Fatal("issue worktree was not registered for cleanup")
+			}
+		})
 	}
 }
 
