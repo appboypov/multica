@@ -77,12 +77,12 @@ vi.mock("./todo-list-item", () => ({
 }));
 vi.mock("./todo-detail-pane", () => ({
   TodoDetailPane: ({ todo, onMarkDone, onOpenIssue, leadingAction }: {
-    todo: Todo; onMarkDone: () => void; onOpenIssue: (target: { questionId?: string }) => void; leadingAction?: React.ReactNode;
+    todo: Todo; onMarkDone: () => void; onOpenIssue: (target: { questionId?: string; commentId?: string }) => void; leadingAction?: React.ReactNode;
   }) => (
     <div data-testid="todo-detail" data-todo-id={todo.id}>
       {leadingAction}
       <button type="button" onClick={onMarkDone}>Detail mark done</button>
-      <button type="button" onClick={() => onOpenIssue({ questionId: todo.question_id ?? undefined })}>Detail open issue</button>
+      <button type="button" onClick={() => onOpenIssue(todo.comment_id ? { commentId: todo.comment_id } : { questionId: todo.question_id ?? undefined })}>Detail open issue</button>
     </div>
   ),
 }));
@@ -220,18 +220,57 @@ describe("InboxPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Detail open issue" }));
     expect(writeViewState).toHaveBeenCalledWith("highlight:issue-412", undefined);
     expect(screen.getByTestId("issue-detail")).toBeInTheDocument();
-    expect(issueDetailProps.at(-1)).toMatchObject({ issueId: "issue-412", leadingAction: false });
+    expect(issueDetailProps.at(-1)).toMatchObject({ issueId: "issue-412", highlightCommentId: "c-b", openSidebarOnLanding: false, leadingAction: false });
     fireEvent.click(screen.getByRole("button", { name: "Bravo" }));
     expect(screen.queryByTestId("issue-detail")).not.toBeInTheDocument();
     expect(screen.getByTestId("todo-detail")).toHaveAttribute("data-todo-id", "b");
   });
 
-  it("opens a question on an issue on that issue at the question, with its properties shown", () => {
-    listState.data = [a, todoFixture({ id: "q", title: "Which squad", question_id: "q-9" })];
-    nav.searchParams = new URLSearchParams("todo=q");
-    renderPage();
-    expect(screen.queryByTestId("todo-detail")).not.toBeInTheDocument();
-    expect(issueDetailProps.at(-1)).toMatchObject({ issueId: "issue-412", highlightQuestionId: "q-9", defaultSidebarOpen: true });
+  describe("a question on an issue", () => {
+    const q = todoFixture({ id: "q", title: "Which squad", question_id: "q-9" });
+    beforeEach(() => {
+      listState.data = [a, b, q];
+    });
+
+    it("opens on that issue at the question, with its properties shown, keeping a restored landing", () => {
+      nav.searchParams = new URLSearchParams("todo=q");
+      renderPage();
+      expect(screen.queryByTestId("todo-detail")).not.toBeInTheDocument();
+      expect(issueDetailProps.at(-1)).toMatchObject({
+        issueId: "issue-412", highlightQuestionId: "q-9", defaultSidebarOpen: true, openSidebarOnLanding: true,
+      });
+      expect(writeViewState).not.toHaveBeenCalled();
+    });
+
+    it("lands on the card again when its selected row is clicked", () => {
+      nav.searchParams = new URLSearchParams("todo=q");
+      renderPage();
+      const token = issueDetailProps.at(-1)!.highlightRequestToken as number;
+      fireEvent.click(screen.getByRole("button", { name: "Which squad" }));
+      expect(writeViewState).toHaveBeenCalledWith("highlight:issue-412", undefined);
+      expect(issueDetailProps.at(-1)!.highlightRequestToken).toBeGreaterThan(token);
+    });
+
+    it("lands afresh when selected again after another to-do", () => {
+      renderPage();
+      fireEvent.click(screen.getByRole("button", { name: "Which squad" }));
+      fireEvent.click(screen.getByRole("button", { name: "Alpha" }));
+      writeViewState.mockClear();
+      fireEvent.click(screen.getByRole("button", { name: "Which squad" }));
+      expect(writeViewState).toHaveBeenCalledWith("highlight:issue-412", undefined);
+      expect(issueDetailProps.at(-1)).toMatchObject({ highlightQuestionId: "q-9", openSidebarOnLanding: true });
+    });
+
+    it("asks for the sidebar when it follows a mention opened on the same issue", () => {
+      nav.searchParams = new URLSearchParams("todo=b");
+      renderPage();
+      fireEvent.click(screen.getByRole("button", { name: "Detail open issue" }));
+      expect(issueDetailProps.at(-1)).toMatchObject({ issueId: "issue-412", openSidebarOnLanding: false });
+      const token = issueDetailProps.at(-1)!.highlightRequestToken as number;
+      fireEvent.click(screen.getByRole("button", { name: "Which squad" }));
+      expect(issueDetailProps.at(-1)).toMatchObject({ issueId: "issue-412", highlightQuestionId: "q-9", openSidebarOnLanding: true });
+      expect(issueDetailProps.at(-1)!.highlightRequestToken).toBeGreaterThan(token);
+    });
   });
 
   it("shows only the detail on a phone, with a way back to the list", () => {

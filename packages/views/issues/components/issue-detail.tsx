@@ -1244,6 +1244,13 @@ interface IssueDetailProps {
    */
   highlightRequestToken?: number;
   /**
+   * Opens the sidebar with every fresh highlight landing, also over a saved
+   * collapsed layout and on an already-mounted detail, for a host that shows
+   * the landing beside the issue's properties (the Inbox's question to-do).
+   * A restored view, whose landing already ran, keeps the reader's sidebar.
+   */
+  openSidebarOnLanding?: boolean;
+  /**
    * Far-left header slot, replacing the mobile sidebar trigger. A host that
    * embeds this detail one level deep (the inbox, on a phone) passes its own
    * "back" control here instead of stacking a second 48px bar above us — the
@@ -1393,7 +1400,7 @@ export function IssueDetailSkeleton({
 // IssueDetail
 // ---------------------------------------------------------------------------
 
-export function IssueDetail({ issueId, onDelete, onDone, defaultSidebarOpen = true, layoutId = "multica_issue_detail_layout", highlightCommentId, highlightQuestionId, highlightRequestToken, leadingAction, variant = "page", trailingActions }: IssueDetailProps) {
+export function IssueDetail({ issueId, onDelete, onDone, defaultSidebarOpen = true, layoutId = "multica_issue_detail_layout", highlightCommentId, highlightQuestionId, highlightRequestToken, openSidebarOnLanding = false, leadingAction, variant = "page", trailingActions }: IssueDetailProps) {
   const isPeek = variant === "peek";
   const { t } = useT("issues");
   const { t: tReleases } = useT("releases");
@@ -2761,6 +2768,21 @@ export function IssueDetail({ issueId, onDelete, onDone, defaultSidebarOpen = tr
       heading?.focus({ preventScroll: true });
     });
   }, [handleToggleSidebar, id, sidebarOpen]);
+
+  // The landing request the sidebar last opened for: one opening per
+  // landing, so the reader's own collapse afterwards stays.
+  const sidebarLandingRequestRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!openSidebarOnLanding || isMobile || !highlightTargetId || !scrollContainerEl) return;
+    const request = `${highlightTargetId}:${highlightRequestToken ?? ""}`;
+    if (sidebarLandingRequestRef.current === request) return;
+    sidebarLandingRequestRef.current = request;
+    if (consumedHighlightRef.current === highlightTargetId) return;
+    const panel = sidebarRef.current;
+    if (!panel?.isCollapsed()) return;
+    beginDesktopSidebarToggle(true);
+    window.requestAnimationFrame(() => panel.expand());
+  }, [openSidebarOnLanding, isMobile, highlightTargetId, highlightRequestToken, scrollContainerEl, sidebarRef, beginDesktopSidebarToggle]);
 
   useRightSidebarShortcut(rightSidebarShortcutTargetRef, handleToggleSidebar);
 

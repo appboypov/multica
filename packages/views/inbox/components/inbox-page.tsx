@@ -50,6 +50,15 @@ export function nextTodoAfter(goneId: string, previous: readonly Todo[], current
   return before?.id ?? "";
 }
 
+/**
+ * The question card a question to-do on an issue opens its issue at: the
+ * issue's project, repository, relations and description then stand next to
+ * the card it is answered on.
+ */
+function questionLanding(todo: Todo | null | undefined): TodoIssueTarget | null {
+  return todo?.kind === "question" && todo.issue_id && todo.question_id ? { questionId: todo.question_id } : null;
+}
+
 function ListSkeleton() {
   return (
     <div className="flex-1 min-h-0 overflow-y-auto space-y-1 p-2">
@@ -88,15 +97,24 @@ export function InboxPage() {
   const loadFailed = listQuery.isError && !todos;
   const selected = todos?.find((todo) => todo.id === selectedId) ?? null;
 
+  const writeViewState = useViewStateWriter();
+  // Bumped with each selection of a question on an issue, so the detail
+  // lands on its card again also while it stays mounted.
+  const [landingRequest, setLandingRequest] = useState(0);
   const setSelectedId = useCallback((id: string) => {
+    // A fresh landing on every selection, also on an issue landed on before.
+    const landingTodo = todos?.find((todo) => todo.id === id);
+    if (landingTodo?.issue_id && questionLanding(landingTodo)) {
+      writeViewState(issueHighlightMementoKey(landingTodo.issue_id), undefined);
+      setLandingRequest((request) => request + 1);
+    }
     setSelectedIdState(id);
     replace(id ? wsPaths.inboxTodo(id) : wsPaths.inbox());
-  }, [replace, wsPaths]);
+  }, [replace, wsPaths, todos, writeViewState]);
 
   // The selected to-do's issue, opened in the pane at the question or comment
   // the to-do is about. Selecting a row, also the same one, returns to its detail.
   const [openedIssue, setOpenedIssue] = useState<{ todoId: string; target: TodoIssueTarget } | null>(null);
-  const writeViewState = useViewStateWriter();
   const handleSelect = (todo: Todo) => {
     setOpenedIssue(null);
     setSelectedId(todo.id);
@@ -231,10 +249,7 @@ export function InboxPage() {
     </Button>
   ) : undefined;
 
-  // A question on an issue opens on that issue, so its project, repository,
-  // relations and description stand next to the card it is answered on.
-  const questionOnIssue: TodoIssueTarget | null =
-    selected?.kind === "question" && selected.issue_id && selected.question_id ? { questionId: selected.question_id } : null;
+  const questionOnIssue = questionLanding(selected);
   const issueOpen = selected?.issue_id && openedIssue?.todoId === selected.id ? openedIssue.target : questionOnIssue;
   const detailContent = selected ? (
     <ErrorBoundary
@@ -253,9 +268,11 @@ export function InboxPage() {
           key={selected.issue_id}
           issueId={selected.issue_id}
           defaultSidebarOpen={!!questionOnIssue}
+          openSidebarOnLanding={!!questionOnIssue}
           layoutId="multica_inbox_issue_detail_layout"
           highlightCommentId={issueOpen.commentId}
           highlightQuestionId={issueOpen.questionId}
+          highlightRequestToken={landingRequest}
           // The split layout already has a nav trigger in the list header.
           leadingAction={compactBackAction ?? false}
           onDelete={() => setSelectedId("")}

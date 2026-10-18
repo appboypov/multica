@@ -1498,8 +1498,8 @@
                       "children": [
                         {
                           "type": "frame",
-                          "id": "MWu3S",
-                          "name": "Detail head",
+                          "id": "iITcA",
+                          "name": "Header",
                           "width": "fill_container",
                           "height": 44,
                           "stroke": "$S:border",
@@ -1509,479 +1509,1337 @@
                           "gap": 8,
                           "padding": [
                             0,
-                            8,
-                            0,
-                            20
+                            16
                           ],
                           "alignItems": "center",
                           "children": [
                             {
-                              "type": "icon",
-                              "id": "j3GqRO",
-                              "name": "message-circle-question-mark",
-                              "width": 14,
-                              "height": 14,
-                              "icon": "message-circle-question-mark",
-                              "library": "lucide",
-                              "fill": "$S:brand"
-                            },
-                            {
                               "type": "text",
-                              "id": "Jn1fN",
-                              "name": "Text",
-                              "fill": "$S:foreground",
-                              "content": "Question for you",
-                              "fontFamily": "$S:font-sans",
-                              "fontSize": "$S:text-label",
-                              "fontWeight": "500"
-                            },
-                            {
-                              "type": "text",
-                              "id": "r2yVo",
+                              "id": "yX21d",
                               "name": "Text",
                               "fill": "$S:muted-foreground",
-                              "content": "· 12 min ago",
+                              "content": "Billing",
                               "fontFamily": "$S:font-sans",
-                              "fontSize": "$S:text-caption",
+                              "fontSize": "$S:text-body",
                               "fontWeight": "normal"
                             },
                             {
+                              "type": "icon",
+                              "id": "R0uqmC",
+                              "name": "chevron-right",
+                              "width": 14,
+                              "height": 14,
+                              "icon": "chevron-right",
+                              "library": "lucide",
+                              "fill": "$S:faint-foreground"
+                            },
+                            {
+                              "type": "text",
+                              "id": "LgyHG",
+                              "name": "Text",
+                              "fill": "$S:muted-foreground",
+                              "content": "WORK-412",
+                              "fontFamily": "$S:font-sans",
+                              "fontSize": "$S:text-body",
+                              "fontWeight": "normal"
+                            },
+                            {
+                              "type": "icon",
+                              "id": "j8Shco",
+                              "name": "chevron-right",
+                              "width": 14,
+                              "height": 14,
+                              "icon": "chevron-right",
+                              "library": "lucide",
+                              "fill": "$S:faint-foreground"
+                            },
+                            {
+                              "type": "text",
+                              "id": "t54iQX",
+                              "name": "Text",
+                              "fill": "$S:foreground",
+                              "content": "Export invoices as CSV with VAT breakdown",
+                              "fontFamily": "$S:font-sans",
+                              "fontSize": "$S:text-body",
+                              "fontWeight": "500"
+                            },
+                            {
                               "type": "frame",
-                              "id": "dhgZr",
+                              "id": "PLMmx",
                               "name": "Spacer",
                               "width": "fill_container",
                               "height": 1
                             },
                             {
-                              "id": "ZCdv2",
-                              "type": "ref",
-                              "ref": "S:GlbnA",
-                              "name": "Button Open on WORK-412",
-                              "descendants": {
-                                "S:jrrID": {
-                                  "icon": "arrow-up-right"
-                                },
-                                "S:zc0if": {
-                                  "content": "Open on WORK-412"
-                                }
-                              }
+                              "type": "icon",
+                              "id": "yhVTO",
+                              "name": "bell",
+                              "width": 16,
+                              "height": 16,
+                              "icon": "bell",
+                              "library": "lucide",
+                              "fill": "$S:muted-foreground"
                             },
                             {
-                              "id": "sZPDD",
-                              "type": "ref",
-                              "ref": "S:GlbnA",
-                              "name": "Button Mark done",
-                              "descendants": {
-                                "S:jrrID": {
-                                  "icon": "check"
-                                },
-                                "S:zc0if": {
-                                  "content": "Mark done"
-                                }
-                              }
+                              "type": "icon",
+                              "id": "n2Enx2",
+                              "name": "link",
+                              "width": 16,
+                              "height": 16,
+                              "icon": "link",
+                              "library": "lucide",
+                              "fill": "$S:muted-foreground"
+                            },
+                            {
+                              "type": "icon",
+                              "id": "CQCxA",
+                              "name": "ellipsis",
+                              "width": 16,
+                              "height": 16,
+                              "icon": "ellipsis",
+                              "library": "lucide",
+                              "fill": "$S:muted-foreground"
                             }
                           ]
                         },
                         {
                           "type": "frame",
-                          "id": "dF9Tj",
-                          "name": "Detail body",
+                          "id": "mj5M7",
+                          "name": "Body",
                           "width": "fill_container",
-                          "layout": "vertical",
-                          "gap": 16,
-                          "padding": [
-                            28,
-                            40
-                          ],
+                          "height": "fill_container",
                           "children": [
                             {
                               "type": "frame",
-                              "id": "DT4IP",
-                              "name": "Issue",
+                              "id": "NO4IM",
+                              "name": "Main",
+                              "clip": true,
                               "width": "fill_container",
-                              "layout": "vertical",
-                              "gap": 4,
-                              "children": [
-                                {
-                                  "type": "text",
-                                  "id": "HdPZq",
-                                  "name": "Text",
-                                  "fill": "$S:muted-foreground",
-                                  "content": "WORK-412",
-                                  "fontFamily": "$S:font-sans",
-                                  "fontSize": "$S:text-caption",
-                                  "fontWeight": "normal"
-                                },
-                                {
-                                  "type": "text",
-                                  "id": "u2p7L",
-                                  "name": "Text",
-                                  "fill": "$S:foreground",
-                                  "content": "Export invoices as CSV with VAT breakdown",
-                                  "fontFamily": "$S:font-sans",
-                                  "fontSize": "$S:text-title",
-                                  "fontWeight": "600"
-                                }
-                              ]
-                            },
-                            {
-                              "type": "frame",
-                              "id": "TRSi7",
-                              "name": "Leaves",
-                              "width": "fill_container",
-                              "gap": 6,
-                              "alignItems": "center",
-                              "children": [
-                                {
-                                  "type": "icon",
-                                  "id": "cD6Zr",
-                                  "name": "info",
-                                  "width": 12,
-                                  "height": 12,
-                                  "icon": "info",
-                                  "library": "lucide",
-                                  "fill": "$S:faint-foreground"
-                                },
-                                {
-                                  "type": "text",
-                                  "id": "YHmyc",
-                                  "name": "Text",
-                                  "fill": "$S:faint-foreground",
-                                  "content": "Leaves your inbox once it is answered.",
-                                  "fontFamily": "$S:font-sans",
-                                  "fontSize": "$S:text-caption",
-                                  "fontWeight": "normal"
-                                }
-                              ]
-                            },
-                            {
-                              "type": "frame",
-                              "id": "MlfzF",
-                              "name": "Question card",
-                              "width": "fill_container",
-                              "fill": "$S:surface",
-                              "cornerRadius": 12,
-                              "stroke": "$S:brand",
-                              "strokeWidth": 1,
-                              "layout": "vertical",
-                              "gap": 12,
-                              "padding": [
-                                14,
-                                16
-                              ],
+                              "height": "fill_container",
+                              "layout": "none",
                               "children": [
                                 {
                                   "type": "frame",
-                                  "id": "b2koWn",
-                                  "name": "Overline",
-                                  "width": "fill_container",
-                                  "gap": 8,
-                                  "alignItems": "center",
+                                  "id": "HdDZx",
+                                  "x": 0,
+                                  "y": -142,
+                                  "name": "Timeline",
+                                  "width": 496,
+                                  "layout": "vertical",
+                                  "gap": 16,
+                                  "padding": [
+                                    28,
+                                    24
+                                  ],
                                   "children": [
                                     {
-                                      "id": "U0JC1",
-                                      "type": "ref",
-                                      "ref": "S:LF40U",
-                                      "name": "Type Single choice",
-                                      "fill": "$S:muted",
-                                      "descendants": {
-                                        "S:l90JV5": {
-                                          "icon": "circle-dot",
-                                          "fill": "$S:brand"
-                                        }
-                                      }
-                                    },
-                                    {
                                       "type": "text",
-                                      "id": "EjiBm",
-                                      "name": "Text",
-                                      "fill": "$S:brand",
-                                      "content": "QUESTION FOR YOU",
+                                      "id": "hElNu",
+                                      "name": "Title",
+                                      "fill": "$S:foreground",
+                                      "textGrowth": "fixed-width",
+                                      "width": "fill_container",
+                                      "content": "Export invoices as CSV with VAT breakdown",
                                       "fontFamily": "$S:font-sans",
-                                      "fontSize": "$S:text-micro",
-                                      "fontWeight": "600",
-                                      "letterSpacing": 0.6
+                                      "fontSize": "$S:text-display-sm",
+                                      "fontWeight": "700"
                                     },
                                     {
                                       "type": "text",
-                                      "id": "m0yz2q",
-                                      "name": "Text",
+                                      "id": "Y8z4I",
+                                      "name": "Description",
                                       "fill": "$S:muted-foreground",
-                                      "content": "· Single choice",
+                                      "textGrowth": "fixed-width",
+                                      "width": "fill_container",
+                                      "content": "Accountants need one CSV per month with a VAT line per rate (21%, 9%, 0%). Rounding must match what the bookkeeping tool reports, or the reconciliation fails by a few cents.",
+                                      "lineHeight": 1.6,
                                       "fontFamily": "$S:font-sans",
-                                      "fontSize": "$S:text-caption",
+                                      "fontSize": "$S:text-body",
                                       "fontWeight": "normal"
                                     },
                                     {
                                       "type": "frame",
-                                      "id": "p5goAF",
+                                      "id": "mcwee",
+                                      "name": "Gap",
+                                      "width": 1,
+                                      "height": 4
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "TTxyY",
+                                      "name": "Divider",
+                                      "width": "fill_container",
+                                      "height": 1,
+                                      "fill": "$S:border"
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "FdkiY",
+                                      "name": "Activity head",
+                                      "width": "fill_container",
+                                      "gap": 8,
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "F19KZi",
+                                          "name": "Text",
+                                          "fill": "$S:foreground",
+                                          "content": "Activity",
+                                          "fontFamily": "$S:font-sans",
+                                          "fontSize": "$S:text-title-sm",
+                                          "fontWeight": "600"
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "YqaGt",
+                                          "name": "Spacer",
+                                          "width": "fill_container",
+                                          "height": 1
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "jim1P",
+                                          "name": "Text",
+                                          "fill": "$S:muted-foreground",
+                                          "content": "Subscribed",
+                                          "fontFamily": "$S:font-sans",
+                                          "fontSize": "$S:text-caption",
+                                          "fontWeight": "normal"
+                                        },
+                                        {
+                                          "id": "RYy2u",
+                                          "type": "ref",
+                                          "ref": "S:UEn9u",
+                                          "name": "Avatar BV",
+                                          "fill": "$S:chart-3",
+                                          "descendants": {
+                                            "S:Ugbzg": {
+                                              "content": "BV"
+                                            }
+                                          }
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "el91B",
+                                      "name": "Comment",
+                                      "width": "fill_container",
+                                      "fill": "$S:surface",
+                                      "cornerRadius": 12,
+                                      "stroke": "$S:border",
+                                      "strokeWidth": 1,
+                                      "layout": "vertical",
+                                      "gap": 6,
+                                      "padding": [
+                                        12,
+                                        16,
+                                        14,
+                                        16
+                                      ],
+                                      "children": [
+                                        {
+                                          "type": "frame",
+                                          "id": "pY37w",
+                                          "name": "Head",
+                                          "width": "fill_container",
+                                          "gap": 8,
+                                          "alignItems": "center",
+                                          "children": [
+                                            {
+                                              "id": "f64E2z",
+                                              "type": "ref",
+                                              "ref": "S:UEn9u",
+                                              "name": "Avatar BV",
+                                              "fill": "$S:chart-3",
+                                              "descendants": {
+                                                "S:Ugbzg": {
+                                                  "content": "BV"
+                                                }
+                                              }
+                                            },
+                                            {
+                                              "type": "text",
+                                              "id": "fgy7T",
+                                              "name": "Text",
+                                              "fill": "$S:foreground",
+                                              "content": "Brian",
+                                              "fontFamily": "$S:font-sans",
+                                              "fontSize": "$S:text-body",
+                                              "fontWeight": "500"
+                                            },
+                                            {
+                                              "type": "text",
+                                              "id": "y6Iyy",
+                                              "name": "Text",
+                                              "fill": "$S:muted-foreground",
+                                              "content": "1 h ago",
+                                              "fontFamily": "$S:font-sans",
+                                              "fontSize": "$S:text-caption",
+                                              "fontWeight": "normal"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "N1cbS",
+                                          "name": "Text",
+                                          "fill": "$S:foreground",
+                                          "textGrowth": "fixed-width",
+                                          "width": "fill_container",
+                                          "content": "Picked this up for Pieter. The export format is the one in the attached sample.",
+                                          "fontFamily": "$S:font-sans",
+                                          "fontSize": "$S:text-body",
+                                          "fontWeight": "normal"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "Uxmtf",
+                                      "name": "Run row",
+                                      "width": "fill_container",
+                                      "gap": 8,
+                                      "padding": [
+                                        2,
+                                        4
+                                      ],
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "id": "ZSiMF",
+                                          "type": "ref",
+                                          "ref": "S:Xvewu",
+                                          "name": "Avatar Pieter"
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "nPh0g",
+                                          "name": "Text",
+                                          "fill": "$S:foreground",
+                                          "content": "Pieter",
+                                          "fontFamily": "$S:font-sans",
+                                          "fontSize": "$S:text-label",
+                                          "fontWeight": "500"
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "AHFWp",
+                                          "name": "Text",
+                                          "fill": "$S:muted-foreground",
+                                          "textGrowth": "fixed-width",
+                                          "width": "fill_container",
+                                          "content": "ended run #3 with a question",
+                                          "fontFamily": "$S:font-sans",
+                                          "fontSize": "$S:text-caption",
+                                          "fontWeight": "normal"
+                                        },
+                                        {
+                                          "id": "fo6pA",
+                                          "type": "ref",
+                                          "ref": "S:iQDjE",
+                                          "name": "Badge Waiting for answer",
+                                          "descendants": {
+                                            "S:bEflG": {
+                                              "icon": "circle-pause",
+                                              "enabled": true
+                                            },
+                                            "S:G3YxR9": {
+                                              "content": "Waiting for answer"
+                                            }
+                                          }
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "YGqX0",
+                                          "name": "Text",
+                                          "fill": "$S:muted-foreground",
+                                          "content": "14 min ago",
+                                          "fontFamily": "$S:font-sans",
+                                          "fontSize": "$S:text-caption",
+                                          "fontWeight": "normal"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "nYazR",
+                                      "name": "Question card",
+                                      "width": "fill_container",
+                                      "fill": "$S:surface",
+                                      "cornerRadius": 12,
+                                      "stroke": "$S:brand",
+                                      "strokeWidth": 1,
+                                      "layout": "vertical",
+                                      "gap": 12,
+                                      "padding": [
+                                        14,
+                                        16
+                                      ],
+                                      "children": [
+                                        {
+                                          "type": "frame",
+                                          "id": "Z3XX7",
+                                          "name": "Overline",
+                                          "width": "fill_container",
+                                          "layout": "vertical",
+                                          "gap": 6,
+                                          "children": [
+                                            {
+                                              "type": "frame",
+                                              "id": "rQpu7",
+                                              "name": "Kind",
+                                              "gap": 8,
+                                              "alignItems": "center",
+                                              "children": [
+                                                {
+                                                  "id": "kz4QI",
+                                                  "type": "ref",
+                                                  "ref": "S:LF40U",
+                                                  "name": "Type Single choice",
+                                                  "fill": "$S:muted",
+                                                  "descendants": {
+                                                    "S:l90JV5": {
+                                                      "icon": "circle-dot",
+                                                      "fill": "$S:brand"
+                                                    }
+                                                  }
+                                                },
+                                                {
+                                                  "type": "text",
+                                                  "id": "bP3TE",
+                                                  "name": "Text",
+                                                  "fill": "$S:brand",
+                                                  "content": "QUESTION FOR YOU",
+                                                  "fontFamily": "$S:font-sans",
+                                                  "fontSize": "$S:text-micro",
+                                                  "fontWeight": "600",
+                                                  "letterSpacing": 0.6
+                                                },
+                                                {
+                                                  "type": "text",
+                                                  "id": "ZZTEQ",
+                                                  "name": "Text",
+                                                  "fill": "$S:muted-foreground",
+                                                  "content": "· Single choice",
+                                                  "fontFamily": "$S:font-sans",
+                                                  "fontSize": "$S:text-caption",
+                                                  "fontWeight": "normal"
+                                                }
+                                              ]
+                                            },
+                                            {
+                                              "type": "frame",
+                                              "id": "V3qbPj",
+                                              "name": "Badges",
+                                              "gap": 8,
+                                              "alignItems": "center",
+                                              "children": [
+                                                {
+                                                  "id": "A4ZRY",
+                                                  "type": "ref",
+                                                  "ref": "S:J9uZa9",
+                                                  "name": "Badge Blocks work",
+                                                  "descendants": {
+                                                    "S:Z2sweF": {
+                                                      "icon": "circle-pause",
+                                                      "enabled": true
+                                                    },
+                                                    "S:d1ef9": {
+                                                      "content": "Blocks work"
+                                                    }
+                                                  }
+                                                },
+                                                {
+                                                  "id": "GHwyY",
+                                                  "type": "ref",
+                                                  "ref": "S:Lam3L",
+                                                  "name": "Badge Answer by today",
+                                                  "descendants": {
+                                                    "S:a7j7d": {
+                                                      "icon": "calendar",
+                                                      "enabled": true
+                                                    },
+                                                    "S:hTh3P": {
+                                                      "content": "Answer by today"
+                                                    }
+                                                  }
+                                                }
+                                              ]
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "aRbFq",
+                                          "name": "Asker",
+                                          "width": "fill_container",
+                                          "gap": 8,
+                                          "alignItems": "center",
+                                          "children": [
+                                            {
+                                              "id": "qciNZ",
+                                              "type": "ref",
+                                              "ref": "S:Xvewu",
+                                              "name": "Avatar Pieter"
+                                            },
+                                            {
+                                              "type": "text",
+                                              "id": "W1njhT",
+                                              "name": "Text",
+                                              "fill": "$S:foreground",
+                                              "content": "Pieter",
+                                              "fontFamily": "$S:font-sans",
+                                              "fontSize": "$S:text-body",
+                                              "fontWeight": "500"
+                                            },
+                                            {
+                                              "type": "text",
+                                              "id": "d0TGy",
+                                              "name": "Text",
+                                              "fill": "$S:muted-foreground",
+                                              "content": "asked during run #3 · 12 min ago",
+                                              "fontFamily": "$S:font-sans",
+                                              "fontSize": "$S:text-caption",
+                                              "fontWeight": "normal"
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "YzisK",
+                                          "name": "Prompt",
+                                          "fill": "$S:foreground",
+                                          "textGrowth": "fixed-width",
+                                          "width": "fill_container",
+                                          "content": "Should VAT round per invoice line or on the invoice total?",
+                                          "fontFamily": "$S:font-sans",
+                                          "fontSize": "$S:text-title-sm",
+                                          "fontWeight": "600"
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "JbLaA",
+                                          "name": "Context",
+                                          "fill": "$S:muted-foreground",
+                                          "textGrowth": "fixed-width",
+                                          "width": "fill_container",
+                                          "content": "Dutch rules allow both. Per line matches what Moneybird reports; per total differs by €0.01 on 4 of the 212 test invoices.",
+                                          "lineHeight": 1.5,
+                                          "fontFamily": "$S:font-sans",
+                                          "fontSize": "$S:text-body",
+                                          "fontWeight": "normal"
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "Hphv8",
+                                          "name": "Options",
+                                          "width": "fill_container",
+                                          "layout": "vertical",
+                                          "gap": 6,
+                                          "children": [
+                                            {
+                                              "id": "Z0BRI",
+                                              "type": "ref",
+                                              "ref": "S:MbIFd",
+                                              "name": "Option Per invoice line",
+                                              "width": "fill_container",
+                                              "descendants": {
+                                                "S:j77Y1L": {
+                                                  "content": "Per invoice line"
+                                                },
+                                                "S:OHBpa": {
+                                                  "enabled": true
+                                                },
+                                                "S:OHBpa/S:GSYa4": {
+                                                  "content": "Suggested"
+                                                },
+                                                "S:X5kK4/S:Qnm6Q": {
+                                                  "content": "1"
+                                                }
+                                              }
+                                            },
+                                            {
+                                              "id": "iOkUg",
+                                              "type": "ref",
+                                              "ref": "S:MbIFd",
+                                              "name": "Option On the invoice total",
+                                              "width": "fill_container",
+                                              "descendants": {
+                                                "S:j77Y1L": {
+                                                  "content": "On the invoice total"
+                                                },
+                                                "S:OHBpa": {
+                                                  "enabled": false
+                                                },
+                                                "S:X5kK4/S:Qnm6Q": {
+                                                  "content": "2"
+                                                }
+                                              }
+                                            },
+                                            {
+                                              "id": "qqWN2",
+                                              "type": "ref",
+                                              "ref": "S:MbIFd",
+                                              "name": "Option Other…",
+                                              "width": "fill_container",
+                                              "descendants": {
+                                                "S:j77Y1L": {
+                                                  "content": "Other…"
+                                                },
+                                                "S:OHBpa": {
+                                                  "enabled": false
+                                                },
+                                                "S:X5kK4/S:Qnm6Q": {
+                                                  "content": "3"
+                                                }
+                                              }
+                                            }
+                                          ]
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "fdxx2",
+                                          "name": "Footer",
+                                          "width": "fill_container",
+                                          "layout": "vertical",
+                                          "gap": 4,
+                                          "padding": [
+                                            4,
+                                            0,
+                                            0,
+                                            0
+                                          ],
+                                          "children": [
+                                            {
+                                              "type": "frame",
+                                              "id": "FqGBy",
+                                              "name": "Actions",
+                                              "gap": 4,
+                                              "alignItems": "center",
+                                              "children": [
+                                                {
+                                                  "id": "Jyd9Q",
+                                                  "type": "ref",
+                                                  "ref": "S:GlbnA",
+                                                  "name": "Button Add a note",
+                                                  "descendants": {
+                                                    "S:jrrID": {
+                                                      "icon": "notebook-pen"
+                                                    },
+                                                    "S:zc0if": {
+                                                      "content": "Add a note"
+                                                    }
+                                                  }
+                                                },
+                                                {
+                                                  "id": "GaXX4",
+                                                  "type": "ref",
+                                                  "ref": "S:GlbnA",
+                                                  "name": "Button Ask back",
+                                                  "descendants": {
+                                                    "S:jrrID": {
+                                                      "icon": "reply"
+                                                    },
+                                                    "S:zc0if": {
+                                                      "content": "Ask back"
+                                                    }
+                                                  }
+                                                },
+                                                {
+                                                  "id": "T1331",
+                                                  "type": "ref",
+                                                  "ref": "S:GlbnA",
+                                                  "name": "Button Reassign",
+                                                  "descendants": {
+                                                    "S:jrrID": {
+                                                      "icon": "user-round-plus"
+                                                    },
+                                                    "S:zc0if": {
+                                                      "content": "Reassign"
+                                                    }
+                                                  }
+                                                }
+                                              ]
+                                            },
+                                            {
+                                              "type": "frame",
+                                              "id": "AGr88",
+                                              "name": "Answer",
+                                              "width": "fill_container",
+                                              "gap": 4,
+                                              "alignItems": "center",
+                                              "children": [
+                                                {
+                                                  "type": "frame",
+                                                  "id": "H4a9yc",
+                                                  "name": "Spacer",
+                                                  "width": "fill_container",
+                                                  "height": 1
+                                                },
+                                                {
+                                                  "type": "text",
+                                                  "id": "l1B3Dh",
+                                                  "name": "Text",
+                                                  "fill": "$S:muted-foreground",
+                                                  "content": "Asked to",
+                                                  "fontFamily": "$S:font-sans",
+                                                  "fontSize": "$S:text-caption",
+                                                  "fontWeight": "normal"
+                                                },
+                                                {
+                                                  "id": "AAjX8",
+                                                  "type": "ref",
+                                                  "ref": "S:UEn9u",
+                                                  "name": "Avatar BV",
+                                                  "fill": "$S:chart-3",
+                                                  "descendants": {
+                                                    "S:Ugbzg": {
+                                                      "content": "BV"
+                                                    }
+                                                  }
+                                                },
+                                                {
+                                                  "type": "frame",
+                                                  "id": "m9mTrN",
+                                                  "name": "g",
+                                                  "width": 6,
+                                                  "height": 1
+                                                },
+                                                {
+                                                  "id": "jxIqs",
+                                                  "type": "ref",
+                                                  "ref": "S:Ugg3j",
+                                                  "name": "Button Accept suggestion",
+                                                  "descendants": {
+                                                    "S:sP3ne": {
+                                                      "icon": "check"
+                                                    },
+                                                    "S:QwYQ9": {
+                                                      "content": "Accept suggestion"
+                                                    }
+                                                  }
+                                                }
+                                              ]
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "K64FLQ",
+                                      "name": "Composer",
+                                      "width": "fill_container",
+                                      "fill": "$S:surface",
+                                      "cornerRadius": 8,
+                                      "stroke": "$S:border",
+                                      "strokeWidth": 1,
+                                      "layout": "vertical",
+                                      "gap": 18,
+                                      "padding": [
+                                        10,
+                                        12
+                                      ],
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "Jupz2",
+                                          "name": "Text",
+                                          "fill": "$S:muted-foreground",
+                                          "content": "Leave a comment...",
+                                          "fontFamily": "$S:font-sans",
+                                          "fontSize": "$S:text-body",
+                                          "fontWeight": "normal"
+                                        },
+                                        {
+                                          "type": "frame",
+                                          "id": "r8GztQ",
+                                          "name": "Tools",
+                                          "width": "fill_container",
+                                          "gap": 8,
+                                          "alignItems": "center",
+                                          "children": [
+                                            {
+                                              "type": "icon",
+                                              "id": "uuZdn",
+                                              "name": "paperclip",
+                                              "width": 16,
+                                              "height": 16,
+                                              "icon": "paperclip",
+                                              "library": "lucide",
+                                              "fill": "$S:muted-foreground"
+                                            },
+                                            {
+                                              "type": "icon",
+                                              "id": "olKcK",
+                                              "name": "at-sign",
+                                              "width": 16,
+                                              "height": 16,
+                                              "icon": "at-sign",
+                                              "library": "lucide",
+                                              "fill": "$S:muted-foreground"
+                                            },
+                                            {
+                                              "type": "frame",
+                                              "id": "Ltz9F",
+                                              "name": "Spacer",
+                                              "width": "fill_container",
+                                              "height": 1
+                                            },
+                                            {
+                                              "id": "cdjn7",
+                                              "type": "ref",
+                                              "ref": "S:QcsvX",
+                                              "name": "Send",
+                                              "width": 28,
+                                              "height": 28,
+                                              "fill": "$S:primary",
+                                              "opacity": 0.5,
+                                              "descendants": {
+                                                "S:NT6ST": {
+                                                  "icon": "arrow-up",
+                                                  "fill": "$S:primary-foreground"
+                                                }
+                                              }
+                                            }
+                                          ]
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "hMCWf",
+                              "name": "Properties",
+                              "width": 320,
+                              "height": "fill_container",
+                              "stroke": "$S:border",
+                              "strokeWidth": {
+                                "left": 1
+                              },
+                              "layout": "vertical",
+                              "gap": 2,
+                              "padding": 16,
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "XmUCc",
+                                  "name": "Props head",
+                                  "width": "fill_container",
+                                  "height": 28,
+                                  "padding": [
+                                    0,
+                                    8
+                                  ],
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "U0JV2",
+                                      "name": "Text",
+                                      "fill": "$S:muted-foreground",
+                                      "content": "Properties",
+                                      "fontFamily": "$S:font-sans",
+                                      "fontSize": "$S:text-caption",
+                                      "fontWeight": "500"
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "bhVAg",
                                       "name": "Spacer",
                                       "width": "fill_container",
                                       "height": 1
                                     },
                                     {
-                                      "id": "dSN6p",
-                                      "type": "ref",
-                                      "ref": "S:J9uZa9",
-                                      "name": "Badge Blocks work",
-                                      "descendants": {
-                                        "S:Z2sweF": {
-                                          "icon": "circle-pause",
-                                          "enabled": true
-                                        },
-                                        "S:d1ef9": {
-                                          "content": "Blocks work"
-                                        }
-                                      }
-                                    },
-                                    {
-                                      "id": "z46tJ",
-                                      "type": "ref",
-                                      "ref": "S:Lam3L",
-                                      "name": "Badge Answer by today",
-                                      "descendants": {
-                                        "S:a7j7d": {
-                                          "icon": "calendar",
-                                          "enabled": true
-                                        },
-                                        "S:hTh3P": {
-                                          "content": "Answer by today"
-                                        }
-                                      }
+                                      "type": "icon",
+                                      "id": "rc1aL",
+                                      "name": "chevron-down",
+                                      "width": 14,
+                                      "height": 14,
+                                      "icon": "chevron-down",
+                                      "library": "lucide",
+                                      "fill": "$S:muted-foreground"
                                     }
                                   ]
                                 },
                                 {
                                   "type": "frame",
-                                  "id": "VfiBn",
-                                  "name": "Asker",
+                                  "id": "V5Pao",
+                                  "name": "Prop Status",
                                   "width": "fill_container",
+                                  "height": 32,
+                                  "cornerRadius": 6,
                                   "gap": 8,
+                                  "padding": [
+                                    0,
+                                    8
+                                  ],
                                   "alignItems": "center",
                                   "children": [
                                     {
-                                      "id": "zclEs",
+                                      "type": "frame",
+                                      "id": "m1YjUO",
+                                      "name": "Key",
+                                      "width": 100,
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "ZPG1d",
+                                          "name": "Text",
+                                          "fill": "$S:muted-foreground",
+                                          "content": "Status",
+                                          "fontFamily": "$S:font-sans",
+                                          "fontSize": "$S:text-caption",
+                                          "fontWeight": "normal"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "id": "N3ls0n",
+                                      "type": "ref",
+                                      "ref": "S:aJZqJ",
+                                      "name": "Status icon"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "iSvkf",
+                                      "name": "Text",
+                                      "fill": "$S:foreground",
+                                      "content": "In progress",
+                                      "fontFamily": "$S:font-sans",
+                                      "fontSize": "$S:text-label",
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "KtSjL",
+                                  "name": "Prop Assignee",
+                                  "width": "fill_container",
+                                  "height": 32,
+                                  "cornerRadius": 6,
+                                  "gap": 8,
+                                  "padding": [
+                                    0,
+                                    8
+                                  ],
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "mFIHc",
+                                      "name": "Key",
+                                      "width": 100,
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "o0Kpji",
+                                          "name": "Text",
+                                          "fill": "$S:muted-foreground",
+                                          "content": "Assignee",
+                                          "fontFamily": "$S:font-sans",
+                                          "fontSize": "$S:text-caption",
+                                          "fontWeight": "normal"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "id": "dHK7g",
                                       "type": "ref",
                                       "ref": "S:Xvewu",
                                       "name": "Avatar Pieter"
                                     },
                                     {
                                       "type": "text",
-                                      "id": "NbSKd",
+                                      "id": "bGTjG",
                                       "name": "Text",
                                       "fill": "$S:foreground",
                                       "content": "Pieter",
                                       "fontFamily": "$S:font-sans",
-                                      "fontSize": "$S:text-body",
-                                      "fontWeight": "500"
-                                    },
-                                    {
-                                      "type": "text",
-                                      "id": "m3aQ3",
-                                      "name": "Text",
-                                      "fill": "$S:muted-foreground",
-                                      "content": "asked during run #3 · 12 min ago",
-                                      "fontFamily": "$S:font-sans",
-                                      "fontSize": "$S:text-caption",
+                                      "fontSize": "$S:text-label",
                                       "fontWeight": "normal"
                                     }
                                   ]
                                 },
                                 {
-                                  "type": "text",
-                                  "id": "V4FFq",
-                                  "name": "Prompt",
-                                  "fill": "$S:foreground",
-                                  "content": "Should VAT round per invoice line or on the invoice total?",
-                                  "fontFamily": "$S:font-sans",
-                                  "fontSize": "$S:text-title-sm",
-                                  "fontWeight": "600"
-                                },
-                                {
-                                  "type": "text",
-                                  "id": "ffl2C",
-                                  "name": "Context",
-                                  "fill": "$S:muted-foreground",
-                                  "textGrowth": "fixed-width",
-                                  "width": "fill_container",
-                                  "content": "Dutch rules allow both. Per line matches what Moneybird reports; per total differs by €0.01 on 4 of the 212 test invoices.",
-                                  "lineHeight": 1.5,
-                                  "fontFamily": "$S:font-sans",
-                                  "fontSize": "$S:text-body",
-                                  "fontWeight": "normal"
-                                },
-                                {
                                   "type": "frame",
-                                  "id": "ZUqmy",
-                                  "name": "Options",
+                                  "id": "ma7hN",
+                                  "name": "Prop Project",
                                   "width": "fill_container",
-                                  "layout": "vertical",
-                                  "gap": 6,
-                                  "children": [
-                                    {
-                                      "id": "AZUhC",
-                                      "type": "ref",
-                                      "ref": "S:MbIFd",
-                                      "name": "Option Per invoice line",
-                                      "width": "fill_container",
-                                      "descendants": {
-                                        "S:j77Y1L": {
-                                          "content": "Per invoice line"
-                                        },
-                                        "S:OHBpa": {
-                                          "enabled": true
-                                        },
-                                        "S:OHBpa/S:GSYa4": {
-                                          "content": "Suggested"
-                                        },
-                                        "S:X5kK4/S:Qnm6Q": {
-                                          "content": "1"
-                                        }
-                                      }
-                                    },
-                                    {
-                                      "id": "H7e0sy",
-                                      "type": "ref",
-                                      "ref": "S:MbIFd",
-                                      "name": "Option On the invoice total",
-                                      "width": "fill_container",
-                                      "descendants": {
-                                        "S:j77Y1L": {
-                                          "content": "On the invoice total"
-                                        },
-                                        "S:OHBpa": {
-                                          "enabled": false
-                                        },
-                                        "S:X5kK4/S:Qnm6Q": {
-                                          "content": "2"
-                                        }
-                                      }
-                                    },
-                                    {
-                                      "id": "BqyDg",
-                                      "type": "ref",
-                                      "ref": "S:MbIFd",
-                                      "name": "Option Other…",
-                                      "width": "fill_container",
-                                      "descendants": {
-                                        "S:j77Y1L": {
-                                          "content": "Other…"
-                                        },
-                                        "S:OHBpa": {
-                                          "enabled": false
-                                        },
-                                        "S:X5kK4/S:Qnm6Q": {
-                                          "content": "3"
-                                        }
-                                      }
-                                    }
-                                  ]
-                                },
-                                {
-                                  "type": "frame",
-                                  "id": "Q2vznf",
-                                  "name": "Footer",
-                                  "width": "fill_container",
-                                  "gap": 4,
+                                  "height": 32,
+                                  "cornerRadius": 6,
+                                  "gap": 8,
                                   "padding": [
-                                    4,
                                     0,
-                                    0,
-                                    0
+                                    8
                                   ],
                                   "alignItems": "center",
                                   "children": [
                                     {
-                                      "id": "nvkGC",
-                                      "type": "ref",
-                                      "ref": "S:GlbnA",
-                                      "name": "Button Add a note",
-                                      "descendants": {
-                                        "S:jrrID": {
-                                          "icon": "notebook-pen"
-                                        },
-                                        "S:zc0if": {
-                                          "content": "Add a note"
-                                        }
-                                      }
-                                    },
-                                    {
-                                      "id": "ICEex",
-                                      "type": "ref",
-                                      "ref": "S:GlbnA",
-                                      "name": "Button Ask back",
-                                      "descendants": {
-                                        "S:jrrID": {
-                                          "icon": "reply"
-                                        },
-                                        "S:zc0if": {
-                                          "content": "Ask back"
-                                        }
-                                      }
-                                    },
-                                    {
-                                      "id": "YjNiU",
-                                      "type": "ref",
-                                      "ref": "S:GlbnA",
-                                      "name": "Button Reassign",
-                                      "descendants": {
-                                        "S:jrrID": {
-                                          "icon": "user-round-plus"
-                                        },
-                                        "S:zc0if": {
-                                          "content": "Reassign"
-                                        }
-                                      }
-                                    },
-                                    {
                                       "type": "frame",
-                                      "id": "yCt4N",
-                                      "name": "Spacer",
-                                      "width": "fill_container",
-                                      "height": 1
+                                      "id": "RCpG1",
+                                      "name": "Key",
+                                      "width": 100,
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "du0o6",
+                                          "name": "Text",
+                                          "fill": "$S:muted-foreground",
+                                          "content": "Project",
+                                          "fontFamily": "$S:font-sans",
+                                          "fontSize": "$S:text-caption",
+                                          "fontWeight": "normal"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "icon",
+                                      "id": "C7iRAW",
+                                      "name": "folder",
+                                      "width": 14,
+                                      "height": 14,
+                                      "icon": "folder",
+                                      "library": "lucide",
+                                      "fill": "$S:muted-foreground"
                                     },
                                     {
                                       "type": "text",
-                                      "id": "Xm2YQ",
+                                      "id": "bVbXq",
+                                      "name": "Text",
+                                      "fill": "$S:foreground",
+                                      "content": "Billing",
+                                      "fontFamily": "$S:font-sans",
+                                      "fontSize": "$S:text-label",
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "neYSt",
+                                  "name": "Prop Priority",
+                                  "width": "fill_container",
+                                  "height": 32,
+                                  "cornerRadius": 6,
+                                  "gap": 8,
+                                  "padding": [
+                                    0,
+                                    8
+                                  ],
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "P3XmMi",
+                                      "name": "Key",
+                                      "width": 100,
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "I17Wv",
+                                          "name": "Text",
+                                          "fill": "$S:muted-foreground",
+                                          "content": "Priority",
+                                          "fontFamily": "$S:font-sans",
+                                          "fontSize": "$S:text-caption",
+                                          "fontWeight": "normal"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "id": "DUYL6",
+                                      "type": "ref",
+                                      "ref": "S:MBVlP",
+                                      "name": "Priority icon"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "Z2UFlz",
+                                      "name": "Text",
+                                      "fill": "$S:foreground",
+                                      "content": "High",
+                                      "fontFamily": "$S:font-sans",
+                                      "fontSize": "$S:text-label",
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "fiAdu",
+                                  "name": "Prop Questions",
+                                  "width": "fill_container",
+                                  "height": 32,
+                                  "cornerRadius": 6,
+                                  "gap": 8,
+                                  "padding": [
+                                    0,
+                                    8
+                                  ],
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "t20Ey",
+                                      "name": "Key",
+                                      "width": 100,
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "UmE0Y",
+                                          "name": "Text",
+                                          "fill": "$S:muted-foreground",
+                                          "content": "Questions",
+                                          "fontFamily": "$S:font-sans",
+                                          "fontSize": "$S:text-caption",
+                                          "fontWeight": "normal"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "icon",
+                                      "id": "gICBG",
+                                      "name": "message-circle-question-mark",
+                                      "width": 14,
+                                      "height": 14,
+                                      "icon": "message-circle-question-mark",
+                                      "library": "lucide",
+                                      "fill": "$S:brand"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "E23G9",
+                                      "name": "Text",
+                                      "fill": "$S:brand",
+                                      "content": "1 open",
+                                      "fontFamily": "$S:font-sans",
+                                      "fontSize": "$S:text-label",
+                                      "fontWeight": "500"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "bH0YQ",
                                       "name": "Text",
                                       "fill": "$S:muted-foreground",
-                                      "content": "Asked to",
+                                      "content": "·",
                                       "fontFamily": "$S:font-sans",
-                                      "fontSize": "$S:text-caption",
+                                      "fontSize": "$S:text-label",
                                       "fontWeight": "normal"
                                     },
                                     {
-                                      "id": "t2y4j",
-                                      "type": "ref",
-                                      "ref": "S:UEn9u",
-                                      "name": "Avatar BV",
-                                      "fill": "$S:chart-3",
-                                      "descendants": {
-                                        "S:Ugbzg": {
-                                          "content": "BV"
-                                        }
-                                      }
-                                    },
+                                      "type": "text",
+                                      "id": "iArZn",
+                                      "name": "Text",
+                                      "fill": "$S:destructive",
+                                      "content": "blocks work",
+                                      "fontFamily": "$S:font-sans",
+                                      "fontSize": "$S:text-label",
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "v4J0AS",
+                                  "name": "Prop Labels",
+                                  "width": "fill_container",
+                                  "height": 32,
+                                  "cornerRadius": 6,
+                                  "gap": 8,
+                                  "padding": [
+                                    0,
+                                    8
+                                  ],
+                                  "alignItems": "center",
+                                  "children": [
                                     {
                                       "type": "frame",
-                                      "id": "JH3uj",
-                                      "name": "g",
-                                      "width": 6,
-                                      "height": 1
+                                      "id": "B4dJw",
+                                      "name": "Key",
+                                      "width": 100,
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "NQ9mz",
+                                          "name": "Text",
+                                          "fill": "$S:muted-foreground",
+                                          "content": "Labels",
+                                          "fontFamily": "$S:font-sans",
+                                          "fontSize": "$S:text-caption",
+                                          "fontWeight": "normal"
+                                        }
+                                      ]
                                     },
                                     {
-                                      "id": "dnjW1",
+                                      "id": "s50k1R",
                                       "type": "ref",
-                                      "ref": "S:Ugg3j",
-                                      "name": "Button Accept suggestion",
+                                      "ref": "S:Lam3L",
+                                      "name": "Badge export",
                                       "descendants": {
-                                        "S:sP3ne": {
-                                          "icon": "check"
+                                        "S:a7j7d": {
+                                          "enabled": false
                                         },
-                                        "S:QwYQ9": {
-                                          "content": "Accept suggestion"
+                                        "S:hTh3P": {
+                                          "content": "export"
                                         }
                                       }
+                                    },
+                                    {
+                                      "id": "U2FAd",
+                                      "type": "ref",
+                                      "ref": "S:Lam3L",
+                                      "name": "Badge vat",
+                                      "descendants": {
+                                        "S:a7j7d": {
+                                          "enabled": false
+                                        },
+                                        "S:hTh3P": {
+                                          "content": "vat"
+                                        }
+                                      }
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "LsyeY",
+                                  "name": "Gap",
+                                  "width": 1,
+                                  "height": 12
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "C0kL6e",
+                                  "name": "Divider",
+                                  "width": "fill_container",
+                                  "height": 1,
+                                  "fill": "$S:border"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "T66Jb",
+                                  "name": "Gap",
+                                  "width": 1,
+                                  "height": 8
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "K55rY",
+                                  "name": "Runs head",
+                                  "width": "fill_container",
+                                  "height": 28,
+                                  "padding": [
+                                    0,
+                                    8
+                                  ],
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "P6W8vk",
+                                      "name": "Text",
+                                      "fill": "$S:muted-foreground",
+                                      "content": "Agent runs",
+                                      "fontFamily": "$S:font-sans",
+                                      "fontSize": "$S:text-caption",
+                                      "fontWeight": "500"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "kYICn",
+                                  "name": "Run Run #3",
+                                  "width": "fill_container",
+                                  "height": 32,
+                                  "gap": 8,
+                                  "padding": [
+                                    0,
+                                    8
+                                  ],
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "icon",
+                                      "id": "b6U7I",
+                                      "name": "circle-pause",
+                                      "width": 14,
+                                      "height": 14,
+                                      "icon": "circle-pause",
+                                      "library": "lucide",
+                                      "fill": "$S:warning"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "d2OsH0",
+                                      "name": "Text",
+                                      "fill": "$S:foreground",
+                                      "content": "Run #3",
+                                      "fontFamily": "$S:font-sans",
+                                      "fontSize": "$S:text-label",
+                                      "fontWeight": "500"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "yR7hG",
+                                      "name": "Text",
+                                      "fill": "$S:muted-foreground",
+                                      "content": "Ended with a question",
+                                      "fontFamily": "$S:font-sans",
+                                      "fontSize": "$S:text-caption",
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "RWS9j",
+                                  "name": "Run Run #2",
+                                  "width": "fill_container",
+                                  "height": 32,
+                                  "gap": 8,
+                                  "padding": [
+                                    0,
+                                    8
+                                  ],
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "icon",
+                                      "id": "A0sl78",
+                                      "name": "circle-check",
+                                      "width": 14,
+                                      "height": 14,
+                                      "icon": "circle-check",
+                                      "library": "lucide",
+                                      "fill": "$S:success"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "Ac79I",
+                                      "name": "Text",
+                                      "fill": "$S:foreground",
+                                      "content": "Run #2",
+                                      "fontFamily": "$S:font-sans",
+                                      "fontSize": "$S:text-label",
+                                      "fontWeight": "500"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "gKkpd",
+                                      "name": "Text",
+                                      "fill": "$S:muted-foreground",
+                                      "content": "Completed · 2 h ago",
+                                      "fontFamily": "$S:font-sans",
+                                      "fontSize": "$S:text-caption",
+                                      "fontWeight": "normal"
                                     }
                                   ]
                                 }

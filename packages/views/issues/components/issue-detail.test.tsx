@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useRef, useState, useImperativeHandle } from "react";
+import { forwardRef, useEffect, useRef, useState, useImperativeHandle, type ComponentProps } from "react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -561,13 +561,18 @@ vi.mock("sonner", () => ({
   toast: { error: vi.fn(), success: vi.fn() },
 }));
 
-// Mock react-resizable-panels (used by @multica/ui/components/ui/resizable)
+// Mock react-resizable-panels (used by @multica/ui/components/ui/resizable).
+// `sidebarPanel` stands in for the sidebar panel's imperative handle, with
+// `collapsed` as the size its saved layout restored.
+const sidebarPanel = vi.hoisted(() => ({ collapsed: false, expand: vi.fn() }));
 vi.mock("react-resizable-panels", () => ({
   Group: ({ children, ...props }: any) => <div data-testid="panel-group" {...props}>{children}</div>,
   Panel: ({ children, ...props }: any) => <div data-testid="panel" {...props}>{children}</div>,
   Separator: ({ children, ...props }: any) => <div data-testid="panel-handle" {...props}>{children}</div>,
   useDefaultLayout: () => ({ defaultLayout: undefined, onLayoutChanged: vi.fn() }),
-  usePanelRef: () => ({ current: { isCollapsed: () => false, expand: vi.fn(), collapse: vi.fn() } }),
+  usePanelRef: () => ({
+    current: { isCollapsed: () => sidebarPanel.collapsed, expand: sidebarPanel.expand, collapse: vi.fn() },
+  }),
 }));
 
 // ---------------------------------------------------------------------------
@@ -630,6 +635,7 @@ const mockTimeline: TimelineEntry[] = [
 // ---------------------------------------------------------------------------
 
 import { IssueDetail, groupSubIssuesByStage } from "./issue-detail";
+import { ScrollRestorationProvider, type ScrollRestorationAdapter } from "../../platform";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -727,6 +733,7 @@ describe("IssueDetail (shared)", () => {
     readonlyContentRenders.length = 0;
     descriptionSelectionAction.current = undefined;
     mockViewport.isMobile = false;
+    sidebarPanel.collapsed = false;
     // Default: issue loads successfully
     mockApiObj.getIssue.mockResolvedValue(mockIssue);
     // /timeline returns the entries flat in chronological order (oldest first).
@@ -2584,6 +2591,73 @@ describe("IssueDetail (shared)", () => {
           document.getElementById("comment-reply-1")?.className,
         ).toContain("bg-[color-mix(in_srgb,var(--card)_95%,var(--brand)_5%)]");
       });
+    });
+  });
+
+  describe("openSidebarOnLanding", () => {
+    function renderLanding(props: Partial<ComponentProps<typeof IssueDetail>>, adapter?: ScrollRestorationAdapter) {
+      const queryClient = createTestQueryClient();
+      const ui = (next: Partial<ComponentProps<typeof IssueDetail>>) => {
+        const detail = <IssueDetail issueId="issue-1" {...next} />;
+        return (
+          <I18nProvider locale="en" resources={TEST_RESOURCES}>
+            <QueryClientProvider client={queryClient}>
+              {adapter ? <ScrollRestorationProvider adapter={adapter}>{detail}</ScrollRestorationProvider> : detail}
+            </QueryClientProvider>
+          </I18nProvider>
+        );
+      };
+      const result = render(ui(props));
+      return { rerender: (next: Partial<ComponentProps<typeof IssueDetail>>) => result.rerender(ui(next)) };
+    }
+
+    // Lets the frame the sidebar would open in pass.
+    async function frameLater() {
+      const { promise, resolve } = Promise.withResolvers<number>();
+      requestAnimationFrame(resolve);
+      await act(() => promise);
+    }
+
+    it("opens a sidebar its saved layout collapsed when the landing runs", async () => {
+      sidebarPanel.collapsed = true;
+      renderLanding({ openSidebarOnLanding: true, highlightCommentId: "comment-2" });
+
+      await waitFor(() => expect(sidebarPanel.expand).toHaveBeenCalledTimes(1));
+    });
+
+    it("opens it again on the mounted detail for each new landing, once per landing", async () => {
+      sidebarPanel.collapsed = true;
+      const { rerender } = renderLanding({ openSidebarOnLanding: true, highlightCommentId: "comment-2", highlightRequestToken: 0 });
+      await waitFor(() => expect(sidebarPanel.expand).toHaveBeenCalledTimes(1));
+
+      // The reader collapses it again; a re-render of the same landing leaves it.
+      rerender({ openSidebarOnLanding: true, highlightCommentId: "comment-2", highlightRequestToken: 0 });
+      // A replay of the same target, then a landing on another target.
+      rerender({ openSidebarOnLanding: true, highlightCommentId: "comment-2", highlightRequestToken: 1 });
+      await waitFor(() => expect(sidebarPanel.expand).toHaveBeenCalledTimes(2));
+      rerender({ openSidebarOnLanding: true, highlightCommentId: "comment-1", highlightRequestToken: 1 });
+      await waitFor(() => expect(sidebarPanel.expand).toHaveBeenCalledTimes(3));
+    });
+
+    it("keeps the sidebar of a restored view whose landing already ran", async () => {
+      sidebarPanel.collapsed = true;
+      renderLanding(
+        { openSidebarOnLanding: true, highlightCommentId: "comment-2" },
+        { get: () => undefined, getViewState: (key) => (key === "highlight:issue-1" ? "comment-2" : undefined), setViewState: vi.fn() },
+      );
+
+      await waitFor(() => expect(document.getElementById("comment-comment-2")).not.toBeNull());
+      await frameLater();
+      expect(sidebarPanel.expand).not.toHaveBeenCalled();
+    });
+
+    it("leaves the saved layout's sidebar on a landing without it", async () => {
+      sidebarPanel.collapsed = true;
+      renderLanding({ highlightCommentId: "comment-2" });
+
+      await waitFor(() => expect(hasHighlightedCommentBackground(document.getElementById("comment-comment-2"))).toBe(true));
+      await frameLater();
+      expect(sidebarPanel.expand).not.toHaveBeenCalled();
     });
   });
 

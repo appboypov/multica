@@ -92,7 +92,7 @@ The kinds, their icon and when they leave:
 
 ## Detail pane
 
-Selecting a row opens its detail on the right.
+Selecting a row opens its detail on the right. A question on an issue opens that issue instead.
 
 | Part | What it shows |
 |---|---|
@@ -101,7 +101,7 @@ Selecting a row opens its detail on the right.
 | Leaves line | One line in `faint-foreground` that says what makes the to-do leave, such as "Leaves your inbox once you comment on WORK-418." |
 | Body | What the member acts on, per kind, below. |
 
-- **Question or approval** (screen 1): the question card, answered in place. Yes / No, Single choice and Approval questions can be answered here; the other types open on the issue.
+- **Question or approval** (screen 1): the issue it is on, as on the issue's own page, with the sidebar open at Properties. The timeline lands on the question card and the card is answered there. Each selection of the row lands on the card again, also on the row that is already selected.
 - **Mention** (screen 2): the comment that mentions the member, outlined in `brand`, under the comment before it, with a reply box. Sending the reply handles the to-do.
 - **Waiting for your review** (screen 3): the issue's status and that the member created it, the pull request with its checks and **Open pull request**, the latest comment and a comment box.
 - **Agent blocked or run failed** (screen 4): the run row with **Blocked** or **Failed**, the agent's last comment and a comment box.
