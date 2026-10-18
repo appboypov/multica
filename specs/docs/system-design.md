@@ -33,7 +33,7 @@ Owner changes cancel unstarted runs; started runs keep their result surface. Cla
 
 ### Client read contracts
 
-`server/internal/handler/client_read.go` maps scoped query rows to the response models of [Client read contracts](../../prototypes/system/#/srv-client-read). Wait detail returns `ClientWaitResponse` directly; lists include the visible total before pagination.
+`server/internal/handler/client_read.go` maps scoped query rows to the response models of [Client read contracts](../../prototypes/system/#/srv-client-read). A wait is an open issue assigned to the client's member in one of the client's organisations, of any type and with any labels. Wait detail returns `ClientWaitResponse` directly; lists include the visible total before pagination.
 
 ### Question contracts
 
