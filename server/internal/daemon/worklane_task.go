@@ -22,8 +22,8 @@ func (e *worklaneBranchHeldError) Error() string { return e.message }
 func (e *worklaneBranchHeldError) Unwrap() error { return errWorklaneBranchHeld }
 
 // worklaneTaskPath resolves the PR destination before taking any task lock,
-// including when the linked PR's worktree has not been created yet. A
-// repository that works in its checkout (ADR-0031) always gets the checkout.
+// including when the linked PR's worktree has not been created yet. A task
+// with InCheckout (ADR-0031, ADR-0032) always gets the checkout.
 func worklaneTaskPath(ctx context.Context, task Task, repo protocol.ClaimRepository) (string, error) {
 	path, err := execenv.ExpandWorklanePath(repo.Worklane.Path)
 	if err != nil {
