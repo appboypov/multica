@@ -14,6 +14,7 @@ from unittest import mock
 
 SCRIPTS = Path(__file__).resolve().parents[2] / "server/internal/service/builtin_skills/multica-platform/scripts"
 sys.path.insert(0, str(SCRIPTS))
+import ticket_sources  # noqa: E402
 import tickets  # noqa: E402
 
 PROJECT = "project-shop"
@@ -210,7 +211,8 @@ class TreeCase(unittest.TestCase):
     def run_cli(self, *args, cwd=None):
         self.state_file.write_text(json.dumps(self.state), encoding="utf-8")
         out, err = io.StringIO(), io.StringIO()
-        for cached in (tickets.merged_archives, tickets.github_repo, tickets.lane_repositories, tickets.repository_id):
+        for cached in (ticket_sources.merged_archives, ticket_sources.github_repo, ticket_sources.lane_repositories,
+                       ticket_sources.repository_id):
             cached.cache_clear()  # each command is a run of its own
         with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err), contextlib.chdir(cwd or self.root):
             code = tickets.main([str(a) for a in args])
