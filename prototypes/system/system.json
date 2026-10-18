@@ -810,7 +810,8 @@
     "title": "Services",
     "description": "Business rules behind the handlers",
     "question": "Which service decides what happens?",
-    "base": "server/internal/"
+    "base": "server/internal/",
+    "view": "paths"
    }
   },
   {
@@ -3358,8 +3359,17 @@
    "to": "srv-decider-listeners",
    "line": "event",
    "data": "issue status",
-   "trigger": "status changes",
+   "trigger": "status change",
    "event": "issue:updated"
+  },
+  {
+   "id": "srv-bus--srv-decider-release-join",
+   "from": "srv-bus",
+   "to": "srv-decider-listeners",
+   "line": "event",
+   "data": "release membership",
+   "trigger": "release join",
+   "event": "issue:release_joined"
   },
   {
    "id": "srv-decider-listeners--srv-decider",
@@ -3374,7 +3384,7 @@
    "from": "srv-decider",
    "to": "typesafe",
    "line": "call",
-   "data": "choice prompt",
+   "data": "choice criteria · squad UUIDs",
    "trigger": "routine decision"
   },
   {
@@ -3382,8 +3392,24 @@
    "from": "srv-decider",
    "to": "postgres",
    "line": "data",
-   "data": "routine decision",
-   "trigger": "receipt"
+   "data": "squad assignment · decision receipt",
+   "trigger": "confirmed or automatic choice"
+  },
+  {
+   "id": "srv-questions--srv-decider",
+   "from": "srv-questions",
+   "to": "srv-decider",
+   "line": "call",
+   "data": "selected squad UUID",
+   "trigger": "confirmation answer or edit"
+  },
+  {
+   "id": "srv-decider--srv-tasks",
+   "from": "srv-decider",
+   "to": "srv-tasks",
+   "line": "call",
+   "data": "leader task · terminal settlement",
+   "trigger": "cancel previous task before squad replacement"
   },
   {
    "id": "srv-bus--srv-notification-listeners",

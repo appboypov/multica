@@ -151,6 +151,26 @@ func (s *DeciderService) input(ctx context.Context, tx pgx.Tx, issue db.Issue, s
 		if rule.Status != "" && current.Status != rule.Status {
 			return in, false, nil
 		}
+		if rule.Decision == "squad" {
+			// Only work nobody holds yet gets a squad: a sub-issue belongs to
+			// its worker and an assigned issue to its assignee.
+			if current.AssigneeType.Valid || current.ParentIssueID.Valid {
+				return in, false, nil
+			}
+			squads, err := q.ListSquads(ctx, issue.WorkspaceID)
+			if err != nil {
+				return in, false, err
+			}
+			if len(squads) == 0 {
+				return in, false, nil
+			}
+			in.Rule.Squads = make(map[string]deciderSquadOption, len(squads))
+			for _, squad := range squads {
+				in.Rule.Squads[util.UUIDToString(squad.ID)] = deciderSquadOption{Name: squad.Name, Description: squad.Description}
+			}
+			in.Issue = current
+			return in, true, nil
+		}
 		var properties map[string]json.RawMessage
 		if err := json.Unmarshal(current.Properties, &properties); err != nil {
 			return in, false, err
@@ -159,7 +179,7 @@ func (s *DeciderService) input(ctx context.Context, tx pgx.Tx, issue db.Issue, s
 		_ = json.Unmarshal(properties[rule.PostMergeProperty], &postMerge)
 		var kind string
 		_ = json.Unmarshal(properties[rule.KindProperty], &kind)
-		if current.Type.String != "bug" || !postMerge || rule.LeadByKind[kind] == "" {
+		if current.Type.String != "bug" || !postMerge || rule.SquadByKind[kind] == "" {
 			return in, false, nil
 		}
 		in.Issue = current
@@ -193,11 +213,11 @@ func (s *DeciderService) start(ctx context.Context, issue db.Issue, settings Dec
 	if err = tx.Commit(ctx); err != nil {
 		return err
 	}
-	answer, err := s.Judge.Decide(ctx, rule, state)
+	answer, err := s.Judge.Decide(ctx, in.Rule, state)
 	if err != nil {
 		return s.finish(ctx, key, DeciderAnswer{}, "Jev", "Decision failed: "+err.Error())
 	}
-	if err = answer.validate(rule); err != nil {
+	if err = answer.validate(in.Rule); err != nil {
 		return s.finish(ctx, key, DeciderAnswer{}, "Jev", "Decision failed: invalid typed answer")
 	}
 	tx, err = s.TxStarter.Begin(ctx)
@@ -358,7 +378,7 @@ func (s *DeciderService) finish(ctx context.Context, key string, answer DeciderA
 	if strings.HasPrefix(actor, "Decider agent") && confidence.Valid {
 		maker += fmt.Sprintf("; Jev confidence %.3f", confidence.Float64)
 	}
-	body := fmt.Sprintf("Routine decision %s by %s: %s. Reason: %s", in.Rule.ID, maker, answer.Choice, in.Rule.Reasons[answer.Reason])
+	body := fmt.Sprintf("Routine decision %s by %s: %s. Reason: %s", in.Rule.ID, maker, in.Rule.choiceLabel(answer.Choice), in.Rule.Reasons[answer.Reason])
 	outcome = "applied"
 	if failure != "" {
 		body = "Routine decision " + in.Rule.ID + " by " + actor + ". " + failure

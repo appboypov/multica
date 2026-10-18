@@ -34,7 +34,14 @@ type DeciderRule struct {
 	Reasons           map[string]string `json:"reasons"`
 	PostMergeProperty string            `json:"post_merge_property,omitempty"`
 	KindProperty      string            `json:"kind_property,omitempty"`
-	LeadByKind        map[string]string `json:"lead_by_kind,omitempty"`
+	SquadByKind       map[string]string `json:"squad_by_kind,omitempty"`
+	// Squads holds active workspace squads by UUID for this decision snapshot.
+	Squads map[string]deciderSquadOption `json:"squads,omitempty"`
+}
+
+type deciderSquadOption struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
 }
 
 func ParseDeciderSettings(settings []byte) (DeciderSettings, error) {
@@ -68,7 +75,7 @@ func ParseDeciderSettings(settings []byte) (DeciderSettings, error) {
 		if r.Event == "status_entered" && r.Status == "" {
 			return s, errors.New("status_entered needs a status")
 		}
-		if r.Decision != "bug" && r.Decision != "release" {
+		if r.Decision != "bug" && r.Decision != "release" && r.Decision != "squad" {
 			return s, errors.New("invalid decider decision")
 		}
 		for id, reason := range r.Reasons {
@@ -82,12 +89,12 @@ func ParseDeciderSettings(settings []byte) (DeciderSettings, error) {
 					return s, errors.New("bug rules need property UUIDs")
 				}
 			}
-			if len(r.LeadByKind) == 0 {
-				return s, errors.New("bug rules need kind leads")
+			if len(r.SquadByKind) == 0 {
+				return s, errors.New("bug rules need kind squads")
 			}
-			for _, id := range r.LeadByKind {
+			for _, id := range r.SquadByKind {
 				if _, err := util.ParseUUID(id); err != nil {
-					return s, errors.New("kind leads must be agent UUIDs")
+					return s, errors.New("kind squads must be squad UUIDs")
 				}
 			}
 		}
@@ -148,10 +155,24 @@ func (s DeciderSettings) threshold() float64 {
 	return DeciderDefaultConfidence
 }
 func (r DeciderRule) options() map[string]string {
-	if r.Decision == "bug" {
-		return map[string]string{"fix_now": "Fix this post-merge bug now through its kind's lead", "fix_later": "Keep this bug in backlog and ask Brian to plan it"}
+	switch r.Decision {
+	case "bug":
+		return map[string]string{"fix_now": "Fix this post-merge bug now through its kind's squad", "fix_later": "Keep this bug in backlog and ask Brian to plan it"}
+	case "squad":
+		options := make(map[string]string, len(r.Squads))
+		for id, squad := range r.Squads {
+			options[id] = squad.Name + ": " + squad.Description
+		}
+		return options
 	}
 	return map[string]string{"ready": "Ready for Brian's release check", "not_yet": "Not ready for Brian's release check"}
+}
+
+func (r DeciderRule) choiceLabel(choice string) string {
+	if r.Decision == "squad" {
+		return fmt.Sprintf("%s (%s)", r.Squads[choice].Name, choice)
+	}
+	return choice
 }
 
 type DeciderAnswer struct {

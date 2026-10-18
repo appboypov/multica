@@ -54,14 +54,25 @@ func (s *DeciderService) openConfirmation(ctx context.Context, tx pgx.Tx, key st
 	if mode == "after" {
 		phase = "Automatic choice applied. This is the fifth-choice sample. Your correction will change its outcome."
 	}
-	prompt := fmt.Sprintf("%s\nProposed choice: %s. Made by %s. Jev confidence: %.3f.\nReason: %s\n%s\nSelect the proposed choice to agree, or the other choice to correct it. Add a note to explain your correction.\nAgreement record: %d agreed, %d corrected. Threshold: %.3f. Only you change the threshold or end the start period.", in.Rule.Question, answer.Choice, maker, confidence, in.Rule.Reasons[answer.Reason], phase, agreed, corrected, threshold)
+	proposed := in.Rule.choiceLabel(answer.Choice)
+	prompt := fmt.Sprintf("%s\nProposed choice: %s. Made by %s. Jev confidence: %.3f.\nReason: %s\n%s\nSelect the proposed choice to agree, or the other choice to correct it. Add a note to explain your correction.\nAgreement record: %d agreed, %d corrected. Threshold: %.3f. Only you change the threshold or end the start period.", in.Rule.Question, proposed, maker, confidence, in.Rule.Reasons[answer.Reason], phase, agreed, corrected, threshold)
 	options := make([]string, 0, 2)
 	for option := range in.Rule.options() {
-		options = append(options, option)
+		options = append(options, in.Rule.choiceLabel(option))
 	}
 	sort.Strings(options)
+	if in.Rule.Decision == "squad" {
+		descriptions := make([]string, 0, len(in.Rule.Squads))
+		for id, squad := range in.Rule.Squads {
+			descriptions = append(descriptions, in.Rule.choiceLabel(id)+": "+squad.Description)
+		}
+		sort.Strings(descriptions)
+		for _, description := range descriptions {
+			prompt += "\n" + description
+		}
+	}
 	settings, _ := json.Marshal(question.SingleChoiceAnswerSettings{Options: options})
-	suggestion, _ := json.Marshal(question.SingleChoiceAnswerValue{Option: &answer.Choice})
+	suggestion, _ := json.Marshal(question.SingleChoiceAnswerValue{Option: &proposed})
 	id := dbid.NewV7()
 	row, err := q.CreateQuestion(ctx, db.CreateQuestionParams{ID: id, WorkspaceID: in.Issue.WorkspaceID, AskerUserID: member, Prompt: prompt, ContextLine: pgtype.Text{String: "Brian's routine decision check", Valid: true}, AnswerType: question.TypeSingleChoice, Settings: settings, SuggestedAnswer: suggestion, AskID: id, AnswerPolicy: question.PolicyEach})
 	if err != nil {
@@ -79,7 +90,7 @@ func (s *DeciderService) openConfirmation(ctx context.Context, tx pgx.Tx, key st
 		return err
 	}
 	details, _ := json.Marshal(map[string]any{"routine_decision_id": key, "review_mode": mode, "jev_confidence": confidence})
-	opened, err := q.OpenTodo(ctx, db.OpenTodoParams{ID: dbid.NewV7(), WorkspaceID: in.Issue.WorkspaceID, MemberID: member, Kind: todo.Question, SourceKey: util.UUIDToString(id), IssueID: in.Issue.ID, QuestionID: id, Title: "Confirm routine choice: " + answer.Choice, Body: pgtype.Text{String: prompt, Valid: true}, Details: details})
+	opened, err := q.OpenTodo(ctx, db.OpenTodoParams{ID: dbid.NewV7(), WorkspaceID: in.Issue.WorkspaceID, MemberID: member, Kind: todo.Question, SourceKey: util.UUIDToString(id), IssueID: in.Issue.ID, QuestionID: id, Title: "Confirm routine choice: " + proposed, Body: pgtype.Text{String: prompt, Valid: true}, Details: details})
 	if err != nil {
 		return err
 	}
@@ -103,7 +114,7 @@ func (s *DeciderService) applyChoice(ctx context.Context, tx pgx.Tx, key string,
 		}
 		effects.closed = append(effects.closed, closed...)
 	}
-	if choice == "fix_later" && workTask.Valid {
+	if workTask.Valid && (choice == "fix_later" || in.Rule.Decision == "squad") {
 		cancelled, err := q.CancelAgentTaskByUser(ctx, db.CancelAgentTaskByUserParams{ID: workTask, CancelledByType: pgtype.Text{String: "member", Valid: true}, CancelledByID: util.MustParseUUID(in.Settings.MemberID), CancelledByName: pgtype.Text{String: "Brian", Valid: true}})
 		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 			return err
@@ -116,42 +127,43 @@ func (s *DeciderService) applyChoice(ctx context.Context, tx pgx.Tx, key string,
 		}
 		workTask = pgtype.UUID{}
 	}
+	if in.Rule.Decision == "squad" {
+		squadID, err := util.ParseUUID(choice)
+		if err != nil {
+			return err
+		}
+		squad, err := deciderSquad(ctx, q, in.Issue.WorkspaceID, func(sq db.Squad) bool { return sq.ID == squadID })
+		if err != nil {
+			return err
+		}
+		if workTask, err = s.assignSquad(ctx, q, current, current.Status, squad, "This issue is your squad's work. "+reason, effects); err != nil {
+			return err
+		}
+	}
 	if in.Rule.Decision == "bug" {
-		status := "backlog"
-		assigneeType, assigneeID := in.Issue.AssigneeType, in.Issue.AssigneeID
 		if choice == "fix_now" {
-			status = "todo"
 			var props map[string]json.RawMessage
 			_ = json.Unmarshal(current.Properties, &props)
 			var kind string
 			_ = json.Unmarshal(props[in.Rule.KindProperty], &kind)
-			leadID, err := util.ParseUUID(in.Rule.LeadByKind[kind])
+			squadID, err := util.ParseUUID(in.Rule.SquadByKind[kind])
 			if err != nil {
-				return errors.New("issue kind has no configured lead")
+				return errors.New("issue kind has no configured squad")
 			}
-			lead, err := q.GetAgent(ctx, leadID)
-			if err != nil {
-				return err
-			}
-			if lead.WorkspaceID != in.Issue.WorkspaceID || lead.ArchivedAt.Valid {
-				return errors.New("kind lead must be active in this workspace")
-			}
-			assigneeID = lead.ID
-			assigneeType = pgtype.Text{String: "agent", Valid: true}
-		}
-		effects.before = &current
-		updated, err := q.UpdateIssue(ctx, db.UpdateIssueParams{ID: current.ID, ExpectedRevision: pgtype.Int8{Int64: current.Revision, Valid: true}, Status: pgtype.Text{String: status, Valid: true}, AssigneeType: assigneeType, AssigneeID: assigneeID, StartDate: current.StartDate, DueDate: current.DueDate, ParentIssueID: current.ParentIssueID, ProjectID: current.ProjectID, Stage: current.Stage, AgentQuestions: current.AgentQuestions, DuplicateOfIssueID: current.DuplicateOfIssueID})
-		if err != nil {
-			return err
-		}
-		effects.updated = &updated
-		if choice == "fix_now" {
-			queued, err := s.Tasks.enqueueMentionTaskWithQueries(ctx, q, updated, assigneeID, pgtype.UUID{}, nil, false, pgtype.UUID{}, false, "Fix this post-merge bug. "+reason, pgtype.UUID{}, pgtype.UUID{}, OriginNamed, nil, false)
+			squad, err := deciderSquad(ctx, q, in.Issue.WorkspaceID, func(sq db.Squad) bool { return sq.ID == squadID })
 			if err != nil {
 				return err
 			}
-			workTask = queued.ID
-			effects.queued = append(effects.queued, queued)
+			if workTask, err = s.assignSquad(ctx, q, current, "todo", squad, "Fix this post-merge bug. "+reason, effects); err != nil {
+				return err
+			}
+		} else {
+			effects.before = &current
+			updated, err := q.UpdateIssue(ctx, db.UpdateIssueParams{ID: current.ID, ExpectedRevision: pgtype.Int8{Int64: current.Revision, Valid: true}, Status: pgtype.Text{String: "backlog", Valid: true}, AssigneeType: in.Issue.AssigneeType, AssigneeID: in.Issue.AssigneeID, StartDate: current.StartDate, DueDate: current.DueDate, ParentIssueID: current.ParentIssueID, ProjectID: current.ProjectID, Stage: current.Stage, AgentQuestions: current.AgentQuestions, DuplicateOfIssueID: current.DuplicateOfIssueID})
+			if err != nil {
+				return err
+			}
+			effects.updated = &updated
 		}
 	}
 	if choice == "fix_later" || choice == "ready" {
@@ -172,6 +184,48 @@ func (s *DeciderService) applyChoice(ctx context.Context, tx pgx.Tx, key string,
 	}
 	_, err := tx.Exec(ctx, `UPDATE routine_decision SET applied_choice=$2,work_task_id=$3,outcome='applied' WHERE id=$1`, key, choice, workTask)
 	return err
+}
+
+// deciderSquad finds the active squad that match accepts, with an active leader.
+func deciderSquad(ctx context.Context, q *db.Queries, workspaceID pgtype.UUID, match func(db.Squad) bool) (db.Squad, error) {
+	squads, err := q.ListSquads(ctx, workspaceID)
+	if err != nil {
+		return db.Squad{}, err
+	}
+	for _, squad := range squads {
+		if !match(squad) {
+			continue
+		}
+		leader, err := q.GetAgent(ctx, squad.LeaderID)
+		if err != nil {
+			return db.Squad{}, err
+		}
+		if leader.WorkspaceID != workspaceID || leader.ArchivedAt.Valid {
+			return db.Squad{}, errors.New("the chosen squad's leader must be active in this workspace")
+		}
+		return squad, nil
+	}
+	return db.Squad{}, errors.New("the chosen squad is not active in this workspace")
+}
+
+// assignSquad gives the issue to the squad with status and, outside backlog,
+// starts the squad leader's run, as assigning a squad by hand does.
+func (s *DeciderService) assignSquad(ctx context.Context, q *db.Queries, current db.Issue, status string, squad db.Squad, note string, effects *deciderEffects) (pgtype.UUID, error) {
+	effects.before = &current
+	updated, err := q.UpdateIssue(ctx, db.UpdateIssueParams{ID: current.ID, ExpectedRevision: pgtype.Int8{Int64: current.Revision, Valid: true}, Status: pgtype.Text{String: status, Valid: true}, AssigneeType: pgtype.Text{String: "squad", Valid: true}, AssigneeID: squad.ID, StartDate: current.StartDate, DueDate: current.DueDate, ParentIssueID: current.ParentIssueID, ProjectID: current.ProjectID, Stage: current.Stage, AgentQuestions: current.AgentQuestions, DuplicateOfIssueID: current.DuplicateOfIssueID})
+	if err != nil {
+		return pgtype.UUID{}, err
+	}
+	effects.updated = &updated
+	if status == "backlog" {
+		return pgtype.UUID{}, nil
+	}
+	queued, err := s.Tasks.enqueueMentionTaskWithQueries(ctx, q, updated, squad.LeaderID, pgtype.UUID{}, nil, true, squad.ID, false, note, pgtype.UUID{}, pgtype.UUID{}, OriginNamed, nil, false)
+	if err != nil {
+		return pgtype.UUID{}, err
+	}
+	effects.queued = append(effects.queued, queued)
+	return queued.ID, nil
 }
 
 // reviewConfirmation runs inside the question answer transaction.
@@ -216,10 +270,19 @@ func (s *DeciderService) reviewConfirmation(ctx context.Context, tx pgx.Tx, row 
 	for _, a := range answers {
 		if a.AnswererUserID == actor.ID {
 			var value question.SingleChoiceAnswerValue
-			if json.Unmarshal(a.Value, &value) != nil || value.Option == nil || in.Rule.options()[*value.Option] == "" {
+			if json.Unmarshal(a.Value, &value) != nil || value.Option == nil {
 				return nil, questionRefusal(422, "select a routine choice to confirm or correct it")
 			}
-			chosen, note = *value.Option, a.Note.String
+			for option := range in.Rule.options() {
+				if in.Rule.choiceLabel(option) == *value.Option {
+					chosen = option
+					break
+				}
+			}
+			if chosen == "" {
+				return nil, questionRefusal(422, "select a routine choice to confirm or correct it")
+			}
+			note = a.Note.String
 		}
 	}
 	if chosen == "" {
@@ -275,7 +338,7 @@ func (s *DeciderService) reviewConfirmation(ctx context.Context, tx pgx.Tx, row 
 	}
 	review := deciderReview{Verdict: verdict, Choice: chosen, Note: note, ProposedChoice: answer.Choice, Decider: maker, JevConfidence: confidence, MemberID: util.UUIDToString(actor.ID), AnsweredAt: time.Now().UTC()}
 	reviews = append(reviews, review)
-	body := fmt.Sprintf("Routine decision %s: Brian %s %s by %s (Jev confidence %.3f). Proposal reason: %s. Selected: %s. Note: %s", in.Rule.ID, verdict, answer.Choice, maker, confidence, in.Rule.Reasons[answer.Reason], chosen, note)
+	body := fmt.Sprintf("Routine decision %s: Brian %s %s by %s (Jev confidence %.3f). Proposal reason: %s. Selected: %s. Note: %s", in.Rule.ID, verdict, in.Rule.choiceLabel(answer.Choice), maker, confidence, in.Rule.Reasons[answer.Reason], in.Rule.choiceLabel(chosen), note)
 	if stale {
 		body += ". Not applied: the input changed."
 		if _, err = tx.Exec(ctx, `UPDATE routine_decision SET outcome='stale' WHERE id=$1`, key); err != nil {
@@ -284,7 +347,7 @@ func (s *DeciderService) reviewConfirmation(ctx context.Context, tx pgx.Tx, row 
 	} else if !applied.Valid || applied.String != chosen {
 		reason := in.Rule.Reasons[answer.Reason]
 		if chosen != answer.Choice {
-			reason = "Brian selected " + chosen
+			reason = "Brian selected " + in.Rule.choiceLabel(chosen)
 		}
 		if note != "" {
 			reason += ". " + note

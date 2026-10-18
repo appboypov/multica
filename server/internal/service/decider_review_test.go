@@ -46,7 +46,7 @@ func answerRoutine(t *testing.T, s *DeciderService, f *testutil.Fixture, id pgty
 func TestDeciderStartPeriodConfirmsBeforeApplying(t *testing.T) {
 	for _, selected := range []string{"fix_now", "fix_later"} {
 		t.Run(selected, func(t *testing.T) {
-			s, f, issue, lead, settings := deciderFixture(t, "fix_now", 0.96)
+			s, f, issue, _, settings := deciderFixture(t, "fix_now", 0.96)
 			settings.StartPeriod = nil
 			setDeciderPolicy(t, f, settings)
 			ctx := context.Background()
@@ -86,8 +86,8 @@ func TestDeciderStartPeriodConfirmsBeforeApplying(t *testing.T) {
 			if current.Status != wantStatus {
 				t.Fatalf("status=%s", current.Status)
 			}
-			if selected == "fix_now" && util.UUIDToString(current.AssigneeID) != lead {
-				t.Fatal("wrong kind lead")
+			if selected == "fix_now" && util.UUIDToString(current.AssigneeID) != settings.Rules[0].SquadByKind["backend"] {
+				t.Fatal("wrong kind squad")
 			}
 			if n := f.Count(t, `SELECT count(*) FROM agent_task_queue WHERE issue_id=$1`, issue); n != runs {
 				t.Fatalf("runs=%d", n)

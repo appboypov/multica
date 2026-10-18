@@ -9,10 +9,10 @@ Lets the server make routine choices on issues and releases by the workspace's r
 The server SHALL propose configured Jev choices only when action and reason confidence meet the workspace threshold. It SHALL wait for Brian's answer during the start period and apply choices automatically after Brian ends that period.
 
 #### Scenario: Confident bug choice
-- **GIVEN** a matching post-merge bug and a configured kind lead
+- **GIVEN** a matching post-merge bug and a configured kind squad
 - **AND** Brian has ended the start period
 - **WHEN** Jev selects fix_now and a reason at confidence 0.95
-- **THEN** the issue is todo, assigned to the lead and has a Jev audit comment
+- **THEN** the issue is todo, assigned to the squad, its leader's run is queued for the squad and the issue has a Jev audit comment
 
 ### Requirement: Uncertain choices use the Decider
 The server SHALL queue a Sonnet 5.5 Decider task for a low-confidence choice and route its valid answer through the same confirmation and action path, retaining Jev's confidence.
@@ -35,8 +35,29 @@ The server SHALL publish a release-join event only after committed membership ch
 - **WHEN** committed placement adds it to a release
 - **THEN** an issue:release_joined event names the workspace, issue and release
 
-### Requirement: Bug and release actions
-The server SHALL route fix-now to the mapped lead, fix-later to backlog and Brian's to-do inbox, and ready releases to Brian's release-check to-do inbox.
+### Requirement: Bug, squad and release actions
+The server SHALL route fix-now to the mapped kind's squad, fix-later to backlog and Brian's to-do inbox, a squad choice to the chosen squad and ready releases to Brian's release-check to-do inbox. A squad choice and a fix-now SHALL assign the issue to the squad and queue its leader's run for that squad. A squad rule SHALL offer the workspace's active squads as options with their descriptions as criteria. It SHALL skip issues that already have an assignee or a parent issue.
+
+#### Scenario: Squad for unassigned work
+- **GIVEN** a squad rule on entering todo and an unassigned top-level issue
+- **WHEN** the issue enters todo and the chosen squad is applied
+- **THEN** the issue is assigned to that squad and its leader's run is queued for the squad
+
+#### Scenario: Same-name squads
+- **GIVEN** two active squads with the same name and different leaders
+- **WHEN** Brian confirms or corrects a squad choice
+- **THEN** each option shows its name and unique identity with its description available
+- **AND** the receipt and leader task refer to the selected squad UUID
+
+#### Scenario: Squad choice on release join
+- **GIVEN** a squad rule on release_joined and unassigned top-level work
+- **WHEN** the issue joins a release
+- **THEN** the squad choice follows the workspace confirmation policy
+
+#### Scenario: Held work keeps its owner
+- **GIVEN** a squad rule on entering todo
+- **WHEN** an assigned issue or a sub-issue enters todo
+- **THEN** no squad decision is made
 
 #### Scenario: Release ready
 - **GIVEN** a nonempty unshipped release with every issue done
@@ -78,9 +99,15 @@ After the start period the server SHALL send every fifth automatic choice in the
 - **THEN** it is applied and Brian gets its confirmation question, while choices one through four have none
 
 #### Scenario: Brian corrects an applied fix-now
-- **GIVEN** an automatic fix-now choice opened a lead task
+- **GIVEN** an automatic fix-now choice opened a squad leader task
 - **WHEN** Brian selects fix-later on its sample question
-- **THEN** the issue returns to backlog, this decision's active lead task is cancelled and Brian gets the planning to-do
+- **THEN** the issue returns to backlog, this decision's active leader task is cancelled and Brian gets the planning to-do
+
+#### Scenario: Brian corrects an applied squad
+- **GIVEN** a confirmed or sampled squad choice has an active leader task
+- **WHEN** Brian selects another squad
+- **THEN** the decision's previous task is cancelled and settled before the replacement squad is assigned
+- **AND** the receipt tracks the replacement leader task without cancelling unrelated work
 
 ### Requirement: Durable agreement record
 The server SHALL append every answer as agreed or corrected with the original Jev confidence, maker and selected choice. A repeated identical answer SHALL have no duplicate effect. Answer edits SHALL retain earlier answers.

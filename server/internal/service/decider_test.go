@@ -56,9 +56,10 @@ func deciderFixture(t *testing.T, choice string, confidence float64) (*DeciderSe
 	runtime := f.Runtime(t, "Decider runtime")
 	agent := f.Agent(t, "Decider", runtime, testutil.Cols{"model": "claude-sonnet-5-5"})
 	lead := f.Agent(t, "Backend lead", runtime)
+	squad := f.Squad(t, "Backend", lead, testutil.Cols{"description": "Builds server code"})
 	postMerge := "11111111-1111-4111-8111-111111111111"
 	kind := "22222222-2222-4222-8222-222222222222"
-	rule := DeciderRule{ID: "post-merge", Event: "status_entered", Status: "backlog", Decision: "bug", Question: "Should this post-merge bug be fixed now or later?", Reasons: map[string]string{"urgent": "The bug blocks current work", "minor": "The bug can wait"}, PostMergeProperty: postMerge, KindProperty: kind, LeadByKind: map[string]string{"backend": lead}}
+	rule := DeciderRule{ID: "post-merge", Event: "status_entered", Status: "backlog", Decision: "bug", Question: "Should this post-merge bug be fixed now or later?", Reasons: map[string]string{"urgent": "The bug blocks current work", "minor": "The bug can wait"}, PostMergeProperty: postMerge, KindProperty: kind, SquadByKind: map[string]string{"backend": squad}}
 	start := false
 	settings := DeciderSettings{AgentID: agent, MemberID: f.UserID, StartPeriod: &start, Rules: []DeciderRule{rule}}
 	raw, _ := json.Marshal(map[string]any{"decider": settings})
@@ -76,7 +77,7 @@ func deciderFixture(t *testing.T, choice string, confidence float64) (*DeciderSe
 }
 
 func TestDeciderConfidentChoiceApplied(t *testing.T) {
-	s, f, id, lead, _ := deciderFixture(t, "fix_now", 0.96)
+	s, f, id, lead, settings := deciderFixture(t, "fix_now", 0.96)
 	if err := s.Handle(context.Background(), util.MustParseUUID(f.WorkspaceID), util.MustParseUUID(id), "status_entered"); err != nil {
 		t.Fatal(err)
 	}
@@ -84,16 +85,60 @@ func TestDeciderConfidentChoiceApplied(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if issue.Status != "todo" || util.UUIDToString(issue.AssigneeID) != lead {
+	if issue.Status != "todo" || issue.AssigneeType.String != "squad" || util.UUIDToString(issue.AssigneeID) != settings.Rules[0].SquadByKind["backend"] {
 		t.Fatalf("wrong fix-now outcome: %#v", issue)
 	}
-	if n := f.Count(t, `SELECT count(*) FROM agent_task_queue WHERE issue_id=$1 AND agent_id=$2`, id, lead); n != 1 {
-		t.Fatalf("lead runs=%d", n)
+	if n := f.Count(t, `SELECT count(*) FROM agent_task_queue WHERE issue_id=$1 AND agent_id=$2 AND squad_id=$3`, id, lead, settings.Rules[0].SquadByKind["backend"]); n != 1 {
+		t.Fatalf("squad leader runs=%d", n)
 	}
 	var body string
 	f.QueryRow(t, `SELECT content FROM comment WHERE issue_id=$1`, id).Scan(&body)
 	if !strings.Contains(body, "Jev (confidence 0.960)") || !strings.Contains(body, "blocks current work") {
 		t.Fatalf("missing audit: %s", body)
+	}
+}
+
+func TestDeciderSquadForUnassignedTodo(t *testing.T) {
+	s, f, parent, lead, settings := deciderFixture(t, "", 0.96)
+	f.Squad(t, "Design", lead, testutil.Cols{"description": "Designs screens"})
+	squad := settings.Rules[0].SquadByKind["backend"]
+	s.Judge = fakeDeciderJudge(t, squad, 0.96)
+	settings.StartPeriod = nil
+	settings.Rules = []DeciderRule{{ID: "todo-squad", Event: "status_entered", Status: "todo", Decision: "squad", Question: "Which squad takes this work?", Reasons: map[string]string{"urgent": "The work fits this squad", "minor": "Another squad fits better"}}}
+	setDeciderPolicy(t, f, settings)
+	ctx := context.Background()
+	open := f.Issue(t, "Login screen API", testutil.Cols{"status": "todo"})
+	held := f.Issue(t, "Held work", testutil.Cols{"status": "todo", "assignee_type": "agent", "assignee_id": lead})
+	sub := f.Issue(t, "Worker step", testutil.Cols{"status": "todo", "parent_issue_id": parent})
+	for _, id := range []string{open, held, sub} {
+		if err := s.Handle(ctx, util.MustParseUUID(f.WorkspaceID), util.MustParseUUID(id), "status_entered"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if n := f.Count(t, `SELECT count(*) FROM routine_decision WHERE issue_id = ANY($1::uuid[])`, []string{held, sub}); n != 0 {
+		t.Fatalf("held work got a squad decision: %d", n)
+	}
+	id := routineQuestion(t, f, open)
+	question, err := s.Queries.GetQuestion(ctx, db.GetQuestionParams{ID: id, WorkspaceID: util.MustParseUUID(f.WorkspaceID)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(question.Prompt, "Proposed choice: Backend") {
+		t.Fatalf("missing squad proposal: %s", question.Prompt)
+	}
+	if n := f.Count(t, `SELECT count(*) FROM agent_task_queue WHERE issue_id=$1`, open); n != 0 {
+		t.Fatalf("squad ran before yes: %d", n)
+	}
+	answerRoutine(t, s, f, id, fmt.Sprintf("Backend (%s)", squad), "")
+	issue, err := s.Queries.GetIssue(ctx, util.MustParseUUID(open))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if issue.Status != "todo" || issue.AssigneeType.String != "squad" || util.UUIDToString(issue.AssigneeID) != squad {
+		t.Fatalf("issue not with the squad: %#v", issue)
+	}
+	if n := f.Count(t, `SELECT count(*) FROM agent_task_queue WHERE issue_id=$1 AND agent_id=$2 AND squad_id=$3`, open, lead, squad); n != 1 {
+		t.Fatalf("squad leader runs=%d", n)
 	}
 }
 
