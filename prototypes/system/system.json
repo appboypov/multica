@@ -1,0 +1,8375 @@
+{
+ "product": {
+  "name": "Multica",
+  "source": "Multica fork · 39bbbce"
+ },
+ "world": {
+  "name": "Multica in its world",
+  "title": "Multica in its world",
+  "description": "Who and what touches it",
+  "question": "Who and what does Multica talk to?"
+ },
+ "parts": [
+  {
+   "id": "people",
+   "parent": null,
+   "name": "People",
+   "icon": "users",
+   "kind": "Actor",
+   "outside": true,
+   "note": "workspace members"
+  },
+  {
+   "id": "ai-agents",
+   "parent": null,
+   "name": "AI agents",
+   "icon": "bot",
+   "kind": "Actor",
+   "outside": true,
+   "note": "claude · codex · omp · …"
+  },
+  {
+   "id": "github",
+   "parent": null,
+   "name": "GitHub",
+   "icon": "git-pull-request",
+   "kind": "Outside",
+   "outside": true,
+   "note": "App webhooks · REST"
+  },
+  {
+   "id": "vcs",
+   "parent": null,
+   "name": "Forgejo, Gitea, GitLab",
+   "icon": "git-branch",
+   "kind": "Outside",
+   "outside": true,
+   "note": "webhooks · API"
+  },
+  {
+   "id": "chat",
+   "parent": null,
+   "name": "Chat platforms",
+   "icon": "message-circle",
+   "kind": "Outside",
+   "outside": true,
+   "note": "Slack · Lark · WeCom · …"
+  },
+  {
+   "id": "composio",
+   "parent": null,
+   "name": "Composio",
+   "icon": "plug",
+   "kind": "Outside",
+   "outside": true,
+   "note": "app connections · MCP"
+  },
+  {
+   "id": "llm-api",
+   "parent": null,
+   "name": "LLM API",
+   "icon": "sparkles",
+   "kind": "Outside",
+   "outside": true,
+   "note": "OpenAI-compatible"
+  },
+  {
+   "id": "typesafe",
+   "parent": null,
+   "name": "TypeSafe",
+   "icon": "binary",
+   "kind": "Outside",
+   "outside": true,
+   "note": "api.typesafe.ai"
+  },
+  {
+   "id": "email",
+   "parent": null,
+   "name": "Email",
+   "icon": "mail",
+   "kind": "Outside",
+   "outside": true,
+   "note": "Resend · SMTP"
+  },
+  {
+   "id": "google",
+   "parent": null,
+   "name": "Google OAuth",
+   "icon": "key-round",
+   "kind": "Outside",
+   "outside": true,
+   "note": "login"
+  },
+  {
+   "id": "multica-cloud",
+   "parent": null,
+   "name": "Multica Cloud",
+   "icon": "cloud",
+   "kind": "Outside",
+   "outside": true,
+   "note": "cloud runtime · billing"
+  },
+  {
+   "id": "posthog",
+   "parent": null,
+   "name": "PostHog",
+   "icon": "chart-line",
+   "kind": "Outside",
+   "outside": true,
+   "note": "product analytics"
+  },
+  {
+   "id": "object-storage",
+   "parent": null,
+   "name": "Object storage",
+   "icon": "hard-drive",
+   "kind": "Outside",
+   "outside": true,
+   "note": "S3-compatible"
+  },
+  {
+   "id": "anytype",
+   "parent": null,
+   "name": "Anytype brain",
+   "icon": "brain",
+   "kind": "Outside",
+   "outside": true,
+   "note": "Organisations · Products"
+  },
+  {
+   "id": "agents-repo",
+   "parent": null,
+   "name": "Agents repo",
+   "icon": "folder-git-2",
+   "kind": "Outside",
+   "outside": true,
+   "note": "~/Repos/Agents/*/agent.toml"
+  },
+  {
+   "id": "herdr",
+   "parent": null,
+   "name": "Herdr",
+   "icon": "panels-top-left",
+   "kind": "Outside",
+   "outside": true,
+   "note": "terminal panes"
+  },
+  {
+   "id": "multica",
+   "parent": null,
+   "name": "Multica",
+   "icon": "orbit",
+   "kind": "System",
+   "note": "issues · comments · runs",
+   "zoom": {
+    "name": "Inside Multica",
+    "title": "Inside Multica",
+    "description": "Where each part runs",
+    "question": "Where does each part of Multica run?"
+   }
+  },
+  {
+   "id": "madspec-sync",
+   "parent": "multica",
+   "name": "madspec-sync",
+   "icon": "refresh-cw",
+   "kind": "Tool",
+   "path": "madspec-sync/",
+   "zoom": {
+    "name": "madspec-sync",
+    "title": "madspec-sync",
+    "description": "Manual syncs from the brain and the Agents repo",
+    "question": "How do personas and products reach Multica?",
+    "base": "madspec-sync/"
+   }
+  },
+  {
+   "id": "runtime",
+   "parent": "multica",
+   "name": "Runtime machine",
+   "icon": "cpu",
+   "kind": "Platform",
+   "path": "server/cmd/multica/",
+   "zoom": {
+    "name": "Runtime machine",
+    "title": "Runtime machine",
+    "description": "The daemon and the CLI on a member's machine",
+    "question": "How does a runtime machine run agents?",
+    "base": "server/"
+   }
+  },
+  {
+   "id": "backend",
+   "parent": "multica",
+   "name": "Backend",
+   "icon": "server",
+   "kind": "Platform",
+   "path": "server/",
+   "zoom": {
+    "name": "Backend",
+    "title": "Backend",
+    "description": "The server and its stores",
+    "question": "What runs on the server side?",
+    "base": "server/"
+   }
+  },
+  {
+   "id": "clients",
+   "parent": "multica",
+   "name": "Clients",
+   "icon": "monitor-smartphone",
+   "kind": "Platform",
+   "path": "apps/",
+   "zoom": {
+    "name": "Clients",
+    "title": "Clients",
+    "description": "The apps people use and the packages they share",
+    "question": "How do the apps reach the server?",
+    "base": ""
+   }
+  },
+  {
+   "id": "server",
+   "parent": "backend",
+   "name": "Go server",
+   "icon": "server-cog",
+   "kind": "Service",
+   "path": "server/cmd/server/",
+   "zoom": {
+    "name": "Inside the Go server",
+    "title": "Inside the Go server",
+    "description": "Its parts, paths under server/",
+    "question": "Where does a request go inside the server?",
+    "base": "server/"
+   }
+  },
+  {
+   "id": "migrator",
+   "parent": "backend",
+   "name": "Migrator",
+   "icon": "arrow-up-from-line",
+   "kind": "Command",
+   "path": "server/cmd/migrate/main.go:824"
+  },
+  {
+   "id": "postgres",
+   "parent": "backend",
+   "name": "Postgres",
+   "icon": "database",
+   "kind": "Store",
+   "path": "server/migrations/",
+   "zoom": {
+    "name": "Models",
+    "title": "Models",
+    "description": "Tables and their relations, from server/migrations",
+    "question": "What does Multica store?",
+    "base": "server/"
+   }
+  },
+  {
+   "id": "redis",
+   "parent": "backend",
+   "name": "Redis",
+   "icon": "database-zap",
+   "kind": "Store",
+   "note": "optional relay · request stores"
+  },
+  {
+   "id": "web",
+   "parent": "clients",
+   "name": "Web app",
+   "icon": "globe",
+   "kind": "App",
+   "path": "apps/web/",
+   "zoom": {
+    "name": "Web app",
+    "title": "Web app",
+    "description": "Next.js routes around the shared views",
+    "question": "How does a browser reach the shared views?",
+    "base": "apps/web/"
+   }
+  },
+  {
+   "id": "desktop",
+   "parent": "clients",
+   "name": "Desktop app",
+   "icon": "monitor",
+   "kind": "App",
+   "path": "apps/desktop/",
+   "zoom": {
+    "name": "Desktop app",
+    "title": "Desktop app",
+    "description": "Electron main, preload and the renderer",
+    "question": "How does the desktop app run views and the daemon?",
+    "base": "apps/desktop/src/"
+   }
+  },
+  {
+   "id": "mobile",
+   "parent": "clients",
+   "name": "Mobile app",
+   "icon": "smartphone",
+   "kind": "App",
+   "path": "apps/mobile/",
+   "zoom": {
+    "name": "Mobile app",
+    "title": "Mobile app",
+    "description": "Expo app with its own data layer",
+    "question": "How does the mobile app read and stay live?",
+    "base": "apps/mobile/"
+   }
+  },
+  {
+   "id": "docs",
+   "parent": "clients",
+   "name": "Docs site",
+   "icon": "book-open",
+   "kind": "App",
+   "path": "apps/docs/app/[lang]/layout.tsx:60"
+  },
+  {
+   "id": "views",
+   "parent": "clients",
+   "name": "Shared views",
+   "icon": "layout-dashboard",
+   "kind": "Package",
+   "path": "packages/views/",
+   "zoom": {
+    "name": "Shared views",
+    "title": "Shared views",
+    "description": "Pages and business components for web and desktop",
+    "question": "Which views start the flows?",
+    "base": "packages/views/"
+   }
+  },
+  {
+   "id": "core",
+   "parent": "clients",
+   "name": "Core",
+   "icon": "boxes",
+   "kind": "Package",
+   "path": "packages/core/",
+   "zoom": {
+    "name": "Core",
+    "title": "Core",
+    "description": "API client, realtime and query state",
+    "question": "How do views talk to the server?",
+    "base": "packages/core/"
+   }
+  },
+  {
+   "id": "ui",
+   "parent": "clients",
+   "name": "UI primitives",
+   "icon": "component",
+   "kind": "Package",
+   "path": "packages/ui/components/ui/button.tsx:66"
+  },
+  {
+   "id": "plugin-sdk",
+   "parent": "clients",
+   "name": "Plugin SDK",
+   "icon": "puzzle",
+   "kind": "Package",
+   "path": "packages/plugin-sdk/index.ts:150"
+  },
+  {
+   "id": "web-proxy",
+   "parent": "web",
+   "name": "Proxy",
+   "icon": "shield-check",
+   "kind": "Function",
+   "path": "apps/web/proxy.ts:52"
+  },
+  {
+   "id": "web-workspace-layout",
+   "parent": "web",
+   "name": "Workspace layout",
+   "icon": "panels-top-left",
+   "kind": "Component",
+   "path": "apps/web/app/[workspaceSlug]/layout.tsx:16"
+  },
+  {
+   "id": "web-providers",
+   "parent": "web",
+   "name": "Web providers",
+   "icon": "layers",
+   "kind": "Component",
+   "path": "apps/web/components/web-providers.tsx:48"
+  },
+  {
+   "id": "web-navigation",
+   "parent": "web",
+   "name": "Web navigation",
+   "icon": "navigation",
+   "kind": "Component",
+   "path": "apps/web/platform/navigation.tsx:105"
+  },
+  {
+   "id": "desktop-main",
+   "parent": "desktop",
+   "name": "Main window",
+   "icon": "app-window",
+   "kind": "Function",
+   "path": "apps/desktop/src/main/index.ts:285"
+  },
+  {
+   "id": "desktop-daemon-manager",
+   "parent": "desktop",
+   "name": "Daemon manager",
+   "icon": "cog",
+   "kind": "Function",
+   "path": "apps/desktop/src/main/daemon-manager.ts:1348"
+  },
+  {
+   "id": "desktop-preload",
+   "parent": "desktop",
+   "name": "Preload bridge",
+   "icon": "plug-zap",
+   "kind": "Function",
+   "path": "apps/desktop/src/preload/index.ts:329"
+  },
+  {
+   "id": "desktop-routes",
+   "parent": "desktop",
+   "name": "App routes",
+   "icon": "route",
+   "kind": "Module",
+   "path": "apps/desktop/src/renderer/src/routes.tsx:120"
+  },
+  {
+   "id": "desktop-navigation",
+   "parent": "desktop",
+   "name": "Desktop navigation",
+   "icon": "navigation",
+   "kind": "Component",
+   "path": "apps/desktop/src/renderer/src/platform/navigation.tsx:169"
+  },
+  {
+   "id": "desktop-tab-store",
+   "parent": "desktop",
+   "name": "Tab store",
+   "icon": "panels-top-left",
+   "kind": "Store",
+   "path": "apps/desktop/src/renderer/src/stores/tab-store.ts:729"
+  },
+  {
+   "id": "mobile-root-layout",
+   "parent": "mobile",
+   "name": "Root layout",
+   "icon": "smartphone",
+   "kind": "Component",
+   "path": "apps/mobile/app/_layout.tsx:79"
+  },
+  {
+   "id": "mobile-workspace-layout",
+   "parent": "mobile",
+   "name": "Workspace layout",
+   "icon": "panels-top-left",
+   "kind": "Component",
+   "path": "apps/mobile/app/(app)/[workspace]/_layout.tsx:103"
+  },
+  {
+   "id": "mobile-auth-store",
+   "parent": "mobile",
+   "name": "Auth store",
+   "icon": "key-round",
+   "kind": "Store",
+   "path": "apps/mobile/data/auth-store.ts:31"
+  },
+  {
+   "id": "mobile-workspace-store",
+   "parent": "mobile",
+   "name": "Workspace store",
+   "icon": "building-2",
+   "kind": "Store",
+   "path": "apps/mobile/data/workspace-store.ts:34"
+  },
+  {
+   "id": "mobile-secure-storage",
+   "parent": "mobile",
+   "name": "Secure storage",
+   "icon": "lock",
+   "kind": "Function",
+   "path": "apps/mobile/data/secure-storage.ts:36"
+  },
+  {
+   "id": "mobile-api",
+   "parent": "mobile",
+   "name": "API client",
+   "icon": "send",
+   "kind": "Class",
+   "path": "apps/mobile/data/api.ts:192"
+  },
+  {
+   "id": "mobile-realtime-provider",
+   "parent": "mobile",
+   "name": "Realtime provider",
+   "icon": "radio",
+   "kind": "Component",
+   "path": "apps/mobile/data/realtime/realtime-provider.tsx:65"
+  },
+  {
+   "id": "mobile-realtime",
+   "parent": "mobile",
+   "name": "WS client",
+   "icon": "radio-tower",
+   "kind": "Class",
+   "path": "apps/mobile/data/realtime/ws-client.ts:88"
+  },
+  {
+   "id": "views-dashboard",
+   "parent": "views",
+   "name": "Dashboard layout",
+   "icon": "layout-dashboard",
+   "kind": "Component",
+   "path": "packages/views/layout/dashboard-layout.tsx:23"
+  },
+  {
+   "id": "views-navigation",
+   "parent": "views",
+   "name": "Navigation adapter",
+   "icon": "navigation",
+   "kind": "Type",
+   "path": "packages/views/navigation/types.ts:1"
+  },
+  {
+   "id": "views-issue-detail",
+   "parent": "views",
+   "name": "Issue detail",
+   "icon": "file-text",
+   "kind": "Component",
+   "path": "packages/views/issues/components/issue-detail.tsx:1395"
+  },
+  {
+   "id": "views-question-card",
+   "parent": "views",
+   "name": "Question card",
+   "icon": "circle-help",
+   "kind": "Component",
+   "path": "packages/views/questions/question-card.tsx:92"
+  },
+  {
+   "id": "views-chat",
+   "parent": "views",
+   "name": "Chat page",
+   "icon": "message-square",
+   "kind": "Component",
+   "path": "packages/views/chat/chat-page.tsx:59"
+  },
+  {
+   "id": "views-inbox",
+   "parent": "views",
+   "name": "Inbox page",
+   "icon": "inbox",
+   "kind": "Component",
+   "path": "packages/views/inbox/components/inbox-page.tsx:74"
+  },
+  {
+   "id": "views-todo-check",
+   "parent": "views",
+   "name": "Check to-do",
+   "icon": "list-checks",
+   "kind": "Component",
+   "path": "packages/views/inbox/components/todo-check-body.tsx:12"
+  },
+  {
+   "id": "views-release-detail",
+   "parent": "views",
+   "name": "Release detail",
+   "icon": "rocket",
+   "kind": "Component",
+   "path": "packages/views/releases/components/release-detail.tsx:42"
+  },
+  {
+   "id": "core-provider",
+   "parent": "core",
+   "name": "Core provider",
+   "icon": "layers",
+   "kind": "Component",
+   "path": "packages/core/platform/core-provider.tsx:140"
+  },
+  {
+   "id": "core-domain",
+   "parent": "core",
+   "name": "Domain hooks",
+   "icon": "folder-code",
+   "kind": "Module",
+   "path": "packages/core/",
+   "zoom": {
+    "name": "Domain hooks",
+    "title": "Domain hooks",
+    "description": "Queries and mutations per domain",
+    "question": "Which hook sends each action?",
+    "base": "packages/core/",
+    "view": "paths"
+   }
+  },
+  {
+   "id": "core-query-client",
+   "parent": "core",
+   "name": "Query client",
+   "icon": "database",
+   "kind": "Function",
+   "path": "packages/core/query-client.ts:3"
+  },
+  {
+   "id": "core-api",
+   "parent": "core",
+   "name": "API client",
+   "icon": "send",
+   "kind": "Class",
+   "path": "packages/core/api/client.ts:867"
+  },
+  {
+   "id": "core-schema",
+   "parent": "core",
+   "name": "Response schemas",
+   "icon": "shield-check",
+   "kind": "Function",
+   "path": "packages/core/api/schema.ts:38"
+  },
+  {
+   "id": "core-ws",
+   "parent": "core",
+   "name": "WS client",
+   "icon": "radio-tower",
+   "kind": "Class",
+   "path": "packages/core/api/ws-client.ts:35"
+  },
+  {
+   "id": "core-realtime-sync",
+   "parent": "core",
+   "name": "Realtime sync",
+   "icon": "refresh-cw",
+   "kind": "Hook",
+   "path": "packages/core/realtime/use-realtime-sync.ts:824"
+  },
+  {
+   "id": "core-types",
+   "parent": "core",
+   "name": "Types",
+   "icon": "braces",
+   "kind": "Module",
+   "path": "packages/core/types/",
+   "zoom": {
+    "name": "Client contracts",
+    "title": "Client contracts",
+    "description": "Contracts the clients parse",
+    "question": "What do the clients receive?",
+    "base": "packages/core/"
+   }
+  },
+  {
+   "id": "core-create-comment",
+   "parent": "core-domain",
+   "name": "useCreateComment",
+   "icon": "message-square-plus",
+   "kind": "Hook",
+   "path": "packages/core/issues/mutations.ts:827"
+  },
+  {
+   "id": "core-run-steering",
+   "parent": "core-domain",
+   "name": "resolveRecipientAction",
+   "icon": "split",
+   "kind": "Function",
+   "path": "packages/core/issues/run-steering.ts:100"
+  },
+  {
+   "id": "core-question-queries",
+   "parent": "core-domain",
+   "name": "issueQuestionsOptions",
+   "icon": "circle-help",
+   "kind": "Function",
+   "path": "packages/core/questions/queries.ts:28"
+  },
+  {
+   "id": "core-answer-question",
+   "parent": "core-domain",
+   "name": "useAnswerQuestion",
+   "icon": "message-circle-reply",
+   "kind": "Hook",
+   "path": "packages/core/questions/mutations.ts:36"
+  },
+  {
+   "id": "core-todo-list",
+   "parent": "core-domain",
+   "name": "todoListOptions",
+   "icon": "list-todo",
+   "kind": "Function",
+   "path": "packages/core/todos/queries.ts:19"
+  },
+  {
+   "id": "core-answer-check",
+   "parent": "core-domain",
+   "name": "useAnswerCheckTodo",
+   "icon": "list-checks",
+   "kind": "Hook",
+   "path": "packages/core/todos/checks.ts:16"
+  },
+  {
+   "id": "srv-entry",
+   "parent": "server",
+   "name": "Entry and routing",
+   "icon": "route",
+   "kind": "Module",
+   "path": "server/cmd/server/",
+   "zoom": {
+    "name": "Entry and routing",
+    "title": "Entry and routing",
+    "description": "Startup, routes and middleware",
+    "question": "Which gate does each request pass?",
+    "base": "server/"
+   }
+  },
+  {
+   "id": "srv-jobs",
+   "parent": "server",
+   "name": "Jobs and sweepers",
+   "icon": "clock",
+   "kind": "Module",
+   "path": "server/internal/scheduler/",
+   "zoom": {
+    "name": "Jobs and sweepers",
+    "title": "Jobs and sweepers",
+    "description": "Work that runs on a clock",
+    "question": "What runs without a request?",
+    "base": "server/"
+   }
+  },
+  {
+   "id": "srv-realtime",
+   "parent": "server",
+   "name": "Realtime and events",
+   "icon": "radio-tower",
+   "kind": "Module",
+   "path": "server/internal/realtime/",
+   "zoom": {
+    "name": "Realtime and events",
+    "title": "Realtime and events",
+    "description": "The bus, the hubs and their relays",
+    "question": "How does an event reach clients and daemons?",
+    "base": "server/internal/"
+   }
+  },
+  {
+   "id": "srv-listeners",
+   "parent": "server",
+   "name": "Listeners",
+   "icon": "bell-ring",
+   "kind": "Module",
+   "path": "server/cmd/server/",
+   "zoom": {
+    "name": "Listeners",
+    "title": "Listeners",
+    "description": "Bus subscribers registered at startup",
+    "question": "What reacts to each event?",
+    "base": "server/cmd/server/"
+   }
+  },
+  {
+   "id": "srv-integrations",
+   "parent": "server",
+   "name": "Integrations",
+   "icon": "plug",
+   "kind": "Module",
+   "path": "server/internal/integrations/",
+   "zoom": {
+    "name": "Integrations",
+    "title": "Integrations",
+    "description": "Calls to and from outside services",
+    "question": "Which outside services talk to the server?",
+    "base": "server/"
+   }
+  },
+  {
+   "id": "srv-handlers",
+   "parent": "server",
+   "name": "Handlers",
+   "icon": "folder-code",
+   "kind": "Module",
+   "path": "server/internal/handler/",
+   "zoom": {
+    "name": "Handlers",
+    "title": "Handlers",
+    "description": "HTTP handlers by area",
+    "question": "Which handler takes each request?",
+    "base": "server/internal/handler/"
+   }
+  },
+  {
+   "id": "srv-services",
+   "parent": "server",
+   "name": "Services",
+   "icon": "workflow",
+   "kind": "Module",
+   "path": "server/internal/service/",
+   "zoom": {
+    "name": "Services",
+    "title": "Services",
+    "description": "Business rules behind the handlers",
+    "question": "Which service decides what happens?",
+    "base": "server/internal/"
+   }
+  },
+  {
+   "id": "srv-main",
+   "parent": "srv-entry",
+   "name": "Server main",
+   "icon": "power",
+   "kind": "Function",
+   "path": "server/cmd/server/main.go:327"
+  },
+  {
+   "id": "srv-router",
+   "parent": "srv-entry",
+   "name": "Router",
+   "icon": "route",
+   "kind": "Function",
+   "path": "server/cmd/server/router.go:403"
+  },
+  {
+   "id": "srv-auth",
+   "parent": "srv-entry",
+   "name": "Auth",
+   "icon": "shield",
+   "kind": "Middleware",
+   "path": "server/internal/middleware/auth.go:59"
+  },
+  {
+   "id": "srv-daemon-auth",
+   "parent": "srv-entry",
+   "name": "Daemon auth",
+   "icon": "shield",
+   "kind": "Middleware",
+   "path": "server/internal/middleware/daemon_auth.go:79"
+  },
+  {
+   "id": "srv-rate-limit",
+   "parent": "srv-entry",
+   "name": "Rate limit",
+   "icon": "gauge",
+   "kind": "Middleware",
+   "path": "server/internal/middleware/ratelimit.go:60"
+  },
+  {
+   "id": "srv-plugin-auth",
+   "parent": "srv-entry",
+   "name": "Plugin bearer",
+   "icon": "shield",
+   "kind": "Middleware",
+   "path": "server/internal/middleware/plugin_auth.go:16"
+  },
+  {
+   "id": "srv-h-issues",
+   "parent": "srv-handlers",
+   "name": "Issues and comments",
+   "icon": "file-text",
+   "kind": "Module",
+   "path": "server/internal/handler/",
+   "zoom": {
+    "name": "Issues and comments",
+    "title": "Issues and comments",
+    "description": "Issue and comment handlers",
+    "question": "What starts when someone comments?",
+    "base": "server/internal/handler/",
+    "view": "paths"
+   }
+  },
+  {
+   "id": "srv-h-questions",
+   "parent": "srv-handlers",
+   "name": "Questions and to-dos",
+   "icon": "circle-help",
+   "kind": "Module",
+   "path": "server/internal/handler/",
+   "zoom": {
+    "name": "Questions and to-dos",
+    "title": "Questions and to-dos",
+    "description": "Questions, to-dos and checks",
+    "question": "What happens when a question is asked or answered?",
+    "base": "server/internal/handler/",
+    "view": "paths"
+   }
+  },
+  {
+   "id": "srv-h-daemon",
+   "parent": "srv-handlers",
+   "name": "Daemon API",
+   "icon": "cpu",
+   "kind": "Module",
+   "path": "server/internal/handler/",
+   "zoom": {
+    "name": "Daemon API",
+    "title": "Daemon API",
+    "description": "Handlers behind /api/daemon",
+    "question": "What does a daemon ask the server?",
+    "base": "server/internal/handler/"
+   }
+  },
+  {
+   "id": "srv-h-webhooks",
+   "parent": "srv-integrations",
+   "name": "Webhooks",
+   "icon": "webhook",
+   "kind": "Module",
+   "path": "server/internal/handler/",
+   "zoom": {
+    "name": "Webhooks",
+    "title": "Webhooks",
+    "description": "Calls from outside services",
+    "question": "Which outside calls come in?",
+    "base": "server/internal/handler/"
+   }
+  },
+  {
+   "id": "srv-h-account",
+   "parent": "srv-handlers",
+   "name": "Account and files",
+   "icon": "user-round",
+   "kind": "Module",
+   "path": "server/internal/handler/",
+   "zoom": {
+    "name": "Account and files",
+    "title": "Account and files",
+    "description": "Login, memberships and uploads",
+    "question": "How does a member sign in and upload?",
+    "base": "server/internal/handler/"
+   }
+  },
+  {
+   "id": "srv-h-planning",
+   "parent": "srv-handlers",
+   "name": "Planning and releases",
+   "icon": "calendar-range",
+   "kind": "Module",
+   "path": "server/internal/handler/",
+   "zoom": {
+    "name": "Planning and releases",
+    "title": "Planning and releases",
+    "description": "Organisations, projects, releases and client reads",
+    "question": "Where does planning data come in?",
+    "base": "server/internal/handler/"
+   }
+  },
+  {
+   "id": "srv-h-chat",
+   "parent": "srv-handlers",
+   "name": "Chat",
+   "icon": "message-square",
+   "kind": "Module",
+   "path": "server/internal/handler/",
+   "zoom": {
+    "name": "Chat",
+    "title": "Chat",
+    "description": "Chat sessions and their titles",
+    "question": "What happens when a member chats?",
+    "base": "server/internal/handler/"
+   }
+  },
+  {
+   "id": "srv-plugin-context",
+   "parent": "srv-handlers",
+   "name": "Plugin context",
+   "icon": "puzzle",
+   "kind": "Function",
+   "path": "server/internal/handler/plugin_action.go:269"
+  },
+  {
+   "id": "srv-create-issue",
+   "parent": "srv-h-issues",
+   "name": "CreateIssue",
+   "icon": "file-plus",
+   "kind": "Function",
+   "path": "server/internal/handler/issue.go:3255"
+  },
+  {
+   "id": "srv-update-issue",
+   "parent": "srv-h-issues",
+   "name": "UpdateIssue",
+   "icon": "file-pen",
+   "kind": "Function",
+   "path": "server/internal/handler/issue.go:3847"
+  },
+  {
+   "id": "srv-create-comment",
+   "parent": "srv-h-issues",
+   "name": "CreateComment",
+   "icon": "message-square-plus",
+   "kind": "Function",
+   "path": "server/internal/handler/comment.go:1712"
+  },
+  {
+   "id": "srv-comment-triggers",
+   "parent": "srv-h-issues",
+   "name": "enqueueCommentAgentTriggers",
+   "icon": "at-sign",
+   "kind": "Function",
+   "path": "server/internal/handler/comment.go:2133"
+  },
+  {
+   "id": "srv-steer",
+   "parent": "srv-h-issues",
+   "name": "steerCommentAgentTriggers",
+   "icon": "corner-down-right",
+   "kind": "Function",
+   "path": "server/internal/handler/task_supplement.go:147"
+  },
+  {
+   "id": "srv-react-run-input",
+   "parent": "srv-h-issues",
+   "name": "ReactToRunInput",
+   "icon": "smile-plus",
+   "kind": "Function",
+   "path": "server/internal/handler/run_input.go:18"
+  },
+  {
+   "id": "srv-ask-question",
+   "parent": "srv-h-questions",
+   "name": "AskQuestion",
+   "icon": "circle-help",
+   "kind": "Function",
+   "path": "server/internal/handler/question.go:119"
+  },
+  {
+   "id": "srv-answer-question",
+   "parent": "srv-h-questions",
+   "name": "AnswerQuestion",
+   "icon": "message-circle-reply",
+   "kind": "Function",
+   "path": "server/internal/handler/question.go:188"
+  },
+  {
+   "id": "srv-wake-question",
+   "parent": "srv-h-questions",
+   "name": "WakeQuestion",
+   "icon": "alarm-clock",
+   "kind": "Function",
+   "path": "server/internal/handler/question.go:319"
+  },
+  {
+   "id": "srv-list-todos",
+   "parent": "srv-h-questions",
+   "name": "ListTodos",
+   "icon": "list-todo",
+   "kind": "Function",
+   "path": "server/internal/handler/todo.go:15"
+  },
+  {
+   "id": "srv-mark-todo-done",
+   "parent": "srv-h-questions",
+   "name": "MarkTodoDone",
+   "icon": "check",
+   "kind": "Function",
+   "path": "server/internal/handler/todo.go:55"
+  },
+  {
+   "id": "srv-open-check",
+   "parent": "srv-h-questions",
+   "name": "OpenCheck",
+   "icon": "list-checks",
+   "kind": "Function",
+   "path": "server/internal/handler/check.go:11"
+  },
+  {
+   "id": "srv-answer-check",
+   "parent": "srv-h-questions",
+   "name": "AnswerCheck",
+   "icon": "check-check",
+   "kind": "Function",
+   "path": "server/internal/handler/check.go:65"
+  },
+  {
+   "id": "srv-daemon-register",
+   "parent": "srv-h-daemon",
+   "name": "DaemonRegister",
+   "icon": "log-in",
+   "kind": "Function",
+   "path": "server/internal/handler/daemon.go:407"
+  },
+  {
+   "id": "srv-daemon-heartbeat",
+   "parent": "srv-h-daemon",
+   "name": "DaemonHeartbeat",
+   "icon": "heart-pulse",
+   "kind": "Function",
+   "path": "server/internal/handler/daemon.go:1091"
+  },
+  {
+   "id": "srv-claim-task",
+   "parent": "srv-h-daemon",
+   "name": "ClaimTaskByRuntime",
+   "icon": "hand",
+   "kind": "Function",
+   "path": "server/internal/handler/daemon.go:3848"
+  },
+  {
+   "id": "srv-start-task",
+   "parent": "srv-h-daemon",
+   "name": "StartTask",
+   "icon": "play",
+   "kind": "Function",
+   "path": "server/internal/handler/daemon.go:4211"
+  },
+  {
+   "id": "srv-complete-task",
+   "parent": "srv-h-daemon",
+   "name": "CompleteTask",
+   "icon": "circle-check",
+   "kind": "Function",
+   "path": "server/internal/handler/daemon.go:4412"
+  },
+  {
+   "id": "srv-realtime-hub",
+   "parent": "srv-realtime",
+   "name": "Realtime hub",
+   "icon": "radio-tower",
+   "kind": "Class",
+   "path": "server/internal/realtime/hub.go:280"
+  },
+  {
+   "id": "srv-claim-supplement",
+   "parent": "srv-h-daemon",
+   "name": "ClaimTaskSupplement",
+   "icon": "message-square-dot",
+   "kind": "Function",
+   "path": "server/internal/handler/task_supplement.go:420"
+  },
+  {
+   "id": "srv-agent-sessions",
+   "parent": "srv-h-daemon",
+   "name": "RegisterAgentSession",
+   "icon": "terminal",
+   "kind": "Function",
+   "path": "server/internal/handler/agent_session.go:74"
+  },
+  {
+   "id": "srv-github-webhook",
+   "parent": "srv-h-webhooks",
+   "name": "HandleGitHubWebhook",
+   "icon": "git-pull-request",
+   "kind": "Function",
+   "path": "server/internal/handler/github.go:1198"
+  },
+  {
+   "id": "srv-vcs-webhook",
+   "parent": "srv-h-webhooks",
+   "name": "HandleVCSWebhook",
+   "icon": "git-branch",
+   "kind": "Function",
+   "path": "server/internal/handler/vcs_webhook.go:91"
+  },
+  {
+   "id": "srv-stripe-webhook",
+   "parent": "srv-h-webhooks",
+   "name": "HandleCloudBillingStripeWebhook",
+   "icon": "credit-card",
+   "kind": "Function",
+   "path": "server/internal/handler/cloud_billing.go:520"
+  },
+  {
+   "id": "srv-composio-callback",
+   "parent": "srv-h-webhooks",
+   "name": "ComposioCallback",
+   "icon": "plug",
+   "kind": "Function",
+   "path": "server/internal/handler/integrations_composio.go:112"
+  },
+  {
+   "id": "srv-send-code",
+   "parent": "srv-h-account",
+   "name": "SendCode",
+   "icon": "mail",
+   "kind": "Function",
+   "path": "server/internal/handler/auth.go:307"
+  },
+  {
+   "id": "srv-verify-code",
+   "parent": "srv-h-account",
+   "name": "VerifyCode",
+   "icon": "key-round",
+   "kind": "Function",
+   "path": "server/internal/handler/auth.go:399"
+  },
+  {
+   "id": "srv-google-login",
+   "parent": "srv-h-account",
+   "name": "GoogleLogin",
+   "icon": "log-in",
+   "kind": "Function",
+   "path": "server/internal/handler/auth.go:558"
+  },
+  {
+   "id": "srv-memberships",
+   "parent": "srv-h-account",
+   "name": "ListMyMemberships",
+   "icon": "users",
+   "kind": "Function",
+   "path": "server/internal/handler/membership.go:26"
+  },
+  {
+   "id": "srv-upload-file",
+   "parent": "srv-h-account",
+   "name": "UploadFile",
+   "icon": "upload",
+   "kind": "Function",
+   "path": "server/internal/handler/file.go:379"
+  },
+  {
+   "id": "srv-create-org",
+   "parent": "srv-h-planning",
+   "name": "CreateOrganisation",
+   "icon": "building-2",
+   "kind": "Function",
+   "path": "server/internal/handler/organisation.go:116"
+  },
+  {
+   "id": "srv-create-project",
+   "parent": "srv-h-planning",
+   "name": "CreateProject",
+   "icon": "folder-plus",
+   "kind": "Function",
+   "path": "server/internal/handler/project.go:255"
+  },
+  {
+   "id": "srv-plan-release",
+   "parent": "srv-h-planning",
+   "name": "PlanRelease",
+   "icon": "rocket",
+   "kind": "Function",
+   "path": "server/internal/handler/release.go:482"
+  },
+  {
+   "id": "srv-add-to-release",
+   "parent": "srv-h-planning",
+   "name": "AddIssuesToRelease",
+   "icon": "list-plus",
+   "kind": "Function",
+   "path": "server/internal/handler/issue_placement.go:381"
+  },
+  {
+   "id": "srv-release-comment",
+   "parent": "srv-h-planning",
+   "name": "CreateReleaseComment",
+   "icon": "message-square",
+   "kind": "Function",
+   "path": "server/internal/handler/release_comment.go:23"
+  },
+  {
+   "id": "srv-release-wakeup",
+   "parent": "srv-h-planning",
+   "name": "CreateReleaseWakeup",
+   "icon": "alarm-clock",
+   "kind": "Function",
+   "path": "server/internal/handler/release_wakeup.go:45"
+  },
+  {
+   "id": "srv-client-read",
+   "parent": "srv-h-planning",
+   "name": "Client reads",
+   "icon": "eye",
+   "kind": "Function",
+   "path": "server/internal/handler/client_read.go:79",
+   "zoom": {
+    "name": "Client read contracts",
+    "title": "Client read contracts",
+    "description": "Responses client_read.go maps from scoped rows",
+    "question": "What does a client see of its waits and work?",
+    "base": "server/internal/handler/"
+   }
+  },
+  {
+   "id": "srv-send-chat",
+   "parent": "srv-h-chat",
+   "name": "SendChatMessage",
+   "icon": "send",
+   "kind": "Function",
+   "path": "server/internal/handler/chat.go:858"
+  },
+  {
+   "id": "srv-chat-title",
+   "parent": "srv-h-chat",
+   "name": "maybeGenerateChatTitleAsync",
+   "icon": "heading",
+   "kind": "Function",
+   "path": "server/internal/handler/chat_title.go:92"
+  },
+  {
+   "id": "srv-issue-wakeup-svc",
+   "parent": "srv-services",
+   "name": "Issue wakeups",
+   "icon": "alarm-clock",
+   "kind": "Class",
+   "path": "server/internal/service/issue_wakeup.go:105"
+  },
+  {
+   "id": "srv-issue-svc",
+   "parent": "srv-services",
+   "name": "Issue service",
+   "icon": "file-text",
+   "kind": "Class",
+   "path": "server/internal/service/issue.go:38"
+  },
+  {
+   "id": "srv-autopilot-svc",
+   "parent": "srv-services",
+   "name": "Autopilot service",
+   "icon": "repeat",
+   "kind": "Class",
+   "path": "server/internal/service/autopilot.go:36"
+  },
+  {
+   "id": "srv-decider",
+   "parent": "srv-services",
+   "name": "Decider",
+   "icon": "binary",
+   "kind": "Function",
+   "path": "server/internal/service/decider.go:59"
+  },
+  {
+   "id": "srv-run-input",
+   "parent": "srv-services",
+   "name": "Run input",
+   "icon": "message-square-dot",
+   "kind": "Function",
+   "path": "server/internal/service/run_input.go:54"
+  },
+  {
+   "id": "srv-todo",
+   "parent": "srv-services",
+   "name": "To-do service",
+   "icon": "list-todo",
+   "kind": "Class",
+   "path": "server/internal/todo/todo.go:42"
+  },
+  {
+   "id": "srv-questions",
+   "parent": "srv-services",
+   "name": "Question service",
+   "icon": "circle-help",
+   "kind": "Module",
+   "path": "server/internal/service/question.go",
+   "zoom": {
+    "name": "Question service",
+    "title": "Question service",
+    "description": "Asks, answers, checks and the Wake",
+    "question": "How does an answer wake an agent?",
+    "base": "server/internal/",
+    "view": "paths"
+   }
+  },
+  {
+   "id": "srv-tasks",
+   "parent": "srv-services",
+   "name": "Task service",
+   "icon": "list-ordered",
+   "kind": "Module",
+   "path": "server/internal/service/task.go",
+   "zoom": {
+    "name": "Task service",
+    "title": "Task service",
+    "description": "The run queue: enqueue, claim, finish and tell",
+    "question": "How does a task get queued and picked up?",
+    "base": "server/internal/service/",
+    "view": "paths"
+   }
+  },
+  {
+   "id": "srv-enqueue-issue",
+   "parent": "srv-tasks",
+   "name": "EnqueueTaskForIssue",
+   "icon": "list-plus",
+   "kind": "Function",
+   "path": "server/internal/service/task.go:1128"
+  },
+  {
+   "id": "srv-enqueue-mention",
+   "parent": "srv-tasks",
+   "name": "EnqueueTaskForMention",
+   "icon": "at-sign",
+   "kind": "Function",
+   "path": "server/internal/service/task.go:1396"
+  },
+  {
+   "id": "srv-enqueue-question-task",
+   "parent": "srv-tasks",
+   "name": "EnqueueTaskForQuestionWake",
+   "icon": "alarm-clock",
+   "kind": "Function",
+   "path": "server/internal/service/task.go:1458"
+  },
+  {
+   "id": "srv-broadcast-task",
+   "parent": "srv-tasks",
+   "name": "broadcastTaskEvent",
+   "icon": "megaphone",
+   "kind": "Function",
+   "path": "server/internal/service/task.go:7558"
+  },
+  {
+   "id": "srv-notify-task",
+   "parent": "srv-tasks",
+   "name": "NotifyTaskEnqueued",
+   "icon": "bell",
+   "kind": "Function",
+   "path": "server/internal/service/task.go:7380"
+  },
+  {
+   "id": "srv-claim-for-runtime",
+   "parent": "srv-tasks",
+   "name": "ClaimTaskForRuntime",
+   "icon": "hand",
+   "kind": "Function",
+   "path": "server/internal/service/task.go:3749"
+  },
+  {
+   "id": "srv-task-lifecycle",
+   "parent": "srv-tasks",
+   "name": "StartTask · CompleteTask",
+   "icon": "circle-check",
+   "kind": "Function",
+   "path": "server/internal/service/task.go:4351"
+  },
+  {
+   "id": "srv-q-ask",
+   "parent": "srv-questions",
+   "name": "Ask",
+   "icon": "circle-help",
+   "kind": "Function",
+   "path": "server/internal/service/question.go:353"
+  },
+  {
+   "id": "srv-q-answer",
+   "parent": "srv-questions",
+   "name": "Answer",
+   "icon": "message-circle-reply",
+   "kind": "Function",
+   "path": "server/internal/service/question.go:727"
+  },
+  {
+   "id": "srv-q-wake",
+   "parent": "srv-questions",
+   "name": "Wake",
+   "icon": "alarm-clock",
+   "kind": "Function",
+   "path": "server/internal/service/question.go:1004"
+  },
+  {
+   "id": "srv-q-check",
+   "parent": "srv-questions",
+   "name": "OpenCheck · AnswerCheck",
+   "icon": "list-checks",
+   "kind": "Function",
+   "path": "server/internal/service/check.go:90"
+  },
+  {
+   "id": "srv-q-rules",
+   "parent": "srv-questions",
+   "name": "ValidateAnswer",
+   "icon": "shield-check",
+   "kind": "Function",
+   "path": "server/internal/question/validate.go:62"
+  },
+  {
+   "id": "srv-q-enqueue-wake",
+   "parent": "srv-questions",
+   "name": "enqueueQuestionWake",
+   "icon": "list-plus",
+   "kind": "Function",
+   "path": "server/internal/service/question_wake_pending.go:127"
+  },
+  {
+   "id": "srv-q-publish-wake",
+   "parent": "srv-questions",
+   "name": "publishQuestionWake",
+   "icon": "megaphone",
+   "kind": "Function",
+   "path": "server/internal/service/question_wake_pending.go:161"
+  },
+  {
+   "id": "srv-q-reconcile",
+   "parent": "srv-questions",
+   "name": "ReconcilePendingQuestionWakes",
+   "icon": "refresh-cw",
+   "kind": "Function",
+   "path": "server/internal/service/question_wake_pending.go:273"
+  },
+  {
+   "id": "srv-daemon-hub",
+   "parent": "srv-realtime",
+   "name": "Daemon hub",
+   "icon": "radio",
+   "kind": "Class",
+   "path": "server/internal/daemonws/hub.go:312"
+  },
+  {
+   "id": "srv-ws-fanout",
+   "parent": "srv-realtime",
+   "name": "Realtime fan-out",
+   "icon": "megaphone",
+   "kind": "Function",
+   "path": "server/cmd/server/listeners.go:79"
+  },
+  {
+   "id": "srv-relay-notifier",
+   "parent": "srv-realtime",
+   "name": "Relay notifier",
+   "icon": "bell",
+   "kind": "Class",
+   "path": "server/internal/daemonws/notifier.go:15"
+  },
+  {
+   "id": "srv-daemon-ws",
+   "parent": "srv-h-daemon",
+   "name": "DaemonWebSocket",
+   "icon": "radio-tower",
+   "kind": "Function",
+   "path": "server/internal/handler/daemon_ws.go:12"
+  },
+  {
+   "id": "srv-redis-relay",
+   "parent": "srv-realtime",
+   "name": "Redis relay",
+   "icon": "repeat-2",
+   "kind": "Class",
+   "path": "server/internal/realtime/redis_relay.go:134"
+  },
+  {
+   "id": "srv-bus",
+   "parent": "srv-realtime",
+   "name": "Event bus",
+   "icon": "workflow",
+   "kind": "Class",
+   "path": "server/internal/events/bus.go:28",
+   "zoom": {
+    "name": "Event payloads",
+    "title": "Event payloads",
+    "description": "Typed payloads the bus carries",
+    "question": "What does a question event carry?",
+    "base": "server/"
+   }
+  },
+  {
+   "id": "srv-stream-relay",
+   "parent": "srv-realtime",
+   "name": "Sharded stream relay",
+   "icon": "repeat-2",
+   "kind": "Class",
+   "path": "server/internal/realtime/sharded_stream_relay.go:156"
+  },
+  {
+   "id": "srv-todo-listeners",
+   "parent": "srv-listeners",
+   "name": "To-do listeners",
+   "icon": "list-todo",
+   "kind": "Function",
+   "path": "server/cmd/server/todo_listeners.go:20"
+  },
+  {
+   "id": "srv-decider-listeners",
+   "parent": "srv-listeners",
+   "name": "Decider listeners",
+   "icon": "binary",
+   "kind": "Function",
+   "path": "server/cmd/server/decider_listeners.go:15"
+  },
+  {
+   "id": "srv-notification-listeners",
+   "parent": "srv-listeners",
+   "name": "Notification listeners",
+   "icon": "bell-ring",
+   "kind": "Function",
+   "path": "server/cmd/server/notification_listeners.go:495"
+  },
+  {
+   "id": "srv-subscriber-listeners",
+   "parent": "srv-listeners",
+   "name": "Subscriber listeners",
+   "icon": "user-plus",
+   "kind": "Function",
+   "path": "server/cmd/server/subscriber_listeners.go:30"
+  },
+  {
+   "id": "srv-activity-listeners",
+   "parent": "srv-listeners",
+   "name": "Activity listeners",
+   "icon": "activity",
+   "kind": "Function",
+   "path": "server/cmd/server/activity_listeners.go:27"
+  },
+  {
+   "id": "srv-autopilot-listeners",
+   "parent": "srv-listeners",
+   "name": "Autopilot listeners",
+   "icon": "repeat",
+   "kind": "Function",
+   "path": "server/cmd/server/autopilot_listeners.go:16"
+  },
+  {
+   "id": "srv-scheduler",
+   "parent": "srv-jobs",
+   "name": "Scheduler",
+   "icon": "calendar-clock",
+   "kind": "Class",
+   "path": "server/internal/scheduler/manager.go:35"
+  },
+  {
+   "id": "srv-question-overdue",
+   "parent": "srv-jobs",
+   "name": "QuestionOverdueJob",
+   "icon": "clock-alert",
+   "kind": "Function",
+   "path": "server/internal/scheduler/jobs_question_overdue.go:25"
+  },
+  {
+   "id": "srv-issue-wakeup-job",
+   "parent": "srv-jobs",
+   "name": "IssueWakeupJob",
+   "icon": "alarm-clock",
+   "kind": "Function",
+   "path": "server/internal/scheduler/jobs_issue_wakeup.go:12"
+  },
+  {
+   "id": "srv-runtime-sweeper",
+   "parent": "srv-jobs",
+   "name": "Runtime sweeper",
+   "icon": "brush-cleaning",
+   "kind": "Function",
+   "path": "server/cmd/server/runtime_sweeper.go:163"
+  },
+  {
+   "id": "srv-source-context-sweeper",
+   "parent": "srv-jobs",
+   "name": "Source context sweeper",
+   "icon": "brush-cleaning",
+   "kind": "Function",
+   "path": "server/cmd/server/source_context_sweeper.go:44"
+  },
+  {
+   "id": "srv-question-wake-reconciler",
+   "parent": "srv-jobs",
+   "name": "Question Wake reconciler",
+   "icon": "refresh-cw",
+   "kind": "Function",
+   "path": "server/cmd/server/question_wake_reconciler.go:17"
+  },
+  {
+   "id": "srv-storage",
+   "parent": "srv-h-account",
+   "name": "File storage",
+   "icon": "hard-drive",
+   "kind": "Type",
+   "path": "server/internal/storage/storage.go:9"
+  },
+  {
+   "id": "srv-chat-bridge",
+   "parent": "srv-integrations",
+   "name": "Chat bridge",
+   "icon": "messages-square",
+   "kind": "Module",
+   "path": "server/internal/integrations/",
+   "zoom": {
+    "name": "Chat bridge",
+    "title": "Chat bridge",
+    "description": "Bot messages in and replies out",
+    "question": "How does a chat message reach an agent and back?",
+    "base": "server/internal/integrations/"
+   }
+  },
+  {
+   "id": "srv-channels",
+   "parent": "srv-chat-bridge",
+   "name": "Channel engine",
+   "icon": "message-circle",
+   "kind": "Class",
+   "path": "server/internal/integrations/channel/registry.go:23"
+  },
+  {
+   "id": "srv-chat-outbound",
+   "parent": "srv-chat-bridge",
+   "name": "Chat outbound",
+   "icon": "message-circle-reply",
+   "kind": "Function",
+   "path": "server/internal/integrations/slack/outbound.go:69"
+  },
+  {
+   "id": "srv-composio",
+   "parent": "srv-integrations",
+   "name": "Composio service",
+   "icon": "plug",
+   "kind": "Class",
+   "path": "server/internal/integrations/composio/service.go:123"
+  },
+  {
+   "id": "srv-vcs",
+   "parent": "srv-integrations",
+   "name": "VCS providers",
+   "icon": "git-branch",
+   "kind": "Type",
+   "path": "server/internal/integrations/vcs/vcs.go:117"
+  },
+  {
+   "id": "srv-llm",
+   "parent": "srv-integrations",
+   "name": "LLM client",
+   "icon": "sparkles",
+   "kind": "Class",
+   "path": "server/pkg/llm/client.go:235"
+  },
+  {
+   "id": "srv-email",
+   "parent": "srv-integrations",
+   "name": "Email service",
+   "icon": "mail",
+   "kind": "Class",
+   "path": "server/internal/service/email.go:26"
+  },
+  {
+   "id": "srv-cloud",
+   "parent": "srv-integrations",
+   "name": "Cloud runtime client",
+   "icon": "cloud",
+   "kind": "Class",
+   "path": "server/internal/cloudruntime/client.go:75"
+  },
+  {
+   "id": "srv-analytics",
+   "parent": "srv-integrations",
+   "name": "Analytics client",
+   "icon": "chart-line",
+   "kind": "Class",
+   "path": "server/internal/analytics/client.go:60"
+  },
+  {
+   "id": "daemon",
+   "parent": "runtime",
+   "name": "Daemon",
+   "icon": "server-cog",
+   "kind": "Module",
+   "path": "server/internal/daemon/",
+   "zoom": {
+    "name": "Daemon",
+    "title": "Daemon",
+    "description": "The loop that claims and runs tasks",
+    "question": "How does a daemon pick up and run a task?",
+    "base": "server/internal/daemon/"
+   }
+  },
+  {
+   "id": "cli",
+   "parent": "runtime",
+   "name": "multica CLI",
+   "icon": "terminal",
+   "kind": "Module",
+   "path": "server/cmd/multica/",
+   "zoom": {
+    "name": "multica CLI",
+    "title": "multica CLI",
+    "description": "Commands people and agents run",
+    "question": "Which commands reach the server?",
+    "base": "server/"
+   }
+  },
+  {
+   "id": "daemon-backends",
+   "parent": "runtime",
+   "name": "Agent backends",
+   "icon": "bot",
+   "kind": "Function",
+   "path": "server/pkg/agent/agent.go:435"
+  },
+  {
+   "id": "daemon-transport",
+   "parent": "daemon",
+   "name": "Server link",
+   "icon": "cable",
+   "kind": "Module",
+   "path": "server/internal/daemon/",
+   "zoom": {
+    "name": "Server link",
+    "title": "Server link",
+    "description": "REST and WebSocket to the server",
+    "question": "How does the daemon talk to the server?",
+    "base": "server/internal/daemon/"
+   }
+  },
+  {
+   "id": "daemon-session-follower",
+   "parent": "daemon",
+   "name": "Session follower",
+   "icon": "eye",
+   "kind": "Function",
+   "path": "server/internal/daemon/agent_sessions.go:79"
+  },
+  {
+   "id": "daemon-poll",
+   "parent": "daemon",
+   "name": "pollLoop",
+   "icon": "repeat",
+   "kind": "Function",
+   "path": "server/internal/daemon/daemon.go:5382"
+  },
+  {
+   "id": "daemon-heartbeat",
+   "parent": "daemon",
+   "name": "heartbeatLoop",
+   "icon": "heart-pulse",
+   "kind": "Function",
+   "path": "server/internal/daemon/daemon.go:4465"
+  },
+  {
+   "id": "daemon-local-sessions",
+   "parent": "daemon",
+   "name": "Local sessions",
+   "icon": "terminal",
+   "kind": "Function",
+   "path": "server/internal/daemon/health.go:430"
+  },
+  {
+   "id": "daemon-task",
+   "parent": "daemon",
+   "name": "Task run",
+   "icon": "play",
+   "kind": "Module",
+   "path": "server/internal/daemon/",
+   "zoom": {
+    "name": "Task run",
+    "title": "Task run",
+    "description": "From a claimed task to a running agent",
+    "question": "What happens between claim and agent?",
+    "base": "server/internal/daemon/",
+    "view": "paths"
+   }
+  },
+  {
+   "id": "daemon-supplement",
+   "parent": "daemon",
+   "name": "runTaskSupplementLoop",
+   "icon": "message-square-dot",
+   "kind": "Function",
+   "path": "server/internal/daemon/task_supplement.go:140"
+  },
+  {
+   "id": "daemon-run",
+   "parent": "daemon",
+   "name": "Run",
+   "icon": "power",
+   "kind": "Function",
+   "path": "server/internal/daemon/daemon.go:2082"
+  },
+  {
+   "id": "daemon-handle-task",
+   "parent": "daemon-task",
+   "name": "handleTask",
+   "icon": "hand",
+   "kind": "Function",
+   "path": "server/internal/daemon/daemon.go:5755"
+  },
+  {
+   "id": "daemon-run-task",
+   "parent": "daemon-task",
+   "name": "runTask",
+   "icon": "play",
+   "kind": "Function",
+   "path": "server/internal/daemon/daemon.go:7495"
+  },
+  {
+   "id": "daemon-execenv",
+   "parent": "daemon-task",
+   "name": "Prepare",
+   "icon": "folder-cog",
+   "kind": "Function",
+   "path": "server/internal/daemon/execenv/execenv.go:396"
+  },
+  {
+   "id": "daemon-prompt",
+   "parent": "daemon-task",
+   "name": "BuildPrompt",
+   "icon": "file-text",
+   "kind": "Function",
+   "path": "server/internal/daemon/prompt.go:310"
+  },
+  {
+   "id": "daemon-client",
+   "parent": "daemon-transport",
+   "name": "REST client",
+   "icon": "send",
+   "kind": "Class",
+   "path": "server/internal/daemon/client.go:97"
+  },
+  {
+   "id": "daemon-ws",
+   "parent": "daemon-transport",
+   "name": "WS RPC client",
+   "icon": "radio-tower",
+   "kind": "Class",
+   "path": "server/internal/daemon/wsrpc.go:84"
+  },
+  {
+   "id": "daemon-wakeup",
+   "parent": "daemon-transport",
+   "name": "Wakeup connection",
+   "icon": "radio",
+   "kind": "Function",
+   "path": "server/internal/daemon/wakeup.go:99"
+  },
+  {
+   "id": "cli-root",
+   "parent": "cli",
+   "name": "multica",
+   "icon": "terminal",
+   "kind": "Command",
+   "path": "server/cmd/multica/main.go:26"
+  },
+  {
+   "id": "cli-daemon",
+   "parent": "cli",
+   "name": "daemon start",
+   "icon": "power",
+   "kind": "Command",
+   "path": "server/cmd/multica/cmd_daemon.go:544"
+  },
+  {
+   "id": "cli-issue",
+   "parent": "cli",
+   "name": "issue comment add",
+   "icon": "message-square-plus",
+   "kind": "Command",
+   "path": "server/cmd/multica/cmd_issue.go:2583"
+  },
+  {
+   "id": "cli-question",
+   "parent": "cli",
+   "name": "question ask",
+   "icon": "circle-help",
+   "kind": "Command",
+   "path": "server/cmd/multica/cmd_question.go:197"
+  },
+  {
+   "id": "cli-todo",
+   "parent": "cli",
+   "name": "todo check",
+   "icon": "list-checks",
+   "kind": "Command",
+   "path": "server/cmd/multica/cmd_todo.go:114"
+  },
+  {
+   "id": "cli-release",
+   "parent": "cli",
+   "name": "release",
+   "icon": "rocket",
+   "kind": "Command",
+   "path": "server/cmd/multica/cmd_release.go:15"
+  },
+  {
+   "id": "cli-agent-sessions",
+   "parent": "cli",
+   "name": "agent register-session",
+   "icon": "terminal",
+   "kind": "Command",
+   "path": "server/cmd/multica/cmd_agent_sessions.go:133"
+  },
+  {
+   "id": "cli-api",
+   "parent": "cli",
+   "name": "API client",
+   "icon": "send",
+   "kind": "Class",
+   "path": "server/internal/cli/client.go:49"
+  },
+  {
+   "id": "sync-main",
+   "parent": "madspec-sync",
+   "name": "Persona sync",
+   "icon": "users",
+   "kind": "Function",
+   "path": "madspec-sync/multica_sync.py:90"
+  },
+  {
+   "id": "sync-export",
+   "parent": "madspec-sync",
+   "name": "export_main",
+   "icon": "folder-git-2",
+   "kind": "Function",
+   "path": "madspec-sync/multica_sync.py:111"
+  },
+  {
+   "id": "sync-sync",
+   "parent": "madspec-sync",
+   "name": "Sync",
+   "icon": "refresh-cw",
+   "kind": "Class",
+   "path": "madspec-sync/multica_sync.py:398"
+  },
+  {
+   "id": "sync-machine",
+   "parent": "madspec-sync",
+   "name": "Machine",
+   "icon": "cpu",
+   "kind": "Class",
+   "path": "madspec-sync/multica_sync.py:331"
+  },
+  {
+   "id": "sync-api",
+   "parent": "madspec-sync",
+   "name": "Multica API",
+   "icon": "send",
+   "kind": "Class",
+   "path": "madspec-sync/multica_sync.py:298"
+  },
+  {
+   "id": "sync-projects",
+   "parent": "madspec-sync",
+   "name": "Product sync",
+   "icon": "boxes",
+   "kind": "Function",
+   "path": "madspec-sync/multica_projects.py:551"
+  },
+  {
+   "id": "sync-read-brain",
+   "parent": "madspec-sync",
+   "name": "read_brain",
+   "icon": "brain",
+   "kind": "Function",
+   "path": "madspec-sync/multica_projects.py:323"
+  },
+  {
+   "id": "sync-write-plan",
+   "parent": "madspec-sync",
+   "name": "write_plan",
+   "icon": "list-checks",
+   "kind": "Function",
+   "path": "madspec-sync/multica_projects.py:452"
+  }
+ ],
+ "edges": [
+  {
+   "id": "people--web-proxy",
+   "from": "people",
+   "to": "web-proxy",
+   "line": "call",
+   "data": "page request",
+   "trigger": "opens the web app"
+  },
+  {
+   "id": "people--desktop-main",
+   "from": "people",
+   "to": "desktop-main",
+   "line": "call",
+   "data": "window",
+   "trigger": "opens the desktop app"
+  },
+  {
+   "id": "people--mobile-root-layout",
+   "from": "people",
+   "to": "mobile-root-layout",
+   "line": "call",
+   "data": "screen",
+   "trigger": "opens the mobile app"
+  },
+  {
+   "id": "people--docs",
+   "from": "people",
+   "to": "docs",
+   "line": "call",
+   "data": "page",
+   "trigger": "reads the docs"
+  },
+  {
+   "id": "people--chat",
+   "from": "people",
+   "to": "chat",
+   "line": "call",
+   "data": "message",
+   "trigger": "talks to an agent"
+  },
+  {
+   "id": "people--sync-main",
+   "from": "people",
+   "to": "sync-main",
+   "line": "call",
+   "data": "command",
+   "trigger": "runs persona sync"
+  },
+  {
+   "id": "people--sync-projects",
+   "from": "people",
+   "to": "sync-projects",
+   "line": "call",
+   "data": "command",
+   "trigger": "runs product sync"
+  },
+  {
+   "id": "ai-agents--cli-root",
+   "from": "ai-agents",
+   "to": "cli-root",
+   "line": "call",
+   "data": "command",
+   "trigger": "agent calls back"
+  },
+  {
+   "id": "web-proxy--web-workspace-layout",
+   "from": "web-proxy",
+   "to": "web-workspace-layout",
+   "line": "call",
+   "data": "route",
+   "trigger": "session is valid"
+  },
+  {
+   "id": "web-workspace-layout--views-dashboard",
+   "from": "web-workspace-layout",
+   "to": "views-dashboard",
+   "line": "call",
+   "data": "workspace slug",
+   "trigger": "page renders"
+  },
+  {
+   "id": "web-providers--core-provider",
+   "from": "web-providers",
+   "to": "core-provider",
+   "line": "call",
+   "data": "adapters",
+   "trigger": "app mounts"
+  },
+  {
+   "id": "views-dashboard--web-navigation",
+   "from": "views-dashboard",
+   "to": "web-navigation",
+   "line": "call",
+   "data": "path",
+   "trigger": "link clicked on web"
+  },
+  {
+   "id": "desktop-main--desktop-routes",
+   "from": "desktop-main",
+   "to": "desktop-routes",
+   "line": "call",
+   "data": "renderer",
+   "trigger": "window loads"
+  },
+  {
+   "id": "desktop-main--desktop-daemon-manager",
+   "from": "desktop-main",
+   "to": "desktop-daemon-manager",
+   "line": "call",
+   "data": "setup",
+   "trigger": "app ready"
+  },
+  {
+   "id": "desktop-preload--desktop-daemon-manager",
+   "from": "desktop-preload",
+   "to": "desktop-daemon-manager",
+   "line": "call",
+   "data": "daemon IPC",
+   "trigger": "renderer asks"
+  },
+  {
+   "id": "desktop-tab-store--desktop-routes",
+   "from": "desktop-tab-store",
+   "to": "desktop-routes",
+   "line": "call",
+   "data": "tab path",
+   "trigger": "tab switches"
+  },
+  {
+   "id": "desktop-routes--views-dashboard",
+   "from": "desktop-routes",
+   "to": "views-dashboard",
+   "line": "call",
+   "data": "route",
+   "trigger": "tab opens"
+  },
+  {
+   "id": "views-dashboard--desktop-navigation",
+   "from": "views-dashboard",
+   "to": "desktop-navigation",
+   "line": "call",
+   "data": "path",
+   "trigger": "link clicked on desktop"
+  },
+  {
+   "id": "desktop-navigation--desktop-tab-store",
+   "from": "desktop-navigation",
+   "to": "desktop-tab-store",
+   "line": "call",
+   "data": "path",
+   "trigger": "navigates"
+  },
+  {
+   "id": "desktop-daemon-manager--cli-daemon",
+   "from": "desktop-daemon-manager",
+   "to": "cli-daemon",
+   "line": "call",
+   "data": "daemon start",
+   "trigger": "auto-start"
+  },
+  {
+   "id": "mobile-root-layout--mobile-auth-store",
+   "from": "mobile-root-layout",
+   "to": "mobile-auth-store",
+   "line": "call",
+   "data": "session",
+   "trigger": "app starts"
+  },
+  {
+   "id": "mobile-auth-store--mobile-secure-storage",
+   "from": "mobile-auth-store",
+   "to": "mobile-secure-storage",
+   "line": "data",
+   "data": "token",
+   "trigger": "login"
+  },
+  {
+   "id": "mobile-workspace-layout--mobile-workspace-store",
+   "from": "mobile-workspace-layout",
+   "to": "mobile-workspace-store",
+   "line": "call",
+   "data": "workspace slug",
+   "trigger": "route changes"
+  },
+  {
+   "id": "mobile-workspace-store--mobile-api",
+   "from": "mobile-workspace-store",
+   "to": "mobile-api",
+   "line": "call",
+   "data": "workspaces",
+   "trigger": "store loads"
+  },
+  {
+   "id": "mobile-api--mobile-secure-storage",
+   "from": "mobile-api",
+   "to": "mobile-secure-storage",
+   "line": "data",
+   "data": "token",
+   "trigger": "each request"
+  },
+  {
+   "id": "mobile-workspace-layout--mobile-realtime-provider",
+   "from": "mobile-workspace-layout",
+   "to": "mobile-realtime-provider",
+   "line": "call",
+   "data": "workspace",
+   "trigger": "layout mounts"
+  },
+  {
+   "id": "mobile-realtime-provider--mobile-realtime",
+   "from": "mobile-realtime-provider",
+   "to": "mobile-realtime",
+   "line": "call",
+   "data": "connect",
+   "trigger": "provider mounts"
+  },
+  {
+   "id": "mobile-api--srv-router",
+   "from": "mobile-api",
+   "to": "srv-router",
+   "line": "call",
+   "data": "REST /api",
+   "trigger": "query runs"
+  },
+  {
+   "id": "mobile-realtime--srv-realtime-hub",
+   "from": "mobile-realtime",
+   "to": "srv-realtime-hub",
+   "line": "call",
+   "data": "WS /ws",
+   "trigger": "socket opens"
+  },
+  {
+   "id": "srv-realtime-hub--mobile-realtime",
+   "from": "srv-realtime-hub",
+   "to": "mobile-realtime",
+   "line": "event",
+   "data": "workspace events",
+   "trigger": "event published",
+   "event": "issue:updated"
+  },
+  {
+   "id": "views-issue-detail--core-create-comment",
+   "from": "views-issue-detail",
+   "to": "core-create-comment",
+   "line": "call",
+   "data": "comment",
+   "trigger": "member posts"
+  },
+  {
+   "id": "views-issue-detail--core-question-queries",
+   "from": "views-issue-detail",
+   "to": "core-question-queries",
+   "line": "call",
+   "data": "issue id",
+   "trigger": "detail opens"
+  },
+  {
+   "id": "views-question-card--core-answer-question",
+   "from": "views-question-card",
+   "to": "core-answer-question",
+   "line": "call",
+   "data": "answer",
+   "trigger": "member answers"
+  },
+  {
+   "id": "views-chat--core-api",
+   "from": "views-chat",
+   "to": "core-api",
+   "line": "call",
+   "data": "chat message",
+   "trigger": "member sends"
+  },
+  {
+   "id": "views-inbox--core-todo-list",
+   "from": "views-inbox",
+   "to": "core-todo-list",
+   "line": "call",
+   "data": "workspace id",
+   "trigger": "inbox opens"
+  },
+  {
+   "id": "views-todo-check--core-answer-check",
+   "from": "views-todo-check",
+   "to": "core-answer-check",
+   "line": "call",
+   "data": "check answer",
+   "trigger": "member checks"
+  },
+  {
+   "id": "views-release-detail--core-api",
+   "from": "views-release-detail",
+   "to": "core-api",
+   "line": "call",
+   "data": "release id",
+   "trigger": "page opens"
+  },
+  {
+   "id": "views-question-card--ui",
+   "from": "views-question-card",
+   "to": "ui",
+   "line": "call",
+   "data": "props",
+   "trigger": "card renders"
+  },
+  {
+   "id": "core-create-comment--core-run-steering",
+   "from": "core-create-comment",
+   "to": "core-run-steering",
+   "line": "call",
+   "data": "recipients",
+   "trigger": "before send"
+  },
+  {
+   "id": "core-create-comment--core-api",
+   "from": "core-create-comment",
+   "to": "core-api",
+   "line": "call",
+   "data": "comment",
+   "trigger": "mutation runs"
+  },
+  {
+   "id": "core-question-queries--core-api",
+   "from": "core-question-queries",
+   "to": "core-api",
+   "line": "call",
+   "data": "issue id",
+   "trigger": "query runs"
+  },
+  {
+   "id": "core-answer-question--core-api",
+   "from": "core-answer-question",
+   "to": "core-api",
+   "line": "call",
+   "data": "answer",
+   "trigger": "mutation runs"
+  },
+  {
+   "id": "core-todo-list--core-api",
+   "from": "core-todo-list",
+   "to": "core-api",
+   "line": "call",
+   "data": "workspace id",
+   "trigger": "query runs"
+  },
+  {
+   "id": "core-answer-check--core-api",
+   "from": "core-answer-check",
+   "to": "core-api",
+   "line": "call",
+   "data": "check answer",
+   "trigger": "mutation runs"
+  },
+  {
+   "id": "core-api--core-schema",
+   "from": "core-api",
+   "to": "core-schema",
+   "line": "call",
+   "data": "JSON",
+   "trigger": "response arrives"
+  },
+  {
+   "id": "core-provider--core-realtime-sync",
+   "from": "core-provider",
+   "to": "core-realtime-sync",
+   "line": "call",
+   "data": "workspace",
+   "trigger": "workspace set"
+  },
+  {
+   "id": "core-realtime-sync--core-ws",
+   "from": "core-realtime-sync",
+   "to": "core-ws",
+   "line": "call",
+   "data": "subscribe",
+   "trigger": "sync mounts"
+  },
+  {
+   "id": "core-api--srv-router",
+   "from": "core-api",
+   "to": "srv-router",
+   "line": "call",
+   "data": "REST /api",
+   "trigger": "query or mutation"
+  },
+  {
+   "id": "core-ws--srv-realtime-hub",
+   "from": "core-ws",
+   "to": "srv-realtime-hub",
+   "line": "call",
+   "data": "WS /ws",
+   "trigger": "socket opens"
+  },
+  {
+   "id": "srv-realtime-hub--core-ws",
+   "from": "srv-realtime-hub",
+   "to": "core-ws",
+   "line": "event",
+   "data": "task state",
+   "trigger": "task queued",
+   "event": "task:queued"
+  },
+  {
+   "id": "srv-realtime-hub--core-ws--2",
+   "from": "srv-realtime-hub",
+   "to": "core-ws",
+   "line": "event",
+   "data": "question",
+   "trigger": "question changes",
+   "event": "question:updated"
+  },
+  {
+   "id": "srv-realtime-hub--core-ws--3",
+   "from": "srv-realtime-hub",
+   "to": "core-ws",
+   "line": "event",
+   "data": "to-do",
+   "trigger": "to-do opens",
+   "event": "todo:opened"
+  },
+  {
+   "id": "srv-realtime-hub--core-ws--4",
+   "from": "srv-realtime-hub",
+   "to": "core-ws",
+   "line": "event",
+   "data": "comment",
+   "trigger": "comment created",
+   "event": "comment:created"
+  },
+  {
+   "id": "core-ws--core-realtime-sync",
+   "from": "core-ws",
+   "to": "core-realtime-sync",
+   "line": "event",
+   "data": "event",
+   "trigger": "message arrives"
+  },
+  {
+   "id": "core-realtime-sync--core-query-client",
+   "from": "core-realtime-sync",
+   "to": "core-query-client",
+   "line": "data",
+   "data": "cache patch",
+   "trigger": "event handled"
+  },
+  {
+   "id": "srv-main--srv-router",
+   "from": "srv-main",
+   "to": "srv-router",
+   "line": "call",
+   "data": "handler deps",
+   "trigger": "server starts"
+  },
+  {
+   "id": "srv-main--srv-scheduler",
+   "from": "srv-main",
+   "to": "srv-scheduler",
+   "line": "call",
+   "data": "jobs",
+   "trigger": "server starts"
+  },
+  {
+   "id": "srv-main--srv-runtime-sweeper",
+   "from": "srv-main",
+   "to": "srv-runtime-sweeper",
+   "line": "call",
+   "data": "ticker",
+   "trigger": "server starts"
+  },
+  {
+   "id": "srv-router--srv-auth",
+   "from": "srv-router",
+   "to": "srv-auth",
+   "line": "call",
+   "data": "request",
+   "trigger": "/api route"
+  },
+  {
+   "id": "srv-router--srv-daemon-auth",
+   "from": "srv-router",
+   "to": "srv-daemon-auth",
+   "line": "call",
+   "data": "daemon request",
+   "trigger": "/api/daemon route"
+  },
+  {
+   "id": "srv-router--srv-rate-limit",
+   "from": "srv-router",
+   "to": "srv-rate-limit",
+   "line": "call",
+   "data": "login request",
+   "trigger": "/auth route"
+  },
+  {
+   "id": "srv-router--srv-plugin-auth",
+   "from": "srv-router",
+   "to": "srv-plugin-auth",
+   "line": "call",
+   "data": "plugin request",
+   "trigger": "/v1 route"
+  },
+  {
+   "id": "srv-rate-limit--redis",
+   "from": "srv-rate-limit",
+   "to": "redis",
+   "line": "data",
+   "data": "counters",
+   "trigger": "each login call"
+  },
+  {
+   "id": "srv-rate-limit--srv-send-code",
+   "from": "srv-rate-limit",
+   "to": "srv-send-code",
+   "line": "call",
+   "data": "email",
+   "trigger": "member asks code"
+  },
+  {
+   "id": "srv-rate-limit--srv-verify-code",
+   "from": "srv-rate-limit",
+   "to": "srv-verify-code",
+   "line": "call",
+   "data": "code",
+   "trigger": "member enters code"
+  },
+  {
+   "id": "srv-rate-limit--srv-google-login",
+   "from": "srv-rate-limit",
+   "to": "srv-google-login",
+   "line": "call",
+   "data": "Google code",
+   "trigger": "member picks Google"
+  },
+  {
+   "id": "srv-plugin-auth--srv-plugin-context",
+   "from": "srv-plugin-auth",
+   "to": "srv-plugin-context",
+   "line": "call",
+   "data": "plugin token",
+   "trigger": "plugin asks context"
+  },
+  {
+   "id": "srv-auth--srv-create-issue",
+   "from": "srv-auth",
+   "to": "srv-create-issue",
+   "line": "call",
+   "data": "issue",
+   "trigger": "member creates"
+  },
+  {
+   "id": "srv-auth--srv-update-issue",
+   "from": "srv-auth",
+   "to": "srv-update-issue",
+   "line": "call",
+   "data": "issue fields",
+   "trigger": "member edits"
+  },
+  {
+   "id": "srv-auth--srv-create-comment",
+   "from": "srv-auth",
+   "to": "srv-create-comment",
+   "line": "call",
+   "data": "comment",
+   "trigger": "someone comments"
+  },
+  {
+   "id": "srv-auth--srv-react-run-input",
+   "from": "srv-auth",
+   "to": "srv-react-run-input",
+   "line": "call",
+   "data": "reaction",
+   "trigger": "agent reacts"
+  },
+  {
+   "id": "srv-auth--srv-ask-question",
+   "from": "srv-auth",
+   "to": "srv-ask-question",
+   "line": "call",
+   "data": "ask",
+   "trigger": "agent asks"
+  },
+  {
+   "id": "srv-auth--srv-answer-question",
+   "from": "srv-auth",
+   "to": "srv-answer-question",
+   "line": "call",
+   "data": "answer",
+   "trigger": "member answers"
+  },
+  {
+   "id": "srv-auth--srv-wake-question",
+   "from": "srv-auth",
+   "to": "srv-wake-question",
+   "line": "call",
+   "data": "wake",
+   "trigger": "member wakes agent"
+  },
+  {
+   "id": "srv-auth--srv-list-todos",
+   "from": "srv-auth",
+   "to": "srv-list-todos",
+   "line": "call",
+   "data": "workspace id",
+   "trigger": "inbox opens"
+  },
+  {
+   "id": "srv-auth--srv-mark-todo-done",
+   "from": "srv-auth",
+   "to": "srv-mark-todo-done",
+   "line": "call",
+   "data": "to-do id",
+   "trigger": "member marks done"
+  },
+  {
+   "id": "srv-auth--srv-open-check",
+   "from": "srv-auth",
+   "to": "srv-open-check",
+   "line": "call",
+   "data": "check",
+   "trigger": "agent opens check"
+  },
+  {
+   "id": "srv-auth--srv-answer-check",
+   "from": "srv-auth",
+   "to": "srv-answer-check",
+   "line": "call",
+   "data": "check answer",
+   "trigger": "member checks"
+  },
+  {
+   "id": "srv-auth--srv-memberships",
+   "from": "srv-auth",
+   "to": "srv-memberships",
+   "line": "call",
+   "data": "user id",
+   "trigger": "app starts"
+  },
+  {
+   "id": "srv-auth--srv-upload-file",
+   "from": "srv-auth",
+   "to": "srv-upload-file",
+   "line": "call",
+   "data": "file",
+   "trigger": "member attaches"
+  },
+  {
+   "id": "srv-auth--srv-create-org",
+   "from": "srv-auth",
+   "to": "srv-create-org",
+   "line": "call",
+   "data": "organisation",
+   "trigger": "sync or member"
+  },
+  {
+   "id": "srv-auth--srv-create-project",
+   "from": "srv-auth",
+   "to": "srv-create-project",
+   "line": "call",
+   "data": "project",
+   "trigger": "sync or member"
+  },
+  {
+   "id": "srv-auth--srv-plan-release",
+   "from": "srv-auth",
+   "to": "srv-plan-release",
+   "line": "call",
+   "data": "release",
+   "trigger": "member plans"
+  },
+  {
+   "id": "srv-auth--srv-add-to-release",
+   "from": "srv-auth",
+   "to": "srv-add-to-release",
+   "line": "call",
+   "data": "issue ids",
+   "trigger": "member places"
+  },
+  {
+   "id": "srv-auth--srv-release-comment",
+   "from": "srv-auth",
+   "to": "srv-release-comment",
+   "line": "call",
+   "data": "comment",
+   "trigger": "someone comments"
+  },
+  {
+   "id": "srv-auth--srv-release-wakeup",
+   "from": "srv-auth",
+   "to": "srv-release-wakeup",
+   "line": "call",
+   "data": "wakeup",
+   "trigger": "agent schedules"
+  },
+  {
+   "id": "srv-auth--srv-client-read",
+   "from": "srv-auth",
+   "to": "srv-client-read",
+   "line": "call",
+   "data": "client scope",
+   "trigger": "client opens"
+  },
+  {
+   "id": "srv-auth--srv-send-chat",
+   "from": "srv-auth",
+   "to": "srv-send-chat",
+   "line": "call",
+   "data": "chat message",
+   "trigger": "member sends"
+  },
+  {
+   "id": "srv-daemon-auth--srv-daemon-register",
+   "from": "srv-daemon-auth",
+   "to": "srv-daemon-register",
+   "line": "call",
+   "data": "runtimes",
+   "trigger": "daemon starts"
+  },
+  {
+   "id": "srv-daemon-auth--srv-daemon-heartbeat",
+   "from": "srv-daemon-auth",
+   "to": "srv-daemon-heartbeat",
+   "line": "call",
+   "data": "heartbeat",
+   "trigger": "every interval"
+  },
+  {
+   "id": "srv-daemon-auth--srv-claim-task",
+   "from": "srv-daemon-auth",
+   "to": "srv-claim-task",
+   "line": "call",
+   "data": "runtime id",
+   "trigger": "daemon polls"
+  },
+  {
+   "id": "srv-daemon-auth--srv-start-task",
+   "from": "srv-daemon-auth",
+   "to": "srv-start-task",
+   "line": "call",
+   "data": "task id",
+   "trigger": "run starts"
+  },
+  {
+   "id": "srv-daemon-auth--srv-complete-task",
+   "from": "srv-daemon-auth",
+   "to": "srv-complete-task",
+   "line": "call",
+   "data": "result",
+   "trigger": "run ends"
+  },
+  {
+   "id": "srv-daemon-auth--srv-daemon-ws",
+   "from": "srv-daemon-auth",
+   "to": "srv-daemon-ws",
+   "line": "call",
+   "data": "socket",
+   "trigger": "daemon connects"
+  },
+  {
+   "id": "srv-daemon-auth--srv-claim-supplement",
+   "from": "srv-daemon-auth",
+   "to": "srv-claim-supplement",
+   "line": "call",
+   "data": "task id",
+   "trigger": "run is live"
+  },
+  {
+   "id": "srv-daemon-auth--srv-agent-sessions",
+   "from": "srv-daemon-auth",
+   "to": "srv-agent-sessions",
+   "line": "call",
+   "data": "session",
+   "trigger": "agent registers"
+  },
+  {
+   "id": "srv-github-webhook--postgres",
+   "from": "srv-github-webhook",
+   "to": "postgres",
+   "line": "data",
+   "data": "PR state",
+   "trigger": "webhook verified"
+  },
+  {
+   "id": "srv-vcs-webhook--srv-vcs",
+   "from": "srv-vcs-webhook",
+   "to": "srv-vcs",
+   "line": "call",
+   "data": "payload",
+   "trigger": "webhook verified"
+  },
+  {
+   "id": "srv-stripe-webhook--srv-cloud",
+   "from": "srv-stripe-webhook",
+   "to": "srv-cloud",
+   "line": "call",
+   "data": "billing event",
+   "trigger": "webhook verified"
+  },
+  {
+   "id": "srv-composio-callback--srv-composio",
+   "from": "srv-composio-callback",
+   "to": "srv-composio",
+   "line": "call",
+   "data": "connection",
+   "trigger": "callback arrives"
+  },
+  {
+   "id": "srv-send-code--srv-email",
+   "from": "srv-send-code",
+   "to": "srv-email",
+   "line": "call",
+   "data": "login code",
+   "trigger": "code created"
+  },
+  {
+   "id": "srv-verify-code--postgres",
+   "from": "srv-verify-code",
+   "to": "postgres",
+   "line": "data",
+   "data": "session",
+   "trigger": "code matches"
+  },
+  {
+   "id": "srv-google-login--google",
+   "from": "srv-google-login",
+   "to": "google",
+   "line": "call",
+   "data": "OAuth code",
+   "trigger": "token exchange"
+  },
+  {
+   "id": "srv-memberships--postgres",
+   "from": "srv-memberships",
+   "to": "postgres",
+   "line": "data",
+   "data": "memberships",
+   "trigger": "read"
+  },
+  {
+   "id": "srv-upload-file--srv-storage",
+   "from": "srv-upload-file",
+   "to": "srv-storage",
+   "line": "data",
+   "data": "file",
+   "trigger": "upload"
+  },
+  {
+   "id": "srv-create-issue--srv-issue-svc",
+   "from": "srv-create-issue",
+   "to": "srv-issue-svc",
+   "line": "call",
+   "data": "issue",
+   "trigger": "request valid"
+  },
+  {
+   "id": "srv-update-issue--srv-issue-svc",
+   "from": "srv-update-issue",
+   "to": "srv-issue-svc",
+   "line": "call",
+   "data": "issue fields",
+   "trigger": "request valid"
+  },
+  {
+   "id": "srv-issue-svc--postgres",
+   "from": "srv-issue-svc",
+   "to": "postgres",
+   "line": "data",
+   "data": "issue row",
+   "trigger": "write"
+  },
+  {
+   "id": "srv-issue-svc--srv-bus",
+   "from": "srv-issue-svc",
+   "to": "srv-bus",
+   "line": "event",
+   "data": "issue",
+   "trigger": "issue changes",
+   "event": "issue:updated"
+  },
+  {
+   "id": "srv-issue-svc--srv-enqueue-issue",
+   "from": "srv-issue-svc",
+   "to": "srv-enqueue-issue",
+   "line": "call",
+   "data": "issue",
+   "trigger": "agent assigned"
+  },
+  {
+   "id": "srv-create-comment--postgres",
+   "from": "srv-create-comment",
+   "to": "postgres",
+   "line": "data",
+   "data": "comment row",
+   "trigger": "insert"
+  },
+  {
+   "id": "srv-create-comment--srv-bus",
+   "from": "srv-create-comment",
+   "to": "srv-bus",
+   "line": "event",
+   "data": "comment",
+   "trigger": "comment created",
+   "event": "comment:created"
+  },
+  {
+   "id": "srv-create-comment--srv-comment-triggers",
+   "from": "srv-create-comment",
+   "to": "srv-comment-triggers",
+   "line": "call",
+   "data": "comment",
+   "trigger": "comment saved"
+  },
+  {
+   "id": "srv-create-comment--srv-steer",
+   "from": "srv-create-comment",
+   "to": "srv-steer",
+   "line": "call",
+   "data": "comment",
+   "trigger": "agent is running"
+  },
+  {
+   "id": "srv-comment-triggers--srv-enqueue-mention",
+   "from": "srv-comment-triggers",
+   "to": "srv-enqueue-mention",
+   "line": "call",
+   "data": "mention",
+   "trigger": "agent mentioned"
+  },
+  {
+   "id": "srv-steer--srv-run-input",
+   "from": "srv-steer",
+   "to": "srv-run-input",
+   "line": "call",
+   "data": "run input",
+   "trigger": "recipient steered"
+  },
+  {
+   "id": "srv-react-run-input--postgres",
+   "from": "srv-react-run-input",
+   "to": "postgres",
+   "line": "data",
+   "data": "receipt",
+   "trigger": "👀 or ✅"
+  },
+  {
+   "id": "srv-enqueue-mention--postgres",
+   "from": "srv-enqueue-mention",
+   "to": "postgres",
+   "line": "data",
+   "data": "task row",
+   "trigger": "insert queue"
+  },
+  {
+   "id": "srv-enqueue-issue--postgres",
+   "from": "srv-enqueue-issue",
+   "to": "postgres",
+   "line": "data",
+   "data": "task row",
+   "trigger": "insert queue"
+  },
+  {
+   "id": "srv-enqueue-question-task--postgres",
+   "from": "srv-enqueue-question-task",
+   "to": "postgres",
+   "line": "data",
+   "data": "task row",
+   "trigger": "insert queue"
+  },
+  {
+   "id": "srv-enqueue-mention--srv-broadcast-task",
+   "from": "srv-enqueue-mention",
+   "to": "srv-broadcast-task",
+   "line": "call",
+   "data": "task",
+   "trigger": "after commit"
+  },
+  {
+   "id": "srv-enqueue-issue--srv-broadcast-task",
+   "from": "srv-enqueue-issue",
+   "to": "srv-broadcast-task",
+   "line": "call",
+   "data": "task",
+   "trigger": "after commit"
+  },
+  {
+   "id": "srv-enqueue-mention--srv-notify-task",
+   "from": "srv-enqueue-mention",
+   "to": "srv-notify-task",
+   "line": "call",
+   "data": "task",
+   "trigger": "after commit"
+  },
+  {
+   "id": "srv-enqueue-issue--srv-notify-task",
+   "from": "srv-enqueue-issue",
+   "to": "srv-notify-task",
+   "line": "call",
+   "data": "task",
+   "trigger": "after commit"
+  },
+  {
+   "id": "srv-broadcast-task--srv-bus",
+   "from": "srv-broadcast-task",
+   "to": "srv-bus",
+   "line": "event",
+   "data": "task",
+   "trigger": "task queued",
+   "event": "task:queued"
+  },
+  {
+   "id": "srv-notify-task--srv-relay-notifier",
+   "from": "srv-notify-task",
+   "to": "srv-relay-notifier",
+   "line": "call",
+   "data": "runtime id",
+   "trigger": "task queued"
+  },
+  {
+   "id": "srv-claim-for-runtime--postgres",
+   "from": "srv-claim-for-runtime",
+   "to": "postgres",
+   "line": "data",
+   "data": "task row",
+   "trigger": "claim update"
+  },
+  {
+   "id": "srv-task-lifecycle--postgres",
+   "from": "srv-task-lifecycle",
+   "to": "postgres",
+   "line": "data",
+   "data": "task status",
+   "trigger": "start or finish"
+  },
+  {
+   "id": "srv-task-lifecycle--srv-broadcast-task",
+   "from": "srv-task-lifecycle",
+   "to": "srv-broadcast-task",
+   "line": "call",
+   "data": "task",
+   "trigger": "status changes"
+  },
+  {
+   "id": "srv-claim-task--srv-claim-for-runtime",
+   "from": "srv-claim-task",
+   "to": "srv-claim-for-runtime",
+   "line": "call",
+   "data": "runtime id",
+   "trigger": "daemon claims"
+  },
+  {
+   "id": "srv-start-task--srv-task-lifecycle",
+   "from": "srv-start-task",
+   "to": "srv-task-lifecycle",
+   "line": "call",
+   "data": "task id",
+   "trigger": "run starts"
+  },
+  {
+   "id": "srv-complete-task--srv-task-lifecycle",
+   "from": "srv-complete-task",
+   "to": "srv-task-lifecycle",
+   "line": "call",
+   "data": "result",
+   "trigger": "run ends"
+  },
+  {
+   "id": "srv-run-input--postgres",
+   "from": "srv-run-input",
+   "to": "postgres",
+   "line": "data",
+   "data": "supplement receipt",
+   "trigger": "pending insert"
+  },
+  {
+   "id": "srv-run-input--srv-relay-notifier",
+   "from": "srv-run-input",
+   "to": "srv-relay-notifier",
+   "line": "call",
+   "data": "runtime · task",
+   "trigger": "receipt stored"
+  },
+  {
+   "id": "srv-claim-supplement--postgres",
+   "from": "srv-claim-supplement",
+   "to": "postgres",
+   "line": "data",
+   "data": "supplement",
+   "trigger": "claim"
+  },
+  {
+   "id": "srv-ask-question--srv-q-ask",
+   "from": "srv-ask-question",
+   "to": "srv-q-ask",
+   "line": "call",
+   "data": "ask",
+   "trigger": "request valid"
+  },
+  {
+   "id": "srv-answer-question--srv-q-answer",
+   "from": "srv-answer-question",
+   "to": "srv-q-answer",
+   "line": "call",
+   "data": "answer",
+   "trigger": "request valid"
+  },
+  {
+   "id": "srv-wake-question--srv-q-wake",
+   "from": "srv-wake-question",
+   "to": "srv-q-wake",
+   "line": "call",
+   "data": "question id",
+   "trigger": "member wakes"
+  },
+  {
+   "id": "srv-open-check--srv-q-check",
+   "from": "srv-open-check",
+   "to": "srv-q-check",
+   "line": "call",
+   "data": "check",
+   "trigger": "request valid"
+  },
+  {
+   "id": "srv-answer-check--srv-q-check",
+   "from": "srv-answer-check",
+   "to": "srv-q-check",
+   "line": "call",
+   "data": "check answer",
+   "trigger": "request valid"
+  },
+  {
+   "id": "srv-q-ask--srv-q-rules",
+   "from": "srv-q-ask",
+   "to": "srv-q-rules",
+   "line": "call",
+   "data": "ask",
+   "trigger": "before insert"
+  },
+  {
+   "id": "srv-q-answer--srv-q-rules",
+   "from": "srv-q-answer",
+   "to": "srv-q-rules",
+   "line": "call",
+   "data": "answer",
+   "trigger": "before write"
+  },
+  {
+   "id": "srv-q-ask--postgres",
+   "from": "srv-q-ask",
+   "to": "postgres",
+   "line": "data",
+   "data": "question rows",
+   "trigger": "insert"
+  },
+  {
+   "id": "srv-q-answer--postgres",
+   "from": "srv-q-answer",
+   "to": "postgres",
+   "line": "data",
+   "data": "answer",
+   "trigger": "write"
+  },
+  {
+   "id": "srv-q-check--postgres",
+   "from": "srv-q-check",
+   "to": "postgres",
+   "line": "data",
+   "data": "check to-do",
+   "trigger": "open or answer"
+  },
+  {
+   "id": "srv-q-ask--srv-bus",
+   "from": "srv-q-ask",
+   "to": "srv-bus",
+   "line": "event",
+   "data": "question",
+   "trigger": "question asked",
+   "event": "question:created"
+  },
+  {
+   "id": "srv-q-answer--srv-bus",
+   "from": "srv-q-answer",
+   "to": "srv-bus",
+   "line": "event",
+   "data": "question",
+   "trigger": "question answered",
+   "event": "question:updated"
+  },
+  {
+   "id": "srv-q-answer--srv-q-wake",
+   "from": "srv-q-answer",
+   "to": "srv-q-wake",
+   "line": "call",
+   "data": "answer",
+   "trigger": "answer asks Wake"
+  },
+  {
+   "id": "srv-q-wake--srv-q-enqueue-wake",
+   "from": "srv-q-wake",
+   "to": "srv-q-enqueue-wake",
+   "line": "call",
+   "data": "wake intent",
+   "trigger": "no blockers"
+  },
+  {
+   "id": "srv-q-wake--srv-q-publish-wake",
+   "from": "srv-q-wake",
+   "to": "srv-q-publish-wake",
+   "line": "call",
+   "data": "delivery",
+   "trigger": "task enqueued"
+  },
+  {
+   "id": "srv-q-enqueue-wake--srv-enqueue-question-task",
+   "from": "srv-q-enqueue-wake",
+   "to": "srv-enqueue-question-task",
+   "line": "call",
+   "data": "issue · agent",
+   "trigger": "intent drains"
+  },
+  {
+   "id": "srv-q-publish-wake--srv-broadcast-task",
+   "from": "srv-q-publish-wake",
+   "to": "srv-broadcast-task",
+   "line": "call",
+   "data": "task",
+   "trigger": "after commit"
+  },
+  {
+   "id": "srv-q-publish-wake--srv-notify-task",
+   "from": "srv-q-publish-wake",
+   "to": "srv-notify-task",
+   "line": "call",
+   "data": "task",
+   "trigger": "after commit"
+  },
+  {
+   "id": "srv-q-reconcile--srv-q-enqueue-wake",
+   "from": "srv-q-reconcile",
+   "to": "srv-q-enqueue-wake",
+   "line": "call",
+   "data": "pending intents",
+   "trigger": "sweep finds one"
+  },
+  {
+   "id": "srv-bus--srv-todo-listeners",
+   "from": "srv-bus",
+   "to": "srv-todo-listeners",
+   "line": "event",
+   "data": "question",
+   "trigger": "question changes",
+   "event": "question:created"
+  },
+  {
+   "id": "srv-todo-listeners--srv-todo",
+   "from": "srv-todo-listeners",
+   "to": "srv-todo",
+   "line": "call",
+   "data": "answerers",
+   "trigger": "question event"
+  },
+  {
+   "id": "srv-mark-todo-done--srv-todo",
+   "from": "srv-mark-todo-done",
+   "to": "srv-todo",
+   "line": "call",
+   "data": "to-do id",
+   "trigger": "member marks done"
+  },
+  {
+   "id": "srv-list-todos--postgres",
+   "from": "srv-list-todos",
+   "to": "postgres",
+   "line": "data",
+   "data": "open to-dos",
+   "trigger": "read"
+  },
+  {
+   "id": "srv-todo--postgres",
+   "from": "srv-todo",
+   "to": "postgres",
+   "line": "data",
+   "data": "to-do rows",
+   "trigger": "open or close"
+  },
+  {
+   "id": "srv-todo--srv-bus",
+   "from": "srv-todo",
+   "to": "srv-bus",
+   "line": "event",
+   "data": "to-do",
+   "trigger": "to-do opens",
+   "event": "todo:opened"
+  },
+  {
+   "id": "srv-bus--srv-ws-fanout",
+   "from": "srv-bus",
+   "to": "srv-ws-fanout",
+   "line": "event",
+   "data": "every event",
+   "trigger": "event published"
+  },
+  {
+   "id": "srv-ws-fanout--srv-realtime-hub",
+   "from": "srv-ws-fanout",
+   "to": "srv-realtime-hub",
+   "line": "call",
+   "data": "workspace frame",
+   "trigger": "not personal"
+  },
+  {
+   "id": "srv-bus--srv-decider-listeners",
+   "from": "srv-bus",
+   "to": "srv-decider-listeners",
+   "line": "event",
+   "data": "issue status",
+   "trigger": "status changes",
+   "event": "issue:updated"
+  },
+  {
+   "id": "srv-decider-listeners--srv-decider",
+   "from": "srv-decider-listeners",
+   "to": "srv-decider",
+   "line": "call",
+   "data": "rule · issue",
+   "trigger": "rule matches"
+  },
+  {
+   "id": "srv-decider--typesafe",
+   "from": "srv-decider",
+   "to": "typesafe",
+   "line": "call",
+   "data": "choice prompt",
+   "trigger": "routine decision"
+  },
+  {
+   "id": "srv-decider--postgres",
+   "from": "srv-decider",
+   "to": "postgres",
+   "line": "data",
+   "data": "routine decision",
+   "trigger": "receipt"
+  },
+  {
+   "id": "srv-bus--srv-notification-listeners",
+   "from": "srv-bus",
+   "to": "srv-notification-listeners",
+   "line": "event",
+   "data": "comment",
+   "trigger": "comment created",
+   "event": "comment:created"
+  },
+  {
+   "id": "srv-notification-listeners--postgres",
+   "from": "srv-notification-listeners",
+   "to": "postgres",
+   "line": "data",
+   "data": "inbox item",
+   "trigger": "subscriber found"
+  },
+  {
+   "id": "srv-bus--srv-subscriber-listeners",
+   "from": "srv-bus",
+   "to": "srv-subscriber-listeners",
+   "line": "event",
+   "data": "issue",
+   "trigger": "issue created",
+   "event": "issue:created"
+  },
+  {
+   "id": "srv-subscriber-listeners--postgres",
+   "from": "srv-subscriber-listeners",
+   "to": "postgres",
+   "line": "data",
+   "data": "subscriber row",
+   "trigger": "author or assignee"
+  },
+  {
+   "id": "srv-bus--srv-activity-listeners",
+   "from": "srv-bus",
+   "to": "srv-activity-listeners",
+   "line": "event",
+   "data": "issue change",
+   "trigger": "issue changes",
+   "event": "issue:updated"
+  },
+  {
+   "id": "srv-activity-listeners--postgres",
+   "from": "srv-activity-listeners",
+   "to": "postgres",
+   "line": "data",
+   "data": "activity row",
+   "trigger": "change recorded"
+  },
+  {
+   "id": "srv-bus--srv-autopilot-listeners",
+   "from": "srv-bus",
+   "to": "srv-autopilot-listeners",
+   "line": "event",
+   "data": "task end",
+   "trigger": "task completes",
+   "event": "task:completed"
+  },
+  {
+   "id": "srv-autopilot-listeners--srv-autopilot-svc",
+   "from": "srv-autopilot-listeners",
+   "to": "srv-autopilot-svc",
+   "line": "call",
+   "data": "run state",
+   "trigger": "linked issue ends"
+  },
+  {
+   "id": "srv-autopilot-svc--postgres",
+   "from": "srv-autopilot-svc",
+   "to": "postgres",
+   "line": "data",
+   "data": "autopilot run",
+   "trigger": "sync"
+  },
+  {
+   "id": "srv-bus--srv-chat-outbound",
+   "from": "srv-bus",
+   "to": "srv-chat-outbound",
+   "line": "event",
+   "data": "chat reply",
+   "trigger": "chat done",
+   "event": "chat:done"
+  },
+  {
+   "id": "srv-chat-outbound--chat",
+   "from": "srv-chat-outbound",
+   "to": "chat",
+   "line": "call",
+   "data": "reply",
+   "trigger": "agent answers"
+  },
+  {
+   "id": "chat--srv-channels",
+   "from": "chat",
+   "to": "srv-channels",
+   "line": "event",
+   "data": "message",
+   "trigger": "someone writes"
+  },
+  {
+   "id": "srv-channels--postgres",
+   "from": "srv-channels",
+   "to": "postgres",
+   "line": "data",
+   "data": "chat session",
+   "trigger": "message arrives"
+  },
+  {
+   "id": "srv-realtime-hub--srv-stream-relay",
+   "from": "srv-realtime-hub",
+   "to": "srv-stream-relay",
+   "line": "call",
+   "data": "frame",
+   "trigger": "multi-node publish"
+  },
+  {
+   "id": "srv-stream-relay--redis",
+   "from": "srv-stream-relay",
+   "to": "redis",
+   "line": "data",
+   "data": "stream entry",
+   "trigger": "publish"
+  },
+  {
+   "id": "srv-relay-notifier--srv-daemon-hub",
+   "from": "srv-relay-notifier",
+   "to": "srv-daemon-hub",
+   "line": "call",
+   "data": "wakeup hint",
+   "trigger": "runtime is local"
+  },
+  {
+   "id": "srv-relay-notifier--srv-redis-relay",
+   "from": "srv-relay-notifier",
+   "to": "srv-redis-relay",
+   "line": "call",
+   "data": "wakeup frame",
+   "trigger": "Redis set"
+  },
+  {
+   "id": "srv-redis-relay--redis",
+   "from": "srv-redis-relay",
+   "to": "redis",
+   "line": "data",
+   "data": "pub/sub frame",
+   "trigger": "publish"
+  },
+  {
+   "id": "srv-daemon-ws--srv-daemon-hub",
+   "from": "srv-daemon-ws",
+   "to": "srv-daemon-hub",
+   "line": "call",
+   "data": "socket",
+   "trigger": "daemon connects"
+  },
+  {
+   "id": "srv-daemon-register--postgres",
+   "from": "srv-daemon-register",
+   "to": "postgres",
+   "line": "data",
+   "data": "runtime rows",
+   "trigger": "register"
+  },
+  {
+   "id": "srv-agent-sessions--postgres",
+   "from": "srv-agent-sessions",
+   "to": "postgres",
+   "line": "data",
+   "data": "agent session",
+   "trigger": "register or update"
+  },
+  {
+   "id": "srv-daemon-hub--daemon-wakeup",
+   "from": "srv-daemon-hub",
+   "to": "daemon-wakeup",
+   "line": "event",
+   "data": "task hint",
+   "trigger": "task queued",
+   "event": "daemon:task_available"
+  },
+  {
+   "id": "srv-daemon-hub--daemon-wakeup--2",
+   "from": "srv-daemon-hub",
+   "to": "daemon-wakeup",
+   "line": "event",
+   "data": "supplement hint",
+   "trigger": "steer delivered",
+   "event": "daemon:task_supplement_available"
+  },
+  {
+   "id": "srv-scheduler--srv-question-overdue",
+   "from": "srv-scheduler",
+   "to": "srv-question-overdue",
+   "line": "call",
+   "data": "tick",
+   "trigger": "schedule due"
+  },
+  {
+   "id": "srv-scheduler--srv-issue-wakeup-job",
+   "from": "srv-scheduler",
+   "to": "srv-issue-wakeup-job",
+   "line": "call",
+   "data": "tick",
+   "trigger": "schedule due"
+  },
+  {
+   "id": "srv-question-overdue--postgres",
+   "from": "srv-question-overdue",
+   "to": "postgres",
+   "line": "data",
+   "data": "overdue stamp",
+   "trigger": "question overdue"
+  },
+  {
+   "id": "srv-issue-wakeup-job--srv-issue-wakeup-svc",
+   "from": "srv-issue-wakeup-job",
+   "to": "srv-issue-wakeup-svc",
+   "line": "call",
+   "data": "due wakeups",
+   "trigger": "wakeup due"
+  },
+  {
+   "id": "srv-issue-wakeup-svc--srv-enqueue-issue",
+   "from": "srv-issue-wakeup-svc",
+   "to": "srv-enqueue-issue",
+   "line": "call",
+   "data": "issue",
+   "trigger": "condition holds"
+  },
+  {
+   "id": "srv-release-wakeup--srv-issue-wakeup-svc",
+   "from": "srv-release-wakeup",
+   "to": "srv-issue-wakeup-svc",
+   "line": "call",
+   "data": "wakeup",
+   "trigger": "agent schedules"
+  },
+  {
+   "id": "srv-runtime-sweeper--postgres",
+   "from": "srv-runtime-sweeper",
+   "to": "postgres",
+   "line": "data",
+   "data": "stale runtimes",
+   "trigger": "every tick"
+  },
+  {
+   "id": "srv-source-context-sweeper--postgres",
+   "from": "srv-source-context-sweeper",
+   "to": "postgres",
+   "line": "data",
+   "data": "source context",
+   "trigger": "every tick"
+  },
+  {
+   "id": "srv-question-wake-reconciler--srv-q-reconcile",
+   "from": "srv-question-wake-reconciler",
+   "to": "srv-q-reconcile",
+   "line": "call",
+   "data": "batch",
+   "trigger": "every 30 s"
+  },
+  {
+   "id": "srv-create-org--postgres",
+   "from": "srv-create-org",
+   "to": "postgres",
+   "line": "data",
+   "data": "organisation",
+   "trigger": "insert"
+  },
+  {
+   "id": "srv-create-project--postgres",
+   "from": "srv-create-project",
+   "to": "postgres",
+   "line": "data",
+   "data": "project",
+   "trigger": "insert"
+  },
+  {
+   "id": "srv-plan-release--postgres",
+   "from": "srv-plan-release",
+   "to": "postgres",
+   "line": "data",
+   "data": "release",
+   "trigger": "insert"
+  },
+  {
+   "id": "srv-add-to-release--postgres",
+   "from": "srv-add-to-release",
+   "to": "postgres",
+   "line": "data",
+   "data": "release line",
+   "trigger": "place"
+  },
+  {
+   "id": "srv-add-to-release--srv-bus",
+   "from": "srv-add-to-release",
+   "to": "srv-bus",
+   "line": "event",
+   "data": "release line",
+   "trigger": "line changes",
+   "event": "release_line:updated"
+  },
+  {
+   "id": "srv-release-comment--srv-bus",
+   "from": "srv-release-comment",
+   "to": "srv-bus",
+   "line": "event",
+   "data": "release comment",
+   "trigger": "comment created",
+   "event": "release_comment:created"
+  },
+  {
+   "id": "srv-client-read--postgres",
+   "from": "srv-client-read",
+   "to": "postgres",
+   "line": "data",
+   "data": "scoped rows",
+   "trigger": "read"
+  },
+  {
+   "id": "srv-plugin-context--postgres",
+   "from": "srv-plugin-context",
+   "to": "postgres",
+   "line": "data",
+   "data": "plugin context",
+   "trigger": "read"
+  },
+  {
+   "id": "srv-send-chat--postgres",
+   "from": "srv-send-chat",
+   "to": "postgres",
+   "line": "data",
+   "data": "chat message",
+   "trigger": "insert"
+  },
+  {
+   "id": "srv-send-chat--srv-chat-title",
+   "from": "srv-send-chat",
+   "to": "srv-chat-title",
+   "line": "call",
+   "data": "first message",
+   "trigger": "title missing"
+  },
+  {
+   "id": "srv-chat-title--srv-llm",
+   "from": "srv-chat-title",
+   "to": "srv-llm",
+   "line": "call",
+   "data": "source text",
+   "trigger": "title missing"
+  },
+  {
+   "id": "srv-email--email",
+   "from": "srv-email",
+   "to": "email",
+   "line": "call",
+   "data": "email",
+   "trigger": "code sent"
+  },
+  {
+   "id": "srv-llm--llm-api",
+   "from": "srv-llm",
+   "to": "llm-api",
+   "line": "call",
+   "data": "prompt",
+   "trigger": "title asked"
+  },
+  {
+   "id": "srv-composio--composio",
+   "from": "srv-composio",
+   "to": "composio",
+   "line": "call",
+   "data": "connection",
+   "trigger": "app connects"
+  },
+  {
+   "id": "srv-vcs--vcs",
+   "from": "srv-vcs",
+   "to": "vcs",
+   "line": "call",
+   "data": "API call",
+   "trigger": "PR state needed"
+  },
+  {
+   "id": "srv-cloud--multica-cloud",
+   "from": "srv-cloud",
+   "to": "multica-cloud",
+   "line": "call",
+   "data": "runtime · billing",
+   "trigger": "cloud request"
+  },
+  {
+   "id": "srv-analytics--posthog",
+   "from": "srv-analytics",
+   "to": "posthog",
+   "line": "call",
+   "data": "event",
+   "trigger": "product action"
+  },
+  {
+   "id": "srv-storage--object-storage",
+   "from": "srv-storage",
+   "to": "object-storage",
+   "line": "call",
+   "data": "object",
+   "trigger": "put or get"
+  },
+  {
+   "id": "migrator--postgres",
+   "from": "migrator",
+   "to": "postgres",
+   "line": "call",
+   "data": "DDL",
+   "trigger": "migrate up"
+  },
+  {
+   "id": "cli-daemon--daemon-run",
+   "from": "cli-daemon",
+   "to": "daemon-run",
+   "line": "call",
+   "data": "profile",
+   "trigger": "daemon start"
+  },
+  {
+   "id": "daemon-run--daemon-heartbeat",
+   "from": "daemon-run",
+   "to": "daemon-heartbeat",
+   "line": "call",
+   "data": "runtimes",
+   "trigger": "daemon starts"
+  },
+  {
+   "id": "daemon-run--daemon-poll",
+   "from": "daemon-run",
+   "to": "daemon-poll",
+   "line": "call",
+   "data": "runtimes",
+   "trigger": "daemon starts"
+  },
+  {
+   "id": "daemon-run--daemon-wakeup",
+   "from": "daemon-run",
+   "to": "daemon-wakeup",
+   "line": "call",
+   "data": "runtimes",
+   "trigger": "daemon starts"
+  },
+  {
+   "id": "daemon-run--daemon-local-sessions",
+   "from": "daemon-run",
+   "to": "daemon-local-sessions",
+   "line": "call",
+   "data": "port",
+   "trigger": "daemon starts"
+  },
+  {
+   "id": "daemon-run--daemon-client",
+   "from": "daemon-run",
+   "to": "daemon-client",
+   "line": "call",
+   "data": "register",
+   "trigger": "daemon starts"
+  },
+  {
+   "id": "daemon-heartbeat--daemon-client",
+   "from": "daemon-heartbeat",
+   "to": "daemon-client",
+   "line": "call",
+   "data": "heartbeat",
+   "trigger": "every interval"
+  },
+  {
+   "id": "daemon-wakeup--daemon-poll",
+   "from": "daemon-wakeup",
+   "to": "daemon-poll",
+   "line": "event",
+   "data": "wake signal",
+   "trigger": "hint arrives"
+  },
+  {
+   "id": "daemon-wakeup--daemon-supplement",
+   "from": "daemon-wakeup",
+   "to": "daemon-supplement",
+   "line": "event",
+   "data": "wake signal",
+   "trigger": "supplement hint"
+  },
+  {
+   "id": "daemon-poll--daemon-ws",
+   "from": "daemon-poll",
+   "to": "daemon-ws",
+   "line": "call",
+   "data": "claim",
+   "trigger": "slot free"
+  },
+  {
+   "id": "daemon-poll--daemon-handle-task",
+   "from": "daemon-poll",
+   "to": "daemon-handle-task",
+   "line": "call",
+   "data": "claimed task",
+   "trigger": "claim returns"
+  },
+  {
+   "id": "daemon-handle-task--daemon-run-task",
+   "from": "daemon-handle-task",
+   "to": "daemon-run-task",
+   "line": "call",
+   "data": "task",
+   "trigger": "start reported"
+  },
+  {
+   "id": "daemon-handle-task--daemon-client",
+   "from": "daemon-handle-task",
+   "to": "daemon-client",
+   "line": "call",
+   "data": "start · complete",
+   "trigger": "run starts or ends"
+  },
+  {
+   "id": "daemon-run-task--daemon-execenv",
+   "from": "daemon-run-task",
+   "to": "daemon-execenv",
+   "line": "call",
+   "data": "workdir",
+   "trigger": "before launch"
+  },
+  {
+   "id": "daemon-run-task--daemon-prompt",
+   "from": "daemon-run-task",
+   "to": "daemon-prompt",
+   "line": "call",
+   "data": "task context",
+   "trigger": "before launch"
+  },
+  {
+   "id": "daemon-run-task--daemon-backends",
+   "from": "daemon-run-task",
+   "to": "daemon-backends",
+   "line": "call",
+   "data": "prompt · env",
+   "trigger": "launch"
+  },
+  {
+   "id": "daemon-run-task--daemon-supplement",
+   "from": "daemon-run-task",
+   "to": "daemon-supplement",
+   "line": "call",
+   "data": "session",
+   "trigger": "run is live"
+  },
+  {
+   "id": "daemon-supplement--daemon-client",
+   "from": "daemon-supplement",
+   "to": "daemon-client",
+   "line": "call",
+   "data": "claim · ack",
+   "trigger": "hint or poll"
+  },
+  {
+   "id": "daemon-supplement--daemon-backends",
+   "from": "daemon-supplement",
+   "to": "daemon-backends",
+   "line": "call",
+   "data": "instruction",
+   "trigger": "turn is live"
+  },
+  {
+   "id": "daemon-backends--ai-agents",
+   "from": "daemon-backends",
+   "to": "ai-agents",
+   "line": "call",
+   "data": "prompt",
+   "trigger": "run starts"
+  },
+  {
+   "id": "daemon-ws--srv-router",
+   "from": "daemon-ws",
+   "to": "srv-router",
+   "line": "call",
+   "data": "WS /api/daemon/ws",
+   "trigger": "claim over socket"
+  },
+  {
+   "id": "daemon-wakeup--srv-router",
+   "from": "daemon-wakeup",
+   "to": "srv-router",
+   "line": "call",
+   "data": "WS /api/daemon/ws",
+   "trigger": "socket opens"
+  },
+  {
+   "id": "daemon-client--srv-router",
+   "from": "daemon-client",
+   "to": "srv-router",
+   "line": "call",
+   "data": "REST /api/daemon",
+   "trigger": "daemon request"
+  },
+  {
+   "id": "cli-agent-sessions--daemon-local-sessions",
+   "from": "cli-agent-sessions",
+   "to": "daemon-local-sessions",
+   "line": "call",
+   "data": "POST /sessions",
+   "trigger": "agent registers"
+  },
+  {
+   "id": "daemon-local-sessions--daemon-session-follower",
+   "from": "daemon-local-sessions",
+   "to": "daemon-session-follower",
+   "line": "call",
+   "data": "session",
+   "trigger": "registered"
+  },
+  {
+   "id": "herdr--daemon-session-follower",
+   "from": "herdr",
+   "to": "daemon-session-follower",
+   "line": "event",
+   "data": "pane events",
+   "trigger": "pane changes"
+  },
+  {
+   "id": "daemon-session-follower--daemon-client",
+   "from": "daemon-session-follower",
+   "to": "daemon-client",
+   "line": "call",
+   "data": "session update",
+   "trigger": "status changes"
+  },
+  {
+   "id": "cli-root--cli-issue",
+   "from": "cli-root",
+   "to": "cli-issue",
+   "line": "call",
+   "data": "args",
+   "trigger": "issue comment add"
+  },
+  {
+   "id": "cli-root--cli-question",
+   "from": "cli-root",
+   "to": "cli-question",
+   "line": "call",
+   "data": "args",
+   "trigger": "question ask"
+  },
+  {
+   "id": "cli-root--cli-todo",
+   "from": "cli-root",
+   "to": "cli-todo",
+   "line": "call",
+   "data": "args",
+   "trigger": "todo check"
+  },
+  {
+   "id": "cli-root--cli-release",
+   "from": "cli-root",
+   "to": "cli-release",
+   "line": "call",
+   "data": "args",
+   "trigger": "release"
+  },
+  {
+   "id": "cli-root--cli-agent-sessions",
+   "from": "cli-root",
+   "to": "cli-agent-sessions",
+   "line": "call",
+   "data": "args",
+   "trigger": "agent register-session"
+  },
+  {
+   "id": "cli-root--cli-daemon",
+   "from": "cli-root",
+   "to": "cli-daemon",
+   "line": "call",
+   "data": "args",
+   "trigger": "daemon start"
+  },
+  {
+   "id": "cli-issue--cli-api",
+   "from": "cli-issue",
+   "to": "cli-api",
+   "line": "call",
+   "data": "comment",
+   "trigger": "command runs"
+  },
+  {
+   "id": "cli-question--cli-api",
+   "from": "cli-question",
+   "to": "cli-api",
+   "line": "call",
+   "data": "ask",
+   "trigger": "command runs"
+  },
+  {
+   "id": "cli-todo--cli-api",
+   "from": "cli-todo",
+   "to": "cli-api",
+   "line": "call",
+   "data": "check",
+   "trigger": "command runs"
+  },
+  {
+   "id": "cli-release--cli-api",
+   "from": "cli-release",
+   "to": "cli-api",
+   "line": "call",
+   "data": "release",
+   "trigger": "command runs"
+  },
+  {
+   "id": "cli-api--srv-router",
+   "from": "cli-api",
+   "to": "srv-router",
+   "line": "call",
+   "data": "REST /api",
+   "trigger": "CLI request"
+  },
+  {
+   "id": "sync-main--sync-export",
+   "from": "sync-main",
+   "to": "sync-export",
+   "line": "call",
+   "data": "offices",
+   "trigger": "sync starts"
+  },
+  {
+   "id": "agents-repo--sync-export",
+   "from": "agents-repo",
+   "to": "sync-export",
+   "line": "data",
+   "data": "agent.toml · AGENTS.md",
+   "trigger": "git archive"
+  },
+  {
+   "id": "sync-main--sync-sync",
+   "from": "sync-main",
+   "to": "sync-sync",
+   "line": "call",
+   "data": "agent tree",
+   "trigger": "after export"
+  },
+  {
+   "id": "sync-sync--sync-api",
+   "from": "sync-sync",
+   "to": "sync-api",
+   "line": "call",
+   "data": "agents",
+   "trigger": "plan applied"
+  },
+  {
+   "id": "sync-sync--sync-machine",
+   "from": "sync-sync",
+   "to": "sync-machine",
+   "line": "call",
+   "data": "runtime",
+   "trigger": "per agent"
+  },
+  {
+   "id": "sync-machine--cli-root",
+   "from": "sync-machine",
+   "to": "cli-root",
+   "line": "call",
+   "data": "config",
+   "trigger": "reads CLI config"
+  },
+  {
+   "id": "sync-api--srv-router",
+   "from": "sync-api",
+   "to": "srv-router",
+   "line": "call",
+   "data": "REST /api",
+   "trigger": "PAT request"
+  },
+  {
+   "id": "sync-projects--sync-read-brain",
+   "from": "sync-projects",
+   "to": "sync-read-brain",
+   "line": "call",
+   "data": "brain",
+   "trigger": "sync starts"
+  },
+  {
+   "id": "anytype--sync-read-brain",
+   "from": "anytype",
+   "to": "sync-read-brain",
+   "line": "data",
+   "data": "Organisations · Products",
+   "trigger": "API read"
+  },
+  {
+   "id": "sync-projects--sync-write-plan",
+   "from": "sync-projects",
+   "to": "sync-write-plan",
+   "line": "call",
+   "data": "plan",
+   "trigger": "after diff"
+  },
+  {
+   "id": "sync-write-plan--sync-api",
+   "from": "sync-write-plan",
+   "to": "sync-api",
+   "line": "call",
+   "data": "projects",
+   "trigger": "plan applied"
+  },
+  {
+   "id": "srv-todo--srv-bus--2",
+   "from": "srv-todo",
+   "to": "srv-bus",
+   "line": "event",
+   "data": "to-do",
+   "trigger": "to-do closes",
+   "event": "todo:closed"
+  },
+  {
+   "id": "srv-realtime-hub--core-ws--5",
+   "from": "srv-realtime-hub",
+   "to": "core-ws",
+   "line": "event",
+   "data": "release line",
+   "trigger": "line changes",
+   "event": "release_line:updated"
+  },
+  {
+   "id": "srv-q-check--srv-todo",
+   "from": "srv-q-check",
+   "to": "srv-todo",
+   "line": "call",
+   "data": "check to-do",
+   "trigger": "check opens"
+  },
+  {
+   "id": "srv-q-check--srv-relay-notifier",
+   "from": "srv-q-check",
+   "to": "srv-relay-notifier",
+   "line": "call",
+   "data": "runtime · task",
+   "trigger": "check answered"
+  },
+  {
+   "id": "github--srv-github-webhook",
+   "from": "github",
+   "to": "srv-github-webhook",
+   "line": "call",
+   "data": "webhook",
+   "trigger": "PR or push"
+  },
+  {
+   "id": "vcs--srv-vcs-webhook",
+   "from": "vcs",
+   "to": "srv-vcs-webhook",
+   "line": "call",
+   "data": "webhook",
+   "trigger": "push or merge"
+  },
+  {
+   "id": "multica-cloud--srv-stripe-webhook",
+   "from": "multica-cloud",
+   "to": "srv-stripe-webhook",
+   "line": "call",
+   "data": "billing event",
+   "trigger": "Stripe forwards"
+  },
+  {
+   "id": "composio--srv-composio-callback",
+   "from": "composio",
+   "to": "srv-composio-callback",
+   "line": "call",
+   "data": "OAuth callback",
+   "trigger": "app connected"
+  },
+  {
+   "id": "srv-daemon-heartbeat--redis",
+   "from": "srv-daemon-heartbeat",
+   "to": "redis",
+   "line": "data",
+   "data": "liveness key",
+   "trigger": "heartbeat"
+  }
+ ],
+ "events": [
+  {
+   "name": "issue:created",
+   "path": "server/pkg/protocol/events.go:7"
+  },
+  {
+   "name": "issue:updated",
+   "path": "server/pkg/protocol/events.go:8"
+  },
+  {
+   "name": "issue:release_joined",
+   "path": "server/pkg/protocol/events.go:9"
+  },
+  {
+   "name": "issue:deleted",
+   "path": "server/pkg/protocol/events.go:10"
+  },
+  {
+   "name": "issue_metadata:changed",
+   "path": "server/pkg/protocol/events.go:11"
+  },
+  {
+   "name": "issue_attachments:changed",
+   "path": "server/pkg/protocol/events.go:12"
+  },
+  {
+   "name": "comment:created",
+   "path": "server/pkg/protocol/events.go:15"
+  },
+  {
+   "name": "comment:updated",
+   "path": "server/pkg/protocol/events.go:16"
+  },
+  {
+   "name": "comment:deleted",
+   "path": "server/pkg/protocol/events.go:17"
+  },
+  {
+   "name": "comment:resolved",
+   "path": "server/pkg/protocol/events.go:18"
+  },
+  {
+   "name": "comment:unresolved",
+   "path": "server/pkg/protocol/events.go:19"
+  },
+  {
+   "name": "reaction:added",
+   "path": "server/pkg/protocol/events.go:20"
+  },
+  {
+   "name": "reaction:removed",
+   "path": "server/pkg/protocol/events.go:21"
+  },
+  {
+   "name": "issue_reaction:added",
+   "path": "server/pkg/protocol/events.go:22"
+  },
+  {
+   "name": "issue_reaction:removed",
+   "path": "server/pkg/protocol/events.go:23"
+  },
+  {
+   "name": "run_input:reacted",
+   "path": "server/pkg/protocol/events.go:24"
+  },
+  {
+   "name": "question:created",
+   "path": "server/pkg/protocol/events.go:28"
+  },
+  {
+   "name": "question:updated",
+   "path": "server/pkg/protocol/events.go:29"
+  },
+  {
+   "name": "agent:status",
+   "path": "server/pkg/protocol/events.go:32"
+  },
+  {
+   "name": "agent:created",
+   "path": "server/pkg/protocol/events.go:33"
+  },
+  {
+   "name": "agent:archived",
+   "path": "server/pkg/protocol/events.go:34"
+  },
+  {
+   "name": "agent:restored",
+   "path": "server/pkg/protocol/events.go:35"
+  },
+  {
+   "name": "agent:sessions",
+   "path": "server/pkg/protocol/events.go:38"
+  },
+  {
+   "name": "task:queued",
+   "path": "server/pkg/protocol/events.go:45"
+  },
+  {
+   "name": "task:dispatch",
+   "path": "server/pkg/protocol/events.go:46"
+  },
+  {
+   "name": "task:running",
+   "path": "server/pkg/protocol/events.go:47"
+  },
+  {
+   "name": "task:waiting_local_directory",
+   "path": "server/pkg/protocol/events.go:48"
+  },
+  {
+   "name": "task:progress",
+   "path": "server/pkg/protocol/events.go:49"
+  },
+  {
+   "name": "task:completed",
+   "path": "server/pkg/protocol/events.go:50"
+  },
+  {
+   "name": "task:failed",
+   "path": "server/pkg/protocol/events.go:51"
+  },
+  {
+   "name": "task:message",
+   "path": "server/pkg/protocol/events.go:52"
+  },
+  {
+   "name": "task:cancelled",
+   "path": "server/pkg/protocol/events.go:53"
+  },
+  {
+   "name": "inbox:new",
+   "path": "server/pkg/protocol/events.go:56"
+  },
+  {
+   "name": "inbox:read",
+   "path": "server/pkg/protocol/events.go:57"
+  },
+  {
+   "name": "inbox:unread",
+   "path": "server/pkg/protocol/events.go:58"
+  },
+  {
+   "name": "inbox:archived",
+   "path": "server/pkg/protocol/events.go:59"
+  },
+  {
+   "name": "inbox:unarchived",
+   "path": "server/pkg/protocol/events.go:60"
+  },
+  {
+   "name": "inbox:batch-read",
+   "path": "server/pkg/protocol/events.go:61"
+  },
+  {
+   "name": "inbox:batch-archived",
+   "path": "server/pkg/protocol/events.go:62"
+  },
+  {
+   "name": "todo:opened",
+   "path": "server/pkg/protocol/events.go:65"
+  },
+  {
+   "name": "todo:closed",
+   "path": "server/pkg/protocol/events.go:66"
+  },
+  {
+   "name": "workspace:updated",
+   "path": "server/pkg/protocol/events.go:69"
+  },
+  {
+   "name": "workspace:deleted",
+   "path": "server/pkg/protocol/events.go:70"
+  },
+  {
+   "name": "member:added",
+   "path": "server/pkg/protocol/events.go:73"
+  },
+  {
+   "name": "member:updated",
+   "path": "server/pkg/protocol/events.go:74"
+  },
+  {
+   "name": "member:removed",
+   "path": "server/pkg/protocol/events.go:75"
+  },
+  {
+   "name": "subscriber:added",
+   "path": "server/pkg/protocol/events.go:78"
+  },
+  {
+   "name": "subscriber:removed",
+   "path": "server/pkg/protocol/events.go:79"
+  },
+  {
+   "name": "activity:created",
+   "path": "server/pkg/protocol/events.go:82"
+  },
+  {
+   "name": "skill:created",
+   "path": "server/pkg/protocol/events.go:85"
+  },
+  {
+   "name": "skill:updated",
+   "path": "server/pkg/protocol/events.go:86"
+  },
+  {
+   "name": "skill:deleted",
+   "path": "server/pkg/protocol/events.go:87"
+  },
+  {
+   "name": "chat:message",
+   "path": "server/pkg/protocol/events.go:90"
+  },
+  {
+   "name": "chat:done",
+   "path": "server/pkg/protocol/events.go:91"
+  },
+  {
+   "name": "chat:quick_actions",
+   "path": "server/pkg/protocol/events.go:96"
+  },
+  {
+   "name": "chat:cancel_finalized",
+   "path": "server/pkg/protocol/events.go:102"
+  },
+  {
+   "name": "chat:session_created",
+   "path": "server/pkg/protocol/events.go:103"
+  },
+  {
+   "name": "chat:session_read",
+   "path": "server/pkg/protocol/events.go:104"
+  },
+  {
+   "name": "chat:session_deleted",
+   "path": "server/pkg/protocol/events.go:105"
+  },
+  {
+   "name": "chat:session_updated",
+   "path": "server/pkg/protocol/events.go:106"
+  },
+  {
+   "name": "project:created",
+   "path": "server/pkg/protocol/events.go:109"
+  },
+  {
+   "name": "project:updated",
+   "path": "server/pkg/protocol/events.go:110"
+  },
+  {
+   "name": "project:deleted",
+   "path": "server/pkg/protocol/events.go:111"
+  },
+  {
+   "name": "repository:created",
+   "path": "server/pkg/protocol/events.go:114"
+  },
+  {
+   "name": "repository:updated",
+   "path": "server/pkg/protocol/events.go:115"
+  },
+  {
+   "name": "repository:deleted",
+   "path": "server/pkg/protocol/events.go:116"
+  },
+  {
+   "name": "worklane:created",
+   "path": "server/pkg/protocol/events.go:119"
+  },
+  {
+   "name": "worklane:updated",
+   "path": "server/pkg/protocol/events.go:120"
+  },
+  {
+   "name": "worklane:deleted",
+   "path": "server/pkg/protocol/events.go:121"
+  },
+  {
+   "name": "release_line:updated",
+   "path": "server/pkg/protocol/events.go:126"
+  },
+  {
+   "name": "release_comment:created",
+   "path": "server/pkg/protocol/events.go:127"
+  },
+  {
+   "name": "organisation:created",
+   "path": "server/pkg/protocol/events.go:131"
+  },
+  {
+   "name": "organisation:updated",
+   "path": "server/pkg/protocol/events.go:132"
+  },
+  {
+   "name": "label:created",
+   "path": "server/pkg/protocol/events.go:135"
+  },
+  {
+   "name": "label:updated",
+   "path": "server/pkg/protocol/events.go:136"
+  },
+  {
+   "name": "label:deleted",
+   "path": "server/pkg/protocol/events.go:137"
+  },
+  {
+   "name": "issue_labels:changed",
+   "path": "server/pkg/protocol/events.go:138"
+  },
+  {
+   "name": "property:created",
+   "path": "server/pkg/protocol/events.go:142"
+  },
+  {
+   "name": "property:updated",
+   "path": "server/pkg/protocol/events.go:143"
+  },
+  {
+   "name": "issue_properties:changed",
+   "path": "server/pkg/protocol/events.go:144"
+  },
+  {
+   "name": "issue_status:changed",
+   "path": "server/pkg/protocol/events.go:153"
+  },
+  {
+   "name": "pin:created",
+   "path": "server/pkg/protocol/events.go:156"
+  },
+  {
+   "name": "pin:deleted",
+   "path": "server/pkg/protocol/events.go:157"
+  },
+  {
+   "name": "pin:reordered",
+   "path": "server/pkg/protocol/events.go:158"
+  },
+  {
+   "name": "invitation:created",
+   "path": "server/pkg/protocol/events.go:161"
+  },
+  {
+   "name": "invitation:accepted",
+   "path": "server/pkg/protocol/events.go:162"
+  },
+  {
+   "name": "invitation:declined",
+   "path": "server/pkg/protocol/events.go:163"
+  },
+  {
+   "name": "invitation:revoked",
+   "path": "server/pkg/protocol/events.go:164"
+  },
+  {
+   "name": "autopilot:created",
+   "path": "server/pkg/protocol/events.go:167"
+  },
+  {
+   "name": "autopilot:updated",
+   "path": "server/pkg/protocol/events.go:168"
+  },
+  {
+   "name": "autopilot:deleted",
+   "path": "server/pkg/protocol/events.go:169"
+  },
+  {
+   "name": "autopilot:run_start",
+   "path": "server/pkg/protocol/events.go:170"
+  },
+  {
+   "name": "autopilot:run_done",
+   "path": "server/pkg/protocol/events.go:171"
+  },
+  {
+   "name": "squad:created",
+   "path": "server/pkg/protocol/events.go:174"
+  },
+  {
+   "name": "squad:updated",
+   "path": "server/pkg/protocol/events.go:175"
+  },
+  {
+   "name": "squad:deleted",
+   "path": "server/pkg/protocol/events.go:176"
+  },
+  {
+   "name": "daemon:heartbeat",
+   "path": "server/pkg/protocol/events.go:179"
+  },
+  {
+   "name": "daemon:heartbeat_ack",
+   "path": "server/pkg/protocol/events.go:180"
+  },
+  {
+   "name": "daemon:register",
+   "path": "server/pkg/protocol/events.go:181"
+  },
+  {
+   "name": "daemon:task_available",
+   "path": "server/pkg/protocol/events.go:182"
+  },
+  {
+   "name": "daemon:task_supplement_available",
+   "path": "server/pkg/protocol/events.go:183"
+  },
+  {
+   "name": "daemon:runtime_profiles_changed",
+   "path": "server/pkg/protocol/events.go:184"
+  },
+  {
+   "name": "daemon:workspaces_changed",
+   "path": "server/pkg/protocol/events.go:185"
+  },
+  {
+   "name": "daemon:pending_work",
+   "path": "server/pkg/protocol/events.go:194"
+  },
+  {
+   "name": "daemon:rpc_request",
+   "path": "server/pkg/protocol/events.go:200"
+  },
+  {
+   "name": "daemon:rpc_response",
+   "path": "server/pkg/protocol/events.go:201"
+  },
+  {
+   "name": "github_installation:created",
+   "path": "server/pkg/protocol/events.go:204"
+  },
+  {
+   "name": "github_installation:deleted",
+   "path": "server/pkg/protocol/events.go:205"
+  },
+  {
+   "name": "pull_request:linked",
+   "path": "server/pkg/protocol/events.go:206"
+  },
+  {
+   "name": "pull_request:updated",
+   "path": "server/pkg/protocol/events.go:207"
+  },
+  {
+   "name": "pull_request:unlinked",
+   "path": "server/pkg/protocol/events.go:208"
+  },
+  {
+   "name": "vcs_connection:created",
+   "path": "server/pkg/protocol/events.go:211"
+  },
+  {
+   "name": "vcs_connection:deleted",
+   "path": "server/pkg/protocol/events.go:212"
+  },
+  {
+   "name": "lark_installation:created",
+   "path": "server/pkg/protocol/events.go:220"
+  },
+  {
+   "name": "lark_installation:revoked",
+   "path": "server/pkg/protocol/events.go:221"
+  },
+  {
+   "name": "slack_installation:created",
+   "path": "server/pkg/protocol/events.go:228"
+  },
+  {
+   "name": "slack_installation:revoked",
+   "path": "server/pkg/protocol/events.go:229"
+  },
+  {
+   "name": "dingtalk_installation:created",
+   "path": "server/pkg/protocol/events.go:235"
+  },
+  {
+   "name": "dingtalk_installation:revoked",
+   "path": "server/pkg/protocol/events.go:236"
+  },
+  {
+   "name": "dingtalk_installation:binding_updated",
+   "path": "server/pkg/protocol/events.go:237"
+  },
+  {
+   "name": "wecom_installation:created",
+   "path": "server/pkg/protocol/events.go:245"
+  },
+  {
+   "name": "wecom_installation:revoked",
+   "path": "server/pkg/protocol/events.go:246"
+  },
+  {
+   "name": "telegram_installation:created",
+   "path": "server/pkg/protocol/events.go:250"
+  },
+  {
+   "name": "telegram_installation:revoked",
+   "path": "server/pkg/protocol/events.go:251"
+  }
+ ],
+ "models": [
+  {
+   "name": "workspace",
+   "kind": "table",
+   "owner": "postgres",
+   "path": "server/migrations/001_init.up.sql:15",
+   "fields": [
+    {
+     "name": "id",
+     "type": "uuid"
+    },
+    {
+     "name": "slug",
+     "type": "text"
+    },
+    {
+     "name": "name",
+     "type": "text"
+    },
+    {
+     "name": "issue_prefix",
+     "type": "text"
+    },
+    {
+     "name": "settings",
+     "type": "jsonb"
+    }
+   ],
+   "relations": [
+    {
+     "to": "member",
+     "from": "1",
+     "toCount": "*",
+     "via": "workspace_id"
+    },
+    {
+     "to": "workspace_invitation",
+     "from": "1",
+     "toCount": "*",
+     "via": "workspace_id"
+    },
+    {
+     "to": "agent",
+     "from": "1",
+     "toCount": "*",
+     "via": "workspace_id"
+    },
+    {
+     "to": "issue",
+     "from": "1",
+     "toCount": "*",
+     "via": "workspace_id"
+    },
+    {
+     "to": "project",
+     "from": "1",
+     "toCount": "*",
+     "via": "workspace_id"
+    },
+    {
+     "to": "organisation",
+     "from": "1",
+     "toCount": "*",
+     "via": "workspace_id"
+    },
+    {
+     "to": "skill",
+     "from": "1",
+     "toCount": "*",
+     "via": "workspace_id"
+    },
+    {
+     "to": "squad",
+     "from": "1",
+     "toCount": "*",
+     "via": "workspace_id"
+    },
+    {
+     "to": "autopilot",
+     "from": "1",
+     "toCount": "*",
+     "via": "workspace_id"
+    },
+    {
+     "to": "agent_runtime",
+     "from": "1",
+     "toCount": "*",
+     "via": "workspace_id"
+    },
+    {
+     "to": "plugin_installation",
+     "from": "1",
+     "toCount": "*",
+     "via": "workspace_id"
+    },
+    {
+     "to": "channel_installation",
+     "from": "1",
+     "toCount": "*",
+     "via": "workspace_id"
+    },
+    {
+     "to": "github_installation",
+     "from": "1",
+     "toCount": "*",
+     "via": "workspace_id"
+    },
+    {
+     "to": "vcs_connection",
+     "from": "1",
+     "toCount": "*",
+     "via": "workspace_id"
+    },
+    {
+     "to": "agent_session",
+     "from": "1",
+     "toCount": "*",
+     "via": "workspace_id"
+    },
+    {
+     "to": "worklane",
+     "from": "1",
+     "toCount": "*",
+     "via": "workspace_id"
+    },
+    {
+     "to": "repository",
+     "from": "1",
+     "toCount": "*",
+     "via": "workspace_id"
+    },
+    {
+     "to": "issue_worktree",
+     "from": "1",
+     "toCount": "*",
+     "via": "workspace_id"
+    },
+    {
+     "to": "todo",
+     "from": "1",
+     "toCount": "*",
+     "via": "workspace_id"
+    },
+    {
+     "to": "check_settings",
+     "from": "1",
+     "toCount": "0..1",
+     "via": "workspace_id"
+    },
+    {
+     "to": "routine_decision",
+     "from": "1",
+     "toCount": "*",
+     "via": "workspace_id"
+    },
+    {
+     "to": "question",
+     "from": "1",
+     "toCount": "*",
+     "via": "workspace_id"
+    },
+    {
+     "to": "question_wake_pending",
+     "from": "1",
+     "toCount": "*",
+     "via": "workspace_id"
+    }
+   ]
+  },
+  {
+   "name": "user",
+   "kind": "table",
+   "owner": "postgres",
+   "path": "server/migrations/001_init.up.sql:5",
+   "fields": [
+    {
+     "name": "id",
+     "type": "uuid"
+    },
+    {
+     "name": "email",
+     "type": "text"
+    },
+    {
+     "name": "name",
+     "type": "text"
+    }
+   ],
+   "relations": [
+    {
+     "to": "member",
+     "from": "1",
+     "toCount": "*",
+     "via": "user_id"
+    },
+    {
+     "to": "agent",
+     "from": "1",
+     "toCount": "*",
+     "via": "owner_id"
+    },
+    {
+     "to": "agent_runtime",
+     "from": "1",
+     "toCount": "*",
+     "via": "owner_id"
+    },
+    {
+     "to": "chat_session",
+     "from": "1",
+     "toCount": "*",
+     "via": "creator_id"
+    },
+    {
+     "to": "todo",
+     "from": "1",
+     "toCount": "*",
+     "via": "member_id"
+    },
+    {
+     "to": "project_check_trust",
+     "from": "1",
+     "toCount": "*",
+     "via": "member_id"
+    },
+    {
+     "to": "question",
+     "from": "1",
+     "toCount": "*",
+     "via": "asker_user_id"
+    },
+    {
+     "to": "question_answerer",
+     "from": "1",
+     "toCount": "*",
+     "via": "user_id"
+    },
+    {
+     "to": "question_answer",
+     "from": "1",
+     "toCount": "*",
+     "via": "answerer_user_id"
+    },
+    {
+     "to": "question_wake_pending",
+     "from": "1",
+     "toCount": "*",
+     "via": "actor_user_id"
+    }
+   ]
+  },
+  {
+   "name": "member",
+   "kind": "table",
+   "owner": "postgres",
+   "path": "server/migrations/001_init.up.sql:26",
+   "fields": [
+    {
+     "name": "id",
+     "type": "uuid"
+    },
+    {
+     "name": "workspace_id",
+     "type": "uuid"
+    },
+    {
+     "name": "user_id",
+     "type": "uuid"
+    },
+    {
+     "name": "role",
+     "type": "text"
+    },
+    {
+     "name": "organisation_ids",
+     "type": "uuid[]"
+    }
+   ]
+  },
+  {
+   "name": "workspace_invitation",
+   "kind": "table",
+   "owner": "postgres",
+   "path": "server/migrations/041_workspace_invitation.up.sql:1",
+   "fields": [
+    {
+     "name": "id",
+     "type": "uuid"
+    },
+    {
+     "name": "workspace_id",
+     "type": "uuid"
+    },
+    {
+     "name": "invitee_email",
+     "type": "text"
+    },
+    {
+     "name": "role",
+     "type": "text"
+    },
+    {
+     "name": "organisation_ids",
+     "type": "uuid[]"
+    },
+    {
+     "name": "status",
+     "type": "text"
+    }
+   ]
+  },
+  {
+   "name": "agent",
+   "kind": "table",
+   "owner": "postgres",
+   "path": "server/migrations/001_init.up.sql:36",
+   "fields": [
+    {
+     "name": "id",
+     "type": "uuid"
+    },
+    {
+     "name": "workspace_id",
+     "type": "uuid"
+    },
+    {
+     "name": "runtime_id",
+     "type": "uuid"
+    },
+    {
+     "name": "owner_id",
+     "type": "uuid"
+    },
+    {
+     "name": "name",
+     "type": "text"
+    },
+    {
+     "name": "instructions",
+     "type": "text"
+    },
+    {
+     "name": "instruction_selection",
+     "type": "jsonb"
+    },
+    {
+     "name": "disabled_runtime_skills",
+     "type": "jsonb"
+    },
+    {
+     "name": "inherit_runtime_skills",
+     "type": "bool"
+    },
+    {
+     "name": "runtime_mode",
+     "type": "text"
+    },
+    {
+     "name": "visibility",
+     "type": "text"
+    },
+    {
+     "name": "conversation_starters",
+     "type": "jsonb"
+    }
+   ],
+   "relations": [
+    {
+     "to": "agent_session",
+     "from": "1",
+     "toCount": "*",
+     "via": "agent_id"
+    },
+    {
+     "to": "agent_task_queue",
+     "from": "1",
+     "toCount": "*",
+     "via": "agent_id"
+    },
+    {
+     "to": "agent_skill",
+     "from": "1",
+     "toCount": "*",
+     "via": "agent_id"
+    },
+    {
+     "to": "squad",
+     "from": "1",
+     "toCount": "*",
+     "via": "leader_id"
+    },
+    {
+     "to": "chat_session",
+     "from": "1",
+     "toCount": "*",
+     "via": "agent_id"
+    },
+    {
+     "to": "channel_installation",
+     "from": "1",
+     "toCount": "*",
+     "via": "agent_id"
+    },
+    {
+     "to": "question",
+     "from": "1",
+     "toCount": "*",
+     "via": "asker_agent_id"
+    },
+    {
+     "to": "question_wake_pending",
+     "from": "1",
+     "toCount": "*",
+     "via": "agent_id"
+    }
+   ]
+  },
+  {
+   "name": "agent_runtime",
+   "kind": "table",
+   "owner": "postgres",
+   "path": "server/migrations/004_agent_runtime_loop.up.sql:1",
+   "fields": [
+    {
+     "name": "id",
+     "type": "uuid"
+    },
+    {
+     "name": "workspace_id",
+     "type": "uuid"
+    },
+    {
+     "name": "daemon_id",
+     "type": "text"
+    },
+    {
+     "name": "owner_id",
+     "type": "uuid"
+    },
+    {
+     "name": "profile_id",
+     "type": "uuid"
+    },
+    {
+     "name": "provider",
+     "type": "text"
+    },
+    {
+     "name": "status",
+     "type": "text"
+    }
+   ],
+   "relations": [
+    {
+     "to": "agent",
+     "from": "1",
+     "toCount": "*",
+     "via": "runtime_id"
+    },
+    {
+     "to": "agent_task_queue",
+     "from": "1",
+     "toCount": "*",
+     "via": "runtime_id"
+    },
+    {
+     "to": "agent_session",
+     "from": "",
+     "toCount": "",
+     "via": "daemon_id",
+     "soft": true
+    }
+   ]
+  },
+  {
+   "name": "agent_session",
+   "kind": "table",
+   "owner": "postgres",
+   "path": "server/migrations/748_agent_session.up.sql:18",
+   "fields": [
+    {
+     "name": "id",
+     "type": "uuid"
+    },
+    {
+     "name": "workspace_id",
+     "type": "uuid"
+    },
+    {
+     "name": "agent_id",
+     "type": "uuid"
+    },
+    {
+     "name": "daemon_id",
+     "type": "text"
+    },
+    {
+     "name": "pid",
+     "type": "integer"
+    },
+    {
+     "name": "process_started_at",
+     "type": "timestamptz"
+    },
+    {
+     "name": "herdr_pane_id",
+     "type": "text"
+    },
+    {
+     "name": "work_dir",
+     "type": "text"
+    },
+    {
+     "name": "repository",
+     "type": "text"
+    },
+    {
+     "name": "branch",
+     "type": "text"
+    },
+    {
+     "name": "status",
+     "type": "text"
+    },
+    {
+     "name": "started_at",
+     "type": "timestamptz"
+    }
+   ]
+  },
+  {
+   "name": "runtime_profile",
+   "kind": "table",
+   "owner": "postgres",
+   "path": "server/migrations/120_runtime_profile.up.sql:32",
+   "fields": [
+    {
+     "name": "id",
+     "type": "uuid"
+    },
+    {
+     "name": "workspace_id",
+     "type": "uuid"
+    },
+    {
+     "name": "protocol_family",
+     "type": "text"
+    },
+    {
+     "name": "command_name",
+     "type": "text"
+    }
+   ],
+   "relations": [
+    {
+     "to": "agent_runtime",
+     "from": "1",
+     "toCount": "*",
+     "via": "profile_id"
+    }
+   ]
+  },
+  {
+   "name": "daemon_token",
+   "kind": "table",
+   "owner": "postgres",
+   "path": "server/migrations/029_daemon_token.up.sql:1",
+   "fields": [
+    {
+     "name": "id",
+     "type": "uuid"
+    },
+    {
+     "name": "workspace_id",
+     "type": "uuid"
+    },
+    {
+     "name": "daemon_id",
+     "type": "text"
+    },
+    {
+     "name": "token_hash",
+     "type": "text"
+    }
+   ],
+   "relations": [
+    {
+     "to": "agent_runtime",
+     "from": "",
+     "toCount": "",
+     "via": "daemon_id",
+     "soft": true
+    }
+   ]
+  },
+  {
+   "name": "agent_task_queue",
+   "kind": "table",
+   "owner": "postgres",
+   "path": "server/migrations/001_init.up.sql:127",
+   "fields": [
+    {
+     "name": "id",
+     "type": "uuid"
+    },
+    {
+     "name": "agent_id",
+     "type": "uuid"
+    },
+    {
+     "name": "runtime_id",
+     "type": "uuid"
+    },
+    {
+     "name": "issue_id",
+     "type": "uuid"
+    },
+    {
+     "name": "release_id",
+     "type": "uuid"
+    },
+    {
+     "name": "chat_session_id",
+     "type": "uuid"
+    },
+    {
+     "name": "autopilot_run_id",
+     "type": "uuid"
+    },
+    {
+     "name": "trigger_comment_id",
+     "type": "uuid"
+    },
+    {
+     "name": "squad_id",
+     "type": "uuid"
+    },
+    {
+     "name": "status",
+     "type": "text"
+    },
+    {
+     "name": "failure_reason",
+     "type": "text"
+    },
+    {
+     "name": "retry_of_task_id",
+     "type": "uuid"
+    },
+    {
+     "name": "context",
+     "type": "jsonb"
+    }
+   ],
+   "relations": [
+    {
+     "to": "agent_task_queue",
+     "from": "1",
+     "toCount": "*",
+     "via": "retry_of_task_id, context inherited"
+    },
+    {
+     "to": "issue_wakeup_receipt",
+     "from": "1",
+     "toCount": "*",
+     "via": "task_id"
+    },
+    {
+     "to": "task_message",
+     "from": "1",
+     "toCount": "*",
+     "via": "task_id"
+    },
+    {
+     "to": "task_supplement",
+     "from": "1",
+     "toCount": "*",
+     "via": "task_id"
+    },
+    {
+     "to": "todo",
+     "from": "1",
+     "toCount": "*",
+     "via": "task_id"
+    },
+    {
+     "to": "routine_decision",
+     "from": "1",
+     "toCount": "*",
+     "via": "task_id"
+    },
+    {
+     "to": "routine_decision",
+     "from": "1",
+     "toCount": "*",
+     "via": "work_task_id"
+    },
+    {
+     "to": "question",
+     "from": "1",
+     "toCount": "*",
+     "via": "asked_in_task_id"
+    }
+   ]
+  },
+  {
+   "name": "release",
+   "kind": "table",
+   "owner": "postgres",
+   "path": "server/migrations/620_release_line.up.sql:16",
+   "fields": [
+    {
+     "name": "id",
+     "type": "uuid"
+    },
+    {
+     "name": "workspace_id",
+     "type": "uuid"
+    },
+    {
+     "name": "repository_id",
+     "type": "uuid"
+    },
+    {
+     "name": "version",
+     "type": "text"
+    },
+    {
+     "name": "title",
+     "type": "text"
+    },
+    {
+     "name": "owner_type",
+     "type": "text"
+    },
+    {
+     "name": "owner_id",
+     "type": "uuid"
+    },
+    {
+     "name": "shipped_at",
+     "type": "timestamptz"
+    }
+   ],
+   "relations": [
+    {
+     "to": "agent_task_queue",
+     "from": "1",
+     "toCount": "*",
+     "via": "release_id"
+    },
+    {
+     "to": "issue",
+     "from": "1",
+     "toCount": "*",
+     "via": "release_id"
+    },
+    {
+     "to": "comment",
+     "from": "1",
+     "toCount": "*",
+     "via": "release_id"
+    },
+    {
+     "to": "issue_wakeup",
+     "from": "1",
+     "toCount": "*",
+     "via": "release_id"
+    },
+    {
+     "to": "agent",
+     "from": "",
+     "toCount": "",
+     "via": "owner_id",
+     "soft": true
+    },
+    {
+     "to": "squad",
+     "from": "",
+     "toCount": "",
+     "via": "owner_id",
+     "soft": true
+    }
+   ]
+  },
+  {
+   "name": "issue_wakeup",
+   "kind": "table",
+   "owner": "postgres",
+   "path": "server/migrations/509_issue_wakeup.up.sql:1",
+   "fields": [
+    {
+     "name": "id",
+     "type": "uuid"
+    },
+    {
+     "name": "workspace_id",
+     "type": "uuid"
+    },
+    {
+     "name": "issue_id",
+     "type": "uuid"
+    },
+    {
+     "name": "release_id",
+     "type": "uuid"
+    },
+    {
+     "name": "system_rule",
+     "type": "text"
+    },
+    {
+     "name": "condition",
+     "type": "jsonb"
+    },
+    {
+     "name": "revision",
+     "type": "bigint"
+    }
+   ],
+   "relations": [
+    {
+     "to": "issue_wakeup_receipt",
+     "from": "1",
+     "toCount": "*",
+     "via": "wakeup_id"
+    }
+   ]
+  },
+  {
+   "name": "issue_wakeup_receipt",
+   "kind": "table",
+   "owner": "postgres",
+   "path": "server/migrations/509_issue_wakeup.up.sql:14",
+   "fields": [
+    {
+     "name": "id",
+     "type": "uuid"
+    },
+    {
+     "name": "wakeup_id",
+     "type": "uuid"
+    },
+    {
+     "name": "event_key",
+     "type": "text"
+    },
+    {
+     "name": "task_id",
+     "type": "uuid"
+    },
+    {
+     "name": "processed_at",
+     "type": "timestamptz"
+    }
+   ]
+  },
+  {
+   "name": "task_supplement",
+   "kind": "table",
+   "owner": "postgres",
+   "path": "server/migrations/538_task_supplement.up.sql:16",
+   "fields": [
+    {
+     "name": "task_id",
+     "type": "uuid"
+    },
+    {
+     "name": "item_id",
+     "type": "uuid"
+    },
+    {
+     "name": "item_kind",
+     "type": "text"
+    },
+    {
+     "name": "comment_id",
+     "type": "uuid"
+    },
+    {
+     "name": "issue_id",
+     "type": "uuid"
+    },
+    {
+     "name": "author_id",
+     "type": "uuid"
+    },
+    {
+     "name": "content",
+     "type": "text"
+    },
+    {
+     "name": "status",
+     "type": "text"
+    },
+    {
+     "name": "seen_at",
+     "type": "timestamptz"
+    },
+    {
+     "name": "handled_at",
+     "type": "timestamptz"
+    }
+   ],
+   "relations": [
+    {
+     "to": "comment",
+     "from": "",
+     "toCount": "",
+     "via": "item_id or comment_id",
+     "soft": true
+    },
+    {
+     "to": "question_event",
+     "from": "",
+     "toCount": "",
+     "via": "item_id when answer",
+     "soft": true
+    },
+    {
+     "to": "activity_log",
+     "from": "",
+     "toCount": "",
+     "via": "item_id when issue_change",
+     "soft": true
+    }
+   ]
+  },
+  {
+   "name": "activity_log",
+   "kind": "table",
+   "owner": "postgres",
+   "path": "server/migrations/001_init.up.sql:156",
+   "fields": [
+    {
+     "name": "id",
+     "type": "uuid"
+    },
+    {
+     "name": "issue_id",
+     "type": "uuid"
+    },
+    {
+     "name": "actor_type",
+     "type": "text"
+    },
+    {
+     "name": "actor_id",
+     "type": "uuid"
+    },
+    {
+     "name": "action",
+     "type": "text"
+    },
+    {
+     "name": "details",
+     "type": "jsonb"
+    }
+   ]
+  },
+  {
+   "name": "task_message",
+   "kind": "table",
+   "owner": "postgres",
+   "path": "server/migrations/026_task_messages.up.sql:1",
+   "fields": [
+    {
+     "name": "id",
+     "type": "uuid"
+    },
+    {
+     "name": "task_id",
+     "type": "uuid"
+    },
+    {
+     "name": "seq",
+     "type": "int"
+    },
+    {
+     "name": "type",
+     "type": "text"
+    }
+   ]
+  },
+  {
+   "name": "issue",
+   "kind": "table",
+   "owner": "postgres",
+   "path": "server/migrations/001_init.up.sql:52",
+   "fields": [
+    {
+     "name": "id",
+     "type": "uuid"
+    },
+    {
+     "name": "workspace_id",
+     "type": "uuid"
+    },
+    {
+     "name": "project_id",
+     "type": "uuid"
+    },
+    {
+     "name": "parent_issue_id",
+     "type": "uuid"
+    },
+    {
+     "name": "release_id",
+     "type": "uuid"
+    },
+    {
+     "name": "worklane_id",
+     "type": "uuid"
+    },
+    {
+     "name": "lane_position",
+     "type": "float8"
+    },
+    {
+     "name": "number",
+     "type": "int"
+    },
+    {
+     "name": "status",
+     "type": "text"
+    },
+    {
+     "name": "assignee_type",
+     "type": "text"
+    },
+    {
+     "name": "assignee_id",
+     "type": "uuid"
+    }
+   ],
+   "relations": [
+    {
+     "to": "agent_task_queue",
+     "from": "1",
+     "toCount": "*",
+     "via": "issue_id"
+    },
+    {
+     "to": "issue_worktree",
+     "from": "1",
+     "toCount": "*",
+     "via": "issue_id, without lane"
+    },
+    {
+     "to": "issue_wakeup",
+     "from": "1",
+     "toCount": "*",
+     "via": "issue_id"
+    },
+    {
+     "to": "activity_log",
+     "from": "1",
+     "toCount": "*",
+     "via": "issue_id"
+    },
+    {
+     "to": "issue",
+     "from": "1",
+     "toCount": "*",
+     "via": "parent_issue_id"
+    },
+    {
+     "to": "user",
+     "from": "",
+     "toCount": "",
+     "via": "assignee_id",
+     "soft": true
+    },
+    {
+     "to": "agent",
+     "from": "",
+     "toCount": "",
+     "via": "assignee_id",
+     "soft": true
+    },
+    {
+     "to": "squad",
+     "from": "",
+     "toCount": "",
+     "via": "assignee_id",
+     "soft": true
+    },
+    {
+     "to": "comment",
+     "from": "1",
+     "toCount": "*",
+     "via": "issue_id"
+    },
+    {
+     "to": "issue_to_label",
+     "from": "1",
+     "toCount": "*",
+     "via": "issue_id"
+    },
+    {
+     "to": "issue_dependency",
+     "from": "1",
+     "toCount": "*",
+     "via": "issue_id"
+    },
+    {
+     "to": "inbox_item",
+     "from": "1",
+     "toCount": "*",
+     "via": "issue_id"
+    },
+    {
+     "to": "todo",
+     "from": "1",
+     "toCount": "*",
+     "via": "issue_id"
+    },
+    {
+     "to": "routine_decision",
+     "from": "1",
+     "toCount": "*",
+     "via": "issue_id"
+    },
+    {
+     "to": "attachment",
+     "from": "1",
+     "toCount": "*",
+     "via": "issue_id"
+    },
+    {
+     "to": "question_wake_pending",
+     "from": "1",
+     "toCount": "*",
+     "via": "issue_id"
+    }
+   ]
+  },
+  {
+   "name": "worklane",
+   "kind": "table",
+   "owner": "postgres",
+   "path": "server/migrations/590_repository.up.sql:36",
+   "fields": [
+    {
+     "name": "id",
+     "type": "uuid"
+    },
+    {
+     "name": "workspace_id",
+     "type": "uuid"
+    },
+    {
+     "name": "repository_id",
+     "type": "uuid"
+    },
+    {
+     "name": "is_main",
+     "type": "bool"
+    },
+    {
+     "name": "path",
+     "type": "text"
+    },
+    {
+     "name": "branch",
+     "type": "text"
+    }
+   ],
+   "relations": [
+    {
+     "to": "issue",
+     "from": "1",
+     "toCount": "*",
+     "via": "worklane_id"
+    }
+   ]
+  },
+  {
+   "name": "repository",
+   "kind": "table",
+   "owner": "postgres",
+   "path": "server/migrations/590_repository.up.sql:18",
+   "fields": [
+    {
+     "name": "id",
+     "type": "uuid"
+    },
+    {
+     "name": "workspace_id",
+     "type": "uuid"
+    },
+    {
+     "name": "project_id",
+     "type": "uuid"
+    },
+    {
+     "name": "full_name",
+     "type": "text"
+    }
+   ],
+   "relations": [
+    {
+     "to": "worklane",
+     "from": "1",
+     "toCount": "*",
+     "via": "repository_id"
+    },
+    {
+     "to": "issue_worktree",
+     "from": "1",
+     "toCount": "*",
+     "via": "repository_id"
+    }
+   ]
+  },
+  {
+   "name": "issue_worktree",
+   "kind": "table",
+   "owner": "postgres",
+   "path": "server/migrations/590_repository.up.sql:49",
+   "fields": [
+    {
+     "name": "id",
+     "type": "uuid"
+    },
+    {
+     "name": "workspace_id",
+     "type": "uuid"
+    },
+    {
+     "name": "issue_id",
+     "type": "uuid"
+    },
+    {
+     "name": "repository_id",
+     "type": "uuid"
+    },
+    {
+     "name": "path",
+     "type": "text"
+    },
+    {
+     "name": "branch",
+     "type": "text"
+    },
+    {
+     "name": "state",
+     "type": "text"
+    }
+   ]
+  },
+  {
+   "name": "comment",
+   "kind": "table",
+   "owner": "postgres",
+   "path": "server/migrations/001_init.up.sql:97",
+   "fields": [
+    {
+     "name": "id",
+     "type": "uuid"
+    },
+    {
+     "name": "issue_id",
+     "type": "uuid"
+    },
+    {
+     "name": "release_id",
+     "type": "uuid"
+    },
+    {
+     "name": "parent_id",
+     "type": "uuid"
+    },
+    {
+     "name": "author_type",
+     "type": "text"
+    },
+    {
+     "name": "author_id",
+     "type": "uuid"
+    },
+    {
+     "name": "source_task_id",
+     "type": "uuid"
+    }
+   ],
+   "relations": [
+    {
+     "to": "agent_task_queue",
+     "from": "1",
+     "toCount": "*",
+     "via": "trigger_comment_id"
+    },
+    {
+     "to": "comment",
+     "from": "1",
+     "toCount": "*",
+     "via": "parent_id"
+    },
+    {
+     "to": "todo",
+     "from": "1",
+     "toCount": "*",
+     "via": "comment_id"
+    },
+    {
+     "to": "attachment",
+     "from": "1",
+     "toCount": "*",
+     "via": "comment_id"
+    }
+   ]
+  },
+  {
+   "name": "issue_label",
+   "kind": "table",
+   "owner": "postgres",
+   "path": "server/migrations/001_init.up.sql:75",
+   "fields": [
+    {
+     "name": "id",
+     "type": "uuid"
+    },
+    {
+     "name": "workspace_id",
+     "type": "uuid"
+    },
+    {
+     "name": "name",
+     "type": "text"
+    }
+   ],
+   "relations": [
+    {
+     "to": "issue_to_label",
+     "from": "1",
+     "toCount": "*",
+     "via": "label_id"
+    }
+   ]
+  },
+  {
+   "name": "issue_to_label",
+   "kind": "table",
+   "owner": "postgres",
+   "path": "server/migrations/001_init.up.sql:82",
+   "fields": [
+    {
+     "name": "issue_id",
+     "type": "uuid"
+    },
+    {
+     "name": "label_id",
+     "type": "uuid"
+    }
+   ]
+  },
+  {
+   "name": "issue_dependency",
+   "kind": "table",
+   "owner": "postgres",
+   "path": "server/migrations/001_init.up.sql:89",
+   "fields": [
+    {
+     "name": "id",
+     "type": "uuid"
+    },
+    {
+     "name": "issue_id",
+     "type": "uuid"
+    },
+    {
+     "name": "depends_on_issue_id",
+     "type": "uuid"
+    },
+    {
+     "name": "type",
+     "type": "text"
+    }
+   ]
+  },
+  {
+   "name": "organisation",
+   "kind": "table",
+   "owner": "postgres",
+   "path": "server/migrations/572_organisation.up.sql:18",
+   "fields": [
+    {
+     "name": "id",
+     "type": "uuid"
+    },
+    {
+     "name": "workspace_id",
+     "type": "uuid"
+    },
+    {
+     "name": "name",
+     "type": "text"
+    },
+    {
+     "name": "key",
+     "type": "text"
+    }
+   ],
+   "relations": [
+    {
+     "to": "member",
+     "from": "*",
+     "toCount": "*",
+     "via": "organisation_ids, soft references"
+    },
+    {
+     "to": "workspace_invitation",
+     "from": "*",
+     "toCount": "*",
+     "via": "organisation_ids, soft references"
+    },
+    {
+     "to": "project",
+     "from": "1",
+     "toCount": "*",
+     "via": "organisation_id"
+    }
+   ]
+  },
+  {
+   "name": "project",
+   "kind": "table",
+   "owner": "postgres",
+   "path": "server/migrations/034_projects.up.sql:2",
+   "fields": [
+    {
+     "name": "id",
+     "type": "uuid"
+    },
+    {
+     "name": "workspace_id",
+     "type": "uuid"
+    },
+    {
+     "name": "organisation_id",
+     "type": "uuid"
+    },
+    {
+     "name": "title",
+     "type": "text"
+    },
+    {
+     "name": "lead_type",
+     "type": "text"
+    },
+    {
+     "name": "lead_id",
+     "type": "uuid"
+    }
+   ],
+   "relations": [
+    {
+     "to": "repository",
+     "from": "1",
+     "toCount": "*",
+     "via": "project_id"
+    },
+    {
+     "to": "issue",
+     "from": "1",
+     "toCount": "*",
+     "via": "project_id"
+    },
+    {
+     "to": "project_resource",
+     "from": "1",
+     "toCount": "*",
+     "via": "project_id"
+    },
+    {
+     "to": "project_check_trust",
+     "from": "1",
+     "toCount": "*",
+     "via": "project_id"
+    }
+   ]
+  },
+  {
+   "name": "project_resource",
+   "kind": "table",
+   "owner": "postgres",
+   "path": "server/migrations/065_project_resources.up.sql:5",
+   "fields": [
+    {
+     "name": "id",
+     "type": "uuid"
+    },
+    {
+     "name": "project_id",
+     "type": "uuid"
+    },
+    {
+     "name": "resource_type",
+     "type": "text"
+    },
+    {
+     "name": "resource_ref",
+     "type": "jsonb"
+    }
+   ]
+  },
+  {
+   "name": "skill",
+   "kind": "table",
+   "owner": "postgres",
+   "path": "server/migrations/008_structured_skills.up.sql:4",
+   "fields": [
+    {
+     "name": "id",
+     "type": "uuid"
+    },
+    {
+     "name": "workspace_id",
+     "type": "uuid"
+    },
+    {
+     "name": "plugin_installation_id",
+     "type": "uuid"
+    },
+    {
+     "name": "name",
+     "type": "text"
+    },
+    {
+     "name": "content",
+     "type": "text"
+    }
+   ],
+   "relations": [
+    {
+     "to": "skill_file",
+     "from": "1",
+     "toCount": "*",
+     "via": "skill_id"
+    },
+    {
+     "to": "agent_skill",
+     "from": "1",
+     "toCount": "*",
+     "via": "skill_id"
+    }
+   ]
+  },
+  {
+   "name": "skill_file",
+   "kind": "table",
+   "owner": "postgres",
+   "path": "server/migrations/008_structured_skills.up.sql:17",
+   "fields": [
+    {
+     "name": "id",
+     "type": "uuid"
+    },
+    {
+     "name": "skill_id",
+     "type": "uuid"
+    },
+    {
+     "name": "path",
+     "type": "text"
+    }
+   ]
+  },
+  {
+   "name": "agent_skill",
+   "kind": "table",
+   "owner": "postgres",
+   "path": "server/migrations/008_structured_skills.up.sql:27",
+   "fields": [
+    {
+     "name": "agent_id",
+     "type": "uuid"
+    },
+    {
+     "name": "skill_id",
+     "type": "uuid"
+    },
+    {
+     "name": "enabled",
+     "type": "bool"
+    }
+   ]
+  },
+  {
+   "name": "squad",
+   "kind": "table",
+   "owner": "postgres",
+   "path": "server/migrations/084_squad.up.sql:2",
+   "fields": [
+    {
+     "name": "id",
+     "type": "uuid"
+    },
+    {
+     "name": "workspace_id",
+     "type": "uuid"
+    },
+    {
+     "name": "leader_id",
+     "type": "uuid"
+    },
+    {
+     "name": "name",
+     "type": "text"
+    }
+   ],
+   "relations": [
+    {
+     "to": "agent_task_queue",
+     "from": "1",
+     "toCount": "*",
+     "via": "squad_id"
+    },
+    {
+     "to": "squad_member",
+     "from": "1",
+     "toCount": "*",
+     "via": "squad_id"
+    }
+   ]
+  },
+  {
+   "name": "squad_member",
+   "kind": "table",
+   "owner": "postgres",
+   "path": "server/migrations/084_squad.up.sql:17",
+   "fields": [
+    {
+     "name": "id",
+     "type": "uuid"
+    },
+    {
+     "name": "squad_id",
+     "type": "uuid"
+    },
+    {
+     "name": "member_type",
+     "type": "text"
+    },
+    {
+     "name": "member_id",
+     "type": "uuid"
+    }
+   ],
+   "relations": [
+    {
+     "to": "agent",
+     "from": "",
+     "toCount": "",
+     "via": "member_id",
+     "soft": true
+    },
+    {
+     "to": "user",
+     "from": "",
+     "toCount": "",
+     "via": "member_id",
+     "soft": true
+    },
+    {
+     "to": "squad",
+     "from": "",
+     "toCount": "",
+     "via": "member_id",
+     "soft": true
+    }
+   ]
+  },
+  {
+   "name": "chat_session",
+   "kind": "table",
+   "owner": "postgres",
+   "path": "server/migrations/033_chat.up.sql:4",
+   "fields": [
+    {
+     "name": "id",
+     "type": "uuid"
+    },
+    {
+     "name": "workspace_id",
+     "type": "uuid"
+    },
+    {
+     "name": "agent_id",
+     "type": "uuid"
+    },
+    {
+     "name": "creator_id",
+     "type": "uuid"
+    },
+    {
+     "name": "runtime_id",
+     "type": "uuid"
+    },
+    {
+     "name": "project_id",
+     "type": "uuid"
+    }
+   ],
+   "relations": [
+    {
+     "to": "agent_task_queue",
+     "from": "1",
+     "toCount": "*",
+     "via": "chat_session_id"
+    },
+    {
+     "to": "chat_message",
+     "from": "1",
+     "toCount": "*",
+     "via": "chat_session_id"
+    }
+   ]
+  },
+  {
+   "name": "chat_message",
+   "kind": "table",
+   "owner": "postgres",
+   "path": "server/migrations/033_chat.up.sql:21",
+   "fields": [
+    {
+     "name": "id",
+     "type": "uuid"
+    },
+    {
+     "name": "chat_session_id",
+     "type": "uuid"
+    },
+    {
+     "name": "task_id",
+     "type": "uuid"
+    },
+    {
+     "name": "role",
+     "type": "text"
+    }
+   ],
+   "relations": [
+    {
+     "to": "agent_task_queue",
+     "from": "",
+     "toCount": "",
+     "via": "task_id",
+     "soft": true
+    }
+   ]
+  },
+  {
+   "name": "autopilot",
+   "kind": "table",
+   "owner": "postgres",
+   "path": "server/migrations/042_autopilot.up.sql:3",
+   "fields": [
+    {
+     "name": "id",
+     "type": "uuid"
+    },
+    {
+     "name": "workspace_id",
+     "type": "uuid"
+    },
+    {
+     "name": "project_id",
+     "type": "uuid"
+    },
+    {
+     "name": "assignee_type",
+     "type": "text"
+    },
+    {
+     "name": "assignee_id",
+     "type": "uuid"
+    },
+    {
+     "name": "execution_mode",
+     "type": "text"
+    }
+   ],
+   "relations": [
+    {
+     "to": "agent",
+     "from": "",
+     "toCount": "",
+     "via": "assignee_id",
+     "soft": true
+    },
+    {
+     "to": "squad",
+     "from": "",
+     "toCount": "",
+     "via": "assignee_id",
+     "soft": true
+    },
+    {
+     "to": "autopilot_trigger",
+     "from": "1",
+     "toCount": "*",
+     "via": "autopilot_id"
+    },
+    {
+     "to": "autopilot_run",
+     "from": "1",
+     "toCount": "*",
+     "via": "autopilot_id"
+    },
+    {
+     "to": "todo",
+     "from": "1",
+     "toCount": "*",
+     "via": "autopilot_id"
+    }
+   ]
+  },
+  {
+   "name": "autopilot_trigger",
+   "kind": "table",
+   "owner": "postgres",
+   "path": "server/migrations/042_autopilot.up.sql:30",
+   "fields": [
+    {
+     "name": "id",
+     "type": "uuid"
+    },
+    {
+     "name": "autopilot_id",
+     "type": "uuid"
+    },
+    {
+     "name": "kind",
+     "type": "text"
+    },
+    {
+     "name": "cron_expression",
+     "type": "text"
+    }
+   ],
+   "relations": [
+    {
+     "to": "autopilot_run",
+     "from": "1",
+     "toCount": "*",
+     "via": "trigger_id"
+    }
+   ]
+  },
+  {
+   "name": "autopilot_run",
+   "kind": "table",
+   "owner": "postgres",
+   "path": "server/migrations/042_autopilot.up.sql:50",
+   "fields": [
+    {
+     "name": "id",
+     "type": "uuid"
+    },
+    {
+     "name": "autopilot_id",
+     "type": "uuid"
+    },
+    {
+     "name": "trigger_id",
+     "type": "uuid"
+    },
+    {
+     "name": "issue_id",
+     "type": "uuid"
+    },
+    {
+     "name": "task_id",
+     "type": "uuid"
+    },
+    {
+     "name": "status",
+     "type": "text"
+    }
+   ],
+   "relations": [
+    {
+     "to": "agent_task_queue",
+     "from": "1",
+     "toCount": "*",
+     "via": "autopilot_run_id"
+    }
+   ]
+  },
+  {
+   "name": "inbox_item",
+   "kind": "table",
+   "owner": "postgres",
+   "path": "server/migrations/001_init.up.sql:110",
+   "fields": [
+    {
+     "name": "id",
+     "type": "uuid"
+    },
+    {
+     "name": "workspace_id",
+     "type": "uuid"
+    },
+    {
+     "name": "recipient_type",
+     "type": "text"
+    },
+    {
+     "name": "recipient_id",
+     "type": "uuid"
+    },
+    {
+     "name": "issue_id",
+     "type": "uuid"
+    }
+   ]
+  },
+  {
+   "name": "todo",
+   "kind": "table",
+   "owner": "postgres",
+   "path": "server/migrations/750_todo.up.sql:1",
+   "fields": [
+    {
+     "name": "id",
+     "type": "uuid"
+    },
+    {
+     "name": "workspace_id",
+     "type": "uuid"
+    },
+    {
+     "name": "member_id",
+     "type": "uuid"
+    },
+    {
+     "name": "kind",
+     "type": "text"
+    },
+    {
+     "name": "source_key",
+     "type": "text"
+    },
+    {
+     "name": "issue_id",
+     "type": "uuid"
+    },
+    {
+     "name": "question_id",
+     "type": "uuid"
+    },
+    {
+     "name": "comment_id",
+     "type": "uuid"
+    },
+    {
+     "name": "task_id",
+     "type": "uuid"
+    },
+    {
+     "name": "autopilot_id",
+     "type": "uuid"
+    },
+    {
+     "name": "actor_type",
+     "type": "text"
+    },
+    {
+     "name": "actor_id",
+     "type": "uuid"
+    },
+    {
+     "name": "title",
+     "type": "text"
+    },
+    {
+     "name": "body",
+     "type": "text"
+    },
+    {
+     "name": "details",
+     "type": "jsonb"
+    },
+    {
+     "name": "created_at",
+     "type": "timestamptz"
+    },
+    {
+     "name": "done_at",
+     "type": "timestamptz"
+    },
+    {
+     "name": "done_by",
+     "type": "text"
+    }
+   ],
+   "relations": [
+    {
+     "to": "user",
+     "from": "",
+     "toCount": "",
+     "via": "actor_id when member",
+     "soft": true
+    },
+    {
+     "to": "agent",
+     "from": "",
+     "toCount": "",
+     "via": "actor_id when agent",
+     "soft": true
+    }
+   ]
+  },
+  {
+   "name": "routine_decision",
+   "kind": "table",
+   "owner": "postgres",
+   "path": "server/migrations/780_routine_decision.up.sql:1",
+   "fields": [
+    {
+     "name": "id",
+     "type": "text"
+    },
+    {
+     "name": "workspace_id",
+     "type": "uuid"
+    },
+    {
+     "name": "issue_id",
+     "type": "uuid"
+    },
+    {
+     "name": "input",
+     "type": "jsonb"
+    },
+    {
+     "name": "task_id",
+     "type": "uuid"
+    },
+    {
+     "name": "jev_confidence",
+     "type": "float"
+    },
+    {
+     "name": "proposal",
+     "type": "jsonb"
+    },
+    {
+     "name": "decider",
+     "type": "text"
+    },
+    {
+     "name": "question_id",
+     "type": "uuid"
+    },
+    {
+     "name": "review_mode",
+     "type": "text"
+    },
+    {
+     "name": "applied_choice",
+     "type": "text"
+    },
+    {
+     "name": "work_task_id",
+     "type": "uuid"
+    },
+    {
+     "name": "automatic_number",
+     "type": "bigint"
+    },
+    {
+     "name": "reviews",
+     "type": "jsonb"
+    },
+    {
+     "name": "outcome",
+     "type": "text"
+    },
+    {
+     "name": "created_at",
+     "type": "timestamptz"
+    }
+   ]
+  },
+  {
+   "name": "check_settings",
+   "kind": "table",
+   "owner": "postgres",
+   "path": "server/migrations/790_check_trust.up.sql:8",
+   "fields": [
+    {
+     "name": "workspace_id",
+     "type": "uuid"
+    },
+    {
+     "name": "sample_every",
+     "type": "int"
+    }
+   ]
+  },
+  {
+   "name": "project_check_trust",
+   "kind": "table",
+   "owner": "postgres",
+   "path": "server/migrations/790_check_trust.up.sql:13",
+   "fields": [
+    {
+     "name": "workspace_id",
+     "type": "uuid"
+    },
+    {
+     "name": "project_id",
+     "type": "uuid"
+    },
+    {
+     "name": "kind",
+     "type": "text"
+    },
+    {
+     "name": "member_id",
+     "type": "uuid"
+    },
+    {
+     "name": "passed",
+     "type": "int"
+    },
+    {
+     "name": "feedback",
+     "type": "int"
+    },
+    {
+     "name": "automatic_passed",
+     "type": "int"
+    },
+    {
+     "name": "sampling",
+     "type": "bool"
+    },
+    {
+     "name": "sample_opens",
+     "type": "int"
+    }
+   ],
+   "relations": [
+    {
+     "to": "todo",
+     "from": "",
+     "toCount": "",
+     "via": "project_id, kind in check details",
+     "soft": true
+    }
+   ]
+  },
+  {
+   "name": "attachment",
+   "kind": "table",
+   "owner": "postgres",
+   "path": "server/migrations/029_attachment.up.sql:1",
+   "fields": [
+    {
+     "name": "id",
+     "type": "uuid"
+    },
+    {
+     "name": "workspace_id",
+     "type": "uuid"
+    },
+    {
+     "name": "issue_id",
+     "type": "uuid"
+    },
+    {
+     "name": "comment_id",
+     "type": "uuid"
+    },
+    {
+     "name": "chat_message_id",
+     "type": "uuid"
+    },
+    {
+     "name": "question_id",
+     "type": "uuid"
+    }
+   ]
+  },
+  {
+   "name": "question",
+   "kind": "table",
+   "owner": "postgres",
+   "path": "server/migrations/566_question.up.sql:26",
+   "fields": [
+    {
+     "name": "id",
+     "type": "uuid"
+    },
+    {
+     "name": "workspace_id",
+     "type": "uuid"
+    },
+    {
+     "name": "asker_agent_id",
+     "type": "uuid_nullable"
+    },
+    {
+     "name": "asked_in_task_id",
+     "type": "uuid_nullable"
+    },
+    {
+     "name": "asker_user_id",
+     "type": "uuid_nullable"
+    },
+    {
+     "name": "question_one_asker",
+     "type": "check"
+    },
+    {
+     "name": "ask_id",
+     "type": "uuid"
+    },
+    {
+     "name": "ask_position",
+     "type": "int"
+    },
+    {
+     "name": "ask_title",
+     "type": "text"
+    },
+    {
+     "name": "answer_policy",
+     "type": "text"
+    },
+    {
+     "name": "answer_type",
+     "type": "text"
+    },
+    {
+     "name": "settings",
+     "type": "jsonb"
+    },
+    {
+     "name": "suggested_answer",
+     "type": "jsonb"
+    },
+    {
+     "name": "status",
+     "type": "text"
+    },
+    {
+     "name": "due_date",
+     "type": "date"
+    },
+    {
+     "name": "blocks_work",
+     "type": "bool"
+    }
+   ],
+   "relations": [
+    {
+     "to": "todo",
+     "from": "1",
+     "toCount": "*",
+     "via": "question_id"
+    },
+    {
+     "to": "routine_decision",
+     "from": "1",
+     "toCount": "0..1",
+     "via": "question_id"
+    },
+    {
+     "to": "question",
+     "from": "*",
+     "toCount": "1",
+     "via": "ask_id"
+    },
+    {
+     "to": "question_link",
+     "from": "1",
+     "toCount": "*",
+     "via": "question_id"
+    },
+    {
+     "to": "question_answerer",
+     "from": "1",
+     "toCount": "*",
+     "via": "question_id"
+    },
+    {
+     "to": "question_answer",
+     "from": "1",
+     "toCount": "*",
+     "via": "question_id"
+    },
+    {
+     "to": "question_event",
+     "from": "1",
+     "toCount": "*",
+     "via": "question_id"
+    },
+    {
+     "to": "attachment",
+     "from": "1",
+     "toCount": "*",
+     "via": "question_id"
+    },
+    {
+     "to": "question_wake_pending",
+     "from": "1",
+     "toCount": "*",
+     "via": "source_question_id"
+    }
+   ]
+  },
+  {
+   "name": "question_wake_pending",
+   "kind": "table",
+   "owner": "postgres",
+   "path": "server/migrations/745_question_wake_pending.up.sql:1",
+   "fields": [
+    {
+     "name": "workspace_id",
+     "type": "uuid"
+    },
+    {
+     "name": "issue_id",
+     "type": "uuid"
+    },
+    {
+     "name": "agent_id",
+     "type": "uuid"
+    },
+    {
+     "name": "actor_user_id",
+     "type": "uuid"
+    },
+    {
+     "name": "source_question_id",
+     "type": "uuid"
+    },
+    {
+     "name": "answer_anchor",
+     "type": "timestamptz"
+    },
+    {
+     "name": "created_at",
+     "type": "timestamptz"
+    }
+   ],
+   "relations": [
+    {
+     "to": "agent_task_queue",
+     "from": "",
+     "toCount": "",
+     "via": "waits for blockers; carries answer_anchor into context",
+     "soft": true
+    }
+   ]
+  },
+  {
+   "name": "question_link",
+   "kind": "table",
+   "owner": "postgres",
+   "path": "server/migrations/566_question.up.sql:48",
+   "fields": [
+    {
+     "name": "question_id",
+     "type": "uuid"
+    },
+    {
+     "name": "link_type",
+     "type": "text"
+    },
+    {
+     "name": "link_id",
+     "type": "uuid"
+    },
+    {
+     "name": "position",
+     "type": "int"
+    }
+   ],
+   "relations": [
+    {
+     "to": "issue",
+     "from": "",
+     "toCount": "",
+     "via": "link_id",
+     "soft": true
+    },
+    {
+     "to": "agent_task_queue",
+     "from": "",
+     "toCount": "",
+     "via": "link_id",
+     "soft": true
+    },
+    {
+     "to": "chat_session",
+     "from": "",
+     "toCount": "",
+     "via": "link_id",
+     "soft": true
+    }
+   ]
+  },
+  {
+   "name": "question_answerer",
+   "kind": "table",
+   "owner": "postgres",
+   "path": "server/migrations/566_question.up.sql:57",
+   "fields": [
+    {
+     "name": "question_id",
+     "type": "uuid"
+    },
+    {
+     "name": "user_id",
+     "type": "uuid"
+    }
+   ]
+  },
+  {
+   "name": "question_answer",
+   "kind": "table",
+   "owner": "postgres",
+   "path": "server/migrations/566_question.up.sql:65",
+   "fields": [
+    {
+     "name": "id",
+     "type": "uuid"
+    },
+    {
+     "name": "question_id",
+     "type": "uuid"
+    },
+    {
+     "name": "answerer_user_id",
+     "type": "uuid"
+    },
+    {
+     "name": "value",
+     "type": "jsonb"
+    },
+    {
+     "name": "note",
+     "type": "text"
+    }
+   ]
+  },
+  {
+   "name": "question_event",
+   "kind": "table",
+   "owner": "postgres",
+   "path": "server/migrations/566_question.up.sql:76",
+   "fields": [
+    {
+     "name": "id",
+     "type": "uuid"
+    },
+    {
+     "name": "question_id",
+     "type": "uuid"
+    },
+    {
+     "name": "kind",
+     "type": "text"
+    },
+    {
+     "name": "actor_type",
+     "type": "text"
+    },
+    {
+     "name": "actor_id",
+     "type": "uuid"
+    },
+    {
+     "name": "details",
+     "type": "jsonb"
+    }
+   ]
+  },
+  {
+   "name": "plugin_installation",
+   "kind": "table",
+   "owner": "postgres",
+   "path": "server/migrations/285_plugin_lifecycle_v1.up.sql:73",
+   "fields": [
+    {
+     "name": "id",
+     "type": "uuid"
+    },
+    {
+     "name": "workspace_id",
+     "type": "uuid"
+    },
+    {
+     "name": "plugin_key",
+     "type": "text"
+    },
+    {
+     "name": "enabled",
+     "type": "bool"
+    }
+   ],
+   "relations": [
+    {
+     "to": "skill",
+     "from": "1",
+     "toCount": "*",
+     "via": "plugin_installation_id"
+    }
+   ]
+  },
+  {
+   "name": "channel_installation",
+   "kind": "table",
+   "owner": "postgres",
+   "path": "server/migrations/124_channel_generalization.up.sql:62",
+   "fields": [
+    {
+     "name": "id",
+     "type": "uuid"
+    },
+    {
+     "name": "workspace_id",
+     "type": "uuid"
+    },
+    {
+     "name": "agent_id",
+     "type": "uuid"
+    },
+    {
+     "name": "channel_type",
+     "type": "text"
+    }
+   ]
+  },
+  {
+   "name": "github_installation",
+   "kind": "table",
+   "owner": "postgres",
+   "path": "server/migrations/079_github_integration.up.sql:4",
+   "fields": [
+    {
+     "name": "id",
+     "type": "uuid"
+    },
+    {
+     "name": "workspace_id",
+     "type": "uuid"
+    },
+    {
+     "name": "installation_id",
+     "type": "int"
+    }
+   ]
+  },
+  {
+   "name": "vcs_connection",
+   "kind": "table",
+   "owner": "postgres",
+   "path": "server/migrations/216_vcs_integration.up.sql:23",
+   "fields": [
+    {
+     "name": "id",
+     "type": "uuid"
+    },
+    {
+     "name": "workspace_id",
+     "type": "uuid"
+    },
+    {
+     "name": "provider",
+     "type": "text"
+    }
+   ]
+  },
+  {
+   "name": "ClientWaitResponse",
+   "kind": "contract",
+   "owner": "srv-client-read",
+   "path": "server/internal/handler/client_read.go:16",
+   "fields": [
+    {
+     "name": "id",
+     "type": "string"
+    },
+    {
+     "name": "title",
+     "type": "string"
+    },
+    {
+     "name": "description",
+     "type": "string|null"
+    },
+    {
+     "name": "due_date",
+     "type": "string|null"
+    },
+    {
+     "name": "organisation_name",
+     "type": "string"
+    }
+   ]
+  },
+  {
+   "name": "ClientWaitListResponse",
+   "kind": "contract",
+   "owner": "srv-client-read",
+   "path": "server/internal/handler/client_read.go:38",
+   "fields": [
+    {
+     "name": "waits",
+     "type": "ClientWaitResponse[]"
+    },
+    {
+     "name": "total",
+     "type": "int64"
+    }
+   ],
+   "relations": [
+    {
+     "to": "ClientWaitResponse",
+     "from": "1",
+     "toCount": "*",
+     "via": "waits"
+    }
+   ]
+  },
+  {
+   "name": "ClientPlannedWorkResponse",
+   "kind": "contract",
+   "owner": "srv-client-read",
+   "path": "server/internal/handler/client_read.go:29",
+   "fields": [
+    {
+     "name": "id",
+     "type": "string"
+    },
+    {
+     "name": "title",
+     "type": "string"
+    },
+    {
+     "name": "status",
+     "type": "string"
+    },
+    {
+     "name": "organisation_name",
+     "type": "string"
+    },
+    {
+     "name": "project_name",
+     "type": "string"
+    },
+    {
+     "name": "release",
+     "type": "ClientReleaseResponse"
+    }
+   ],
+   "relations": [
+    {
+     "to": "ClientReleaseResponse",
+     "from": "1",
+     "toCount": "1",
+     "via": "release"
+    }
+   ]
+  },
+  {
+   "name": "ClientPlannedWorkListResponse",
+   "kind": "contract",
+   "owner": "srv-client-read",
+   "path": "server/internal/handler/client_read.go:43",
+   "fields": [
+    {
+     "name": "issues",
+     "type": "ClientPlannedWorkResponse[]"
+    },
+    {
+     "name": "total",
+     "type": "int64"
+    }
+   ],
+   "relations": [
+    {
+     "to": "ClientPlannedWorkResponse",
+     "from": "1",
+     "toCount": "*",
+     "via": "issues"
+    }
+   ]
+  },
+  {
+   "name": "ClientReleaseResponse",
+   "kind": "contract",
+   "owner": "srv-client-read",
+   "path": "server/internal/handler/client_read.go:24",
+   "fields": [
+    {
+     "name": "version",
+     "type": "string"
+    },
+    {
+     "name": "shipped",
+     "type": "bool"
+    }
+   ]
+  },
+  {
+   "name": "Question",
+   "kind": "contract",
+   "owner": "core-types",
+   "path": "packages/core/types/question.ts:370",
+   "fields": [
+    {
+     "name": "id",
+     "type": "string"
+    },
+    {
+     "name": "ask_id",
+     "type": "string"
+    },
+    {
+     "name": "ask_position",
+     "type": "number"
+    },
+    {
+     "name": "ask_title",
+     "type": "string|null"
+    },
+    {
+     "name": "answer_policy",
+     "type": "AnswerPolicy"
+    },
+    {
+     "name": "status",
+     "type": "QuestionStatus"
+    },
+    {
+     "name": "asker_agent_id",
+     "type": "string"
+    },
+    {
+     "name": "asked_in_task_id",
+     "type": "string"
+    },
+    {
+     "name": "asker_user_id",
+     "type": "string"
+    }
+   ],
+   "relations": [
+    {
+     "to": "question",
+     "from": "*",
+     "toCount": "1",
+     "via": "schema fields",
+     "soft": true
+    }
+   ]
+  },
+  {
+   "name": "QuestionAskResult",
+   "kind": "contract",
+   "owner": "core-types",
+   "path": "packages/core/types/question.ts:419",
+   "fields": [
+    {
+     "name": "ask_id",
+     "type": "string"
+    },
+    {
+     "name": "questions",
+     "type": "Question[]"
+    }
+   ],
+   "relations": [
+    {
+     "to": "Question",
+     "from": "1",
+     "toCount": "*",
+     "via": "questions"
+    }
+   ]
+  },
+  {
+   "name": "QuestionEventPayload",
+   "kind": "contract",
+   "owner": "srv-bus",
+   "path": "server/pkg/protocol/events.go:272",
+   "fields": [
+    {
+     "name": "question_id",
+     "type": "string"
+    },
+    {
+     "name": "ask_id",
+     "type": "string"
+    },
+    {
+     "name": "question_ids",
+     "type": "string[]"
+    },
+    {
+     "name": "issue_id",
+     "type": "string"
+    },
+    {
+     "name": "chat_session_id",
+     "type": "string"
+    }
+   ],
+   "relations": [
+    {
+     "to": "question",
+     "from": "*",
+     "toCount": "1",
+     "via": "question ids",
+     "soft": true
+    }
+   ]
+  },
+  {
+   "name": "AgentSession",
+   "kind": "contract",
+   "owner": "core-types",
+   "path": "packages/core/types/agent.ts:273",
+   "fields": [
+    {
+     "name": "id",
+     "type": "string"
+    },
+    {
+     "name": "kind",
+     "type": "AgentSessionKind"
+    },
+    {
+     "name": "pid",
+     "type": "number|null"
+    },
+    {
+     "name": "herdr_pane_id",
+     "type": "string|null"
+    },
+    {
+     "name": "runtime",
+     "type": "{id,name}|null"
+    },
+    {
+     "name": "task_id",
+     "type": "string|null"
+    },
+    {
+     "name": "issue",
+     "type": "{id,identifier}|null"
+    },
+    {
+     "name": "work_dir",
+     "type": "string"
+    },
+    {
+     "name": "repository",
+     "type": "string|null"
+    },
+    {
+     "name": "branch",
+     "type": "string|null"
+    },
+    {
+     "name": "status",
+     "type": "AgentSessionStatus"
+    },
+    {
+     "name": "started_at",
+     "type": "string"
+    }
+   ],
+   "relations": [
+    {
+     "to": "agent_session",
+     "from": "*",
+     "toCount": "1",
+     "via": "id",
+     "soft": true
+    }
+   ]
+  }
+ ],
+ "journeys": [
+  {
+   "id": "comment-wakes-agent",
+   "name": "A comment wakes an agent",
+   "question": "What happens after someone mentions an agent?",
+   "steps": [
+    {
+     "title": "Member posts a comment",
+     "happens": "The issue page sends the comment with an agent mention.",
+     "edge": "views-issue-detail--core-create-comment",
+     "in": [
+      {
+       "model": "comment",
+       "fields": [
+        "issue_id",
+        "author_type",
+        "author_id"
+       ]
+      }
+     ]
+    },
+    {
+     "title": "Core sends it",
+     "happens": "The mutation posts the comment to the API.",
+     "edge": "core-create-comment--core-api",
+     "out": [
+      {
+       "model": "comment",
+       "fields": [
+        "issue_id",
+        "author_type",
+        "author_id"
+       ]
+      }
+     ]
+    },
+    {
+     "title": "Request reaches the server",
+     "happens": "The API client calls REST /api on the router.",
+     "edge": "core-api--srv-router"
+    },
+    {
+     "title": "Auth checks the member",
+     "happens": "Auth reads the token and the membership.",
+     "edge": "srv-router--srv-auth"
+    },
+    {
+     "title": "Handler takes the comment",
+     "happens": "CreateComment validates the body.",
+     "edge": "srv-auth--srv-create-comment",
+     "in": [
+      {
+       "model": "comment",
+       "fields": [
+        "issue_id",
+        "author_type",
+        "author_id"
+       ]
+      }
+     ]
+    },
+    {
+     "title": "Comment is stored",
+     "happens": "The comment row is inserted.",
+     "edge": "srv-create-comment--postgres",
+     "out": [
+      {
+       "model": "comment",
+       "fields": [
+        "issue_id",
+        "author_type",
+        "author_id"
+       ]
+      }
+     ],
+     "store": "postgres · comment"
+    },
+    {
+     "title": "Mentions become triggers",
+     "happens": "The handler parses mentions and finds the agent to wake.",
+     "edge": "srv-create-comment--srv-comment-triggers"
+    },
+    {
+     "title": "A task is queued",
+     "happens": "EnqueueTaskForMention writes a queued task for the agent.",
+     "edge": "srv-comment-triggers--srv-enqueue-mention",
+     "out": [
+      {
+       "model": "agent_task_queue",
+       "fields": [
+        "agent_id",
+        "runtime_id",
+        "issue_id",
+        "trigger_comment_id",
+        "status"
+       ]
+      }
+     ]
+    },
+    {
+     "title": "Task row is stored",
+     "happens": "The task waits in the queue.",
+     "edge": "srv-enqueue-mention--postgres",
+     "out": [
+      {
+       "model": "agent_task_queue",
+       "fields": [
+        "agent_id",
+        "runtime_id",
+        "issue_id",
+        "trigger_comment_id",
+        "status"
+       ]
+      }
+     ],
+     "store": "postgres · agent_task_queue"
+    },
+    {
+     "title": "Clients hear task:queued",
+     "happens": "After commit the task event goes on the bus.",
+     "edge": "srv-broadcast-task--srv-bus"
+    },
+    {
+     "title": "Hub pushes it",
+     "happens": "The realtime hub sends task:queued to the workspace.",
+     "edge": "srv-realtime-hub--core-ws"
+    },
+    {
+     "title": "Daemon gets a hint",
+     "happens": "The notifier wakes the daemon hub of the runtime.",
+     "edge": "srv-notify-task--srv-relay-notifier"
+    },
+    {
+     "title": "Hint reaches the daemon",
+     "happens": "The daemon hub sends daemon:task_available over the socket.",
+     "edge": "srv-daemon-hub--daemon-wakeup"
+    },
+    {
+     "title": "Daemon polls now",
+     "happens": "The wakeup connection kicks the poll loop.",
+     "edge": "daemon-wakeup--daemon-poll"
+    },
+    {
+     "title": "Daemon claims",
+     "happens": "The poll loop claims the task over the socket.",
+     "edge": "daemon-poll--daemon-ws",
+     "out": [
+      {
+       "model": "agent_task_queue",
+       "fields": [
+        "agent_id",
+        "runtime_id",
+        "issue_id",
+        "trigger_comment_id",
+        "status"
+       ]
+      }
+     ]
+    },
+    {
+     "title": "Server marks the claim",
+     "happens": "ClaimTaskForRuntime moves the task to dispatched.",
+     "edge": "srv-claim-for-runtime--postgres",
+     "out": [
+      {
+       "model": "agent_task_queue",
+       "fields": [
+        "status"
+       ]
+      }
+     ],
+     "store": "postgres · agent_task_queue"
+    },
+    {
+     "title": "Daemon prepares the run",
+     "happens": "handleTask reports the start and calls runTask.",
+     "edge": "daemon-handle-task--daemon-run-task"
+    },
+    {
+     "title": "Prompt is built",
+     "happens": "runTask builds the prompt from the task context.",
+     "edge": "daemon-run-task--daemon-prompt",
+     "in": [
+      {
+       "model": "agent_task_queue",
+       "fields": [
+        "context"
+       ]
+      }
+     ]
+    },
+    {
+     "title": "Agent starts",
+     "happens": "The backend launches the agent CLI with the prompt.",
+     "edge": "daemon-backends--ai-agents",
+     "action": "Reads the comment and starts the work"
+    },
+    {
+     "title": "Agent answers",
+     "happens": "The agent runs multica issue comment add.",
+     "edge": "ai-agents--cli-root",
+     "action": "Posts its reply as a comment"
+    }
+   ]
+  },
+  {
+   "id": "answer-wakes-agent",
+   "name": "An answer wakes the asking agent",
+   "question": "How does an answer with Wake reach the agent that asked?",
+   "steps": [
+    {
+     "title": "Member answers",
+     "happens": "The question card sends the answer with Wake on.",
+     "edge": "views-question-card--core-answer-question",
+     "in": [
+      {
+       "model": "question_answer",
+       "fields": [
+        "question_id",
+        "value",
+        "note"
+       ]
+      }
+     ]
+    },
+    {
+     "title": "Core sends it",
+     "happens": "The mutation posts the answer.",
+     "edge": "core-answer-question--core-api"
+    },
+    {
+     "title": "Handler takes the answer",
+     "happens": "AnswerQuestion passes it to the question service.",
+     "edge": "srv-answer-question--srv-q-answer"
+    },
+    {
+     "title": "Answer is checked",
+     "happens": "ValidateAnswer checks the answer type and policy.",
+     "edge": "srv-q-answer--srv-q-rules"
+    },
+    {
+     "title": "Answer is stored",
+     "happens": "The answer row is written and the status derived.",
+     "edge": "srv-q-answer--postgres",
+     "out": [
+      {
+       "model": "question_answer"
+      },
+      {
+       "model": "question",
+       "fields": [
+        "status"
+       ]
+      }
+     ],
+     "store": "postgres · question_answer"
+    },
+    {
+     "title": "Question event",
+     "happens": "question:updated goes on the bus.",
+     "edge": "srv-q-answer--srv-bus",
+     "out": [
+      {
+       "model": "QuestionEventPayload"
+      }
+     ]
+    },
+    {
+     "title": "To-dos react",
+     "happens": "The to-do listeners hear the question event.",
+     "edge": "srv-bus--srv-todo-listeners"
+    },
+    {
+     "title": "To-do closes",
+     "happens": "The answerer's to-do closes.",
+     "edge": "srv-todo-listeners--srv-todo",
+     "out": [
+      {
+       "model": "todo",
+       "fields": [
+        "done_at",
+        "done_by"
+       ]
+      }
+     ],
+     "store": "postgres · todo"
+    },
+    {
+     "title": "Clients hear todo:closed",
+     "happens": "The to-do service publishes the close.",
+     "edge": "srv-todo--srv-bus--2"
+    },
+    {
+     "title": "Wake runs",
+     "happens": "Answer asks the Wake for the asking agent.",
+     "edge": "srv-q-answer--srv-q-wake"
+    },
+    {
+     "title": "Wake intent",
+     "happens": "With no blockers the wake drains its intent.",
+     "edge": "srv-q-wake--srv-q-enqueue-wake",
+     "in": [
+      {
+       "model": "question_wake_pending",
+       "fields": [
+        "issue_id",
+        "agent_id",
+        "answer_anchor"
+       ]
+      }
+     ]
+    },
+    {
+     "title": "A task is queued",
+     "happens": "EnqueueTaskForQuestionWake writes the task.",
+     "edge": "srv-q-enqueue-wake--srv-enqueue-question-task",
+     "out": [
+      {
+       "model": "agent_task_queue",
+       "fields": [
+        "agent_id",
+        "runtime_id",
+        "issue_id",
+        "trigger_comment_id",
+        "status"
+       ]
+      }
+     ]
+    },
+    {
+     "title": "Task row is stored",
+     "happens": "The task carries the answer anchor in its context.",
+     "edge": "srv-enqueue-question-task--postgres",
+     "out": [
+      {
+       "model": "agent_task_queue",
+       "fields": [
+        "context",
+        "status"
+       ]
+      }
+     ],
+     "store": "postgres · agent_task_queue"
+    },
+    {
+     "title": "Daemon gets a hint",
+     "happens": "publishQuestionWake tells clients and the daemon.",
+     "edge": "srv-q-publish-wake--srv-notify-task"
+    },
+    {
+     "title": "Hint reaches the daemon",
+     "happens": "daemon:task_available reaches the runtime.",
+     "edge": "srv-daemon-hub--daemon-wakeup"
+    },
+    {
+     "title": "Agent runs",
+     "happens": "The daemon claims the task and starts the agent.",
+     "edge": "daemon-backends--ai-agents",
+     "action": "Reads the answer and goes on"
+    }
+   ]
+  },
+  {
+   "id": "comment-steers-run",
+   "name": "A comment steers a running agent",
+   "question": "How does a comment reach an agent that is already running?",
+   "steps": [
+    {
+     "title": "Member posts a comment",
+     "happens": "The issue page sends a comment for the running agent.",
+     "edge": "views-issue-detail--core-create-comment",
+     "in": [
+      {
+       "model": "comment",
+       "fields": [
+        "issue_id",
+        "author_type",
+        "author_id"
+       ]
+      }
+     ]
+    },
+    {
+     "title": "Recipients are resolved",
+     "happens": "The composer decides to steer the running run.",
+     "edge": "core-create-comment--core-run-steering"
+    },
+    {
+     "title": "Core sends it",
+     "happens": "The mutation posts the comment.",
+     "edge": "core-create-comment--core-api"
+    },
+    {
+     "title": "Handler takes the comment",
+     "happens": "CreateComment stores it.",
+     "edge": "srv-auth--srv-create-comment",
+     "store": "postgres · comment"
+    },
+    {
+     "title": "Run is steered",
+     "happens": "The handler hands the comment to the running run.",
+     "edge": "srv-create-comment--srv-steer"
+    },
+    {
+     "title": "Run input is delivered",
+     "happens": "Deliver snapshots the comment for each live run.",
+     "edge": "srv-steer--srv-run-input",
+     "out": [
+      {
+       "model": "task_supplement",
+       "fields": [
+        "task_id",
+        "item_id",
+        "item_kind",
+        "content"
+       ]
+      }
+     ]
+    },
+    {
+     "title": "Receipt is stored",
+     "happens": "A pending receipt waits for the run.",
+     "edge": "srv-run-input--postgres",
+     "out": [
+      {
+       "model": "task_supplement",
+       "fields": [
+        "status"
+       ]
+      }
+     ],
+     "store": "postgres · task_supplement"
+    },
+    {
+     "title": "Daemon gets a hint",
+     "happens": "The notifier sends a supplement hint.",
+     "edge": "srv-run-input--srv-relay-notifier"
+    },
+    {
+     "title": "Hint reaches the daemon",
+     "happens": "daemon:task_supplement_available reaches the runtime.",
+     "edge": "srv-daemon-hub--daemon-wakeup--2"
+    },
+    {
+     "title": "Supplement loop wakes",
+     "happens": "The wakeup connection wakes the supplement loop.",
+     "edge": "daemon-wakeup--daemon-supplement"
+    },
+    {
+     "title": "Daemon claims it",
+     "happens": "The loop claims the supplement over REST.",
+     "edge": "daemon-supplement--daemon-client"
+    },
+    {
+     "title": "Server hands it out",
+     "happens": "ClaimTaskSupplement marks the receipt delivered.",
+     "edge": "srv-claim-supplement--postgres",
+     "out": [
+      {
+       "model": "task_supplement",
+       "fields": [
+        "status"
+       ]
+      }
+     ],
+     "store": "postgres · task_supplement"
+    },
+    {
+     "title": "Agent gets the comment",
+     "happens": "The loop injects the comment into the live turn.",
+     "edge": "daemon-supplement--daemon-backends",
+     "action": "Reads the comment mid-run"
+    },
+    {
+     "title": "Agent acts on it",
+     "happens": "The agent works the comment into its run.",
+     "edge": "daemon-backends--ai-agents",
+     "action": "Reacts 👀 then ✅ when handled"
+    }
+   ]
+  },
+  {
+   "id": "check-todo",
+   "name": "A member checks an agent's work",
+   "question": "How does a check to-do travel from agent to member and back?",
+   "steps": [
+    {
+     "title": "Agent opens a check",
+     "happens": "The agent runs multica todo check.",
+     "edge": "cli-root--cli-todo",
+     "action": "Asks for a check of its work"
+    },
+    {
+     "title": "CLI sends it",
+     "happens": "The CLI posts the check.",
+     "edge": "cli-todo--cli-api"
+    },
+    {
+     "title": "Handler takes it",
+     "happens": "OpenCheck passes it to the question service.",
+     "edge": "srv-open-check--srv-q-check"
+    },
+    {
+     "title": "Check is stored",
+     "happens": "The check is a to-do of kind check.",
+     "edge": "srv-q-check--postgres",
+     "out": [
+      {
+       "model": "todo",
+       "fields": [
+        "kind",
+        "member_id",
+        "details"
+       ]
+      }
+     ],
+     "store": "postgres · todo"
+    },
+    {
+     "title": "To-do opens",
+     "happens": "The to-do service publishes the open.",
+     "edge": "srv-q-check--srv-todo"
+    },
+    {
+     "title": "Member hears todo:opened",
+     "happens": "The hub sends the personal event to the member.",
+     "edge": "srv-realtime-hub--core-ws"
+    },
+    {
+     "title": "Inbox shows it",
+     "happens": "The inbox lists the open to-dos.",
+     "edge": "views-inbox--core-todo-list"
+    },
+    {
+     "title": "Member checks",
+     "happens": "The check body sends pass or feedback.",
+     "edge": "views-todo-check--core-answer-check",
+     "in": [
+      {
+       "model": "todo",
+       "fields": [
+        "id"
+       ]
+      }
+     ]
+    },
+    {
+     "title": "Answer is stored",
+     "happens": "AnswerCheck commits the result and its delivery.",
+     "edge": "srv-answer-check--srv-q-check",
+     "store": "postgres · todo, task_supplement"
+    },
+    {
+     "title": "Opener gets a hint",
+     "happens": "The answer reaches the opening run as run input.",
+     "edge": "srv-q-check--srv-relay-notifier"
+    },
+    {
+     "title": "Agent reads the answer",
+     "happens": "The supplement loop injects it into the run.",
+     "edge": "daemon-supplement--daemon-backends",
+     "action": "Fixes the work on feedback"
+    }
+   ]
+  },
+  {
+   "id": "release-wakeup",
+   "name": "An agent waits for a release",
+   "question": "How does a release wakeup start an agent later?",
+   "steps": [
+    {
+     "title": "Member places issues",
+     "happens": "The release page adds issues to the release.",
+     "edge": "views-release-detail--core-api"
+    },
+    {
+     "title": "Line is stored",
+     "happens": "AddIssuesToRelease writes the release line.",
+     "edge": "srv-add-to-release--postgres",
+     "out": [
+      {
+       "model": "release",
+       "fields": [
+        "version"
+       ]
+      }
+     ],
+     "store": "postgres · release"
+    },
+    {
+     "title": "Workspace hears release_line:updated",
+     "happens": "Every Timeline refetches the line.",
+     "edge": "srv-add-to-release--srv-bus"
+    },
+    {
+     "title": "Agent schedules a wakeup",
+     "happens": "The agent runs multica release.",
+     "edge": "cli-root--cli-release",
+     "action": "Asks to wake when the release is ready"
+    },
+    {
+     "title": "Wakeup is created",
+     "happens": "CreateReleaseWakeup stores the rule.",
+     "edge": "srv-release-wakeup--srv-issue-wakeup-svc",
+     "out": [
+      {
+       "model": "issue_wakeup",
+       "fields": [
+        "release_id",
+        "condition"
+       ]
+      }
+     ],
+     "store": "postgres · issue_wakeup"
+    },
+    {
+     "title": "Clock ticks",
+     "happens": "The scheduler runs the wakeup job.",
+     "edge": "srv-scheduler--srv-issue-wakeup-job"
+    },
+    {
+     "title": "Condition holds",
+     "happens": "The wakeup service finds the due rule.",
+     "edge": "srv-issue-wakeup-job--srv-issue-wakeup-svc"
+    },
+    {
+     "title": "A task is queued",
+     "happens": "The wakeup queues a task for the agent.",
+     "edge": "srv-issue-wakeup-svc--srv-enqueue-issue",
+     "out": [
+      {
+       "model": "agent_task_queue",
+       "fields": [
+        "agent_id",
+        "runtime_id",
+        "issue_id",
+        "trigger_comment_id",
+        "status"
+       ]
+      }
+     ],
+     "store": "postgres · agent_task_queue"
+    },
+    {
+     "title": "Daemon gets a hint",
+     "happens": "The task reaches its runtime.",
+     "edge": "srv-enqueue-issue--srv-notify-task"
+    }
+   ]
+  },
+  {
+   "id": "product-sync",
+   "name": "Products reach Multica",
+   "question": "How do the brain's Organisations and Products become organisations and projects?",
+   "steps": [
+    {
+     "title": "Brian runs product sync",
+     "happens": "multica_projects.py starts.",
+     "edge": "people--sync-projects"
+    },
+    {
+     "title": "Brain is read",
+     "happens": "read_brain reads Organisations and Products from Anytype.",
+     "edge": "anytype--sync-read-brain"
+    },
+    {
+     "title": "Plan is written",
+     "happens": "write_plan applies the diff.",
+     "edge": "sync-projects--sync-write-plan"
+    },
+    {
+     "title": "API calls",
+     "happens": "The Multica API client sends the changes.",
+     "edge": "sync-write-plan--sync-api"
+    },
+    {
+     "title": "Request reaches the server",
+     "happens": "Each call goes to REST /api with a PAT.",
+     "edge": "sync-api--srv-router"
+    },
+    {
+     "title": "Organisation is created",
+     "happens": "CreateOrganisation stores it.",
+     "edge": "srv-create-org--postgres",
+     "out": [
+      {
+       "model": "organisation",
+       "fields": [
+        "name",
+        "key"
+       ]
+      }
+     ],
+     "store": "postgres · organisation"
+    },
+    {
+     "title": "Project is created",
+     "happens": "CreateProject stores it under its organisation.",
+     "edge": "srv-create-project--postgres",
+     "out": [
+      {
+       "model": "project",
+       "fields": [
+        "organisation_id",
+        "title"
+       ]
+      }
+     ],
+     "store": "postgres · project"
+    }
+   ]
+  }
+ ]
+}
