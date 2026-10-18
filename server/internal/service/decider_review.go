@@ -55,12 +55,13 @@ func (s *DeciderService) openConfirmation(ctx context.Context, tx pgx.Tx, key st
 		phase = "Automatic choice applied. This is the fifth-choice sample. Your correction will change its outcome."
 	}
 	proposed := in.Rule.choiceLabel(answer.Choice)
-	prompt := fmt.Sprintf("%s\nProposed choice: %s. Made by %s. Jev confidence: %.3f.\nReason: %s\n%s\nSelect the proposed choice to agree, or the other choice to correct it. Add a note to explain your correction.\nAgreement record: %d agreed, %d corrected. Threshold: %.3f. Only you change the threshold or end the start period.", in.Rule.Question, proposed, maker, confidence, in.Rule.Reasons[answer.Reason], phase, agreed, corrected, threshold)
-	options := make([]string, 0, 2)
-	for option := range in.Rule.options() {
-		options = append(options, in.Rule.choiceLabel(option))
+	answerType := question.TypeSingleChoice
+	instruction := "Select the proposed choice to agree, or the other choice to correct it."
+	if in.Rule.Decision == "squad" && (len(in.Rule.Squads) < 2 || len(in.Rule.Squads) > 20) {
+		answerType = question.TypeText
+		instruction = "Submit the proposed squad name and ID to agree. To correct it, copy a squad name and ID from the list below."
 	}
-	sort.Strings(options)
+	prompt := fmt.Sprintf("%s\nProposed choice: %s. Made by %s. Jev confidence: %.3f.\nReason: %s\n%s\n%s Add a note to explain your correction.\nAgreement record: %d agreed, %d corrected. Threshold: %.3f. Only you change the threshold or end the start period.", in.Rule.Question, proposed, maker, confidence, in.Rule.Reasons[answer.Reason], phase, instruction, agreed, corrected, threshold)
 	if in.Rule.Decision == "squad" {
 		descriptions := make([]string, 0, len(in.Rule.Squads))
 		for id, squad := range in.Rule.Squads {
@@ -71,10 +72,21 @@ func (s *DeciderService) openConfirmation(ctx context.Context, tx pgx.Tx, key st
 			prompt += "\n" + description
 		}
 	}
-	settings, _ := json.Marshal(question.SingleChoiceAnswerSettings{Options: options})
-	suggestion, _ := json.Marshal(question.SingleChoiceAnswerValue{Option: &proposed})
+	var settings, suggestion []byte
+	if answerType == question.TypeText {
+		settings, _ = json.Marshal(question.TextAnswerSettings{Length: "short"})
+		suggestion, _ = json.Marshal(question.TextAnswerValue{Text: proposed})
+	} else {
+		options := make([]string, 0, 2)
+		for option := range in.Rule.options() {
+			options = append(options, in.Rule.choiceLabel(option))
+		}
+		sort.Strings(options)
+		settings, _ = json.Marshal(question.SingleChoiceAnswerSettings{Options: options})
+		suggestion, _ = json.Marshal(question.SingleChoiceAnswerValue{Option: &proposed})
+	}
 	id := dbid.NewV7()
-	row, err := q.CreateQuestion(ctx, db.CreateQuestionParams{ID: id, WorkspaceID: in.Issue.WorkspaceID, AskerUserID: member, Prompt: prompt, ContextLine: pgtype.Text{String: "Brian's routine decision check", Valid: true}, AnswerType: question.TypeSingleChoice, Settings: settings, SuggestedAnswer: suggestion, AskID: id, AnswerPolicy: question.PolicyEach})
+	row, err := q.CreateQuestion(ctx, db.CreateQuestionParams{ID: id, WorkspaceID: in.Issue.WorkspaceID, AskerUserID: member, Prompt: prompt, ContextLine: pgtype.Text{String: "Brian's routine decision check", Valid: true}, AnswerType: answerType, Settings: settings, SuggestedAnswer: suggestion, AskID: id, AnswerPolicy: question.PolicyEach})
 	if err != nil {
 		return err
 	}
@@ -269,12 +281,22 @@ func (s *DeciderService) reviewConfirmation(ctx context.Context, tx pgx.Tx, row 
 	var note string
 	for _, a := range answers {
 		if a.AnswererUserID == actor.ID {
-			var value question.SingleChoiceAnswerValue
-			if json.Unmarshal(a.Value, &value) != nil || value.Option == nil {
-				return nil, questionRefusal(422, "select a routine choice to confirm or correct it")
+			var label string
+			if row.AnswerType == question.TypeText {
+				var value question.TextAnswerValue
+				if err := json.Unmarshal(a.Value, &value); err != nil {
+					return nil, questionRefusal(422, "select a routine choice to confirm or correct it")
+				}
+				label = value.Text
+			} else {
+				var value question.SingleChoiceAnswerValue
+				if json.Unmarshal(a.Value, &value) != nil || value.Option == nil {
+					return nil, questionRefusal(422, "select a routine choice to confirm or correct it")
+				}
+				label = *value.Option
 			}
 			for option := range in.Rule.options() {
-				if in.Rule.choiceLabel(option) == *value.Option {
+				if in.Rule.choiceLabel(option) == label {
 					chosen = option
 					break
 				}

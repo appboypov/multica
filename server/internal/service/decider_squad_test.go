@@ -159,7 +159,7 @@ func TestDeciderSquadConfirmationCounts(t *testing.T) {
 					labels = append(labels, fmt.Sprintf("%s (%s)", name, id))
 				}
 				s.Judge = fakeDeciderJudge(t, squads[count-1], 0.96)
-				settings.Rules = []DeciderRule{{ID: "squad", Event: "status_entered", Status: "todo", Decision: "squad", Question: "Which squad takes this work?", Reasons: map[string]string{"urgent": "The work fits this squad"}}}
+				settings.Rules = []DeciderRule{{ID: "squad", Event: "status_entered", Status: "todo", Decision: "squad", Question: "Which squad takes this work?", Reasons: map[string]string{"urgent": "The work fits this squad", "minor": "Another squad fits better"}}}
 				issues := 5
 				if mode == "start" {
 					settings.StartPeriod = nil
@@ -193,6 +193,9 @@ func TestDeciderSquadConfirmationCounts(t *testing.T) {
 				actor := QuestionActor{Type: "member", ID: util.MustParseUUID(f.UserID)}
 				if _, err := questions.Answer(ctx, workspace, id, actor, AnswerQuestionInput{Value: row.SuggestedAnswer}); err != nil {
 					t.Fatalf("cannot confirm proposed squad: %v", err)
+				}
+				if n := f.Count(t, `SELECT count(*) FROM issue WHERE id=$1 AND assignee_type='squad' AND assignee_id=$2`, issue, squads[count-1]); n != 1 {
+					t.Fatal("confirmation did not assign the proposed squad")
 				}
 				for i, squad := range squads {
 					if !strings.Contains(row.Prompt, labels[i]) {
