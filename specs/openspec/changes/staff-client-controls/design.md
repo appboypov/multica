@@ -31,17 +31,19 @@ flowchart LR
 | Component | Members tab | changed | `packages/views/settings/components/members-tab.tsx` |
 | Component | Assignee picker | changed | `packages/views/issues/components/pickers/assignee-picker.tsx` |
 | Component | Role badge | changed | `packages/views/members/` |
+| Query | Client waits | changed | `server/pkg/db/queries/client_read.sql` |
+| Script | Team state client waits | changed | `server/internal/service/builtin_skills/multica-platform/scripts/team_state.py` |
 | Reference | MadSpec planning | changed | `server/internal/service/builtin_skills/multica-platform/references/madspec-planning.md` |
 
 ## Context
 
-WORK-1139 made the server hold a client membership with a set of organisations and published `organisation_ids` on members and invitations. The web and desktop app still parse the role `client` as `member` and drop `organisation_ids`, so staff can't see, invite or assign a client.
+WORK-1139 made the server hold a client membership with a set of organisations and published `organisation_ids` on members and invitations. The web and desktop app still parse the role `client` as `member` and drop `organisation_ids`, so staff can't see, invite or assign a client. A client's waits today are only chores with the `Client wait` label, while Brian's rule is that everything a client has to do is an ordinary issue on the client's own member.
 
 ## Goals / Non-Goals
 
 **Goals:** staff invite a client for organisations, see and change those organisations, and assign any issue in an organisation's project to a client of that organisation.
 
-**Non-Goals:** client screens, the staff overview of waits, a server rule on the `Client wait` label, mobile, share links for clients.
+**Non-Goals:** client screens, the staff overview of waits, mobile, share links for clients.
 
 ## Decisions
 
@@ -51,7 +53,9 @@ WORK-1139 made the server hold a client membership with a set of organisations a
 - **Issue organisation.** An issue's organisation is its project's `organisation_id`. The picker takes `projectIds` from its caller, and `issueOrganisationId` returns an organisation only when every id maps to one project with the same organisation. A batch of mixed organisations shows no clients, as assigning one client there would put an issue outside that client's organisations.
 - **Picker groups.** Members filters out clients. Clients reuses the member item, filter and sort and sits between Members and Agents, as the mock shows. The project list comes from the cached `projectListOptions(wsId)` query.
 - **Multi select.** `OrganisationMultiSelect` builds on `PropertyPicker` and `PickerItem`, as `SubscriberMultiSelect` does, so search, keyboard and checks match the other pickers. Chips with a remove button sit in the field and the trigger opens the list.
-- **Reference.** The `Client waits` section of the MadSpec planning reference says the wait goes on the client's own member with `multica issue assign <issue> --to <client>`, found as the member with role client in the issue's organisation. Brian chose no server rule for a wait without an assignee.
+- **Client waits.** A client's waits are the open issues assigned to them in a project of their organisations, of any type and with any labels. The queries keep the organisation scope, so an issue assigned to a client outside their organisations stays hidden. Routes, response fields and ordering stay as they are.
+- **Team state.** `team_state.py` reads the client members once with `workspace member list` and treats an issue assigned to one of them as a client wait, the way it reads the verifier once.
+- **Reference.** The `Client waits` section of the MadSpec planning reference says the wait goes on the client's own member with `multica issue assign <issue> --to <client>`, found as the member with role client in the issue's organisation.
 
 ## Risks / Trade-offs
 
@@ -60,8 +64,10 @@ WORK-1139 made the server hold a client membership with a set of organisations a
 
 ## Migration Plan
 
-No data migration. The UI change ships with the next `make local-release`; rollback is the previous build.
+No schema migration. The change ships with the next `make local-release`; rollback is the previous build.
+
+The open issues that carry the `Client wait` label get their client's member as assignee once that member exists. Then the label is deleted from the workspace. On 18 October 2026 no client member exists yet, so this data step waits on the client invitations.
 
 ## Open Questions
 
-None. Brian answered the `Client wait` label question: allow it.
+None.

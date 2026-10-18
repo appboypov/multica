@@ -6,7 +6,8 @@ flowchart LR
   Core --> Picker[3 Assignee picker]
   Members --> Copy[4 Copy and reference]
   Picker --> Copy
-  Copy --> Verify[5 Verify]
+  Waits[5 Client waits without a label] --> Verify[6 Verify]
+  Copy --> Verify
 ```
 
 | Kind | Name | Change | Path |
@@ -35,10 +36,16 @@ flowchart LR
 ## 4. Copy and reference
 
 - [ ] 4.1 Add the new strings in en, fr, ja, ko and zh-Hans. Verify: `parity.test.ts`.
-- [ ] 4.2 The MadSpec planning reference says how a client wait goes on the client's member. Verify: `multica issue assign --help` matches.
+- [x] 4.2 The MadSpec planning reference says how a client wait goes on the client's member. Verify: `multica issue assign --help` matches.
 
-## 5. Verify
+## 5. Client waits without a label
 
-- [ ] 5.1 `pnpm typecheck`, `pnpm lint` and `pnpm test` pass.
-- [ ] 5.2 Smoke on web and desktop against the dev stack: invite a test client for A and B, accept, remove B, assign an A issue to the client and check B, C and no-project issues show no such client.
-- [ ] 5.3 Update `specs/docs/system-design.md` for the staff controls.
+- [x] 5.1 The client wait queries list every open issue assigned to the client in their organisations, of any type and with any labels. Verify: `go test ./internal/handler -run ClientRead` and `go test ./cmd/server -run Client`.
+- [x] 5.2 `team_state.py` finds a client wait by its client assignee. Verify: `test_team_state.py`.
+- [ ] 5.3 The open issues with the `Client wait` label get their client's member as assignee once that member exists, and the label is then deleted. Verify: no open issue carries the label and the label is gone from `label list`.
+
+## 6. Verify
+
+- [ ] 6.1 `pnpm typecheck`, `pnpm lint`, `pnpm test` and `make test` pass.
+- [ ] 6.2 Smoke on web and desktop against the dev stack: invite a test client for A and B, accept, remove B, assign an A issue to the client and check B, C and no-project issues show no such client. The client's waits list the assigned issue.
+- [ ] 6.3 Update `specs/docs/system-design.md` for the staff controls and client waits.
