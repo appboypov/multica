@@ -16,7 +16,7 @@ MadSpec's `{planning-scripts}` is this skill's `scripts/` folder:
 
 - `tickets.py` reads and writes a ticket tree through the `multica` CLI; its docstring names every verb and field. Run it with `uv run`.
 - `labels.py` reports the ticket labels the workspace lacks, and creates them with `--create`.
-- `team_state.py` collects the open work of one endeavour: Multica, its repositories, their pull requests and the client chats. `--verifier` is the Multica agent name of the verifier.
+- `team_state.py` collects the open work of one endeavour: Multica, its repositories, their pull requests and the client chats. `--intake <owner/name or path> --verifier <agent name>` instead lists every open pull request of one repository in ranked ready and blocked merge units. `--verifier` is the Multica agent name of the verifier.
 - `words.ts` gives Brian's issue comments and question answers between `--start` and `--end`, through the `local` profile. Run it with `bun`.
 
 ## Questions
@@ -88,6 +88,18 @@ A pass is an approval question asked as "Questions" says, on the issue of the wo
 ## Client waits
 
 The due date is set with `--due-date`.
+
+## External waits
+
+An external wait is work that cannot go on until something outside its own issue is done: another issue's pull request, a verification, a repair or a person. Its age runs from its original start, never from a renewal, and while it still waits it reaches Skuddy at its deadline, the original start plus 4 hours. A client wait is its own issue, which the loop does not wait on, as MadSpec's `madspec-planning` "Client waits" says.
+
+1. **Record.** On the waiting issue, at the first wait, comment `External wait` with the original start in UTC, the deadline, the outcome that is blocked, what it waits on with that work's owner, and the keys of the downstream issues that wait with it. That comment is the wait's source; a resumed or replacement wait reads it back.
+2. **Wake.** Make one wakeup on the waiting issue with `issue wakeup create`: the condition that ends the wait, the absolute `--expires-at <deadline>` with `--on-timeout wake`, and an `--instruction` that names the source comment and the deadline. When another issue owns the dependency, its condition is `--until-issue <key> --until-issue-state done`; `--until-pr merged` fits only when the waiting issue itself has that linked pull request. `--expires-in` restarts on each re-enable, so it never sets this deadline.
+3. **Resume.** On every resume, whatever woke it, read the dependency first. Done: end the wakeup that still runs (`issue wakeup delete`) and go on; the wait reaches nobody. Still open before the deadline: wait on, as step 4 says. Still open past it: escalate now, as step 5 says.
+4. **Renew.** A renewed, extended or replaced wakeup, a new dependency for the same blocked outcome included, keeps the source comment's start and deadline: `issue wakeup update` with the same `--expires-at`. A wait already past its deadline, an in-flight one found late included, escalates now instead.
+5. **Escalate.** In a Multica run, comment on the waiting issue with `[@Skuddy](mention://agent/<his id>)`, his id the `id` of Skuddy in `multica agent list --output json`, and the source comment's fields with the wait's age now. In an interactive session, send him the same in a private omp messenger message. Skuddy handles it as `~/Repos/Agents/skuddy/AGENTS.md` "External waits" says. The wait then goes on with its condition alone, without a second deadline.
+
+The deadline wake relies on Multica's wakeup dispatch, repaired under WORK-1183. A run that finds a wait past its deadline still unresolved escalates it, however that run started.
 
 ## Client updates
 
