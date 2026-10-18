@@ -258,12 +258,6 @@ func TestClientGateRouterClientReads(t *testing.T) {
 			"type": "chore", "assignee_type": "member", "assignee_id": clientID,
 			"description": privateDescription, "properties": properties,
 		})
-		labelID := fixture.rows.Insert(t, "issue_label", testutil.Cols{
-			"workspace_id": workspaceID, "resource_type": "issue", "name": "Client wait", "color": "#3b82f6",
-		})
-		fixture.rows.InsertNoID(t, "issue_to_label", testutil.Cols{
-			"issue_id": waitID, "label_id": labelID,
-		}, "issue_id = $1 AND label_id = $2", waitID, labelID)
 		return
 	}
 	projectID, releaseID, waitID := releasedWait(fixture.workspaceID, fixture.organisationID, fixture.clientID)

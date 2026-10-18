@@ -44,18 +44,9 @@ JOIN project p ON p.id = i.project_id AND p.workspace_id = $2::uuid
 JOIN organisation o ON o.id = p.organisation_id
     AND o.workspace_id = $2::uuid AND o.id = ANY(m.organisation_ids)
 WHERE i.workspace_id = $2::uuid
-  AND i.type = 'chore'
   AND i.assignee_type = 'member'
   AND i.assignee_id = $1::uuid
   AND NOT (i.status = ANY($3::text[]))
-  AND EXISTS (
-      SELECT 1 FROM issue_to_label itl
-      JOIN issue_label l ON l.id = itl.label_id
-      WHERE itl.issue_id = i.id
-        AND l.workspace_id = $2::uuid
-        AND l.resource_type = 'issue'
-        AND LOWER(l.name) = 'client wait'
-  )
 `
 
 type CountClientWaitsParams struct {
@@ -92,18 +83,9 @@ JOIN project p ON p.id = i.project_id AND p.workspace_id = $2::uuid
 JOIN organisation o ON o.id = p.organisation_id
     AND o.workspace_id = $2::uuid AND o.id = ANY(m.organisation_ids)
 WHERE i.workspace_id = $2::uuid
-  AND i.type = 'chore'
   AND i.assignee_type = 'member'
   AND i.assignee_id = $1::uuid
   AND NOT (i.status = ANY($3::text[]))
-  AND EXISTS (
-      SELECT 1 FROM issue_to_label itl
-      JOIN issue_label l ON l.id = itl.label_id
-      WHERE itl.issue_id = i.id
-        AND l.workspace_id = $2::uuid
-        AND l.resource_type = 'issue'
-        AND LOWER(l.name) = 'client wait'
-  )
   AND i.id = $4::uuid
 `
 
@@ -219,18 +201,9 @@ JOIN project p ON p.id = i.project_id AND p.workspace_id = $2::uuid
 JOIN organisation o ON o.id = p.organisation_id
     AND o.workspace_id = $2::uuid AND o.id = ANY(m.organisation_ids)
 WHERE i.workspace_id = $2::uuid
-  AND i.type = 'chore'
   AND i.assignee_type = 'member'
   AND i.assignee_id = $1::uuid
   AND NOT (i.status = ANY($3::text[]))
-  AND EXISTS (
-      SELECT 1 FROM issue_to_label itl
-      JOIN issue_label l ON l.id = itl.label_id
-      WHERE itl.issue_id = i.id
-        AND l.workspace_id = $2::uuid
-        AND l.resource_type = 'issue'
-        AND LOWER(l.name) = 'client wait'
-  )
 ORDER BY i.due_date ASC NULLS LAST, i.created_at ASC, i.id ASC
 LIMIT $5::int OFFSET $4::int
 `

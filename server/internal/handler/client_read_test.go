@@ -47,10 +47,6 @@ func newClientReadFixture(t *testing.T) clientReadFixture {
 	dbfx.Member(t, ws, f.other, "client", testutil.Cols{"organisation_ids": []string{f.orgs[0]}})
 	b := dbfx.User(t, "Contact B", "client-b-"+uuid.NewString()+"@example.invalid")
 	dbfx.Member(t, ws, b, "client", testutil.Cols{"organisation_ids": []string{f.orgs[2]}})
-	label := dbfx.Insert(t, "issue_label", testutil.Cols{"workspace_id": ws, "name": "cLiEnT wAiT", "color": "#123456", "resource_type": "issue"})
-	wrongLabel := dbfx.Insert(t, "issue_label", testutil.Cols{"workspace_id": ws, "name": "Client wait", "color": "#123456", "resource_type": "agent"})
-	foreignWS := dbfx.Workspace(t, "Foreign label workspace", "client-label-"+uuid.NewString())
-	foreignLabel := dbfx.Insert(t, "issue_label", testutil.Cols{"workspace_id": foreignWS, "name": "Client wait", "color": "#123456", "resource_type": "issue"})
 	for _, category := range []string{"done", "closed"} {
 		dbfx.Insert(t, "issue_status", testutil.Cols{
 			"workspace_id": ws, "key": "custom_" + category, "name": "Custom " + category,
@@ -58,7 +54,7 @@ func newClientReadFixture(t *testing.T) clientReadFixture {
 		})
 	}
 	dbfx.Insert(t, "issue_status", testutil.Cols{"workspace_id": ws, "key": "todo", "name": "Ready for client", "category": "unstarted", "color": "#123456", "icon": "circle"})
-	add := func(title string, cols testutil.Cols, labelID string) string {
+	add := func(title string, cols testutil.Cols) string {
 		t.Helper()
 		base := testutil.Cols{
 			"project_id": f.projects[0], "type": "chore", "assignee_type": "member", "assignee_id": f.user,
@@ -69,23 +65,25 @@ func newClientReadFixture(t *testing.T) clientReadFixture {
 		for k, v := range cols {
 			base[k] = v
 		}
-		id := f.rows.Issue(t, title, base)
-		if labelID != "" {
-			dbfx.InsertNoID(t, "issue_to_label", testutil.Cols{"issue_id": id, "label_id": labelID}, "issue_id=$1 AND label_id=$2", id, labelID)
-		}
-		return id
+		return f.rows.Issue(t, title, base)
 	}
-	early := add("Unreleased own wait", testutil.Cols{"due_date": "2026-10-01"}, label)
-	tieA := add("Released own wait", testutil.Cols{"due_date": "2026-10-05", "release_id": f.releases[0], "position": 2}, label)
-	tieB := add("Second organisation own wait", testutil.Cols{"due_date": "2026-10-05", "project_id": f.projects[1]}, label)
-	null := add("Undated own wait", testutil.Cols{"description": nil}, label)
+	// Unassigned work reaches a client only as planned work, never as a wait.
+	unassigned := func(cols testutil.Cols) testutil.Cols {
+		cols["assignee_type"], cols["assignee_id"] = nil, nil
+		return cols
+	}
+	early := add("Unreleased own wait", testutil.Cols{"due_date": "2026-10-01"})
+	tieA := add("Released own wait", testutil.Cols{"due_date": "2026-10-05", "release_id": f.releases[0], "position": 2})
+	tieB := add("Second organisation own wait", testutil.Cols{"due_date": "2026-10-05", "project_id": f.projects[1]})
+	// A wait is any open issue assigned to the client, whatever its type.
+	null := add("Undated own story", testutil.Cols{"type": "story", "description": nil})
 	ties := []string{tieA, tieB}
 	slices.Sort(ties)
 	f.waits = append([]string{early}, ties...)
 	f.waits = append(f.waits, null)
-	story := add("Released story", testutil.Cols{"type": "story", "release_id": f.releases[0], "position": 0, "description": "PRIVATE-DESCRIPTION", "due_date": "2026-12-31"}, "")
-	otherWait := add("Other contact released wait", testutil.Cols{"assignee_id": f.other, "release_id": f.releases[0], "position": 1, "description": "PRIVATE-OTHER-CONTACT"}, label)
-	doneStory := add("Shipped closed work", testutil.Cols{"type": "story", "project_id": f.projects[1], "release_id": f.releases[1], "status": "custom_done", "description": "PRIVATE-DESCRIPTION"}, "")
+	story := add("Released story", unassigned(testutil.Cols{"type": "story", "release_id": f.releases[0], "position": 0, "description": "PRIVATE-DESCRIPTION", "due_date": "2026-12-31"}))
+	otherWait := add("Other contact released wait", testutil.Cols{"assignee_id": f.other, "release_id": f.releases[0], "position": 1, "description": "PRIVATE-OTHER-CONTACT"})
+	doneStory := add("Shipped closed work", testutil.Cols{"type": "story", "project_id": f.projects[1], "release_id": f.releases[1], "status": "custom_done", "description": "PRIVATE-DESCRIPTION"})
 	f.planned = []string{story, otherWait, tieA, doneStory}
 	for _, issue := range []string{early, story} {
 		comment := f.rows.Comment(t, issue, "PRIVATE-COMMENT")
@@ -102,21 +100,17 @@ func newClientReadFixture(t *testing.T) clientReadFixture {
 	}
 	f.hidden = append(f.hidden, otherWait, story, doneStory)
 	for _, category := range []string{"done", "cancelled", "custom_done", "custom_closed"} {
-		f.hidden = append(f.hidden, add("Terminal wait", testutil.Cols{"status": category}, label))
+		f.hidden = append(f.hidden, add("Terminal wait", testutil.Cols{"status": category}))
 	}
 	f.hidden = append(f.hidden,
-		add("Wrong type", testutil.Cols{"type": "story"}, label),
-		add("No label", nil, ""),
-		add("Agent label", nil, wrongLabel),
-		add("Foreign label", nil, foreignLabel),
-		add("Wrong assignee type", testutil.Cols{"assignee_type": "agent"}, label),
-		add("Unreleased story", testutil.Cols{"type": "story"}, ""),
-		add("PRIVATE-FOREIGN", testutil.Cols{"project_id": f.projects[2], "release_id": f.releases[2]}, label),
-		add("Wrong release project", testutil.Cols{"type": "story", "release_id": f.releases[2]}, ""),
-		add("Dangling release", testutil.Cols{"type": "story", "release_id": uuid.NewString()}, ""),
+		add("Wrong assignee type", testutil.Cols{"assignee_type": "agent"}),
+		add("Unreleased story", unassigned(testutil.Cols{"type": "story"})),
+		add("PRIVATE-FOREIGN", testutil.Cols{"project_id": f.projects[2], "release_id": f.releases[2]}),
+		add("Wrong release project", unassigned(testutil.Cols{"type": "story", "release_id": f.releases[2]})),
+		add("Dangling release", unassigned(testutil.Cols{"type": "story", "release_id": uuid.NewString()})),
 	)
 	noOrg := dbfx.Project(t, "No organisation", testutil.Cols{"workspace_id": ws})
-	f.hidden = append(f.hidden, add("No organisation wait", testutil.Cols{"project_id": noOrg, "release_id": f.releases[0]}, label))
+	f.hidden = append(f.hidden, add("No organisation wait", testutil.Cols{"project_id": noOrg, "release_id": f.releases[0]}))
 	return f
 }
 
@@ -347,14 +341,11 @@ func TestClientReadMembershipAndDatabaseErrors(t *testing.T) {
 
 func TestClientReadLimitCap(t *testing.T) {
 	f := newClientReadFixture(t)
-	var label string
-	dbfx.QueryRow(t, `SELECT id FROM issue_label WHERE workspace_id=$1 AND resource_type='issue' AND lower(name)='client wait'`, f.rows.WorkspaceID).Scan(&label)
 	for i := range 97 {
-		id := f.rows.Issue(t, fmt.Sprintf("Paged wait %d", i), testutil.Cols{
+		f.rows.Issue(t, fmt.Sprintf("Paged wait %d", i), testutil.Cols{
 			"project_id": f.projects[0], "release_id": f.releases[0], "type": "chore",
 			"assignee_type": "member", "assignee_id": f.user,
 		})
-		dbfx.InsertNoID(t, "issue_to_label", testutil.Cols{"issue_id": id, "label_id": label}, "issue_id=$1 AND label_id=$2", id, label)
 	}
 	for _, list := range []struct {
 		key string

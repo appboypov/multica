@@ -11,18 +11,9 @@ JOIN project p ON p.id = i.project_id AND p.workspace_id = sqlc.arg('workspace_i
 JOIN organisation o ON o.id = p.organisation_id
     AND o.workspace_id = sqlc.arg('workspace_id')::uuid AND o.id = ANY(m.organisation_ids)
 WHERE i.workspace_id = sqlc.arg('workspace_id')::uuid
-  AND i.type = 'chore'
   AND i.assignee_type = 'member'
   AND i.assignee_id = sqlc.arg('user_id')::uuid
   AND NOT (i.status = ANY(sqlc.arg('terminal_status_keys')::text[]))
-  AND EXISTS (
-      SELECT 1 FROM issue_to_label itl
-      JOIN issue_label l ON l.id = itl.label_id
-      WHERE itl.issue_id = i.id
-        AND l.workspace_id = sqlc.arg('workspace_id')::uuid
-        AND l.resource_type = 'issue'
-        AND LOWER(l.name) = 'client wait'
-  )
 ORDER BY i.due_date ASC NULLS LAST, i.created_at ASC, i.id ASC
 LIMIT sqlc.arg('page_limit')::int OFFSET sqlc.arg('page_offset')::int;
 
@@ -34,18 +25,9 @@ JOIN project p ON p.id = i.project_id AND p.workspace_id = sqlc.arg('workspace_i
 JOIN organisation o ON o.id = p.organisation_id
     AND o.workspace_id = sqlc.arg('workspace_id')::uuid AND o.id = ANY(m.organisation_ids)
 WHERE i.workspace_id = sqlc.arg('workspace_id')::uuid
-  AND i.type = 'chore'
   AND i.assignee_type = 'member'
   AND i.assignee_id = sqlc.arg('user_id')::uuid
-  AND NOT (i.status = ANY(sqlc.arg('terminal_status_keys')::text[]))
-  AND EXISTS (
-      SELECT 1 FROM issue_to_label itl
-      JOIN issue_label l ON l.id = itl.label_id
-      WHERE itl.issue_id = i.id
-        AND l.workspace_id = sqlc.arg('workspace_id')::uuid
-        AND l.resource_type = 'issue'
-        AND LOWER(l.name) = 'client wait'
-  );
+  AND NOT (i.status = ANY(sqlc.arg('terminal_status_keys')::text[]));
 
 -- name: GetClientWait :one
 SELECT i.id, i.title, i.description, i.due_date, o.name AS organisation_name
@@ -56,18 +38,9 @@ JOIN project p ON p.id = i.project_id AND p.workspace_id = sqlc.arg('workspace_i
 JOIN organisation o ON o.id = p.organisation_id
     AND o.workspace_id = sqlc.arg('workspace_id')::uuid AND o.id = ANY(m.organisation_ids)
 WHERE i.workspace_id = sqlc.arg('workspace_id')::uuid
-  AND i.type = 'chore'
   AND i.assignee_type = 'member'
   AND i.assignee_id = sqlc.arg('user_id')::uuid
   AND NOT (i.status = ANY(sqlc.arg('terminal_status_keys')::text[]))
-  AND EXISTS (
-      SELECT 1 FROM issue_to_label itl
-      JOIN issue_label l ON l.id = itl.label_id
-      WHERE itl.issue_id = i.id
-        AND l.workspace_id = sqlc.arg('workspace_id')::uuid
-        AND l.resource_type = 'issue'
-        AND LOWER(l.name) = 'client wait'
-  )
   AND i.id = sqlc.arg('id')::uuid;
 
 -- name: ListClientPlannedWork :many
