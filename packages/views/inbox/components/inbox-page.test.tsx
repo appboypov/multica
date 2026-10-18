@@ -87,9 +87,9 @@ vi.mock("./todo-detail-pane", () => ({
   ),
 }));
 
-const a = todoFixture({ id: "a", title: "Alpha" });
-const b = todoFixture({ id: "b", title: "Bravo", question_id: "q-b" });
-const c = todoFixture({ id: "c", title: "Charlie" });
+const a = todoFixture({ id: "a", title: "Alpha", kind: "mention" });
+const b = todoFixture({ id: "b", title: "Bravo", kind: "mention", question_id: null, comment_id: "c-b" });
+const c = todoFixture({ id: "c", title: "Charlie", kind: "mention" });
 
 function renderPage() {
   return renderWithI18n(<InboxPage />);
@@ -214,16 +214,24 @@ describe("InboxPage", () => {
     expect(screen.queryByTestId("todo-detail")).not.toBeInTheDocument();
   });
 
-  it("opens the issue at the question and returns to the to-do on a row click", () => {
+  it("opens the issue at the comment and returns to the to-do on a row click", () => {
     nav.searchParams = new URLSearchParams("todo=b");
     renderPage();
     fireEvent.click(screen.getByRole("button", { name: "Detail open issue" }));
     expect(writeViewState).toHaveBeenCalledWith("highlight:issue-412", undefined);
     expect(screen.getByTestId("issue-detail")).toBeInTheDocument();
-    expect(issueDetailProps.at(-1)).toMatchObject({ issueId: "issue-412", highlightQuestionId: "q-b", leadingAction: false });
+    expect(issueDetailProps.at(-1)).toMatchObject({ issueId: "issue-412", leadingAction: false });
     fireEvent.click(screen.getByRole("button", { name: "Bravo" }));
     expect(screen.queryByTestId("issue-detail")).not.toBeInTheDocument();
     expect(screen.getByTestId("todo-detail")).toHaveAttribute("data-todo-id", "b");
+  });
+
+  it("opens a question on an issue on that issue at the question, with its properties shown", () => {
+    listState.data = [a, todoFixture({ id: "q", title: "Which squad", question_id: "q-9" })];
+    nav.searchParams = new URLSearchParams("todo=q");
+    renderPage();
+    expect(screen.queryByTestId("todo-detail")).not.toBeInTheDocument();
+    expect(issueDetailProps.at(-1)).toMatchObject({ issueId: "issue-412", highlightQuestionId: "q-9", defaultSidebarOpen: true });
   });
 
   it("shows only the detail on a phone, with a way back to the list", () => {

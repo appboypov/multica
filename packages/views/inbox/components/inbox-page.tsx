@@ -231,7 +231,11 @@ export function InboxPage() {
     </Button>
   ) : undefined;
 
-  const issueOpen = selected?.issue_id && openedIssue?.todoId === selected.id ? openedIssue.target : null;
+  // A question on an issue opens on that issue, so its project, repository,
+  // relations and description stand next to the card it is answered on.
+  const questionOnIssue: TodoIssueTarget | null =
+    selected?.kind === "question" && selected.issue_id && selected.question_id ? { questionId: selected.question_id } : null;
+  const issueOpen = selected?.issue_id && openedIssue?.todoId === selected.id ? openedIssue.target : questionOnIssue;
   const detailContent = selected ? (
     <ErrorBoundary
       resetKeys={[selected.id]}
@@ -248,7 +252,7 @@ export function InboxPage() {
         <IssueDetail
           key={selected.issue_id}
           issueId={selected.issue_id}
-          defaultSidebarOpen={false}
+          defaultSidebarOpen={!!questionOnIssue}
           layoutId="multica_inbox_issue_detail_layout"
           highlightCommentId={issueOpen.commentId}
           highlightQuestionId={issueOpen.questionId}
