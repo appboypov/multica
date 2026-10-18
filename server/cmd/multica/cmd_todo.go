@@ -54,11 +54,13 @@ func newTodoCommand() *cobra.Command {
 				err = client.PostJSON(ctx, "/api/todos/"+url.PathEscape(args[0])+"/answer", map[string]string{"answer": answer, "note": note}, &result)
 			case "instruction-note", "undo-result":
 				body := map[string]string{}
-				for _, flag := range []string{"link", "note"} { body[flag], _ = cmd.Flags().GetString(flag) }
-				path := "/api/todos/"+url.PathEscape(args[0])+"/undo-result"
+				for _, flag := range []string{"link", "note"} {
+					body[flag], _ = cmd.Flags().GetString(flag)
+				}
+				path := "/api/todos/" + url.PathEscape(args[0]) + "/undo-result"
 				if action == "instruction-note" {
 					body["file"], _ = cmd.Flags().GetString("file")
-					path = "/api/todos/checks/"+url.PathEscape(args[0])+"/instruction-note"
+					path = "/api/todos/checks/" + url.PathEscape(args[0]) + "/instruction-note"
 				}
 				err = client.PostJSON(ctx, path, body, &result)
 			}

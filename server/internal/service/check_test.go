@@ -59,38 +59,72 @@ func TestCheckManualSamplingAndHistory(t *testing.T) {
 	ctx := context.Background()
 	f, in := checkFixture(t)
 	settings, err := f.svc.CheckSettings(ctx, f.workspace, f.answerer, nil)
-	if err != nil || settings != (CheckSettings{5}) { t.Fatalf("defaults: %+v %v",settings,err) }
-	for range 10 { answerCheck(t,f,openCheck(t,f,in),"pass") }
-	if state:=trustState(t,f,in);state.Sampling || state.Passed!=10 {t.Fatalf("mode must stay checked: %+v",state)}
-	if got:=f.fx.Count(t,"SELECT count(*) FROM todo WHERE workspace_id=$1",f.workspace);got!=10 {t.Fatalf("unexpected to-dos: %d",got)}
-	if _,err:=f.svc.SetCheckSampling(ctx,f.workspace,in.ProjectID,in.Kind,f.other,true);err==nil {t.Fatal("other member changed mode")}
-	if _,err:=f.svc.SetCheckSampling(ctx,f.workspace,in.ProjectID,in.Kind,f.answerer,true);err!=nil {t.Fatal(err)}
-	for i:=1;i<=5;i++ {
-		id:=openCheck(t,f,in)
-		row,err:=f.svc.GetCheck(ctx,f.workspace,id,f.asker);if err!=nil{t.Fatal(err)}
+	if err != nil || settings != (CheckSettings{5}) {
+		t.Fatalf("defaults: %+v %v", settings, err)
+	}
+	for range 10 {
+		answerCheck(t, f, openCheck(t, f, in), "pass")
+	}
+	if state := trustState(t, f, in); state.Sampling || state.Passed != 10 {
+		t.Fatalf("mode must stay checked: %+v", state)
+	}
+	if got := f.fx.Count(t, "SELECT count(*) FROM todo WHERE workspace_id=$1", f.workspace); got != 10 {
+		t.Fatalf("unexpected to-dos: %d", got)
+	}
+	if _, err := f.svc.SetCheckSampling(ctx, f.workspace, in.ProjectID, in.Kind, f.other, true); err == nil {
+		t.Fatal("other member changed mode")
+	}
+	if _, err := f.svc.SetCheckSampling(ctx, f.workspace, in.ProjectID, in.Kind, f.answerer, true); err != nil {
+		t.Fatal(err)
+	}
+	for i := 1; i <= 5; i++ {
+		id := openCheck(t, f, in)
+		row, err := f.svc.GetCheck(ctx, f.workspace, id, f.asker)
+		if err != nil {
+			t.Fatal(err)
+		}
 		var details CheckDetails
-		if err:=json.Unmarshal(row["details"].(json.RawMessage),&details);err!=nil{t.Fatal(err)}
-		if i<5 {
-			if details.Answer!="pass"||!details.Automatic||row["done_at"]==nil {t.Fatalf("automatic: %+v",row)}
+		if err := json.Unmarshal(row["details"].(json.RawMessage), &details); err != nil {
+			t.Fatal(err)
+		}
+		if i < 5 {
+			if details.Answer != "pass" || !details.Automatic || row["done_at"] == nil {
+				t.Fatalf("automatic: %+v", row)
+			}
 		} else {
-			if !details.Sampled||details.Automatic||row["done_at"]!=nil {t.Fatalf("sample: %+v",row)}
-			answerCheck(t,f,id,"feedback")
+			if !details.Sampled || details.Automatic || row["done_at"] != nil {
+				t.Fatalf("sample: %+v", row)
+			}
+			answerCheck(t, f, id, "feedback")
 		}
 	}
-	if state:=trustState(t,f,in);!state.Sampling||state.Feedback!=1||state.AutomaticPassed!=4 {t.Fatalf("feedback must not switch mode: %+v",state)}
-	history,err:=f.svc.CheckHistory(ctx,f.workspace,in.ProjectID,in.Kind)
-	if err!=nil||len(history)!=15{t.Fatalf("history: %+v %v",history,err)}
-	if _,err:=f.svc.SetCheckSampling(ctx,f.workspace,in.ProjectID,in.Kind,f.answerer,false);err!=nil{t.Fatal(err)}
-	row,err:=f.svc.GetCheck(ctx,f.workspace,openCheck(t,f,in),f.asker)
-	if err!=nil||row["done_at"]!=nil{t.Fatalf("every piece: %+v %v",row,err)}
+	if state := trustState(t, f, in); !state.Sampling || state.Feedback != 1 || state.AutomaticPassed != 4 {
+		t.Fatalf("feedback must not switch mode: %+v", state)
+	}
+	history, err := f.svc.CheckHistory(ctx, f.workspace, in.ProjectID, in.Kind)
+	if err != nil || len(history) != 15 {
+		t.Fatalf("history: %+v %v", history, err)
+	}
+	if _, err := f.svc.SetCheckSampling(ctx, f.workspace, in.ProjectID, in.Kind, f.answerer, false); err != nil {
+		t.Fatal(err)
+	}
+	row, err := f.svc.GetCheck(ctx, f.workspace, openCheck(t, f, in), f.asker)
+	if err != nil || row["done_at"] != nil {
+		t.Fatalf("every piece: %+v %v", row, err)
+	}
 }
 
 func TestCheckReleaseAlwaysNeedsMember(t *testing.T) {
-	f,in:=checkFixture(t);in.Kind="release"
-	for range 7 {answerCheck(t,f,openCheck(t,f,in),"pass")}
-	if state:=trustState(t,f,in);state.Sampling||state.Passed!=7{t.Fatalf("release: %+v",state)}
-	_,err:=f.svc.SetCheckSampling(context.Background(),f.workspace,in.ProjectID,in.Kind,f.answerer,true)
-	wantQuestionRefusal(t,err,422)
+	f, in := checkFixture(t)
+	in.Kind = "release"
+	for range 7 {
+		answerCheck(t, f, openCheck(t, f, in), "pass")
+	}
+	if state := trustState(t, f, in); state.Sampling || state.Passed != 7 {
+		t.Fatalf("release: %+v", state)
+	}
+	_, err := f.svc.SetCheckSampling(context.Background(), f.workspace, in.ProjectID, in.Kind, f.answerer, true)
+	wantQuestionRefusal(t, err, 422)
 }
 
 func TestCheckAnswerIsOnceAndRecipientOnly(t *testing.T) {

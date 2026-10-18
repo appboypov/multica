@@ -37,19 +37,19 @@ type CheckInput struct {
 }
 
 type CheckSettings struct {
-	SampleEvery  int `json:"sample_every"`
+	SampleEvery int `json:"sample_every"`
 }
 
 type CheckTrust struct {
-	ProjectID       string      `json:"project_id"`
-	Kind            string      `json:"kind"`
-	MemberID        string      `json:"member_id"`
-	Passed          int         `json:"passed"`
-	Feedback        int         `json:"feedback"`
-	AutomaticPassed int         `json:"automatic_passed"`
-	Sampling        bool        `json:"sampling"`
-	SampleOpens     int         `json:"sample_opens"`
-	CanManage       bool        `json:"can_manage"`
+	ProjectID       string `json:"project_id"`
+	Kind            string `json:"kind"`
+	MemberID        string `json:"member_id"`
+	Passed          int    `json:"passed"`
+	Feedback        int    `json:"feedback"`
+	AutomaticPassed int    `json:"automatic_passed"`
+	Sampling        bool   `json:"sampling"`
+	SampleOpens     int    `json:"sample_opens"`
+	CanManage       bool   `json:"can_manage"`
 }
 
 func validCheckKind(kind string) bool {
