@@ -21,12 +21,13 @@ flowchart TB
 | Claim | Held PR checkout selection | changed | `server/internal/handler/worklane_branch.go` |
 | Tests | Held PR checkout regression | changed | `server/internal/handler/worklane_branch_test.go` |
 | System design | Claim and daemon routing | changed | `specs/docs/system-design.md` |
-| Metadata | Change build state | new | `specs/openspec/changes/retain-held-pull-request-checkout/.openspec.yaml` |
-| Proposal | Checkout retention scope | new | `specs/openspec/changes/retain-held-pull-request-checkout/proposal.md` |
-| Design | Claim flow and file inventory | new | `specs/openspec/changes/retain-held-pull-request-checkout/design.md` |
-| ADR review | Existing checkout contract | new | `specs/openspec/changes/retain-held-pull-request-checkout/adr.md` |
-| Tasks | Implementation and verification | new | `specs/openspec/changes/retain-held-pull-request-checkout/tasks.md` |
-| Acceptance | Held checkout PR branch | new | `specs/openspec/changes/retain-held-pull-request-checkout/specs/repository-work-in-checkout/spec.md` |
+| Metadata | Change build state | new | `specs/openspec/changes/archive/2026-10-18-retain-held-pull-request-checkout/.openspec.yaml` |
+| Proposal | Checkout retention scope | new | `specs/openspec/changes/archive/2026-10-18-retain-held-pull-request-checkout/proposal.md` |
+| Design | Claim flow and file inventory | new | `specs/openspec/changes/archive/2026-10-18-retain-held-pull-request-checkout/design.md` |
+| ADR review | Existing checkout contract | new | `specs/openspec/changes/archive/2026-10-18-retain-held-pull-request-checkout/adr.md` |
+| Tasks | Implementation and verification | new | `specs/openspec/changes/archive/2026-10-18-retain-held-pull-request-checkout/tasks.md` |
+| Acceptance delta | Held checkout PR branch | new | `specs/openspec/changes/archive/2026-10-18-retain-held-pull-request-checkout/specs/repository-work-in-checkout/spec.md` |
+| Specification | Held checkout PR branch | changed | `specs/openspec/specs/repository-work-in-checkout/spec.md` |
 
 ## Decision
 

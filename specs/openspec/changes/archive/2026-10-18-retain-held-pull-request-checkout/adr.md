@@ -2,7 +2,7 @@
 
 | Kind | Name | Change | Path |
 |---|---|---|---|
-| Review | Held checkout ADR review | new | `specs/openspec/changes/retain-held-pull-request-checkout/adr.md` |
+| Review | Held checkout ADR review | new | `specs/openspec/changes/archive/2026-10-18-retain-held-pull-request-checkout/adr.md` |
 
 # ADR Review Manifest
 
