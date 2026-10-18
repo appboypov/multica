@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgtype"
@@ -38,6 +39,61 @@ func answerRoutine(t *testing.T, s *DeciderService, f *testutil.Fixture, id pgty
 	_, err := questions.Answer(context.Background(), util.MustParseUUID(f.WorkspaceID), id, QuestionActor{Type: "member", ID: util.MustParseUUID(f.UserID)}, AnswerQuestionInput{Value: value, Note: note})
 	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestDeciderConfirmationShowsSelectedReason(t *testing.T) {
+	for _, decision := range []string{"bug", "squad"} {
+		for _, mode := range []string{"before", "after"} {
+			t.Run(decision+"/"+mode, func(t *testing.T) {
+				s, f, first, lead, settings := deciderFixture(t, "fix_now", 0.96)
+				ctx := context.Background()
+				project := f.Project(t, "Payments")
+				base, err := s.Queries.GetIssue(ctx, util.MustParseUUID(first))
+				if err != nil {
+					t.Fatal(err)
+				}
+				if decision == "squad" {
+					squad := settings.Rules[0].SquadByKind["backend"]
+					f.Squad(t, "Design", lead)
+					s.Judge = fakeDeciderJudge(t, squad, 0.96)
+					settings.Rules = []DeciderRule{{ID: "todo-squad", Event: "status_entered", Status: "todo", Decision: "squad", Question: "Which squad takes this work?", Reasons: map[string]string{"urgent": "The work fits this squad", "minor": "Another squad fits better"}}}
+				}
+				count := 1
+				if mode == "before" {
+					settings.StartPeriod = nil
+				} else {
+					count = 5
+				}
+				setDeciderPolicy(t, f, settings)
+				var issue string
+				for i := range count {
+					issue = f.Issue(t, fmt.Sprintf("Payment work %d", i), testutil.Cols{"status": settings.Rules[0].Status, "type": "bug", "properties": string(base.Properties), "project_id": project})
+					if err := s.Handle(ctx, util.MustParseUUID(f.WorkspaceID), util.MustParseUUID(issue), "status_entered"); err != nil {
+						t.Fatal(err)
+					}
+				}
+				var prompt string
+				f.QueryRow(t, `SELECT prompt FROM question WHERE id=$1`, routineQuestion(t, f, issue)).Scan(&prompt)
+				if !strings.Contains(prompt, settings.Rules[0].Reasons["urgent"]) || strings.Contains(prompt, settings.Rules[0].Reasons["minor"]) {
+					t.Fatalf("confirmation must show only the selected reason: %s", prompt)
+				}
+				for _, context := range []string{"Payment work", "Payments"} {
+					if !strings.Contains(prompt, context) {
+						t.Fatalf("confirmation lost work context %q: %s", context, prompt)
+					}
+				}
+				if strings.Contains(strings.ToLower(prompt), "confidence") || strings.Contains(prompt, "Jev") || strings.Contains(prompt, "Sonnet") {
+					t.Fatalf("confirmation exposes maker details: %s", prompt)
+				}
+				if mode == "before" && !strings.Contains(prompt, "Nothing starts until you answer") {
+					t.Fatalf("confirmation lost its before-action warning: %s", prompt)
+				}
+				if mode == "after" && strings.Contains(prompt, "Nothing starts until you answer") {
+					t.Fatalf("automatic sample claims work has not started: %s", prompt)
+				}
+			})
+		}
 	}
 }
 
@@ -116,6 +172,11 @@ func TestDeciderStartPeriodSonnetRetainsJevConfidence(t *testing.T) {
 		t.Fatal("Sonnet applied before Brian")
 	}
 	id := routineQuestion(t, f, issue)
+	var prompt string
+	f.QueryRow(t, `SELECT prompt FROM question WHERE id=$1`, id).Scan(&prompt)
+	if !strings.Contains(prompt, settings.Rules[0].Reasons["minor"]) || strings.Contains(prompt, settings.Rules[0].Reasons["urgent"]) {
+		t.Fatalf("confirmation must show the fallback's selected reason: %s", prompt)
+	}
 	answerRoutine(t, s, f, id, "fix_later", "")
 	if n := f.Count(t, `SELECT count(*) FROM routine_decision WHERE issue_id=$1 AND reviews->0->>'verdict'='agreed' AND (reviews->0->>'jev_confidence')::float=0.4`, issue); n != 1 {
 		t.Fatal("fallback confidence lost")
