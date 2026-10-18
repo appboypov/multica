@@ -56,7 +56,7 @@ func (s *DeciderService) openConfirmation(ctx context.Context, tx pgx.Tx, key st
 	if err != nil {
 		return err
 	}
-	prompt := deciderPrompt(in.Rule, in.Issue.Title, place, proposed, mode)
+	prompt := deciderPrompt(in.Rule, in.Issue.Title, place, proposed, in.Rule.Reasons[answer.Reason], mode)
 	options := make([]string, 0, len(in.Rule.Squads))
 	for option := range in.Rule.options() {
 		options = append(options, in.Rule.choiceLabel(option))
@@ -98,22 +98,22 @@ func (s *DeciderService) openConfirmation(ctx context.Context, tx pgx.Tx, key st
 	return err
 }
 
-// deciderPrompt asks Brian in one plain sentence, the way a colleague would.
-func deciderPrompt(rule DeciderRule, title, place, proposed, mode string) string {
+// deciderPrompt asks Brian a plain question with the proposed choice's reason.
+func deciderPrompt(rule DeciderRule, title, place, proposed, reason, mode string) string {
 	work := fmt.Sprintf("%q", title)
 	if place != "" {
 		work += " in " + place
 	}
 	if rule.Decision == "squad" {
 		if mode == "after" {
-			return fmt.Sprintf("The %s squad took %s. Pick another squad if that is wrong.", proposed, work)
+			return fmt.Sprintf("The %s squad took %s. Pick another squad if that is wrong.\nReason: %s", proposed, work, reason)
 		}
-		return fmt.Sprintf("Should the %s squad take %s? Nothing starts until you answer.", proposed, work)
+		return fmt.Sprintf("Should the %s squad take %s? Nothing starts until you answer.\nReason: %s", proposed, work, reason)
 	}
 	if mode == "after" {
-		return fmt.Sprintf("%s: %s\nThe decider chose %s. Pick the other choice if that is wrong.", work, rule.Question, proposed)
+		return fmt.Sprintf("%s: %s\nThe decider chose %s. Pick the other choice if that is wrong.\nReason: %s", work, rule.Question, proposed, reason)
 	}
-	return fmt.Sprintf("%s: %s\nThe decider says %s. Nothing starts until you answer.", work, rule.Question, proposed)
+	return fmt.Sprintf("%s: %s\nThe decider says %s. Nothing starts until you answer.\nReason: %s", work, rule.Question, proposed, reason)
 }
 
 // deciderPlace names the issue's project, with its repository when the
