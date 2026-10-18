@@ -2,24 +2,33 @@
 
 ```mermaid
 flowchart LR
+  classDef new fill:#d9f2d9,stroke:#2e7d32,color:#172117
+  classDef changed fill:#fff1cc,stroke:#b7791f,color:#172117
   subgraph core[packages/core]
-    Types[MemberRole with client<br/>organisation_ids]
-    Schemas[Member and invitation schemas]
-    Helpers[issueOrganisationId<br/>clientsOfOrganisation]
+    Types[MemberRole with client<br/>organisation_ids]:::changed
+    Schemas[Member and invitation schemas]:::changed
+    Helpers[issueOrganisationId<br/>clientsOfOrganisation]:::new
   end
   subgraph views[packages/views]
-    Tab[Members tab<br/>invite, rows, Organisations menu]
-    Multi[OrganisationMultiSelect]
-    Picker[AssigneePicker<br/>Clients group]
-    Badge[Member profile RoleBadge]
+    Tab[Members tab<br/>invite, rows, Organisations menu]:::changed
+    Multi[OrganisationMultiSelect]:::new
+    Picker[AssigneePicker<br/>Clients group]:::changed
+    Badge[Member profile RoleBadge]:::changed
   end
-  API[(Members API<br/>WORK-1139)]
+  subgraph server[server]
+    API[(Members API<br/>WORK-1139)]
+    Waits[Client wait queries<br/>client_read.sql]:::changed
+  end
+  Skill[team_state.py and<br/>MadSpec planning reference]:::changed
+  Design[System prototype<br/>system.json and exports]:::changed
+  Types --> Schemas
   Schemas --> Tab
   Schemas --> Picker
   Helpers --> Picker
   Multi --> Tab
   Tab --> API
   Picker --> API
+  Skill --> Waits
 ```
 
 | Kind | Name | Change | Path |
@@ -34,6 +43,8 @@ flowchart LR
 | Query | Client waits | changed | `server/pkg/db/queries/client_read.sql` |
 | Script | Team state client waits | changed | `server/internal/service/builtin_skills/multica-platform/scripts/team_state.py` |
 | Reference | MadSpec planning | changed | `server/internal/service/builtin_skills/multica-platform/references/madspec-planning.md` |
+| Design | System prototype parts and edges | changed | `prototypes/system/system.json` |
+| Export | Clients, Shared views and Domain hooks zooms | changed | `prototypes/system/exports/` |
 
 ## Context
 
@@ -50,6 +61,9 @@ WORK-1139 made the server hold a client membership with a set of organisations a
 - **Role type.** `MemberRole` becomes `StaffRole | "client"` with `StaffRole = "owner" | "admin" | "member"`. Share link roles stay staff. Code that branches on roles keeps reading staff roles as before.
 - **Boundary parsing.** The member and invitation schemas accept `client` and fall back to `member` for unknown roles. `organisation_ids` defaults to an empty list when the field is missing or malformed, so an older server shows no badges.
 - **Writes.** A client invite sends `{email, role: "client", organisation_ids}`. Organisations sends `{role: "client", organisation_ids}` with the whole new set, as the server replaces the set. Staff writes send no `organisation_ids`. The server refuses an empty set, so the menu blocks unticking the last organisation instead of sending a request that fails.
+- **Sequential edits.** A client's row stays busy until the members list returns the saved set, so the next Organisations edit starts from that set and keeps the earlier edit.
+- **Current role.** On a client row the Client option of Change role is the current role and is disabled. A role write without organisations would fail, and Organisations is where a client's set changes.
+- **Badges.** The identity line wraps, and each organisation badge truncates its name and keeps the full name as its title. Long names and many organisations stay inside the row.
 - **Issue organisation.** An issue's organisation is its project's `organisation_id`. The picker takes `projectIds` from its caller, and `issueOrganisationId` returns an organisation only when every id maps to one project with the same organisation. A batch of mixed organisations shows no clients, as assigning one client there would put an issue outside that client's organisations.
 - **Picker groups.** Members filters out clients. Clients reuses the member item, filter and sort and sits between Members and Agents, as the mock shows. The project list comes from the cached `projectListOptions(wsId)` query.
 - **Multi select.** `OrganisationMultiSelect` builds on `PropertyPicker` and `PickerItem`, as `SubscriberMultiSelect` does, so search, keyboard and checks match the other pickers. Chips with a remove button sit in the field and the trigger opens the list.
@@ -66,7 +80,7 @@ WORK-1139 made the server hold a client membership with a set of organisations a
 
 No schema migration. The change ships with the next `make local-release`; rollback is the previous build.
 
-The open issues that carry the `Client wait` label get their client's member as assignee once that member exists. Then the label is deleted from the workspace. On 18 October 2026 no client member exists yet, so this data step waits on the client invitations.
+The open issues that carried the `Client wait` label are assigned to their client's member. The label is deleted from the workspace. `~/prompt-exports/work-1072-client-wait-label-issues.jsonl` holds the 36 labelled issues with their assignees at the time of deletion.
 
 ## Open Questions
 

@@ -582,6 +582,22 @@
    "path": "packages/views/releases/components/release-detail.tsx:42"
   },
   {
+   "id": "views-members-tab",
+   "parent": "views",
+   "name": "Members tab",
+   "icon": "users",
+   "kind": "Component",
+   "path": "packages/views/settings/components/members-tab.tsx:474"
+  },
+  {
+   "id": "views-assignee-picker",
+   "parent": "views",
+   "name": "Assignee picker",
+   "icon": "user-check",
+   "kind": "Component",
+   "path": "packages/views/issues/components/pickers/assignee-picker.tsx:76"
+  },
+  {
    "id": "core-provider",
    "parent": "core",
    "name": "Core provider",
@@ -707,6 +723,14 @@
    "icon": "list-checks",
    "kind": "Hook",
    "path": "packages/core/todos/checks.ts:16"
+  },
+  {
+   "id": "core-clients-of-organisation",
+   "parent": "core-domain",
+   "name": "clientsOfOrganisation",
+   "icon": "building-2",
+   "kind": "Function",
+   "path": "packages/core/organisations/clients.ts:24"
   },
   {
    "id": "srv-entry",
@@ -2341,6 +2365,22 @@
    "line": "call",
    "data": "release id",
    "trigger": "page opens"
+  },
+  {
+   "id": "views-members-tab--core-api",
+   "from": "views-members-tab",
+   "to": "core-api",
+   "line": "call",
+   "data": "client invite, organisation set",
+   "trigger": "staff invites or edits"
+  },
+  {
+   "id": "views-assignee-picker--core-clients-of-organisation",
+   "from": "views-assignee-picker",
+   "to": "core-clients-of-organisation",
+   "line": "call",
+   "data": "members, issue projects",
+   "trigger": "picker opens"
   },
   {
    "id": "views-question-card--ui",
