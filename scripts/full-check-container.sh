@@ -4,10 +4,10 @@
 # Usage: full-check-container.sh [changed-file ...]
 #
 # The arguments are the repo-relative files the checkout changes against
-# origin/main. Unit tests then run only for test files that import one of
-# them, Go tests only for the changed packages and the packages that import
-# them, e2e only for the specs whose first name word starts a changed folder
-# or file name, and the madspec-sync tests only when madspec-sync changed.
+# origin/main. Unit tests run when they import a changed file or read it as a
+# filesystem input declared in related_unit_tests. Go tests run only for the
+# changed packages and their importers. E2e runs only for specs whose first
+# name word starts a changed path segment. Madspec-sync runs when it changes.
 # Without arguments, as on main, everything runs. A package manifest or
 # lockfile change runs every unit test and every e2e spec, as do the changes
 # named in all_unit_tests, go_packages and e2e_specs.
@@ -85,6 +85,33 @@ related_unit_tests() {
   local files=() dirs=() f dir rc=0
   for f in "${CHANGED[@]}"; do
     [ -f "$f" ] && files+=("$PWD/$f")
+    # Filesystem inputs do not appear in Vitest's import graph. Add their
+    # reader tests as related roots, including when an input was deleted.
+    case "$f" in
+      apps/desktop/electron-builder.yml)
+        files+=("$PWD/apps/desktop/scripts/package.test.mjs") ;;
+      packages/views/locales/*/*.json)
+        files+=("$PWD/packages/views/locales/parity.test.ts") ;;
+    esac
+    case "$f" in
+      packages/ui/* | packages/views/* | apps/web/* | apps/desktop/src/*)
+        case "$f" in
+          *.ts | *.tsx | *.css)
+            files+=("$PWD/apps/web/app/text-contrast.test.ts") ;;
+        esac ;;
+    esac
+    case "$f" in
+      packages/ui/* | packages/core/* | packages/views/* | apps/web/* | apps/desktop/src/*)
+        case "$f" in
+          *.ts | *.tsx | *.css)
+            files+=("$PWD/apps/web/app/brand-variant-cascade.test.ts") ;;
+        esac ;;
+    esac
+    # Export validity also depends on target files existing.
+    case "$f" in
+      packages/* | apps/*)
+        files+=("$PWD/packages/views/rich-content/package-exports.test.ts") ;;
+    esac
   done
   [ ${#files[@]} -gt 0 ] || return 0
   # Every workspace package whose tests run with Vitest, apart from mobile.
@@ -96,7 +123,7 @@ related_unit_tests() {
       if (test.startsWith("vitest")) console.log(dir);
     }' packages/* apps/*)
   for dir in "${dirs[@]}"; do
-    echo "--- unit tests in $dir that import a changed file"
+    echo "--- unit tests in $dir that import or read a changed file"
     (cd "$dir" && pnpm exec vitest related --run --passWithNoTests "${files[@]}") || rc=1
   done
   return "$rc"

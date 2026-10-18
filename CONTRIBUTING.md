@@ -407,6 +407,12 @@ This runs:
 3. Go tests
 4. Playwright E2E tests
 
+The merge check is `scripts/full-check.sh`. Its selective unit stage includes
+filesystem readers as well as import dependencies. Declare file and directory inputs in
+`related_unit_tests` in `scripts/full-check-container.sh` when adding such a test.
+Inside the full-check image with workspace dependencies installed, run
+`python3 scripts/full-check-container.test.py unit` to check file-input selection.
+
 To run the non-mobile TypeScript unit suite without cached results, with one
 package and at most two test workers at a time:
 
