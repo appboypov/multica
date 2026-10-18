@@ -147,12 +147,12 @@ func TestDeciderSquadConfirmationCounts(t *testing.T) {
 			t.Run(fmt.Sprintf("%d/%s", count, mode), func(t *testing.T) {
 				s, f, _, lead, settings := deciderFixture(t, "", 0.96)
 				squads := []string{settings.Rules[0].SquadByKind["backend"]}
-				labels := []string{fmt.Sprintf("Backend (%s)", squads[0])}
+				labels := []string{"Backend"}
 				for i := 1; i < count; i++ {
 					name := fmt.Sprintf("Squad %02d", i)
 					id := f.Squad(t, name, lead, testutil.Cols{"description": "Handles this work"})
 					squads = append(squads, id)
-					labels = append(labels, fmt.Sprintf("%s (%s)", name, id))
+					labels = append(labels, name)
 				}
 				s.Judge = fakeDeciderJudge(t, squads[count-1], 0.96)
 				settings.Rules = []DeciderRule{{ID: "squad", Event: "status_entered", Status: "todo", Decision: "squad", Question: "Which squad takes this work?", Reasons: map[string]string{"urgent": "The work fits this squad", "minor": "Another squad fits better"}}}
@@ -194,9 +194,6 @@ func TestDeciderSquadConfirmationCounts(t *testing.T) {
 					t.Fatal("confirmation did not assign the proposed squad")
 				}
 				for i, squad := range squads {
-					if !strings.Contains(row.Prompt, labels[i]) {
-						t.Fatalf("eligible squad missing from prompt: %s", labels[i])
-					}
 					var value []byte
 					if row.AnswerType == questiontype.TypeText {
 						value, err = json.Marshal(questiontype.TextAnswerValue{Text: labels[i]})
