@@ -10,6 +10,8 @@ import { canAssignAgentToIssue } from "@multica/core/permissions";
 import { useActorName } from "@multica/core/workspace/hooks";
 import { useWorkspaceId } from "@multica/core/hooks";
 import { memberListOptions, agentListOptions, squadListOptions, assigneeFrequencyOptions } from "@multica/core/workspace/queries";
+import { projectListOptions } from "@multica/core/projects/queries";
+import { clientsOfOrganisation, issueOrganisationId } from "@multica/core/organisations";
 import { ActorAvatar } from "../../../common/actor-avatar";
 import { DeferredPopup } from "../../../common/deferred-popup";
 import {
@@ -43,6 +45,11 @@ export function canAssignAgent(
 interface AssigneePickerProps {
   assigneeType: IssueAssigneeType | null;
   assigneeId: string | null;
+  /**
+   * The project of each issue the picker assigns. Clients are offered only
+   * when these projects share one organisation.
+   */
+  projectIds: readonly (string | null)[];
   /**
    * `true` when a batch selection spans different assignees ("mixed"): no row
    * is checked, including the unassigned row. Distinct from `assigneeType` /
@@ -92,6 +99,7 @@ export function AssigneePicker(props: AssigneePickerProps) {
 function AssigneePickerImpl({
   assigneeType,
   assigneeId,
+  projectIds,
   mixed = false,
   onUpdate,
   trigger: customTrigger,
@@ -111,6 +119,7 @@ function AssigneePickerImpl({
   const { data: agents = [] } = useQuery(agentListOptions(wsId));
   const { data: squads = [] } = useQuery(squadListOptions(wsId));
   const { data: frequency = [] } = useQuery(assigneeFrequencyOptions(wsId));
+  const { data: projects = [] } = useQuery(projectListOptions(wsId));
   const { getActorName } = useActorName();
 
   const currentMember = members.find((m) => m.user_id === user?.id);
@@ -128,9 +137,21 @@ function AssigneePickerImpl({
   const getFreq = (type: string, id: string) => freqMap.get(`${type}:${id}`) ?? 0;
 
   const query = filter.trim().toLowerCase();
-  const filteredMembers = members
+  const matchingMembers = members
     .filter((m) => m.name.toLowerCase().includes(query) || matchesPinyin(m.name, query))
     .sort((a, b) => getFreq("member", b.user_id) - getFreq("member", a.user_id));
+  const memberGroups = [
+    {
+      key: "members",
+      label: t(($) => $.pickers.assignee.members_group),
+      members: matchingMembers.filter((m) => m.role !== "client"),
+    },
+    {
+      key: "clients",
+      label: t(($) => $.pickers.assignee.clients_group),
+      members: clientsOfOrganisation(matchingMembers, issueOrganisationId(projectIds, projects)),
+    },
+  ];
   const filteredAgents = agents
     .filter((a) => !a.archived_at && (a.name.toLowerCase().includes(query) || matchesPinyin(a.name, query)))
     .sort((a, b) => getFreq("agent", b.id) - getFreq("agent", a.id));
@@ -190,10 +211,10 @@ function AssigneePickerImpl({
         <span className="text-muted-foreground">{t(($) => $.pickers.assignee.trigger_unassigned)}</span>
       </PickerItem>
 
-      {/* Members */}
-      {filteredMembers.length > 0 && (
-        <PickerSection label={t(($) => $.pickers.assignee.members_group)}>
-          {filteredMembers.map((m) => (
+      {/* Members, then the clients of the issue's organisation */}
+      {memberGroups.map((group) => group.members.length > 0 && (
+        <PickerSection key={group.key} label={group.label}>
+          {group.members.map((m) => (
             <PickerItem
               key={m.user_id}
               selected={isSelected("member", m.user_id)}
@@ -210,7 +231,7 @@ function AssigneePickerImpl({
             </PickerItem>
           ))}
         </PickerSection>
-      )}
+      ))}
 
       {/* Agents */}
       {filteredAgents.length > 0 && (
@@ -292,7 +313,7 @@ function AssigneePickerImpl({
         </PickerSection>
       )}
 
-      {filteredMembers.length === 0 &&
+      {memberGroups.every((group) => group.members.length === 0) &&
         filteredAgents.length === 0 &&
         filteredSquads.length === 0 &&
         filter && <PickerEmpty />}

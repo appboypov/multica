@@ -2,7 +2,8 @@
   "role": {
     "owner": "Propriétaire",
     "admin": "Administrateur",
-    "member": "Membre"
+    "member": "Membre",
+    "client": "Client"
   },
   "card": {
     "unavailable": "Membre indisponible",

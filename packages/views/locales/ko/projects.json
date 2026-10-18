@@ -88,7 +88,10 @@
   "organisation": {
     "label": "조직",
     "none": "조직 없음",
-    "empty": "아직 조직이 없습니다"
+    "empty": "아직 조직이 없습니다",
+    "placeholder": "조직 선택",
+    "search_placeholder": "조직 검색",
+    "remove_aria": "{{name}} 제거"
   },
   "group": {
     "project_count_other": "프로젝트 {{count}}개",

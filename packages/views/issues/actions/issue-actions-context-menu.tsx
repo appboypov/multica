@@ -143,6 +143,7 @@ function IssueContextMenuSingleton({
         <AssigneePicker
           assigneeType={issue.assignee_type}
           assigneeId={issue.assignee_id}
+          projectIds={[issue.project_id]}
           onUpdate={actions.updateField}
           open={assigneeOpen}
           onOpenChange={setAssigneeOpen}

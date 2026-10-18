@@ -39,6 +39,7 @@ describe("deferred picker triggers", () => {
         <AssigneePicker
           assigneeType={null}
           assigneeId={null}
+          projectIds={[]}
           onUpdate={() => {}}
           triggerRender={<PillButton />}
         />

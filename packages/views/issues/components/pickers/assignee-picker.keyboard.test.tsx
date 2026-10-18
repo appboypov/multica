@@ -42,6 +42,9 @@ vi.mock("@multica/core/workspace/queries", () => ({
   squadListOptions: () => ({ queryKey: ["squads"] }),
   assigneeFrequencyOptions: () => ({ queryKey: ["frequency"] }),
 }));
+vi.mock("@multica/core/projects/queries", () => ({
+  projectListOptions: () => ({ queryKey: ["projects"] }),
+}));
 vi.mock("../../../common/actor-avatar", () => ({
   ActorAvatar: () => <span data-testid="actor-avatar" />,
 }));
@@ -55,6 +58,7 @@ function renderPicker(onUpdate: () => void) {
       <AssigneePicker
         assigneeType={null}
         assigneeId={null}
+        projectIds={[]}
         onUpdate={onUpdate}
         open
         onOpenChange={() => {}}

@@ -1078,6 +1078,10 @@
     "remove_action": "워크스페이스에서 제거",
     "cannot_demote_last_owner_title": "먼저 다른 멤버를 소유자로 승격하세요. 워크스페이스에는 최소 한 명의 소유자가 필요합니다.",
     "cannot_demote_last_owner": "마지막 소유자는 강등할 수 없습니다",
+    "organisations_label": "조직",
+    "last_organisation_title": "클라이언트는 최소 한 개의 조직이 필요합니다.",
+    "toast_organisations_updated": "조직을 업데이트했습니다",
+    "toast_organisations_failed": "조직을 업데이트하지 못했습니다",
     "roles": {
       "owner": {
         "label": "소유자",
@@ -1090,6 +1094,10 @@
       "member": {
         "label": "멤버",
         "description": "태스크 생성 및 작업"
+      },
+      "client": {
+        "label": "클라이언트",
+        "description": "자신의 태스크와 소속 조직의 예정된 작업을 볼 수 있습니다. 아무것도 변경할 수 없습니다."
       }
     },
     "share_links_create_title": "공유 링크 만들기",

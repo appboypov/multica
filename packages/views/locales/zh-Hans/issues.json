@@ -887,6 +887,7 @@
       "trigger_unassigned": "未分配",
       "search_placeholder": "分配给...",
       "members_group": "成员",
+      "clients_group": "客户",
       "agents_group": "智能体",
       "squads_group": "小队",
       "agent_runtime_required": "请先为该智能体绑定运行时，再分配工作",

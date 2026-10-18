@@ -2,8 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import {
+  Building2,
+  Check,
   Copy,
   Crown,
+  Eye,
   Link,
   Loader2,
   Mail,
@@ -21,6 +24,7 @@ import { AppLink, useOptionalNavigation } from "../../navigation";
 import type {
   Invitation,
   MemberRole,
+  StaffRole,
   MemberWithUser,
   PurchaseWorkspaceSeatsRequest,
   ShareLink,
@@ -83,8 +87,10 @@ import {
   shareLinkListOptions,
   workspaceKeys,
 } from "@multica/core/workspace/queries";
+import { toggleClientOrganisation, useOrganisations } from "@multica/core/organisations";
 import { api, errorCode } from "@multica/core/api";
 import { useLocale, useT } from "../../i18n";
+import { OrganisationMultiSelect } from "../../projects/components/organisation-multi-select";
 import {
   SettingsCard,
   SettingsReadOnlyNotice,
@@ -110,6 +116,7 @@ type InviteSeatPurchase = {
   workspaceId: string;
   email: string;
   role: MemberRole;
+  organisationIds: string[];
   preview: WorkspaceSeatPurchasePreview;
   idempotencyKey: string;
   phase: "review" | "purchasing" | "waiting" | "inviting" | "error";
@@ -129,6 +136,7 @@ const ROLE_ICONS: Record<MemberRole, typeof Crown> = {
   owner: Crown,
   admin: Shield,
   member: User,
+  client: Eye,
 };
 
 // Builds the shareable URL for a share-link invite. Prefers the navigation
@@ -163,7 +171,26 @@ function useRoleLabels() {
       description: t(($) => $.members.roles.member.description),
       icon: ROLE_ICONS.member,
     },
+    client: {
+      label: t(($) => $.members.roles.client.label),
+      description: t(($) => $.members.roles.client.description),
+      icon: ROLE_ICONS.client,
+    },
   } as const;
+}
+
+/** The organisations of a client, one badge each. Unknown ids are skipped. */
+function OrganisationBadges({ organisationIds }: { organisationIds: readonly string[] }) {
+  const wsId = useWorkspaceId();
+  const { data: organisations = [] } = useOrganisations(wsId);
+  return organisations
+    .filter((o) => organisationIds.includes(o.id))
+    .map((o) => (
+      <Badge key={o.id} variant="secondary" className="shrink-0">
+        <Building2 aria-hidden="true" />
+        {o.name}
+      </Badge>
+    ));
 }
 
 function MemberRow({
@@ -174,6 +201,7 @@ function MemberRow({
   isSelf,
   busy,
   onRoleChange,
+  onOrganisationsChange,
   onRemove,
 }: {
   member: MemberWithUser;
@@ -186,9 +214,12 @@ function MemberRow({
   busy: boolean;
   onRoleChange: (role: MemberRole) => void;
   onRemove: () => void;
+  onOrganisationsChange: (organisationIds: string[]) => void;
 }) {
   const { t } = useT("settings");
   const locale = useLocale();
+  const wsId = useWorkspaceId();
+  const { data: organisations = [] } = useOrganisations(wsId);
   const roleConfig = useRoleLabels();
   const rc = roleConfig[member.role];
   const RoleIcon = rc.icon;
@@ -208,6 +239,7 @@ function MemberRow({
               {t(($) => $.members.you)}
             </Badge>
           ) : null}
+          <OrganisationBadges organisationIds={member.organisation_ids} />
         </div>
         <div className="truncate text-caption text-muted-foreground">{member.email}</div>
       </div>
@@ -246,6 +278,7 @@ function MemberRow({
                   {(Object.entries(roleConfig) as [MemberRole, (typeof roleConfig)[MemberRole]][]).map(
                     ([role, config]) => {
                       if (role === "owner" && !canManageOwners) return null;
+                      if (role === "client" && member.role !== "client") return null;
                       const Icon = config.icon;
                       const wouldDemoteLastOwner =
                         isLastOwner && role !== "owner";
@@ -278,6 +311,36 @@ function MemberRow({
                       );
                     }
                   )}
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+            )}
+            {canEditRole && member.role === "client" && (
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  <Building2 className="h-3.5 w-3.5" />
+                  {t(($) => $.members.organisations_label)}
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent className="w-56">
+                  {organisations.map((organisation) => {
+                    const held = member.organisation_ids.includes(organisation.id);
+                    const isLast = held && member.organisation_ids.length === 1;
+                    return (
+                      <DropdownMenuItem
+                        key={organisation.id}
+                        disabled={isLast}
+                        title={isLast ? t(($) => $.members.last_organisation_title) : undefined}
+                        onClick={() =>
+                          onOrganisationsChange(
+                            toggleClientOrganisation(member.organisation_ids, organisation.id),
+                          )
+                        }
+                      >
+                        <Building2 className="h-3.5 w-3.5" />
+                        <span className="min-w-0 flex-1 truncate">{organisation.name}</span>
+                        {held && <Check className="size-3.5 shrink-0" />}
+                      </DropdownMenuItem>
+                    );
+                  })}
                 </DropdownMenuSubContent>
               </DropdownMenuSub>
             )}
@@ -318,7 +381,10 @@ function InvitationRow({
         <Mail className="size-4 text-muted-foreground" aria-hidden="true" />
       </div>
       <div className="min-w-0 flex-1">
-        <div className="truncate text-body font-medium">{invitation.invitee_email}</div>
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="truncate text-body font-medium">{invitation.invitee_email}</span>
+          <OrganisationBadges organisationIds={invitation.organisation_ids} />
+        </div>
         <div className="truncate text-caption text-muted-foreground">
           {t(($) => $.members.invitation_meta, {
             sent: new Date(invitation.created_at).toLocaleDateString(locale),
@@ -443,6 +509,7 @@ export function MembersTab() {
   const [memberQuery, setMemberQuery] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<MemberRole>("member");
+  const [inviteOrganisationIds, setInviteOrganisationIds] = useState<string[]>([]);
   const [inviteLoading, setInviteLoading] = useState(false);
   const [inviteSeatPurchase, setInviteSeatPurchase] =
     useState<InviteSeatPurchase | null>(null);
@@ -451,7 +518,7 @@ export function MembersTab() {
   const [invitationActionId, setInvitationActionId] = useState<string | null>(null);
   const [shareLinkActionId, setShareLinkActionId] = useState<string | null>(null);
   const [shareLinkLoading, setShareLinkLoading] = useState(false);
-  const [shareLinkRole, setShareLinkRole] = useState<MemberRole>("member");
+  const [shareLinkRole, setShareLinkRole] = useState<StaffRole>("member");
   const [shareLinkExpiry, setShareLinkExpiry] = useState<string>("168"); // default 7 days
   const [confirmAction, setConfirmAction] = useState<{
     title: string;
@@ -493,11 +560,15 @@ export function MembersTab() {
     : members;
 
   const sendInvitation = useCallback(
-    async (email: string, role: MemberRole) => {
+    async (email: string, role: MemberRole, organisationIds: string[]) => {
       if (!workspace) return;
-      await api.createMember(workspace.id, { email, role });
+      await api.createMember(
+        workspace.id,
+        role === "client" ? { email, role, organisation_ids: organisationIds } : { email, role },
+      );
       setInviteEmail("");
       setInviteRole("member");
+      setInviteOrganisationIds([]);
       await qc.invalidateQueries({
         queryKey: workspaceKeys.invitations(wsId),
       });
@@ -510,9 +581,10 @@ export function MembersTab() {
     if (!workspace) return;
     const email = inviteEmail.trim();
     const role = inviteRole;
+    const organisationIds = inviteOrganisationIds;
     setInviteLoading(true);
     try {
-      await sendInvitation(email, role);
+      await sendInvitation(email, role, organisationIds);
       setInviteOpen(false);
     } catch (e) {
       const code = errorCode(e);
@@ -569,6 +641,7 @@ export function MembersTab() {
             workspaceId: workspace.id,
             email,
             role,
+            organisationIds,
             preview,
             idempotencyKey: createSeatPurchaseKey(workspace.id),
             phase: "review",
@@ -696,7 +769,7 @@ export function MembersTab() {
 
     dispatchedInvitePurchaseKey.current = purchase.idempotencyKey;
     setInviteSeatPurchase({ ...purchase, phase: "inviting" });
-    void sendInvitation(purchase.email, purchase.role)
+    void sendInvitation(purchase.email, purchase.role, purchase.organisationIds)
       .then(() => setInviteSeatPurchase(null))
       .catch((error) => {
         const code = errorCode(error);
@@ -792,6 +865,25 @@ export function MembersTab() {
     }
   };
 
+  const handleOrganisationsChange = async (memberId: string, organisationIds: string[]) => {
+    if (!workspace) return;
+    setMemberActionId(memberId);
+    try {
+      await api.updateMember(workspace.id, memberId, {
+        role: "client",
+        organisation_ids: organisationIds,
+      });
+      qc.invalidateQueries({ queryKey: workspaceKeys.members(wsId) });
+      toast.success(t(($) => $.members.toast_organisations_updated));
+    } catch (e) {
+      toast.error(
+        e instanceof Error ? e.message : t(($) => $.members.toast_organisations_failed),
+      );
+    } finally {
+      setMemberActionId(null);
+    }
+  };
+
   const handleRemoveMember = (member: MemberWithUser) => {
     if (!workspace) return;
     setConfirmAction({
@@ -868,10 +960,15 @@ export function MembersTab() {
 
   if (!workspace) return null;
 
-  const roleItems = (["member", "admin"] as const).map((value) => ({
+  const inviteRoleItems = (["member", "admin", "client"] as const).map((value) => ({
     value,
     label: roleConfig[value].label,
   }));
+  const shareLinkRoleItems = (["member", "admin"] as const).map((value) => ({
+    value,
+    label: roleConfig[value].label,
+  }));
+  const inviteNeedsOrganisation = inviteRole === "client" && inviteOrganisationIds.length === 0;
   const expiryOptions = [
     { value: "24", label: t(($) => $.members.expiry_24h) },
     { value: "168", label: t(($) => $.members.expiry_7d) },
@@ -968,6 +1065,9 @@ export function MembersTab() {
                     isSelf={m.user_id === user?.id}
                     busy={memberActionId === m.id}
                     onRoleChange={(role) => handleRoleChange(m.id, role)}
+                    onOrganisationsChange={(organisationIds) =>
+                      handleOrganisationsChange(m.id, organisationIds)
+                    }
                     onRemove={() => handleRemoveMember(m)}
                   />
                 </div>
@@ -1027,7 +1127,7 @@ export function MembersTab() {
             className="space-y-4"
             onSubmit={(event) => {
               event.preventDefault();
-              if (inviteEmail.trim()) void handleInviteMember();
+              if (inviteEmail.trim() && !inviteNeedsOrganisation) void handleInviteMember();
             }}
           >
             <div className="space-y-1.5">
@@ -1047,7 +1147,7 @@ export function MembersTab() {
             <div className="space-y-1.5">
               <Label htmlFor="invite-role">{t(($) => $.members.role_label)}</Label>
               <Select
-                items={roleItems}
+                items={inviteRoleItems}
                 value={inviteRole}
                 onValueChange={(value) => setInviteRole(value as MemberRole)}
               >
@@ -1055,7 +1155,7 @@ export function MembersTab() {
                   <SelectValue>{() => roleConfig[inviteRole].label}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  {roleItems.map((item) => (
+                  {inviteRoleItems.map((item) => (
                     <SelectItem key={item.value} value={item.value}>
                       <span className="flex flex-col">
                         <span>{item.label}</span>
@@ -1067,7 +1167,24 @@ export function MembersTab() {
                   ))}
                 </SelectContent>
               </Select>
+              {inviteRole === "client" && (
+                <p className="text-caption text-muted-foreground">
+                  {roleConfig.client.description}
+                </p>
+              )}
             </div>
+            {inviteRole === "client" && (
+              <div className="space-y-1.5">
+                <Label htmlFor="invite-organisations">
+                  {t(($) => $.members.organisations_label)}
+                </Label>
+                <OrganisationMultiSelect
+                  id="invite-organisations"
+                  selectedIds={inviteOrganisationIds}
+                  onChange={setInviteOrganisationIds}
+                />
+              </div>
+            )}
             <DialogFooter>
               <Button
                 type="button"
@@ -1079,7 +1196,7 @@ export function MembersTab() {
               </Button>
               <Button
                 type="submit"
-                disabled={inviteLoading || !inviteEmail.trim()}
+                disabled={inviteLoading || !inviteEmail.trim() || inviteNeedsOrganisation}
                 aria-busy={inviteLoading || undefined}
               >
                 {inviteLoading ? t(($) => $.members.inviting) : t(($) => $.members.invite_button)}
@@ -1104,15 +1221,15 @@ export function MembersTab() {
             <div className="space-y-1.5">
               <Label htmlFor="share-link-role">{t(($) => $.members.role_label)}</Label>
               <Select
-                items={roleItems}
+                items={shareLinkRoleItems}
                 value={shareLinkRole}
-                onValueChange={(value) => setShareLinkRole(value as MemberRole)}
+                onValueChange={(value) => setShareLinkRole(value as StaffRole)}
               >
                 <SelectTrigger id="share-link-role" className="w-full">
                   <SelectValue>{() => roleConfig[shareLinkRole].label}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  {roleItems.map((item) => (
+                  {shareLinkRoleItems.map((item) => (
                     <SelectItem key={item.value} value={item.value}>
                       {item.label}
                     </SelectItem>

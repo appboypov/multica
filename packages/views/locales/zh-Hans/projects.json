@@ -88,7 +88,10 @@
   "organisation": {
     "label": "组织",
     "none": "无组织",
-    "empty": "还没有组织"
+    "empty": "还没有组织",
+    "placeholder": "选择组织",
+    "search_placeholder": "搜索组织",
+    "remove_aria": "移除 {{name}}"
   },
   "group": {
     "project_count_other": "{{count}} 个项目",

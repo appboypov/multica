@@ -1348,6 +1348,10 @@
     "remove_action": "Remove from workspace",
     "cannot_demote_last_owner_title": "Promote another member to owner first — a workspace must keep at least one owner.",
     "cannot_demote_last_owner": "Cannot demote the last owner",
+    "organisations_label": "Organisations",
+    "last_organisation_title": "A client keeps at least one organisation.",
+    "toast_organisations_updated": "Organisations updated",
+    "toast_organisations_failed": "Failed to update organisations",
     "roles": {
       "owner": {
         "label": "Owner",
@@ -1360,6 +1364,10 @@
       "member": {
         "label": "Member",
         "description": "Create and work on issues"
+      },
+      "client": {
+        "label": "Client",
+        "description": "Reads their own issues and the planned work of their organisations. Can't change anything."
       }
     },
     "share_links_create_title": "Create share link",

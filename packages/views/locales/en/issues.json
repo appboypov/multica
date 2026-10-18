@@ -929,6 +929,7 @@
       "trigger_unassigned": "Unassigned",
       "search_placeholder": "Assign to...",
       "members_group": "Members",
+      "clients_group": "Clients",
       "agents_group": "Agents",
       "squads_group": "Squads",
       "agent_runtime_required": "Bind a runtime before assigning work to this agent",

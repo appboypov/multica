@@ -1105,6 +1105,7 @@ function SubIssueRow({
           <AssigneePicker
             assigneeType={child.assignee_type}
             assigneeId={child.assignee_id}
+            projectIds={[child.project_id]}
             onUpdate={handleUpdate}
             align="end"
             trigger={
@@ -2918,7 +2919,7 @@ export function IssueDetail({ issueId, onDelete, onDone, defaultSidebarOpen = tr
             />
           </PropRow>
           <PropRow label={t(($) => $.detail.prop_assignee)}>
-            <AssigneePicker assigneeType={issue.assignee_type} assigneeId={issue.assignee_id} onUpdate={handleUpdateField} align="start" />
+            <AssigneePicker assigneeType={issue.assignee_type} assigneeId={issue.assignee_id} projectIds={[issue.project_id]} onUpdate={handleUpdateField} align="start" />
           </PropRow>
           <PropRow label={t(($) => $.detail.prop_type)}>
             <TypePicker

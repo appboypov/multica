@@ -89,7 +89,10 @@
   "organisation": {
     "label": "Organisation",
     "none": "No organisation",
-    "empty": "No organisations yet"
+    "empty": "No organisations yet",
+    "placeholder": "Choose organisations",
+    "search_placeholder": "Search organisations",
+    "remove_aria": "Remove {{name}}"
   },
   "group": {
     "project_count_one": "{{count}} project",

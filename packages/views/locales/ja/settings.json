@@ -1338,6 +1338,10 @@
     "remove_action": "ワークスペースから削除",
     "cannot_demote_last_owner_title": "先に別のメンバーを owner に昇格させてください。ワークスペースには少なくとも 1 人の owner が必要です。",
     "cannot_demote_last_owner": "最後の owner は降格できません",
+    "organisations_label": "組織",
+    "last_organisation_title": "クライアントには少なくとも 1 つの組織が必要です。",
+    "toast_organisations_updated": "組織を更新しました",
+    "toast_organisations_failed": "組織を更新できませんでした",
     "roles": {
       "owner": {
         "label": "オーナー",
@@ -1350,6 +1354,10 @@
       "member": {
         "label": "メンバー",
         "description": "タスクの作成と作業"
+      },
+      "client": {
+        "label": "クライアント",
+        "description": "自分のタスクと所属組織の予定作業を閲覧できます。変更はできません。"
       }
     },
     "share_links_create_title": "共有リンクを作成",

@@ -1338,6 +1338,10 @@
     "remove_action": "从工作区移除",
     "cannot_demote_last_owner_title": "请先把另一位成员升级为所有者——工作区必须至少保留一位所有者。",
     "cannot_demote_last_owner": "不能降级最后一位所有者",
+    "organisations_label": "组织",
+    "last_organisation_title": "客户至少保留一个组织。",
+    "toast_organisations_updated": "组织已更新",
+    "toast_organisations_failed": "更新组织失败",
     "roles": {
       "owner": {
         "label": "所有者",
@@ -1350,6 +1354,10 @@
       "member": {
         "label": "成员",
         "description": "创建并处理任务"
+      },
+      "client": {
+        "label": "客户",
+        "description": "可查看自己的任务和所属组织的计划工作，不能修改任何内容。"
       }
     },
     "share_links_create_title": "创建分享链接",

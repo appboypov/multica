@@ -88,7 +88,10 @@
   "organisation": {
     "label": "組織",
     "none": "組織なし",
-    "empty": "組織はまだありません"
+    "empty": "組織はまだありません",
+    "placeholder": "組織を選択",
+    "search_placeholder": "組織を検索",
+    "remove_aria": "{{name}} を外す"
   },
   "group": {
     "project_count_other": "{{count}} 件のプロジェクト",

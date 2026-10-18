@@ -7,6 +7,7 @@ import { BILLING_WORKSPACE_SUBSCRIPTIONS_FLAG } from "@multica/core/feature-flag
 import { renderWithI18n } from "../../test/i18n";
 
 const mockCreateMember = vi.hoisted(() => vi.fn());
+const mockUpdateMember = vi.hoisted(() => vi.fn());
 // The URL the settings router holds; `setSearch` stands in for navigation.
 const url = vi.hoisted(() => {
   const listeners = new Set<() => void>();
@@ -28,6 +29,7 @@ const data = vi.hoisted(() => ({
   invitations: [] as Array<Record<string, unknown>>,
   shareLinks: [] as Array<Record<string, unknown>>,
   summary: null as Record<string, unknown> | null,
+  organisations: [] as Array<Record<string, unknown>>,
 }));
 
 vi.mock("@tanstack/react-query", () => ({
@@ -36,6 +38,7 @@ vi.mock("@tanstack/react-query", () => ({
     const key = JSON.stringify(opts.queryKey);
     if (key.includes("invitations")) return { data: data.invitations };
     if (key.includes("share-links")) return { data: data.shareLinks };
+    if (key.includes("organisations")) return { data: data.organisations };
     if (key.includes("members")) return { data: data.members };
     return { data: data.summary };
   },
@@ -57,7 +60,7 @@ vi.mock("@multica/core/paths", () => ({
 }));
 vi.mock("@multica/core/api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@multica/core/api")>()),
-  api: { createMember: mockCreateMember },
+  api: { createMember: mockCreateMember, updateMember: mockUpdateMember },
 }));
 vi.mock("@multica/core/auth", () => {
   const state = { user: { id: "user-1" } };
@@ -89,7 +92,7 @@ vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 import { MembersTab } from "./members-tab";
 
-const member = (id: string, name: string, role: string) => ({
+const member = (id: string, name: string, role: string, organisationIds: string[] = []) => ({
   id: `m-${id}`,
   user_id: id,
   workspace_id: "ws-1",
@@ -97,6 +100,7 @@ const member = (id: string, name: string, role: string) => ({
   name,
   email: `${name.toLowerCase().split(" ")[0]}@acme.dev`,
   avatar_url: null,
+  organisation_ids: organisationIds,
   created_at: "2025-01-08T00:00:00Z",
 });
 
@@ -116,6 +120,7 @@ beforeEach(() => {
       invitee_email: "linus@acme.dev",
       invitee_user_id: null,
       role: "member",
+      organisation_ids: [],
       status: "pending",
       created_at: "2025-03-01T00:00:00Z",
       updated_at: "2025-03-01T00:00:00Z",
@@ -124,6 +129,10 @@ beforeEach(() => {
   ];
   data.shareLinks = [];
   data.summary = null;
+  data.organisations = [
+    { id: "org-a", name: "Northwind" },
+    { id: "org-b", name: "Globex" },
+  ];
   configStore.getState().setFeatureFlags({});
 });
 
@@ -227,6 +236,87 @@ describe("MembersTab", () => {
 
     await waitFor(() => expect(mockCreateMember).toHaveBeenCalled());
     expect(screen.getByRole("dialog", { name: "Invite member" })).toBeInTheDocument();
+  });
+
+  it("invites a client only once an organisation is chosen", async () => {
+    mockCreateMember.mockResolvedValue({});
+    const user = userEvent.setup();
+    renderWithI18n(<MembersTab />);
+
+    await user.click(screen.getByRole("button", { name: "Invite member" }));
+    const dialog = await screen.findByRole("dialog", { name: "Invite member" });
+    await user.type(within(dialog).getByRole("textbox", { name: "Email" }), "nasir@client.dev");
+    await user.click(within(dialog).getByRole("combobox", { name: "Role" }));
+    await user.click(await screen.findByRole("option", { name: /^Client/ }));
+
+    const invite = within(dialog).getByRole("button", { name: "Invite" });
+    expect(invite).toBeDisabled();
+
+    await user.click(within(dialog).getByRole("button", { name: "Organisations" }));
+    await user.click(await screen.findByRole("button", { name: "Northwind" }));
+    await user.keyboard("{Escape}");
+    expect(within(dialog).getByText("Northwind")).toBeInTheDocument();
+    expect(invite).toBeEnabled();
+
+    await user.click(invite);
+    await waitFor(() =>
+      expect(mockCreateMember).toHaveBeenCalledWith("ws-1", {
+        email: "nasir@client.dev",
+        role: "client",
+        organisation_ids: ["org-a"],
+      }),
+    );
+  });
+
+  it("shows a client's organisations and changes them from the row menu", async () => {
+    mockUpdateMember.mockResolvedValue({});
+    data.members = [
+      member("user-1", "Ada Lovelace", "owner"),
+      member("user-4", "Nasir Client", "client", ["org-a", "org-b"]),
+    ];
+    const user = userEvent.setup();
+    renderWithI18n(<MembersTab />);
+
+    expect(screen.getByText("Northwind")).toBeInTheDocument();
+    expect(screen.getByText("Globex")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Actions for Nasir Client" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Organisations" }));
+    // The opening submenu animates with pointer-events off, so user-event refuses the click.
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Globex" }));
+
+    await waitFor(() =>
+      expect(mockUpdateMember).toHaveBeenCalledWith("ws-1", "m-user-4", {
+        role: "client",
+        organisation_ids: ["org-a"],
+      }),
+    );
+  });
+
+  it("keeps a client's last organisation", async () => {
+    data.members = [
+      member("user-1", "Ada Lovelace", "owner"),
+      member("user-4", "Nasir Client", "client", ["org-a"]),
+    ];
+    const user = userEvent.setup();
+    renderWithI18n(<MembersTab />);
+
+    await user.click(screen.getByRole("button", { name: "Actions for Nasir Client" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Organisations" }));
+    expect(await screen.findByRole("menuitem", { name: "Northwind" })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+  });
+
+  it("offers staff no client role", async () => {
+    const user = userEvent.setup();
+    renderWithI18n(<MembersTab />);
+
+    await user.click(screen.getByRole("button", { name: "Actions for Alan Turing" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Change role" }));
+    expect(await screen.findByRole("menuitem", { name: /^Admin/ })).toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: /^Client/ })).toBeNull();
   });
 
   it("links seat usage to billing when subscriptions are on", () => {

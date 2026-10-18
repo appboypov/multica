@@ -1348,6 +1348,10 @@
     "remove_action": "Retirer de l'espace de travail",
     "cannot_demote_last_owner_title": "Promouvez d'abord un autre membre propriétaire — un espace de travail doit conserver au moins un propriétaire.",
     "cannot_demote_last_owner": "Impossible de rétrograder le dernier propriétaire",
+    "organisations_label": "Organisations",
+    "last_organisation_title": "Un client garde au moins une organisation.",
+    "toast_organisations_updated": "Organisations mises à jour",
+    "toast_organisations_failed": "Échec de la mise à jour des organisations",
     "roles": {
       "owner": {
         "label": "Propriétaire",
@@ -1360,6 +1364,10 @@
       "member": {
         "label": "Membre",
         "description": "Créer des tâches et y travailler"
+      },
+      "client": {
+        "label": "Client",
+        "description": "Lit ses propres tâches et le travail prévu de ses organisations. Ne peut rien modifier."
       }
     },
     "share_links_create_title": "Créer un lien de partage",

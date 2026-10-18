@@ -235,6 +235,7 @@ export function BatchActionToolbar({
         <AssigneePicker
           assigneeType={common.assignee?.type ?? null}
           assigneeId={common.assignee?.id ?? null}
+          projectIds={selectedIssues.map((i) => i.project_id)}
           mixed={common.assignee === null}
           onUpdate={handleBatchAssignee}
           open={assigneeOpen}

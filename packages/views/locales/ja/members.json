@@ -2,7 +2,8 @@
   "role": {
     "owner": "オーナー",
     "admin": "管理者",
-    "member": "メンバー"
+    "member": "メンバー",
+    "client": "クライアント"
   },
   "card": {
     "unavailable": "メンバーを利用できません",
