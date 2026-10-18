@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# The full check before a merge: run it on the Mac from the checkout whose
-# head the merge takes.
+# The full check at release: run it on the Mac from the checkout whose
+# head the release takes.
 #
 # It runs scripts/full-check-container.sh in a single-use local Crabbox
 # container (MadSpec's crabbox-local), with the image that
