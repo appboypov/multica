@@ -272,12 +272,6 @@ def edges_of(prs, holds=(), forked=(), gone=None):
     return team_state.stack_edges(prs, "main", resolve, ancestry)
 
 
-def units_of(prs, edges, issues=()):
-    issues = {i["key"]: i for i in issues}
-    return [(u["prs"], u["under"])
-            for u in team_state.merge_units(prs, edges, issues, VERIFIER, team_state.waits(issues, []))]
-
-
 def issue(key, status="in_progress", position=0, parent=None, stage=None, blocked_by=(), assignee=VERIFIER):
     return {**row(key, status, parent=parent, stage=stage, blocked_by=blocked_by, assignee=assignee),
             "position": position}
@@ -287,8 +281,8 @@ def ranked(prs, issues, edges=(), wakeups=()):
     edges = list(edges)
     issues = {i["key"]: i for i in issues}
     waits_of = team_state.waits(issues, list(wakeups))
-    return team_state.rank_units(team_state.merge_units(prs, edges, issues, VERIFIER, waits_of), prs, issues, VERIFIER,
-                                 waits_of, edges)
+    found = team_state.rank_prs(prs, issues, VERIFIER, waits_of, edges)
+    return [p for p in found if not p["blocked_by"]], [p for p in found if p["blocked_by"]]
 
 
 class StackNotesNameThePullRequestUnderIt(unittest.TestCase):
@@ -309,161 +303,67 @@ class StackNotesNameThePullRequestUnderIt(unittest.TestCase):
         self.assertEqual((note["prs"], sorted(note["elsewhere"])), ([], ["acme/api#7", "acme/api#8"]))
 
     def test_a_lower_pull_request_saying_what_stacks_on_it_has_no_note(self):
-        self.assertIsNone(team_state.stack_note("The frontend stacks on this branch.", "acme/app"))
+        for body in ("The frontend stacks on this branch.", "Next: #70, stacked on this one.",
+                     "PR #70 is stacked on this branch."):
+            with self.subTest(body=body):
+                self.assertIsNone(team_state.stack_note(body, "acme/app"))
+
+    def test_upper_prose_does_not_hide_a_later_own_stack_declaration(self):
+        body = "Next: #70, stacked on this one.\nStacked on #68."
+        self.assertEqual(team_state.stack_note(body, "acme/app")["prs"], [68])
 
 
-class StacksBecomeMergeUnits(unittest.TestCase):
-    def test_three_stacked_pull_requests_are_one_unit_even_when_the_top_lacks_a_fix_below(self):
-        # Given B stacked on A and C on B, where B got a fix after C was cut
+class StackedPullRequestsWaitForTheirLowerWork(unittest.TestCase):
+    def test_each_upper_waits_even_when_it_lacks_a_later_lower_fix(self):
         prs = [pr(1), pr(2, "Stacked on #1."), pr(3, "Stacked on #2 (`work-2`).")]
         edges = edges_of(prs, holds={(1, 2)}, forked={(2, 3)})
         self.assertEqual([(e["upper"], e["lower"], e["status"], e.get("ancestry")) for e in edges],
                          [(2, 1, "verified", "contains"), (3, 2, "verified", "forked")])
-        self.assertEqual(units_of(prs, edges), [([1, 2, 3], None)])
+        ready, blocked = ranked(prs, [], edges)
+        self.assertEqual([p["number"] for p in ready], [1])
+        self.assertEqual({p["number"]: p["blocked_by"] for p in blocked},
+                         {2: [{"kind": "stack", "pr": 1}], 3: [{"kind": "stack", "pr": 2}]})
 
-    def test_independent_pull_requests_stay_apart(self):
-        prs = [pr(1), pr(2)]
-        self.assertEqual(units_of(prs, edges_of(prs)), [([1], None), ([2], None)])
+    def test_a_closed_target_is_not_hidden_by_an_open_lower(self):
+        prs = [pr(7), pr(9, "Stacked on #7 and #8.")]
+        ready, blocked = ranked(prs, [], edges_of(prs, holds={(7, 9)}, gone={8: "CLOSED"}))
+        self.assertEqual([p["number"] for p in ready], [7])
+        self.assertEqual(blocked[0]["blocked_by"],
+                         [{"kind": "stack_edge", "pr": 9, "lower": 8, "status": "lower_closed"}])
 
-    def test_a_base_on_another_open_pull_request_s_branch_names_it_too(self):
+    def test_a_base_on_an_open_branch_also_blocks_the_upper(self):
         prs = [pr(1), pr(2, base="work-1")]
-        self.assertEqual(units_of(prs, edges_of(prs, holds={(1, 2)})), [([1, 2], None)])
+        ready, blocked = ranked(prs, [], edges_of(prs, holds={(1, 2)}))
+        self.assertEqual([p["number"] for p in ready], [1])
+        self.assertEqual(blocked[0]["blocked_by"], [{"kind": "stack", "pr": 1}])
 
-    def test_a_stale_note_is_shown_and_never_joins_the_pull_requests(self):
-        # Given #4 names the merged #2, and #5 names the open #1 without holding any of its work
+    def test_siblings_wait_separately_then_become_ready_after_the_lower_merges(self):
+        prs = [pr(1), pr(2, "Stacked on #1."), pr(3, "Stacked on #1.")]
+        ready, blocked = ranked(prs, [], edges_of(prs, holds={(1, 2), (1, 3)}))
+        self.assertEqual([p["number"] for p in ready], [1])
+        self.assertEqual([(p["number"], p["blocked_by"]) for p in blocked],
+                         [(2, [{"kind": "stack", "pr": 1}]), (3, [{"kind": "stack", "pr": 1}])])
+        remaining = prs[1:]
+        ready, blocked = ranked(remaining, [], edges_of(remaining, gone={1: "MERGED"}))
+        self.assertEqual(([p["number"] for p in ready], blocked), ([2, 3], []))
+
+    def test_merged_lower_and_unproven_open_lower_have_different_readiness(self):
         prs = [pr(1), pr(4, "Stacked on #2."), pr(5, "Stacked on #1.")]
-        edges = edges_of(prs, gone={2: "MERGED"})
-        self.assertEqual([(e["upper"], e["lower"], e["status"]) for e in edges],
-                         [(4, 2, "lower_merged"), (5, 1, "ancestry_unproven")])
-        self.assertEqual(units_of(prs, edges), [([1], None), ([4], None), ([5], None)])
-        ready, blocked = ranked(prs, [], edges)
-        self.assertEqual([u["prs"] for u in ready], [[1], [4]])
-        self.assertEqual(blocked[0]["blocked_by"], [{"kind": "stack_edge", "pr": 5, "lower": 1, "status": "ancestry_unproven"}])
+        ready, blocked = ranked(prs, [], edges_of(prs, gone={2: "MERGED"}))
+        self.assertEqual([p["number"] for p in ready], [1, 4])
+        self.assertEqual(blocked[0]["blocked_by"],
+                         [{"kind": "stack_edge", "pr": 5, "lower": 1, "status": "ancestry_unproven"}])
 
-    def test_sibling_stacks_share_their_lower_work_with_the_first_only(self):
-        # Given A and B both stacked on L, and C stacked on A: L goes up with A and C, B waits on L apart
-        prs = [pr(1), pr(2, "Stacked on #1."), pr(3, "Stacked on #1."), pr(4, "Stacked on #2.")]
-        edges = edges_of(prs, holds={(1, 2), (1, 3), (2, 4)})
-        self.assertEqual(units_of(prs, edges), [([1, 2, 4], None), ([3], 1)])
-        ready, blocked = ranked(prs, [], edges)
-        self.assertEqual([u["prs"] for u in ready], [[1, 2, 4]])
-        self.assertEqual([(u["prs"], u["blocked_by"]) for u in blocked], [([3], [{"kind": "stack", "pr": 1}])])
-
-    def test_ambiguous_and_cyclic_notes_stay_visible_and_block_their_units(self):
+    def test_ambiguous_and_cyclic_relationships_stay_blocked(self):
         prs = [pr(1, "Stacked on #2."), pr(2, "Stacked on #1."), pr(3), pr(4), pr(5, "Stacked on #3 and #4.")]
-        edges = edges_of(prs, holds={(2, 1), (1, 2)})
-        self.assertEqual([(e["upper"], e["status"]) for e in edges], [(1, "cycle"), (2, "cycle"), (5, "ambiguous")])
-        self.assertEqual(edges[2]["candidates"], [3, 4])
-        self.assertEqual(units_of(prs, edges), [([1], None), ([2], None), ([3], None), ([4], None), ([5], None)])
-        ready, blocked = ranked(prs, [], edges)
-        self.assertEqual(([u["prs"] for u in ready], [u["prs"] for u in blocked]), ([[3], [4]], [[1], [2], [5]]))
+        ready, blocked = ranked(prs, [], edges_of(prs, holds={(2, 1), (1, 2)}))
+        self.assertEqual([p["number"] for p in ready], [3, 4])
+        self.assertEqual([(p["number"], p["blocked_by"][0]["status"]) for p in blocked],
+                         [(1, "cycle"), (2, "cycle"), (5, "ambiguous")])
 
-    def test_a_note_naming_only_another_repository_leaves_the_unit_ready(self):
+    def test_another_repository_is_a_companion_not_a_lower_pr(self):
         prs = [pr(1, "Stacked on acme/api#8.")]
-        edges = edges_of(prs)
-        self.assertEqual(edges[0]["status"], "other_repository")
-        self.assertEqual([u["prs"] for u in ranked(prs, [], edges)[0]], [[1]])
-
-
-class SharedLowerWorkGoesUpWithOneSiblingStack(unittest.TestCase):
-    """L (#1) with sibling stacks A (#2) and B (#3) on it, each carrying its issue."""
-
-    PRS = [pr(1, issues=["WORK-1"]), pr(2, "Stacked on #1.", issues=["WORK-2"]), pr(3, "Stacked on #1.", issues=["WORK-3"])]
-    HOLDS = {(1, 2), (1, 3)}
-
-    def test_the_sibling_with_more_downstream_of_its_own_takes_the_lower_work(self):
-        # Given WORK-20 waits on A and WORK-30 and WORK-31 on B: counted from L, both [1, 2] and [1, 3] reach four
-        issues = [issue("WORK-1"), issue("WORK-2"), issue("WORK-3"), issue("WORK-20", "todo", blocked_by=["WORK-2"]),
-                  issue("WORK-30", "todo", blocked_by=["WORK-3"]), issue("WORK-31", "todo", blocked_by=["WORK-3"])]
-        edges = edges_of(self.PRS, holds=self.HOLDS)
-        self.assertEqual(units_of(self.PRS, edges, issues), [([1, 3], None), ([2], 1)])
-        ready, blocked = ranked(self.PRS, issues, edges)
-        self.assertEqual([(u["prs"], u["downstream"]) for u in ready],
-                         [([1, 3], ["WORK-2", "WORK-20", "WORK-30", "WORK-31"])])
-        self.assertEqual([(u["prs"], u["downstream"], u["blocked_by"]) for u in blocked],
-                         [([2], ["WORK-20"], [{"kind": "stack", "pr": 1}])])
-
-    def test_a_dependent_both_siblings_share_counts_once_for_each(self):
-        # Given WORK-70 waits on A and B, WORK-50 on A, WORK-51 on A, WORK-50 and WORK-70, WORK-60 and WORK-61 on B
-        issues = [issue("WORK-1"), issue("WORK-2"), issue("WORK-3"),
-                  issue("WORK-70", "todo", blocked_by=["WORK-2", "WORK-3"]), issue("WORK-50", "todo", blocked_by=["WORK-2"]),
-                  issue("WORK-51", "todo", blocked_by=["WORK-2", "WORK-50", "WORK-70"]),
-                  issue("WORK-60", "todo", blocked_by=["WORK-3"]), issue("WORK-61", "todo", blocked_by=["WORK-3"])]
-        ready, blocked = ranked(self.PRS, issues, edges_of(self.PRS, holds=self.HOLDS))
-        self.assertEqual([(u["prs"], u["downstream_count"]) for u in ready], [([1, 3], 6)])
-        self.assertEqual([(u["prs"], u["downstream"]) for u in blocked], [([2], ["WORK-50", "WORK-51", "WORK-70"])])
-
-    def test_siblings_alike_go_by_board_order_then_pull_request_number(self):
-        edges = edges_of(self.PRS, holds=self.HOLDS)
-        on_board = [issue("WORK-1"), issue("WORK-2", position=7), issue("WORK-3", position=-1)]
-        self.assertEqual(units_of(self.PRS, edges, on_board), [([1, 3], None), ([2], 1)])
-        self.assertEqual(units_of(self.PRS, edges), [([1, 2], None), ([3], 1)])
-
-    def test_a_fork_above_repeats_the_choice_and_its_other_branch_waits_on_its_own_lower(self):
-        # Given D (#4) and E (#5) stacked on A, with WORK-50 and WORK-51 waiting on E and WORK-30 on B
-        prs = [*self.PRS, pr(4, "Stacked on #2.", issues=["WORK-4"]), pr(5, "Stacked on #2.", issues=["WORK-5"])]
-        issues = [issue("WORK-1"), issue("WORK-2"), issue("WORK-3"), issue("WORK-4"), issue("WORK-5"),
-                  issue("WORK-50", "todo", blocked_by=["WORK-5"]), issue("WORK-51", "todo", blocked_by=["WORK-5"]),
-                  issue("WORK-30", "todo", blocked_by=["WORK-3"])]
-        edges = edges_of(prs, holds={*self.HOLDS, (2, 4), (2, 5)})
-        self.assertEqual(units_of(prs, edges, issues), [([1, 2, 5], None), ([3], 1), ([4], 2)])
-        ready, blocked = ranked(prs, issues, edges)
-        self.assertEqual([u["prs"] for u in ready], [[1, 2, 5]])
-        self.assertEqual([(u["prs"], u["blocked_by"]) for u in blocked],
-                         [([3], [{"kind": "stack", "pr": 1}]), ([4], [{"kind": "stack", "pr": 2}])])
-
-    def test_a_ready_sibling_takes_the_lower_work_over_one_more_unblocking_still_with_its_builder(self):
-        # Given WORK-20 and WORK-21 wait on A, whose WORK-2 its builder still holds, and WORK-30 on B
-        issues = [issue("WORK-1"), issue("WORK-2", assignee="agent-joeri"), issue("WORK-3"),
-                  issue("WORK-20", "todo", blocked_by=["WORK-2"]), issue("WORK-21", "todo", blocked_by=["WORK-2"]),
-                  issue("WORK-30", "todo", blocked_by=["WORK-3"])]
-        edges = edges_of(self.PRS, holds=self.HOLDS)
-        self.assertEqual(units_of(self.PRS, edges, issues), [([1, 3], None), ([2], 1)])
-        ready, blocked = ranked(self.PRS, issues, edges)
-        self.assertEqual([u["prs"] for u in ready], [[1, 3]])
-        self.assertEqual([(u["prs"], u["blocked_by"]) for u in blocked], [([2], [
-            {"kind": "stack", "pr": 1}, {"kind": "assignee", "key": "WORK-2", "assignee": {"type": "agent", "id": "agent-joeri"}}])])
-        # When B is with its builder too, no candidate is ready and the more unblocking one goes first
-        issues[2] = issue("WORK-3", assignee="agent-joeri")
-        self.assertEqual(units_of(self.PRS, edges, issues), [([1, 2], None), ([3], 1)])
-
-    def test_a_ready_sibling_takes_the_lower_work_over_one_with_an_open_fix(self):
-        # Given WORK-20 waits on A, whose WORK-2 has the open Fix WORK-21
-        issues = [issue("WORK-1"), issue("WORK-2"), issue("WORK-21", parent="WORK-2", assignee="agent-joeri"), issue("WORK-3"),
-                  issue("WORK-20", "todo", blocked_by=["WORK-2"])]
-        edges = edges_of(self.PRS, holds=self.HOLDS)
-        self.assertEqual(units_of(self.PRS, edges, issues), [([1, 3], None), ([2], 1)])
-        ready, blocked = ranked(self.PRS, issues, edges)
-        self.assertEqual([u["prs"] for u in ready], [[1, 3]])
-        self.assertEqual([(u["prs"], u["blocked_by"]) for u in blocked], [([2], [
-            {"kind": "stack", "pr": 1}, {"kind": "child", "key": "WORK-21", "status": "in_progress"}])])
-
-    def test_a_sibling_waiting_on_the_lower_work_is_ready_with_it(self):
-        # Given A's WORK-2 is blocked by L's WORK-1, and WORK-20 waits on A
-        issues = [issue("WORK-1"), issue("WORK-2", blocked_by=["WORK-1"]), issue("WORK-3"),
-                  issue("WORK-20", "todo", blocked_by=["WORK-2"])]
-        edges = edges_of(self.PRS, holds=self.HOLDS)
-        self.assertEqual(units_of(self.PRS, edges, issues), [([1, 2], None), ([3], 1)])
-        ready, blocked = ranked(self.PRS, issues, edges)
-        self.assertEqual([(u["prs"], u["blocked_by"]) for u in ready + blocked],
-                         [([1, 2], []), ([3], [{"kind": "stack", "pr": 1}])])
-
-    def test_once_the_lower_work_merged_the_other_sibling_stack_stands_alone(self):
-        # Given L landed with A: B and its upper G (#4) remain, B naming the merged L
-        prs = [pr(3, "Stacked on #1.", issues=["WORK-3"]), pr(4, "Stacked on #3.", issues=["WORK-4"])]
-        edges = edges_of(prs, holds={(3, 4)}, gone={1: "MERGED"})
-        self.assertEqual([(e["upper"], e["lower"], e["status"]) for e in edges], [(3, 1, "lower_merged"), (4, 3, "verified")])
-        self.assertEqual(units_of(prs, edges), [([3, 4], None)])
-        ready, blocked = ranked(prs, [issue("WORK-3"), issue("WORK-4")], edges)
-        self.assertEqual(([u["prs"] for u in ready], blocked), ([[3, 4]], []))
-
-    def test_an_unconfirmed_sibling_joins_nothing_and_stays_visible(self):
-        edges = edges_of(self.PRS, holds={(1, 2)})
-        self.assertEqual(units_of(self.PRS, edges), [([1, 2], None), ([3], None)])
-        ready, blocked = ranked(self.PRS, [issue("WORK-1"), issue("WORK-2"), issue("WORK-3")], edges)
-        self.assertEqual([u["prs"] for u in ready], [[1, 2]])
-        self.assertEqual([(u["prs"], u["blocked_by"]) for u in blocked],
-                         [([3], [{"kind": "stack_edge", "pr": 3, "lower": 1, "status": "ancestry_unproven"}])])
+        self.assertEqual([p["number"] for p in ranked(prs, [], edges_of(prs))[0]], [1])
 
 
 # main: m0 <- m1; a lower branch m0 <- c1 <- c2, fixed later with c2 <- c5; an upper cut at c2 with c3; others on m1
@@ -504,22 +404,31 @@ class AncestryIsReadFromGitHubsComparison(unittest.TestCase):
         self.assertIsNone(self.ancestry("c5", "x1"))
 
 
-class ReadyUnitsComeMostUnblockingFirst(unittest.TestCase):
-    def test_distinct_open_issues_waiting_on_a_member_count_once_transitively(self):
-        # Given WORK-10 and WORK-11 wait on WORK-1, WORK-12 on both, and WORK-13 on WORK-2; WORK-14 is done
+class ReadyPullRequestsComeMostUnblockingFirst(unittest.TestCase):
+    def test_issue_dependencies_continue_through_their_prs_into_upper_stacks(self):
+        prs = [pr(1, issues=["WORK-1"]), pr(2, issues=["WORK-2"]),
+               pr(3, "Stacked on #2.", issues=["WORK-3"]),
+               pr(4, "Stacked on #3.", issues=["WORK-4"]), pr(9, issues=["WORK-9"])]
+        issues = [issue(f"WORK-{n}") for n in (1, 3, 4, 9)]
+        issues += [issue("WORK-2", blocked_by=["WORK-1"]),
+                   issue("WORK-10", blocked_by=["WORK-9"]), issue("WORK-11", blocked_by=["WORK-9"])]
+        ready, blocked = ranked(prs, issues, edges_of(prs, holds={(2, 3), (3, 4)}))
+        self.assertEqual([p["number"] for p in ready], [1, 9])
+        self.assertEqual(ready[0]["downstream"], ["WORK-2", "WORK-3", "WORK-4"])
+        self.assertEqual({p["number"] for p in blocked}, {2, 3, 4})
+
+    def test_distinct_open_dependents_count_once_transitively(self):
         prs = [pr(3, issues=["WORK-2"]), pr(7, issues=["WORK-1"])]
         issues = [issue("WORK-1"), issue("WORK-2"), issue("WORK-10", "todo", blocked_by=["WORK-1"]),
                   issue("WORK-11", "backlog", blocked_by=["WORK-1"]),
                   issue("WORK-12", "todo", blocked_by=["WORK-10", "WORK-11"]),
                   issue("WORK-13", "todo", blocked_by=["WORK-2"]), issue("WORK-14", "done", blocked_by=["WORK-2"])]
         ready, blocked = ranked(prs, issues)
-        self.assertEqual([(u["prs"], u["downstream"]) for u in ready],
-                         [([7], ["WORK-10", "WORK-11", "WORK-12"]), ([3], ["WORK-13"])])
+        self.assertEqual([(p["number"], p["downstream"]) for p in ready],
+                         [(7, ["WORK-10", "WORK-11", "WORK-12"]), (3, ["WORK-13"])])
         self.assertEqual((ready[0]["downstream_count"], blocked), (3, []))
 
-    def test_later_steps_wakeups_and_stacked_units_wait_on_their_lower_work(self):
-        # Given step 2 of WORK-20's journey after the member step 1, an enabled wakeup of WORK-30 waiting for the
-        # member to be done, a disabled one of WORK-31, and a sibling unit stacked on the member's pull request
+    def test_steps_enabled_wakeups_and_upper_prs_contribute_downstream_issues(self):
         prs = [pr(1, issues=["WORK-21"]), pr(2, "Stacked on #1.", issues=["WORK-40"]),
                pr(3, "Stacked on #1.", issues=["WORK-41"])]
         issues = [issue("WORK-21", parent="WORK-20", stage=1), issue("WORK-22", "todo", parent="WORK-20", stage=2),
@@ -529,35 +438,46 @@ class ReadyUnitsComeMostUnblockingFirst(unittest.TestCase):
             {"issue_identifier": "WORK-31", "enabled": False, "condition": {"type": "other_issue", "identifier": "WORK-21", "state": "done"}},
         ]
         ready, blocked = ranked(prs, issues, edges_of(prs, holds={(1, 2), (1, 3)}), wakeups)
-        self.assertEqual([(u["prs"], u["downstream"]) for u in ready], [([1, 2], ["WORK-22", "WORK-30", "WORK-41"])])
-        self.assertEqual([(u["prs"], u["downstream"]) for u in blocked], [([3], [])])
+        self.assertEqual([(p["number"], p["downstream"]) for p in ready],
+                         [(1, ["WORK-22", "WORK-30", "WORK-40", "WORK-41"])])
+        self.assertEqual([p["number"] for p in blocked], [2, 3])
 
     def test_ties_go_by_board_order_then_pull_request_number(self):
         prs = [pr(4), pr(5, issues=["WORK-5"]), pr(6, issues=["WORK-6"]), pr(8, issues=["WORK-8"])]
         issues = [issue("WORK-5", position=10), issue("WORK-6", position=-3), issue("WORK-8", position=-3)]
-        self.assertEqual([u["prs"] for u in ranked(prs, issues)[0]], [[6], [8], [5], [4]])
+        self.assertEqual([p["number"] for p in ranked(prs, issues)[0]], [6, 8, 5, 4])
+
+    def test_a_shared_dependent_counts_once_across_siblings(self):
+        prs = [pr(1, issues=["WORK-1"]), pr(2, "Stacked on #1.", issues=["WORK-2"]),
+               pr(3, "Stacked on #1.", issues=["WORK-3"])]
+        issues = [issue("WORK-1"), issue("WORK-2"), issue("WORK-3"),
+                  issue("WORK-4", "todo", blocked_by=["WORK-2", "WORK-3"])]
+        ready, blocked = ranked(prs, issues, edges_of(prs, holds={(1, 2), (1, 3)}))
+        self.assertEqual(ready[0]["downstream"], ["WORK-2", "WORK-3", "WORK-4"])
+        self.assertEqual([(p["number"], p["downstream_count"]) for p in blocked], [(2, 1), (3, 1)])
 
 
-class BlockedUnitsWaitApartFromReadyOnes(unittest.TestCase):
-    def test_a_unit_waiting_on_fixes_its_builder_or_other_work_is_blocked_while_another_is_ready(self):
+class BlockedPullRequestsWaitApartFromReadyOnes(unittest.TestCase):
+    def test_fixes_assignment_and_dependencies_hold_only_their_pr(self):
         prs = [pr(1, issues=["WORK-1"]), pr(2, issues=["WORK-2"]), pr(3, issues=["WORK-3"]), pr(4, issues=["WORK-4"])]
         issues = [issue("WORK-1"), issue("WORK-50", parent="WORK-1", assignee="agent-joeri"),
                   issue("WORK-51", "done", parent="WORK-1"), issue("WORK-2", assignee="agent-joeri"),
-                  issue("WORK-3", blocked_by=["WORK-60"]), issue("WORK-60", "todo", assignee=None),
-                  issue("WORK-4")]
+                  issue("WORK-3", blocked_by=["WORK-60"]), issue("WORK-60", "todo", assignee=None), issue("WORK-4")]
         ready, blocked = ranked(prs, issues)
-        self.assertEqual([u["prs"] for u in ready], [[4]])
-        self.assertEqual({u["prs"][0]: u["blocked_by"] for u in blocked}, {
+        self.assertEqual([p["number"] for p in ready], [4])
+        self.assertEqual({p["number"]: p["blocked_by"] for p in blocked}, {
             1: [{"kind": "child", "key": "WORK-50", "status": "in_progress"}],
             2: [{"kind": "assignee", "key": "WORK-2", "assignee": {"type": "agent", "id": "agent-joeri"}}],
             3: [{"kind": "blocked_by", "key": "WORK-60", "status": "todo"}],
         })
 
-    def test_what_a_member_waits_on_inside_its_own_unit_blocks_nothing(self):
+    def test_an_open_lower_step_still_blocks_the_upper_step(self):
         prs = [pr(1, issues=["WORK-41"]), pr(2, "Stacked on #1.", issues=["WORK-42"])]
         issues = [issue("WORK-41", parent="WORK-40", stage=1), issue("WORK-42", parent="WORK-40", stage=2)]
         ready, blocked = ranked(prs, issues, edges_of(prs, holds={(1, 2)}))
-        self.assertEqual(([u["prs"] for u in ready], blocked), ([[1, 2]], []))
+        self.assertEqual([p["number"] for p in ready], [1])
+        self.assertEqual(blocked[0]["blocked_by"],
+                         [{"kind": "stack", "pr": 1}, {"kind": "step", "key": "WORK-41", "status": "in_progress"}])
 
 
 class MergeWaitsLeaveLaneAdvanceAlone(unittest.TestCase):
@@ -585,8 +505,7 @@ def multica_issue(key, status, position, assignee=("agent", "builder"), project=
 
 
 class RepositoryIntakeReadsEveryOpenPullRequest(unittest.TestCase):
-    """An unregistered repository with six open pull requests on three pages of two: a stack of two, an issue-less one,
-    one closing an issue of another project held by a person, one only an issue's manual link names, and the named one."""
+    """Six paginated PRs with a stack, a closed issue's manual link and cross-project assignments."""
 
     NODES = [
         pr_node(1, "Session model (WORK-1057)", "work-1057", "c2"),
@@ -650,39 +569,41 @@ class RepositoryIntakeReadsEveryOpenPullRequest(unittest.TestCase):
 
     def test_every_pull_request_is_listed_with_its_issues_whoever_holds_them(self):
         found = team_state.collect_intake("acme/app", "Verifier")
-        self.assertEqual([p["number"] for p in found["prs"]], [1, 2, 3, 4, 5, 6])
+        self.assertEqual([p["number"] for p in found["prs"]], [1, 5, 2, 3, 4, 6])
         self.assertEqual({p["number"]: p["links"] for p in found["prs"]}, {
             1: [{"key": "WORK-1057", "source": "claimed"}],
             2: [{"key": "WORK-1087", "source": "title"}],
-            3: [],
+            3: [{"key": "WORK-1001", "source": "manual"}],
             4: [{"key": "WORK-1200", "source": "auto"}],
             5: [{"key": "WORK-1173", "source": "claimed"}],
             6: [{"key": "WORK-1300", "source": "manual"}],
         })
-        self.assertEqual(found["issueless"], [3])
+        self.assertEqual(found["issueless"], [])
+        self.assertEqual(found["issues"]["WORK-1001"]["status"], "done")
         self.assertEqual(found["issues"]["WORK-1300"]["assignee"], {"type": "member", "id": "brian"})
         self.assertEqual(found["issues"]["WORK-1200"]["assignee"], {"type": "member", "id": "brian"})
         self.assertEqual((found["prs"][1]["base"], found["default_head"], found["checks"], found["prs"][1]["checks"]),
                          ("main", "m1", "unknown", "unknown"))
         self.assertNotIn("errors", found)
 
-    def test_links_and_wakeups_are_read_per_open_issue_and_closed_ones_only_when_claimed(self):
+    def test_closed_issue_links_are_read_while_wakeups_only_need_open_issues(self):
         team_state.collect_intake("acme/app", "Verifier")
         open_keys = ["WORK-1057", "WORK-1087", "WORK-1090", "WORK-1091", "WORK-1173", "WORK-1200", "WORK-1300"]
-        self.assertEqual(sorted(self.links_read, key=team_state.key_order), open_keys)
+        self.assertEqual(sorted(self.links_read, key=team_state.key_order), ["WORK-1001", *open_keys])
         self.assertEqual(sorted(self.wakeups_read, key=team_state.key_order), open_keys)
 
-    def test_the_stack_is_one_unit_and_units_come_most_unblocking_first(self):
+    def test_individual_prs_are_ranked_and_the_upper_waits_on_its_lower(self):
         found = team_state.collect_intake("acme/app", "Verifier")
         self.assertEqual([(e["upper"], e["lower"], e["status"]) for e in found["edges"]], [(2, 1, "verified")])
-        self.assertEqual([(u["prs"], u["downstream"]) for u in found["ready"]],
-                         [([5], ["WORK-1091"]), ([1, 2], ["WORK-1090"]), ([3], [])])
-        self.assertEqual({u["prs"][0]: u["blocked_by"] for u in found["blocked"]}, {
+        self.assertEqual([(p["number"], p["downstream"]) for p in found["ready"]],
+                         [(1, ["WORK-1087", "WORK-1090"]), (5, ["WORK-1091"]), (3, [])])
+        self.assertEqual({p["number"]: p["blocked_by"] for p in found["blocked"]}, {
+            2: [{"kind": "stack", "pr": 1}],
             4: [{"kind": "assignee", "key": "WORK-1200", "assignee": {"type": "member", "id": "brian"}}],
             6: [{"kind": "assignee", "key": "WORK-1300", "assignee": {"type": "member", "id": "brian"}}],
         })
         self.assertEqual(found["unresolved"], [])
-        self.assertEqual(found["ready"][1]["tip_head"], "c3")
+        self.assertEqual(found["ready"][0]["head"], "c2")
 
     def test_the_command_prints_the_intake_and_refuses_lane_options(self):
         out = io.StringIO()
@@ -698,7 +619,72 @@ class RepositoryIntakeReadsEveryOpenPullRequest(unittest.TestCase):
         self.assertNotIn("body", prs[0])
         self.assertIsNone(prs[0]["checks"])
 
-    def test_unread_links_hold_every_unit_and_show_the_error(self):
+    def test_failed_check_rollups_do_not_block_review_eligibility(self):
+        original = self.graphql
+
+        def failing_checks(query, **variables):
+            result = original(query, **variables)
+            result["repository"]["defaultBranchRef"]["target"]["statusCheckRollup"] = {"state": "FAILURE"}
+            return result
+
+        self.enterContext(unittest.mock.patch.object(team_state, "graphql", side_effect=failing_checks))
+        found = team_state.collect_intake("acme/app", "Verifier")
+        self.assertEqual(found["checks"], "FAILURE")
+        self.assertEqual([p["number"] for p in found["ready"]], [1, 5, 3])
+
+    def test_missing_claims_stay_linked_and_block_only_their_pr(self):
+        self.NODES = [pr_node(9, "Fix request (WORK-9999)", "work-9999", "x9"),
+                      pr_node(3, "Independent maintenance", "maintenance", "x1")]
+        self.LINKS = {}
+        found = team_state.collect_intake("acme/app", "Verifier")
+        self.assertEqual([p["number"] for p in found["ready"]], [3])
+        missing = found["blocked"][0]
+        self.assertEqual((missing["number"], missing["issues"]), (9, ["WORK-9999"]))
+        self.assertEqual(missing["links"], [{"key": "WORK-9999", "source": "claimed"}])
+        self.assertEqual(missing["blocked_by"], [{"kind": "evidence", "missing": ["Multica issue WORK-9999"]}])
+        self.assertEqual(found["errors"], ["Multica issues: missing WORK-9999"])
+        self.assertEqual(found["issueless"], [3])
+
+    def test_unknown_verifier_blocks_even_genuinely_issueless_prs(self):
+        self.LINKS = {k: v for k, v in self.LINKS.items() if k != "WORK-1001"}
+        found = team_state.collect_intake("acme/app", "UnknownVerifier")
+        self.assertEqual(found["ready"], [])
+        self.assertIn(3, found["issueless"])
+        self.assertEqual(found["errors"], ["Multica agents: verifier 'UnknownVerifier' not found"])
+        self.assertTrue(all(p["blocked_by"][0] == {"kind": "evidence", "missing": ["Multica agents"]}
+                            for p in found["blocked"]))
+
+    def test_genuinely_issueless_prs_remain_ready_with_a_known_verifier(self):
+        self.LINKS = {k: v for k, v in self.LINKS.items() if k != "WORK-1001"}
+        found = team_state.collect_intake("acme/app", "Verifier")
+        self.assertIn(3, [p["number"] for p in found["ready"]])
+        self.assertEqual(found["issueless"], [3])
+
+    def test_upper_prose_keeps_the_lower_pr_ready(self):
+        self.NODES = [pr_node(69, "Work (WORK-1057)", "work-1057", "c2",
+                              "Next: #70, stacked on this one.")]
+        found = team_state.collect_intake("acme/app", "Verifier")
+        self.assertEqual([p["number"] for p in found["ready"]], [69])
+        self.assertEqual(found["edges"], [])
+
+    def test_all_named_stack_targets_must_be_resolved(self):
+        for states, expected in [({7: "MERGED", 8: "CLOSED"}, "lower_closed"),
+                                 ({7: "MERGED"}, "unknown_target"),
+                                 ({7: "MERGED", 8: "MERGED"}, "lower_merged")]:
+            with self.subTest(states=states):
+                self.NODES = [pr_node(9, "Fix stack", "stack", "x9", "Stacked on #7 and #8.")]
+                def resolve(name, **ref):
+                    n = ref["number"]
+                    return {"number": n, "state": states[n]} if n in states else None
+                with unittest.mock.patch.object(team_state, "find_pull_request", side_effect=resolve):
+                    found = team_state.collect_intake("acme/app", "Verifier")
+                self.assertEqual(found["edges"][0]["status"], expected)
+                self.assertEqual([p["number"] for p in found["ready"]], [9] if expected == "lower_merged" else [])
+                if expected == "lower_closed":
+                    self.assertEqual(found["edges"][0]["lower"], 8)
+                    self.assertEqual(found["edges"][0]["candidates"], [7, 8])
+
+    def test_unread_links_hold_every_pr_and_show_the_error(self):
         def failing(*args):
             if args[:3] == ("issue", "pull-requests", "WORK-1300"):
                 raise team_state.StateError("multica: timeout")
@@ -710,9 +696,9 @@ class RepositoryIntakeReadsEveryOpenPullRequest(unittest.TestCase):
         self.assertEqual(found["ready"], [])
         self.assertTrue(all(u["blocked_by"][0] == {"kind": "evidence", "missing": ["Multica links"]}
                             for u in found["blocked"]))
-        self.assertEqual(found["issueless"], [3, 6])
+        self.assertEqual(found["issueless"], [6])
 
-    def test_unread_wakeups_hold_every_unit_and_show_the_error(self):
+    def test_unread_wakeups_hold_every_pr_and_show_the_error(self):
         def failing(*args):
             if args[:4] == ("issue", "wakeup", "list", "WORK-1091"):
                 raise team_state.StateError("multica: timeout")
@@ -725,7 +711,7 @@ class RepositoryIntakeReadsEveryOpenPullRequest(unittest.TestCase):
         self.assertTrue(all(u["blocked_by"][0] == {"kind": "evidence", "missing": ["Multica wakeups"]}
                             for u in found["blocked"]))
 
-    def test_unread_issues_keep_the_pull_requests_but_hold_every_unit(self):
+    def test_unread_issues_keep_the_pull_requests_but_hold_every_pr(self):
         def failing(*args):
             if args[:2] == ("issue", "list"):
                 raise team_state.StateError("multica: unauthorized")
@@ -741,7 +727,7 @@ class RepositoryIntakeReadsEveryOpenPullRequest(unittest.TestCase):
                          {json.dumps({"kind": "evidence", "missing": ["Multica issues"]})})
         self.assertEqual(found["errors"], ["Multica issues: multica: unauthorized"])
 
-    def test_unread_agents_hold_every_unit_and_show_the_error(self):
+    def test_unread_agents_hold_every_pr_and_show_the_error(self):
         def failing(*args):
             if args[:2] == ("agent", "list"):
                 raise team_state.StateError("multica: timeout")

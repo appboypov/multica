@@ -38,10 +38,10 @@ client messages. It holds:
 - `repository`, `default_branch`, its `default_head` commit and that commit's `checks`.
 - `prs`: every open pull request, paged, with its `number`, `base`, `branch`, `head`, `body`, `checks` (`unknown`
   without a rollup), comments, reviews, threads and changes; its `links`, each Multica issue that links it, read
-  with `issue pull-requests` from every open issue and each issue its title or branch names or its body closes
-  (`Closes WORK-1`), with Multica's link `source` (`title`, `branch`, `auto`, `manual`), or `claimed` for a named
-  issue Multica holds no link of; `issues`, those keys; and `stack_note`, the first `Stacked on ...`
-  phrase of its body, up to the end of its sentence or a `which`, with the pull requests (`#N` or this repository's
+  with `issue pull-requests` from every workspace issue including closed ones. Named claims from the title, branch
+  or closing keywords (`Closes WORK-1`) remain linked even when their issue is missing, with an evidence blocker.
+  Each link has Multica's `source` or `claimed`; `issues` holds those keys. `stack_note` is the first `Stacked on ...`
+  clause naming a concrete target, up to the end of its sentence or a `which`, with the pull requests (`#N` or this repository's
   pull request link), the branches (in backticks, not a commit) and the other repositories' pull requests it names.
 - `issues`: each linked issue by key, from any project, lane or assignee.
 - `edges`: each pull request's edge to the pull request under it, named by its note or by a base that is another
@@ -49,27 +49,21 @@ client messages. It holds:
   head (`ancestry` `contains`) or a commit of it that is not on the default branch (`forked`: the lower has commits
   since); `lower_merged`; `other_repository`; and, needing reconciliation, `ancestry_unproven`, `ambiguous` (more
   open pull requests named), `cycle`, `lower_closed` (closed unmerged) and `unknown_target`. `unresolved` repeats
-  those last five.
+  those last five. Every named target is reconciled; `candidates` retains multiple known targets and
+  `unresolved_refs` retains references that could not be resolved.
 - `issueless`: the numbers of the pull requests without a linked issue.
-- `ready` and `blocked`: the merge units, each `prs` from bottom to top, its `tip` and `tip_head`, its `issues`,
-  `position` (its first issue's board position), `downstream`, the distinct other open issues that wait on a member,
-  transitively, with its `downstream_count`, and `blocked_by`. A pull request joins the unit of the one under it over
-  a verified edge. Where several stack on one pull request, its work goes up with one sibling only: first one whose
-  whole unit, the work under the fork included, would be ready, then the one whose own stack comes first by its own
-  downstream, leaving out the reach they share through the work under them, then board order, then pull request
-  number, and so at each fork above; each other sibling and what stacks on it is a unit of its own, blocked by the
-  pull request under it (`stack`) until that work merged with the first. Intake does not see which unit a
-  verification froze; the verifier's record of it does. An issue waits on
-  what its `blocked_by` names, the earlier steps of its journey, the issue an enabled wakeup of it waits for, or for
-  `children_done` its children up to its stage, each while open, and on the pull request that carries it; a pull
-  request waits on the one under it.
-  Links and wakeups are read with `issue pull-requests` and `issue wakeup list` per open issue. Unlike
-  `waits_on`, an open pull request releases nothing here. A unit is blocked by an unresolved edge of a member
-  (`stack_edge`), an open member issue its builder assigned to someone other than the verifier (`assignee`), an open
-  issue outside it that a member waits on (`blocked_by`, `step`, `wakeup`), an open sub-issue of a member, such as a
-  Fix (`child`), and Multica issues, agents, links or wakeups that could not be read (`evidence`), which hold every
-  unit. `ready` comes most unblocking first, then in board order, then by pull request number; `blocked` in the same
-  order.
+- `prs`, `ready` and `blocked` are ranked individual pull request records. Each includes its `position` (the first
+  linked issue's board position), `downstream` (distinct other open issues waiting on it transitively),
+  `downstream_count` and `blocked_by`. Ranking uses downstream count descending, board position, then PR number.
+  An issue waits on its `blocked_by`, earlier journey steps, enabled issue-condition wakeups or open children
+  selected by a `children_done` wakeup. A pull request waits on its verified open lower pull request (`stack`).
+  Downstream traversal follows linked issues back into their carrying PRs before continuing into upper stacks.
+  Links are read for every workspace issue; wakeups are read for open issues. Unlike `waits_on`,
+  an open pull request releases nothing here. Other blockers are unresolved stack edges (`stack_edge`), linked
+  open issues held by someone other than the verifier (`assignee`), open issue dependencies (`blocked_by`, `step`,
+  `wakeup`) and open sub-issues such as Fixes (`child`). Unread issues, agents, links or wakeups (`evidence`) hold
+  every PR. An unknown verifier also holds every PR. A missing claimed issue holds its PR and reports an error.
+  Check rollups are informational.
 Exit 1 only when GitHub cannot be read; a Multica part that cannot be read carries its error in `errors`.
 """
 
@@ -822,34 +816,33 @@ def pull_request_links(read: dict[str, object], repository: str) -> dict[int, li
 
 
 def stack_note(body: str | None, repository: str) -> dict | None:
-    """The pull request's note of the pull request under it: the first `Stacked on` phrase of its body up to the end of
-    its sentence or a `which`, with the pull requests (`#N` or this repository's link), branches (in backticks, not a
-    commit) and other repositories' pull requests it names."""
-    m = STACK_NOTE_RE.search(body or "")
-    if not m:
-        return None
-    clause = NOTE_END_RE.split(m.group(1), 1)[0]
-    elsewhere = [f"{repo.lower()}#{n}" for repo, n in OTHER_PR_REF_RE.findall(clause) if repo.lower() != repository]
-    numbers = [int(n) for n in PR_REF_RE.findall(clause)]
-    for repo, n in PR_URL_RE.findall(clause):
-        if repo.lower() == repository:
-            numbers.append(int(n))
-        else:
-            elsewhere.append(f"{repo.lower()}#{n}")
-    numbers += [int(n) for repo, n in OTHER_PR_REF_RE.findall(clause) if repo.lower() == repository]
-    return {
-        "text": (m.group(0)[: m.start(1) - m.start(0)] + clause).strip(),
-        "prs": list(dict.fromkeys(numbers)),
-        "branches": list(dict.fromkeys(b for b in CODE_RE.findall(clause) if not SHA_RE.fullmatch(b))),
-        "elsewhere": list(dict.fromkeys(elsewhere)),
-    }
+    """The first `Stacked on` clause naming a concrete lower PR or branch, ending at its sentence or a `which`."""
+    for m in STACK_NOTE_RE.finditer(body or ""):
+        clause = NOTE_END_RE.split(m.group(1), 1)[0]
+        elsewhere = [f"{repo.lower()}#{n}" for repo, n in OTHER_PR_REF_RE.findall(clause) if repo.lower() != repository]
+        numbers = [int(n) for n in PR_REF_RE.findall(clause)]
+        for repo, n in PR_URL_RE.findall(clause):
+            if repo.lower() == repository:
+                numbers.append(int(n))
+            else:
+                elsewhere.append(f"{repo.lower()}#{n}")
+        numbers += [int(n) for repo, n in OTHER_PR_REF_RE.findall(clause) if repo.lower() == repository]
+        branches = [b for b in CODE_RE.findall(clause) if not SHA_RE.fullmatch(b)]
+        if numbers or branches or elsewhere:
+            return {
+                "text": (m.group(0)[: m.start(1) - m.start(0)] + clause).strip(),
+                "prs": list(dict.fromkeys(numbers)),
+                "branches": list(dict.fromkeys(branches)),
+                "elsewhere": list(dict.fromkeys(elsewhere)),
+            }
+    return None
 
 
 def stack_edges(prs: list[dict], default_branch: str | None, resolve, ancestry) -> list[dict]:
     """Each open pull request's edge to the pull request under it, named by its `stack_note` or by a base that is
     another open pull request's branch. `resolve(number=…)`/`resolve(branch=…)` gives a pull request that is not open
     as `{number, state}`, or None; `ancestry(lower, upper)` gives `contains`, `forked` or None. An edge is `verified`
-    only by ancestry; verified edges that close a loop become `cycle`."""
+    only by ancestry; verified edges that close a loop become `cycle`. Every named target is reconciled."""
     by_number = {p["number"]: p for p in prs}
     by_branch = {p["branch"]: p for p in prs}
     edges = []
@@ -859,6 +852,7 @@ def stack_edges(prs: list[dict], default_branch: str | None, resolve, ancestry) 
         if not note and not based:
             continue
         named, gone = {based["number"]} if based else set(), {}
+        unresolved = []
         refs = [{"number": n} for n in (note or {}).get("prs", [])] + [{"branch": b} for b in (note or {}).get("branches", [])]
         for ref in refs:
             found = by_number.get(ref["number"]) if "number" in ref else by_branch.get(ref["branch"])
@@ -871,12 +865,22 @@ def stack_edges(prs: list[dict], default_branch: str | None, resolve, ancestry) 
                 other = None
             if other:
                 gone[other["number"]] = other["state"]
+            else:
+                unresolved.append(ref)
         named.discard(pr["number"])
         gone.pop(pr["number"], None)
         edge = {"upper": pr["number"], "lower": None, "note": note["text"] if note else None,
                 "base": pr.get("base") if based else None}
-        if len(named) > 1:
-            edge.update(status="ambiguous", candidates=sorted(named))
+        candidates = sorted(named | gone.keys())
+        if len(candidates) > 1:
+            edge["candidates"] = candidates
+        closed = sorted(n for n, state in gone.items() if state != "MERGED")
+        if unresolved:
+            edge.update(status="unknown_target", unresolved_refs=unresolved)
+        elif closed:
+            edge.update(status="lower_closed", lower=closed[0] if len(closed) == 1 else None)
+        elif len(named) > 1:
+            edge["status"] = "ambiguous"
         elif named:
             edge["lower"] = lower = named.pop()
             try:
@@ -887,11 +891,8 @@ def stack_edges(prs: list[dict], default_branch: str | None, resolve, ancestry) 
             if kind:
                 edge["ancestry"] = kind
         elif gone:
-            merged = sorted(n for n, state in gone.items() if state == "MERGED")
-            edge["lower"] = merged[0] if len(merged) == 1 else sorted(gone)[0] if len(gone) == 1 else None
-            edge["status"] = "lower_merged" if merged else "lower_closed"
-            if len(gone) > 1:
-                edge["candidates"] = sorted(gone)
+            merged = sorted(gone)
+            edge.update(status="lower_merged", lower=merged[0] if len(merged) == 1 else None)
         elif note and note["elsewhere"]:
             edge.update(status="other_repository", candidates=note["elsewhere"])
         else:
@@ -911,8 +912,7 @@ def stack_edges(prs: list[dict], default_branch: str | None, resolve, ancestry) 
 
 
 def dependents_of(prs: list[dict], waits_of: dict[str, list[dict]], edges: list[dict]) -> dict[object, set]:
-    """What waits directly on each issue key and on each open pull request, `("pr", number)`: the open issues that wait
-    on an issue over `waits_of`, the issues a pull request carries and the pull request a verified edge puts on it."""
+    """Downstream links between issues and their carrying PRs, issue waits and verified upper-PR edges."""
     dependents: dict[object, set] = {}
     for key, ws in waits_of.items():
         for w in ws:
@@ -920,18 +920,17 @@ def dependents_of(prs: list[dict], waits_of: dict[str, list[dict]], edges: list[
     for p in prs:
         for key in p["issues"]:
             dependents.setdefault(("pr", p["number"]), set()).add(key)
+            dependents.setdefault(key, set()).add(("pr", p["number"]))
     for e in edges:
         if e["status"] == "verified":
             dependents.setdefault(("pr", e["lower"]), set()).add(("pr", e["upper"]))
     return dependents
 
 
-def standing(members: list[int], by_number: dict[int, dict], issues: dict[str, dict],
-             dependents: dict[object, set]) -> dict:
-    """The members' `issues`, their `position` (the first one's board position) and their `downstream`: the distinct
-    other open issues that wait on a member, transitively over `dependents`, with its `downstream_count`."""
-    keys = list(dict.fromkeys(k for n in members for k in by_number[n]["issues"]))
-    seen = set(keys) | {("pr", n) for n in members}
+def standing(pr: dict, issues: dict[str, dict], dependents: dict[object, set]) -> dict:
+    """The PR's linked issues, earliest board position and distinct transitive downstream open issues."""
+    keys = list(dict.fromkeys(pr["issues"]))
+    seen = set(keys) | {("pr", pr["number"])}
     todo, downstream = list(seen), set()
     while todo:
         for d in dependents.get(todo.pop(), ()):
@@ -952,9 +951,9 @@ def standing(members: list[int], by_number: dict[int, dict], issues: dict[str, d
     }
 
 
-def unit_order(unit: dict) -> tuple:
-    """Most unblocking first, then in board order, then by the lowest pull request's number."""
-    return -unit["downstream_count"], unit["position"] is None, unit["position"] or 0, unit["prs"][0]
+def pr_order(pr: dict) -> tuple:
+    """Most unblocking first, then in board order, then by pull request number."""
+    return -pr["downstream_count"], pr["position"] is None, pr["position"] or 0, pr["number"]
 
 
 def children_of(issues: dict[str, dict]) -> dict[str, list[dict]]:
@@ -966,67 +965,25 @@ def children_of(issues: dict[str, dict]) -> dict[str, list[dict]]:
     return children
 
 
-def blockers(unit: dict, keys: list[str], issues: dict[str, dict], verifier: str | None,
+def blockers(pr: dict, keys: list[str], issues: dict[str, dict], verifier: str | None,
              waits_of: dict[str, list[dict]], edges: list[dict], children: dict[str, list[dict]],
              missing: Sequence[str] = ()) -> list[dict]:
-    """What holds the unit, its member issues `keys`: Multica's `missing` parts, an unresolved edge of a member
-    (`stack_edge`), the pull request under it (`stack`), a member issue the verifier does not hold (`assignee`), an open
-    issue outside the unit that a member waits on and an open sub-issue of a member (`child`); what waits inside the
-    unit holds nothing."""
+    """Missing evidence, stack relationships, assignment and dependencies that hold this pull request."""
     reasons = [{"kind": "evidence", "missing": list(missing)}] if missing else []
     reasons += [{"kind": "stack_edge", "pr": e["upper"], "lower": e["lower"], "status": e["status"]}
-                for e in edges if e["upper"] in unit["prs"] and e["status"] in UNRESOLVED_EDGES]
-    if unit["under"] is not None:
-        reasons.append({"kind": "stack", "pr": unit["under"]})
+                for e in edges if e["upper"] == pr["number"] and e["status"] in UNRESOLVED_EDGES]
+    reasons += [{"kind": "stack", "pr": e["lower"]}
+                for e in edges if e["upper"] == pr["number"] and e["status"] == "verified"]
     for key in keys:
         row = issues.get(key)
-        if row and not finished(row, verifier):
+        if row is None:
+            reasons.append({"kind": "evidence", "missing": [f"Multica issue {key}"]})
+        elif not finished(row, verifier):
             reasons.append({"kind": "assignee", "key": key, "assignee": row["assignee"]})
         reasons += [w for w in waits_of.get(key, []) if w["key"] not in keys]
         reasons += [{"kind": "child", "key": c["key"], "status": c["status"]}
                     for c in children.get(key, []) if c["key"] not in keys]
     return list({json.dumps(r, sort_keys=True): r for r in reasons}.values())
-
-
-def merge_units(prs: list[dict], edges: list[dict], issues: dict[str, dict], verifier: str | None,
-                waits_of: dict[str, list[dict]]) -> list[dict]:
-    """The linear merge units of the open pull requests, each `prs` from bottom to top and `under` the pull request it
-    stacks on, or None. A pull request joins the unit of the one under it over a verified edge. Where several stack on
-    one pull request, the unit goes up with one of them only: first a sibling whose whole unit, the members under the
-    fork included, would be ready by `blockers`, so what it waits on inside the unit holds nothing; then the one whose
-    own stack, from it up, comes first in `unit_order`, by the distinct other open issues downstream of it, which leaves
-    out the reach the siblings share through the work under them, then in board order, then by pull request number.
-    The same choice repeats at each fork above. Each other sibling, with what stacks on it, is a unit of its own,
-    `under` the pull request it stacks on, so it lands after that work, never with it; once that work merged, its edge
-    is `lower_merged` and it stands alone. Intake does not see which unit a verification froze: the verifier's record
-    of it does."""
-    lower_of = {e["upper"]: e["lower"] for e in edges if e["status"] == "verified"}
-    uppers: dict[int, list[int]] = {}
-    for upper, lower in sorted(lower_of.items()):
-        uppers.setdefault(lower, []).append(upper)
-    by_number = {p["number"]: p for p in prs}
-    dependents = dependents_of(prs, waits_of, edges)
-    children = children_of(issues)
-
-    def chain(prefix: list[int], under: int | None) -> list[int]:
-        """The unit from the members `prefix` up, each fork taken to its first sibling."""
-        candidates = [chain([*prefix, upper], under) for upper in uppers.get(prefix[-1], [])]
-
-        def order(members: list[int]) -> tuple:
-            keys = list(dict.fromkeys(k for n in members for k in by_number[n]["issues"]))
-            held = blockers({"prs": members, "under": under}, keys, issues, verifier, waits_of, edges, children)
-            own = members[len(prefix):]
-            return bool(held), *unit_order({"prs": own, **standing(own, by_number, issues, dependents)})
-
-        return min(candidates, key=order) if candidates else prefix
-
-    units, starts = [], [(n, None) for n in sorted(by_number) if n not in lower_of]
-    while starts:
-        number, under = starts.pop()
-        members = chain([number], under)
-        units.append({"prs": members, "under": under})
-        starts += [(upper, member) for member in members for upper in uppers.get(member, []) if upper not in members]
-    return sorted(units, key=lambda u: u["prs"][0])
 
 
 def waits(issues: dict[str, dict], wakeups: list[dict]) -> dict[str, list[dict]]:
@@ -1069,26 +1026,18 @@ def waits(issues: dict[str, dict], wakeups: list[dict]) -> dict[str, list[dict]]
     return out
 
 
-def rank_units(units: list[dict], prs: list[dict], issues: dict[str, dict], verifier: str | None,
-               waits_of: dict[str, list[dict]], edges: list[dict],
-               missing: Sequence[str] = ()) -> tuple[list[dict], list[dict]]:
-    """The units, ready and blocked: each with its `standing`, the distinct other open issues that wait on a member,
-    transitively, over `waits_of`, the pull request that carries an issue and the pull request a verified edge puts
-    under another; and with its `blockers`, every unit held when Multica's `missing` parts could not be read. Each list
-    comes in `unit_order`."""
-    by_number = {p["number"]: p for p in prs}
+def rank_prs(prs: list[dict], issues: dict[str, dict], verifier: str | None,
+             waits_of: dict[str, list[dict]], edges: list[dict],
+             missing: Sequence[str] = ()) -> list[dict]:
+    """Rank each open PR with its downstream impact and visible blockers."""
     dependents = dependents_of(prs, waits_of, edges)
     children = children_of(issues)
-
-    ready, blocked = [], []
-    for unit in units:
-        held = standing(unit["prs"], by_number, issues, dependents)
-        reasons = blockers(unit, held["issues"], issues, verifier, waits_of, edges, children, missing)
-        tip = unit["prs"][-1]
-        found = {"prs": unit["prs"], "tip": tip, "tip_head": by_number[tip]["head"], **held, "blocked_by": reasons}
-        (blocked if reasons else ready).append(found)
-
-    return sorted(ready, key=unit_order), sorted(blocked, key=unit_order)
+    ranked = []
+    for pr in prs:
+        held = standing(pr, issues, dependents)
+        reasons = blockers(pr, held["issues"], issues, verifier, waits_of, edges, children, missing)
+        ranked.append({**pr, **held, "blocked_by": reasons})
+    return sorted(ranked, key=pr_order)
 
 
 def find_pull_request(name: str, number: int | None = None, branch: str | None = None) -> dict | None:
@@ -1124,7 +1073,7 @@ def ancestry(name: str, default_head: str | None, lower: dict, upper: dict) -> s
 
 
 def collect_intake(name: str, verifier_name: str) -> dict:
-    """One repository's open pull requests in merge units, ready and blocked, for the verifier; see the docstring."""
+    """One repository's ranked individual pull requests, ready and blocked; see the docstring."""
     try:
         github = collect_github(name, intake=True)
     except (KeyError, TypeError) as e:
@@ -1139,18 +1088,18 @@ def collect_intake(name: str, verifier_name: str) -> dict:
         missing.append("Multica issues")
     try:
         verifier = next((a["id"] for a in multica("agent", "list") if a["name"] == verifier_name), None)
+        if verifier is None:
+            raise StateError(f"verifier {verifier_name!r} not found")
     except (StateError, KeyError, TypeError) as e:
         verifier = None
         errors.append(f"Multica agents: {e}")
         missing.append("Multica agents")
-    claims = {p["number"]: [k for k in claimed_keys(p) if issues is None or k in issues] for p in prs}
+    claims = {p["number"]: claimed_keys(p) for p in prs}
     linked: dict[int, list[dict]] = {}
     wakeups: list[dict] = []
     if issues is not None:
         open_keys = sorted((k for k, row in issues.items() if row["status"] not in CLOSED), key=key_order)
-        # every open issue, for links its pull request does not name, and a closed one only when a pull request claims it
-        claimed = {k for ks in claims.values() for k in ks}
-        read, failed = per_issue(sorted(set(open_keys) | claimed, key=key_order), "issue", "pull-requests")
+        read, failed = per_issue(sorted(issues, key=key_order), "issue", "pull-requests")
         linked = pull_request_links(read, name)
         if failed:
             errors.append("Multica links: " + "; ".join(failed))
@@ -1167,12 +1116,15 @@ def collect_intake(name: str, verifier_name: str) -> dict:
                                if all(link["key"] != k for link in links)]
         pr["issues"] = [link["key"] for link in pr["links"]]
         pr["stack_note"] = stack_note(pr["body"], name)
+    if issues is not None:
+        unknown = sorted({k for p in prs for k in p["issues"] if k not in issues}, key=key_order)
+        if unknown:
+            errors.append("Multica issues: missing " + ", ".join(unknown))
     edges = stack_edges(prs, github["default_branch"], lambda **ref: find_pull_request(name, **ref),
                         lambda lower, upper: ancestry(name, github["default_head"], lower, upper))
     issues = issues or {}
     waits_of = waits(issues, wakeups)
-    ready, blocked = rank_units(merge_units(prs, edges, issues, verifier, waits_of), prs, issues, verifier, waits_of,
-                                edges, missing)
+    prs = rank_prs(prs, issues, verifier, waits_of, edges, missing)
     linked_keys = sorted({k for p in prs for k in p["issues"] if k in issues}, key=key_order)
     out = {
         "repository": name,
@@ -1182,8 +1134,8 @@ def collect_intake(name: str, verifier_name: str) -> dict:
         "edges": edges,
         "unresolved": [e for e in edges if e["status"] in UNRESOLVED_EDGES],
         "issueless": [p["number"] for p in prs if not p["issues"]],
-        "ready": ready,
-        "blocked": blocked,
+        "ready": [p for p in prs if not p["blocked_by"]],
+        "blocked": [p for p in prs if p["blocked_by"]],
     }
     if errors:
         out["errors"] = errors
@@ -1198,7 +1150,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--lane", help="the worklane to run on, by name or id: only its lane is reported")
     parser.add_argument("--client", action="append", default=[], help="a client whose chats to read beside those the endeavour names")
     parser.add_argument("--intake", metavar="REPOSITORY",
-                        help="repository intake instead: every open pull request of one repository, owner/name or a checkout, in merge units")
+                        help="repository intake instead: every open pull request of one repository, owner/name or a checkout, ranked individually")
     args = parser.parse_args(argv)
     if args.intake and (args.endeavour or args.repo or args.lane or args.client):
         parser.error("--intake takes no endeavour, --repo, --lane or --client")

@@ -16,7 +16,8 @@ MadSpec's `{planning-scripts}` is this skill's `scripts/` folder:
 
 - `tickets.py` reads and writes a ticket tree through the `multica` CLI; its docstring names every verb and field. Run it with `uv run`.
 - `labels.py` reports the ticket labels the workspace lacks, and creates them with `--create`.
-- `team_state.py` collects the open work of one endeavour: Multica, its repositories, their pull requests and the client chats. `--intake <owner/name or path> --verifier <agent name>` instead lists every open pull request of one repository in ranked ready and blocked merge units. `--verifier` is the Multica agent name of the verifier.
+- `team_state.py` collects the open work of one endeavour: Multica, its repositories, their pull requests and the client chats. `--intake <owner/name or path> --verifier <agent name>` instead ranks every open pull request of one repository with ready and blocked views. `--verifier` is the Multica agent name of the verifier.
+  Intake retains closed issues' manual links. Missing claims block their PR; an unresolved verifier blocks selection.
 - `words.ts` gives Brian's issue comments and question answers between `--start` and `--end`, through the `local` profile. Run it with `bun`.
 
 ## Questions
