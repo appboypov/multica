@@ -81,12 +81,16 @@ class AnIssueWaitsOnWhatHoldsIt(unittest.TestCase):
         )
 
     def test_a_client_wait_ahead_in_the_same_release_holds_the_work_behind_it(self):
-        rows = [row("WORK-20", labels=["Client wait"]), row("WORK-21", "done", labels=["Client wait"]),
-                row("WORK-22", labels=["Client wait"], release="0.2.0"), row("WORK-23")]
-        waits = team_state.waits_on(rows[3], rows[:3], {r["key"]: r for r in rows}, VERIFIER)
+        nasir, sam = {"type": "member", "id": "user-nasir"}, {"type": "member", "id": "user-sam"}
+        rows = [row("WORK-20"), row("WORK-21", "done"), row("WORK-22", release="0.2.0"), row("WORK-24"), row("WORK-23")]
+        for r in rows[:3]:
+            r["assignee"] = nasir
+        rows[3]["assignee"] = sam
+        clients = frozenset({"user-nasir"})
+        waits = team_state.waits_on(rows[4], rows[:4], {r["key"]: r for r in rows}, VERIFIER, clients)
         self.assertEqual([w["key"] for w in waits], ["WORK-20"])
         # And the client wait itself waits on no other client wait
-        self.assertEqual(team_state.waits_on(rows[2], rows[:2], {}, VERIFIER), [])
+        self.assertEqual(team_state.waits_on(rows[2], rows[:2], {}, VERIFIER, clients), [])
 
 
 class IssuesAreReadAsMulticaHoldsThem(unittest.TestCase):
@@ -96,10 +100,10 @@ class IssuesAreReadAsMulticaHoldsThem(unittest.TestCase):
             "properties": {"p1": 5}, "due_date": None, "release_id": "r1", "parent_issue_id": "i1", "stage": 2,
             "assignee_type": "agent", "assignee_id": "a1", "metadata": {"blocked_by": "work-7, WORK-8"},
         }
-        found = team_state.issue_row(issue, {"i2": ["Client wait"]}, "p1", {"i1": "WORK-1"}, {"r1": "0.3.0"})
+        found = team_state.issue_row(issue, {"i2": ["hitl"]}, "p1", {"i1": "WORK-1"}, {"r1": "0.3.0"})
         self.assertEqual(
             {k: found[k] for k in ("labels", "points", "parent", "release", "assignee", "blocked_by")},
-            {"labels": ["Client wait"], "points": 5, "parent": "WORK-1", "release": "0.3.0",
+            {"labels": ["hitl"], "points": 5, "parent": "WORK-1", "release": "0.3.0",
              "assignee": {"type": "agent", "id": "a1"}, "blocked_by": ["WORK-7", "WORK-8"]},
         )
 

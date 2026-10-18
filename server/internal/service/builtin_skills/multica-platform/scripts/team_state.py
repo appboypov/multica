@@ -20,7 +20,8 @@
 - `waits_on` names what holds an issue, read from Multica as written: status `blocked`; each issue its metadata
   `blocked_by` names that is neither closed nor assigned to the verifier; for a journey step (a sub-issue with a
   stage), each earlier step of its journey that is neither closed nor assigned to the verifier; and each open
-  `Client wait` issue of its release that comes before it in its lane.
+  client wait of its release that comes before it in its lane: an issue assigned to a member with role `client`
+  (`workspace member list`).
 - Repositories, from git and GitHub: per repository its checkouts, the default branch and that branch's `checks`;
   `changes`, the OpenSpec changes of every checkout and worktree with their `x-build:` map; `prs`, the open pull
   requests with their checks, comments, reviews, review threads, the changes their files touch and the Multica
@@ -86,7 +87,6 @@ MULTICA = ["multica", "--profile", "skuddy"]
 MULTICA_CONFIG = Path.home() / ".multica" / "profiles" / "skuddy" / "config.json"
 CLOSED = {"done", "cancelled"}
 STARTED = {"in_progress", "blocked", "in_review"}
-CLIENT_WAIT = "Client wait"
 POINTS = "Points"
 PAGE = 100
 ISSUE_READERS = 8  # per-issue `multica` reads at once
@@ -251,7 +251,13 @@ def holds(row: dict | None, verifier: str | None) -> bool:
     return row is not None and not finished(row, verifier)
 
 
-def waits_on(row: dict, before: list[dict], rows: dict[str, dict], verifier: str | None) -> list[dict]:
+def client_wait(row: dict, clients: frozenset[str]) -> bool:
+    """Whether the issue waits on a client: it is assigned to a member with role `client`."""
+    return row["assignee"] is not None and row["assignee"]["type"] == "member" and row["assignee"]["id"] in clients
+
+
+def waits_on(row: dict, before: list[dict], rows: dict[str, dict], verifier: str | None,
+             clients: frozenset[str] = frozenset()) -> list[dict]:
     """What holds the issue, as Multica has it; `before` are the issues ahead of it in its lane."""
     out = []
     if row["status"] == "blocked":
@@ -267,16 +273,17 @@ def waits_on(row: dict, before: list[dict], rows: dict[str, dict], verifier: str
             if other["parent"] == row["parent"] and other["stage"] is not None and other["stage"] < row["stage"]
             and holds(other, verifier)
         ]
-    if CLIENT_WAIT not in row["labels"]:
+    if not client_wait(row, clients):
         out += [
             {"kind": "client_wait", "key": other["key"], "title": other["title"], "due_date": other["due_date"]}
             for other in before
-            if CLIENT_WAIT in other["labels"] and other["release"] == row["release"] and other["status"] not in CLOSED
+            if client_wait(other, clients) and other["release"] == row["release"] and other["status"] not in CLOSED
         ]
     return out
 
 
-def lane_head(rows: list[dict], known: dict[str, dict], verifier: str | None) -> dict:
+def lane_head(rows: list[dict], known: dict[str, dict], verifier: str | None,
+              clients: frozenset[str] = frozenset()) -> dict:
     """The lane's active issue, the first that has started and is not finished, and its next, the first that has not
     started, each with what it waits on."""
     head = {"active": None, "next": None}
@@ -285,7 +292,7 @@ def lane_head(rows: list[dict], known: dict[str, dict], verifier: str | None) ->
             continue
         slot = "active" if row["status"] in STARTED else "next"
         if head[slot] is None:
-            head[slot] = {**row, "waits_on": waits_on(row, rows[:i], known, verifier)}
+            head[slot] = {**row, "waits_on": waits_on(row, rows[:i], known, verifier, clients)}
         if head["active"] and head["next"]:
             break
     return head
@@ -306,6 +313,7 @@ def collect_multica(repos: list[str], verifier_name: str, lane: str | None = Non
     """The lanes, releases and lane-less open issues of the repositories, from Multica."""
     points = points_property()
     verifier = next((a["id"] for a in multica("agent", "list") if a["name"] == verifier_name), None)
+    clients = frozenset(m["user_id"] for m in multica("workspace", "member", "list") if m.get("role") == "client")
     repositories, lanes_by_repo, issues_by_lane, project_ids = [], {}, {}, set()
     releases: dict[str, str] = {}
     for name in repos:
@@ -375,7 +383,7 @@ def collect_multica(repos: list[str], verifier_name: str, lane: str | None = Non
                 "path": w.get("path"),
                 "multica_active": (w.get("active_issue") or {}).get("identifier"),
                 "multica_next": (w.get("next_issue") or {}).get("identifier"),
-                **lane_head(mine, rows, verifier),
+                **lane_head(mine, rows, verifier, clients),
                 "verifier": [r["key"] for r in mine if r["status"] not in CLOSED and with_verifier(r, verifier)],
                 "issues": [r for r in mine if r["status"] not in CLOSED],
                 "closed": sum(r["status"] in CLOSED for r in mine),

@@ -57,12 +57,12 @@ class LabelTests(unittest.TestCase):
 
     @unittest.skipIf(sys.platform == "win32", "the fake multica is a script with a shebang")
     def test_create_makes_every_missing_label_once(self):
-        self.labels("Client wait", "green light: Brian")
+        self.labels("Bug", "green light: Brian")
         r = self.run_labels("--create")
         self.assertEqual(r.returncode, 0, r.stderr)
         expected = ["risk:low", "risk:medium", "risk:high", "hitl"]
         self.assertEqual(json.loads(r.stdout), {"missing": [], "created": expected})
-        self.assertEqual(self.stored(), ["Client wait", "green light: Brian", *expected])
+        self.assertEqual(self.stored(), ["Bug", "green light: Brian", *expected])
         again = self.run_labels("--create")
         self.assertEqual(json.loads(again.stdout), {"missing": [], "created": []})
 

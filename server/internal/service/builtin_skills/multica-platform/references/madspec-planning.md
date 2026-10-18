@@ -89,7 +89,11 @@ A pass is an approval question asked as "Questions" says, on the issue of the wo
 
 ## Client waits
 
-The due date is set with `--due-date`.
+A client wait is an ordinary issue assigned to the client's own member. The client reads every open issue assigned to them in a project of their organisations.
+
+- **The client's member:** the member with role `client` whose `organisation_ids` holds the organisation of the issue's project, in `workspace member list --output json`. The organisation of the issue is its project's `organisation_id`, as "Client updates" says.
+- **Assign:** `issue assign <issue> --to <client's name>`.
+- The due date is set with `--due-date`.
 
 ## External waits
 
