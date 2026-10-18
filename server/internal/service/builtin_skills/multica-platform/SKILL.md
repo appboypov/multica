@@ -28,7 +28,7 @@ Read the invariants below, then open the reference(s) your task actually needs
 | `references/projects.md` | Projects and their durable resources (`github_repo`, `local_directory`, worktree mode) |
 | `references/runtimes.md` | Runtimes, daemons, `repo checkout`, and the task CLI boundary |
 | `references/skill-import.md` | Importing a skill into this workspace from a URL or a local archive |
-| `references/madspec-planning.md` | MadSpec planning in Multica: sessions, questions, runs, the issue tree, tasks, journeys, lanes, releases, client waits, client updates and the improvement report |
+| `references/madspec-planning.md` | MadSpec planning in Multica: sessions, questions, passes and gates, runs, the issue tree, tasks, journeys, lanes, releases, client waits, client updates and the improvement report |
 | `scripts/tickets.py` | Reading and writing a MadSpec ticket tree, as `references/madspec-planning.md` "Scripts" says |
 | `scripts/labels.py` | The ticket labels the workspace lacks, as `references/madspec-planning.md` "Scripts" says |
 | `scripts/team_state.py` | The open work of one MadSpec endeavour, as `references/madspec-planning.md` "Scripts" says |

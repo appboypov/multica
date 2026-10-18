@@ -21,7 +21,17 @@ MadSpec's `{planning-scripts}` is this skill's `scripts/` folder:
 
 ## Questions
 
-A run asks Brian with `multica question ask` on its issue, all questions of one subject in one ask. `multica question --help` gives `ask`, `answers`, `withdraw` and `close`.
+MadSpec's `madspec-inbox` reaches Brian with questions on his name on the issue of the work. In Multica:
+
+- **Ask:** `multica question ask --on <issue> --answerer Brian`, all questions of one subject in one ask: `--prompt` for one question, or `--questions-file` with `--title` for several. Each question takes the answer type that fits it; `multica question ask --help` names the types and their flags. The output gives the ask's id and each question's id.
+- **A pass:** `--type approval` with `--subject` naming the work and `--link-url` with `--link-title` linking it, such as its Review or pull request.
+- **A to-do:** a question, or a sub-issue made with `issue create --parent <issue> --assignee Brian`.
+- **Hear the answer:** a run ends once it has asked. Brian's answer starts a new run on the question's issue, which opens with an `[ANSWERS]` block. An omp session hears the answers to the questions it asked through the plugin `omp-multica-listen`, as the login its folder's `.multica-profile` names; each answer arrives as a message that starts a turn. `multica_question_subscribe` adds a question another session asked, and `multica_issue_subscribe` follows a sub-issue for Brian.
+- **Read and close:** `question answers <id> --output json` reads his answer (`approve`, `request_changes` or `decline`), his note and the thread. `question close <id>` closes an answered question, and `question withdraw <id>` withdraws one that no longer needs his answer.
+
+## Passes and gates
+
+A pass is an approval question asked as "Questions" says, on the issue of the work it passes, such as the release's issue for a release. A release pass names the release in `--subject` by its version and repository. Gates in Anytype name the pass by its issue key and the question id the ask printed. A comment that links an Anytype object to its issue is made with `issue comment add`.
 
 ## Runs
 
