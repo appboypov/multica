@@ -1,4 +1,3 @@
-import importlib.util
 import json
 import subprocess
 import sys
@@ -7,11 +6,10 @@ import unittest
 import unittest.mock
 from pathlib import Path
 
-SCRIPT = Path(__file__).resolve().parents[2] / "server/internal/service/builtin_skills/multica-platform/scripts" / "team_state.py"
-spec = importlib.util.spec_from_file_location("team_state", SCRIPT)
-team_state = importlib.util.module_from_spec(spec)
-sys.modules["team_state"] = team_state
-spec.loader.exec_module(team_state)
+SCRIPTS = Path(__file__).resolve().parents[2] / "server/internal/service/builtin_skills/multica-platform/scripts"
+sys.path.insert(0, str(SCRIPTS))
+import team_state  # noqa: E402
+import team_state_repositories  # noqa: E402
 
 
 VERIFIER = "agent-verifier"
@@ -108,7 +106,7 @@ class IssuesAreReadAsMulticaHoldsThem(unittest.TestCase):
         self.assertEqual(called.call_args_list[1].args[-1], "1")
 
     def test_a_failed_multica_command_stops_with_its_error(self):
-        with unittest.mock.patch.object(team_state.subprocess, "run",
+        with unittest.mock.patch.object(subprocess, "run",
                                         return_value=subprocess.CompletedProcess([], 1, "", "unauthorized")):
             with self.assertRaisesRegex(team_state.StateError, "unauthorized"):
                 team_state.multica("repo", "list")
@@ -140,7 +138,7 @@ class ChangesAreReadFromEveryCheckout(unittest.TestCase):
         git(self.repo, "commit", "-qm", name)
 
     def found(self):
-        return {c["name"]: (c["archived"], c["build"]) for c in team_state.collect_changes(self.repo, "main")}
+        return {c["name"]: (c["archived"], c["build"]) for c in team_state_repositories.collect_changes(self.repo, "main")}
 
     def test_a_branch_reports_its_open_changes_and_what_it_archived_that_main_has_not(self):
         self.assertEqual(self.found(), {"coupon": (False, {"status": "in-progress", "assignee": "ann"}), "receipt": (True, {})})
@@ -148,7 +146,7 @@ class ChangesAreReadFromEveryCheckout(unittest.TestCase):
     def test_a_change_whose_build_map_cannot_be_read_keeps_its_error_and_the_others_are_read(self):
         (self.repo / "openspec" / "changes" / "broken").mkdir()
         (self.repo / "openspec" / "changes" / "broken" / ".openspec.yaml").write_text("build: [\n", encoding="utf-8")
-        found = {c["name"]: c.get("error") for c in team_state.collect_changes(self.repo, "main")}
+        found = {c["name"]: c.get("error") for c in team_state_repositories.collect_changes(self.repo, "main")}
         self.assertEqual(found, {"broken": "build: is no map: [", "coupon": None, "receipt": None})
 
     def test_a_merge_on_the_remote_default_branch_counts_before_the_local_one_is_pulled(self):
@@ -217,11 +215,11 @@ class PullRequestsNameTheirChangesAndIssues(unittest.TestCase):
             "openspec/changes/archive/README.md",
             "skills/madspec/SKILL.md",
         ]
-        self.assertEqual(team_state.change_names(paths), ["cart-copy", "web-cart"])
+        self.assertEqual(team_state_repositories.change_names(paths), ["cart-copy", "web-cart"])
 
     def test_the_title_and_branch_name_their_issue_keys(self):
-        self.assertEqual(team_state.issue_keys("Shop discounts (WORK-697)", "work-697"), ["WORK-697"])
-        self.assertEqual(team_state.issue_keys("Fix build", "update-123x"), [])
+        self.assertEqual(team_state_repositories.issue_keys("Shop discounts (WORK-697)", "work-697"), ["WORK-697"])
+        self.assertEqual(team_state_repositories.issue_keys("Fix build", "update-123x"), [])
 
 
 class ClientsAreThoseTheEndeavourNames(unittest.TestCase):
