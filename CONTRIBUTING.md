@@ -450,6 +450,9 @@ Notes:
   so usage collection never scans your own rollout history
 - Cursor background-process tests on Linux require kernel 6.9 or newer for
   pidfd process-group signalling; older kernels reject retained group ownership
+- Native-activity watchdog and task-wakeup deadline regressions use
+  `testing/synctest` so CPU scheduling cannot consume their timing budgets.
+  WebSocket deadline fixtures use `net.Pipe` so I/O participates in virtual time.
 - E2E tests create their own workspace and issue fixtures
 - the check flow starts backend/frontend only if they are not already running
 - Readonly code-copy regressions cover clipboard completion before and after unmount.

@@ -209,15 +209,17 @@ func TestBackgroundToolWatchdogFreshActivityDuringRevalidation(t *testing.T) {
 
 func TestExecuteAndDrain_BackgroundNativeCountSurvivesDroppedTranscript(t *testing.T) {
 	d := newTestDaemon(t)
-	d.cfg.AgentIdleWatchdog = 50 * time.Millisecond
-	d.cfg.AgentToolWatchdog = time.Second
-	backend := &backgroundToolBackend{natural: 200 * time.Millisecond, dropTranscript: true}
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-	result, _, err := d.executeAndDrain(ctx, backend, "test", agent.ExecOptions{}, slog.Default(), "dropped-transcript", "", "", new(atomic.Int32))
-	if err != nil || result.Status != "completed" || backend.interrupts.Load() != 0 {
-		t.Fatalf("native tool state lost: %+v err=%v", result, err)
-	}
+	synctest.Test(t, func(t *testing.T) {
+		d.cfg.AgentIdleWatchdog = 50 * time.Millisecond
+		d.cfg.AgentToolWatchdog = time.Second
+		backend := &backgroundToolBackend{natural: 200 * time.Millisecond, dropTranscript: true}
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		result, _, err := d.executeAndDrain(ctx, backend, "test", agent.ExecOptions{}, slog.Default(), "dropped-transcript", "", "", new(atomic.Int32))
+		if err != nil || result.Status != "completed" || backend.interrupts.Load() != 0 {
+			t.Fatalf("native tool state lost: %+v err=%v", result, err)
+		}
+	})
 }
 
 // TestCursorBackgroundCapturedDisabledToolWatchdog is the deliberate mirror of

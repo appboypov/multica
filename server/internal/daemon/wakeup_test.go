@@ -1,15 +1,18 @@
 package daemon
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -468,96 +471,10 @@ func waitForClientWakeup(t *testing.T, clientReceived <-chan struct{}) {
 	}
 }
 
-// TestReadTaskWakeupMessagesExtendsReadDeadlineOnPeerTraffic covers the read
-// liveness half of the wakeup socket: every ping, pong and application frame
-// must push the read deadline out (configureTaskWakeupReadLiveness and the
-// per-frame extendTaskWakeupReadDeadline in wakeup.go), so a healthy connection
-// survives indefinitely without traffic of our own.
-//
-// These are NOT transport-timeout tests and must not be deleted as such: the
-// deadline never fires on the happy path. Each peer sends three keepalives
-// 50ms apart and then a task frame at ~200ms, well past the 120ms pongWait
-// these tests install. If extension regresses, the read fails before the task
-// frame arrives and readTaskWakeupMessages returns early — which is exactly
-// the failure a daemon would see in production as a wakeup socket that dies
-// every pongWait and silently falls back to polling for work.
-//
-// Deliberately serial: overrideTaskWakeupTimings writes package globals.
+// Virtual time keeps peer traffic inside the read budget even under CPU load.
+// The task arrives after the initial deadline, so every traffic kind must renew it.
 func TestReadTaskWakeupMessagesExtendsReadDeadlineOnPeerTraffic(t *testing.T) {
 	overrideTaskWakeupTimings(t, 120*time.Millisecond, 50*time.Millisecond, taskWakeupBackoffResetAfter)
-
-	for _, tc := range []struct {
-		name string
-		run  func(*testing.T)
-	}{
-		{"server ping extends the deadline", readTaskWakeupMessagesExtendsDeadlineOnServerPing},
-		{"application message extends the deadline", readTaskWakeupMessagesExtendsDeadlineOnApplicationMessage},
-		{"pong extends the deadline", readTaskWakeupMessagesExtendsDeadlineOnPong},
-	} {
-		t.Run(tc.name, func(t *testing.T) { tc.run(t) })
-	}
-}
-func readTaskWakeupMessagesExtendsDeadlineOnServerPing(t *testing.T) {
-	clientReceived := make(chan struct{})
-	taskFrame := mustProtocolFrame(t, protocol.Message{
-		Type: protocol.EventDaemonTaskAvailable,
-		Payload: marshalRaw(protocol.TaskAvailablePayload{
-			RuntimeID: "runtime-1",
-			TaskID:    "task-1",
-		}),
-	})
-
-	upgrader := websocket.Upgrader{}
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		conn, err := upgrader.Upgrade(w, r, nil)
-		if err != nil {
-			return
-		}
-		defer conn.Close()
-
-		for i := 0; i < 3; i++ {
-			time.Sleep(50 * time.Millisecond)
-			conn.SetWriteDeadline(time.Now().Add(50 * time.Millisecond))
-			if err := conn.WriteMessage(websocket.PingMessage, []byte("keepalive")); err != nil {
-				return
-			}
-		}
-
-		if !writeWSMessage(t, conn, websocket.TextMessage, taskFrame) {
-			return
-		}
-		waitForClientWakeup(t, clientReceived)
-	}))
-	defer srv.Close()
-
-	conn, _, err := websocket.DefaultDialer.Dial(taskWakeupTestWSURL(srv.URL), nil)
-	if err != nil {
-		t.Fatalf("dial websocket: %v", err)
-	}
-	defer conn.Close()
-
-	d := New(Config{}, slog.Default())
-	taskWakeups := make(chan taskWakeup, 1)
-	errCh := make(chan error, 1)
-	go func() {
-		errCh <- d.readTaskWakeupMessages(conn, taskWakeups)
-	}()
-
-	select {
-	case wakeup := <-taskWakeups:
-		if wakeup.runtimeID != "runtime-1" {
-			t.Fatalf("wakeup runtimeID = %q, want runtime-1", wakeup.runtimeID)
-		}
-		close(clientReceived)
-	case err := <-errCh:
-		t.Fatalf("readTaskWakeupMessages returned before task frame: %v", err)
-	case <-time.After(time.Second):
-		t.Fatal("timed out waiting for task wakeup")
-	}
-}
-
-func readTaskWakeupMessagesExtendsDeadlineOnApplicationMessage(t *testing.T) {
-	clientReceived := make(chan struct{})
 	ackFrame := mustProtocolFrame(t, protocol.Message{
 		Type: protocol.EventDaemonHeartbeatAck,
 		Payload: marshalRaw(HeartbeatResponse{
@@ -571,109 +488,112 @@ func readTaskWakeupMessagesExtendsDeadlineOnApplicationMessage(t *testing.T) {
 			TaskID:    "task-1",
 		}),
 	})
-
-	upgrader := websocket.Upgrader{}
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		conn, err := upgrader.Upgrade(w, r, nil)
-		if err != nil {
-			return
-		}
-		defer conn.Close()
-
-		for i := 0; i < 3; i++ {
-			time.Sleep(50 * time.Millisecond)
-			if !writeWSMessage(t, conn, websocket.TextMessage, ackFrame) {
-				return
-			}
-		}
-		time.Sleep(50 * time.Millisecond)
-		if !writeWSMessage(t, conn, websocket.TextMessage, taskFrame) {
-			return
-		}
-		waitForClientWakeup(t, clientReceived)
-	}))
-	defer srv.Close()
-
-	conn, _, err := websocket.DefaultDialer.Dial(taskWakeupTestWSURL(srv.URL), nil)
-	if err != nil {
-		t.Fatalf("dial websocket: %v", err)
-	}
-	defer conn.Close()
-
-	d := New(Config{}, slog.Default())
-	taskWakeups := make(chan taskWakeup, 1)
-	errCh := make(chan error, 1)
-	go func() {
-		errCh <- d.readTaskWakeupMessages(conn, taskWakeups)
-	}()
-
-	select {
-	case wakeup := <-taskWakeups:
-		if wakeup.runtimeID != "runtime-1" {
-			t.Fatalf("wakeup runtimeID = %q, want runtime-1", wakeup.runtimeID)
-		}
-		close(clientReceived)
-	case err := <-errCh:
-		t.Fatalf("readTaskWakeupMessages returned before task frame: %v", err)
-	case <-time.After(time.Second):
-		t.Fatal("timed out waiting for task wakeup")
+	for _, tc := range []struct {
+		name        string
+		messageType int
+		frame       []byte
+	}{
+		{"server ping extends the deadline", websocket.PingMessage, []byte("keepalive")},
+		{"application message extends the deadline", websocket.TextMessage, ackFrame},
+		{"pong extends the deadline", websocket.PongMessage, []byte("keepalive")},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			d := New(Config{}, slog.Default())
+			synctest.Test(t, func(t *testing.T) {
+				conn, peer := newTaskWakeupTestPipe(t)
+				defer conn.Close()
+				defer peer.Close()
+				// A pipe has no kernel buffer for the client's pong replies.
+				go func() {
+					for {
+						if _, _, err := peer.ReadMessage(); err != nil {
+							return
+						}
+					}
+				}()
+				clientReceived := make(chan struct{})
+				go func() {
+					for range 3 {
+						time.Sleep(50 * time.Millisecond)
+						if !writeWSMessage(t, peer, tc.messageType, tc.frame) {
+							return
+						}
+					}
+					time.Sleep(50 * time.Millisecond)
+					if !writeWSMessage(t, peer, websocket.TextMessage, taskFrame) {
+						return
+					}
+					waitForClientWakeup(t, clientReceived)
+				}()
+				taskWakeups := make(chan taskWakeup, 1)
+				errCh := make(chan error, 1)
+				go func() {
+					errCh <- d.readTaskWakeupMessages(conn, taskWakeups)
+				}()
+				select {
+				case wakeup := <-taskWakeups:
+					if wakeup.runtimeID != "runtime-1" {
+						t.Errorf("wakeup runtimeID = %q, want runtime-1", wakeup.runtimeID)
+					}
+					close(clientReceived)
+				case err := <-errCh:
+					t.Fatalf("readTaskWakeupMessages returned before task frame: %v", err)
+				case <-time.After(time.Second):
+					t.Fatal("timed out waiting for task wakeup")
+				}
+			})
+		})
 	}
 }
 
-func readTaskWakeupMessagesExtendsDeadlineOnPong(t *testing.T) {
-	clientReceived := make(chan struct{})
-	taskFrame := mustProtocolFrame(t, protocol.Message{
-		Type: protocol.EventDaemonTaskAvailable,
-		Payload: marshalRaw(protocol.TaskAvailablePayload{
-			RuntimeID: "runtime-1",
-			TaskID:    "task-1",
-		}),
+// net.Pipe makes websocket I/O durably blocking inside a synctest bubble.
+func newTaskWakeupTestPipe(t *testing.T) (*websocket.Conn, *websocket.Conn) {
+	t.Helper()
+	client, server := net.Pipe()
+	t.Cleanup(func() {
+		client.Close()
+		server.Close()
 	})
-
-	upgrader := websocket.Upgrader{}
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		conn, err := upgrader.Upgrade(w, r, nil)
-		if err != nil {
-			return
-		}
-		defer conn.Close()
-
-		for i := 0; i < 3; i++ {
-			time.Sleep(50 * time.Millisecond)
-			if !writeWSMessage(t, conn, websocket.PongMessage, []byte("keepalive")) {
-				return
-			}
-		}
-		time.Sleep(50 * time.Millisecond)
-		if !writeWSMessage(t, conn, websocket.TextMessage, taskFrame) {
-			return
-		}
-		waitForClientWakeup(t, clientReceived)
-	}))
-	defer srv.Close()
-
-	conn, _, err := websocket.DefaultDialer.Dial(taskWakeupTestWSURL(srv.URL), nil)
-	if err != nil {
-		t.Fatalf("dial websocket: %v", err)
+	type handshakeResult struct {
+		conn *websocket.Conn
+		err  error
 	}
-	defer conn.Close()
-
-	d := New(Config{}, slog.Default())
-	taskWakeups := make(chan taskWakeup, 1)
-	errCh := make(chan error, 1)
+	accepted := make(chan handshakeResult, 1)
 	go func() {
-		errCh <- d.readTaskWakeupMessages(conn, taskWakeups)
-	}()
-
-	select {
-	case wakeup := <-taskWakeups:
-		if wakeup.runtimeID != "runtime-1" {
-			t.Fatalf("wakeup runtimeID = %q, want runtime-1", wakeup.runtimeID)
+		rw := bufio.NewReadWriter(bufio.NewReader(server), bufio.NewWriter(server))
+		req, err := http.ReadRequest(rw.Reader)
+		if err != nil {
+			accepted <- handshakeResult{err: err}
+			return
 		}
-		close(clientReceived)
-	case err := <-errCh:
-		t.Fatalf("readTaskWakeupMessages returned before task frame: %v", err)
-	case <-time.After(time.Second):
-		t.Fatal("timed out waiting for task wakeup")
+		upgrader := websocket.Upgrader{}
+		conn, err := upgrader.Upgrade(&taskWakeupPipeWriter{
+			ResponseRecorder: httptest.NewRecorder(), conn: server, rw: rw,
+		}, req, nil)
+		accepted <- handshakeResult{conn: conn, err: err}
+	}()
+	dialer := websocket.Dialer{
+		NetDialContext: func(context.Context, string, string) (net.Conn, error) {
+			return client, nil
+		},
 	}
+	conn, _, err := dialer.Dial("ws://task-wakeup.test/", nil)
+	if err != nil {
+		t.Fatalf("dial pipe websocket: %v", err)
+	}
+	peer := <-accepted
+	if peer.err != nil {
+		t.Fatalf("upgrade pipe websocket: %v", peer.err)
+	}
+	return conn, peer.conn
+}
+
+type taskWakeupPipeWriter struct {
+	*httptest.ResponseRecorder
+	conn net.Conn
+	rw   *bufio.ReadWriter
+}
+
+func (w *taskWakeupPipeWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	return w.conn, w.rw, nil
 }
