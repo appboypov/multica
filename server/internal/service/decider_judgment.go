@@ -168,9 +168,17 @@ func (r DeciderRule) options() map[string]string {
 	return map[string]string{"ready": "Ready for Brian's release check", "not_yet": "Not ready for Brian's release check"}
 }
 
+// choiceLabel is the answer option Brian reads. A squad shows its name, with
+// the start of its id only when another squad has the same name.
 func (r DeciderRule) choiceLabel(choice string) string {
 	if r.Decision == "squad" {
-		return fmt.Sprintf("%s (%s)", r.Squads[choice].Name, choice)
+		name := r.Squads[choice].Name
+		for id, squad := range r.Squads {
+			if id != choice && squad.Name == name {
+				return fmt.Sprintf("%s (%s)", name, choice[:8])
+			}
+		}
+		return name
 	}
 	return choice
 }

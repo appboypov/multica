@@ -46,8 +46,14 @@ The server SHALL route fix-now to the mapped kind's squad, fix-later to backlog 
 #### Scenario: Same-name squads
 - **GIVEN** two active squads with the same name and different leaders
 - **WHEN** Brian confirms or corrects a squad choice
-- **THEN** each option shows its name and unique identity with its description available
+- **THEN** each option shows the squad's name with the start of its id, so the two stay apart
 - **AND** the receipt and leader task refer to the selected squad UUID
+
+#### Scenario: Plain confirmation
+- **GIVEN** a choice that waits for Brian's answer
+- **WHEN** the question reaches his inbox
+- **THEN** it shows the rule's question, the proposed choice, its reason and whether work already started
+- **AND** each squad option shows only its name, unless another squad has the same name
 
 #### Scenario: Squad choice on release join
 - **GIVEN** a squad rule on release_joined and unassigned top-level work

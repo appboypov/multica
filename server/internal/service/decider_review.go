@@ -43,45 +43,30 @@ type deciderReview struct {
 	AnsweredAt     time.Time `json:"answered_at"`
 }
 
-func (s *DeciderService) openConfirmation(ctx context.Context, tx pgx.Tx, key string, in deciderInput, answer DeciderAnswer, maker string, confidence float64, mode string, threshold float64, effects *deciderEffects) error {
+func (s *DeciderService) openConfirmation(ctx context.Context, tx pgx.Tx, key string, in deciderInput, answer DeciderAnswer, confidence float64, mode string, effects *deciderEffects) error {
 	q := s.Queries.WithTx(tx)
 	member := util.MustParseUUID(in.Settings.MemberID)
-	var agreed, corrected int64
-	if err := tx.QueryRow(ctx, `SELECT count(*) FILTER (WHERE entry->>'verdict'='agreed'),count(*) FILTER (WHERE entry->>'verdict'='corrected') FROM routine_decision CROSS JOIN LATERAL jsonb_array_elements(reviews) AS entry WHERE workspace_id=$1`, in.Issue.WorkspaceID).Scan(&agreed, &corrected); err != nil {
-		return err
-	}
-	phase := "Waiting for your answer. No work action has started."
+	phase := "Nothing starts until you answer."
 	if mode == "after" {
-		phase = "Automatic choice applied. This is the fifth-choice sample. Your correction will change its outcome."
+		phase = "This choice is already applied. Pick another one to change it."
 	}
 	proposed := in.Rule.choiceLabel(answer.Choice)
 	answerType := question.TypeSingleChoice
-	instruction := "Select the proposed choice to agree, or the other choice to correct it."
 	if in.Rule.Decision == "squad" && (len(in.Rule.Squads) < 2 || len(in.Rule.Squads) > 20) {
 		answerType = question.TypeText
-		instruction = "Submit the proposed squad name and ID to agree. To correct it, copy a squad name and ID from the list below."
 	}
-	prompt := fmt.Sprintf("%s\nProposed choice: %s. Made by %s. Jev confidence: %.3f.\nReason: %s\n%s\n%s Add a note to explain your correction.\nAgreement record: %d agreed, %d corrected. Threshold: %.3f. Only you change the threshold or end the start period.", in.Rule.Question, proposed, maker, confidence, in.Rule.Reasons[answer.Reason], phase, instruction, agreed, corrected, threshold)
-	if in.Rule.Decision == "squad" {
-		descriptions := make([]string, 0, len(in.Rule.Squads))
-		for id, squad := range in.Rule.Squads {
-			descriptions = append(descriptions, in.Rule.choiceLabel(id)+": "+squad.Description)
-		}
-		sort.Strings(descriptions)
-		for _, description := range descriptions {
-			prompt += "\n" + description
-		}
+	prompt := fmt.Sprintf("%s\nProposed: %s\nWhy: %s\n%s", in.Rule.Question, proposed, in.Rule.Reasons[answer.Reason], phase)
+	options := make([]string, 0, len(in.Rule.options()))
+	for option := range in.Rule.options() {
+		options = append(options, in.Rule.choiceLabel(option))
 	}
+	sort.Strings(options)
 	var settings, suggestion []byte
 	if answerType == question.TypeText {
+		prompt += "\nSubmit a squad name from the list below.\n" + strings.Join(options, "\n")
 		settings, _ = json.Marshal(question.TextAnswerSettings{Length: "short"})
 		suggestion, _ = json.Marshal(question.TextAnswerValue{Text: proposed})
 	} else {
-		options := make([]string, 0, 2)
-		for option := range in.Rule.options() {
-			options = append(options, in.Rule.choiceLabel(option))
-		}
-		sort.Strings(options)
 		settings, _ = json.Marshal(question.SingleChoiceAnswerSettings{Options: options})
 		suggestion, _ = json.Marshal(question.SingleChoiceAnswerValue{Option: &proposed})
 	}

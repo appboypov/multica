@@ -12,6 +12,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/multica-ai/multica/server/internal/events"
+	questiontype "github.com/multica-ai/multica/server/internal/question"
 	"github.com/multica-ai/multica/server/internal/testutil"
 	"github.com/multica-ai/multica/server/internal/util"
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
@@ -123,13 +124,14 @@ func TestDeciderSquadForUnassignedTodo(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(question.Prompt, "Proposed choice: Backend") {
-		t.Fatalf("missing squad proposal: %s", question.Prompt)
+	var suggested questiontype.SingleChoiceAnswerValue
+	if err := json.Unmarshal(question.SuggestedAnswer, &suggested); err != nil || suggested.Option == nil || *suggested.Option != "Backend" {
+		t.Fatalf("Brian should see the squad by its name: %s", question.SuggestedAnswer)
 	}
 	if n := f.Count(t, `SELECT count(*) FROM agent_task_queue WHERE issue_id=$1`, open); n != 0 {
 		t.Fatalf("squad ran before yes: %d", n)
 	}
-	answerRoutine(t, s, f, id, fmt.Sprintf("Backend (%s)", squad), "")
+	answerRoutine(t, s, f, id, "Backend", "")
 	issue, err := s.Queries.GetIssue(ctx, util.MustParseUUID(open))
 	if err != nil {
 		t.Fatal(err)

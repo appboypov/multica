@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"testing"
 
 	"github.com/multica-ai/multica/server/internal/testutil"
@@ -35,7 +34,7 @@ func TestDeciderSquadReleaseJoinConfirmation(t *testing.T) {
 	if n := f.Count(t, `SELECT count(*) FROM agent_task_queue WHERE issue_id=$1`, issue); n != 0 {
 		t.Fatal("release squad ran before confirmation")
 	}
-	answerRoutine(t, s, f, question, fmt.Sprintf("Backend (%s)", squad), "")
+	answerRoutine(t, s, f, question, "Backend", "")
 	current, err := s.Queries.GetIssue(ctx, util.MustParseUUID(issue))
 	if err != nil {
 		t.Fatal(err)

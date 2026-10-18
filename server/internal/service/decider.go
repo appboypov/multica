@@ -424,7 +424,7 @@ func (s *DeciderService) finish(ctx context.Context, key string, answer DeciderA
 			}
 		}
 		if mode != "" {
-			if err = s.openConfirmation(ctx, tx, key, in, answer, maker, confidence.Float64, mode, settings.threshold(), effects); err != nil {
+			if err = s.openConfirmation(ctx, tx, key, in, answer, confidence.Float64, mode, effects); err != nil {
 				return err
 			}
 		}

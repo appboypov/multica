@@ -4,13 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/multica-ai/multica/server/internal/testutil"
 	"github.com/multica-ai/multica/server/internal/util"
-	db "github.com/multica-ai/multica/server/pkg/db/generated"
 	"github.com/multica-ai/multica/server/pkg/protocol"
 )
 
@@ -67,13 +65,6 @@ func TestDeciderStartPeriodConfirmsBeforeApplying(t *testing.T) {
 				t.Fatal("proposal changed issue")
 			}
 			id := routineQuestion(t, f, issue)
-			question, err := s.Queries.GetQuestion(ctx, db.GetQuestionParams{ID: id, WorkspaceID: util.MustParseUUID(f.WorkspaceID)})
-			if err != nil {
-				t.Fatal(err)
-			}
-			if !strings.Contains(question.Prompt, "Jev (confidence 0.960)") || !strings.Contains(question.Prompt, "Proposed choice: fix_now") {
-				t.Fatalf("missing proposal: %s", question.Prompt)
-			}
 			answerRoutine(t, s, f, id, selected, "My choice")
 			current, err = s.Queries.GetIssue(ctx, util.MustParseUUID(issue))
 			if err != nil {
@@ -125,13 +116,6 @@ func TestDeciderStartPeriodSonnetRetainsJevConfidence(t *testing.T) {
 		t.Fatal("Sonnet applied before Brian")
 	}
 	id := routineQuestion(t, f, issue)
-	question, err := s.Queries.GetQuestion(ctx, db.GetQuestionParams{ID: id, WorkspaceID: util.MustParseUUID(f.WorkspaceID)})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(question.Prompt, "Sonnet 5.5") || !strings.Contains(question.Prompt, "Jev confidence: 0.400") {
-		t.Fatalf("wrong maker/confidence: %s", question.Prompt)
-	}
 	answerRoutine(t, s, f, id, "fix_later", "")
 	if n := f.Count(t, `SELECT count(*) FROM routine_decision WHERE issue_id=$1 AND reviews->0->>'verdict'='agreed' AND (reviews->0->>'jev_confidence')::float=0.4`, issue); n != 1 {
 		t.Fatal("fallback confidence lost")

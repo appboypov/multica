@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgtype"
@@ -40,7 +39,7 @@ func TestDeciderSquadCorrectionCancelsPreviousTask(t *testing.T) {
 			}
 			question := routineQuestion(t, f, issue)
 			if mode == "answer_edit" {
-				answerRoutine(t, s, f, question, fmt.Sprintf("Backend (%s)", backend), "")
+				answerRoutine(t, s, f, question, "Backend", "")
 			}
 			var previous pgtype.UUID
 			f.QueryRow(t, `SELECT work_task_id FROM routine_decision WHERE issue_id=$1`, issue).Scan(&previous)
@@ -52,7 +51,7 @@ func TestDeciderSquadCorrectionCancelsPreviousTask(t *testing.T) {
 			}
 			// The receipt owns this task. Other work for the issue must survive.
 			unrelated := f.Task(t, settings.AgentID, testutil.Cols{"issue_id": issue, "runtime_id": runtime, "status": "queued"})
-			answerRoutine(t, s, f, question, fmt.Sprintf("Design (%s)", design), "This needs design")
+			answerRoutine(t, s, f, question, "Design", "This needs design")
 			old, err := s.Queries.GetAgentTask(ctx, previous)
 			if err != nil {
 				t.Fatal(err)
@@ -78,7 +77,7 @@ func TestDeciderSquadCorrectionCancelsPreviousTask(t *testing.T) {
 			if n := f.Count(t, `SELECT count(*) FROM routine_decision d JOIN agent_task_queue t ON t.id=d.work_task_id WHERE d.issue_id=$1 AND t.squad_id=$2 AND t.agent_id=$3 AND t.status='queued'`, issue, design, designLead); n != 1 {
 				t.Fatal("receipt does not own the replacement squad task")
 			}
-			answerRoutine(t, s, f, question, fmt.Sprintf("Backend (%s)", backend), "Return to backend")
+			answerRoutine(t, s, f, question, "Backend", "Return to backend")
 			if n := f.Count(t, `SELECT count(*) FROM agent_task_queue WHERE issue_id=$1 AND squad_id=$2 AND status='cancelled'`, issue, design); n != 1 {
 				t.Fatal("edited correction left the design task active")
 			}
@@ -113,7 +112,7 @@ func TestDeciderSameNameSquadsRemainDistinct(t *testing.T) {
 	if err := json.Unmarshal(row.Settings, &options); err != nil {
 		t.Fatal(err)
 	}
-	want := map[string]bool{fmt.Sprintf("Backend (%s)", first): false, fmt.Sprintf("Backend (%s)", squad): false}
+	want := map[string]bool{fmt.Sprintf("Backend (%s)", first[:8]): false, fmt.Sprintf("Backend (%s)", squad[:8]): false}
 	for _, option := range options.Options {
 		if _, ok := want[option]; !ok {
 			t.Fatalf("unexpected squad option %q", option)
@@ -125,10 +124,7 @@ func TestDeciderSameNameSquadsRemainDistinct(t *testing.T) {
 			t.Fatalf("missing distinct squad option %q", option)
 		}
 	}
-	if !strings.Contains(row.Prompt, "Builds server code") || !strings.Contains(row.Prompt, "Builds payment services") {
-		t.Fatal("squad descriptions missing from confirmation")
-	}
-	answerRoutine(t, s, f, question, fmt.Sprintf("Backend (%s)", squad), "")
+	answerRoutine(t, s, f, question, fmt.Sprintf("Backend (%s)", squad[:8]), "")
 	current, err := s.Queries.GetIssue(ctx, util.MustParseUUID(issue))
 	if err != nil {
 		t.Fatal(err)
@@ -139,7 +135,7 @@ func TestDeciderSameNameSquadsRemainDistinct(t *testing.T) {
 	if n := f.Count(t, `SELECT count(*) FROM routine_decision d JOIN agent_task_queue t ON t.id=d.work_task_id WHERE d.issue_id=$1 AND d.applied_choice=$2 AND t.squad_id=$2::uuid AND t.agent_id=$3`, issue, squad, lead); n != 1 {
 		t.Fatal("selected squad identity was lost")
 	}
-	answerRoutine(t, s, f, question, fmt.Sprintf("Backend (%s)", first), "Use the other backend squad")
+	answerRoutine(t, s, f, question, fmt.Sprintf("Backend (%s)", first[:8]), "Use the other backend squad")
 	if n := f.Count(t, `SELECT count(*) FROM routine_decision d JOIN agent_task_queue t ON t.id=d.work_task_id WHERE d.issue_id=$1 AND d.applied_choice=$2 AND t.squad_id=$2::uuid AND t.status='queued'`, issue, first); n != 1 {
 		t.Fatal("same-name correction selected the wrong squad")
 	}
