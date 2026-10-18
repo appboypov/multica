@@ -1,6 +1,32 @@
 ## At a glance
 
-Local held checkout candidate → selected open pull request branch → matching checkout or the issue's existing worklane.
+```mermaid
+flowchart TB
+  classDef changed fill:#fff1cc,stroke:#b7791f,color:#172117
+  task["Issue task<br/>Work in the project folder off"] --> candidate{"claimWorklane<br/>Local checkout with a recorded branch?"}:::changed
+  candidate -->|Yes| select["Existing linked PR selection<br/>First open PR in the same workspace and repository"]
+  select --> match{"Held branch equals selected PR branch?"}:::changed
+  select -->|Read failure| requeue["Requeue task"]
+  match -->|Yes| checkout["ClaimWorklane<br/>Main checkout path; InCheckout true"]:::changed
+  candidate -->|No| fallback["Existing issue lane and machine gates<br/>No lane: no worklane claim block"]
+  match -->|No| fallback
+  fallback -->|Foreign lane| fail["worklane_elsewhere"]
+  fallback -->|Local lane or no lane| ordinary["Existing lane / PR / issue-worktree route"]
+  checkout --> daemon["Daemon worklane_task.go<br/>Lock checkout path; no issue or PR worktree"]
+  daemon --> report["Use selected PR branch<br/>ReportWorklaneBranch with main lane ID"]
+```
+
+| Kind | Name | Change | Path |
+|---|---|---|---|
+| Claim | Held PR checkout selection | changed | `server/internal/handler/worklane_branch.go` |
+| Tests | Held PR checkout regression | changed | `server/internal/handler/worklane_branch_test.go` |
+| System design | Claim and daemon routing | changed | `specs/docs/system-design.md` |
+| Metadata | Change build state | new | `specs/openspec/changes/retain-held-pull-request-checkout/.openspec.yaml` |
+| Proposal | Checkout retention scope | new | `specs/openspec/changes/retain-held-pull-request-checkout/proposal.md` |
+| Design | Claim flow and file inventory | new | `specs/openspec/changes/retain-held-pull-request-checkout/design.md` |
+| ADR review | Existing checkout contract | new | `specs/openspec/changes/retain-held-pull-request-checkout/adr.md` |
+| Tasks | Implementation and verification | new | `specs/openspec/changes/retain-held-pull-request-checkout/tasks.md` |
+| Acceptance | Held checkout PR branch | new | `specs/openspec/changes/retain-held-pull-request-checkout/specs/repository-work-in-checkout/spec.md` |
 
 ## Decision
 

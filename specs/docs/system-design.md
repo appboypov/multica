@@ -84,6 +84,7 @@ flowchart LR
   authpkg["internal/auth<br/>JWT, PAT, daemon tokens"]
   handlers["internal/handler<br/>Handler, one file per resource"]
   daemonapi["internal/handler<br/>daemon.go, daemon_ws.go<br/>/api/daemon/*"]
+  claimlane["internal/handler/worklane_branch.go<br/>claimWorklane<br/>Retain local checkout holding the selected open PR branch"]:::changed
   runtimeh["internal/handler<br/>runtime_local_skills.go, runtime_models.go,<br/>runtime_update.go, runtime_directory_listing.go"]
   reqstores["Runtime request stores<br/>UpdateStore, ModelListStore,<br/>LocalSkillListStore, LocalSkillImportStore<br/>InMemory or Redis"]
   dirstore["DirectoryListingStore<br/>InMemory only"]
@@ -168,6 +169,9 @@ flowchart LR
   questiontransition --> sqlc
   main --> questionrecovery --> questionwait
   daemonapi -->|"loadClaimQuestionAnswers:<br/>fresh input using context anchor"| sqlc
+  daemonapi -->|"issue task claim"| claimlane
+  claimlane -->|"load main checkout, issue lane and machine;<br/>select linked open PR in workspace and repository"| sqlc
+  claimlane -->|"ClaimWorklane.InCheckout + PullRequestBranch<br/>otherwise existing lane and machine gates"| protocol
   daemonapi --> questionrules
   questions --> bus
   handlers -->|"comment create, text edit"| supp
@@ -233,6 +237,7 @@ flowchart LR
   handlers --> llm
   hub --- protocol
   dhub --- protocol
+  classDef changed fill:#fff1cc,stroke:#b7791f,color:#172117
 ```
 
 Source-context object cleanup materializes one due intent before updating its lease
@@ -258,7 +263,8 @@ flowchart TB
   update["handleUpdate"]
   poll["daemon.go<br/>pollLoop"]
   task["daemon.go<br/>handleTask, runTask"]
-  worktrees["issue_worktree.go, worklane_task.go<br/>resolve lane or PR destination before locking;<br/>execenv/pull_request_worktree.go creates/reuses PR history"]
+  worktrees["issue_worktree.go, worklane_task.go<br/>resolve checkout, lane or PR destination before locking;<br/>execenv/pull_request_worktree.go creates/reuses PR history"]:::changed
+  checkout["worklane_task.go<br/>InCheckout: lock checkout path;<br/>no issue or PR worktree"]:::changed
   execenv["execenv<br/>Prepare, Reuse, InjectRuntimeConfig,<br/>While you run section with task-supplement-v1"]
   prompt["prompt.go<br/>BuildPrompt, buildQuestionAnswersBlock"]
   supp["task_supplement.go<br/>runTaskSupplementLoop,<br/>formatTaskSupplementInstruction: [Multica notice] with item id"]
@@ -300,11 +306,14 @@ flowchart TB
   actions --> update
   poll -->|"ClaimTasks"| client
   client -.->|"Task.QuestionAnswers on question_wake claim<br/>and on every chat turn"| task
-  client -.->|"ClaimWorklane.pull_request_branch"| worktrees
+  client -.->|"ClaimWorklane.InCheckout + PullRequestBranch"| worktrees
   poll --> task
   task --> selection
-  task --> worktrees --> execenv
-  worktrees -->|"record PR worktree; branch reports only for lane runs"| client
+  task --> worktrees
+  worktrees -->|"Otherwise: lane or PR worktree"| execenv
+  worktrees -->|"InCheckout"| checkout --> execenv
+  worktrees -->|"record PR worktree or report lane branch"| client
+  checkout -->|"ReportWorklaneBranch with main lane ID"| client
   task --> prompt
   task --> repocache
   task --> skillcache
@@ -324,6 +333,7 @@ flowchart TB
   localskills --> client
   dirlist --> client
   client --> server
+  classDef changed fill:#fff1cc,stroke:#b7791f,color:#172117
 ```
 
 Traecli completion (`server/pkg/agent/traecli.go`) closes stdin after the ACP
