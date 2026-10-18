@@ -152,10 +152,6 @@ func TestCheckValidatesRelationshipsAndSettings(t *testing.T) {
 	wantQuestionRefusal(t, err, 403)
 	_, err = f.svc.CheckSettings(ctx, f.workspace, f.answerer, &CheckSettings{0})
 	wantQuestionRefusal(t, err, 422)
-	openCheck(t, f, in)
-	in.MemberID = f.anouk
-	_, err = f.svc.OpenCheck(ctx, f.workspace, f.asker, in)
-	wantQuestionRefusal(t, err, 422)
 }
 
 func TestCheckDeliversAnswerToOpeningAgentRun(t *testing.T) {

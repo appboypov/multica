@@ -1,0 +1,10 @@
+schema: intent-driven
+created: 2026-10-18
+x-build:
+  status: built
+  type: bugfix
+  ticket: WORK-1333
+  baseline_revision: 39bbbcef7f358f054e8c6baed962d53daa11d540
+  context:
+    - server/internal/service/check.go
+    - server/internal/service/check_record.go

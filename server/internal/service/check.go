@@ -130,16 +130,14 @@ func (s *QuestionService) OpenCheck(ctx context.Context, ws pgtype.UUID, actor Q
 	if _, err := q.GetProjectInWorkspace(ctx, db.GetProjectInWorkspaceParams{ID: in.ProjectID, WorkspaceID: ws}); err != nil {
 		return nil, questionRefusal(404, "project not found")
 	}
-	_, err = tx.Exec(ctx, `INSERT INTO project_check_trust (workspace_id, project_id, kind, member_id) VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING`, ws, in.ProjectID, in.Kind, in.MemberID)
+	_, err = tx.Exec(ctx, `INSERT INTO project_check_trust (workspace_id, project_id, kind, member_id) VALUES ($1,$2,$3,$4)
+ ON CONFLICT (workspace_id, project_id, kind) DO UPDATE SET member_id=EXCLUDED.member_id`, ws, in.ProjectID, in.Kind, in.MemberID)
 	if err != nil {
 		return nil, err
 	}
 	state, err := lockCheckTrust(ctx, tx, ws, in.ProjectID, in.Kind)
 	if err != nil {
 		return nil, err
-	}
-	if state.MemberID != util.UUIDToString(in.MemberID) {
-		return nil, questionRefusal(422, "this project and kind has another check recipient")
 	}
 	settings, err := checkSettings(ctx, tx, ws)
 	if err != nil {
