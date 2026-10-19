@@ -256,7 +256,7 @@ describe("InstructionsTab instruction selection", () => {
     await user.click(screen.getByRole("button", { name: "Save" }));
 
     expect(onSave).toHaveBeenCalledWith({
-      instructions: "Review carefully.\n\n{selection}",
+      instructions: "Review carefully.\n\n<SystemIdentity>\n{selection}\n</SystemIdentity>",
       instruction_selection: [UX_DESIGNER],
     });
   });
