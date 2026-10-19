@@ -9,6 +9,7 @@ import { Button } from "@multica/ui/components/ui/button";
 import { Skeleton } from "@multica/ui/components/ui/skeleton";
 import { Spinner } from "@multica/ui/components/ui/spinner";
 import { AppLink } from "../../navigation";
+import { useRestoredScrollRef } from "../../platform";
 import { useT } from "../../i18n";
 import { ReleaseDetail } from "./release-detail";
 
@@ -24,6 +25,7 @@ export function ReleaseDetailRoute({ releaseId }: { releaseId: string }) {
   const { data: release, isLoading, error, refetch, isFetching } = useQuery(
     releaseDetailOptions(wsId, releaseId),
   );
+  const restoreScrollRef = useRestoredScrollRef("main");
 
   if (isLoading) {
     return (
@@ -69,7 +71,11 @@ export function ReleaseDetailRoute({ releaseId }: { releaseId: string }) {
   }
 
   return (
-    <div data-tab-scroll-root className="min-h-0 flex-1 overflow-y-auto [scrollbar-gutter:stable_both-edges]">
+    <div
+      ref={restoreScrollRef}
+      data-tab-scroll-root="main"
+      className="min-h-0 flex-1 overflow-y-auto [scrollbar-gutter:stable_both-edges]"
+    >
       <ReleaseDetail key={release.id} release={release} />
     </div>
   );

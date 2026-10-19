@@ -20,6 +20,7 @@ import type {
   Worklane,
 } from "@multica/core/types";
 import { NavigationProvider } from "../../navigation";
+import { ScrollRestorationProvider } from "../../platform";
 import { renderWithI18n } from "../../test/i18n";
 import { ReleaseColumn } from "./release-column";
 import { ReleaseDetailRoute } from "./release-detail-route";
@@ -313,6 +314,22 @@ describe("release page", () => {
     mount(<ReleaseDetailRoute releaseId="gone" />);
     expect(await screen.findByText("This release doesn't exist or was removed.")).toBeTruthy();
     expect(screen.getByRole("link", { name: "Back to releases" }).getAttribute("href")).toBe("/acme/releases");
+  });
+
+  it("returns to the saved reading position when the desktop tab comes back", async () => {
+    seed(planned);
+    const adapter = { get: (key: string) => (key === "main" ? { top: 640, height: 3000 } : undefined) };
+    mount(
+      <ScrollRestorationProvider adapter={adapter}>
+        <ReleaseDetailRoute releaseId="r-110" />
+      </ScrollRestorationProvider>,
+    );
+    const heading = await screen.findByRole("heading", { name: "Account and profile" });
+    const scroller = heading.closest<HTMLElement>("[data-tab-scroll-root]");
+    // The coordinator saves the container under its marker value when the tab is left.
+    expect(scroller?.getAttribute("data-tab-scroll-root")).toBe("main");
+    // jsdom has no layout, so the restored offset applies unclamped.
+    expect(scroller!.scrollTop).toBe(640);
   });
 });
 
