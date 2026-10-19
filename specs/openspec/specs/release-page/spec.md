@@ -1,7 +1,7 @@
 # release-page Specification
 
 ## Purpose
-Gives every release its own page with its issues in order, its owner and its discussion.
+Gives every release its own page with its issues in order, its owner, the owner's runs and its discussion.
 
 ## Requirements
 
@@ -16,6 +16,14 @@ Every release SHALL have its own page on web and desktop showing its repository,
 #### Scenario: A release without an owner
 - **WHEN** Brian opens the page of v1.0.1 Membership hardening, which has no owner
 - **THEN** it shows "No owner"
+
+### Requirement: A release page scrolls
+A release page SHALL scroll on web and desktop in the same way an issue page scrolls, so all of its content can be reached.
+
+#### Scenario: More content than the window
+- **GIVEN** the page of v1.1.0 Account and profile holds more issues and comments than fit in the window
+- **WHEN** Brian scrolls down
+- **THEN** the comment box at the bottom of the page comes into view
 
 ### Requirement: A release page lists the release's issues in order
 A release page SHALL list every issue in the release in its order on the release, each with its key, title, status, assignee and worklane, and clicking an issue SHALL open its issue page. A release without issues SHALL show "No issues in this release yet."
@@ -45,7 +53,7 @@ The owner on an unshipped release's page SHALL open the same Owner picker as Edi
 - **THEN** it shows Pieter as owner and offers no Owner picker
 
 ### Requirement: A release page holds comments
-A release page SHALL show the release's comments and their replies oldest first, each with its author and time, mixed in time order with the release's owner changes, and SHALL offer a comment box and a reply on each comment, as an issue page does.
+A release page SHALL show the release's comments and their replies oldest first, each with its author and time, mixed in time order with the release's owner changes and its owner's runs, and SHALL offer a comment box and a reply on each comment, as an issue page does.
 
 #### Scenario: Brian comments
 - **WHEN** Brian writes "Start WORK-502 once WORK-501's pull request is open." in the comment box of v1.1.0 Account and profile and sends it
@@ -55,6 +63,25 @@ A release page SHALL show the release's comments and their replies oldest first,
 - **GIVEN** Brian made Pieter owner of v1.1.0 Account and profile at 10:05 and Pieter commented at 10:12
 - **WHEN** Brian opens the page of v1.1.0
 - **THEN** it shows "Brian made Pieter owner of v1.1.0 Account and profile" before Pieter's comment
+
+### Requirement: A release page shows the owner's runs
+A release page SHALL show every run of the release's owner on the release, the running one included, each with what started it, whether it runs and how it ended, in the same way and with the same look as an issue page shows its runs. A run that starts or ends SHALL show on an open release page without reloading it. A run SHALL open to follow its work, and a running run SHALL offer Stop, which stops it after Brian confirms.
+
+#### Scenario: A new owner's run
+- **GIVEN** Brian has the page of v1.1.0 Account and profile open
+- **WHEN** he makes Pieter owner of v1.1.0
+- **THEN** Pieter's coordination run shows on the page while it runs, without a reload
+- **AND** it shows how it ended once it ends
+
+#### Scenario: Stopping a run
+- **GIVEN** Pieter's coordination run on v1.1.0 Account and profile runs
+- **WHEN** Brian clicks Stop on it and confirms
+- **THEN** the run stops and shows that it was cancelled
+
+#### Scenario: An ended run
+- **GIVEN** Pieter's coordination run on v1.1.0 Account and profile has ended
+- **WHEN** Brian opens the page of v1.1.0
+- **THEN** the run shows how it ended and offers no Stop
 
 ### Requirement: A release's title on the Timeline opens its page
 A release's version and title on a worklane's Timeline SHALL open the release's page.
