@@ -174,11 +174,19 @@ export function SkillsTab({
     skill.name,
     skill.description,
   ]);
-  const shownRuntimeSkills = filterBySkillSearch(runtimeSkills, query, (skill) => [
-    skill.name,
-    skill.description,
-    skill.source_path,
-  ]);
+  // A skill is on when its state follows the section switch, unless it is
+  // an exception to it.
+  const isRuntimeSkillOn = (skill: RuntimeLocalSkillSummary) =>
+    isRuntimeSkillException(agent.runtime_skill_exceptions, runtime?.id, skill) !==
+    inheritsRuntimeSkills;
+  // The skills that are on come first, so the agent's own set shows at the top.
+  const shownRuntimeSkills = [
+    ...filterBySkillSearch(runtimeSkills, query, (skill) => [
+      skill.name,
+      skill.description,
+      skill.source_path,
+    ]),
+  ].sort((a, b) => Number(isRuntimeSkillOn(b)) - Number(isRuntimeSkillOn(a)));
 
   return (
     <div className="space-y-8">
@@ -349,14 +357,7 @@ export function SkillsTab({
         ) : (
           <ul className="divide-y rounded-lg border bg-surface-raised/40">
             {shownRuntimeSkills.map((skill) => {
-              // A skill is on when its state follows the section switch,
-              // unless it is an exception to it.
-              const exception = isRuntimeSkillException(
-                agent.runtime_skill_exceptions,
-                runtime?.id,
-                skill,
-              );
-              const disabled = inheritsRuntimeSkills ? exception : !exception;
+              const disabled = !isRuntimeSkillOn(skill);
               const busyKey = runtimeSkillIdentity(skill);
               const busy = busyId === busyKey;
               return (

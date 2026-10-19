@@ -455,6 +455,41 @@ describe("SkillsTab", () => {
       );
     });
 
+    it("lists the picked skills above the skills that are off", async () => {
+      mockRuntimeCapabilities.mockResolvedValue({
+        skills: [
+          { ...localReview, key: "local-archive", name: "Local archive" },
+          { ...localReview, key: "local-plan", name: "Local plan" },
+        ],
+        supported: true,
+        mcpServers: [],
+        mcpSupported: true,
+      });
+      renderSkillsTab(
+        {
+          inherit_runtime_skills: false,
+          runtime_skill_exceptions: [
+            {
+              runtime_id: "runtime-1",
+              provider: "codex",
+              root: "provider",
+              key: "local-plan",
+            },
+          ],
+        },
+        onlineRuntime,
+      );
+
+      await screen.findByRole("switch", { name: /Toggle inherited Local plan/i });
+      const rows = screen
+        .getAllByRole("switch", { name: /Toggle inherited/i })
+        .map((row) => row.getAttribute("aria-label"));
+      expect(rows).toEqual([
+        expect.stringMatching(/Local plan/),
+        expect.stringMatching(/Local archive/),
+      ]);
+    });
+
     it("shows section and row switches for controllable omp skills", async () => {
       mockRuntimeCapabilities.mockResolvedValue({
         skills: [{ ...localReview, provider: "omp" }],
