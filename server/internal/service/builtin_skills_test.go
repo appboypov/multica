@@ -1,6 +1,7 @@
 package service
 
 import (
+	"path"
 	"regexp"
 	"strings"
 	"testing"
@@ -187,6 +188,9 @@ func TestBuiltinSkillsFrontmatterIsStrictYAML(t *testing.T) {
 // the reading agent after paths that cannot exist. Before this test, roughly
 // half the built-in payload by bytes was exactly that.
 //
+// A name of a file the skill ships itself, by its path or its base name, is
+// no leak: the reader has that file in its workdir.
+//
 // Maintainer-facing evidence for a contract belongs in this file, beside the
 // assertion that pins it, where it stays with the code it describes.
 func TestBuiltinSkillPayloadCarriesNoSourceReferences(t *testing.T) {
@@ -206,14 +210,20 @@ func TestBuiltinSkillPayloadCarriesNoSourceReferences(t *testing.T) {
 	for _, skill := range allBuiltinSkillsForTest() {
 		t.Run(skill.Name, func(t *testing.T) {
 			files := map[string]string{"SKILL.md": skill.Content}
+			shipped := map[string]bool{}
 			for _, f := range skill.Files {
 				files[f.Path] = f.Content
+				shipped[f.Path] = true
+				shipped[path.Base(f.Path)] = true
 			}
-			for path, content := range files {
+			for file, content := range files {
 				for _, b := range banned {
-					if m := b.re.FindString(content); m != "" {
+					for _, m := range b.re.FindAllString(content, -1) {
+						if shipped[m] {
+							continue
+						}
 						t.Errorf("%s leaks %s (%q); the reader's machine has no copy of this repository — "+
-							"state the user-observable behavior instead, and keep the evidence in builtin_skills_test.go", path, b.what, m)
+							"state the user-observable behavior instead, and keep the evidence in builtin_skills_test.go", file, b.what, m)
 					}
 				}
 			}
