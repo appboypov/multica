@@ -5,6 +5,7 @@ export {
   releaseIssuesOptions,
   releaseCommentsOptions,
   releaseActivityOptions,
+  releaseTasksOptions,
   selectLine,
 } from "./queries";
 export {
@@ -12,6 +13,7 @@ export {
   useEditRelease,
   useSetReleaseOwner,
   useCreateReleaseComment,
+  useCancelReleaseRun,
   useMoveRelease,
   useRemoveRelease,
   useAddReleaseMilestone,

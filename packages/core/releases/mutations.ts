@@ -109,6 +109,16 @@ export function useCreateReleaseComment(releaseId: string) {
   });
 }
 
+/** Stops a run of a release, once the server agrees. */
+export function useCancelReleaseRun(releaseId: string) {
+  const qc = useQueryClient();
+  const wsId = useWorkspaceId();
+  return useMutation({
+    mutationFn: (taskId: string) => api.cancelTaskById(taskId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: releaseKeys.tasks(wsId, releaseId) }),
+  });
+}
+
 export function useMoveRelease() {
   const qc = useQueryClient();
   const wsId = useWorkspaceId();

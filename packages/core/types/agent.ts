@@ -356,6 +356,8 @@ export interface AgentTask {
   // autopilot-spawned. Check chat_session_id / autopilot_run_id to tell
   // which source produced it.
   issue_id: string;
+  /** Set on a release's run, which has no issue; `issue_id` is then "". */
+  release_id?: string;
   // `waiting_local_directory` is the daemon-emitted hold state for the
   // local_directory flow: a task that has been dispatched but is parked
   // because another task currently owns the same on-disk path lock.

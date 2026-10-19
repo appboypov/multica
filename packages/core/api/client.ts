@@ -4746,6 +4746,13 @@ export class ApiClient {
     });
   }
 
+  async listReleaseTasks(id: string): Promise<AgentTask[]> {
+    const raw = await this.fetch<unknown>(`/api/releases/${encodeURIComponent(id)}/tasks`);
+    return parseWithFallback<AgentTask[]>(raw, AgentTaskListSchema, [], {
+      endpoint: "GET /api/releases/{id}/tasks",
+    });
+  }
+
   async listReleaseWakeups(id: string): Promise<ReleaseWakeup[]> {
     const raw = await this.fetch<unknown>(`/api/releases/${encodeURIComponent(id)}/wakeups`);
     const parsed = parseWithFallback<ReleaseWakeup[] | null>(raw, ReleaseWakeupSchema.array(), null, { endpoint: "GET /api/releases/{id}/wakeups" });

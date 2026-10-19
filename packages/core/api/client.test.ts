@@ -1258,6 +1258,43 @@ describe("ApiClient", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  it("lists a release's runs with their release", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify([
+          { id: "task-2", status: "running", issue_id: "", release_id: "release-1" },
+          { id: "task-1", status: "completed", issue_id: "", release_id: "release-1" },
+        ]),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = new ApiClient("https://api.example.test");
+    const tasks = await client.listReleaseTasks("release-1");
+
+    expect(tasks.map((task) => [task.id, task.release_id])).toEqual([
+      ["task-2", "release-1"],
+      ["task-1", "release-1"],
+    ]);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("https://api.example.test/api/releases/release-1/tasks");
+  });
+
+  it("falls back to no release runs for a malformed response", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ tasks: "not-an-array" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
+
+    const client = new ApiClient("https://api.example.test");
+    await expect(client.listReleaseTasks("release-1")).resolves.toEqual([]);
+  });
+
   it("uses the expected HTTP contract for autopilot endpoints", async () => {
     const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(
       new Response(JSON.stringify({ autopilots: [], runs: [], total: 0 }), {

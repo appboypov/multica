@@ -15,6 +15,8 @@ export const releaseKeys = {
   comments: (wsId: string, id: string) => [...releaseKeys.commentsAll(wsId), id] as const,
   activityAll: (wsId: string) => [...releaseKeys.all(wsId), "activity"] as const,
   activity: (wsId: string, id: string) => [...releaseKeys.activityAll(wsId), id] as const,
+  tasksAll: (wsId: string) => [...releaseKeys.all(wsId), "tasks"] as const,
+  tasks: (wsId: string, id: string) => [...releaseKeys.tasksAll(wsId), id] as const,
 };
 
 export function releaseListOptions(wsId: string) {
@@ -55,6 +57,16 @@ export function releaseActivityOptions(wsId: string, id: string) {
     queryKey: releaseKeys.activity(wsId, id),
     queryFn: () => api.listReleaseActivity(id),
     select: (data): ReleaseOwnerActivityEntry[] => data.entries,
+  });
+}
+
+/** The release's runs, newest first. */
+export function releaseTasksOptions(wsId: string, id: string) {
+  return queryOptions({
+    queryKey: releaseKeys.tasks(wsId, id),
+    queryFn: () => api.listReleaseTasks(id),
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
   });
 }
 
