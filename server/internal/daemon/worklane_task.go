@@ -58,22 +58,13 @@ func worklaneTaskPath(ctx context.Context, task Task, repo protocol.ClaimReposit
 			selected = recorded
 		}
 	}
-	for _, source := range sources {
-		if selected != "" {
-			break
-		}
-		held, err := checkoutGit(ctx, source, "for-each-ref", "--format=%(refname)\t%(worktreepath)", "refs/heads/"+wanted)
+	if selected == "" {
+		held, err := execenv.BranchWorktree(ctx, sources, wanted)
 		if err != nil {
-			return "", fmt.Errorf("find the PR branch's worktree: %w", err)
+			return "", err
 		}
-		for held != "" {
-			var ref string
-			ref, held, _ = strings.Cut(held, "\n")
-			name, tree, _ := strings.Cut(ref, "\t")
-			if name == "refs/heads/"+wanted && isPullRequestTaskPath(tree, wanted) {
-				selected = tree
-				break
-			}
+		if isPullRequestTaskPath(held, wanted) {
+			selected = held
 		}
 	}
 	if selected == "" && repo.Worklane.PullRequestBranch != "" {
@@ -163,7 +154,20 @@ func (d *Daemon) prepareWorklaneTask(ctx context.Context, task *Task, repo *prot
 		return err
 	}
 	if !lane.InCheckout && (lane.PullRequestBranch != "" || path != lanePath) {
-		path, err = execenv.PreparePullRequestWorktree(ctx, worklaneTaskSources(*repo), path, wanted, logger)
+		owner, err := execenv.BranchWorktree(ctx, worklaneTaskSources(*repo), wanted)
+		if err != nil {
+			return err
+		}
+		if owner != "" {
+			owner, err = resolveRealPath(owner)
+			if err != nil {
+				return err
+			}
+			if d.localPathLocks.Holder(owner) != task.ID {
+				owner = ""
+			}
+		}
+		path, err = execenv.PreparePullRequestWorktree(ctx, worklaneTaskSources(*repo), path, wanted, owner, logger)
 		if err != nil {
 			return err
 		}

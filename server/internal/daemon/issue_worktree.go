@@ -7,7 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -137,81 +137,119 @@ func resolveRealPath(absPath string) (string, error) {
 	}
 }
 
-// acquireIssueWorktreeLocks takes locks in canonical path order, avoiding a
-// deadlock when two issue tasks share more than one repository.
-func (d *Daemon) acquireIssueWorktreeLocks(ctx context.Context, task *Task, logger *slog.Logger) (func(), bool) {
+// issueWorktreeLockPaths resolves both the run destination and any branch owner
+// that must be detached. Every path is canonical and appears once.
+func (d *Daemon) issueWorktreeLockPaths(ctx context.Context, task *Task) ([]string, error) {
 	var paths []string
-	if task.IssueID != "" {
-		for i := range task.Repositories {
-			repo := &task.Repositories[i]
-			recorded := repo.WorktreePath
-			if repo.Worklane != nil {
-				if repo.Worklane.DaemonID != d.cfg.DaemonID {
-					continue
-				}
-				var err error
-				recorded, err = worklaneTaskPath(ctx, *task, *repo)
-				if err != nil {
-					d.reportTerminalTask(ctx, terminalTaskReport{kind: terminalTaskReportFail, taskID: task.ID, errorMessage: err.Error(), failureReason: "environment_prepare_failed"})
-					return nil, true
-				}
-				repo.WorktreePath = recorded
-			} else if repo.CheckoutDaemonID != d.cfg.DaemonID {
+	if task.IssueID == "" {
+		return paths, nil
+	}
+	for i := range task.Repositories {
+		repo := &task.Repositories[i]
+		var path string
+		var err error
+		if repo.Worklane != nil {
+			if repo.Worklane.DaemonID != d.cfg.DaemonID {
 				continue
 			}
-			path, err := issueWorktreePath(*task, repo.FullName, recorded, repo.WorklanePaths)
-			if err != nil {
-				d.reportTerminalTask(ctx, terminalTaskReport{kind: terminalTaskReportFail, taskID: task.ID, errorMessage: err.Error(), failureReason: "environment_prepare_failed"})
-				return nil, true
-			}
-			path, err = resolveRealPath(path)
-			if err != nil {
-				d.reportTerminalTask(ctx, terminalTaskReport{kind: terminalTaskReportFail, taskID: task.ID, errorMessage: err.Error(), failureReason: "environment_prepare_failed"})
-				return nil, true
-			}
-			paths = append(paths, path)
-		}
-	}
-	sort.Strings(paths)
-	releases := make([]func(), 0, len(paths))
-	releaseAll := func() {
-		for i := len(releases) - 1; i >= 0; i-- {
-			releases[i]()
-		}
-	}
-	waitCtx, cancel := context.WithCancel(ctx)
-	defer cancel()
-	for _, path := range paths {
-		counted := false
-		release, err := d.localPathLocks.Acquire(waitCtx, path, task.ID, func(holder string) {
-			d.resourceWaitTasks.Add(1)
-			counted = true
-			reason := filepath.Base(path)
-			if holder != "" {
-				reason += " (held by task " + shortID(holder) + ")"
-			}
-			if err := d.client.MarkTaskWaitingLocalDirectory(waitCtx, task.ID, reason); err != nil {
-				logger.Warn("mark issue worktree waiting failed", "error", err)
-			}
-			cancelled := d.watchTaskCancellation(waitCtx, task.ID, 5*time.Second, logger)
-			go func() {
-				select {
-				case <-cancelled:
-					cancel()
-				case <-waitCtx.Done():
+			path, err = worklaneTaskPath(ctx, *task, *repo)
+			if err == nil && !repo.Worklane.InCheckout {
+				owner, ownerErr := execenv.BranchWorktree(ctx, worklaneTaskSources(*repo), worklaneTaskBranch(*task, *repo))
+				if ownerErr != nil {
+					return nil, ownerErr
 				}
-			}()
-		})
-		if counted {
-			d.resourceWaitTasks.Add(-1)
+				if owner != "" {
+					owner, err = resolveRealPath(owner)
+					paths = append(paths, owner)
+				}
+			}
+		} else {
+			if repo.CheckoutDaemonID != d.cfg.DaemonID {
+				continue
+			}
+			path, err = issueWorktreePath(*task, repo.FullName, repo.WorktreePath, repo.WorklanePaths)
+			if err == nil {
+				owner, ownerErr := execenv.BranchWorktree(ctx, []string{repo.CheckoutPath}, task.IssueKey)
+				if ownerErr != nil {
+					return nil, ownerErr
+				}
+				if isPullRequestTaskPath(owner, task.IssueKey) {
+					path = owner
+				}
+			}
 		}
 		if err != nil {
-			releaseAll()
+			return nil, err
+		}
+		repo.WorktreePath = path
+		path, err = resolveRealPath(path)
+		if err != nil {
+			return nil, err
+		}
+		paths = append(paths, path)
+	}
+	slices.Sort(paths)
+	return slices.Compact(paths), nil
+}
+
+// acquireIssueWorktreeLocks takes locks in canonical path order. Resolution is
+// repeated after waiting because a handoff can move the branch while queued.
+func (d *Daemon) acquireIssueWorktreeLocks(ctx context.Context, task *Task, logger *slog.Logger) (func(), bool) {
+	waitCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	for {
+		paths, err := d.issueWorktreeLockPaths(waitCtx, task)
+		if err != nil {
+			d.reportTerminalTask(ctx, terminalTaskReport{kind: terminalTaskReportFail, taskID: task.ID, errorMessage: err.Error(), failureReason: "environment_prepare_failed"})
 			return nil, true
 		}
-		releases = append(releases, release)
+		releases := make([]func(), 0, len(paths))
+		releaseAll := func() {
+			for i := len(releases) - 1; i >= 0; i-- {
+				releases[i]()
+			}
+		}
+		for _, path := range paths {
+			counted := false
+			release, err := d.localPathLocks.Acquire(waitCtx, path, task.ID, func(holder string) {
+				d.resourceWaitTasks.Add(1)
+				counted = true
+				reason := filepath.Base(path)
+				if holder != "" {
+					reason += " (held by task " + shortID(holder) + ")"
+				}
+				if err := d.client.MarkTaskWaitingLocalDirectory(waitCtx, task.ID, reason); err != nil {
+					logger.Warn("mark issue worktree waiting failed", "error", err)
+				}
+				cancelled := d.watchTaskCancellation(waitCtx, task.ID, 5*time.Second, logger)
+				go func() {
+					select {
+					case <-cancelled:
+						cancel()
+					case <-waitCtx.Done():
+					}
+				}()
+			})
+			if counted {
+				d.resourceWaitTasks.Add(-1)
+			}
+			if err != nil {
+				releaseAll()
+				return nil, true
+			}
+			releases = append(releases, release)
+		}
+		resolved, err := d.issueWorktreeLockPaths(waitCtx, task)
+		if err != nil {
+			releaseAll()
+			d.reportTerminalTask(ctx, terminalTaskReport{kind: terminalTaskReportFail, taskID: task.ID, errorMessage: err.Error(), failureReason: "environment_prepare_failed"})
+			return nil, true
+		}
+		if slices.Equal(paths, resolved) {
+			return releaseAll, false
+		}
+		releaseAll()
 	}
-	return releaseAll, false
 }
 
 // LocalPathLocker serialises agent tasks that share the same on-disk path.

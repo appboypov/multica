@@ -12,11 +12,10 @@ import (
 )
 
 // PreparePullRequestWorktree runs with the destination's task path lock held.
-// sources are the task's local Git repositories; the first one creates a
-// missing tree. An existing tree is reused when it is a worktree of any
-// source, without changing its refs, index or files.
-// A missing tree starts at the PR branch's history, never the default branch.
-func PreparePullRequestWorktree(ctx context.Context, sources []string, path, branch string, logger *slog.Logger) (string, error) {
+// handoffPath is the branch owner's path with its task path lock also held.
+// sources are the task's local Git repositories. An existing tree is reused
+// without changing its refs or files. A missing tree starts at the PR branch.
+func PreparePullRequestWorktree(ctx context.Context, sources []string, path, branch, handoffPath string, logger *slog.Logger) (string, error) {
 	expanded := make([]string, len(sources))
 	for i, source := range sources {
 		var err error
@@ -33,6 +32,13 @@ func PreparePullRequestWorktree(ctx context.Context, sources []string, path, bra
 	checked, err := runGitTrimmed(checkoutPath, "check-ref-format", "--branch", branch)
 	if err != nil || checked != branch {
 		return "", fmt.Errorf("invalid pull-request branch %q", branch)
+	}
+	owner, err := BranchWorktree(ctx, sources, branch)
+	if err != nil {
+		return "", err
+	}
+	if owner != "" {
+		checkoutPath = owner
 	}
 	unlock, err := lockGitRoot(checkoutPath, logger)
 	if err != nil {
@@ -67,10 +73,55 @@ func PreparePullRequestWorktree(ctx context.Context, sources []string, path, bra
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return "", err
 	}
+	owner, err = BranchWorktree(ctx, []string{checkoutPath}, branch)
+	if err != nil {
+		return "", err
+	}
+	if owner != "" {
+		if handoffPath == "" || !sameWorklanePath(owner, handoffPath) {
+			return "", fmt.Errorf("pull-request branch %q is held by unlocked worktree %s", branch, owner)
+		}
+		if err := CanLeave(owner); err != nil {
+			return "", fmt.Errorf("cannot detach %s: %w", owner, err)
+		}
+		if out, err := runGit(owner, "switch", "--detach", "HEAD"); err != nil {
+			return "", fmt.Errorf("detach branch owner %s: %s: %w", owner, strings.TrimSpace(out), err)
+		}
+		if logger != nil {
+			logger.Debug("detached pull-request branch owner", "path", owner, "branch", branch)
+		}
+	}
 	if out, err := runGit(checkoutPath, args...); err != nil {
+		if owner != "" {
+			if restoreOut, restoreErr := runGit(owner, "switch", branch); restoreErr != nil {
+				return "", fmt.Errorf("create pull-request worktree: %s: %w; restore %s: %s: %v", strings.TrimSpace(out), err, owner, strings.TrimSpace(restoreOut), restoreErr)
+			}
+		}
 		return "", fmt.Errorf("create pull-request worktree: %s: %w", strings.TrimSpace(out), err)
 	}
 	return path, nil
+}
+
+// BranchWorktree returns the worktree holding the exact local branch.
+func BranchWorktree(ctx context.Context, sources []string, branch string) (string, error) {
+	for _, source := range sources {
+		path, err := ExpandWorklanePath(source)
+		if err != nil {
+			return "", err
+		}
+		cmd := exec.CommandContext(ctx, "git", "-C", path, "for-each-ref", "--format=%(refname)\t%(worktreepath)", "refs/heads/"+branch)
+		out, err := cmd.Output()
+		if err != nil {
+			return "", fmt.Errorf("find branch %q worktree in %s: %w", branch, path, err)
+		}
+		for line := range strings.SplitSeq(string(out), "\n") {
+			ref, tree, _ := strings.Cut(line, "\t")
+			if ref == "refs/heads/"+branch && tree != "" {
+				return tree, nil
+			}
+		}
+	}
+	return "", nil
 }
 
 // SwitchPullRequestBranch switches a checkout to an open pull request's

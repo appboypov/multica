@@ -445,7 +445,7 @@ func TestWorklanePullRequestDestinationWithoutOrganisation(t *testing.T) {
 }
 
 func TestWorklanePullRequestPreparationFailuresNeverUseLane(t *testing.T) {
-	for _, name := range []string{"occupied_file", "foreign_repository", "wrong_branch", "detached_tree", "branch_held_elsewhere", "branch_held_by_lane", "failed_fetch_with_stale_ref"} {
+	for _, name := range []string{"occupied_file", "foreign_repository", "wrong_branch", "detached_tree", "failed_fetch_with_stale_ref"} {
 		t.Run(name, func(t *testing.T) {
 			f := newLaneRoutingFixture(t, "review/work-1021")
 			task := f.task("failed-pr")
@@ -466,12 +466,6 @@ func TestWorklanePullRequestPreparationFailuresNeverUseLane(t *testing.T) {
 				laneRoutingGit(t, f.lane, "worktree", "add", "-b", "other-review", f.pr, "main")
 			case "detached_tree":
 				laneRoutingGit(t, f.lane, "worktree", "add", "--detach", f.pr, f.head)
-			case "branch_held_elsewhere":
-				laneRoutingGit(t, f.lane, "worktree", "add", filepath.Join(filepath.Dir(f.lane), "other tree"), f.branch)
-			case "branch_held_by_lane":
-				f.branch = "work-1022"
-				f.pr = filepath.Join(filepath.Dir(f.lane), ".pull-requests", f.branch)
-				task = f.task("failed-pr")
 			case "failed_fetch_with_stale_ref":
 				laneRoutingGit(t, f.lane, "branch", "-D", f.branch)
 				laneRoutingGit(t, f.lane, "remote", "set-url", "origin", filepath.Join(t.TempDir(), "missing.git"))
@@ -516,7 +510,7 @@ func TestWorklanePullRequestPreparationFailuresNeverUseLane(t *testing.T) {
 					t.Fatalf("occupied path changed: %q, %v", got, err)
 				}
 			}
-			if name == "failed_fetch_with_stale_ref" || name == "branch_held_elsewhere" || name == "branch_held_by_lane" {
+			if name == "failed_fetch_with_stale_ref" {
 				if _, err := os.Lstat(f.pr); !os.IsNotExist(err) {
 					t.Fatalf("refused PR destination was created: %v", err)
 				}
