@@ -69,6 +69,24 @@ WHERE atq.agent_id = sqlc.arg('agent_id')
   AND tu.task_id = ANY(sqlc.arg('task_ids')::uuid[])
 ORDER BY tu.task_id, tu.model;
 
+-- name: ListReleaseTaskUsage :many
+-- Per-(task, provider, model) usage rows for every run of one release, the
+-- release-page counterpart of ListIssueTaskUsage. Uses idx_agent_task_queue_release
+-- (migration 801).
+SELECT
+    tu.task_id,
+    tu.provider,
+    tu.model,
+    tu.input_tokens,
+    tu.output_tokens,
+    tu.cache_read_tokens,
+    tu.cache_write_tokens,
+    tu.cost_usd_ticks
+FROM task_usage tu
+JOIN agent_task_queue atq ON atq.id = tu.task_id
+WHERE atq.release_id = $1
+ORDER BY tu.task_id, tu.model;
+
 -- name: GetIssueUsageSummary :one
 -- Keep the legacy usage aggregates intact, then report coverage over finite
 -- terminal runs separately. A task_usage row is the durable evidence that a

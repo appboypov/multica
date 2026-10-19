@@ -2198,6 +2198,7 @@ func NewRouterWithOptions(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus
 					r.Get("/comments", h.ListReleaseComments)
 					r.Post("/comments", h.CreateReleaseComment)
 					r.Get("/activity", h.ListReleaseActivity)
+					r.Get("/tasks", h.ListReleaseTasks)
 					r.Get("/wakeups", h.ListReleaseWakeups)
 					r.Post("/wakeups", h.CreateReleaseWakeup)
 					r.Delete("/wakeups/{wakeupId}", h.DeleteReleaseWakeup)
