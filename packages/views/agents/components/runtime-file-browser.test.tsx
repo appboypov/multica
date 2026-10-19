@@ -174,6 +174,23 @@ describe("RuntimeFileBrowser", () => {
     expect(screen.queryByText("c.md")).not.toBeInTheDocument();
   });
 
+  it("opens home when a cleared path is submitted, so Up still walks up", async () => {
+    const { user } = renderBrowser();
+    await typePath(user, "/n");
+    await screen.findByText("c.md");
+
+    await typePath(user, "");
+    expect(await screen.findByRole("button", { name: ".omp" })).toBeInTheDocument();
+    expect(mockInitiateDirectoryListing).not.toHaveBeenCalledWith("runtime-1", "");
+    expect(screen.getByRole("textbox", { name: "Path" })).toHaveValue("/Users/brian");
+
+    const up = screen.getByRole("button", { name: "Up" });
+    expect(up).toBeEnabled();
+    await user.click(up);
+    expect(await screen.findByRole("button", { name: "brian" })).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Path" })).toHaveValue("/Users");
+  });
+
   it("marks a hidden entry and lets it be ticked", async () => {
     const { user, onAdd } = renderBrowser();
     await typePath(user, "/Users/brian/.omp/agent/skills/as-ux-designer");

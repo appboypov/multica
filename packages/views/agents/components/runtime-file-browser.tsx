@@ -145,7 +145,7 @@ export function RuntimeFileBrowser({
                 onKeyDown={(e) => {
                   if (e.key !== "Enter") return;
                   e.preventDefault();
-                  openPath(e.currentTarget.value.trim());
+                  openPath(e.currentTarget.value.trim() || HOME_PATH);
                 }}
                 className="font-mono"
               />
