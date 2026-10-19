@@ -7120,15 +7120,38 @@ func (s *TaskService) skillsWithFiles(ctx context.Context, skills []db.Skill) ([
 
 	result := make([]AgentSkillData, 0, len(skills))
 	for _, sk := range skills {
-		result = append(result, AgentSkillData{
+		data := AgentSkillData{
 			ID:          util.UUIDToString(sk.ID),
 			Name:        sk.Name,
 			Description: sk.Description,
 			Content:     sk.Content,
 			Files:       filesBySkill[util.UUIDToString(sk.ID)],
-		})
+		}
+		if path, ok := FolderSkillPath(sk.Config); ok {
+			data.Source = skillbundle.SourceFolder
+			data.Path = path
+		}
+		result = append(result, data)
 	}
 	return result, nil
+}
+
+// FolderSkillPath returns the skill directory of a library skill that comes
+// from a skill folder: config.origin is {type: "local_folder", source_path}.
+func FolderSkillPath(config []byte) (string, bool) {
+	var parsed struct {
+		Origin struct {
+			Type       string `json:"type"`
+			SourcePath string `json:"source_path"`
+		} `json:"origin"`
+	}
+	if len(config) == 0 || json.Unmarshal(config, &parsed) != nil {
+		return "", false
+	}
+	if parsed.Origin.Type != "local_folder" || parsed.Origin.SourcePath == "" {
+		return "", false
+	}
+	return parsed.Origin.SourcePath, true
 }
 
 // LoadAgentSkillBundles returns every skill visible to an agent, including
@@ -7300,6 +7323,7 @@ func BuildAgentSkillBundles(skills []AgentSkillData) ([]AgentSkillData, []AgentS
 			Source:      skill.Source,
 			Name:        skill.Name,
 			Description: skill.Description,
+			Path:        skill.Path,
 			Hash:        manifest.Hash,
 			SizeBytes:   manifest.SizeBytes,
 			FileCount:   manifest.FileCount,
@@ -7311,14 +7335,16 @@ func BuildAgentSkillBundles(skills []AgentSkillData) ([]AgentSkillData, []AgentS
 
 // AgentSkillData represents a skill for task execution responses.
 type AgentSkillData struct {
-	ID          string               `json:"id"`
-	Source      string               `json:"source,omitempty"`
-	Name        string               `json:"name"`
-	Description string               `json:"description,omitempty"`
-	Hash        string               `json:"hash,omitempty"`
-	SizeBytes   int64                `json:"size_bytes,omitempty"`
-	Content     string               `json:"content"`
-	Files       []AgentSkillFileData `json:"files,omitempty"`
+	ID          string `json:"id"`
+	Source      string `json:"source,omitempty"`
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+	// Path is the skill directory of a folder skill on the runtime's machine.
+	Path      string               `json:"path,omitempty"`
+	Hash      string               `json:"hash,omitempty"`
+	SizeBytes int64                `json:"size_bytes,omitempty"`
+	Content   string               `json:"content"`
+	Files     []AgentSkillFileData `json:"files,omitempty"`
 }
 
 // AgentSkillFileData represents a supporting file within a skill.
@@ -7334,6 +7360,7 @@ type AgentSkillRefData struct {
 	Source      string                  `json:"source"`
 	Name        string                  `json:"name"`
 	Description string                  `json:"description,omitempty"`
+	Path        string                  `json:"path,omitempty"`
 	Hash        string                  `json:"hash"`
 	SizeBytes   int64                   `json:"size_bytes"`
 	FileCount   int                     `json:"file_count"`

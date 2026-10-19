@@ -5,6 +5,7 @@ import {
   AlertCircle,
   AlertTriangle,
   Download,
+  Folder,
   HardDrive,
   Lock,
   Pencil,
@@ -64,6 +65,7 @@ import { canEditSkill } from "../hooks/use-can-edit-skill";
 import { originSourceUrl, readOrigin } from "../lib/origin";
 import { rowMatchesFilters, type SkillRow } from "./skill-list-filter";
 import { CreateSkillDialog } from "./create-skill-dialog";
+import { SkillFoldersSection } from "./skill-folders-section";
 import {
   useSkillsViewStore,
   DEFAULT_HIDDEN_COLUMNS,
@@ -245,7 +247,11 @@ function NameCell({ row }: { row: SkillRow }) {
               <Lock className="h-3 w-3 shrink-0 text-faint-foreground" />
             }
           />
-          <TooltipContent>{t(($) => $.table.lock_tooltip)}</TooltipContent>
+          <TooltipContent>
+            {readOrigin(skill).type === "local_folder"
+              ? t(($) => $.table.lock_tooltip_folder)
+              : t(($) => $.table.lock_tooltip)}
+          </TooltipContent>
         </Tooltip>
       )}
     </ListGridCell>
@@ -335,6 +341,11 @@ function SourceCell({
             provider: origin.provider,
           })
         : t(($) => $.table.source_runtime_unknown);
+  } else if (origin.type === "local_folder") {
+    icon = <Folder className="h-3 w-3 shrink-0" />;
+    label = origin.source_path
+      ? t(($) => $.table.source_folder_path, { path: origin.source_path })
+      : t(($) => $.table.source_folder);
   } else if (origin.type === "clawhub") {
     icon = <Download className="h-3 w-3 shrink-0" />;
     label = t(($) => $.table.source_clawhub);
@@ -804,6 +815,8 @@ export default function SkillsPage() {
           <span>{t(($) => $.page.supporting_data_warning)}</span>
         </div>
       )}
+
+      <SkillFoldersSection />
 
       {isLoading ? (
         <div className="flex-1 overflow-y-auto @container">

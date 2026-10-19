@@ -136,6 +136,7 @@ var workspaceDeletionManifest = map[string]workspaceDeleteAction{
 	"seat_capacity_outbox":               workspaceDeleteSettle,
 	"skill":                              workspaceDelete,
 	"skill_file":                         workspaceDelete,
+	"skill_folder":                       workspaceDelete,
 	"skill_to_label":                     workspaceDelete,
 	"squad":                              workspaceDelete,
 	"squad_member":                       workspaceDelete,

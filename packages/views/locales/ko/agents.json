@@ -582,7 +582,6 @@
       "empty_title": "할당된 스킬이 없습니다",
       "remove_failed_toast": "스킬을 제거하지 못했습니다",
       "add_dialog_title": "스킬 추가",
-      "add_dialog_search_placeholder": "스킬 검색",
       "add_dialog_empty": "모든 워크스페이스 스킬이 이미 할당되어 있습니다.",
       "add_dialog_no_match": "검색 결과와 일치하는 스킬이 없습니다.",
       "add_dialog_empty_partial": "더 추가할 스킬이 없습니다. 이 에이전트에 모든 스킬이 이미 할당되어 있습니다.",
@@ -590,7 +589,9 @@
       "add_dialog_confirm_default": "추가",
       "add_dialog_confirm_other": "스킬 {{count}}개 추가",
       "add_dialog_cancel": "취소",
-      "add_failed_toast": "스킬을 추가하지 못했습니다"
+      "add_failed_toast": "스킬을 추가하지 못했습니다",
+      "search_placeholder": "스킬 검색",
+      "search_empty": "\"{{query}}\"와 일치하는 스킬이 없습니다."
     },
     "integrations": {
       "members_note": "이 연결을 관리할 수 있는 사람은 워크스페이스 소유자와 관리자뿐입니다. 연결된 봇은 설정 → 연동에서 확인할 수 있습니다."

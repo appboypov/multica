@@ -115,6 +115,7 @@ vi.mock("@multica/ui/components/ui/tooltip", () => ({
   TooltipContent: () => null,
 }));
 vi.mock("./create-skill-dialog", () => ({ CreateSkillDialog: () => null }));
+vi.mock("./skill-folders-section", () => ({ SkillFoldersSection: () => null }));
 vi.mock("./skill-list-toolbar", () => ({ SkillListToolbar: () => null }));
 vi.mock("./skill-list-actions", () => ({
   SkillBatchToolbar: () => null,

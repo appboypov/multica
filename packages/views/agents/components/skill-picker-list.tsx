@@ -8,6 +8,8 @@ import { Checkbox } from "@multica/ui/components/ui/checkbox";
 import { Input } from "@multica/ui/components/ui/input";
 import { cn } from "@multica/ui/lib/utils";
 import { useT } from "../../i18n";
+import { HighlightText } from "../../search/highlight-text";
+import { filterBySkillSearch } from "../../skills/lib/skill-search";
 
 interface SkillPickerListProps {
   /** Skills to show. Callers filter (e.g. exclude already-attached
@@ -62,14 +64,7 @@ export function SkillPickerList({
   const { t } = useT("agents");
   const [query, setQuery] = useState("");
 
-  const trimmedQuery = query.trim().toLowerCase();
-  const filtered = trimmedQuery
-    ? skills.filter((s) => {
-        const name = s.name.toLowerCase();
-        const description = s.description?.toLowerCase() ?? "";
-        return name.includes(trimmedQuery) || description.includes(trimmedQuery);
-      })
-    : skills;
+  const filtered = filterBySkillSearch(skills, query, (s) => [s.name, s.description]);
 
   const resolvedEmpty =
     emptyMessage ?? t(($) => $.create_dialog.skills_section.list_empty_default);
@@ -125,10 +120,12 @@ export function SkillPickerList({
                 />
                 <SkillIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-body font-medium">{skill.name}</div>
+                  <div className="truncate text-body font-medium">
+                    <HighlightText text={skill.name} query={query} />
+                  </div>
                   {skill.description ? (
                     <div className="truncate text-caption text-muted-foreground">
-                      {skill.description}
+                      <HighlightText text={skill.description} query={query} />
                     </div>
                   ) : null}
                 </div>

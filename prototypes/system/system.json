@@ -5211,7 +5211,7 @@
      "type": "jsonb"
     },
     {
-     "name": "disabled_runtime_skills",
+     "name": "runtime_skill_exceptions",
      "type": "jsonb"
     },
     {
@@ -6411,6 +6411,42 @@
      "from": "1",
      "toCount": "*",
      "via": "skill_id"
+    }
+   ]
+  },
+  {
+   "name": "skill_folder",
+   "kind": "table",
+   "owner": "postgres",
+   "path": "server/migrations/804_skill_folder.up.sql:12",
+   "fields": [
+    {
+     "name": "id",
+     "type": "uuid"
+    },
+    {
+     "name": "workspace_id",
+     "type": "uuid"
+    },
+    {
+     "name": "daemon_id",
+     "type": "text"
+    },
+    {
+     "name": "path",
+     "type": "text"
+    },
+    {
+     "name": "created_by",
+     "type": "uuid"
+    }
+   ],
+   "relations": [
+    {
+     "to": "skill",
+     "from": "1",
+     "toCount": "*",
+     "via": "config.origin.folder_id"
     }
    ]
   },

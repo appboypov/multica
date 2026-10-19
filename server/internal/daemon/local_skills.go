@@ -14,6 +14,7 @@ import (
 	"github.com/multica-ai/multica/server/internal/daemon/execenv"
 	"github.com/multica-ai/multica/server/internal/skill"
 	"github.com/multica-ai/multica/server/pkg/agent"
+	"github.com/multica-ai/multica/server/pkg/protocol"
 )
 
 const (
@@ -727,4 +728,82 @@ func loadRuntimeLocalSkillBundle(provider, skillKey string) (*runtimeLocalSkillB
 	}
 
 	return nil, true, fmt.Errorf("local skill not found")
+}
+
+// folderSkillSummary is one skill of a skill folder: a direct subfolder of
+// the folder that holds a SKILL.md. Key is the subfolder's name.
+type folderSkillSummary struct {
+	FolderID    string `json:"folder_id"`
+	Key         string `json:"key"`
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+	Content     string `json:"content"`
+	SourcePath  string `json:"source_path"`
+}
+
+// listFolderSkills lists the skills of each skill folder. A folder that
+// cannot be read has no skills.
+func listFolderSkills(folders []protocol.DaemonSkillFolder) []folderSkillSummary {
+	skills := make([]folderSkillSummary, 0)
+	for _, folder := range folders {
+		entries, err := os.ReadDir(folder.Path)
+		if err != nil {
+			slog.Info("skill folder: cannot read", "folder_id", folder.ID, "path", folder.Path, "error", err)
+			continue
+		}
+		for _, entry := range entries {
+			if isIgnoredLocalSkillEntry(entry.Name()) {
+				continue
+			}
+			dir := filepath.Join(folder.Path, entry.Name())
+			if info, err := os.Stat(dir); err != nil || !info.IsDir() {
+				continue
+			}
+			content, err := readLocalSkillMainFile(dir)
+			if err != nil {
+				continue
+			}
+			name, description := skill.ParseSkillFrontmatter(content)
+			if name == "" {
+				name = entry.Name()
+			}
+			skills = append(skills, folderSkillSummary{
+				FolderID:    folder.ID,
+				Key:         entry.Name(),
+				Name:        name,
+				Description: description,
+				Content:     content,
+				SourcePath:  dir,
+			})
+		}
+	}
+	return skills
+}
+
+// readFolderSkill reads a folder skill's files from its directory on this
+// machine, so a run uses the skill as it is on disk now.
+func readFolderSkill(ref SkillRefData) (SkillData, error) {
+	if ref.Path == "" {
+		return SkillData{}, fmt.Errorf("no skill directory")
+	}
+	content, err := readLocalSkillMainFile(ref.Path)
+	if err != nil {
+		return SkillData{}, err
+	}
+	files, err := collectLocalSkillFiles(ref.Path, true)
+	if err != nil {
+		return SkillData{}, err
+	}
+	_, description := skill.ParseSkillFrontmatter(content)
+	if description == "" {
+		description = ref.Description
+	}
+	return SkillData{
+		ID:          ref.ID,
+		Source:      ref.Source,
+		Name:        ref.Name,
+		Description: description,
+		Content:     content,
+		Files:       files,
+	}, nil
 }

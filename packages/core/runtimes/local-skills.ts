@@ -4,6 +4,7 @@ import type {
   CreateRuntimeLocalSkillImportRequest,
   RuntimeLocalSkillImportResult,
   RuntimeLocalSkillsResult,
+  RuntimeLocalSkillSummary,
 } from "../types";
 
 export const runtimeLocalSkillsKeys = {
@@ -51,6 +52,34 @@ export async function resolveRuntimeLocalSkills(
 	mcpServers: current.mcp_servers ?? [],
 	mcpSupported: current.mcp_supported === true,
   };
+}
+
+/**
+ * Reads the skill folders on the runtime's machine and brings the library in
+ * line with them. Returns the skills that stay out because another library
+ * skill already has their name.
+ */
+export async function resolveSkillFolderScan(
+  runtimeId: string,
+): Promise<RuntimeLocalSkillSummary[]> {
+  const initial = await api.initiateSkillFolderScan(runtimeId);
+  const start = Date.now();
+  let current = initial;
+
+  while (current.status === "pending" || current.status === "running") {
+    if (Date.now() - start > POLL_TIMEOUT_MS) {
+      throw new Error("skill folder scan timed out");
+    }
+    const pause = Promise.withResolvers<void>();
+    setTimeout(pause.resolve, POLL_INTERVAL_MS);
+    await pause.promise;
+    current = await api.getListLocalSkillsResult(runtimeId, initial.id);
+  }
+
+  if (current.status === "failed" || current.status === "timeout") {
+    throw new Error(current.error || "skill folder scan failed");
+  }
+  return current.skills ?? [];
 }
 
 export async function resolveRuntimeLocalSkillImport(

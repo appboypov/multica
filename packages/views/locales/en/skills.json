@@ -62,7 +62,23 @@
     "source_runtime_unknown": "From a runtime",
     "source_clawhub": "From ClawHub",
     "source_skills_sh": "From Skills.sh",
-    "source_github": "From GitHub"
+    "source_github": "From GitHub",
+    "source_folder": "From a skill folder",
+    "source_folder_path": "From {{path}}",
+    "lock_tooltip_folder": "Read-only. Edit it in its folder on its machine."
+  },
+  "folders": {
+    "title": "Skill folders",
+    "add": "Add folder",
+    "scanning": "Reading skill folders",
+    "empty": "Add a folder from your machine. Every skill in it comes into the library.",
+    "no_machine": "Connect a local runtime to add a folder from its machine.",
+    "other_machine": "Another machine",
+    "remove_aria": "Remove {{path}}",
+    "name_taken": "Name taken",
+    "scan_failed": "Couldn't read the folders on {{machine}}: {{message}}",
+    "add_failed_toast": "Couldn't add the folder: {{message}}",
+    "remove_failed_toast": "Couldn't remove the folder: {{message}}"
   },
   "actions": {
     "row_menu": "Actions",
@@ -140,7 +156,9 @@
       "origin_clawhub": "Imported · ClawHub",
       "origin_skills_sh": "Imported · Skills.sh",
       "origin_github": "Imported · GitHub",
-      "origin_workspace": "Created manually"
+      "origin_workspace": "Created manually",
+      "origin_folder": "Skill folder",
+      "origin_folder_path": "Skill folder · {{path}}"
     },
     "conflict_banner": {
       "title": "Someone else updated this skill",

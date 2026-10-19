@@ -2417,6 +2417,10 @@ func NewRouterWithOptions(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus
 					r.Delete("/files/{fileId}", h.DeleteSkillFile)
 				})
 			})
+			r.Route("/api/skill-folders", func(r chi.Router) {
+				r.Get("/", h.ListSkillFolders)
+				r.Delete("/{id}", h.DeleteSkillFolder)
+			})
 
 			// Dashboard — workspace-wide token + run-time rollups for the
 			// "/{slug}/dashboard" page. Optional ?project_id filter scopes
@@ -2449,6 +2453,8 @@ func NewRouterWithOptions(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus
 					r.Get("/local-skills/import/{requestId}", h.GetLocalSkillImportRequest)
 					r.Post("/directory-listings", h.InitiateDirectoryListing)
 					r.Get("/directory-listings/{requestId}", h.GetDirectoryListingRequest)
+					r.Post("/skill-folders", h.CreateSkillFolder)
+					r.Post("/skill-folders/scan", h.ScanSkillFolders)
 					r.Post("/repository-checkouts", h.InitiateRepositoryCheckout)
 					r.Get("/repository-checkouts/{requestId}", h.GetRepositoryCheckout)
 					r.Delete("/", h.DeleteAgentRuntime)

@@ -63,4 +63,14 @@ describe("canEditSkill", () => {
       canEditSkill(skill, { userId: null, role: "member" }),
     ).toBe(false);
   });
+
+  it("denies even an owner for a skill that comes from a skill folder", () => {
+    const folderSkill = {
+      ...makeSkill("user-alice"),
+      config: { origin: { type: "local_folder", folder_id: "f_1", key: "x" } },
+    };
+    expect(
+      canEditSkill(folderSkill, { userId: "user-alice", role: "owner" }),
+    ).toBe(false);
+  });
 });

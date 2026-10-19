@@ -206,20 +206,20 @@ type CoalescedCommentData struct {
 
 // AgentData holds agent details returned by the claim endpoint.
 type AgentData struct {
-	ID                    string                     `json:"id"`
-	Name                  string                     `json:"name"`
-	Instructions          string                     `json:"instructions"`
-	InstructionSelection  []string                   `json:"instruction_selection"`
-	Skills                []SkillData                `json:"skills,omitempty"`
-	SkillRefs             []SkillRefData             `json:"skill_refs,omitempty"`
-	CustomEnv             map[string]string          `json:"custom_env,omitempty"`
-	CustomArgs            []string                   `json:"custom_args,omitempty"`
-	McpConfig             json.RawMessage            `json:"mcp_config,omitempty"`
-	Model                 string                     `json:"model,omitempty"`
-	ThinkingLevel         string                     `json:"thinking_level,omitempty"`
-	ServiceTier           string                     `json:"service_tier,omitempty"`
-	DisabledRuntimeSkills []DisabledRuntimeSkillData `json:"disabled_runtime_skills,omitempty"`
-	InheritRuntimeSkills  *bool                      `json:"inherit_runtime_skills,omitempty"`
+	ID                     string                      `json:"id"`
+	Name                   string                      `json:"name"`
+	Instructions           string                      `json:"instructions"`
+	InstructionSelection   []string                    `json:"instruction_selection"`
+	Skills                 []SkillData                 `json:"skills,omitempty"`
+	SkillRefs              []SkillRefData              `json:"skill_refs,omitempty"`
+	CustomEnv              map[string]string           `json:"custom_env,omitempty"`
+	CustomArgs             []string                    `json:"custom_args,omitempty"`
+	McpConfig              json.RawMessage             `json:"mcp_config,omitempty"`
+	Model                  string                      `json:"model,omitempty"`
+	ThinkingLevel          string                      `json:"thinking_level,omitempty"`
+	ServiceTier            string                      `json:"service_tier,omitempty"`
+	RuntimeSkillExceptions []RuntimeSkillExceptionData `json:"runtime_skill_exceptions,omitempty"`
+	InheritRuntimeSkills   *bool                       `json:"inherit_runtime_skills,omitempty"`
 	// RuntimeConfig is the per-provider runtime_config JSON as stored on
 	// the agent record, forwarded verbatim by the claim endpoint. The
 	// daemon decodes provider-specific fields (e.g. openclaw mode +
@@ -227,9 +227,10 @@ type AgentData struct {
 	RuntimeConfig json.RawMessage `json:"runtime_config,omitempty"`
 }
 
-// DisabledRuntimeSkillData is the task-wire identity of one runtime-local
-// skill that must be hidden from this agent's provider process.
-type DisabledRuntimeSkillData struct {
+// RuntimeSkillExceptionData is the task-wire identity of one runtime-local
+// skill whose state differs from the agent's section switch: hidden from the
+// provider process while the agent inherits, shown while it does not.
+type RuntimeSkillExceptionData struct {
 	RuntimeID string `json:"runtime_id"`
 	Provider  string `json:"provider"`
 	Root      string `json:"root"`
@@ -259,14 +260,16 @@ type SkillFileData struct {
 }
 
 type SkillRefData struct {
-	ID          string             `json:"id"`
-	Source      string             `json:"source"`
-	Name        string             `json:"name"`
-	Description string             `json:"description,omitempty"`
-	Hash        string             `json:"hash"`
-	SizeBytes   int64              `json:"size_bytes"`
-	FileCount   int                `json:"file_count"`
-	Files       []SkillFileRefData `json:"files,omitempty"`
+	ID          string `json:"id"`
+	Source      string `json:"source"`
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+	// Path is the skill directory of a folder skill on this machine.
+	Path      string             `json:"path,omitempty"`
+	Hash      string             `json:"hash"`
+	SizeBytes int64              `json:"size_bytes"`
+	FileCount int                `json:"file_count"`
+	Files     []SkillFileRefData `json:"files,omitempty"`
 }
 
 type SkillFileRefData struct {

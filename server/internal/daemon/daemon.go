@@ -4619,7 +4619,7 @@ func (d *Daemon) handleHeartbeatActions(ctx context.Context, runtimeID string, r
 	}
 	if resp.PendingLocalSkills != nil {
 		if rt := d.findRuntime(runtimeID); rt != nil {
-			go d.handleLocalSkillList(ctx, *rt, resp.PendingLocalSkills.ID)
+			go d.handleLocalSkillList(ctx, *rt, *resp.PendingLocalSkills)
 		}
 	}
 	if resp.PendingDirectoryListing != nil {
@@ -4911,8 +4911,17 @@ func (d *Daemon) handleModelList(ctx context.Context, rt Runtime, requestID stri
 	})
 }
 
-func (d *Daemon) handleLocalSkillList(ctx context.Context, rt Runtime, requestID string) {
-	d.logger.Info("runtime local skills requested", "runtime_id", rt.ID, "request_id", requestID, "provider", rt.Provider)
+func (d *Daemon) handleLocalSkillList(ctx context.Context, rt Runtime, pending PendingLocalSkills) {
+	requestID := pending.ID
+	d.logger.Info("runtime local skills requested", "runtime_id", rt.ID, "request_id", requestID, "provider", rt.Provider, "folders", len(pending.Folders))
+
+	if len(pending.Folders) > 0 {
+		d.reportLocalSkillListResult(ctx, rt, requestID, map[string]any{
+			"status":        "completed",
+			"folder_skills": listFolderSkills(pending.Folders),
+		})
+		return
+	}
 
 	skills, supported, err := listRuntimeLocalSkills(rt.Provider)
 	if err != nil {
@@ -6808,6 +6817,14 @@ func (d *Daemon) ensureTaskSkillBundles(ctx context.Context, task *Task) error {
 	misses := make([]SkillRefData, 0)
 	for _, ref := range task.Agent.SkillRefs {
 		ref := ref
+		if ref.Source == skillbundle.SourceFolder {
+			bundle, err := readFolderSkill(ref)
+			if err != nil {
+				return fmt.Errorf("%w: folder skill %q: %w", errSkillBundleUnavailable, ref.Name, err)
+			}
+			resolved[skillRefKey(ref.Source, ref.ID)] = bundle
+			continue
+		}
 		var bundle SkillData
 		if err := d.skillCache.WithRefLock(task.WorkspaceID, ref, func() error {
 			if cached, ok := d.skillCache.Load(task.WorkspaceID, ref); ok {
@@ -9884,35 +9901,44 @@ func convertSkillsForEnv(skills []SkillData) []execenv.SkillContextForEnv {
 	return result
 }
 
+// convertDisabledRuntimeSkillsForEnv returns the runtime skills the provider
+// process must not load. While the agent inherits its runtime's skills those
+// are its exceptions; while it does not, they are every listed skill except
+// its exceptions.
 func convertDisabledRuntimeSkillsForEnv(agentData *AgentData, runtimeID, provider string) ([]execenv.RuntimeSkillRefForEnv, error) {
 	if agentData == nil {
 		return nil, nil
 	}
-	if agentData.InheritRuntimeSkills != nil && !*agentData.InheritRuntimeSkills && runtimeSkillsCanDisable(provider) {
-		skills, supported, err := listRuntimeLocalSkills(provider)
-		if err != nil {
-			return nil, fmt.Errorf("list runtime skills for disabled section: %w", err)
-		}
-		if !supported {
-			return nil, fmt.Errorf("list runtime skills for disabled section: provider %q is unsupported", provider)
-		}
-		result := make([]execenv.RuntimeSkillRefForEnv, 0, len(skills))
-		for _, skill := range skills {
-			result = append(result, execenv.RuntimeSkillRefForEnv{
-				Root:   skill.Root,
-				Key:    skill.Key,
-				Name:   skill.Name,
-				Plugin: skill.Plugin,
-			})
-		}
-		return result, nil
-	}
-	if len(agentData.DisabledRuntimeSkills) == 0 {
-		return nil, nil
-	}
-	result := make([]execenv.RuntimeSkillRefForEnv, 0, len(agentData.DisabledRuntimeSkills))
-	for _, skill := range agentData.DisabledRuntimeSkills {
+	exceptions := make(map[string]struct{}, len(agentData.RuntimeSkillExceptions))
+	scoped := make([]execenv.RuntimeSkillRefForEnv, 0, len(agentData.RuntimeSkillExceptions))
+	for _, skill := range agentData.RuntimeSkillExceptions {
 		if skill.RuntimeID != runtimeID || skill.Provider != provider {
+			continue
+		}
+		exceptions[runtimeSkillIdentity(skill.Root, skill.Key, skill.Plugin)] = struct{}{}
+		scoped = append(scoped, execenv.RuntimeSkillRefForEnv{
+			Root:   skill.Root,
+			Key:    skill.Key,
+			Name:   skill.Name,
+			Plugin: skill.Plugin,
+		})
+	}
+	if agentData.InheritRuntimeSkills == nil || *agentData.InheritRuntimeSkills || !runtimeSkillsCanDisable(provider) {
+		if len(scoped) == 0 {
+			return nil, nil
+		}
+		return scoped, nil
+	}
+	skills, supported, err := listRuntimeLocalSkills(provider)
+	if err != nil {
+		return nil, fmt.Errorf("list runtime skills for disabled section: %w", err)
+	}
+	if !supported {
+		return nil, fmt.Errorf("list runtime skills for disabled section: provider %q is unsupported", provider)
+	}
+	result := make([]execenv.RuntimeSkillRefForEnv, 0, len(skills))
+	for _, skill := range skills {
+		if _, on := exceptions[runtimeSkillIdentity(skill.Root, skill.Key, skill.Plugin)]; on {
 			continue
 		}
 		result = append(result, execenv.RuntimeSkillRefForEnv{
@@ -9923,6 +9949,10 @@ func convertDisabledRuntimeSkillsForEnv(agentData *AgentData, runtimeID, provide
 		})
 	}
 	return result, nil
+}
+
+func runtimeSkillIdentity(root, key, plugin string) string {
+	return root + "\x00" + key + "\x00" + plugin
 }
 
 // composeOpenclawIncludeRoots returns the value the daemon should set for

@@ -5,6 +5,7 @@ import {
   Loader2,
   Plus,
   RefreshCw,
+  Search,
   Server,
   Trash2,
 } from "lucide-react";
@@ -14,7 +15,7 @@ import { toast } from "sonner";
 import type {
   Agent,
   AgentRuntime,
-  DisabledRuntimeSkill,
+  RuntimeSkillException,
   RuntimeLocalSkillSummary,
 } from "@multica/core/types";
 import { api, ApiError } from "@multica/core/api";
@@ -31,6 +32,7 @@ import {
 } from "@multica/core/workspace/queries";
 import { Badge } from "@multica/ui/components/ui/badge";
 import { Button } from "@multica/ui/components/ui/button";
+import { Input } from "@multica/ui/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -41,6 +43,8 @@ import {
 import { Switch } from "@multica/ui/components/ui/switch";
 import { cn } from "@multica/ui/lib/utils";
 import { SkillAddDialog } from "../skill-add-dialog";
+import { filterBySkillSearch } from "../../../skills/lib/skill-search";
+import { HighlightText } from "../../../search/highlight-text";
 import { useT } from "../../../i18n";
 
 type SelectedSkill =
@@ -75,6 +79,7 @@ export function SkillsTab({
   const [busyId, setBusyId] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
   const [selected, setSelected] = useState<SelectedSkill>(null);
+  const [query, setQuery] = useState("");
   const selectedWorkspaceId = selected?.kind === "workspace" ? selected.id : "";
   const detailQuery = useQuery(skillDetailOptions(wsId, selectedWorkspaceId));
 
@@ -165,9 +170,28 @@ export function SkillsTab({
     runtimeQuery.isSuccess &&
     runtimeQuery.data?.supported === true &&
     runtimeSkills.some((skill) => skill.can_disable === true && skill.root);
+  const shownSkills = filterBySkillSearch(agent.skills, query, (skill) => [
+    skill.name,
+    skill.description,
+  ]);
+  const shownRuntimeSkills = filterBySkillSearch(runtimeSkills, query, (skill) => [
+    skill.name,
+    skill.description,
+    skill.source_path,
+  ]);
 
   return (
     <div className="space-y-8">
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={t(($) => $.tab_body.skills.search_placeholder)}
+          aria-label={t(($) => $.tab_body.skills.search_placeholder)}
+          className="h-9 pl-8 text-body"
+        />
+      </div>
 
       <CapabilitySection
         title={t(($) => $.tab_body.skills.assigned_title)}
@@ -191,9 +215,11 @@ export function SkillsTab({
             icon={<SkillIcon className="h-6 w-6" />}
             title={t(($) => $.tab_body.skills.empty_title)}
           />
+        ) : shownSkills.length === 0 ? (
+          <RuntimeNotice text={t(($) => $.tab_body.skills.search_empty, { query: query.trim() })} />
         ) : (
           <ul className="divide-y rounded-lg border bg-surface-raised/40">
-            {agent.skills.map((skill) => {
+            {shownSkills.map((skill) => {
               const enabled = skill.enabled !== false;
               const busy = busyId === skill.id;
               return (
@@ -213,10 +239,14 @@ export function SkillsTab({
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className={cn("block text-body font-medium", !enabled && "text-muted-foreground")}>
-                        {skill.name}
+                        <HighlightText text={skill.name} query={query} />
                       </span>
                       <span className="block truncate text-caption text-muted-foreground">
-                        {skill.description || t(($) => $.tab_body.skills.no_description)}
+                        {skill.description ? (
+                          <HighlightText text={skill.description} query={query} />
+                        ) : (
+                          t(($) => $.tab_body.skills.no_description)
+                        )}
                       </span>
                     </span>
                   </button>
@@ -314,16 +344,19 @@ export function SkillsTab({
           <RuntimeNotice text={t(($) => $.tab_body.skills.runtime_unsupported)} />
         ) : runtimeSkills.length === 0 ? (
           <RuntimeNotice text={t(($) => $.tab_body.skills.runtime_empty)} />
+        ) : shownRuntimeSkills.length === 0 ? (
+          <RuntimeNotice text={t(($) => $.tab_body.skills.search_empty, { query: query.trim() })} />
         ) : (
           <ul className="divide-y rounded-lg border bg-surface-raised/40">
-            {runtimeSkills.map((skill) => {
-              const disabled =
-                !inheritsRuntimeSkills ||
-                isRuntimeSkillDisabled(
-                  agent.disabled_runtime_skills,
-                  runtime?.id,
-                  skill,
-                );
+            {shownRuntimeSkills.map((skill) => {
+              // A skill is on when its state follows the section switch,
+              // unless it is an exception to it.
+              const exception = isRuntimeSkillException(
+                agent.runtime_skill_exceptions,
+                runtime?.id,
+                skill,
+              );
+              const disabled = inheritsRuntimeSkills ? exception : !exception;
               const busyKey = runtimeSkillIdentity(skill);
               const busy = busyId === busyKey;
               return (
@@ -351,10 +384,13 @@ export function SkillsTab({
                           disabled && "text-muted-foreground",
                         )}
                       >
-                        {skill.name}
+                        <HighlightText text={skill.name} query={query} />
                       </span>
                       <span className="block truncate text-caption text-muted-foreground">
-                        {skill.description || skill.source_path}
+                        <HighlightText
+                          text={skill.description || skill.source_path}
+                          query={query}
+                        />
                       </span>
                     </span>
                   </button>
@@ -366,7 +402,6 @@ export function SkillsTab({
                     ) : (
                       <Switch
                         checked={!disabled}
-                        disabled={!inheritsRuntimeSkills}
                         onCheckedChange={(checked) =>
                           handleRuntimeToggle(skill, checked)
                         }
@@ -398,19 +433,19 @@ function runtimeSkillIdentity(skill: RuntimeLocalSkillSummary): string {
   return `runtime:${skill.root ?? "unknown"}:${skill.key}:${skill.plugin ?? ""}`;
 }
 
-function isRuntimeSkillDisabled(
-  disabledSkills: DisabledRuntimeSkill[] | undefined,
+function isRuntimeSkillException(
+  exceptions: RuntimeSkillException[] | undefined,
   runtimeId: string | undefined,
   skill: RuntimeLocalSkillSummary,
 ): boolean {
   if (!runtimeId || !skill.root) return false;
-  return (disabledSkills ?? []).some(
-    (disabled) =>
-      disabled.runtime_id === runtimeId &&
-      disabled.provider === skill.provider &&
-      disabled.root === skill.root &&
-      disabled.key === skill.key &&
-      (disabled.plugin ?? "") === (skill.plugin ?? ""),
+  return (exceptions ?? []).some(
+    (exception) =>
+      exception.runtime_id === runtimeId &&
+      exception.provider === skill.provider &&
+      exception.root === skill.root &&
+      exception.key === skill.key &&
+      (exception.plugin ?? "") === (skill.plugin ?? ""),
   );
 }
 

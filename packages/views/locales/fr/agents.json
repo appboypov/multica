@@ -688,7 +688,6 @@
       "empty_title": "Aucun skill assigné",
       "remove_failed_toast": "Échec du retrait du skill",
       "add_dialog_title": "Ajouter un skill",
-      "add_dialog_search_placeholder": "Rechercher des skills",
       "add_dialog_empty": "Tous les skills de l'espace de travail sont déjà assignés.",
       "add_dialog_no_match": "Aucun skill ne correspond à votre recherche.",
       "add_dialog_empty_partial": "Plus aucun skill à ajouter — cet agent les a tous.",
@@ -697,7 +696,9 @@
       "add_dialog_confirm_one": "Ajouter {{count}} skill",
       "add_dialog_confirm_other": "Ajouter {{count}} skills",
       "add_dialog_cancel": "Annuler",
-      "add_failed_toast": "Échec de l'ajout du skill"
+      "add_failed_toast": "Échec de l'ajout du skill",
+      "search_placeholder": "Rechercher des skills",
+      "search_empty": "Aucun skill ne correspond à « {{query}} »."
     },
     "integrations": {
       "members_note": "Seuls les propriétaires et administrateurs de l'espace de travail peuvent gérer cette connexion. Vous pouvez voir les bots connectés dans Paramètres → Intégrations."

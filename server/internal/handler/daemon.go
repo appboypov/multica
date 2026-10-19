@@ -1460,7 +1460,7 @@ func (h *Handler) processHeartbeat(ctx context.Context, runtimeID string, suppor
 		if popErr != nil {
 			slog.Warn("local skill list PopPending failed", "error", popErr, "runtime_id", runtimeID)
 		} else if pendingSkills != nil {
-			ack.PendingLocalSkills = &protocol.DaemonHeartbeatPendingLocalSkills{ID: pendingSkills.ID}
+			ack.PendingLocalSkills = &protocol.DaemonHeartbeatPendingLocalSkills{ID: pendingSkills.ID, Folders: pendingSkills.Folders}
 		}
 	case probeErr != nil:
 		if errors.Is(probeErr, context.DeadlineExceeded) || errors.Is(probeErr, context.Canceled) {
@@ -2627,19 +2627,19 @@ func (h *Handler) buildClaimedTaskResponse(r *http.Request, task *db.AgentTaskQu
 		runtimeConfig = json.RawMessage(agent.RuntimeConfig)
 	}
 	resp.Agent = &TaskAgentData{
-		ID:                    uuidToString(agent.ID),
-		Name:                  agent.Name,
-		Instructions:          agent.Instructions,
-		InstructionSelection:  decodeInstructionSelection(agent.InstructionSelection),
-		CustomEnv:             customEnv,
-		CustomArgs:            customArgs,
-		McpConfig:             mcpConfig,
-		Model:                 agent.Model.String,
-		ThinkingLevel:         agent.ThinkingLevel.String,
-		ServiceTier:           agent.ServiceTier.String,
-		RuntimeConfig:         runtimeConfig,
-		DisabledRuntimeSkills: disabledRuntimeSkillsFor(agent.DisabledRuntimeSkills, runtimeID, runtime.Provider),
-		InheritRuntimeSkills:  &agent.InheritRuntimeSkills,
+		ID:                     uuidToString(agent.ID),
+		Name:                   agent.Name,
+		Instructions:           agent.Instructions,
+		InstructionSelection:   decodeInstructionSelection(agent.InstructionSelection),
+		CustomEnv:              customEnv,
+		CustomArgs:             customArgs,
+		McpConfig:              mcpConfig,
+		Model:                  agent.Model.String,
+		ThinkingLevel:          agent.ThinkingLevel.String,
+		ServiceTier:            agent.ServiceTier.String,
+		RuntimeConfig:          runtimeConfig,
+		RuntimeSkillExceptions: runtimeSkillExceptionsFor(agent.RuntimeSkillExceptions, runtimeID, runtime.Provider),
+		InheritRuntimeSkills:   &agent.InheritRuntimeSkills,
 	}
 	// System agents carry a product-owned instruction layer that ships with
 	// this binary instead of being copied into their row at creation. That

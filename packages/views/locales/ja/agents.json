@@ -574,7 +574,6 @@
       "empty_title": "割り当てられたスキルがありません",
       "remove_failed_toast": "スキルを削除できませんでした",
       "add_dialog_title": "スキルを追加",
-      "add_dialog_search_placeholder": "スキルを検索",
       "add_dialog_empty": "すべてのワークスペースのスキルがすでに割り当てられています。",
       "add_dialog_no_match": "検索条件に一致するスキルがありません。",
       "add_dialog_empty_partial": "追加できるスキルがありません。このエージェントにはすでにすべてのスキルが割り当てられています。",
@@ -582,7 +581,9 @@
       "add_dialog_confirm_default": "追加",
       "add_dialog_confirm_other": "スキル {{count}} 件を追加",
       "add_dialog_cancel": "キャンセル",
-      "add_failed_toast": "スキルを追加できませんでした"
+      "add_failed_toast": "スキルを追加できませんでした",
+      "search_placeholder": "スキルを検索",
+      "search_empty": "「{{query}}」に一致するスキルはありません。"
     },
     "integrations": {
       "members_note": "この接続を管理できるのはワークスペースのオーナーと管理者のみです。接続済みの Bot は「設定 → 連携」で確認できます。"

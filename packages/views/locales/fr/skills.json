@@ -62,7 +62,23 @@
     "source_runtime_unknown": "Depuis un runtime",
     "source_clawhub": "Depuis ClawHub",
     "source_skills_sh": "Depuis Skills.sh",
-    "source_github": "Depuis GitHub"
+    "source_github": "Depuis GitHub",
+    "source_folder": "Depuis un dossier de skills",
+    "source_folder_path": "Depuis {{path}}",
+    "lock_tooltip_folder": "Lecture seule. Modifiez-le dans son dossier sur sa machine."
+  },
+  "folders": {
+    "title": "Dossiers de skills",
+    "add": "Ajouter un dossier",
+    "scanning": "Lecture des dossiers de skills",
+    "empty": "Ajoutez un dossier de votre machine. Chaque skill qu'il contient entre dans la bibliothèque.",
+    "no_machine": "Connectez un runtime local pour ajouter un dossier de sa machine.",
+    "other_machine": "Autre machine",
+    "remove_aria": "Retirer {{path}}",
+    "name_taken": "Nom déjà pris",
+    "scan_failed": "Impossible de lire les dossiers sur {{machine}} : {{message}}",
+    "add_failed_toast": "Impossible d'ajouter le dossier : {{message}}",
+    "remove_failed_toast": "Impossible de retirer le dossier : {{message}}"
   },
   "actions": {
     "row_menu": "Actions",
@@ -140,7 +156,9 @@
       "origin_clawhub": "Importé · ClawHub",
       "origin_skills_sh": "Importé · Skills.sh",
       "origin_github": "Importé · GitHub",
-      "origin_workspace": "Créé manuellement"
+      "origin_workspace": "Créé manuellement",
+      "origin_folder": "Dossier de skills",
+      "origin_folder_path": "Dossier de skills · {{path}}"
     },
     "conflict_banner": {
       "title": "Quelqu'un d'autre a mis à jour ce skill",

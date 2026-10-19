@@ -272,6 +272,11 @@ function useOriginLabel(origin: OriginInfo | null, runtime: AgentRuntime | null)
         ? t(($) => $.detail.subline.origin_runtime_provider, { provider: origin.provider })
         : t(($) => $.detail.subline.origin_runtime_unknown);
   }
+  if (origin.type === "local_folder") {
+    return origin.source_path
+      ? t(($) => $.detail.subline.origin_folder_path, { path: origin.source_path })
+      : t(($) => $.detail.subline.origin_folder);
+  }
   if (origin.type === "clawhub") return t(($) => $.detail.subline.origin_clawhub);
   if (origin.type === "skills_sh") return t(($) => $.detail.subline.origin_skills_sh);
   if (origin.type === "github") return t(($) => $.detail.subline.origin_github);

@@ -6240,7 +6240,7 @@ func TestHandleTask_AcksCancelOnPostRunStatusCheck(t *testing.T) {
 func TestConvertDisabledRuntimeSkillsForEnvScopesToClaimedRuntime(t *testing.T) {
 	t.Parallel()
 
-	agentData := &AgentData{DisabledRuntimeSkills: []DisabledRuntimeSkillData{
+	agentData := &AgentData{RuntimeSkillExceptions: []RuntimeSkillExceptionData{
 		{RuntimeID: "runtime-1", Provider: "claude", Root: "provider", Key: "review", Name: "Review"},
 		{RuntimeID: "runtime-2", Provider: "claude", Root: "provider", Key: "other-runtime"},
 		{RuntimeID: "runtime-1", Provider: "codex", Root: "provider", Key: "other-provider"},
@@ -6269,20 +6269,19 @@ func TestConvertDisabledRuntimeSkillsForEnvSectionOff(t *testing.T) {
 			writeTestLocalSkill(t, roots[provider], "nested/beta", map[string]string{"SKILL.md": "---\nname: Beta\n---\n"})
 			writeTestLocalSkill(t, filepath.Join(home, ".agents", "skills"), "shared", map[string]string{"SKILL.md": "---\nname: Shared\n---\n"})
 			want := []execenv.RuntimeSkillRefForEnv{
-				{Root: "provider", Key: "alpha", Name: "Alpha"},
 				{Root: "provider", Key: "nested/beta", Name: "Beta"},
 				{Root: "universal", Key: "shared", Name: "Shared"},
 			}
 			if provider == "claude" {
 				pluginRoot := writeTestClaudePlugin(t, home, "paper@market", "paper", true)
 				writeTestLocalSkill(t, filepath.Join(pluginRoot, "skills"), "review", map[string]string{"SKILL.md": "# Review\n"})
-				want = slices.Insert(want, 2, execenv.RuntimeSkillRefForEnv{
+				want = slices.Insert(want, 1, execenv.RuntimeSkillRefForEnv{
 					Root: "plugin", Key: "paper:review", Name: "paper:review", Plugin: "paper@market",
 				})
 			}
 			inherit := false
-			stored := []DisabledRuntimeSkillData{{RuntimeID: "runtime-1", Provider: provider, Root: "provider", Key: "stored-only"}}
-			agentData := &AgentData{InheritRuntimeSkills: &inherit, DisabledRuntimeSkills: stored}
+			picked := []RuntimeSkillExceptionData{{RuntimeID: "runtime-1", Provider: provider, Root: "provider", Key: "alpha", Name: "Alpha"}}
+			agentData := &AgentData{InheritRuntimeSkills: &inherit, RuntimeSkillExceptions: picked}
 			got, err := convertDisabledRuntimeSkillsForEnv(agentData, "runtime-1", provider)
 			if err != nil {
 				t.Fatal(err)
@@ -6298,16 +6297,16 @@ func TestConvertDisabledRuntimeSkillsForEnvSectionOff(t *testing.T) {
 			if !slices.Contains(got, execenv.RuntimeSkillRefForEnv{Root: "provider", Key: "later", Name: "later"}) {
 				t.Fatalf("later-installed skill missing from section-off policy: %+v", got)
 			}
-			if !slices.Equal(agentData.DisabledRuntimeSkills, stored) {
-				t.Fatal("section expansion changed stored per-skill choices")
+			if slices.Contains(got, execenv.RuntimeSkillRefForEnv{Root: "provider", Key: "alpha", Name: "Alpha"}) {
+				t.Fatalf("picked skill disabled by section-off policy: %+v", got)
 			}
 			inherit = true
 			got, err = convertDisabledRuntimeSkillsForEnv(agentData, "runtime-1", provider)
 			if err != nil {
 				t.Fatal(err)
 			}
-			if !slices.Equal(got, []execenv.RuntimeSkillRefForEnv{{Root: "provider", Key: "stored-only"}}) {
-				t.Fatalf("section-on policy did not restore stored choices: %+v", got)
+			if !slices.Equal(got, []execenv.RuntimeSkillRefForEnv{{Root: "provider", Key: "alpha", Name: "Alpha"}}) {
+				t.Fatalf("section-on policy = %+v, want only the exception", got)
 			}
 		})
 	}
@@ -6329,7 +6328,7 @@ func TestConvertDisabledRuntimeSkillsForEnvInheritedAndUnsupported(t *testing.T)
 		t.Run(tc.name, func(t *testing.T) {
 			agentData := &AgentData{
 				InheritRuntimeSkills: tc.inherit,
-				DisabledRuntimeSkills: []DisabledRuntimeSkillData{
+				RuntimeSkillExceptions: []RuntimeSkillExceptionData{
 					{RuntimeID: "runtime-1", Provider: tc.provider, Root: "provider", Key: "review", Name: "Review", Plugin: "plugin"},
 					{RuntimeID: "runtime-2", Provider: tc.provider, Key: "other-runtime"},
 					{RuntimeID: "runtime-1", Provider: "other", Key: "other-provider"},

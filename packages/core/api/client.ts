@@ -82,6 +82,7 @@ import type {
   User,
   Skill,
   SkillSummary,
+  SkillFolder,
   CreateSkillRequest,
   UpdateSkillRequest,
   SetAgentSkillsRequest,
@@ -3815,6 +3816,29 @@ export class ApiClient {
 
   async deleteSkill(id: string): Promise<void> {
     await this.fetch(`/api/skills/${id}`, { method: "DELETE" });
+  }
+
+  async listSkillFolders(): Promise<SkillFolder[]> {
+    return this.fetch("/api/skill-folders");
+  }
+
+  async createSkillFolder(runtimeId: string, path: string): Promise<SkillFolder> {
+    return this.fetch(`/api/runtimes/${runtimeId}/skill-folders`, {
+      method: "POST",
+      body: JSON.stringify({ path }),
+    });
+  }
+
+  async deleteSkillFolder(id: string): Promise<void> {
+    await this.fetch(`/api/skill-folders/${id}`, { method: "DELETE" });
+  }
+
+  async initiateSkillFolderScan(
+    runtimeId: string,
+  ): Promise<RuntimeLocalSkillListRequest> {
+    return this.fetch(`/api/runtimes/${runtimeId}/skill-folders/scan`, {
+      method: "POST",
+    });
   }
 
   async importSkill(data: { url: string }): Promise<Skill> {

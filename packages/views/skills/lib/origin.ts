@@ -7,9 +7,13 @@ import type { Skill, SkillSummary } from "@multica/core/types";
  * `{ type: "manual" }` for them to keep the consumer code uniform.
  */
 export type OriginInfo = {
-  type: "runtime_local" | "clawhub" | "skills_sh" | "github" | "manual";
+  type: "runtime_local" | "clawhub" | "skills_sh" | "github" | "local_folder" | "manual";
   provider?: string;
   runtime_id?: string;
+  /** Skill folder origin: the folder, its machine and the skill's subfolder. */
+  folder_id?: string;
+  daemon_id?: string;
+  key?: string;
   source_path?: string;
   source_url?: string;
   owner?: string;
@@ -28,6 +32,7 @@ export function readOrigin(skill: SkillSummary): OriginInfo {
   if (raw?.type === "clawhub") return raw;
   if (raw?.type === "skills_sh") return raw;
   if (raw?.type === "github") return raw;
+  if (raw?.type === "local_folder") return raw;
   return { type: "manual" };
 }
 

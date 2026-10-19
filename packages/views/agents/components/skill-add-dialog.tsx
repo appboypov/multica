@@ -113,6 +113,7 @@ export function SkillAddDialog({
               ? t(($) => $.tab_body.skills.add_dialog_empty)
               : t(($) => $.tab_body.skills.add_dialog_empty_partial)
           }
+          noMatchMessage={t(($) => $.tab_body.skills.add_dialog_no_match)}
         />
 
         <DialogFooter>

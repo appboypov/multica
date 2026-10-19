@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"slices"
 	"testing"
 	"time"
 
@@ -27,7 +28,8 @@ func TestDirectoryListingHeartbeatDeliversOnce(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			localSkills, err := h.LocalSkillListStore.Create(ctx, runtimeID)
+			folders := []protocol.DaemonSkillFolder{{ID: "folder-1", Path: "/skills"}}
+			localSkills, err := h.LocalSkillListStore.Create(ctx, runtimeID, folders)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -52,7 +54,8 @@ func TestDirectoryListingHeartbeatDeliversOnce(t *testing.T) {
 			if ack.PendingDirectoryListing == nil || ack.PendingDirectoryListing.ID != queued.ID || ack.PendingDirectoryListing.Path != "~/notes" {
 				t.Fatalf("listing ack = %#v", ack.PendingDirectoryListing)
 			}
-			if ack.PendingLocalSkills == nil || ack.PendingLocalSkills.ID != localSkills.ID {
+			if ack.PendingLocalSkills == nil || ack.PendingLocalSkills.ID != localSkills.ID ||
+				!slices.Equal(ack.PendingLocalSkills.Folders, folders) {
 				t.Fatalf("local skills lost from ack: %#v", ack.PendingLocalSkills)
 			}
 			got, err := store.Get(ctx, queued.ID)

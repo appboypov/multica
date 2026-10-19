@@ -1,6 +1,6 @@
 # ADR-0017: Runtime skill switches exist only where the run enforces them
 
-- Status: accepted
+- Status: superseded by ADR-0033
 - Date: 2026-10-15
 - Supersedes: none
 

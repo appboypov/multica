@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { MemberRole, SkillSummary } from "@multica/core/types";
 import { useAuthStore } from "@multica/core/auth";
 import { memberListOptions } from "@multica/core/workspace/queries";
+import { readOrigin } from "../lib/origin";
 
 /**
  * Whether the current user may edit/delete the given skill.
@@ -11,6 +12,8 @@ import { memberListOptions } from "@multica/core/workspace/queries";
  * Rule: workspace admins & owners can edit any skill; everyone else can only
  * edit skills they created. Server enforces this independently; the hook
  * mirrors it so the UI can hide/disable actions instead of waiting for a 403.
+ * A skill from a skill folder is edited in its folder, since every scan of
+ * the folder overwrites the library copy, so nobody edits it here.
  *
  * `wsId` is explicit (not read from `WorkspaceIdProvider`) so this hook stays
  * usable in components that render before workspace context is wired, and so
@@ -37,6 +40,7 @@ export function canEditSkill(
   skill: SkillSummary,
   opts: { userId: string | null; role: MemberRole | null },
 ): boolean {
+  if (readOrigin(skill).type === "local_folder") return false;
   if (opts.role === "admin" || opts.role === "owner") return true;
   return skill.created_by === opts.userId;
 }

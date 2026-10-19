@@ -2,12 +2,12 @@
 
 ## Purpose
 
-Let an agent inherit its runtime's listed skills or use only its assigned skills, while preserving per-skill choices.
+Let an agent inherit its runtime's listed skills, or use its assigned skills with only the runtime skills picked one by one.
 
 ## Requirements
 
 ### Requirement: Section switch keeps the runtime's skills out
-The system SHALL give the "Inherited from runtime" section of an agent's Capabilities > Skills tab one switch that, while off, keeps every runtime skill the section lists out of the agent's runs, so a run gets only the agent's assigned skills.
+The system SHALL give the "Inherited from runtime" section of an agent's Capabilities > Skills tab one switch that, while off, keeps every runtime skill the section lists out of the agent's runs except the skills turned on one by one, so a run gets the agent's assigned skills and only the picked runtime skills.
 
 #### Scenario: Section off gives a run only the assigned skills
 - **GIVEN** an omp agent with assigned skills and runtime skills listed under "Inherited from runtime"
@@ -16,7 +16,7 @@ The system SHALL give the "Inherited from runtime" section of an agent's Capabil
 - **AND** the run has none of the skills the section lists
 
 #### Scenario: Section on gives a run the runtime's skills again
-- **GIVEN** an agent whose section switch is off and none of whose runtime skills are turned off one by one
+- **GIVEN** an agent whose section switch is off
 - **WHEN** Brian turns the section switch on and a task of that agent runs
 - **THEN** the run has every skill the section lists, beside the assigned skills
 
@@ -37,21 +37,6 @@ The system SHALL treat every existing agent and every new agent as inheriting it
 #### Scenario: New agent inherits
 - **WHEN** Brian creates a Claude, Codex or omp agent and opens its Skills tab
 - **THEN** the section switch is on
-
-### Requirement: Per-skill choices survive the section switch
-The system SHALL keep each runtime skill's own on or off choice unchanged while the section switch is turned off and on, and SHALL show the per-skill switches off and unchangeable while the section is off.
-
-#### Scenario: Rows show off and cannot be changed while the section is off
-- **GIVEN** an agent with skill "A" on and skill "B" turned off under "Inherited from runtime"
-- **WHEN** Brian turns the section switch off
-- **THEN** the switches of "A" and "B" both show off
-- **AND** neither switch can be changed
-
-#### Scenario: Turning the section on restores the per-skill choices
-- **GIVEN** an agent with skill "B" turned off and the section switch then turned off
-- **WHEN** Brian turns the section switch on and a task of that agent runs
-- **THEN** the switch of "B" shows off and every other row switch shows on
-- **AND** the run has every listed skill except "B"
 
 ### Requirement: Later runtime skills follow the section switch
 The system SHALL keep a runtime skill that appears on the runtime machine after the section switch was set in a run while the section is on and out of a run while it is off, without anyone changing a setting.
@@ -131,7 +116,7 @@ The system SHALL show a changed section switch in every other open web and deskt
 #### Scenario: Second window sees the change
 - **GIVEN** the same agent's Skills tab open in two windows
 - **WHEN** Brian turns the section switch off in one window
-- **THEN** the other window shows the section switch off and its row switches off and unchangeable
+- **THEN** the other window shows the section switch off and its row switches off
 
 ### Requirement: Section switch shows only with listed skills
 The system SHALL hide the section switch while the section lists no skill that can be turned off, and SHALL keep the stored setting in force while it is hidden.
@@ -144,7 +129,8 @@ The system SHALL hide the section switch while the section lists no skill that c
 #### Scenario: Stored off holds once a skill appears
 - **GIVEN** an agent whose section switch is off and whose runtime listed no skills
 - **WHEN** a skill is installed in the runtime's skill folder and Brian refreshes the section
-- **THEN** the section switch shows off and the skill's row switch shows off and unchangeable
+- **THEN** the section switch shows off and the skill's row switch shows off
+- **AND** Brian can turn the skill's row switch on
 
 ### Requirement: A missing section setting counts as on
 The system SHALL treat an agent or a task claim that carries no section setting, such as one from an older server, as inheriting the runtime's skills.
@@ -158,3 +144,26 @@ The system SHALL treat an agent or a task claim that carries no section setting,
 - **GIVEN** a web or desktop client that loads an agent without the section setting
 - **WHEN** Brian opens its Skills tab
 - **THEN** the section switch shows on
+
+### Requirement: Each flip of the section switch sets every skill
+The system SHALL turn every runtime skill of the agent on when the section switch is turned on and off when it is turned off, and SHALL clear the per-skill choices made before the flip.
+
+#### Scenario: Turning the section off clears skills turned off before
+- **GIVEN** an agent with skill "B" turned off and the section switch on
+- **WHEN** Brian turns the section switch off and then on again
+- **THEN** every row switch shows on, "B" included
+- **AND** a run of that agent has every listed skill
+
+#### Scenario: Turning the section on clears skills picked before
+- **GIVEN** an agent whose section switch is off with skill "A" turned on
+- **WHEN** Brian turns the section switch on and then off again
+- **THEN** every row switch shows off, "A" included
+
+### Requirement: Skills are picked one by one in both section states
+The system SHALL keep every runtime skill's row switch changeable in both section states: while the section is on Brian turns single skills off, and while it is off he turns single skills on, and a run follows those picks.
+
+#### Scenario: One skill picked while the section is off
+- **GIVEN** an omp agent whose section switch is off, with skills "A" and "B" listed
+- **WHEN** Brian turns on skill "A" and a task of that agent runs
+- **THEN** the run has "A"
+- **AND** the run does not have "B"

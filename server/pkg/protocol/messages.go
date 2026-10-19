@@ -467,9 +467,16 @@ type DaemonHeartbeatPendingModelList struct {
 }
 
 // DaemonHeartbeatPendingLocalSkills describes a request for the runtime's
-// local-skill inventory.
+// local-skill inventory, or for the skills of the given skill folders.
 type DaemonHeartbeatPendingLocalSkills struct {
-	ID string `json:"id"`
+	ID      string              `json:"id"`
+	Folders []DaemonSkillFolder `json:"folders,omitempty"`
+}
+
+// DaemonSkillFolder is a skill folder on the daemon's machine.
+type DaemonSkillFolder struct {
+	ID   string `json:"id"`
+	Path string `json:"path"`
 }
 
 // DaemonHeartbeatPendingDirectoryListing asks the runtime to list a folder or its skill roots.

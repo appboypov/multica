@@ -58,6 +58,7 @@ import {
 } from "@multica/ui/lib/motion";
 import { useT } from "../../i18n";
 import { HighlightText } from "../../search/highlight-text";
+import { filterBySkillSearch } from "../lib/skill-search";
 import { ProviderLogo } from "../../runtimes/components/provider-logo";
 import {
   buildRuntimeMachines,
@@ -580,20 +581,20 @@ export function RuntimeLocalSkillImportPanel({
     () => skillsQuery.data?.skills ?? [],
     [skillsQuery.data],
   );
-  const filteredRuntimeSkills = useMemo(() => {
-    const query = skillSearchQuery.trim().toLowerCase();
-    if (!query) return runtimeSkills;
-
-    // Search only over fields the row actually renders (name, provider,
-    // description, path) so every match can be highlighted in the result —
-    // `skill.key` is intentionally excluded because it is not displayed, and a
-    // key-only match would surface a result with no visible reason.
-    return runtimeSkills.filter((skill) =>
-      [skill.name, skill.description, skill.provider, skill.source_path].some(
-        (value) => value?.toLowerCase().includes(query) ?? false,
-      ),
-    );
-  }, [runtimeSkills, skillSearchQuery]);
+  // Search only over fields the row actually renders (name, provider,
+  // description, path) so every match can be highlighted in the result —
+  // `skill.key` is intentionally excluded because it is not displayed, and a
+  // key-only match would surface a result with no visible reason.
+  const filteredRuntimeSkills = useMemo(
+    () =>
+      filterBySkillSearch(runtimeSkills, skillSearchQuery, (skill) => [
+        skill.name,
+        skill.description,
+        skill.provider,
+        skill.source_path,
+      ]),
+    [runtimeSkills, skillSearchQuery],
+  );
 
   // The single selected skill (for inline editing). Only valid when exactly 1.
   const singleSelectedSkill =

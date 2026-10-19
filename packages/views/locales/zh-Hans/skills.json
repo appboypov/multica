@@ -62,7 +62,23 @@
     "source_runtime_unknown": "来自某个运行时",
     "source_clawhub": "来自 ClawHub",
     "source_skills_sh": "来自 Skills.sh",
-    "source_github": "来自 GitHub"
+    "source_github": "来自 GitHub",
+    "source_folder": "来自技能文件夹",
+    "source_folder_path": "来自 {{path}}",
+    "lock_tooltip_folder": "只读。请在其所在机器的文件夹中编辑。"
+  },
+  "folders": {
+    "title": "技能文件夹",
+    "add": "添加文件夹",
+    "scanning": "正在读取技能文件夹",
+    "empty": "添加你机器上的文件夹，其中的每个技能都会进入技能库。",
+    "no_machine": "连接本地运行时后，即可添加其机器上的文件夹。",
+    "other_machine": "其他机器",
+    "remove_aria": "移除 {{path}}",
+    "name_taken": "名称已被占用",
+    "scan_failed": "无法读取 {{machine}} 上的文件夹：{{message}}",
+    "add_failed_toast": "无法添加文件夹：{{message}}",
+    "remove_failed_toast": "无法移除文件夹：{{message}}"
   },
   "actions": {
     "row_menu": "操作",
@@ -132,7 +148,9 @@
       "origin_clawhub": "导入自 · ClawHub",
       "origin_skills_sh": "导入自 · Skills.sh",
       "origin_github": "导入自 · GitHub",
-      "origin_workspace": "手动创建"
+      "origin_workspace": "手动创建",
+      "origin_folder": "技能文件夹",
+      "origin_folder_path": "技能文件夹 · {{path}}"
     },
     "conflict_banner": {
       "title": "其他人更新了这个 skill",

@@ -6,6 +6,8 @@ import (
 	"reflect"
 	"runtime"
 	"testing"
+
+	"github.com/multica-ai/multica/server/pkg/protocol"
 )
 
 func writeTestLocalSkill(t *testing.T, root, rel string, files map[string]string) string {
@@ -1478,5 +1480,52 @@ func TestCollectLocalSkillFiles_ValidUTF8TextPassesThroughUntouched(t *testing.T
 		if f.Path == "notes.txt" && f.Content != body {
 			t.Errorf("notes.txt content = %q, want %q", f.Content, body)
 		}
+	}
+}
+
+func TestListFolderSkillsReadsDirectSkillSubfolders(t *testing.T) {
+	root := t.TempDir()
+	writeTestLocalSkill(t, root, "review", map[string]string{
+		"SKILL.md": "---\nname: Review\ndescription: Reviews code\n---\n# Review\n",
+	})
+	writeTestLocalSkill(t, root, "plain", map[string]string{"SKILL.md": "# Plain\n"})
+	writeTestLocalSkill(t, root, "notes", map[string]string{"README.md": "no skill here"})
+	writeTestLocalSkill(t, root, "group/nested", map[string]string{"SKILL.md": "# Nested\n"})
+	writeTestLocalSkill(t, root, ".hidden", map[string]string{"SKILL.md": "# Hidden\n"})
+
+	got := listFolderSkills([]protocol.DaemonSkillFolder{
+		{ID: "folder-1", Path: root},
+		{ID: "folder-gone", Path: filepath.Join(root, "missing")},
+	})
+
+	want := []folderSkillSummary{
+		{FolderID: "folder-1", Key: "plain", Name: "plain", Content: "# Plain\n", SourcePath: filepath.Join(root, "plain")},
+		{FolderID: "folder-1", Key: "review", Name: "Review", Description: "Reviews code", Content: "---\nname: Review\ndescription: Reviews code\n---\n# Review\n", SourcePath: filepath.Join(root, "review")},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("folder skills = %+v\nwant %+v", got, want)
+	}
+}
+
+func TestReadFolderSkillReadsCurrentFilesFromDisk(t *testing.T) {
+	root := t.TempDir()
+	dir := writeTestLocalSkill(t, root, "review", map[string]string{
+		"SKILL.md":       "---\nname: Review\ndescription: Edited on disk\n---\n# Review v2\n",
+		"rules/check.md": "Check tests.",
+	})
+
+	got, err := readFolderSkill(SkillRefData{ID: "skill-1", Source: "folder", Name: "Review", Description: "From the last scan", Path: dir})
+	if err != nil {
+		t.Fatalf("read folder skill: %v", err)
+	}
+	if got.ID != "skill-1" || got.Name != "Review" || got.Description != "Edited on disk" || got.Content != "---\nname: Review\ndescription: Edited on disk\n---\n# Review v2\n" {
+		t.Fatalf("folder skill = %+v", got)
+	}
+	if len(got.Files) != 1 || got.Files[0].Path != "rules/check.md" || got.Files[0].Content != "Check tests." {
+		t.Fatalf("folder skill files = %+v", got.Files)
+	}
+
+	if _, err := readFolderSkill(SkillRefData{ID: "skill-2", Path: filepath.Join(root, "gone")}); err == nil {
+		t.Fatal("a skill whose directory is gone must fail to read")
 	}
 }

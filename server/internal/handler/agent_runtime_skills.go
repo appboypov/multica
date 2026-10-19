@@ -16,10 +16,11 @@ import (
 
 const maxRuntimeSkillKeyLength = 512
 
-// DisabledRuntimeSkill identifies one runtime-local skill that an agent must
-// not inherit. RuntimeID scopes the choice to a single machine/runtime so a
-// same-named skill on another runtime is unaffected.
-type DisabledRuntimeSkill struct {
+// RuntimeSkillException identifies one runtime-local skill whose state differs
+// from the agent's section switch: off while the agent inherits its runtime's
+// skills, on while it does not. RuntimeID scopes the choice to a single
+// machine/runtime so a same-named skill on another runtime is unaffected.
+type RuntimeSkillException struct {
 	RuntimeID string `json:"runtime_id"`
 	Provider  string `json:"provider"`
 	Root      string `json:"root"`
@@ -28,20 +29,20 @@ type DisabledRuntimeSkill struct {
 	Plugin    string `json:"plugin,omitempty"`
 }
 
-func decodeDisabledRuntimeSkills(raw []byte) []DisabledRuntimeSkill {
+func decodeRuntimeSkillExceptions(raw []byte) []RuntimeSkillException {
 	if len(raw) == 0 {
-		return []DisabledRuntimeSkill{}
+		return []RuntimeSkillException{}
 	}
-	var skills []DisabledRuntimeSkill
+	var skills []RuntimeSkillException
 	if err := json.Unmarshal(raw, &skills); err != nil || skills == nil {
-		return []DisabledRuntimeSkill{}
+		return []RuntimeSkillException{}
 	}
 	return skills
 }
 
-func disabledRuntimeSkillsFor(raw []byte, runtimeID, provider string) []DisabledRuntimeSkill {
-	all := decodeDisabledRuntimeSkills(raw)
-	result := make([]DisabledRuntimeSkill, 0, len(all))
+func runtimeSkillExceptionsFor(raw []byte, runtimeID, provider string) []RuntimeSkillException {
+	all := decodeRuntimeSkillExceptions(raw)
+	result := make([]RuntimeSkillException, 0, len(all))
 	for _, skill := range all {
 		if skill.RuntimeID == runtimeID && skill.Provider == provider {
 			result = append(result, skill)
@@ -74,7 +75,7 @@ func normalizeRuntimeSkillIdentity(root, key, plugin string) (string, string, st
 	return root, cleaned, plugin, true
 }
 
-func sameDisabledRuntimeSkill(a, b DisabledRuntimeSkill) bool {
+func sameRuntimeSkill(a, b RuntimeSkillException) bool {
 	return a.RuntimeID == b.RuntimeID && a.Provider == b.Provider &&
 		a.Root == b.Root && a.Key == b.Key && a.Plugin == b.Plugin
 }
@@ -83,8 +84,9 @@ func runtimeSkillControlsSupported(provider string) bool {
 	return provider == "claude" || provider == "codex" || provider == "omp"
 }
 
-// SetAgentRuntimeSkillEnabled persists a per-agent override for a skill that
-// is discovered from the agent's currently assigned local runtime.
+// SetAgentRuntimeSkillEnabled turns one skill that is discovered from the
+// agent's currently assigned local runtime on or off. The skill is an
+// exception exactly when its state differs from the section switch.
 func (h *Handler) SetAgentRuntimeSkillEnabled(w http.ResponseWriter, r *http.Request) {
 	agentID := chi.URLParam(r, "id")
 	agent, ok := h.loadAgentForUser(w, r, agentID)
@@ -152,7 +154,7 @@ func (h *Handler) SetAgentRuntimeSkillEnabled(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	target := DisabledRuntimeSkill{
+	target := RuntimeSkillException{
 		RuntimeID: req.RuntimeID,
 		Provider:  rt.Provider,
 		Root:      root,
@@ -160,15 +162,15 @@ func (h *Handler) SetAgentRuntimeSkillEnabled(w http.ResponseWriter, r *http.Req
 		Name:      name,
 		Plugin:    plugin,
 	}
-	current := decodeDisabledRuntimeSkills(locked.DisabledRuntimeSkills)
-	next := make([]DisabledRuntimeSkill, 0, len(current)+1)
+	current := decodeRuntimeSkillExceptions(locked.RuntimeSkillExceptions)
+	next := make([]RuntimeSkillException, 0, len(current)+1)
 	for _, skill := range current {
-		if sameDisabledRuntimeSkill(skill, target) {
+		if sameRuntimeSkill(skill, target) {
 			continue
 		}
 		next = append(next, skill)
 	}
-	if !*req.Enabled {
+	if *req.Enabled != locked.InheritRuntimeSkills {
 		next = append(next, target)
 	}
 	payload, err := json.Marshal(next)
@@ -176,9 +178,9 @@ func (h *Handler) SetAgentRuntimeSkillEnabled(w http.ResponseWriter, r *http.Req
 		writeError(w, http.StatusInternalServerError, "failed to encode runtime skill settings")
 		return
 	}
-	updated, err := qtx.UpdateAgentDisabledRuntimeSkills(r.Context(), db.UpdateAgentDisabledRuntimeSkillsParams{
-		ID:                    locked.ID,
-		DisabledRuntimeSkills: payload,
+	updated, err := qtx.UpdateAgentRuntimeSkillExceptions(r.Context(), db.UpdateAgentRuntimeSkillExceptionsParams{
+		ID:                     locked.ID,
+		RuntimeSkillExceptions: payload,
 	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to update runtime skill")
@@ -193,8 +195,8 @@ func (h *Handler) SetAgentRuntimeSkillEnabled(w http.ResponseWriter, r *http.Req
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// SetAgentRuntimeSkillsInherited changes the section setting without touching
-// the agent's stored per-skill choices.
+// SetAgentRuntimeSkillsInherited sets every runtime skill of the agent on or
+// off, which also clears its per-skill exceptions.
 func (h *Handler) SetAgentRuntimeSkillsInherited(w http.ResponseWriter, r *http.Request) {
 	agent, ok := h.loadAgentForUser(w, r, chi.URLParam(r, "id"))
 	if !ok {

@@ -62,7 +62,23 @@
     "source_runtime_unknown": "ランタイムから",
     "source_clawhub": "ClawHub から",
     "source_skills_sh": "Skills.sh から",
-    "source_github": "GitHub から"
+    "source_github": "GitHub から",
+    "source_folder": "スキルフォルダから",
+    "source_folder_path": "{{path}} から",
+    "lock_tooltip_folder": "読み取り専用。そのマシン上のフォルダで編集してください。"
+  },
+  "folders": {
+    "title": "スキルフォルダ",
+    "add": "フォルダを追加",
+    "scanning": "スキルフォルダを読み込み中",
+    "empty": "マシン上のフォルダを追加すると、その中のすべてのスキルがライブラリに入ります。",
+    "no_machine": "ローカルランタイムを接続すると、そのマシンのフォルダを追加できます。",
+    "other_machine": "別のマシン",
+    "remove_aria": "{{path}} を削除",
+    "name_taken": "名前が使用済み",
+    "scan_failed": "{{machine}} のフォルダを読み込めませんでした: {{message}}",
+    "add_failed_toast": "フォルダを追加できませんでした: {{message}}",
+    "remove_failed_toast": "フォルダを削除できませんでした: {{message}}"
   },
   "actions": {
     "row_menu": "操作",
@@ -132,7 +148,9 @@
       "origin_clawhub": "インポート済み · ClawHub",
       "origin_skills_sh": "インポート済み · Skills.sh",
       "origin_github": "インポート済み · GitHub",
-      "origin_workspace": "手動で作成"
+      "origin_workspace": "手動で作成",
+      "origin_folder": "スキルフォルダ",
+      "origin_folder_path": "スキルフォルダ · {{path}}"
     },
     "conflict_banner": {
       "title": "他のユーザーがこのスキルを更新しました",

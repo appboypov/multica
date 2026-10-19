@@ -287,7 +287,7 @@ describe("SkillsTab", () => {
 
     renderSkillsTab(
       {
-        disabled_runtime_skills: [
+        runtime_skill_exceptions: [
           {
             runtime_id: "runtime-1",
             provider: "codex",
@@ -304,6 +304,50 @@ describe("SkillsTab", () => {
         name: /Toggle inherited Local review/i,
       }),
     ).not.toBeChecked();
+  });
+
+  it("filters assigned and inherited skills by the search text", async () => {
+    const user = userEvent.setup();
+    const inherited = {
+      source_path: "~/.codex/skills",
+      provider: "codex",
+      root: "provider" as const,
+      can_disable: true,
+      file_count: 1,
+    };
+    mockRuntimeCapabilities.mockResolvedValue({
+      skills: [
+        { ...inherited, key: "local-review", name: "Local review" },
+        { ...inherited, key: "local-plan", name: "Local plan" },
+      ],
+      supported: true,
+      mcpServers: [],
+      mcpSupported: true,
+    });
+    renderSkillsTab(
+      {
+        skills: [
+          { id: "skill-1", name: "Review changes", description: "", enabled: true },
+          { id: "skill-2", name: "Plan sprint", description: "", enabled: true },
+        ],
+      },
+      onlineRuntime,
+    );
+    await screen.findByRole("switch", { name: /Toggle inherited Local review/i });
+
+    await user.type(
+      screen.getByRole("textbox", { name: enAgents.tab_body.skills.search_placeholder }),
+      "plan",
+    );
+
+    expect(screen.getByRole("switch", { name: /Toggle Plan sprint/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("switch", { name: /Toggle inherited Local plan/i }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("switch", { name: /Toggle Review changes/i })).toBeNull();
+    expect(
+      screen.queryByRole("switch", { name: /Toggle inherited Local review/i }),
+    ).toBeNull();
   });
 
   describe("runtime inheritance", () => {
@@ -372,59 +416,43 @@ describe("SkillsTab", () => {
       expect(await sectionSwitch()).toBeChecked();
     });
 
-    it("keeps stored per-skill choices across section changes", async () => {
+    it("turns on only the picked skills while inheritance is off", async () => {
       const user = userEvent.setup();
       mockRuntimeCapabilities.mockResolvedValue({
-        skills: [
-          localReview,
-          { ...localReview, key: "local-plan", name: "Local plan" },
-        ],
+        skills: [localReview, { ...localReview, key: "local-plan", name: "Local plan" }],
         supported: true,
         mcpServers: [],
         mcpSupported: true,
       });
-      const savedChoices = {
-        disabled_runtime_skills: [
-          {
-            runtime_id: "runtime-1",
-            provider: "codex",
-            root: "provider" as const,
-            key: "local-review",
-          },
-        ],
-      };
-      const { updateAgent } = renderSkillsTab(
-        { ...savedChoices, inherit_runtime_skills: true },
+      renderSkillsTab(
+        {
+          inherit_runtime_skills: false,
+          runtime_skill_exceptions: [
+            {
+              runtime_id: "runtime-1",
+              provider: "codex",
+              root: "provider",
+              key: "local-review",
+            },
+          ],
+        },
         onlineRuntime,
       );
+
       const review = await screen.findByRole("switch", {
         name: /Toggle inherited Local review/i,
       });
-      const plan = screen.getByRole("switch", {
-        name: /Toggle inherited Local plan/i,
-      });
-      expect(review).not.toBeChecked();
-      expect(plan).toBeChecked();
-
-      updateAgent({ ...savedChoices, inherit_runtime_skills: false });
-      expect(await sectionSwitch()).not.toBeChecked();
-      for (const row of [review, plan]) {
-        expect(row).not.toBeChecked();
-        expect(row).toHaveAttribute("aria-disabled", "true");
-        await user.click(row);
-      }
-      expect(mockSetAgentRuntimeSkillEnabled).not.toHaveBeenCalled();
-
-      await user.click(await sectionSwitch());
-      expect(mockSetAgentRuntimeSkillsInherited).toHaveBeenCalledWith(
-        "agent-1",
-        true,
-      );
-      updateAgent({ ...savedChoices, inherit_runtime_skills: true });
-      expect(review).not.toBeChecked();
-      expect(review).not.toHaveAttribute("aria-disabled", "true");
-      expect(plan).toBeChecked();
+      const plan = screen.getByRole("switch", { name: /Toggle inherited Local plan/i });
+      expect(review).toBeChecked();
+      expect(plan).not.toBeChecked();
       expect(plan).not.toHaveAttribute("aria-disabled", "true");
+
+      await user.click(plan);
+
+      expect(mockSetAgentRuntimeSkillEnabled).toHaveBeenCalledWith(
+        "agent-1",
+        expect.objectContaining({ key: "local-plan", enabled: true }),
+      );
     });
 
     it("shows section and row switches for controllable omp skills", async () => {
@@ -481,7 +509,7 @@ describe("SkillsTab", () => {
       expect(screen.queryByRole("switch")).not.toBeInTheDocument();
     });
 
-    it("keeps a hidden off setting when a skill appears on refresh", async () => {
+    it("lets a skill that appears on refresh be picked while inheritance is off", async () => {
       const user = userEvent.setup();
       mockRuntimeCapabilities.mockResolvedValueOnce({
         skills: [],
@@ -491,17 +519,19 @@ describe("SkillsTab", () => {
       });
       renderSkillsTab({ inherit_runtime_skills: false }, onlineRuntime);
       await screen.findByText(enAgents.tab_body.skills.runtime_empty);
-      expect(screen.queryByRole("switch")).not.toBeInTheDocument();
+
       await user.click(screen.getByRole("button", { name: "Refresh" }));
 
-      expect(await sectionSwitch()).not.toBeChecked();
-      const row = screen.getByRole("switch", {
+      const row = await screen.findByRole("switch", {
         name: /Toggle inherited Local review/i,
       });
       expect(row).not.toBeChecked();
-      expect(row).toHaveAttribute("aria-disabled", "true");
+      expect(row).not.toHaveAttribute("aria-disabled", "true");
       await user.click(row);
-      expect(mockSetAgentRuntimeSkillEnabled).not.toHaveBeenCalled();
+      expect(mockSetAgentRuntimeSkillEnabled).toHaveBeenCalledWith(
+        "agent-1",
+        expect.objectContaining({ key: "local-review", enabled: true }),
+      );
     });
 
     it.each([

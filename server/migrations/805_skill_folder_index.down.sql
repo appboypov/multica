@@ -1,0 +1,1 @@
+DROP INDEX CONCURRENTLY IF EXISTS skill_folder_workspace_daemon_path_unique;

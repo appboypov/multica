@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
-	"slices"
 	"sync"
 	"testing"
 
@@ -16,7 +15,7 @@ import (
 
 // TestSetAgentRuntimeSkillEnabledBroadcastsAgentStatus guards the realtime
 // invalidation path for runtime-skill toggles (Howard review on MUL-5101):
-// persisting a disabled_runtime_skills override must publish an "agent:status"
+// persisting a runtime_skill_exceptions change must publish an "agent:status"
 // event so every other open web/desktop/mobile client invalidates
 // workspaceKeys.agents and drops its stale toggle state — mirroring the
 // workspace-skill toggle in writeUpdatedAgentSkills. Before the fix the handler
@@ -156,7 +155,7 @@ func TestAgentInheritRuntimeSkillsInResponseAndClaim(t *testing.T) {
 	}
 }
 
-func TestSetAgentRuntimeSkillsInheritedPreservesChoicesAndBroadcasts(t *testing.T) {
+func TestSetAgentRuntimeSkillsInheritedClearsExceptionsAndBroadcasts(t *testing.T) {
 	for _, provider := range []string{"claude", "codex", "omp"} {
 		t.Run(provider, func(t *testing.T) {
 			runtimeID := dbfx.Runtime(t, t.Name(), testutil.Cols{
@@ -164,10 +163,9 @@ func TestSetAgentRuntimeSkillsInheritedPreservesChoicesAndBroadcasts(t *testing.
 				"provider":     provider,
 			})
 			agentID := dbfx.Agent(t, t.Name(), runtimeID, testutil.Cols{"runtime_mode": "local"})
-			disabled := []DisabledRuntimeSkill{{
+			exceptions := []RuntimeSkillException{{
 				RuntimeID: runtimeID, Provider: provider, Root: "provider", Key: "review", Name: "Review",
 			}}
-			dbfx.Exec(t, `UPDATE agent SET disabled_runtime_skills = $2 WHERE id = $1`, agentID, disabled)
 			skillID := insertHandlerTestSkill(t, "inheritance-assigned", "# Assigned skill")
 			dbfx.Exec(t, `INSERT INTO agent_skill (agent_id, skill_id) VALUES ($1, $2)`, agentID, skillID)
 			t.Cleanup(func() {
@@ -190,6 +188,7 @@ func TestSetAgentRuntimeSkillsInheritedPreservesChoicesAndBroadcasts(t *testing.
 			})
 
 			for i, enabled := range []bool{false, true} {
+				dbfx.Exec(t, `UPDATE agent SET runtime_skill_exceptions = $2 WHERE id = $1`, agentID, exceptions)
 				req := withURLParam(newRequest("PUT", "/api/agents/"+agentID+"/runtime-skills/inherit",
 					map[string]any{"enabled": enabled}), "id", agentID)
 				testutil.Call(t, h.SetAgentRuntimeSkillsInherited, req).Want(http.StatusNoContent)
@@ -200,16 +199,16 @@ func TestSetAgentRuntimeSkillsInheritedPreservesChoicesAndBroadcasts(t *testing.
 				if row.InheritRuntimeSkills != enabled {
 					t.Fatalf("stored inheritance = %t, want %t", row.InheritRuntimeSkills, enabled)
 				}
-				if got := decodeDisabledRuntimeSkills(row.DisabledRuntimeSkills); !slices.Equal(got, disabled) {
-					t.Fatalf("section toggle changed per-skill choices: %+v, want %+v", got, disabled)
+				if got := decodeRuntimeSkillExceptions(row.RuntimeSkillExceptions); len(got) != 0 {
+					t.Fatalf("section switch kept per-skill exceptions: %+v", got)
 				}
 				if len(broadcasts) != i+1 {
 					t.Fatalf("got %d status broadcasts, want %d", len(broadcasts), i+1)
 				}
 				broadcast := broadcasts[i]
 				if broadcast.ID != agentID || broadcast.InheritRuntimeSkills != enabled ||
-					!slices.Equal(broadcast.DisabledRuntimeSkills, disabled) {
-					t.Fatalf("broadcast does not reflect saved inheritance and choices: %+v", broadcast)
+					len(broadcast.RuntimeSkillExceptions) != 0 {
+					t.Fatalf("broadcast does not reflect saved inheritance and cleared exceptions: %+v", broadcast)
 				}
 				if len(broadcast.Skills) != 1 || broadcast.Skills[0].ID != skillID {
 					t.Fatalf("broadcast lost assigned skills: %+v", broadcast.Skills)
@@ -285,7 +284,7 @@ func TestSetAgentRuntimeSkillsInheritedRejectsInvalidChanges(t *testing.T) {
 			if err != nil {
 				t.Fatalf("load rejected agent: %v", err)
 			}
-			if !row.InheritRuntimeSkills || len(decodeDisabledRuntimeSkills(row.DisabledRuntimeSkills)) != 0 {
+			if !row.InheritRuntimeSkills || len(decodeRuntimeSkillExceptions(row.RuntimeSkillExceptions)) != 0 {
 				t.Fatalf("rejected change modified runtime skill settings: %+v", row)
 			}
 			if broadcasts != 0 {

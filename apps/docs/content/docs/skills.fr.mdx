@@ -91,15 +91,19 @@ Seuls les membres autorisés à modifier l'agent peuvent ajouter, retirer ou dé
 
 Les skills de l'espace de travail sont stockés dans Multica — idéal pour les skills que l'équipe maintient ensemble et ajoute à différents agents.
 
+Un dossier de votre propre ordinateur peut aussi alimenter la bibliothèque. Sous **Dossiers de skills** sur la page **Skills**, ajoutez un dossier d'un ordinateur où tourne votre runtime local : chaque sous-dossier direct qui contient un `SKILL.md` devient un skill de l'espace de travail. Vous modifiez ces skills dans le dossier lui-même, et chaque exécution lit leurs fichiers dans le dossier au démarrage, donc une modification compte dès l'exécution suivante. La bibliothèque suit le dossier à chaque ouverture de la page **Skills**. Un skill de dossier n'atteint que les exécutions sur l'ordinateur qui contient le dossier.
+
 Certains outils de codage IA lisent aussi des skills au niveau du projet directement depuis le dépôt de code, comme `.claude/skills/` ou `.agents/skills/`. Ces fichiers restent gérés par le dépôt ; Multica ne les enregistre pas automatiquement comme skills de l'espace de travail. La prise en charge dépend de l'outil utilisé — voir [Comparatif des outils de codage IA](/providers).
 
-Les skills locaux au runtime déjà installés sur un ordinateur connecté (Claude Code, Codex et Oh-My-Pi) apparaissent dans l'onglet **Skills** de l'agent. Toute personne autorisée à modifier l'agent peut les désactiver un par un, ou tous à la fois avec l'interrupteur de la section des skills hérités du runtime.
+Les skills locaux au runtime déjà installés sur un ordinateur connecté (Claude Code, Codex et Oh-My-Pi) apparaissent dans l'onglet **Skills** de l'agent. Toute personne autorisée à modifier l'agent peut les désactiver un par un, ou tous les désactiver avec l'interrupteur de la section des skills hérités du runtime puis en réactiver quelques-uns. Chaque bascule de l'interrupteur de section active ou désactive tous les skills. Un champ de recherche au-dessus des listes les filtre par nom, description et chemin.
 
 ## Droits de modification
 
 Tout membre de l'espace de travail peut créer ou importer un skill. Le créateur ainsi que les `owner` et `admin` de l'espace de travail peuvent le modifier ou le supprimer ; les autres membres peuvent le consulter et l'utiliser, mais pas écraser son contenu.
 
 La suppression est définitive et retire le skill de tous les agents en même temps.
+
+Un skill issu d'un dossier de skills est en lecture seule dans Multica pour tout le monde : vous le modifiez dans son dossier, et retirer le dossier retire ses skills de la bibliothèque et de tous les agents.
 
 <Callout type="warning">
 Les skills importés depuis des sources externes peuvent contenir des scripts, des commandes ou des instructions dangereuses. Multica ne les vérifie pas, ne les signe pas et ne les isole pas dans un bac à sable à votre place. Le contenu importé est transmis tel quel aux agents : la source doit donc être digne de confiance.

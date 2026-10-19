@@ -163,7 +163,7 @@ func TestSetAgentSkillEnabledControlsExecutionWithoutRemovingAssignment(t *testi
 	}
 }
 
-func TestSetAgentRuntimeSkillEnabledPersistsScopedOverride(t *testing.T) {
+func TestSetAgentRuntimeSkillEnabledPersistsScopedException(t *testing.T) {
 	runtimeID := createRuntimeLocalSkillTestRuntime(t, testUserID)
 	var agentID string
 	if err := testPool.QueryRow(context.Background(), `
@@ -202,17 +202,17 @@ func TestSetAgentRuntimeSkillEnabledPersistsScopedOverride(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load agent: %v", err)
 	}
-	disabled := decodeDisabledRuntimeSkills(row.DisabledRuntimeSkills)
-	if len(disabled) != 1 || disabled[0].RuntimeID != runtimeID ||
-		disabled[0].Provider != "claude" || disabled[0].Root != "provider" || disabled[0].Key != "review" ||
-		disabled[0].Name != "Review Helper" {
-		t.Fatalf("unexpected disabled runtime skills: %+v", disabled)
+	exceptions := decodeRuntimeSkillExceptions(row.RuntimeSkillExceptions)
+	if len(exceptions) != 1 || exceptions[0].RuntimeID != runtimeID ||
+		exceptions[0].Provider != "claude" || exceptions[0].Root != "provider" || exceptions[0].Key != "review" ||
+		exceptions[0].Name != "Review Helper" {
+		t.Fatalf("unexpected runtime skill exceptions: %+v", exceptions)
 	}
 	if w := setEnabled(false); w.Code != 204 {
 		t.Fatalf("repeat disable inherited skill: expected 204, got %d: %s", w.Code, w.Body.String())
 	}
 	row, err = testHandler.Queries.GetAgent(context.Background(), parseUUID(agentID))
-	if err != nil || len(decodeDisabledRuntimeSkills(row.DisabledRuntimeSkills)) != 1 {
+	if err != nil || len(decodeRuntimeSkillExceptions(row.RuntimeSkillExceptions)) != 1 {
 		t.Fatalf("repeat disable was not idempotent: row=%+v err=%v", row, err)
 	}
 
@@ -223,8 +223,33 @@ func TestSetAgentRuntimeSkillEnabledPersistsScopedOverride(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reload agent: %v", err)
 	}
-	if disabled = decodeDisabledRuntimeSkills(row.DisabledRuntimeSkills); len(disabled) != 0 {
-		t.Fatalf("re-enabled skill still disabled: %+v", disabled)
+	if exceptions = decodeRuntimeSkillExceptions(row.RuntimeSkillExceptions); len(exceptions) != 0 {
+		t.Fatalf("re-enabled skill is still an exception: %+v", exceptions)
+	}
+
+	// With the section switch off, a skill that is turned on is the exception.
+	if _, err := testPool.Exec(context.Background(), `UPDATE agent SET inherit_runtime_skills = false WHERE id = $1`, agentID); err != nil {
+		t.Fatalf("turn section off: %v", err)
+	}
+	if w := setEnabled(true); w.Code != 204 {
+		t.Fatalf("pick skill while section off: expected 204, got %d: %s", w.Code, w.Body.String())
+	}
+	row, err = testHandler.Queries.GetAgent(context.Background(), parseUUID(agentID))
+	if err != nil {
+		t.Fatalf("reload agent: %v", err)
+	}
+	if exceptions = decodeRuntimeSkillExceptions(row.RuntimeSkillExceptions); len(exceptions) != 1 || exceptions[0].Key != "review" {
+		t.Fatalf("picked skill is not stored while section off: %+v", exceptions)
+	}
+	if w := setEnabled(false); w.Code != 204 {
+		t.Fatalf("unpick skill while section off: expected 204, got %d: %s", w.Code, w.Body.String())
+	}
+	row, err = testHandler.Queries.GetAgent(context.Background(), parseUUID(agentID))
+	if err != nil {
+		t.Fatalf("reload agent: %v", err)
+	}
+	if exceptions = decodeRuntimeSkillExceptions(row.RuntimeSkillExceptions); len(exceptions) != 0 {
+		t.Fatalf("unpicked skill is still an exception: %+v", exceptions)
 	}
 }
 
@@ -276,20 +301,20 @@ func TestSetAgentRuntimeSkillEnabledProviderAndPermission(t *testing.T) {
 			if err != nil {
 				t.Fatalf("load agent after runtime skill request: %v", err)
 			}
-			disabled := decodeDisabledRuntimeSkills(row.DisabledRuntimeSkills)
+			exceptions := decodeRuntimeSkillExceptions(row.RuntimeSkillExceptions)
 			if tc.wantStatus == http.StatusNoContent {
 				plugin := ""
 				if tc.root == "plugin" {
 					plugin = "review-tools"
 				}
-				want := DisabledRuntimeSkill{
+				want := RuntimeSkillException{
 					RuntimeID: runtimeID, Provider: tc.provider, Root: tc.root, Key: "review", Name: "Review", Plugin: plugin,
 				}
-				if len(disabled) != 1 || disabled[0] != want {
-					t.Fatalf("disabled runtime skill = %+v, want %+v", disabled, want)
+				if len(exceptions) != 1 || exceptions[0] != want {
+					t.Fatalf("runtime skill exception = %+v, want %+v", exceptions, want)
 				}
-			} else if len(disabled) != 0 {
-				t.Fatalf("rejected runtime skill change saved choices: %+v", disabled)
+			} else if len(exceptions) != 0 {
+				t.Fatalf("rejected runtime skill change saved choices: %+v", exceptions)
 			}
 			if !row.InheritRuntimeSkills {
 				t.Fatal("per-skill change modified section inheritance")

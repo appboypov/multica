@@ -688,7 +688,6 @@
       "empty_title": "No skills assigned",
       "remove_failed_toast": "Failed to remove skill",
       "add_dialog_title": "Add skill",
-      "add_dialog_search_placeholder": "Search skills",
       "add_dialog_empty": "All workspace skills are already assigned.",
       "add_dialog_no_match": "No skills match your search.",
       "add_dialog_empty_partial": "No more skills to add — this agent already has all of them.",
@@ -697,7 +696,9 @@
       "add_dialog_confirm_one": "Add {{count}} skill",
       "add_dialog_confirm_other": "Add {{count}} skills",
       "add_dialog_cancel": "Cancel",
-      "add_failed_toast": "Failed to add skill"
+      "add_failed_toast": "Failed to add skill",
+      "search_placeholder": "Search skills",
+      "search_empty": "No skills match \"{{query}}\"."
     },
     "integrations": {
       "members_note": "Only workspace owners and admins can manage this connection. You can view connected bots in Settings → Integrations."

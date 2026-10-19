@@ -11,6 +11,9 @@ const (
 	SourceWorkspace = "workspace"
 	SourceBuiltin   = "builtin"
 	SourcePlugin    = "plugin"
+	// SourceFolder is a library skill whose files live in a skill folder on
+	// the runtime's machine; the daemon reads them from disk at run start.
+	SourceFolder = "folder"
 )
 
 type File struct {

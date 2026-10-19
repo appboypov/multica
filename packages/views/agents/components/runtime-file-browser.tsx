@@ -40,18 +40,21 @@ function parentPath(path: string): string {
 /**
  * Browses the runtime machine of an agent: its provider's skill roots first,
  * then any folder opened or path typed. Files and folders are ticked across
- * folders and handed to `onAdd` in the order ticked.
+ * folders and handed to `onAdd` in the order ticked; with `foldersOnly` only
+ * folders can be ticked.
  */
 export function RuntimeFileBrowser({
   open,
   onOpenChange,
   runtime,
   onAdd,
+  foldersOnly = false,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   runtime: RuntimeDevice;
   onAdd: (paths: string[]) => void;
+  foldersOnly?: boolean;
 }) {
   const { t } = useT("agents");
   const qc = useQueryClient();
@@ -185,11 +188,15 @@ export function RuntimeFileBrowser({
                           checked ? "bg-primary/5" : "hover:bg-accent/40"
                         }`}
                       >
-                        <Checkbox
-                          checked={checked}
-                          onCheckedChange={() => handleToggle(entry.path)}
-                          aria-label={entry.name}
-                        />
+                        {foldersOnly && entry.kind !== "folder" ? (
+                          <span aria-hidden className="size-4 shrink-0" />
+                        ) : (
+                          <Checkbox
+                            checked={checked}
+                            onCheckedChange={() => handleToggle(entry.path)}
+                            aria-label={entry.name}
+                          />
+                        )}
                         <Icon
                           aria-hidden
                           className="size-4 shrink-0 text-muted-foreground"

@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
+
+	"github.com/multica-ai/multica/server/pkg/protocol"
 )
 
 // Redis-backed implementations of LocalSkillListStore / LocalSkillImportStore.
@@ -79,11 +81,12 @@ func NewRedisLocalSkillListStore(rdb redis.UniversalClient) *RedisLocalSkillList
 	return &RedisLocalSkillListStore{rdb: rdb}
 }
 
-func (s *RedisLocalSkillListStore) Create(ctx context.Context, runtimeID string) (*RuntimeLocalSkillListRequest, error) {
+func (s *RedisLocalSkillListStore) Create(ctx context.Context, runtimeID string, folders []protocol.DaemonSkillFolder) (*RuntimeLocalSkillListRequest, error) {
 	now := time.Now()
 	req := &RuntimeLocalSkillListRequest{
 		ID:        randomID(),
 		RuntimeID: runtimeID,
+		Folders:   folders,
 		Status:    RuntimeLocalSkillPending,
 		Supported: true,
 		CreatedAt: now,

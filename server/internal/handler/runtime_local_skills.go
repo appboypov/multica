@@ -81,7 +81,9 @@ const (
 // can have POST, heartbeat and poll land on different nodes and still agree
 // on the request's state.
 type LocalSkillListStore interface {
-	Create(ctx context.Context, runtimeID string) (*RuntimeLocalSkillListRequest, error)
+	// Create queues a request for the runtime's local skills, or for the
+	// skills of the given skill folders when folders is not empty.
+	Create(ctx context.Context, runtimeID string, folders []protocol.DaemonSkillFolder) (*RuntimeLocalSkillListRequest, error)
 	Get(ctx context.Context, id string) (*RuntimeLocalSkillListRequest, error)
 	// HasPending is a cheap read-only probe that reports whether the runtime
 	// has at least one pending request. Callers on the hot path (e.g. the
@@ -203,6 +205,7 @@ type RuntimeLocalMcpServerSummary struct {
 type RuntimeLocalSkillListRequest struct {
 	ID           string                         `json:"id"`
 	RuntimeID    string                         `json:"runtime_id"`
+	Folders      []protocol.DaemonSkillFolder   `json:"folders,omitempty"`
 	Status       RuntimeLocalSkillRequestStatus `json:"status"`
 	Skills       []RuntimeLocalSkillSummary     `json:"skills,omitempty"`
 	Supported    bool                           `json:"supported"`
@@ -249,7 +252,7 @@ func NewInMemoryLocalSkillListStore() *InMemoryLocalSkillListStore {
 	return &InMemoryLocalSkillListStore{requests: make(map[string]*RuntimeLocalSkillListRequest)}
 }
 
-func (s *InMemoryLocalSkillListStore) Create(_ context.Context, runtimeID string) (*RuntimeLocalSkillListRequest, error) {
+func (s *InMemoryLocalSkillListStore) Create(_ context.Context, runtimeID string, folders []protocol.DaemonSkillFolder) (*RuntimeLocalSkillListRequest, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -262,6 +265,7 @@ func (s *InMemoryLocalSkillListStore) Create(_ context.Context, runtimeID string
 	req := &RuntimeLocalSkillListRequest{
 		ID:        randomID(),
 		RuntimeID: runtimeID,
+		Folders:   folders,
 		Status:    RuntimeLocalSkillPending,
 		Supported: true,
 		CreatedAt: time.Now(),
@@ -602,7 +606,7 @@ func (h *Handler) InitiateListLocalSkills(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	req, err := h.LocalSkillListStore.Create(r.Context(), rt.runtimeID)
+	req, err := h.LocalSkillListStore.Create(r.Context(), rt.runtimeID, nil)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to enqueue local skills request: "+err.Error())
 		return
@@ -719,7 +723,8 @@ func (h *Handler) GetLocalSkillImportRequest(w http.ResponseWriter, r *http.Requ
 
 func (h *Handler) ReportLocalSkillListResult(w http.ResponseWriter, r *http.Request) {
 	runtimeID := chi.URLParam(r, "runtimeId")
-	if _, ok := h.requireDaemonRuntimeAccess(w, r, runtimeID); !ok {
+	rt, ok := h.requireDaemonRuntimeAccess(w, r, runtimeID)
+	if !ok {
 		return
 	}
 
@@ -742,6 +747,7 @@ func (h *Handler) ReportLocalSkillListResult(w http.ResponseWriter, r *http.Requ
 	var body struct {
 		Status       string                         `json:"status"`
 		Skills       []RuntimeLocalSkillSummary     `json:"skills"`
+		FolderSkills []folderSkillReport            `json:"folder_skills"`
 		Supported    *bool                          `json:"supported"`
 		McpServers   []RuntimeLocalMcpServerSummary `json:"mcp_servers"`
 		McpSupported *bool                          `json:"mcp_supported"`
@@ -752,6 +758,17 @@ func (h *Handler) ReportLocalSkillListResult(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	if body.Status == "completed" && len(req.Folders) > 0 {
+		// A scan of skill folders: bring the library in line with it. The
+		// skills that stay out because their name is taken are the result.
+		skipped, err := h.syncFolderSkills(r.Context(), rt.WorkspaceID, req.Folders, body.FolderSkills)
+		if err != nil {
+			slog.Error("skill folder sync failed", "error", err, "request_id", requestID)
+			writeError(w, http.StatusInternalServerError, "failed to sync skill folders")
+			return
+		}
+		body.Skills = skipped
+	}
 	if body.Status == "completed" {
 		supported := true
 		if body.Supported != nil {

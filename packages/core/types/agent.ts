@@ -667,8 +667,11 @@ export interface Agent {
   service_tier?: string;
   owner_id: string | null;
   skills: AgentSkillSummary[];
-  /** Runtime-local skills this agent must not inherit. Older servers omit it. */
-  disabled_runtime_skills?: DisabledRuntimeSkill[];
+  /**
+   * Runtime-local skills whose state differs from the section switch: off
+   * while the agent inherits, on while it does not. Older servers omit it.
+   */
+  runtime_skill_exceptions?: RuntimeSkillException[];
   /** Older servers omit this setting; absent counts as inheriting runtime skills. */
   inherit_runtime_skills?: boolean;
   created_at: string;
@@ -684,7 +687,7 @@ export interface AgentConversationStarter {
   prompt: string;
 }
 
-export interface DisabledRuntimeSkill {
+export interface RuntimeSkillException {
   runtime_id: string;
   provider: string;
   root: "provider" | "universal" | "plugin";
@@ -936,6 +939,16 @@ export interface SkillSummary {
 export interface Skill extends SkillSummary {
   content: string;
   files: SkillFile[];
+}
+
+/** A folder on one machine whose skills are in the workspace's library. */
+export interface SkillFolder {
+  id: string;
+  /** The machine the folder is on. */
+  daemon_id: string;
+  path: string;
+  created_by: string | null;
+  created_at: string;
 }
 
 export interface SkillFile {

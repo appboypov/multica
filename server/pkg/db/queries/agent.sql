@@ -28,7 +28,7 @@ SELECT * FROM agent
 WHERE id = $1;
 
 -- name: GetAgentForUpdate :one
--- Serializes read-modify-write updates to disabled_runtime_skills so two
+-- Serializes read-modify-write updates to runtime_skill_exceptions so two
 -- concurrent per-skill toggles cannot overwrite each other.
 SELECT * FROM agent
 WHERE id = $1
@@ -192,15 +192,17 @@ SET custom_env = $2, updated_at = now()
 WHERE id = $1
 RETURNING *;
 
--- name: UpdateAgentDisabledRuntimeSkills :one
+-- name: UpdateAgentRuntimeSkillExceptions :one
 UPDATE agent
-SET disabled_runtime_skills = $2, updated_at = now()
+SET runtime_skill_exceptions = $2, updated_at = now()
 WHERE id = $1
 RETURNING *;
 
 -- name: UpdateAgentInheritRuntimeSkills :one
+-- The section switch sets every runtime skill on or off, so the exceptions to
+-- it start empty again.
 UPDATE agent
-SET inherit_runtime_skills = $2, updated_at = now()
+SET inherit_runtime_skills = $2, runtime_skill_exceptions = '[]'::jsonb, updated_at = now()
 WHERE id = $1
 RETURNING *;
 
