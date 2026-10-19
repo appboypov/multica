@@ -1290,6 +1290,14 @@
    "path": "server/internal/handler/release_wakeup.go:45"
   },
   {
+   "id": "srv-list-release-tasks",
+   "parent": "srv-h-planning",
+   "name": "ListReleaseTasks",
+   "icon": "list",
+   "kind": "Function",
+   "path": "server/internal/handler/release_task.go:12"
+  },
+  {
    "id": "srv-client-read",
    "parent": "srv-h-planning",
    "name": "Client reads",
@@ -2367,6 +2375,14 @@
    "trigger": "page opens"
   },
   {
+   "id": "views-release-detail--core-api--2",
+   "from": "views-release-detail",
+   "to": "core-api",
+   "line": "call",
+   "data": "task id",
+   "trigger": "member stops a run"
+  },
+  {
    "id": "views-members-tab--core-api",
    "from": "views-members-tab",
    "to": "core-api",
@@ -2777,6 +2793,14 @@
    "line": "call",
    "data": "wakeup",
    "trigger": "agent schedules"
+  },
+  {
+   "id": "srv-auth--srv-list-release-tasks",
+   "from": "srv-auth",
+   "to": "srv-list-release-tasks",
+   "line": "call",
+   "data": "release id",
+   "trigger": "release page opens"
   },
   {
    "id": "srv-auth--srv-client-read",
@@ -3737,6 +3761,14 @@
    "line": "data",
    "data": "release",
    "trigger": "insert"
+  },
+  {
+   "id": "srv-list-release-tasks--postgres",
+   "from": "srv-list-release-tasks",
+   "to": "postgres",
+   "line": "data",
+   "data": "release runs, wakeup events",
+   "trigger": "select"
   },
   {
    "id": "srv-add-to-release--postgres",
@@ -8372,6 +8404,70 @@
      "title": "Daemon gets a hint",
      "happens": "The task reaches its runtime.",
      "edge": "srv-enqueue-issue--srv-notify-task"
+    }
+   ]
+  },
+  {
+   "id": "release-runs",
+   "name": "A release page shows the owner's runs",
+   "question": "How does the owner's run reach an open release page?",
+   "steps": [
+    {
+     "title": "Member opens the release",
+     "happens": "The release page asks for the release's runs.",
+     "edge": "views-release-detail--core-api"
+    },
+    {
+     "title": "Request reaches the server",
+     "happens": "The API client calls GET /api/releases/{id}/tasks.",
+     "edge": "core-api--srv-router"
+    },
+    {
+     "title": "Auth checks the member",
+     "happens": "Auth reads the token and the membership.",
+     "edge": "srv-router--srv-auth"
+    },
+    {
+     "title": "Handler lists the runs",
+     "happens": "ListReleaseTasks loads the release in the workspace.",
+     "edge": "srv-auth--srv-list-release-tasks"
+    },
+    {
+     "title": "Runs are read",
+     "happens": "The release's runs return newest first with their usage and wakeup events.",
+     "edge": "srv-list-release-tasks--postgres",
+     "out": [
+      {
+       "model": "agent_task_queue",
+       "fields": [
+        "release_id",
+        "status",
+        "context"
+       ]
+      }
+     ],
+     "store": "postgres · agent_task_queue"
+    },
+    {
+     "title": "A run starts or ends",
+     "happens": "The workspace hears task events.",
+     "edge": "srv-realtime-hub--core-ws"
+    },
+    {
+     "title": "Sync hears the event",
+     "happens": "Realtime sync takes the task event.",
+     "edge": "core-ws--core-realtime-sync"
+    },
+    {
+     "title": "Release runs refetch",
+     "happens": "Realtime sync invalidates every release's runs, so the page shows the run without a reload.",
+     "edge": "core-realtime-sync--core-query-client"
+    },
+    {
+     "title": "Member stops a run",
+     "happens": "Stop cancels the run after the member confirms.",
+     "edge": "views-release-detail--core-api--2",
+     "action": "Stops the owner's run"
     }
    ]
   },
