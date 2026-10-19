@@ -16,7 +16,30 @@ func TestMigrationNumericPrefixesAreUnique(t *testing.T) {
 	// Migrations through 128 contain historical duplicate numeric prefixes.
 	// From 129 onward, keep the numeric sequence unique so release tooling and
 	// operators can identify one schema change unambiguously by its number.
+	// The stems below shipped with a shared prefix and every database has run
+	// them under these names. The runner identifies a migration by its full
+	// stem, and later migrations depend on several of them, so they keep their
+	// names and their order; any other collision fails.
 	const firstUniqueMigrationNumber = 129
+	shippedSharedPrefix := map[string]bool{
+		"745_question_wake_pending":         true,
+		"745_squad_member_squad":            true,
+		"750_agent_session_agent_index":     true,
+		"750_release_owner_subjects":        true,
+		"750_todo":                          true,
+		"751_task_release_subject_validate": true,
+		"751_todo_open_index":               true,
+		"752_comment_subject_validate":      true,
+		"752_todo_list_index":               true,
+		"753_comment_release_index":         true,
+		"753_issue_creator_backfill":        true,
+		"754_todo_backfill":                 true,
+		"754_wakeup_release_index":          true,
+		"801_decider_unique_squad_labels":   true,
+		"801_task_release_index":            true,
+		"802_disable_workspace_squad_rules": true,
+		"802_issue_child_event_blocked":     true,
+	}
 	stemByNumber := make(map[int]string)
 	for _, file := range files {
 		stem, _, ok := splitMigrationFilename(filepath.Base(file))
@@ -32,6 +55,9 @@ func TestMigrationNumericPrefixesAreUnique(t *testing.T) {
 			continue
 		}
 		if previous, exists := stemByNumber[number]; exists {
+			if shippedSharedPrefix[previous] && shippedSharedPrefix[stem] {
+				continue
+			}
 			t.Errorf("migrations %s and %s share numeric prefix %s", previous, stem, prefix)
 			continue
 		}
