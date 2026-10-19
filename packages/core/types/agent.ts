@@ -349,6 +349,8 @@ export interface TaskCancellationActor {
 
 export interface AgentTask {
   wakeup_id?: string;
+  /** Event types of the wakeup facts that started the run, in order, e.g. `release.owner_changed`. */
+  wakeup_events?: string[];
   id: string;
   agent_id: string;
   runtime_id: string;

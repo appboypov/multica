@@ -159,6 +159,13 @@
     "load_failed": "Couldn't load the comments.",
     "retry": "Retry"
   },
+  "run_trigger": {
+    "owner_changed": "Owner change",
+    "comment_one": "New comment",
+    "comment_other": "{{count}} new comments",
+    "issue_ended_one": "Issue ended",
+    "issue_ended_other": "{{count}} issues ended"
+  },
   "overview": {
     "title": "Releases",
     "empty": "No releases yet.",

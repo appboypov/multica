@@ -159,6 +159,11 @@
     "load_failed": "无法加载评论。",
     "retry": "重试"
   },
+  "run_trigger": {
+    "owner_changed": "负责人变更",
+    "comment_other": "{{count}} 条新评论",
+    "issue_ended_other": "{{count}} 个任务已结束"
+  },
   "overview": {
     "title": "版本",
     "empty": "还没有版本。",

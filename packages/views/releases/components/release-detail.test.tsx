@@ -420,6 +420,8 @@ describe("release discussion", () => {
 });
 
 describe("release runs", () => {
+  // The shape the release dispatcher produces: every run comes from the
+  // release's coordination wakeup and carries the facts that woke it.
   const run = (overrides: Partial<AgentTask> & Pick<AgentTask, "id" | "status" | "created_at">): AgentTask => ({
     agent_id: "agent-pieter",
     runtime_id: "rt-1",
@@ -432,6 +434,8 @@ describe("release runs", () => {
     result: null,
     error: null,
     trigger_summary: "Release coordination",
+    wakeup_id: "wake-release",
+    wakeup_events: ["release.owner_changed"],
     ...overrides,
   } as AgentTask);
 
@@ -450,7 +454,39 @@ describe("release runs", () => {
     const comment = await screen.findByText(pieterComment.content);
     expect(sentence.compareDocumentPosition(section) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(section.compareDocumentPosition(comment) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(within(section).getByText("Release coordination")).toBeTruthy();
+    expect(within(section).getByText("Owner change")).toBeTruthy();
+    expect(within(section).queryByText("Triggered by wakeup")).toBeNull();
+  });
+
+  it("names what woke each run instead of the wakeup", async () => {
+    const brianComment = comment({ id: "c-7", content: "Ship it once WORK-502 is done.", created_at: "2026-02-01T09:00:00Z" });
+    const ended = run({
+      id: "t-4",
+      status: "completed",
+      created_at: "2026-02-01T10:00:00Z",
+      wakeup_events: ["release.issue.ended", "release.issue.ended", "release.owner_changed"],
+    });
+    const commented = run({
+      id: "t-5",
+      status: "completed",
+      created_at: "2026-02-01T11:00:00Z",
+      trigger_comment_id: "c-7",
+      wakeup_events: ["release.comment.created"],
+    });
+    const scheduled = run({
+      id: "t-6",
+      status: "completed",
+      created_at: "2026-02-01T12:00:00Z",
+      trigger_comment_id: "c-7",
+      wakeup_events: ["time.due"],
+    });
+    seed(planned, { comments: [brianComment], tasks: [scheduled, commented, ended] });
+    mount(<ReleaseDetailRoute releaseId="r-110" />);
+
+    const [first, second, third] = await screen.findAllByRole("region", { name: "Pieter run" });
+    expect(within(first!).getByText("2 issues ended · Owner change")).toBeTruthy();
+    expect(within(second!).getByText(brianComment.content)).toBeTruthy();
+    expect(within(third!).getByText("Triggered by wakeup")).toBeTruthy();
   });
 
   it("stops a running run after confirmation", async () => {

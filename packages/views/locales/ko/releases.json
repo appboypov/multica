@@ -159,6 +159,11 @@
     "load_failed": "댓글을 불러오지 못했습니다.",
     "retry": "다시 시도"
   },
+  "run_trigger": {
+    "owner_changed": "담당자 변경",
+    "comment_other": "새 댓글 {{count}}개",
+    "issue_ended_other": "이슈 {{count}}개 종료"
+  },
   "overview": {
     "title": "릴리스",
     "empty": "아직 릴리스가 없습니다.",

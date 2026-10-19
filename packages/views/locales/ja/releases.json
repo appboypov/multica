@@ -159,6 +159,11 @@
     "load_failed": "コメントを読み込めませんでした。",
     "retry": "再試行"
   },
+  "run_trigger": {
+    "owner_changed": "オーナーの変更",
+    "comment_other": "新しいコメント {{count}} 件",
+    "issue_ended_other": "タスク {{count}} 件が終了"
+  },
   "overview": {
     "title": "リリース",
     "empty": "まだリリースがありません。",

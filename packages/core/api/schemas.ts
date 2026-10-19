@@ -2720,6 +2720,7 @@ const TaskUsageSchema = z.object({
 
 export const AgentTaskSchema = z.object({
   wakeup_id: z.string().optional().catch(undefined),
+  wakeup_events: OptionalStringArraySchema,
   cancelled_by_comment_change: z.boolean().optional().catch(undefined),
   cancelled_by: TaskCancellationActorSchema.optional().catch(undefined),
   id: z.string(),

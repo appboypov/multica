@@ -159,6 +159,13 @@
     "load_failed": "Impossible de charger les commentaires.",
     "retry": "Réessayer"
   },
+  "run_trigger": {
+    "owner_changed": "Changement de responsable",
+    "comment_one": "Nouveau commentaire",
+    "comment_other": "{{count}} nouveaux commentaires",
+    "issue_ended_one": "Tâche terminée",
+    "issue_ended_other": "{{count}} tâches terminées"
+  },
   "overview": {
     "title": "Versions",
     "empty": "Aucune version pour l’instant.",

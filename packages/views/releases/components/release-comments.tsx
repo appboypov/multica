@@ -20,7 +20,7 @@ import { ActorAvatar } from "../../common/actor-avatar";
 import { ReadonlyContent } from "../../editor/readonly-content";
 import { useLocale, useT } from "../../i18n";
 import { AgentRunComment } from "../../issues/components/comment-card";
-import { useTriggerText } from "../../issues/components/task-run-labels";
+import { plainTriggerSummary, useTriggerText } from "../../issues/components/task-run-labels";
 import { useNewRunIds } from "../../issues/components/use-run-comment-motion";
 import { ownerChangeMessage } from "./release-messages";
 
@@ -137,7 +137,7 @@ export function ReleaseComments({ releaseId }: { releaseId: string }) {
                   run={{ task: item.task, hasReply: replied.has(item.id) }}
                   standalone
                   entering={enteringRunIds.has(item.id)}
-                  replyTo={<RunTrigger task={item.task} />}
+                  replyTo={<RunTrigger task={item.task} byId={byId} />}
                 />
               </li>
             ) : (
@@ -207,9 +207,31 @@ function OwnerChange({ entry }: { entry: ReleaseOwnerActivityEntry }) {
   );
 }
 
-/** What started a run, under its identity the way a reply's quote sits under its author. */
-function RunTrigger({ task }: { task: AgentTask }) {
-  const trigger = useTriggerText(task);
+/**
+ * What started a run, under its identity the way a reply's quote sits under its
+ * author. A release run is woken by facts: each kind reads once, with its count,
+ * and a comment reads as its text the way an issue run's trigger comment does.
+ */
+function RunTrigger({ task, byId }: { task: AgentTask; byId: ReadonlyMap<string, ReleaseComment> }) {
+  const { t } = useT("releases");
+  const { t: tIssues } = useT("issues");
+  const fallback = useTriggerText(task);
+  const counts = new Map<string, number>();
+  for (const event of task.wakeup_events ?? []) counts.set(event, (counts.get(event) ?? 0) + 1);
+  const parts = new Set<string>();
+  for (const [event, count] of counts) {
+    if (event === "release.owner_changed") parts.add(t(($) => $.run_trigger.owner_changed));
+    else if (event === "release.issue.ended") parts.add(t(($) => $.run_trigger.issue_ended, { count }));
+    else if (event === "release.comment.created") {
+      const comment = count === 1 && task.trigger_comment_id ? byId.get(task.trigger_comment_id) : undefined;
+      parts.add(
+        comment
+          ? plainTriggerSummary(comment.content, tIssues(($) => $.execution_log.trigger_image))
+          : t(($) => $.run_trigger.comment, { count }),
+      );
+    } else parts.add(tIssues(($) => $.wakeups.triggered_by_wakeup));
+  }
+  const trigger = parts.size > 0 ? [...parts].join(" · ") : fallback;
   return <p className="line-clamp-2 text-caption text-muted-foreground">{trigger}</p>;
 }
 

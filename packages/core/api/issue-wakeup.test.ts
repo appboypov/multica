@@ -96,6 +96,15 @@ it("preserves wakeup origin while accepting old task responses", () => {
   expect(AgentTaskSchema.parse({ id: "run" }).wakeup_id).toBeUndefined();
 });
 
+it("keeps a run's wakeup events and drops malformed ones without losing the run", () => {
+  expect(
+    AgentTaskSchema.parse({ id: "run", wakeup_events: ["release.owner_changed", "release.issue.ended"] }).wakeup_events,
+  ).toEqual(["release.owner_changed", "release.issue.ended"]);
+  const malformed = AgentTaskSchema.parse({ id: "run", wakeup_id: "wake", wakeup_events: [{ event_type: "x" }] });
+  expect(malformed.wakeup_events).toBeUndefined();
+  expect(malformed.wakeup_id).toBe("wake");
+});
+
 it("sends a scoped enable request without rewriting the configuration", async () => {
   const fetcher = vi.fn().mockResolvedValue(new Response("{}"));
   vi.stubGlobal("fetch", fetcher);

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgtype"
@@ -26,6 +27,24 @@ func TestTaskCommentChangeCancellation(t *testing.T) {
 			got := taskToResponse(db.AgentTaskQueue{ID: parseUUID(tc.taskID), Status: tc.status, Context: []byte(tc.context)}, "")
 			if got.CancelledByCommentChange != tc.want {
 				t.Fatalf("cancelled_by_comment_change = %v, want %v", got.CancelledByCommentChange, tc.want)
+			}
+		})
+	}
+}
+
+func TestTaskWakeupEventsFollowEvidenceFacts(t *testing.T) {
+	for _, tc := range []struct {
+		name, context, wantWakeup string
+		want                      []string
+	}{
+		{"release run", `{"release_id":"r","wakeup_id":"w","wakeup_system":"release_coordination","wakeup_evidence":{"version":1,"facts":[{"event_type":"release.owner_changed","payload":{}},{"event_type":"release.issue.ended","payload":{}},{"event_type":"release.issue.ended","payload":{}}]}}`, "w", []string{"release.owner_changed", "release.issue.ended", "release.issue.ended"}},
+		{"evidence of another shape", `{"wakeup_id":"w","wakeup_evidence":[{"event_type":"release.owner_changed"}]}`, "w", nil},
+		{"no wakeup", `{}`, "", nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got := taskToResponse(db.AgentTaskQueue{Context: []byte(tc.context)}, "")
+			if got.WakeupID != tc.wantWakeup || !reflect.DeepEqual(got.WakeupEvents, tc.want) {
+				t.Fatalf("wakeup = %q %v, want %q %v", got.WakeupID, got.WakeupEvents, tc.wantWakeup, tc.want)
 			}
 		})
 	}
