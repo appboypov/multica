@@ -516,6 +516,47 @@ func TestShouldCleanTaskDir_Issue404RecentSkipped(t *testing.T) {
 	}
 }
 
+// A workspace that is gone answers the batch check with the JSON 404 of
+// requireDaemonWorkspaceAccess. Its issues get the per-issue 404 answer: a task
+// directory past the orphan TTL is removed, a recent one stays.
+func TestGCWorkspaceIssues_Workspace404FollowsOrphanTTL(t *testing.T) {
+	t.Parallel()
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/daemon/workspaces/gone-ws/issues/gc-check", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte(`{"error":"not found"}`))
+	})
+
+	for _, tc := range []struct {
+		name      string
+		orphanTTL time.Duration
+		removed   bool
+	}{
+		{name: "past orphan TTL", orphanTTL: 0, removed: true},
+		{name: "within orphan TTL", orphanTTL: 72 * time.Hour, removed: false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			d := newGCTestDaemon(t, mux)
+			d.cfg.GCOrphanTTL = tc.orphanTTL
+			meta := &execenv.GCMeta{
+				Kind:        execenv.GCKindIssue,
+				IssueID:     "77777777-7777-7777-7777-777777777777",
+				WorkspaceID: "gone-ws",
+				CompletedAt: time.Now(),
+			}
+			taskDir := createTaskDir(t, d.cfg.WorkspacesRoot, "gone-ws", "old-task", meta)
+
+			stats := &gcStats{byPattern: map[string]int{}}
+			d.gcWorkspaceIssues(context.Background(), "gone-ws", []issueGCCandidate{{taskDir: taskDir, meta: meta}}, stats)
+
+			_, err := os.Stat(taskDir)
+			if removed := os.IsNotExist(err); removed != tc.removed {
+				t.Fatalf("task dir removed = %t, want %t (stat error %v)", removed, tc.removed, err)
+			}
+		})
+	}
+}
+
 func TestCleanTaskDir_RemovesDirectory(t *testing.T) {
 	t.Parallel()
 	d := newGCTestDaemon(t, http.NewServeMux())

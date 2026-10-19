@@ -281,6 +281,16 @@ func (d *Daemon) gcWorkspaceIssues(ctx context.Context, workspaceID string, cand
 		end := min(start+issueGCBatchSize, len(issueIDs))
 		chunkResults, err := d.client.GetIssueGCChecks(ctx, workspaceID, issueIDs[start:end])
 		if err != nil {
+			if isAccessNotFound(err) {
+				// The workspace is gone or this daemon lost access to it. That
+				// is the same answer the per-issue check gives with its 404, so
+				// every issue of the chunk takes the same mtime-gated orphan
+				// path instead of keeping its directory forever.
+				for _, issueID := range issueIDs[start:end] {
+					results[issueID] = IssueGCCheckResult{ID: issueID, Found: false}
+				}
+				continue
+			}
 			d.logger.Warn("gc: batch issue check failed",
 				"workspace", workspaceID,
 				"count", end-start,
