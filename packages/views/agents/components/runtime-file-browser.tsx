@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { ArrowUp, File, Folder } from "lucide-react";
 import type { RuntimeDevice } from "@multica/core/types";
 import { createLogger } from "@multica/core/logger";
@@ -22,26 +22,26 @@ import { useT } from "../../i18n";
 
 const logger = createLogger("agents.runtime-browser");
 
-/** The listing path of the skill roots of the runtime's provider. */
-const ROOTS_PATH = "";
+/** The listing path the browser opens on: the user's home on the runtime machine. */
+const HOME_PATH = "~";
 
 /**
  * The parent of an absolute path on the runtime machine, POSIX or Windows.
- * A filesystem root has no parent and goes back to the skill roots.
+ * A filesystem root, or a path that is not absolute, is its own parent.
  */
 function parentPath(path: string): string {
   const trimmed = path.replace(/[\\/]+$/, "");
   const index = Math.max(trimmed.lastIndexOf("/"), trimmed.lastIndexOf("\\"));
-  if (index < 0) return ROOTS_PATH;
+  if (index < 0) return path;
   if (index === 0) return trimmed.slice(0, 1);
   return trimmed.slice(0, trimmed[index - 1] === ":" ? index + 1 : index);
 }
 
 /**
- * Browses the runtime machine of an agent: its provider's skill roots first,
- * then any folder opened or path typed. Files and folders are ticked across
- * folders and handed to `onAdd` in the order ticked; with `foldersOnly` only
- * folders can be ticked.
+ * Browses the runtime machine of an agent: its user's home first, then any
+ * folder opened, path typed or parent walked up to, up to the filesystem
+ * root. Files and folders are ticked across folders and handed to `onAdd` in
+ * the order ticked; with `foldersOnly` only folders can be ticked.
  */
 export function RuntimeFileBrowser({
   open,
@@ -57,9 +57,8 @@ export function RuntimeFileBrowser({
   foldersOnly?: boolean;
 }) {
   const { t } = useT("agents");
-  const qc = useQueryClient();
   const online = runtime.status === "online";
-  const [path, setPath] = useState(ROOTS_PATH);
+  const [path, setPath] = useState(HOME_PATH);
   const [typedPath, setTypedPath] = useState<string | null>(null);
   const [ticked, setTicked] = useState<string[]>([]);
   const tickedSet = useMemo(() => new Set(ticked), [ticked]);
@@ -69,6 +68,7 @@ export function RuntimeFileBrowser({
     enabled: open && online,
   });
   const listedPath = listing.data?.path ?? path;
+  const parent = parentPath(listedPath);
 
   useEffect(() => {
     if (!listing.error) return;
@@ -81,7 +81,7 @@ export function RuntimeFileBrowser({
 
   const handleOpenChange = (next: boolean) => {
     if (!next) {
-      setPath(ROOTS_PATH);
+      setPath(HOME_PATH);
       setTypedPath(null);
       setTicked([]);
     }
@@ -95,14 +95,6 @@ export function RuntimeFileBrowser({
       return;
     }
     setPath(next);
-  };
-
-  const handleUp = () => {
-    const roots = qc.getQueryData(
-      runtimeDirectoryListingOptions(runtime.id, ROOTS_PATH).queryKey,
-    );
-    const isRoot = roots?.entries.some((root) => root.path === listedPath);
-    openPath(isRoot ? ROOTS_PATH : parentPath(listedPath));
   };
 
   const handleToggle = (entryPath: string) => {
@@ -140,8 +132,8 @@ export function RuntimeFileBrowser({
                 variant="ghost"
                 size="icon-sm"
                 aria-label={t(($) => $.runtime_browser.up)}
-                disabled={listedPath === ROOTS_PATH}
-                onClick={handleUp}
+                disabled={parent === listedPath}
+                onClick={() => openPath(parent)}
               >
                 <ArrowUp />
               </Button>

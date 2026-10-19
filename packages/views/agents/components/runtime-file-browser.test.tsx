@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import userEvent, { type UserEvent } from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "@multica/core/i18n/react";
@@ -55,13 +55,10 @@ function file(path: string): RuntimeDirectoryEntry {
 
 /** Listings by requested path, as the runtime machine answers them. */
 const LISTINGS: Record<string, { path: string; entries: RuntimeDirectoryEntry[] }> = {
-  "": {
-    path: "",
-    entries: [folder("/Users/brian/.omp/agent/skills", "~/.omp/agent/skills")],
-  },
-  "/Users/brian/.omp/agent/skills": {
-    path: "/Users/brian/.omp/agent/skills",
-    entries: [folder("/Users/brian/.omp/agent/skills/as-ux-designer")],
+  "~": { path: "/Users/brian", entries: [folder("/Users/brian/.omp")] },
+  "/Users/brian/.omp": {
+    path: "/Users/brian/.omp",
+    entries: [folder("/Users/brian/.omp/agent")],
   },
   "/Users/brian/.omp/agent/skills/as-ux-designer": {
     path: "/Users/brian/.omp/agent/skills/as-ux-designer",
@@ -70,11 +67,15 @@ const LISTINGS: Record<string, { path: string; entries: RuntimeDirectoryEntry[] 
       file("/Users/brian/.omp/agent/skills/as-ux-designer/SKILL.md"),
     ],
   },
-  "/Users/brian/.omp/agent": {
-    path: "/Users/brian/.omp/agent",
-    entries: [folder("/Users/brian/.omp/agent/skills")],
-  },
+  "/Users": { path: "/Users", entries: [folder("/Users/brian")] },
+  "/": { path: "/", entries: [folder("/Users")] },
   "/s": { path: "/s", entries: [folder("/s/as-ux-designer")] },
+  "C:\\Users\\brian": {
+    path: "C:\\Users\\brian",
+    entries: [folder("C:\\Users\\brian\\.omp", ".omp")],
+  },
+  "C:\\Users": { path: "C:\\Users", entries: [folder("C:\\Users\\brian", "brian")] },
+  "C:\\": { path: "C:\\", entries: [folder("C:\\Users", "Users")] },
   "/n": { path: "/n", entries: [file("/n/b.md"), file("/n/c.md")] },
 };
 
@@ -134,38 +135,33 @@ describe("RuntimeFileBrowser", () => {
     vi.clearAllMocks();
   });
 
-  it("lists the runtime's skill roots first", async () => {
+  it("opens on the user's home", async () => {
     renderBrowser();
 
-    expect(
-      await screen.findByRole("button", { name: "~/.omp/agent/skills" }),
-    ).toBeInTheDocument();
-    expect(mockInitiateDirectoryListing).toHaveBeenCalledWith("runtime-1", "");
-    expect(screen.getByRole("button", { name: "Up" })).toBeDisabled();
+    expect(await screen.findByRole("button", { name: ".omp" })).toBeInTheDocument();
+    expect(mockInitiateDirectoryListing).toHaveBeenCalledWith("runtime-1", "~");
+    expect(screen.getByRole("textbox", { name: "Path" })).toHaveValue("/Users/brian");
+    expect(screen.getByRole("button", { name: "Up" })).toBeEnabled();
   });
 
   it("opens a folder and lists its entries", async () => {
     const { user } = renderBrowser();
 
-    await user.click(
-      await screen.findByRole("button", { name: "~/.omp/agent/skills" }),
-    );
+    await user.click(await screen.findByRole("button", { name: ".omp" }));
 
-    expect(
-      await screen.findByRole("button", { name: "as-ux-designer" }),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "agent" })).toBeInTheDocument();
     expect(mockInitiateDirectoryListing).toHaveBeenLastCalledWith(
       "runtime-1",
-      "/Users/brian/.omp/agent/skills",
+      "/Users/brian/.omp",
     );
     expect(screen.getByRole("textbox", { name: "Path" })).toHaveValue(
-      "/Users/brian/.omp/agent/skills",
+      "/Users/brian/.omp",
     );
   });
 
   it("lists a typed path and shows the error of a missing one", async () => {
     const { user } = renderBrowser();
-    await screen.findByRole("button", { name: "~/.omp/agent/skills" });
+    await screen.findByRole("button", { name: ".omp" });
 
     await typePath(user, "/n");
     expect(await screen.findByText("c.md")).toBeInTheDocument();
@@ -219,39 +215,35 @@ describe("RuntimeFileBrowser", () => {
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
-  it("goes up to the parent and from a skill root back to the roots", async () => {
+  it("walks up from home to the filesystem root and stops there", async () => {
     const { user } = renderBrowser();
-    await user.click(
-      await screen.findByRole("button", { name: "~/.omp/agent/skills" }),
-    );
-    await screen.findByRole("button", { name: "as-ux-designer" });
-    await user.click(screen.getByRole("button", { name: "as-ux-designer" }));
-    await screen.findByText("SKILL.md");
+    await screen.findByRole("button", { name: ".omp" });
+    const up = screen.getByRole("button", { name: "Up" });
 
-    await user.click(screen.getByRole("button", { name: "Up" }));
-    expect(
-      await screen.findByRole("button", { name: "as-ux-designer" }),
-    ).toBeInTheDocument();
+    await user.click(up);
+    expect(await screen.findByRole("button", { name: "brian" })).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Path" })).toHaveValue("/Users");
 
-    await user.click(screen.getByRole("button", { name: "Up" }));
-    expect(
-      await screen.findByRole("button", { name: "~/.omp/agent/skills" }),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("textbox", { name: "Path" })).toHaveValue("");
+    await user.click(up);
+    expect(await screen.findByRole("button", { name: "Users" })).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Path" })).toHaveValue("/");
+    expect(up).toBeDisabled();
   });
 
-  it("goes up from a typed path outside the roots to its parent", async () => {
+  it("walks up a Windows path to its drive root and stops there", async () => {
     const { user } = renderBrowser();
-    await typePath(user, "/Users/brian/.omp/agent/skills/as-ux-designer");
-    await screen.findByText("SKILL.md");
-    await typePath(user, "/s");
-    await screen.findByRole("button", { name: "as-ux-designer" });
+    await typePath(user, "C:\\Users\\brian");
+    await screen.findByRole("button", { name: ".omp" });
+    const up = screen.getByRole("button", { name: "Up" });
 
-    await user.click(screen.getByRole("button", { name: "Up" }));
+    await user.click(up);
+    expect(await screen.findByRole("button", { name: "brian" })).toBeInTheDocument();
+    expect(mockInitiateDirectoryListing).toHaveBeenLastCalledWith("runtime-1", "C:\\Users");
 
-    await waitFor(() =>
-      expect(mockInitiateDirectoryListing).toHaveBeenLastCalledWith("runtime-1", "/"),
-    );
+    await user.click(up);
+    expect(await screen.findByRole("button", { name: "Users" })).toBeInTheDocument();
+    expect(mockInitiateDirectoryListing).toHaveBeenLastCalledWith("runtime-1", "C:\\");
+    expect(up).toBeDisabled();
   });
 
   it("says an offline runtime is offline, requests nothing and adds nothing", () => {
