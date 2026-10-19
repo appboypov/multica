@@ -35,6 +35,8 @@ type DeciderRule struct {
 	PostMergeProperty string            `json:"post_merge_property,omitempty"`
 	KindProperty      string            `json:"kind_property,omitempty"`
 	SquadByKind       map[string]string `json:"squad_by_kind,omitempty"`
+	// Disabled keeps the rule in the policy without starting decisions.
+	Disabled bool `json:"disabled,omitempty"`
 	// Squads holds active workspace squads by UUID for this decision snapshot.
 	Squads map[string]deciderSquadOption `json:"squads,omitempty"`
 }

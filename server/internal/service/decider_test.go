@@ -46,13 +46,13 @@ func fakeDeciderJudge(t *testing.T, choice string, confidence float64) TypeSafeD
 	})}}
 }
 
-func deciderFixture(t *testing.T, choice string, confidence float64) (*DeciderService, *testutil.Fixture, string, string, DeciderSettings) {
+func deciderFixture(t *testing.T, choice string, confidence float64, workspace ...testutil.Cols) (*DeciderService, *testutil.Fixture, string, string, DeciderSettings) {
 	t.Helper()
 	pool := sharedTestPool(t)
 	f := testutil.New(pool, "", "")
 	suffix := time.Now().UnixNano()
 	f.UserID = f.User(t, "Brian", fmt.Sprintf("decider-%d@example.test", suffix))
-	f.WorkspaceID = f.Workspace(t, "Decisions", fmt.Sprintf("decider-%d", suffix))
+	f.WorkspaceID = f.Workspace(t, "Decisions", fmt.Sprintf("decider-%d", suffix), workspace...)
 	f.Member(t, f.WorkspaceID, f.UserID, "owner")
 	runtime := f.Runtime(t, "Decider runtime")
 	agent := f.Agent(t, "Decider", runtime, testutil.Cols{"model": "claude-sonnet-5-5"})

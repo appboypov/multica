@@ -74,3 +74,34 @@ func TestDeciderSquadAutomaticChoice(t *testing.T) {
 		t.Fatal("automatic choice did not queue exactly one selected leader task")
 	}
 }
+
+func TestDeciderDisabledSquadRulesAskNothing(t *testing.T) {
+	s, f, _, _, settings := deciderFixture(t, "", 0.96)
+	s.Judge = fakeDeciderJudge(t, settings.Rules[0].SquadByKind["backend"], 0.96)
+	reasons := map[string]string{"urgent": "The work fits this squad", "minor": "Another squad fits better"}
+	settings.Rules = []DeciderRule{
+		{ID: "todo-squad", Event: "status_entered", Status: "todo", Decision: "squad", Question: "Which squad takes this work?", Reasons: reasons, Disabled: true},
+		{ID: "release-squad", Event: "release_joined", Decision: "squad", Question: "Which squad takes this work?", Reasons: reasons, Disabled: true},
+	}
+	setDeciderPolicy(t, f, settings)
+	project := f.Project(t, "Release project")
+	repo := f.Insert(t, "repository", testutil.Cols{"workspace_id": f.WorkspaceID, "project_id": project, "github_repo_id": 1, "full_name": "test/" + f.WorkspaceID, "private": false, "default_branch": "main", "checkout_daemon_id": "test", "checkout_path": "/tmp/test", "version_policy": "tags", "last_tag": ""})
+	release := f.Insert(t, "release", testutil.Cols{"workspace_id": f.WorkspaceID, "repository_id": repo, "position": 0, "version": "1.0.0", "title": "Test release"})
+	issue := f.Issue(t, "Unrouted work", testutil.Cols{"status": "todo", "release_id": release})
+	ctx := context.Background()
+	for _, event := range []string{"status_entered", "release_joined"} {
+		if err := s.Handle(ctx, util.MustParseUUID(f.WorkspaceID), util.MustParseUUID(issue), event); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if n := f.Count(t, `SELECT count(*) FROM routine_decision WHERE issue_id=$1`, issue); n != 0 {
+		t.Fatal("a disabled squad rule made a decision")
+	}
+	current, err := s.Queries.GetIssue(ctx, util.MustParseUUID(issue))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if current.AssigneeID.Valid {
+		t.Fatal("a disabled squad rule assigned the work")
+	}
+}

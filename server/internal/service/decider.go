@@ -70,6 +70,9 @@ func (s *DeciderService) Handle(ctx context.Context, workspaceID, issueID pgtype
 		return err
 	}
 	for _, rule := range settings.Rules {
+		if rule.Disabled {
+			continue
+		}
 		matched := rule.Event == event && (rule.Status == "" || rule.Status == issue.Status)
 		if rule.Decision == "release" && event == "status_entered" {
 			matched = true

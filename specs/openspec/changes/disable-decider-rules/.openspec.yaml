@@ -1,0 +1,10 @@
+schema: intent-driven
+created: 2026-10-19
+x-build:
+  status: built
+  type: feature
+  ticket: WORK-1779
+  baseline_revision: 004e8160c538d4264fc52a2339502eb9d2084a07
+  context:
+    - server/internal/service/decider.go
+    - server/internal/service/decider_judgment.go
