@@ -185,7 +185,9 @@ func TestBuiltinSkillsFrontmatterIsStrictYAML(t *testing.T) {
 // this repo. A `file:line` citation there resolves to nothing, and a `go test`
 // or `grep -n ... internal/handler/x.go` "verification command" actively sends
 // the reading agent after paths that cannot exist. Before this test, roughly
-// half the built-in payload by bytes was exactly that.
+// half the built-in payload by bytes was exactly that. The skill's own
+// supporting files do land in that workdir, so naming one of them, such as a
+// script the skill runs, is no leak.
 //
 // Maintainer-facing evidence for a contract belongs in this file, beside the
 // assertion that pins it, where it stays with the code it describes.
@@ -206,14 +208,21 @@ func TestBuiltinSkillPayloadCarriesNoSourceReferences(t *testing.T) {
 	for _, skill := range allBuiltinSkillsForTest() {
 		t.Run(skill.Name, func(t *testing.T) {
 			files := map[string]string{"SKILL.md": skill.Content}
+			shipped := map[string]bool{}
 			for _, f := range skill.Files {
 				files[f.Path] = f.Content
+				shipped[f.Path] = true
+				shipped[f.Path[strings.LastIndex(f.Path, "/")+1:]] = true
 			}
 			for path, content := range files {
 				for _, b := range banned {
-					if m := b.re.FindString(content); m != "" {
+					for _, m := range b.re.FindAllString(content, -1) {
+						if shipped[m] {
+							continue
+						}
 						t.Errorf("%s leaks %s (%q); the reader's machine has no copy of this repository — "+
 							"state the user-observable behavior instead, and keep the evidence in builtin_skills_test.go", path, b.what, m)
+						break
 					}
 				}
 			}

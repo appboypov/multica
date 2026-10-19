@@ -15,6 +15,7 @@ from unittest import mock
 SCRIPTS = Path(__file__).resolve().parents[2] / "server/internal/service/builtin_skills/multica-platform/scripts"
 sys.path.insert(0, str(SCRIPTS))
 import tickets  # noqa: E402
+import tickets_tree  # noqa: E402
 
 PROJECT = "project-shop"
 
@@ -200,7 +201,7 @@ class TreeCase(unittest.TestCase):
         path.mkdir(parents=True)
         text = "schema: intent-driven\ncreated: 2026-09-20\n"
         if status is not None:
-            text += f"build:\n  status: {status}\n{extra}"
+            text += f"x-build:\n  status: {status}\n{extra}"
         (path / ".openspec.yaml").write_text(text, encoding="utf-8")
         if specs:
             (path / "specs" / "cart").mkdir(parents=True)
@@ -210,7 +211,8 @@ class TreeCase(unittest.TestCase):
     def run_cli(self, *args, cwd=None):
         self.state_file.write_text(json.dumps(self.state), encoding="utf-8")
         out, err = io.StringIO(), io.StringIO()
-        for cached in (tickets.merged_archives, tickets.github_repo, tickets.lane_repositories, tickets.repository_id):
+        for cached in (tickets_tree.merged_archives, tickets_tree.github_repo, tickets_tree.lane_repositories,
+                       tickets_tree.repository_id):
             cached.cache_clear()  # each command is a run of its own
         with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err), contextlib.chdir(cwd or self.root):
             code = tickets.main([str(a) for a in args])
@@ -649,7 +651,7 @@ class MarkTests(TreeCase):
         path = self.change("scaffold")
         self.ok(self.mark("scaffold", "ready-for-dev"))
         text = (path / ".openspec.yaml").read_text(encoding="utf-8")
-        self.assertTrue(text.startswith("schema: intent-driven\ncreated: 2026-09-20\nbuild:\n  status: ready-for-dev\n"))
+        self.assertTrue(text.startswith("schema: intent-driven\ncreated: 2026-09-20\nx-build:\n  status: ready-for-dev\n"))
 
     def test_blocked_sets_both_fields_and_a_later_mark_clears_them(self):
         self.story(1, "Scaffold", change="scaffold")
@@ -714,7 +716,7 @@ class MalformedTests(TreeCase):
     def test_a_bad_build_status_errors(self):
         self.story(1, "A", change="a")
         self.change("a", "todo")
-        self.fails(self.scoped("next"), "build.status")
+        self.fails(self.scoped("next"), "x-build.status")
 
     def test_a_scope_that_is_no_epic_is_refused(self):
         story = self.story(1, "A")

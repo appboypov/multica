@@ -1,5 +1,4 @@
 import contextlib
-import importlib.util
 import io
 import json
 import subprocess
@@ -9,11 +8,23 @@ import unittest
 import unittest.mock
 from pathlib import Path
 
-SCRIPT = Path(__file__).resolve().parents[2] / "server/internal/service/builtin_skills/multica-platform/scripts" / "team_state.py"
-spec = importlib.util.spec_from_file_location("team_state", SCRIPT)
-team_state = importlib.util.module_from_spec(spec)
-sys.modules["team_state"] = team_state
-spec.loader.exec_module(team_state)
+SCRIPTS = Path(__file__).resolve().parents[2] / "server/internal/service/builtin_skills/multica-platform/scripts"
+sys.path.insert(0, str(SCRIPTS))
+import team_state  # noqa: E402
+import team_state_chats  # noqa: E402
+import team_state_intake  # noqa: E402
+import team_state_io  # noqa: E402
+import team_state_multica  # noqa: E402
+import team_state_repos  # noqa: E402
+
+SCRIPT_MODULES = (team_state, team_state_chats, team_state_intake, team_state_io, team_state_multica, team_state_repos)
+
+
+def stand_in(test, name, fake):
+    """Replace `name` with `fake` in every script module that calls it."""
+    for module in SCRIPT_MODULES:
+        if hasattr(module, name):
+            test.enterContext(unittest.mock.patch.object(module, name, side_effect=fake))
 
 
 VERIFIER = "agent-verifier"
@@ -31,7 +42,7 @@ def row(key, status="todo", labels=(), release="0.1.0", parent=None, stage=None,
 
 def head(rows, known=None):
     known = known or {r["key"]: r for r in rows}
-    found = team_state.lane_head(rows, known, VERIFIER)
+    found = team_state_multica.lane_head(rows, known, VERIFIER)
     return {slot: (found[slot]["key"], found[slot]["waits_on"]) if found[slot] else None for slot in ("active", "next")}
 
 
@@ -51,7 +62,7 @@ class ALaneHasOneActiveItem(unittest.TestCase):
 
     def test_without_the_verifier_s_agent_no_assignee_finishes_an_issue(self):
         rows = [row("WORK-1", "in_progress", assignee=VERIFIER)]
-        self.assertEqual(team_state.lane_head(rows, {"WORK-1": rows[0]}, None)["active"]["key"], "WORK-1")
+        self.assertEqual(team_state_multica.lane_head(rows, {"WORK-1": rows[0]}, None)["active"]["key"], "WORK-1")
 
     def test_a_blocked_issue_stays_active_and_waits_on_its_block(self):
         rows = [row("WORK-1", "blocked"), row("WORK-2")]
@@ -72,11 +83,11 @@ class AnIssueWaitsOnWhatHoldsIt(unittest.TestCase):
     def test_a_journey_step_waits_on_its_earlier_steps_until_sarkout_holds_them(self):
         steps = [row("WORK-11", "in_progress", parent="WORK-10", stage=1, assignee=VERIFIER),
                  row("WORK-12", parent="WORK-10", stage=2), row("WORK-13", parent="WORK-10", stage=3)]
-        found = team_state.lane_head(steps, {r["key"]: r for r in steps}, VERIFIER)
+        found = team_state_multica.lane_head(steps, {r["key"]: r for r in steps}, VERIFIER)
         self.assertEqual(found["next"]["key"], "WORK-12")
         self.assertEqual(found["next"]["waits_on"], [])
         self.assertEqual(
-            team_state.waits_on(steps[2], steps[:2], {r["key"]: r for r in steps}, VERIFIER),
+            team_state_multica.waits_on(steps[2], steps[:2], {r["key"]: r for r in steps}, VERIFIER),
             [{"kind": "step", "key": "WORK-12", "status": "todo"}],
         )
 
@@ -87,10 +98,10 @@ class AnIssueWaitsOnWhatHoldsIt(unittest.TestCase):
             r["assignee"] = nasir
         rows[3]["assignee"] = sam
         clients = frozenset({"user-nasir"})
-        waits = team_state.waits_on(rows[4], rows[:4], {r["key"]: r for r in rows}, VERIFIER, clients)
+        waits = team_state_multica.waits_on(rows[4], rows[:4], {r["key"]: r for r in rows}, VERIFIER, clients)
         self.assertEqual([w["key"] for w in waits], ["WORK-20"])
         # And the client wait itself waits on no other client wait
-        self.assertEqual(team_state.waits_on(rows[2], rows[:2], {}, VERIFIER, clients), [])
+        self.assertEqual(team_state_multica.waits_on(rows[2], rows[:2], {}, VERIFIER, clients), [])
 
 
 class IssuesAreReadAsMulticaHoldsThem(unittest.TestCase):
@@ -100,7 +111,7 @@ class IssuesAreReadAsMulticaHoldsThem(unittest.TestCase):
             "properties": {"p1": 5}, "due_date": None, "release_id": "r1", "parent_issue_id": "i1", "stage": 2,
             "assignee_type": "agent", "assignee_id": "a1", "metadata": {"blocked_by": "work-7, WORK-8"},
         }
-        found = team_state.issue_row(issue, {"i2": ["hitl"]}, "p1", {"i1": "WORK-1"}, {"r1": "0.3.0"})
+        found = team_state_multica.issue_row(issue, {"i2": ["hitl"]}, "p1", {"i1": "WORK-1"}, {"r1": "0.3.0"})
         self.assertEqual(
             {k: found[k] for k in ("labels", "points", "parent", "release", "assignee", "blocked_by")},
             {"labels": ["hitl"], "points": 5, "parent": "WORK-1", "release": "0.3.0",
@@ -109,15 +120,15 @@ class IssuesAreReadAsMulticaHoldsThem(unittest.TestCase):
 
     def test_a_project_s_issues_are_read_page_after_page(self):
         pages = [{"issues": [{"identifier": "WORK-1"}], "has_more": True}, {"issues": [{"identifier": "WORK-2"}], "has_more": False}]
-        with unittest.mock.patch.object(team_state, "multica", side_effect=pages) as called:
-            self.assertEqual([i["identifier"] for i in team_state.project_issues("p")], ["WORK-1", "WORK-2"])
+        with unittest.mock.patch.object(team_state_multica, "multica", side_effect=pages) as called:
+            self.assertEqual([i["identifier"] for i in team_state_multica.project_issues("p")], ["WORK-1", "WORK-2"])
         self.assertEqual(called.call_args_list[1].args[-1], "1")
 
     def test_a_failed_multica_command_stops_with_its_error(self):
-        with unittest.mock.patch.object(team_state.subprocess, "run",
+        with unittest.mock.patch.object(team_state_io.subprocess, "run",
                                         return_value=subprocess.CompletedProcess([], 1, "", "unauthorized")):
-            with self.assertRaisesRegex(team_state.StateError, "unauthorized"):
-                team_state.multica("repo", "list")
+            with self.assertRaisesRegex(team_state_io.StateError, "unauthorized"):
+                team_state_io.multica("repo", "list")
 
 
 def git(cwd, *args):
@@ -148,7 +159,7 @@ class ChangesAreReadFromEveryCheckout(unittest.TestCase):
         git(self.repo, "commit", "-qm", name)
 
     def found(self):
-        return {c["name"]: (c["archived"], c["build"]) for c in team_state.collect_changes(self.repo, "main")}
+        return {c["name"]: (c["archived"], c["build"]) for c in team_state_repos.collect_changes(self.repo, "main")}
 
     def test_a_branch_reports_its_open_changes_and_what_it_archived_that_main_has_not(self):
         self.assertEqual(self.found(), {"coupon": (False, {"status": "in-progress", "assignee": "ann"}), "receipt": (True, {})})
@@ -156,7 +167,7 @@ class ChangesAreReadFromEveryCheckout(unittest.TestCase):
     def test_a_change_whose_build_map_cannot_be_read_keeps_its_error_and_the_others_are_read(self):
         (self.repo / "openspec" / "changes" / "broken").mkdir()
         (self.repo / "openspec" / "changes" / "broken" / ".openspec.yaml").write_text("x-build: [\n", encoding="utf-8")
-        found = {c["name"]: c for c in team_state.collect_changes(self.repo, "main")}
+        found = {c["name"]: c for c in team_state_repos.collect_changes(self.repo, "main")}
         self.assertIn("error", found["broken"])
         self.assertNotIn("build", found["broken"])
         self.assertEqual(found["coupon"]["build"], {"status": "in-progress", "assignee": "ann"})
@@ -172,7 +183,7 @@ class ChangesAreReadFromEveryCheckout(unittest.TestCase):
         tree = self.repo.parent / f"{self.repo.name}-tree"
         git(self.repo, "worktree", "add", "-q", "-b", "feature", str(tree))
         self.addCleanup(lambda: subprocess.run(["rm", "-rf", str(tree)], check=False))
-        self.assertEqual(team_state.repo_home(tree), team_state.repo_home(self.repo))
+        self.assertEqual(team_state_repos.repo_home(tree), team_state_repos.repo_home(self.repo))
 
 
 class CheckoutsAreFoundByTheirGitHubName(unittest.TestCase):
@@ -192,7 +203,7 @@ class CheckoutsAreFoundByTheirGitHubName(unittest.TestCase):
         self.checkout("Forks/web", "https://github.com/Acme/Web")
         self.checkout("Forks/fake", "https://notgithub.com/acme/fake.git")
         expected = {"acme/deep": [self.repos / "Clients/acme/apps/deep"], "acme/web": [self.repos / "Forks/web"]}
-        self.assertEqual(team_state.local_checkouts(self.repos), expected)
+        self.assertEqual(team_state_repos.local_checkouts(self.repos), expected)
 
     def test_a_checkout_inside_a_git_folder_without_a_github_origin_is_found(self):
         # Given a git folder without a remote and one with a non-GitHub origin, each holding a GitHub checkout
@@ -205,14 +216,14 @@ class CheckoutsAreFoundByTheirGitHubName(unittest.TestCase):
             "appboypov/whitebird-brain": [self.repos / "Clients/paps/whitebird-brain"],
             "lab/tools": [self.repos / "Clients/lab/tools"],
         }
-        self.assertEqual(team_state.local_checkouts(self.repos), expected)
+        self.assertEqual(team_state_repos.local_checkouts(self.repos), expected)
 
     def test_a_github_checkout_hides_the_git_folders_inside_it(self):
         # Given a GitHub checkout that holds a vendored repository of its own
         self.checkout("Apps/shop", "git@github.com:acme/shop.git")
         self.checkout("Apps/shop/vendor/lib", "git@github.com:other/lib.git")
         # When the checkouts are looked up, then only the outer checkout is found
-        self.assertEqual(team_state.local_checkouts(self.repos), {"acme/shop": [self.repos / "Apps/shop"]})
+        self.assertEqual(team_state_repos.local_checkouts(self.repos), {"acme/shop": [self.repos / "Apps/shop"]})
 
     def test_a_named_repository_joins_those_of_the_endeavour_folder(self):
         self.checkout("Clients/acme", "git@github.com:acme/app.git")
@@ -228,11 +239,11 @@ class PullRequestsNameTheirChangesAndIssues(unittest.TestCase):
             "openspec/changes/archive/README.md",
             "skills/madspec/SKILL.md",
         ]
-        self.assertEqual(team_state.change_names(paths), ["cart-copy", "web-cart"])
+        self.assertEqual(team_state_repos.change_names(paths), ["cart-copy", "web-cart"])
 
     def test_the_title_and_branch_name_their_issue_keys(self):
-        self.assertEqual(team_state.issue_keys("Shop discounts (WORK-697)", "work-697"), ["WORK-697"])
-        self.assertEqual(team_state.issue_keys("Fix build", "update-123x"), [])
+        self.assertEqual(team_state_repos.issue_keys("Shop discounts (WORK-697)", "work-697"), ["WORK-697"])
+        self.assertEqual(team_state_repos.issue_keys("Fix build", "update-123x"), [])
 
 
 class ClientsAreThoseTheEndeavourNames(unittest.TestCase):
@@ -248,9 +259,9 @@ class ClientsAreThoseTheEndeavourNames(unittest.TestCase):
             "| +31600000000 | `!dm-cem:ba.local-whatsapp.localhost` | Default |\n",
             encoding="utf-8",
         )
-        clients = team_state.endeavour_clients(root / "rebl", ["rodi"])
+        clients = team_state_chats.endeavour_clients(root / "rebl", ["rodi"])
         self.assertEqual(clients, ["cem", "rodi"])
-        found = team_state.client_chats(clients, root)
+        found = team_state_chats.client_chats(clients, root)
         self.assertEqual(found[0], ("cem", ["!group-cem:ba.local-whatsapp.localhost", "!dm-cem:ba.local-whatsapp.localhost"]))
         self.assertEqual(found[1]["client"], "rodi")
 
@@ -258,7 +269,7 @@ class ClientsAreThoseTheEndeavourNames(unittest.TestCase):
 def pr(number, body="", base="main", issues=(), branch=None):
     """An open pull request as the intake reads it."""
     return {"number": number, "branch": branch or f"work-{number}", "head": f"h{number}", "base": base, "body": body,
-            "issues": list(issues), "stack_note": team_state.stack_note(body, "acme/app")}
+            "issues": list(issues), "stack_note": team_state_intake.stack_note(body, "acme/app")}
 
 
 def edges_of(prs, holds=(), forked=(), gone=None):
@@ -273,7 +284,7 @@ def edges_of(prs, holds=(), forked=(), gone=None):
         pair = (lower["number"], upper["number"])
         return "contains" if pair in holds else "forked" if pair in forked else None
 
-    return team_state.stack_edges(prs, "main", resolve, ancestry)
+    return team_state_intake.stack_edges(prs, "main", resolve, ancestry)
 
 
 def issue(key, status="in_progress", position=0, parent=None, stage=None, blocked_by=(), assignee=VERIFIER):
@@ -284,37 +295,37 @@ def issue(key, status="in_progress", position=0, parent=None, stage=None, blocke
 def ranked(prs, issues, edges=(), wakeups=()):
     edges = list(edges)
     issues = {i["key"]: i for i in issues}
-    waits_of = team_state.waits(issues, list(wakeups))
-    found = team_state.rank_prs(prs, issues, VERIFIER, waits_of, edges)
+    waits_of = team_state_intake.waits(issues, list(wakeups))
+    found = team_state_intake.rank_prs(prs, issues, VERIFIER, waits_of, edges)
     return [p for p in found if not p["blocked_by"]], [p for p in found if p["blocked_by"]]
 
 
 class StackNotesNameThePullRequestUnderIt(unittest.TestCase):
     def test_the_first_stacked_on_phrase_names_the_lower_pull_request_and_its_branch(self):
         body = "## Summary\n- Stacked on #66 (`work-1087`, agent-active-sessions), which is stacked on #59. Merge those first."
-        note = team_state.stack_note(body, "acme/app")
+        note = team_state_intake.stack_note(body, "acme/app")
         self.assertEqual((note["prs"], note["branches"], note["elsewhere"]), ([66], ["work-1087"], []))
 
     def test_a_link_counts_in_this_repository_and_a_commit_is_no_branch(self):
-        note = team_state.stack_note(
+        note = team_state_intake.stack_note(
             "Stacked on [the data model, PR #59](https://github.com/Acme/App/pull/59), branch `work-1057` at `91085dd6b6`.",
             "acme/app",
         )
         self.assertEqual((note["prs"], note["branches"]), ([59], ["work-1057"]))
 
     def test_another_repository_s_pull_request_is_a_companion_not_a_lower(self):
-        note = team_state.stack_note("Stacked on acme/api#8 and https://github.com/acme/api/pull/7.", "acme/app")
+        note = team_state_intake.stack_note("Stacked on acme/api#8 and https://github.com/acme/api/pull/7.", "acme/app")
         self.assertEqual((note["prs"], sorted(note["elsewhere"])), ([], ["acme/api#7", "acme/api#8"]))
 
     def test_a_lower_pull_request_saying_what_stacks_on_it_has_no_note(self):
         for body in ("The frontend stacks on this branch.", "Next: #70, stacked on this one.",
                      "PR #70 is stacked on this branch."):
             with self.subTest(body=body):
-                self.assertIsNone(team_state.stack_note(body, "acme/app"))
+                self.assertIsNone(team_state_intake.stack_note(body, "acme/app"))
 
     def test_upper_prose_does_not_hide_a_later_own_stack_declaration(self):
         body = "Next: #70, stacked on this one.\nStacked on #68."
-        self.assertEqual(team_state.stack_note(body, "acme/app")["prs"], [68])
+        self.assertEqual(team_state_intake.stack_note(body, "acme/app")["prs"], [68])
 
 
 class StackedPullRequestsWaitForTheirLowerWork(unittest.TestCase):
@@ -395,8 +406,8 @@ def compare(name, base, head):
 
 class AncestryIsReadFromGitHubsComparison(unittest.TestCase):
     def ancestry(self, lower, upper):
-        with unittest.mock.patch.object(team_state, "compare", side_effect=compare):
-            return team_state.ancestry("acme/app", "m1", {"head": lower}, {"head": upper})
+        with unittest.mock.patch.object(team_state_intake, "compare", side_effect=compare):
+            return team_state_intake.ancestry("acme/app", "m1", {"head": lower}, {"head": upper})
 
     def test_an_upper_holding_the_lower_head_contains_it(self):
         self.assertEqual(self.ancestry("c2", "c3"), "contains")
@@ -490,7 +501,7 @@ class MergeWaitsLeaveLaneAdvanceAlone(unittest.TestCase):
         rows = [row("WORK-6", "in_progress", assignee=VERIFIER), row("WORK-5", blocked_by=("WORK-6",))]
         known = {r["key"]: r for r in rows}
         self.assertEqual(head(rows, known), {"active": None, "next": ("WORK-5", [])})
-        self.assertEqual(team_state.waits(known, [])["WORK-5"],
+        self.assertEqual(team_state_intake.waits(known, [])["WORK-5"],
                          [{"kind": "blocked_by", "key": "WORK-6", "status": "in_progress"}])
 
 
@@ -547,7 +558,7 @@ class RepositoryIntakeReadsEveryOpenPullRequest(unittest.TestCase):
                 "pullRequests": {"pageInfo": {"hasNextPage": start + 2 < len(self.NODES), "endCursor": str(start + 2)},
                                  "nodes": self.NODES[start:start + 2]},
             }}
-        raise team_state.StateError(f"unexpected query: {query[:60]}")
+        raise team_state_io.StateError(f"unexpected query: {query[:60]}")
 
     def multica(self, *args):
         if args[:2] == ("issue", "list"):
@@ -567,12 +578,12 @@ class RepositoryIntakeReadsEveryOpenPullRequest(unittest.TestCase):
         self.links_read, self.wakeups_read = [], []
         fakes = {"graphql": self.graphql, "multica": self.multica, "compare": compare}
         for name, fake in fakes.items():
-            self.enterContext(unittest.mock.patch.object(team_state, name, side_effect=fake))
+            stand_in(self, name, fake)
         self.enterContext(unittest.mock.patch.object(team_state, "collect_messages",
                                                      side_effect=AssertionError("intake read chats")))
 
     def test_every_pull_request_is_listed_with_its_issues_whoever_holds_them(self):
-        found = team_state.collect_intake("acme/app", "Verifier")
+        found = team_state_intake.collect_intake("acme/app", "Verifier")
         self.assertEqual([p["number"] for p in found["prs"]], [1, 5, 2, 3, 4, 6])
         self.assertEqual({p["number"]: p["links"] for p in found["prs"]}, {
             1: [{"key": "WORK-1057", "source": "claimed"}],
@@ -591,13 +602,13 @@ class RepositoryIntakeReadsEveryOpenPullRequest(unittest.TestCase):
         self.assertNotIn("errors", found)
 
     def test_closed_issue_links_are_read_while_wakeups_only_need_open_issues(self):
-        team_state.collect_intake("acme/app", "Verifier")
+        team_state_intake.collect_intake("acme/app", "Verifier")
         open_keys = ["WORK-1057", "WORK-1087", "WORK-1090", "WORK-1091", "WORK-1173", "WORK-1200", "WORK-1300"]
-        self.assertEqual(sorted(self.links_read, key=team_state.key_order), ["WORK-1001", *open_keys])
-        self.assertEqual(sorted(self.wakeups_read, key=team_state.key_order), open_keys)
+        self.assertEqual(sorted(self.links_read, key=team_state_intake.key_order), ["WORK-1001", *open_keys])
+        self.assertEqual(sorted(self.wakeups_read, key=team_state_intake.key_order), open_keys)
 
     def test_individual_prs_are_ranked_and_the_upper_waits_on_its_lower(self):
-        found = team_state.collect_intake("acme/app", "Verifier")
+        found = team_state_intake.collect_intake("acme/app", "Verifier")
         self.assertEqual([(e["upper"], e["lower"], e["status"]) for e in found["edges"]], [(2, 1, "verified")])
         self.assertEqual([(p["number"], p["downstream"]) for p in found["ready"]],
                          [(1, ["WORK-1087", "WORK-1090"]), (5, ["WORK-1091"]), (3, [])])
@@ -618,7 +629,7 @@ class RepositoryIntakeReadsEveryOpenPullRequest(unittest.TestCase):
             team_state.main(["--intake", "acme/app", "--verifier", "Verifier", "--lane", "main"])
 
     def test_the_endeavour_collection_keeps_its_pull_request_fields(self):
-        prs = team_state.collect_github("acme/app")["prs"]
+        prs = team_state_repos.collect_github("acme/app")["prs"]
         self.assertEqual(len(prs), 6)
         self.assertNotIn("body", prs[0])
         self.assertIsNone(prs[0]["checks"])
@@ -631,8 +642,8 @@ class RepositoryIntakeReadsEveryOpenPullRequest(unittest.TestCase):
             result["repository"]["defaultBranchRef"]["target"]["statusCheckRollup"] = {"state": "FAILURE"}
             return result
 
-        self.enterContext(unittest.mock.patch.object(team_state, "graphql", side_effect=failing_checks))
-        found = team_state.collect_intake("acme/app", "Verifier")
+        stand_in(self, "graphql", failing_checks)
+        found = team_state_intake.collect_intake("acme/app", "Verifier")
         self.assertEqual(found["checks"], "FAILURE")
         self.assertEqual([p["number"] for p in found["ready"]], [1, 5, 3])
 
@@ -640,7 +651,7 @@ class RepositoryIntakeReadsEveryOpenPullRequest(unittest.TestCase):
         self.NODES = [pr_node(9, "Fix request (WORK-9999)", "work-9999", "x9"),
                       pr_node(3, "Independent maintenance", "maintenance", "x1")]
         self.LINKS = {}
-        found = team_state.collect_intake("acme/app", "Verifier")
+        found = team_state_intake.collect_intake("acme/app", "Verifier")
         self.assertEqual([p["number"] for p in found["ready"]], [3])
         missing = found["blocked"][0]
         self.assertEqual((missing["number"], missing["issues"]), (9, ["WORK-9999"]))
@@ -651,7 +662,7 @@ class RepositoryIntakeReadsEveryOpenPullRequest(unittest.TestCase):
 
     def test_unknown_verifier_blocks_even_genuinely_issueless_prs(self):
         self.LINKS = {k: v for k, v in self.LINKS.items() if k != "WORK-1001"}
-        found = team_state.collect_intake("acme/app", "UnknownVerifier")
+        found = team_state_intake.collect_intake("acme/app", "UnknownVerifier")
         self.assertEqual(found["ready"], [])
         self.assertIn(3, found["issueless"])
         self.assertEqual(found["errors"], ["Multica agents: verifier 'UnknownVerifier' not found"])
@@ -660,14 +671,14 @@ class RepositoryIntakeReadsEveryOpenPullRequest(unittest.TestCase):
 
     def test_genuinely_issueless_prs_remain_ready_with_a_known_verifier(self):
         self.LINKS = {k: v for k, v in self.LINKS.items() if k != "WORK-1001"}
-        found = team_state.collect_intake("acme/app", "Verifier")
+        found = team_state_intake.collect_intake("acme/app", "Verifier")
         self.assertIn(3, [p["number"] for p in found["ready"]])
         self.assertEqual(found["issueless"], [3])
 
     def test_upper_prose_keeps_the_lower_pr_ready(self):
         self.NODES = [pr_node(69, "Work (WORK-1057)", "work-1057", "c2",
                               "Next: #70, stacked on this one.")]
-        found = team_state.collect_intake("acme/app", "Verifier")
+        found = team_state_intake.collect_intake("acme/app", "Verifier")
         self.assertEqual([p["number"] for p in found["ready"]], [69])
         self.assertEqual(found["edges"], [])
 
@@ -680,8 +691,8 @@ class RepositoryIntakeReadsEveryOpenPullRequest(unittest.TestCase):
                 def resolve(name, **ref):
                     n = ref["number"]
                     return {"number": n, "state": states[n]} if n in states else None
-                with unittest.mock.patch.object(team_state, "find_pull_request", side_effect=resolve):
-                    found = team_state.collect_intake("acme/app", "Verifier")
+                with unittest.mock.patch.object(team_state_intake, "find_pull_request", side_effect=resolve):
+                    found = team_state_intake.collect_intake("acme/app", "Verifier")
                 self.assertEqual(found["edges"][0]["status"], expected)
                 self.assertEqual([p["number"] for p in found["ready"]], [9] if expected == "lower_merged" else [])
                 if expected == "lower_closed":
@@ -691,11 +702,11 @@ class RepositoryIntakeReadsEveryOpenPullRequest(unittest.TestCase):
     def test_unread_links_hold_every_pr_and_show_the_error(self):
         def failing(*args):
             if args[:3] == ("issue", "pull-requests", "WORK-1300"):
-                raise team_state.StateError("multica: timeout")
+                raise team_state_io.StateError("multica: timeout")
             return self.multica(*args)
 
-        self.enterContext(unittest.mock.patch.object(team_state, "multica", side_effect=failing))
-        found = team_state.collect_intake("acme/app", "Verifier")
+        stand_in(self, "multica", failing)
+        found = team_state_intake.collect_intake("acme/app", "Verifier")
         self.assertEqual(found["errors"], ["Multica links: WORK-1300: multica: timeout"])
         self.assertEqual(found["ready"], [])
         self.assertTrue(all(u["blocked_by"][0] == {"kind": "evidence", "missing": ["Multica links"]}
@@ -705,11 +716,11 @@ class RepositoryIntakeReadsEveryOpenPullRequest(unittest.TestCase):
     def test_unread_wakeups_hold_every_pr_and_show_the_error(self):
         def failing(*args):
             if args[:4] == ("issue", "wakeup", "list", "WORK-1091"):
-                raise team_state.StateError("multica: timeout")
+                raise team_state_io.StateError("multica: timeout")
             return self.multica(*args)
 
-        self.enterContext(unittest.mock.patch.object(team_state, "multica", side_effect=failing))
-        found = team_state.collect_intake("acme/app", "Verifier")
+        stand_in(self, "multica", failing)
+        found = team_state_intake.collect_intake("acme/app", "Verifier")
         self.assertEqual(found["errors"], ["Multica wakeups: WORK-1091: multica: timeout"])
         self.assertEqual(found["ready"], [])
         self.assertTrue(all(u["blocked_by"][0] == {"kind": "evidence", "missing": ["Multica wakeups"]}
@@ -718,11 +729,11 @@ class RepositoryIntakeReadsEveryOpenPullRequest(unittest.TestCase):
     def test_unread_issues_keep_the_pull_requests_but_hold_every_pr(self):
         def failing(*args):
             if args[:2] == ("issue", "list"):
-                raise team_state.StateError("multica: unauthorized")
+                raise team_state_io.StateError("multica: unauthorized")
             return self.multica(*args)
 
-        self.enterContext(unittest.mock.patch.object(team_state, "multica", side_effect=failing))
-        found = team_state.collect_intake("acme/app", "Verifier")
+        stand_in(self, "multica", failing)
+        found = team_state_intake.collect_intake("acme/app", "Verifier")
         self.assertEqual([p["number"] for p in found["prs"]], [1, 2, 3, 4, 5, 6])
         self.assertEqual(found["prs"][1]["links"], [{"key": "WORK-1087", "source": "claimed"}])
         self.assertEqual((self.links_read, self.wakeups_read), ([], []))
@@ -734,11 +745,11 @@ class RepositoryIntakeReadsEveryOpenPullRequest(unittest.TestCase):
     def test_unread_agents_hold_every_pr_and_show_the_error(self):
         def failing(*args):
             if args[:2] == ("agent", "list"):
-                raise team_state.StateError("multica: timeout")
+                raise team_state_io.StateError("multica: timeout")
             return self.multica(*args)
 
-        self.enterContext(unittest.mock.patch.object(team_state, "multica", side_effect=failing))
-        found = team_state.collect_intake("acme/app", "Verifier")
+        stand_in(self, "multica", failing)
+        found = team_state_intake.collect_intake("acme/app", "Verifier")
         self.assertEqual(found["errors"], ["Multica agents: multica: timeout"])
         self.assertEqual(found["ready"], [])
         self.assertTrue(all(u["blocked_by"][0] == {"kind": "evidence", "missing": ["Multica agents"]}
