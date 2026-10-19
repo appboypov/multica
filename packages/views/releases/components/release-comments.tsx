@@ -7,9 +7,10 @@ import { useWorkspaceId } from "@multica/core/hooks";
 import {
   releaseActivityOptions,
   releaseCommentsOptions,
+  releaseTasksOptions,
   useCreateReleaseComment,
 } from "@multica/core/releases";
-import type { ReleaseComment, ReleaseOwnerActivityEntry } from "@multica/core/types";
+import type { AgentTask, ReleaseComment, ReleaseOwnerActivityEntry } from "@multica/core/types";
 import { useActorName } from "@multica/core/workspace/hooks";
 import { Button } from "@multica/ui/components/ui/button";
 import { Skeleton } from "@multica/ui/components/ui/skeleton";
@@ -18,14 +19,19 @@ import { Textarea } from "@multica/ui/components/ui/textarea";
 import { ActorAvatar } from "../../common/actor-avatar";
 import { ReadonlyContent } from "../../editor/readonly-content";
 import { useLocale, useT } from "../../i18n";
+import { AgentRunComment } from "../../issues/components/comment-card";
+import { useTriggerText } from "../../issues/components/task-run-labels";
+import { useNewRunIds } from "../../issues/components/use-run-comment-motion";
 import { ownerChangeMessage } from "./release-messages";
 
 const NO_COMMENTS: ReleaseComment[] = [];
 const NO_ENTRIES: ReleaseOwnerActivityEntry[] = [];
+const NO_TASKS: AgentTask[] = [];
 
 type ThreadItem =
   | { kind: "comment"; id: string; at: string; comment: ReleaseComment }
-  | { kind: "activity"; id: string; at: string; entry: ReleaseOwnerActivityEntry };
+  | { kind: "activity"; id: string; at: string; entry: ReleaseOwnerActivityEntry }
+  | { kind: "run"; id: string; at: string; task: AgentTask };
 
 /** Oldest first; equal times keep a stable order by id. */
 function byTime(a: { at: string; id: string }, b: { at: string; id: string }): number {
@@ -34,10 +40,10 @@ function byTime(a: { at: string; id: string }, b: { at: string; id: string }): n
 }
 
 /**
- * A release page's discussion: root comments and owner changes in time
- * order, each comment's replies under it, oldest first, then the comment
- * box. A reply whose root is outside the loaded window shows as a root so
- * it is never hidden.
+ * A release page's discussion: root comments, owner changes and the owner's
+ * runs in time order, each comment's replies under it, oldest first, then
+ * the comment box. A reply whose root is outside the loaded window shows as
+ * a root so it is never hidden.
  */
 export function ReleaseComments({ releaseId }: { releaseId: string }) {
   const wsId = useWorkspaceId();
@@ -45,15 +51,19 @@ export function ReleaseComments({ releaseId }: { releaseId: string }) {
   const headingId = useId();
   const comments = useQuery(releaseCommentsOptions(wsId, releaseId));
   const activity = useQuery(releaseActivityOptions(wsId, releaseId));
+  const tasks = useQuery(releaseTasksOptions(wsId, releaseId));
+  const enteringRunIds = useNewRunIds(releaseId, tasks.data);
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   // A failed read with nothing loaded is no empty discussion.
   const failed =
     (comments.isError && comments.data === undefined) ||
-    (activity.isError && activity.data === undefined);
-  const retrying = comments.isFetching || activity.isFetching;
+    (activity.isError && activity.data === undefined) ||
+    (tasks.isError && tasks.data === undefined);
+  const retrying = comments.isFetching || activity.isFetching || tasks.isFetching;
   const retry = () => {
     if (comments.isError) void comments.refetch();
     if (activity.isError) void activity.refetch();
+    if (tasks.isError) void tasks.refetch();
   };
 
   const all = comments.data ?? NO_COMMENTS;
@@ -65,6 +75,12 @@ export function ReleaseComments({ releaseId }: { releaseId: string }) {
     at: entry.created_at,
     entry,
   }));
+  // A run that posted its report is told apart from one without: the report
+  // is its output, so the run block does not print it a second time.
+  const replied = new Set(all.flatMap((comment) => (comment.source_task_id ? [comment.source_task_id] : [])));
+  for (const task of tasks.data ?? NO_TASKS) {
+    items.push({ kind: "run", id: task.id, at: task.created_at, task });
+  }
   for (const comment of all) {
     const item: ThreadItem = { kind: "comment", id: comment.id, at: comment.created_at, comment };
     if (comment.parent_id && byId.has(comment.parent_id)) {
@@ -86,7 +102,7 @@ export function ReleaseComments({ releaseId }: { releaseId: string }) {
       <h2 id={headingId} className="text-body-lg font-medium">
         {t(($) => $.comments.title)}
       </h2>
-      {comments.isLoading || activity.isLoading ? (
+      {comments.isLoading || activity.isLoading || tasks.isLoading ? (
         <div className="flex flex-col gap-3">
           <Skeleton className="h-16 w-full" />
           <Skeleton className="h-16 w-full" />
@@ -114,6 +130,15 @@ export function ReleaseComments({ releaseId }: { releaseId: string }) {
             item.kind === "activity" ? (
               <li key={`activity:${item.id}`}>
                 <OwnerChange entry={item.entry} />
+              </li>
+            ) : item.kind === "run" ? (
+              <li key={`run:${item.id}`}>
+                <AgentRunComment
+                  run={{ task: item.task, hasReply: replied.has(item.id) }}
+                  standalone
+                  entering={enteringRunIds.has(item.id)}
+                  replyTo={<RunTrigger task={item.task} />}
+                />
               </li>
             ) : (
               <li key={`comment:${item.id}`} className="flex flex-col gap-3">
@@ -180,6 +205,12 @@ function OwnerChange({ entry }: { entry: ReleaseOwnerActivityEntry }) {
       <When at={entry.created_at} />
     </div>
   );
+}
+
+/** What started a run, under its identity the way a reply's quote sits under its author. */
+function RunTrigger({ task }: { task: AgentTask }) {
+  const trigger = useTriggerText(task);
+  return <p className="line-clamp-2 text-caption text-muted-foreground">{trigger}</p>;
 }
 
 function CommentView({ comment, onReply }: { comment: ReleaseComment; onReply?: () => void }) {

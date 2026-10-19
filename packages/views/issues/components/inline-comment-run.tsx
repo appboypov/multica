@@ -9,6 +9,7 @@ import { useTraceIssueLabels } from "../../common/task-transcript/use-trace-issu
 import { useActorName } from "@multica/core/workspace/hooks";
 import { useTaskMessages } from "@multica/core/chat/queries";
 import { useCancelIssueRun, useRetryIssueRun } from "@multica/core/issues/mutations";
+import { useCancelReleaseRun } from "@multica/core/releases";
 import { issueTimelineOptions } from "@multica/core/issues/queries";
 import { commentSupplementReceipts } from "@multica/core/issues/run-steering";
 import { dispatchReasonCode } from "@multica/core/api";
@@ -100,7 +101,9 @@ export function InlineCommentRun({ run, className, viewState, showIdentity = fal
   const [now, setNow] = useState(Date.now);
   const [visibleCount, setVisibleCount] = useState(12);
   const animationVisibility = useRunAnimationVisibility<HTMLDivElement>();
-  const cancel = useCancelIssueRun(task.issue_id);
+  const cancelIssueRun = useCancelIssueRun(task.issue_id);
+  const cancelReleaseRun = useCancelReleaseRun(task.release_id ?? "");
+  const cancel = task.release_id ? cancelReleaseRun : cancelIssueRun;
   const retry = useRetryIssueRun(task.issue_id);
   const regionId = useId();
   // Keep one disclosure button mounted across queued, live, and historical states.
@@ -219,7 +222,7 @@ export function InlineCommentRun({ run, className, viewState, showIdentity = fal
         </button>
         <span className={cn("shrink-0 whitespace-nowrap text-caption tabular-nums text-muted-foreground", showIdentity && !active && "@max-[32rem]/run:hidden")}>{elapsed}</span>
         {stopButton}
-        {(!hasReply || replacesFailureNotice) && ended && <Button
+        {(!hasReply || replacesFailureNotice) && ended && !task.release_id && <Button
           size="xs" variant="outline" className={cn(showIdentity && "@max-[32rem]/run:size-6 @max-[32rem]/run:p-0")} disabled={retry.isPending || retry.isSuccess}
           onClick={() => retry.mutate(task.id, { onError: (error) => toast.error(
             dispatchReasonCode(error) === "invocation_not_allowed" ? t(($) => $.execution_log.retry_blocked) : t(($) => $.execution_log.retry_failed),

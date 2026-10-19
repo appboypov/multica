@@ -10,6 +10,7 @@ import type * as CorePermissions from "@multica/core/permissions";
 import { lineStates, toLine } from "@multica/core/releases";
 import type {
   Agent,
+  AgentTask,
   Release,
   ReleaseComment,
   ReleaseIssue,
@@ -33,6 +34,9 @@ const api = vi.hoisted(() => ({
   listReleaseIssues: vi.fn(),
   listReleaseComments: vi.fn(),
   listReleaseActivity: vi.fn(),
+  listReleaseTasks: vi.fn(),
+  cancelTaskById: vi.fn(),
+  listTaskMessages: vi.fn(),
   setReleaseOwner: vi.fn(),
   createReleaseComment: vi.fn(),
   listAgents: vi.fn(),
@@ -177,7 +181,7 @@ const pieterComment = comment({
   created_at: "2026-02-01T11:00:00Z",
 });
 
-function seed(release: Release, overrides: { issues?: ReleaseIssue[]; comments?: ReleaseComment[]; entries?: ReleaseOwnerActivityEntry[] } = {}) {
+function seed(release: Release, overrides: { issues?: ReleaseIssue[]; comments?: ReleaseComment[]; entries?: ReleaseOwnerActivityEntry[]; tasks?: AgentTask[] } = {}) {
   api.getRelease.mockResolvedValue(release);
   api.listReleases.mockResolvedValue({ releases: [shipped, next, planned] });
   api.listRepositories.mockResolvedValue({ repositories: [repository] });
@@ -189,6 +193,8 @@ function seed(release: Release, overrides: { issues?: ReleaseIssue[]; comments?:
   api.listReleaseIssues.mockResolvedValue({ issues: overrides.issues ?? issues });
   api.listReleaseComments.mockResolvedValue(overrides.comments ?? []);
   api.listReleaseActivity.mockResolvedValue({ entries: overrides.entries ?? [] });
+  api.listReleaseTasks.mockResolvedValue(overrides.tasks ?? []);
+  api.listTaskMessages.mockResolvedValue([]);
   api.listAgents.mockResolvedValue(agents);
   api.listSquads.mockResolvedValue(squads);
 }
@@ -410,6 +416,78 @@ describe("release discussion", () => {
     expect(await screen.findByText(text, { selector: "div" })).toBeTruthy();
     await waitFor(() => expect(box).toHaveValue(""));
     expect(api.createReleaseComment).toHaveBeenNthCalledWith(2, "r-110", { content: text });
+  });
+});
+
+describe("release runs", () => {
+  const run = (overrides: Partial<AgentTask> & Pick<AgentTask, "id" | "status" | "created_at">): AgentTask => ({
+    agent_id: "agent-pieter",
+    runtime_id: "rt-1",
+    issue_id: "",
+    release_id: "r-110",
+    priority: 0,
+    dispatched_at: null,
+    started_at: null,
+    completed_at: null,
+    result: null,
+    error: null,
+    trigger_summary: "Release coordination",
+    ...overrides,
+  } as AgentTask);
+
+  it("shows the owner's runs between comments and owner changes in time order", async () => {
+    const done = run({
+      id: "t-1",
+      status: "completed",
+      created_at: "2026-02-01T10:30:00Z",
+      completed_at: "2026-02-01T10:40:00Z",
+    });
+    seed(planned, { comments: [pieterComment], entries: [ownerSet], tasks: [done] });
+    mount(<ReleaseDetailRoute releaseId="r-110" />);
+
+    const sentence = await screen.findByText("Brian made Pieter owner of v1.1.0 Account and profile");
+    const section = await screen.findByRole("region", { name: "Pieter run" });
+    const comment = await screen.findByText(pieterComment.content);
+    expect(sentence.compareDocumentPosition(section) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(section.compareDocumentPosition(comment) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(within(section).getByText("Release coordination")).toBeTruthy();
+  });
+
+  it("stops a running run after confirmation", async () => {
+    const user = userEvent.setup();
+    const running = run({ id: "t-2", status: "running", created_at: "2026-02-01T10:30:00Z", started_at: "2026-02-01T10:31:00Z" });
+    seed(planned, { tasks: [running] });
+    api.cancelTaskById.mockResolvedValue({ ...running, status: "cancelled" });
+    mount(<ReleaseDetailRoute releaseId="r-110" />);
+
+    const section = await screen.findByRole("region", { name: "Pieter run" });
+    await user.click(within(section).getByRole("button", { name: "Stop" }));
+    await user.click(await screen.findByRole("button", { name: "Stop run" }));
+    await waitFor(() => expect(api.cancelTaskById).toHaveBeenCalledWith("t-2"));
+  });
+
+  it("offers no Stop on a run that has ended", async () => {
+    const failed = run({ id: "t-3", status: "failed", created_at: "2026-02-01T10:30:00Z", completed_at: "2026-02-01T10:35:00Z", error: "boom" });
+    seed(planned, { tasks: [failed] });
+    mount(<ReleaseDetailRoute releaseId="r-110" />);
+
+    const section = await screen.findByRole("region", { name: "Pieter run" });
+    expect(within(section).queryByRole("button", { name: "Stop" })).toBeNull();
+    expect(within(section).queryByRole("button", { name: "Retry" })).toBeNull();
+  });
+
+  it("shows a failed read of the runs as an error with Retry, never as no runs", async () => {
+    const user = userEvent.setup();
+    seed(planned);
+    api.listReleaseTasks.mockRejectedValue(new Error("network down"));
+    mount(<ReleaseDetailRoute releaseId="r-110" />);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Couldn't load the comments.");
+
+    api.listReleaseTasks.mockResolvedValue([run({ id: "t-4", status: "queued", created_at: "2026-02-01T10:30:00Z" })]);
+    await user.click(screen.getByRole("button", { name: "Retry" }));
+    expect(await screen.findByRole("region", { name: "Pieter run" })).toBeTruthy();
+    expect(screen.queryByText("Couldn't load the comments.")).toBeNull();
   });
 });
 
