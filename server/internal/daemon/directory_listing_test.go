@@ -46,6 +46,28 @@ func TestDirectoryListingOMPRoots(t *testing.T) {
 	}
 }
 
+func TestDirectoryListingHomeWithoutSkillRoots(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	folder := filepath.Join(home, "projects")
+	if err := os.Mkdir(folder, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	file := filepath.Join(home, "notes.md")
+	if err := os.WriteFile(file, []byte("local only"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	resolved, entries, err := listRuntimeDirectory("omp", "~")
+	want := []directoryEntry{
+		{Name: "notes.md", Path: file, Kind: "file"},
+		{Name: "projects", Path: folder, Kind: "folder"},
+	}
+	if err != nil || resolved != home || !reflect.DeepEqual(entries, want) {
+		t.Fatalf("home listing = %q, %#v, %v; want %q, %#v", resolved, entries, err, home, want)
+	}
+}
+
 func TestDirectoryListingFolderAndHomePaths(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
