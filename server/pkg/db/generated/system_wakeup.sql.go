@@ -508,6 +508,21 @@ func (q *Queries) GetSystemWakeup(ctx context.Context, arg GetSystemWakeupParams
 	return i, err
 }
 
+const hasPlannedBlockedWakeup = `-- name: HasPlannedBlockedWakeup :one
+SELECT EXISTS(SELECT 1 FROM issue_wakeup
+ WHERE issue_id = $1 AND enabled AND system_rule IS NULL
+  AND condition->>'type' = 'issue_field' AND condition->>'field' = 'status' AND condition->>'value' = 'blocked')::bool
+`
+
+// Whether a person or agent planned who wakes when this issue turns blocked:
+// an enabled wakeup of their own on the status becoming blocked.
+func (q *Queries) HasPlannedBlockedWakeup(ctx context.Context, issueID pgtype.UUID) (bool, error) {
+	row := q.db.QueryRow(ctx, hasPlannedBlockedWakeup, issueID)
+	var column_1 bool
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const listChildConditionWakeups = `-- name: ListChildConditionWakeups :many
 SELECT id, workspace_id, issue_id, agent_id, created_by, source_task_id, parent_comment_id, instruction, kind, mode, event_types, filter_agent_id, filter_task_id, interval_seconds, cron_expression, timezone, next_fire_at, enabled, disabled_at, revision, last_task_id, last_error, created_at, updated_at, filter_actor_type, filter_actor_id, expires_at, expiry_seconds, on_timeout, timed_out_at, system_rule, customized_at, condition, condition_state, max_fires, fire_count, paused_reason, release_id FROM issue_wakeup WHERE issue_id= $1 AND enabled AND condition->>'type'='children_done'
 ORDER BY (system_rule IS NOT NULL),id

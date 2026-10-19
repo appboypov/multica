@@ -179,7 +179,7 @@ func (s *IssueWakeupService) processChildEvents(ctx context.Context, parentID pg
 	for _, e := range events {
 		ids = append(ids, e.ID)
 		kinds[e.Kind] = true
-		if e.Kind == "attached" || e.Kind == "reopened" {
+		if e.Kind == "attached" || e.Kind == "reopened" || e.Kind == "blocked" {
 			continue
 		}
 		if e.SourceTaskID.Valid {
@@ -188,11 +188,32 @@ func (s *IssueWakeupService) processChildEvents(ctx context.Context, parentID pg
 			allSourced = false
 		}
 	}
+	// A blocked sub-issue reaches its unblocker in this transaction, so the
+	// wake commits together with the event's processed mark.
+	var reaches []unblockReach
+	for _, e := range events {
+		if e.Kind != "blocked" {
+			continue
+		}
+		reach, ok, err := s.reachBlockedChild(ctx, q, e)
+		if err != nil {
+			return err
+		}
+		if ok {
+			reaches = append(reaches, reach)
+		}
+	}
 	finish := func() error {
 		if err := q.FinishChildEvents(ctx, ids); err != nil {
 			return err
 		}
-		return tx.Commit(ctx)
+		if err := tx.Commit(ctx); err != nil {
+			return err
+		}
+		for _, reach := range reaches {
+			s.publishUnblockReach(ctx, reach)
+		}
+		return nil
 	}
 	parent, err := q.GetIssue(ctx, parentID)
 	if errors.Is(err, pgx.ErrNoRows) {

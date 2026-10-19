@@ -1185,3 +1185,117 @@ printf 'eof' > "$EOF_PATH"
 		t.Fatalf("session_settled did not close stdin: %q, %v", eof, err)
 	}
 }
+
+func newOmpSettleTestBackend(t *testing.T, script string, env map[string]string, grace time.Duration) *piBackend {
+	t.Helper()
+	fakePath := filepath.Join(t.TempDir(), "omp")
+	writeTestExecutable(t, fakePath, []byte(script))
+	backend, err := ResolveBackend("omp", Config{ExecutablePath: fakePath, Logger: slog.Default(), Env: env})
+	if err != nil {
+		t.Fatal(err)
+	}
+	omp, ok := backend.(*piBackend)
+	if !ok {
+		t.Fatalf("ResolveBackend(omp) returned %T, want *piBackend", backend)
+	}
+	omp.settleGrace = grace
+	return omp
+}
+
+// An omp that ends its turn and then never reports session_settled must not
+// hold the run open: its input closes after the grace, omp exits on EOF, and
+// the run completes with the turn's output.
+func TestOmpExecuteClosesInputWhenSessionNeverSettles(t *testing.T) {
+	t.Parallel()
+	if runtime.GOOS == "windows" {
+		t.Skip("shell-script fixture is POSIX-only")
+	}
+	dir := t.TempDir()
+	eofPath := filepath.Join(dir, "eof")
+	script := `#!/bin/sh
+IFS= read -r mode || exit 11
+IFS= read -r prompt || exit 12
+printf '%s\n' '{"type":"agent_start"}' '{"type":"turn_start"}'
+printf '%s\n' '{"type":"message_update","assistantMessageEvent":{"type":"text_delta","delta":"final reply"}}'
+printf '%s\n' '{"type":"agent_end","messages":[]}' '{"type":"prompt_result","status":"completed","sessionSettled":false}'
+if IFS= read -r extra; then exit 13; fi
+printf 'eof' > "$EOF_PATH"
+`
+	backend := newOmpSettleTestBackend(t, script, map[string]string{"EOF_PATH": eofPath}, 200*time.Millisecond)
+	session, err := backend.Execute(t.Context(), "task", ExecOptions{
+		ResumeSessionID: filepath.Join(dir, "session.jsonl"),
+		Timeout:         10 * time.Second,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	go func() {
+		for range session.Messages {
+		}
+	}()
+	result := waitPiResult(t, session, 5*time.Second)
+	if result.Status != "completed" || result.Output != "final reply" {
+		t.Fatalf("result = %+v", result)
+	}
+	if eof, err := os.ReadFile(eofPath); err != nil || string(eof) != "eof" {
+		t.Fatalf("unsettled session kept its input open: %q, %v", eof, err)
+	}
+}
+
+// A follow-up turn that starts after agent_end stops the settle timer, so a
+// long follow-up keeps its input and still accepts steer frames.
+func TestOmpExecuteFollowUpTurnKeepsInputOpenPastSettleGrace(t *testing.T) {
+	t.Parallel()
+	if runtime.GOOS == "windows" {
+		t.Skip("shell-script fixture is POSIX-only")
+	}
+	dir := t.TempDir()
+	steerPath := filepath.Join(dir, "steer")
+	script := `#!/bin/sh
+IFS= read -r mode || exit 11
+IFS= read -r prompt || exit 12
+printf '%s\n' '{"type":"agent_start"}' '{"type":"agent_end","messages":[]}'
+printf '%s\n' '{"type":"agent_start"}'
+IFS= read -r steer || exit 13
+printf '%s\n' "$steer" > "$STEER_PATH"
+printf '%s\n' '{"type":"agent_end","messages":[]}' '{"type":"session_settled"}'
+if IFS= read -r extra; then exit 14; fi
+`
+	grace := 100 * time.Millisecond
+	backend := newOmpSettleTestBackend(t, script, map[string]string{"STEER_PATH": steerPath}, grace)
+	session, err := backend.Execute(t.Context(), "task", ExecOptions{
+		ResumeSessionID:      filepath.Join(dir, "session.jsonl"),
+		Timeout:              10 * time.Second,
+		EnableTaskSupplement: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for started := 0; started < 2; {
+		select {
+		case message := <-session.Messages:
+			if message.Type == MessageStatus && message.Status == "running" {
+				started++
+			}
+		case <-time.After(5 * time.Second):
+			t.Fatal("omp did not start the follow-up turn")
+		}
+	}
+	time.Sleep(5 * grace)
+	if !session.SupplementReady() {
+		t.Fatal("follow-up turn lost its input to the settle timer")
+	}
+	if err := session.Supplement(t.Context(), "keep going"); err != nil {
+		t.Fatalf("steer: %v", err)
+	}
+	go func() {
+		for range session.Messages {
+		}
+	}()
+	if result := waitPiResult(t, session, 5*time.Second); result.Status != "completed" {
+		t.Fatalf("result = %+v", result)
+	}
+	if steer, err := os.ReadFile(steerPath); err != nil || !strings.Contains(string(steer), "keep going") {
+		t.Fatalf("steer frame not delivered: %q, %v", steer, err)
+	}
+}

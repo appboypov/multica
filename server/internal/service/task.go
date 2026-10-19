@@ -5430,6 +5430,12 @@ func (s *TaskService) FailTaskWithTransition(ctx context.Context, taskID pgtype.
 		s.createAgentComment(ctx, task.IssueID, task.AgentID, redact.Text(errMsg), "system", task.TriggerCommentID, task.ID)
 	}
 
+	// A run that failed before it started leaves its step with nobody working
+	// on it; its unblocker is woken the same way as for a blocked sub-issue.
+	if task.IssueID.Valid && retried == nil && !task.StartedAt.Valid {
+		s.reachUnblockerForFailedStart(ctx, task, failureReason)
+	}
+
 	// Quick-create tasks: push a failure inbox notification to the
 	// requester so they can either retry or fall back to the advanced form
 	// without losing their original prompt. Skipped when an auto-retry is

@@ -33,6 +33,10 @@ type piBackend struct {
 	// error. Production uses defaultPiTurnErrorGrace; tests shorten it without
 	// changing concurrent executions through package-global state.
 	turnErrorGrace time.Duration
+	// settleGrace overrides how long an RPC session may stay unsettled after
+	// agent_end before its input closes. Production uses
+	// defaultOmpSettleGrace; tests shorten it.
+	settleGrace time.Duration
 }
 
 var (
@@ -45,6 +49,13 @@ var (
 // once. Ten minutes matches the existing provider-specific semantic-idle
 // precedent while remaining far below the daemon's two-hour fallback.
 const defaultPiTurnErrorGrace = 10 * time.Minute
+
+// defaultOmpSettleGrace is how long omp may take after agent_end to start a
+// follow-up turn or report session_settled. An omp that does neither keeps
+// its RPC session open forever, and the run then shows "running" with no
+// agent working. Closing input after the grace lets omp exit, so the run
+// finishes and the issue's next run and wakeups go on.
+const defaultOmpSettleGrace = 2 * time.Minute
 
 // piTurnErrorGuard owns the only timer associated with a pending Pi turn
 // error. The stream goroutine records protocol activity; the timer callback
@@ -516,6 +527,10 @@ func (b *piBackend) Execute(ctx context.Context, prompt string, opts ExecOptions
 		closePiReadPipe(stdout)
 		closePiReadPipe(stderrRead)
 	})
+	settleGrace := b.settleGrace
+	if settleGrace <= 0 {
+		settleGrace = defaultOmpSettleGrace
+	}
 
 	// Consume stdout while writing: either side can fill a pipe with a large
 	// frame. Serialize the initial RPC commands with subsequent steer writes.
@@ -562,6 +577,16 @@ func (b *piBackend) Execute(ctx context.Context, prompt string, opts ExecOptions
 		defer close(resCh)
 		defer closeStdin()
 
+		// An RPC session that ends a turn and then neither starts another nor
+		// settles would hold the run open forever; the timer closes its input.
+		var settleTimer *time.Timer
+		stopSettleTimer := func() {
+			if settleTimer != nil {
+				settleTimer.Stop()
+			}
+		}
+		defer stopSettleTimer()
+
 		startTime := time.Now()
 		var output strings.Builder
 		finalStatus := "completed"
@@ -590,10 +615,12 @@ func (b *piBackend) Execute(ctx context.Context, prompt string, opts ExecOptions
 
 			case "session_settled":
 				if rpc {
+					stopSettleTimer()
 					closeStdin()
 				}
 
 			case "agent_start":
+				stopSettleTimer()
 				if rpc && !inputClosed.Load() {
 					inputActive.Store(true)
 				}
@@ -601,6 +628,16 @@ func (b *piBackend) Execute(ctx context.Context, prompt string, opts ExecOptions
 
 			case "agent_end":
 				inputActive.Store(false)
+				if rpc {
+					if settleTimer == nil {
+						settleTimer = time.AfterFunc(settleGrace, func() {
+							b.cfg.Logger.Info(label+" did not settle after agent_end; closing input", "grace", settleGrace)
+							closeStdin()
+						})
+					} else {
+						settleTimer.Reset(settleGrace)
+					}
+				}
 
 			case "turn_start":
 				output.Reset()

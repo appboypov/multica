@@ -102,3 +102,10 @@ RETURNING *;
 -- keeps each fact.
 SELECT capture_release_wakeup(@release_id::uuid, @event_type::text, @event_key::text, NULL::uuid,
  sqlc.narg(source_task_id)::uuid, @payload::jsonb, sqlc.narg(coalesce_key)::text);
+
+-- name: HasPlannedBlockedWakeup :one
+-- Whether a person or agent planned who wakes when this issue turns blocked:
+-- an enabled wakeup of their own on the status becoming blocked.
+SELECT EXISTS(SELECT 1 FROM issue_wakeup
+ WHERE issue_id = @issue_id AND enabled AND system_rule IS NULL
+  AND condition->>'type' = 'issue_field' AND condition->>'field' = 'status' AND condition->>'value' = 'blocked')::bool;
