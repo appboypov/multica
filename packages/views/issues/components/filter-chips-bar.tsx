@@ -8,6 +8,7 @@ import {
   CalendarDays,
   CircleDot,
   FolderKanban,
+  Shapes,
   SignalHigh,
   Tag,
   User,
@@ -35,6 +36,7 @@ import {
 import { useViewStore, useViewStoreApi } from "@multica/core/issues/stores/view-store-context";
 import { StatusIcon } from "./status-icon";
 import { PriorityIcon } from "./priority-icon";
+import { TypeIcon } from "./type-icon";
 import { ActorAvatar } from "../../common/actor-avatar";
 import { useT } from "../../i18n";
 
@@ -186,6 +188,7 @@ function useFilterChips(
 
   const statusFilters = useViewStore((s) => s.statusFilters);
   const priorityFilters = useViewStore((s) => s.priorityFilters);
+  const typeFilters = useViewStore((s) => s.typeFilters);
   const assigneeFilters = useViewStore((s) => s.assigneeFilters);
   const includeNoAssignee = useViewStore((s) => s.includeNoAssignee);
   const creatorFilters = useViewStore((s) => s.creatorFilters);
@@ -198,6 +201,7 @@ function useFilterChips(
   const hasStoreFilters =
     statusFilters.length > 0 ||
     priorityFilters.length > 0 ||
+    typeFilters.length > 0 ||
     assigneeFilters.length > 0 ||
     includeNoAssignee ||
     creatorFilters.length > 0 ||
@@ -259,6 +263,7 @@ function useFilterChips(
     const current: FilterSnapshot = {
       statusFilters: s.statusFilters,
       priorityFilters: s.priorityFilters,
+      typeFilters: s.typeFilters,
       assigneeFilters: s.assigneeFilters,
       includeNoAssignee: s.includeNoAssignee,
       creatorFilters: s.creatorFilters,
@@ -273,6 +278,9 @@ function useFilterChips(
         break;
       case "priority":
         s.resetFiltersTo({ ...current, priorityFilters: raw.priorityFilters });
+        break;
+      case "type":
+        s.resetFiltersTo({ ...current, typeFilters: raw.typeFilters });
         break;
       case "assignee":
         s.resetFiltersTo({
@@ -312,6 +320,9 @@ function useFilterChips(
   const deltaPriority = baseline
     ? priorityFilters.filter((p) => !baseline.priority.has(p))
     : priorityFilters;
+  const deltaTypes = baseline
+    ? typeFilters.filter((type) => !baseline.type.has(type))
+    : typeFilters;
   const deltaAssignees = baseline
     ? assigneeFilters.filter((a) => !baseline.assignee.has(actorFilterKey(a)))
     : assigneeFilters;
@@ -386,6 +397,28 @@ function useFilterChips(
           ? t(($) => $.priority[onlyPriority])
           : t(($) => $.filters.chip_priority_count, { count: deltaPriority.length }),
       onRemove: () => clearDimension("priority"),
+    });
+  }
+  const [onlyType] = deltaTypes;
+  if (deltaTypes.length > 0) {
+    chips.push({
+      key: "type",
+      icon: <Shapes className={CHIP_ICON_CLASS} />,
+      label: t(($) => $.filters.section_type),
+      valueIcons: (
+        <IconStack>
+          {deltaTypes.slice(0, 3).map((type) => (
+            <TypeIcon key={type} type={type === "none" ? null : type} className="size-3" />
+          ))}
+        </IconStack>
+      ),
+      value:
+        onlyType !== undefined && deltaTypes.length === 1
+          ? onlyType === "none"
+            ? t(($) => $.types.none)
+            : t(($) => $.types[onlyType].name)
+          : t(($) => $.filters.chip_type_count, { count: deltaTypes.length }),
+      onRemove: () => clearDimension("type"),
     });
   }
   if (deltaAssignees.length > 0 || deltaNoAssignee) {

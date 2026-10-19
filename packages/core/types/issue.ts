@@ -32,7 +32,7 @@ export type IssueStatus = BuiltInIssueStatus | (string & {});
 
 export type IssuePriority = "urgent" | "high" | "medium" | "low" | "none";
 
-export const ISSUE_TYPES = ["epic", "journey", "story", "bug", "enhancement", "refactor", "chore", "spike"] as const;
+export const ISSUE_TYPES = ["epic", "journey", "story", "bug", "enhancement", "refactor", "chore", "spike", "standup", "workcycle", "checkout"] as const;
 
 export type IssueType = (typeof ISSUE_TYPES)[number];
 

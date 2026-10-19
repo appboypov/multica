@@ -173,6 +173,7 @@
     "no_project": "プロジェクトなし",
     "section_status": "ステータス",
     "section_priority": "優先度",
+    "section_type": "種類",
     "section_assignee": "担当者",
     "section_creator": "作成者",
     "chip_op_contains": "{{value}} を含む",
@@ -198,6 +199,7 @@
     "chip_remove": "{{name}}フィルターを削除",
     "chip_status_count_other": "ステータス{{count}}件",
     "chip_priority_count_other": "優先度{{count}}件",
+    "chip_type_count_other": "種類{{count}}件",
     "chip_clear": "クリア",
     "chip_save": "保存",
     "active_count_other": "フィルター {{count}} 件",
@@ -227,9 +229,11 @@
     "group_assignee": "担当者",
     "group_parent": "親タスク",
     "group_project": "プロジェクト",
+    "group_type": "種類",
     "sort_manual": "手動",
     "sort_status": "ステータス",
     "sort_priority": "優先度",
+    "sort_type": "種類",
     "sort_start_date": "開始日",
     "sort_due_date": "期限",
     "sort_created": "作成日",
@@ -305,6 +309,7 @@
       "identifier": "ID",
       "status": "ステータス",
       "priority": "優先度",
+      "type": "種類",
       "assignee": "担当者",
       "labels": "ラベル",
       "project": "プロジェクト",
@@ -1492,6 +1497,21 @@
       "name": "スパイク",
       "lower": "スパイク",
       "hint": "期限内に答えを出す問い"
+    },
+    "standup": {
+      "name": "スタンドアップ",
+      "lower": "スタンドアップ",
+      "hint": "組織の次のリリースの計画"
+    },
+    "workcycle": {
+      "name": "ワークサイクル",
+      "lower": "ワークサイクル",
+      "hint": "承認されたリリースの作業"
+    },
+    "checkout": {
+      "name": "チェックアウト",
+      "lower": "チェックアウト",
+      "hint": "ワークサイクルの成果をレビューする"
     }
   },
   "templates": {

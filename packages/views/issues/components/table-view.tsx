@@ -277,6 +277,7 @@ function tableGroupSpec(grouping: string): IssueTableGroupSpec {
   if (grouping === "status") return { kind: "status" };
   if (grouping === "assignee") return { kind: "assignee" };
   if (grouping === "project") return { kind: "project" };
+  if (grouping === "type") return { kind: "type" };
   const propertyId = propertyIdFromViewKey(grouping);
   if (propertyId) return { kind: "property", property_id: propertyId };
   return { kind: "none" };
@@ -287,6 +288,7 @@ type ColumnLabelKey =
   | "identifier"
   | "status"
   | "priority"
+  | "type"
   | "assignee"
   | "labels"
   | "project"
@@ -300,6 +302,7 @@ type ColumnLabelKey =
 const SORTABLE_COLUMNS: Partial<Record<TableSystemColumnKey, SortField>> = {
   title: "title",
   status: "status",
+  type: "type",
   priority: "priority",
   start_date: "start_date",
   due_date: "due_date",
@@ -1194,6 +1197,15 @@ function IssueTableBodyCell({
           />
         </div>
       );
+    case "type": {
+      const type = issue.type;
+      return (
+        <span className="inline-flex items-center gap-1.5 text-caption">
+          <TypeIcon type={type} />
+          {type ? t(($) => $.types[type].name) : t(($) => $.types.none)}
+        </span>
+      );
+    }
     case "assignee":
       return (
         <div onClick={stopRowNavigation} onAuxClick={stopRowNavigation}>
@@ -1824,6 +1836,10 @@ export function TableView({
         }
         return value.parent?.title ?? t(($) => $.table.value_unavailable);
       }
+      if (value.kind === "type") {
+        const type = value.type;
+        return type ? t(($) => $.types[type].name) : t(($) => $.types.none);
+      }
       if (value.value_state === "unset") return t(($) => $.table.no_value);
       if (value.value_state === "unavailable") {
         return t(($) => $.table.value_unavailable);
@@ -2383,6 +2399,10 @@ export function TableView({
               return resolveStatusLabel(issue.status);
             case "priority":
               return t(($) => $.priority[issue.priority]);
+            case "type": {
+              const type = issue.type;
+              return type ? t(($) => $.types[type].name) : "";
+            }
             case "assignee":
               return issue.assignee_type && issue.assignee_id
                 ? exportActorName(issue.assignee_type, issue.assignee_id)

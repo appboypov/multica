@@ -110,6 +110,7 @@ const GROUPING_LABEL_KEY = {
   status: "group_status",
   assignee: "group_assignee",
   project: "group_project",
+  type: "group_type",
 } as const;
 
 const SWIMLANE_LABEL_KEY = {
@@ -122,6 +123,7 @@ const SORT_LABEL_KEY = {
   position: "sort_manual",
   status: "sort_status",
   priority: "sort_priority",
+  type: "sort_type",
   start_date: "sort_start_date",
   due_date: "sort_due_date",
   created_at: "sort_created",

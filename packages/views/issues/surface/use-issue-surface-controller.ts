@@ -222,6 +222,7 @@ export function useIssueSurfaceController({
   const dateFilter = useViewStore((s) => s.dateFilter);
   const statusFilters = useViewStore((s) => s.statusFilters);
   const priorityFilters = useViewStore((s) => s.priorityFilters);
+  const typeFilters = useViewStore((s) => s.typeFilters);
   const assigneeFilters = useViewStore((s) => s.assigneeFilters);
   const includeNoAssignee = useViewStore((s) => s.includeNoAssignee);
   const creatorFilters = useViewStore((s) => s.creatorFilters);
@@ -397,6 +398,7 @@ export function useIssueSurfaceController({
   const hasActiveFilters =
     statusFilters.length > 0 ||
     priorityFilters.length > 0 ||
+    typeFilters.length > 0 ||
     assigneeFilters.length > 0 ||
     includeNoAssignee ||
     creatorFilters.length > 0 ||
@@ -451,6 +453,7 @@ export function useIssueSurfaceController({
         ...scopeQuery.filters,
         ...(statusFilters.length > 0 ? { statuses: statusFilters } : {}),
         ...(priorityFilters.length > 0 ? { priorities: priorityFilters } : {}),
+        ...(typeFilters.length > 0 ? { types: typeFilters } : {}),
         ...(assigneeFilters.length > 0 ? { assignees: assigneeFilters } : {}),
         ...(includeNoAssignee ? { include_no_assignee: true } : {}),
         ...(creatorFilters.length > 0 ? { creators: creatorFilters } : {}),
@@ -491,6 +494,7 @@ export function useIssueSurfaceController({
     sort.sort_by,
     sort.sort_direction,
     statusFilters,
+    typeFilters,
     viewIncludeNoProject,
     viewProjectFilters,
     workingFilterUnresolved,
@@ -616,6 +620,7 @@ export function useIssueSurfaceController({
       };
     }
     if (effectiveGrouping === "project") return { kind: "project" };
+    if (effectiveGrouping === "type") return { kind: "type" };
     const propertyId = propertyIdFromViewKey(effectiveGrouping);
     if (propertyId) {
       return {
@@ -661,6 +666,7 @@ export function useIssueSurfaceController({
       JSON.stringify([
         statusFilters,
         priorityFilters,
+        typeFilters,
         assigneeFilters,
         includeNoAssignee,
         creatorFilters,
@@ -685,6 +691,7 @@ export function useIssueSurfaceController({
       priorityFilters,
       showSubIssues,
       statusFilters,
+      typeFilters,
       viewIncludeNoProject,
       viewProjectFilters,
     ],
@@ -708,6 +715,7 @@ export function useIssueSurfaceController({
     statusFilterPending,
     statusFilterError,
     priorityFilters,
+    typeFilters,
     assigneeFilters,
     includeNoAssignee,
     agentRunningFilter,

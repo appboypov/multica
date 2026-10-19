@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/multica-ai/multica/server/internal/issuestatus"
+	"github.com/multica-ai/multica/server/internal/issuetemplate"
 	"github.com/multica-ai/multica/server/internal/logger"
 	"github.com/multica-ai/multica/server/internal/util"
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
@@ -25,6 +26,7 @@ type issueTableGroupValueResponse struct {
 	Status     string               `json:"status,omitempty"`
 	Actor      *issueTableActorRef  `json:"actor"`
 	ProjectID  *string              `json:"project_id,omitempty"`
+	Type       *string              `json:"type,omitempty"`
 	ParentID   *string              `json:"parent_id,omitempty"`
 	Parent     *issueTableParentRef `json:"parent,omitempty"`
 	PropertyID string               `json:"property_id,omitempty"`
@@ -272,6 +274,11 @@ END, ''))`,
   ''
 )) END`,
 		}, true
+	case "type":
+		return resolvedIssueTableGroup{
+			kind:      "type",
+			groupExpr: "COALESCE(i.type, '" + issueTableNoTypeGroup + "')",
+		}, true
 	case "parent":
 		return resolvedIssueTableGroup{
 			kind:      "parent",
@@ -509,6 +516,8 @@ func (group resolvedIssueTableGroup) orderExpression(addArg func(any) string) st
 		return "CASE split_part(group_value, ':', 1) WHEN 'member' THEN 0 WHEN 'agent' THEN 1 WHEN 'squad' THEN 2 ELSE 3 END"
 	case "project":
 		return "CASE WHEN group_value = '__no_project__' THEN 0 ELSE 1 END"
+	case "type":
+		return fmt.Sprintf("COALESCE(array_position(%s::text[], group_value), 100000)", addArg(issuetemplate.Types()))
 	case "parent":
 		return "CASE WHEN group_value = '__no_parent__' THEN 0 ELSE 1 END"
 	case "property":
@@ -654,6 +663,17 @@ func (group resolvedIssueTableGroup) descriptor(raw string, count int64, context
 		}
 		descriptor.Key = "project:" + raw
 		descriptor.Value.ProjectID = &raw
+	case "type":
+		descriptor.Value.Kind = "type"
+		if raw == issueTableNoTypeGroup {
+			descriptor.Key = "type:" + issueTableNoType
+			return descriptor, nil
+		}
+		if !issuetemplate.IsType(raw) {
+			return descriptor, fmt.Errorf("unexpected type group value %q", raw)
+		}
+		descriptor.Key = "type:" + raw
+		descriptor.Value.Type = &raw
 	case "parent":
 		descriptor.Value.Kind = "parent"
 		if raw == "__no_parent__" {
@@ -819,6 +839,20 @@ func (group resolvedIssueTableGroup) predicate(w http.ResponseWriter, key string
 			return "", false
 		}
 		return fmt.Sprintf("i.project_id = %s::uuid", addArg(id)), true
+	case "type":
+		raw, found := strings.CutPrefix(key, "type:")
+		if !found {
+			writeError(w, http.StatusBadRequest, "invalid group_key")
+			return "", false
+		}
+		if raw == issueTableNoType {
+			return "i.type IS NULL", true
+		}
+		if !issuetemplate.IsType(raw) {
+			writeError(w, http.StatusBadRequest, "invalid group_key")
+			return "", false
+		}
+		return fmt.Sprintf("i.type = %s::text", addArg(raw)), true
 	case "parent":
 		const prefix = "parent:"
 		if !strings.HasPrefix(key, prefix) {

@@ -73,6 +73,18 @@ describe("filterIssues", () => {
     expect(result.map((i) => i.id)).toEqual(["1", "4"]);
   });
 
+  // --- Type ---
+  it("filters by type, with none keeping the issues without a type", () => {
+    const typed = [
+      makeIssue({ id: "s", type: "standup" }),
+      makeIssue({ id: "b", type: "bug" }),
+      makeIssue({ id: "n" }),
+    ];
+    expect(filterIssues(typed, { ...NO_FILTER, typeFilters: ["standup"] }).map((i) => i.id)).toEqual(["s"]);
+    expect(filterIssues(typed, { ...NO_FILTER, typeFilters: ["none"] }).map((i) => i.id)).toEqual(["n"]);
+    expect(filterIssues(typed, { ...NO_FILTER, typeFilters: [] }).map((i) => i.id)).toEqual(["s", "b", "n"]);
+  });
+
   // --- Assignee ---
   it("filters by specific assignee", () => {
     const result = filterIssues(issues, {

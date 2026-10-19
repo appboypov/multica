@@ -23,9 +23,11 @@ import type {
   Issue,
   IssueAssigneeType,
   IssueStatus,
+  IssueType,
   Project,
   IssueProperty,
 } from "@multica/core/types";
+import { ISSUE_TYPES } from "@multica/core/types";
 import { useViewStore } from "@multica/core/issues/stores/view-store-context";
 import { propertyIdFromViewKey } from "@multica/core/issues/stores/view-store";
 import { propertyListOptions, useSetIssueProperty, useUnsetIssueProperty } from "@multica/core/properties";
@@ -65,6 +67,7 @@ import {
   getMoveUpdates,
   propertyGroupId,
   projectGroupId,
+  typeGroupId,
 } from "../utils/drag-utils";
 
 function isStatusGroup(
@@ -87,6 +90,7 @@ interface BuildGroupsContext extends ProjectColumnLabels {
   projectMap: Map<string, Project> | undefined;
   noAssigneeLabel: string;
   noValueLabel: string;
+  typeLabel: (type: IssueType | null) => string;
 }
 
 /**
@@ -135,6 +139,21 @@ function withNoProjectColumn(
   ];
 }
 
+/** One type column, from loaded cards or from a server group descriptor. */
+function typeColumn(
+  type: IssueType | null,
+  typeLabel: (type: IssueType | null) => string,
+  totalCount?: number,
+): BoardColumnGroup {
+  return {
+    id: typeGroupId(type),
+    title: typeLabel(type),
+    issueType: type,
+    totalCount,
+    createData: type ? { type } : {},
+  };
+}
+
 function buildGroups(
   issues: Issue[],
   visibleStatuses: IssueStatus[],
@@ -145,6 +164,7 @@ function buildGroups(
     projectMap,
     noAssigneeLabel,
     noValueLabel,
+    typeLabel,
     ...projectLabels
   }: BuildGroupsContext,
 ): BoardColumnGroup[] {
@@ -197,6 +217,15 @@ function buildGroups(
       return a.title.localeCompare(b.title);
     });
     return withNoProjectColumn(ordered, projectMap, projectLabels);
+  }
+
+  // Type board: one column per type the loaded cards hold, in template order,
+  // with "No type" last, as the server orders its groups.
+  if (grouping === "type") {
+    const present = new Set(issues.map((issue) => issue.type ?? null));
+    return [...ISSUE_TYPES, null]
+      .filter((type) => present.has(type))
+      .map((type) => typeColumn(type, typeLabel));
   }
 
   const groups = new Map<string, BoardColumnGroup>();
@@ -408,6 +437,19 @@ function BoardViewImpl({
     );
     return withNoProjectColumn(columns, projectMap, projectColumnLabels);
   }, [groupBranches, grouping, projectColumnLabels, projectMap]);
+  const typeLabel = useCallback(
+    (type: IssueType | null) =>
+      type ? t(($) => $.types[type].name) : t(($) => $.types.none),
+    [t],
+  );
+  const hydratedTypeGroups = useMemo<BoardColumnGroup[] | undefined>(() => {
+    if (grouping !== "type" || !groupBranches?.enabled) return undefined;
+    return groupBranches.descriptors.flatMap((descriptor): BoardColumnGroup[] =>
+      descriptor.value.kind === "type"
+        ? [typeColumn(descriptor.value.type ?? null, typeLabel, descriptor.count)]
+        : [],
+    );
+  }, [groupBranches, grouping, typeLabel]);
   const groupPagination = useMemo(() => {
     if (!groupBranches?.enabled) return undefined;
     const grouped = new Map<string, IssueGroupPageState[]>();
@@ -455,12 +497,14 @@ function BoardViewImpl({
       const built =
         hydratedAssigneeGroups ??
         hydratedProjectGroups ??
+        hydratedTypeGroups ??
         buildGroups(issues, visibleStatuses, grouping, {
           getActorName,
           groupingProperty,
           projectMap,
           noAssigneeLabel: t(($) => $.filters.no_assignee),
           noValueLabel: t(($) => $.board.no_value),
+          typeLabel,
           ...projectColumnLabels,
         });
       return built.map((group) => ({
@@ -468,7 +512,7 @@ function BoardViewImpl({
         totalCount: groupPagination?.[group.id]?.total ?? group.totalCount,
       }));
     },
-    [hydratedAssigneeGroups, hydratedProjectGroups, issues, visibleStatuses, grouping, getActorName, groupingProperty, projectMap, projectColumnLabels, groupPagination, t],
+    [hydratedAssigneeGroups, hydratedProjectGroups, hydratedTypeGroups, issues, visibleStatuses, grouping, getActorName, groupingProperty, projectMap, projectColumnLabels, typeLabel, groupPagination, t],
   );
   const groupIds = useMemo(
     () => new Set(groups.map((group) => group.id)),
@@ -559,8 +603,10 @@ function BoardViewImpl({
         const activeCol = findColumn(prev, activeId, groupIds);
         const overCol = findColumn(prev, overId, groupIds);
         if (!activeCol || !overCol || activeCol === overCol) return prev;
-        const targetStatus = groups.find((group) => group.id === overCol)?.status;
-        if (targetStatus && catalog.entryOf(targetStatus)?.archived_at) return prev;
+        const target = groups.find((group) => group.id === overCol);
+        if (target?.status && catalog.entryOf(target.status)?.archived_at) return prev;
+        // A type never changes, so a card never enters another type column.
+        if (target?.issueType !== undefined) return prev;
 
         if (sortBy !== "position") return prev;
 
@@ -647,6 +693,10 @@ function BoardViewImpl({
 
       const map = issueMapRef.current;
       if (finalGroup.status && map.get(activeId)?.status !== finalGroup.status && catalog.entryOf(finalGroup.status)?.archived_at) {
+        resetColumns();
+        return;
+      }
+      if (finalGroup.issueType !== undefined && (map.get(activeId)?.type ?? null) !== finalGroup.issueType) {
         resetColumns();
         return;
       }

@@ -12,6 +12,7 @@ import {
   FolderMinus,
   List,
   Rows3,
+  Shapes,
   SignalHigh,
   SlidersHorizontal,
   Tag,
@@ -58,7 +59,9 @@ import { Toggle } from "@multica/ui/components/ui/toggle";
 import {
   PRIORITY_DISPLAY_ORDER,
 } from "@multica/core/issues/config";
+import { ISSUE_TYPE_PICKS } from "@multica/core/worklanes";
 import { StatusIcon, PriorityIcon } from ".";
+import { TypeIcon } from "./type-icon";
 import { useQuery } from "@tanstack/react-query";
 import { useWorkspaceId } from "@multica/core/hooks";
 import { memberListOptions, agentListOptions, squadListOptions } from "@multica/core/workspace/queries";
@@ -137,6 +140,7 @@ function getActiveFilterCount(
   state: {
     statusFilters: string[];
     priorityFilters: string[];
+    typeFilters: string[];
     assigneeFilters: ActorFilterValue[];
     includeNoAssignee: boolean;
     creatorFilters: ActorFilterValue[];
@@ -155,6 +159,7 @@ function getActiveFilterCount(
     fixed ? values.filter((v) => !fixed.has(v)).length : values.length;
   if (delta(state.statusFilters, baseline?.status) > 0) count++;
   if (delta(state.priorityFilters, baseline?.priority) > 0) count++;
+  if (delta(state.typeFilters, baseline?.type) > 0) count++;
   const assigneeDelta =
     delta(state.assigneeFilters.map(actorFilterKey), baseline?.assignee) > 0 ||
     (state.includeNoAssignee && !(baseline?.includeNoAssignee ?? false));
@@ -202,6 +207,7 @@ function useIssueCounts(
   return useMemo(() => {
     const status = new Map<string, number>();
     const priority = new Map<string, number>();
+    const type = new Map<string, number>();
     const assignee = new Map<string, number>();
     const creator = new Map<string, number>();
     const project = new Map<string, number>();
@@ -219,6 +225,8 @@ function useIssueCounts(
             ? status
             : facet.kind === "priority"
               ? priority
+              : facet.kind === "type"
+                ? type
               : facet.kind === "assignee"
                 ? assignee
                 : facet.kind === "creator"
@@ -245,12 +253,14 @@ function useIssueCounts(
           }
         }
       }
-      return { status, priority, assignee, creator, noAssignee, project, noProject, label, property };
+      return { status, priority, type, assignee, creator, noAssignee, project, noProject, label, property };
     }
 
     for (const issue of allIssues) {
       status.set(issue.status, (status.get(issue.status) ?? 0) + 1);
       priority.set(issue.priority, (priority.get(issue.priority) ?? 0) + 1);
+      const typeKey = issue.type ?? "none";
+      type.set(typeKey, (type.get(typeKey) ?? 0) + 1);
 
       if (!issue.assignee_id) {
         noAssignee++;
@@ -295,7 +305,7 @@ function useIssueCounts(
       }
     }
 
-    return { status, priority, assignee, creator, noAssignee, project, noProject, label, property };
+    return { status, priority, type, assignee, creator, noAssignee, project, noProject, label, property };
   }, [allIssues, serverFacets]);
 }
 
@@ -1423,6 +1433,7 @@ export function IssueFilterMenu({
   const [frozenAnchor, setFrozenAnchor] = useState<{ getBoundingClientRect: () => DOMRect } | null>(null);
   const statusFilters = useViewStore((s) => s.statusFilters);
   const priorityFilters = useViewStore((s) => s.priorityFilters);
+  const typeFilters = useViewStore((s) => s.typeFilters);
   const assigneeFilters = useViewStore((s) => s.assigneeFilters);
   const includeNoAssignee = useViewStore((s) => s.includeNoAssignee);
   const creatorFilters = useViewStore((s) => s.creatorFilters);
@@ -1456,6 +1467,7 @@ export function IssueFilterMenu({
       {
         statusFilters,
         priorityFilters,
+        typeFilters,
         propertyFilters: effectivePropertyFilters,
         assigneeFilters,
         includeNoAssignee,
@@ -1593,6 +1605,51 @@ export function IssueFilterMenu({
                       <HoverCheck checked={checked} />
                       <PriorityIcon priority={p} />
                       {t(($) => $.priority[p])}
+                      {count > 0 && (
+                        <span className="ml-auto text-caption text-muted-foreground">
+                          {t(($) => $.filters.issue_count, { count })}
+                        </span>
+                      )}
+                    </DropdownMenuCheckboxItem>
+                  );
+                })}
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+
+            {/* Type */}
+            <DropdownMenuSub
+              onOpenChange={(open) =>
+                onTableFacetChange?.(open ? { kind: "type" } : null)
+              }
+            >
+              <DropdownMenuSubTrigger>
+                <Shapes className="size-3.5" />
+                <span className="flex-1">{t(($) => $.filters.section_type)}</span>
+                {typeFilters.length > 0 && (
+                  <span className="text-caption text-primary font-medium">
+                    {typeFilters.length}
+                  </span>
+                )}
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent className="w-auto min-w-48">
+                {ISSUE_TYPE_PICKS.map((pick) => {
+                  const checked = typeFilters.includes(pick);
+                  const count = counts.type.get(pick) ?? 0;
+                  const fixed = viewBaseline?.type.has(pick) === true;
+                  return (
+                    <DropdownMenuCheckboxItem
+                      key={pick}
+                      checked={checked}
+                      disabled={fixed}
+                      title={fixed ? fixedTitle : undefined}
+                      onCheckedChange={() => act.toggleTypeFilter(pick)}
+                      className={FILTER_ITEM_CLASS}
+                    >
+                      <HoverCheck checked={checked} />
+                      <TypeIcon type={pick === "none" ? null : pick} />
+                      {pick === "none"
+                        ? t(($) => $.types.none)
+                        : t(($) => $.types[pick].name)}
                       {count > 0 && (
                         <span className="ml-auto text-caption text-muted-foreground">
                           {t(($) => $.filters.issue_count, { count })}
@@ -1844,6 +1901,7 @@ export function IssueDisplayControls({
   const viewMode = useViewStore((s) => s.viewMode);
   const statusFilters = useViewStore((s) => s.statusFilters);
   const priorityFilters = useViewStore((s) => s.priorityFilters);
+  const typeFilters = useViewStore((s) => s.typeFilters);
   const assigneeFilters = useViewStore((s) => s.assigneeFilters);
   const includeNoAssignee = useViewStore((s) => s.includeNoAssignee);
   const creatorFilters = useViewStore((s) => s.creatorFilters);
@@ -1906,6 +1964,7 @@ export function IssueDisplayControls({
     {
       statusFilters,
       priorityFilters,
+      typeFilters,
       propertyFilters: effectivePropertyFilters,
       assigneeFilters,
       includeNoAssignee,
@@ -1919,20 +1978,22 @@ export function IssueDisplayControls({
   );
   const hasActiveFilters = activeFilterCount > 0;
 
-  const SORT_LABEL_KEY: Record<typeof SORT_OPTIONS[number]["value"], "sort_manual" | "sort_status" | "sort_priority" | "sort_start_date" | "sort_due_date" | "sort_created" | "sort_updated" | "sort_title"> = {
+  const SORT_LABEL_KEY: Record<typeof SORT_OPTIONS[number]["value"], "sort_manual" | "sort_status" | "sort_priority" | "sort_type" | "sort_start_date" | "sort_due_date" | "sort_created" | "sort_updated" | "sort_title"> = {
     position: "sort_manual",
     status: "sort_status",
     priority: "sort_priority",
+    type: "sort_type",
     start_date: "sort_start_date",
     due_date: "sort_due_date",
     created_at: "sort_created",
     updated_at: "sort_updated",
     title: "sort_title",
   };
-  const GROUPING_LABEL_KEY: Record<typeof GROUPING_OPTIONS[number]["value"], "group_status" | "group_assignee" | "group_project"> = {
+  const GROUPING_LABEL_KEY: Record<typeof GROUPING_OPTIONS[number]["value"], "group_status" | "group_assignee" | "group_project" | "group_type"> = {
     status: "group_status",
     assignee: "group_assignee",
     project: "group_project",
+    type: "group_type",
   };
   const SWIMLANE_GROUPING_LABEL_KEY: Record<SwimlaneGrouping, "group_parent" | "group_project" | "group_assignee"> = {
     parent: "group_parent",

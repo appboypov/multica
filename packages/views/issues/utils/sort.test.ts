@@ -62,6 +62,22 @@ describe("sortIssues property sorts", () => {
     expect(sorted.map((i) => i.id)).toEqual(["a", "b"]);
   });
 
+  it("sorts types in template order with issues without a type last", () => {
+    const issues = [
+      staticIssue("none"),
+      staticIssue("checkout", { type: "checkout" }),
+      staticIssue("epic", { type: "epic" }),
+      staticIssue("standup", { type: "standup" }),
+    ];
+    expect(sortIssues(issues, "type", "asc").map((i) => i.id)).toEqual([
+      "epic",
+      "standup",
+      "checkout",
+      "none",
+    ]);
+    expect(sortIssues(issues, "type", "desc").map((i) => i.id)[0]).toBe("none");
+  });
+
   it("keeps manual position ascending even with a stale desc direction", () => {
     const sorted = sortIssues(
       [issueWith("b", undefined, 2), issueWith("a", undefined, 1)],

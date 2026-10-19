@@ -9,6 +9,7 @@ import type {
   Issue,
   IssueAssigneeType,
   IssueStatus,
+  IssueType,
   Project,
 } from "@multica/core/types";
 import { Button } from "@multica/ui/components/ui/button";
@@ -29,6 +30,7 @@ import type { ChildProgress } from "./list-row";
 import { useT } from "../../i18n";
 import { ActorAvatar } from "../../common/actor-avatar";
 import { ProjectIcon } from "../../projects/components/project-icon";
+import { TypeIcon } from "./type-icon";
 import { useRestoredScrollOffset, useRestoredScrollRef } from "../../platform";
 import { DeferredPopup } from "../../common/deferred-popup";
 import { DeferredTooltip } from "../../common/deferred-tooltip";
@@ -87,6 +89,9 @@ export interface BoardColumnGroup {
   /** Display-only, for the column's leading icon. Null on the "No project"
    *  column and on a project the projects query cannot resolve. */
   project?: Pick<Project, "icon"> | null;
+  /** Issue type for this column; null = the "No type" column. Set only when
+   *  the board is grouped by type. */
+  issueType?: IssueType | null;
   /** Set when the board is grouped by a select-type custom property. */
   propertyId?: string;
   /** Option id for this column; null = the "No value" column. */
@@ -379,6 +384,20 @@ function BoardGroupHeading({
             <FolderMinus className="size-3.5" />
           </span>
         )}
+        <span className="truncate text-body font-medium" title={group.title}>
+          {group.title}
+        </span>
+        <span className="shrink-0 rounded-full bg-background px-1.5 py-0.5 text-micro font-medium tabular-nums text-muted-foreground">
+          {count}
+        </span>
+      </div>
+    );
+  }
+
+  if (group.issueType !== undefined) {
+    return (
+      <div className="flex min-w-0 items-center gap-2">
+        <TypeIcon type={group.issueType} />
         <span className="truncate text-body font-medium" title={group.title}>
           {group.title}
         </span>

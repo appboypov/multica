@@ -103,6 +103,8 @@ function columnValue(
       return issue.status;
     case "priority":
       return issue.priority;
+    case "type":
+      return issue.type;
     case "assignee":
       return issue.assignee_id;
     case "labels":

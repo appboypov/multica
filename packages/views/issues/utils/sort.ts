@@ -1,10 +1,16 @@
 import type { Issue, IssueStatus } from "@multica/core/types";
+import { ISSUE_TYPES } from "@multica/core/types";
 import { BUILT_IN_STATUS_ORDER, PRIORITY_ORDER } from "@multica/core/issues/config";
 import type { SortField, SortDirection } from "@multica/core/issues/stores/view-store";
 import { propertyIdFromViewKey } from "@multica/core/issues/stores/view-store";
 
 const PRIORITY_RANK: Record<string, number> = Object.fromEntries(
   PRIORITY_ORDER.map((p, i) => [p, i])
+);
+
+/** Template order; issues without a type rank last. */
+const TYPE_RANK: Record<string, number> = Object.fromEntries(
+  ISSUE_TYPES.map((type, index) => [type, index]),
 );
 
 /**
@@ -82,6 +88,11 @@ export function sortIssues(
         return dir * (
           (PRIORITY_RANK[a.priority] ?? 99) -
           (PRIORITY_RANK[b.priority] ?? 99)
+        );
+      case "type":
+        return dir * (
+          (TYPE_RANK[a.type ?? ""] ?? ISSUE_TYPES.length) -
+          (TYPE_RANK[b.type ?? ""] ?? ISSUE_TYPES.length)
         );
       case "status": {
         const rank = (status: string) => {

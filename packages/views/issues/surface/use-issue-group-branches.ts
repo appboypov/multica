@@ -117,6 +117,8 @@ function issueMatchesDescriptor(
         : issue.assignee_type === null && issue.assignee_id === null;
     case "project":
       return issue.project_id === owner.project_id;
+    case "type":
+      return (issue.type ?? undefined) === owner.type;
     case "parent":
       return issue.parent_issue_id === owner.parent_id;
     case "property": {

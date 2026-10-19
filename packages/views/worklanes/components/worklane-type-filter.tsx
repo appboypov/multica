@@ -18,7 +18,7 @@ import { TypeIcon } from "../../issues/components/type-icon";
 import { useT } from "../../i18n";
 
 /**
- * The Type filter of a worklane's header: the eight types and No type, each
+ * The Type filter of a worklane's header: the eleven types and No type, each
  * with its icon and how many of the worklane's issues it keeps. Nothing picked
  * shows every type.
  */

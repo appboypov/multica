@@ -178,6 +178,9 @@ func (h *Handler) issueTableOrderBy(
 	case "priority":
 		resolved.expression = "CASE i.priority WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 WHEN 'low' THEN 3 ELSE 4 END"
 		resolved.castType = "integer"
+	case "type":
+		resolved.expression = issueTypeSortExpression
+		resolved.castType = "integer"
 	default:
 		expr, handled, err := h.propertySortExpr(r, util.UUIDToString(workspaceID), sortField)
 		if !handled {

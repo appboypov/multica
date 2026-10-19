@@ -278,8 +278,8 @@ export function ManualCreatePanel({
   const [statusPicked, setStatusPicked] = useState(
     typeof data?.status === "string" || draft.manual.statusPicked,
   );
-  // The template picked, or null for No template.
-  const [type, setType] = useState<IssueType | null>(draft.manual.type);
+  // The template picked, or null for No template. A type column's "+" picks it.
+  const [type, setType] = useState<IssueType | null>((data?.type as IssueType | undefined) ?? draft.manual.type);
   const [fields, setFields] = useState<Record<string, string>>(draft.manual.fields);
   // The Markdown edited by hand: while set, it is the description and the
   // fields no longer write it.
@@ -1108,7 +1108,7 @@ export function ManualCreatePanel({
             </div>
 
             <div className="flex min-h-0 flex-1 flex-col sm:flex-row">
-              {/* Templates — No template, or one of the eight. */}
+              {/* Templates — No template, or one of the eleven. */}
               <div className="max-h-36 shrink-0 overflow-y-auto border-b px-2 pb-2 sm:max-h-none sm:w-56 sm:border-r sm:border-b-0">
                 <TemplateList
                   templates={templates}

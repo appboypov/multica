@@ -2342,6 +2342,10 @@ const IssueTableGroupValueSchema = z.discriminatedUnion("kind", [
     project_id: z.string().nullable().optional().default(null),
   }).loose(),
   z.object({
+    kind: z.literal("type"),
+    type: z.enum(ISSUE_TYPES).optional().catch(undefined),
+  }).loose(),
+  z.object({
     kind: z.literal("parent"),
     parent_id: z.string().nullable().optional().default(null),
     parent: IssueTableParentRefSchema.nullable().optional().default(null),
@@ -3321,6 +3325,7 @@ const AutopilotListItemSchema = z.object({
   status: z.string(),
   execution_mode: z.string(),
   issue_title_template: z.string().nullable().optional(),
+  issue_type: z.enum(ISSUE_TYPES).nullable().optional().catch(null),
   created_by_type: z.string(),
   created_by_id: z.string(),
   last_run_at: z.string().nullable().optional(),

@@ -2,11 +2,14 @@ import {
   Bookmark,
   Bug,
   CircleDashed,
+  ClipboardCheck,
   Flag,
   FlaskConical,
   GitCompareArrows,
+  RefreshCw,
   Route,
   Sparkles,
+  Sunrise,
   Wrench,
   type LucideIcon,
 } from "lucide-react";
@@ -14,7 +17,7 @@ import type { IssueType } from "@multica/core/types";
 import { cn } from "@multica/ui/lib/utils";
 import { useT } from "../../i18n";
 
-/** The eight type glyphs of the library, each drawn in its `--type-*` colour. */
+/** The eleven type glyphs of the library, each drawn in its `--type-*` colour. */
 export const TYPE_ICON: Record<IssueType, LucideIcon> = {
   epic: Flag,
   journey: Route,
@@ -24,6 +27,9 @@ export const TYPE_ICON: Record<IssueType, LucideIcon> = {
   refactor: GitCompareArrows,
   chore: Wrench,
   spike: FlaskConical,
+  standup: Sunrise,
+  workcycle: RefreshCw,
+  checkout: ClipboardCheck,
 };
 
 const TYPE_COLOR: Record<IssueType, string> = {
@@ -35,6 +41,9 @@ const TYPE_COLOR: Record<IssueType, string> = {
   refactor: "text-type-refactor",
   chore: "text-type-chore",
   spike: "text-type-spike",
+  standup: "text-type-standup",
+  workcycle: "text-type-workcycle",
+  checkout: "text-type-checkout",
 };
 
 /**

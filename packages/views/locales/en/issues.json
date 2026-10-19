@@ -176,6 +176,7 @@
     "no_project": "No project",
     "section_status": "Status",
     "section_priority": "Priority",
+    "section_type": "Type",
     "section_assignee": "Assignee",
     "section_creator": "Creator",
     "chip_op_contains": "contains {{value}}",
@@ -202,6 +203,7 @@
     "chip_remove": "Remove {{name}} filter",
     "chip_status_count_other": "{{count}} statuses",
     "chip_priority_count_other": "{{count}} priorities",
+    "chip_type_count_other": "{{count}} types",
     "chip_clear": "Clear",
     "chip_save": "Save",
     "active_count_one": "{{count}} filter",
@@ -232,9 +234,11 @@
     "group_assignee": "Assignee",
     "group_parent": "Parent issue",
     "group_project": "Project",
+    "group_type": "Type",
     "sort_manual": "Manual",
     "sort_status": "Status",
     "sort_priority": "Priority",
+    "sort_type": "Type",
     "sort_start_date": "Start date",
     "sort_due_date": "Due date",
     "sort_created": "Created date",
@@ -310,6 +314,7 @@
       "identifier": "Identifier",
       "status": "Status",
       "priority": "Priority",
+      "type": "Type",
       "assignee": "Assignee",
       "labels": "Labels",
       "project": "Project",
@@ -1542,6 +1547,21 @@
       "name": "Spike",
       "lower": "spike",
       "hint": "A question to answer in a time box"
+    },
+    "standup": {
+      "name": "Stand-up",
+      "lower": "stand-up",
+      "hint": "An organisation's plan for its next releases"
+    },
+    "workcycle": {
+      "name": "Workcycle",
+      "lower": "workcycle",
+      "hint": "The approved releases at work"
+    },
+    "checkout": {
+      "name": "Check-out",
+      "lower": "check-out",
+      "hint": "What a workcycle delivered, for review"
     }
   },
   "templates": {

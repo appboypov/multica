@@ -10,6 +10,7 @@ import {
   issueMatchesGroup,
   projectGroupId,
   propertyGroupId,
+  typeGroupId,
 } from "./drag-utils";
 
 function mk(id: string, position: number): Issue {
@@ -255,5 +256,25 @@ describe("project grouping", () => {
       [projectGroupId("proj-1")]: ["A"],
       [projectGroupId(null)]: ["B"],
     });
+  });
+});
+
+describe("type grouping", () => {
+  const bug = { ...mk("A", 1), type: "bug" } as Issue;
+  const untyped = mk("B", 2);
+  const bugColumn: BoardColumnGroup = { id: typeGroupId("bug"), title: "Bug", issueType: "bug" };
+  const storyColumn: BoardColumnGroup = { id: typeGroupId("story"), title: "Story", issueType: "story" };
+  const noTypeColumn: BoardColumnGroup = { id: typeGroupId(null), title: "No type", issueType: null };
+
+  it("buckets cards by type, issues without a type in the none column", () => {
+    expect(getIssueGroupId(bug, "type")).toBe(typeGroupId("bug"));
+    expect(getIssueGroupId(untyped, "type")).toBe(typeGroupId(null));
+    expect(issueMatchesGroup(bug, bugColumn)).toBe(true);
+    expect(issueMatchesGroup(bug, storyColumn)).toBe(false);
+    expect(issueMatchesGroup(untyped, noTypeColumn)).toBe(true);
+  });
+
+  it("a move into a type column only reorders, since a type never changes", () => {
+    expect(getMoveUpdates(storyColumn, 7)).toEqual({ position: 7 });
   });
 });

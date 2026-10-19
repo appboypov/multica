@@ -43,6 +43,9 @@
     --color-type-refactor: var(--type-refactor);
     --color-type-chore: var(--type-chore);
     --color-type-spike: var(--type-spike);
+    --color-type-standup: var(--type-standup);
+    --color-type-workcycle: var(--type-workcycle);
+    --color-type-checkout: var(--type-checkout);
     --color-brand-foreground: var(--brand-foreground);
     --color-accent-foreground: var(--accent-foreground);
     --color-accent: var(--accent);
@@ -252,6 +255,9 @@
     --type-refactor: #008888;
     --type-chore: #686774;
     --type-spike: #d37900;
+    --type-standup: #c2367d;
+    --type-workcycle: #5b7a1a;
+    --type-checkout: #3d6b8f;
     --scrollbar-thumb: oklch(0 0 0 / 10%);
     --scrollbar-thumb-hover: oklch(0 0 0 / 18%);
     --scrollbar-track: transparent;

@@ -15,7 +15,7 @@ A worklane's header SHALL offer the views Timeline, Board and List, open on Time
 - **AND** List shows them by release
 
 ### Requirement: The Type filter applies to Timeline, Board and List
-A worklane's header SHALL offer a Type filter with the eight types and No type; while types are picked, Timeline, Board and List SHALL show only the worklane's issues of those types, and switching views MUST keep the picked types.
+A worklane's header SHALL offer a Type filter with the eleven types and No type; while types are picked, Timeline, Board and List SHALL show only the worklane's issues of those types, and switching views MUST keep the picked types.
 
 #### Scenario: Only bugs
 - **GIVEN** Fan accounts and push holds the story REBL-21 and the bug REBL-24

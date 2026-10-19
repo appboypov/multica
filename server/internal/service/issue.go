@@ -99,7 +99,7 @@ type IssueCreateParams struct {
 	// Its immutable snapshot and cloned attachment rows commit in the same
 	// transaction as the new issue.
 	SourceContext *SourceContextCapture
-	// Type is one of the eight issue types (NULL = No type). A typed issue
+	// Type is one of the eleven issue types (NULL = No type). A typed issue
 	// without a description gets its template's Markdown (FR-51).
 	Type         pgtype.Text
 	FromTemplate bool

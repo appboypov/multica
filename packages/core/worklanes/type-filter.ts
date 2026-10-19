@@ -1,10 +1,10 @@
 import { ISSUE_TYPES, type Issue, type IssueType } from "../types";
 import { issueTypePicked } from "../issues/surface/membership";
 
-/** A pick of the Type filter: one of the eight types, or `none` for No type. */
+/** A pick of the Type filter: one of the eleven types, or `none` for No type. */
 export type IssueTypePick = IssueType | "none";
 
-/** The Type filter's options in menu order: the eight types, then No type. */
+/** The Type filter's options in menu order: the eleven types, then No type. */
 export const ISSUE_TYPE_PICKS: readonly IssueTypePick[] = [...ISSUE_TYPES, "none"];
 
 /**

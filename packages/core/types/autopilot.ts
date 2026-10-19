@@ -1,3 +1,5 @@
+import type { IssueType } from "./issue";
+
 export type AutopilotStatus = "active" | "paused" | "archived";
 
 export type AutopilotExecutionMode = "create_issue" | "run_only";
@@ -37,6 +39,8 @@ export interface Autopilot {
   pause_reason?: string | null;
   execution_mode: AutopilotExecutionMode;
   issue_title_template: string | null;
+  // Optional on the wire: older servers send no issue type.
+  issue_type?: IssueType | null;
   created_by_type: string;
   created_by_id: string;
   last_run_at: string | null;
@@ -163,6 +167,7 @@ export interface CreateAutopilotRequest {
   assignee_id: string;
   execution_mode: AutopilotExecutionMode;
   issue_title_template?: string;
+  issue_type?: IssueType;
   subscribers?: AutopilotSubscriberInput[];
 }
 
@@ -177,6 +182,7 @@ export interface UpdateAutopilotRequest {
   status?: AutopilotStatus;
   execution_mode?: AutopilotExecutionMode;
   issue_title_template?: string | null;
+  issue_type?: IssueType | null;
   // When present, fully replaces the autopilot's subscriber template;
   // omit to leave it untouched.
   subscribers?: AutopilotSubscriberInput[];

@@ -176,6 +176,7 @@
     "no_project": "Aucun projet",
     "section_status": "Statut",
     "section_priority": "Priorité",
+    "section_type": "Type",
     "section_assignee": "Assigné à",
     "section_creator": "Créateur",
     "chip_op_contains": "contient {{value}}",
@@ -202,6 +203,7 @@
     "chip_remove": "Retirer le filtre {{name}}",
     "chip_status_count_other": "{{count}} statuts",
     "chip_priority_count_other": "{{count}} priorités",
+    "chip_type_count_other": "{{count}} types",
     "chip_clear": "Effacer",
     "chip_save": "Enregistrer",
     "active_count_one": "{{count}} filtre",
@@ -232,9 +234,11 @@
     "group_assignee": "Assigné à",
     "group_parent": "Tâche parente",
     "group_project": "Projet",
+    "group_type": "Type",
     "sort_manual": "Manuel",
     "sort_status": "Statut",
     "sort_priority": "Priorité",
+    "sort_type": "Type",
     "sort_start_date": "Date de début",
     "sort_due_date": "Date d'échéance",
     "sort_created": "Date de création",
@@ -310,6 +314,7 @@
       "identifier": "Identifiant",
       "status": "Statut",
       "priority": "Priorité",
+      "type": "Type",
       "assignee": "Assigné à",
       "labels": "Étiquettes",
       "project": "Projet",
@@ -1542,6 +1547,21 @@
       "name": "Exploration",
       "lower": "exploration",
       "hint": "Une question à résoudre en un temps limité"
+    },
+    "standup": {
+      "name": "Stand-up",
+      "lower": "stand-up",
+      "hint": "Le plan d'une organisation pour ses prochaines versions"
+    },
+    "workcycle": {
+      "name": "Cycle de travail",
+      "lower": "cycle de travail",
+      "hint": "Les versions approuvées en cours de travail"
+    },
+    "checkout": {
+      "name": "Check-out",
+      "lower": "check-out",
+      "hint": "Ce qu'un cycle de travail a livré, à relire"
     }
   },
   "templates": {

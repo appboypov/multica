@@ -646,7 +646,7 @@ func init() {
 	issueCreateCmd.Flags().String("description-file", "", "Read issue description from a UTF-8 file (preserves multi-line content verbatim; use this on Windows when stdin piping mangles non-ASCII bytes). The path must be inside the current working directory unless --allow-external-file is set.")
 	issueCreateCmd.Flags().Bool("allow-external-file", false, "Allow --description-file / --attachment to read a path outside the current working directory. Off by default so a stale file from another run/environment can't be picked up (MUL-4252).")
 	issueCreateCmd.Flags().String("status", "", "Issue status")
-	issueCreateCmd.Flags().String("type", "", "Issue type: epic, journey, story, bug, enhancement, refactor, chore, spike")
+	issueCreateCmd.Flags().String("type", "", "Issue type: epic, journey, story, bug, enhancement, refactor, chore, spike, standup, workcycle, checkout")
 	issueCreateCmd.Flags().String("worklane", "", "Worklane ID, owner/name/worklane, or unique name")
 	issueCreateCmd.Flags().String("release", "", "Release ID or version on the worklane's repository")
 	issueCreateCmd.Flags().String("priority", "", "Issue priority")

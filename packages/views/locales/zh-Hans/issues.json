@@ -173,6 +173,7 @@
     "no_project": "无项目",
     "section_status": "状态",
     "section_priority": "优先级",
+    "section_type": "类型",
     "section_assignee": "负责人",
     "section_creator": "创建者",
     "chip_op_contains": "包含 {{value}}",
@@ -198,6 +199,7 @@
     "chip_remove": "移除{{name}}筛选",
     "chip_status_count_other": "{{count}} 个状态",
     "chip_priority_count_other": "{{count}} 个优先级",
+    "chip_type_count_other": "{{count}} 个类型",
     "chip_clear": "清除",
     "chip_save": "保存",
     "active_count_other": "{{count}} 个筛选",
@@ -227,9 +229,11 @@
     "group_assignee": "负责人",
     "group_parent": "父级任务",
     "group_project": "项目",
+    "group_type": "类型",
     "sort_manual": "手动",
     "sort_status": "状态",
     "sort_priority": "优先级",
+    "sort_type": "类型",
     "sort_start_date": "开始日期",
     "sort_due_date": "截止日期",
     "sort_created": "创建时间",
@@ -305,6 +309,7 @@
       "identifier": "编号",
       "status": "状态",
       "priority": "优先级",
+      "type": "类型",
       "assignee": "负责人",
       "labels": "标签",
       "project": "项目",
@@ -1492,6 +1497,21 @@
       "name": "探索",
       "lower": "探索",
       "hint": "在限定时间内回答一个问题"
+    },
+    "standup": {
+      "name": "站会",
+      "lower": "站会",
+      "hint": "组织下一批版本的计划"
+    },
+    "workcycle": {
+      "name": "工作周期",
+      "lower": "工作周期",
+      "hint": "已批准版本的工作"
+    },
+    "checkout": {
+      "name": "验收",
+      "lower": "验收",
+      "hint": "工作周期交付成果的审阅"
     }
   },
   "templates": {

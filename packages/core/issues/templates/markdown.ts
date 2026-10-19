@@ -1,9 +1,8 @@
 import type { IssueTemplate, IssueTemplateSection } from "../../types";
 
 /**
- * The TypeScript port of `server/internal/issuetemplate/markdown.go`. Both
- * run every case of `server/internal/issuetemplate/testdata/cases.json`, so
- * New issue's Markdown shows exactly what the server would write.
+ * The TypeScript port of `server/internal/issuetemplate/markdown.go`, so New
+ * issue's Markdown shows exactly what the server would write.
  */
 
 type Section = Pick<IssueTemplateSection, "heading" | "question">;

@@ -218,6 +218,7 @@ export interface ListIssuesParams {
     | "position"
     | "status"
     | "priority"
+    | "type"
     | "title"
     | "created_at"
     | "updated_at"
@@ -268,6 +269,7 @@ export interface ListGroupedIssuesParams {
     | "position"
     | "status"
     | "priority"
+    | "type"
     | "title"
     | "created_at"
     | "updated_at"
@@ -337,6 +339,7 @@ export type IssueTableSortField =
   | "position"
   | "status"
   | "priority"
+  | "type"
   | "title"
   | "created_at"
   | "updated_at"
@@ -372,6 +375,7 @@ export type IssueTableGroupSpec =
   | { kind: "status_category"; category_format?: "lifecycle" }
   | { kind: "assignee" }
   | { kind: "project" }
+  | { kind: "type" }
   | { kind: "parent" }
   | {
       kind: "compound";
@@ -406,6 +410,8 @@ export type IssueTableGroupValue =
   | { kind: "status"; status: string }
   | { kind: "assignee"; actor: IssueTableActorRef | null }
   | { kind: "project"; project_id: string | null }
+  /** `type` is absent for the group of issues without a type. */
+  | { kind: "type"; type?: IssueType }
   | {
       kind: "parent";
       parent_id: string | null;
@@ -473,6 +479,7 @@ export interface IssueTableRowsResponse {
 export type IssueTableFacetSpec =
   | { kind: "status" }
   | { kind: "priority" }
+  | { kind: "type" }
   | { kind: "assignee" }
   | { kind: "creator" }
   | { kind: "project" }

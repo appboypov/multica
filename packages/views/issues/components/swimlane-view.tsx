@@ -668,6 +668,7 @@ function SwimLaneViewImpl({
     // Status is enforced by visible-column rendering, not by filterIssues
     statusFilters: [],
     priorityFilters: activeFiltersProp?.priorityFilters ?? [],
+    typeFilters: activeFiltersProp?.typeFilters ?? [],
     assigneeFilters: activeFiltersProp?.assigneeFilters ?? [],
     includeNoAssignee: activeFiltersProp?.includeNoAssignee ?? false,
     assigneeFilterActive: activeFiltersProp?.assigneeFilterActive ?? false,

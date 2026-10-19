@@ -1,6 +1,6 @@
 import type { ActorFilterValue, FilterSnapshot } from "../issues/stores/view-store";
-import type { IssuePriority, IssueStatus, PropertyFilterValue } from "../types";
-import { isKnownPropertyFilterOp, isPropertyOperatorFilter, propertyFilterValueKey } from "../types";
+import type { IssuePriority, IssueStatus, IssueType, PropertyFilterValue } from "../types";
+import { ISSUE_TYPES, isKnownPropertyFilterOp, isPropertyOperatorFilter, propertyFilterValueKey } from "../types";
 import { PRIORITY_DISPLAY_ORDER } from "../issues/config";
 
 /**
@@ -15,6 +15,8 @@ import { PRIORITY_DISPLAY_ORDER } from "../issues/config";
 export interface IssueViewBaseline {
   status: Set<string>;
   priority: Set<string>;
+  /** Issue types, with `"none"` for issues without a type. */
+  type: Set<string>;
   /** Actor keys as `${type}:${id}`. */
   assignee: Set<string>;
   includeNoAssignee: boolean;
@@ -75,6 +77,9 @@ export function baselineFromQuery(query: Record<string, unknown>): IssueViewBase
   const priorityFilters = stringArray(query.priorityFilters).filter(
     (p): p is IssuePriority => (PRIORITY_DISPLAY_ORDER as readonly string[]).includes(p),
   );
+  const typeFilters = stringArray(query.typeFilters).filter(
+    (t): t is IssueType | "none" => t === "none" || (ISSUE_TYPES as readonly string[]).includes(t),
+  );
   const assigneeFilters = actorArray(query.assigneeFilters);
   const creatorFilters = actorArray(query.creatorFilters);
   const projectFilters = stringArray(query.projectFilters);
@@ -99,6 +104,7 @@ export function baselineFromQuery(query: Record<string, unknown>): IssueViewBase
   return {
     status: new Set(statusFilters),
     priority: new Set(priorityFilters),
+    type: new Set(typeFilters),
     assignee: new Set(assigneeFilters.map(actorFilterKey)),
     includeNoAssignee,
     creator: new Set(creatorFilters.map(actorFilterKey)),
@@ -109,6 +115,7 @@ export function baselineFromQuery(query: Record<string, unknown>): IssueViewBase
     raw: {
       statusFilters,
       priorityFilters,
+      typeFilters,
       assigneeFilters,
       includeNoAssignee,
       creatorFilters,

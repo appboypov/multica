@@ -3,7 +3,7 @@ import {
   closestCenter,
   type CollisionDetection,
 } from "@dnd-kit/core";
-import type { Issue, IssueAssigneeType, IssueStatus, UpdateIssueRequest } from "@multica/core/types";
+import type { Issue, IssueAssigneeType, IssueStatus, IssueType, UpdateIssueRequest } from "@multica/core/types";
 import type { IssueGrouping } from "@multica/core/issues/stores/view-store";
 import { propertyIdFromViewKey } from "@multica/core/issues/stores/view-store";
 import type { BoardColumnGroup } from "../components/board-column";
@@ -53,6 +53,11 @@ export function projectGroupId(projectId: string | null): string {
   return `project:${projectId ?? "none"}`;
 }
 
+/** Mirrors the server's type group key (`type:<type>` / `type:none`). */
+export function typeGroupId(type: IssueType | null): string {
+  return `type:${type ?? "none"}`;
+}
+
 export function getIssueGroupId(
   issue: Issue,
   grouping: IssueGrouping,
@@ -61,6 +66,7 @@ export function getIssueGroupId(
   // Column identity is the exact status key, including custom statuses.
   if (grouping === "status") return statusGroupId(issue.status);
   if (grouping === "project") return projectGroupId(issue.project_id ?? null);
+  if (grouping === "type") return typeGroupId(issue.type ?? null);
   const propertyId = propertyIdFromViewKey(grouping);
   if (propertyId) {
     const value = issue.properties?.[propertyId];
@@ -156,6 +162,9 @@ export function issueMatchesGroup(issue: Issue, group: BoardColumnGroup): boolea
   if (group.projectId !== undefined) {
     return (issue.project_id ?? null) === group.projectId;
   }
+  if (group.issueType !== undefined) {
+    return (issue.type ?? null) === group.issueType;
+  }
   return (
     (issue.assignee_type ?? null) === (group.assigneeType ?? null) &&
     (issue.assignee_id ?? null) === (group.assigneeId ?? null)
@@ -181,6 +190,8 @@ export function getMoveUpdates(
   if (group.projectId !== undefined) {
     return { project_id: group.projectId, position };
   }
+  // A type never changes, so a type column only reorders.
+  if (group.issueType !== undefined) return { position };
   return {
     assignee_type: group.assigneeType ?? null,
     assignee_id: group.assigneeId ?? null,

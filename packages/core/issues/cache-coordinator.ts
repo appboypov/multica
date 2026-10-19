@@ -298,6 +298,8 @@ function flatWindowNeedsReconcile(
       return changed.status;
     case "priority":
       return patchFieldChanged(patch, base, "priority");
+    case "type":
+      return patchFieldChanged(patch, base, "type");
     case "created_at":
       return patchFieldChanged(patch, base, "created_at");
     case "updated_at":

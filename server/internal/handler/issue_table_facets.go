@@ -55,6 +55,8 @@ func issueTableQueryWithoutFacet(input issueTableQuerySpec, facet issueTableFace
 		output.Filters.Statuses = nil
 	case "priority":
 		output.Filters.Priorities = nil
+	case "type":
+		output.Filters.Types = nil
 	case "assignee":
 		output.Filters.Assignees = nil
 		output.Filters.IncludeNoAssignee = false
@@ -91,6 +93,8 @@ func issueTableBaseFacetExpression(query issueTableQuerySpec, facet issueTableFa
 		return "i.status", len(query.Filters.Statuses) == 0
 	case "priority":
 		return "i.priority", len(query.Filters.Priorities) == 0
+	case "type":
+		return "COALESCE(i.type, '" + issueTableNoType + "')", len(query.Filters.Types) == 0
 	case "assignee":
 		return "CASE WHEN i.assignee_type IS NULL OR i.assignee_id IS NULL THEN '__none__' ELSE i.assignee_type || ':' || i.assignee_id::text END", len(query.Filters.Assignees) == 0 && !query.Filters.IncludeNoAssignee
 	case "creator":
@@ -195,6 +199,8 @@ func (h *Handler) issueTableFacetQuery(w http.ResponseWriter, r *http.Request, r
 		query = fmt.Sprintf(`SELECT i.status, COUNT(*)::bigint FROM issue i WHERE %s GROUP BY i.status`, compiled.where)
 	case "priority":
 		query = fmt.Sprintf(`SELECT i.priority, COUNT(*)::bigint FROM issue i WHERE %s GROUP BY i.priority`, compiled.where)
+	case "type":
+		query = fmt.Sprintf(`SELECT COALESCE(i.type, '`+issueTableNoType+`'), COUNT(*)::bigint FROM issue i WHERE %s GROUP BY 1`, compiled.where)
 	case "assignee":
 		query = fmt.Sprintf(`SELECT CASE WHEN i.assignee_type IS NULL OR i.assignee_id IS NULL THEN '__none__' ELSE i.assignee_type || ':' || i.assignee_id::text END, COUNT(*)::bigint FROM issue i WHERE %s GROUP BY 1`, compiled.where)
 	case "creator":

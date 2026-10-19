@@ -20,7 +20,7 @@ export function createIssueStatusListStore(key: string) {
   return createStore<IssueViewState>()((set) => ({
     ...viewStoreSlice(set),
     viewMode: "list", grouping: "status", statusFilters: [key],
-    priorityFilters: [], assigneeFilters: [], includeNoAssignee: false,
+    priorityFilters: [], typeFilters: [], assigneeFilters: [], includeNoAssignee: false,
     creatorFilters: [], projectFilters: [], includeNoProject: false,
     labelFilters: [], propertyFilters: {}, dateFilter: null,
     agentRunningFilter: false, showSubIssues: true,

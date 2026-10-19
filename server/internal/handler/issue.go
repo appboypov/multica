@@ -1550,6 +1550,9 @@ func (h *Handler) ListIssues(w http.ResponseWriter, r *http.Request) {
 		case "priority":
 			sortCol = "CASE i.priority WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 WHEN 'low' THEN 3 ELSE 4 END"
 			sortIsExpr = true
+		case "type":
+			sortCol = issueTypeSortExpression
+			sortIsExpr = true
 		default:
 			// property:<definitionId> sorts by the custom-property value
 			// (typed expression); unknown/archived definitions degrade to
@@ -2341,6 +2344,9 @@ func (h *Handler) ListGroupedIssues(w http.ResponseWriter, r *http.Request) {
 			sortIsExpr = true
 		case "priority":
 			sortCol = "CASE i.priority WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 WHEN 'low' THEN 3 ELSE 4 END"
+			sortIsExpr = true
+		case "type":
+			sortCol = issueTypeSortExpression
 			sortIsExpr = true
 		default:
 			// property:<definitionId> sorts by the custom-property value

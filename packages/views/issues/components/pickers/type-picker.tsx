@@ -16,7 +16,7 @@ interface TypePickerProps {
 }
 
 /**
- * Type on the issue page. An issue without a type offers the eight once; a
+ * Type on the issue page. An issue without a type offers the eleven once; a
  * set type shows itself and offers no other (the `issue-types` spec delta).
  */
 export function TypePicker({ type, onPick, align }: TypePickerProps) {

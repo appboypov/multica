@@ -1,12 +1,12 @@
 # issue-templates Specification
 
 ## Purpose
-Lets Brian create an issue in New issue with a free description from No template, or from one of eight templates, filling its fields into the template's one Markdown description.
+Lets Brian create an issue in New issue with a free description from No template, or from one of eleven templates, filling its fields into the template's one Markdown description.
 
 ## Requirements
 
-### Requirement: New issue starts from No template or one of eight templates
-New issue SHALL list No template first and then the eight templates on the left, each with its type icon, its name and its hint, with No template picked when it opens. With No template the issue SHALL have no type and a free description, and the button SHALL say "Create Issue". A picked template SHALL set the issue's type, its fields and the button "Create {template}" in lowercase.
+### Requirement: New issue starts from No template or one of eleven templates
+New issue SHALL list No template first and then the eleven templates on the left, each with its type icon, its name and its hint, with No template picked when it opens. With No template the issue SHALL have no type and a free description, and the button SHALL say "Create Issue". A picked template SHALL set the issue's type, its fields and the button "Create {template}" in lowercase.
 
 | Template | Hint |
 |---|---|
@@ -19,10 +19,13 @@ New issue SHALL list No template first and then the eight templates on the left,
 | Refactor | Same behaviour, better shape |
 | Chore | Upkeep that keeps things running |
 | Spike | A question to answer in a time box |
+| Stand-up | An organisation's plan for its next releases |
+| Workcycle | The approved releases at work |
+| Check-out | What a workcycle delivered, for review |
 
 #### Scenario: New issue opens
 - **WHEN** Brian clicks New Issue in the sidebar
-- **THEN** New issue lists No template, Epic, Journey, Story, Bug, Enhancement, Refactor, Chore and Spike, each with its icon and hint
+- **THEN** New issue lists No template, Epic, Journey, Story, Bug, Enhancement, Refactor, Chore, Spike, Stand-up, Workcycle and Check-out, each with its icon and hint
 - **AND** No template is picked, the type chip says "No type" and the button says "Create Issue"
 
 #### Scenario: Creating an issue with No template
@@ -47,6 +50,9 @@ Each template SHALL show its fields, as in this table, and every field SHALL be 
 | Refactor | Refactor, Behavioral contract, Acceptance criteria |
 | Chore | Chore, Baseline, Target state, Acceptance criteria |
 | Spike | Spike objective, Research questions, Time box |
+| Stand-up | Workcycle, Releases, Since the last workcycle, What waits, What changed, Settled with Brian, Changes to the releases, Client to-dos |
+| Workcycle | Releases, Done when |
+| Check-out | Delivered against the plan, Not done and why, Questions for Brian, Packages, For the next stand-up |
 
 #### Scenario: Story's fields
 - **WHEN** Brian picks Story
@@ -55,6 +61,10 @@ Each template SHALL show its fields, as in this table, and every field SHALL be 
 #### Scenario: Spike's fields
 - **WHEN** Brian picks Spike
 - **THEN** the fields are Spike objective, Research questions and Time box
+
+#### Scenario: Workcycle's fields
+- **WHEN** Brian picks Workcycle
+- **THEN** the fields are Releases and Done when
 
 ### Requirement: The fields fill the template's one Markdown description
 New issue SHALL show the fields, and a Markdown toggle SHALL show the picked template's Markdown instead, each section with its emoji heading and its question as a quote, with what Brian typed in each field placed in its section: a text field as written, a list field one line per item as `- {item}`, a checklist field one line per item as `- [ ] {item}`, and Journey's Scenarios one scenario section per line. A section whose field is empty, or that has no field, SHALL keep only its heading and question. A copy button SHALL copy that Markdown. The created issue SHALL keep only that Markdown as its description and keep no separate fields.

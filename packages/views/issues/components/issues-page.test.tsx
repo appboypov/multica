@@ -294,6 +294,7 @@ const mockViewState = {
   grouping: "status" as "status" | "assignee",
   statusFilters: [] as string[],
   priorityFilters: [] as string[],
+  typeFilters: [] as string[],
   assigneeFilters: [] as { type: string; id: string }[],
   includeNoAssignee: false,
   creatorFilters: [] as { type: string; id: string }[],

@@ -1,10 +1,14 @@
-import type { Issue, IssueStatus, IssuePriority, IssueAssigneeGroup, PropertyFilterValue, PropertyOperatorFilter } from "@multica/core/types";
+import type { Issue, IssueStatus, IssuePriority, IssueType, IssueAssigneeGroup, PropertyFilterValue, PropertyOperatorFilter } from "@multica/core/types";
+import { issueTypePicked } from "@multica/core/issues/surface/membership";
 import type { ActorFilterValue } from "@multica/core/issues/stores/view-store";
 import type { IssueActivityState } from "../surface/activity";
 
 export interface IssueFilters {
   statusFilters: IssueStatus[];
   priorityFilters: IssuePriority[];
+  /** Issue types, with `"none"` for issues without a type. Empty or absent
+   *  keeps every type. */
+  typeFilters?: (IssueType | "none")[];
   assigneeFilters: ActorFilterValue[];
   includeNoAssignee: boolean;
   /** Keeps an explicitly active assignee predicate distinct from the normal
@@ -33,6 +37,8 @@ export interface IssueFilters {
 export interface IssueFilterState {
   statusFilters: IssueStatus[];
   priorityFilters: IssuePriority[];
+  /** See IssueFilters.typeFilters. */
+  typeFilters?: (IssueType | "none")[];
   assigneeFilters: ActorFilterValue[];
   includeNoAssignee: boolean;
   /** See IssueFilters.assigneeFilterActive. */
@@ -209,6 +215,9 @@ export function applyIssueFilters(
     if (priorityFilters.length > 0 && !priorityFilters.includes(issue.priority))
       return false;
 
+    if (filters.typeFilters && !issueTypePicked(issue.type, filters.typeFilters))
+      return false;
+
     if (hasAssigneeFilter) {
       if (!issue.assignee_id) {
         // Unassigned issue — show only if "No assignee" is checked
@@ -264,6 +273,7 @@ export function filterIssues(issues: Issue[], filters: IssueFilters): Issue[] {
     {
       statusFilters: filters.statusFilters,
       priorityFilters: filters.priorityFilters,
+      typeFilters: filters.typeFilters,
       assigneeFilters: filters.assigneeFilters,
       includeNoAssignee: filters.includeNoAssignee,
       assigneeFilterActive: filters.assigneeFilterActive,

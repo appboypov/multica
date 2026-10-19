@@ -21,6 +21,7 @@ import (
 	"github.com/multica-ai/multica/server/internal/issueguard"
 	"github.com/multica-ai/multica/server/internal/issueposition"
 	"github.com/multica-ai/multica/server/internal/issuestatus"
+	"github.com/multica-ai/multica/server/internal/issuetemplate"
 	obsmetrics "github.com/multica-ai/multica/server/internal/metrics"
 	"github.com/multica-ai/multica/server/internal/util"
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
@@ -756,6 +757,7 @@ func (s *AutopilotService) dispatchCreateIssue(ctx context.Context, ap db.Autopi
 		ProjectID:     projectID,
 		OriginType:    pgtype.Text{String: "autopilot", Valid: true},
 		OriginID:      ap.ID,
+		Type:          ap.IssueType,
 	})
 	if err != nil {
 		return fmt.Errorf("create issue: %w", err)
@@ -1810,6 +1812,12 @@ func (s *AutopilotService) buildIssueDescription(ap db.Autopilot, run db.Autopil
 		b.WriteString("\n\nWebhook payload:\n```json\n")
 		b.Write(payloadJSON)
 		b.WriteString("\n```")
+	}
+
+	// A typed issue holds its type's template, for the run to fill in.
+	if t, ok := issuetemplate.ByType(ap.IssueType.String); ap.IssueType.Valid && ok {
+		b.WriteString("\n\n")
+		b.WriteString(issuetemplate.Markdown(t, nil))
 	}
 
 	return pgtype.Text{String: b.String(), Valid: true}

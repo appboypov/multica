@@ -28,8 +28,21 @@ const (
 	issueTableQueryTimeout    = 8 * time.Second
 )
 
-// issueTableNoType in filters.types picks issues without a type.
+// issueTableNoType in filters.types and in a type group key picks issues
+// without a type.
 const issueTableNoType = "none"
+
+// issueTableNoTypeGroup is the group value of issues without a type.
+const issueTableNoTypeGroup = "__no_type__"
+
+// issueTypeSortExpression orders issues by type in template order, with
+// issues without a type last. The types are code constants, so they sit in
+// the SQL as literals.
+var issueTypeSortExpression = fmt.Sprintf(
+	"COALESCE(array_position(ARRAY['%s']::text[], i.type), %d)",
+	strings.Join(issuetemplate.Types(), "','"),
+	len(issuetemplate.Types())+1,
+)
 
 func withIssueTableQueryTimeout(r *http.Request) (*http.Request, context.CancelFunc) {
 	ctx, cancel := context.WithTimeout(r.Context(), issueTableQueryTimeout)

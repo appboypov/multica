@@ -1,5 +1,6 @@
-// Package issuetemplate holds the eight issue templates and turns a template's
-// filled fields into the one Markdown description an issue keeps (ADR-0012).
+// Package issuetemplate holds the eleven issue templates and turns a template's
+// filled fields into the one Markdown description an issue keeps (ADR-0012,
+// ADR-0032).
 // It has no database or HTTP imports.
 package issuetemplate
 
@@ -36,7 +37,7 @@ type Template struct {
 	Sections []Section `json:"sections"`
 }
 
-// All returns the eight templates in their fixed order.
+// All returns the eleven templates in their fixed order.
 func All() []Template {
 	return templates
 }
@@ -51,7 +52,7 @@ func ByType(issueType string) (Template, bool) {
 	return Template{}, false
 }
 
-// Types returns the eight issue types in template order.
+// Types returns the eleven issue types in template order.
 func Types() []string {
 	types := make([]string, len(templates))
 	for i, t := range templates {
@@ -60,15 +61,15 @@ func Types() []string {
 	return types
 }
 
-// IsType reports whether issueType is one of the eight.
+// IsType reports whether issueType is one of the eleven.
 func IsType(issueType string) bool {
 	_, ok := ByType(issueType)
 	return ok
 }
 
-// The eight issue templates (ADR-0012), ported from TEMPLATES in
-// prototypes/web/src/components/generated/model.ts without the prototype's
-// name, hint and example, which are UI copy and a prototype aid.
+// The eleven issue templates (ADR-0032). The first eight are ported from
+// TEMPLATES in prototypes/web/src/components/generated/model.ts without the
+// prototype's name, hint and example, which are UI copy and a prototype aid.
 var templates = []Template{
 	{
 		Type: "epic",
@@ -198,6 +199,39 @@ var templates = []Template{
 			{Heading: "## 📚 Resources", Question: "What documentation, repos, or contacts might help?"},
 			{Heading: "## 📝 Expected Output", Question: "What artifacts will be produced?"},
 			{Heading: "## 🔗 Related Tickets", Question: "Which work is blocked pending this spike?"},
+		},
+	},
+	{
+		Type: "standup",
+		Sections: []Section{
+			{Heading: "## 🔁 Workcycle", Question: "Which workcycle issue does this stand-up make?", Field: &Field{Key: "workcycle", Label: "Workcycle", Placeholder: "The workcycle issue", Rows: 1, Format: FormatText}},
+			{Heading: "## 📦 Releases", Question: "Which release of each repository starts, and what does it deliver?", Field: &Field{Key: "releases", Label: "Releases", Placeholder: "{version} of {repository}: what it delivers. One per line", Rows: 3, Format: FormatBullets}},
+			{Heading: "## 📬 Since the last workcycle", Question: "What was delivered and what not, and what feedback came in?", Field: &Field{Key: "since", Label: "Since the last workcycle", Placeholder: "One per line", Rows: 3, Format: FormatBullets}},
+			{Heading: "## ⏳ What waits", Question: "What waits on Brian, the client or a third party?", Field: &Field{Key: "waits", Label: "What waits", Placeholder: "One per line", Rows: 2, Format: FormatBullets}},
+			{Heading: "## 🔀 What changed", Question: "Which new input changes scope, order or releases?", Field: &Field{Key: "changed", Label: "What changed", Placeholder: "One per line", Rows: 2, Format: FormatBullets}},
+			{Heading: "## 🤝 Settled with Brian", Question: "What did Brian settle in this stand-up?", Field: &Field{Key: "settled", Label: "Settled with Brian", Placeholder: "One per line", Rows: 2, Format: FormatBullets}},
+			{Heading: "## ✏️ Changes to the releases", Question: "What changes in these releases and the later ones?", Field: &Field{Key: "release_changes", Label: "Changes to the releases", Placeholder: "One per line", Rows: 2, Format: FormatBullets}},
+			{Heading: "## 🛤️ Issues per lane", Question: "Which issues run in each lane, in order, with their assignee and gate?"},
+			{Heading: "## 📋 Client to-dos", Question: "What must the client deliver?", Field: &Field{Key: "client_todos", Label: "Client to-dos", Placeholder: "One per line", Rows: 2, Format: FormatChecks}},
+			{Heading: "## 💬 Client message", Question: "What does the briefing to the client say?"},
+		},
+	},
+	{
+		Type: "workcycle",
+		Sections: []Section{
+			{Heading: "## 📦 Releases", Question: "Which release of each repository runs, on which branch and with which owner?", Field: &Field{Key: "releases", Label: "Releases", Placeholder: "{version} of {repository} on {branch}, owned by {squad}. One per line", Rows: 3, Format: FormatBullets}},
+			{Heading: "## ✅ Done when", Question: "When is this workcycle done?", Field: &Field{Key: "done", Label: "Done when", Placeholder: "One per line", Rows: 2, Format: FormatChecks}},
+		},
+	},
+	{
+		Type: "checkout",
+		Sections: []Section{
+			{Heading: "## 📦 Delivered against the plan", Question: "What did the workcycle deliver against the stand-up's plan?", Field: &Field{Key: "delivered", Label: "Delivered against the plan", Placeholder: "One per line", Rows: 3, Format: FormatBullets}},
+			{Heading: "## ⚠️ Not done and why", Question: "What was not done, and why?", Field: &Field{Key: "not_done", Label: "Not done and why", Placeholder: "One per line", Rows: 2, Format: FormatBullets}},
+			{Heading: "## ❓ Questions for Brian", Question: "What must Brian answer?", Field: &Field{Key: "questions", Label: "Questions for Brian", Placeholder: "One per line", Rows: 2, Format: FormatChecks}},
+			{Heading: "## 🎁 Packages", Question: "What does Brian review, each with its link?", Field: &Field{Key: "packages", Label: "Packages", Placeholder: "One per line, with its link", Rows: 3, Format: FormatBullets}},
+			{Heading: "## 💬 Client update", Question: "What does the check-out update to the client say?"},
+			{Heading: "## ➡️ For the next stand-up", Question: "What goes into the next stand-up?", Field: &Field{Key: "next", Label: "For the next stand-up", Placeholder: "One per line", Rows: 2, Format: FormatBullets}},
 		},
 	},
 }

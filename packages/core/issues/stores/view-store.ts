@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 import { create } from "zustand";
 import { createStore, type StoreApi } from "zustand/vanilla";
 import { createJSONStorage, persist } from "zustand/middleware";
-import type { IssueStatus, IssuePriority, PropertyFilterValue } from "../../types";
+import type { IssueStatus, IssuePriority, IssueType, PropertyFilterValue } from "../../types";
 import { createWorkspaceAwareStorage, registerForWorkspaceRehydration } from "../../platform/workspace-storage";
 import { defaultStorage } from "../../platform/storage";
 
@@ -20,6 +20,7 @@ export type IssueGrouping =
   | "status"
   | "assignee"
   | "project"
+  | "type"
   | `property:${string}`;
 export type SwimlaneGrouping = "parent" | "project" | "assignee";
 /**
@@ -31,6 +32,7 @@ export type SortField =
   | "position"
   | "status"
   | "priority"
+  | "type"
   | "start_date"
   | "due_date"
   | "created_at"
@@ -45,6 +47,7 @@ export type TableSystemColumnKey =
   | "identifier"
   | "status"
   | "priority"
+  | "type"
   | "assignee"
   | "labels"
   | "project"
@@ -64,6 +67,7 @@ export type TableGrouping =
   | "status"
   | "assignee"
   | "project"
+  | "type"
   | `property:${string}`;
 export type TableCalculation = "none" | "sum" | "average" | "count";
 
@@ -72,6 +76,7 @@ export const TABLE_SYSTEM_COLUMNS: readonly TableSystemColumnKey[] = [
   "identifier",
   "status",
   "priority",
+  "type",
   "assignee",
   "labels",
   "project",
@@ -120,6 +125,8 @@ export interface ActorFilterValue {
 export interface FilterSnapshot {
   statusFilters: IssueStatus[];
   priorityFilters: IssuePriority[];
+  /** Issue types, with `"none"` for issues without a type. */
+  typeFilters: (IssueType | "none")[];
   assigneeFilters: ActorFilterValue[];
   includeNoAssignee: boolean;
   creatorFilters: ActorFilterValue[];
@@ -134,6 +141,7 @@ export interface FilterSnapshot {
 export type FilterDimension =
   | "status"
   | "priority"
+  | "type"
   | "assignee"
   | "creator"
   | "project"
@@ -153,6 +161,7 @@ export const SORT_OPTIONS: { value: StaticSortField; label: string }[] = [
   { value: "position", label: "Manual" },
   { value: "status", label: "Status" },
   { value: "priority", label: "Priority" },
+  { value: "type", label: "Type" },
   { value: "start_date", label: "Start date" },
   { value: "due_date", label: "Due date" },
   { value: "created_at", label: "Created date" },
@@ -164,6 +173,7 @@ export const GROUPING_OPTIONS: { value: StaticIssueGrouping; label: string }[] =
   { value: "status", label: "Status" },
   { value: "assignee", label: "Assignee" },
   { value: "project", label: "Project" },
+  { value: "type", label: "Type" },
 ];
 
 export const CARD_PROPERTY_OPTIONS: { key: keyof CardProperties; label: string }[] = [
@@ -237,6 +247,7 @@ export interface IssueViewState {
   grouping: IssueGrouping;
   statusFilters: IssueStatus[];
   priorityFilters: IssuePriority[];
+  typeFilters: (IssueType | "none")[];
   assigneeFilters: ActorFilterValue[];
   includeNoAssignee: boolean;
   creatorFilters: ActorFilterValue[];
@@ -306,6 +317,7 @@ export interface IssueViewState {
   setGrouping: (grouping: IssueGrouping) => void;
   toggleStatusFilter: (status: IssueStatus) => void;
   togglePriorityFilter: (priority: IssuePriority) => void;
+  toggleTypeFilter: (type: IssueType | "none") => void;
   toggleAssigneeFilter: (value: ActorFilterValue) => void;
   toggleNoAssignee: () => void;
   toggleCreatorFilter: (value: ActorFilterValue) => void;
@@ -354,6 +366,7 @@ export const viewStoreSlice = (set: StoreApi<IssueViewState>["setState"]): Issue
   grouping: "status",
   statusFilters: [],
   priorityFilters: [],
+  typeFilters: [],
   assigneeFilters: [],
   includeNoAssignee: false,
   creatorFilters: [],
@@ -415,6 +428,12 @@ export const viewStoreSlice = (set: StoreApi<IssueViewState>["setState"]): Issue
       priorityFilters: state.priorityFilters.includes(priority)
         ? state.priorityFilters.filter((p) => p !== priority)
         : [...state.priorityFilters, priority],
+    })),
+  toggleTypeFilter: (type) =>
+    set((state) => ({
+      typeFilters: state.typeFilters.includes(type)
+        ? state.typeFilters.filter((t) => t !== type)
+        : [...state.typeFilters, type],
     })),
   toggleAssigneeFilter: (value) =>
     set((state) => {
@@ -493,6 +512,7 @@ export const viewStoreSlice = (set: StoreApi<IssueViewState>["setState"]): Issue
     set({
       statusFilters: [],
       priorityFilters: [],
+      typeFilters: [],
       assigneeFilters: [],
       includeNoAssignee: false,
       creatorFilters: [],
@@ -511,6 +531,8 @@ export const viewStoreSlice = (set: StoreApi<IssueViewState>["setState"]): Issue
           return { statusFilters: [] };
         case "priority":
           return { priorityFilters: [] };
+        case "type":
+          return { typeFilters: [] };
         case "assignee":
           return { assigneeFilters: [], includeNoAssignee: false };
         case "creator":
@@ -647,6 +669,7 @@ export const viewStorePersistOptions = (name: string) => ({
     grouping: state.grouping,
     statusFilters: state.statusFilters,
     priorityFilters: state.priorityFilters,
+    typeFilters: state.typeFilters,
     assigneeFilters: state.assigneeFilters,
     includeNoAssignee: state.includeNoAssignee,
     creatorFilters: state.creatorFilters,

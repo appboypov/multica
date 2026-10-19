@@ -81,6 +81,33 @@ func TestBuildIssueDescription_NoTriggerPayload(t *testing.T) {
 	}
 }
 
+func TestBuildIssueDescription_TypedIssueHoldsItsTemplate(t *testing.T) {
+	s := &AutopilotService{}
+	run := db.AutopilotRun{Source: "schedule", TriggeredAt: pgtype.Timestamptz{Time: time.Now().UTC(), Valid: true}}
+
+	standup := db.Autopilot{
+		Description: pgtype.Text{String: "Run the stand-up", Valid: true},
+		IssueType:   pgtype.Text{String: "standup", Valid: true},
+	}
+	got := s.buildIssueDescription(standup, run, "UTC").String
+	if !strings.HasPrefix(got, "Run the stand-up") {
+		t.Fatalf("description should keep the autopilot's description first: %q", got)
+	}
+	for _, heading := range []string{"## 🔁 Workcycle", "## 🛤️ Issues per lane", "## 💬 Client message"} {
+		if !strings.Contains(got, heading) {
+			t.Fatalf("stand-up description misses %q: %q", heading, got)
+		}
+	}
+	if strings.Index(got, "Autopilot run triggered at") > strings.Index(got, "## 🔁 Workcycle") {
+		t.Fatalf("template should follow the run note: %q", got)
+	}
+
+	untyped := db.Autopilot{Description: pgtype.Text{String: "Run the stand-up", Valid: true}}
+	if got := s.buildIssueDescription(untyped, run, "UTC").String; strings.Contains(got, "## ") {
+		t.Fatalf("an untyped autopilot's issue must hold no template: %q", got)
+	}
+}
+
 func TestBuildIssueDescription_UsesTriggerTimezone(t *testing.T) {
 	s := &AutopilotService{}
 	ap := db.Autopilot{Description: pgtype.Text{String: "daily sync", Valid: true}}
