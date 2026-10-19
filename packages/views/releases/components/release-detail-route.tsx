@@ -68,5 +68,9 @@ export function ReleaseDetailRoute({ releaseId }: { releaseId: string }) {
     );
   }
 
-  return <ReleaseDetail key={release.id} release={release} />;
+  return (
+    <div data-tab-scroll-root className="min-h-0 flex-1 overflow-y-auto [scrollbar-gutter:stable_both-edges]">
+      <ReleaseDetail key={release.id} release={release} />
+    </div>
+  );
 }
