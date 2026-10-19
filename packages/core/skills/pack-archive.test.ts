@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  MAX_SKILL_FILE_BYTES,
   isIgnoredArchiveEntry,
   isSkillArchiveFilename,
   packStoreZip,
@@ -173,7 +172,7 @@ function fileWithPath(
 }
 
 describe("prepareSkillArchiveFromPickerFiles", () => {
-  it("does not call arrayBuffer for ignored or oversized entries", async () => {
+  it("does not call arrayBuffer for ignored or binary entries", async () => {
     const skill = fileWithPath("SKILL.md", "skill/SKILL.md", bytes(SKILL_MD));
     const ignored = fileWithPath(
       ".DS_Store",
@@ -182,17 +181,6 @@ describe("prepareSkillArchiveFromPickerFiles", () => {
       {
         arrayBuffer: async () => {
           throw new Error("should not read ignored");
-        },
-      },
-    );
-    const oversized = fileWithPath(
-      "big.md",
-      "skill/big.md",
-      new Uint8Array(0),
-      {
-        size: MAX_SKILL_FILE_BYTES + 1,
-        arrayBuffer: async () => {
-          throw new Error("should not read oversized");
         },
       },
     );
@@ -210,12 +198,25 @@ describe("prepareSkillArchiveFromPickerFiles", () => {
     const prepared = await prepareSkillArchiveFromPickerFiles([
       skill,
       ignored,
-      oversized,
       binary,
     ]);
     expect(prepared.ok).toBe(true);
     if (!prepared.ok) return;
     expect(prepared.preview.fileCount).toBe(1);
+  });
+
+  it("packs a skill of any size and file count", async () => {
+    const files = [
+      fileWithPath("SKILL.md", "skill/SKILL.md", bytes(SKILL_MD)),
+      fileWithPath("big.md", "skill/big.md", new Uint8Array(9 << 20).fill(97)),
+    ];
+    for (let i = 0; i < 300; i++) {
+      files.push(fileWithPath(`ref-${i}.md`, `skill/library/ref-${i}.md`, bytes("ref")));
+    }
+    const prepared = await prepareSkillArchiveFromPickerFiles(files);
+    expect(prepared.ok).toBe(true);
+    if (!prepared.ok) return;
+    expect(prepared.preview.fileCount).toBe(files.length);
   });
 });
 

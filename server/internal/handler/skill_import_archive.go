@@ -14,12 +14,9 @@ import (
 	skillpkg "github.com/multica-ai/multica/server/internal/skill"
 )
 
-// maxImportArchiveUploadSize bounds the compressed upload accepted by the
-// archive import path. The decompressed bundle is still held to the existing
-// per-file / total / file-count caps (maxImportFileSize, maxImportTotalSize,
-// maxImportFileCount); this outer cap just stops a client from streaming an
-// unbounded compressed body before those decompression limits can apply.
-const maxImportArchiveUploadSize = 16 << 20 // 16 MiB
+// archiveFormMemory is how much of an uploaded skill archive multipart parsing
+// holds in memory; the rest spills to a temporary file.
+const archiveFormMemory = 32 << 20
 
 // isMultipartForm reports whether the request carries a multipart/form-data
 // body (an uploaded skill archive) rather than the JSON URL-import body.
@@ -34,9 +31,8 @@ func isMultipartForm(r *http.Request) bool {
 // produces structured (status / skill / existing_skill) results — there is no
 // legacy pre-on_conflict client for it to stay compatible with.
 func (h *Handler) importSkillFromArchive(w http.ResponseWriter, r *http.Request, workspaceID string, workspaceUUID, creatorUUID pgtype.UUID, creatorID string) {
-	r.Body = http.MaxBytesReader(w, r.Body, maxImportArchiveUploadSize)
-	if err := r.ParseMultipartForm(maxImportArchiveUploadSize); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid multipart upload or file exceeds the size limit")
+	if err := r.ParseMultipartForm(archiveFormMemory); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid multipart upload")
 		return
 	}
 	defer func() {
@@ -132,7 +128,7 @@ func parseSkillArchive(data []byte, filename string) (*importedSkill, error) {
 		return nil, fmt.Errorf("archive does not contain a SKILL.md")
 	}
 
-	content, err := readZipFile(skillMd, maxImportFileSize)
+	content, err := readZipFile(skillMd)
 	if err != nil {
 		return nil, fmt.Errorf("read SKILL.md: %w", err)
 	}
@@ -183,17 +179,14 @@ func parseSkillArchive(data []byte, filename string) (*importedSkill, error) {
 			return nil, fmt.Errorf("archive entries %q and %q resolve to the same path %q", previous, f.Name, rel)
 		}
 		seenFiles[rel] = f.Name
-		fileContent, ferr := readZipFile(f, maxImportFileSize)
+		fileContent, ferr := readZipFile(f)
 		if ferr != nil {
-			// An oversize or unreadable individual asset is skipped rather than
-			// failing the whole import, matching the local-runtime importer.
+			// An unreadable individual asset is skipped rather than failing
+			// the whole import, matching the local-runtime importer.
 			continue
 		}
-		// addFile enforces the per-bundle caps and drops binary assets; a cap
-		// breach aborts the import instead of silently truncating it.
-		if err := imported.addFile(rel, fileContent); err != nil {
-			return nil, err
-		}
+		// addFile drops binary assets.
+		imported.addFile(rel, fileContent)
 	}
 
 	sort.Slice(imported.files, func(i, j int) bool {
@@ -272,22 +265,17 @@ func isIgnoredArchiveEntry(rel string) bool {
 	return false
 }
 
-// readZipFile reads a single zip entry, capping the read at maxSize+1 bytes so a
-// header that under-reports its uncompressed size cannot force an unbounded
-// allocation. Entries larger than maxSize are rejected.
-func readZipFile(f *zip.File, maxSize int64) (string, error) {
+// readZipFile reads a single zip entry.
+func readZipFile(f *zip.File) (string, error) {
 	rc, err := f.Open()
 	if err != nil {
 		return "", err
 	}
 	defer rc.Close()
 
-	data, err := io.ReadAll(io.LimitReader(rc, maxSize+1))
+	data, err := io.ReadAll(rc)
 	if err != nil {
 		return "", err
-	}
-	if int64(len(data)) > maxSize {
-		return "", fmt.Errorf("file %q exceeds %d bytes", f.Name, maxSize)
 	}
 	return string(data), nil
 }

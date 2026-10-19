@@ -1,10 +1,12 @@
 package daemon
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/multica-ai/multica/server/pkg/protocol"
@@ -117,6 +119,33 @@ func TestListRuntimeLocalSkills_Claude(t *testing.T) {
 	}
 	if !skill.CanDisable {
 		t.Fatal("claude runtime skill should be controllable")
+	}
+}
+
+// A skill of any size is listed, so the agent's runtime skill switches
+// reach it: a skill missing from the list can never be turned off.
+func TestListRuntimeLocalSkills_ListsSkillsOfAnySize(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	files := map[string]string{
+		"SKILL.md":           "---\nname: Logo Design\ndescription: Logos\n---\n# Logo Design\n",
+		"library/big-one.md": strings.Repeat("a", 9<<20),
+	}
+	for i := range 300 {
+		files[fmt.Sprintf("library/logo-%03d.svg", i)] = "<svg/>"
+	}
+	writeTestLocalSkill(t, filepath.Join(home, ".claude", "skills"), "logo-design", files)
+
+	skills, _, err := listRuntimeLocalSkills("claude")
+	if err != nil {
+		t.Fatalf("listRuntimeLocalSkills: %v", err)
+	}
+	if len(skills) != 1 || skills[0].Key != "logo-design" {
+		t.Fatalf("skills = %+v, want logo-design listed", skills)
+	}
+	if skills[0].FileCount != len(files) {
+		t.Fatalf("file_count = %d, want %d", skills[0].FileCount, len(files))
 	}
 }
 

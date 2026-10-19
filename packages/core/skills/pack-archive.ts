@@ -1,14 +1,5 @@
 import { parseFrontmatter } from "./frontmatter";
 
-/** Mirrors server/internal/handler maxImportFileSize. */
-export const MAX_SKILL_FILE_BYTES = 1 << 20; // 1 MiB
-/** Mirrors server/internal/handler maxImportTotalSize (supporting files). */
-export const MAX_SKILL_BUNDLE_BYTES = 8 << 20; // 8 MiB
-/** Mirrors server/internal/handler maxImportFileCount. */
-export const MAX_SKILL_FILE_COUNT = 256;
-/** Mirrors server/internal/handler maxImportArchiveUploadSize. */
-export const MAX_SKILL_ARCHIVE_BYTES = 16 << 20; // 16 MiB
-
 const SKILL_MD = "skill.md";
 
 export type SkillArchiveEntry = {
@@ -16,11 +7,7 @@ export type SkillArchiveEntry = {
   data: Uint8Array;
 };
 
-export type PreparedSkillArchiveError =
-  | "missing_skill_md"
-  | "empty"
-  | "too_large"
-  | "too_many_files";
+export type PreparedSkillArchiveError = "missing_skill_md" | "empty";
 
 export type PreparedSkillArchive =
   | {
@@ -42,9 +29,6 @@ export function isSkillArchiveFilename(name: string): boolean {
 }
 
 export function wrapExistingSkillArchive(file: File): PreparedSkillArchive {
-  if (file.size > MAX_SKILL_ARCHIVE_BYTES) {
-    return { ok: false, error: "too_large" };
-  }
   const base = file.name.replace(/\\/g, "/").split("/").pop() ?? file.name;
   const skillName = stripArchiveExtension(base) || "skill";
   return {
@@ -99,9 +83,6 @@ function buildPreparedArchive(
   const skillName = frontmatter?.name?.trim() || wrapperName || "skill";
   const description = frontmatter?.description?.trim() ?? "";
   const zip = packStoreZip(packed);
-  if (zip.byteLength > MAX_SKILL_ARCHIVE_BYTES) {
-    return { ok: false, error: "too_large" };
-  }
 
   const filename = `${sanitizeArchiveBasename(skillName)}.skill`;
   const file = new File([uint8ToArrayBuffer(zip)], filename, {
@@ -135,7 +116,7 @@ export type SkillArchiveSelection = {
 };
 
 /**
- * The single place the ignore rules and the size / count limits are applied.
+ * The single place the ignore rules are applied.
  * Decides membership from path + size alone — no I/O — so the picker path can
  * reject a directory before reading it, and both prepare paths stay in step by
  * construction rather than by keeping two copies of these rules in agreement.
@@ -165,13 +146,8 @@ export function selectSkillArchiveMembers(
     }
   }
   if (!skillMd) return { ok: false, error: "missing_skill_md" };
-  if (skillMd.size > MAX_SKILL_FILE_BYTES) {
-    return { ok: false, error: "too_large" };
-  }
 
   const selected: SkillArchiveMemberMeta[] = [];
-  let supportingCount = 0;
-  let supportingBytes = 0;
   for (const file of normalized) {
     if (skillMd.prefix && !file.path.startsWith(skillMd.prefix)) continue;
     const rel = skillMd.prefix ? file.path.slice(skillMd.prefix.length) : file.path;
@@ -181,15 +157,6 @@ export function selectSkillArchiveMembers(
       continue;
     }
     if (isLikelyBinaryFilePath(rel)) continue;
-    if (file.size > MAX_SKILL_FILE_BYTES) continue;
-    supportingCount += 1;
-    if (supportingCount > MAX_SKILL_FILE_COUNT) {
-      return { ok: false, error: "too_many_files" };
-    }
-    supportingBytes += file.size;
-    if (supportingBytes > MAX_SKILL_BUNDLE_BYTES) {
-      return { ok: false, error: "too_large" };
-    }
     selected.push(file);
   }
   return {
@@ -209,8 +176,8 @@ function pickerRelativePath(file: File): string {
 }
 
 /**
- * Pack a directory picker result. Ignored, binary, oversized and out-of-root
- * files are dropped from path + `File.size` before any `arrayBuffer()` call.
+ * Pack a directory picker result. Ignored, binary and out-of-root files are
+ * dropped from their path before any `arrayBuffer()` call.
  */
 export async function prepareSkillArchiveFromPickerFiles(
   files: File[],

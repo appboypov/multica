@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 	"time"
 )
@@ -347,28 +346,6 @@ func TestRefreshSkill_UpstreamGoneReturns502(t *testing.T) {
 	}
 	if _, desc, _, _ := getSkillRow(t, skillID); desc != "original description" {
 		t.Fatalf("failed refresh must not mutate the skill, description = %q", desc)
-	}
-}
-
-func TestRefreshSkill_CapExceededReturns413(t *testing.T) {
-	if testHandler == nil {
-		t.Skip("database not available")
-	}
-
-	slug := fmt.Sprintf("refresh-cap-%d", time.Now().UnixNano())
-	skillID := createImportTargetSkillWithConfig(t, slug, testUserID, clawhubOriginConfig(slug), nil)
-
-	installClawHubFixture(t, slug, slug, "too big now", map[string]string{
-		"SKILL.md": "# ok",
-		"big.md":   strings.Repeat("a", maxImportFileSize+1),
-	})
-
-	w := doRefreshSkill(t, testUserID, skillID)
-	if w.Code != http.StatusRequestEntityTooLarge {
-		t.Fatalf("expected 413, got %d: %s", w.Code, w.Body.String())
-	}
-	if _, desc, _, _ := getSkillRow(t, skillID); desc != "original description" {
-		t.Fatalf("cap-exceeded refresh must not mutate the skill, description = %q", desc)
 	}
 }
 

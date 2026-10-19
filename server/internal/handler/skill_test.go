@@ -267,7 +267,7 @@ func TestFetchFromSkillsSh_ResolvesAliasedSkillNamesViaFrontmatter(t *testing.T)
 				writeJSON(w, http.StatusOK, githubTreeResponse{
 					Tree: []githubTreeEntry{
 						{Path: "skills/composition-patterns/SKILL.md", Type: "blob"},
-						{Path: "skills/composition-patterns/rules.md", Type: "blob", Size: 5},
+						{Path: "skills/composition-patterns/rules.md", Type: "blob"},
 						{Path: "skills/react-best-practices/SKILL.md", Type: "blob"},
 					},
 				})
@@ -326,10 +326,10 @@ func TestFetchFromSkillsSh_ResolvesRootLevelSkillMd(t *testing.T) {
 				}
 				writeJSON(w, http.StatusOK, githubTreeResponse{
 					Tree: []githubTreeEntry{
-						{Path: "README.md", Type: "blob", Size: 8},
-						{Path: "SKILL.md", Type: "blob", Size: 40},
+						{Path: "README.md", Type: "blob"},
+						{Path: "SKILL.md", Type: "blob"},
 						{Path: "assets", Type: "tree"},
-						{Path: "assets/logo.png", Type: "blob", Size: 8},
+						{Path: "assets/logo.png", Type: "blob"},
 					},
 				})
 			default:
@@ -399,7 +399,7 @@ func TestFetchFromSkillsSh_PrefersMostSpecificDirOverCollidingRoot(t *testing.T)
 					Tree: []githubTreeEntry{
 						{Path: "SKILL.md", Type: "blob"},
 						{Path: "extras/wanted/SKILL.md", Type: "blob"},
-						{Path: "extras/wanted/ref.md", Type: "blob", Size: 3},
+						{Path: "extras/wanted/ref.md", Type: "blob"},
 					},
 				})
 			default:
@@ -501,67 +501,8 @@ func TestFetchFromSkillsSh_ReturnsActionableErrorForTruncatedTrees(t *testing.T)
 	}
 }
 
-// A skill whose tree exceeds the file-count cap must fail fast from the tree
-// metadata alone, before any supporting file is downloaded. This is the
-// api-gateway case: an over-limit skill returns a clear error in one tree call
-// instead of crawling hundreds of directories until the reverse proxy times
-// out (504).
-func TestFetchFromSkillsSh_TreeFileCountCapFailsFastWithoutDownloads(t *testing.T) {
-	tree := []githubTreeEntry{{Path: "skills/foo/SKILL.md", Type: "blob"}}
-	for i := 0; i < maxImportFileCount+1; i++ {
-		tree = append(tree, githubTreeEntry{
-			Path: fmt.Sprintf("skills/foo/ref-%d.md", i),
-			Type: "blob",
-			Size: 4,
-		})
-	}
-
-	client, requests := newGitHubFixtureClient(t, treeOnlySkillFixture(tree))
-
-	_, err := fetchFromSkillsSh(t.Context(), client, "https://skills.sh/acme/skills/foo")
-	if err == nil {
-		t.Fatal("expected file-count cap error")
-	}
-	if !isCapError(err) || !strings.Contains(err.Error(), "file limit") {
-		t.Fatalf("error = %q, want file-count cap error", err.Error())
-	}
-	for _, req := range *requests {
-		if strings.Contains(req, "ref-") {
-			t.Fatalf("no supporting file should be downloaded before the cap check, saw %q", req)
-		}
-	}
-}
-
-// The total-byte cap is likewise enforced from tree sizes before any download.
-func TestFetchFromSkillsSh_TreeTotalByteCapFailsFast(t *testing.T) {
-	tree := []githubTreeEntry{{Path: "skills/foo/SKILL.md", Type: "blob"}}
-	for i := 0; i < 9; i++ { // 9 MiB total > 8 MiB bundle cap, each at the per-file cap
-		tree = append(tree, githubTreeEntry{
-			Path: fmt.Sprintf("skills/foo/big-%d.md", i),
-			Type: "blob",
-			Size: maxImportFileSize,
-		})
-	}
-
-	client, requests := newGitHubFixtureClient(t, treeOnlySkillFixture(tree))
-
-	_, err := fetchFromSkillsSh(t.Context(), client, "https://skills.sh/acme/skills/foo")
-	if err == nil {
-		t.Fatal("expected total-byte cap error")
-	}
-	if !isCapError(err) || !strings.Contains(err.Error(), "byte limit") {
-		t.Fatalf("error = %q, want total-byte cap error", err.Error())
-	}
-	for _, req := range *requests {
-		if strings.Contains(req, "big-") {
-			t.Fatalf("no supporting file should be downloaded before the cap check, saw %q", req)
-		}
-	}
-}
-
-// A skill under the raised 256-file cap imports its full supporting-file set
-// from the tree via concurrent downloads, in a stable path order regardless of
-// completion timing.
+// A skill imports its full supporting-file set from the tree via concurrent
+// downloads, in a stable path order regardless of completion timing.
 func TestFetchFromSkillsSh_TreeEnumerationImportsManyFiles(t *testing.T) {
 	const count = 40
 	tree := []githubTreeEntry{{Path: "skills/foo/SKILL.md", Type: "blob"}}
@@ -569,7 +510,6 @@ func TestFetchFromSkillsSh_TreeEnumerationImportsManyFiles(t *testing.T) {
 		tree = append(tree, githubTreeEntry{
 			Path: fmt.Sprintf("skills/foo/ref-%02d.md", i),
 			Type: "blob",
-			Size: 3,
 		})
 	}
 
@@ -598,7 +538,7 @@ func TestFetchFromSkillsSh_TreeEnumerationImportsManyFiles(t *testing.T) {
 func TestFetchFromSkillsSh_TreeAcceptsConventionalPathDespiteNameMismatch(t *testing.T) {
 	tree := []githubTreeEntry{
 		{Path: "skills/foo/SKILL.md", Type: "blob"},
-		{Path: "skills/foo/ref.md", Type: "blob", Size: 3},
+		{Path: "skills/foo/ref.md", Type: "blob"},
 	}
 	client, _ := newGitHubFixtureClient(t, func(w http.ResponseWriter, r *http.Request) {
 		switch r.Header.Get("X-Test-Original-Host") {
@@ -643,7 +583,7 @@ func TestFetchFromSkillsSh_TreeAcceptsConventionalPathDespiteNameMismatch(t *tes
 func TestFetchFromSkillsSh_ContextCancelledMidDownloadAborts(t *testing.T) {
 	tree := []githubTreeEntry{
 		{Path: "skills/foo/SKILL.md", Type: "blob"},
-		{Path: "skills/foo/ref.md", Type: "blob", Size: 3},
+		{Path: "skills/foo/ref.md", Type: "blob"},
 	}
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
@@ -938,10 +878,6 @@ func TestFetchFromSkillsSh_CrawlListingDecodeCancelledAborts(t *testing.T) {
 }
 
 func TestImportFetchErrorResponse(t *testing.T) {
-	capErr := fmt.Errorf("%w: import bundle would contain 999 files", errImportCapExceeded)
-	if status, _ := importFetchErrorResponse(context.Background(), capErr); status != http.StatusRequestEntityTooLarge {
-		t.Fatalf("cap error status = %d, want 413", status)
-	}
 	if status, _ := importFetchErrorResponse(context.Background(), context.DeadlineExceeded); status != http.StatusGatewayTimeout {
 		t.Fatalf("deadline error status = %d, want 504", status)
 	}
@@ -1347,153 +1283,6 @@ func TestNewRawFileRequest_NoAuthHeaderWhenTokenUnset(t *testing.T) {
 	}
 	if got := req.Header.Get("Authorization"); got != "" {
 		t.Fatalf("Authorization = %q, want empty when GITHUB_TOKEN is unset", got)
-	}
-}
-
-// --- Bundle / file size cap tests ---
-
-func TestFetchRawFile_ReturnsErrorOnOversizedFile(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write(bytes.Repeat([]byte("a"), maxImportFileSize+1024))
-	}))
-	t.Cleanup(server.Close)
-
-	_, err := fetchRawFile(t.Context(), &http.Client{}, server.URL+"/big.bin")
-	if err == nil {
-		t.Fatal("expected error for oversized file, got nil")
-	}
-	if !strings.Contains(err.Error(), "byte limit") {
-		t.Fatalf("error = %q, want byte limit message", err.Error())
-	}
-	if !isCapError(err) {
-		t.Fatalf("error %q must be classified as a cap error so callers fail-fast", err.Error())
-	}
-}
-
-func TestImportedSkill_AddFileEnforcesBundleLimits(t *testing.T) {
-	t.Run("file count", func(t *testing.T) {
-		s := &importedSkill{}
-		for i := 0; i < maxImportFileCount; i++ {
-			if err := s.addFile("f", "x"); err != nil {
-				t.Fatalf("addFile %d: %v", i, err)
-			}
-		}
-		err := s.addFile("overflow", "x")
-		if err == nil {
-			t.Fatal("expected file count cap error")
-		}
-		if !isCapError(err) {
-			t.Fatalf("error %q must be a cap error", err.Error())
-		}
-	})
-	t.Run("total bytes", func(t *testing.T) {
-		s := &importedSkill{}
-		big := strings.Repeat("y", maxImportTotalSize)
-		if err := s.addFile("a", big); err != nil {
-			t.Fatalf("addFile at cap: %v", err)
-		}
-		err := s.addFile("b", "x")
-		if err == nil {
-			t.Fatal("expected total bytes cap error")
-		}
-		if !isCapError(err) {
-			t.Fatalf("error %q must be a cap error", err.Error())
-		}
-	})
-}
-
-// fetchFromGitHub must FAIL the import (not just log+continue) when a
-// supporting file exceeds the per-file cap — silently dropping the file
-// would leave a skill bundle that looks valid to the user but is missing
-// content.
-func TestFetchFromGitHub_OversizedSupportingFileFailsImport(t *testing.T) {
-	client, _ := newGitHubFixtureClient(t, func(w http.ResponseWriter, r *http.Request) {
-		switch r.Header.Get("X-Test-Original-Host") {
-		case "api.github.com":
-			switch r.URL.Path {
-			case "/repos/acme/skills/commits/main":
-				w.Write([]byte("deadbeef"))
-			case "/repos/acme/skills/contents/foo":
-				writeJSON(w, http.StatusOK, []githubContentEntry{
-					{
-						Name:        "huge.bin",
-						Path:        "foo/huge.bin",
-						Type:        "file",
-						DownloadURL: "https://raw.githubusercontent.com/acme/skills/main/foo/huge.bin",
-					},
-				})
-			default:
-				http.NotFound(w, r)
-			}
-		case "raw.githubusercontent.com":
-			switch r.URL.Path {
-			case "/acme/skills/main/foo/SKILL.md":
-				w.Write([]byte("---\nname: foo\n---\nbody"))
-			case "/acme/skills/main/foo/huge.bin":
-				w.Write(bytes.Repeat([]byte("z"), maxImportFileSize+512))
-			default:
-				http.NotFound(w, r)
-			}
-		default:
-			http.NotFound(w, r)
-		}
-	})
-	_, err := fetchFromGitHub(t.Context(), client, "https://github.com/acme/skills/tree/main/foo")
-	if err == nil {
-		t.Fatal("expected oversized supporting file to fail the whole import")
-	}
-	if !strings.Contains(err.Error(), "huge.bin") || !strings.Contains(err.Error(), "byte limit") {
-		t.Fatalf("error %q should name the file and the cap", err.Error())
-	}
-}
-
-// fetchFromSkillsSh has the same supporting-file loop and must also fail
-// (not just warn) when one of those files exceeds the cap.
-func TestFetchFromSkillsSh_OversizedSupportingFileFailsImport(t *testing.T) {
-	client, _ := newGitHubFixtureClient(t, func(w http.ResponseWriter, r *http.Request) {
-		switch r.Header.Get("X-Test-Original-Host") {
-		case "api.github.com":
-			switch r.URL.Path {
-			case "/repos/acme/skills":
-				writeJSON(w, http.StatusOK, map[string]any{"default_branch": "main"})
-			case "/repos/acme/skills/git/trees/main":
-				// Truncated so enumeration goes through the crawl fallback,
-				// which enforces the per-file cap during download.
-				writeJSON(w, http.StatusOK, githubTreeResponse{
-					Tree:      []githubTreeEntry{{Path: "skills/foo/SKILL.md", Type: "blob"}},
-					Truncated: true,
-				})
-			case "/repos/acme/skills/contents/skills/foo":
-				writeJSON(w, http.StatusOK, []githubContentEntry{
-					{
-						Name:        "huge.bin",
-						Path:        "skills/foo/huge.bin",
-						Type:        "file",
-						DownloadURL: "https://raw.githubusercontent.com/acme/skills/main/skills/foo/huge.bin",
-					},
-				})
-			default:
-				http.NotFound(w, r)
-			}
-		case "raw.githubusercontent.com":
-			switch r.URL.Path {
-			case "/acme/skills/main/skills/foo/SKILL.md":
-				w.Write([]byte("---\nname: foo\n---\nbody"))
-			case "/acme/skills/main/skills/foo/huge.bin":
-				w.Write(bytes.Repeat([]byte("z"), maxImportFileSize+512))
-			default:
-				http.NotFound(w, r)
-			}
-		default:
-			http.NotFound(w, r)
-		}
-	})
-	_, err := fetchFromSkillsSh(t.Context(), client, "https://skills.sh/acme/skills/foo")
-	if err == nil {
-		t.Fatal("expected oversized supporting file to fail the whole import")
-	}
-	if !strings.Contains(err.Error(), "huge.bin") {
-		t.Fatalf("error %q should name the offending file", err.Error())
 	}
 }
 

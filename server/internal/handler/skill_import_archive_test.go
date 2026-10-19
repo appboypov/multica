@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -116,6 +117,25 @@ func TestParseSkillArchive_RootLayout(t *testing.T) {
 	}
 	if got := filePaths(imported); len(got) != 1 || got[0] != "references/doc.md" {
 		t.Errorf("files = %v, want [references/doc.md]", got)
+	}
+}
+
+// An archive imports every supporting file, however many there are and
+// however large they are.
+func TestParseSkillArchive_ImportsSkillsOfAnySize(t *testing.T) {
+	entries := map[string]string{
+		"SKILL.md":           testSkillMd,
+		"library/big-one.md": strings.Repeat("a", 9<<20),
+	}
+	for i := range 300 {
+		entries[fmt.Sprintf("library/logo-%03d.svg", i)] = "<svg/>"
+	}
+	imported, err := parseSkillArchive(buildTestZip(t, entries), "logo-design.zip")
+	if err != nil {
+		t.Fatalf("parseSkillArchive: %v", err)
+	}
+	if got := len(imported.files); got != len(entries)-1 {
+		t.Fatalf("imported %d supporting files, want %d", got, len(entries)-1)
 	}
 }
 

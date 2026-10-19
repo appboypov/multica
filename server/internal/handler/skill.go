@@ -777,23 +777,12 @@ func validImportOnConflict(strategy string) bool {
 	return false
 }
 
-// Per-import bundle limits. These mirror the local-runtime importer so that
-// URL imports cannot smuggle in payloads that the rest of the stack would
-// reject. fetchRawFile enforces the per-file cap; importedSkill.addFile
-// enforces the bundle-wide caps.
-const (
-	maxImportFileSize  = 1 << 20 // 1 MiB per file
-	maxImportTotalSize = 8 << 20 // 8 MiB per import bundle (sum of supporting files)
-	maxImportFileCount = 256     // max number of supporting files
-)
-
 // importedSkill holds the data extracted from an external source.
 type importedSkill struct {
 	name        string
 	description string
 	content     string // SKILL.md body
 	files       []importedFile
-	bundleSize  int            // running sum of file content bytes for cap enforcement
 	origin      map[string]any // written into skill.config.origin so the UI can show provenance
 }
 
@@ -802,44 +791,24 @@ type importedFile struct {
 	content string
 }
 
-// errImportCapExceeded marks an error caused by a per-file or per-bundle cap.
-// Such errors must abort the import — silently dropping a file would otherwise
-// produce an incomplete skill that looks valid to the user.
-var errImportCapExceeded = errors.New("import cap exceeded")
-
 // errImportSourceUnavailable marks a transient failure to read the upstream
 // source (e.g. the GitHub tree API rate limiting). The import can't proceed
 // safely but should be retried, so it maps to a retryable HTTP status rather
 // than a permanent error.
 var errImportSourceUnavailable = errors.New("import source temporarily unavailable")
 
-// isCapError reports whether err is (or wraps) errImportCapExceeded.
-func isCapError(err error) bool {
-	return errors.Is(err, errImportCapExceeded)
-}
-
-// addFile appends a supporting file while enforcing the per-bundle caps. It
-// returns an error when either the file count or aggregate byte budget would
-// be exceeded so the caller fails the import instead of silently truncating.
+// addFile appends a supporting file.
 //
 // Binary files (images, fonts, archives) are silently skipped: their bytes
 // can't survive a PG TEXT column (SQLSTATE 22021), and they're reference
 // assets the agent never reads as text anyway. Logging the skip leaves a
 // breadcrumb if a user expected one of these to import.
-func (s *importedSkill) addFile(path, content string) error {
+func (s *importedSkill) addFile(path, content string) {
 	if skillpkg.IsLikelyBinaryFilePath(path) {
 		slog.Info("skill import: skipping binary file", "path", path, "size", len(content))
-		return nil
+		return
 	}
-	if len(s.files) >= maxImportFileCount {
-		return fmt.Errorf("%w: import bundle exceeds %d file limit", errImportCapExceeded, maxImportFileCount)
-	}
-	if s.bundleSize+len(content) > maxImportTotalSize {
-		return fmt.Errorf("%w: import bundle exceeds %d byte limit", errImportCapExceeded, maxImportTotalSize)
-	}
-	s.bundleSize += len(content)
 	s.files = append(s.files, importedFile{path: path, content: content})
-	return nil
 }
 
 // --- ClawHub types ---
@@ -917,7 +886,6 @@ type githubTreeResponse struct {
 type githubTreeEntry struct {
 	Path string `json:"path"`
 	Type string `json:"type"` // "blob" or "tree"
-	Size int64  `json:"size"` // blob byte size (absent/0 for tree entries)
 }
 
 // fetchGitHubDefaultBranch returns the default branch of a GitHub repository.
@@ -1162,10 +1130,8 @@ func fetchFromClawHub(ctx context.Context, httpClient *http.Client, rawURL strin
 		}
 		body, err := fetchRawFile(ctx, httpClient, fileURL)
 		if err != nil {
-			// Cap violations must abort: silently dropping a file would
-			// produce an incomplete bundle that looks valid. SKILL.md is
-			// load-bearing, so any failure on it is fatal too.
-			if isCapError(err) || fp == "SKILL.md" {
+			// SKILL.md is load-bearing, so any failure on it is fatal.
+			if fp == "SKILL.md" {
 				return nil, fmt.Errorf("clawhub import: %s: %w", fp, err)
 			}
 			// A cancelled context (overall deadline / client disconnect) is
@@ -1181,9 +1147,7 @@ func fetchFromClawHub(ctx context.Context, httpClient *http.Client, rawURL strin
 			result.content = string(body)
 			continue
 		}
-		if err := result.addFile(fp, string(body)); err != nil {
-			return nil, err
-		}
+		result.addFile(fp, string(body))
 	}
 
 	if result.content == "" {
@@ -1220,8 +1184,7 @@ func fetchFromSkillsSh(ctx context.Context, httpClient *http.Client, rawURL stri
 	// recursive tree fetch. This collapses what used to be one contents-API
 	// call per directory — hundreds of sequential requests for a large mono-repo
 	// like api-gateway-skill, which pushed the request past the reverse-proxy
-	// gateway timeout (504) — into one call, and lets the import caps be checked
-	// from the tree metadata before any file is downloaded.
+	// gateway timeout (504) — into one call.
 	defaultBranch := fetchGitHubDefaultBranch(ctx, httpClient, owner, repo)
 	rawPrefix := fmt.Sprintf("https://raw.githubusercontent.com/%s/%s/%s",
 		url.PathEscape(owner), url.PathEscape(repo), url.PathEscape(defaultBranch))
@@ -1341,29 +1304,23 @@ func addSupportingFilesViaCrawl(ctx context.Context, httpClient *http.Client, re
 		}
 		body, err := fetchRawFile(ctx, httpClient, entry.DownloadURL)
 		if err != nil {
-			if isCapError(err) {
-				return fmt.Errorf("github import: %s: %w", entry.Path, err)
-			}
 			if ctx.Err() != nil {
 				return fmt.Errorf("github import: fetch aborted at %s: %w", entry.Path, ctx.Err())
 			}
 			slog.Warn("github import: file download failed", "path", entry.Path, "error", err)
 			continue
 		}
-		relPath := strings.TrimPrefix(entry.Path, basePath)
-		if err := result.addFile(relPath, string(body)); err != nil {
-			return err
-		}
+		result.addFile(strings.TrimPrefix(entry.Path, basePath), string(body))
 	}
 	return nil
 }
 
 // fetchGitHubTree fetches the full recursive git tree for a ref in a single API
-// call. Each returned blob entry carries its path and byte size, which lets the
-// importer both resolve the skill directory and enforce the import caps without
-// the per-directory contents crawl that previously issued one API call per
-// directory — hundreds of sequential requests for a large mono-repo, which is
-// what pushed skills.sh imports past the reverse-proxy gateway timeout (504).
+// call. Each returned blob entry carries its path, which lets the importer
+// resolve the skill directory without the per-directory contents crawl that
+// previously issued one API call per directory — hundreds of sequential
+// requests for a large mono-repo, which is what pushed skills.sh imports past
+// the reverse-proxy gateway timeout (504).
 func fetchGitHubTree(ctx context.Context, httpClient *http.Client, owner, repo, ref string) (entries []githubTreeEntry, truncated bool, err error) {
 	apiURL := fmt.Sprintf("https://api.github.com/repos/%s/%s/git/trees/%s?recursive=1",
 		url.PathEscape(owner), url.PathEscape(repo), url.PathEscape(ref))
@@ -1505,7 +1462,6 @@ func addSupportingFilesFromTree(ctx context.Context, httpClient *http.Client, re
 	type treeFile struct {
 		repoPath string
 		relPath  string
-		size     int64
 	}
 	var eligible []treeFile
 	for _, entry := range tree {
@@ -1526,27 +1482,11 @@ func addSupportingFilesFromTree(ctx context.Context, httpClient *http.Client, re
 		if skillpkg.IsLikelyBinaryFilePath(relPath) {
 			continue
 		}
-		eligible = append(eligible, treeFile{repoPath: entry.Path, relPath: relPath, size: entry.size()})
+		eligible = append(eligible, treeFile{repoPath: entry.Path, relPath: relPath})
 	}
 
 	// Stable order so imports are deterministic regardless of download timing.
 	sort.Slice(eligible, func(i, j int) bool { return eligible[i].relPath < eligible[j].relPath })
-
-	// Arithmetic cap pre-check on the tree metadata — no downloads required to
-	// reject an over-limit bundle.
-	if len(eligible) > maxImportFileCount {
-		return fmt.Errorf("%w: import bundle would contain %d files, exceeding the %d file limit", errImportCapExceeded, len(eligible), maxImportFileCount)
-	}
-	var totalSize int64
-	for _, f := range eligible {
-		if f.size > maxImportFileSize {
-			return fmt.Errorf("%w: %s is %d bytes, exceeding the %d byte per-file limit", errImportCapExceeded, f.relPath, f.size, maxImportFileSize)
-		}
-		totalSize += f.size
-	}
-	if totalSize > maxImportTotalSize {
-		return fmt.Errorf("%w: import bundle is %d bytes, exceeding the %d byte limit", errImportCapExceeded, totalSize, maxImportTotalSize)
-	}
 
 	// Download concurrently, then append in the pre-sorted order.
 	contents := make([]string, len(eligible))
@@ -1558,9 +1498,6 @@ func addSupportingFilesFromTree(ctx context.Context, httpClient *http.Client, re
 		g.Go(func() error {
 			body, err := fetchRawFile(gctx, httpClient, buildRawGitHubURL(rawPrefix, f.repoPath))
 			if err != nil {
-				if isCapError(err) {
-					return fmt.Errorf("github import: %s: %w", f.repoPath, err)
-				}
 				// A cancelled context (overall import deadline exceeded, or the
 				// client disconnecting) must abort, not be swallowed as a
 				// per-file skip: otherwise every remaining download fails the
@@ -1589,20 +1526,9 @@ func addSupportingFilesFromTree(ctx context.Context, httpClient *http.Client, re
 		if !fetched[i] {
 			continue
 		}
-		if err := result.addFile(f.relPath, contents[i]); err != nil {
-			return err
-		}
+		result.addFile(f.relPath, contents[i])
 	}
 	return nil
-}
-
-// size returns the blob byte size, guarding against a negative value from a
-// malformed tree response.
-func (e githubTreeEntry) size() int64 {
-	if e.Size < 0 {
-		return 0
-	}
-	return e.Size
 }
 
 // collectGitHubFiles recursively collects file entries from a GitHub directory listing.
@@ -2088,11 +2014,10 @@ func fetchFromGitHub(ctx context.Context, httpClient *http.Client, rawURL string
 		},
 	}
 
-	// Enumerate supporting files from a single recursive tree, checking the
-	// import caps against the tree metadata before downloading anything. Fall
-	// back to the per-directory contents crawl when the tree is unavailable or
-	// truncated (kept lenient so a rate-limited listing doesn't fail an import
-	// that already produced a valid SKILL.md).
+	// Enumerate supporting files from a single recursive tree. Fall back to the
+	// per-directory contents crawl when the tree is unavailable or truncated
+	// (kept lenient so a rate-limited listing doesn't fail an import that
+	// already produced a valid SKILL.md).
 	tree, truncated, treeErr := fetchGitHubTree(ctx, httpClient, spec.owner, spec.repo, spec.ref)
 	if treeErr == nil && !truncated {
 		if err := addSupportingFilesFromTree(ctx, httpClient, result, tree, rawPrefix, spec.skillDir); err != nil {
@@ -2114,9 +2039,7 @@ func fetchFromGitHub(ctx context.Context, httpClient *http.Client, rawURL string
 // header would leak the token to those third-party hosts.
 const rawGitHubContentHost = "raw.githubusercontent.com"
 
-// fetchRawFile downloads a URL and returns the body bytes. Returns an error
-// if the response exceeds maxImportFileSize so we never silently truncate a
-// half-downloaded skill file into the workspace.
+// fetchRawFile downloads a URL and returns the body bytes.
 func fetchRawFile(ctx context.Context, httpClient *http.Client, fileURL string) ([]byte, error) {
 	req, err := newRawFileRequest(ctx, fileURL)
 	if err != nil {
@@ -2130,14 +2053,7 @@ func fetchRawFile(ctx context.Context, httpClient *http.Client, fileURL string) 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("HTTP %d", resp.StatusCode)
 	}
-	body, err := io.ReadAll(io.LimitReader(resp.Body, maxImportFileSize+1))
-	if err != nil {
-		return nil, err
-	}
-	if len(body) > maxImportFileSize {
-		return nil, fmt.Errorf("%w: file exceeds %d byte limit", errImportCapExceeded, maxImportFileSize)
-	}
-	return body, nil
+	return io.ReadAll(resp.Body)
 }
 
 // newRawFileRequest builds the GET request for a raw skill file, attaching the
@@ -2392,13 +2308,9 @@ func (h *Handler) ImportSkill(w http.ResponseWriter, r *http.Request) {
 const importFetchTimeout = 45 * time.Second
 
 // importFetchErrorResponse maps a fetch failure onto an HTTP status and message.
-// Cap violations become 413 (the skill is too large to import), an exhausted
-// deadline becomes 504, a transiently unavailable source becomes a retryable
-// 503, and everything else stays 502.
+// An exhausted deadline becomes 504, a transiently unavailable source becomes
+// a retryable 503, and everything else stays 502.
 func importFetchErrorResponse(ctx context.Context, err error) (int, string) {
-	if isCapError(err) {
-		return http.StatusRequestEntityTooLarge, err.Error()
-	}
 	if errors.Is(err, context.DeadlineExceeded) || ctx.Err() == context.DeadlineExceeded {
 		return http.StatusGatewayTimeout, "skill import timed out fetching source files; the skill may be too large or the source too slow"
 	}

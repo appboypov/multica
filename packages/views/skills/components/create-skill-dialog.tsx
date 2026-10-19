@@ -477,9 +477,7 @@ function LocalForm({
     prepared && !prepared.ok
       ? {
           missing_skill_md: t(($) => $.create.local.missing_skill_md),
-          too_large: t(($) => $.create.local.too_large),
           empty: t(($) => $.create.local.empty),
-          too_many_files: t(($) => $.create.local.too_many_files),
         }[prepared.error]
       : "";
   const displayError = error || prepareError;

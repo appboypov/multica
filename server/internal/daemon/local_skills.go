@@ -17,19 +17,11 @@ import (
 	"github.com/multica-ai/multica/server/pkg/protocol"
 )
 
-const (
-	maxLocalSkillFileSize   int64 = 1 << 20
-	maxLocalSkillBundleSize int64 = 8 << 20
-	// Kept in lockstep with the server-side importer's maxImportFileCount so a
-	// skill that imports from a URL/archive also imports from a runtime-local
-	// directory. The 8 MiB bundle cap is the real guard on skill size.
-	maxLocalSkillFileCount = 256
-	// Cap how deep skill discovery descends below a runtime root. opencode
-	// stores skills two levels deep (e.g. `release/reporter/SKILL.md`); a
-	// few extra levels covers any realistic future layout while bounding
-	// work in case an installer accidentally points us at $HOME.
-	maxLocalSkillDirDepth = 4
-)
+// maxLocalSkillDirDepth caps how deep skill discovery descends below a runtime
+// root. opencode stores skills two levels deep (e.g. `release/reporter/SKILL.md`);
+// a few extra levels covers any realistic future layout while bounding work in
+// case an installer accidentally points us at $HOME.
+const maxLocalSkillDirDepth = 4
 
 type runtimeLocalSkillSummary struct {
 	Key         string `json:"key"`
@@ -335,15 +327,7 @@ func relativizeHomePath(path string) string {
 }
 
 func readLocalSkillMainFile(skillDir string) (string, error) {
-	mainPath := filepath.Join(skillDir, "SKILL.md")
-	info, err := os.Stat(mainPath)
-	if err != nil {
-		return "", err
-	}
-	if info.Size() > maxLocalSkillFileSize {
-		return "", fmt.Errorf("SKILL.md exceeds %d bytes", maxLocalSkillFileSize)
-	}
-	content, err := os.ReadFile(mainPath)
+	content, err := os.ReadFile(filepath.Join(skillDir, "SKILL.md"))
 	if err != nil {
 		return "", err
 	}
@@ -352,7 +336,6 @@ func readLocalSkillMainFile(skillDir string) (string, error) {
 
 func collectLocalSkillFiles(skillDir string, includeContent bool) ([]SkillFileData, error) {
 	files := make([]SkillFileData, 0)
-	var totalSize int64
 
 	// filepath.WalkDir does not follow a symlinked root, so when the runtime
 	// root contains symlinks into a shared skill installer (e.g. lark-cli's
@@ -397,7 +380,7 @@ func collectLocalSkillFiles(skillDir string, includeContent bool) ([]SkillFileDa
 		}
 
 		info, err := entry.Info()
-		if err != nil || info.Size() > maxLocalSkillFileSize {
+		if err != nil {
 			return nil
 		}
 		// A binary supporting file cannot survive SkillFileData.Content: the
@@ -450,13 +433,6 @@ func collectLocalSkillFiles(skillDir string, includeContent bool) ([]SkillFileDa
 				"reason", reason,
 			)
 			return nil
-		}
-		if len(files) >= maxLocalSkillFileCount {
-			return fmt.Errorf("local skill exceeds %d files", maxLocalSkillFileCount)
-		}
-		totalSize += info.Size()
-		if totalSize > maxLocalSkillBundleSize {
-			return fmt.Errorf("local skill exceeds %d bytes in total", maxLocalSkillBundleSize)
 		}
 
 		file := SkillFileData{Path: filepath.ToSlash(rel)}
