@@ -166,7 +166,6 @@ export {
   attachmentDownloadPath,
   attachmentIdFromDownloadURL,
   contentReferencesAttachment,
-  stripChannelMediaMarkers,
 } from "./attachment-url";
 export type {
   ChatSession,
@@ -317,45 +316,10 @@ export type {
   ConnectVCSResponse,
 } from "./vcs";
 export type {
-  LarkInstallation,
-  ListLarkInstallationsResponse,
-  BeginLarkInstallResponse,
-  LarkInstallStatusResponse,
-  RedeemLarkBindingTokenResponse,
-} from "./lark";
-export type {
   ComposioToolkit,
   ComposioConnection,
   ComposioConnectInitResponse,
 } from "./composio";
-export type {
-  SlackInstallation,
-  ListSlackInstallationsResponse,
-  RegisterSlackBYORequest,
-  RedeemSlackBindingTokenResponse,
-} from "./slack";
-export type {
-  DingTalkInstallation,
-  ListDingTalkInstallationsResponse,
-  DingTalkGroupBot,
-  DingTalkGroup,
-  ListDingTalkGroupsResponse,
-  ListDingTalkGroupsParams,
-  RegisterDingTalkBYORequest,
-  RedeemDingTalkBindingTokenResponse,
-} from "./dingtalk";
-export type {
-  WecomInstallation,
-  ListWecomInstallationsResponse,
-  RegisterWecomBYORequest,
-  RedeemWecomBindingTokenResponse,
-} from "./wecom";
-export type {
-  TelegramInstallation,
-  ListTelegramInstallationsResponse,
-  RegisterTelegramRequest,
-  RedeemTelegramBindingTokenResponse,
-} from "./telegram";
 export type {
   Autopilot,
   AutopilotStatus,

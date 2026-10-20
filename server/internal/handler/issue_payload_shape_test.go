@@ -15,9 +15,9 @@ import (
 )
 
 // An issue reaches clients rendered two different ways: the HTTP handler
-// marshals IssueResponse, while events published outside it (autopilot and the
-// channel engine's /issue command on issue:created, the background stuck-issue
-// status reset on issue:updated) marshal service.IssueToMap.
+// marshals IssueResponse, while events published outside it (autopilot on
+// issue:created, the background stuck-issue status reset on issue:updated)
+// marshal service.IssueToMap.
 // Clients type both as a complete Issue and insert the
 // object straight into the list cache without runtime validation, so a key
 // present in one rendering and absent from the other is a field that reads

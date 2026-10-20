@@ -83,10 +83,9 @@ type ExecOptions struct {
 	ResumeExpected bool
 	// ResumeContinuityNotice is the text to prepend to the first turn when
 	// ResumeExpected holds but the backend lands on a fresh thread anyway. The
-	// caller owns the wording because only it knows what the surface lost — an
-	// issue's comments and a Slack channel's history survive and can be re-read,
-	// a web chat's and a Feishu channel's cannot — and that difference decides
-	// whether the agent should tell the user anything at all (MUL-5722).
+	// caller owns the wording because only it knows where the surface keeps its
+	// conversation — an issue's comments, or a chat's stored transcript — and so
+	// what the agent should be pointed at to re-read it (MUL-5722).
 	//
 	// Empty means say nothing, and the caller MUST leave it empty when its own
 	// prompt already carries the notice. That is what keeps a turn from paying

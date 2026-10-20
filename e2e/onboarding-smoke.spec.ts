@@ -23,14 +23,14 @@ test("onboarding — welcome → about you (answer path)", async ({ page }) => {
     localStorage.setItem("multica_token", t);
   }, token);
   await page.goto("/onboarding", { waitUntil: "domcontentloaded" });
-  await waitForPageText(page, "Continue on web");
+  await waitForPageText(page, "Start exploring");
 
   // 1. Welcome screen
-  await expect(page.getByRole("button", { name: "Continue on web" })).toBeVisible({ timeout: 15000 });
+  await expect(page.getByRole("button", { name: "Start exploring" })).toBeVisible({ timeout: 15000 });
   await page.screenshot({ path: `${SHOTS_DIR}/01-welcome.png`, fullPage: false });
 
-  // Click Continue on web to advance to About you
-  await page.getByRole("button", { name: "Continue on web" }).click();
+  // Click Start exploring to advance to About you
+  await page.getByRole("button", { name: "Start exploring" }).click();
 
   // 2. About you step — both questions live on this one screen and the
   //    source question must NOT exist anywhere in the flow.
@@ -82,9 +82,9 @@ test("onboarding — one skip clears the whole questionnaire step", async ({ pag
 
   await page.addInitScript((t) => localStorage.setItem("multica_token", t), token);
   await page.goto("/onboarding", { waitUntil: "domcontentloaded" });
-  await waitForPageText(page, "Continue on web");
+  await waitForPageText(page, "Start exploring");
 
-  await page.getByRole("button", { name: "Continue on web" }).click();
+  await page.getByRole("button", { name: "Start exploring" }).click();
   await expect(page.getByText("Tell us a bit about you.")).toBeVisible({ timeout: 10000 });
 
   // A single Skip covers role + use case — next stop is workspace.

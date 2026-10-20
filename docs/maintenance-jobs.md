@@ -28,9 +28,6 @@ No production execution is part of submitting this PR.
 
 Enable the listener using the deployment's existing configuration/release flow:
 
-- Helm: set `backend.config.maintenancePort: "6061"` in the release values.
-  The ConfigMap supplies `MAINTENANCE_PORT`; its checksum rolls the backend.
-  Neither the Service nor the container's published ports gains a maintenance port.
 - Compose: set `MAINTENANCE_PORT=6061` in the deployment `.env`, then recreate
   the backend with `docker compose -f docker-compose.selfhost.yml up -d backend`.
   The maintenance port is not published to the host.

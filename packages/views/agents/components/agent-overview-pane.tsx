@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import type {
   Agent,
   AgentRuntime,
@@ -10,12 +9,6 @@ import type {
 import { providerSupportsMcpConfig } from "@multica/core/agents";
 import { useFeatureEnabled } from "@multica/core/config";
 import { COMPOSIO_MCP_APPS_FLAG } from "@multica/core/feature-flags";
-import { useWorkspaceId } from "@multica/core/hooks";
-import { larkInstallationsOptions } from "@multica/core/lark";
-import { slackInstallationsOptions } from "@multica/core/slack";
-import { dingtalkInstallationsOptions } from "@multica/core/dingtalk";
-import { wecomInstallationsOptions } from "@multica/core/wecom";
-import { telegramInstallationsOptions } from "@multica/core/telegram";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -35,7 +28,6 @@ import { EnvTab } from "./tabs/env-tab";
 import { CustomArgsTab } from "./tabs/custom-args-tab";
 import { McpConfigTab } from "./tabs/mcp-config-tab";
 import { AgentMcpTab } from "./tabs/agent-mcp-tab";
-import { IntegrationsTab } from "./tabs/integrations-tab";
 import { RuntimeConfigTab } from "./tabs/runtime-config-tab";
 import { AgentDetailInspector } from "./agent-detail-inspector";
 import { AgentAccessSettings } from "./agent-access-settings";
@@ -53,7 +45,6 @@ export type DetailTab =
   | "skills"
   | "mcp_config"
   | "composio_mcp"
-  | "integrations"
   | "general"
   | "access"
   | "env"
@@ -67,7 +58,6 @@ type SecondaryTab = {
     | "skills"
     | "mcp_config"
     | "composio_mcp"
-    | "integrations"
     | "general"
     | "access"
     | "environment"
@@ -80,7 +70,6 @@ const CAPABILITY_TABS: SecondaryTab[] = [
   { id: "skills", labelKey: "skills" },
   { id: "mcp_config", labelKey: "mcp_config" },
   { id: "composio_mcp", labelKey: "composio_mcp" },
-  { id: "integrations", labelKey: "integrations" },
 ];
 
 const SETTINGS_TABS: SecondaryTab[] = [
@@ -153,7 +142,6 @@ export function AgentOverviewPane({
   onNavIntentHandled,
 }: AgentOverviewPaneProps) {
   const { t } = useT("agents");
-  const wsId = useWorkspaceId();
   const navigation = useNavigation();
   const urlView = navigation.searchParams.get("view");
   const composioMCPAppsEnabled = useFeatureEnabled(
@@ -166,33 +154,6 @@ export function AgentOverviewPane({
   const [activeDirty, setActiveDirty] = useState(false);
   const [pendingView, setPendingView] = useState<DetailTab | null>(null);
   const lastUrlViewRef = useRef(urlView);
-
-  const { data: larkListing } = useQuery({
-    ...larkInstallationsOptions(wsId),
-    enabled: !!wsId,
-  });
-  const { data: slackListing } = useQuery({
-    ...slackInstallationsOptions(wsId),
-    enabled: !!wsId,
-  });
-  const { data: dingtalkListing } = useQuery({
-    ...dingtalkInstallationsOptions(wsId),
-  });
-  const { data: wecomListing } = useQuery({
-    ...wecomInstallationsOptions(wsId),
-    enabled: !!wsId,
-  });
-  const { data: telegramListing } = useQuery({
-    ...telegramInstallationsOptions(wsId),
-    enabled: !!wsId,
-  });
-
-  const integrationsConfigured =
-    larkListing?.configured === true ||
-    slackListing?.configured === true ||
-    dingtalkListing?.configured === true ||
-    wecomListing?.configured === true ||
-    telegramListing?.configured === true;
 
   const visibleCapabilityTabs = useMemo(() => {
     const showMcp = runtime
@@ -207,14 +168,12 @@ export function AgentOverviewPane({
     return CAPABILITY_TABS.filter((tab) => {
       if (tab.id === "mcp_config") return showMcp;
       if (tab.id === "composio_mcp") return showComposioMcp;
-      if (tab.id === "integrations") return integrationsConfigured;
       return true;
     });
   }, [
     agent.owner_id,
     composioMCPAppsEnabled,
     currentUserId,
-    integrationsConfigured,
     runtime,
   ]);
 
@@ -477,9 +436,6 @@ export function AgentOverviewPane({
                   )}
                   {effectiveView === "composio_mcp" && (
                     <AgentMcpTab agent={agent} />
-                  )}
-                  {effectiveView === "integrations" && (
-                    <IntegrationsTab agent={agent} />
                   )}
                   {effectiveView === "general" && (
                     <AgentDetailInspector

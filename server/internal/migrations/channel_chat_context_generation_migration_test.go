@@ -6,10 +6,7 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/multica-ai/multica/server/internal/util"
-	db "github.com/multica-ai/multica/server/pkg/db/generated"
 )
 
 const channelContextMigrationTestSchema = "channel_context_migration_test"
@@ -265,52 +262,6 @@ func assertChannelContextOwnershipGuard(t *testing.T, ctx context.Context, conn 
 	}
 	if newOwner == nil || *newOwner != taskID {
 		t.Fatalf("revision-2 message owner = %v, want %s", newOwner, taskID)
-	}
-
-	if _, err := conn.Exec(ctx, `
-		INSERT INTO chat_message (id, chat_session_id, role, task_id)
-		VALUES ('c3440000-0000-4000-8000-000000000030', $1, 'assistant', $2)
-	`, sessionID, taskID); err != nil {
-		t.Fatalf("seed assistant outbound row: %v", err)
-	}
-	q := db.New(conn)
-	rows, err := q.SetChatMessageChannelOutboundProvenanceByTask(ctx, db.SetChatMessageChannelOutboundProvenanceByTaskParams{
-		ChannelType:    pgtype.Text{String: "slack", Valid: true},
-		InstallationID: util.MustParseUUID("c3440000-0000-4000-8000-000000000040"),
-		ChannelChatID:  pgtype.Text{String: "C123", Valid: true},
-		MessageIds:     []string{"104.000000", "105.000000"},
-		TaskID:         util.MustParseUUID(taskID),
-	})
-	if err != nil || rows != 1 {
-		t.Fatalf("record outbound provenance: rows=%d err=%v", rows, err)
-	}
-	ids, err := q.ListChannelOutboundMessageIDsForContext(ctx, db.ListChannelOutboundMessageIDsForContextParams{
-		ChatSessionID:          util.MustParseUUID(sessionID),
-		ChannelType:            pgtype.Text{String: "slack", Valid: true},
-		InstallationID:         util.MustParseUUID("c3440000-0000-4000-8000-000000000040"),
-		ChannelChatID:          pgtype.Text{String: "C123", Valid: true},
-		ChannelContextRevision: pgtype.Int8{Int64: 2, Valid: true},
-		CandidateMessageIds:    []string{"103.000000", "104.000000", "105.000000"},
-	})
-	if err != nil {
-		t.Fatalf("list outbound provenance: %v", err)
-	}
-	if len(ids) != 2 || ids[0] != "104.000000" || ids[1] != "105.000000" {
-		t.Fatalf("outbound provenance ids = %v", ids)
-	}
-	otherTargetIDs, err := q.ListChannelOutboundMessageIDsForContext(ctx, db.ListChannelOutboundMessageIDsForContextParams{
-		ChatSessionID:          util.MustParseUUID(sessionID),
-		ChannelType:            pgtype.Text{String: "slack", Valid: true},
-		InstallationID:         util.MustParseUUID("c3440000-0000-4000-8000-000000000041"),
-		ChannelChatID:          pgtype.Text{String: "C123", Valid: true},
-		ChannelContextRevision: pgtype.Int8{Int64: 2, Valid: true},
-		CandidateMessageIds:    []string{"104.000000"},
-	})
-	if err != nil {
-		t.Fatalf("list outbound provenance for other installation: %v", err)
-	}
-	if len(otherTargetIDs) != 0 {
-		t.Fatalf("other installation reused outbound ids = %v", otherTargetIDs)
 	}
 }
 

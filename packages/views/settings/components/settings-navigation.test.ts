@@ -7,26 +7,21 @@ const resolve = (search: string) =>
 
 describe("settings location", () => {
   it.each([
-    ["tab=issue", { tab: "preferences", section: "issue", integration: null }],
-    ["tab=chat", { tab: "preferences", section: "chat", integration: null }],
-    ["tab=labs", { tab: "workspace", section: null, integration: null }],
-    ["tab=lark", { tab: "channels", section: null, integration: "lark" }],
-    [
-      "tab=integrations&integration=slack",
-      { tab: "channels", section: null, integration: "slack" },
-    ],
-    ["tab=integrations", { tab: "channels", section: null, integration: null }],
+    ["tab=issue", { tab: "preferences", section: "issue" }],
+    ["tab=chat", { tab: "preferences", section: "chat" }],
+    ["tab=labs", { tab: "workspace", section: null }],
+    ["tab=integrations", { tab: "apps", section: null }],
     [
       "tab=integrations&integration=vcs",
-      { tab: "code", section: "code-hosting", integration: null },
+      { tab: "code", section: "code-hosting" },
     ],
     [
       "tab=integrations&integration=github",
-      { tab: "code", section: null, integration: null },
+      { tab: "code", section: null },
     ],
     [
       "tab=integrations&integration=composio",
-      { tab: "apps", section: null, integration: null },
+      { tab: "apps", section: null },
     ],
   ])("resolves the retired %s entry", (search, expected) => {
     expect(resolve(search)).toEqual(expected);
@@ -37,12 +32,10 @@ describe("settings location", () => {
     expect(resolve("tab=github")).toEqual({
       tab: "code",
       section: null,
-      integration: null,
     });
     expect(resolve("tab=repositories&github_connected=1")).toEqual({
       tab: "code",
       section: "repositories",
-      integration: null,
     });
   });
 
@@ -57,7 +50,6 @@ describe("settings location", () => {
     expect(resolve("tab=code&section=pr-sidebar")).toEqual({
       tab: "code",
       section: "pr-sidebar",
-      integration: null,
     });
     expect(resolve("").tab).toBe("profile");
   });
@@ -66,10 +58,10 @@ describe("settings location", () => {
     expect(
       settingsHref(
         "/acme/settings",
-        new URLSearchParams("tab=preferences&section=chat&keep=1"),
-        "channels",
-        { integration: "slack" },
+        new URLSearchParams("tab=integrations&integration=composio&section=chat&keep=1"),
+        "code",
+        { section: "pr-sidebar" },
       ),
-    ).toBe("/acme/settings?tab=channels&keep=1&integration=slack");
+    ).toBe("/acme/settings?tab=code&keep=1&section=pr-sidebar");
   });
 });

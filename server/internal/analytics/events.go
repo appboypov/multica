@@ -26,7 +26,6 @@ const (
 	EventOnboardingCompleted           = "onboarding_completed"
 	EventCloudWaitlistJoined           = "cloud_waitlist_joined"
 	EventFeedbackSubmitted             = "feedback_submitted"
-	EventContactSalesSubmitted         = "contact_sales_submitted"
 	EventSquadCreated                  = "squad_created"
 	EventAutopilotCreated              = "autopilot_created"
 )
@@ -68,7 +67,6 @@ var metricsOnlyEvents = map[string]struct{}{
 	EventOnboardingCompleted:           {},
 	EventCloudWaitlistJoined:           {},
 	EventFeedbackSubmitted:             {},
-	EventContactSalesSubmitted:         {},
 	EventSquadCreated:                  {},
 	EventAutopilotCreated:              {},
 	// High-volume runtime / autopilot execution-lifecycle telemetry — always
@@ -643,37 +641,6 @@ func FeedbackSubmitted(userID, workspaceID, kind string, messageLen int, hasImag
 			UserID:      userID,
 			WorkspaceID: workspaceID,
 			Source:      "ops_feedback",
-		}),
-	}
-}
-
-// ContactSalesSubmitted fires after a contact-sales inquiry is recorded.
-// The form is public and unauthenticated, so DistinctID is empty (PostHog
-// will treat it as an anonymous event). We carry the coarse company size,
-// country, intended use case, and the form-location bucket (page /
-// onboarding / agents_page) so sales / marketing can split inbound volume
-// without having to query the operational DB.
-//
-// formSource is the page-context bucket; the CoreProperties Source stays
-// "marketing_contact_sales" so PostHog dashboards keep the funnel join
-// against other marketing events. The Prometheus side reads form_source
-// directly via the metrics.NormalizeContactSalesSource allow-list.
-func ContactSalesSubmitted(inquiryID, companySize, countryRegion, useCase, formSource string, hasGoals bool) Event {
-	props := map[string]any{
-		"inquiry_id":     inquiryID,
-		"company_size":   companySize,
-		"country_region": countryRegion,
-		"use_case":       useCase,
-		"has_goals":      hasGoals,
-	}
-	if formSource != "" {
-		props["form_source"] = formSource
-	}
-	return Event{
-		Name:       EventContactSalesSubmitted,
-		DistinctID: inquiryID,
-		Properties: withCoreProperties(props, CoreProperties{
-			Source: "marketing_contact_sales",
 		}),
 	}
 }

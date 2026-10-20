@@ -99,7 +99,6 @@ var businessMetricLabels = map[string][]string{
 	"multica_cloudruntime_request_total":               {labelOp, labelStatus},
 	"multica_cloudruntime_request_duration_seconds":    {labelOp},
 	"multica_feedback_submitted_total":                 {labelKind, labelPlatform},
-	"multica_contact_sales_submitted_total":            {labelSource},
 	"multica_chat_output_local_path_total":             {labelKind},
 	"multica_entitlement_cache_total":                  {labelOutcome},
 	"multica_entitlement_refresh_total":                {labelOutcome},
@@ -111,11 +110,8 @@ var businessMetricLabels = map[string][]string{
 
 var forbiddenMetricLabels = map[string]struct{}{
 	"workspace_id": {},
-	// installation_id is the same class as the rest: one series per channel
-	// installation, growing with tenants rather than with the deployment. It
-	// is also the natural thing to reach for in any channel metric — every
-	// adapter call site already carries one — which is what makes leaving it
-	// off this list a matter of time rather than of luck.
+	// installation_id is the same class as the rest: one series per
+	// installation, growing with tenants rather than with the deployment.
 	"installation_id": {},
 	"user_id":         {},
 	"agent_id":        {},

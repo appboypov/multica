@@ -18,9 +18,6 @@
     "headline_line2": "ひとつの",
     "headline_emphasis": "ワークスペースに。",
     "lede": "同僚に仕事を任せるようにタスクを割り当てるだけ。エージェントが引き受け、ステータスを更新し、完了したらコメントします。",
-    "lede_web": "デスクトップ版にはランタイムが同梱されており、何もインストールする必要はありません。ご自身の CLI を接続するには、ウェブで続けてください。",
-    "download_desktop": "デスクトップ版をダウンロード",
-    "continue_on_web": "ウェブで続ける",
     "start_exploring": "探索を始める",
     "skip_existing": "以前にやったことがあります",
     "illustration": {
@@ -116,10 +113,7 @@
   "cli_install": {
     "copy_aria": "コピー",
     "intro": "エージェントを実行するには、このコンピュータにエージェントランタイム(Claude Code、Codex、Cursor など)が必要です。サーバーやリモート開発環境でも動作します。",
-    "step1_label": "Multica CLI をインストール",
-    "platform_group": "プラットフォームを選択",
-    "platform_macos_linux": "macOS / Linux",
-    "platform_windows": "Windows",
+    "step1_label": "Multica のチェックアウトから Multica CLI をインストール",
     "step2_label": "デーモンを起動"
   },
   "cloud_waitlist": {
@@ -227,9 +221,6 @@
     "headline": "エージェントを実行するコンピュータを接続しましょう。",
     "lede": "コンピュータに接続して Mika を使い始めましょう。",
     "hint_default": "後から接続できます。",
-    "download_title": "このコンピュータを使う",
-    "download_subtitle": "デスクトップ版をインストールして、このコンピュータを接続します。",
-    "download_button": "ダウンロード",
     "cli_title": "ターミナルから接続",
     "cli_subtitle": "サーバー、リモート開発環境、ヘッドレスなコンピュータを接続します。ターミナルが必要です。",
     "cli_action": "手順を表示",

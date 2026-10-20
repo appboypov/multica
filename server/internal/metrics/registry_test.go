@@ -19,8 +19,6 @@ func TestRegistryExcludesDatabaseSampledMetrics(t *testing.T) {
 		"multica_seat_capacity_outbox_pending":                    {},
 		"multica_seat_capacity_outbox_dead_lettered":              {},
 		"multica_seat_capacity_outbox_oldest_pending_age_seconds": {},
-		"multica_channel_media_pending_objects":                   {},
-		"multica_channel_media_tombstoned_objects":                {},
 		"multica_runtime_gc_blocked_observation_failed_total":     {},
 		"multica_runtime_gc_blocked_runtimes":                     {},
 		"multica_runtime_gc_backlog_runtimes":                     {},

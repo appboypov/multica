@@ -18,9 +18,6 @@
     "headline_line2": "dans",
     "headline_emphasis": "un seul espace de travail.",
     "lede": "Confiez-leur du travail comme à un collègue — ils s'en saisissent, mettent à jour le statut et commentent une fois terminé.",
-    "lede_web": "L'application de bureau embarque le runtime — rien à installer. Continuez sur le web pour connecter votre propre CLI.",
-    "download_desktop": "Télécharger l'application de bureau",
-    "continue_on_web": "Continuer sur le web",
     "start_exploring": "Commencer l'exploration",
     "skip_existing": "Je l'ai déjà fait",
     "illustration": {
@@ -116,10 +113,7 @@
   "cli_install": {
     "copy_aria": "Copier",
     "intro": "Il vous faut un runtime d'agent sur cet ordinateur (Claude Code, Codex, Cursor, …) pour qu'il exécute votre agent. Fonctionne aussi sur des serveurs et des machines de développement distantes.",
-    "step1_label": "Installer le CLI Multica",
-    "platform_group": "Choisissez votre système",
-    "platform_macos_linux": "macOS / Linux",
-    "platform_windows": "Windows",
+    "step1_label": "Installer le CLI Multica depuis votre checkout de Multica",
     "step2_label": "Démarrer le daemon"
   },
   "cloud_waitlist": {
@@ -228,9 +222,6 @@
     "headline": "Connectez un ordinateur pour exécuter votre agent.",
     "lede": "Connectez un ordinateur pour que Mika puisse travailler.",
     "hint_default": "Vous pouvez vous connecter plus tard.",
-    "download_title": "Utiliser cet ordinateur",
-    "download_subtitle": "Installez Multica Desktop pour connecter cet ordinateur.",
-    "download_button": "Télécharger",
     "cli_title": "Connecter depuis le terminal",
     "cli_subtitle": "Connectez un serveur, une machine de développement distante, ou tout ordinateur sans interface graphique. Terminal requis.",
     "cli_action": "Afficher les étapes",

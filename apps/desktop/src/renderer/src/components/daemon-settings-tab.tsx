@@ -168,20 +168,7 @@ export function DaemonSettingsTab() {
                 : t(($) => $.desktop.daemon.cli_missing)
           }
         >
-          {cliInstalled === false && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() =>
-                window.desktopAPI.openExternal(
-                  "https://github.com/multica-ai/multica#cli-installation",
-                )
-              }
-            >
-              {t(($) => $.desktop.daemon.installation_guide)}
-            </Button>
-          )}
-          {cliInstalled !== false && <span />}
+          <span />
         </SettingsRow>
       </SettingsCard>
 

@@ -154,8 +154,8 @@ For **self-host**, upgrade normally, including when skipping PR1/PR2 releases.
 491 converts the local catalog automatically, then 492–494 converge the schema.
 A fresh install follows the same path. The accepted small-database tradeoff is
 an UPDATE/validation startup window; this is not a zero-downtime guarantee for
-large self-host installations. The default Helm startup probe budget is 10
-minutes. An operator with unusually large data can use the SaaS staged path.
+large self-host installations. An operator with unusually large data can use
+the SaaS staged path.
 
 If 492 times out, 491 stays committed and retry resumes at 492. If 493 fails,
 strict checks already protect new writes and readiness remains failed. Identify

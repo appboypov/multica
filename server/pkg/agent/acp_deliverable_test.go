@@ -185,7 +185,7 @@ const (
 )
 
 // fakeACPDeliverableScript returns a POSIX-sh ACP runtime that plays one turn
-// in the shape that leaked process narration into channel replies (#6006):
+// in the shape that leaked process narration into chat replies (#6006):
 // interim narration, a tool call, then the user-facing answer.
 func fakeACPDeliverableScript(c acpDeliverableCase) string {
 	notify := func(update string) string {
@@ -314,7 +314,7 @@ var acpDeliverableEmissionPaths = []struct {
 
 // TestACPBackendsDeliverFinalAnswerWithoutNarration pins the boundary across
 // every ACP backend: interim narration stays in the streamed transcript but
-// must not reach Result.Output, which becomes the channel reply and the
+// must not reach Result.Output, which becomes the chat reply and the
 // auto-generated issue comment (#6006, MUL-5394).
 func TestACPBackendsDeliverFinalAnswerWithoutNarration(t *testing.T) {
 	t.Parallel()

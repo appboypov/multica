@@ -277,7 +277,7 @@ func TestLoginTokenFlagParsing(t *testing.T) {
 			want: want{changed: true, resolvedToken: "mul_yyy"},
 		},
 		{
-			name: "no value falls through to prompt (legacy CLI_INSTALL.md form)",
+			name: "no value falls through to prompt",
 			argv: []string{"--token"},
 			want: want{changed: true, expectsPrompted: true},
 		},

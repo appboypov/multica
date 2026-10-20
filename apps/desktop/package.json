@@ -27,7 +27,6 @@
     "typecheck": "pnpm run typecheck:node && pnpm run typecheck:web",
     "preview": "electron-vite preview",
     "package": "node scripts/package.mjs",
-    "package:all": "node scripts/package.mjs --all-platforms --publish never",
     "lint": "eslint .",
     "test": "vitest run",
     "postinstall": "electron-builder install-app-deps"
@@ -46,7 +45,6 @@
     "@multica/ui": "workspace:*",
     "@multica/views": "workspace:*",
     "@tanstack/react-query": "catalog:",
-    "electron-updater": "^6.8.3",
     "fix-path": "^5.0.0",
     "lucide-react": "catalog:",
     "motion": "^12.38.0",

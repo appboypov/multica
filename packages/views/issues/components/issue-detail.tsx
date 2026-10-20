@@ -2405,7 +2405,6 @@ export function IssueDetail({ issueId, onDelete, onDone, defaultSidebarOpen = tr
   const descriptionSaveIssueIdRef = useRef(id);
   const pendingDescriptionSaveRef = useRef<{
     markdown: string;
-    baseMarkdown: string;
     attachmentIds: string[];
   } | null>(null);
   // Keep the description editor mounted from the start. Unlike the empty
@@ -2825,32 +2824,22 @@ export function IssueDetail({ issueId, onDelete, onDone, defaultSidebarOpen = tr
   }
 
   const persistDescriptionSave = (
-    draft: { markdown: string; baseMarkdown: string; attachmentIds: string[] },
+    draft: { markdown: string; attachmentIds: string[] },
   ) => {
     descriptionSaveInFlightRef.current = true;
     handleUpdateField(
       {
         description: draft.markdown,
-        description_base: draft.baseMarkdown,
         attachment_ids:
           draft.attachmentIds.length > 0 ? draft.attachmentIds : undefined,
       },
       {
-        onSuccess: (serverIssue) => {
+        onSuccess: () => {
           if (descriptionSaveIssueIdRef.current !== id) return;
           descriptionSaveInFlightRef.current = false;
           const pending = pendingDescriptionSaveRef.current;
           pendingDescriptionSaveRef.current = null;
-          if (pending) {
-            // Usually the accepted document is exactly what we submitted. If
-            // the server appended late channel media, keep the submitted body
-            // as the next editor baseline: the server can recognize that the
-            // only delta is media the editor never saw and preserve it again.
-            const nextBase = serverIssue.description === draft.markdown
-              ? serverIssue.description
-              : draft.markdown;
-            persistDescriptionSave({ ...pending, baseMarkdown: nextBase });
-          }
+          if (pending) persistDescriptionSave(pending);
         },
         onError: () => {
           if (descriptionSaveIssueIdRef.current !== id) return;
@@ -2862,7 +2851,7 @@ export function IssueDetail({ issueId, onDelete, onDone, defaultSidebarOpen = tr
   };
 
   const queueDescriptionSave = (
-    draft: { markdown: string; baseMarkdown: string; attachmentIds: string[] },
+    draft: { markdown: string; attachmentIds: string[] },
   ) => {
     if (descriptionSaveInFlightRef.current) {
       pendingDescriptionSaveRef.current = draft;
@@ -2887,10 +2876,9 @@ export function IssueDetail({ issueId, onDelete, onDone, defaultSidebarOpen = tr
   // (Desktop/Electron, mobile webview) — while still working on web via the
   // cookie/proxy. This mirrors the comment/reply/chat composers, which already
   // bind via `contentReferencesAttachment` (MUL-3130 / MUL-3192).
-  const saveDescription = (markdown: string, baseMarkdown: string) => {
+  const saveDescription = (markdown: string) => {
     queueDescriptionSave({
       markdown,
-      baseMarkdown,
       attachmentIds: descPendingAttachmentsRef.current
         .filter((a) => contentReferencesAttachment(markdown, a))
         .map((a) => a.id),
@@ -2902,11 +2890,11 @@ export function IssueDetail({ issueId, onDelete, onDone, defaultSidebarOpen = tr
       // An upload still landing in the editor would be lost under the textarea.
       if (descEditorRef.current?.hasActiveUploads()) return;
       // Typing the editor has not saved yet goes out now, and the textarea
-      // opens with it. While a save is in flight the cached description is
-      // still the old one, so the textarea opens with the editor's text.
+      // opens with it. While a save is in flight the cached description can
+      // lag behind the editor, so the textarea opens with the editor's text.
       const description = issue.description ?? "";
       const pending = descEditorRef.current?.flushPendingUpdate() ?? null;
-      if (pending !== null) saveDescription(pending, description);
+      if (pending !== null) saveDescription(pending);
       const saving = descriptionSaveInFlightRef.current ? descEditorRef.current?.getMarkdown() : undefined;
       setDescriptionMarkdownView({ issueId: id, initialMarkdown: pending ?? saving ?? description });
       return;

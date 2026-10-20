@@ -1,11 +1,9 @@
 package service
 
 import (
-	"context"
 	"strings"
 	"testing"
 
-	"github.com/multica-ai/multica/server/internal/events"
 	"github.com/multica-ai/multica/server/internal/util"
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
 	"github.com/multica-ai/multica/server/pkg/protocol"
@@ -79,65 +77,5 @@ func TestTaskEventCarriesPayloadAndScopeHints(t *testing.T) {
 		if got := payload[key]; got != want {
 			t.Errorf("payload[%q] = %v, want %v", key, got, want)
 		}
-	}
-}
-
-// TestFailTaskPublishesDeliverableChannelFailure walks the real persistence
-// path that previously emitted only the base task fields. The DingTalk
-// subscriber needs the redacted error and chat scope on this exact event to
-// replace its initial acknowledgement with a terminal failure notice.
-func TestFailTaskPublishesDeliverableChannelFailure(t *testing.T) {
-	pool := newResolveOriginatorPool(t)
-	ctx := context.Background()
-	q := db.New(pool)
-	workspaceID, userID, agentID, _ := seedAttributionFixture(t, pool)
-
-	var runtimeID string
-	if err := pool.QueryRow(ctx, `SELECT runtime_id::text FROM agent WHERE id = $1`, agentID).Scan(&runtimeID); err != nil {
-		t.Fatalf("load agent runtime: %v", err)
-	}
-	var chatSessionID string
-	if err := pool.QueryRow(ctx, `
-		INSERT INTO chat_session (workspace_id, agent_id, creator_id)
-		VALUES ($1, $2, $3) RETURNING id`, workspaceID, agentID, userID).Scan(&chatSessionID); err != nil {
-		t.Fatalf("seed chat session: %v", err)
-	}
-	var taskID string
-	if err := pool.QueryRow(ctx, `
-		INSERT INTO agent_task_queue
-			(agent_id, runtime_id, chat_session_id, status, priority, attempt, max_attempts)
-		VALUES ($1, $2, $3, 'running', 0, 1, 1)
-		RETURNING id`, agentID, runtimeID, chatSessionID).Scan(&taskID); err != nil {
-		t.Fatalf("seed running chat task: %v", err)
-	}
-	t.Cleanup(func() {
-		_, _ = pool.Exec(context.Background(), `DELETE FROM chat_message WHERE chat_session_id = $1`, chatSessionID)
-		_, _ = pool.Exec(context.Background(), `DELETE FROM agent_task_queue WHERE id = $1`, taskID)
-		_, _ = pool.Exec(context.Background(), `DELETE FROM chat_session WHERE id = $1`, chatSessionID)
-	})
-
-	bus := events.New()
-	var got events.Event
-	bus.Subscribe(protocol.EventTaskFailed, func(e events.Event) { got = e })
-	svc := &TaskService{Queries: q, TxStarter: pool, Bus: bus}
-	if _, err := svc.FailTask(ctx, util.MustParseUUID(taskID), "provider failed", "", "", "", "agent_error", false, "", ""); err != nil {
-		t.Fatalf("FailTask: %v", err)
-	}
-
-	if got.Type != protocol.EventTaskFailed {
-		t.Fatalf("event type = %q, want %q", got.Type, protocol.EventTaskFailed)
-	}
-	if got.WorkspaceID != workspaceID || got.TaskID != taskID || got.ChatSessionID != chatSessionID {
-		t.Fatalf("event scope = workspace %q task %q chat %q", got.WorkspaceID, got.TaskID, got.ChatSessionID)
-	}
-	payload, ok := got.Payload.(map[string]any)
-	if !ok {
-		t.Fatalf("payload type = %T, want map[string]any", got.Payload)
-	}
-	if payload["error"] != "provider failed" {
-		t.Fatalf("payload error = %v, want provider failed", payload["error"])
-	}
-	if payload["failure_reason"] != "agent_error" || payload["retry_pending"] != false {
-		t.Fatalf("failure metadata = reason %v retry %v", payload["failure_reason"], payload["retry_pending"])
 	}
 }

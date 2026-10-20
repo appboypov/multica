@@ -200,17 +200,12 @@ export function useUpdateIssue() {
       return api.moveIssue(id, { ...target, ...moveIntent });
     },
     onMutate: ({ id, move_intent: _moveIntent, ...data }) => {
-      // suppress_run is a write-time control field, not an Issue column.
-      // description_base is merge metadata, while description itself
-      // is resolved against that base on the server and therefore is not safe
-      // to predict optimistically. Keep the authoritative raw description in
-      // cache so hidden channel-media markers remain available as the base for
-      // a rapid follow-up edit. mutationFn still sends the full payload.
+      // suppress_run is a write-time control field, not an Issue column, and
+      // the base/revision fields are write guards. mutationFn still sends the
+      // full payload.
       const {
         suppress_run: _suppressRun,
         duplicate_of_issue_id: _duplicateOfIssueId,
-        description: _description,
-        description_base: _descriptionBase,
         title_base: _titleBase,
         expected_revision: _expectedRevision,
         ...patch
@@ -321,7 +316,6 @@ export function useUpdateIssue() {
       const {
         suppress_run: _suppressRun,
         duplicate_of_issue_id: _duplicateOfIssueId,
-        description_base: _descriptionBase,
         move_intent: _moveIntent,
         id: _id,
         ...intent
@@ -518,16 +512,9 @@ export function useBatchUpdateIssues() {
       updates: UpdateIssueRequest;
     }) => api.batchUpdateIssues(ids, updates),
     onMutate: async ({ ids, updates }) => {
-      // Control and description-merge fields are not safe optimistic cache
-      // patches. The server resolves description against description_base, so
-      // preserve the authoritative raw description (including media markers)
-      // until a refetch returns the committed result.
-      const {
-        suppress_run: _suppressRun,
-        description: _description,
-        description_base: _descriptionBase,
-        ...patch
-      } = updates;
+      // Control fields steer the server; they are not Issue columns and must
+      // not enter the cache. mutationFn still sends them.
+      const { suppress_run: _suppressRun, ...patch } = updates;
       await qc.cancelQueries({ queryKey: issueKeys.list(wsId) });
       await qc.cancelQueries({ queryKey: issueKeys.myAll(wsId) });
       await qc.cancelQueries({ queryKey: issueKeys.flatAll(wsId) });

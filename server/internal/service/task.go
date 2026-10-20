@@ -1130,65 +1130,7 @@ func (s *TaskService) EnqueueTaskForIssue(ctx context.Context, issue db.Issue, t
 	if len(triggerCommentID) > 0 {
 		commentID = triggerCommentID[0]
 	}
-	return s.enqueueIssueTask(ctx, issue, commentID, false, "", pgtype.UUID{}, pgtype.UUID{}, pgtype.Timestamptz{}, OriginDerived)
-}
-
-// EnqueueDeferredChannelIssueTask persists the assigned task for a media-backed
-// channel /issue turn without making it claimable yet. The fireAt deadline is a
-// crash-safe fallback; the channel router promotes the task as soon as the
-// detached attachment transaction settles.
-func (s *TaskService) EnqueueDeferredChannelIssueTask(ctx context.Context, issue db.Issue, fireAt time.Time) (db.AgentTaskQueue, error) {
-	task, err := s.enqueueIssueTask(ctx, issue, pgtype.UUID{}, false, "", pgtype.UUID{}, pgtype.UUID{}, pgtype.Timestamptz{Time: fireAt, Valid: true}, OriginDerived)
-	if err != nil {
-		return db.AgentTaskQueue{}, err
-	}
-	// The task is durable but not claimable yet. Wake once without a task ID so
-	// the daemon refreshes its deferred schedule without treating it as ready.
-	s.notifyRuntimeMayHaveWork(task.RuntimeID, "")
-	return task, nil
-}
-
-// createDeferredChannelIssueTaskWithQueries inserts the inert media-gated task
-// through the caller's query handle. IssueService passes its transaction-bound
-// Queries so the issue and task become visible atomically. Composio is
-// intentionally absent from the transaction-scoped service: the task cannot be
-// claimed while deferred, so the optional external overlay is hydrated after
-// commit without holding database locks across a network call.
-func (s *TaskService) createDeferredChannelIssueTaskWithQueries(ctx context.Context, q *db.Queries, issue db.Issue, fireAt time.Time) (db.AgentTaskQueue, error) {
-	txService := &TaskService{Queries: q}
-	return txService.enqueueIssueTask(ctx, issue, pgtype.UUID{}, false, "", pgtype.UUID{}, pgtype.UUID{}, pgtype.Timestamptz{Time: fireAt, Valid: true}, OriginDerived)
-}
-
-// hydrateDeferredChannelIssueTaskOverlay fills the optional Composio overlay
-// after the issue+task transaction commits. The conditional update refuses to
-// overwrite a comment merge that won the post-commit race and already
-// re-attributed the task (with its own matching overlay).
-func (s *TaskService) hydrateDeferredChannelIssueTaskOverlay(ctx context.Context, task db.AgentTaskQueue) error {
-	if s == nil || s.Queries == nil || s.Composio == nil || !featureflags.ComposioMCPAppsEnabled(ctx, s.FeatureFlags) {
-		return nil
-	}
-	agent, err := s.Queries.GetAgent(ctx, task.AgentID)
-	if err != nil {
-		return fmt.Errorf("load agent for deferred channel issue task overlay: %w", err)
-	}
-	overlay := s.buildRuntimeMCPOverlay(ctx, task.OriginatorUserID, agent)
-	if len(overlay.Overlay) == 0 {
-		return nil
-	}
-	updated, err := s.Queries.SetDeferredChannelIssueTaskRuntimeOverlay(ctx, db.SetDeferredChannelIssueTaskRuntimeOverlayParams{
-		ID:                       task.ID,
-		RuntimeMcpOverlay:        overlay.Overlay,
-		RuntimeConnectedApps:     overlay.ConnectedApps,
-		ExpectedOriginatorUserID: task.OriginatorUserID,
-	})
-	if err != nil {
-		return fmt.Errorf("set deferred channel issue task overlay: %w", err)
-	}
-	if updated == 0 {
-		slog.Debug("deferred channel issue task overlay skipped: task plan changed",
-			"task_id", util.UUIDToString(task.ID))
-	}
-	return nil
+	return s.enqueueIssueTask(ctx, issue, commentID, false, "", pgtype.UUID{}, pgtype.UUID{}, OriginDerived)
 }
 
 // EnqueueTaskForIssueByActor is the assign/promote variant of
@@ -1196,7 +1138,7 @@ func (s *TaskService) hydrateDeferredChannelIssueTaskOverlay(ctx context.Context
 // assign/promote and becomes the accountable human for the run (MUL-4302 §4);
 // invalid when the caller has no member actor.
 func (s *TaskService) EnqueueTaskForIssueByActor(ctx context.Context, issue db.Issue, actorUserID pgtype.UUID) (db.AgentTaskQueue, error) {
-	return s.enqueueIssueTask(ctx, issue, pgtype.UUID{}, false, "", actorUserID, pgtype.UUID{}, pgtype.Timestamptz{}, OriginDerived)
+	return s.enqueueIssueTask(ctx, issue, pgtype.UUID{}, false, "", actorUserID, pgtype.UUID{}, OriginDerived)
 }
 
 // EnqueueTaskForIssueWithHandoff is the backward-compatible assign/promote
@@ -1204,7 +1146,7 @@ func (s *TaskService) EnqueueTaskForIssueByActor(ctx context.Context, issue db.I
 // persisted on the task so both old and current daemons can render it in the
 // run's opening prompt. Empty text behaves like EnqueueTaskForIssueByActor.
 func (s *TaskService) EnqueueTaskForIssueWithHandoff(ctx context.Context, issue db.Issue, handoffNote string, actorUserID pgtype.UUID) (db.AgentTaskQueue, error) {
-	return s.enqueueIssueTask(ctx, issue, pgtype.UUID{}, false, handoffNote, actorUserID, pgtype.UUID{}, pgtype.Timestamptz{}, OriginDerived)
+	return s.enqueueIssueTask(ctx, issue, pgtype.UUID{}, false, handoffNote, actorUserID, pgtype.UUID{}, OriginDerived)
 }
 
 // enqueueIssueTask is the shared implementation behind EnqueueTaskForIssue
@@ -1256,11 +1198,11 @@ func (s *TaskService) ResolveIssueReviewSHAParam(ctx context.Context, issueID pg
 	return headShaText(s.ResolveIssueReviewSHA(ctx, issueID))
 }
 
-func (s *TaskService) enqueueIssueTask(ctx context.Context, issue db.Issue, triggerCommentID pgtype.UUID, forceFreshSession bool, handoffNote string, actorUserID pgtype.UUID, rerunOfTaskID pgtype.UUID, fireAt pgtype.Timestamptz, origin RunOrigin) (db.AgentTaskQueue, error) {
-	return s.enqueueIssueTaskWithCommentPlan(ctx, issue, triggerCommentID, nil, forceFreshSession, handoffNote, actorUserID, rerunOfTaskID, fireAt, origin)
+func (s *TaskService) enqueueIssueTask(ctx context.Context, issue db.Issue, triggerCommentID pgtype.UUID, forceFreshSession bool, handoffNote string, actorUserID pgtype.UUID, rerunOfTaskID pgtype.UUID, origin RunOrigin) (db.AgentTaskQueue, error) {
+	return s.enqueueIssueTaskWithCommentPlan(ctx, issue, triggerCommentID, nil, forceFreshSession, handoffNote, actorUserID, rerunOfTaskID, origin)
 }
 
-func (s *TaskService) enqueueIssueTaskWithCommentPlan(ctx context.Context, issue db.Issue, triggerCommentID pgtype.UUID, coalescedCommentIDs []pgtype.UUID, forceFreshSession bool, handoffNote string, actorUserID pgtype.UUID, rerunOfTaskID pgtype.UUID, fireAt pgtype.Timestamptz, origin RunOrigin) (db.AgentTaskQueue, error) {
+func (s *TaskService) enqueueIssueTaskWithCommentPlan(ctx context.Context, issue db.Issue, triggerCommentID pgtype.UUID, coalescedCommentIDs []pgtype.UUID, forceFreshSession bool, handoffNote string, actorUserID pgtype.UUID, rerunOfTaskID pgtype.UUID, origin RunOrigin) (db.AgentTaskQueue, error) {
 	if !issue.AssigneeID.Valid {
 		slog.Error("task enqueue failed", "issue_id", util.UUIDToString(issue.ID), "error", "issue has no assignee")
 		return db.AgentTaskQueue{}, fmt.Errorf("issue has no assignee")
@@ -1324,37 +1266,7 @@ func (s *TaskService) enqueueIssueTaskWithCommentPlan(ctx context.Context, issue
 		// from a later request against a new HEAD (TEN-356).
 		HeadSha: headShaText(s.ResolveIssueReviewSHA(ctx, issue.ID)),
 	}
-	var task db.AgentTaskQueue
-	if fireAt.Valid {
-		task, err = s.Queries.CreateDeferredChannelIssueTask(ctx, db.CreateDeferredChannelIssueTaskParams{
-			ID:                   dbid.NewV7(),
-			AgentID:              createParams.AgentID,
-			RuntimeID:            createParams.RuntimeID,
-			IssueID:              createParams.IssueID,
-			Priority:             createParams.Priority,
-			TriggerCommentID:     createParams.TriggerCommentID,
-			CoalescedCommentIds:  createParams.CoalescedCommentIds,
-			TriggerSummary:       createParams.TriggerSummary,
-			ForceFreshSession:    createParams.ForceFreshSession,
-			IsLeaderTask:         createParams.IsLeaderTask,
-			HandoffNote:          createParams.HandoffNote,
-			SquadID:              createParams.SquadID,
-			HeadSha:              createParams.HeadSha,
-			OriginatorUserID:     createParams.OriginatorUserID,
-			AccountableUserID:    createParams.AccountableUserID,
-			RuntimeMcpOverlay:    createParams.RuntimeMcpOverlay,
-			RuntimeConnectedApps: createParams.RuntimeConnectedApps,
-			OriginatorSource:     createParams.OriginatorSource,
-			DelegatedFromTaskID:  createParams.DelegatedFromTaskID,
-			RuleVersionID:        createParams.RuleVersionID,
-			RerunOfTaskID:        createParams.RerunOfTaskID,
-			TriggerEvidenceKind:  createParams.TriggerEvidenceKind,
-			TriggerEvidenceRefID: createParams.TriggerEvidenceRefID,
-			FireAt:               fireAt,
-		})
-	} else {
-		task, err = s.Queries.CreateAgentTask(ctx, createParams)
-	}
+	task, err := s.Queries.CreateAgentTask(ctx, createParams)
 	if err != nil {
 		// A concurrent enqueue for the same (issue, agent) won the race and the
 		// unique index rejected this insert. That is benign — a sibling run
@@ -1376,9 +1288,6 @@ func (s *TaskService) enqueueIssueTaskWithCommentPlan(ctx context.Context, issue
 		"agent_id", util.UUIDToString(issue.AssigneeID),
 		"force_fresh_session", forceFreshSession,
 	)
-	if fireAt.Valid {
-		return task, nil
-	}
 	// Order matters: broadcast first, notify daemon second. notifyTaskAvailable
 	// kicks an in-process channel that the daemon picks up over HTTP and
 	// claims; the claim path then emits its own task:dispatch. Doing the
@@ -1929,59 +1838,36 @@ var ErrChatQuickActionsStale = errors.New("chat quick actions: refresh target is
 // quota-spending pass (MUL-5149).
 var ErrChatQuickActionsBusy = errors.New("chat quick actions: session busy")
 
-// ErrChatSessionArchived signals that a send or a debounced channel flush lost
-// a race with archiving the session and therefore must not persist a new turn.
+// ErrChatSessionArchived signals that a send lost a race with archiving the
+// session and therefore must not persist a new turn.
 var ErrChatSessionArchived = errors.New("chat task: session archived")
 
-// PreparedChatTaskEnqueue is an opaque, side-effect-free input snapshot built
-// before a caller opens a task-enqueue transaction.
-type PreparedChatTaskEnqueue struct {
+// preparedChatTaskEnqueue is an opaque, side-effect-free input snapshot built
+// before the task-enqueue transaction opens.
+type preparedChatTaskEnqueue struct {
 	accountableUser  pgtype.UUID
 	attrSource       pgtype.Text
 	attrEvidenceKind pgtype.Text
 	runtimeOverlay   runtimeMCPOverlayData
 }
 
-// MemberMayInvokeAgent reports whether userID may trigger runs for agentID.
-//
-// CanMemberInvokeAgent keyed by id rather than by row: channel inbound has the
-// installation's agent id and no reason to load the agent itself. It asks this
-// before storing a sender's message, so a member the web chat would refuse
-// cannot reach the agent through a bot either.
-//
-// An agent that no longer exists admits nobody — that is a verdict, not a
-// failure. Every other query failure comes back as an error, so an unreachable
-// database is never read as a denial: the caller releases its dedup claim and
-// the platform's redelivery is still the message's chance. CanMemberInvokeAgent
-// is the fail-closed wrapper the scheduled triggers use instead.
-func (s *TaskService) MemberMayInvokeAgent(ctx context.Context, agentID, userID pgtype.UUID) (bool, error) {
-	agent, err := s.Queries.GetAgent(ctx, agentID)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return false, nil
-	}
-	if err != nil {
-		return false, fmt.Errorf("load agent: %w", err)
-	}
-	return memberMayInvokeAgent(ctx, s.Queries, agent, userID, agent.WorkspaceID)
-}
-
-// PrepareChatTaskEnqueue performs reads and optional external integration work
-// before the caller opens a transaction. BuildTaskOverlay may perform network
-// I/O and must never run while /new holds route-rotation locks.
-func (s *TaskService) PrepareChatTaskEnqueue(
+// prepareChatTaskEnqueue performs reads and optional external integration work
+// before the transaction opens. buildRuntimeMCPOverlay may perform network
+// I/O and must never run while the enqueue holds its row locks.
+func (s *TaskService) prepareChatTaskEnqueue(
 	ctx context.Context,
 	agentID, initiatorUserID pgtype.UUID,
-) (PreparedChatTaskEnqueue, error) {
+) (preparedChatTaskEnqueue, error) {
 	agent, err := s.Queries.GetAgent(ctx, agentID)
 	if err != nil {
 		slog.Error("chat task preparation failed", "agent_id", util.UUIDToString(agentID), "error", err)
-		return PreparedChatTaskEnqueue{}, fmt.Errorf("load agent: %w", err)
+		return preparedChatTaskEnqueue{}, fmt.Errorf("load agent: %w", err)
 	}
 	if agent.ArchivedAt.Valid {
-		return PreparedChatTaskEnqueue{}, ErrChatTaskAgentArchived
+		return preparedChatTaskEnqueue{}, ErrChatTaskAgentArchived
 	}
 	if !agent.RuntimeID.Valid {
-		return PreparedChatTaskEnqueue{}, ErrChatTaskAgentNoRuntime
+		return preparedChatTaskEnqueue{}, ErrChatTaskAgentNoRuntime
 	}
 
 	attr := attribution.DirectHumanRun(
@@ -1991,62 +1877,24 @@ func (s *TaskService) PrepareChatTaskEnqueue(
 	if err != nil {
 		slog.Warn("chat task enqueue refused: attribution fail-closed",
 			"agent_id", util.UUIDToString(agentID))
-		return PreparedChatTaskEnqueue{}, err
+		return preparedChatTaskEnqueue{}, err
 	}
 	attrSource, _, attrEvidenceKind, _ := attributionCreateParams(attr)
-	return PreparedChatTaskEnqueue{
+	return preparedChatTaskEnqueue{
 		accountableUser: attr.AccountableUserID,
 		attrSource:      attrSource, attrEvidenceKind: attrEvidenceKind,
 		runtimeOverlay: s.buildRuntimeMCPOverlay(ctx, initiatorUserID, agent),
 	}, nil
 }
 
-// EnqueueChatTask creates a Direct Chat task. If the Chat also has a channel
-// binding, its context generation is still snapshotted, but no external delivery
-// snapshot is created: first-party sends reply only to first-party clients.
+// EnqueueChatTask creates a Direct Chat task.
 func (s *TaskService) EnqueueChatTask(
 	ctx context.Context,
 	chatSession db.ChatSession,
 	initiatorUserID pgtype.UUID,
 	forceFreshSession bool,
 ) (db.AgentTaskQueue, error) {
-	return s.enqueueChatTask(
-		ctx, chatSession, initiatorUserID, forceFreshSession, 0, false,
-		pgtype.UUID{}, 0,
-	)
-}
-
-// EnqueueChannelChatTask creates a channel-owned task for one durable context
-// generation and freezes its external delivery route in the same transaction.
-func (s *TaskService) EnqueueChannelChatTask(
-	ctx context.Context,
-	chatSession db.ChatSession,
-	initiatorUserID pgtype.UUID,
-	forceFreshSession bool,
-	contextRevision int64,
-	bindingID pgtype.UUID,
-	routeRevision int64,
-) (db.AgentTaskQueue, error) {
-	if contextRevision <= 0 {
-		return db.AgentTaskQueue{}, errors.New("channel chat task requires a context revision")
-	}
-	return s.enqueueChatTask(
-		ctx, chatSession, initiatorUserID, forceFreshSession,
-		contextRevision, true, bindingID, routeRevision,
-	)
-}
-
-func (s *TaskService) enqueueChatTask(
-	ctx context.Context,
-	chatSession db.ChatSession,
-	initiatorUserID pgtype.UUID,
-	forceFreshSession bool,
-	contextRevision int64,
-	requireDelivery bool,
-	expectedBindingID pgtype.UUID,
-	expectedRouteRevision int64,
-) (db.AgentTaskQueue, error) {
-	prepared, err := s.PrepareChatTaskEnqueue(ctx, chatSession.AgentID, initiatorUserID)
+	prepared, err := s.prepareChatTaskEnqueue(ctx, chatSession.AgentID, initiatorUserID)
 	if err != nil {
 		return db.AgentTaskQueue{}, err
 	}
@@ -2060,8 +1908,7 @@ func (s *TaskService) enqueueChatTask(
 	defer tx.Rollback(ctx)
 	task, err := s.enqueueChatTaskTx(
 		ctx, s.Queries.WithTx(tx), chatSession, initiatorUserID,
-		forceFreshSession, contextRevision, requireDelivery,
-		expectedBindingID, expectedRouteRevision, prepared,
+		forceFreshSession, prepared,
 	)
 	if err != nil {
 		return db.AgentTaskQueue{}, err
@@ -2069,29 +1916,8 @@ func (s *TaskService) enqueueChatTask(
 	if err := tx.Commit(ctx); err != nil {
 		return db.AgentTaskQueue{}, fmt.Errorf("commit chat task enqueue: %w", err)
 	}
-	s.FinalizeChatTaskEnqueue(ctx, task)
+	s.finalizeChatTaskEnqueue(ctx, task)
 	return task, nil
-}
-
-// EnqueuePreparedChannelChatTaskInTx adds the first /new turn to a caller-owned
-// route-rotation transaction. Preparation must happen before that transaction;
-// post-commit effects belong to FinalizeChatTaskEnqueue.
-func (s *TaskService) EnqueuePreparedChannelChatTaskInTx(
-	ctx context.Context,
-	tx pgx.Tx,
-	chatSession db.ChatSession,
-	initiatorUserID pgtype.UUID,
-	forceFreshSession bool,
-	contextRevision int64,
-	prepared PreparedChatTaskEnqueue,
-) (db.AgentTaskQueue, error) {
-	if contextRevision <= 0 {
-		return db.AgentTaskQueue{}, errors.New("prepared channel chat task requires a context revision")
-	}
-	return s.enqueueChatTaskTx(
-		ctx, s.Queries.WithTx(tx), chatSession, initiatorUserID,
-		forceFreshSession, contextRevision, true, pgtype.UUID{}, 0, prepared,
-	)
 }
 
 func (s *TaskService) enqueueChatTaskTx(
@@ -2100,11 +1926,7 @@ func (s *TaskService) enqueueChatTaskTx(
 	chatSession db.ChatSession,
 	initiatorUserID pgtype.UUID,
 	forceFreshSession bool,
-	contextRevision int64,
-	requireDelivery bool,
-	expectedBindingID pgtype.UUID,
-	expectedRouteRevision int64,
-	prepared PreparedChatTaskEnqueue,
+	prepared preparedChatTaskEnqueue,
 ) (db.AgentTaskQueue, error) {
 	currentSession, err := qtx.LockChatSessionForEnqueue(ctx, chatSession.ID)
 	if err != nil {
@@ -2125,59 +1947,6 @@ func (s *TaskService) enqueueChatTaskTx(
 		return db.AgentTaskQueue{}, ErrChatTaskAgentNoRuntime
 	}
 
-	binding, bindingErr := qtx.LockChannelChatSessionBindingForContext(ctx, chatSession.ID)
-	if bindingErr != nil && !errors.Is(bindingErr, pgx.ErrNoRows) {
-		return db.AgentTaskQueue{}, fmt.Errorf("lock channel chat binding: %w", bindingErr)
-	}
-	if requireDelivery {
-		if errors.Is(bindingErr, pgx.ErrNoRows) {
-			return db.AgentTaskQueue{}, fmt.Errorf("lock channel chat binding: %w", pgx.ErrNoRows)
-		}
-		routeMatches := expectedBindingID.Valid &&
-			binding.ID == expectedBindingID &&
-			binding.RouteRevision == expectedRouteRevision
-		if binding.RetiredAt.Valid && !routeMatches {
-			return db.AgentTaskQueue{}, fmt.Errorf("lock retired channel chat binding: %w", pgx.ErrNoRows)
-		}
-		if expectedBindingID.Valid && !routeMatches {
-			return db.AgentTaskQueue{}, fmt.Errorf("lock expected channel chat route: %w", pgx.ErrNoRows)
-		}
-	}
-
-	pendingFresh := false
-	if bindingErr == nil {
-		if contextRevision <= 0 {
-			contextRevision = binding.ContextRevision
-		}
-		generation, err := qtx.LockChannelChatContextGenerationByRevision(
-			ctx, db.LockChannelChatContextGenerationByRevisionParams{
-				ChatSessionID: chatSession.ID, Revision: contextRevision,
-			},
-		)
-		if err != nil {
-			return db.AgentTaskQueue{}, fmt.Errorf("lock channel context generation: %w", err)
-		}
-		pendingFresh = generation.PendingFresh
-	}
-	if pendingFresh {
-		forceFreshSession = true
-	}
-
-	mediaPendingUntil, err := qtx.GetChannelMediaPendingUntil(
-		ctx, db.GetChannelMediaPendingUntilParams{
-			ChatSessionID: chatSession.ID,
-			ChannelContextRevision: pgtype.Int8{
-				Int64: contextRevision, Valid: contextRevision > 0,
-			},
-		},
-	)
-	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
-		return db.AgentTaskQueue{}, fmt.Errorf("load channel media pending deadline: %w", err)
-	}
-	if errors.Is(err, pgx.ErrNoRows) {
-		mediaPendingUntil = pgtype.Timestamptz{}
-	}
-
 	task, err := qtx.CreateChatTask(ctx, db.CreateChatTaskParams{
 		ID:                   dbid.NewV7(),
 		AgentID:              chatSession.AgentID,
@@ -2185,7 +1954,6 @@ func (s *TaskService) enqueueChatTaskTx(
 		Priority:             2,
 		ChatSessionID:        chatSession.ID,
 		InitiatorUserID:      initiatorUserID,
-		FireAt:               mediaPendingUntil,
 		OriginatorUserID:     initiatorUserID,
 		AccountableUserID:    prepared.accountableUser,
 		ForceFreshSession:    pgtype.Bool{Bool: forceFreshSession, Valid: true},
@@ -2194,79 +1962,20 @@ func (s *TaskService) enqueueChatTaskTx(
 		OriginatorSource:     prepared.attrSource,
 		TriggerEvidenceKind:  prepared.attrEvidenceKind,
 		TriggerEvidenceRefID: chatSession.ID,
-		ChannelContextRevision: pgtype.Int8{
-			Int64: contextRevision, Valid: contextRevision > 0,
-		},
 	})
 	if err != nil {
 		return db.AgentTaskQueue{}, fmt.Errorf("create chat task: %w", err)
 	}
-	if requireDelivery {
-		if _, err := qtx.CreateChannelTaskDeliveryFromSession(
-			ctx, db.CreateChannelTaskDeliveryFromSessionParams{
-				TaskID: task.ID, ChatSessionID: chatSession.ID,
-				ContextRevision: contextRevision,
-			},
-		); err != nil {
-			return db.AgentTaskQueue{}, fmt.Errorf("snapshot channel task delivery: %w", err)
-		}
-	}
 
 	task, err = qtx.SetChatTaskInputOwnerSelf(ctx, task.ID)
 	if err != nil {
-		return db.AgentTaskQueue{}, fmt.Errorf("set channel chat task input owner: %w", err)
-	}
-	if err := qtx.LinkUnownedChannelChatMessagesToTask(
-		ctx, db.LinkUnownedChannelChatMessagesToTaskParams{
-			TaskID: task.ID, ChatSessionID: chatSession.ID,
-		},
-	); err != nil {
-		return db.AgentTaskQueue{}, fmt.Errorf("seal channel chat task input: %w", err)
-	}
-	switch corrected, err := qtx.DeferChatTaskForSealedPendingMedia(ctx, task.ID); {
-	case err == nil:
-		task = corrected
-	case !errors.Is(err, pgx.ErrNoRows):
-		return db.AgentTaskQueue{}, fmt.Errorf("defer chat task for sealed pending media: %w", err)
-	}
-	if pendingFresh {
-		if err := qtx.ClearChannelChatContextPendingFresh(
-			ctx, db.ClearChannelChatContextPendingFreshParams{
-				ChatSessionID: chatSession.ID, Revision: contextRevision,
-			},
-		); err != nil {
-			return db.AgentTaskQueue{}, fmt.Errorf("clear channel context pending fresh: %w", err)
-		}
-		if err := qtx.ClearChannelChatSessionPendingFreshForRevision(
-			ctx, db.ClearChannelChatSessionPendingFreshForRevisionParams{
-				ChatSessionID: chatSession.ID, Revision: contextRevision,
-			},
-		); err != nil {
-			return db.AgentTaskQueue{}, fmt.Errorf("clear channel pending fresh: %w", err)
-		}
+		return db.AgentTaskQueue{}, fmt.Errorf("set chat task input owner: %w", err)
 	}
 	return task, nil
 }
 
-// FinalizeChatTaskEnqueue performs only post-commit effects.
-func (s *TaskService) FinalizeChatTaskEnqueue(ctx context.Context, task db.AgentTaskQueue) {
-	if task.Status == "deferred" {
-		slog.Info("chat task deferred for channel media",
-			"task_id", util.UUIDToString(task.ID),
-			"chat_session_id", util.UUIDToString(task.ChatSessionID),
-			"agent_id", util.UUIDToString(task.AgentID),
-			"fire_at", task.FireAt.Time,
-		)
-		if err := s.PromoteChannelChatTasksIfMediaReady(ctx, task.ChatSessionID); err != nil {
-			slog.Warn("chat task media-ready fence failed; deferred task falls back to its deadline",
-				"task_id", util.UUIDToString(task.ID),
-				"chat_session_id", util.UUIDToString(task.ChatSessionID),
-				"error", err,
-			)
-		}
-		return
-	}
-
+// finalizeChatTaskEnqueue performs only post-commit effects.
+func (s *TaskService) finalizeChatTaskEnqueue(ctx context.Context, task db.AgentTaskQueue) {
 	slog.Info("chat task enqueued",
 		"task_id", util.UUIDToString(task.ID),
 		"chat_session_id", util.UUIDToString(task.ChatSessionID),
@@ -2347,48 +2056,6 @@ func (s *TaskService) RegenerateChatQuickActions(ctx context.Context, chatSessio
 	// means the refresh gates can be tested without a background goroutine
 	// writing to the same rows mid-assertion.
 	return target.ID, task, nil
-}
-
-// PromoteChannelChatTasksIfMediaReady queues channel tasks as soon as every
-// unexpired media marker in the session has been cleared. If the process dies
-// first, the normal deferred-task promoter queues them at their persisted
-// fire_at deadline, preserving the placeholder fallback across restarts.
-func (s *TaskService) PromoteChannelChatTasksIfMediaReady(ctx context.Context, sessionID pgtype.UUID) error {
-	tasks, err := s.Queries.PromoteChannelChatTasksIfMediaReady(ctx, sessionID)
-	if err != nil {
-		return fmt.Errorf("promote channel chat tasks after media: %w", err)
-	}
-	for _, task := range tasks {
-		slog.Info("channel media-ready chat task promoted",
-			"task_id", util.UUIDToString(task.ID),
-			"chat_session_id", util.UUIDToString(sessionID),
-			"agent_id", util.UUIDToString(task.AgentID),
-		)
-		s.broadcastTaskEvent(ctx, protocol.EventTaskQueued, task)
-		s.NotifyTaskEnqueued(ctx, task)
-	}
-	return nil
-}
-
-// PromoteDeferredChannelIssueTask makes a media-gated /issue task claimable.
-// ErrNoRows means the deadline sweeper already promoted it (or the task was
-// cancelled), so this is idempotent across the two promotion paths.
-func (s *TaskService) PromoteDeferredChannelIssueTask(ctx context.Context, taskID pgtype.UUID) error {
-	task, err := s.Queries.PromoteDeferredChannelIssueTask(ctx, taskID)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil
-	}
-	if err != nil {
-		return fmt.Errorf("promote deferred channel issue task: %w", err)
-	}
-	slog.Info("channel media-ready issue task promoted",
-		"task_id", util.UUIDToString(task.ID),
-		"issue_id", util.UUIDToString(task.IssueID),
-		"agent_id", util.UUIDToString(task.AgentID),
-	)
-	s.broadcastTaskEvent(ctx, protocol.EventTaskQueued, task)
-	s.NotifyTaskEnqueued(ctx, task)
-	return nil
 }
 
 // DirectChatSendResult carries the rows a transactional direct-chat send
@@ -2849,7 +2516,7 @@ func (s *TaskService) cancelTasksByComment(ctx context.Context, commentID pgtype
 // session — the teardown by deleting the system agent it hangs off. Afterwards
 // ResolveTaskWorkspaceID finds nothing and returns "", and publishTaskEvent
 // drops an event with no workspace before it reaches the bus: the rows are
-// cancelled, nobody is told, and every queue view and channel indicator keeps
+// cancelled, nobody is told, and every queue view keeps
 // showing a run that no longer exists. Each caller already knows the workspace
 // — it is the one whose session, member or runtime is being torn down — so the
 // lookup is not needed and cannot fail.
@@ -3241,25 +2908,11 @@ func (s *TaskService) settleQueuedChatInput(
 		return nil, nil
 	}
 	inputOwnerID := chatInputOwnerID(task)
-	channelIngested, err := qtx.TaskHasChannelIngestedMessages(ctx, inputOwnerID)
-	if err != nil {
-		return nil, fmt.Errorf("check queued chat channel provenance: %w", err)
-	}
-	if channelIngested {
-		if _, err := createAssistantChatMessage(ctx, qtx, db.CreateChatMessageParams{
-			ID:            dbid.NewV7(),
-			ChatSessionID: task.ChatSessionID,
-			Role:          "assistant",
-			Content:       "Stopped.",
-			TaskID:        task.ID,
-			ElapsedMs:     computeChatElapsedMs(task),
-		}); err != nil {
-			return nil, fmt.Errorf("create cancelled queued chat message: %w", err)
-		}
-		return nil, nil
-	}
 
-	var detached []db.Attachment
+	var (
+		detached []db.Attachment
+		err      error
+	)
 	if action == "edit" {
 		detached, err = qtx.DetachAttachmentsFromUserChatMessageByTask(ctx, inputOwnerID)
 		if err != nil {
@@ -3330,23 +2983,6 @@ func (s *TaskService) finalizeCancelledChatMessage(ctx context.Context, task db.
 			return fmt.Errorf("list cancelled chat task messages: %w", err)
 		}
 		restorable := !hasMessages
-		if restorable {
-			// Channel-ingested user messages are the durable record of what
-			// the platform sender wrote — the sender has no Multica composer
-			// to restore a draft into. The gate is the immutable per-message
-			// channel_ingested stamp, NOT the channel_chat_session_binding
-			// row: archiving a session or rebinding an installation deletes
-			// the binding while the messages (and a still-cancellable task)
-			// remain. Keyed by the input-batch owner id so an auto-retry
-			// clone (which inherits chat_input_task_id) reaches the same
-			// verdict as its parent. A channel task settles as "Stopped."
-			// below instead of deleting its sealed input batch.
-			channelIngested, err := qtx.TaskHasChannelIngestedMessages(ctx, chatInputOwnerID(task))
-			if err != nil {
-				return fmt.Errorf("check cancelled chat channel provenance: %w", err)
-			}
-			restorable = !channelIngested
-		}
 		if restorable && task.StartedAt.Valid && opts.ClientSupportsDraftRestore {
 			// A started task's daemon learns of the cancellation by polling
 			// and may still be flushing its transcript tail, so "empty" is
@@ -3501,19 +3137,7 @@ func (s *TaskService) FinalizeDeferredCancelledChat(ctx context.Context, taskID 
 		if err != nil {
 			return fmt.Errorf("list cancelled chat task messages: %w", err)
 		}
-		restorable := !hasMessages
-		if restorable {
-			// Same immutable-provenance guard as finalizeCancelledChatMessage:
-			// channel tasks never restore-delete their sealed input. The sync
-			// path no longer defers such tasks; this covers markers created by
-			// an older replica during a rolling deploy.
-			channelIngested, err := qtx.TaskHasChannelIngestedMessages(ctx, chatInputOwnerID(claimed))
-			if err != nil {
-				return fmt.Errorf("check cancelled chat channel provenance: %w", err)
-			}
-			restorable = !channelIngested
-		}
-		if restorable {
+		if !hasMessages {
 			inputOwnerID := chatInputOwnerID(claimed)
 			// The transcript stayed empty through the daemon flush: same
 			// outcome as the synchronous empty branch, but the cancel HTTP
@@ -4671,8 +4295,8 @@ func (s *TaskService) CompleteTaskWithTransition(ctx context.Context, taskID pgt
 
 			// Write the assistant outcome in the SAME transaction as the status
 			// flip and resume-pointer update (MUL-4351). For a task-owned direct
-			// task this is exactly one row (message or no_response); for a
-			// legacy/channel task an empty output writes no row (see
+			// task this is exactly one row (message or no_response); for a task
+			// that owns no input batch an empty output writes no row (see
 			// writeChatCompletionOutcome). Failing here rolls the whole completion
 			// back so the daemon retries the terminal callback, and the status CAS
 			// above guarantees a replay can't write a second row.
@@ -4836,15 +4460,10 @@ const chatNoResponseFallback = "The agent finished this turn without a text repl
 // legitimate terminal result (a tool-only turn) and re-running it would repeat
 // side effects already performed.
 //
-// Channel (Slack/Lark) and legacy tasks keep the prior behavior: a non-empty
-// output writes an ordinary assistant message, but an EMPTY output writes NO
-// row, so chat:done carries empty content and the channel outbound silently
-// drops it (MUL-4351 review): the no_response fallback body must never be
-// pushed to an external channel. Channel tasks now own a sealed input batch
-// (chat_input_task_id set) just like direct tasks, so the discriminator is the
-// immutable channel_ingested stamp on the owned batch — keyed by the batch
-// owner id so an auto-retry clone (which inherits chat_input_task_id) reaches
-// the same verdict as its parent — while a NULL owner marks a legacy task.
+// A turn that owns no input batch (chat_input_task_id NULL, such as the
+// agent-initiated intro turn) writes NO row for an empty output, so chat:done
+// carries empty content. An auto-retry clone inherits chat_input_task_id, so it
+// reaches the same verdict as its parent.
 func (s *TaskService) writeChatCompletionOutcome(ctx context.Context, qtx *db.Queries, task db.AgentTaskQueue, result []byte) (*db.ChatMessage, error) {
 	// result is the daemon request re-marshalled by the handler, so it is always
 	// valid JSON; an empty Output is the only case this branch cares about.
@@ -4856,8 +4475,7 @@ func (s *TaskService) writeChatCompletionOutcome(ctx context.Context, qtx *db.Qu
 	// Strip any in-band quick-actions footer from EVERY chat completion — the
 	// reserved syntax must never reach a stored transcript. This includes the
 	// agent-initiated intro turn (chat_input_task_id NULL), which previously
-	// fell outside the strip gate and leaked the raw footer into its content;
-	// channel outputs never carry the syntax, so the split is a no-op there.
+	// fell outside the strip gate and leaked the raw footer into its content.
 	//
 	// The parsed footer is DISCARDED: suggestions come from the server-side pass
 	// now (SupplementChatQuickActions). Honouring a footer here would pin a
@@ -4889,23 +4507,12 @@ func (s *TaskService) writeChatCompletionOutcome(ctx context.Context, qtx *db.Qu
 		pendingAttachments = n
 	}
 
-	// Channel/legacy empty completion with nothing to show: emit no assistant
-	// row, only an empty chat:done for typing/lifecycle. Keeps the Slack/Lark
-	// silent-drop path — the outbound patcher forwards any non-empty content
-	// verbatim, so the fallback body must never be written for a channel task.
-	// Attachments still force a row — the agent produced a deliverable the
-	// user must see.
-	if isEmpty && pendingAttachments == 0 {
-		if !task.ChatInputTaskID.Valid {
-			return nil, nil // legacy task
-		}
-		channelIngested, err := qtx.TaskHasChannelIngestedMessages(ctx, task.ChatInputTaskID)
-		if err != nil {
-			return nil, fmt.Errorf("check chat completion channel provenance: %w", err)
-		}
-		if channelIngested {
-			return nil, nil // channel task
-		}
+	// An empty completion of a turn that owns no input batch has nothing to
+	// show: emit no assistant row, only an empty chat:done for
+	// typing/lifecycle. Attachments still force a row — the agent produced a
+	// deliverable the user must see.
+	if isEmpty && pendingAttachments == 0 && !task.ChatInputTaskID.Valid {
+		return nil, nil
 	}
 
 	params := db.CreateChatMessageParams{
@@ -5292,11 +4899,6 @@ func (s *TaskService) FailTaskWithTransition(ctx context.Context, taskID pgtype.
 				} else if transferErr != nil {
 					return fmt.Errorf("transfer pending source context to retry: %w", transferErr)
 				} else {
-					if err := qtx.CopyChannelTaskDelivery(ctx, db.CopyChannelTaskDeliveryParams{
-						ChildTaskID: child.ID, ParentTaskID: taskID,
-					}); err != nil {
-						return fmt.Errorf("copy retry channel delivery: %w", err)
-					}
 					retried = &child
 				}
 			case errors.Is(cerr, pgx.ErrNoRows):
@@ -5462,9 +5064,9 @@ func (s *TaskService) FailTaskWithTransition(ctx context.Context, taskID pgtype.
 	// Reconcile agent status
 	s.ReconcileAgentStatus(ctx, task.AgentID)
 
-	// Broadcast. Channel subscribers need the same redacted failure text that
-	// was persisted in the chat transcript. A retry-pending attempt stays silent
-	// because its child reports the eventual terminal outcome.
+	// Broadcast the same redacted failure text that was persisted in the chat
+	// transcript. A retry-pending attempt stays silent because its child
+	// reports the eventual terminal outcome.
 	s.broadcastTaskFailedEvent(ctx, task, errMsg, failureReason, retried != nil)
 
 	return &task, true, nil
@@ -5840,11 +5442,6 @@ func (s *TaskService) MaybeRetryFailedTask(ctx context.Context, parent db.AgentT
 		}
 		return nil, err
 	}
-	if err := qtx.CopyChannelTaskDelivery(ctx, db.CopyChannelTaskDeliveryParams{
-		ChildTaskID: child.ID, ParentTaskID: parent.ID,
-	}); err != nil {
-		return nil, fmt.Errorf("copy auto-retry channel delivery: %w", err)
-	}
 	if err := tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("task auto-retry: commit: %w", err)
 	}
@@ -6208,7 +5805,7 @@ func (s *TaskService) promoteNewestSurvivingComment(ctx context.Context, ids []p
 func (s *TaskService) enqueueRerunTask(ctx context.Context, issue db.Issue, agentID pgtype.UUID, triggerCommentID pgtype.UUID, coalescedCommentIDs []pgtype.UUID, isLeader bool, squadID pgtype.UUID, actorUserID pgtype.UUID, rerunOfTaskID pgtype.UUID, origin RunOrigin) (db.AgentTaskQueue, error) {
 	if issue.AssigneeType.String == "agent" && issue.AssigneeID.Valid &&
 		util.UUIDToString(issue.AssigneeID) == util.UUIDToString(agentID) {
-		return s.enqueueIssueTaskWithCommentPlan(ctx, issue, triggerCommentID, coalescedCommentIDs, true, "", actorUserID, rerunOfTaskID, pgtype.Timestamptz{}, origin)
+		return s.enqueueIssueTaskWithCommentPlan(ctx, issue, triggerCommentID, coalescedCommentIDs, true, "", actorUserID, rerunOfTaskID, origin)
 	}
 	return s.enqueueMentionTaskWithCommentPlan(ctx, issue, agentID, triggerCommentID, coalescedCommentIDs, isLeader, squadID, true, "", actorUserID, rerunOfTaskID, origin)
 }
@@ -7596,8 +7193,8 @@ func (s *TaskService) broadcastTaskEvent(ctx context.Context, eventType string, 
 	s.publishTaskEvent(eventType, workspaceID, task, extra...)
 }
 
-// taskFailedFields adds the terminal failure context required by channel
-// outbounds without changing the long-standing map payload used by existing
+// taskFailedFields adds the terminal failure context to task:failed without
+// changing the long-standing map payload used by existing
 // task event consumers. Error text is redacted and omitted while an automatic
 // retry is pending, so consumers can distinguish an intermediate failed
 // attempt from a user-visible terminal failure.
@@ -7930,8 +7527,8 @@ func (s *TaskService) AutoUnresolveThreadOnReply(ctx context.Context, parent *db
 // IssueToMap renders an issue row as the map shape the issue:created /
 // issue:updated broadcast payloads carry under their "issue" key. It is the
 // single source of truth for that shape wherever the event is published from
-// outside the HTTP handler — autopilot and the channel engine's /issue command
-// on issue:created, the background stuck-issue status reset on issue:updated.
+// outside the HTTP handler — autopilot on issue:created, the background
+// stuck-issue status reset on issue:updated.
 // The workspace WS fanout marshals it as-is for the UI, and cmd/server's
 // extractIssueFields reads id / creator_id / workspace_id off it to decide who
 // to auto-subscribe.

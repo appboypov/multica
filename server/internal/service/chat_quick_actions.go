@@ -214,16 +214,6 @@ func (s *TaskService) chatQuickActionsEligible(ctx context.Context, task db.Agen
 	if strings.TrimSpace(msg.Content) == "" {
 		return false
 	}
-	// Channel-backed sessions (Slack / Lark) have no pill surface. Same
-	// discriminator writeChatCompletionOutcome uses: the immutable
-	// channel_ingested stamp on the turn's owned input batch. A NULL owner is
-	// an agent-initiated intro turn, which does render in Chat.
-	if task.ChatInputTaskID.Valid {
-		channelIngested, err := s.Queries.TaskHasChannelIngestedMessages(ctx, task.ChatInputTaskID)
-		if err != nil || channelIngested {
-			return false
-		}
-	}
 	return true
 }
 

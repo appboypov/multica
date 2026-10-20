@@ -372,13 +372,11 @@ func TestClaim_ChatQuestionsFollowWorkspaceDefault(t *testing.T) {
 	for _, tc := range []struct {
 		name    string
 		setting string
-		channel bool
 		want    bool
 	}{
-		{"absent is on", `{}`, false, true},
-		{"on", `{"agent_questions":true}`, false, true},
-		{"off", `{"agent_questions":false}`, false, false},
-		{"channel stays off", `{"agent_questions":true}`, true, false},
+		{"absent is on", `{}`, true},
+		{"on", `{"agent_questions":true}`, true},
+		{"off", `{"agent_questions":false}`, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dbfx.Exec(t, "UPDATE workspace SET settings=$2::jsonb WHERE id=$1", testWorkspaceID, tc.setting)
@@ -386,10 +384,6 @@ func TestClaim_ChatQuestionsFollowWorkspaceDefault(t *testing.T) {
 			dbfx.Exec(t, "UPDATE agent_task_queue SET status='completed',completed_at=now() WHERE id=$1", fx.TaskID)
 			cols := testutil.Cols{"runtime_id": fx.RuntimeID, "chat_session_id": sessionID, "status": "queued"}
 			message := testutil.Cols{"chat_session_id": sessionID, "role": "user", "content": "Continue"}
-			if tc.channel {
-				cols["channel_context_revision"] = int64(1)
-				message["channel_context_revision"] = int64(1)
-			}
 			taskID := dbfx.Task(t, fx.AgentID, cols)
 			dbfx.Exec(t, "UPDATE agent_task_queue SET chat_input_task_id=id WHERE id=$1", taskID)
 			message["task_id"] = taskID

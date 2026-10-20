@@ -225,14 +225,6 @@ var (
 		"file_url":     "file_url",
 		"workdir_path": "workdir_path",
 	}
-
-	knownContactSalesSources = map[string]string{
-		"page":        "page",
-		"onboarding":  "onboarding",
-		"agents_page": "agents_page",
-		"unknown":     "unknown",
-		"other":       "other",
-	}
 )
 
 func normalizeFromAllowList(value string, allowList map[string]string, fallback string) string {
@@ -428,10 +420,6 @@ func NormalizeDaemonWSKind(value string) string {
 
 func NormalizeFeedbackKind(value string) string {
 	return normalizeFromAllowList(value, knownFeedbackKinds, "other")
-}
-
-func NormalizeContactSalesSource(value string) string {
-	return normalizeFromAllowList(value, knownContactSalesSources, "other")
 }
 
 func NormalizeChatOutputLocalPathKind(value string) string {

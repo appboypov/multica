@@ -14,7 +14,7 @@ describe("locale routing", () => {
     expect(isSupportedLocale(null)).toBe(false);
   });
 
-  it("normalizes legacy landing zh cookies to the app locale", () => {
+  it("normalizes a bare zh cookie to the app locale", () => {
     expect(
       resolveLocaleFromSignals({
         cookieLocale: "zh",

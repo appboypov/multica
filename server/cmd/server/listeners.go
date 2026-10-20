@@ -36,9 +36,9 @@ import (
 // internal/external payload boundary in one reviewable place.
 var internalOnlyPayloadKeys = map[string][]string{
 	protocol.EventIssueUpdated: {"prev_description", "prev_title", "source_task_id"},
-	// task:failed error text is consumed synchronously by channel outbounds.
-	// It may contain provider/runtime detail that belongs in the originating
-	// chat transcript, not in the workspace-wide realtime fanout.
+	// task:failed error text may contain provider/runtime detail that belongs
+	// in the originating chat transcript, not in the workspace-wide realtime
+	// fanout.
 	protocol.EventTaskFailed: {"error"},
 }
 

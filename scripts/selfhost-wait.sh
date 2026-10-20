@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # Wait for the self-hosted stack to answer /health, then print connection info.
-# Shared by `make selfhost` and `make selfhost-build`.
+# Run by `make selfhost-build`.
 #
 # Why the host port is read back from Compose instead of re-derived here: the
 # recipes used to probe `${PORT:-8080}` while Compose published `${BACKEND_PORT:-8080}`.
 # Two different variables as the source of truth means any config where they
 # disagree breaks — `.env` setting PORT with BACKEND_PORT unset probed the custom
-# port while the stack sat on 8080, and `make selfhost PORT=8080` over a .env
+# port while the stack sat on 8080, and `make selfhost-build PORT=8080` over a .env
 # with BACKEND_PORT=9100 probed 8080 while the stack sat on 9100, hammering the
 # wrong port for 60s and then reporting "Services are still starting" on a
 # healthy install. `docker compose port` is the only authority on what Compose
@@ -17,19 +17,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
-mode=${1:-official}
-case "$mode" in
-official)
-  compose_files=(-f docker-compose.selfhost.yml)
-  ;;
-build)
-  compose_files=(-f docker-compose.selfhost.yml -f docker-compose.selfhost.build.yml)
-  ;;
-*)
-  echo "usage: ${BASH_SOURCE[0]} [official|build]" >&2
-  exit 2
-  ;;
-esac
+compose_files=(-f docker-compose.selfhost.yml -f docker-compose.selfhost.build.yml)
 
 # The Makefile exports COMPOSE; keep the same default when run standalone.
 read -r -a compose_cmd <<<"${COMPOSE:-docker compose}"
@@ -80,17 +68,11 @@ echo "✓ Multica is running!"
 echo "  Frontend: ${frontend_url}"
 echo "  Backend:  ${backend_url}"
 echo ""
-if [ "$mode" = "build" ]; then
-  echo "Built images locally via docker-compose.selfhost.build.yml."
-  echo "Local tags: multica-backend:dev and multica-web:dev."
-else
-  echo "Images: ${MULTICA_BACKEND_IMAGE:-ghcr.io/multica-ai/multica-backend}:${MULTICA_IMAGE_TAG:-latest}"
-  echo "        ${MULTICA_WEB_IMAGE:-ghcr.io/multica-ai/multica-web}:${MULTICA_IMAGE_TAG:-latest}"
-fi
+echo "Built images locally via docker-compose.selfhost.build.yml."
+echo "Local tags: multica-backend:dev and multica-web:dev."
 echo ""
 echo "Log in: configure RESEND_API_KEY in .env for email codes,"
 echo "        or read the generated code from backend logs when Resend is unset."
 echo ""
-echo "Next — install the CLI and connect your machine:"
-echo "  brew install multica-ai/tap/multica"
+echo "Next — connect your machine with the CLI that \`make local-release\` installs:"
 echo "  multica setup self-host"

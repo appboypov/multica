@@ -771,7 +771,7 @@ export function ChatWindow() {
 
   // Small screens drop the floating-card form entirely — a 90%-of-375px
   // "window" is all chrome and no content, so the panel goes full-screen
-  // (Lark/IM-style) and the resize/expand affordances disappear with it.
+  // (IM-app style) and the resize/expand affordances disappear with it.
   const isMobile = useIsMobile();
 
   // `@container`: the window is user-resizable from 360px to 90% of the

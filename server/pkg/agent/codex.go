@@ -1235,7 +1235,7 @@ func (b *codexBackend) executeOnce(ctx context.Context, prompt string, opts Exec
 	// app-server labelled `phase: "final_answer"`; lastAgentMessage is the
 	// fallback for the legacy `agent_message` protocol, which carries no phase.
 	// Every agent message still flows to msgCh, so the transcript is unchanged —
-	// only what the daemon forwards to a chat/channel reply narrows (GH #6006).
+	// only what the daemon forwards to a chat reply narrows (GH #6006).
 	var finalAnswer, lastAgentMessage string
 	var semanticObserved atomic.Bool
 	turnNotificationGate := &codexTurnNotificationGate{}

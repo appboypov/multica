@@ -38,9 +38,8 @@ func newClientGateFixture(t *testing.T) clientGateFixture {
 	// environment. The route walk never executes resource handlers either.
 	for _, name := range []string{
 		"MULTICA_CLOUD_URL", "COMPOSIO_API_KEY", "S3_BUCKET", "CLOUDFRONT_KEY_PAIR_ID",
-		"MULTICA_LARK_SECRET_KEY", "MULTICA_SLACK_SECRET_KEY", "MULTICA_DINGTALK_SECRET_KEY",
-		"MULTICA_WECOM_SECRET_KEY", "MULTICA_TELEGRAM_SECRET_KEY", "MULTICA_VCS_SECRET_KEY",
-		"MULTICA_PLUGIN_SECRET_KEY", "MULTICA_LLM_API_KEY", "MULTICA_LLM_BASE_URL",
+		"MULTICA_VCS_SECRET_KEY", "MULTICA_PLUGIN_SECRET_KEY", "MULTICA_LLM_API_KEY",
+		"MULTICA_LLM_BASE_URL",
 	} {
 		t.Setenv(name, "")
 	}

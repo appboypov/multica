@@ -47,15 +47,6 @@
    "note": "webhooks · API"
   },
   {
-   "id": "chat",
-   "parent": null,
-   "name": "Chat platforms",
-   "icon": "message-circle",
-   "kind": "Outside",
-   "outside": true,
-   "note": "Slack · Lark · WeCom · …"
-  },
-  {
    "id": "composio",
    "parent": null,
    "name": "Composio",
@@ -1600,37 +1591,6 @@
    "path": "server/internal/storage/storage.go:9"
   },
   {
-   "id": "srv-chat-bridge",
-   "parent": "srv-integrations",
-   "name": "Chat bridge",
-   "icon": "messages-square",
-   "kind": "Module",
-   "path": "server/internal/integrations/",
-   "zoom": {
-    "name": "Chat bridge",
-    "title": "Chat bridge",
-    "description": "Bot messages in and replies out",
-    "question": "How does a chat message reach an agent and back?",
-    "base": "server/internal/integrations/"
-   }
-  },
-  {
-   "id": "srv-channels",
-   "parent": "srv-chat-bridge",
-   "name": "Channel engine",
-   "icon": "message-circle",
-   "kind": "Class",
-   "path": "server/internal/integrations/channel/registry.go:23"
-  },
-  {
-   "id": "srv-chat-outbound",
-   "parent": "srv-chat-bridge",
-   "name": "Chat outbound",
-   "icon": "message-circle-reply",
-   "kind": "Function",
-   "path": "server/internal/integrations/slack/outbound.go:69"
-  },
-  {
    "id": "srv-composio",
    "parent": "srv-integrations",
    "name": "Composio service",
@@ -1964,14 +1924,6 @@
    "line": "call",
    "data": "window",
    "trigger": "opens the desktop app"
-  },
-  {
-   "id": "people--chat",
-   "from": "people",
-   "to": "chat",
-   "line": "call",
-   "data": "message",
-   "trigger": "talks to an agent"
   },
   {
    "id": "people--sync-projects",
@@ -3319,39 +3271,6 @@
    "trigger": "sync"
   },
   {
-   "id": "srv-bus--srv-chat-outbound",
-   "from": "srv-bus",
-   "to": "srv-chat-outbound",
-   "line": "event",
-   "data": "chat reply",
-   "trigger": "chat done",
-   "event": "chat:done"
-  },
-  {
-   "id": "srv-chat-outbound--chat",
-   "from": "srv-chat-outbound",
-   "to": "chat",
-   "line": "call",
-   "data": "reply",
-   "trigger": "agent answers"
-  },
-  {
-   "id": "chat--srv-channels",
-   "from": "chat",
-   "to": "srv-channels",
-   "line": "event",
-   "data": "message",
-   "trigger": "someone writes"
-  },
-  {
-   "id": "srv-channels--postgres",
-   "from": "srv-channels",
-   "to": "postgres",
-   "line": "data",
-   "data": "chat session",
-   "trigger": "message arrives"
-  },
-  {
    "id": "srv-realtime-hub--srv-stream-relay",
    "from": "srv-realtime-hub",
    "to": "srv-stream-relay",
@@ -4538,50 +4457,6 @@
   {
    "name": "vcs_connection:deleted",
    "path": "server/pkg/protocol/events.go:212"
-  },
-  {
-   "name": "lark_installation:created",
-   "path": "server/pkg/protocol/events.go:220"
-  },
-  {
-   "name": "lark_installation:revoked",
-   "path": "server/pkg/protocol/events.go:221"
-  },
-  {
-   "name": "slack_installation:created",
-   "path": "server/pkg/protocol/events.go:228"
-  },
-  {
-   "name": "slack_installation:revoked",
-   "path": "server/pkg/protocol/events.go:229"
-  },
-  {
-   "name": "dingtalk_installation:created",
-   "path": "server/pkg/protocol/events.go:235"
-  },
-  {
-   "name": "dingtalk_installation:revoked",
-   "path": "server/pkg/protocol/events.go:236"
-  },
-  {
-   "name": "dingtalk_installation:binding_updated",
-   "path": "server/pkg/protocol/events.go:237"
-  },
-  {
-   "name": "wecom_installation:created",
-   "path": "server/pkg/protocol/events.go:245"
-  },
-  {
-   "name": "wecom_installation:revoked",
-   "path": "server/pkg/protocol/events.go:246"
-  },
-  {
-   "name": "telegram_installation:created",
-   "path": "server/pkg/protocol/events.go:250"
-  },
-  {
-   "name": "telegram_installation:revoked",
-   "path": "server/pkg/protocol/events.go:251"
   }
  ],
  "models": [
@@ -4675,12 +4550,6 @@
     },
     {
      "to": "plugin_installation",
-     "from": "1",
-     "toCount": "*",
-     "via": "workspace_id"
-    },
-    {
-     "to": "channel_installation",
      "from": "1",
      "toCount": "*",
      "via": "workspace_id"
@@ -4977,12 +4846,6 @@
     },
     {
      "to": "chat_session",
-     "from": "1",
-     "toCount": "*",
-     "via": "agent_id"
-    },
-    {
-     "to": "channel_installation",
      "from": "1",
      "toCount": "*",
      "via": "agent_id"
@@ -7133,30 +6996,6 @@
      "from": "1",
      "toCount": "*",
      "via": "plugin_installation_id"
-    }
-   ]
-  },
-  {
-   "name": "channel_installation",
-   "kind": "table",
-   "owner": "postgres",
-   "path": "server/migrations/124_channel_generalization.up.sql:62",
-   "fields": [
-    {
-     "name": "id",
-     "type": "uuid"
-    },
-    {
-     "name": "workspace_id",
-     "type": "uuid"
-    },
-    {
-     "name": "agent_id",
-     "type": "uuid"
-    },
-    {
-     "name": "channel_type",
-     "type": "text"
     }
    ]
   },

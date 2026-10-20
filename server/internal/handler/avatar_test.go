@@ -555,19 +555,6 @@ func TestServeAvatar_ShortTTLDisablesRedirectCaching(t *testing.T) {
 	}
 }
 
-// TestServeAvatar_RejectsChannelMediaKey — channel ingest writes under
-// `workspaces/<ws>/lark/…` with no attachment row. Those are inbound chat
-// media, not avatars, so the namespace rule must fail closed on them rather
-// than treating "no row" as permission.
-func TestServeAvatar_RejectsChannelMediaKey(t *testing.T) {
-	withAvatarStorage(t, &mockStorageNoCdn{}, "")
-	key := "workspaces/" + testWorkspaceID + "/lark/" + uuid.NewString() + "/deadbeef.png"
-
-	if w := serveAvatarRequest(t, signAvatarKey(key), key); w.Code != http.StatusNotFound {
-		t.Fatalf("status = %d, want 404 for a channel media key", w.Code)
-	}
-}
-
 // TestAvatarKeyIsPublishable_OperatorNamespace — an object the operator placed
 // in the bucket outside the upload flow stays usable. Only the workspace
 // namespace can hold content belonging to someone other than whoever is

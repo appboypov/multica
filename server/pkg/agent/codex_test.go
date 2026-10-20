@@ -1783,7 +1783,7 @@ func TestCodexRawAgentMessageAbnormalEOFFlushesCompleteDeltas(t *testing.T) {
 
 // TestCodexDeliverableOutputExcludesNarration pins Result.Output to the turn's
 // deliverable. Codex used to concatenate every agent message, so a tool-using
-// run shipped its intermediate narration to Slack and Lark along with the answer
+// run shipped its intermediate narration in the chat reply along with the answer
 // (GH #6006). The wiring mirrors executeOnce: onAgentMessage tracks the last
 // authoritative completed message, onFinalAnswer captures the phase-labelled one, and
 // codexDeliverableOutput picks between them.

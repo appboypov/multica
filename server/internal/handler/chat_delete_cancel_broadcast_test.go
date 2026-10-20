@@ -12,18 +12,15 @@ import (
 )
 
 // Deleting a chat session cancels the session's active tasks, and every
-// subscriber that shows something for a running task — the web queue, and the
-// Slack and Lark processing indicators — learns about it from task:cancelled
-// and from nothing else.
+// subscriber that shows something for a running task — the web queue and the
+// realtime fanout — learns about it from task:cancelled and from nothing else.
 //
-// It was never published. BroadcastCancelledTasks resolved each task's
-// workspace by reading the task's chat_session, which the transaction it runs
-// after has just deleted; the resolution returned "", and publishTaskEvent
-// drops an event with no workspace before it reaches the bus. So the rows went
-// to 'cancelled' in silence and the event reached no subscriber at all — not
-// the web queue, not the realtime fanout, not a channel adapter — leaving the
-// deleted conversation showing a run that no longer existed. The workspace now
-// comes from the caller, which knows it.
+// BroadcastCancelledTasks must not resolve each task's workspace by reading the
+// task's chat_session, which the transaction it runs after has just deleted:
+// the resolution would return "", and publishTaskEvent drops an event with no
+// workspace before it reaches the bus, so the rows would go to 'cancelled' in
+// silence and the deleted conversation would keep showing a run that no longer
+// exists. The workspace comes from the caller, which knows it.
 func TestDeleteChatSession_BroadcastsTaskCancelled(t *testing.T) {
 	if testHandler == nil {
 		t.Skip("database not available")
@@ -74,7 +71,7 @@ func TestDeleteChatSession_BroadcastsTaskCancelled(t *testing.T) {
 	defer mu.Unlock()
 	if len(got) != 1 {
 		t.Fatalf("deleting the session cancelled its queued task and published %d "+
-			"task:cancelled events — every channel indicator for that conversation "+
+			"task:cancelled events — every client showing that conversation "+
 			"is still spinning for a run that no longer exists", len(got))
 	}
 	e := got[0]
@@ -84,10 +81,10 @@ func TestDeleteChatSession_BroadcastsTaskCancelled(t *testing.T) {
 	if e.TaskID != taskID {
 		t.Errorf("task id = %q, want %q", e.TaskID, taskID)
 	}
-	// The channel adapters find their conversation through the session id, so a
-	// payload without it reaches them as an issue task and is ignored. The row
-	// still carries it because the cancel returned it before the delete; the
-	// stored row's own chat_session_id is NULL by now (ON DELETE SET NULL).
+	// Clients find the conversation through the session id, so a payload
+	// without it reads as an issue task and is ignored. The row still carries
+	// it because the cancel returned it before the delete; the stored row's own
+	// chat_session_id is NULL by now (ON DELETE SET NULL).
 	payload, ok := e.Payload.(map[string]any)
 	if !ok {
 		t.Fatalf("payload is %T, want the map a cancel is published with", e.Payload)

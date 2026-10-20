@@ -15,10 +15,9 @@ FROM agent_task_queue
 WHERE chat_session_id IS NOT NULL;
 ```
 
-Migrations run during backend startup, whose Helm startup probe allows ten
-minutes. On a large production table, check for long-running transactions and
-prebuild the index in a low-traffic window. Run the statement by itself and
-outside a transaction:
+Migrations run during backend startup. On a large production table, check for
+long-running transactions and prebuild the index in a low-traffic window. Run
+the statement by itself and outside a transaction:
 
 ```sql
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_agent_task_queue_chat_session
@@ -109,8 +108,7 @@ Both restore the original `LOWER(content)` expression and retry safely after an
 interrupted concurrent build.
 
 These migrations run during backend startup. A concurrent drop waits for old
-transactions, and the Helm startup probe allows ten minutes before restarting
-the pod. For the multi-gigabyte production index, prefer a low-traffic window:
+transactions. For the multi-gigabyte production index, prefer a low-traffic window:
 check for long-running transactions, then run each statement separately and
 outside a transaction before deploying:
 

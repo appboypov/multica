@@ -4,13 +4,13 @@ import { tmpdir } from "node:os";
 import { delimiter, join, resolve } from "node:path";
 import { afterEach, describe, it, expect } from "vitest";
 import {
-  builderArgsForTarget,
+  builderArgsForArch,
   deriveVersion,
   DESCRIBE_ARGS,
   envWithLocalBins,
   normalizeGitVersion,
   parsePackageArgs,
-  resolveBuildMatrix,
+  resolveBuildArchs,
   stripLeadingSeparator,
 } from "./package.mjs";
 
@@ -47,8 +47,8 @@ describe("normalizeGitVersion", () => {
     // `git describe --tags --always` returns just the short commit hash
     // when there are no tags in the history at all. A hash that begins with
     // a digit (e.g. "2f24057b") is still not valid semver and must fall
-    // through — otherwise electron-updater rejects it on launch. The `g`
-    // prefix mirrors git describe's own `g<hash>` shorthand and keeps the
+    // through — otherwise electron-builder rejects it. The `g` prefix
+    // mirrors git describe's own `g<hash>` shorthand and keeps the
     // pre-release identifier a single alphanumeric token.
     expect(normalizeGitVersion("f1415e96")).toBe("0.0.0-gf1415e96");
     expect(normalizeGitVersion("abc1234")).toBe("0.0.0-gabc1234");
@@ -62,7 +62,7 @@ describe("normalizeGitVersion", () => {
     // regresses, the describe output carries the non-semver tag verbatim and
     // must NOT be passed through as a version — it has no `major.minor.patch`
     // prefix, so it degrades to the `0.0.0-g<hash>` fallback rather than
-    // producing something electron-updater would choke on.
+    // producing something electron-builder would reject.
     expect(
       normalizeGitVersion("release_iteration/Sprint_0705-3-g9adfcd4d8"),
     ).toBe("0.0.0-grelease_iteration/Sprint_0705-3-g9adfcd4d8");
@@ -76,9 +76,9 @@ describe("normalizeGitVersion", () => {
     // A short hash that is all decimal digits with a leading zero would
     // produce `0.0.0-0123456` — a numeric pre-release identifier must not
     // have a leading zero, so that value is invalid semver and
-    // electron-updater would throw on the no-tag builds this fallback
-    // exists to protect. The `g` prefix makes it a single alphanumeric
-    // identifier, which is always valid.
+    // electron-builder would reject the no-tag builds this fallback exists
+    // to protect. The `g` prefix makes it a single alphanumeric identifier,
+    // which is always valid.
     expect(normalizeGitVersion("0123456")).toBe("0.0.0-g0123456");
     expect(normalizeGitVersion("04567")).toBe("0.0.0-g04567");
   });
@@ -86,9 +86,8 @@ describe("normalizeGitVersion", () => {
 
 describe("DESCRIBE_ARGS", () => {
   it("passes the match pattern as one bare argv token, never a shell-quoted string", () => {
-    // Windows cmd.exe does not strip POSIX single quotes. Keeping the pattern
-    // as a bare argv element prevents tagged builds from falling back to a
-    // synthetic 0.0.0-g<hash> version.
+    // A quoted pattern would reach git with its quotes and match no tag,
+    // so tagged builds would fall back to a synthetic 0.0.0-g<hash> version.
     expect(DESCRIBE_ARGS).toContain("v[0-9]*");
     for (const arg of DESCRIBE_ARGS) {
       expect(arg).not.toContain("'");
@@ -99,11 +98,9 @@ describe("DESCRIBE_ARGS", () => {
 
 describe("deriveVersion (real git describe)", () => {
   // These exercise the actual `git describe` invocation — not just the
-  // normalizeGitVersion string transform — because the bug that shipped a
-  // `0.0.0-…` Windows Desktop build lived in HOW git was called, not in the
-  // string handling. package.mjs now runs git with an argv array (no shell),
-  // so the `v[0-9]*` match pattern reaches git as a literal argument
-  // identically on every platform.
+  // normalizeGitVersion string transform — because how git is called
+  // decides whether the `v[0-9]*` match pattern reaches it as a literal
+  // argument.
   const repos = [];
 
   function initRepo() {
@@ -173,227 +170,111 @@ describe("stripLeadingSeparator", () => {
 });
 
 describe("parsePackageArgs", () => {
-  it("collects per-platform targets and shared args", () => {
+  it("collects mac targets, architectures and shared args", () => {
     expect(
       parsePackageArgs([
-        "--win", "nsis",
-        "--mac", "dmg", "zip",
+        "--mac", "dir",
         "--arm64",
         "--publish", "never",
       ]),
     ).toEqual({
-      allPlatforms: false,
       sharedArgs: ["--publish", "never"],
-      platformTargets: {
-        mac: ["dmg", "zip"],
-        win: ["nsis"],
-        linux: [],
-      },
-      requestedPlatforms: ["win", "mac"],
+      macTargets: ["dir"],
       requestedArchs: ["arm64"],
     });
   });
 
-  it("expands combined short flags", () => {
-    expect(parsePackageArgs(["-mw", "--x64"]).requestedPlatforms).toEqual([
-      "mac",
-      "win",
-    ]);
-  });
-
-  it("tracks the all-platforms shortcut", () => {
-    expect(parsePackageArgs(["--all-platforms", "--publish", "never"]).allPlatforms).toBe(true);
+  it("accepts the --macos and -m aliases without targets", () => {
+    expect(parsePackageArgs(["-m", "--macos", "--x64"])).toEqual({
+      sharedArgs: [],
+      macTargets: [],
+      requestedArchs: ["x64"],
+    });
   });
 });
 
-describe("resolveBuildMatrix", () => {
-  it("defaults to the current host platform and arch", () => {
-    expect(
-      resolveBuildMatrix(
-        {
-          allPlatforms: false,
-          sharedArgs: [],
-          platformTargets: { mac: [], win: [], linux: [] },
-          requestedPlatforms: [],
-          requestedArchs: [],
-        },
-        "darwin",
-        "arm64",
-      ),
-    ).toEqual([{ platform: "mac", arch: "arm64" }]);
+describe("resolveBuildArchs", () => {
+  const parsed = { sharedArgs: [], macTargets: [], requestedArchs: [] };
+
+  it("defaults to the host architecture", () => {
+    expect(resolveBuildArchs(parsed, "darwin", "arm64")).toEqual(["arm64"]);
   });
 
-  it("expands all-platforms on macOS", () => {
+  it("builds every requested architecture", () => {
     expect(
-      resolveBuildMatrix(
-        {
-          allPlatforms: true,
-          sharedArgs: [],
-          platformTargets: { mac: [], win: [], linux: [] },
-          requestedPlatforms: [],
-          requestedArchs: [],
-        },
+      resolveBuildArchs(
+        { ...parsed, requestedArchs: ["arm64", "x64"] },
         "darwin",
         "arm64",
       ),
-    ).toEqual([
-      { platform: "mac", arch: "arm64" },
-      { platform: "mac", arch: "x64" },
-      { platform: "win", arch: "x64" },
-      { platform: "win", arch: "arm64" },
-      { platform: "linux", arch: "x64" },
-      { platform: "linux", arch: "arm64" },
-    ]);
+    ).toEqual(["arm64", "x64"]);
   });
 
   it("rejects unsupported architectures", () => {
     expect(() =>
-      resolveBuildMatrix(
-        {
-          allPlatforms: false,
-          sharedArgs: [],
-          platformTargets: { mac: [], win: [], linux: [] },
-          requestedPlatforms: ["win"],
-          requestedArchs: ["universal"],
-        },
+      resolveBuildArchs(
+        { ...parsed, requestedArchs: ["universal"] },
         "darwin",
         "arm64",
       ),
     ).toThrow(/unsupported Desktop CLI architecture/);
   });
+
+  it("rejects hosts other than macOS", () => {
+    expect(() => resolveBuildArchs(parsed, "linux", "x64")).toThrow(
+      /macOS only/,
+    );
+  });
 });
 
-describe("builderArgsForTarget", () => {
-  it("adds scoped output directories for multi-target builds", () => {
+describe("builderArgsForArch", () => {
+  it("builds the host architecture into the default output directory", () => {
     expect(
-      builderArgsForTarget(
-        { platform: "win", arch: "arm64" },
-        {
-          allPlatforms: false,
-          sharedArgs: ["--publish", "never"],
-          platformTargets: { mac: [], win: ["nsis"], linux: [] },
-          requestedPlatforms: ["win"],
-          requestedArchs: ["arm64"],
-        },
+      builderArgsForArch(
+        "arm64",
+        { sharedArgs: ["--publish", "never"], macTargets: [], requestedArchs: [] },
         "1.2.3",
-        {
-          disableMacNotarize: true,
-          hostPlatform: "darwin",
-          useScopedOutputDir: true,
-        },
-      ),
-    ).toEqual([
-      "-c.extraMetadata.version=1.2.3",
-      "-c.mac.notarize=false",
-      "--win",
-      "nsis",
-      "--arm64",
-      "--publish",
-      "never",
-      "-c.directories.output=dist/win-arm64",
-      "-c.publish.channel=latest-arm64",
-    ]);
-  });
-
-  it("does not override the publish channel for Windows x64 (default latest.yml)", () => {
-    expect(
-      builderArgsForTarget(
-        { platform: "win", arch: "x64" },
-        {
-          allPlatforms: false,
-          sharedArgs: ["--publish", "always"],
-          platformTargets: { mac: [], win: ["nsis"], linux: [] },
-          requestedPlatforms: ["win"],
-          requestedArchs: ["x64"],
-        },
-        "1.2.3",
-        { hostPlatform: "win32", useScopedOutputDir: true },
-      ),
-    ).toEqual([
-      "-c.extraMetadata.version=1.2.3",
-      "--win",
-      "nsis",
-      "--x64",
-      "--publish",
-      "always",
-      "-c.directories.output=dist/win-x64",
-    ]);
-  });
-
-  it("isolates the macOS x64 feed and platform floor", () => {
-    expect(
-      builderArgsForTarget(
-        { platform: "mac", arch: "x64" },
-        {
-          allPlatforms: false,
-          sharedArgs: ["--publish", "always"],
-          platformTargets: { mac: ["dmg", "zip"], win: [], linux: [] },
-          requestedPlatforms: ["mac"],
-          requestedArchs: ["x64"],
-        },
-        "1.2.3",
-        { hostPlatform: "darwin", useScopedOutputDir: true },
       ),
     ).toEqual([
       "-c.extraMetadata.version=1.2.3",
       "--mac",
-      "dmg",
-      "zip",
+      "--arm64",
+      "--publish",
+      "never",
+    ]);
+  });
+
+  it("adds scoped output directories and forwards mac targets", () => {
+    expect(
+      builderArgsForArch(
+        "x64",
+        {
+          sharedArgs: ["--publish", "never"],
+          macTargets: ["dir"],
+          requestedArchs: ["arm64", "x64"],
+        },
+        "1.2.3",
+        { useScopedOutputDir: true },
+      ),
+    ).toEqual([
+      "-c.extraMetadata.version=1.2.3",
+      "--mac",
+      "dir",
       "--x64",
       "--publish",
-      "always",
+      "never",
       "-c.directories.output=dist/mac-x64",
-      "-c.mac.minimumSystemVersion=12.0.0",
-      "-c.publish.channel=latest-x64",
     ]);
   });
 
-  it("keeps macOS arm64 on the existing latest-mac update channel", () => {
+  it("leaves the package.json version when none was derived", () => {
     expect(
-      builderArgsForTarget(
-        { platform: "mac", arch: "arm64" },
-        {
-          allPlatforms: false,
-          sharedArgs: ["--publish", "always"],
-          platformTargets: { mac: [], win: [], linux: [] },
-          requestedPlatforms: ["mac"],
-          requestedArchs: ["arm64"],
-        },
-        "1.2.3",
-        { hostPlatform: "darwin", useScopedOutputDir: true },
+      builderArgsForArch(
+        "arm64",
+        { sharedArgs: [], macTargets: [], requestedArchs: [] },
+        null,
       ),
-    ).toEqual([
-      "-c.extraMetadata.version=1.2.3",
-      "--mac",
-      "--arm64",
-      "--publish",
-      "always",
-      "-c.directories.output=dist/mac-arm64",
-    ]);
-  });
-
-  it("defaults linux cross-builds to AppImage on non-Linux hosts", () => {
-    expect(
-      builderArgsForTarget(
-        { platform: "linux", arch: "x64" },
-        {
-          allPlatforms: false,
-          sharedArgs: ["--publish", "never"],
-          platformTargets: { mac: [], win: [], linux: [] },
-          requestedPlatforms: ["linux"],
-          requestedArchs: ["x64"],
-        },
-        "1.2.3",
-        { hostPlatform: "darwin" },
-      ),
-    ).toEqual([
-      "-c.extraMetadata.version=1.2.3",
-      "--linux",
-      "AppImage",
-      "--x64",
-      "--publish",
-      "never",
-    ]);
+    ).toEqual(["--mac", "--arm64"]);
   });
 });
 
@@ -430,15 +311,12 @@ describe("envWithLocalBins", () => {
 });
 
 describe("electron-builder.yml packaging config", () => {
-  // Regression guard for github.com/multica-ai/multica/issues/5595. The
-  // multi-arch release build writes each target's output to
-  // dist/<platform>-<arch> in the same apps/desktop dir; electron-builder
-  // only auto-excludes the *current* target's output dir, so without an
-  // explicit `!dist/**` the earlier arch's dist/ was repacked into the next
-  // arch's app.asar. That inflated the Intel (x64) DMG until its Electron
-  // Framework binary was dropped and Intel Macs crashed on launch. Keep the
-  // exclusion pinned so a future edit to the files list cannot drop it
-  // unnoticed.
+  // A multi-arch build writes each architecture's output to dist/mac-<arch>
+  // in the same apps/desktop dir; electron-builder only auto-excludes the
+  // *current* output dir, so without an explicit `!dist/**` the earlier
+  // architecture's app is repacked into the next architecture's app.asar.
+  // Keep the exclusion pinned so a future edit to the files list cannot drop
+  // it unnoticed.
   // Resolve electron-builder.yml relative to cwd, tolerating vitest running
   // from either the desktop package dir or the repo root — import.meta.url is
   // not a file:// URL under the test transform, so avoid fileURLToPath here.

@@ -6,7 +6,7 @@ import { Card, CardContent } from "@multica/ui/components/ui/card";
 import { CODE_LIGATURE_CLASS } from "@multica/ui/lib/code-style";
 import { cn } from "@multica/ui/lib/utils";
 import { copyText } from "@multica/ui/lib/clipboard";
-import { CliInstallCommand } from "../../common/cli-install-command";
+import { CLI_INSTALL_COMMAND } from "../../common/cli-install-command";
 import { useT } from "../../i18n";
 
 const SETUP_CMD = "multica setup";
@@ -76,12 +76,11 @@ function Step({
 }
 
 /**
- * CLI install instructions — two copy-and-run commands. Step 1 is the public
- * install script, which differs per OS and so renders through
- * `CliInstallCommand`'s platform switch; step 2 is the cloud
- * `multica setup`, hardcoded because the CLI itself knows the endpoints for
- * it. Local development tests a self-host variant by typing the extended
- * command directly in the terminal; no need to thread env vars through React.
+ * CLI install instructions — two copy-and-run commands. Step 1 installs the
+ * CLI from a Multica checkout; step 2 is the cloud `multica setup`, hardcoded
+ * because the CLI itself knows the endpoints for it. Local development tests a
+ * self-host variant by typing the extended command directly in the terminal;
+ * no need to thread env vars through React.
  */
 export function CliInstallInstructions() {
   const { t } = useT("onboarding");
@@ -92,15 +91,7 @@ export function CliInstallInstructions() {
           {t(($) => $.cli_install.intro)}
         </p>
         <Step n={1} label={t(($) => $.cli_install.step1_label)}>
-          <CliInstallCommand
-            labels={{
-              group: t(($) => $.cli_install.platform_group),
-              macosLinux: t(($) => $.cli_install.platform_macos_linux),
-              windows: t(($) => $.cli_install.platform_windows),
-            }}
-          >
-            {(cmd) => <CommandRow cmd={cmd} />}
-          </CliInstallCommand>
+          <CommandRow cmd={CLI_INSTALL_COMMAND} />
         </Step>
         <Step n={2} label={t(($) => $.cli_install.step2_label)}>
           <CommandRow cmd={SETUP_CMD} />

@@ -57,8 +57,8 @@ test("onboarding — structural blocks match the column width on every step", as
 
   await page.addInitScript((t) => localStorage.setItem("multica_token", t), token);
   await page.goto("/onboarding", { waitUntil: "domcontentloaded" });
-  await waitForPageText(page, "Continue on web");
-  await page.getByRole("button", { name: "Continue on web" }).click();
+  await waitForPageText(page, "Start exploring");
+  await page.getByRole("button", { name: "Start exploring" }).click();
 
   await page.getByText("Tell us a bit about you.").waitFor();
   await expectFullWidthBlocks(page, "about you");
@@ -95,8 +95,8 @@ test("onboarding — the shell survives step changes instead of re-mounting", as
     api.getToken(),
   );
   await page.goto("/onboarding", { waitUntil: "domcontentloaded" });
-  await waitForPageText(page, "Continue on web");
-  await page.getByRole("button", { name: "Continue on web" }).click();
+  await waitForPageText(page, "Start exploring");
+  await page.getByRole("button", { name: "Start exploring" }).click();
   await page.getByText("Tell us a bit about you.").waitFor();
 
   // Tag the live nodes. A remount replaces the elements and drops the marks.

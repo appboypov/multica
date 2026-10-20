@@ -117,10 +117,10 @@ export function DaemonRuntimeActions() {
     });
   }, [t]);
 
-  const handleRetryInstall = useCallback(async () => {
+  const handleRetryCliSetup = useCallback(async () => {
     setActionLoading(true);
     try {
-      await window.daemonAPI.retryInstall();
+      await window.daemonAPI.retryCliSetup();
     } finally {
       setActionLoading(false);
     }
@@ -203,7 +203,7 @@ export function DaemonRuntimeActions() {
           <Button
             size="sm"
             variant="outline"
-            onClick={handleRetryInstall}
+            onClick={handleRetryCliSetup}
             disabled={actionLoading}
           >
             <RotateCw className="size-3.5 mr-1.5" />

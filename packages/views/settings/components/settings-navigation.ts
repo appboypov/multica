@@ -1,26 +1,7 @@
-/** Messaging integrations that live under the Channels page. */
-export const CHANNEL_INTEGRATIONS = [
-  "lark",
-  "slack",
-  "dingtalk",
-  "wecom",
-  "telegram",
-] as const;
-
-export type ChannelIntegration = (typeof CHANNEL_INTEGRATIONS)[number];
-
-export function isChannelIntegration(
-  value: string | null,
-): value is ChannelIntegration {
-  return (CHANNEL_INTEGRATIONS as readonly string[]).includes(value ?? "");
-}
-
 export interface SettingsLocation {
   tab: string;
   /** In-page anchor to scroll to (see `SettingsSection`/`SettingsRow`). */
   section: string | null;
-  /** Detail page within Channels. */
-  integration: string | null;
 }
 
 /**
@@ -35,41 +16,24 @@ export function resolveSettingsLocation(
 ): SettingsLocation {
   const tab = params.get("tab") ?? "profile";
   const section = params.get("section");
-  const integration = params.get("integration");
   switch (tab) {
     case "issue":
     case "chat":
-      return { tab: "preferences", section: tab, integration: null };
+      return { tab: "preferences", section: tab };
     case "labs":
-      return { tab: "workspace", section: null, integration: null };
+      return { tab: "workspace", section: null };
     case "github":
-      return { tab: "code", section, integration: null };
+      return { tab: "code", section };
     case "repositories":
-      return { tab: "code", section: section ?? "repositories", integration: null };
+      return { tab: "code", section: section ?? "repositories" };
     case "integrations": {
-      const composioCallback =
-        params.has("connected") ||
-        params.get("error") === "composio_connect_failed";
-      if (composioCallback || integration === "composio") {
-        return { tab: "apps", section: null, integration: null };
-      }
-      if (integration === "github") {
-        return { tab: "code", section: null, integration: null };
-      }
-      if (integration === "vcs") {
-        return { tab: "code", section: "code-hosting", integration: null };
-      }
-      return {
-        tab: "channels",
-        section: null,
-        integration: isChannelIntegration(integration) ? integration : null,
-      };
+      const integration = params.get("integration");
+      if (integration === "github") return { tab: "code", section: null };
+      if (integration === "vcs") return { tab: "code", section: "code-hosting" };
+      return { tab: "apps", section: null };
     }
     default:
-      if (isChannelIntegration(tab)) {
-        return { tab: "channels", section: null, integration: tab };
-      }
-      return { tab, section, integration };
+      return { tab, section };
   }
 }
 
@@ -78,13 +42,12 @@ export function settingsHref(
   pathname: string,
   searchParams: URLSearchParams,
   tab: string,
-  detail: { section?: string; integration?: string } = {},
+  detail: { section?: string } = {},
 ) {
   const params = new URLSearchParams(searchParams);
   params.set("tab", tab);
   params.delete("section");
   params.delete("integration");
   if (detail.section) params.set("section", detail.section);
-  if (detail.integration) params.set("integration", detail.integration);
   return `${pathname}?${params.toString()}`;
 }

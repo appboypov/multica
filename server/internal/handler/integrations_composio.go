@@ -20,7 +20,7 @@ import (
 // (outside the Auth group, see router.go / MUL-3843) because the browser often
 // arrives without a session cookie — its identity comes from the signed state,
 // not requireUserID. The whole block returns 403 when h.Composio is nil
-// (COMPOSIO_API_KEY unset), matching the Lark/GitHub "integration not
+// (COMPOSIO_API_KEY unset), matching the GitHub "integration not
 // configured" convention. A missing deployment capability is a non-retryable
 // 403, not a transient 503.
 

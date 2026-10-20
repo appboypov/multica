@@ -33,7 +33,6 @@ func TestCancelTasksForArchivedAgentPublishesCommittedChatCancellations(t *testi
 	fx, agentID, runtimeID := newArchiveCancelFixture(t)
 	chatByTask := make(map[string]string)
 	for _, status := range []string{"queued", "dispatched", "running", "waiting_local_directory", "deferred"} {
-		// No channel binding: the lifecycle notification applies to every chat.
 		chatID := fx.ChatSession(t, agentID)
 		taskID := fx.Task(t, agentID, testutil.Cols{
 			"chat_session_id": chatID,

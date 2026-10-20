@@ -20,7 +20,6 @@ vi.mock("./tokens-tab", stub("TokensTab"));
 vi.mock("./workspace-tab", stub("WorkspaceTab"));
 vi.mock("./members-tab", stub("MembersTab"));
 vi.mock("./code-tab", stub("CodeTab"));
-vi.mock("./channels-tab", stub("ChannelsTab"));
 vi.mock("./notifications-tab", stub("NotificationsTab"));
 vi.mock("./labels-tab", stub("LabelsTab"));
 vi.mock("./issue-statuses-tab", stub("IssueStatusesTab"));
@@ -215,7 +214,7 @@ describe("SettingsPage information architecture", () => {
     const connections = within(workspace).getByRole("group", {
       name: "Connections & extensions",
     });
-    for (const name of ["Code", "Messaging", "MCP servers"]) {
+    for (const name of ["Code", "MCP servers"]) {
       expect(within(connections).getByRole("link", { name })).toBeInTheDocument();
     }
   });
@@ -281,22 +280,22 @@ describe("SettingsPage information architecture", () => {
       <SettingsPage
         extraDeviceTabs={[
           {
-            value: "updates",
-            label: "Updates",
+            value: "daemon",
+            label: "Daemon",
             icon: () => null,
-            content: <div>Device updates</div>,
+            content: <div>Device daemon</div>,
           },
         ]}
       />,
     );
     const device = screen.getByRole("region", { name: "This device" });
     expect(
-      within(device).getByRole("link", { name: "Updates" }),
+      within(device).getByRole("link", { name: "Daemon" }),
     ).toBeInTheDocument();
   });
 
-  it("navigates from the compact selector and clears the old detail", () => {
-    navigationState.search = "tab=channels&integration=slack&keep=1";
+  it("navigates from the compact selector and clears the old anchor", () => {
+    navigationState.search = "tab=code&section=pr-sidebar&keep=1";
     renderWithI18n(<SettingsPage />);
     fireEvent.change(
       screen.getByRole("combobox", { name: "Go to settings page" }),
@@ -327,11 +326,9 @@ describe("SettingsPage search", () => {
     renderWithI18n(<SettingsPage />);
     const input = screen.getByRole("searchbox", { name: "Search settings" });
 
-    fireEvent.change(input, { target: { value: "slack" } });
+    fireEvent.change(input, { target: { value: "labels" } });
     fireEvent.keyDown(input, { key: "Enter" });
-    expect(push).toHaveBeenCalledWith(
-      "/acme/settings?tab=channels&integration=slack",
-    );
+    expect(push).toHaveBeenCalledWith("/acme/settings?tab=labels");
 
     fireEvent.keyDown(input, { key: "Escape" });
     expect(input).toHaveValue("");

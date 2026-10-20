@@ -208,7 +208,6 @@ vi.mock("../../editor", async () => ({
     const initialValue = syncedValue ?? defaultValue ?? "";
     if (syncedValue !== undefined) descriptionSelectionAction.current = selectionAction;
     const valueRef = useRef(initialValue);
-    const baseRef = useRef(initialValue);
     const [editorValue, setEditorValue] = useState(initialValue);
     // Mirrors the real editor's dirty guard: once the user has typed, an
     // external `value` change is refused so it cannot clobber unsaved bytes.
@@ -222,7 +221,6 @@ vi.mock("../../editor", async () => ({
     useEffect(() => {
       if (syncedValue === undefined || dirtyRef.current) return;
       valueRef.current = syncedValue;
-      baseRef.current = syncedValue;
       setEditorValue(syncedValue);
     }, [syncedValue]);
     useImperativeHandle(ref, () => ({
@@ -236,7 +234,6 @@ vi.mock("../../editor", async () => ({
       // editor refuses external syncs) and does so without emitting an update.
       adoptContent: (markdown: string) => {
         valueRef.current = markdown;
-        baseRef.current = markdown;
         dirtyRef.current = false;
         setEditorValue(markdown);
       },
@@ -262,7 +259,7 @@ vi.mock("../../editor", async () => ({
           valueRef.current = e.target.value;
           dirtyRef.current = true;
           setEditorValue(e.target.value);
-          onUpdate?.(e.target.value, baseRef.current);
+          onUpdate?.(e.target.value);
         }}
         placeholder={placeholder}
         data-testid="rich-text-editor"
@@ -2882,10 +2879,7 @@ describe("IssueDetail (shared)", () => {
     await waitFor(() =>
       expect(mockApiObj.updateIssue).toHaveBeenCalledWith(
         "issue-1",
-        expect.objectContaining({
-          description: "Add **JWT** auth to the backend",
-          description_base: "Add JWT auth to the backend",
-        }),
+        expect.objectContaining({ description: "Add **JWT** auth to the backend" }),
       ),
     );
 
@@ -2958,18 +2952,14 @@ describe("IssueDetail (shared)", () => {
     await waitFor(() => {
       expect(mockApiObj.updateIssue).toHaveBeenCalledWith(
         "issue-1",
-        expect.objectContaining({
-          description: "",
-          description_base: "Add JWT auth to the backend",
-        }),
+        expect.objectContaining({ description: "" }),
       );
     });
   });
 
-  // Descriptions are last-write-wins (MUL-6971). The baseline still ships as
-  // channel-media merge metadata, but a rejected save no longer opens a compare
-  // panel — that panel fired on the editor's own autosave and wedged the
-  // session, and the title/comment editors keep the compare flow they can
+  // Descriptions are last-write-wins (MUL-6971): a rejected save does not open
+  // a compare panel — that panel fired on the editor's own autosave and wedged
+  // the session, and the title/comment editors keep the compare flow they can
   // actually satisfy.
   it("keeps editing after a failed description save without a compare panel", async () => {
     mockApiObj.updateIssue.mockRejectedValueOnce({
@@ -2984,10 +2974,7 @@ describe("IssueDetail (shared)", () => {
     await waitFor(() =>
       expect(mockApiObj.updateIssue).toHaveBeenCalledWith(
         "issue-1",
-        expect.objectContaining({
-          description: "My local description",
-          description_base: "Add JWT auth to the backend",
-        }),
+        expect.objectContaining({ description: "My local description" }),
       ),
     );
     // The compare panel's own actions — still rendered for a title conflict,
@@ -3010,7 +2997,7 @@ describe("IssueDetail (shared)", () => {
     );
   });
 
-  it("serializes description saves and rebases the queued draft on submitted content", async () => {
+  it("serializes description saves", async () => {
     let resolveFirst!: (issue: Issue) => void;
     const firstSave = new Promise<Issue>((resolve) => {
       resolveFirst = resolve;
@@ -3040,10 +3027,7 @@ describe("IssueDetail (shared)", () => {
     expect(mockApiObj.updateIssue).toHaveBeenNthCalledWith(
       2,
       "issue-1",
-      expect.objectContaining({
-        description: "Second local description",
-        description_base: "First local description",
-      }),
+      expect.objectContaining({ description: "Second local description" }),
     );
   });
 
@@ -3095,7 +3079,7 @@ describe("IssueDetail (shared)", () => {
     expect(mockApiObj.updateIssue).toHaveBeenNthCalledWith(
       2,
       "issue-2",
-      expect.objectContaining({ description_base: "Second issue description" }),
+      expect.objectContaining({ description: "Issue two draft" }),
     );
 
     await act(async () => {

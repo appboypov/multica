@@ -22,7 +22,6 @@ import type {
   LocalRuntimeProbe,
 } from "../shared/daemon-types";
 import { daemonStatusAlive } from "../shared/daemon-types";
-import { ensureManagedCli, managedCliPath } from "./cli-bootstrap";
 import { decideVersionAction } from "./version-decision";
 import {
   deriveProfileName,
@@ -316,7 +315,7 @@ function observeDaemonBoundary(status: DaemonStatus): void {
 }
 
 async function fetchHealth(): Promise<DaemonStatus> {
-  // While the CLI is being downloaded or has permanently failed, short-circuit
+  // While the CLI is being resolved or was not found, short-circuit
   // polling — there's nothing to probe yet and /health calls would just return
   // "stopped", which would overwrite the correct setup state in the UI.
   if (currentState === "installing_cli" || currentState === "cli_not_found") {
@@ -417,6 +416,9 @@ async function fetchHealth(): Promise<DaemonStatus> {
   };
 }
 
+const CLI_NOT_FOUND_ERROR =
+  "multica CLI not found. Run `make local-release` in the multica checkout to install it.";
+
 function findCliOnPath(): string | null {
   const candidates = process.platform === "win32" ? ["multica.exe"] : ["multica"];
   const paths = (process.env["PATH"] ?? "").split(
@@ -454,7 +456,7 @@ function bundledCliPath(): string {
 
 async function probeCliBinary(
   bin: string,
-  source: "bundled" | "managed" | "path",
+  source: "bundled" | "path",
 ): Promise<string | null> {
   try {
     const stdout = await new Promise<string>((resolve, reject) => {
@@ -486,17 +488,14 @@ async function probeCliBinary(
  * Returns a usable `multica` binary path. Priority:
  *   1. Cached result from a previous successful resolve.
  *   2. Bundled binary shipped with the Desktop app (`bundle-cli.mjs`).
- *   3. Managed binary already installed in userData (`managedCliPath`).
- *   4. Download + install latest release into userData.
- *   5. `multica` on PATH (dev convenience / user-installed via brew).
- * Returns `null` only when all of the above fail.
+ *   3. `multica` on PATH (`make local-release` links it into ~/.local/bin).
+ * Returns `null` when neither is a working CLI.
  *
  * Bundled is preferred so Desktop iterates in lockstep with Go changes in
- * the same repo — avoids the 404 / stale-API problem when the Desktop's
- * TS side is ahead of the last published CLI release.
+ * the same checkout.
  *
  * This function is idempotent and safe to call concurrently — in-flight
- * installs are de-duplicated via `cliResolvePromise`.
+ * resolves are de-duplicated via `cliResolvePromise`.
  */
 async function resolveCliBinary(): Promise<string | null> {
   if (cachedCliBinary !== undefined) return cachedCliBinary;
@@ -512,33 +511,6 @@ async function resolveCliBinary(): Promise<string | null> {
         cachedCliBinaryVersion = version;
         return bundled;
       }
-    }
-
-    const managed = managedCliPath();
-    if (existsSync(managed)) {
-      const version = await probeCliBinary(managed, "managed");
-      if (version) {
-        cachedCliBinary = managed;
-        cachedCliBinaryVersion = version;
-        return managed;
-      }
-    }
-
-    try {
-      const installed = await ensureManagedCli({
-        forceInstall: existsSync(managed),
-      });
-      const version = await probeCliBinary(installed, "managed");
-      if (version) {
-        cachedCliBinary = installed;
-        cachedCliBinaryVersion = version;
-        return installed;
-      }
-      console.warn(
-        `[daemon] managed CLI at ${installed} failed validation after install`,
-      );
-    } catch (err) {
-      console.warn("[daemon] CLI auto-install failed, falling back to PATH:", err);
     }
 
     const onPath = findCliOnPath();
@@ -943,7 +915,7 @@ async function startDaemon(
   recoveryProfile?: ActiveProfile,
 ): Promise<{ success: boolean; error?: string }> {
   const bin = await resolveCliBinary();
-  if (!bin) return { success: false, error: "multica CLI is not installed" };
+  if (!bin) return { success: false, error: CLI_NOT_FOUND_ERROR };
 
   const active = await ensureActiveProfile();
   if (!active) {
@@ -1044,7 +1016,7 @@ async function stopDaemon(): Promise<{ success: boolean; error?: string }> {
   if (await lifecycleBlockedByForeignDaemon()) return { success: true };
 
   const bin = await resolveCliBinary();
-  if (!bin) return { success: false, error: "multica CLI is not installed" };
+  if (!bin) return { success: false, error: CLI_NOT_FOUND_ERROR };
 
   const active = await ensureActiveProfile();
   if (!active) return { success: true };
@@ -1227,7 +1199,7 @@ function startPolling(): void {
 /**
  * Ensures the CLI binary is available, then transitions into the normal
  * stopped/running state machine. Called once at startup and again on
- * user-triggered `daemon:retry-install`.
+ * user-triggered `daemon:retry-cli-setup`.
  */
 async function bootstrapCli(): Promise<void> {
   const bin = await resolveCliBinary();
@@ -1407,10 +1379,10 @@ export function setupDaemonManager(
     const bin = await resolveCliBinary();
     return bin !== null;
   });
-  ipcMain.handle("daemon:retry-install", async () => {
+  ipcMain.handle("daemon:retry-cli-setup", async () => {
     cachedCliBinary = undefined;
     cliResolvePromise = null;
-    // A retry-install may land a new CLI at a different version; drop the
+    // The retry may resolve a different CLI at a different version; drop the
     // cached version string so the next check re-reads the binary.
     cachedCliBinaryVersion = undefined;
     await lifecycleOperations.runForeground(() => bootstrapCli());
@@ -1471,8 +1443,8 @@ export function setupDaemonManager(
     return error === "" ? { success: true } : { success: false, error };
   });
 
-  // First-run CLI install kicks off here. Status bar shows "Setting up…"
-  // until the managed binary is on disk (instant on subsequent launches).
+  // CLI resolution kicks off here. Status bar shows "Setting up…" until the
+  // bundled or PATH CLI has been probed.
   currentState = "installing_cli";
   sendStatus({ state: "installing_cli" });
   void lifecycleOperations.runBackground(() => bootstrapCli());

@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"log/slog"
@@ -243,10 +242,6 @@ func (h *Handler) ListChatSessions(w http.ResponseWriter, r *http.Request) {
 			})
 		}
 	}
-	if err := h.hydrateChatSessionChannelMetadata(r.Context(), resp); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to load chat channel metadata")
-		return
-	}
 	writeJSON(w, http.StatusOK, resp)
 }
 
@@ -332,15 +327,7 @@ func (h *Handler) GetChatSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp := chatSessionToResponse(session)
-	// hydrateChatSessionChannelMetadata mutates the slice element, so retain a
-	// concrete slice here rather than passing a temporary value to writeJSON.
-	responses := []ChatSessionResponse{resp}
-	if err := h.hydrateChatSessionChannelMetadata(r.Context(), responses); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to load chat channel metadata")
-		return
-	}
-	writeJSON(w, http.StatusOK, responses[0])
+	writeJSON(w, http.StatusOK, chatSessionToResponse(session))
 }
 
 func (h *Handler) ListChatQuestions(w http.ResponseWriter, r *http.Request) {
@@ -543,25 +530,10 @@ type SetChatSessionArchivedRequest struct {
 // read-only — SendChatMessage refuses status='archived'. Hard delete is only
 // offered from the archived list, so nothing is destroyed in one hover click.
 //
-// Archiving also severs any external-channel binding. The web send path already
-// treats status='archived' as read-only, but the channel engine (Feishu/Slack)
-// resolves inbound traffic through channel_chat_session_binding without checking
-// session status, so a bound session kept accumulating agent replies — and a
-// stuck unread badge — after the user archived it (MUL-4372). Dropping the
-// binding in the same tx makes the next inbound message for that external chat
-// create a fresh chat_session under a new binding (see EnsureSession) instead of
-// reviving this archived one. Unarchive deliberately does NOT recreate the
-// binding: if later traffic already forked a new session, that session owns the
-// channel now, and restoring the old binding would steal it back.
-//
-// Severing that binding is what makes archiving a bound session cancel its
-// in-flight tasks: the adapter still holds the chat id, so a turn that survives
-// the archive answers into a group room the session no longer belongs to. That
-// cancel is therefore scoped to sessions that HAD a binding. Archiving a
-// web-only chat leaves its tasks alone — it is the reversible organizing action
-// the UI presents (no confirmation, unarchive undoes it), and the destructive
-// counterpart is the Stop button, which cancels through CancelTaskByUser and
-// gives the user their typed prompt back.
+// Archiving leaves the session's tasks alone: it is the reversible organizing
+// action the UI presents (no confirmation, unarchive undoes it), and the
+// destructive counterpart is the Stop button, which cancels through
+// CancelTaskByUser and gives the user their typed prompt back.
 func (h *Handler) SetChatSessionArchived(w http.ResponseWriter, r *http.Request) {
 	userID, ok := requireUserID(w, r)
 	if !ok {
@@ -581,15 +553,7 @@ func (h *Handler) SetChatSessionArchived(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	tx, err := h.TxStarter.Begin(r.Context())
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to start transaction")
-		return
-	}
-	defer tx.Rollback(r.Context())
-	qtx := h.Queries.WithTx(tx)
-
-	updated, err := qtx.SetChatSessionArchived(r.Context(), db.SetChatSessionArchivedParams{
+	updated, err := h.Queries.SetChatSessionArchived(r.Context(), db.SetChatSessionArchivedParams{
 		ID:       session.ID,
 		Archived: req.Archived,
 	})
@@ -597,83 +561,6 @@ func (h *Handler) SetChatSessionArchived(w http.ResponseWriter, r *http.Request)
 		writeError(w, http.StatusInternalServerError, "failed to update chat session")
 		return
 	}
-
-	// Rows cancelled inside the tx, broadcast after it commits. nil when the
-	// request unarchives and nil for a web-only chat; BroadcastCancelledTasks
-	// is a no-op on an empty slice.
-	var cancelled []db.AgentTaskQueue
-
-	if req.Archived {
-		// Read the binding BEFORE the delete below, which is what erases the
-		// evidence: after it runs there is no way to tell a session that was
-		// on a channel from one that never was.
-		_, bindingErr := qtx.GetChannelChatSessionBindingBySessionAny(r.Context(), session.ID)
-		switch {
-		case bindingErr == nil:
-			// Bound, and the delete below is about to drop that binding.
-			// ClaimAgentTask does not read chat_session.status, so a task
-			// queued before the archive stays claimable after it: the daemon
-			// runs a turn on a conversation the user closed, spending runtime
-			// and quota and writing assistant messages into an archived chat.
-			// The binding is gone by then, so the brief describes the run as a
-			// private web chat — the misattribution the history note below
-			// exists to prevent — while the outbound senders, which resolve
-			// their destination through that same deleted row, have no route
-			// left to deliver on. Cancel in the same tx that drops the
-			// binding, as DeleteChatSession does.
-			//
-			// The query is not limited to never-started work: it also matches
-			// dispatched, running, waiting_local_directory and deferred, which
-			// is why the returned rows have to reach the post-commit broadcast
-			// below rather than being discarded.
-			cancelled, err = qtx.CancelAgentTasksByChatSession(r.Context(), session.ID)
-			if err != nil {
-				writeError(w, http.StatusInternalServerError, "failed to cancel queued tasks for the archived session")
-				return
-			}
-			if err = service.SettleTerminalTaskState(r.Context(), qtx, cancelled...); err != nil {
-				writeError(w, http.StatusInternalServerError, "failed to settle terminal task state")
-				return
-			}
-		case errors.Is(bindingErr, pgx.ErrNoRows):
-			// A web-only chat has no room, no adapter and nowhere for a late
-			// answer to land, so there is nothing here to protect anyone from
-			// and archiving stays what the UI already says it is: the
-			// reversible "put it away" step that unarchive undoes, offered
-			// with no confirmation, with hard delete available only after it.
-			// Cancelling would also destroy the user's typed prompt — the Stop
-			// button cancels through CancelTaskByUser, which hands the prompt
-			// back (cancelled_chat_message.restore_to_input, or a durable
-			// chat_draft_restore row), and CancelAgentTasksByChatSession does
-			// neither.
-		default:
-			// We cannot tell whether this session was bound. Carrying on would
-			// silently skip the cancel and reopen the bug above, so fail the
-			// archive rather than guess; the caller can retry.
-			slog.Warn("read chat session channel binding failed", "session_id", sessionID, "error", bindingErr)
-			writeError(w, http.StatusInternalServerError, "failed to read chat session channel binding")
-			return
-		}
-		if err := qtx.DeleteChannelChatSessionBindingBySession(r.Context(), session.ID); err != nil {
-			writeError(w, http.StatusInternalServerError, "failed to clear chat session channel binding")
-			return
-		}
-	}
-
-	if err := tx.Commit(r.Context()); err != nil {
-		slog.Warn("commit chat session archive failed", "session_id", sessionID, "error", err)
-		writeError(w, http.StatusInternalServerError, "failed to commit chat session update")
-		return
-	}
-
-	// Post-commit broadcasts, same as DeleteChatSession: subscribers should
-	// never observe events for a tx that didn't actually persist. This is the
-	// call that captures the cancellation and revokes the tasks' mat_ tokens,
-	// reconciles each agent off 'working', emits task:cancelled so other
-	// clients drop the row instead of showing it queued until the next
-	// refresh, and wakes the runtime so a queued successor is claimed now
-	// rather than at the daemon's next poll.
-	h.TaskService.BroadcastCancelledTasks(r.Context(), workspaceID, cancelled)
 
 	resolvedSessionID := uuidToString(updated.ID)
 	status := updated.Status
@@ -745,18 +632,10 @@ func (h *Handler) DeleteChatSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// channel_chat_session_binding used to carry a chat_session FK with
-	// ON DELETE CASCADE; MUL-3515 §4 dropped every channel_* foreign key, so
-	// prune the binding here in the same tx that deletes its chat_session.
+	// channel_* rows carry no chat_session FK, so the session's binding and its
+	// dependents are pruned in the same tx that deletes the session.
 	if err := qtx.DeleteChannelChatSessionBindingBySession(r.Context(), session.ID); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to delete chat session binding")
-		return
-	}
-	// channel_outbound_card_message is also keyed by chat_session_id with no FK
-	// and no reaper, so prune it in the same tx or a deleted chat session leaves
-	// permanent orphan card rows (#4810 follow-up).
-	if err := qtx.DeleteChannelOutboundCardMessagesBySession(r.Context(), session.ID); err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to delete chat session outbound cards")
 		return
 	}
 	// chat_draft_restore is keyed by chat_session_id with no FK either, so its
@@ -947,18 +826,6 @@ func (h *Handler) SendChatMessage(w http.ResponseWriter, r *http.Request) {
 	if existed, err := h.Queries.ChatSessionHasPublicUserMessage(r.Context(), session.ID); err == nil {
 		hadUserMessage = existed
 	}
-	channelBacked := false
-	channelSourceKnown := true
-	if !hadUserMessage {
-		if _, err := h.Queries.GetChannelChatSessionBindingBySessionAny(r.Context(), session.ID); err == nil {
-			channelBacked = true
-		} else if !errors.Is(err, pgx.ErrNoRows) {
-			// Title generation is optional. If source authority is unavailable,
-			// skip it rather than risk treating a channel manual rename as an
-			// auto-generated fallback and overwriting it.
-			channelSourceKnown = false
-		}
-	}
 
 	// Persist the whole turn atomically (MUL-4351): the owning task, the user
 	// message bound to that task (so it belongs to the task's immutable input
@@ -987,7 +854,7 @@ func (h *Handler) SendChatMessage(w http.ResponseWriter, r *http.Request) {
 	currentTitle := session.Title
 	if sent.InitialTitle != "" {
 		currentTitle = sent.InitialTitle
-		h.ChannelChatTitleInitialized(session.WorkspaceID, session.CreatorID, session.ID, sent.InitialTitle)
+		h.publishInitializedChatTitle(session.WorkspaceID, session.CreatorID, session.ID, sent.InitialTitle)
 	}
 
 	// AttachmentIDs actually bound by the server. Requested-but-unbound ids are
@@ -1030,8 +897,7 @@ func (h *Handler) SendChatMessage(w http.ResponseWriter, r *http.Request) {
 	// silently keeps the original first-message-derived title. session.Title
 	// is the default/original title observed here and drives the CAS so a
 	// manual rename mid-generation is never clobbered.
-	shouldGenerateTitle := shouldGenerateFirstMessageTitle(hadUserMessage, currentTitle, sent.InitialTitle, channelBacked, channelSourceKnown)
-	if shouldGenerateTitle {
+	if !hadUserMessage && currentTitle != "" {
 		h.maybeGenerateChatTitleAsync(workspaceID, userID, session.ID, currentTitle, req.Content)
 	}
 
@@ -1043,19 +909,6 @@ func (h *Handler) SendChatMessage(w http.ResponseWriter, r *http.Request) {
 		CreatedAt:     timestampToString(task.CreatedAt),
 		AttachmentIDs: boundAttachmentIDs,
 	})
-}
-
-func shouldGenerateFirstMessageTitle(hadUserMessage bool, currentTitle, initializedTitle string, channelBacked, channelSourceKnown bool) bool {
-	if hadUserMessage || currentTitle == "" || !channelSourceKnown {
-		return false
-	}
-	if channelBacked {
-		// For an explicitly empty /new Chat, a pre-existing non-empty title is
-		// a manual rename. Only a title initialized by this send is eligible for
-		// the best-effort LLM replacement; otherwise manual naming always wins.
-		return initializedTitle != ""
-	}
-	return true
 }
 
 type ChatMessagesCursorResponse struct {
@@ -1948,50 +1801,9 @@ type ChatSessionResponse struct {
 	LastMessage *ChatLastMessage `json:"last_message"`
 	// Pinned marks a chat the user has stuck to the top of the list. Populated
 	// by list endpoints and by the pin/unpin + single-session responses.
-	Pinned bool `json:"pinned"`
-	// ChannelSource is present only for Chats created from an external channel.
-	// IsCurrentChannelRoute distinguishes the active route generation from an
-	// older Chat that remains readable and writable in Multica.
-	ChannelSource         *ChatSessionChannelSourceResponse `json:"channel_source,omitempty"`
-	IsCurrentChannelRoute *bool                             `json:"is_current_channel_route,omitempty"`
-	CreatedAt             string                            `json:"created_at"`
-	UpdatedAt             string                            `json:"updated_at"`
-}
-
-type ChatSessionChannelSourceResponse struct {
-	ChannelType    string `json:"channel_type"`
-	InstallationID string `json:"installation_id"`
-	RouteRevision  int64  `json:"route_revision"`
-}
-
-func (h *Handler) hydrateChatSessionChannelMetadata(ctx context.Context, sessions []ChatSessionResponse) error {
-	if len(sessions) == 0 {
-		return nil
-	}
-	ids := make([]pgtype.UUID, 0, len(sessions))
-	for _, session := range sessions {
-		ids = append(ids, parseUUID(session.ID))
-	}
-	bindings, err := h.Queries.ListChannelChatSessionBindingsBySessions(ctx, ids)
-	if err != nil {
-		return err
-	}
-	bySession := make(map[string]db.ChannelChatSessionBinding, len(bindings))
-	for _, binding := range bindings {
-		bySession[uuidToString(binding.ChatSessionID)] = binding
-	}
-	for i := range sessions {
-		binding, ok := bySession[sessions[i].ID]
-		if !ok {
-			continue
-		}
-		current := !binding.RetiredAt.Valid
-		sessions[i].ChannelSource = &ChatSessionChannelSourceResponse{
-			ChannelType: binding.ChannelType, InstallationID: uuidToString(binding.InstallationID), RouteRevision: binding.RouteRevision,
-		}
-		sessions[i].IsCurrentChannelRoute = &current
-	}
-	return nil
+	Pinned    bool   `json:"pinned"`
+	CreatedAt string `json:"created_at"`
+	UpdatedAt string `json:"updated_at"`
 }
 
 // ChatLastMessage is a preview of a session's most recent message, used to

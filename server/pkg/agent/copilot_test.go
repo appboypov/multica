@@ -865,8 +865,8 @@ func TestCopilotEventLoopDeltaFallbackOutput(t *testing.T) {
 
 // TestCopilotEventLoopDeliversFinalTurnOnly pins Result.Output to the LAST
 // assistant turn. Copilot used to join every turn with "\n\n", so a run that
-// narrated, called a tool, then answered shipped narration + answer to Slack and
-// Lark as one reply (GH #6006). The narration still reaches the transcript as
+// narrated, called a tool, then answered shipped narration + answer as one chat
+// reply (GH #6006). The narration still reaches the transcript as
 // MessageText; only the deliverable narrows.
 func TestCopilotEventLoopDeliversFinalTurnOnly(t *testing.T) {
 	t.Parallel()

@@ -35,8 +35,7 @@ export const RESERVED_SLUGS: ReadonlySet<string> = new Set([
   // Platform / marketing routes (current + likely-future)
   // `multica` is reserved as the brand name to block impersonation workspaces.
   // `www`, `new`, `home`, `homepage`, `dashboard` are confusables or
-  // likely-future global landing/entry routes; `homepage` matches the existing
-  // `/homepage` landing variant in apps/web.
+  // likely-future global landing/entry routes.
   "api",
   "admin",
   "multica",
@@ -108,11 +107,6 @@ export const RESERVED_SLUGS: ReadonlySet<string> = new Set([
   "sdk",
   "tokens",
   "cli",
-
-  // DingTalk account-bind route
-  // `/dingtalk/bind` is a global pre-workspace route where a member links their
-  // DingTalk identity. Reserve the prefix so a workspace slug cannot shadow it.
-  "dingtalk",
 
   // Backend ops / observability
   // `/health`, `/readyz`, `/healthz`, and `/ws` exist on the backend host;

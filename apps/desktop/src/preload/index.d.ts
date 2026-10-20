@@ -8,10 +8,6 @@ import type {
   IssueWindowRequest,
 } from "../shared/issue-window";
 import type {
-  ManualUpdateCheckResult,
-  UpdaterPreferences,
-} from "../shared/updater-types";
-import type {
   DaemonStatus,
   DaemonPrefs,
   LocalRuntimeProbe,
@@ -119,24 +115,11 @@ interface DaemonAPI {
   getPrefs: () => Promise<DaemonPrefs>;
   setPrefs: (prefs: Partial<DaemonPrefs>) => Promise<DaemonPrefs>;
   autoStart: () => Promise<void>;
-  retryInstall: () => Promise<void>;
+  retryCliSetup: () => Promise<void>;
   startLogStream: () => void;
   stopLogStream: () => void;
   onLogLine: (callback: (line: string) => void) => () => void;
   openLogFile: () => Promise<{ success: boolean; error?: string }>;
-}
-
-interface UpdaterAPI {
-  onUpdateAvailable: (callback: (info: { version: string; releaseNotes?: string }) => void) => () => void;
-  onDownloadProgress: (callback: (progress: { percent: number }) => void) => () => void;
-  onUpdateDownloaded: (
-    callback: (info: { version: string; releaseNotes?: string }) => void,
-  ) => () => void;
-  downloadUpdate: () => Promise<void>;
-  installUpdate: () => Promise<void>;
-  getPreferences: () => Promise<UpdaterPreferences>;
-  setAutomaticUpdates: (enabled: boolean) => Promise<UpdaterPreferences>;
-  checkForUpdates: () => Promise<ManualUpdateCheckResult>;
 }
 
 declare global {
@@ -144,7 +127,6 @@ declare global {
     electron: ElectronAPI;
     desktopAPI: DesktopAPI;
     daemonAPI: DaemonAPI;
-    updater: UpdaterAPI;
   }
 }
 

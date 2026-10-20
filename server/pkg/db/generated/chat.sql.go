@@ -132,22 +132,6 @@ func (q *Queries) ChatSessionHasUserMessage(ctx context.Context, chatSessionID p
 	return has_user_message, err
 }
 
-const clearChatMessageChannelMediaPending = `-- name: ClearChatMessageChannelMediaPending :exec
-UPDATE chat_message
-SET channel_media_pending_until = NULL
-WHERE id = $1 AND chat_session_id = $2
-`
-
-type ClearChatMessageChannelMediaPendingParams struct {
-	ID            pgtype.UUID `json:"id"`
-	ChatSessionID pgtype.UUID `json:"chat_session_id"`
-}
-
-func (q *Queries) ClearChatMessageChannelMediaPending(ctx context.Context, arg ClearChatMessageChannelMediaPendingParams) error {
-	_, err := q.db.Exec(ctx, clearChatMessageChannelMediaPending, arg.ID, arg.ChatSessionID)
-	return err
-}
-
 const clearChatSessionProjectByProject = `-- name: ClearChatSessionProjectByProject :exec
 UPDATE chat_session
 SET project_id = NULL
@@ -243,41 +227,27 @@ func (q *Queries) CreateChatDraftRestore(ctx context.Context, arg CreateChatDraf
 const createChatMessage = `-- name: CreateChatMessage :one
 INSERT INTO chat_message (
     chat_session_id, role, content, task_id, failure_reason, elapsed_ms,
-    message_kind, quick_actions, channel_media_pending_until, channel_ingested,
-    channel_context_revision, id
+    message_kind, quick_actions, id
 )
 VALUES (
     $1, $2, $3, $4, $5, $6,
     COALESCE($7::text, 'message'),
     COALESCE($8::jsonb, '[]'::jsonb),
-    -- The media deadline is DB-clock time: every consumer compares it against
-    -- SQL now() (GetChannelMediaPendingUntil, the deferred promote, the
-    -- trailing-message guard), so the writer must use the same clock. The
-    -- caller passes a relative budget in seconds; an application-clock
-    -- timestamp here would let a skewed app node shrink or stretch the
-    -- fallback window.
-    CASE WHEN $9::float8 IS NULL THEN NULL
-         ELSE now() + make_interval(secs => $9::float8) END,
-    COALESCE($10::boolean, FALSE),
-    $11,
-    COALESCE($12::uuid, gen_random_uuid())
+    COALESCE($9::uuid, gen_random_uuid())
 )
 RETURNING id, chat_session_id, role, content, task_id, created_at, failure_reason, elapsed_ms, message_kind, channel_media_pending_until, channel_ingested, quick_actions, channel_context_revision, channel_outbound_type, channel_outbound_installation_id, channel_outbound_chat_id, channel_outbound_message_ids
 `
 
 type CreateChatMessageParams struct {
-	ChatSessionID           pgtype.UUID   `json:"chat_session_id"`
-	Role                    string        `json:"role"`
-	Content                 string        `json:"content"`
-	TaskID                  pgtype.UUID   `json:"task_id"`
-	FailureReason           pgtype.Text   `json:"failure_reason"`
-	ElapsedMs               pgtype.Int8   `json:"elapsed_ms"`
-	MessageKind             pgtype.Text   `json:"message_kind"`
-	QuickActions            []byte        `json:"quick_actions"`
-	ChannelMediaPendingSecs pgtype.Float8 `json:"channel_media_pending_secs"`
-	ChannelIngested         pgtype.Bool   `json:"channel_ingested"`
-	ChannelContextRevision  pgtype.Int8   `json:"channel_context_revision"`
-	ID                      pgtype.UUID   `json:"id"`
+	ChatSessionID pgtype.UUID `json:"chat_session_id"`
+	Role          string      `json:"role"`
+	Content       string      `json:"content"`
+	TaskID        pgtype.UUID `json:"task_id"`
+	FailureReason pgtype.Text `json:"failure_reason"`
+	ElapsedMs     pgtype.Int8 `json:"elapsed_ms"`
+	MessageKind   pgtype.Text `json:"message_kind"`
+	QuickActions  []byte      `json:"quick_actions"`
+	ID            pgtype.UUID `json:"id"`
 }
 
 // message_kind and quick_actions default via COALESCE so every existing caller
@@ -293,9 +263,6 @@ func (q *Queries) CreateChatMessage(ctx context.Context, arg CreateChatMessagePa
 		arg.ElapsedMs,
 		arg.MessageKind,
 		arg.QuickActions,
-		arg.ChannelMediaPendingSecs,
-		arg.ChannelIngested,
-		arg.ChannelContextRevision,
 		arg.ID,
 	)
 	var i ChatMessage
@@ -374,45 +341,39 @@ const createChatTask = `-- name: CreateChatTask :one
 INSERT INTO agent_task_queue (
     agent_id, runtime_id, issue_id, status, priority, chat_session_id,
     initiator_user_id, originator_user_id, accountable_user_id, force_fresh_session, runtime_mcp_overlay,
-    runtime_connected_apps, originator_source, trigger_evidence_kind, trigger_evidence_ref_id,
-    fire_at, channel_context_revision, id
+    runtime_connected_apps, originator_source, trigger_evidence_kind, trigger_evidence_ref_id, id
 )
 SELECT
-    $1, $2, NULL,
-    CASE WHEN $6::timestamptz IS NULL THEN 'queued' ELSE 'deferred' END,
+    $1, $2, NULL, 'queued',
     $3, $4, $5,
+    $6,
     $7,
-    $8,
-    COALESCE($9::boolean, FALSE),
+    COALESCE($8::boolean, FALSE),
+    $9,
     $10,
     $11,
     $12,
     $13,
-    $14,
-    $6::timestamptz,
-    $15::bigint,
-    COALESCE($16::uuid, gen_random_uuid())
+    COALESCE($14::uuid, gen_random_uuid())
 WHERE lock_task_owner_rows($1, NULL, $2)
 RETURNING id, agent_id, issue_id, status, priority, dispatched_at, started_at, completed_at, result, error, created_at, context, runtime_id, session_id, work_dir, trigger_comment_id, chat_session_id, autopilot_run_id, attempt, max_attempts, parent_task_id, failure_reason, trigger_summary, force_fresh_session, is_leader_task, wait_reason, initiator_user_id, handoff_note, prepare_lease_expires_at, squad_id, runtime_mcp_overlay, escalation_for_task_id, fire_at, originator_user_id, runtime_connected_apps, coalesced_comment_ids, delivered_comment_ids, chat_input_task_id, chat_finalize_deferred_at, originator_source, delegated_from_task_id, retry_of_task_id, rerun_of_task_id, rule_version_id, trigger_evidence_kind, trigger_evidence_ref_id, accountable_user_id, session_rollout_missing, retired_session_id, quick_actions_disabled, regenerate_quick_actions_for, branch_name, durable_work_dir, channel_context_revision, comment_thread_id, cancelled_by_type, cancelled_by_id, cancelled_by_name, issue_snapshot, questions_enabled, release_id
 `
 
 type CreateChatTaskParams struct {
-	AgentID                pgtype.UUID        `json:"agent_id"`
-	RuntimeID              pgtype.UUID        `json:"runtime_id"`
-	Priority               int32              `json:"priority"`
-	ChatSessionID          pgtype.UUID        `json:"chat_session_id"`
-	InitiatorUserID        pgtype.UUID        `json:"initiator_user_id"`
-	FireAt                 pgtype.Timestamptz `json:"fire_at"`
-	OriginatorUserID       pgtype.UUID        `json:"originator_user_id"`
-	AccountableUserID      pgtype.UUID        `json:"accountable_user_id"`
-	ForceFreshSession      pgtype.Bool        `json:"force_fresh_session"`
-	RuntimeMcpOverlay      []byte             `json:"runtime_mcp_overlay"`
-	RuntimeConnectedApps   []byte             `json:"runtime_connected_apps"`
-	OriginatorSource       pgtype.Text        `json:"originator_source"`
-	TriggerEvidenceKind    pgtype.Text        `json:"trigger_evidence_kind"`
-	TriggerEvidenceRefID   pgtype.UUID        `json:"trigger_evidence_ref_id"`
-	ChannelContextRevision pgtype.Int8        `json:"channel_context_revision"`
-	ID                     pgtype.UUID        `json:"id"`
+	AgentID              pgtype.UUID `json:"agent_id"`
+	RuntimeID            pgtype.UUID `json:"runtime_id"`
+	Priority             int32       `json:"priority"`
+	ChatSessionID        pgtype.UUID `json:"chat_session_id"`
+	InitiatorUserID      pgtype.UUID `json:"initiator_user_id"`
+	OriginatorUserID     pgtype.UUID `json:"originator_user_id"`
+	AccountableUserID    pgtype.UUID `json:"accountable_user_id"`
+	ForceFreshSession    pgtype.Bool `json:"force_fresh_session"`
+	RuntimeMcpOverlay    []byte      `json:"runtime_mcp_overlay"`
+	RuntimeConnectedApps []byte      `json:"runtime_connected_apps"`
+	OriginatorSource     pgtype.Text `json:"originator_source"`
+	TriggerEvidenceKind  pgtype.Text `json:"trigger_evidence_kind"`
+	TriggerEvidenceRefID pgtype.UUID `json:"trigger_evidence_ref_id"`
+	ID                   pgtype.UUID `json:"id"`
 }
 
 // Fenced against workspace teardown: lock_task_owner_rows (migration 284)
@@ -429,7 +390,6 @@ func (q *Queries) CreateChatTask(ctx context.Context, arg CreateChatTaskParams) 
 		arg.Priority,
 		arg.ChatSessionID,
 		arg.InitiatorUserID,
-		arg.FireAt,
 		arg.OriginatorUserID,
 		arg.AccountableUserID,
 		arg.ForceFreshSession,
@@ -438,7 +398,6 @@ func (q *Queries) CreateChatTask(ctx context.Context, arg CreateChatTaskParams) 
 		arg.OriginatorSource,
 		arg.TriggerEvidenceKind,
 		arg.TriggerEvidenceRefID,
-		arg.ChannelContextRevision,
 		arg.ID,
 	)
 	var i AgentTaskQueue
@@ -570,97 +529,6 @@ func (q *Queries) CreateMikaOnboardingOpening(ctx context.Context, arg CreateMik
 	return i, err
 }
 
-const deferChatTaskForSealedPendingMedia = `-- name: DeferChatTaskForSealedPendingMedia :one
-UPDATE agent_task_queue AS task
-SET status = 'deferred', fire_at = pending.max_until
-FROM (
-    SELECT max(message.channel_media_pending_until) AS max_until
-    FROM chat_message AS message
-    WHERE message.task_id = $1
-      AND message.role = 'user'
-      AND message.channel_media_pending_until > now()
-) AS pending
-WHERE task.id = $1
-  AND pending.max_until IS NOT NULL
-  AND (task.fire_at IS NULL OR task.fire_at < pending.max_until)
-RETURNING task.id, task.agent_id, task.issue_id, task.status, task.priority, task.dispatched_at, task.started_at, task.completed_at, task.result, task.error, task.created_at, task.context, task.runtime_id, task.session_id, task.work_dir, task.trigger_comment_id, task.chat_session_id, task.autopilot_run_id, task.attempt, task.max_attempts, task.parent_task_id, task.failure_reason, task.trigger_summary, task.force_fresh_session, task.is_leader_task, task.wait_reason, task.initiator_user_id, task.handoff_note, task.prepare_lease_expires_at, task.squad_id, task.runtime_mcp_overlay, task.escalation_for_task_id, task.fire_at, task.originator_user_id, task.runtime_connected_apps, task.coalesced_comment_ids, task.delivered_comment_ids, task.chat_input_task_id, task.chat_finalize_deferred_at, task.originator_source, task.delegated_from_task_id, task.retry_of_task_id, task.rerun_of_task_id, task.rule_version_id, task.trigger_evidence_kind, task.trigger_evidence_ref_id, task.accountable_user_id, task.session_rollout_missing, task.retired_session_id, task.quick_actions_disabled, task.regenerate_quick_actions_for, task.branch_name, task.durable_work_dir, task.channel_context_revision, task.comment_thread_id, task.cancelled_by_type, task.cancelled_by_id, task.cancelled_by_name, task.issue_snapshot, task.questions_enabled, task.release_id
-`
-
-// Closes the enqueue-vs-append race: under READ COMMITTED a media message can
-// commit between GetChannelMediaPendingUntil and the batch seal above, landing
-// an unexpired media marker inside a task the deadline read decided was
-// 'queued'. Re-derive the deferral from the sealed batch itself, in the same
-// transaction, so a task is never claimable while its own input still has an
-// unexpired marker. No row (ErrNoRows) means no correction was needed.
-func (q *Queries) DeferChatTaskForSealedPendingMedia(ctx context.Context, taskID pgtype.UUID) (AgentTaskQueue, error) {
-	row := q.db.QueryRow(ctx, deferChatTaskForSealedPendingMedia, taskID)
-	var i AgentTaskQueue
-	err := row.Scan(
-		&i.ID,
-		&i.AgentID,
-		&i.IssueID,
-		&i.Status,
-		&i.Priority,
-		&i.DispatchedAt,
-		&i.StartedAt,
-		&i.CompletedAt,
-		&i.Result,
-		&i.Error,
-		&i.CreatedAt,
-		&i.Context,
-		&i.RuntimeID,
-		&i.SessionID,
-		&i.WorkDir,
-		&i.TriggerCommentID,
-		&i.ChatSessionID,
-		&i.AutopilotRunID,
-		&i.Attempt,
-		&i.MaxAttempts,
-		&i.ParentTaskID,
-		&i.FailureReason,
-		&i.TriggerSummary,
-		&i.ForceFreshSession,
-		&i.IsLeaderTask,
-		&i.WaitReason,
-		&i.InitiatorUserID,
-		&i.HandoffNote,
-		&i.PrepareLeaseExpiresAt,
-		&i.SquadID,
-		&i.RuntimeMcpOverlay,
-		&i.EscalationForTaskID,
-		&i.FireAt,
-		&i.OriginatorUserID,
-		&i.RuntimeConnectedApps,
-		&i.CoalescedCommentIds,
-		&i.DeliveredCommentIds,
-		&i.ChatInputTaskID,
-		&i.ChatFinalizeDeferredAt,
-		&i.OriginatorSource,
-		&i.DelegatedFromTaskID,
-		&i.RetryOfTaskID,
-		&i.RerunOfTaskID,
-		&i.RuleVersionID,
-		&i.TriggerEvidenceKind,
-		&i.TriggerEvidenceRefID,
-		&i.AccountableUserID,
-		&i.SessionRolloutMissing,
-		&i.RetiredSessionID,
-		&i.QuickActionsDisabled,
-		&i.RegenerateQuickActionsFor,
-		&i.BranchName,
-		&i.DurableWorkDir,
-		&i.ChannelContextRevision,
-		&i.CommentThreadID,
-		&i.CancelledByType,
-		&i.CancelledByID,
-		&i.CancelledByName,
-		&i.IssueSnapshot,
-		&i.QuestionsEnabled,
-		&i.ReleaseID,
-	)
-	return i, err
-}
-
 const deleteChatDraftRestore = `-- name: DeleteChatDraftRestore :execrows
 DELETE FROM chat_draft_restore
 WHERE id = $1 AND chat_session_id = $2
@@ -778,43 +646,6 @@ func (q *Queries) DeleteUserChatMessageByTask(ctx context.Context, taskID pgtype
 		&i.ChannelOutboundMessageIds,
 	)
 	return i, err
-}
-
-const getChannelMediaPendingUntil = `-- name: GetChannelMediaPendingUntil :one
-SELECT channel_media_pending_until
-FROM chat_message
-WHERE chat_session_id = $1
-  AND role = 'user'
-  AND message_kind != 'channel_command'
-  AND (
-      $2::bigint IS NULL
-      OR channel_context_revision = $2::bigint
-      OR (
-          $2::bigint = 1
-          AND channel_context_revision IS NULL
-      )
-  )
-  AND channel_media_pending_until > now()
-ORDER BY channel_media_pending_until DESC
-LIMIT 1
-`
-
-type GetChannelMediaPendingUntilParams struct {
-	ChatSessionID          pgtype.UUID `json:"chat_session_id"`
-	ChannelContextRevision pgtype.Int8 `json:"channel_context_revision"`
-}
-
-// The latest unexpired media deadline gates a channel task. Using a durable
-// task fire_at means a process restart still produces the placeholder fallback.
-// Only a turn that can join a task's input batch may gate one: channel_command
-// turns are excluded from the seal below, so an unrelated later message would
-// otherwise wait out a command's media (or its whole fallback budget, since a
-// command whose create failed never runs the binder that clears the marker).
-func (q *Queries) GetChannelMediaPendingUntil(ctx context.Context, arg GetChannelMediaPendingUntilParams) (pgtype.Timestamptz, error) {
-	row := q.db.QueryRow(ctx, getChannelMediaPendingUntil, arg.ChatSessionID, arg.ChannelContextRevision)
-	var channel_media_pending_until pgtype.Timestamptz
-	err := row.Scan(&channel_media_pending_until)
-	return channel_media_pending_until, err
 }
 
 const getChatMessage = `-- name: GetChatMessage :one
@@ -951,10 +782,6 @@ WITH retired_sessions AS (
     SELECT DISTINCT r.retired_session_id AS session_id
     FROM agent_task_queue r
     WHERE r.chat_session_id = $1
-      AND (
-        $2::bigint IS NULL
-        OR COALESCE(r.channel_context_revision, 1) = $2::bigint
-      )
       AND r.retired_session_id IS NOT NULL
 ), resume_overflow_at AS (
     -- completed_at alone, where the issue-side twin coalesces four columns:
@@ -964,10 +791,6 @@ WITH retired_sessions AS (
     SELECT MAX(t.completed_at) AS at
     FROM agent_task_queue t
     WHERE t.chat_session_id = $1
-      AND (
-        $2::bigint IS NULL
-        OR COALESCE(t.channel_context_revision, 1) = $2::bigint
-      )
       AND t.status = 'failed'
       AND (
         COALESCE(t.failure_reason, '') = 'codex_resume_oversized'
@@ -978,10 +801,6 @@ WITH retired_sessions AS (
         t.session_id, t.work_dir, t.runtime_id, t.status, t.failure_reason, t.error, t.completed_at
     FROM agent_task_queue t
     WHERE t.chat_session_id = $1
-      AND (
-        $2::bigint IS NULL
-        OR COALESCE(t.channel_context_revision, 1) = $2::bigint
-      )
       AND t.session_id IS NOT NULL
       AND t.status IN ('completed', 'failed', 'cancelled')
     ORDER BY t.session_id, t.completed_at DESC
@@ -1010,10 +829,10 @@ WHERE session_id NOT IN (SELECT session_id FROM retired_sessions)
   )
   -- MUL-5722, mirroring GetLastTaskSession: an overflowed resume records no
   -- session, so exclude by time instead of by matching the failed row. Note
-  -- this only guards the FALLBACK for legacy tasks — the claim handler reads
-  -- chat_session.session_id first for them, so a pointer still naming the
+  -- this only guards the FALLBACK — the claim handler reads
+  -- chat_session.session_id first, so a pointer still naming the
   -- oversized thread has to be cleared at fail time (see FailTask) to be
-  -- covered. Context-scoped channel tasks resolve directly from this query.
+  -- covered.
   AND (
     (SELECT at FROM resume_overflow_at) IS NULL
     OR completed_at > (SELECT at FROM resume_overflow_at)
@@ -1021,11 +840,6 @@ WHERE session_id NOT IN (SELECT session_id FROM retired_sessions)
 ORDER BY completed_at DESC
 LIMIT 1
 `
-
-type GetLastChatTaskSessionParams struct {
-	ChatSessionID          pgtype.UUID `json:"chat_session_id"`
-	ChannelContextRevision pgtype.Int8 `json:"channel_context_revision"`
-}
 
 type GetLastChatTaskSessionRow struct {
 	SessionID pgtype.Text `json:"session_id"`
@@ -1037,8 +851,7 @@ type GetLastChatTaskSessionRow struct {
 // session_id. Includes completed, failed AND cancelled tasks: each of them may
 // have established a real agent session, and we'd rather resume there than
 // start over and lose conversation memory. Used as a fallback when
-// chat_session.session_id is NULL, and as the authoritative generation-scoped
-// source for channel tasks. Resume-unsafe failures are excluded because
+// chat_session.session_id is NULL. Resume-unsafe failures are excluded because
 // replaying those sessions deterministically reproduces the same terminal
 // state. Keep this list in sync with resumeUnsafeFailureReason and
 // GetLastTaskSession.
@@ -1073,8 +886,8 @@ type GetLastChatTaskSessionRow struct {
 // session_id. Judging each session by its LATEST terminal state means a newer
 // poisoned row invalidates the whole session, while a genuinely different
 // healthy session stays eligible.
-func (q *Queries) GetLastChatTaskSession(ctx context.Context, arg GetLastChatTaskSessionParams) (GetLastChatTaskSessionRow, error) {
-	row := q.db.QueryRow(ctx, getLastChatTaskSession, arg.ChatSessionID, arg.ChannelContextRevision)
+func (q *Queries) GetLastChatTaskSession(ctx context.Context, chatSessionID pgtype.UUID) (GetLastChatTaskSessionRow, error) {
+	row := q.db.QueryRow(ctx, getLastChatTaskSession, chatSessionID)
 	var i GetLastChatTaskSessionRow
 	err := row.Scan(&i.SessionID, &i.WorkDir, &i.RuntimeID)
 	return i, err
@@ -1238,86 +1051,6 @@ func (q *Queries) GetPublicChatSessionInWorkspace(ctx context.Context, arg GetPu
 		&i.ProjectID,
 		&i.ExplicitlyCreatedAt,
 	)
-	return i, err
-}
-
-const getTaskChannelOrigin = `-- name: GetTaskChannelOrigin :one
-SELECT (
-    task.chat_input_task_id IS NULL
-    OR EXISTS (
-        SELECT 1
-        FROM chat_message
-        WHERE task_id = task.chat_input_task_id
-          AND role = 'user'
-          AND channel_ingested
-    )
-)::boolean AS channel_ingested,
-    (task.chat_input_task_id IS NULL)::boolean AS batch_owner_unknown
-FROM agent_task_queue AS task
-WHERE task.id = $1
-`
-
-type GetTaskChannelOriginRow struct {
-	ChannelIngested   bool `json:"channel_ingested"`
-	BatchOwnerUnknown bool `json:"batch_owner_unknown"`
-}
-
-// The whole origin question for one completed task in one round trip: is the
-// task row still there, and did its input arrive over a channel?
-//
-// This answers exactly what engine.TaskInputIsChannelIngested answers, in one
-// read instead of two (GetAgentTask, then TaskHasChannelIngestedMessages). That
-// function is the definition; this is a transcription of it, not an improvement
-// on it. Both halves are load-bearing:
-//
-//   - A task with NO input batch owner is channel-ingested. Migration 158 left
-//     both legacy direct rows and channel tasks NULL here, so the owner cannot
-//     say which one a row was, and the adapters that read this deliver by
-//     default — the behaviour #5645 shipped. Keying the EXISTS on the task's
-//     own id instead (COALESCE(chat_input_task_id, id)) silently stops
-//     delivering the auto-retry of a legacy channel task: CreateRetryTask
-//     copies a NULL owner verbatim, on purpose (see agent.sql), and the clone
-//     owns no messages — so it reads as web UI while CopyChannelTaskDelivery
-//     has already given it the room's route.
-//   - Otherwise the verdict is the batch OWNER'S, not the task's. An auto-retry
-//     clone inherits its parent's chat_input_task_id while the user's message
-//     stays tagged with the parent, so reading the owner is what lets the clone
-//     reach the verdict its parent already has (MUL-4351).
-//
-// NO ROW means the task is gone — cancelled and reaped while its ending was in
-// flight. Callers receive pgx.ErrNoRows and must not fold that into "asked in
-// the web UI": it is the absence of a verdict, not a negative one, and the two
-// are recorded differently.
-//
-// One round trip rather than two because this read is SYNCHRONOUS ON THE
-// COMPLETION RESPONSE. It runs inside events.Bus.Publish
-// (internal/events/bus.go:61-76), below TaskService.broadcastChatDone
-// (internal/service/task.go:7330) and CompleteTaskWithTransition
-// (internal/service/task.go:4518), which the daemon's POST /tasks/{id}/complete
-// waits for before it answers (internal/handler/daemon.go:4269).
-//
-// batch_owner_unknown IS THE SAME FACT, REPORTED SEPARATELY, and it exists for
-// one reader: the log level on a turn that has no delivery row.
-//
-// channel_ingested above says "deliver this", and for a NULL owner it says so
-// without evidence — which is right, because delivering is the safe side and
-// the auto-retry of a legacy channel turn depends on it. Warning is the other
-// direction: a missing route is worth paging an operator about only when
-// something actually established the turn was a channel's. A NULL owner
-// establishes nothing, so a missing route on one of those is not evidence of a
-// lost reply; migration 158 left legacy web rows and channel rows alike NULL
-// here, and reading it as "channel" would put the loudest line this adapter has
-// on a pre-158 web turn that auto-retried.
-//
-// So one verdict, two readings: deliver on the open side, warn on the closed
-// one. The query reports both and chooses neither.
-//
-// Plan: agent_task_queue_pkey for the row, idx_chat_message_input_owner for the
-// EXISTS. Neither side scans.
-func (q *Queries) GetTaskChannelOrigin(ctx context.Context, id pgtype.UUID) (GetTaskChannelOriginRow, error) {
-	row := q.db.QueryRow(ctx, getTaskChannelOrigin, id)
-	var i GetTaskChannelOriginRow
-	err := row.Scan(&i.ChannelIngested, &i.BatchOwnerUnknown)
 	return i, err
 }
 
@@ -1520,70 +1253,6 @@ type LinkChatMessageToTaskParams struct {
 
 func (q *Queries) LinkChatMessageToTask(ctx context.Context, arg LinkChatMessageToTaskParams) error {
 	_, err := q.db.Exec(ctx, linkChatMessageToTask, arg.ID, arg.TaskID)
-	return err
-}
-
-const linkUnownedChannelChatMessagesToTask = `-- name: LinkUnownedChannelChatMessagesToTask :exec
-UPDATE chat_message AS message
-SET task_id = $1
-FROM agent_task_queue AS task
-WHERE message.chat_session_id = $2
-  AND task.id = $1
-  AND message.role = 'user'
-  AND message.task_id IS NULL
-  AND message.message_kind != 'channel_command'
-  AND (
-      task.channel_context_revision IS NULL
-      OR message.channel_context_revision = task.channel_context_revision
-      OR (
-          task.channel_context_revision = 1
-          AND message.channel_context_revision IS NULL
-      )
-  )
-  AND NOT EXISTS (
-      SELECT 1
-      FROM chat_message AS prior
-      LEFT JOIN agent_task_queue AS prior_turn
-        ON prior_turn.id = prior.task_id
-      LEFT JOIN agent_task_queue AS prior_batch
-        ON prior_batch.id = COALESCE(prior_turn.chat_input_task_id, prior_turn.id)
-      WHERE prior.chat_session_id = $2
-        AND prior.role != 'user'
-        AND (prior.created_at, prior.id) > (message.created_at, message.id)
-        AND (prior_batch.id IS NULL OR prior_batch.created_at > message.created_at)
-  )
-`
-
-type LinkUnownedChannelChatMessagesToTaskParams struct {
-	TaskID        pgtype.UUID `json:"task_id"`
-	ChatSessionID pgtype.UUID `json:"chat_session_id"`
-}
-
-// Seals the trailing channel-message batch to its task. The task row and these
-// links are committed together, so an older in-flight task cannot absorb a
-// newer media message and a later assistant row cannot hide that message.
-// channel_command turns were already handled synchronously by Router. They stay
-// durable for channel orchestration but remain unowned and absent from public
-// Chat projections, preventing both immediate and delayed re-execution.
-//
-// The boundary is "already answered", not "something newer exists". A reply can
-// only be a reply TO this message if the turn that wrote it started AFTER the
-// message arrived; a turn already running when the message landed had sealed
-// its own input batch before the message existed, so its reply — however late
-// it lands — answers an earlier batch and must not become a boundary. Without
-// that qualifier, a predecessor completing inside the debounce window (message
-// at 18:31:17.7, predecessor reply at 18:31:20.2, seal at 18:31:20.7) sealed
-// ZERO rows: the new task owned an empty input batch and the claim path
-// cancelled it, losing the user's message with no reply (GH #6591).
-//
-// The reply's turn is compared through COALESCE(chat_input_task_id, id): an
-// auto-retry clone gets a fresh id while inheriting the root's batch, and it is
-// the ROOT's creation time that says which messages that batch could contain.
-// A non-user row with no task (or whose task row is gone) still counts as a
-// boundary — unattributable output is treated as possibly answering, so the
-// pre-ownership rows of a legacy session are never swept into a new batch.
-func (q *Queries) LinkUnownedChannelChatMessagesToTask(ctx context.Context, arg LinkUnownedChannelChatMessagesToTaskParams) error {
-	_, err := q.db.Exec(ctx, linkUnownedChannelChatMessagesToTask, arg.TaskID, arg.ChatSessionID)
 	return err
 }
 
@@ -1808,63 +1477,6 @@ func (q *Queries) ListAllChatSessionsByCreator(ctx context.Context, arg ListAllC
 	return items, nil
 }
 
-const listChannelOutboundMessageIDsForContext = `-- name: ListChannelOutboundMessageIDsForContext :many
-SELECT external.message_id::text
-FROM chat_message AS message
-JOIN agent_task_queue AS owner ON owner.id = message.task_id
-CROSS JOIN LATERAL unnest(message.channel_outbound_message_ids) AS external(message_id)
-WHERE message.chat_session_id = $1
-  AND message.role = 'assistant'
-  AND message.channel_outbound_type = $2
-  AND message.channel_outbound_installation_id = $3
-  AND message.channel_outbound_chat_id = $4
-  AND message.channel_outbound_message_ids IS NOT NULL
-  AND external.message_id = ANY($5::text[])
-  AND (
-      owner.channel_context_revision = $6
-      OR ($6 = 1 AND owner.channel_context_revision IS NULL)
-  )
-`
-
-type ListChannelOutboundMessageIDsForContextParams struct {
-	ChatSessionID          pgtype.UUID `json:"chat_session_id"`
-	ChannelType            pgtype.Text `json:"channel_type"`
-	InstallationID         pgtype.UUID `json:"installation_id"`
-	ChannelChatID          pgtype.Text `json:"channel_chat_id"`
-	CandidateMessageIds    []string    `json:"candidate_message_ids"`
-	ChannelContextRevision pgtype.Int8 `json:"channel_context_revision"`
-}
-
-// Assistant generation is inherited from its owning task, matching
-// ListChatMessagesPageForChannelContext. Provider IDs are scoped by session,
-// adapter, and immutable generation before being trusted as agent context.
-func (q *Queries) ListChannelOutboundMessageIDsForContext(ctx context.Context, arg ListChannelOutboundMessageIDsForContextParams) ([]string, error) {
-	rows, err := q.db.Query(ctx, listChannelOutboundMessageIDsForContext,
-		arg.ChatSessionID,
-		arg.ChannelType,
-		arg.InstallationID,
-		arg.ChannelChatID,
-		arg.CandidateMessageIds,
-		arg.ChannelContextRevision,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []string{}
-	for rows.Next() {
-		var external_message_id string
-		if err := rows.Scan(&external_message_id); err != nil {
-			return nil, err
-		}
-		items = append(items, external_message_id)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listChatDraftRestoresBySession = `-- name: ListChatDraftRestoresBySession :many
 SELECT id, chat_session_id, task_id, content, attachment_ids, created_at FROM chat_draft_restore
 WHERE chat_session_id = $1
@@ -1909,8 +1521,8 @@ ORDER BY created_at ASC, id ASC
 // the root task for an auto-retry child), so a claim reads exactly the messages
 // the user sent for this turn — and never absorbs a message that arrived after
 // the batch was sealed, no matter what the assistant wrote or when. Only used
-// for new task-owned direct-chat tasks; legacy/channel (chat_input_task_id
-// NULL) tasks keep using ListChatMessagesForLegacyTask + trailingUserMessages.
+// for new task-owned direct-chat tasks; legacy (chat_input_task_id NULL) tasks
+// keep using ListChatMessagesForLegacyTask + trailingUserMessages.
 func (q *Queries) ListChatInputMessages(ctx context.Context, taskID pgtype.UUID) ([]ChatMessage, error) {
 	rows, err := q.db.Query(ctx, listChatInputMessages, taskID)
 	if err != nil {
@@ -2195,93 +1807,6 @@ func (q *Queries) ListChatMessagesPage(ctx context.Context, arg ListChatMessages
 	return items, nil
 }
 
-const listChatMessagesPageForChannelContext = `-- name: ListChatMessagesPageForChannelContext :many
-SELECT message.id, message.chat_session_id, message.role, message.content, message.task_id, message.created_at, message.failure_reason, message.elapsed_ms, message.message_kind, message.channel_media_pending_until, message.channel_ingested, message.quick_actions, message.channel_context_revision, message.channel_outbound_type, message.channel_outbound_installation_id, message.channel_outbound_chat_id, message.channel_outbound_message_ids
-FROM chat_message AS message
-LEFT JOIN agent_task_queue AS owner ON owner.id = message.task_id
-WHERE message.chat_session_id = $1
-  AND message.message_kind != 'channel_command'
-  AND (
-      (
-          message.role = 'user'
-          AND (
-              message.channel_context_revision = $2
-              OR ($2 = 1 AND message.channel_context_revision IS NULL)
-          )
-      )
-      OR
-      (
-          message.role != 'user'
-          AND (
-              owner.channel_context_revision = $2
-              OR ($2 = 1 AND owner.channel_context_revision IS NULL)
-          )
-      )
-  )
-  AND (
-    $3::timestamptz IS NULL
-    OR (message.created_at, message.id) < ($3::timestamptz, $4::uuid)
-  )
-ORDER BY message.created_at DESC, message.id DESC
-LIMIT $5
-`
-
-type ListChatMessagesPageForChannelContextParams struct {
-	ChatSessionID          pgtype.UUID        `json:"chat_session_id"`
-	ChannelContextRevision pgtype.Int8        `json:"channel_context_revision"`
-	BeforeCreatedAt        pgtype.Timestamptz `json:"before_created_at"`
-	BeforeID               pgtype.UUID        `json:"before_id"`
-	PageLimit              int32              `json:"page_limit"`
-}
-
-// Agent-only transcript projection. UI readers continue using the unfiltered
-// ListChatMessagesPage query, while a channel task can see only the context
-// generation snapshotted on that task. Assistant rows inherit their generation
-// from their owning task, so retries and late completions stay in their turn.
-func (q *Queries) ListChatMessagesPageForChannelContext(ctx context.Context, arg ListChatMessagesPageForChannelContextParams) ([]ChatMessage, error) {
-	rows, err := q.db.Query(ctx, listChatMessagesPageForChannelContext,
-		arg.ChatSessionID,
-		arg.ChannelContextRevision,
-		arg.BeforeCreatedAt,
-		arg.BeforeID,
-		arg.PageLimit,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []ChatMessage{}
-	for rows.Next() {
-		var i ChatMessage
-		if err := rows.Scan(
-			&i.ID,
-			&i.ChatSessionID,
-			&i.Role,
-			&i.Content,
-			&i.TaskID,
-			&i.CreatedAt,
-			&i.FailureReason,
-			&i.ElapsedMs,
-			&i.MessageKind,
-			&i.ChannelMediaPendingUntil,
-			&i.ChannelIngested,
-			&i.QuickActions,
-			&i.ChannelContextRevision,
-			&i.ChannelOutboundType,
-			&i.ChannelOutboundInstallationID,
-			&i.ChannelOutboundChatID,
-			&i.ChannelOutboundMessageIds,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listChatSessionsByCreator = `-- name: ListChatSessionsByCreator :many
 SELECT cs.id, cs.workspace_id, cs.agent_id, cs.creator_id, cs.title, cs.session_id, cs.work_dir, cs.status, cs.created_at, cs.updated_at, cs.unread_since, cs.runtime_id, cs.last_read_at, cs.is_agent_intro, cs.pinned_at, cs.project_id, cs.explicitly_created_at,
        (SELECT count(*) FROM chat_message m
@@ -2520,52 +2045,6 @@ func (q *Queries) ListPendingChatTasksForSession(ctx context.Context, chatSessio
 			&i.MessageID,
 			&i.Content,
 		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listUnownedChannelChatContextRevisions = `-- name: ListUnownedChannelChatContextRevisions :many
-WITH pending AS (
-    SELECT DISTINCT COALESCE(channel_context_revision, 1)::bigint AS context_revision
-    FROM chat_message
-    WHERE chat_session_id = $1
-      AND role = 'user'
-      AND task_id IS NULL
-      AND message_kind != 'channel_command'
-)
-SELECT pending.context_revision, generation.initiator_user_id
-FROM pending
-LEFT JOIN channel_chat_context_generation AS generation
-  ON generation.chat_session_id = $1
- AND generation.revision = pending.context_revision
-ORDER BY pending.context_revision
-`
-
-type ListUnownedChannelChatContextRevisionsRow struct {
-	ContextRevision int64       `json:"context_revision"`
-	InitiatorUserID pgtype.UUID `json:"initiator_user_id"`
-}
-
-// Returns every durable context generation that still has channel input without
-// a task owner. A process crash drops in-memory debounce timers; the next normal
-// inbound message uses this list to re-arm older generations instead of only
-// recovering the current one. Legacy NULL revisions are generation 1.
-func (q *Queries) ListUnownedChannelChatContextRevisions(ctx context.Context, chatSessionID pgtype.UUID) ([]ListUnownedChannelChatContextRevisionsRow, error) {
-	rows, err := q.db.Query(ctx, listUnownedChannelChatContextRevisions, chatSessionID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []ListUnownedChannelChatContextRevisionsRow{}
-	for rows.Next() {
-		var i ListUnownedChannelChatContextRevisionsRow
-		if err := rows.Scan(&i.ContextRevision, &i.InitiatorUserID); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -2965,112 +2444,6 @@ func (q *Queries) PrioritizeQueuedChatTask(ctx context.Context, arg PrioritizeQu
 	return i, err
 }
 
-const promoteChannelChatTasksIfMediaReady = `-- name: PromoteChannelChatTasksIfMediaReady :many
-UPDATE agent_task_queue AS task
-SET status = 'queued', fire_at = NULL
-WHERE task.chat_session_id = $1
-  AND task.status = 'deferred'
-  AND task.issue_id IS NULL
-  AND task.parent_task_id IS NULL
-  AND task.escalation_for_task_id IS NULL
-  AND NOT EXISTS (
-      SELECT 1
-      FROM chat_message AS message
-      WHERE message.task_id = task.id
-        AND message.role = 'user'
-        AND message.channel_media_pending_until > now()
-  )
-RETURNING task.id, task.agent_id, task.issue_id, task.status, task.priority, task.dispatched_at, task.started_at, task.completed_at, task.result, task.error, task.created_at, task.context, task.runtime_id, task.session_id, task.work_dir, task.trigger_comment_id, task.chat_session_id, task.autopilot_run_id, task.attempt, task.max_attempts, task.parent_task_id, task.failure_reason, task.trigger_summary, task.force_fresh_session, task.is_leader_task, task.wait_reason, task.initiator_user_id, task.handoff_note, task.prepare_lease_expires_at, task.squad_id, task.runtime_mcp_overlay, task.escalation_for_task_id, task.fire_at, task.originator_user_id, task.runtime_connected_apps, task.coalesced_comment_ids, task.delivered_comment_ids, task.chat_input_task_id, task.chat_finalize_deferred_at, task.originator_source, task.delegated_from_task_id, task.retry_of_task_id, task.rerun_of_task_id, task.rule_version_id, task.trigger_evidence_kind, task.trigger_evidence_ref_id, task.accountable_user_id, task.session_rollout_missing, task.retired_session_id, task.quick_actions_disabled, task.regenerate_quick_actions_for, task.branch_name, task.durable_work_dir, task.channel_context_revision, task.comment_thread_id, task.cancelled_by_type, task.cancelled_by_id, task.cancelled_by_name, task.issue_snapshot, task.questions_enabled, task.release_id
-`
-
-// Media completion may race with the 3s run batcher. Promote every original
-// channel task waiting for this session only after all unexpired media markers
-// are gone; retry/escalation/direct-chat deferred tasks are excluded. The
-// marker scan uses the same population as GetChannelMediaPendingUntil and the
-// seal: a channel_command turn belongs to no batch, so it must not hold a
-// deferred task back either.
-func (q *Queries) PromoteChannelChatTasksIfMediaReady(ctx context.Context, chatSessionID pgtype.UUID) ([]AgentTaskQueue, error) {
-	rows, err := q.db.Query(ctx, promoteChannelChatTasksIfMediaReady, chatSessionID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	items := []AgentTaskQueue{}
-	for rows.Next() {
-		var i AgentTaskQueue
-		if err := rows.Scan(
-			&i.ID,
-			&i.AgentID,
-			&i.IssueID,
-			&i.Status,
-			&i.Priority,
-			&i.DispatchedAt,
-			&i.StartedAt,
-			&i.CompletedAt,
-			&i.Result,
-			&i.Error,
-			&i.CreatedAt,
-			&i.Context,
-			&i.RuntimeID,
-			&i.SessionID,
-			&i.WorkDir,
-			&i.TriggerCommentID,
-			&i.ChatSessionID,
-			&i.AutopilotRunID,
-			&i.Attempt,
-			&i.MaxAttempts,
-			&i.ParentTaskID,
-			&i.FailureReason,
-			&i.TriggerSummary,
-			&i.ForceFreshSession,
-			&i.IsLeaderTask,
-			&i.WaitReason,
-			&i.InitiatorUserID,
-			&i.HandoffNote,
-			&i.PrepareLeaseExpiresAt,
-			&i.SquadID,
-			&i.RuntimeMcpOverlay,
-			&i.EscalationForTaskID,
-			&i.FireAt,
-			&i.OriginatorUserID,
-			&i.RuntimeConnectedApps,
-			&i.CoalescedCommentIds,
-			&i.DeliveredCommentIds,
-			&i.ChatInputTaskID,
-			&i.ChatFinalizeDeferredAt,
-			&i.OriginatorSource,
-			&i.DelegatedFromTaskID,
-			&i.RetryOfTaskID,
-			&i.RerunOfTaskID,
-			&i.RuleVersionID,
-			&i.TriggerEvidenceKind,
-			&i.TriggerEvidenceRefID,
-			&i.AccountableUserID,
-			&i.SessionRolloutMissing,
-			&i.RetiredSessionID,
-			&i.QuickActionsDisabled,
-			&i.RegenerateQuickActionsFor,
-			&i.BranchName,
-			&i.DurableWorkDir,
-			&i.ChannelContextRevision,
-			&i.CommentThreadID,
-			&i.CancelledByType,
-			&i.CancelledByID,
-			&i.CancelledByName,
-			&i.IssueSnapshot,
-			&i.QuestionsEnabled,
-			&i.ReleaseID,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const reanchorClaimedDirectChatInput = `-- name: ReanchorClaimedDirectChatInput :exec
 WITH latest_visible AS (
     SELECT
@@ -3115,7 +2488,6 @@ WITH latest_visible AS (
     ) AS prior
     WHERE claimed_input.task_id = $2
       AND claimed_input.role = 'user'
-      AND NOT claimed_input.channel_ingested
       -- The adopted onboarding kickoff is never a visible row, so it has no
       -- turn boundary to correct — and reanchoring it would actively break the
       -- one thing its position controls. It is deliberately older than the
@@ -3153,9 +2525,7 @@ type ReanchorClaimedDirectChatInputParams struct {
 // Add one microsecond when the DB clock ties the latest visible row so UUID
 // ordering can never put the new user turn before the previous assistant row.
 //
-// channel_ingested excludes sealed Slack/Lark batches, which can own multiple
-// user rows and must preserve their original provider order. A direct send
-// owns exactly one non-channel user row today; if direct batching is added,
+// A direct send owns exactly one user row today; if direct batching is added,
 // this query must assign a stable per-row offset instead of one timestamp.
 // Retry children are excluded by the caller because their chat_input_task_id
 // names the root task rather than themselves. Stale dispatched reclaim bypasses
@@ -3174,10 +2544,8 @@ UPDATE chat_message AS queued_input
 SET created_at = $2::timestamptz + interval '1 microsecond'
 WHERE queued_input.chat_session_id = $1
   AND queued_input.role = 'user'
-  AND NOT queued_input.channel_ingested
-  -- Same exclusion, same reason as ReanchorClaimedDirectChatInput: the hidden
-  -- kickoff has no visible position to fix, and moving it would put the
-  -- product's context after the member's message inside one input batch.
+  -- The hidden kickoff has no visible position to fix, and moving it would put
+  -- the product's context after the member's message inside one input batch.
   AND queued_input.message_kind <> 'onboarding_kickoff'
   AND queued_input.created_at <= $2::timestamptz
   AND EXISTS (
@@ -3219,9 +2587,8 @@ type ReanchorNextQueuedDirectChatInputParams struct {
 // Callers run this immediately after CreateChatMessage in the same transaction:
 // readers see either the old active head without the reply, or the settled
 // reply followed by the newly-visible head — never user B before assistant A.
-// Channel batches are excluded because their immutable provider ordering may
-// contain multiple user rows. Direct chat currently owns exactly one row; if
-// direct batching is added, assign stable per-row offsets here.
+// Direct chat currently owns exactly one row; if direct batching is added,
+// assign stable per-row offsets here.
 func (q *Queries) ReanchorNextQueuedDirectChatInput(ctx context.Context, arg ReanchorNextQueuedDirectChatInputParams) error {
 	_, err := q.db.Exec(ctx, reanchorNextQueuedDirectChatInput, arg.ChatSessionID, arg.AssistantCreatedAt)
 	return err
@@ -3273,91 +2640,6 @@ WHERE task_id = $1
 func (q *Queries) ReleaseOnboardingKickoffFromTask(ctx context.Context, id pgtype.UUID) error {
 	_, err := q.db.Exec(ctx, releaseOnboardingKickoffFromTask, id)
 	return err
-}
-
-const replaceImplicitChatSessionTitle = `-- name: ReplaceImplicitChatSessionTitle :one
-UPDATE chat_session AS session
-SET title = $1
-WHERE session.id = $2
-  AND session.explicitly_created_at IS NULL
-  AND NOT EXISTS (
-    SELECT 1 FROM chat_message AS message
-    WHERE message.chat_session_id = session.id
-      AND message.role = 'user'
-      AND message.message_kind != 'channel_command'
-  )
-RETURNING id, workspace_id, agent_id, creator_id, title, session_id, work_dir, status, created_at, updated_at, unread_since, runtime_id, last_read_at, is_agent_intro, pinned_at, project_id, explicitly_created_at
-`
-
-type ReplaceImplicitChatSessionTitleParams struct {
-	Title string      `json:"title"`
-	ID    pgtype.UUID `json:"id"`
-}
-
-// Hidden channel sessions were not user-visible or manually renameable before
-// their first ordinary turn. Replace the legacy platform-generic title (or the
-// new empty placeholder) under the append transaction's route fence. An empty
-// title deliberately prepares a media-only first turn for attachment naming.
-func (q *Queries) ReplaceImplicitChatSessionTitle(ctx context.Context, arg ReplaceImplicitChatSessionTitleParams) (ChatSession, error) {
-	row := q.db.QueryRow(ctx, replaceImplicitChatSessionTitle, arg.Title, arg.ID)
-	var i ChatSession
-	err := row.Scan(
-		&i.ID,
-		&i.WorkspaceID,
-		&i.AgentID,
-		&i.CreatorID,
-		&i.Title,
-		&i.SessionID,
-		&i.WorkDir,
-		&i.Status,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.UnreadSince,
-		&i.RuntimeID,
-		&i.LastReadAt,
-		&i.IsAgentIntro,
-		&i.PinnedAt,
-		&i.ProjectID,
-		&i.ExplicitlyCreatedAt,
-	)
-	return i, err
-}
-
-const setChatMessageChannelOutboundProvenanceByTask = `-- name: SetChatMessageChannelOutboundProvenanceByTask :execrows
-UPDATE chat_message
-SET channel_outbound_type = $1,
-    channel_outbound_installation_id = $2,
-    channel_outbound_chat_id = $3,
-    channel_outbound_message_ids = $4::text[]
-WHERE task_id = $5
-  AND role = 'assistant'
-`
-
-type SetChatMessageChannelOutboundProvenanceByTaskParams struct {
-	ChannelType    pgtype.Text `json:"channel_type"`
-	InstallationID pgtype.UUID `json:"installation_id"`
-	ChannelChatID  pgtype.Text `json:"channel_chat_id"`
-	MessageIds     []string    `json:"message_ids"`
-	TaskID         pgtype.UUID `json:"task_id"`
-}
-
-// The assistant row is committed before EventChatDone is published. Attach the
-// external identifiers produced by the adapter to that durable turn so a live
-// provider-history reader can apply the same context-generation boundary as
-// the stored transcript. A send that succeeds but cannot record provenance is
-// deliberately treated as unknown (and therefore excluded from generation >1).
-func (q *Queries) SetChatMessageChannelOutboundProvenanceByTask(ctx context.Context, arg SetChatMessageChannelOutboundProvenanceByTaskParams) (int64, error) {
-	result, err := q.db.Exec(ctx, setChatMessageChannelOutboundProvenanceByTask,
-		arg.ChannelType,
-		arg.InstallationID,
-		arg.ChannelChatID,
-		arg.MessageIds,
-		arg.TaskID,
-	)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
 }
 
 const setChatMessageQuickActionsByTask = `-- name: SetChatMessageQuickActionsByTask :one
@@ -3569,31 +2851,6 @@ func (q *Queries) SetChatTaskInputOwnerSelf(ctx context.Context, id pgtype.UUID)
 	return i, err
 }
 
-const taskHasChannelIngestedMessages = `-- name: TaskHasChannelIngestedMessages :one
-SELECT EXISTS (
-    SELECT 1 FROM chat_message
-    WHERE task_id = $1
-      AND role = 'user'
-      AND channel_ingested
-) AS channel_ingested
-`
-
-// Immutable channel provenance for a task's user-message input batch:
-// channel_ingested is stamped inside the channel append transaction and never
-// mutated afterwards, so it survives session archiving and installation
-// rebinds that delete the channel_chat_session_binding row. Callers pass the
-// batch OWNER id (chat_input_task_id, which auto-retry clones inherit), not
-// necessarily the task's own id. The cancel restore-delete and the
-// empty-completion silent-drop both gate on this — a channel sender has no
-// Multica composer for a restored draft, and the no_response fallback body
-// must never be pushed to an external channel.
-func (q *Queries) TaskHasChannelIngestedMessages(ctx context.Context, taskID pgtype.UUID) (bool, error) {
-	row := q.db.QueryRow(ctx, taskHasChannelIngestedMessages, taskID)
-	var channel_ingested bool
-	err := row.Scan(&channel_ingested)
-	return channel_ingested, err
-}
-
 const taskInputIsOnboardingKickoffOnly = `-- name: TaskInputIsOnboardingKickoffOnly :one
 SELECT
     EXISTS (
@@ -3644,33 +2901,6 @@ WHERE id = $1
 func (q *Queries) TouchChatSession(ctx context.Context, id pgtype.UUID) error {
 	_, err := q.db.Exec(ctx, touchChatSession, id)
 	return err
-}
-
-const updateChatMessageContentForChannelMedia = `-- name: UpdateChatMessageContentForChannelMedia :execrows
-UPDATE chat_message
-SET content = $1
-WHERE id = $2
-  AND chat_session_id = $3
-  AND role = 'user'
-  AND channel_ingested
-`
-
-type UpdateChatMessageContentForChannelMediaParams struct {
-	Content       string      `json:"content"`
-	ID            pgtype.UUID `json:"id"`
-	ChatSessionID pgtype.UUID `json:"chat_session_id"`
-}
-
-// Channel messages are immutable user turns. Media resolution may finish after
-// the initial append, so materialize stable inline attachment references in the
-// same transaction that binds those attachments. The provenance and role guards
-// prevent this narrow post-append path from rewriting ordinary web/agent rows.
-func (q *Queries) UpdateChatMessageContentForChannelMedia(ctx context.Context, arg UpdateChatMessageContentForChannelMediaParams) (int64, error) {
-	result, err := q.db.Exec(ctx, updateChatMessageContentForChannelMedia, arg.Content, arg.ID, arg.ChatSessionID)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
 }
 
 const updateChatSessionProject = `-- name: UpdateChatSessionProject :one

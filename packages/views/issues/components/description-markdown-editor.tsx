@@ -15,11 +15,8 @@ interface DescriptionMarkdownEditorProps {
   initialMarkdown: string;
   /** The stored description. A change replaces the text while nothing typed is unsaved. */
   value: string;
-  /**
-   * Saves the typed Markdown: after `debounceMs` without typing, on blur and
-   * on unmount. `baseMarkdown` is the description the edit started from.
-   */
-  onSave: (markdown: string, baseMarkdown: string) => void;
+  /** Saves the typed Markdown: after `debounceMs` without typing, on blur and on unmount. */
+  onSave: (markdown: string) => void;
   ariaLabel: string;
   debounceMs?: number;
 }
@@ -50,10 +47,9 @@ export const DescriptionMarkdownEditor = forwardRef<
     dirtyRef.current = false;
     // Trimmed like the rich editor's saves, so both views store the same text.
     const next = markdownRef.current.trim();
-    const base = baseRef.current;
-    if (next === base.trim()) return;
+    if (next === baseRef.current.trim()) return;
     baseRef.current = next;
-    onSaveRef.current(next, base);
+    onSaveRef.current(next);
   }, []);
 
   const update = useCallback(

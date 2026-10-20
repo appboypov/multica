@@ -174,12 +174,6 @@ function OnboardingStepFlow({
     : (workspace ?? workspaces[0] ?? null);
   const canSkipWelcome = workspacesReady && workspaces.length > 0;
 
-  // The `runtimeInstructions` slot is only plumbed by the web shell
-  // (desktop bundles a daemon, so a CLI install card would be noise
-  // there). We reuse its presence as the web signal rather than
-  // introducing a redundant prop.
-  const isWeb = !!runtimeInstructions;
-
   // Derive "what comes after `from`" from ONBOARDING_STEP_ORDER so
   // inserting/reordering a persisted step only requires editing the
   // canonical array. Returns null if `from` is the last persisted step
@@ -361,7 +355,6 @@ function OnboardingStepFlow({
         <StepWelcome
           onNext={handleWelcomeNext}
           onSkip={canSkipWelcome ? handleWelcomeSkip : undefined}
-          isWeb={isWeb}
         />
       </>
     );

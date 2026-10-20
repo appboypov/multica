@@ -18,9 +18,6 @@
     "headline_line2": "in",
     "headline_emphasis": "one workspace.",
     "lede": "Assign them work like you'd assign a colleague — they pick it up, update status, and comment when done.",
-    "lede_web": "Desktop bundles the runtime — nothing to install. Continue on web to connect your own CLI.",
-    "download_desktop": "Download Desktop",
-    "continue_on_web": "Continue on web",
     "start_exploring": "Start exploring",
     "skip_existing": "I've done this before",
     "illustration": {
@@ -116,10 +113,7 @@
   "cli_install": {
     "copy_aria": "Copy",
     "intro": "You'll need an agent runtime on this computer (Claude Code, Codex, Cursor, …) for it to run your agent. Also works on servers and remote dev boxes.",
-    "step1_label": "Install the Multica CLI",
-    "platform_group": "Choose your platform",
-    "platform_macos_linux": "macOS / Linux",
-    "platform_windows": "Windows",
+    "step1_label": "Install the Multica CLI from your Multica checkout",
     "step2_label": "Start the daemon"
   },
   "cloud_waitlist": {
@@ -228,9 +222,6 @@
     "headline": "Connect a computer to run your agent.",
     "lede": "Connect a computer so Mika can start working.",
     "hint_default": "You can connect later.",
-    "download_title": "Use this computer",
-    "download_subtitle": "Install Desktop to connect this computer.",
-    "download_button": "Download",
     "cli_title": "Connect from the terminal",
     "cli_subtitle": "Connect a server, remote dev box, or any headless computer. Terminal required.",
     "cli_action": "Show steps",

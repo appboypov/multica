@@ -63,7 +63,6 @@ type businessEventMetrics struct {
 	cloudRuntimeRequest             *prometheus.CounterVec
 	cloudRuntimeRequestDurationSecs *prometheus.HistogramVec
 	feedbackSubmitted               *prometheus.CounterVec
-	contactSalesSubmitted           *prometheus.CounterVec
 	chatOutputLocalPath             *prometheus.CounterVec
 }
 
@@ -204,10 +203,6 @@ func newBusinessEventMetrics() *businessEventMetrics {
 			Name: "multica_feedback_submitted_total",
 			Help: "Total in-app feedback submissions.",
 		}, metricLabels("multica_feedback_submitted_total")),
-		contactSalesSubmitted: prometheus.NewCounterVec(prometheus.CounterOpts{
-			Name: "multica_contact_sales_submitted_total",
-			Help: "Total contact-sales inquiries submitted.",
-		}, metricLabels("multica_contact_sales_submitted_total")),
 		chatOutputLocalPath: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Name: "multica_chat_output_local_path_total",
 			Help: "Total agent chat replies that referenced a runtime-local path, by evidence kind. Observation only — the reply is still delivered.",
@@ -253,7 +248,6 @@ func (e *businessEventMetrics) collectors() []prometheus.Collector {
 		e.cloudRuntimeRequest,
 		e.cloudRuntimeRequestDurationSecs,
 		e.feedbackSubmitted,
-		e.contactSalesSubmitted,
 		e.chatOutputLocalPath,
 	}
 }
@@ -372,8 +366,6 @@ func (m *BusinessMetrics) IncForEvent(ev analytics.Event) {
 			NormalizeFeedbackKind(stringProp(ev.Properties, "kind")),
 			NormalizePlatform(stringProp(ev.Properties, "platform")),
 		).Inc()
-	case analytics.EventContactSalesSubmitted:
-		m.events.contactSalesSubmitted.WithLabelValues(NormalizeContactSalesSource(stringProp(ev.Properties, "form_source"))).Inc()
 	default:
 		// agent_task_* lifecycle telemetry is recorded straight to Prometheus
 		// via the typed BusinessMetrics.RecordTask* methods (they take

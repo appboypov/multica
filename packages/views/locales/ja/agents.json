@@ -259,7 +259,6 @@
     "custom_args": "カスタム引数",
     "mcp_config": "MCP",
     "composio_mcp": "MCP アプリ",
-    "integrations": "連携",
     "runtime_config": "ルーティング",
     "discard_dialog_title": "保存していない変更を破棄しますか？",
     "discard_dialog_description": "このタブに保存していない変更があります。今移動すると変更は破棄されます。",
@@ -584,9 +583,6 @@
       "add_failed_toast": "スキルを追加できませんでした",
       "search_placeholder": "スキルを検索",
       "search_empty": "「{{query}}」に一致するスキルはありません。"
-    },
-    "integrations": {
-      "members_note": "この接続を管理できるのはワークスペースのオーナーと管理者のみです。接続済みの Bot は「設定 → 連携」で確認できます。"
     },
     "activity": {
       "status": {

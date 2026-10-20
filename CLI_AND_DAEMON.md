@@ -4,50 +4,24 @@ The `multica` CLI connects your local machine to Multica. It handles authenticat
 
 ## Installation
 
-### Homebrew (macOS/Linux)
+Install the CLI from this checkout:
 
 ```bash
-brew install multica-ai/tap/multica
+make local-release
 ```
 
-### Build from Source
-
-```bash
-git clone https://github.com/multica-ai/multica.git
-cd multica
-make build
-cp server/bin/multica /usr/local/bin/multica
-```
+It builds the CLI into `server/bin` and links it from `~/.local/bin/multica`,
+together with the self-hosted stack and the desktop app.
 
 ### Update
 
 ```bash
-brew upgrade multica-ai/tap/multica
+make upstream-sync
+make local-release
 ```
 
-For install script or manual installs, use:
-
-```bash
-multica update
-```
-
-`multica update` uses GitHub Releases by default. Self-hosted installations can
-point the CLI at a GitHub Releases-compatible metadata mirror and an artifact
-mirror without changing the command. To let a daemon poll that source, also
-enable self-update explicitly because self-hosted auto-update is disabled by
-default:
-
-```bash
-export MULTICA_RELEASE_API_BASE_URL=https://updates.example/api
-export MULTICA_RELEASE_DOWNLOAD_BASE_URL=https://updates.example/releases/download
-export MULTICA_DAEMON_AUTO_UPDATE=true
-multica update
-```
-
-The metadata mirror must serve `/repos/multica-ai/multica/releases/latest` and
-`/repos/multica-ai/multica/releases/tags/<tag>`. The artifact mirror must serve
-`/<tag>/<asset-name>` and preserve the published `checksums.txt` contents.
-When these variables are unset, the GitHub defaults remain unchanged.
+`multica update` prints these two commands; the CLI never installs an upstream
+build.
 
 ## Quick Start
 
@@ -1113,7 +1087,7 @@ also defines an `api` kind, which is not surfaced here.
 
 ```bash
 multica version              # Show CLI version and commit hash
-multica update               # Update to latest version
+multica update               # Show how to update this build
 multica agent list           # List agents in the current workspace
 ```
 

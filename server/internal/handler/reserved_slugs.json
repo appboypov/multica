@@ -23,7 +23,7 @@
     },
     {
       "label": "Platform / marketing routes (current + likely-future)",
-      "description": "`multica` is reserved as the brand name to block impersonation workspaces. `www`, `new`, `home`, `homepage`, `dashboard` are confusables or likely-future global landing/entry routes; `homepage` matches the existing `/homepage` landing variant in apps/web.",
+      "description": "`multica` is reserved as the brand name to block impersonation workspaces. `www`, `new`, `home`, `homepage`, `dashboard` are confusables or likely-future global landing/entry routes.",
       "slugs": [
         "api",
         "admin",
@@ -100,13 +100,6 @@
         "sdk",
         "tokens",
         "cli"
-      ]
-    },
-    {
-      "label": "DingTalk account-bind route",
-      "description": "`/dingtalk/bind` is a global pre-workspace route where a member links their DingTalk identity. Reserve the prefix so a workspace slug cannot shadow it.",
-      "slugs": [
-        "dingtalk"
       ]
     },
     {

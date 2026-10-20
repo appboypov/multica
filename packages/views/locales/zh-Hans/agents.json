@@ -267,7 +267,6 @@
     "custom_args": "自定义参数",
     "mcp_config": "MCP",
     "composio_mcp": "MCP 应用",
-    "integrations": "集成",
     "runtime_config": "路由",
     "discard_dialog_title": "放弃未保存的修改？",
     "discard_dialog_description": "当前 tab 有未保存的修改，离开会丢弃这些修改。",
@@ -686,9 +685,6 @@
       "add_failed_toast": "添加 skill 失败",
       "search_placeholder": "搜索技能",
       "search_empty": "没有与“{{query}}”匹配的技能。"
-    },
-    "integrations": {
-      "members_note": "只有工作区的所有者和管理员可以管理此连接。你可以在\"设置 → 集成\"中查看已连接的 Bot。"
     },
     "activity": {
       "status": {

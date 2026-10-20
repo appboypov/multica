@@ -4,9 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   resolveBrowserApiBaseUrl,
   resolveBrowserWsUrl,
-  resolveDevDocsUrl,
   resolveDevRemoteApiUrl,
-  resolveDocsUrl,
   resolveRemoteApiUrl,
   runtimeRewriteDestination,
 } from "./runtime-urls";
@@ -82,23 +80,6 @@ describe("resolveRemoteApiUrl", () => {
 
   it("returns undefined when no API origin is configured", () => {
     expect(resolveRemoteApiUrl({})).toBeUndefined();
-  });
-});
-
-describe("resolveDocsUrl", () => {
-  it("uses DOCS_URL when configured", () => {
-    expect(resolveDocsUrl({ DOCS_URL: " http://docs:4000/ " })).toBe(
-      "http://docs:4000",
-    );
-  });
-
-  it("returns undefined when no docs origin is configured", () => {
-    expect(resolveDocsUrl({})).toBeUndefined();
-  });
-
-  it("ignores relative or invalid docs URL values", () => {
-    expect(resolveDocsUrl({ DOCS_URL: "/docs" })).toBeUndefined();
-    expect(resolveDocsUrl({ DOCS_URL: "ftp://docs.example.com" })).toBeUndefined();
   });
 });
 
@@ -219,7 +200,6 @@ describe("runtimeRewriteDestination", () => {
       runtimeRewriteDestination("/uploads/workspaces/a.png", {}),
     ).toBeUndefined();
     expect(runtimeRewriteDestination("/ws", {})).toBeUndefined();
-    expect(runtimeRewriteDestination("/docs/zh", {})).toBeUndefined();
   });
 
   it("keeps same-origin fallback for runtime API paths when only frontend PORT is configured", () => {
@@ -266,14 +246,6 @@ describe("runtimeRewriteDestination", () => {
     expect(
       runtimeRewriteDestination("/auth/hg-sso/callback", {}),
     ).toBeUndefined();
-  });
-
-  it("maps docs paths to the runtime docs origin", () => {
-    expect(
-      runtimeRewriteDestination("/docs/zh/agents", {
-        DOCS_URL: "http://multica-docs:3000",
-      }),
-    ).toBe("http://multica-docs:3000/docs/zh/agents");
   });
 
   it("maps the CLI health probe to the runtime API origin", () => {
@@ -336,12 +308,5 @@ describe("dev-only fallbacks", () => {
     expect(
       resolveDevRemoteApiUrl({ REMOTE_API_URL: "http://backend:8080" }),
     ).toBe("http://backend:8080");
-    expect(resolveDevDocsUrl({ DOCS_URL: "http://docs:4000" })).toBe(
-      "http://docs:4000",
-    );
-  });
-
-  it("falls back to the local docs port", () => {
-    expect(resolveDevDocsUrl({})).toBe("http://localhost:4000");
   });
 });

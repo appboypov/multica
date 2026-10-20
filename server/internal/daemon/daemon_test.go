@@ -835,68 +835,28 @@ func TestBuildPromptContainsIssueID(t *testing.T) {
 
 // TestSessionContinuityNoticeMatchesSurface locks the MUL-5722 split. The same
 // event costs each surface something different, so it cannot be reported with
-// one sentence. The dividing question is whether the conversation can still be
-// READ, not whether it is a chat: an issue's comments, a Slack channel's
-// history, and a web chat's / Feishu's / WeCom's / DingTalk's stored
-// chat_message transcript all can; only a surface Multica stores no transcript
-// for cannot. Announcing a loss on the readable ones describes something that
-// did not happen — the user hears "the discussion is gone" when every word
-// survives.
+// one sentence. Both surfaces keep their conversation readable: an issue's
+// comments, and a chat's stored chat_message transcript. Announcing a loss
+// there describes something that did not happen — the user hears "the
+// discussion is gone" when every word survives.
 func TestSessionContinuityNoticeMatchesSurface(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
 		name         string
 		task         Task
-		tellUser     bool
 		wantMentions string
 	}{
 		{
 			name:         "issue rebuilds from comments",
 			task:         Task{IssueID: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"},
-			tellUser:     false,
 			wantMentions: "comment history",
 		},
 		{
-			// Slack has a history reader, so the conversation is recoverable —
-			// just from the channel rather than from Multica. Telling the user it
-			// was lost contradicts the commands the same prompt hands the agent.
-			name:         "slack rebuilds from the channel",
-			task:         Task{ChatSessionID: "chat-1", ChatChannelType: execenv.ChannelTypeSlack},
-			tellUser:     false,
-			wantMentions: "multica chat history",
-		},
-		{
-			// Web chat history is persisted in chat_message, which `multica chat
+			// Chat history is persisted in chat_message, which `multica chat
 			// history` reads back — recoverable, just from Multica's store.
-			name:         "web chat rebuilds from the stored transcript",
+			name:         "chat rebuilds from the stored transcript",
 			task:         Task{ChatSessionID: "chat-1"},
-			tellUser:     false,
-			wantMentions: "multica chat history",
-		},
-		{
-			// Feishu's conversation is persisted to chat_message too, and the
-			// handler's non-Slack fallback reads it back via `multica chat history`.
-			name:         "feishu rebuilds from the stored transcript",
-			task:         Task{ChatSessionID: "chat-1", ChatChannelType: execenv.ChannelTypeFeishu},
-			tellUser:     false,
-			wantMentions: "multica chat history",
-		},
-		{
-			// WeCom is fully wired on main (persists chat_message, stamps
-			// ChatChannelType="wecom"), so its transcript is readable too — the
-			// handler's non-Slack fallback serves it just like Feishu's.
-			name:         "wecom rebuilds from the stored transcript",
-			task:         Task{ChatSessionID: "chat-1", ChatChannelType: execenv.ChannelTypeWecom},
-			tellUser:     false,
-			wantMentions: "multica chat history",
-		},
-		{
-			// DingTalk persists to chat_message through the same AppendUserMessage
-			// path as Feishu/WeCom, so its transcript is readable the same way.
-			name:         "dingtalk rebuilds from the stored transcript",
-			task:         Task{ChatSessionID: "chat-1", ChatChannelType: execenv.ChannelTypeDingtalk},
-			tellUser:     false,
 			wantMentions: "multica chat history",
 		},
 	}
@@ -906,19 +866,17 @@ func TestSessionContinuityNoticeMatchesSurface(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			notice := sessionContinuityNoticeFor(tc.task)
-			if got := strings.Contains(notice, "tell the user up front"); got != tc.tellUser {
-				t.Errorf("tells the user = %v, want %v:\n%s", got, tc.tellUser, notice)
+			if strings.Contains(notice, "tell the user up front") {
+				t.Errorf("notice scripts an announcement of a loss that did not happen:\n%s", notice)
 			}
 			if !strings.Contains(notice, tc.wantMentions) {
 				t.Errorf("notice missing %q, so the agent is not told where to rebuild from:\n%s", tc.wantMentions, notice)
 			}
-			// Where the conversation survives, the ONLY loss is the agent's
+			// The conversation survives, so the ONLY loss is the agent's
 			// unrecorded working memory, and it has to be told so or it assumes
-			// it still remembers work it no longer has. Where nothing survives
-			// that distinction is meaningless — everything is gone — so the
-			// requirement applies to the recoverable surfaces only.
-			if !tc.tellUser && !strings.Contains(notice, "your own working memory") {
-				t.Errorf("recoverable surface must name the real loss:\n%s", notice)
+			// it still remembers work it no longer has.
+			if !strings.Contains(notice, "your own working memory") {
+				t.Errorf("notice must name the real loss:\n%s", notice)
 			}
 		})
 	}

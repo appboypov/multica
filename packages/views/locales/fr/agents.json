@@ -277,7 +277,6 @@
     "custom_args": "Arguments personnalisés",
     "mcp_config": "MCP",
     "composio_mcp": "Applications MCP",
-    "integrations": "Intégrations",
     "runtime_config": "Routage",
     "discard_dialog_title": "Abandonner les modifications non enregistrées ?",
     "discard_dialog_description": "Cet onglet contient des modifications non enregistrées. Les quitter maintenant les abandonnera.",
@@ -699,9 +698,6 @@
       "add_failed_toast": "Échec de l'ajout du skill",
       "search_placeholder": "Rechercher des skills",
       "search_empty": "Aucun skill ne correspond à « {{query}} »."
-    },
-    "integrations": {
-      "members_note": "Seuls les propriétaires et administrateurs de l'espace de travail peuvent gérer cette connexion. Vous pouvez voir les bots connectés dans Paramètres → Intégrations."
     },
     "activity": {
       "status": {

@@ -402,8 +402,7 @@ html[data-dnd-dragging="true"] * {
     /* `style` keyword = allow style synthesis, forbid weight synthesis.
      *
      * Weight OFF: every face we load has real weights — Inter, Source Serif 4
-     * and Geist Mono are all variable (100-900) on both platforms, and landing's
-     * 400-only Instrument Serif is never set to another weight. Synthesis can
+     * and Geist Mono are all variable (100-900) on both platforms. Synthesis can
      * only make those worse, and on the CJK tail of `--font-sans` it is actively
      * harmful: `font-bold` against PingFang SC (which stops at Semibold) makes
      * Chromium smear a fake 700, and the added stroke weight closes up the

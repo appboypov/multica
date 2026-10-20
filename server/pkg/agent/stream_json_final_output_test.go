@@ -13,9 +13,9 @@ import (
 )
 
 // A successful run that produced no deliverable text must report an EMPTY
-// output, never a placeholder sentence. Empty is what the issue / direct-chat /
-// channel delivery paths each branch on to pick their own no-response behavior;
-// any non-empty prose here defeats all three at once (GH #6462).
+// output, never a placeholder sentence. Empty is what the issue and chat
+// delivery paths each branch on to pick their own no-response behavior; any
+// non-empty prose here defeats both at once (GH #6462).
 func TestFinalizeStreamResultEmptySuccessWithoutAssistantReturnsEmptyOutput(t *testing.T) {
 	t.Parallel()
 

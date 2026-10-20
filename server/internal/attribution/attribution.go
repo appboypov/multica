@@ -346,7 +346,7 @@ func ClassifyDirect(f DirectFacts) Result {
 // a path that carries no issue and no trigger comment — a chat message or a
 // quick-create request. userID is the member who acted (the chat sender / the
 // quick-create requester) and becomes both originator and accountable. An invalid
-// userID (e.g. a Lark group message whose sender could not be resolved) yields an
+// userID (e.g. a quick-create requester that could not be resolved) yields an
 // explicit unattributed result rather than a NULL-source bypass.
 func DirectHumanRun(userID pgtype.UUID, evidenceKind EvidenceKind, evidenceRefID pgtype.UUID) Result {
 	if !userID.Valid {

@@ -438,21 +438,11 @@ func TestResumedCommentsHintSkipsDefaultThreadRead(t *testing.T) {
 // (MUL-5377) because it is true of one run and false of the next.
 func TestSessionContinuityNoticeLivesOutsideBrief(t *testing.T) {
 	t.Parallel()
-	for _, want := range []string{
-		"## Session Continuity Notice",
-		"could NOT be restored",
-		"tell the user up front",
-	} {
-		if !strings.Contains(SessionContinuityNoticeUnrecoverable, want) {
-			t.Errorf("SessionContinuityNoticeUnrecoverable missing %q", want)
-		}
-	}
-
-	// MUL-5722: the issue variant carries the same heading and the same
-	// "do not assume continuity" job, but must NOT order an announcement. An
-	// issue's discussion lives in its comments, which the agent re-reads every
-	// turn, so telling the user it was lost describes a loss that did not
-	// happen — they hear "the discussion is gone" when every word survives.
+	// MUL-5722: the issue variant carries the section heading and the "do not
+	// assume continuity" job, but must NOT order an announcement. An issue's
+	// discussion lives in its comments, which the agent re-reads every turn, so
+	// telling the user it was lost describes a loss that did not happen — they
+	// hear "the discussion is gone" when every word survives.
 	if !strings.Contains(SessionContinuityNoticeIssue, "## Session Continuity Notice") {
 		t.Error("SessionContinuityNoticeIssue must keep the section heading")
 	}
@@ -465,7 +455,7 @@ func TestSessionContinuityNoticeLivesOutsideBrief(t *testing.T) {
 		t.Errorf("issue variant must state the real loss:\n%s", SessionContinuityNoticeIssue)
 	}
 
-	// The web-chat / Feishu transcript variant points at the read-back command
+	// The chat transcript variant points at the read-back command
 	// and must NOT order an announcement — the conversation survives in
 	// chat_message, so "the previous context was lost" would be a false alarm.
 	if !strings.Contains(SessionContinuityNoticeChatTranscript, "multica chat history") {
@@ -2066,14 +2056,9 @@ func TestBriefByteIdenticalAcrossRunsForEveryKind(t *testing.T) {
 	t.Parallel()
 
 	kinds := map[string]TaskContextForEnv{
-		"chat":         {ChatSessionID: "chat-1", ChatChannelType: ChannelTypeSlack, AgentID: "a-1", AgentName: "Eve"},
+		"chat":         {ChatSessionID: "chat-1", AgentID: "a-1", AgentName: "Eve"},
 		"quick-create": {QuickCreatePrompt: "make an issue", AgentID: "a-1", AgentName: "Eve"},
 		"autopilot":    {AutopilotRunID: "run-1", AutopilotID: "ap-1", AgentID: "a-1", AgentName: "Eve"},
-		// WeCom is the channel a real deployment flips the file-delivery
-		// verdict on. The Slack row above catches the same leak today, but only
-		// because the brief's copy is channel-agnostic; scope that copy to
-		// WeCom alone and this is the row still holding the line.
-		"chat-wecom": {ChatSessionID: "chat-1", ChatChannelType: ChannelTypeWecom, AgentID: "a-1", AgentName: "Eve"},
 	}
 
 	// Per-run state that changes between turns of one resumed session.
@@ -2089,7 +2074,7 @@ func TestBriefByteIdenticalAcrossRunsForEveryKind(t *testing.T) {
 			c.InitiatorName, c.InitiatorEmail = "Bohan", "bohan@example.com"
 		}},
 		{"other-initiator", func(c *TaskContextForEnv) {
-			// A Slack channel lets a different person trigger each turn.
+			// Another member can trigger the next turn.
 			c.InitiatorType, c.InitiatorID = "member", "u-2"
 			c.InitiatorName, c.InitiatorEmail = "Someone Else", "else@example.com"
 		}},
@@ -2102,15 +2087,6 @@ func TestBriefByteIdenticalAcrossRunsForEveryKind(t *testing.T) {
 				Provider: "composio", ServerName: "composio",
 				ToolkitSlug: "notion", ToolkitName: "Notion",
 			}}
-		}},
-		{"channel-delivers-files", func(c *TaskContextForEnv) {
-			// The server's file-delivery verdict arrives on every claim and is
-			// a deployment fact, not a session one: an upgrade that starts
-			// sending the field, or object storage being turned on or off,
-			// flips it under a session already running. Both halves of that
-			// flip must render the same brief, which is why the verdict is
-			// stated by the per-turn chat prompt and never here.
-			c.ChatChannelDeliversFiles = true
 		}},
 	}
 

@@ -603,12 +603,6 @@ export interface ChatSessionCreatedPayload {
   agent_id: string;
   creator_id: string;
   title: string;
-  channel_source: {
-    channel_type: string;
-    installation_id: string;
-    route_revision: number;
-  };
-  is_current_channel_route: boolean;
 }
 
 /**

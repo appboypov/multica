@@ -196,7 +196,7 @@ func TestTaskFailedBroadcast_DeliversErrorOnlyInProcess(t *testing.T) {
 	})
 
 	if inProcessError != "task timed out" {
-		t.Fatalf("in-process channel listener error = %q, want task timed out", inProcessError)
+		t.Fatalf("in-process listener error = %q, want task timed out", inProcessError)
 	}
 	if len(fb.workspaceCalls) != 1 {
 		t.Fatalf("workspace broadcasts = %d, want 1", len(fb.workspaceCalls))
@@ -208,7 +208,7 @@ func TestTaskFailedBroadcast_DeliversErrorOnlyInProcess(t *testing.T) {
 		t.Fatalf("unmarshal workspace frame: %v", err)
 	}
 	if _, present := frame.Payload["error"]; present {
-		t.Fatal("channel-only failure error reached the workspace broadcast")
+		t.Fatal("in-process-only failure error reached the workspace broadcast")
 	}
 	if payload["error"] != "task timed out" {
 		t.Fatal("broadcast projection mutated the producer payload")

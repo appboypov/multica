@@ -684,7 +684,7 @@ func TestHub_DemotedClientEviction(t *testing.T) {
 			if delivery == "local" {
 				hub.BroadcastToWorkspace("workspace", demotion)
 			} else {
-				deliverEnvelope(hub, nil, nil, envelope{
+				deliverEnvelope(hub, nil, envelope{
 					Scope: ScopeWorkspace, ScopeID: "workspace",
 					PayloadJSON: string(demotion), EventID: "demotion",
 				})

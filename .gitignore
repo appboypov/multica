@@ -70,7 +70,6 @@ data/
 # Python (agent tooling)
 __pycache__/
 *.pyc
-perf-report/
 
 # Crabbox run captures and Go/LLVM coverage output
 .crabbox/

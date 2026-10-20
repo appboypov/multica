@@ -31,12 +31,6 @@ func newPoisonTestChatSession(t *testing.T, agentID, runtimeID, title string) st
 	return chatSessionID
 }
 
-func lastChatTaskSessionParams(chatSessionID string) db.GetLastChatTaskSessionParams {
-	return db.GetLastChatTaskSessionParams{
-		ChatSessionID: pgtype.UUID{Bytes: parseUUIDBytes(chatSessionID), Valid: true},
-	}
-}
-
 // TestGetLastChatTaskSessionDoesNotResurrectFromOlderCompletedRow is the Chat
 // half of the GH #5975 wormhole, which the issue query closed and the chat
 // query never did. Task A completed on session S; task B then resumed S, hit
@@ -67,7 +61,7 @@ func TestGetLastChatTaskSessionDoesNotResurrectFromOlderCompletedRow(t *testing.
 	}
 
 	queries := db.New(testPool)
-	prior, err := queries.GetLastChatTaskSession(ctx, lastChatTaskSessionParams(chatSessionID))
+	prior, err := queries.GetLastChatTaskSession(ctx, pgtype.UUID{Bytes: parseUUIDBytes(chatSessionID), Valid: true})
 	requireSessionExcluded(t, prior.SessionID, err)
 }
 
@@ -98,7 +92,7 @@ func TestGetLastChatTaskSessionKeepsHealthyDistinctSession(t *testing.T) {
 	}
 
 	queries := db.New(testPool)
-	prior, err := queries.GetLastChatTaskSession(ctx, lastChatTaskSessionParams(chatSessionID))
+	prior, err := queries.GetLastChatTaskSession(ctx, pgtype.UUID{Bytes: parseUUIDBytes(chatSessionID), Valid: true})
 	if err != nil {
 		t.Fatalf("GetLastChatTaskSession failed: %v", err)
 	}
@@ -130,7 +124,7 @@ func TestGetLastChatTaskSessionExcludesAuthResolutionFailure(t *testing.T) {
 	}
 
 	queries := db.New(testPool)
-	prior, err := queries.GetLastChatTaskSession(ctx, lastChatTaskSessionParams(chatSessionID))
+	prior, err := queries.GetLastChatTaskSession(ctx, pgtype.UUID{Bytes: parseUUIDBytes(chatSessionID), Valid: true})
 	requireSessionExcluded(t, prior.SessionID, err)
 }
 
@@ -156,7 +150,7 @@ func TestGetLastChatTaskSessionKeepsSessionOnAuthAdjacentError(t *testing.T) {
 	}
 
 	queries := db.New(testPool)
-	prior, err := queries.GetLastChatTaskSession(ctx, lastChatTaskSessionParams(chatSessionID))
+	prior, err := queries.GetLastChatTaskSession(ctx, pgtype.UUID{Bytes: parseUUIDBytes(chatSessionID), Valid: true})
 	if err != nil {
 		t.Fatalf("GetLastChatTaskSession failed: %v", err)
 	}
@@ -227,7 +221,7 @@ func TestRetiredSessionExcludedFromChatResume(t *testing.T) {
 	}
 
 	queries := db.New(testPool)
-	prior, err := queries.GetLastChatTaskSession(ctx, lastChatTaskSessionParams(chatSessionID))
+	prior, err := queries.GetLastChatTaskSession(ctx, pgtype.UUID{Bytes: parseUUIDBytes(chatSessionID), Valid: true})
 	requireSessionExcluded(t, prior.SessionID, err)
 }
 
@@ -360,6 +354,6 @@ func TestGetLastChatTaskSessionExcludesOverflowedResumeFromOlderCompletedRow(t *
 	}
 
 	queries := db.New(testPool)
-	prior, err := queries.GetLastChatTaskSession(ctx, lastChatTaskSessionParams(chatSessionID))
+	prior, err := queries.GetLastChatTaskSession(ctx, pgtype.UUID{Bytes: parseUUIDBytes(chatSessionID), Valid: true})
 	requireSessionExcluded(t, prior.SessionID, err)
 }

@@ -700,8 +700,8 @@ func TestCreateIssueRejectsCrossWorkspaceParent(t *testing.T) {
 
 // TestCreateIssueRejectsCrossWorkspaceProject mirrors the parent test for
 // the project workspace boundary. Same reasoning: future create entries
-// (Lark /issue, MCP, API keys) must inherit this guard from the service
-// without re-implementing it.
+// (MCP, API keys) must inherit this guard from the service without
+// re-implementing it.
 func TestCreateIssueRejectsCrossWorkspaceProject(t *testing.T) {
 
 	otherWorkspaceID := dbfx.Insert(t, "workspace", testutil.Cols{

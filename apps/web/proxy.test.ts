@@ -3,26 +3,18 @@ import { NextRequest } from "next/server";
 import { MULTICA_LOCALE_HEADER } from "./lib/locale-routing";
 import { config, proxy } from "./proxy";
 
-function makeRequest(
-  path: string,
-  cookies: Record<string, string> = {},
-  host = "app.multica.test",
-) {
+function makeRequest(path: string, cookies: Record<string, string> = {}) {
   const cookieHeader = Object.entries(cookies)
     .map(([key, value]) => `${key}=${value}`)
     .join("; ");
 
-  return new NextRequest(`https://${host}${path}`, {
+  return new NextRequest(`https://app.multica.test${path}`, {
     headers: cookieHeader ? { cookie: cookieHeader } : undefined,
   });
 }
 
-function redirectLocation(
-  path: string,
-  cookies: Record<string, string> = {},
-  host?: string,
-) {
-  return proxy(makeRequest(path, cookies, host)).headers.get("location");
+function redirectLocation(path: string, cookies: Record<string, string> = {}) {
+  return proxy(makeRequest(path, cookies)).headers.get("location");
 }
 
 function restoreEnv(key: string, value: string | undefined) {
@@ -32,11 +24,9 @@ function restoreEnv(key: string, value: string | undefined) {
 
 function withoutRuntimeUpstreams(run: () => void) {
   const previousRemoteApiUrl = process.env.REMOTE_API_URL;
-  const previousDocsUrl = process.env.DOCS_URL;
   const previousPublicApiUrl = process.env.NEXT_PUBLIC_API_URL;
   const previousPort = process.env.PORT;
   delete process.env.REMOTE_API_URL;
-  delete process.env.DOCS_URL;
   delete process.env.NEXT_PUBLIC_API_URL;
   process.env.PORT = "3000";
 
@@ -44,7 +34,6 @@ function withoutRuntimeUpstreams(run: () => void) {
     run();
   } finally {
     restoreEnv("REMOTE_API_URL", previousRemoteApiUrl);
-    restoreEnv("DOCS_URL", previousDocsUrl);
     restoreEnv("NEXT_PUBLIC_API_URL", previousPublicApiUrl);
     restoreEnv("PORT", previousPort);
   }
@@ -90,46 +79,16 @@ describe("proxy legacy workspace route redirects", () => {
   });
 
   it("sends logged-in legacy URLs without a last workspace cookie to login", () => {
-    // Not root: the root-path rule below leaves "/" on the public site for the
-    // official marketing hosts even with a session, so bouncing there would
-    // dead-end on the landing page. /login resolves against the workspace list
-    // instead. The deep-link query is dropped because feeding a legacy path
-    // back through `next` would return here and loop.
+    // /login resolves against the workspace list. The deep-link query is
+    // dropped because feeding a legacy path back through `next` would return
+    // here and loop.
     expect(
       redirectLocation("/squads?view=members", { multica_logged_in: "1" }),
     ).toBe("https://app.multica.test/login");
   });
 
-  it.each(["multica.ai", "www.multica.ai"])(
-    "resolves a slugless session off the marketing host %s instead of stranding it",
-    (host) => {
-      expect(
-        redirectLocation("/inbox", { multica_logged_in: "1" }, host),
-      ).toBe(`https://${host}/login`);
-    },
-  );
-
   it("does not redirect workspace-scoped URLs whose first segment is already a slug", () => {
     expect(redirectLocation("/acme/squads", sessionCookies)).toBeNull();
-  });
-
-  it("redirects app-host root URLs to the last workspace", () => {
-    expect(redirectLocation("/", sessionCookies)).toBe(
-      "https://app.multica.test/acme/issues",
-    );
-  });
-
-  it.each(["multica.ai", "www.multica.ai"])(
-    "does not redirect public marketing root on %s",
-    (host) => {
-      expect(redirectLocation("/", sessionCookies, host)).toBeNull();
-    },
-  );
-
-  it("still redirects explicit legacy app routes on the public marketing host", () => {
-    expect(redirectLocation("/issues/ABC-123", sessionCookies, "multica.ai")).toBe(
-      "https://multica.ai/acme/issues/ABC-123",
-    );
   });
 });
 
@@ -156,18 +115,6 @@ describe("proxy runtime upstream rewrites", () => {
 
       expect(res.status).toBe(200);
       expect(res.headers.get("x-middleware-rewrite")).toBeNull();
-    });
-  });
-
-  it("does not rewrite docs requests when no runtime docs origin is configured", () => {
-    withoutRuntimeUpstreams(() => {
-      const res = proxy(makeRequest("/docs/zh"));
-
-      expect(res.status).toBe(200);
-      expect(res.headers.get("x-middleware-rewrite")).toBeNull();
-      expect(
-        res.headers.get(`x-middleware-request-${MULTICA_LOCALE_HEADER}`),
-      ).toBe("en");
     });
   });
 
@@ -216,21 +163,6 @@ describe("proxy runtime upstream rewrites", () => {
     }
   });
 
-  it("rewrites docs requests to the runtime docs origin", () => {
-    const previous = process.env.DOCS_URL;
-    process.env.DOCS_URL = "http://docs:4000";
-    try {
-      const res = proxy(makeRequest("/docs/zh/agents"));
-
-      expect(res.status).toBe(200);
-      expect(res.headers.get("x-middleware-rewrite")).toBe(
-        "http://docs:4000/docs/zh/agents",
-      );
-    } finally {
-      restoreEnv("DOCS_URL", previous);
-    }
-  });
-
   it("rewrites websocket requests to the runtime API origin", () => {
     const previous = process.env.REMOTE_API_URL;
     process.env.REMOTE_API_URL = "http://backend:8080";
@@ -275,6 +207,15 @@ describe("proxy root and locale handling", () => {
     expect(res.status).toBe(307);
     expect(res.headers.get("location")).toBe(
       "https://app.multica.test/acme/issues",
+    );
+  });
+
+  it.each([
+    ["logged-out", {}],
+    ["logged-in without a last workspace", { multica_logged_in: "1" }],
+  ])("sends %s root visits to login", (_label, cookies) => {
+    expect(redirectLocation("/", cookies)).toBe(
+      "https://app.multica.test/login",
     );
   });
 
