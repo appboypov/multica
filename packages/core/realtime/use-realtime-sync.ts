@@ -700,6 +700,7 @@ function invalidateWorkspaceScopedQueries(qc: QueryClient): void {
     qc.invalidateQueries({ queryKey: workspaceWorkingAgentsKeys.all(wsId) });
     qc.invalidateQueries({ queryKey: agentActivityKeys.all(wsId) });
     qc.invalidateQueries({ queryKey: agentRunCountsKeys.all(wsId) });
+    qc.invalidateQueries({ queryKey: agentSessionsKeys.all(wsId) });
     qc.invalidateQueries({ queryKey: chatKeys.all(wsId) });
     qc.invalidateQueries({ queryKey: labelKeys.all(wsId) });
     qc.invalidateQueries({ queryKey: propertyKeys.all(wsId) });
@@ -983,6 +984,9 @@ export function useRealtimeSync(
           // for every agent that hosts on this runtime, which shifts the
           // working/idle/offline pill on the squad page.
           invalidateSquadMemberStatusQueries(qc, wsId);
+          // Sessions are listed only for online daemons, so a daemon going
+          // offline or online drops or brings back its sessions.
+          qc.invalidateQueries({ queryKey: agentSessionsKeys.all(wsId) });
         }
       },
       autopilot: () => {

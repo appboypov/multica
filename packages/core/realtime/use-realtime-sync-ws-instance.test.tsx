@@ -4,13 +4,13 @@
 import { QueryClient, QueryClientProvider, QueryObserver, type InvalidateQueryFilters, type QueryKey } from "@tanstack/react-query";
 import { cleanup, renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+import { describe, expect, it, vi, beforeEach, afterEach, type Mock } from "vitest";
 import type { WSClient } from "../api/ws-client";
 import { defaultStorage } from "../platform/storage";
 import { issueKeys } from "../issues/queries";
 import { chatKeys } from "../chat/queries";
 import { runtimeKeys } from "../runtimes/queries";
-import { workspaceWorkingAgentsKeys } from "../agents/queries";
+import { agentSessionsOptions, workspaceWorkingAgentsKeys } from "../agents/queries";
 import { workspaceKeys } from "../workspace/queries";
 import { issueStatusKeys } from "../issue-statuses/queries";
 import { questionKeys } from "../questions/queries";
@@ -625,5 +625,60 @@ describe("useRealtimeSync — member:removed", () => {
     expect(forgetLocalSearchIndex).toHaveBeenCalledWith("ws-1");
     // Let the relocate lookup settle before the test tears down.
     await waitFor(() => expect(qc.getQueryData(workspaceKeys.list())).toEqual([]));
+  });
+});
+
+describe("useRealtimeSync — agent sessions refresh", () => {
+  let qc: QueryClient;
+  let listAgentSessions: Mock;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    listAgentSessions = vi.fn().mockResolvedValue({ sessions: [] });
+    setApiInstance({ listAgentSessions } as unknown as ApiClient);
+    qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  });
+
+  afterEach(() => {
+    cleanup();
+    qc.clear();
+    vi.useRealTimers();
+  });
+
+  // A fresh cached sessions list with a mounted observer, as the agent page
+  // holds it: only an invalidation makes it fetch again.
+  function observeSessions() {
+    const options = agentSessionsOptions("ws-1", "agent-1");
+    qc.setQueryData(options.queryKey, { sessions: [] });
+    const observer = new QueryObserver(qc, options);
+    return observer.subscribe(() => {});
+  }
+
+  it("refetches an agent's sessions after the ws reconnects", async () => {
+    const ws = createMockWs();
+    renderHook(() => useRealtimeSync(ws, createStores()), { wrapper: createWrapper(qc) });
+    const unsubscribe = observeSessions();
+    const reconnect = vi.mocked(ws.onReconnect).mock.calls[0]![0];
+
+    reconnect();
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(listAgentSessions).toHaveBeenCalledTimes(1);
+    expect(listAgentSessions).toHaveBeenCalledWith("agent-1", expect.anything());
+    unsubscribe();
+  });
+
+  it("refetches an agent's sessions when a daemon changes state", async () => {
+    const ws = createMockWs();
+    renderHook(() => useRealtimeSync(ws, createStores()), { wrapper: createWrapper(qc) });
+    const unsubscribe = observeSessions();
+    const onAny = vi.mocked(ws.onAny).mock.calls[0]![0];
+
+    onAny({ type: "daemon:deregister", payload: {} } as never);
+    await vi.advanceTimersByTimeAsync(100);
+
+    expect(listAgentSessions).toHaveBeenCalledTimes(1);
+    expect(listAgentSessions).toHaveBeenCalledWith("agent-1", expect.anything());
+    unsubscribe();
   });
 });
