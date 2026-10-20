@@ -228,6 +228,13 @@ def children_of(issues: dict[str, dict]) -> dict[str, list[dict]]:
     return children
 
 
+def workcycle_links(keys: list[str], issues: dict[str, dict]) -> set[str]:
+    """The linked workcycles whose release task the pull request also links. Review comes before the workcycle checks
+    out, so such a workcycle is context and its release task alone decides readiness."""
+    return {k for k in keys if k in issues and issues[k]["type"] == "workcycle"
+            and any(issues.get(o, {}).get("parent") == k for o in keys)}
+
+
 def blockers(pr: dict, keys: list[str], issues: dict[str, dict], verifier: str | None,
              waits_of: dict[str, list[dict]], edges: list[dict], children: dict[str, list[dict]],
              missing: Sequence[str] = ()) -> list[dict]:
@@ -237,7 +244,8 @@ def blockers(pr: dict, keys: list[str], issues: dict[str, dict], verifier: str |
                 for e in edges if e["upper"] == pr["number"] and e["status"] in UNRESOLVED_EDGES]
     reasons += [{"kind": "stack", "pr": e["lower"]}
                 for e in edges if e["upper"] == pr["number"] and e["status"] == "verified"]
-    for key in keys:
+    context = workcycle_links(keys, issues)
+    for key in (k for k in keys if k not in context):
         row = issues.get(key)
         if row is None:
             reasons.append({"kind": "evidence", "missing": [f"Multica issue {key}"]})

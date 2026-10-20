@@ -62,8 +62,10 @@ client messages. It holds:
   Links are read for every workspace issue; wakeups are read for open issues. Unlike `waits_on`,
   an open pull request releases nothing here. Other blockers are unresolved stack edges (`stack_edge`), linked
   open issues held by someone other than the verifier (`assignee`), open issue dependencies (`blocked_by`, `step`,
-  `wakeup`) and open sub-issues such as Fixes (`child`). Unread issues, agents, links or wakeups (`evidence`) hold
-  every PR. An unknown verifier also holds every PR. A missing claimed issue holds its PR and reports an error.
+  `wakeup`) and open sub-issues such as Fixes (`child`). A linked workcycle whose release task the pull request also
+  links holds nothing: review comes before the workcycle checks out, so the release task alone decides readiness.
+  Unread issues, agents, links or wakeups (`evidence`) hold every PR. An unknown verifier also holds every PR. A
+  missing claimed issue holds its PR and reports an error.
   Check rollups are informational.
 Exit 1 only when GitHub cannot be read; a Multica part that cannot be read carries its error in `errors`.
 """

@@ -292,11 +292,11 @@ def issue(key, status="in_progress", position=0, parent=None, stage=None, blocke
             "position": position}
 
 
-def ranked(prs, issues, edges=(), wakeups=()):
+def ranked(prs, issues, edges=(), wakeups=(), missing=()):
     edges = list(edges)
     issues = {i["key"]: i for i in issues}
     waits_of = team_state_intake.waits(issues, list(wakeups))
-    found = team_state_intake.rank_prs(prs, issues, VERIFIER, waits_of, edges)
+    found = team_state_intake.rank_prs(prs, issues, VERIFIER, waits_of, edges, missing)
     return [p for p in found if not p["blocked_by"]], [p for p in found if p["blocked_by"]]
 
 
@@ -493,6 +493,43 @@ class BlockedPullRequestsWaitApartFromReadyOnes(unittest.TestCase):
         self.assertEqual([p["number"] for p in ready], [1])
         self.assertEqual(blocked[0]["blocked_by"],
                          [{"kind": "stack", "pr": 1}, {"kind": "step", "key": "WORK-41", "status": "in_progress"}])
+
+
+def workcycle(key, status="in_progress"):
+    return {**issue(key, status, assignee="squad-development"), "type": "workcycle"}
+
+
+class AReleaseIsReviewedBeforeItsWorkcycleChecksOut(unittest.TestCase):
+    # Given workcycle WORK-70, owned by Development, holds release task WORK-71 and unrelated open releases WORK-72/73
+    ISSUES = [workcycle("WORK-70"), issue("WORK-71", "blocked", parent="WORK-70"),
+              issue("WORK-72", "backlog", parent="WORK-70", assignee=None),
+              issue("WORK-73", "in_review", parent="WORK-70", assignee="agent-joeri")]
+
+    def test_the_release_task_alone_decides_readiness_and_the_workcycle_stays_linked(self):
+        ready, blocked = ranked([pr(11, issues=["WORK-71", "WORK-70"], branch="work-70")], self.ISSUES)
+        self.assertEqual(([p["number"] for p in ready], blocked), ([11], []))
+        self.assertEqual(ready[0]["issues"], ["WORK-71", "WORK-70"])
+
+    def test_the_release_task_s_own_prerequisites_and_fixes_still_block(self):
+        issues = [*self.ISSUES, issue("WORK-80", "todo", assignee=None),
+                  issue("WORK-81", parent="WORK-71", assignee="agent-joeri")]
+        issues[1] = {**issues[1], "blocked_by": ["WORK-80"]}
+        _, blocked = ranked([pr(11, issues=["WORK-71", "WORK-70"])], issues)
+        self.assertEqual(blocked[0]["blocked_by"], [{"kind": "blocked_by", "key": "WORK-80", "status": "todo"},
+                                                    {"kind": "child", "key": "WORK-81", "status": "in_progress"}])
+
+    def test_missing_evidence_still_blocks_the_release(self):
+        _, blocked = ranked([pr(11, issues=["WORK-71", "WORK-70"])], self.ISSUES, missing=("Multica wakeups",))
+        self.assertEqual(blocked[0]["blocked_by"], [{"kind": "evidence", "missing": ["Multica wakeups"]}])
+
+    def test_a_workcycle_claimed_without_its_release_task_keeps_its_checks(self):
+        _, blocked = ranked([pr(12, issues=["WORK-70"])], self.ISSUES)
+        self.assertEqual(blocked[0]["blocked_by"], [
+            {"kind": "assignee", "key": "WORK-70", "assignee": {"type": "agent", "id": "squad-development"}},
+            {"kind": "child", "key": "WORK-71", "status": "blocked"},
+            {"kind": "child", "key": "WORK-72", "status": "backlog"},
+            {"kind": "child", "key": "WORK-73", "status": "in_review"},
+        ])
 
 
 class MergeWaitsLeaveLaneAdvanceAlone(unittest.TestCase):
