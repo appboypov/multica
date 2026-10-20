@@ -112,8 +112,6 @@ Multica 的产品名词分两类：
 - **日常词** —— 用户会直接说出口的词。**完整翻译成中文**，是不是数据库实体都一样：`issue` → 任务、`workspace` → 工作区、`project` → 项目。
 - **Multica 专有词** —— 中文里没有对应词的概念（`skill`），或用户可能要照着敲、照着比对的 schema 标识符（`todo`、`in_progress`、`task_id`）。**用小写英文**呈现，读起来像类型名。
 
-其余规则以 `apps/docs/content/docs/*.zh.mdx` 为准 —— docs 是已经实战 20+ 篇的 CN voice 标准。`*.zh.mdx`、`*.ja.mdx`、`*.ko.mdx` 的正文现在也一律按下面的表格来。
-
 ### `issue` 就是产品里的「任务」，必须翻译
 
 `issue` 是这个「用户提出、智能体去做的事」的英文产品名。在英文之外的每种语言里，它就是当地最日常的那个「任务」词：
@@ -330,10 +328,9 @@ description 默认省略。添加前先问：**没有这句话，用户会误解
 
 术语表没覆盖的词，按这个顺序查：
 
-1. `apps/docs/content/docs/*.zh.mdx` —— CN voice 事实标准，20+ 篇高度一致
-2. `packages/views/locales/zh-Hans/auth.json` 和 `editor.json` —— JSON 结构 + selector API 用法参考
-3. `packages/views/auth/login-page.tsx` —— 组件层 selector API 调用参考
-4. `packages/views/settings/components/preferences-tab.tsx` —— 语言切换器参考
+1. `packages/views/locales/zh-Hans/auth.json` 和 `editor.json` —— JSON 结构 + selector API 用法参考
+2. `packages/views/auth/login-page.tsx` —— 组件层 selector API 调用参考
+3. `packages/views/settings/components/preferences-tab.tsx` —— 语言切换器参考
 
 ---
 
@@ -341,7 +338,7 @@ description 默认省略。添加前先问：**没有这句话，用户会误解
 
 改本页规则的同时还要：
 
-1. 把规则在相关 locale JSON / AGENTS.md / docs 页面里同步落地
+1. 把规则在相关 locale JSON / AGENTS.md 里同步落地
 2. PR 描述里写明改了什么，方便 reviewer 检查下游是否跟着改了
 
 本页是契约，其他文档不能 override。

@@ -40,6 +40,8 @@ trap cleanup EXIT
 
 export DO_NOT_TRACK=1 NEXT_TELEMETRY_DISABLED=1 TURBO_TELEMETRY_DISABLED=1
 export PLAYWRIGHT_BROWSERS_PATH=/home/crabbox/.cache/ms-playwright COREPACK_HOME=/usr/local/share/corepack
+# The image holds the pnpm store and Go modules of the lockfiles.
+export npm_config_store_dir=/home/crabbox/.cache/pnpm-store GOMODCACHE=/home/crabbox/.cache/go-mod
 
 RESULTS=()
 FAILED=0
@@ -274,7 +276,7 @@ e2e_stage() {
 "$PGBIN/createdb" -h "$RUN" -p "$PGPORT" -U multica multica
 
 stage install pnpm install --frozen-lockfile --filter='!@multica/mobile'
-TURBO=(pnpm exec turbo run --filter='!@multica/mobile' --continue --concurrency=3 --output-logs=new-only)
+TURBO=(pnpm exec turbo run --filter='!@multica/mobile' --continue --concurrency=6 --output-logs=new-only)
 if all_unit_tests; then
   stage turbo "${TURBO[@]}" typecheck lint test
 else

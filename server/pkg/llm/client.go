@@ -32,7 +32,7 @@
 //
 // Keep this list current when a consumer is added, removed, or changes what it
 // sends — it is the source the operator-facing copy is written from
-// (.env.example and apps/docs/content/docs/environment-variables*.mdx), and
+// (.env.example), and
 // TestDocumentedConsumersAreTheOnlyCallers fails until a new call site is
 // reflected here.
 //

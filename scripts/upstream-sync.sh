@@ -14,6 +14,9 @@ FORK_REMOVED_PATHS=(
   .vercelignore
   scripts/ci-scope.mjs
   scripts/ci-scope.test.mjs
+  apps/docs
+  apps/ui-lab
+  CONTRIBUTING.md
 )
 
 if [ "$(git branch --show-current)" != "main" ]; then
@@ -37,6 +40,10 @@ else
     git rev-parse -q --verify MERGE_HEAD > /dev/null || exit 1
   fi
   git rm -r -q -f --ignore-unmatch -- "${FORK_REMOVED_PATHS[@]}"
+  # The upstream lockfile still lists the removed apps; pnpm rewrites it for
+  # the fork's workspace and resolves conflict markers in it.
+  pnpm install --lockfile-only
+  git add pnpm-lock.yaml
   conflicts="$(git diff --name-only --diff-filter=U)"
   if [ -n "$conflicts" ]; then
     echo "Merge conflicts:" >&2

@@ -48,13 +48,14 @@ if ! docker container inspect "$CACHE_CONTAINER" >/dev/null 2>&1; then
 fi
 docker start "$CACHE_CONTAINER" >/dev/null
 
-IMAGE="madspec-crabbox-local:multica-full-check-$(shasum -a 256 scripts/full-check.Dockerfile | cut -c1-12)"
+IMAGE_INPUTS=(scripts/full-check.Dockerfile pnpm-lock.yaml pnpm-workspace.yaml .npmrc server/go.mod server/go.sum)
+IMAGE="madspec-crabbox-local:multica-full-check-$(cat "${IMAGE_INPUTS[@]}" | shasum -a 256 | cut -c1-12)"
 if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
   docker image inspect madspec-crabbox-local:1 >/dev/null 2>&1 || "$CRABBOX_LOCAL" build-image
-  docker build -t "$IMAGE" -f scripts/full-check.Dockerfile scripts
+  tar -c "${IMAGE_INPUTS[@]}" | docker build -t "$IMAGE" -f scripts/full-check.Dockerfile -
 fi
 
 echo "full-check: $(git rev-parse --short HEAD), ${#CHANGED[@]} changed files against origin/main"
-exec "$CRABBOX_LOCAL" run --image "$(docker image inspect -f '{{.Id}}' "$IMAGE")" --cpus 6 --memory 10g --reason isolated -- \
+exec "$CRABBOX_LOCAL" run --image "$(docker image inspect -f '{{.Id}}' "$IMAGE")" --cpus 6 --memory 12g --reason isolated -- \
   env TURBO_API="http://host.docker.internal:$CACHE_PORT" TURBO_TEAM=multica TURBO_TOKEN="$TOKEN" \
   bash scripts/full-check-container.sh ${CHANGED[@]+"${CHANGED[@]}"}

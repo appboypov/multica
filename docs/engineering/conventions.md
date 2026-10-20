@@ -114,8 +114,6 @@ Multica's product nouns split into two categories:
 - **Everyday noun** — the word a user would say out loud for it. **Translate fully**, whether or not it is a database entity: `issue` → 任务, `workspace` → 工作区, `project` → 项目.
 - **Multica-specific term** — a concept no local word carries (`skill`), or a schema-level identifier a user may have to type or match (`todo`, `in_progress`, `task_id`). Render as **lowercase English** so it reads like a type name.
 
-The Chinese pages under `apps/docs/content/docs/*.zh.mdx` are the de facto voice standard for everything else on this page. The `*.zh.mdx`, `*.ja.mdx`, and `*.ko.mdx` prose now follows the table below as well.
-
 ### `issue` is the product's task — translate it
 
 `issue` is the English product name for the thing a user files and an agent works on. In every other locale it is **the everyday word for "task"**:
@@ -332,10 +330,9 @@ Shared settings components already accept optional descriptions. Examples and ne
 
 When the glossary doesn't cover a term, look at:
 
-1. `apps/docs/content/docs/*.zh.mdx` — the de facto Chinese voice standard, 20+ pages of consistent translation
-2. `packages/views/locales/zh-Hans/auth.json` and `editor.json` — JSON structure + selector API patterns
-3. `packages/views/auth/login-page.tsx` — component-level selector API call site
-4. `packages/views/settings/components/preferences-tab.tsx` — language switcher reference
+1. `packages/views/locales/zh-Hans/auth.json` and `editor.json` — JSON structure + selector API patterns
+2. `packages/views/auth/login-page.tsx` — component-level selector API call site
+3. `packages/views/settings/components/preferences-tab.tsx` — language switcher reference
 
 ---
 
@@ -343,7 +340,7 @@ When the glossary doesn't cover a term, look at:
 
 If you change a rule here, also:
 
-1. Apply it in the relevant locale JSONs / AGENTS.md / docs page
+1. Apply it in the relevant locale JSONs / AGENTS.md
 2. Note the change in the PR description so reviewers know to look for downstream sweep
 
 This page is the contract; nothing else overrides it.

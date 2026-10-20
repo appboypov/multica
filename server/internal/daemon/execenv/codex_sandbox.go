@@ -76,7 +76,7 @@ func resolveGOOS(goos string) string {
 //     the real HOME were readable and exfiltratable regardless. The task
 //     filesystem boundary is therefore the boundary the daemon itself runs
 //     inside (VM, container, or dedicated Unix user), matching macOS/Windows.
-//     See MUL-5578 / #6218, and apps/docs security-model.
+//     See MUL-5578 / #6218.
 //   - Windows: danger-full-access, as a deliberate compatibility choice.
 //     Codex ships a native Windows sandbox (windows.sandbox = "unelevated" via
 //     a Restricted Token, or "elevated"), but it is still experimental with

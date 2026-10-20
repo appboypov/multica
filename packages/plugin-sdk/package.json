@@ -5,7 +5,7 @@
   "type": "module",
   "license": "Apache-2.0",
   "scripts": {
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsgo --noEmit",
     "lint": "eslint ."
   },
   "exports": {
@@ -20,6 +20,7 @@
   "devDependencies": {
     "@multica/eslint-config": "workspace:*",
     "@multica/tsconfig": "workspace:*",
+    "@typescript/native-preview": "catalog:",
     "typescript": "catalog:"
   }
 }

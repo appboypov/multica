@@ -7,7 +7,7 @@ Multica is a task management platform where people and agents collaborate on iss
 This checkout is `appboypov/multica`, a fork of `multica-ai/multica` that is developed for own use and released only on this Mac. Where the rest of this file differs, these rules apply.
 
 - `origin` is the fork and takes every commit and push. `upstream` is `multica-ai/multica` and is fetch-only.
-- `main` is built on upstream releases only, never on upstream's `main`. `make upstream-sync` merges the latest `multica-ai/multica` GitHub release tag into `main`, deletes the upstream pipeline files the merge brings back, then runs the install, typecheck, unit tests and Go build. When it stops on a merge conflict or a failing step, fix the cause, keep the fork's own changes, commit, and run it again until it passes.
+- `main` is built on upstream releases only, never on upstream's `main`. `make upstream-sync` merges the latest `multica-ai/multica` GitHub release tag into `main`, deletes the upstream files the fork removed (pipelines, the docs site, UI Lab, the contributing guide) when the merge brings them back, then runs the install, typecheck, unit tests and Go build. When it stops on a merge conflict or a failing step, fix the cause, keep the fork's own changes, commit, and run it again until it passes.
 - `make local-release` is the release: it builds the CLI into `server/bin` (linked from `~/.local/bin/multica`), builds and starts the self-hosted stack from this checkout, and installs the unsigned desktop app in `/Applications`.
 - No build from upstream is ever installed: `multica update`, the daemon's update paths and the desktop app's update check answer with these two make targets. Keep that behaviour when a sync touches them.
 - The fork has no remote pipelines: GitHub Actions is disabled and the workflow, GoReleaser and Vercel files are removed. Every check and build runs locally.
@@ -19,7 +19,7 @@ This checkout is `appboypov/multica`, a fork of `multica-ai/multica` that is dev
 ## Scope and Reading Order
 
 - Before changing `apps/mobile/`, also read [apps/mobile/AGENTS.md](apps/mobile/AGENTS.md), even if your tool does not load nested instructions automatically. Platform-specific sections below apply only to the named platform.
-- For naming, translations, or Chinese UI/docs copy, read [conventions.mdx](apps/docs/content/docs/developers/conventions.mdx) and [conventions.zh.mdx](apps/docs/content/docs/developers/conventions.zh.mdx).
+- For naming, translations, or Chinese UI copy, read [conventions.md](docs/engineering/conventions.md) and [conventions.zh.md](docs/engineering/conventions.zh.md).
 - Maintain shared rules here and mobile-specific rules in the mobile file. `CLAUDE.md` files only import them. Update instructions in the same change that alters the referenced workflow or boundary; do not add incident timelines, dependency version lists, or duplicate rules.
 
 ## Sharing Rules and Package Boundaries
@@ -33,7 +33,6 @@ This checkout is `appboypov/multica`, a fork of `multica-ai/multica` that is dev
 | `apps/web/` | Next.js routes/layouts and web-only UI. Framework APIs stay here; shared navigation adapters live in `apps/web/platform/`. |
 | `apps/desktop/` | Electron and desktop-only UI/state. Application navigation goes through `apps/desktop/src/renderer/src/platform/`. |
 | `apps/mobile/` | Independent Expo/React Native client: owns UI, state, hooks, providers, i18n, build, and release. Shares core types and pure utilities, including platform-independent schemas. |
-| `apps/docs/` | Fumadocs documentation site |
 
 - Dependency direction is `views -> core + ui`; core and ui remain independent. Shared packages export raw TypeScript compiled by consuming apps.
 - Extract logic used by both web and desktop into the appropriate shared package. Keep framework/Electron APIs in the app layer; inject platform-specific UI through props/slots.
@@ -42,7 +41,7 @@ This checkout is `appboypov/multica`, a fork of `multica-ai/multica` that is dev
 
 ## Development and Verification
 
-Use `Makefile`, workspace `package.json` files, and `pnpm-workspace.yaml` for current commands and versions. See [CONTRIBUTING.md](CONTRIBUTING.md) for setup and worktree operations.
+Use `Makefile`, workspace `package.json` files, and `pnpm-workspace.yaml` for current commands and versions.
 
 - Use the checkout's managed environment: `make up`, `make status`, `make down`. `make down` preserves data; `make destroy` removes the environment and its data.
 - Worktrees share PostgreSQL but have isolated databases/ports. Use the environment scripts and `.env.worktree`; do not copy the main checkout's `.env` or manually create a database through an assumed PostgreSQL instance.
@@ -115,7 +114,7 @@ Workspace-scoped queries filter by `workspace_id`; membership gates access and `
 
 ## Web/Desktop UI Rules
 
-- For Button and Dialog usage, read `packages/ui/docs/button.md` and `packages/ui/docs/dialog.md`. These component contracts also power UI Lab documentation.
+- For Button and Dialog usage, read `packages/ui/docs/button.md` and `packages/ui/docs/dialog.md`.
 
 - Prefer existing shadcn/Base UI primitives. Add components with `pnpm ui:add <component>`.
 - For `pnpm ui:add @reui/<name>`, decline overwrite prompts. Keep `REUI_LICENSE_KEY` in the environment, never in repo files. Adapt vendored primitives into `packages/ui/components/ui/` and compositions into `packages/views/`.

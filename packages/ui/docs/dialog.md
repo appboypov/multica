@@ -12,7 +12,7 @@ Compose `Dialog`, `DialogTrigger`, `DialogContent`, `DialogHeader`, `DialogTitle
 
 Provide a title and a concise description. Let the primitive manage focus trapping, Escape, outside dismissal and focus restoration. Use `DialogTrigger` so focus can return to the opener. Label form fields. Keep the footer reachable with long content and narrow viewports.
 
-Only close a submitting dialog after the operation succeeds. Preserve its input and show an error on failure. The UI Lab save interaction is a local demonstration; it makes no API request.
+Only close a submitting dialog after the operation succeeds. Preserve its input and show an error on failure.
 
 ## Correct
 
@@ -50,8 +50,8 @@ Popup and backdrop consume `--dialog-enter-duration`, `--dialog-exit-duration`, 
 
 Changes affect shared Dialog instances on web and desktop, including compositions that use DialogContent, unless callers override the animation. They do not change Popover, Tooltip, AlertDialog or JavaScript motion constants.
 
-Respect `prefers-reduced-motion`: popup and backdrop animations are disabled. UI Lab playback speed is preview-only and never exported. Open, close and replay the real component; also interrupt it with rapid open/close actions.
+Respect `prefers-reduced-motion`: popup and backdrop animations are disabled. Open, close and replay the real component; also interrupt it with rapid open/close actions.
 
 ## Application
 
-Compare both themes and keyboard behavior. Save a scheme for later or export CSS and merge into the matching `:root` block in `packages/ui/styles/tokens.css`. Exporting does not write to product code.
+Compare both themes and keyboard behavior.

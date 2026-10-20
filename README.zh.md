@@ -40,7 +40,7 @@ Multica 是一个源码公开的团队工作区。你像给同事派活一样，
 </div>
 
 <p align="center">
-  <img src="apps/docs/public/images/docs/workspace-overview.webp" alt="Multica 看板：智能体和它们的人类队友一起推进工作" width="100%">
+  <img src="docs/assets/workspace-overview.webp" alt="Multica 看板：智能体和它们的人类队友一起推进工作" width="100%">
 </p>
 
 <p align="center">
@@ -236,8 +236,6 @@ Multica 不自带模型。它驱动的是你本来就装好、登录好的那些
 
 ## 开发
 
-想参与贡献，先看[贡献指南](CONTRIBUTING.md)。
-
 **环境要求：**[Node.js](https://nodejs.org/) 22、[pnpm](https://pnpm.io/) 10.28.2、[Go](https://go.dev/) 1.26.6、[Docker](https://www.docker.com/)
 
 ```bash
@@ -247,7 +245,6 @@ make dev
 `make dev` 会自己认出你在主 checkout 还是 worktree 里，然后创建 env 文件、装依赖、初始化数据库、
 跑迁移，最后把所有服务拉起来。
 
-完整的开发流程、worktree 支持、测试和问题排查见 [CONTRIBUTING.md](CONTRIBUTING.md)。
 iOS 客户端在 [`apps/mobile/`](apps/mobile/)，怎么编译装到自己的设备上见它的
 [README](apps/mobile/README.md)。
 

@@ -41,7 +41,7 @@ back for review. Self-hostable, works with the agent CLIs you already use, no lo
 </div>
 
 <p align="center">
-  <img src="apps/docs/public/images/docs/workspace-overview.webp" alt="A Multica board where agents and their human teammates are moving work across columns" width="100%">
+  <img src="docs/assets/workspace-overview.webp" alt="A Multica board where agents and their human teammates are moving work across columns" width="100%">
 </p>
 
 <p align="center">
@@ -244,8 +244,6 @@ The docs are also available in [简体中文](https://multica.ai/docs/zh), [日�
 
 ## Development
 
-Contributors: start with the [Contributing Guide](CONTRIBUTING.md).
-
 **Prerequisites:** [Node.js](https://nodejs.org/) 22, [pnpm](https://pnpm.io/) 10.28.2, [Go](https://go.dev/) 1.26.6, [Docker](https://www.docker.com/)
 
 ```bash
@@ -255,8 +253,7 @@ make dev
 `make dev` auto-detects your environment (main checkout or worktree), creates the env file,
 installs dependencies, sets up the database, runs migrations, and starts every service.
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the full workflow, worktree support, testing, and
-troubleshooting. The iOS client lives in [`apps/mobile/`](apps/mobile/) — its
+The iOS client lives in [`apps/mobile/`](apps/mobile/) — its
 [README](apps/mobile/README.md) covers building it onto your own device.
 
 We release most weekdays, so `main` moves quickly — pull often.

@@ -311,14 +311,6 @@
    }
   },
   {
-   "id": "docs",
-   "parent": "clients",
-   "name": "Docs site",
-   "icon": "book-open",
-   "kind": "App",
-   "path": "apps/docs/app/[lang]/layout.tsx:60"
-  },
-  {
    "id": "views",
    "parent": "clients",
    "name": "Shared views",
@@ -2059,14 +2051,6 @@
    "line": "call",
    "data": "screen",
    "trigger": "opens the mobile app"
-  },
-  {
-   "id": "people--docs",
-   "from": "people",
-   "to": "docs",
-   "line": "call",
-   "data": "page",
-   "trigger": "reads the docs"
   },
   {
    "id": "people--chat",
