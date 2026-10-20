@@ -17,7 +17,7 @@ import (
 )
 
 func TestDeciderSquadTextQuestionLabelMigration(t *testing.T) {
-	migration, err := os.ReadFile("../../migrations/801_decider_text_question_labels.up.sql")
+	migration, err := os.ReadFile("../../migrations/801_decider_unique_squad_labels.up.sql")
 	if err != nil {
 		t.Fatal(err)
 	}
