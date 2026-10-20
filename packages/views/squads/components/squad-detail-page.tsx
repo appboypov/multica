@@ -63,6 +63,8 @@ import type { Squad, SquadMember, SquadMemberStatus, SquadMemberStatusValue, Squ
 import { useT } from "../../i18n";
 import { matchesPinyin } from "../../editor/extensions/pinyin-match";
 import { useSquadLookup } from "../use-squad-lookup";
+import { SkillIcon } from "../../skills/lib/skill-icon";
+import { SquadSkillsTab } from "./squad-skills-tab";
 
 export function SquadDetailPage() {
   const { t } = useT("squads");
@@ -229,8 +231,8 @@ export function SquadDetailPage() {
       />
 
       {/* Two-column grid mirrors agent-detail-page: left inspector (identity +
-          properties + leader), right pane with tabs (Members | Instructions).
-          Mobile collapses to stacked single column. */}
+          properties + leader), right pane with tabs (Members | Instructions |
+          Skills). Mobile collapses to stacked single column. */}
       <div className="flex flex-1 min-h-0 flex-col gap-3 overflow-y-auto p-3 md:grid md:grid-cols-[280px_minmax(0,1fr)] md:gap-4 md:overflow-hidden md:p-6 lg:grid-cols-[320px_minmax(0,1fr)]">
         <SquadDetailInspector
           squad={squad}
@@ -248,6 +250,7 @@ export function SquadDetailPage() {
           members={members}
           memberStatusById={memberStatusById}
           canManage={canManage}
+          currentUserId={currentUser?.id ?? null}
           isLeader={isLeader}
           isArchived={isArchived}
           getEntityName={getEntityName}
@@ -963,15 +966,16 @@ function SquadDescriptionEditorBody({
 }
 
 // ---------------------------------------------------------------------------
-// SquadOverviewPane — right column with two tabs (Members | Instructions).
-// Mirrors AgentOverviewPane: dirty-guard via AlertDialog when switching tabs
-// with unsaved Instructions.
+// SquadOverviewPane — right column with three tabs (Members | Instructions |
+// Skills). Mirrors AgentOverviewPane: dirty-guard via AlertDialog when
+// switching tabs with unsaved Instructions.
 // ---------------------------------------------------------------------------
-type SquadDetailTab = "members" | "instructions";
+type SquadDetailTab = "members" | "instructions" | "skills";
 
 const squadDetailTabs: { id: SquadDetailTab; icon: typeof FileText }[] = [
   { id: "members", icon: Users },
   { id: "instructions", icon: FileText },
+  { id: "skills", icon: SkillIcon },
 ];
 
 function SquadOverviewPane({
@@ -979,6 +983,7 @@ function SquadOverviewPane({
   members,
   memberStatusById,
   canManage,
+  currentUserId,
   isLeader,
   isArchived,
   getEntityName,
@@ -997,6 +1002,7 @@ function SquadOverviewPane({
   // false the tabs render read-only (no add/remove/leader/role edits, no
   // Save). See canManageSquad in server/internal/handler/squad.go.
   canManage: boolean;
+  currentUserId: string | null;
   isLeader: (m: SquadMember) => boolean;
   isArchived: (m: SquadMember) => boolean;
   getEntityName: (type: string, id: string) => string;
@@ -1077,6 +1083,11 @@ function SquadOverviewPane({
               onSave={onSaveInstructions}
               onDirtyChange={setActiveDirty}
             />
+          </div>
+        )}
+        {activeTab === "skills" && (
+          <div className="flex h-full flex-col p-4 md:p-6">
+            <SquadSkillsTab squad={squad} currentUserId={currentUserId} canEdit={canManage} />
           </div>
         )}
       </div>

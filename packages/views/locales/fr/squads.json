@@ -95,7 +95,8 @@
   },
   "detail_tabs": {
     "members": "Membres",
-    "instructions": "Instructions"
+    "instructions": "Instructions",
+    "skills": "Skills"
   },
   "details": {
     "leader": "Chef",
@@ -131,6 +132,34 @@
     "unsaved_changes": "Modifications non enregistrées",
     "save_button": "Enregistrer",
     "placeholder": "Par exemple : commencez toujours par écrire un test qui échoue. Privilégiez des commits petits et atomiques."
+  },
+  "skills_tab": {
+    "search_placeholder": "Rechercher des skills",
+    "search_empty": "Aucun skill ne correspond à « {{query}} ».",
+    "assigned_title": "Assignés au squad",
+    "assigned_hint": "Chaque agent qui travaille sur les tickets du squad les reçoit. Désactivez un skill pour suspendre son utilisation sans le retirer.",
+    "add_action": "Ajouter un skill",
+    "empty_title": "Aucun skill assigné",
+    "no_description": "Aucune description",
+    "toggle_aria": "Activer ou désactiver {{name}}",
+    "remove_aria": "Retirer {{name}}",
+    "toggle_failed_toast": "Échec du changement de statut du skill",
+    "remove_failed_toast": "Échec du retrait du skill",
+    "add_dialog_all_assigned": "Plus aucun skill à ajouter — ce squad les a tous.",
+    "runtime_title": "Skills du runtime",
+    "runtime_hint": "Les skills du runtime choisi que les agents reçoivent sur les tickets du squad. Les réglages sont conservés par runtime.",
+    "runtime_picker_label": "Runtime",
+    "runtime_section_aria": "Activer tous les skills de {{runtime}}",
+    "runtime_section_failed_toast": "Impossible de modifier les skills du runtime",
+    "runtime_toggle_aria": "Activer ou désactiver le skill du runtime {{name}}",
+    "runtime_toggle_failed_toast": "Échec du changement de statut du skill du runtime",
+    "refresh_action": "Actualiser",
+    "runtime_none": "Aucun runtime local en ligne ne peut activer ou désactiver des skills. Démarrez un runtime Claude, Codex ou Oh-My-Pi.",
+    "runtime_forbidden": "Vous n'avez pas la permission de consulter les skills de ce runtime.",
+    "runtime_discovering": "Détection des skills depuis le runtime local…",
+    "runtime_failed": "Impossible de détecter les skills du runtime. Réessayez.",
+    "runtime_unsupported": "Ce runtime n'expose pas de skills locaux.",
+    "runtime_empty": "Aucun skill local n'a été trouvé pour ce runtime."
   },
   "scope": {
     "mine": "Les miens",

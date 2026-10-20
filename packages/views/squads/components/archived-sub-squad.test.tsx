@@ -9,6 +9,7 @@ import { I18nProvider } from "@multica/core/i18n/react";
 import enCommon from "../../locales/en/common.json";
 import enSquads from "../../locales/en/squads.json";
 import { NavigationProvider, type NavigationAdapter } from "../../navigation";
+import type * as PathsModule from "@multica/core/paths";
 
 const TEST_RESOURCES = { en: { common: enCommon, squads: enSquads } };
 
@@ -27,7 +28,9 @@ const mockApi = vi.hoisted(() => ({
 
 vi.mock("@multica/core/api", () => ({ api: mockApi }));
 vi.mock("@multica/core/hooks", () => ({ useWorkspaceId: () => "ws-1" }));
-vi.mock("@multica/core/paths", () => ({
+// Partial mock: the page renders the skill icon, which reads WORKSPACE_PAGES.
+vi.mock("@multica/core/paths", async (importOriginal) => ({
+  ...(await importOriginal<typeof PathsModule>()),
   useCurrentWorkspace: () => ({ id: "ws-1", slug: "acme" }),
   useWorkspacePaths: () => ({
     squads: () => "/acme/squads",

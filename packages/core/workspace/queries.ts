@@ -1,6 +1,6 @@
 import { queryOptions, type QueryClient } from "@tanstack/react-query";
 import { api } from "../api";
-import type { Agent, Squad, Workspace } from "../types";
+import type { Agent, SkillSummary, Squad, Workspace } from "../types";
 
 export const workspaceKeys = {
   all: (wsId: string) => ["workspaces", wsId] as const,
@@ -18,6 +18,10 @@ export const workspaceKeys = {
   // `["workspaces", wsId, "squads"]` invalidation covers it.
   squadMemberStatus: (wsId: string, squadId: string) =>
     ["workspaces", wsId, "squads", squadId, "members-status"] as const,
+  // A squad's assigned workspace skills, under the squad's own key so a
+  // broad squads invalidation covers them too.
+  squadSkills: (wsId: string, squadId: string) =>
+    ["workspaces", wsId, "squads", squadId, "skills"] as const,
   skills: (wsId: string) => ["workspaces", wsId, "skills"] as const,
   skillFolders: (wsId: string) => ["workspaces", wsId, "skill-folders"] as const,
   assigneeFrequency: (wsId: string) => ["workspaces", wsId, "assignee-frequency"] as const,
@@ -112,6 +116,14 @@ export function squadDetailOptions(wsId: string, squadId: string) {
   return queryOptions<Squad>({
     queryKey: [...workspaceKeys.squads(wsId), squadId] as const,
     queryFn: () => api.getSquad(squadId),
+    enabled: !!wsId && !!squadId,
+  });
+}
+
+export function squadSkillListOptions(wsId: string, squadId: string) {
+  return queryOptions<SkillSummary[]>({
+    queryKey: workspaceKeys.squadSkills(wsId, squadId),
+    queryFn: () => api.listSquadSkills(squadId),
     enabled: !!wsId && !!squadId,
   });
 }

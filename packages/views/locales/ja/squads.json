@@ -94,7 +94,8 @@
   },
   "detail_tabs": {
     "members": "メンバー",
-    "instructions": "指示"
+    "instructions": "指示",
+    "skills": "スキル"
   },
   "details": {
     "leader": "リーダー",
@@ -128,6 +129,34 @@
     "unsaved_changes": "保存していない変更",
     "save_button": "保存",
     "placeholder": "例：必ず失敗するテストから始める。コミットは小さく独立させる。"
+  },
+  "skills_tab": {
+    "search_placeholder": "スキルを検索",
+    "search_empty": "「{{query}}」に一致するスキルはありません。",
+    "assigned_title": "スクワッドに割り当て済み",
+    "assigned_hint": "スクワッドのタスクで作業するすべてのエージェントが使用します。オフにすると割り当てを残したまま使用を停止できます。",
+    "add_action": "スキルを追加",
+    "empty_title": "割り当てられたスキルがありません",
+    "no_description": "説明なし",
+    "toggle_aria": "{{name}} の有効・無効を切り替え",
+    "remove_aria": "{{name}} を削除",
+    "toggle_failed_toast": "スキルの状態を変更できませんでした",
+    "remove_failed_toast": "スキルを削除できませんでした",
+    "add_dialog_all_assigned": "追加できるスキルはありません。このスクワッドにはすべて割り当て済みです。",
+    "runtime_title": "ランタイムのスキル",
+    "runtime_hint": "選択したランタイムのスキルのうち、スクワッドのタスクでエージェントが使用するもの。設定はランタイムごとに保存されます。",
+    "runtime_picker_label": "ランタイム",
+    "runtime_section_aria": "{{runtime}} のすべてのスキルをオン",
+    "runtime_section_failed_toast": "ランタイムのスキルを変更できませんでした",
+    "runtime_toggle_aria": "ランタイムのスキル {{name}} の有効・無効を切り替え",
+    "runtime_toggle_failed_toast": "ランタイムのスキルの状態を変更できませんでした",
+    "refresh_action": "更新",
+    "runtime_none": "スキルを切り替えられるオンラインのローカルランタイムがありません。Claude、Codex、Oh-My-Pi のランタイムを起動してください。",
+    "runtime_forbidden": "このランタイムのスキルを表示する権限がありません。",
+    "runtime_discovering": "ローカルランタイムからスキルを検出中…",
+    "runtime_failed": "ランタイムのスキルを検出できませんでした。",
+    "runtime_unsupported": "このランタイムはローカルスキルを公開していません。",
+    "runtime_empty": "このランタイムにローカルスキルが見つかりませんでした。"
   },
   "scope": {
     "mine": "自分",

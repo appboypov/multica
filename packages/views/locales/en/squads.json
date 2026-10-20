@@ -95,7 +95,8 @@
   },
   "detail_tabs": {
     "members": "Members",
-    "instructions": "Instructions"
+    "instructions": "Instructions",
+    "skills": "Skills"
   },
   "details": {
     "leader": "Leader",
@@ -131,6 +132,34 @@
     "unsaved_changes": "Unsaved changes",
     "save_button": "Save",
     "placeholder": "e.g. Always start by writing a failing test. Prefer small, atomic commits."
+  },
+  "skills_tab": {
+    "search_placeholder": "Search skills",
+    "search_empty": "No skills match \"{{query}}\".",
+    "assigned_title": "Assigned to squad",
+    "assigned_hint": "Every agent working on the squad's issues gets these. Turn off a skill to pause its use without removing it.",
+    "add_action": "Add skill",
+    "empty_title": "No skills assigned",
+    "no_description": "No description",
+    "toggle_aria": "Toggle {{name}}",
+    "remove_aria": "Remove {{name}}",
+    "toggle_failed_toast": "Failed to change skill status",
+    "remove_failed_toast": "Failed to remove skill",
+    "add_dialog_all_assigned": "No more skills to add — this squad already has all of them.",
+    "runtime_title": "Runtime skills",
+    "runtime_hint": "Skills on the picked runtime that agents get on the squad's issues. Settings are kept per runtime.",
+    "runtime_picker_label": "Runtime",
+    "runtime_section_aria": "Turn on every skill from {{runtime}}",
+    "runtime_section_failed_toast": "Could not change the runtime skills",
+    "runtime_toggle_aria": "Toggle runtime skill {{name}}",
+    "runtime_toggle_failed_toast": "Failed to change runtime skill status",
+    "refresh_action": "Refresh",
+    "runtime_none": "No online local runtime can switch skills. Start a Claude, Codex or Oh-My-Pi runtime.",
+    "runtime_forbidden": "You don't have permission to view this runtime's skills.",
+    "runtime_discovering": "Discovering skills from the local runtime…",
+    "runtime_failed": "Couldn't discover runtime skills. Try again.",
+    "runtime_unsupported": "This runtime does not expose local skills.",
+    "runtime_empty": "No local skills were found for this runtime."
   },
   "scope": {
     "mine": "Mine",

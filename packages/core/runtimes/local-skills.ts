@@ -13,6 +13,16 @@ export const runtimeLocalSkillsKeys = {
     [...runtimeLocalSkillsKeys.all(), runtimeId] as const,
 };
 
+/**
+ * Whether runs on a local runtime of this provider enforce runtime skill
+ * filters, so its skills can be switched per agent or squad. Mirrors
+ * runtimeSkillControlsSupported in
+ * server/internal/handler/agent_runtime_skills.go.
+ */
+export function runtimeSkillControlsSupported(provider: string): boolean {
+  return provider === "claude" || provider === "codex" || provider === "omp";
+}
+
 const POLL_INTERVAL_MS = 500;
 const POLL_TIMEOUT_MS = 30_000;
 // Import timeout is longer than discovery because old daemons (pre-batch) pop

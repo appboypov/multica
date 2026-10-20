@@ -94,7 +94,8 @@
   },
   "detail_tabs": {
     "members": "成员",
-    "instructions": "指引"
+    "instructions": "指引",
+    "skills": "Skills"
   },
   "details": {
     "leader": "队长",
@@ -128,6 +129,34 @@
     "unsaved_changes": "有未保存的修改",
     "save_button": "保存",
     "placeholder": "例如：始终先编写失败测试。提交应保持小而独立。"
+  },
+  "skills_tab": {
+    "search_placeholder": "搜索技能",
+    "search_empty": "没有与“{{query}}”匹配的技能。",
+    "assigned_title": "分配给小队",
+    "assigned_hint": "处理该小队任务的每个智能体都会使用。关闭后暂停使用，仍保留分配。",
+    "add_action": "添加 skill",
+    "empty_title": "尚未分配 skill",
+    "no_description": "暂无描述",
+    "toggle_aria": "启用或关闭 {{name}}",
+    "remove_aria": "移除 {{name}}",
+    "toggle_failed_toast": "修改 skill 状态失败",
+    "remove_failed_toast": "移除 skill 失败",
+    "add_dialog_all_assigned": "已无可添加的 skill——全部都已分配给该小队。",
+    "runtime_title": "运行时 skill",
+    "runtime_hint": "所选运行时中，智能体在该小队任务上使用的 skill。设置按运行时分别保存。",
+    "runtime_picker_label": "运行时",
+    "runtime_section_aria": "开启 {{runtime}} 的全部 skill",
+    "runtime_section_failed_toast": "无法更改运行时 skill",
+    "runtime_toggle_aria": "启用或关闭运行时 skill {{name}}",
+    "runtime_toggle_failed_toast": "修改运行时 skill 状态失败",
+    "refresh_action": "刷新",
+    "runtime_none": "没有可切换 skill 的在线本地运行时。请启动 Claude、Codex 或 Oh-My-Pi 运行时。",
+    "runtime_forbidden": "没有权限查看该运行时的 skill。",
+    "runtime_discovering": "正在从本地运行时发现 skill…",
+    "runtime_failed": "无法发现运行时 skill，请重试。",
+    "runtime_unsupported": "该运行时不支持本地 skill 发现。",
+    "runtime_empty": "该运行时中没有发现本地 skill。"
   },
   "scope": {
     "mine": "我的",
