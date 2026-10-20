@@ -69,6 +69,22 @@ multica squad member remove <squad-id> --member-id <id> --type agent|member
 multica squad member set-role <squad-id> --member-id <id> --member-type agent|member --role <role> --output json
 ```
 
+Skill commands. A squad carries workspace skills like an agent does, each with
+an enabled flag. Its runtime skill section switch starts off; `section` flips it
+and clears every per-skill choice. `runtime enable|disable` names the runtime and
+works only on local Claude, Codex or Oh-My-Pi runtimes.
+
+```bash
+multica squad skills list <squad-id> --output json
+multica squad skills add <squad-id> --skill-ids <skill-id> --output json
+multica squad skills set <squad-id> --skill-ids <id1,id2> --output json   # replace-all
+multica squad skills enable|disable <squad-id> <skill-id> --output json
+multica squad skills remove <squad-id> <skill-id> --output json
+multica squad skills runtime list <squad-id> --output json
+multica squad skills runtime section <squad-id> on|off
+multica squad skills runtime enable|disable <squad-id> --runtime-id <id> --root provider|universal|plugin --key <key> [--name <name>] [--plugin <plugin>]
+```
+
 Squad leader evaluation command:
 
 ```bash
