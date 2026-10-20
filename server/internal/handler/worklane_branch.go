@@ -211,7 +211,9 @@ func createWorklaneActivity(ctx context.Context, q *db.Queries, wl db.Worklane, 
 // the project block lacks. The repository of the issue's worklane gets that
 // worklane. A repository that works in its checkout (ADR-0031) gets its main
 // worklane with InCheckout instead, for every issue of its project and
-// whichever worklane the issue is in. A runtime on another machine than the
+// whichever worklane the issue is in. With the setting off, an issue whose
+// branch or selected open PR branch the checkout holds gets it as well
+// (ADR-0032). A runtime on another machine than the
 // issue's worklane fails the task before launch with worklane_elsewhere (UJ-6
 // design.md decision 6); an issue in no worklane there gets no block.
 func (h *Handler) claimWorklane(ctx context.Context, task *db.AgentTaskQueue, runtime db.AgentRuntime, agentName string, issue db.Issue, repos []protocol.ClaimRepository) ([]protocol.ClaimRepository, *claimBuildFailure) {
