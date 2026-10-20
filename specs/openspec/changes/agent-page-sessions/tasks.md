@@ -29,6 +29,7 @@ The branch `work-1089` stacks on `work-1087` (`agent-active-sessions`), which st
 - `listAgentSessions` uses the existing `EMPTY_AGENT_SESSIONS_RESPONSE` from `agent-session-model` as its fallback, so the empty value lives in one place.
 - `agentSessionsOptions` is a plain `queryOptions`: the route has no paging.
 - `agent:sessions` is not in `specificEvents`, so it reaches the `agent` prefix refresh with no extra wiring.
+- The list holds only sessions of online daemons, so the `daemon` refresh and the reconnect recovery also invalidate `agentSessionsKeys.all`; `use-realtime-sync-ws-instance.test.tsx` proves both refetch a cached `agentSessionsKeys.detail` query.
 - The malformed-response test runs the real `ApiClient` behind the mocked `api` with a stubbed `fetch`, so it proves the query sees the parsed list.
 
 ### 2. Sessions section
