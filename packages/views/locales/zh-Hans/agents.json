@@ -738,7 +738,21 @@
       "cancel_failed_toast": "取消运行失败",
       "started_prefix": "{{when}}启动",
       "dispatched_prefix": "{{when}}派发",
-      "queued_prefix": "{{when}}排队"
+      "queued_prefix": "{{when}}排队",
+      "section_sessions": "会话",
+      "subtitle_sessions_other": "{{count}} 个活跃",
+      "subtitle_no_sessions": "无活跃",
+      "empty_sessions": "没有活跃的会话",
+      "session_run_on": "在 {{runtime}} 上运行",
+      "session_unknown_where": "未知",
+      "session_status": {
+        "idle": "空闲",
+        "working": "工作中",
+        "blocked": "受阻",
+        "done": "已完成",
+        "starting": "启动中",
+        "unknown": "未知"
+      }
     }
   },
   "char_counter": {

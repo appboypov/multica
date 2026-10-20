@@ -753,7 +753,22 @@
       "cancel_failed_toast": "Failed to cancel run",
       "started_prefix": "Started {{when}}",
       "dispatched_prefix": "Dispatched {{when}}",
-      "queued_prefix": "Queued {{when}}"
+      "queued_prefix": "Queued {{when}}",
+      "section_sessions": "Sessions",
+      "subtitle_sessions_one": "{{count}} active",
+      "subtitle_sessions_other": "{{count}} active",
+      "subtitle_no_sessions": "None active",
+      "empty_sessions": "No active sessions",
+      "session_run_on": "run on {{runtime}}",
+      "session_unknown_where": "Unknown",
+      "session_status": {
+        "idle": "Idle",
+        "working": "Working",
+        "blocked": "Blocked",
+        "done": "Done",
+        "starting": "Starting",
+        "unknown": "Unknown"
+      }
     }
   },
   "char_counter": {

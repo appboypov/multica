@@ -636,7 +636,21 @@
       "cancel_failed_toast": "実行をキャンセルできませんでした",
       "started_prefix": "{{when}} に開始",
       "dispatched_prefix": "{{when}} にディスパッチ",
-      "queued_prefix": "{{when}} に待機開始"
+      "queued_prefix": "{{when}} に待機開始",
+      "section_sessions": "セッション",
+      "subtitle_sessions_other": "{{count}} 件アクティブ",
+      "subtitle_no_sessions": "アクティブなし",
+      "empty_sessions": "アクティブなセッションはありません",
+      "session_run_on": "{{runtime}} で実行",
+      "session_unknown_where": "不明",
+      "session_status": {
+        "idle": "アイドル",
+        "working": "作業中",
+        "blocked": "ブロック中",
+        "done": "完了",
+        "starting": "起動中",
+        "unknown": "不明"
+      }
     }
   },
   "char_counter": {
