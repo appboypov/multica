@@ -77,7 +77,9 @@ function mockAgent(ownerId: string, workspaceId: string) {
 
 /** Mock the Composio catalog + the current user's active connections (Notion +
  *  Slack), the agent list (owned by `owner.userId`), and capture any PUT
- *  /api/agents/<id> body. Returns a getter for the last captured allowlist.
+ *  /api/agents/<id> body. The list returns the last captured allowlist, as the
+ *  backend would after the write, so the refetch that follows a save reads it
+ *  back. Returns a getter for the last captured allowlist.
  *  Mutating the owner before a reload lets the permission test keep every
  *  other fixture condition identical. */
 async function mockApis(page: Page, owner: { userId: string }) {
@@ -141,7 +143,12 @@ async function mockApis(page: Page, owner: { userId: string }) {
       return route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify([mockAgent(owner.userId, workspaceId)]),
+        body: JSON.stringify([
+          {
+            ...mockAgent(owner.userId, workspaceId),
+            composio_toolkit_allowlist: captured.allowlist ?? [],
+          },
+        ]),
       });
     }
 
@@ -176,7 +183,10 @@ test.describe("Agent MCP Apps (creator-only)", () => {
     // Allow Notion → the PUT body carries exactly ["notion"].
     const notion = page.getByRole("checkbox", { name: "Allow Notion for this agent" });
     await expect(notion).not.toBeChecked();
-    await notion.check();
+    // The checkbox is controlled and flips after the optimistic cache write,
+    // so click and let the retrying assertion wait; check() reads the state
+    // once, right after the click.
+    await notion.click();
     await expect.poll(() => getAllowlist()).toEqual(["notion"]);
     await expect(notion).toBeChecked();
   });
