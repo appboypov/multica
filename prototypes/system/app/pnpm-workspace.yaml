@@ -1,0 +1,3 @@
+# The prototype is its own workspace root, so pnpm never selects the repository's workspace.
+packages:
+  - .
