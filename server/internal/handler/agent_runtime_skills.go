@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/multica-ai/multica/server/internal/logger"
 	obsmetrics "github.com/multica-ai/multica/server/internal/metrics"
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
@@ -99,15 +98,10 @@ type runtimeSkillEnabledRequest struct {
 	Enabled *bool `json:"enabled"`
 }
 
-// runtimeSkillTarget resolves a requested runtime skill on a local runtime of
-// the workspace whose runs enforce skill filters. It writes the refusal and
-// returns false when the runtime or the identity is not accepted.
-func (h *Handler) runtimeSkillTarget(w http.ResponseWriter, r *http.Request, workspaceID, runtimeID pgtype.UUID, req runtimeSkillIdentity) (RuntimeSkillException, bool) {
-	rt, err := h.getAgentRuntime(r.Context(), obsmetrics.RuntimeLookupSourceRuntimeAPI, runtimeID)
-	if err != nil || rt.WorkspaceID != workspaceID {
-		writeError(w, http.StatusNotFound, "runtime not found")
-		return RuntimeSkillException{}, false
-	}
+// runtimeSkillTarget resolves a requested runtime skill on rt, a runtime of
+// the caller's workspace. It writes the refusal and returns false unless rt is
+// local, its runs enforce skill filters and the identity is accepted.
+func runtimeSkillTarget(w http.ResponseWriter, rt db.AgentRuntime, req runtimeSkillIdentity) (RuntimeSkillException, bool) {
 	if rt.RuntimeMode != "local" || !runtimeSkillControlsSupported(rt.Provider) {
 		writeError(w, http.StatusBadRequest, "runtime skill controls are only supported for claude, codex and omp")
 		return RuntimeSkillException{}, false
@@ -123,7 +117,7 @@ func (h *Handler) runtimeSkillTarget(w http.ResponseWriter, r *http.Request, wor
 		return RuntimeSkillException{}, false
 	}
 	return RuntimeSkillException{
-		RuntimeID: uuidToString(runtimeID),
+		RuntimeID: uuidToString(rt.ID),
 		Provider:  rt.Provider,
 		Root:      root,
 		Key:       key,
@@ -176,7 +170,12 @@ func (h *Handler) SetAgentRuntimeSkillEnabled(w http.ResponseWriter, r *http.Req
 		writeError(w, http.StatusConflict, "agent is no longer assigned to this runtime")
 		return
 	}
-	target, ok := h.runtimeSkillTarget(w, r, agent.WorkspaceID, runtimeID, req.runtimeSkillIdentity)
+	rt, err := h.getAgentRuntime(r.Context(), obsmetrics.RuntimeLookupSourceRuntimeAPI, runtimeID)
+	if err != nil || rt.WorkspaceID != agent.WorkspaceID {
+		writeError(w, http.StatusNotFound, "runtime not found")
+		return
+	}
+	target, ok := runtimeSkillTarget(w, rt, req.runtimeSkillIdentity)
 	if !ok {
 		return
 	}

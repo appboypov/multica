@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/multica-ai/multica/server/internal/logger"
+	obsmetrics "github.com/multica-ai/multica/server/internal/metrics"
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
 	"github.com/multica-ai/multica/server/pkg/protocol"
 )
@@ -184,7 +185,8 @@ func (h *Handler) writeUpdatedSquadSkills(w http.ResponseWriter, r *http.Request
 
 // SetSquadRuntimeSkillEnabled turns one skill of a named local runtime on or
 // off for the squad. The skill is an exception exactly when its state differs
-// from the squad's section switch.
+// from the squad's section switch. The runtime must be one the caller may
+// read: another member's private machine answers not-found, as everywhere.
 func (h *Handler) SetSquadRuntimeSkillEnabled(w http.ResponseWriter, r *http.Request) {
 	squad, workspaceID, ok := h.loadManageableSquad(w, r)
 	if !ok {
@@ -195,11 +197,15 @@ func (h *Handler) SetSquadRuntimeSkillEnabled(w http.ResponseWriter, r *http.Req
 		writeError(w, http.StatusBadRequest, "runtime_id, root, key, and enabled are required")
 		return
 	}
-	runtimeID, ok := parseUUIDOrBadRequest(w, req.RuntimeID, "runtime_id")
+	rt, _, ok := h.requireRuntimeReadAccess(w, r, obsmetrics.RuntimeLookupSourceRuntimeAPI, req.RuntimeID)
 	if !ok {
 		return
 	}
-	target, ok := h.runtimeSkillTarget(w, r, squad.WorkspaceID, runtimeID, req.runtimeSkillIdentity)
+	if rt.WorkspaceID != squad.WorkspaceID {
+		writeError(w, http.StatusNotFound, "runtime not found")
+		return
+	}
+	target, ok := runtimeSkillTarget(w, rt, req.runtimeSkillIdentity)
 	if !ok {
 		return
 	}

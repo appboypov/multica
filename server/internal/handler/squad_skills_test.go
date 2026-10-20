@@ -242,12 +242,16 @@ func TestSquadRuntimeSkillRefusals(t *testing.T) {
 		runtimeMode    string
 		provider       string
 		foreignRuntime bool
-		member         bool
-		wantStatus     int
+		// othersPrivateRuntime puts the runtime on another member's private
+		// machine, which the squad manager may neither read nor use.
+		othersPrivateRuntime bool
+		member               bool
+		wantStatus           int
 	}{
 		{name: "missing enabled", body: map[string]any{"enabled": nil}, wantStatus: http.StatusBadRequest},
 		{name: "missing runtime", body: map[string]any{"runtime_id": ""}, wantStatus: http.StatusBadRequest},
 		{name: "foreign runtime", foreignRuntime: true, wantStatus: http.StatusNotFound},
+		{name: "another member's private runtime", othersPrivateRuntime: true, wantStatus: http.StatusNotFound},
 		{name: "non local runtime", runtimeMode: "cloud", wantStatus: http.StatusBadRequest},
 		{name: "non enforcing provider", provider: "pi", wantStatus: http.StatusBadRequest},
 		{name: "invalid root", body: map[string]any{"root": "home"}, wantStatus: http.StatusBadRequest},
@@ -266,6 +270,9 @@ func TestSquadRuntimeSkillRefusals(t *testing.T) {
 			cols := testutil.Cols{"runtime_mode": mode, "provider": provider}
 			if tc.foreignRuntime {
 				cols["workspace_id"] = dbfx.Workspace(t, t.Name(), "squad-runtime-foreign")
+			}
+			if tc.othersPrivateRuntime {
+				cols["owner_id"] = memberID
 			}
 			runtimeID := dbfx.Runtime(t, t.Name(), cols)
 			squad := createSquadAs(t, "", "Squad Runtime Refusal", createHandlerTestAgent(t, "squad-runtime-refusal", nil))
