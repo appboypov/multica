@@ -958,7 +958,7 @@ func (q *Queries) LockReleaseOwnerAgent(ctx context.Context, arg LockReleaseOwne
 }
 
 const lockReleaseOwnerSquad = `-- name: LockReleaseOwnerSquad :one
-SELECT id, workspace_id, name, description, leader_id, creator_id, created_at, updated_at, archived_at, archived_by, avatar_url, instructions FROM squad
+SELECT id, workspace_id, name, description, leader_id, creator_id, created_at, updated_at, archived_at, archived_by, avatar_url, instructions, inherit_runtime_skills, runtime_skill_exceptions FROM squad
 WHERE id = $1 AND workspace_id = $2
 FOR SHARE
 `
@@ -986,6 +986,8 @@ func (q *Queries) LockReleaseOwnerSquad(ctx context.Context, arg LockReleaseOwne
 		&i.ArchivedBy,
 		&i.AvatarUrl,
 		&i.Instructions,
+		&i.InheritRuntimeSkills,
+		&i.RuntimeSkillExceptions,
 	)
 	return i, err
 }

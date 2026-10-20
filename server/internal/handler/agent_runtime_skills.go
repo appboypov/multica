@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/multica-ai/multica/server/internal/logger"
 	obsmetrics "github.com/multica-ai/multica/server/internal/metrics"
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
@@ -84,6 +85,71 @@ func runtimeSkillControlsSupported(provider string) bool {
 	return provider == "claude" || provider == "codex" || provider == "omp"
 }
 
+// runtimeSkillIdentity names one runtime-local skill in a request.
+type runtimeSkillIdentity struct {
+	RuntimeID string `json:"runtime_id"`
+	Root      string `json:"root"`
+	Key       string `json:"key"`
+	Name      string `json:"name"`
+	Plugin    string `json:"plugin"`
+}
+
+type runtimeSkillEnabledRequest struct {
+	runtimeSkillIdentity
+	Enabled *bool `json:"enabled"`
+}
+
+// runtimeSkillTarget resolves a requested runtime skill on a local runtime of
+// the workspace whose runs enforce skill filters. It writes the refusal and
+// returns false when the runtime or the identity is not accepted.
+func (h *Handler) runtimeSkillTarget(w http.ResponseWriter, r *http.Request, workspaceID, runtimeID pgtype.UUID, req runtimeSkillIdentity) (RuntimeSkillException, bool) {
+	rt, err := h.getAgentRuntime(r.Context(), obsmetrics.RuntimeLookupSourceRuntimeAPI, runtimeID)
+	if err != nil || rt.WorkspaceID != workspaceID {
+		writeError(w, http.StatusNotFound, "runtime not found")
+		return RuntimeSkillException{}, false
+	}
+	if rt.RuntimeMode != "local" || !runtimeSkillControlsSupported(rt.Provider) {
+		writeError(w, http.StatusBadRequest, "runtime skill controls are only supported for claude, codex and omp")
+		return RuntimeSkillException{}, false
+	}
+	root, key, plugin, valid := normalizeRuntimeSkillIdentity(req.Root, req.Key, req.Plugin)
+	if !valid || (root == "plugin" && rt.Provider != "claude") {
+		writeError(w, http.StatusBadRequest, "invalid runtime skill identity")
+		return RuntimeSkillException{}, false
+	}
+	name := strings.TrimSpace(req.Name)
+	if len(name) > maxRuntimeSkillKeyLength {
+		writeError(w, http.StatusBadRequest, "invalid runtime skill name")
+		return RuntimeSkillException{}, false
+	}
+	return RuntimeSkillException{
+		RuntimeID: uuidToString(runtimeID),
+		Provider:  rt.Provider,
+		Root:      root,
+		Key:       key,
+		Name:      name,
+		Plugin:    plugin,
+	}, true
+}
+
+// withRuntimeSkillState returns the stored exceptions with target set to
+// enabled: the skill is an exception exactly when its state differs from the
+// section switch.
+func withRuntimeSkillState(raw []byte, target RuntimeSkillException, enabled, inherit bool) ([]byte, error) {
+	current := decodeRuntimeSkillExceptions(raw)
+	next := make([]RuntimeSkillException, 0, len(current)+1)
+	for _, skill := range current {
+		if sameRuntimeSkill(skill, target) {
+			continue
+		}
+		next = append(next, skill)
+	}
+	if enabled != inherit {
+		next = append(next, target)
+	}
+	return json.Marshal(next)
+}
+
 // SetAgentRuntimeSkillEnabled turns one skill that is discovered from the
 // agent's currently assigned local runtime on or off. The skill is an
 // exception exactly when its state differs from the section switch.
@@ -97,14 +163,7 @@ func (h *Handler) SetAgentRuntimeSkillEnabled(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	var req struct {
-		RuntimeID string `json:"runtime_id"`
-		Root      string `json:"root"`
-		Key       string `json:"key"`
-		Name      string `json:"name"`
-		Plugin    string `json:"plugin"`
-		Enabled   *bool  `json:"enabled"`
-	}
+	var req runtimeSkillEnabledRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Enabled == nil {
 		writeError(w, http.StatusBadRequest, "runtime_id, root, key, and enabled are required")
 		return
@@ -117,23 +176,8 @@ func (h *Handler) SetAgentRuntimeSkillEnabled(w http.ResponseWriter, r *http.Req
 		writeError(w, http.StatusConflict, "agent is no longer assigned to this runtime")
 		return
 	}
-	rt, err := h.getAgentRuntime(r.Context(), obsmetrics.RuntimeLookupSourceRuntimeAPI, runtimeID)
-	if err != nil || rt.WorkspaceID != agent.WorkspaceID {
-		writeError(w, http.StatusNotFound, "runtime not found")
-		return
-	}
-	if rt.RuntimeMode != "local" || !runtimeSkillControlsSupported(rt.Provider) {
-		writeError(w, http.StatusBadRequest, "runtime skill controls are only supported for claude, codex and omp")
-		return
-	}
-	root, key, plugin, valid := normalizeRuntimeSkillIdentity(req.Root, req.Key, req.Plugin)
-	if !valid || (root == "plugin" && rt.Provider != "claude") {
-		writeError(w, http.StatusBadRequest, "invalid runtime skill identity")
-		return
-	}
-	name := strings.TrimSpace(req.Name)
-	if len(name) > maxRuntimeSkillKeyLength {
-		writeError(w, http.StatusBadRequest, "invalid runtime skill name")
+	target, ok := h.runtimeSkillTarget(w, r, agent.WorkspaceID, runtimeID, req.runtimeSkillIdentity)
+	if !ok {
 		return
 	}
 
@@ -154,26 +198,7 @@ func (h *Handler) SetAgentRuntimeSkillEnabled(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	target := RuntimeSkillException{
-		RuntimeID: req.RuntimeID,
-		Provider:  rt.Provider,
-		Root:      root,
-		Key:       key,
-		Name:      name,
-		Plugin:    plugin,
-	}
-	current := decodeRuntimeSkillExceptions(locked.RuntimeSkillExceptions)
-	next := make([]RuntimeSkillException, 0, len(current)+1)
-	for _, skill := range current {
-		if sameRuntimeSkill(skill, target) {
-			continue
-		}
-		next = append(next, skill)
-	}
-	if *req.Enabled != locked.InheritRuntimeSkills {
-		next = append(next, target)
-	}
-	payload, err := json.Marshal(next)
+	payload, err := withRuntimeSkillState(locked.RuntimeSkillExceptions, target, *req.Enabled, locked.InheritRuntimeSkills)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to encode runtime skill settings")
 		return

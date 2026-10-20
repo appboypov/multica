@@ -27,6 +27,22 @@ func (q *Queries) AddAgentSkill(ctx context.Context, arg AddAgentSkillParams) er
 	return err
 }
 
+const addSquadSkill = `-- name: AddSquadSkill :exec
+INSERT INTO squad_skill (squad_id, skill_id)
+VALUES ($1, $2)
+ON CONFLICT DO NOTHING
+`
+
+type AddSquadSkillParams struct {
+	SquadID pgtype.UUID `json:"squad_id"`
+	SkillID pgtype.UUID `json:"skill_id"`
+}
+
+func (q *Queries) AddSquadSkill(ctx context.Context, arg AddSquadSkillParams) error {
+	_, err := q.db.Exec(ctx, addSquadSkill, arg.SquadID, arg.SkillID)
+	return err
+}
+
 const createSkill = `-- name: CreateSkill :one
 INSERT INTO skill (workspace_id, name, description, content, config, created_by)
 VALUES ($1, $2, $3, $4, $5, $6)
@@ -68,7 +84,11 @@ func (q *Queries) CreateSkill(ctx context.Context, arg CreateSkillParams) (Skill
 }
 
 const deleteSkill = `-- name: DeleteSkill :exec
-DELETE FROM skill WHERE id = $1 AND workspace_id = $2
+WITH deleted_skill AS (
+    DELETE FROM skill WHERE id = $1 AND workspace_id = $2
+    RETURNING id
+)
+DELETE FROM squad_skill WHERE skill_id IN (SELECT id FROM deleted_skill)
 `
 
 type DeleteSkillParams struct {
@@ -77,6 +97,7 @@ type DeleteSkillParams struct {
 }
 
 // Defense-in-depth: workspace_id is a SQL-layer tenant guard. See DeleteIssue.
+// squad_skill has no foreign key, so the skill's squad assignments go with it.
 func (q *Queries) DeleteSkill(ctx context.Context, arg DeleteSkillParams) error {
 	_, err := q.db.Exec(ctx, deleteSkill, arg.ID, arg.WorkspaceID)
 	return err
@@ -644,6 +665,60 @@ func (q *Queries) ListSkillsByWorkspace(ctx context.Context, workspaceID pgtype.
 	return items, nil
 }
 
+const listSquadSkillSummaries = `-- name: ListSquadSkillSummaries :many
+
+SELECT s.id, s.workspace_id, s.name, s.description, s.config, s.created_by, s.created_at, s.updated_at, sqs.enabled
+FROM skill s
+JOIN squad_skill sqs ON sqs.skill_id = s.id
+WHERE sqs.squad_id = $1
+ORDER BY s.name ASC
+`
+
+type ListSquadSkillSummariesRow struct {
+	ID          pgtype.UUID        `json:"id"`
+	WorkspaceID pgtype.UUID        `json:"workspace_id"`
+	Name        string             `json:"name"`
+	Description string             `json:"description"`
+	Config      []byte             `json:"config"`
+	CreatedBy   pgtype.UUID        `json:"created_by"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+	Enabled     bool               `json:"enabled"`
+}
+
+// Squad-Skill junction
+// Summary variant for the squad skills list endpoint: omits `content` for
+// the same reason as ListSkillSummariesByWorkspace.
+func (q *Queries) ListSquadSkillSummaries(ctx context.Context, squadID pgtype.UUID) ([]ListSquadSkillSummariesRow, error) {
+	rows, err := q.db.Query(ctx, listSquadSkillSummaries, squadID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListSquadSkillSummariesRow{}
+	for rows.Next() {
+		var i ListSquadSkillSummariesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.Name,
+			&i.Description,
+			&i.Config,
+			&i.CreatedBy,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Enabled,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const removeAgentSkill = `-- name: RemoveAgentSkill :exec
 DELETE FROM agent_skill
 WHERE agent_id = $1 AND skill_id = $2
@@ -668,6 +743,30 @@ func (q *Queries) RemoveAllAgentSkills(ctx context.Context, agentID pgtype.UUID)
 	return err
 }
 
+const removeAllSquadSkills = `-- name: RemoveAllSquadSkills :exec
+DELETE FROM squad_skill WHERE squad_id = $1
+`
+
+func (q *Queries) RemoveAllSquadSkills(ctx context.Context, squadID pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, removeAllSquadSkills, squadID)
+	return err
+}
+
+const removeSquadSkill = `-- name: RemoveSquadSkill :exec
+DELETE FROM squad_skill
+WHERE squad_id = $1 AND skill_id = $2
+`
+
+type RemoveSquadSkillParams struct {
+	SquadID pgtype.UUID `json:"squad_id"`
+	SkillID pgtype.UUID `json:"skill_id"`
+}
+
+func (q *Queries) RemoveSquadSkill(ctx context.Context, arg RemoveSquadSkillParams) error {
+	_, err := q.db.Exec(ctx, removeSquadSkill, arg.SquadID, arg.SkillID)
+	return err
+}
+
 const setAgentSkillEnabled = `-- name: SetAgentSkillEnabled :execrows
 UPDATE agent_skill
 SET enabled = $3
@@ -682,6 +781,26 @@ type SetAgentSkillEnabledParams struct {
 
 func (q *Queries) SetAgentSkillEnabled(ctx context.Context, arg SetAgentSkillEnabledParams) (int64, error) {
 	result, err := q.db.Exec(ctx, setAgentSkillEnabled, arg.AgentID, arg.SkillID, arg.Enabled)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const setSquadSkillEnabled = `-- name: SetSquadSkillEnabled :execrows
+UPDATE squad_skill
+SET enabled = $3
+WHERE squad_id = $1 AND skill_id = $2
+`
+
+type SetSquadSkillEnabledParams struct {
+	SquadID pgtype.UUID `json:"squad_id"`
+	SkillID pgtype.UUID `json:"skill_id"`
+	Enabled bool        `json:"enabled"`
+}
+
+func (q *Queries) SetSquadSkillEnabled(ctx context.Context, arg SetSquadSkillEnabledParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setSquadSkillEnabled, arg.SquadID, arg.SkillID, arg.Enabled)
 	if err != nil {
 		return 0, err
 	}

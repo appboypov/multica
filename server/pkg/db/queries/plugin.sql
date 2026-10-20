@@ -331,13 +331,22 @@ RETURNING *;
 SELECT * FROM skill WHERE plugin_installation_id = $1 ORDER BY name ASC;
 
 -- name: DeletePluginSkillsByInstallation :exec
-DELETE FROM skill WHERE plugin_installation_id = $1;
+-- squad_skill has no foreign key, so the skills' squad assignments go with them.
+WITH deleted_skills AS (
+    DELETE FROM skill WHERE plugin_installation_id = $1
+    RETURNING id
+)
+DELETE FROM squad_skill WHERE skill_id IN (SELECT id FROM deleted_skills);
 
 -- name: DeletePluginSkillsNotIn :exec
 -- Upgrade pruning: a skill this installation used to contribute but no longer
 -- declares must go, or a renamed skill leaves its predecessor behind forever.
-DELETE FROM skill
-WHERE plugin_installation_id = $1 AND name <> ALL(@keep_names::text[]);
+WITH deleted_skills AS (
+    DELETE FROM skill
+    WHERE plugin_installation_id = $1 AND name <> ALL(@keep_names::text[])
+    RETURNING id
+)
+DELETE FROM squad_skill WHERE skill_id IN (SELECT id FROM deleted_skills);
 
 -- name: SetPluginMCPApprovals :one
 UPDATE plugin_installation

@@ -441,6 +441,11 @@ deleted_squad_members AS (
     DELETE FROM squad_member
     WHERE squad_id IN (SELECT id FROM ws_squads)
 ),
+deleted_squad_skills AS (
+    DELETE FROM squad_skill
+    WHERE squad_id IN (SELECT id FROM ws_squads)
+       OR skill_id IN (SELECT id FROM ws_skills)
+),
 deleted_autopilot_collaborators AS (
     DELETE FROM autopilot_collaborator
     WHERE autopilot_id IN (SELECT id FROM ws_autopilots)

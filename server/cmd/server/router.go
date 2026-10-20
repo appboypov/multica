@@ -2257,6 +2257,13 @@ func NewRouterWithOptions(pool *pgxpool.Pool, hub *realtime.Hub, bus *events.Bus
 					r.Post("/members", h.AddSquadMember)
 					r.Delete("/members", h.RemoveSquadMember)
 					r.Patch("/members/role", h.UpdateSquadMemberRole)
+					r.Get("/skills", h.ListSquadSkills)
+					r.Put("/skills", h.SetSquadSkills)
+					r.Post("/skills/add", h.AddSquadSkills)
+					r.Put("/skills/{skillId}/enabled", h.SetSquadSkillEnabled)
+					r.Delete("/skills/{skillId}", h.RemoveSquadSkill)
+					r.Put("/runtime-skills/enabled", h.SetSquadRuntimeSkillEnabled)
+					r.Put("/runtime-skills/inherit", h.SetSquadRuntimeSkillsInherited)
 				})
 			})
 

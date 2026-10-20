@@ -2545,7 +2545,7 @@ func (h *Handler) SetAgentSkills(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if !h.validateAgentSkillIDsInWorkspace(w, r, agent, skillUUIDs) {
+	if !h.validateSkillIDsInWorkspace(w, r, agent.WorkspaceID, skillUUIDs) {
 		return
 	}
 
@@ -2600,7 +2600,7 @@ func (h *Handler) AddAgentSkills(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if !h.validateAgentSkillIDsInWorkspace(w, r, agent, skillUUIDs) {
+	if !h.validateSkillIDsInWorkspace(w, r, agent.WorkspaceID, skillUUIDs) {
 		return
 	}
 
@@ -2691,7 +2691,7 @@ func (h *Handler) RemoveAgentSkill(w http.ResponseWriter, r *http.Request) {
 	h.writeUpdatedAgentSkills(w, r, agent)
 }
 
-func (h *Handler) validateAgentSkillIDsInWorkspace(w http.ResponseWriter, r *http.Request, agent db.Agent, skillUUIDs []pgtype.UUID) bool {
+func (h *Handler) validateSkillIDsInWorkspace(w http.ResponseWriter, r *http.Request, workspaceID pgtype.UUID, skillUUIDs []pgtype.UUID) bool {
 	seen := map[string]struct{}{}
 	for _, skillID := range skillUUIDs {
 		key := uuidToString(skillID)
@@ -2701,7 +2701,7 @@ func (h *Handler) validateAgentSkillIDsInWorkspace(w http.ResponseWriter, r *htt
 		seen[key] = struct{}{}
 		if _, err := h.Queries.GetSkillInWorkspace(r.Context(), db.GetSkillInWorkspaceParams{
 			ID:          skillID,
-			WorkspaceID: agent.WorkspaceID,
+			WorkspaceID: workspaceID,
 		}); err != nil {
 			writeError(w, http.StatusNotFound, "skill not found")
 			return false

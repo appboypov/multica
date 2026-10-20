@@ -46,7 +46,12 @@ RETURNING *;
 
 -- name: DeleteSkill :exec
 -- Defense-in-depth: workspace_id is a SQL-layer tenant guard. See DeleteIssue.
-DELETE FROM skill WHERE id = $1 AND workspace_id = $2;
+-- squad_skill has no foreign key, so the skill's squad assignments go with it.
+WITH deleted_skill AS (
+    DELETE FROM skill WHERE id = $1 AND workspace_id = $2
+    RETURNING id
+)
+DELETE FROM squad_skill WHERE skill_id IN (SELECT id FROM deleted_skill);
 
 -- Skill File CRUD
 
@@ -168,3 +173,31 @@ FROM agent_skill ask
 JOIN skill s ON s.id = ask.skill_id
 WHERE s.workspace_id = $1
 ORDER BY s.name ASC;
+
+-- Squad-Skill junction
+
+-- name: ListSquadSkillSummaries :many
+-- Summary variant for the squad skills list endpoint: omits `content` for
+-- the same reason as ListSkillSummariesByWorkspace.
+SELECT s.id, s.workspace_id, s.name, s.description, s.config, s.created_by, s.created_at, s.updated_at, sqs.enabled
+FROM skill s
+JOIN squad_skill sqs ON sqs.skill_id = s.id
+WHERE sqs.squad_id = $1
+ORDER BY s.name ASC;
+
+-- name: AddSquadSkill :exec
+INSERT INTO squad_skill (squad_id, skill_id)
+VALUES ($1, $2)
+ON CONFLICT DO NOTHING;
+
+-- name: SetSquadSkillEnabled :execrows
+UPDATE squad_skill
+SET enabled = $3
+WHERE squad_id = $1 AND skill_id = $2;
+
+-- name: RemoveSquadSkill :exec
+DELETE FROM squad_skill
+WHERE squad_id = $1 AND skill_id = $2;
+
+-- name: RemoveAllSquadSkills :exec
+DELETE FROM squad_skill WHERE squad_id = $1;

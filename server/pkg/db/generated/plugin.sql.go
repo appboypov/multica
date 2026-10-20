@@ -428,17 +428,26 @@ func (q *Queries) DeletePluginSecretsByInstallation(ctx context.Context, install
 }
 
 const deletePluginSkillsByInstallation = `-- name: DeletePluginSkillsByInstallation :exec
-DELETE FROM skill WHERE plugin_installation_id = $1
+WITH deleted_skills AS (
+    DELETE FROM skill WHERE plugin_installation_id = $1
+    RETURNING id
+)
+DELETE FROM squad_skill WHERE skill_id IN (SELECT id FROM deleted_skills)
 `
 
+// squad_skill has no foreign key, so the skills' squad assignments go with them.
 func (q *Queries) DeletePluginSkillsByInstallation(ctx context.Context, pluginInstallationID pgtype.UUID) error {
 	_, err := q.db.Exec(ctx, deletePluginSkillsByInstallation, pluginInstallationID)
 	return err
 }
 
 const deletePluginSkillsNotIn = `-- name: DeletePluginSkillsNotIn :exec
-DELETE FROM skill
-WHERE plugin_installation_id = $1 AND name <> ALL($2::text[])
+WITH deleted_skills AS (
+    DELETE FROM skill
+    WHERE plugin_installation_id = $1 AND name <> ALL($2::text[])
+    RETURNING id
+)
+DELETE FROM squad_skill WHERE skill_id IN (SELECT id FROM deleted_skills)
 `
 
 type DeletePluginSkillsNotInParams struct {

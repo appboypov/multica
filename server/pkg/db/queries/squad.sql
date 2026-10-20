@@ -73,6 +73,20 @@ UPDATE squad SET
 WHERE id = $1
 RETURNING *;
 
+-- name: UpdateSquadRuntimeSkillExceptions :one
+UPDATE squad
+SET runtime_skill_exceptions = $2, updated_at = now()
+WHERE id = $1
+RETURNING *;
+
+-- name: UpdateSquadInheritRuntimeSkills :one
+-- The section switch sets every runtime skill on or off, so the exceptions to
+-- it start empty again.
+UPDATE squad
+SET inherit_runtime_skills = $2, runtime_skill_exceptions = '[]'::jsonb, updated_at = now()
+WHERE id = $1
+RETURNING *;
+
 -- name: ArchiveSquad :one
 UPDATE squad SET archived_at = now(), archived_by = $2, updated_at = now()
 WHERE id = $1
