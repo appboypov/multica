@@ -1,5 +1,6 @@
 {
   "$schema": "https://turbo.build/schema.json",
+  "globalPassThroughEnv": ["VITEST_MAX_WORKERS"],
   "globalEnv": [
     "DATABASE_URL",
     "PORT",

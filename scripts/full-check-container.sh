@@ -14,8 +14,10 @@
 #
 # Every stage runs to its end and records its exit status; a stage that fails
 # fails the check, and a check that runs past its 10-minute budget is flagged
-# as slow. E2e server readiness has a shared 120-second startup deadline.
-# A server exit or failed readiness prints both server logs and fails only e2e.
+# as slow. E2e runs against a production build of the web app, cached by turbo
+# like any other task, with two Playwright workers. Server readiness has a
+# shared 120-second startup deadline. A server exit or failed readiness prints
+# both server logs and fails only e2e.
 # TURBO_API, TURBO_TOKEN and TURBO_TEAM name the Turborepo cache server on
 # the Mac, so a package whose
 # inputs are unchanged replays its earlier result, and the Go stage is skipped
@@ -42,6 +44,9 @@ export DO_NOT_TRACK=1 NEXT_TELEMETRY_DISABLED=1 TURBO_TELEMETRY_DISABLED=1
 export PLAYWRIGHT_BROWSERS_PATH=/home/crabbox/.cache/ms-playwright COREPACK_HOME=/usr/local/share/corepack
 # The image holds the pnpm store and Go modules of the lockfiles.
 export npm_config_store_dir=/home/crabbox/.cache/pnpm-store GOMODCACHE=/home/crabbox/.cache/go-mod
+# Turbo runs up to six test packages at once on six CPUs, so each Vitest run
+# takes three workers instead of one per CPU.
+export VITEST_MAX_WORKERS=3
 
 RESULTS=()
 FAILED=0
@@ -256,17 +261,21 @@ wait_e2e_servers() {
 }
 
 e2e_stage() {
+  "${TURBO[@]}" build --filter=@multica/web || return
   (cd server && go build -o "$RUN/server" ./cmd/server) || return
   (cd server && with_services_env "$RUN/server") >"$RUN/backend.log" 2>&1 &
   local backend_pid=$!
-  with_services_env pnpm dev:web >"$RUN/frontend.log" 2>&1 &
+  # The build carries no service URLs, so its turbo key stays the same across
+  # runs; the server proxies /api, /ws and /auth to REMOTE_API_URL at runtime.
+  (cd apps/web && env REMOTE_API_URL="http://localhost:$BACKPORT" pnpm exec next start --port "$WEBPORT") \
+    >"$RUN/frontend.log" 2>&1 &
   local frontend_pid=$!
   wait_e2e_servers "$backend_pid" "$frontend_pid" || return 1
   if [ "$E2E_SPECS" = all ]; then
-    with_services_env pnpm exec playwright test --reporter=line
+    with_services_env pnpm exec playwright test --reporter=line --workers=2
   else
     # shellcheck disable=SC2086 # one spec path per word
-    with_services_env pnpm exec playwright test --reporter=line $E2E_SPECS
+    with_services_env pnpm exec playwright test --reporter=line --workers=2 $E2E_SPECS
   fi
 }
 
