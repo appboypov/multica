@@ -383,7 +383,7 @@ clean: ## Remove build caches, generated binaries, and temp files
 ##@ Fork
 
 .PHONY: upstream-sync local-release desktop-app
-upstream-sync: ## Merge the latest multica-ai/multica release into this fork's main, then typecheck, unit-test and build
+upstream-sync: ## Merge the latest multica-ai/multica release into this fork's main, then install and build the Go server
 	@bash scripts/upstream-sync.sh
 
 local-release: build selfhost-build desktop-app ## Release this checkout locally: CLI in server/bin, self-hosted stack, desktop app

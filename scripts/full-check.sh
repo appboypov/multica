@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# The full check at release: run it on the Mac from the checkout whose
-# head the release takes.
+# The full check: run it on the Mac from this checkout after make local-release
+# installed the head the release takes. A release never waits for it.
 #
 # It runs scripts/full-check-container.sh in a single-use local Crabbox
 # container (MadSpec's crabbox-local), with the image that

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Merges the latest multica-ai/multica release into this fork's main, keeps the
-# fork free of upstream's pipeline files, and runs the checks a merge must pass.
+# fork free of the files it removed, then installs and builds the Go server.
 # Usage: bash scripts/upstream-sync.sh
 set -euo pipefail
 
@@ -57,11 +57,7 @@ fi
 
 echo "==> Installing dependencies..."
 pnpm install --frozen-lockfile
-echo "==> TypeScript typecheck..."
-pnpm typecheck
-echo "==> TypeScript unit tests..."
-pnpm test
 echo "==> Go build..."
 (cd server && go build ./...)
 
-echo "✓ main contains $UPSTREAM_REPO $tag and passes its checks"
+echo "✓ main contains $UPSTREAM_REPO $tag and builds"

@@ -392,7 +392,7 @@ export function SquadSkillsTab({
                     <span
                       className={cn(
                         "flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground",
-                        off && "opacity-50",
+                        off && "text-faint-foreground",
                       )}
                     >
                       <Server className="h-4 w-4" />
