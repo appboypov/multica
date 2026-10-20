@@ -1208,6 +1208,41 @@ describe("SquadListSchema member preview drift", () => {
   });
 });
 
+describe("SquadSchema runtime skill drift", () => {
+  const baseSquad = {
+    id: "squad-1",
+    workspace_id: "ws-1",
+    name: "Frontend Squad",
+    leader_id: "agent-1",
+    creator_id: "user-1",
+    created_at: "2026-05-01T00:00:00Z",
+    updated_at: "2026-05-01T00:00:00Z",
+  };
+
+  it("gives no runtime skills when an older backend omits the section switch", () => {
+    const parsed = SquadSchema.parse(baseSquad);
+    expect(parsed.inherit_runtime_skills).toBe(false);
+    expect(parsed.runtime_skill_exceptions).toEqual([]);
+  });
+
+  it("keeps the section switch and per-runtime exceptions", () => {
+    const exception = {
+      runtime_id: "runtime-1",
+      provider: "omp",
+      root: "provider",
+      key: "review",
+      name: "Review",
+    };
+    const parsed = SquadSchema.parse({
+      ...baseSquad,
+      inherit_runtime_skills: true,
+      runtime_skill_exceptions: [exception],
+    });
+    expect(parsed.inherit_runtime_skills).toBe(true);
+    expect(parsed.runtime_skill_exceptions).toEqual([exception]);
+  });
+});
+
 describe("SquadMemberListSchema member type drift", () => {
   const row = (member_type: string, member_id: string) => ({
     id: `sm-${member_id}`,

@@ -5285,6 +5285,73 @@ export class ApiClient {
     return this.fetch(`/api/squads/${squadId}/members/role`, { method: "PATCH", body: JSON.stringify(data) });
   }
 
+  // Squad skills mirror the agent ones: assigned workspace skills with an
+  // enabled flag, a runtime skill section switch and per-runtime exceptions.
+  // Each assigned-skill call answers with the squad's assigned skills.
+  async listSquadSkills(squadId: string): Promise<SkillSummary[]> {
+    const raw = await this.fetch<unknown>(`/api/squads/${squadId}/skills`);
+    return parseWithFallback(raw, SkillSummaryListSchema, EMPTY_SKILL_SUMMARY_LIST, {
+      endpoint: "GET /api/squads/:id/skills",
+    });
+  }
+
+  async setSquadSkills(squadId: string, data: SetAgentSkillsRequest): Promise<SkillSummary[]> {
+    const raw = await this.fetch<unknown>(`/api/squads/${squadId}/skills`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+    return parseWithFallback(raw, SkillSummaryListSchema, EMPTY_SKILL_SUMMARY_LIST, {
+      endpoint: "PUT /api/squads/:id/skills",
+    });
+  }
+
+  async addSquadSkills(squadId: string, data: SetAgentSkillsRequest): Promise<SkillSummary[]> {
+    const raw = await this.fetch<unknown>(`/api/squads/${squadId}/skills/add`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+    return parseWithFallback(raw, SkillSummaryListSchema, EMPTY_SKILL_SUMMARY_LIST, {
+      endpoint: "POST /api/squads/:id/skills/add",
+    });
+  }
+
+  async setSquadSkillEnabled(squadId: string, skillId: string, enabled: boolean): Promise<SkillSummary[]> {
+    const raw = await this.fetch<unknown>(`/api/squads/${squadId}/skills/${skillId}/enabled`, {
+      method: "PUT",
+      body: JSON.stringify({ enabled }),
+    });
+    return parseWithFallback(raw, SkillSummaryListSchema, EMPTY_SKILL_SUMMARY_LIST, {
+      endpoint: "PUT /api/squads/:id/skills/:skillId/enabled",
+    });
+  }
+
+  async removeSquadSkill(squadId: string, skillId: string): Promise<SkillSummary[]> {
+    const raw = await this.fetch<unknown>(`/api/squads/${squadId}/skills/${skillId}`, {
+      method: "DELETE",
+    });
+    return parseWithFallback(raw, SkillSummaryListSchema, EMPTY_SKILL_SUMMARY_LIST, {
+      endpoint: "DELETE /api/squads/:id/skills/:skillId",
+    });
+  }
+
+  // A squad has no runtime of its own, so the request names the runtime.
+  async setSquadRuntimeSkillEnabled(
+    squadId: string,
+    data: SetAgentRuntimeSkillEnabledRequest,
+  ): Promise<void> {
+    await this.fetch(`/api/squads/${squadId}/runtime-skills/enabled`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async setSquadRuntimeSkillsInherited(squadId: string, enabled: boolean): Promise<void> {
+    await this.fetch(`/api/squads/${squadId}/runtime-skills/inherit`, {
+      method: "PUT",
+      body: JSON.stringify({ enabled }),
+    });
+  }
+
   // Per-squad members status snapshot: one row per member with derived
   // working/idle/offline/unstable plus the issues each agent is currently
   // running. Parsed with a lenient schema so a new server-side status

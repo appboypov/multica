@@ -3126,6 +3126,15 @@ const SquadMemberPreviewSchema = z.object({
   role: z.string().default(""),
 }).loose();
 
+const RuntimeSkillExceptionSchema = z.object({
+  runtime_id: z.string(),
+  provider: z.string(),
+  root: z.string(),
+  key: z.string(),
+  name: z.string().optional(),
+  plugin: z.string().optional(),
+}).loose();
+
 export const SquadSchema = z.object({
   id: z.string(),
   workspace_id: z.string(),
@@ -3143,6 +3152,10 @@ export const SquadSchema = z.object({
   archived_by: z.string().nullable().optional().transform((v) => v ?? null),
   member_count: z.number().default(0),
   member_preview: z.array(SquadMemberPreviewSchema).default([]),
+  // A squad's runtime skill section switch defaults to off, so an older
+  // backend that omits it reads as a squad that gives no runtime skills.
+  inherit_runtime_skills: z.boolean().default(false),
+  runtime_skill_exceptions: z.array(RuntimeSkillExceptionSchema).catch([]),
 }).loose();
 
 export const SquadListSchema = z.array(SquadSchema);
@@ -3162,6 +3175,8 @@ export const EMPTY_SQUAD: Squad = {
   archived_by: null,
   member_count: 0,
   member_preview: [],
+  inherit_runtime_skills: false,
+  runtime_skill_exceptions: [],
 };
 
 // Squad member list — backs the Squad detail page's Members tab. A row this

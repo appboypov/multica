@@ -1,3 +1,5 @@
+import type { RuntimeSkillException } from "./agent";
+
 export type SquadMemberType = "agent" | "member" | "squad";
 
 export type SquadActivityOutcome = "action" | "no_action" | "failed";
@@ -23,6 +25,10 @@ export interface Squad {
   archived_by: string | null;
   member_count?: number;
   member_preview?: SquadMemberPreview[];
+  /** Runtime skill section switch; off on a new squad, so it gives no runtime skills. */
+  inherit_runtime_skills?: boolean;
+  /** Runtime skills whose state differs from the section switch, per runtime. */
+  runtime_skill_exceptions?: RuntimeSkillException[];
 }
 
 export interface SquadMember {
