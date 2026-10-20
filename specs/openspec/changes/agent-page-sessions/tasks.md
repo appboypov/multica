@@ -9,10 +9,10 @@ The branch `work-1089` stacks on `work-1087` (`agent-active-sessions`), which st
 
 ## 1. Sessions data
 
-- [ ] 1.1 `packages/core/api/client.ts` -- `listAgentSessions(agentId, {signal})` as design.md decision 1, beside `listAgentTasksPage`.
-- [ ] 1.2 `packages/core/agents/queries.ts` -- `agentSessionsKeys` and `agentSessionsOptions(wsId, agentId)`; `packages/core/agents/index.ts` already exports the file.
-- [ ] 1.3 `packages/core/realtime/use-realtime-sync.ts` -- invalidate `agentSessionsKeys.all(wsId)` in the `agent` and `task` refreshes, as design.md decision 2.
-- [ ] 1.4 `packages/core/agents/queries.test.ts` -- cached sessions are kept apart by workspace and agent; a malformed response (no `sessions`, an unknown `status`) gives a usable list -- the page relies on both.
+- [x] 1.1 `packages/core/api/client.ts` -- `listAgentSessions(agentId, {signal})` as design.md decision 1, beside `listAgentTasksPage`.
+- [x] 1.2 `packages/core/agents/queries.ts` -- `agentSessionsKeys` and `agentSessionsOptions(wsId, agentId)`; `packages/core/agents/index.ts` already exports the file.
+- [x] 1.3 `packages/core/realtime/use-realtime-sync.ts` -- invalidate `agentSessionsKeys.all(wsId)` in the `agent` and `task` refreshes, as design.md decision 2.
+- [x] 1.4 `packages/core/agents/queries.test.ts` -- cached sessions are kept apart by workspace and agent; a malformed response (no `sessions`, an unknown `status`) gives a usable list -- the page relies on both.
 
 ## 2. Sessions section
 
@@ -20,3 +20,13 @@ The branch `work-1089` stacks on `work-1087` (`agent-active-sessions`), which st
 - [ ] 2.2 `packages/views/agents/components/tabs/activity-tab.tsx` -- a first `Section` "Sessions" with its subtitle, holding `AgentSessionsList`.
 - [ ] 2.3 `packages/views/locales/{en,fr,ja,ko,zh-Hans}/agents.json` -- `activity.section_sessions`, `activity.subtitle_sessions_one`, `_other`, `activity.subtitle_no_sessions`, `activity.empty_sessions`, `activity.session_run_on`, `activity.session_unknown_where` and `activity.session_status.{idle,working,blocked,done,starting,unknown}`, translated in each locale.
 - [ ] 2.4 `packages/views/agents/components/tabs/activity-tab.render.test.tsx` -- a Herdr session and a run render with their pane, "run on" runtime, linked issue, folder, repository, branch and status; no sessions shows "No active sessions"; after an `agent:sessions` invalidation without the session, its row is gone -- the three scenarios of `agent-page-sessions`.
+
+## Implementation Notes
+
+### 1. Sessions data
+
+- Files: `packages/core/api/client.ts`, `packages/core/agents/queries.ts`, `packages/core/realtime/use-realtime-sync.ts`, `packages/core/agents/queries.test.ts`.
+- `listAgentSessions` uses the existing `EMPTY_AGENT_SESSIONS_RESPONSE` from `agent-session-model` as its fallback, so the empty value lives in one place.
+- `agentSessionsOptions` is a plain `queryOptions`: the route has no paging.
+- `agent:sessions` is not in `specificEvents`, so it reaches the `agent` prefix refresh with no extra wiring.
+- The malformed-response test runs the real `ApiClient` behind the mocked `api` with a stubbed `fetch`, so it proves the query sees the parsed list.

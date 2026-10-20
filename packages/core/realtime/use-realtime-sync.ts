@@ -32,6 +32,7 @@ import {
   agentActivityKeys,
   agentRunCountsKeys,
   agentTasksKeys,
+  agentSessionsKeys,
 } from "../agents/queries";
 import { githubKeys } from "../github/queries";
 import {
@@ -854,6 +855,8 @@ export function useRealtimeSync(
           // per-squad members-status cache without refetching the static squad
           // list summary.
           invalidateSquadMemberStatusQueries(qc, wsId);
+          // agent:sessions: a session started by hand began or ended.
+          qc.invalidateQueries({ queryKey: agentSessionsKeys.all(wsId) });
         }
       },
       member: () => {
@@ -1025,6 +1028,8 @@ export function useRealtimeSync(
         // catches every agent's list — the per-agent detail key sits
         // under agentTasks/<wsId>/<agentId>.
         qc.invalidateQueries({ queryKey: agentTasksKeys.all(wsId) });
+        // An agent's sessions list its dispatched and running tasks as runs.
+        qc.invalidateQueries({ queryKey: agentSessionsKeys.all(wsId) });
         // Per-issue task list (issue-detail Execution log). Prefix match
         // across all issues — keeps the contract "any task: event makes
         // every list-of-tasks query stale" so cache stays fresh even
