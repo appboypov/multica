@@ -1,0 +1,17 @@
+{
+  "goal": "Show the Overview tab with No active sessions for Guus",
+  "start_url": "http://localhost:51475/e2e-sessions-cd978ef3-43ec-433a-8db8-950381ead377/agents/53bb9a35-8787-4934-b3bc-a50707d6790d",
+  "viewport": [
+    1280,
+    1000
+  ],
+  "values": {},
+  "status": "done",
+  "error": null,
+  "steps": [],
+  "jev_decisions": 1,
+  "jev_latency_ms": 474,
+  "value_calls": [],
+  "wall_ms": 7748,
+  "log": []
+}

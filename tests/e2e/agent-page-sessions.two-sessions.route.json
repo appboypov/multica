@@ -1,0 +1,14 @@
+{
+  "goal": "Show the Overview tab with the Sessions section for Mitchel",
+  "start_url": "http://localhost:43415/e2e-sessions-11e029d6-c68d-47d1-8a15-2bb10f145b29/agents/4d0ccfd5-6a0b-48c3-b9e1-cac8d0f46aed",
+  "viewport": [1280, 1000],
+  "values": {},
+  "status": "done",
+  "error": null,
+  "steps": [],
+  "jev_decisions": 1,
+  "jev_latency_ms": 362,
+  "value_calls": [],
+  "wall_ms": 11080,
+  "log": []
+}
