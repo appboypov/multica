@@ -644,7 +644,21 @@
       "cancel_failed_toast": "실행을 취소하지 못했습니다",
       "started_prefix": "{{when}} 시작됨",
       "dispatched_prefix": "{{when}} 디스패치됨",
-      "queued_prefix": "{{when}} 대기 시작"
+      "queued_prefix": "{{when}} 대기 시작",
+      "section_sessions": "세션",
+      "subtitle_sessions_other": "{{count}}개 활성",
+      "subtitle_no_sessions": "활성 없음",
+      "empty_sessions": "활성 세션 없음",
+      "session_run_on": "{{runtime}}에서 실행",
+      "session_unknown_where": "알 수 없음",
+      "session_status": {
+        "idle": "유휴",
+        "working": "작업 중",
+        "blocked": "차단됨",
+        "done": "완료",
+        "starting": "시작 중",
+        "unknown": "알 수 없음"
+      }
     }
   },
   "char_counter": {

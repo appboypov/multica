@@ -23,6 +23,7 @@ import { useInfiniteQuery, useQueries, useQuery } from "@tanstack/react-query";
 import type { Agent, AgentTask, Issue } from "@multica/core/types";
 import {
   type AgentActivity,
+  agentSessionsOptions,
   agentTaskSnapshotOptions,
   agentTasksOptions,
   summarizeActivityWindow,
@@ -39,6 +40,7 @@ import { taskStatusConfig } from "../../config";
 import { cancellationActorLabel, cancelReasonLabel, failureReasonLabel } from "./task-failure";
 import { Sparkline } from "../sparkline";
 import { useT, useTimeAgo } from "../../../i18n";
+import { AgentSessionsList } from "./agent-sessions-list";
 
 // Reveal cached rows in small batches and fetch another page only on demand.
 const RECENT_INITIAL = 10;
@@ -54,9 +56,10 @@ interface ActivityTabProps {
 }
 
 /**
- * Right-pane Activity tab on the agent detail page. Three sections framed
- * around the user's three diagnostic questions, in scan order:
+ * Right-pane Activity tab on the agent detail page. Four sections framed
+ * around the user's diagnostic questions, in scan order:
  *
+ *   Sessions      — where is it running right now?
  *   Now           — what's it doing right this second?
  *   Last 30 days  — how has it been doing in aggregate?
  *   Recent work   — what did it just finish?
@@ -68,6 +71,7 @@ export function ActivityTab({ agent, showPerformance = true }: ActivityTabProps)
   const wsId = useWorkspaceId();
 
   const { data: snapshot = [] } = useQuery(agentTaskSnapshotOptions(wsId));
+  const { data: sessionsData } = useQuery(agentSessionsOptions(wsId, agent.id));
   // `isLoading` (pending + fetching, no cached data) is true only on the
   // very first fetch. Once the page has hydrated this cache elsewhere the
   // tab opens straight into data with no skeleton flash.
@@ -177,6 +181,7 @@ export function ActivityTab({ agent, showPerformance = true }: ActivityTabProps)
 
   return (
     <div className="flex min-w-0 flex-col gap-6">
+      <SessionsSection agent={agent} count={sessionsData?.sessions.length ?? 0} />
       <NowSection tasks={activeTasks} issueMap={issueMap} agent={agent} />
       {showPerformance && (
         <Last30dSection activity={activity} avgDurationMs={avgDurationMs} />
@@ -313,6 +318,22 @@ function SuccessRate({
           : t(($) => $.tab_body.activity.success_hint)}
       </TooltipContent>
     </Tooltip>
+  );
+}
+
+function SessionsSection({ agent, count }: { agent: Agent; count: number }) {
+  const { t } = useT("agents");
+  return (
+    <Section
+      title={t(($) => $.tab_body.activity.section_sessions)}
+      subtitle={
+        count === 0
+          ? t(($) => $.tab_body.activity.subtitle_no_sessions)
+          : t(($) => $.tab_body.activity.subtitle_sessions, { count })
+      }
+    >
+      <AgentSessionsList agent={agent} />
+    </Section>
   );
 }
 

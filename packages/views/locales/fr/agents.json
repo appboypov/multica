@@ -753,7 +753,22 @@
       "cancel_failed_toast": "Échec de l'annulation de l'exécution",
       "started_prefix": "Démarrée {{when}}",
       "dispatched_prefix": "Envoyée {{when}}",
-      "queued_prefix": "Mise en file d'attente {{when}}"
+      "queued_prefix": "Mise en file d'attente {{when}}",
+      "section_sessions": "Sessions",
+      "subtitle_sessions_one": "{{count}} active",
+      "subtitle_sessions_other": "{{count}} actives",
+      "subtitle_no_sessions": "Aucune active",
+      "empty_sessions": "Aucune session active",
+      "session_run_on": "exécutée sur {{runtime}}",
+      "session_unknown_where": "Inconnu",
+      "session_status": {
+        "idle": "Inactive",
+        "working": "En cours",
+        "blocked": "Bloquée",
+        "done": "Terminée",
+        "starting": "Démarrage",
+        "unknown": "Inconnu"
+      }
     }
   },
   "char_counter": {

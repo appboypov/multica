@@ -3,7 +3,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { Agent, AgentActivityBucket, AgentTask } from "@multica/core/types";
+import type { Agent, AgentActivityBucket, AgentSession, AgentTask } from "@multica/core/types";
+import { agentSessionsKeys } from "@multica/core/agents";
 import { WorkspaceSlugProvider } from "@multica/core/paths";
 import { I18nProvider } from "@multica/core/i18n/react";
 import enCommon from "../../../locales/en/common.json";
@@ -33,6 +34,7 @@ const agentTasksRef = vi.hoisted(() => ({
   current: (_before?: string) => new Promise<unknown>(() => {}),
 }));
 const activityRef = vi.hoisted(() => ({ current: [] as AgentActivityBucket[] }));
+const sessionsRef = vi.hoisted(() => ({ current: [] as AgentSession[] }));
 vi.mock("@multica/core/agents", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@multica/core/agents")>();
   return {
@@ -46,6 +48,10 @@ vi.mock("@multica/core/agents", async (importOriginal) => {
       initialPageParam: undefined,
       getNextPageParam: (page: { nextCursor: string | null }) => page.nextCursor ?? undefined,
       queryFn: ({ pageParam }: { pageParam?: string }) => agentTasksRef.current(pageParam),
+    }),
+    agentSessionsOptions: (wsId: string, agentId: string) => ({
+      queryKey: actual.agentSessionsKeys.detail(wsId, agentId),
+      queryFn: () => Promise.resolve({ sessions: sessionsRef.current }),
     }),
     useWorkspaceActivityMap: () => ({
       byAgent: new Map([[
@@ -78,7 +84,7 @@ function renderTab(performance = false) {
     hash: "",
     getShareableUrl: (path) => path,
   };
-  return render(
+  const view = render(
     <I18nProvider locale="en" resources={TEST_RESOURCES}>
       <NavigationProvider value={navigation}>
         <QueryClientProvider client={queryClient}>
@@ -90,11 +96,89 @@ function renderTab(performance = false) {
       </NavigationProvider>
     </I18nProvider>,
   );
+  return { ...view, queryClient };
 }
 
 beforeEach(() => {
   agentTasksRef.current = () => new Promise<unknown>(() => {});
   activityRef.current = [];
+  sessionsRef.current = [];
+});
+
+const herdrSession: AgentSession = {
+  id: "session-pane",
+  kind: "terminal",
+  pid: 42,
+  herdr_pane_id: "w12:p0",
+  runtime: null,
+  task_id: null,
+  issue: null,
+  work_dir: "/Users/brian/Worktrees/das/madspec/work-1057",
+  repository: "appboypov/madspec",
+  branch: "work-1057",
+  status: "working",
+  started_at: new Date(Date.now() - 12 * 60_000).toISOString(),
+};
+
+const runSession: AgentSession = {
+  id: "session-run",
+  kind: "run",
+  pid: null,
+  herdr_pane_id: null,
+  runtime: { id: "runtime-1", name: "Oh-My-Pi" },
+  task_id: "task-1",
+  issue: { id: "issue-1057", identifier: "WORK-1057" },
+  work_dir: "/Users/brian/multica_workspaces/ws/workdir",
+  repository: "appboypov/multica",
+  branch: "work-1057",
+  status: "starting",
+  started_at: new Date(Date.now() - 60_000).toISOString(),
+};
+
+describe("ActivityTab Sessions", () => {
+  it("shows a Herdr session and a run with where they run, folder, repository, branch, issue and status", async () => {
+    sessionsRef.current = [herdrSession, runSession];
+    renderTab();
+
+    const pane = await screen.findByTestId("session-session-pane");
+    expect(pane).toHaveTextContent("w12:p0");
+    expect(pane).toHaveTextContent("~/Worktrees/das/madspec/work-1057");
+    expect(pane).toHaveTextContent("appboypov/madspec");
+    expect(pane).toHaveTextContent("work-1057");
+    expect(pane).toHaveTextContent("Working");
+
+    const run = screen.getByTestId("session-session-run");
+    expect(run).toHaveTextContent("run on Oh-My-Pi");
+    expect(run).toHaveTextContent("~/multica_workspaces/ws/workdir");
+    expect(run).toHaveTextContent("appboypov/multica");
+    expect(run).toHaveTextContent("Starting");
+    expect(screen.getByRole("link", { name: "WORK-1057" })).toHaveAttribute(
+      "href",
+      "/acme/issues/issue-1057",
+    );
+    expect(screen.getByText("2 active")).toBeInTheDocument();
+  });
+
+  it("shows that the agent has no active sessions", async () => {
+    renderTab();
+
+    expect(await screen.findByText("No active sessions")).toBeInTheDocument();
+    expect(screen.getByText("None active")).toBeInTheDocument();
+  });
+
+  it("drops a session that ended once the sessions are invalidated", async () => {
+    sessionsRef.current = [herdrSession];
+    const { queryClient } = renderTab();
+    await screen.findByTestId("session-session-pane");
+
+    sessionsRef.current = [];
+    await queryClient.invalidateQueries({ queryKey: agentSessionsKeys.all("ws-1") });
+
+    await waitFor(() =>
+      expect(screen.queryByTestId("session-session-pane")).not.toBeInTheDocument(),
+    );
+    expect(screen.getByText("No active sessions")).toBeInTheDocument();
+  });
 });
 
 describe("agent outcome presentation", () => {

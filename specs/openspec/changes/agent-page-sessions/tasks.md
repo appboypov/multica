@@ -16,10 +16,10 @@ The branch `work-1089` stacks on `work-1087` (`agent-active-sessions`), which st
 
 ## 2. Sessions section
 
-- [ ] 2.1 `packages/views/agents/components/tabs/agent-sessions-list.tsx` -- `AgentSessionsList({agent})` as design.md decision 3: one row per session with where, issue link, folder, repository, branch, status and start time; `EmptyText`-style "No active sessions".
-- [ ] 2.2 `packages/views/agents/components/tabs/activity-tab.tsx` -- a first `Section` "Sessions" with its subtitle, holding `AgentSessionsList`.
-- [ ] 2.3 `packages/views/locales/{en,fr,ja,ko,zh-Hans}/agents.json` -- `activity.section_sessions`, `activity.subtitle_sessions_one`, `_other`, `activity.subtitle_no_sessions`, `activity.empty_sessions`, `activity.session_run_on`, `activity.session_unknown_where` and `activity.session_status.{idle,working,blocked,done,starting,unknown}`, translated in each locale.
-- [ ] 2.4 `packages/views/agents/components/tabs/activity-tab.render.test.tsx` -- a Herdr session and a run render with their pane, "run on" runtime, linked issue, folder, repository, branch and status; no sessions shows "No active sessions"; after an `agent:sessions` invalidation without the session, its row is gone -- the three scenarios of `agent-page-sessions`.
+- [x] 2.1 `packages/views/agents/components/tabs/agent-sessions-list.tsx` -- `AgentSessionsList({agent})` as design.md decision 3: one row per session with where, issue link, folder, repository, branch, status and start time; `EmptyText`-style "No active sessions".
+- [x] 2.2 `packages/views/agents/components/tabs/activity-tab.tsx` -- a first `Section` "Sessions" with its subtitle, holding `AgentSessionsList`.
+- [x] 2.3 `packages/views/locales/{en,fr,ja,ko,zh-Hans}/agents.json` -- `activity.section_sessions`, `activity.subtitle_sessions_one`, `_other`, `activity.subtitle_no_sessions`, `activity.empty_sessions`, `activity.session_run_on`, `activity.session_unknown_where` and `activity.session_status.{idle,working,blocked,done,starting,unknown}`, translated in each locale.
+- [x] 2.4 `packages/views/agents/components/tabs/activity-tab.render.test.tsx` -- a Herdr session and a run render with their pane, "run on" runtime, linked issue, folder, repository, branch and status; no sessions shows "No active sessions"; after an `agent:sessions` invalidation without the session, its row is gone -- the three scenarios of `agent-page-sessions`.
 
 ## Implementation Notes
 
@@ -30,3 +30,14 @@ The branch `work-1089` stacks on `work-1087` (`agent-active-sessions`), which st
 - `agentSessionsOptions` is a plain `queryOptions`: the route has no paging.
 - `agent:sessions` is not in `specificEvents`, so it reaches the `agent` prefix refresh with no extra wiring.
 - The malformed-response test runs the real `ApiClient` behind the mocked `api` with a stubbed `fetch`, so it proves the query sees the parsed list.
+
+### 2. Sessions section
+
+- Files: `packages/views/agents/components/tabs/agent-sessions-list.tsx`, `packages/views/agents/components/tabs/activity-tab.tsx`, `packages/views/agents/components/instructions-field.tsx`, `packages/views/locales/{en,fr,ja,ko,zh-Hans}/agents.json`, `packages/views/agents/components/tabs/activity-tab.render.test.tsx`.
+- The strings live under `tab_body.activity`, where the other `activity` strings already are.
+- `ja`, `ko` and `zh-Hans` get only `subtitle_sessions_other`: those locales have one plural form, as their existing `subtitle_active_other`.
+- `ActivityTab` and `AgentSessionsList` read the same `agentSessionsOptions` query, so the subtitle's count costs no second request.
+- The folder reuses `HOME_PREFIX` of `instructions-field.tsx`, now exported, so `~` follows one rule.
+- A terminal session without a Herdr pane shows the terminal icon with "Unknown"; a run without a runtime shows "Unknown".
+- `EmptyText` and `Sep` are private to `activity-tab.tsx`, so the list repeats their markup instead of importing from the file that imports it.
+- The invalidation test invalidates `agentSessionsKeys.all` directly, as the `agent` refresh of `use-realtime-sync.ts` does on `agent:sessions`.

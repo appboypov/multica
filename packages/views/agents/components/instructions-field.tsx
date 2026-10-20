@@ -22,9 +22,9 @@ import { RuntimeFileBrowser } from "./runtime-file-browser";
 
 /**
  * A home folder at the start of an absolute path: macOS, Linux or Windows.
- * Chips show the path after it as `~/...`.
+ * Chips and session rows show the path after it as `~/...`.
  */
-const HOME_PREFIX = /^(?:\/Users\/[^/]+|\/home\/[^/]+|[A-Za-z]:[\\/]Users[\\/][^\\/]+)(?=[\\/]|$)/;
+export const HOME_PREFIX = /^(?:\/Users\/[^/]+|\/home\/[^/]+|[A-Za-z]:[\\/]Users[\\/][^\\/]+)(?=[\\/]|$)/;
 
 export interface InstructionsFieldProps {
   id: string;
