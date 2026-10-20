@@ -5,7 +5,7 @@
  * `collectAttachmentSequence` takes the inclusion rule from the caller: web /
  * desktop page through every previewable kind (images, PDFs, video, Markdown,
  * HTML, text), so an issue reads as one run of files. `collectImageSequence`
- * is the images-only rule mobile's lightbox is built on.
+ * is the images-only rule.
  *
  * The sequence is built from DATA, not from the DOM: both the issue timeline
  * and the chat message list are virtualized, so a registry of mounted <img>
@@ -14,8 +14,7 @@
  * order identical to what the reader sees without depending on what is
  * currently painted.
  *
- * Pure — no React, no DOM, no platform APIs. Mobile shares it (see
- * apps/mobile/CLAUDE.md: pure functions from @multica/core are importable).
+ * Pure — no React, no DOM, no platform APIs.
  */
 
 import type { Attachment } from "../types/attachment";
@@ -437,7 +436,7 @@ export function collectAttachmentSequence(
   return items;
 }
 
-/** The images-only sequence (mobile's lightbox). */
+/** The images-only sequence. */
 export function collectImageSequence(
   blocks: ReadonlyArray<ImageSequenceBlock | null | undefined>,
 ): ImageSequenceItem[] {

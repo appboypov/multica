@@ -16,6 +16,7 @@ FORK_REMOVED_PATHS=(
   scripts/ci-scope.test.mjs
   apps/docs
   apps/ui-lab
+  apps/mobile
   CONTRIBUTING.md
 )
 

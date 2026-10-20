@@ -1,10 +1,8 @@
 /**
  * Where an `@` starts a mention token rather than continuing the word before it.
  *
- * Single source of truth for both composers: the web/desktop editor
- * (packages/views/editor/extensions/mention-suggestion.tsx) and the mobile
- * comment composer (apps/mobile/lib/mention-serialize.ts). They have to agree —
- * the same text must offer the picker on every client.
+ * The rule of the web/desktop editor
+ * (packages/views/editor/extensions/mention-suggestion.tsx).
  *
  * Tiptap's own rule is `allowedPrefixes`, defaulting to `[" "]`: a half-width
  * space and nothing else. That makes a mention unreachable in the two ways CJK
@@ -38,10 +36,7 @@ const WORD_CHARACTER = /[\p{L}\p{N}\p{M}_]/u;
  * on purpose: their writers type a space before `@`, and that absence is also
  * what keeps their email addresses from opening the picker.
  *
- * Written with `Script=`, not `Script_Extensions=`, because Hermes — the JS
- * engine the mobile app runs on — rejects `\p{Script_Extensions=Thai}` (also
- * Lao, Khmer and Tibetan) as an invalid property name and fails to parse the
- * module, which would take the app down with it. The escapes trailing the
+ * Written with `Script=`, not `Script_Extensions=`. The escapes trailing the
  * scripts are the code points that carry one of these scripts only as an
  * extension *and* are word characters, so a `Script=` test alone would read
  * them as word continuations: U+3099/U+309A and U+FF9E/U+FF9F voiced sound

@@ -227,7 +227,6 @@ Multica 不自带模型。它驱动的是你本来就装好、登录好的那些
 | --- | --- |
 | Web | Next.js 16 (App Router) |
 | 桌面端 | Electron，复用 Web 的 UI 包 |
-| 移动端 | Expo / React Native（iPhone 与 iPad） |
 | 后端 | Go (Chi router, sqlc, gorilla/websocket) |
 | 数据库 | PostgreSQL 17（`pgcrypto` + `pg_trgm`） |
 | 智能体运行时 | 本地守护进程拉起任意一种[受支持的智能体 CLI](#运行时) |
@@ -244,9 +243,6 @@ make dev
 
 `make dev` 会自己认出你在主 checkout 还是 worktree 里，然后创建 env 文件、装依赖、初始化数据库、
 跑迁移，最后把所有服务拉起来。
-
-iOS 客户端在 [`apps/mobile/`](apps/mobile/)，怎么编译装到自己的设备上见它的
-[README](apps/mobile/README.md)。
 
 我们几乎每个工作日都发版，`main` 走得很快——记得常拉最新代码。
 

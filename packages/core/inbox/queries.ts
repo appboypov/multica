@@ -114,8 +114,7 @@ export function unreadCountForWorkspace(
  * Unread notice count for the given workspace, read from the cross-workspace
  * summary rather than the inbox list, so it costs no list download
  * (MUL-6967). This is the Updates meaning: web and desktop show no number for
- * it — the Inbox number counts open to-dos (`useTodoCount`). Mobile's tab
- * badge mirrors this definition in `apps/mobile/lib/unread-counts.ts`.
+ * it — the Inbox number counts open to-dos (`useTodoCount`).
  *
  * `GET /api/inbox/unread-count` is deliberately not the source: it counts raw
  * notification rows, while the inbox renders one row per issue. The summary

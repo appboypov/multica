@@ -296,21 +296,6 @@
    }
   },
   {
-   "id": "mobile",
-   "parent": "clients",
-   "name": "Mobile app",
-   "icon": "smartphone",
-   "kind": "App",
-   "path": "apps/mobile/",
-   "zoom": {
-    "name": "Mobile app",
-    "title": "Mobile app",
-    "description": "Expo app with its own data layer",
-    "question": "How does the mobile app read and stay live?",
-    "base": "apps/mobile/"
-   }
-  },
-  {
    "id": "views",
    "parent": "clients",
    "name": "Shared views",
@@ -435,70 +420,6 @@
    "icon": "panels-top-left",
    "kind": "Store",
    "path": "apps/desktop/src/renderer/src/stores/tab-store.ts:729"
-  },
-  {
-   "id": "mobile-root-layout",
-   "parent": "mobile",
-   "name": "Root layout",
-   "icon": "smartphone",
-   "kind": "Component",
-   "path": "apps/mobile/app/_layout.tsx:79"
-  },
-  {
-   "id": "mobile-workspace-layout",
-   "parent": "mobile",
-   "name": "Workspace layout",
-   "icon": "panels-top-left",
-   "kind": "Component",
-   "path": "apps/mobile/app/(app)/[workspace]/_layout.tsx:103"
-  },
-  {
-   "id": "mobile-auth-store",
-   "parent": "mobile",
-   "name": "Auth store",
-   "icon": "key-round",
-   "kind": "Store",
-   "path": "apps/mobile/data/auth-store.ts:31"
-  },
-  {
-   "id": "mobile-workspace-store",
-   "parent": "mobile",
-   "name": "Workspace store",
-   "icon": "building-2",
-   "kind": "Store",
-   "path": "apps/mobile/data/workspace-store.ts:34"
-  },
-  {
-   "id": "mobile-secure-storage",
-   "parent": "mobile",
-   "name": "Secure storage",
-   "icon": "lock",
-   "kind": "Function",
-   "path": "apps/mobile/data/secure-storage.ts:36"
-  },
-  {
-   "id": "mobile-api",
-   "parent": "mobile",
-   "name": "API client",
-   "icon": "send",
-   "kind": "Class",
-   "path": "apps/mobile/data/api.ts:192"
-  },
-  {
-   "id": "mobile-realtime-provider",
-   "parent": "mobile",
-   "name": "Realtime provider",
-   "icon": "radio",
-   "kind": "Component",
-   "path": "apps/mobile/data/realtime/realtime-provider.tsx:65"
-  },
-  {
-   "id": "mobile-realtime",
-   "parent": "mobile",
-   "name": "WS client",
-   "icon": "radio-tower",
-   "kind": "Class",
-   "path": "apps/mobile/data/realtime/ws-client.ts:88"
   },
   {
    "id": "views-dashboard",
@@ -2045,14 +1966,6 @@
    "trigger": "opens the desktop app"
   },
   {
-   "id": "people--mobile-root-layout",
-   "from": "people",
-   "to": "mobile-root-layout",
-   "line": "call",
-   "data": "screen",
-   "trigger": "opens the mobile app"
-  },
-  {
    "id": "people--chat",
    "from": "people",
    "to": "chat",
@@ -2171,87 +2084,6 @@
    "line": "call",
    "data": "daemon start",
    "trigger": "auto-start"
-  },
-  {
-   "id": "mobile-root-layout--mobile-auth-store",
-   "from": "mobile-root-layout",
-   "to": "mobile-auth-store",
-   "line": "call",
-   "data": "session",
-   "trigger": "app starts"
-  },
-  {
-   "id": "mobile-auth-store--mobile-secure-storage",
-   "from": "mobile-auth-store",
-   "to": "mobile-secure-storage",
-   "line": "data",
-   "data": "token",
-   "trigger": "login"
-  },
-  {
-   "id": "mobile-workspace-layout--mobile-workspace-store",
-   "from": "mobile-workspace-layout",
-   "to": "mobile-workspace-store",
-   "line": "call",
-   "data": "workspace slug",
-   "trigger": "route changes"
-  },
-  {
-   "id": "mobile-workspace-store--mobile-api",
-   "from": "mobile-workspace-store",
-   "to": "mobile-api",
-   "line": "call",
-   "data": "workspaces",
-   "trigger": "store loads"
-  },
-  {
-   "id": "mobile-api--mobile-secure-storage",
-   "from": "mobile-api",
-   "to": "mobile-secure-storage",
-   "line": "data",
-   "data": "token",
-   "trigger": "each request"
-  },
-  {
-   "id": "mobile-workspace-layout--mobile-realtime-provider",
-   "from": "mobile-workspace-layout",
-   "to": "mobile-realtime-provider",
-   "line": "call",
-   "data": "workspace",
-   "trigger": "layout mounts"
-  },
-  {
-   "id": "mobile-realtime-provider--mobile-realtime",
-   "from": "mobile-realtime-provider",
-   "to": "mobile-realtime",
-   "line": "call",
-   "data": "connect",
-   "trigger": "provider mounts"
-  },
-  {
-   "id": "mobile-api--srv-router",
-   "from": "mobile-api",
-   "to": "srv-router",
-   "line": "call",
-   "data": "REST /api",
-   "trigger": "query runs"
-  },
-  {
-   "id": "mobile-realtime--srv-realtime-hub",
-   "from": "mobile-realtime",
-   "to": "srv-realtime-hub",
-   "line": "call",
-   "data": "WS /ws",
-   "trigger": "socket opens"
-  },
-  {
-   "id": "srv-realtime-hub--mobile-realtime",
-   "from": "srv-realtime-hub",
-   "to": "mobile-realtime",
-   "line": "event",
-   "data": "workspace events",
-   "trigger": "event published",
-   "event": "issue:updated"
   },
   {
    "id": "views-issue-detail--core-create-comment",

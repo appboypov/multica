@@ -235,7 +235,6 @@ The docs are also available in [简体中文](https://multica.ai/docs/zh), [日�
 | --- | --- |
 | Web | Next.js 16 (App Router) |
 | Desktop | Electron, sharing the web UI packages |
-| Mobile | Expo / React Native (iPhone and iPad) |
 | Backend | Go (Chi router, sqlc, gorilla/websocket) |
 | Database | PostgreSQL 17 (`pgcrypto` + `pg_trgm`) |
 | Agent runtime | Local daemon executing any [supported agent CLI](#runtimes) |
@@ -252,9 +251,6 @@ make dev
 
 `make dev` auto-detects your environment (main checkout or worktree), creates the env file,
 installs dependencies, sets up the database, runs migrations, and starts every service.
-
-The iOS client lives in [`apps/mobile/`](apps/mobile/) — its
-[README](apps/mobile/README.md) covers building it onto your own device.
 
 We release most weekdays, so `main` moves quickly — pull often.
 

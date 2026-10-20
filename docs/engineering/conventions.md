@@ -35,9 +35,8 @@ The monorepo enforces strict package boundaries:
 | `packages/views` | `core/`, `ui/` | `next/*`, `react-router-dom`, stores |
 | `apps/web/platform/` | `next/*` | other apps |
 | `apps/desktop/.../platform/` | `react-router-dom`, electron | other apps |
-| `apps/mobile/` | types and pure functions from `@multica/core` | Web/Desktop React pages, stores, and platform implementations |
 
-If logic appears in both apps, it MUST be extracted to a shared package. There are no exceptions for "small" duplication. Mobile owns a separate UI, data layer, and release process; it shares only types and pure functions.
+If logic appears in both apps, it MUST be extracted to a shared package. There are no exceptions for "small" duplication.
 
 ### Files and components
 
@@ -322,7 +321,7 @@ Descriptions are optional and omitted by default. Before adding one, ask: **What
 - Keep permissions, cost, destructive consequences, execution prerequisites, input constraints, and error recovery visible when relevant. Do not hide them in hover-only help.
 - Show introductory guidance only where it is needed. Put advanced usage and diagnostics in explicit, accessible help rather than the default page body.
 - Preserve input labels, accessible names, and necessary description associations. Do not move redundant visible prose wholesale into screen-reader-only text.
-- Review English and translated copy together, including mobile's independent strings. In PR review, check the added information, same-screen repetition, display conditions, and preserved constraints. Length is a review signal, not an automatic deletion rule.
+- Review English and translated copy together. In PR review, check the added information, same-screen repetition, display conditions, and preserved constraints. Length is a review signal, not an automatic deletion rule.
 
 Shared settings components already accept optional descriptions. Examples and new call sites should omit them unless justified; do not add required description props or a separate copy policy.
 

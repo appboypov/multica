@@ -699,8 +699,7 @@ function projectToMention(p: { id: string; title: string; description?: string |
  * True when the `@` at `pos` starts a token instead of continuing one.
  *
  * The rule itself — which characters make an `@` part of the word it follows,
- * and why CJK needs the exception — lives in @multica/core/markdown, shared
- * with the mobile composer so the two clients cannot drift apart.
+ * and why CJK needs the exception — lives in @multica/core/markdown.
  */
 function isMentionBoundary(doc: ProseMirrorNode, pos: number): boolean {
   if (pos <= 0) return true;

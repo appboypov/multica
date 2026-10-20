@@ -116,11 +116,11 @@ related_unit_tests() {
     esac
   done
   [ ${#files[@]} -gt 0 ] || return 0
-  # Every workspace package whose tests run with Vitest, apart from mobile.
+  # Every workspace package whose tests run with Vitest.
   while IFS= read -r dir; do dirs+=("$dir"); done < <(node -e '
     const fs = require("fs");
     for (const dir of process.argv.slice(1)) {
-      if (dir === "apps/mobile" || !fs.existsSync(`${dir}/package.json`)) continue;
+      if (!fs.existsSync(`${dir}/package.json`)) continue;
       const test = JSON.parse(fs.readFileSync(`${dir}/package.json`, "utf8")).scripts?.test ?? "";
       if (test.startsWith("vitest")) console.log(dir);
     }' packages/* apps/*)
@@ -275,8 +275,8 @@ e2e_stage() {
   -l "$RUN/pg.log" -w start >/dev/null
 "$PGBIN/createdb" -h "$RUN" -p "$PGPORT" -U multica multica
 
-stage install pnpm install --frozen-lockfile --filter='!@multica/mobile'
-TURBO=(pnpm exec turbo run --filter='!@multica/mobile' --continue --concurrency=6 --output-logs=new-only)
+stage install pnpm install --frozen-lockfile
+TURBO=(pnpm exec turbo run --continue --concurrency=6 --output-logs=new-only)
 if all_unit_tests; then
   stage turbo "${TURBO[@]}" typecheck lint test
 else
