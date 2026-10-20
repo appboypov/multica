@@ -770,6 +770,39 @@ func TestWorkInCheckoutSerializesTasks(t *testing.T) {
 	awaitLaneRoutingTask(t, ctx, second)
 }
 
+func TestWorkInCheckoutLeavesRuntimeFiles(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		files []string
+	}{
+		{name: "crabbox folder", files: []string{".crabbox/run.json"}},
+		{name: "agent runtime folders and AGENTS.md", files: []string{".multica/project/resources.json", ".omp/mcp.json", "AGENTS.md"}},
+		{name: "agent context and CLAUDE.md", files: []string{".agent_context/issue_context.md", "CLAUDE.md"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			checkout, _ := newCheckoutRoutingFixture(t)
+			for _, file := range tc.files {
+				if err := os.MkdirAll(filepath.Join(checkout, filepath.Dir(file)), 0o755); err != nil {
+					t.Fatal(err)
+				}
+				laneRoutingWrite(t, checkout, file, "runtime\n")
+			}
+			d, _ := newLaneRoutingDaemon(t)
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			awaitLaneRoutingTask(t, ctx, startLaneRoutingTask(ctx, d, checkoutRoutingTask(checkout, "task", "")))
+			if got := laneRoutingGit(t, checkout, "branch", "--show-current"); got != "work-1021" {
+				t.Fatalf("checkout branch = %q, want work-1021", got)
+			}
+			for _, file := range tc.files {
+				if _, err := os.Stat(filepath.Join(checkout, file)); err != nil {
+					t.Fatalf("runtime file %s is gone: %v", file, err)
+				}
+			}
+		})
+	}
+}
+
 func TestWorkInCheckoutRefusesToLeaveWork(t *testing.T) {
 	for _, tc := range []struct {
 		name  string
@@ -782,6 +815,26 @@ func TestWorkInCheckoutRefusesToLeaveWork(t *testing.T) {
 		{name: "unpushed commits", want: "main holds 2 commits on main that are not pushed", leave: func(t *testing.T, checkout string) {
 			laneRoutingGit(t, checkout, "commit", "--allow-empty", "-m", "one")
 			laneRoutingGit(t, checkout, "commit", "--allow-empty", "-m", "two")
+		}},
+		{name: "changed tracked AGENTS.md", want: "main holds uncommitted changes on main", leave: func(t *testing.T, checkout string) {
+			laneRoutingWrite(t, checkout, "AGENTS.md", "project rules\n")
+			laneRoutingGit(t, checkout, "add", "AGENTS.md")
+			laneRoutingGit(t, checkout, "commit", "-m", "rules")
+			laneRoutingGit(t, checkout, "push", "origin", "main")
+			laneRoutingWrite(t, checkout, "AGENTS.md", "project rules\nedited\n")
+		}},
+		{name: "runtime folder beside another untracked file", want: "main holds uncommitted changes on main", leave: func(t *testing.T, checkout string) {
+			if err := os.MkdirAll(filepath.Join(checkout, ".crabbox"), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			laneRoutingWrite(t, checkout, ".crabbox/run.json", "runtime\n")
+			laneRoutingWrite(t, checkout, "notes.txt", "agent work\n")
+		}},
+		{name: "untracked AGENTS.md in a subfolder", want: "main holds uncommitted changes on main", leave: func(t *testing.T, checkout string) {
+			if err := os.MkdirAll(filepath.Join(checkout, "docs"), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			laneRoutingWrite(t, checkout, "docs/AGENTS.md", "agent work\n")
 		}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
