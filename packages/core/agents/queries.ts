@@ -138,6 +138,23 @@ export function agentTasksOptions(wsId: string, agentId: string) {
   });
 }
 
+export const agentSessionsKeys = {
+  all: (wsId: string) => ["workspaces", wsId, "agent-sessions"] as const,
+  detail: (wsId: string, agentId: string) =>
+    [...agentSessionsKeys.all(wsId), agentId] as const,
+};
+
+// An agent's active sessions: sessions started by hand and runs. `agent:*`
+// and task lifecycle events invalidate it; the staleTime is the safety net.
+export function agentSessionsOptions(wsId: string, agentId: string) {
+  return queryOptions({
+    queryKey: agentSessionsKeys.detail(wsId, agentId),
+    queryFn: ({ signal }) => api.listAgentSessions(agentId, { signal }),
+    staleTime: 30 * 1000,
+    refetchOnWindowFocus: true,
+  });
+}
+
 /** Unfinished agent-creation conversations, scoped to the caller. */
 export const agentBuilderSessionKeys = {
   all: (wsId: string) => ["workspace", wsId, "agent-builder-sessions"] as const,

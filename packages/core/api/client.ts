@@ -57,6 +57,7 @@ import type {
   AgentEnvResponse,
   UpdateAgentEnvRequest,
   AgentTask,
+  AgentSessionsResponse,
   AgentActivityBucket,
   AgentRunCount,
   WorkspaceWorkingAgent,
@@ -303,6 +304,8 @@ import {
   RuntimeProfileListSchema,
   AgentTaskListSchema,
   AgentTaskPageSchema,
+  AgentSessionsResponseSchema,
+  EMPTY_AGENT_SESSIONS_RESPONSE,
   AgentActivityBucketListSchema,
   AttachmentResponseSchema,
   CancelTaskResponseSchema,
@@ -2935,6 +2938,22 @@ export class ApiClient {
       AgentTaskPageSchema,
       { tasks: [], nextCursor: null },
       { endpoint: "GET /api/agents/:id/tasks" },
+    );
+  }
+
+  async listAgentSessions(
+    agentId: string,
+    options: { signal?: AbortSignal } = {},
+  ): Promise<AgentSessionsResponse> {
+    const response = await this.fetchRaw(`/api/agents/${agentId}/sessions`, {
+      signal: options.signal,
+    });
+    const body: unknown = await response.json();
+    return parseWithFallback(
+      body,
+      AgentSessionsResponseSchema,
+      EMPTY_AGENT_SESSIONS_RESPONSE,
+      { endpoint: "GET /api/agents/:id/sessions" },
     );
   }
 
