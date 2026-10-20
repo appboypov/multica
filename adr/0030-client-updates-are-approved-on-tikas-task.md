@@ -1,6 +1,6 @@
 # ADR-0030: Client updates are approved on Tika's task
 
-- Status: accepted, supersedes ADR-0028
+- Status: accepted, supersedes ADR-0028; superseded in part by WORK-1957: the agent sync left `madspec-sync/`
 - Supersedes: ADR-0028
 - Date: 2026-10-15
 

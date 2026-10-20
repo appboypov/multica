@@ -1,6 +1,6 @@
 # ADR-0029: Workers are Multica agents and live in their team lead's office
 
-- Status: accepted; supersedes agents ADR-0001 in part and madspec ADR-0005 in part
+- Status: accepted; supersedes agents ADR-0001 in part and madspec ADR-0005 in part; superseded in part by WORK-1957: agents get their prompts only from Multica, run on the generic Oh-My-Pi runtime, and no sync writes them
 - Date: 2026-10-17
 - Supersedes: agents ADR-0001 for worker skill ownership; madspec ADR-0005 for builders and reviewers running as omp subagents
 

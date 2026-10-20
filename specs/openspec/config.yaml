@@ -7,7 +7,7 @@ context: |
   server/internal/daemon/ that runs agent tasks on the runtime machine; shared TypeScript
   packages core, ui and views for the Next.js web app (apps/web) and the Electron desktop
   app (apps/desktop); an independent Expo mobile app (apps/mobile); docs in apps/docs.
-  madspec-sync/ syncs MadSpec personas to Multica agents. Rules that bind every change are
+  madspec-sync/ syncs the brain's Organisations and Products to Multica. Rules that bind every change are
   in AGENTS.md: no foreign keys, CONCURRENTLY indexes in their own migration, zod schemas
   with parseWithFallback at the API boundary, no compatibility shims, every check local.
 

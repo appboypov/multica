@@ -137,15 +137,6 @@
    "note": "Organisations · Products"
   },
   {
-   "id": "agents-repo",
-   "parent": null,
-   "name": "Agents repo",
-   "icon": "folder-git-2",
-   "kind": "Outside",
-   "outside": true,
-   "note": "~/Repos/Agents/*/agent.toml"
-  },
-  {
    "id": "herdr",
    "parent": null,
    "name": "Herdr",
@@ -166,21 +157,6 @@
     "title": "Inside Multica",
     "description": "Where each part runs",
     "question": "Where does each part of Multica run?"
-   }
-  },
-  {
-   "id": "madspec-sync",
-   "parent": "multica",
-   "name": "madspec-sync",
-   "icon": "refresh-cw",
-   "kind": "Tool",
-   "path": "madspec-sync/",
-   "zoom": {
-    "name": "madspec-sync",
-    "title": "madspec-sync",
-    "description": "Manual syncs from the brain and the Agents repo",
-    "question": "How do personas and products reach Multica?",
-    "base": "madspec-sync/"
    }
   },
   {
@@ -226,6 +202,21 @@
     "description": "The apps people use and the packages they share",
     "question": "How do the apps reach the server?",
     "base": ""
+   }
+  },
+  {
+   "id": "madspec-sync",
+   "parent": "multica",
+   "name": "madspec-sync",
+   "icon": "refresh-cw",
+   "kind": "Tool",
+   "path": "madspec-sync/",
+   "zoom": {
+    "name": "madspec-sync",
+    "title": "madspec-sync",
+    "description": "Manual sync from the brain",
+    "question": "How do products reach Multica?",
+    "base": "madspec-sync/"
    }
   },
   {
@@ -2012,44 +2003,12 @@
    "path": "server/internal/cli/client.go:49"
   },
   {
-   "id": "sync-main",
-   "parent": "madspec-sync",
-   "name": "Persona sync",
-   "icon": "users",
-   "kind": "Function",
-   "path": "madspec-sync/multica_sync.py:90"
-  },
-  {
-   "id": "sync-export",
-   "parent": "madspec-sync",
-   "name": "export_main",
-   "icon": "folder-git-2",
-   "kind": "Function",
-   "path": "madspec-sync/multica_sync.py:111"
-  },
-  {
-   "id": "sync-sync",
-   "parent": "madspec-sync",
-   "name": "Sync",
-   "icon": "refresh-cw",
-   "kind": "Class",
-   "path": "madspec-sync/multica_sync.py:398"
-  },
-  {
-   "id": "sync-machine",
-   "parent": "madspec-sync",
-   "name": "Machine",
-   "icon": "cpu",
-   "kind": "Class",
-   "path": "madspec-sync/multica_sync.py:331"
-  },
-  {
    "id": "sync-api",
    "parent": "madspec-sync",
    "name": "Multica API",
    "icon": "send",
    "kind": "Class",
-   "path": "madspec-sync/multica_sync.py:298"
+   "path": "madspec-sync/multica_api.py:32"
   },
   {
    "id": "sync-projects",
@@ -2116,14 +2075,6 @@
    "line": "call",
    "data": "message",
    "trigger": "talks to an agent"
-  },
-  {
-   "id": "people--sync-main",
-   "from": "people",
-   "to": "sync-main",
-   "line": "call",
-   "data": "command",
-   "trigger": "runs persona sync"
   },
   {
    "id": "people--sync-projects",
@@ -4203,54 +4154,6 @@
    "line": "call",
    "data": "REST /api",
    "trigger": "CLI request"
-  },
-  {
-   "id": "sync-main--sync-export",
-   "from": "sync-main",
-   "to": "sync-export",
-   "line": "call",
-   "data": "offices",
-   "trigger": "sync starts"
-  },
-  {
-   "id": "agents-repo--sync-export",
-   "from": "agents-repo",
-   "to": "sync-export",
-   "line": "data",
-   "data": "agent.toml · AGENTS.md",
-   "trigger": "git archive"
-  },
-  {
-   "id": "sync-main--sync-sync",
-   "from": "sync-main",
-   "to": "sync-sync",
-   "line": "call",
-   "data": "agent tree",
-   "trigger": "after export"
-  },
-  {
-   "id": "sync-sync--sync-api",
-   "from": "sync-sync",
-   "to": "sync-api",
-   "line": "call",
-   "data": "agents",
-   "trigger": "plan applied"
-  },
-  {
-   "id": "sync-sync--sync-machine",
-   "from": "sync-sync",
-   "to": "sync-machine",
-   "line": "call",
-   "data": "runtime",
-   "trigger": "per agent"
-  },
-  {
-   "id": "sync-machine--cli-root",
-   "from": "sync-machine",
-   "to": "cli-root",
-   "line": "call",
-   "data": "config",
-   "trigger": "reads CLI config"
   },
   {
    "id": "sync-api--srv-router",

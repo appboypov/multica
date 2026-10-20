@@ -33,6 +33,7 @@ sys.dont_write_bytecode = True
 PAGE_SIZE = 100
 CHECKOUT_WAIT_SECONDS = 120
 MARK_FILE = Path.home() / ".local/state/madspec/multica/brain-sync.json"
+MADSPEC = Path.home() / "Repos" / "Ventures" / "madspec"
 KEYS = {"Marvelous K": "mk", "Mens & Maatwerk": "mnm", "InclusiTalent": "incl", "Buttler": "btlr", "Whitebird": "wb"}
 
 
@@ -287,9 +288,9 @@ def plan(brain: Brain, organisations: list[dict], projects: list[dict],
 
 
 def load_dependencies() -> tuple[ModuleType, ModuleType]:
-    multica_sync = load_module("madspec_projects_multica_sync", Path(__file__).resolve().parent / "multica_sync.py")
-    team_state = load_module("madspec_projects_team_state", multica_sync.MADSPEC / "skills/madspec-find-next-chunk/scripts/team_state.py")
-    return team_state, multica_sync
+    multica_api = load_module("madspec_projects_multica_api", Path(__file__).resolve().parent / "multica_api.py")
+    team_state = load_module("madspec_projects_team_state", MADSPEC / "skills/madspec-find-next-chunk/scripts/team_state.py")
+    return team_state, multica_api
 
 
 def load_module(name: str, path: Path) -> ModuleType:
@@ -359,7 +360,7 @@ def read_issue_ids(api, project_id: str) -> tuple[str, ...]:
             raise ValueError(f"{project_id}: incomplete issue read")
 
 
-def read_multica(api, multica_sync: ModuleType, brain: Brain, marks: dict) -> tuple:
+def read_multica(api, multica_api: ModuleType, brain: Brain, marks: dict) -> tuple:
     organisations = api.call("GET", "/api/organisations")["organisations"]
     projects = api.call("GET", "/api/projects")["projects"]
     repositories = api.call("GET", "/api/repositories")["repositories"]
@@ -449,11 +450,11 @@ class Marks:
 # --- Writes and the run ---
 
 
-def write_plan(api, desired: Plan, multica_sync: ModuleType, marks: Marks) -> int:
+def write_plan(api, desired: Plan, multica_api: ModuleType, marks: Marks) -> int:
     failed = False
     org_ids, project_ids = dict(desired.organisation_ids), dict(desired.project_ids)
     failed_orgs, failed_products, failed_repositories = set(), set(), set()
-    errors = (multica_sync.ApiError, OSError, ValueError, KeyError, TypeError)
+    errors = (multica_api.ApiError, OSError, ValueError, KeyError, TypeError)
     for report in desired.reports:
         print(report, flush=True)
     for placement in desired.organisations:
@@ -550,21 +551,21 @@ def write_plan(api, desired: Plan, multica_sync: ModuleType, marks: Marks) -> in
 
 def main() -> int:
     try:
-        team_state, multica_sync = load_dependencies()
+        team_state, multica_api = load_dependencies()
     except (ImportError, OSError, ValueError) as error:
         print(f"failed: cannot load project sync readers: {error}", file=sys.stderr, flush=True)
         return 1
     try:
-        with (multica_sync.CONFIG.parent / "projects.lock").open("a") as lock:
+        with (multica_api.CONFIG.parent / "projects.lock").open("a") as lock:
             fcntl.flock(lock, fcntl.LOCK_EX)
-            config = multica_sync.load_config(multica_sync.CONFIG)
+            config = multica_api.load_config(multica_api.CONFIG)
             marks = Marks(MARK_FILE, config["server_url"], config["workspace_id"])
-            api = multica_sync.Multica(config)
+            api = multica_api.Multica(config)
             brain = read_brain(team_state)
-            organisations, projects, repositories, available, checks, issues = read_multica(api, multica_sync, brain, marks.scope)
+            organisations, projects, repositories, available, checks, issues = read_multica(api, multica_api, brain, marks.scope)
             desired = plan(brain, organisations, projects, repositories, available, checks, issues, marks.scope)
-            return write_plan(api, desired, multica_sync, marks)
-    except (multica_sync.ApiError, OSError, ValueError, KeyError, TypeError) as error:
+            return write_plan(api, desired, multica_api, marks)
+    except (multica_api.ApiError, OSError, ValueError, KeyError, TypeError) as error:
         print(f"failed: project sync read: {error}", file=sys.stderr, flush=True)
         return 1
 
