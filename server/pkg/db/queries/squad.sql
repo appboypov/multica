@@ -201,6 +201,43 @@ SET assignee_type = 'agent',
     updated_at = now()
 WHERE assignee_type = 'squad' AND assignee_id = $1;
 
+-- name: ListIssueContributingSquads :many
+-- The squads that reach every run on an issue (ADR-0034): the live squad
+-- assigned to the issue or, when it has none, to its closest ancestor issue,
+-- plus every live squad holding that squad through nested membership, each
+-- once. Outermost first: a squad sorts by its longest membership path down to
+-- the owning squad, so every parent precedes the squads it holds and the
+-- owning squad comes last. Archived squads count as absent, and the path
+-- arrays keep a malformed issue cycle or membership loop finite.
+WITH RECURSIVE issue_chain AS (
+    SELECT i.id, i.parent_issue_id, i.assignee_type, i.assignee_id, 0 AS distance, ARRAY[i.id] AS path
+    FROM issue i
+    WHERE i.id = sqlc.arg('issue_id') AND i.workspace_id = sqlc.arg('workspace_id')
+    UNION ALL
+    SELECT parent.id, parent.parent_issue_id, parent.assignee_type, parent.assignee_id, c.distance + 1, c.path || parent.id
+    FROM issue_chain c
+    JOIN issue parent ON parent.id = c.parent_issue_id AND parent.workspace_id = sqlc.arg('workspace_id')
+    WHERE NOT parent.id = ANY(c.path)
+), owner AS (
+    SELECT s.id
+    FROM issue_chain c
+    JOIN squad s ON s.id = c.assignee_id AND s.workspace_id = sqlc.arg('workspace_id') AND s.archived_at IS NULL
+    WHERE c.assignee_type = 'squad'
+    ORDER BY c.distance
+    LIMIT 1
+), squad_tree AS (
+    SELECT o.id AS squad_id, 0 AS depth, ARRAY[o.id] AS path FROM owner o
+    UNION ALL
+    SELECT parent.id, t.depth + 1, t.path || parent.id
+    FROM squad_tree t
+    JOIN squad_member sm ON sm.member_type = 'squad' AND sm.member_id = t.squad_id
+    JOIN squad parent ON parent.id = sm.squad_id AND parent.workspace_id = sqlc.arg('workspace_id') AND parent.archived_at IS NULL
+    WHERE NOT parent.id = ANY(t.path)
+)
+SELECT s.* FROM squad s
+JOIN (SELECT squad_id, max(depth) AS depth FROM squad_tree GROUP BY squad_id) d ON d.squad_id = s.id
+ORDER BY d.depth DESC, s.created_at ASC, s.id ASC;
+
 -- name: ListSquadMemberStatusRows :many
 -- Per-row join used to build the squad-members status view. One row per
 -- (squad_member × in_flight_task); members with no in-flight task return a

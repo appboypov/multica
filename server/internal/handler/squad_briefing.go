@@ -184,7 +184,9 @@ func squadOperatingProtocolFor(ownsIssueStatus bool) string {
 //  2. Squad Roster (data — leader self-row + members with literal
 //     `[@Name](mention://<type>/<UUID>)` strings ready to paste).
 //  3. Squad Instructions (user-defined `squad.instructions`, omitted when
-//     empty so we don't leave a dangling heading).
+//     empty so we don't leave a dangling heading). An issue-bound claim
+//     empties them when the squad reaches the issue (ADR-0034), because the
+//     shared reach rule already appended them to the agent's instructions.
 //
 // ownsIssueStatus must be true only when the issue this task is bound to is
 // assigned to this very squad. The briefing is injected on every leader path,
@@ -212,11 +214,9 @@ func writeSquadPresentation(sb *strings.Builder, ctx context.Context, q *db.Quer
 	sb.WriteString("\n\n")
 	sb.WriteString(buildSquadRoster(ctx, q, squad))
 
-	if trimmed := strings.TrimSpace(squad.Instructions); trimmed != "" {
-		sb.WriteString("\n\n## Squad Instructions (")
-		sb.WriteString(squad.Name)
-		sb.WriteString(")\n\n")
-		sb.WriteString(trimmed)
+	if section := squadInstructionsSection(squad); section != "" {
+		sb.WriteString("\n\n")
+		sb.WriteString(section)
 	}
 }
 

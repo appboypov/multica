@@ -7074,7 +7074,9 @@ func (s *TaskService) publishAgentStatus(agent db.Agent) {
 	})
 }
 
-// LoadAgentSkills loads an agent's skills with their files for task execution.
+// LoadAgentSkills loads the skills a run gets, with their files, for task
+// execution: the agent's own plus those of the squads reaching the run
+// (squadIDs, ADR-0034; nil for none).
 //
 // A read failure is REPORTED, never swallowed into a shorter skill set. Both
 // reads are all-or-nothing for the agent's entire skill set — the file load
@@ -7085,8 +7087,8 @@ func (s *TaskService) publishAgentStatus(agent db.Agent) {
 // whatever did load, so the daemon's own validation passes and the agent
 // starts on rules it is missing. Callers must settle the failure (preserve the
 // claim for redelivery, or 5xx the resolve) instead of dispatching that.
-func (s *TaskService) LoadAgentSkills(ctx context.Context, agentID pgtype.UUID) ([]AgentSkillData, error) {
-	skills, err := s.Queries.ListAgentSkills(ctx, agentID)
+func (s *TaskService) LoadAgentSkills(ctx context.Context, agentID pgtype.UUID, squadIDs []pgtype.UUID) ([]AgentSkillData, error) {
+	skills, err := s.Queries.ListAgentSkills(ctx, db.ListAgentSkillsParams{AgentID: agentID, SquadIds: squadIDs})
 	if err != nil {
 		return nil, fmt.Errorf("list agent skills: %w", err)
 	}
@@ -7154,13 +7156,13 @@ func FolderSkillPath(config []byte) (string, bool) {
 	return parsed.Origin.SourcePath, true
 }
 
-// LoadAgentSkillBundles returns every skill visible to an agent, including
-// built-ins, with stable bundle hashes and lightweight refs for slim claims.
-// It fails closed on a workspace-skill read error for the reason in
-// LoadAgentSkills: a bundle set built from a partial read is indistinguishable
-// from a correct one.
-func (s *TaskService) LoadAgentSkillBundles(ctx context.Context, agentID pgtype.UUID, agentSystemKey string, legacyRedirects, questions bool) ([]AgentSkillData, []AgentSkillRefData, error) {
-	skills, err := s.LoadAgentSkills(ctx, agentID)
+// LoadAgentSkillBundles returns every skill visible to a run, including
+// built-ins and the skills of the squads reaching it, with stable bundle
+// hashes and lightweight refs for slim claims. It fails closed on a
+// workspace-skill read error for the reason in LoadAgentSkills: a bundle set
+// built from a partial read is indistinguishable from a correct one.
+func (s *TaskService) LoadAgentSkillBundles(ctx context.Context, agentID pgtype.UUID, squadIDs []pgtype.UUID, agentSystemKey string, legacyRedirects, questions bool) ([]AgentSkillData, []AgentSkillRefData, error) {
+	skills, err := s.LoadAgentSkills(ctx, agentID, squadIDs)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -7187,10 +7189,10 @@ type AgentSkillBundleRef struct {
 }
 
 // LoadRequestedAgentSkillBundles returns bundles for EXACTLY the refs given,
-// keyed by AgentSkillBundleKey. A ref the agent cannot see is simply absent
-// from the map — the junction predicate in ListAgentSkillsByIDs is the
-// authorization, so "no row" and "not allowed" are the same answer and the
-// caller reports both as not-found.
+// keyed by AgentSkillBundleKey. A ref the run cannot see is simply absent
+// from the map — the predicate in ListAgentSkillsByIDs, over the agent and the
+// squads reaching the run (squadIDs), is the authorization, so "no row" and
+// "not allowed" are the same answer and the caller reports both as not-found.
 //
 // This exists because the daemon resolves one skill per request (GH #4505, so
 // each download gets its own size-scaled deadline and caches independently).
@@ -7198,7 +7200,7 @@ type AgentSkillBundleRef struct {
 // whole agent on every request: N requests, each reading and hashing all N
 // skills to return one. Loading only what was asked for makes that linear,
 // which is why the resolve path must not reuse LoadAgentSkillBundles.
-func (s *TaskService) LoadRequestedAgentSkillBundles(ctx context.Context, agentID pgtype.UUID, refs []AgentSkillBundleRef) (map[string]AgentSkillData, error) {
+func (s *TaskService) LoadRequestedAgentSkillBundles(ctx context.Context, agentID pgtype.UUID, squadIDs []pgtype.UUID, refs []AgentSkillBundleRef) (map[string]AgentSkillData, error) {
 	requestedIDs := make([]pgtype.UUID, 0, len(refs))
 	seenWorkspace := make(map[string]struct{}, len(refs))
 	wantBuiltin := make(map[string]struct{}, len(refs))
@@ -7229,6 +7231,7 @@ func (s *TaskService) LoadRequestedAgentSkillBundles(ctx context.Context, agentI
 		skills, err := s.Queries.ListAgentSkillsByIDs(ctx, db.ListAgentSkillsByIDsParams{
 			AgentID:  agentID,
 			SkillIds: requestedIDs,
+			SquadIds: squadIDs,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("list agent skills by ids: %w", err)

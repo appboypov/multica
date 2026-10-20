@@ -145,7 +145,7 @@ func TestLoadAgentSkills_GroupsBatchedFilesBySkillID(t *testing.T) {
 	}
 	svc := &TaskService{Queries: db.New(fake)}
 
-	got, err := svc.LoadAgentSkills(context.Background(), testUUID(9))
+	got, err := svc.LoadAgentSkills(context.Background(), testUUID(9), nil)
 	if err != nil {
 		t.Fatalf("LoadAgentSkills: %v", err)
 	}
@@ -205,7 +205,7 @@ func TestLoadAgentSkills_ReportsReadFailures(t *testing.T) {
 			}
 			svc := &TaskService{Queries: db.New(fake)}
 
-			got, err := svc.LoadAgentSkills(context.Background(), testUUID(9))
+			got, err := svc.LoadAgentSkills(context.Background(), testUUID(9), nil)
 			if err == nil {
 				t.Fatalf("LoadAgentSkills returned nil error and %d skills; a failed read must not look like a smaller skill set", len(got))
 			}
@@ -230,7 +230,7 @@ func TestLoadAgentSkillBundles_FailsClosedOnReadFailure(t *testing.T) {
 	}
 	svc := &TaskService{Queries: db.New(fake)}
 
-	bundles, refs, err := svc.LoadAgentSkillBundles(context.Background(), testUUID(9), "", false, true)
+	bundles, refs, err := svc.LoadAgentSkillBundles(context.Background(), testUUID(9), nil, "", false, true)
 	if err == nil {
 		t.Fatalf("LoadAgentSkillBundles returned nil error with %d bundles / %d refs", len(bundles), len(refs))
 	}

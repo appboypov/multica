@@ -114,23 +114,35 @@ DELETE FROM skill_file WHERE skill_id = $1;
 -- Agent-Skill junction
 
 -- name: ListAgentSkills :many
+-- The skills a run gets: the agent's enabled skills plus the enabled skills of
+-- the squads that reach the run (ADR-0034), each skill once. Pass no squad ids
+-- for the agent's own skills.
 SELECT s.* FROM skill s
-JOIN agent_skill ask ON ask.skill_id = s.id
-WHERE ask.agent_id = $1 AND ask.enabled = TRUE
+WHERE s.id IN (
+    SELECT ask.skill_id FROM agent_skill ask
+    WHERE ask.agent_id = sqlc.arg('agent_id') AND ask.enabled = TRUE
+    UNION
+    SELECT sqs.skill_id FROM squad_skill sqs
+    WHERE sqs.squad_id = ANY(sqlc.arg('squad_ids')::uuid[]) AND sqs.enabled = TRUE
+)
 ORDER BY s.name ASC;
 
 -- name: ListAgentSkillsByIDs :many
--- Scoped variant of ListAgentSkills: the same junction predicate, narrowed to
--- a set of requested skill IDs. The skill-bundle resolve path asks for one
--- skill per request, so loading the agent's whole set there costs a full read
--- and hash of every skill on every request. The junction predicate is also the
--- authorization: an ID the agent does not have enabled simply returns no row,
--- which the caller reports as not-found.
+-- Scoped variant of ListAgentSkills: the same predicate, narrowed to a set of
+-- requested skill IDs. The skill-bundle resolve path asks for one skill per
+-- request, so loading the run's whole set there costs a full read and hash of
+-- every skill on every request. The predicate is also the authorization: an
+-- ID neither the agent nor a squad reaching the run has enabled simply
+-- returns no row, which the caller reports as not-found.
 SELECT s.* FROM skill s
-JOIN agent_skill ask ON ask.skill_id = s.id
-WHERE ask.agent_id = $1
-  AND ask.enabled = TRUE
-  AND s.id = ANY(sqlc.arg('skill_ids')::uuid[])
+WHERE s.id = ANY(sqlc.arg('skill_ids')::uuid[])
+  AND s.id IN (
+    SELECT ask.skill_id FROM agent_skill ask
+    WHERE ask.agent_id = sqlc.arg('agent_id') AND ask.enabled = TRUE
+    UNION
+    SELECT sqs.skill_id FROM squad_skill sqs
+    WHERE sqs.squad_id = ANY(sqlc.arg('squad_ids')::uuid[]) AND sqs.enabled = TRUE
+  )
 ORDER BY s.name ASC;
 
 -- name: ListAgentSkillSummaries :many

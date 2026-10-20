@@ -60,7 +60,7 @@ func (s *skillQuerySpy) QueryRow(ctx context.Context, sql string, args ...any) p
 func (s *skillQuerySpy) Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error) {
 	switch {
 	case strings.Contains(sql, queryScopedAgentSkills):
-		s.record(&s.scopedSkillIDs, uuidArgLen(args, 1))
+		s.record(&s.scopedSkillIDs, uuidArgLen(args, 0))
 		if s.failQuery == queryScopedAgentSkills {
 			return nil, errInjectedScopedSkillRead
 		}

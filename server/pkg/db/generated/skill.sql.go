@@ -310,14 +310,27 @@ func (q *Queries) ListAgentSkillSummaries(ctx context.Context, agentID pgtype.UU
 const listAgentSkills = `-- name: ListAgentSkills :many
 
 SELECT s.id, s.workspace_id, s.name, s.description, s.content, s.config, s.created_by, s.created_at, s.updated_at, s.plugin_installation_id FROM skill s
-JOIN agent_skill ask ON ask.skill_id = s.id
-WHERE ask.agent_id = $1 AND ask.enabled = TRUE
+WHERE s.id IN (
+    SELECT ask.skill_id FROM agent_skill ask
+    WHERE ask.agent_id = $1 AND ask.enabled = TRUE
+    UNION
+    SELECT sqs.skill_id FROM squad_skill sqs
+    WHERE sqs.squad_id = ANY($2::uuid[]) AND sqs.enabled = TRUE
+)
 ORDER BY s.name ASC
 `
 
+type ListAgentSkillsParams struct {
+	AgentID  pgtype.UUID   `json:"agent_id"`
+	SquadIds []pgtype.UUID `json:"squad_ids"`
+}
+
 // Agent-Skill junction
-func (q *Queries) ListAgentSkills(ctx context.Context, agentID pgtype.UUID) ([]Skill, error) {
-	rows, err := q.db.Query(ctx, listAgentSkills, agentID)
+// The skills a run gets: the agent's enabled skills plus the enabled skills of
+// the squads that reach the run (ADR-0034), each skill once. Pass no squad ids
+// for the agent's own skills.
+func (q *Queries) ListAgentSkills(ctx context.Context, arg ListAgentSkillsParams) ([]Skill, error) {
+	rows, err := q.db.Query(ctx, listAgentSkills, arg.AgentID, arg.SquadIds)
 	if err != nil {
 		return nil, err
 	}
@@ -349,26 +362,31 @@ func (q *Queries) ListAgentSkills(ctx context.Context, agentID pgtype.UUID) ([]S
 
 const listAgentSkillsByIDs = `-- name: ListAgentSkillsByIDs :many
 SELECT s.id, s.workspace_id, s.name, s.description, s.content, s.config, s.created_by, s.created_at, s.updated_at, s.plugin_installation_id FROM skill s
-JOIN agent_skill ask ON ask.skill_id = s.id
-WHERE ask.agent_id = $1
-  AND ask.enabled = TRUE
-  AND s.id = ANY($2::uuid[])
+WHERE s.id = ANY($1::uuid[])
+  AND s.id IN (
+    SELECT ask.skill_id FROM agent_skill ask
+    WHERE ask.agent_id = $2 AND ask.enabled = TRUE
+    UNION
+    SELECT sqs.skill_id FROM squad_skill sqs
+    WHERE sqs.squad_id = ANY($3::uuid[]) AND sqs.enabled = TRUE
+  )
 ORDER BY s.name ASC
 `
 
 type ListAgentSkillsByIDsParams struct {
-	AgentID  pgtype.UUID   `json:"agent_id"`
 	SkillIds []pgtype.UUID `json:"skill_ids"`
+	AgentID  pgtype.UUID   `json:"agent_id"`
+	SquadIds []pgtype.UUID `json:"squad_ids"`
 }
 
-// Scoped variant of ListAgentSkills: the same junction predicate, narrowed to
-// a set of requested skill IDs. The skill-bundle resolve path asks for one
-// skill per request, so loading the agent's whole set there costs a full read
-// and hash of every skill on every request. The junction predicate is also the
-// authorization: an ID the agent does not have enabled simply returns no row,
-// which the caller reports as not-found.
+// Scoped variant of ListAgentSkills: the same predicate, narrowed to a set of
+// requested skill IDs. The skill-bundle resolve path asks for one skill per
+// request, so loading the run's whole set there costs a full read and hash of
+// every skill on every request. The predicate is also the authorization: an
+// ID neither the agent nor a squad reaching the run has enabled simply
+// returns no row, which the caller reports as not-found.
 func (q *Queries) ListAgentSkillsByIDs(ctx context.Context, arg ListAgentSkillsByIDsParams) ([]Skill, error) {
-	rows, err := q.db.Query(ctx, listAgentSkillsByIDs, arg.AgentID, arg.SkillIds)
+	rows, err := q.db.Query(ctx, listAgentSkillsByIDs, arg.SkillIds, arg.AgentID, arg.SquadIds)
 	if err != nil {
 		return nil, err
 	}

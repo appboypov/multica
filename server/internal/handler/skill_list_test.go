@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/multica-ai/multica/server/internal/testutil"
+	db "github.com/multica-ai/multica/server/pkg/db/generated"
 )
 
 // TestListSkills_OmitsContent guards the fix for GH multica-ai/multica#2174:
@@ -149,7 +150,7 @@ func TestSetAgentSkillEnabledControlsExecutionWithoutRemovingAssignment(t *testi
 		t.Fatalf("disabled assignment not preserved: rows=%+v err=%v", rows, err)
 	}
 	// Execution only receives enabled skills.
-	active, err := testHandler.Queries.ListAgentSkills(context.Background(), parseUUID(agentID))
+	active, err := testHandler.Queries.ListAgentSkills(context.Background(), db.ListAgentSkillsParams{AgentID: parseUUID(agentID)})
 	if err != nil || len(active) != 0 {
 		t.Fatalf("disabled skill leaked into execution: skills=%+v err=%v", active, err)
 	}
@@ -157,7 +158,7 @@ func TestSetAgentSkillEnabledControlsExecutionWithoutRemovingAssignment(t *testi
 	if w := setEnabled(true); w.Code != 200 {
 		t.Fatalf("enable skill: expected 200, got %d: %s", w.Code, w.Body.String())
 	}
-	active, err = testHandler.Queries.ListAgentSkills(context.Background(), parseUUID(agentID))
+	active, err = testHandler.Queries.ListAgentSkills(context.Background(), db.ListAgentSkillsParams{AgentID: parseUUID(agentID)})
 	if err != nil || len(active) != 1 || active[0].Name == "" {
 		t.Fatalf("re-enabled skill missing from execution: skills=%+v err=%v", active, err)
 	}

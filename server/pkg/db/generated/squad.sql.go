@@ -343,6 +343,84 @@ func (q *Queries) ListDelegatingParentSquads(ctx context.Context, arg ListDelega
 	return items, nil
 }
 
+const listIssueContributingSquads = `-- name: ListIssueContributingSquads :many
+WITH RECURSIVE issue_chain AS (
+    SELECT i.id, i.parent_issue_id, i.assignee_type, i.assignee_id, 0 AS distance, ARRAY[i.id] AS path
+    FROM issue i
+    WHERE i.id = $1 AND i.workspace_id = $2
+    UNION ALL
+    SELECT parent.id, parent.parent_issue_id, parent.assignee_type, parent.assignee_id, c.distance + 1, c.path || parent.id
+    FROM issue_chain c
+    JOIN issue parent ON parent.id = c.parent_issue_id AND parent.workspace_id = $2
+    WHERE NOT parent.id = ANY(c.path)
+), owner AS (
+    SELECT s.id
+    FROM issue_chain c
+    JOIN squad s ON s.id = c.assignee_id AND s.workspace_id = $2 AND s.archived_at IS NULL
+    WHERE c.assignee_type = 'squad'
+    ORDER BY c.distance
+    LIMIT 1
+), squad_tree AS (
+    SELECT o.id AS squad_id, 0 AS depth, ARRAY[o.id] AS path FROM owner o
+    UNION ALL
+    SELECT parent.id, t.depth + 1, t.path || parent.id
+    FROM squad_tree t
+    JOIN squad_member sm ON sm.member_type = 'squad' AND sm.member_id = t.squad_id
+    JOIN squad parent ON parent.id = sm.squad_id AND parent.workspace_id = $2 AND parent.archived_at IS NULL
+    WHERE NOT parent.id = ANY(t.path)
+)
+SELECT s.id, s.workspace_id, s.name, s.description, s.leader_id, s.creator_id, s.created_at, s.updated_at, s.archived_at, s.archived_by, s.avatar_url, s.instructions, s.inherit_runtime_skills, s.runtime_skill_exceptions FROM squad s
+JOIN (SELECT squad_id, max(depth) AS depth FROM squad_tree GROUP BY squad_id) d ON d.squad_id = s.id
+ORDER BY d.depth DESC, s.created_at ASC, s.id ASC
+`
+
+type ListIssueContributingSquadsParams struct {
+	IssueID     pgtype.UUID `json:"issue_id"`
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
+}
+
+// The squads that reach every run on an issue (ADR-0034): the live squad
+// assigned to the issue or, when it has none, to its closest ancestor issue,
+// plus every live squad holding that squad through nested membership, each
+// once. Outermost first: a squad sorts by its longest membership path down to
+// the owning squad, so every parent precedes the squads it holds and the
+// owning squad comes last. Archived squads count as absent, and the path
+// arrays keep a malformed issue cycle or membership loop finite.
+func (q *Queries) ListIssueContributingSquads(ctx context.Context, arg ListIssueContributingSquadsParams) ([]Squad, error) {
+	rows, err := q.db.Query(ctx, listIssueContributingSquads, arg.IssueID, arg.WorkspaceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Squad{}
+	for rows.Next() {
+		var i Squad
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.Name,
+			&i.Description,
+			&i.LeaderID,
+			&i.CreatorID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ArchivedAt,
+			&i.ArchivedBy,
+			&i.AvatarUrl,
+			&i.Instructions,
+			&i.InheritRuntimeSkills,
+			&i.RuntimeSkillExceptions,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listSquadMemberPreviewRows = `-- name: ListSquadMemberPreviewRows :many
 SELECT
     sm.squad_id,

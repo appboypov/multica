@@ -497,9 +497,10 @@ func TestClaimTask_LeaderGetsBriefing(t *testing.T) {
 	}
 }
 
-// TestClaimTask_NonLeaderGetsNoBriefing — when a non-leader squad member
-// claims a task on a squad-assigned issue, NO briefing is injected.
-func TestClaimTask_NonLeaderGetsNoBriefing(t *testing.T) {
+// TestClaimTask_NonLeaderGetsSquadInstructionsButNoBriefing — when a
+// non-leader squad member claims a task on a squad-assigned issue, it gets the
+// squad's user instructions (ADR-0034) but no leader protocol or roster.
+func TestClaimTask_NonLeaderGetsSquadInstructionsButNoBriefing(t *testing.T) {
 	if testHandler == nil {
 		t.Skip("database not available")
 	}
@@ -529,10 +530,12 @@ func TestClaimTask_NonLeaderGetsNoBriefing(t *testing.T) {
 	queueSquadIssueTaskFor(t, util.UUIDToString(squad.ID), helperID, helperRuntime, 95002)
 
 	agent := claimAndDecodeAgent(t, helperRuntime)
+	if !strings.Contains(agent.Instructions, "## Squad Instructions (Non-Leader Squad)\n\nSquad guidance.") {
+		t.Errorf("non-leader claim should contain the squad instructions\n--- instructions ---\n%s", agent.Instructions)
+	}
 	for _, mustNot := range []string{
 		"Squad Operating Protocol",
 		"Squad Roster",
-		"Squad Instructions (Non-Leader Squad)",
 	} {
 		if strings.Contains(agent.Instructions, mustNot) {
 			t.Errorf("non-leader claim should NOT contain %q\n--- instructions ---\n%s", mustNot, agent.Instructions)

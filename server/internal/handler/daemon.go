@@ -2618,6 +2618,15 @@ func (h *Handler) buildClaimedTaskResponse(r *http.Request, task *db.AgentTaskQu
 			mcpConfig = merged
 		}
 	}
+	// The squads reaching this run (ADR-0034) are resolved once, here, so the
+	// single and batch claims and the full-content and reference skill paths
+	// all carry the same squad skills, instructions and runtime skill policy.
+	reachingSquads, reachErr := h.loadReachingSquads(r.Context(), task.IssueID, agent.WorkspaceID)
+	if reachErr != nil {
+		return resp, deliveredCommentIDs, issueSnapshot, agentSkillCount, builtinSkillCount,
+			h.rejectClaimSourceLoad(r.Context(), task, reachErr, "squads", uuidToString(task.IssueID))
+	}
+	runtimeSkills := reachingRuntimeSkillPolicy(agent, reachingSquads, runtimeID, runtime.Provider)
 	// runtime_config is stored as JSONB and may legitimately be the
 	// empty object `{}` for agents that haven't opted into any
 	// provider-specific tuning. Forward only non-empty payloads so the
@@ -2638,8 +2647,8 @@ func (h *Handler) buildClaimedTaskResponse(r *http.Request, task *db.AgentTaskQu
 		ThinkingLevel:          agent.ThinkingLevel.String,
 		ServiceTier:            agent.ServiceTier.String,
 		RuntimeConfig:          runtimeConfig,
-		RuntimeSkillExceptions: runtimeSkillExceptionsFor(agent.RuntimeSkillExceptions, runtimeID, runtime.Provider),
-		InheritRuntimeSkills:   &agent.InheritRuntimeSkills,
+		RuntimeSkillExceptions: runtimeSkills.exceptions,
+		InheritRuntimeSkills:   &runtimeSkills.inherit,
 	}
 	// System agents carry a product-owned instruction layer that ships with
 	// this binary instead of being copied into their row at creation. That
@@ -2653,6 +2662,7 @@ func (h *Handler) buildClaimedTaskResponse(r *http.Request, task *db.AgentTaskQu
 	if agent.SystemKey.String == service.MikaSystemKey {
 		resp.Agent.Instructions = service.ComposeMikaInstructions(agent.Name, agent.Instructions)
 	}
+	resp.Agent.Instructions = appendSquadInstructions(resp.Agent.Instructions, reachingSquads)
 	// Whether this run may ask questions is decided once, here (ADR-0017).
 	// Skill variants and FinalizeTaskClaim follow this value; setting changes
 	// reach the next run. In-app chat turns use only the workspace default.
@@ -2672,14 +2682,14 @@ func (h *Handler) buildClaimedTaskResponse(r *http.Request, task *db.AgentTaskQu
 		resp.QuestionsEnabled = service.ResolveAgentQuestions(pgtype.Bool{}, workspace.Settings)
 	}
 	if useSkillRefs {
-		_, skillRefs, err := h.TaskService.LoadAgentSkillBundles(r.Context(), task.AgentID, agent.SystemKey.String, legacySkillRedirects, resp.QuestionsEnabled)
+		_, skillRefs, err := h.TaskService.LoadAgentSkillBundles(r.Context(), task.AgentID, squadIDsOf(reachingSquads), agent.SystemKey.String, legacySkillRedirects, resp.QuestionsEnabled)
 		if err != nil {
 			return resp, deliveredCommentIDs, issueSnapshot, agentSkillCount, builtinSkillCount, h.rejectClaimSkillLoad(task, err)
 		}
 		agentSkillCount = len(skillRefs)
 		resp.Agent.SkillRefs = skillRefs
 	} else {
-		skills, err := h.TaskService.LoadAgentSkills(r.Context(), task.AgentID)
+		skills, err := h.TaskService.LoadAgentSkills(r.Context(), task.AgentID, squadIDsOf(reachingSquads))
 		if err != nil {
 			return resp, deliveredCommentIDs, issueSnapshot, agentSkillCount, builtinSkillCount, h.rejectClaimSkillLoad(task, err)
 		}
@@ -2835,7 +2845,14 @@ func (h *Handler) buildClaimedTaskResponse(r *http.Request, task *db.AgentTaskQu
 					ownsIssueStatus := issue.AssigneeType.Valid &&
 						issue.AssigneeType.String == "squad" &&
 						uuidToString(issue.AssigneeID) == uuidToString(squad.ID)
-					briefing := buildSquadLeaderBriefing(r.Context(), h.Queries, squad, ownsIssueStatus)
+					// A squad reaching this issue already delivered its user
+					// instructions through the shared reach rule above; the
+					// leader keeps protocol and roster and reads them once.
+					briefed := squad
+					if squadReaches(reachingSquads, squad.ID) {
+						briefed.Instructions = ""
+					}
+					briefing := buildSquadLeaderBriefing(r.Context(), h.Queries, briefed, ownsIssueStatus)
 					if strings.TrimSpace(resp.Agent.Instructions) == "" {
 						resp.Agent.Instructions = briefing
 					} else {
@@ -4091,8 +4108,16 @@ func (h *Handler) ResolveTaskSkillBundles(w http.ResponseWriter, r *http.Request
 	// Load ONLY what was asked for. The daemon resolves one skill per request,
 	// so serving these out of the agent's full bundle set meant reading and
 	// hashing every skill the agent has, once per request, to return one of
-	// them — quadratic in skill count across a cold dispatch.
-	allowed, err := h.TaskService.LoadRequestedAgentSkillBundles(r.Context(), task.AgentID, wanted)
+	// them — quadratic in skill count across a cold dispatch. The squads
+	// reaching the run authorize their skills as the claim did (ADR-0034).
+	reachingSquads, err := h.loadReachingSquads(r.Context(), task.IssueID, runtime.WorkspaceID)
+	if err != nil {
+		slog.Error("resolve skill bundles: load reaching squads failed",
+			"task_id", uuidToString(task.ID), "issue_id", uuidToString(task.IssueID), "error", err)
+		writeError(w, http.StatusInternalServerError, "failed to load skill bundles")
+		return
+	}
+	allowed, err := h.TaskService.LoadRequestedAgentSkillBundles(r.Context(), task.AgentID, squadIDsOf(reachingSquads), wanted)
 	if err != nil {
 		// 5xx, not a partial answer: the daemon's resolve retry can recover a
 		// transient read, and a bundle assembled from a failed read would pass

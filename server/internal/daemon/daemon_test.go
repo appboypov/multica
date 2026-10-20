@@ -6380,6 +6380,70 @@ func TestConvertDisabledRuntimeSkillsForEnvListingError(t *testing.T) {
 	}
 }
 
+// The claim combines the agent's runtime skill policy with those of the
+// squads reaching the run into one section switch plus exceptions (ADR-0034).
+// The daemon expands that combined policy like an agent's own, so a skill
+// installed after the policy was set follows the combined switch.
+func TestConvertDisabledRuntimeSkillsForEnvCombinedSquadPolicy(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		// claim is the agent payload the server sends for the combination.
+		claim     string
+		want      []string
+		wantLater []string
+	}{
+		{
+			// Agent off with nothing picked, squad on except beta: the union
+			// keeps out only beta, and a later skill is allowed.
+			name:      "squad on",
+			claim:     `{"inherit_runtime_skills":true,"runtime_skill_exceptions":[{"runtime_id":"runtime-1","provider":"omp","root":"provider","key":"beta","name":"beta"}]}`,
+			want:      []string{"beta"},
+			wantLater: []string{"beta"},
+		},
+		{
+			// Agent off picking alpha, squad off picking beta: the union takes
+			// alpha and beta, and a later skill stays out.
+			name:      "all off",
+			claim:     `{"inherit_runtime_skills":false,"runtime_skill_exceptions":[{"runtime_id":"runtime-1","provider":"omp","root":"provider","key":"alpha","name":"alpha"},{"runtime_id":"runtime-1","provider":"omp","root":"provider","key":"beta","name":"beta"}]}`,
+			want:      []string{"gamma"},
+			wantLater: []string{"gamma", "later"},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			home := t.TempDir()
+			setTestUserHome(t, home)
+			root := filepath.Join(home, ".omp", "agent", "skills")
+			for _, key := range []string{"alpha", "beta", "gamma"} {
+				writeTestLocalSkill(t, root, key, map[string]string{"SKILL.md": "# " + key + "\n"})
+			}
+			var agentData AgentData
+			if err := json.Unmarshal([]byte(tc.claim), &agentData); err != nil {
+				t.Fatal(err)
+			}
+			ignored := func() []string {
+				t.Helper()
+				got, err := convertDisabledRuntimeSkillsForEnv(&agentData, "runtime-1", "omp")
+				if err != nil {
+					t.Fatal(err)
+				}
+				names := make([]string, 0, len(got))
+				for _, skill := range got {
+					names = append(names, skill.Name)
+				}
+				slices.Sort(names)
+				return names
+			}
+			if got := ignored(); !slices.Equal(got, tc.want) {
+				t.Fatalf("ignored skills = %v, want %v", got, tc.want)
+			}
+			writeTestLocalSkill(t, root, "later", map[string]string{"SKILL.md": "# later\n"})
+			if got := ignored(); !slices.Equal(got, tc.wantLater) {
+				t.Fatalf("ignored skills after a later install = %v, want %v", got, tc.wantLater)
+			}
+		})
+	}
+}
+
 // nestedPatchSecretBackend emits a Codex-shaped file-edit payload carrying a
 // credential nested inside changes[] — the legacy protocol reports a deletion
 // as the whole outgoing file, so deleting a .env puts its contents here.
