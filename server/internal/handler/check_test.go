@@ -14,7 +14,6 @@ func TestCheckAPIOpenAnswerAndTrust(t *testing.T) {
 	dbfx.Cleanup(t, "DELETE FROM todo WHERE details->>'project_id'=$1", project)
 	dbfx.Cleanup(t, "DELETE FROM project_check_trust WHERE project_id=$1", project)
 	body := map[string]string{"issue_id": fx.IssueID, "project_id": project, "member_id": testUserID, "kind": "design", "link": "https://example.test/design", "title": "Invoice design"}
-	testutil.Call(t, testHandler.OpenCheck, newRequest("POST", "/api/todos/checks", body)).Want(http.StatusForbidden)
 	var row map[string]any
 	testutil.Call(t, testHandler.OpenCheck, fx.agentRequest("POST", "", body)).Want(http.StatusCreated).JSON(&row)
 	id := row["id"].(string)
@@ -35,6 +34,31 @@ func TestCheckAPIOpenAnswerAndTrust(t *testing.T) {
 	}
 	body["member_id"] = "not-a-uuid"
 	testutil.Call(t, testHandler.OpenCheck, fx.agentRequest("POST", "", body)).Want(http.StatusBadRequest)
+}
+
+func TestCheckAPIMemberOpensAndReadsCheck(t *testing.T) {
+	issue := dbfx.Issue(t, t.Name())
+	project := dbfx.Project(t, "Member check API")
+	dbfx.Exec(t, "UPDATE issue SET project_id=$2 WHERE id=$1", issue, project)
+	dbfx.Cleanup(t, "DELETE FROM todo WHERE details->>'project_id'=$1", project)
+	dbfx.Cleanup(t, "DELETE FROM project_check_trust WHERE project_id=$1", project)
+	opener := dbfx.User(t, "Sarkout", "sarkout-"+project+"@example.test")
+	dbfx.Member(t, testWorkspaceID, opener, "member")
+	body := map[string]string{"issue_id": issue, "project_id": project, "member_id": testUserID, "kind": "feature", "link": "https://example.test/session", "title": "Pass the invoice totals"}
+	var row map[string]any
+	testutil.Call(t, testHandler.OpenCheck, newRequestAs(opener, "POST", "/api/todos/checks", body)).Want(http.StatusCreated).JSON(&row)
+	if row["kind"] != "check" || row["actor_type"] != "member" || row["actor_id"] != opener {
+		t.Fatalf("check %+v", row)
+	}
+	id := row["id"].(string)
+	testutil.Call(t, testHandler.AnswerCheck, withURLParam(newRequest("POST", "/", map[string]string{"answer": "feedback", "note": "Round per line"}), "id", id)).Want(http.StatusOK)
+	testutil.Call(t, testHandler.GetCheck, withURLParam(newRequestAs(opener, "GET", "/", nil), "id", id)).Want(http.StatusOK).JSON(&row)
+	if details, _ := row["details"].(map[string]any); details["answer"] != "feedback" || details["note"] != "Round per line" {
+		t.Fatalf("answered check %+v", row)
+	}
+	bystander := dbfx.User(t, "Bystander", "bystander-"+project+"@example.test")
+	dbfx.Member(t, testWorkspaceID, bystander, "member")
+	testutil.Call(t, testHandler.GetCheck, withURLParam(newRequestAs(bystander, "GET", "/", nil), "id", id)).Want(http.StatusNotFound)
 }
 
 func TestCheckRecordAndInstructionAPI(t *testing.T) {
