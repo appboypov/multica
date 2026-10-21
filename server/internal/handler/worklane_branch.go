@@ -322,15 +322,22 @@ func (h *Handler) claimWorklane(ctx context.Context, task *db.AgentTaskQueue, ru
 	if err != nil {
 		return loadFailed("pull requests", err)
 	}
-	for _, l := range lanes {
-		pullRequestBranch := ""
-		for _, pr := range pullRequests {
-			if pr.WorkspaceID == issue.WorkspaceID && pr.State == "open" && pr.Branch.Valid && pr.Branch.String != "" &&
-				strings.EqualFold(pr.RepoOwner+"/"+pr.RepoName, l.repo.FullName) {
-				pullRequestBranch = pr.Branch.String
-				break
+	// The issue before this one in its lane's order is the layer below it
+	// in the lane's stack (ADR-0036).
+	var belowPullRequests []db.ListPullRequestsByIssueRow
+	if lane.ID.Valid {
+		laneIssues, err := h.Queries.ListWorklaneIssues(ctx, db.ListWorklaneIssuesParams{WorkspaceID: issue.WorkspaceID, WorklaneID: lane.ID})
+		if err != nil {
+			return loadFailed("worklane issues", err)
+		}
+		if i := slices.IndexFunc(laneIssues, func(row db.ListWorklaneIssuesRow) bool { return row.ID == issue.ID }); i > 0 {
+			if belowPullRequests, err = h.Queries.ListPullRequestsByIssue(ctx, laneIssues[i-1].ID); err != nil {
+				return loadFailed("pull requests below", err)
 			}
 		}
+	}
+	for _, l := range lanes {
+		pullRequestBranch := openPullRequestBranch(pullRequests, issue.WorkspaceID, l.repo.FullName)
 		if l.heldCheckout {
 			if l.wl.Branch.String == pullRequestBranch {
 				l.inCheckout = true
@@ -358,10 +365,23 @@ func (h *Handler) claimWorklane(ctx context.Context, task *db.AgentTaskQueue, ru
 			Branch:            textToPtr(l.wl.Branch),
 			DefaultBranch:     l.repo.DefaultBranch,
 			PullRequestBranch: pullRequestBranch,
+			BelowBranch:       openPullRequestBranch(belowPullRequests, issue.WorkspaceID, l.repo.FullName),
 			InCheckout:        l.inCheckout,
 		})
 	}
 	return repos, nil
+}
+
+// openPullRequestBranch is the branch of the newest open pull request of the
+// workspace in the repository fullName, or empty.
+func openPullRequestBranch(pullRequests []db.ListPullRequestsByIssueRow, workspaceID pgtype.UUID, fullName string) string {
+	for _, pr := range pullRequests {
+		if pr.WorkspaceID == workspaceID && pr.State == "open" && pr.Branch.Valid && pr.Branch.String != "" &&
+			strings.EqualFold(pr.RepoOwner+"/"+pr.RepoName, fullName) {
+			return pr.Branch.String
+		}
+	}
+	return ""
 }
 
 // withClaimWorklane sets the repository's worklane block, adding the

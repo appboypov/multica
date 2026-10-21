@@ -168,6 +168,64 @@ func TestClaimTask_WorklanePullRequestBranch(t *testing.T) {
 	}
 }
 
+func TestClaimTask_WorklaneBelowBranch(t *testing.T) {
+	if testHandler == nil {
+		t.Skip("database not available")
+	}
+	for _, tc := range []struct {
+		name       string
+		position   int
+		belowState string
+		belowRepo  string
+		want       string
+	}{
+		{name: "open pull request below", position: 2, belowState: "open", want: "work-below"},
+		{name: "merged pull request below", position: 2, belowState: "merged"},
+		{name: "open pull request below in another repository", position: 2, belowState: "open", belowRepo: "other-repository"},
+		{name: "first issue of the lane", position: 0, belowState: "open"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newWorklaneClaimFixture(t, true, false)
+			dbfx.Exec(t, "UPDATE issue SET lane_position = $2 WHERE id = $1", f.issueID, tc.position)
+			link := func(issueID string, number int, state, repoName, branch string) {
+				created := time.Date(2026, time.October, 16, 12, number, 0, 0, time.UTC)
+				prID := dbfx.Insert(t, "github_pull_request", testutil.Cols{
+					"workspace_id": testWorkspaceID, "installation_id": 1,
+					"repo_owner": "test", "repo_name": repoName, "pr_number": number,
+					"title": "Lane PR", "state": state, "branch": branch,
+					"html_url":      "https://github.com/test/" + repoName + "/pull/1",
+					"pr_created_at": created, "pr_updated_at": created,
+				})
+				dbfx.InsertNoID(t, "issue_pull_request", testutil.Cols{
+					"issue_id": issueID, "pull_request_id": prID, "linked_by_type": "system",
+				}, "issue_id = $1 AND pull_request_id = $2", issueID, prID)
+			}
+			repoName := f.repoName
+			if tc.belowRepo != "" {
+				repoName = tc.belowRepo
+			}
+			below := dbfx.Issue(t, "Lane issue below", testutil.Cols{"worklane_id": f.laneID, "lane_position": 1})
+			link(below, 1, tc.belowState, repoName, "work-below")
+			above := dbfx.Issue(t, "Lane issue above", testutil.Cols{"worklane_id": f.laneID, "lane_position": 3})
+			link(above, 2, "open", f.repoName, "work-above")
+			response := f.claim(t, testHandler, testWorkspaceID, http.StatusOK)
+			var out struct {
+				Task *AgentTaskResponse `json:"task"`
+			}
+			response.JSON(&out)
+			if out.Task == nil || len(out.Task.Repositories) != 1 || out.Task.Repositories[0].Worklane == nil {
+				t.Fatalf("expected one claimed worklane, got %+v", out.Task)
+			}
+			if got := out.Task.Repositories[0].Worklane.BelowBranch; got != tc.want {
+				t.Errorf("below branch = %q, want %q", got, tc.want)
+			}
+			if present := strings.Contains(response.Text(), `"below_branch"`); present != (tc.want != "") {
+				t.Errorf("optional below_branch presence = %v, want %v", present, tc.want != "")
+			}
+		})
+	}
+}
+
 func TestClaimTask_WorklanePullRequestLoadFailureRequeues(t *testing.T) {
 	if testHandler == nil {
 		t.Skip("database not available")
