@@ -68,6 +68,17 @@ client messages. It holds:
   missing claimed issue holds its PR and reports an error.
   Check rollups are informational.
 Exit 1 only when GitHub cannot be read; a Multica part that cannot be read carries its error in `errors`.
+
+  team_state.py --in-review
+
+In Review: every In Review issue of the workspace, in every project, without a verifier and without a focus.
+`issues` holds one row per issue with its `key`, `title`, `project` (its title), `release` (its version), `lane`
+(`id` and `name`) and `pull_requests`, each pull request Multica links to it with its `url`, `number`, `branch` and
+`state`. `stack` is its place in its lane's stack: the lane's In Review issues in lane order are its layers,
+`position` 1 is the bottom layer and `layers` counts them. An issue in no lane has no `lane` and no `stack`. The
+rows come by project, then stack by stack with the bottom layer first, then the issues in no lane. An issue whose
+links cannot be read has `pull_requests` null and its error in `errors`. Exit 1 when the issues, projects,
+releases or lanes cannot be read.
 """
 
 from __future__ import annotations
@@ -85,6 +96,7 @@ from team_state_intake import collect_intake
 from team_state_io import StateError, run
 from team_state_multica import collect_multica, registered_repositories
 from team_state_repos import collect_repo, local_checkouts, origin_name, repo_home
+from team_state_review import collect_in_review
 
 
 def github_login() -> str | None:
@@ -148,21 +160,29 @@ def collect(endeavour: Path, extra: list[str], verifier: str, lane: str | None =
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Collect the open work of one endeavour, or one repository's intake.")
+    parser = argparse.ArgumentParser(description="Collect the open work of one endeavour, one repository's intake or the workspace's In Review issues.")
     parser.add_argument("endeavour", nargs="?", help="the endeavour's folder, such as ~/Repos/Clients/rebl")
     parser.add_argument("--repo", action="append", default=[], help="a repository beside the endeavour's own: owner/name or a checkout")
-    parser.add_argument("--verifier", required=True, help="the name of the Multica agent in the verifier's role, which holds an issue once its pull request is open")
+    parser.add_argument("--verifier", help="the name of the Multica agent in the verifier's role, which holds an issue once its pull request is open; the endeavour and --intake need it")
     parser.add_argument("--lane", help="the worklane to run on, by name or id: only its lane is reported")
     parser.add_argument("--client", action="append", default=[], help="a client whose chats to read beside those the endeavour names")
     parser.add_argument("--intake", metavar="REPOSITORY",
                         help="repository intake instead: every open pull request of one repository, owner/name or a checkout, ranked individually")
+    parser.add_argument("--in-review", action="store_true",
+                        help="instead every In Review issue of the workspace, each with its place in its lane's stack, in merge order")
     args = parser.parse_args(argv)
+    if args.in_review and (args.endeavour or args.repo or args.lane or args.client or args.intake or args.verifier):
+        parser.error("--in-review takes no endeavour, --repo, --lane, --client, --intake or --verifier")
     if args.intake and (args.endeavour or args.repo or args.lane or args.client):
         parser.error("--intake takes no endeavour, --repo, --lane or --client")
-    if not args.intake and not args.endeavour:
-        parser.error("an endeavour folder or --intake is required")
+    if not args.in_review and not args.intake and not args.endeavour:
+        parser.error("an endeavour folder, --intake or --in-review is required")
+    if not args.in_review and not args.verifier:
+        parser.error("the endeavour and --intake need --verifier")
     try:
-        if args.intake:
+        if args.in_review:
+            found = collect_in_review()
+        elif args.intake:
             found = collect_intake(named_repository(args.intake)[0], args.verifier)
         else:
             endeavour = Path(args.endeavour).expanduser().resolve()

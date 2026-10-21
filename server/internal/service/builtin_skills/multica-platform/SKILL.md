@@ -33,7 +33,7 @@ Read the invariants below, then open the reference(s) your task actually needs
 | `scripts/tickets_text.py`, `scripts/tickets_tree.py` | Parts of `scripts/tickets.py`, which imports them; run `tickets.py` itself |
 | `scripts/labels.py` | The ticket labels the workspace lacks, as `references/madspec-planning.md` "Scripts" says |
 | `scripts/team_state.py` | The open work of one MadSpec endeavour, as `references/madspec-planning.md` "Scripts" says |
-| `scripts/team_state_io.py`, `scripts/team_state_multica.py`, `scripts/team_state_repos.py`, `scripts/team_state_chats.py`, `scripts/team_state_intake.py` | Parts of `scripts/team_state.py`, which imports them; run `team_state.py` itself |
+| `scripts/team_state_io.py`, `scripts/team_state_multica.py`, `scripts/team_state_repos.py`, `scripts/team_state_chats.py`, `scripts/team_state_intake.py`, `scripts/team_state_review.py` | Parts of `scripts/team_state.py`, which imports them; run `team_state.py` itself |
 | `scripts/words.ts` | Brian's issue comments and question answers in a time window, as `references/madspec-planning.md` "Scripts" says |
 
 Open what the task needs. A single-domain task usually needs one; a task that

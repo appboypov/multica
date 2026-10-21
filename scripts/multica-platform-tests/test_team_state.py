@@ -16,8 +16,10 @@ import team_state_intake  # noqa: E402
 import team_state_io  # noqa: E402
 import team_state_multica  # noqa: E402
 import team_state_repos  # noqa: E402
+import team_state_review  # noqa: E402
 
-SCRIPT_MODULES = (team_state, team_state_chats, team_state_intake, team_state_io, team_state_multica, team_state_repos)
+SCRIPT_MODULES = (team_state, team_state_chats, team_state_intake, team_state_io, team_state_multica, team_state_repos,
+                  team_state_review)
 
 
 def stand_in(test, name, fake):
@@ -791,6 +793,111 @@ class RepositoryIntakeReadsEveryOpenPullRequest(unittest.TestCase):
         self.assertEqual(found["ready"], [])
         self.assertTrue(all(u["blocked_by"][0] == {"kind": "evidence", "missing": ["Multica agents"]}
                             for u in found["blocked"]))
+
+
+def lane_issue(key, status, lane, project, release=None):
+    return {"id": f"id-{key}", "identifier": key, "title": f"Title of {key}", "status": status,
+            "project_id": project, "release_id": release, "worklane_id": lane}
+
+
+def linked_pr(repository, number, state="open"):
+    return {"html_url": f"https://github.com/{repository}/pull/{number}", "number": number,
+            "branch": f"branch-{number}", "state": state, "link_source": "title"}
+
+
+class SarkoutSeesEveryIssueInReview(unittest.TestCase):
+    """Two projects: the app's lane holds a stack in lane order 12 under 11, the dashboard's lane a stack of 20 under
+    21, and the dashboard holds one issue in review in no lane."""
+
+    PROJECTS = [{"id": "p-dash", "title": "Dashboard"}, {"id": "p-app", "title": "App"}]
+    RELEASES = [{"id": "r-1", "version": "0.1.0"}, {"id": "r-2", "version": "0.2.0"}]
+    LANES = [{"id": "l-app", "name": "main", "repository_id": "repo-app"},
+             {"id": "l-dash", "name": "Rooster", "repository_id": "repo-dash"}]
+    LANE_ORDER = {
+        "l-app": [lane_issue("WORK-10", "done", "l-app", "p-app", "r-1"),
+                  lane_issue("WORK-12", "in_review", "l-app", "p-app", "r-1"),
+                  lane_issue("WORK-11", "in_review", "l-app", "p-app", "r-2"),
+                  lane_issue("WORK-13", "in_progress", "l-app", "p-app", "r-2"),
+                  lane_issue("WORK-14", "todo", "l-app", "p-app", "r-2")],
+        "l-dash": [lane_issue("WORK-20", "in_review", "l-dash", "p-dash", "r-1"),
+                   lane_issue("WORK-21", "in_review", "l-dash", "p-dash", "r-1")],
+    }
+    UNLANED = [lane_issue("WORK-30", "in_review", None, "p-dash"), lane_issue("WORK-31", "todo", None, "p-dash")]
+    LINKS = {"WORK-11": [linked_pr("acme/app", 8)], "WORK-12": [linked_pr("acme/app", 7)],
+             "WORK-20": [linked_pr("acme/dash", 3)], "WORK-21": [linked_pr("acme/dash", 4)],
+             "WORK-30": [linked_pr("acme/dash", 2, "closed"), linked_pr("acme/dash", 5)]}
+
+    def multica(self, *args):
+        if args[:2] == ("issue", "list"):
+            status = args[args.index("--status") + 1] if "--status" in args else None
+            board = sorted([*self.UNLANED, *(i for lane in self.LANE_ORDER.values() for i in lane)],
+                           key=lambda i: i["identifier"], reverse=True)
+            matching = [i for i in board if status in (None, i["status"])]
+            offset = int(args[-1])
+            return {"issues": matching[offset:offset + 2], "has_more": offset + 2 < len(matching)}
+        if args[:2] == ("project", "list"):
+            return self.PROJECTS
+        if args[:2] == ("release", "list"):
+            return self.RELEASES
+        if args[:2] == ("worklane", "list"):
+            return self.LANES
+        if args[:2] == ("worklane", "issues"):
+            return self.LANE_ORDER[args[2]]
+        if args[:2] == ("issue", "pull-requests"):
+            return {"pull_requests": self.LINKS.get(args[2], [])}
+        raise AssertionError(f"in-review list read multica {' '.join(args)}")
+
+    def setUp(self):
+        stand_in(self, "multica", self.multica)
+
+    def test_every_issue_in_review_names_its_project_release_lane_and_pull_request(self):
+        found = {row["key"]: row for row in team_state_review.collect_in_review()["issues"]}
+        self.assertEqual(found["WORK-11"], {
+            "key": "WORK-11", "title": "Title of WORK-11", "project": "App", "release": "0.2.0",
+            "lane": {"id": "l-app", "name": "main"}, "stack": {"position": 2, "layers": 2},
+            "pull_requests": [{"url": "https://github.com/acme/app/pull/8", "number": 8, "branch": "branch-8",
+                               "state": "open"}],
+        })
+        self.assertEqual({k: (r["project"], r["release"], r["lane"] and r["lane"]["name"]) for k, r in found.items()}, {
+            "WORK-11": ("App", "0.2.0", "main"), "WORK-12": ("App", "0.1.0", "main"),
+            "WORK-20": ("Dashboard", "0.1.0", "Rooster"), "WORK-21": ("Dashboard", "0.1.0", "Rooster"),
+            "WORK-30": ("Dashboard", None, None),
+        })
+        self.assertEqual(found["WORK-30"]["stack"], None)
+        self.assertEqual([p["number"] for p in found["WORK-30"]["pull_requests"]], [2, 5])
+
+    def test_issues_in_other_statuses_stay_out_and_are_no_layer_of_a_stack(self):
+        found = team_state_review.collect_in_review()["issues"]
+        self.assertEqual(sorted(row["key"] for row in found), ["WORK-11", "WORK-12", "WORK-20", "WORK-21", "WORK-30"])
+        self.assertEqual({row["key"]: row["stack"] for row in found if row["lane"]}, {
+            "WORK-12": {"position": 1, "layers": 2}, "WORK-11": {"position": 2, "layers": 2},
+            "WORK-20": {"position": 1, "layers": 2}, "WORK-21": {"position": 2, "layers": 2},
+        })
+
+    def test_each_stack_comes_bottom_layer_first_whatever_the_board_order(self):
+        found = team_state_review.collect_in_review()["issues"]
+        self.assertEqual([row["key"] for row in found], ["WORK-12", "WORK-11", "WORK-20", "WORK-21", "WORK-30"])
+
+    def test_an_issue_whose_links_cannot_be_read_keeps_its_row_and_shows_the_error(self):
+        def failing(*args):
+            if args[:3] == ("issue", "pull-requests", "WORK-20"):
+                raise team_state_io.StateError("multica: timeout")
+            return self.multica(*args)
+
+        stand_in(self, "multica", failing)
+        found = team_state_review.collect_in_review()
+        self.assertEqual({row["key"]: row["pull_requests"] for row in found["issues"]}["WORK-20"], None)
+        self.assertEqual(found["errors"], ["Multica links: WORK-20: multica: timeout"])
+
+    def test_the_command_prints_the_list_without_a_verifier_and_refuses_endeavour_options(self):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            self.assertEqual(team_state.main(["--in-review"]), 0)
+        self.assertEqual([row["key"] for row in json.loads(out.getvalue())["issues"]],
+                         ["WORK-12", "WORK-11", "WORK-20", "WORK-21", "WORK-30"])
+        for extra in (["~/Repos"], ["--intake", "acme/app"], ["--lane", "main"], ["--verifier", "Verifier"]):
+            with self.subTest(extra=extra), contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+                team_state.main(["--in-review", *extra])
 
 
 if __name__ == "__main__":
