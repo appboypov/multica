@@ -91,24 +91,6 @@ A paused autopilot, a reached autopilot quota limit and a failed quick create SH
 - **WHEN** Brian retries it and the issue is created
 - **THEN** the to-do leaves
 
-### Requirement: An issue the member created that is In Review is a to-do
-An issue a member created SHALL be a Waiting for your review to-do while it is In Review, unless the member is its assignee. It SHALL leave once the issue leaves In Review. While an open question for the member is on the same issue, only the question SHALL show.
-
-#### Scenario: Review
-- **GIVEN** Brian created WORK-424
-- **WHEN** Joeri moves WORK-424, which Brian created, to In Review
-- **THEN** Brian has a Waiting for your review to-do for WORK-424
-
-#### Scenario: Merge pass question wins
-- **GIVEN** WORK-424 is In Review and Brian has a Waiting for your review to-do for it
-- **WHEN** Sarkout asks Brian an Approval question on WORK-424
-- **THEN** Brian's inbox shows only the Question to-do for WORK-424
-
-#### Scenario: In Progress is no review to-do
-- **GIVEN** Brian created WORK-425
-- **WHEN** Joeri moves WORK-425, which Brian created, to In Progress
-- **THEN** Brian has no to-do for WORK-425
-
 ### Requirement: Mark done
 A member SHALL be able to mark any of their open to-dos done, which closes it at once. A later event SHALL open a new to-do.
 
