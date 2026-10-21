@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# The full check: Sarkout runs it on the Mac from this checkout on the head of
-# main, as its own Multica task. No review or release runs it or waits for it.
+# The full check: it runs on the Mac from this checkout on the head of main.
+# No review or release runs it or waits for it.
 #
 # It runs scripts/full-check-container.sh in a single-use local Crabbox
 # container (MadSpec's crabbox-local), with the image that
