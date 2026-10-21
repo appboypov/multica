@@ -807,10 +807,16 @@ def linked_pr(repository, number, state="open"):
 
 class SarkoutSeesEveryIssueInReview(unittest.TestCase):
     """Two projects: the app's lane holds a stack in lane order 12 under 11, the dashboard's lane a stack of 20 under
-    21, and the dashboard holds one issue in review in no lane."""
+    21, and the dashboard holds one issue in review in no lane. Release 0.3.0 of the dashboard is finished and its
+    release pull request is open; release 0.2.0 of the app has its release pull request open but open issues."""
 
     PROJECTS = [{"id": "p-dash", "title": "Dashboard"}, {"id": "p-app", "title": "App"}]
-    RELEASES = [{"id": "r-1", "version": "0.1.0"}, {"id": "r-2", "version": "0.2.0"}]
+    RELEASES = [{"id": "r-1", "version": "0.1.0", "repository_id": "repo-app", "position": 0, "shipped_at": None},
+                {"id": "r-2", "version": "0.2.0", "repository_id": "repo-app", "position": 1, "shipped_at": None},
+                {"id": "r-3", "version": "0.3.0", "repository_id": "repo-dash", "position": 0, "shipped_at": None},
+                {"id": "r-0", "version": "0.0.9", "repository_id": "repo-dash", "position": 1,
+                 "shipped_at": "2026-10-01T09:00:00Z"}]
+    REPOSITORIES = {"repo-app": "acme/app", "repo-dash": "acme/dash"}
     LANES = [{"id": "l-app", "name": "main", "repository_id": "repo-app"},
              {"id": "l-dash", "name": "Rooster", "repository_id": "repo-dash"}]
     LANE_ORDER = {
@@ -822,10 +828,20 @@ class SarkoutSeesEveryIssueInReview(unittest.TestCase):
         "l-dash": [lane_issue("WORK-20", "in_review", "l-dash", "p-dash", "r-1"),
                    lane_issue("WORK-21", "in_review", "l-dash", "p-dash", "r-1")],
     }
-    UNLANED = [lane_issue("WORK-30", "in_review", None, "p-dash"), lane_issue("WORK-31", "todo", None, "p-dash")]
+    UNLANED = [lane_issue("WORK-30", "in_review", None, "p-dash"), lane_issue("WORK-31", "todo", None, "p-dash"),
+               lane_issue("WORK-40", "done", None, "p-dash", "r-3"),
+               lane_issue("WORK-41", "cancelled", None, "p-dash", "r-3"),
+               lane_issue("WORK-42", "done", None, "p-dash", "r-0")]
     LINKS = {"WORK-11": [linked_pr("acme/app", 8)], "WORK-12": [linked_pr("acme/app", 7)],
              "WORK-20": [linked_pr("acme/dash", 3)], "WORK-21": [linked_pr("acme/dash", 4)],
              "WORK-30": [linked_pr("acme/dash", 2, "closed"), linked_pr("acme/dash", 5)]}
+    OPEN_PRS = {
+        "acme/app": [(7, "WORK-12 Build", "work-50", "work-12"), (8, "WORK-11 Build", "work-12", "work-11"),
+                     (9, "Release 0.2.0 (WORK-50)", "main", "work-50")],
+        "acme/dash": [(3, "WORK-20 Build", "work-60", "work-20"), (4, "WORK-21 Build", "work-20", "work-21"),
+                      (5, "WORK-30 Build", "main", "work-30"), (10, "Release 0.3.0 checklist", "work-60", "work-61"),
+                      (6, "Release 0.3.0 (WORK-60)", "main", "work-60")],
+    }
 
     def multica(self, *args):
         if args[:2] == ("issue", "list"):
@@ -847,8 +863,21 @@ class SarkoutSeesEveryIssueInReview(unittest.TestCase):
             return {"pull_requests": self.LINKS.get(args[2], [])}
         raise AssertionError(f"in-review list read multica {' '.join(args)}")
 
+    def graphql(self, query, **variables):
+        name = f"{variables['owner']}/{variables['name']}"
+        self.github_read.append(name)
+        start = int(variables["after"] or 0)
+        nodes = [{"number": n, "url": f"https://github.com/{name}/pull/{n}", "title": title, "baseRefName": base,
+                  "headRefName": head} for n, title, base, head in self.OPEN_PRS[name]]
+        return {"repository": {"defaultBranchRef": {"name": "main"}, "pullRequests": {
+            "pageInfo": {"hasNextPage": start + 2 < len(nodes), "endCursor": str(start + 2)},
+            "nodes": nodes[start:start + 2]}}}
+
     def setUp(self):
+        self.github_read = []
         stand_in(self, "multica", self.multica)
+        stand_in(self, "graphql", self.graphql)
+        stand_in(self, "repository_names", lambda: dict(self.REPOSITORIES))
 
     def test_every_issue_in_review_names_its_project_release_lane_and_pull_request(self):
         found = {row["key"]: row for row in team_state_review.collect_in_review()["issues"]}
@@ -888,6 +917,35 @@ class SarkoutSeesEveryIssueInReview(unittest.TestCase):
         found = team_state_review.collect_in_review()
         self.assertEqual({row["key"]: row["pull_requests"] for row in found["issues"]}["WORK-20"], None)
         self.assertEqual(found["errors"], ["Multica links: WORK-20: multica: timeout"])
+
+    def test_a_release_whose_issues_are_all_done_names_its_repository_and_open_release_pull_request(self):
+        found = team_state_review.collect_in_review()
+        self.assertEqual(found["releases"], [{
+            "repository": "acme/dash", "version": "0.3.0",
+            "pull_request": {"url": "https://github.com/acme/dash/pull/6", "number": 6, "branch": "work-60"},
+        }])
+        self.assertNotIn("errors", found)
+
+    def test_a_release_with_an_open_issue_stays_out_though_its_release_pull_request_is_open(self):
+        found = team_state_review.collect_in_review()
+        self.assertNotIn("0.2.0", [r["version"] for r in found["releases"]])
+        self.assertNotIn("0.1.0", [r["version"] for r in found["releases"]])
+        self.assertNotIn("acme/app", self.github_read)
+
+    def test_a_release_whose_repository_cannot_be_read_stays_out_and_shows_the_error(self):
+        def failing(query, **variables):
+            raise team_state_io.StateError("gh: timeout")
+
+        stand_in(self, "graphql", failing)
+        found = team_state_review.collect_in_review()
+        self.assertEqual(found["releases"], [])
+        self.assertEqual(found["errors"], ["GitHub acme/dash: gh: timeout"])
+
+    def test_a_release_whose_repository_multica_does_not_name_stays_out_and_shows_the_error(self):
+        self.REPOSITORIES = {"repo-app": "acme/app"}
+        found = team_state_review.collect_in_review()
+        self.assertEqual(found["releases"], [])
+        self.assertEqual(found["errors"], ["Multica repositories: release 0.3.0 is in no repository"])
 
     def test_the_command_prints_the_list_without_a_verifier_and_refuses_endeavour_options(self):
         out = io.StringIO()

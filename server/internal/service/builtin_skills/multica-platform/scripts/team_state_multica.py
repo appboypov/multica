@@ -22,15 +22,25 @@ GITHUB_REMOTE_RE = re.compile(
 )
 
 
-def organisations() -> dict:
-    """The workspace's organisations by id; the CLI has none, so `GET /api/organisations` with the profile's token."""
+def multica_api(path: str) -> dict:
+    """One `GET` of Multica's API with the profile's token, for what the CLI does not read."""
     config = json.loads(MULTICA_CONFIG.read_text(encoding="utf-8"))
     request = urllib.request.Request(
-        config["server_url"].rstrip("/") + "/api/organisations",
+        config["server_url"].rstrip("/") + path,
         headers={"Authorization": f"Bearer {config['token']}", "X-Workspace-ID": config["workspace_id"]},
     )
     with urllib.request.urlopen(request, timeout=20) as response:
-        return {o["id"]: {"name": o["name"], "key": o["key"]} for o in json.load(response)["organisations"]}
+        return json.load(response)
+
+
+def organisations() -> dict:
+    """The workspace's organisations by id; the CLI has none, so `GET /api/organisations`."""
+    return {o["id"]: {"name": o["name"], "key": o["key"]} for o in multica_api("/api/organisations")["organisations"]}
+
+
+def repository_names() -> dict[str, str]:
+    """The GitHub name (`owner/name`) of each project repository by id; the CLI has none, so `GET /api/repositories`."""
+    return {r["id"]: r["full_name"] for r in multica_api("/api/repositories")["repositories"]}
 
 
 def registered_repositories() -> set[str]:

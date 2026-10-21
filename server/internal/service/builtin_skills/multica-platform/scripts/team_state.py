@@ -77,7 +77,11 @@ In Review: every In Review issue of the workspace, in every project, without a v
 `state`. `stack` is its place in its lane's stack: the lane's In Review issues in lane order are its layers,
 `position` 1 is the bottom layer and `layers` counts them. An issue in no lane has no `lane` and no `stack`. The
 rows come by project, then stack by stack with the bottom layer first, then the issues in no lane. An issue whose
-links cannot be read has `pull_requests` null and its error in `errors`. Exit 1 when the issues, projects,
+links cannot be read has `pull_requests` null and its error in `errors`. `releases` holds each unshipped release
+whose issues are all closed and whose release pull request is open: its `repository`, `version` and
+`pull_request` (`url`, `number` and `branch`), the open pull request into the default branch titled
+`Release <version>`. A release with an open issue stays out. A release whose repository Multica (`GET
+/api/repositories`) or GitHub cannot read stays out with its error in `errors`. Exit 1 when the issues, projects,
 releases or lanes cannot be read.
 """
 
@@ -169,7 +173,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--intake", metavar="REPOSITORY",
                         help="repository intake instead: every open pull request of one repository, owner/name or a checkout, ranked individually")
     parser.add_argument("--in-review", action="store_true",
-                        help="instead every In Review issue of the workspace, each with its place in its lane's stack, in merge order")
+                        help="instead every In Review issue of the workspace, each with its place in its lane's stack, in merge order, and each finished release whose release pull request is open")
     args = parser.parse_args(argv)
     if args.in_review and (args.endeavour or args.repo or args.lane or args.client or args.intake or args.verifier):
         parser.error("--in-review takes no endeavour, --repo, --lane, --client, --intake or --verifier")
