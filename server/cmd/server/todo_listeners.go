@@ -38,9 +38,6 @@ func registerTodoListeners(bus *events.Bus, queries *db.Queries, txStarter todo.
 			if err := assignedTodos(context.Background(), svc, e); err != nil {
 				slog.Error("assigned todo transition failed", "error", err)
 			}
-			if err := reviewTodos(context.Background(), svc, e); err != nil {
-				slog.Error("review todo transition failed", "error", err)
-			}
 		})
 	}
 	for _, kind := range []string{protocol.EventIssueUpdated, protocol.EventTaskFailed, protocol.EventTaskDispatch} {
@@ -445,44 +442,6 @@ func agentTodos(ctx context.Context, svc todo.Service, e events.Event) error {
 		kind, source = todo.AgentBlocked, issueID
 	}
 	return svc.Open(ctx, db.OpenTodoParams{WorkspaceID: workspace, MemberID: member, Kind: kind, SourceKey: source, IssueID: task.IssueID, TaskID: task.ID, ActorType: util.StrToText("agent"), ActorID: task.AgentID, Title: issue.Title})
-}
-
-func reviewTodos(ctx context.Context, svc todo.Service, e events.Event) error {
-	p, ok := e.Payload.(map[string]any)
-	if !ok {
-		return nil
-	}
-	issue, ok := payloadIssue(p)
-	if !ok || issue.CreatorType != "member" {
-		return nil
-	}
-	selfAssigned := issue.AssigneeType != nil && *issue.AssigneeType == "member" && issue.AssigneeID != nil && *issue.AssigneeID == issue.CreatorID
-	if e.Type == protocol.EventIssueUpdated {
-		statusChanged, _ := p["status_changed"].(bool)
-		assigneeChanged, _ := p["assignee_changed"].(bool)
-		previous, _ := p["prev_assignee_id"].(*string)
-		previousType, _ := p["prev_assignee_type"].(*string)
-		wasSelfAssigned := previous != nil && *previous == issue.CreatorID && previousType != nil && *previousType == "member"
-		if !statusChanged && !(assigneeChanged && (selfAssigned || wasSelfAssigned)) {
-			return nil
-		}
-	}
-	workspace, err := util.ParseUUID(e.WorkspaceID)
-	if err != nil {
-		return err
-	}
-	member, err := util.ParseUUID(issue.CreatorID)
-	if err != nil {
-		return err
-	}
-	if issue.Status != "in_review" || selfAssigned {
-		return svc.Close(ctx, db.CloseTodosParams{WorkspaceID: workspace, MemberID: member, Kind: todo.Review, SourceKey: issue.ID})
-	}
-	issueID, err := util.ParseUUID(issue.ID)
-	if err != nil {
-		return err
-	}
-	return svc.Open(ctx, db.OpenTodoParams{WorkspaceID: workspace, MemberID: member, Kind: todo.Review, SourceKey: issue.ID, IssueID: issueID, ActorType: util.StrToText(e.ActorType), ActorID: optionalUUID(e.ActorID), Title: issue.Title})
 }
 
 // payloadIssue reads the issue of an issue event. Handlers publish an
