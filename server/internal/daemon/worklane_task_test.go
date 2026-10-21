@@ -806,3 +806,61 @@ func TestWorkInCheckoutRefusesToLeaveWork(t *testing.T) {
 		})
 	}
 }
+
+// stackRoutingFixture is newCheckoutRoutingFixture with work-1020, the open
+// pull request of the lane's previous issue, only on origin. head is
+// work-1020's commit and main main's.
+func stackRoutingFixture(t *testing.T) (checkout, head, main string) {
+	t.Helper()
+	checkout, _ = newCheckoutRoutingFixture(t)
+	main = laneRoutingGit(t, checkout, "rev-parse", "main")
+	laneRoutingGit(t, checkout, "switch", "-c", "work-1020")
+	laneRoutingWrite(t, checkout, "layer.txt", "layer below\n")
+	laneRoutingGit(t, checkout, "add", "layer.txt")
+	laneRoutingGit(t, checkout, "commit", "-m", "layer below")
+	head = laneRoutingGit(t, checkout, "rev-parse", "HEAD")
+	laneRoutingGit(t, checkout, "push", "origin", "work-1020")
+	laneRoutingGit(t, checkout, "switch", "main")
+	laneRoutingGit(t, checkout, "branch", "-D", "work-1020")
+	laneRoutingGit(t, checkout, "update-ref", "-d", "refs/remotes/origin/work-1020")
+	return checkout, head, main
+}
+
+func TestWorklaneRunStacksOnTheOpenLayerBelow(t *testing.T) {
+	for _, inCheckout := range []bool{false, true} {
+		for _, tc := range []struct {
+			name, below string
+			existing    bool
+			want        func(head, main, existing string) string
+		}{
+			{name: "open pull request below", below: "work-1020", want: func(head, _, _ string) string { return head }},
+			{name: "no open pull request below", want: func(_, main, _ string) string { return main }},
+			{name: "existing branch", below: "work-1020", existing: true, want: func(_, _, existing string) string { return existing }},
+		} {
+			t.Run(fmt.Sprintf("%s in checkout %v", tc.name, inCheckout), func(t *testing.T) {
+				checkout, head, main := stackRoutingFixture(t)
+				existing := ""
+				if tc.existing {
+					laneRoutingGit(t, checkout, "switch", "-c", "work-1021")
+					laneRoutingGit(t, checkout, "commit", "--allow-empty", "-m", "earlier work")
+					existing = laneRoutingGit(t, checkout, "rev-parse", "HEAD")
+					laneRoutingGit(t, checkout, "push", "origin", "work-1021")
+					laneRoutingGit(t, checkout, "switch", "main")
+				}
+				d, _ := newLaneRoutingDaemon(t)
+				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+				defer cancel()
+				task := checkoutRoutingTask(checkout, "task", "")
+				task.Repositories[0].Worklane.InCheckout = inCheckout
+				task.Repositories[0].Worklane.BelowBranch = tc.below
+				awaitLaneRoutingTask(t, ctx, startLaneRoutingTask(ctx, d, task))
+				if got := laneRoutingGit(t, checkout, "branch", "--show-current"); got != "work-1021" {
+					t.Fatalf("branch = %q, want work-1021", got)
+				}
+				if got, want := laneRoutingGit(t, checkout, "rev-parse", "HEAD"), tc.want(head, main, existing); got != want {
+					t.Fatalf("work-1021 starts at %s, want %s", got, want)
+				}
+			})
+		}
+	}
+}

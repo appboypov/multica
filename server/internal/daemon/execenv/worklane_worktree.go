@@ -493,12 +493,30 @@ func FetchWorklaneSwitch(ctx context.Context, path, defaultBranch string, logger
 }
 
 // SwitchBranch fetches and switches a worktree whose caller holds its path
-// lock and has checked CanLeave.
-func SwitchBranch(ctx context.Context, path, branch, defaultBranch string, logger *slog.Logger) error {
+// lock and has checked CanLeave. An existing branch is switched to as it is.
+// A new one is cut from below, the branch of the open pull request it stacks
+// on, when given (ADR-0036), else from the fetched default branch.
+func SwitchBranch(ctx context.Context, path, branch, defaultBranch, below string, logger *slog.Logger) error {
 	if err := FetchWorklaneSwitch(ctx, path, defaultBranch, logger); err != nil {
 		return err
 	}
-	return SwitchFetchedBranch(path, branch, defaultBranch, logger)
+	if below != "" {
+		if checked, err := runGitTrimmed(path, "check-ref-format", "--branch", below); err != nil || checked != below {
+			return fmt.Errorf("invalid pull-request branch %q", below)
+		}
+	}
+	unlock, err := lockGitRoot(path, logger)
+	if err != nil {
+		return err
+	}
+	defer unlock()
+	start := "origin/" + defaultBranch
+	if below != "" && branch != "" && !hasLocalBranch(path, branch) {
+		if start, err = fetchPullRequestBranch(ctx, path, below); err != nil {
+			return err
+		}
+	}
+	return switchWorklaneBranch(path, branch, start)
 }
 
 // SwitchFetchedBranch runs the switch step after the separately reported
@@ -509,16 +527,28 @@ func SwitchFetchedBranch(path, branch, defaultBranch string, logger *slog.Logger
 		return err
 	}
 	defer unlock()
-	args := []string{"switch", "--detach", "origin/" + defaultBranch}
+	return switchWorklaneBranch(path, branch, "origin/"+defaultBranch)
+}
+
+// switchWorklaneBranch switches to branch as it is when it exists, else cuts
+// it from start; an empty branch detaches at start. The caller holds the git
+// lock.
+func switchWorklaneBranch(path, branch, start string) error {
+	args := []string{"switch", "--detach", start}
 	if branch != "" {
-		if _, err := runGitTrimmed(path, "show-ref", "--verify", "--quiet", "refs/heads/"+branch); err == nil {
+		if hasLocalBranch(path, branch) {
 			args = []string{"switch", branch}
 		} else {
-			args = []string{"switch", "--no-track", "-c", branch, "origin/" + defaultBranch}
+			args = []string{"switch", "--no-track", "-c", branch, start}
 		}
 	}
 	if out, err := runGit(path, args...); err != nil {
 		return fmt.Errorf("git %s: %s: %w", strings.Join(args, " "), strings.TrimSpace(out), err)
 	}
 	return nil
+}
+
+func hasLocalBranch(path, branch string) bool {
+	_, err := runGitTrimmed(path, "show-ref", "--verify", "--quiet", "refs/heads/"+branch)
+	return err == nil
 }
