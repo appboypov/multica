@@ -198,7 +198,7 @@ func (d *Daemon) prepareWorklaneTask(ctx context.Context, task *Task, repo *prot
 		if lane.InCheckout && lane.PullRequestBranch != "" {
 			err = execenv.SwitchPullRequestBranch(ctx, path, wanted, logger)
 		} else {
-			err = execenv.SwitchBranch(ctx, path, wanted, lane.DefaultBranch, logger)
+			err = execenv.SwitchBranch(ctx, path, wanted, lane.DefaultBranch, lane.BelowBranch, logger)
 		}
 		if err != nil {
 			return err
