@@ -6,13 +6,18 @@ Lets an agent work a worklane's active issue in its worktree and an open pull re
 ## Requirements
 
 ### Requirement: An agent works a worklane's issue in that worklane's worktree on the issue's branch
-An agent's task on an issue of a worklane SHALL run in that worklane's worktree on the issue's branch, cut from `origin/{default branch}` when it does not exist yet; a task on an issue of `main` SHALL run in the repository's checkout on the issue's branch. Once the issue has a linked open pull request for that repository, builder and verifier tasks SHALL run in its own `.pull-requests/{branch}` worktree on the pull request's branch, creating that worktree when absent and reusing it when present, and leave the lane's active branch and activity unchanged. Every task on the same issue SHALL work on the same branch.
+An agent's task on an issue of a worklane SHALL run in that worklane's worktree on the issue's branch, cut when it does not exist yet from the branch of the open pull request of the issue before it in the worklane's order, else from `origin/{default branch}`; a task on an issue of `main` SHALL run in the repository's checkout on the issue's branch. Once the issue has a linked open pull request for that repository, builder and verifier tasks SHALL run in its own `.pull-requests/{branch}` worktree on the pull request's branch, creating that worktree when absent and reusing it when present, and leave the lane's active branch and activity unchanged. Every task on the same issue SHALL work on the same branch.
 
 #### Scenario: REBL-21 in Fan accounts and push
 - **GIVEN** Fan accounts and push has its worktree `~/Worktrees/rebl/rebl/fan-accounts-and-push` on Brian's Mac and is Free
 - **WHEN** an agent on Brian's Mac takes a task on REBL-21 of Fan accounts and push
 - **THEN** it works in `~/Worktrees/rebl/rebl/fan-accounts-and-push` on REBL-21's branch, cut from `origin/main`
 - **AND** Fan accounts and push shows Busy with "now: REBL-21 A fan changes their display name"
+
+#### Scenario: The issue before it has an open pull request
+- **GIVEN** REBL-21 of Fan accounts and push has an open pull request on its branch `rebl-21`, and REBL-24 comes next in the lane and has no branch yet
+- **WHEN** an agent takes a task on REBL-24
+- **THEN** it works on REBL-24's branch, cut from `origin/rebl-21`
 
 #### Scenario: An issue of main
 - **GIVEN** appboypov/rebl has its checkout `~/Repos/rebl` on Brian's Mac
