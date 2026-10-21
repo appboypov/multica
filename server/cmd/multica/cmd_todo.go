@@ -9,7 +9,7 @@ import (
 
 func newTodoCommand() *cobra.Command {
 	command := &cobra.Command{Use: "todo", Short: "Open checks, answer to-dos and read project trust", GroupID: groupCore}
-	check := &cobra.Command{Use: "check", Short: "Ask for a check of work on the run's issue", Long: "Kinds: data_model, data_flow, design, prototype (before dependent work); feature, improvement, agent_tool (on staging after merge); release (beta or production, before release). Releases always need a human pass.", Args: cobra.NoArgs, RunE: runTodoCheck}
+	check := &cobra.Command{Use: "check", Short: "Ask for a check of work on an issue", Long: "Kinds: data_model, data_flow, design, prototype (before dependent work); feature, improvement, agent_tool (on staging after merge); release (beta or production, before release). Releases always need a human pass.", Args: cobra.NoArgs, RunE: runTodoCheck}
 	for _, flag := range []string{"issue", "project", "answerer", "kind", "link", "title"} {
 		check.Flags().String(flag, "", "Check "+flag)
 		_ = check.MarkFlagRequired(flag)

@@ -6,13 +6,19 @@ Agents ask the recipient to check their work in the to-do inbox and each project
 ## Requirements
 
 ### Requirement: Check work in the to-do inbox
-An agent SHALL open a check with an issue, project, work link, title, recipient and kind. Kinds SHALL be data model, data flow, design, prototype, feature, improvement, agent tool and release. Only the recipient SHALL answer pass or feedback. Feedback SHALL include a note. The answer SHALL reach the opening agent through an active run input or queued run. Check to-dos SHALL not allow Mark done.
+An agent in a run on the issue or a member SHALL open a check with an issue, project, work link, title, recipient and kind. Kinds SHALL be data model, data flow, design, prototype, feature, improvement, agent tool and release. Only the recipient SHALL answer pass or feedback. Feedback SHALL include a note. The answer SHALL reach an opening agent through an active run input or queued run. Only the recipient and the opener SHALL read a check and its answer. Check to-dos SHALL not allow Mark done.
 
 #### Scenario: Feature feedback
 - **GIVEN** an agent has a task on an issue in a project
 - **WHEN** Brian answers a feature check with feedback
 - **THEN** the answer and note are stored and sent to that agent
 - **AND** the message asks it to fix the piece, change the instruction and post an instruction note
+
+#### Scenario: A member reads the answer to its check
+- **GIVEN** a member opened a check for Brian
+- **WHEN** Brian answers it
+- **THEN** that member reads the answer and its note
+- **AND** a member who neither opened nor answers the check cannot read it
 
 ### Requirement: Keep the project record and history
 The system SHALL store every answered check per project and kind, including automatic passes and sampled answers. The app SHALL show counts and history with work links, answers and notes. Counts and answers SHALL never change the checking mode.

@@ -9,7 +9,7 @@ import (
 )
 
 func (h *Handler) OpenCheck(w http.ResponseWriter, r *http.Request) {
-	ws, actor, ok := h.questionActor(w, r, questionRoleAgent)
+	ws, actor, ok := h.questionActor(w, r, questionRoleAsker)
 	if !ok {
 		return
 	}

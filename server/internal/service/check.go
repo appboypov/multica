@@ -86,7 +86,8 @@ func saveCheckTrust(ctx context.Context, tx pgx.Tx, ws, project pgtype.UUID, sta
 	return err
 }
 
-// OpenCheck uses the asking task as the opener identity and serializes sampling.
+// OpenCheck opens a check for an agent in a run on its issue or for a member,
+// and serializes sampling.
 func (s *QuestionService) OpenCheck(ctx context.Context, ws pgtype.UUID, actor QuestionActor, in CheckInput) (map[string]any, error) {
 	if !validCheckKind(in.Kind) {
 		return nil, questionRefusal(422, "unknown check kind")
@@ -104,7 +105,12 @@ func (s *QuestionService) OpenCheck(ctx context.Context, ws pgtype.UUID, actor Q
 	}
 	defer tx.Rollback(ctx)
 	q := s.Queries.WithTx(tx)
-	task, err := s.requireAgentTask(ctx, q, ws, actor)
+	var task db.AgentTaskQueue
+	if actor.Type == "member" {
+		err = s.requireMember(ctx, q, ws, actor)
+	} else {
+		task, err = s.requireAgentTask(ctx, q, ws, actor)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -121,7 +127,7 @@ func (s *QuestionService) OpenCheck(ctx context.Context, ws pgtype.UUID, actor Q
 	if err != nil || issue.WorkspaceID != ws {
 		return nil, questionRefusal(404, "issue not found")
 	}
-	if task.IssueID != issue.ID {
+	if actor.Type == "agent" && task.IssueID != issue.ID {
 		return nil, questionRefusal(422, "check issue must be the opening run's issue")
 	}
 	if !in.ProjectID.Valid || issue.ProjectID != in.ProjectID {
@@ -156,7 +162,7 @@ func (s *QuestionService) OpenCheck(ctx context.Context, ws pgtype.UUID, actor Q
 	if err != nil {
 		return nil, err
 	}
-	row, err := q.OpenTodo(ctx, db.OpenTodoParams{ID: dbid.NewV7(), WorkspaceID: ws, MemberID: in.MemberID, Kind: "check", SourceKey: util.UUIDToString(dbid.NewV7()), IssueID: issue.ID, TaskID: actor.TaskID, ActorType: pgtype.Text{String: "agent", Valid: true}, ActorID: actor.ID, Title: in.Title, Details: data})
+	row, err := q.OpenTodo(ctx, db.OpenTodoParams{ID: dbid.NewV7(), WorkspaceID: ws, MemberID: in.MemberID, Kind: "check", SourceKey: util.UUIDToString(dbid.NewV7()), IssueID: issue.ID, TaskID: actor.TaskID, ActorType: pgtype.Text{String: actor.Type, Valid: true}, ActorID: actor.ID, Title: in.Title, Details: data})
 	if err != nil {
 		return nil, err
 	}
@@ -192,11 +198,14 @@ func (s *QuestionService) GetCheck(ctx context.Context, ws, id pgtype.UUID, acto
 // connection never waits for a second one.
 func readCheck(ctx context.Context, tx pgx.Tx, q *db.Queries, ws, id pgtype.UUID, actor QuestionActor) (map[string]any, error) {
 	var member, opener pgtype.UUID
-	err := tx.QueryRow(ctx, "SELECT member_id, actor_id FROM todo WHERE id=$1 AND workspace_id=$2 AND kind IN ('check','instruction_change')", id, ws).Scan(&member, &opener)
+	var openerType pgtype.Text
+	err := tx.QueryRow(ctx, "SELECT member_id, actor_type, actor_id FROM todo WHERE id=$1 AND workspace_id=$2 AND kind IN ('check','instruction_change')", id, ws).Scan(&member, &openerType, &opener)
 	if err != nil {
 		return nil, questionLoadError(err)
 	}
-	if (actor.Type == "member" && actor.ID != member) || (actor.Type == "agent" && actor.ID != opener) {
+	recipient := actor.Type == "member" && actor.ID == member
+	opening := actor.Type == openerType.String && actor.ID == opener
+	if !recipient && !opening {
 		return nil, questionRefusal(404, "check not found")
 	}
 	row, err := q.GetTodoForMember(ctx, db.GetTodoForMemberParams{ID: id, WorkspaceID: ws, MemberID: member})
@@ -271,13 +280,16 @@ func (s *QuestionService) AnswerCheck(ctx context.Context, ws, id pgtype.UUID, a
 	}
 	var task db.AgentTaskQueue
 	var notified []db.ListRunningSupplementTasksForIssuesRow
-	content := fmt.Sprintf("Check %s (%s): %s\n%s\n%s", util.UUIDToString(id), details.Kind, answer, note, details.Link)
-	if answer == "feedback" {
-		content += fmt.Sprintf("\nFix this piece and change the instruction that caused the problem. Apply the instruction change yourself, then post its file, summary and commit link with: multica todo instruction-note %s --file <path> --link <commit-URL> --note <summary>. Brian can Keep the change or ask you to Undo it.", util.UUIDToString(id))
-	}
-	task, notified, err = s.deliverCheckMessage(ctx, tx, q, ws, row.IssueID, row.ActorID, actor.ID, id, content)
-	if err != nil {
-		return nil, err
+	// A member who opened the check reads its answer; only an opening agent gets it delivered.
+	if row.ActorType.String == "agent" {
+		content := fmt.Sprintf("Check %s (%s): %s\n%s\n%s", util.UUIDToString(id), details.Kind, answer, note, details.Link)
+		if answer == "feedback" {
+			content += fmt.Sprintf("\nFix this piece and change the instruction that caused the problem. Apply the instruction change yourself, then post its file, summary and commit link with: multica todo instruction-note %s --file <path> --link <commit-URL> --note <summary>. Brian can Keep the change or ask you to Undo it.", util.UUIDToString(id))
+		}
+		task, notified, err = s.deliverCheckMessage(ctx, tx, q, ws, row.IssueID, row.ActorID, actor.ID, id, content)
+		if err != nil {
+			return nil, err
+		}
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err
