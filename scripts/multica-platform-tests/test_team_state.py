@@ -795,9 +795,9 @@ class RepositoryIntakeReadsEveryOpenPullRequest(unittest.TestCase):
                             for u in found["blocked"]))
 
 
-def lane_issue(key, status, lane, project, release=None):
+def lane_issue(key, status, lane, project, release=None, category=None):
     return {"id": f"id-{key}", "identifier": key, "title": f"Title of {key}", "status": status,
-            "project_id": project, "release_id": release, "worklane_id": lane}
+            "status_category": category or status, "project_id": project, "release_id": release, "worklane_id": lane}
 
 
 def linked_pr(repository, number, state="open"):
@@ -931,6 +931,18 @@ class SarkoutSeesEveryIssueInReview(unittest.TestCase):
         self.assertNotIn("0.2.0", [r["version"] for r in found["releases"]])
         self.assertNotIn("0.1.0", [r["version"] for r in found["releases"]])
         self.assertNotIn("acme/app", self.github_read)
+
+    def test_a_release_whose_issue_has_a_custom_completed_status_is_listed(self):
+        self.UNLANED = [*self.UNLANED[:3], lane_issue("WORK-41", "delivered", None, "p-dash", "r-3", "done"),
+                        self.UNLANED[4]]
+        found = team_state_review.collect_in_review()
+        self.assertEqual([r["version"] for r in found["releases"]], ["0.3.0"])
+
+    def test_a_release_whose_issue_has_a_custom_started_status_stays_out(self):
+        self.UNLANED = [*self.UNLANED[:3], lane_issue("WORK-41", "delivered", None, "p-dash", "r-3", "in_progress"),
+                        self.UNLANED[4]]
+        found = team_state_review.collect_in_review()
+        self.assertEqual(found["releases"], [])
 
     def test_a_release_whose_repository_cannot_be_read_stays_out_and_shows_the_error(self):
         def failing(query, **variables):
