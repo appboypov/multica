@@ -227,7 +227,7 @@ func TestApplySnapshotHeadSHAGuard(t *testing.T) {
 	m := &Manager{queries: q, pool: pool, now: func() time.Time { return now }}
 
 	// 1. A response for head "A" while the row is at "B" → discarded, nothing written.
-	applied, err := m.applySnapshot(ctx, pr.ID, &PRSnapshot{HeadSHA: "A", Mergeable: "CONFLICTING", MergeStateStatus: "DIRTY"})
+	applied, err := m.applySnapshot(ctx, pr.ID, &PRSnapshot{HeadSHA: "A", State: "open", UpdatedAt: now, Mergeable: "CONFLICTING", MergeStateStatus: "DIRTY"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -242,6 +242,7 @@ func TestApplySnapshotHeadSHAGuard(t *testing.T) {
 	// 2. Matching head "B" → applied; snapshot columns + per-check rows written.
 	applied, err = m.applySnapshot(ctx, pr.ID, &PRSnapshot{
 		HeadSHA: "B", Mergeable: "MERGEABLE", MergeStateStatus: "CLEAN", HasChecks: true, RollupState: "FAILURE",
+		State: "open", UpdatedAt: now,
 		Contexts: []CheckContext{
 			{Name: "backend", Status: "completed", Conclusion: "failure"},
 			{Name: "vercel", Status: "completed", Conclusion: "success", IsStatusContext: true},
@@ -267,7 +268,7 @@ func TestApplySnapshotHeadSHAGuard(t *testing.T) {
 	if _, err := pool.Exec(ctx, `UPDATE github_pull_request SET head_sha='C' WHERE id=$1`, pr.ID); err != nil {
 		t.Fatal(err)
 	}
-	applied, err = m.applySnapshot(ctx, pr.ID, &PRSnapshot{HeadSHA: "B", Mergeable: "CONFLICTING", MergeStateStatus: "DIRTY"})
+	applied, err = m.applySnapshot(ctx, pr.ID, &PRSnapshot{HeadSHA: "B", State: "open", UpdatedAt: now, Mergeable: "CONFLICTING", MergeStateStatus: "DIRTY"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -305,7 +306,7 @@ func TestInFlightOldHeadKeepsTrailingRefresh(t *testing.T) {
 	applied := make(chan struct{}, 1)
 	fetchCalls := 0
 
-	m := NewManager(enabledClient(t), q, pool, func(context.Context, pgtype.UUID) {
+	m := NewManager(enabledClient(t), q, pool, func(context.Context, pgtype.UUID, string, *PRSnapshot) {
 		select {
 		case applied <- struct{}{}:
 		default:
@@ -321,12 +322,14 @@ func TestInFlightOldHeadKeepsTrailingRefresh(t *testing.T) {
 			<-releaseFirst
 			return &PRSnapshot{
 				HeadSHA: "A", Mergeable: "MERGEABLE", MergeStateStatus: "CLEAN",
+				State: "open", UpdatedAt: pr.PrUpdatedAt.Time,
 				HasChecks: true, RollupState: "SUCCESS",
 			}, nil
 		}
 		close(secondFetched)
 		return &PRSnapshot{
 			HeadSHA: "B", Mergeable: "CONFLICTING", MergeStateStatus: "DIRTY",
+			State: "open", UpdatedAt: pr.PrUpdatedAt.Time,
 			HasChecks: true, RollupState: "FAILURE",
 			Contexts: []CheckContext{{Name: "backend", Status: "completed", Conclusion: "failure"}},
 		}, nil
@@ -391,6 +394,7 @@ func TestApplySnapshotReplacesRuns(t *testing.T) {
 	m := &Manager{queries: q, pool: pool, now: func() time.Time { return now }}
 
 	three := &PRSnapshot{HeadSHA: "H", Mergeable: "MERGEABLE", MergeStateStatus: "CLEAN", HasChecks: true, RollupState: "PENDING",
+		State: "open", UpdatedAt: now,
 		Contexts: []CheckContext{{Name: "a", Status: "in_progress"}, {Name: "b", Status: "in_progress"}, {Name: "c", Status: "in_progress"}}}
 	if _, err := m.applySnapshot(ctx, pr.ID, three); err != nil {
 		t.Fatal(err)
@@ -399,6 +403,7 @@ func TestApplySnapshotReplacesRuns(t *testing.T) {
 		t.Fatalf("after first apply: %d runs, want 3", n)
 	}
 	one := &PRSnapshot{HeadSHA: "H", Mergeable: "MERGEABLE", MergeStateStatus: "CLEAN", HasChecks: true, RollupState: "SUCCESS",
+		State: "open", UpdatedAt: now,
 		Contexts: []CheckContext{{Name: "a", Status: "completed", Conclusion: "success"}}}
 	if _, err := m.applySnapshot(ctx, pr.ID, one); err != nil {
 		t.Fatal(err)
