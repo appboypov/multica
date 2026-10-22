@@ -52,9 +52,11 @@ leaves it untouched. Project creation does not accept `--repo`; the old
 
 For an issue task, the daemon prepares each project repository on this machine
 using its recorded worktree path when one exists. Otherwise the path is
-`~/Worktrees/{organisation key}/{repo}/{issue key}`, or
-`~/Worktrees/{repo}/{issue key}` without an organisation. A later issue key
-change does not move the recorded worktree.
+`{work root}/{organisation key}/{project slug}/worktrees/{repo}/{issue key}`,
+the work root being the workspace setting `work_root` (default `~/hq`). A
+project with repositories always has an organisation and a slug. A later issue
+key change does not move the recorded worktree; `multica repo relocate` moves
+recorded paths after the folders moved on disk.
 
 An existing worktree is reused without resetting its history. A missing worktree
 is made from the fetched default branch, under the issue-key branch, or reuses

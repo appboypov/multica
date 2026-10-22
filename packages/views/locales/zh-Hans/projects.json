@@ -93,6 +93,15 @@
     "search_placeholder": "搜索组织",
     "remove_aria": "移除 {{name}}"
   },
+  "slug": {
+    "label": "Slug",
+    "save_failed": "无法保存 slug",
+    "error": {
+      "required": "有仓库的项目需要 slug",
+      "format": "slug 由小写字母、数字和短横线组成，并以字母或数字开头",
+      "taken": "此组织的另一个项目已使用此 slug"
+    }
+  },
   "group": {
     "project_count_other": "{{count}} 个项目",
     "toggle_aria": "折叠或展开 {{name}}"

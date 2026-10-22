@@ -214,6 +214,7 @@ const PROJECT: Project = {
   lead_type: null,
   lead_id: null,
   organisation_id: null,
+  slug: null,
   start_date: null,
   due_date: null,
   created_at: "2026-06-01T00:00:00Z",

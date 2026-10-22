@@ -44,7 +44,7 @@ func newLaneRoutingFixture(t *testing.T, branch string) laneRoutingFixture {
 		t.Fatal(err)
 	}
 	home := filepath.Join(root, "runtime home")
-	lane := filepath.Join(home, "Worktrees", "org", "repo", "active lane")
+	lane := filepath.Join(home, "hq", "org", "proj", "worktrees", "repo", "active lane")
 	if err := os.MkdirAll(lane, 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -86,7 +86,7 @@ func laneRoutingWrite(t *testing.T, path, name, content string) {
 }
 
 func (f laneRoutingFixture) task(id string) Task {
-	return Task{ID: id, IssueID: "issue", IssueKey: "work-1021", IssueIdentifier: "WORK-1021", OrganisationKey: "org", Repositories: []protocol.ClaimRepository{{
+	return Task{ID: id, IssueID: "issue", IssueKey: "work-1021", IssueIdentifier: "WORK-1021", OrganisationKey: "org", ProjectSlug: "proj", Repositories: []protocol.ClaimRepository{{
 		ID: "repository", FullName: "test/repo", CheckoutPath: f.lane, CheckoutDaemonID: "local",
 		Worklane: &protocol.ClaimWorklane{Path: f.lane, DaemonID: "local", Name: "work", DefaultBranch: "main", PullRequestBranch: f.branch},
 	}}}
@@ -434,13 +434,24 @@ func TestWorklanePullRequestRejectsEscapingParentSymlink(t *testing.T) {
 	}
 }
 
-func TestWorklanePullRequestDestinationWithoutOrganisation(t *testing.T) {
+func TestWorklanePullRequestDestinationFollowsWorkRoot(t *testing.T) {
 	f := newLaneRoutingFixture(t, "review/work-1021")
-	task := f.task("no-org")
-	task.OrganisationKey = ""
-	want := filepath.Join(os.Getenv("HOME"), "Worktrees", "repo", ".pull-requests", filepath.FromSlash(f.branch))
+	task := f.task("work-root")
+	task.WorkRoot = "~/elsewhere"
+	want := filepath.Join(os.Getenv("HOME"), "elsewhere", "org", "proj", "worktrees", "repo", ".pull-requests", filepath.FromSlash(f.branch))
 	if selected, err := worklaneTaskPath(context.Background(), task, task.Repositories[0]); err != nil || selected != want {
-		t.Fatalf("organisation-free PR destination = %q, %v, want %q", selected, err, want)
+		t.Fatalf("work-root PR destination = %q, %v, want %q", selected, err, want)
+	}
+}
+
+func TestWorklanePullRequestDestinationNeedsOrganisationAndSlug(t *testing.T) {
+	f := newLaneRoutingFixture(t, "review/work-1021")
+	for _, mutate := range []func(*Task){func(t *Task) { t.OrganisationKey = "" }, func(t *Task) { t.ProjectSlug = "" }} {
+		task := f.task("no-folder")
+		mutate(&task)
+		if selected, err := worklaneTaskPath(context.Background(), task, task.Repositories[0]); err == nil {
+			t.Fatalf("PR destination without project folder = %q, want an error", selected)
+		}
 	}
 }
 
@@ -682,7 +693,7 @@ func newCheckoutRoutingFixture(t *testing.T) (checkout, home string) {
 }
 
 func checkoutRoutingTask(checkout, id, pullRequestBranch string) Task {
-	return Task{ID: id, IssueID: "issue", IssueKey: "work-1021", IssueIdentifier: "WORK-1021", OrganisationKey: "org", Repositories: []protocol.ClaimRepository{{
+	return Task{ID: id, IssueID: "issue", IssueKey: "work-1021", IssueIdentifier: "WORK-1021", OrganisationKey: "org", ProjectSlug: "proj", Repositories: []protocol.ClaimRepository{{
 		ID: "repository", FullName: "test/repo", CheckoutPath: checkout, CheckoutDaemonID: "local",
 		Worklane: &protocol.ClaimWorklane{ID: "main-lane", Name: "main", Path: checkout, DaemonID: "local", DefaultBranch: "main", PullRequestBranch: pullRequestBranch, InCheckout: true},
 	}}}
@@ -728,7 +739,7 @@ func TestWorkInCheckoutRunsInTheCheckout(t *testing.T) {
 			if _, err := os.Stat(filepath.Join(checkout, tc.file)); err != nil {
 				t.Fatalf("checkout lacks %s: %v", tc.file, err)
 			}
-			if _, err := os.Stat(filepath.Join(home, "Worktrees")); !os.IsNotExist(err) {
+			if _, err := os.Stat(filepath.Join(home, "hq")); !os.IsNotExist(err) {
 				t.Fatalf("a worktree folder appeared: %v", err)
 			}
 			assertCheckoutRoutingReport(t, events, "task", tc.branch)

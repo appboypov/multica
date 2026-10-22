@@ -14,12 +14,14 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/multica-ai/multica/server/internal/issuestatus"
 	"github.com/multica-ai/multica/server/internal/logger"
 	"github.com/multica-ai/multica/server/internal/question"
 	"github.com/multica-ai/multica/server/internal/service"
 	"github.com/multica-ai/multica/server/internal/util"
+	"github.com/multica-ai/multica/server/internal/workpath"
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
 	"github.com/multica-ai/multica/server/pkg/protocol"
 )
@@ -35,6 +37,9 @@ type ProjectResponse struct {
 	LeadType       *string `json:"lead_type"`
 	LeadID         *string `json:"lead_id"`
 	OrganisationID *string `json:"organisation_id"`
+	// Slug names the project's folder under its organisation's folder in the
+	// work root (ADR-0037); null until set.
+	Slug *string `json:"slug"`
 	// StartDate / DueDate are calendar days ("YYYY-MM-DD"), no time-of-day or
 	// timezone — same contract as issue.start_date / issue.due_date.
 	StartDate  *string `json:"start_date"`
@@ -57,6 +62,7 @@ func projectToResponse(p db.Project) ProjectResponse {
 		LeadType:       textToPtr(p.LeadType),
 		LeadID:         uuidToPtr(p.LeadID),
 		OrganisationID: uuidToPtr(p.OrganisationID),
+		Slug:           textToPtr(p.Slug),
 		StartDate:      dateToPtr(p.StartDate),
 		DueDate:        dateToPtr(p.DueDate),
 		CreatedAt:      timestampToString(p.CreatedAt),
@@ -101,6 +107,7 @@ type CreateProjectRequest struct {
 	StartDate      *string `json:"start_date"`
 	DueDate        *string `json:"due_date"`
 	OrganisationID *string `json:"organisation_id"`
+	Slug           *string `json:"slug"`
 }
 
 type UpdateProjectRequest struct {
@@ -114,6 +121,7 @@ type UpdateProjectRequest struct {
 	StartDate      *string `json:"start_date"`
 	DueDate        *string `json:"due_date"`
 	OrganisationID *string `json:"organisation_id"`
+	Slug           *string `json:"slug"`
 }
 
 func (h *Handler) ListProjects(w http.ResponseWriter, r *http.Request) {
@@ -221,12 +229,47 @@ func validateProjectEnum(w http.ResponseWriter, field, value string, allowed []s
 // error so transient DB failures are diagnosable (#3925 had no server-side
 // signal) and return 500.
 func (h *Handler) writeProjectWriteError(w http.ResponseWriter, r *http.Request, err error, action string) {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "23505" && pgErr.ConstraintName == "project_organisation_slug_unique" {
+		writeErrorCode(w, http.StatusConflict, "project_slug_taken", "another project in this organisation uses this slug")
+		return
+	}
 	if isCheckViolation(err) {
 		writeError(w, http.StatusBadRequest, "project "+action+" rejected: a field value failed a database constraint")
 		return
 	}
 	slog.Error("project "+action+" failed", append(logger.RequestAttrs(r), "error", err)...)
 	writeError(w, http.StatusInternalServerError, "failed to "+action+" project")
+}
+
+// resolveProjectSlug reads a slug from a request: nil or blank clears it, any
+// other value must follow the folder-name rule (ADR-0037). It writes the 400
+// itself.
+func resolveProjectSlug(w http.ResponseWriter, slug *string) (pgtype.Text, bool) {
+	if slug == nil || strings.TrimSpace(*slug) == "" {
+		return pgtype.Text{}, true
+	}
+	value := strings.TrimSpace(*slug)
+	if !workpath.ValidSlug(value) {
+		writeErrorCode(w, http.StatusBadRequest, "project_slug_invalid", "a slug has lowercase letters, digits and dashes, and starts with a letter or digit")
+		return pgtype.Text{}, false
+	}
+	return pgtype.Text{String: value, Valid: true}, true
+}
+
+// writeProjectFolderRequired answers 400 when a project that holds or gets
+// repositories lacks the organisation or the slug its folder needs
+// (ADR-0037). It reports whether it wrote.
+func writeProjectFolderRequired(w http.ResponseWriter, organisationID pgtype.UUID, slug pgtype.Text) bool {
+	if !organisationID.Valid {
+		writeErrorCode(w, http.StatusBadRequest, "project_organisation_required", "a project with repositories needs an organisation")
+		return true
+	}
+	if !slug.Valid || slug.String == "" {
+		writeErrorCode(w, http.StatusBadRequest, "project_slug_required", "a project with repositories needs a slug")
+		return true
+	}
+	return false
 }
 
 func (h *Handler) resolveProjectOrganisation(w http.ResponseWriter, r *http.Request, workspaceID pgtype.UUID, id *string) (pgtype.UUID, bool) {
@@ -301,6 +344,10 @@ func (h *Handler) CreateProject(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	slug, ok := resolveProjectSlug(w, req.Slug)
+	if !ok {
+		return
+	}
 
 	// start_date / due_date are optional calendar days; an absent or empty
 	// value leaves the column NULL. Mirrors CreateIssue's date handling.
@@ -335,6 +382,7 @@ func (h *Handler) CreateProject(w http.ResponseWriter, r *http.Request) {
 		StartDate:      startDate,
 		DueDate:        dueDate,
 		OrganisationID: organisationID,
+		Slug:           slug,
 	}
 
 	project, err := h.Queries.CreateProject(r.Context(), createParams)
@@ -391,6 +439,7 @@ func (h *Handler) UpdateProject(w http.ResponseWriter, r *http.Request) {
 		StartDate:      prevProject.StartDate,
 		DueDate:        prevProject.DueDate,
 		OrganisationID: prevProject.OrganisationID,
+		Slug:           prevProject.Slug,
 	}
 	if req.Title != nil {
 		params.Title = pgtype.Text{String: *req.Title, Valid: true}
@@ -445,6 +494,31 @@ func (h *Handler) UpdateProject(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		params.OrganisationID = organisationID
+	}
+	_, organisationSent := rawFields["organisation_id"]
+	_, slugSent := rawFields["slug"]
+	if slugSent {
+		slug, ok := resolveProjectSlug(w, req.Slug)
+		if !ok {
+			return
+		}
+		params.Slug = slug
+	}
+	// A project with repositories keeps the organisation and slug its folder
+	// needs (ADR-0037). Only an edit of either is checked, so other edits of an
+	// older project without them still work.
+	if (organisationSent || slugSent) && (!params.OrganisationID.Valid || !params.Slug.Valid) {
+		repositories, err := h.Queries.ListRepositoriesByProject(r.Context(), db.ListRepositoriesByProjectParams{
+			ProjectID: prevProject.ID, WorkspaceID: wsUUID,
+		})
+		if err != nil {
+			slog.Error("list project repositories failed", append(logger.RequestAttrs(r), "error", err)...)
+			writeError(w, http.StatusInternalServerError, "failed to update project")
+			return
+		}
+		if len(repositories) > 0 && writeProjectFolderRequired(w, params.OrganisationID, params.Slug) {
+			return
+		}
 	}
 	// Dates follow the issue contract: a present key with an empty/null value
 	// clears the date; an absent key leaves the prior value untouched.
@@ -755,7 +829,7 @@ func buildProjectSearchQuery(phrase string, terms []string) (string, []any) {
 	query := fmt.Sprintf(`SELECT p.id, p.workspace_id, p.title, p.description, p.icon,
 		p.status, p.priority, p.lead_type, p.lead_id,
 		p.start_date, p.due_date,
-		p.created_at, p.updated_at, p.organisation_id,
+		p.created_at, p.updated_at, p.organisation_id, p.slug,
 		%s AS match_source
 	FROM project p
 	WHERE p.workspace_id = %s AND %s
@@ -833,6 +907,7 @@ func (h *Handler) SearchProjects(w http.ResponseWriter, r *http.Request) {
 				&row.project.CreatedAt,
 				&row.project.UpdatedAt,
 				&row.project.OrganisationID,
+				&row.project.Slug,
 				&row.matchSource,
 			); err != nil {
 				return fmt.Errorf("scan: %w", err)

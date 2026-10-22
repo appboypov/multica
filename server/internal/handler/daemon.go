@@ -1519,6 +1519,7 @@ func (h *Handler) processHeartbeat(ctx context.Context, runtimeID string, suppor
 				DefaultBranch: pendingCheckout.DefaultBranch,
 				Path:          pendingCheckout.Path,
 				Clone:         pendingCheckout.Clone,
+				Relocation:    pendingCheckout.Relocation,
 			}
 		}
 	case probeCheckoutErr != nil:

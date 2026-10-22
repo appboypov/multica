@@ -165,7 +165,7 @@ def collect(endeavour: Path, extra: list[str], verifier: str, lane: str | None =
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Collect the open work of one endeavour, one repository's intake or the workspace's In Review issues.")
-    parser.add_argument("endeavour", nargs="?", help="the endeavour's folder, such as ~/Repos/Clients/rebl")
+    parser.add_argument("endeavour", nargs="?", help="the endeavour's folder in the work root, such as ~/hq/rebl or ~/hq/rebl/fan-app")
     parser.add_argument("--repo", action="append", default=[], help="a repository beside the endeavour's own: owner/name or a checkout")
     parser.add_argument("--verifier", help="the name of the Multica agent in the verifier's role, which holds an issue once its pull request is open; the endeavour and --intake need it")
     parser.add_argument("--lane", help="the worklane to run on, by name or id: only its lane is reported")

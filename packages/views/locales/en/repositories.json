@@ -7,7 +7,9 @@
     "submitting": "Adding…",
     "cancel": "Cancel",
     "toast_added": "{{name}} added to {{project}}",
-    "failed": "Could not add the repository"
+    "failed": "Could not add the repository",
+    "needs_organisation": "Give {{project}} an organisation under Properties before adding a repository",
+    "needs_slug": "Give {{project}} a slug under Properties before adding a repository"
   },
   "edit": {
     "title": "Edit repository",

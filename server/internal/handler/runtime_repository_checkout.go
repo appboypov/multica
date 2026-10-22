@@ -30,16 +30,20 @@ const (
 // RuntimeRepositoryCheckoutRequest is one checkout check, optionally with a
 // clone, on a runtime (ADR-0001). DaemonID and WorkspaceID are the runtime's,
 // so a repository write takes its checkout from the check, never the client.
+// RepositoryID and Relocation are set on the check of a relocate
+// (ADR-0037).
 type RuntimeRepositoryCheckoutRequest struct {
-	ID            string                         `json:"id"`
-	RuntimeID     string                         `json:"runtime_id"`
-	DaemonID      string                         `json:"daemon_id"`
-	WorkspaceID   string                         `json:"workspace_id"`
-	FullName      string                         `json:"full_name"`
-	DefaultBranch string                         `json:"default_branch"`
-	Path          string                         `json:"path"`
-	Clone         bool                           `json:"clone"`
-	Status        RuntimeLocalSkillRequestStatus `json:"status"`
+	ID            string                              `json:"id"`
+	RuntimeID     string                              `json:"runtime_id"`
+	DaemonID      string                              `json:"daemon_id"`
+	WorkspaceID   string                              `json:"workspace_id"`
+	FullName      string                              `json:"full_name"`
+	DefaultBranch string                              `json:"default_branch"`
+	Path          string                              `json:"path"`
+	Clone         bool                                `json:"clone"`
+	RepositoryID  string                              `json:"repository_id,omitempty"`
+	Relocation    *protocol.RepositoryRelocationProbe `json:"relocation,omitempty"`
+	Status        RuntimeLocalSkillRequestStatus      `json:"status"`
 	// Result is the daemon's answer once Status is completed.
 	Result       *protocol.RepositoryCheckoutResult `json:"result,omitempty"`
 	Error        string                             `json:"error,omitempty"`
@@ -62,7 +66,8 @@ func (r *RuntimeRepositoryCheckoutRequest) passedFor(workspaceID, fullName, defa
 
 // RepositoryCheckoutResponse is the UI's view of a check: the request's
 // status with the daemon's result flattened in, as design.md §3 names it.
-// LastTag is a bare version, as a repository's last_tag is.
+// LastTag is a bare version, as a repository's last_tag is. MissingPaths are
+// a relocate check's landing paths the runtime cannot find (ADR-0037).
 type RepositoryCheckoutResponse struct {
 	ID              string                               `json:"id"`
 	RuntimeID       string                               `json:"runtime_id"`
@@ -73,6 +78,7 @@ type RepositoryCheckoutResponse struct {
 	VersionFiles    []string                             `json:"version_files"`
 	LastTag         string                               `json:"last_tag"`
 	InstallCommands []protocol.RepositoryInstallCommand  `json:"install_commands"`
+	MissingPaths    []string                             `json:"missing_paths"`
 	Error           string                               `json:"error"`
 	CreatedAt       time.Time                            `json:"created_at"`
 	UpdatedAt       time.Time                            `json:"updated_at"`
@@ -86,6 +92,7 @@ func repositoryCheckoutToResponse(req *RuntimeRepositoryCheckoutRequest) Reposit
 		Failures:        []protocol.RepositoryCheckoutFailure{},
 		VersionFiles:    []string{},
 		InstallCommands: []protocol.RepositoryInstallCommand{},
+		MissingPaths:    []string{},
 		Error:           req.Error,
 		CreatedAt:       req.CreatedAt,
 		UpdatedAt:       req.UpdatedAt,
@@ -104,6 +111,9 @@ func repositoryCheckoutToResponse(req *RuntimeRepositoryCheckoutRequest) Reposit
 	}
 	if req.Result.InstallCommands != nil {
 		resp.InstallCommands = req.Result.InstallCommands
+	}
+	if req.Result.MissingPaths != nil {
+		resp.MissingPaths = req.Result.MissingPaths
 	}
 	return resp
 }
@@ -139,7 +149,14 @@ func cloneRepositoryCheckoutRequest(req *RuntimeRepositoryCheckoutRequest) *Runt
 		result.Failures = slices.Clone(req.Result.Failures)
 		result.VersionFiles = slices.Clone(req.Result.VersionFiles)
 		result.InstallCommands = slices.Clone(req.Result.InstallCommands)
+		result.MissingPaths = slices.Clone(req.Result.MissingPaths)
 		copy.Result = &result
+	}
+	if req.Relocation != nil {
+		relocation := *req.Relocation
+		relocation.Prefixes = slices.Clone(req.Relocation.Prefixes)
+		relocation.Paths = slices.Clone(req.Relocation.Paths)
+		copy.Relocation = &relocation
 	}
 	if req.RunStartedAt != nil {
 		startedAt := *req.RunStartedAt
@@ -189,6 +206,8 @@ func (s *InMemoryRepositoryCheckoutStore) Create(_ context.Context, in RuntimeRe
 		DefaultBranch: in.DefaultBranch,
 		Path:          in.Path,
 		Clone:         in.Clone,
+		RepositoryID:  in.RepositoryID,
+		Relocation:    in.Relocation,
 		Status:        RuntimeLocalSkillPending,
 		CreatedAt:     now,
 		UpdatedAt:     now,
@@ -300,11 +319,16 @@ func (h *Handler) InitiateRepositoryCheckout(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	// RepositoryID makes the check a relocate check of that repository: the
+	// runtime also looks for where its recorded worktrees land with the
+	// prefixes (ADR-0037).
 	var body struct {
-		FullName      string `json:"full_name"`
-		DefaultBranch string `json:"default_branch"`
-		Path          string `json:"path"`
-		Clone         bool   `json:"clone"`
+		FullName         string                    `json:"full_name"`
+		DefaultBranch    string                    `json:"default_branch"`
+		Path             string                    `json:"path"`
+		Clone            bool                      `json:"clone"`
+		RepositoryID     string                    `json:"repository_id"`
+		WorktreePrefixes []protocol.WorktreePrefix `json:"worktree_prefixes"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
@@ -326,6 +350,33 @@ func (h *Handler) InitiateRepositoryCheckout(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	var relocation *protocol.RepositoryRelocationProbe
+	if body.RepositoryID = strings.TrimSpace(body.RepositoryID); body.RepositoryID != "" {
+		repositoryID, ok := parseUUIDOrBadRequest(w, body.RepositoryID, "repository_id")
+		if !ok {
+			return
+		}
+		body.RepositoryID = uuidToString(repositoryID)
+		repository, err := h.Queries.GetRepositoryInWorkspace(r.Context(), db.GetRepositoryInWorkspaceParams{ID: repositoryID, WorkspaceID: parseUUID(rt.workspaceID)})
+		if isNotFound(err) || err == nil && !strings.EqualFold(repository.FullName, body.FullName) {
+			writeError(w, http.StatusNotFound, "repository not found")
+			return
+		}
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to load repository")
+			return
+		}
+		prefixes, err := normalizeWorktreePrefixes(body.WorktreePrefixes)
+		if err != nil {
+			writeErrorCode(w, http.StatusBadRequest, "worktree_prefix_invalid", err.Error())
+			return
+		}
+		if relocation, err = h.relocationProbe(r.Context(), repository, prefixes); err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to load worktrees")
+			return
+		}
+	}
+
 	runtime, err := h.Queries.GetAgentRuntime(r.Context(), parseUUID(rt.runtimeID))
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to load runtime")
@@ -339,6 +390,8 @@ func (h *Handler) InitiateRepositoryCheckout(w http.ResponseWriter, r *http.Requ
 		DefaultBranch: body.DefaultBranch,
 		Path:          body.Path,
 		Clone:         body.Clone,
+		RepositoryID:  body.RepositoryID,
+		Relocation:    relocation,
 	})
 	if err != nil {
 		slog.Error("repository checkout enqueue failed", "error", err, "runtime_id", rt.runtimeID)

@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -37,10 +38,17 @@ func TestWorklaneRequestRuntimeAccess(t *testing.T) {
 				"daemon_id": daemon, "runtime_mode": "local", "owner_id": owner,
 				"metadata": testutil.Raw(`'{"capabilities":["worklane-worktree-v1"]}'::jsonb`),
 			})
-			project := dbfx.Project(t, "Worklane access")
+			orgKey := "o" + strings.ReplaceAll(uuid.NewString(), "-", "")[:12]
+			organisation := dbfx.Insert(t, "organisation", testutil.Cols{
+				"workspace_id": testWorkspaceID, "name": "Worklane org " + orgKey, "key": orgKey,
+			})
+			project := dbfx.Insert(t, "project", testutil.Cols{
+				"workspace_id": testWorkspaceID, "title": "Worklane access", "organisation_id": organisation, "slug": "worklane-access",
+			})
+			repoName := "r" + uuid.NewString()
 			repo := dbfx.Insert(t, "repository", testutil.Cols{
 				"workspace_id": testWorkspaceID, "project_id": project, "github_repo_id": 1,
-				"full_name": "test/" + uuid.NewString(), "private": true, "default_branch": "main",
+				"full_name": "test/" + repoName, "private": true, "default_branch": "main",
 				"checkout_daemon_id": daemon, "checkout_path": "/test", "install_command": "pnpm install",
 				"version_policy": "none", "last_tag": "",
 			})
@@ -64,6 +72,9 @@ func TestWorklaneRequestRuntimeAccess(t *testing.T) {
 				response.JSON(&created)
 				if created.ID == "" || created.RuntimeID != runtime || created.CreatedBy == nil || *created.CreatedBy != caller {
 					t.Fatalf("created request = %+v", created)
+				}
+				if want := "~/hq/" + orgKey + "/worklane-access/worktrees/" + repoName + "/probe-lane"; created.Path != want {
+					t.Fatalf("lane path = %q, want %q", created.Path, want)
 				}
 				pending, err := store.PopPending(ctx, runtime)
 				if err != nil || pending == nil || pending.ID != created.ID {

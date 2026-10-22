@@ -6,7 +6,9 @@
     "submitting": "추가 중…",
     "cancel": "취소",
     "toast_added": "{{name}}을(를) {{project}}에 추가했습니다",
-    "failed": "저장소를 추가하지 못했습니다"
+    "failed": "저장소를 추가하지 못했습니다",
+    "needs_organisation": "저장소를 추가하기 전에 속성에서 {{project}}의 조직을 지정하세요",
+    "needs_slug": "저장소를 추가하기 전에 속성에서 {{project}}의 슬러그를 지정하세요"
   },
   "edit": {
     "title": "저장소 편집",

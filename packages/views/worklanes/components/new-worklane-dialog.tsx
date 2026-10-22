@@ -6,7 +6,7 @@ import type { Repository, WorklaneRequestReason } from "@multica/core/types";
 import { useAuthStore } from "@multica/core/auth";
 import { useWorkspaceId } from "@multica/core/hooks";
 import { organisationDetailOptions } from "@multica/core/organisations";
-import { useWorkspacePaths } from "@multica/core/paths";
+import { useCurrentWorkspace, useWorkspacePaths } from "@multica/core/paths";
 import { projectDetailOptions } from "@multica/core/projects/queries";
 import {
   repositoryCheckoutOptions,
@@ -20,6 +20,7 @@ import {
   useCreateWorklaneRequest,
   useRetryWorklaneRequest,
   useWorklanes,
+  workspaceWorkRoot,
   worklanePath,
   worklaneRefusal,
   worklaneRequestOptions,
@@ -88,6 +89,7 @@ function NewWorklaneForm({
   const wsId = useWorkspaceId();
   const qc = useQueryClient();
   const paths = useWorkspacePaths();
+  const workspace = useCurrentWorkspace();
   const router = useNavigation();
   const reasonText = useWorklaneReasonText();
   const currentUserId = useAuthStore((s) => s.user?.id ?? null);
@@ -178,7 +180,17 @@ function NewWorklaneForm({
   const folderIssue = folderProblem(folder, worklanes);
   const showFolderIssue = folderIssue && (folder !== "" || folderDraft !== null);
   const base = `origin/${repository.default_branch}`;
-  const path = worklanePath(organisation?.key ?? null, repository.full_name, folder || "…");
+  // Unknown only while the project or its organisation loads.
+  const path =
+    worklanePath(
+      {
+        workRoot: workspaceWorkRoot(workspace),
+        organisationKey: organisation?.key,
+        projectSlug: project?.slug,
+      },
+      repository.full_name,
+      folder || "…",
+    ) ?? "…";
 
   const running = request?.status === "running" || createRequest.isPending || retryRequest.isPending;
   const failed = request?.status === "failed" || request?.status === "unknown";

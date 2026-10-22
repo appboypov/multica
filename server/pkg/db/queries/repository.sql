@@ -52,6 +52,26 @@ UPDATE repository SET
 WHERE id = sqlc.arg('id') AND workspace_id = sqlc.arg('workspace_id')
 RETURNING *;
 
+-- name: CountActiveTasksForRepository :one
+-- Tasks that may work in the repository's checkout or worktrees now: an
+-- issue, chat, autopilot or quick-create task of its project, or a release
+-- task of the repository, that is dispatched, running or waiting for its
+-- folder. A relocate refuses while one exists (ADR-0037).
+SELECT COUNT(*)::bigint FROM agent_task_queue t
+LEFT JOIN issue i ON i.id = t.issue_id
+LEFT JOIN chat_session cs ON cs.id = t.chat_session_id
+LEFT JOIN autopilot_run ar ON ar.id = t.autopilot_run_id
+LEFT JOIN autopilot a ON a.id = ar.autopilot_id
+LEFT JOIN release rel ON rel.id = t.release_id
+WHERE t.status IN ('dispatched', 'running', 'waiting_local_directory')
+  AND (
+    i.project_id = @project_id::uuid
+    OR cs.project_id = @project_id::uuid
+    OR a.project_id = @project_id::uuid
+    OR rel.repository_id = @repository_id::uuid
+    OR (t.context->>'type' = 'quick_create' AND t.context->>'project_id' = (@project_id::uuid)::text)
+  );
+
 -- name: UpdateRepositoryGithub :one
 -- The fields GitHub owns, read again on every edit. full_name and
 -- github_repo_id never change: the repository is fixed.

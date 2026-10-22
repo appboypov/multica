@@ -34,7 +34,12 @@ PAGE_SIZE = 100
 CHECKOUT_WAIT_SECONDS = 120
 MARK_FILE = Path.home() / ".local/state/madspec/multica/brain-sync.json"
 MADSPEC = Path.home() / "Repos" / "Ventures" / "madspec"
+# The work root (ADR-0037): main checkouts live at REPOS_ROOT/{org}/{project}/repos/{repo}.
+REPOS_ROOT = Path.home() / "hq"
+# Work of others and the archive, never a Product's checkout.
+MISC = "misc"
 KEYS = {"Marvelous K": "mk", "Mens & Maatwerk": "mnm", "InclusiTalent": "incl", "Buttler": "btlr", "Whitebird": "wb"}
+GITHUB_ORIGIN_RE = re.compile(r"github\.com[:/]([\w.-]+/[\w.-]+?)(?:\.git)?/?$")
 
 
 @dataclass(frozen=True)
@@ -321,6 +326,39 @@ def links(properties: dict, name: str) -> tuple[str, ...]:
     return tuple(dict.fromkeys(values))
 
 
+def origin_name(checkout: Path) -> str | None:
+    """The lowercase GitHub name (`owner/name`) of the checkout's `origin` remote, read from its `.git/config`."""
+    try:
+        lines = (checkout / ".git" / "config").read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return None
+    section = None
+    for line in lines:
+        line = line.strip()
+        if line.startswith("["):
+            section = line
+        elif section == '[remote "origin"]' and line.startswith("url") and "=" in line:
+            match = GITHUB_ORIGIN_RE.search(line.split("=", 1)[1].strip())
+            return match.group(1).lower() if match else None
+    return None
+
+
+def local_checkouts(root: Path) -> dict[str, list[Path]]:
+    """The main checkouts at root/{org}/{project}/repos/{repo} by the GitHub name of their `origin`, outside misc."""
+    found: dict[str, list[Path]] = {}
+    for checkout in sorted(root.glob("*/*/repos/*")):
+        if checkout.relative_to(root).parts[0] == MISC or not (checkout / ".git").is_dir():
+            continue
+        if name := origin_name(checkout):
+            found.setdefault(name, []).append(checkout)
+    return found
+
+
+def project_slug(title: str) -> str:
+    """The folder name of a new project under its organisation (ADR-0037): its title in kebab-case."""
+    return re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-") or "project"
+
+
 def read_brain(team_state: ModuleType) -> Brain:
     try:
         key = team_state.model.api_key()
@@ -331,8 +369,7 @@ def read_brain(team_state: ModuleType) -> Brain:
         raise ValueError(f"cannot read the brain: {error}") from error
     if not products:
         raise ValueError("the brain holds no Product objects")
-    checkouts = team_state.local_checkouts()
-    archive = team_state.REPOS_ROOT / "Archive"
+    checkouts = local_checkouts(REPOS_ROOT)
     found = []
     for repository in repositories:
         properties = repository["properties"]
@@ -341,7 +378,7 @@ def read_brain(team_state: ModuleType) -> Brain:
             raise ValueError(f"Repository {repository['id']} has no valid GitHub key")
         normalized = github_key.lower()
         found.append(Repository(repository["id"], github_key, links(properties, "product"),
-                                tuple(path for path in checkouts.get(normalized, []) if not path.is_relative_to(archive))))
+                                tuple(checkouts.get(normalized, []))))
     return Brain(tuple(Organisation(value["id"], value["name"], value["properties"].get("linear_key") or "") for value in organisations),
                  tuple(Product(value["id"], value["name"], links(value["properties"], "organisation")) for value in products),
                  tuple(sorted(found, key=lambda value: (value.key.lower(), value.id))))
@@ -477,7 +514,8 @@ def write_plan(api, desired: Plan, multica_api: ModuleType, marks: Marks) -> int
         try:
             project_id = placement.project_id
             if project_id is None:
-                project_id = api.call("POST", "/api/projects", {"title": placement.title, "organisation_id": org_ids[placement.organisation]})["id"]
+                project_id = api.call("POST", "/api/projects", {"title": placement.title, "organisation_id": org_ids[placement.organisation],
+                                                                "slug": project_slug(placement.title)})["id"]
                 print(f"create project {placement.title}: {project_id}", flush=True)
             marks.record("products", placement.brain_id, project_id)
             project_ids[placement.brain_id] = project_id

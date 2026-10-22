@@ -447,6 +447,52 @@ func (q *Queries) ListWorklanes(ctx context.Context, workspaceID pgtype.UUID) ([
 	return items, nil
 }
 
+const listWorklanesWithPathForRepository = `-- name: ListWorklanesWithPathForRepository :many
+SELECT id, workspace_id, repository_id, name, folder, daemon_id, is_main, position, created_at, updated_at, path, branch FROM worklane
+WHERE repository_id = $1 AND workspace_id = $2 AND path IS NOT NULL
+ORDER BY position ASC
+`
+
+type ListWorklanesWithPathForRepositoryParams struct {
+	RepositoryID pgtype.UUID `json:"repository_id"`
+	WorkspaceID  pgtype.UUID `json:"workspace_id"`
+}
+
+// Every worklane of a repository that stores a worktree path, on any daemon:
+// a relocate rewrites their paths (ADR-0037).
+func (q *Queries) ListWorklanesWithPathForRepository(ctx context.Context, arg ListWorklanesWithPathForRepositoryParams) ([]Worklane, error) {
+	rows, err := q.db.Query(ctx, listWorklanesWithPathForRepository, arg.RepositoryID, arg.WorkspaceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Worklane{}
+	for rows.Next() {
+		var i Worklane
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.RepositoryID,
+			&i.Name,
+			&i.Folder,
+			&i.DaemonID,
+			&i.IsMain,
+			&i.Position,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Path,
+			&i.Branch,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const renameWorklane = `-- name: RenameWorklane :one
 UPDATE worklane SET
     name = $1,
@@ -497,6 +543,39 @@ type SetWorklaneBranchParams struct {
 // NULL means detached. Only a daemon report sets the recorded branch.
 func (q *Queries) SetWorklaneBranch(ctx context.Context, arg SetWorklaneBranchParams) (Worklane, error) {
 	row := q.db.QueryRow(ctx, setWorklaneBranch, arg.Branch, arg.ID, arg.WorkspaceID)
+	var i Worklane
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.RepositoryID,
+		&i.Name,
+		&i.Folder,
+		&i.DaemonID,
+		&i.IsMain,
+		&i.Position,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Path,
+		&i.Branch,
+	)
+	return i, err
+}
+
+const setWorklanePath = `-- name: SetWorklanePath :one
+UPDATE worklane SET path = $1, updated_at = now()
+WHERE id = $2 AND workspace_id = $3
+RETURNING id, workspace_id, repository_id, name, folder, daemon_id, is_main, position, created_at, updated_at, path, branch
+`
+
+type SetWorklanePathParams struct {
+	Path        pgtype.Text `json:"path"`
+	ID          pgtype.UUID `json:"id"`
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
+}
+
+// A relocate moved the worklane's worktree; nothing else changes (ADR-0037).
+func (q *Queries) SetWorklanePath(ctx context.Context, arg SetWorklanePathParams) (Worklane, error) {
+	row := q.db.QueryRow(ctx, setWorklanePath, arg.Path, arg.ID, arg.WorkspaceID)
 	var i Worklane
 	err := row.Scan(
 		&i.ID,

@@ -13,19 +13,20 @@ import (
 	"time"
 
 	"github.com/multica-ai/multica/server/internal/daemon/execenv"
+	"github.com/multica-ai/multica/server/internal/workpath"
 )
 
+// taskProjectFolder is where the task's project keeps its repositories:
+// {work_root}/{organisation_key}/{project_slug} (ADR-0037).
+func taskProjectFolder(task Task) workpath.Project {
+	return workpath.Project{Root: task.WorkRoot, Organisation: task.OrganisationKey, Slug: task.ProjectSlug}
+}
+
+// issueWorktreePath is the recorded path when there is one, else
+// {project}/worktrees/{repo}/{issue key} (ADR-0037).
 func issueWorktreePath(task Task, fullName, recorded string, worklanePaths []string) (string, error) {
 	if recorded != "" {
 		return execenv.ExpandWorklanePath(recorded)
-	}
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", err
-	}
-	_, repo, ok := strings.Cut(fullName, "/")
-	if !ok || repo == "" || filepath.Base(repo) != repo || repo == ".." {
-		return "", fmt.Errorf("invalid repository %q", fullName)
 	}
 	key := task.IssueKey
 	if key == "" {
@@ -34,11 +35,15 @@ func issueWorktreePath(task Task, fullName, recorded string, worklanePaths []str
 	if key == "" || filepath.Base(key) != key || key == ".." {
 		return "", fmt.Errorf("invalid issue key %q", key)
 	}
-	organisation := task.OrganisationKey
-	if organisation != "" && (filepath.Base(organisation) != organisation || organisation == "..") {
-		return "", fmt.Errorf("invalid organisation key %q", organisation)
+	path, err := taskProjectFolder(task).Worktree(fullName, key)
+	if err != nil {
+		return "", fmt.Errorf("issue worktree of %s: %w", fullName, err)
 	}
-	return execenv.IssueWorktreePath(filepath.Join(home, "Worktrees", organisation, repo, key), key, worklanePaths)
+	path, err = execenv.ExpandWorklanePath(path)
+	if err != nil {
+		return "", err
+	}
+	return execenv.IssueWorktreePath(path, key, worklanePaths)
 }
 
 func (d *Daemon) prepareIssueWorktrees(ctx context.Context, task *Task, logger *slog.Logger) error {

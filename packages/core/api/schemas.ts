@@ -1462,6 +1462,9 @@ export const ProjectSchema = z.object({
   // .default(null) so a project from a backend before organisations parses as
   // having none instead of failing the object and blanking its batch.
   organisation_id: z.string().nullable().default(null),
+  // .catch(null) so a project from a backend before slugs, or with a slug this
+  // client cannot read, parses as having none instead of failing its batch.
+  slug: z.string().nullable().catch(null),
   // .default(null) so a project from an older backend (frontend deploys before
   // backend) that omits these keys parses to null instead of failing the whole
   // object — which would degrade a search/list batch to the empty fallback.
@@ -1484,6 +1487,7 @@ export const EMPTY_PROJECT: Project = {
   lead_type: null,
   lead_id: null,
   organisation_id: null,
+  slug: null,
   start_date: null,
   due_date: null,
   created_at: "",

@@ -27,10 +27,10 @@ const createProject = `-- name: CreateProject :one
 INSERT INTO project (
     workspace_id, title, description, icon, status,
     lead_type, lead_id, priority, start_date, due_date,
-    organisation_id
+    organisation_id, slug
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
-) RETURNING id, workspace_id, title, description, icon, status, lead_type, lead_id, created_at, updated_at, priority, start_date, due_date, organisation_id
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
+) RETURNING id, workspace_id, title, description, icon, status, lead_type, lead_id, created_at, updated_at, priority, start_date, due_date, organisation_id, slug
 `
 
 type CreateProjectParams struct {
@@ -45,6 +45,7 @@ type CreateProjectParams struct {
 	StartDate      pgtype.Date `json:"start_date"`
 	DueDate        pgtype.Date `json:"due_date"`
 	OrganisationID pgtype.UUID `json:"organisation_id"`
+	Slug           pgtype.Text `json:"slug"`
 }
 
 func (q *Queries) CreateProject(ctx context.Context, arg CreateProjectParams) (Project, error) {
@@ -60,6 +61,7 @@ func (q *Queries) CreateProject(ctx context.Context, arg CreateProjectParams) (P
 		arg.StartDate,
 		arg.DueDate,
 		arg.OrganisationID,
+		arg.Slug,
 	)
 	var i Project
 	err := row.Scan(
@@ -77,6 +79,7 @@ func (q *Queries) CreateProject(ctx context.Context, arg CreateProjectParams) (P
 		&i.StartDate,
 		&i.DueDate,
 		&i.OrganisationID,
+		&i.Slug,
 	)
 	return i, err
 }
@@ -97,7 +100,7 @@ func (q *Queries) DeleteProject(ctx context.Context, arg DeleteProjectParams) er
 }
 
 const getProjectInWorkspace = `-- name: GetProjectInWorkspace :one
-SELECT id, workspace_id, title, description, icon, status, lead_type, lead_id, created_at, updated_at, priority, start_date, due_date, organisation_id FROM project
+SELECT id, workspace_id, title, description, icon, status, lead_type, lead_id, created_at, updated_at, priority, start_date, due_date, organisation_id, slug FROM project
 WHERE id = $1 AND workspace_id = $2
 `
 
@@ -124,6 +127,7 @@ func (q *Queries) GetProjectInWorkspace(ctx context.Context, arg GetProjectInWor
 		&i.StartDate,
 		&i.DueDate,
 		&i.OrganisationID,
+		&i.Slug,
 	)
 	return i, err
 }
@@ -171,7 +175,7 @@ func (q *Queries) GetProjectIssueStats(ctx context.Context, arg GetProjectIssueS
 }
 
 const listProjects = `-- name: ListProjects :many
-SELECT id, workspace_id, title, description, icon, status, lead_type, lead_id, created_at, updated_at, priority, start_date, due_date, organisation_id FROM project
+SELECT id, workspace_id, title, description, icon, status, lead_type, lead_id, created_at, updated_at, priority, start_date, due_date, organisation_id, slug FROM project
 WHERE workspace_id = $1
   AND ($2::text IS NULL OR status = $2)
   AND ($3::text IS NULL OR priority = $3)
@@ -208,6 +212,7 @@ func (q *Queries) ListProjects(ctx context.Context, arg ListProjectsParams) ([]P
 			&i.StartDate,
 			&i.DueDate,
 			&i.OrganisationID,
+			&i.Slug,
 		); err != nil {
 			return nil, err
 		}
@@ -271,9 +276,10 @@ UPDATE project SET
     start_date = $9,
     due_date = $10,
     organisation_id = $11,
+    slug = $12,
     updated_at = now()
 WHERE id = $1
-RETURNING id, workspace_id, title, description, icon, status, lead_type, lead_id, created_at, updated_at, priority, start_date, due_date, organisation_id
+RETURNING id, workspace_id, title, description, icon, status, lead_type, lead_id, created_at, updated_at, priority, start_date, due_date, organisation_id, slug
 `
 
 type UpdateProjectParams struct {
@@ -288,6 +294,7 @@ type UpdateProjectParams struct {
 	StartDate      pgtype.Date `json:"start_date"`
 	DueDate        pgtype.Date `json:"due_date"`
 	OrganisationID pgtype.UUID `json:"organisation_id"`
+	Slug           pgtype.Text `json:"slug"`
 }
 
 func (q *Queries) UpdateProject(ctx context.Context, arg UpdateProjectParams) (Project, error) {
@@ -303,6 +310,7 @@ func (q *Queries) UpdateProject(ctx context.Context, arg UpdateProjectParams) (P
 		arg.StartDate,
 		arg.DueDate,
 		arg.OrganisationID,
+		arg.Slug,
 	)
 	var i Project
 	err := row.Scan(
@@ -320,6 +328,7 @@ func (q *Queries) UpdateProject(ctx context.Context, arg UpdateProjectParams) (P
 		&i.StartDate,
 		&i.DueDate,
 		&i.OrganisationID,
+		&i.Slug,
 	)
 	return i, err
 }

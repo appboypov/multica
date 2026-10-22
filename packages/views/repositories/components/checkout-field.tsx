@@ -37,11 +37,6 @@ export interface CheckoutValue {
   path: string;
 }
 
-/** The path Add repository fills in for a picked repository. */
-export function defaultCheckoutPath(fullName: string): string {
-  return `~/Repos/${fullName.split("/").pop() ?? fullName}`;
-}
-
 /**
  * Checkout: a machine of the viewer and the path of the repository's normal
  * checkout on it. The check runs on the machine whenever the repository, the

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/multica-ai/multica/server/internal/daemon/execenv"
+	"github.com/multica-ai/multica/server/internal/workpath"
 	"github.com/multica-ai/multica/server/pkg/protocol"
 )
 
@@ -30,6 +31,9 @@ var repositoryVersionTag = regexp.MustCompile(`^v([0-9]+)\.([0-9]+)\.([0-9]+)$`)
 // check. Version-file ordering is the repository policy ordering.
 func checkRepositoryCheckout(ctx context.Context, request protocol.DaemonHeartbeatPendingRepositoryCheckout) protocol.RepositoryCheckoutResult {
 	result := protocol.RepositoryCheckoutResult{Status: "completed", Failures: []protocol.RepositoryCheckoutFailure{}, VersionFiles: []string{}, InstallCommands: []protocol.RepositoryInstallCommand{}}
+	if home, err := os.UserHomeDir(); err == nil {
+		result.Home = home
+	}
 	fail := func(code, detail string) protocol.RepositoryCheckoutResult {
 		result.Failures = append(result.Failures, protocol.RepositoryCheckoutFailure{Code: code, Detail: detail})
 		return result
@@ -69,6 +73,9 @@ func checkRepositoryCheckout(ctx context.Context, request protocol.DaemonHeartbe
 		return result
 	}
 	result.Passed = true
+	if request.Relocation != nil {
+		result.MissingPaths = missingRelocatedPaths(*request.Relocation, path, result.Home)
+	}
 	for _, file := range []string{"pubspec.yaml", "Cargo.toml", "pyproject.toml", "package.json"} {
 		if _, err := checkoutGit(ctx, path, "cat-file", "-e", "refs/heads/"+request.DefaultBranch+":"+file); err == nil {
 			result.VersionFiles = append(result.VersionFiles, file)
@@ -110,6 +117,24 @@ func checkRepositoryCheckout(ctx context.Context, request protocol.DaemonHeartbe
 		}
 	}
 	return result
+}
+
+// missingRelocatedPaths applies the relocation to every recorded path and
+// returns the landing paths, in their recorded style, that do not exist on
+// this machine (ADR-0037).
+func missingRelocatedPaths(probe protocol.RepositoryRelocationProbe, newCheckout, home string) []string {
+	relocation := workpath.Relocation{OldCheckout: probe.OldCheckout, NewCheckout: newCheckout, Prefixes: probe.Prefixes}
+	var missing []string
+	for _, recorded := range probe.Paths {
+		landing, moved := relocation.Apply(recorded, home)
+		if !moved {
+			continue
+		}
+		if _, err := os.Stat(workpath.Expand(landing, home)); err != nil {
+			missing = append(missing, landing)
+		}
+	}
+	return missing
 }
 
 func (d *Daemon) handleRepositoryCheckout(ctx context.Context, runtimeID string, request protocol.DaemonHeartbeatPendingRepositoryCheckout) {

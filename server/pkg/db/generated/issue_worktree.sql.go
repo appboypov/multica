@@ -194,6 +194,51 @@ func (q *Queries) ListIssueWorktreesForIssue(ctx context.Context, arg ListIssueW
 	return items, nil
 }
 
+const listIssueWorktreesForRepository = `-- name: ListIssueWorktreesForRepository :many
+SELECT id, workspace_id, issue_id, repository_id, daemon_id, path, branch, state, kept_reason, created_at, updated_at FROM issue_worktree
+WHERE repository_id = $1 AND workspace_id = $2
+ORDER BY created_at ASC
+`
+
+type ListIssueWorktreesForRepositoryParams struct {
+	RepositoryID pgtype.UUID `json:"repository_id"`
+	WorkspaceID  pgtype.UUID `json:"workspace_id"`
+}
+
+// Every issue worktree of a repository in every state, kept ones included: a
+// relocate rewrites their paths (ADR-0037).
+func (q *Queries) ListIssueWorktreesForRepository(ctx context.Context, arg ListIssueWorktreesForRepositoryParams) ([]IssueWorktree, error) {
+	rows, err := q.db.Query(ctx, listIssueWorktreesForRepository, arg.RepositoryID, arg.WorkspaceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []IssueWorktree{}
+	for rows.Next() {
+		var i IssueWorktree
+		if err := rows.Scan(
+			&i.ID,
+			&i.WorkspaceID,
+			&i.IssueID,
+			&i.RepositoryID,
+			&i.DaemonID,
+			&i.Path,
+			&i.Branch,
+			&i.State,
+			&i.KeptReason,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listRemovingIssueWorktreesForDaemon = `-- name: ListRemovingIssueWorktreesForDaemon :many
 SELECT
     iw.id,
@@ -245,6 +290,38 @@ func (q *Queries) ListRemovingIssueWorktreesForDaemon(ctx context.Context, arg L
 		return nil, err
 	}
 	return items, nil
+}
+
+const setIssueWorktreePath = `-- name: SetIssueWorktreePath :one
+UPDATE issue_worktree SET path = $1, updated_at = now()
+WHERE id = $2 AND workspace_id = $3
+RETURNING id, workspace_id, issue_id, repository_id, daemon_id, path, branch, state, kept_reason, created_at, updated_at
+`
+
+type SetIssueWorktreePathParams struct {
+	Path        string      `json:"path"`
+	ID          pgtype.UUID `json:"id"`
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
+}
+
+// A relocate moved the issue worktree; its state and branch stay (ADR-0037).
+func (q *Queries) SetIssueWorktreePath(ctx context.Context, arg SetIssueWorktreePathParams) (IssueWorktree, error) {
+	row := q.db.QueryRow(ctx, setIssueWorktreePath, arg.Path, arg.ID, arg.WorkspaceID)
+	var i IssueWorktree
+	err := row.Scan(
+		&i.ID,
+		&i.WorkspaceID,
+		&i.IssueID,
+		&i.RepositoryID,
+		&i.DaemonID,
+		&i.Path,
+		&i.Branch,
+		&i.State,
+		&i.KeptReason,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const setIssueWorktreesStateForIssue = `-- name: SetIssueWorktreesStateForIssue :many

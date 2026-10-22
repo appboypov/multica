@@ -92,3 +92,16 @@ RETURNING *;
 -- name: DeleteIssueWorktreesByIssue :exec
 -- Issue delete forgets its worktrees; the folders stay on disk.
 DELETE FROM issue_worktree WHERE issue_id = $1 AND workspace_id = $2;
+
+-- name: ListIssueWorktreesForRepository :many
+-- Every issue worktree of a repository in every state, kept ones included: a
+-- relocate rewrites their paths (ADR-0037).
+SELECT * FROM issue_worktree
+WHERE repository_id = $1 AND workspace_id = $2
+ORDER BY created_at ASC;
+
+-- name: SetIssueWorktreePath :one
+-- A relocate moved the issue worktree; its state and branch stay (ADR-0037).
+UPDATE issue_worktree SET path = sqlc.arg('path'), updated_at = now()
+WHERE id = sqlc.arg('id') AND workspace_id = sqlc.arg('workspace_id')
+RETURNING *;

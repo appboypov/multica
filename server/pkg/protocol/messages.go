@@ -479,13 +479,32 @@ type DaemonHeartbeatPendingDirectoryListing struct {
 
 // DaemonHeartbeatPendingRepositoryCheckout asks the runtime to check a
 // checkout of full_name at path, cloning it there first when clone is set
-// and nothing is at the path.
+// and nothing is at the path. Relocation, when set, makes it the check of a
+// repository move (ADR-0037).
 type DaemonHeartbeatPendingRepositoryCheckout struct {
-	ID            string `json:"id"`
-	FullName      string `json:"full_name"`
-	DefaultBranch string `json:"default_branch"`
-	Path          string `json:"path"`
-	Clone         bool   `json:"clone"`
+	ID            string                     `json:"id"`
+	FullName      string                     `json:"full_name"`
+	DefaultBranch string                     `json:"default_branch"`
+	Path          string                     `json:"path"`
+	Clone         bool                       `json:"clone"`
+	Relocation    *RepositoryRelocationProbe `json:"relocation,omitempty"`
+}
+
+// WorktreePrefix moves every recorded worktree at or under From to the same
+// place under To. Both are absolute or start with "~/" (ADR-0037).
+type WorktreePrefix struct {
+	From string `json:"from"`
+	To   string `json:"to"`
+}
+
+// RepositoryRelocationProbe asks the runtime where a repository's recorded
+// worktrees land when its checkout moves to the checked path: OldCheckout is
+// the current checkout, Paths the recorded worktree paths of the repository.
+// The runtime reports the landing paths it cannot find (ADR-0037).
+type RepositoryRelocationProbe struct {
+	OldCheckout string           `json:"old_checkout"`
+	Prefixes    []WorktreePrefix `json:"prefixes"`
+	Paths       []string         `json:"paths"`
 }
 
 // DaemonHeartbeatPendingLocalSkillImport describes a request to import a
@@ -592,7 +611,10 @@ type RepositoryInstallCommand struct {
 
 // RepositoryCheckoutResult is the daemon's answer to a checkout check or
 // clone. ResolvedPath is absolute. VersionFiles, LastTag and InstallCommands
-// are read only from what is on the machine, after a passed check.
+// are read only from what is on the machine, after a passed check. Home is
+// the runtime user's home, which "~" means in recorded paths. MissingPaths
+// are a relocation's landing paths, in their recorded style, that are not on
+// the machine.
 type RepositoryCheckoutResult struct {
 	Status          string                      `json:"status"`
 	ResolvedPath    string                      `json:"resolved_path"`
@@ -601,6 +623,8 @@ type RepositoryCheckoutResult struct {
 	VersionFiles    []string                    `json:"version_files"`
 	LastTag         string                      `json:"last_tag,omitempty"`
 	InstallCommands []RepositoryInstallCommand  `json:"install_commands"`
+	Home            string                      `json:"home,omitempty"`
+	MissingPaths    []string                    `json:"missing_paths,omitempty"`
 }
 
 // ClaimRelease is a fresh fixed-scope release snapshot, shared by server and daemon.

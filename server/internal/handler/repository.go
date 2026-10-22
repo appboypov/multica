@@ -247,6 +247,11 @@ func (h *Handler) CreateRepository(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "project not found")
 		return
 	}
+	// The repository's folders sit under the project's organisation and slug
+	// (ADR-0037), so a project without either holds no repository.
+	if writeProjectFolderRequired(w, project.OrganisationID, project.Slug) {
+		return
+	}
 
 	github, found, err := h.readRepositoryFromGitHub(r.Context(), wsUUID, req.FullName)
 	if err != nil {

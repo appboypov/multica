@@ -21,11 +21,14 @@ export {
 } from "./mutations";
 export {
   WORKLANE_FOLDER_PATTERN,
+  DEFAULT_WORK_ROOT,
   folderFromName,
   folderProblem,
+  workspaceWorkRoot,
+  checkoutPath,
   worklanePath,
 } from "./folder";
-export type { WorklaneFolderProblem } from "./folder";
+export type { WorklaneFolderProblem, ProjectPlace } from "./folder";
 export { sortWorklanes, countWorklanes } from "./counts";
 export type { WorklaneCounts } from "./counts";
 export { worklaneOverview } from "./overview";

@@ -9,7 +9,7 @@ import { copyText } from "@multica/ui/lib/clipboard";
 import { toast } from "sonner";
 import type { ProjectPriority } from "@multica/core/types";
 import { useAuthStore } from "@multica/core/auth";
-import { projectDetailOptions } from "@multica/core/projects/queries";
+import { projectDetailOptions, projectListOptions } from "@multica/core/projects/queries";
 import { useUpdateProject, useDeleteProject } from "@multica/core/projects/mutations";
 import { pinListOptions } from "@multica/core/pins";
 import { useCreatePin, useDeletePin } from "@multica/core/pins";
@@ -30,6 +30,7 @@ import { ProjectCheckRecord } from "../../inbox/components/project-check-record"
 import { repositoriesOfProject, repositoryListOptions } from "@multica/core/repositories";
 import { useWorklaneCounts } from "../../worklanes/use-worklane-counts";
 import { OrganisationPicker } from "./organisation-picker";
+import { ProjectSlugField } from "./project-slug-field";
 import { IssueSurface } from "../../issues/surface/issue-surface";
 import { Skeleton } from "@multica/ui/components/ui/skeleton";
 import { Button } from "@multica/ui/components/ui/button";
@@ -114,6 +115,7 @@ export function ProjectDetail({ projectId }: { projectId: string }) {
   const userId = useAuthStore((s) => s.user?.id);
   const { data: project, isLoading } = useQuery(projectDetailOptions(wsId, projectId));
   const { data: repositories = [] } = useQuery(repositoryListOptions(wsId));
+  const { data: projects = [] } = useQuery(projectListOptions(wsId));
   const repositoryCount = useMemo(
     () => repositoriesOfProject(repositories, projectId).length,
     [repositories, projectId],
@@ -303,6 +305,14 @@ export function ProjectDetail({ projectId }: { projectId: string }) {
               organisationId={project.organisation_id}
               onChange={(organisationId) => handleUpdateField({ organisation_id: organisationId })}
               className="max-w-full rounded-none border-0 px-0 py-0 hover:bg-transparent hover:text-foreground data-popup-open:bg-transparent"
+            />
+          </PropRow>
+          <PropRow label={t(($) => $.slug.label)}>
+            <ProjectSlugField
+              key={project.slug ?? ""}
+              project={project}
+              projects={projects}
+              hasRepositories={repositoryCount > 0}
             />
           </PropRow>
           <PropRow label={t(($) => $.table.priority)}>

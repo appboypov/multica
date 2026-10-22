@@ -74,7 +74,12 @@ type Task struct {
 	WorkspaceID          string                 `json:"workspace_id"`
 	WorkspaceSlug        string                 `json:"workspace_slug,omitempty"`
 	IssueIdentifier      string                 `json:"issue_identifier,omitempty"`
+	// WorkRoot, OrganisationKey and ProjectSlug name the folder of the
+	// project's repositories, {work_root}/{organisation_key}/{project_slug}
+	// (ADR-0037). Mirror fields: internal/handler/agent.go AgentTaskResponse.
+	WorkRoot             string                 `json:"work_root,omitempty"`
 	OrganisationKey      string                 `json:"organisation_key,omitempty"`
+	ProjectSlug          string                 `json:"project_slug,omitempty"`
 	IssueKey             string                 `json:"issue_key,omitempty"`
 	RemoteMCPConnections []remotemcp.Connection `json:"remote_mcp_connections,omitempty"`
 	// RemoteMCPDaemonToken stays inside the daemon and authenticates the local

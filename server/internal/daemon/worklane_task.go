@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -68,19 +67,15 @@ func worklaneTaskPath(ctx context.Context, task Task, repo protocol.ClaimReposit
 		}
 	}
 	if selected == "" && repo.Worklane.PullRequestBranch != "" {
-		home, err := os.UserHomeDir()
+		// {project}/worktrees/{repo}/.pull-requests/{branch} (ADR-0037).
+		pullRequests, err := taskProjectFolder(task).PullRequests(repo.FullName)
 		if err != nil {
+			return "", fmt.Errorf("pull-request worktree of %s: %w", repo.FullName, err)
+		}
+		if pullRequests, err = execenv.ExpandWorklanePath(pullRequests); err != nil {
 			return "", err
 		}
-		_, name, ok := strings.Cut(repo.FullName, "/")
-		if !ok || name == "" || name == "." || name == ".." || filepath.Base(name) != name {
-			return "", fmt.Errorf("invalid repository %q", repo.FullName)
-		}
-		org := task.OrganisationKey
-		if org == "." || org == ".." || filepath.Base(org) != org && org != "" {
-			return "", fmt.Errorf("invalid organisation key %q", org)
-		}
-		root, err := resolveRealPath(filepath.Join(home, "Worktrees", org, name, ".pull-requests"))
+		root, err := resolveRealPath(pullRequests)
 		if err != nil {
 			return "", err
 		}

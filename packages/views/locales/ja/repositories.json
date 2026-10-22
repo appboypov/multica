@@ -6,7 +6,9 @@
     "submitting": "追加中…",
     "cancel": "キャンセル",
     "toast_added": "{{name}} を {{project}} に追加しました",
-    "failed": "リポジトリを追加できませんでした"
+    "failed": "リポジトリを追加できませんでした",
+    "needs_organisation": "リポジトリを追加する前に、プロパティで {{project}} に組織を設定してください",
+    "needs_slug": "リポジトリを追加する前に、プロパティで {{project}} にスラッグを設定してください"
   },
   "edit": {
     "title": "リポジトリを編集",

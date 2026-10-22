@@ -9,13 +9,24 @@ export interface WorkspaceRepo {
   description?: string;
 }
 
+/**
+ * A workspace's settings JSON. Other keys are read by their own features.
+ * `work_root` is the folder that holds every organisation's folder, stored with
+ * `~/` like worktree paths; read it with `workspaceWorkRoot`, which applies the
+ * default `~/hq` when it is absent.
+ */
+export interface WorkspaceSettings {
+  work_root?: string;
+  [key: string]: unknown;
+}
+
 export interface Workspace {
   id: string;
   name: string;
   slug: string;
   description: string | null;
   context: string | null;
-  settings: Record<string, unknown>;
+  settings: WorkspaceSettings;
   repos: WorkspaceRepo[];
   issue_prefix: string;
   avatar_url: string | null;

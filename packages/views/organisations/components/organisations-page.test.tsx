@@ -115,6 +115,7 @@ function project(id: string, title: string, organisationId: string | null): Proj
     lead_type: null,
     lead_id: null,
     organisation_id: organisationId,
+    slug: null,
     start_date: null,
     due_date: null,
     created_at: "",

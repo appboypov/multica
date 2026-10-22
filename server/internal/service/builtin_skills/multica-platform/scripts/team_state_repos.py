@@ -64,9 +64,14 @@ def origin_name(checkout: Path) -> str | None:
 
 def local_checkouts(root: Path) -> dict[str, list[Path]]:
     """The main checkouts under `root`, at any depth, by the GitHub name of their `origin` remote. A checkout's own
-    folders are not searched; a git folder without a GitHub `origin` is searched for the checkouts inside it."""
+    folders are not searched, nor a linked worktree's (its `.git` is a file), so a project folder of the work root
+    gives the checkouts in its `repos/` and none of its `worktrees/`; a git folder without a GitHub `origin` is
+    searched for the checkouts inside it."""
     found = {}
-    for folder, subfolders, _ in os.walk(root):
+    for folder, subfolders, files in os.walk(root):
+        if ".git" in files:
+            subfolders.clear()
+            continue
         if ".git" in subfolders:
             subfolders.remove(".git")
             if name := origin_name(Path(folder)):

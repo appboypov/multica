@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"path"
 	"regexp"
 	"strings"
 	"time"
@@ -22,6 +23,7 @@ import (
 	"github.com/multica-ai/multica/server/internal/logger"
 	obsmetrics "github.com/multica-ai/multica/server/internal/metrics"
 	"github.com/multica-ai/multica/server/internal/service"
+	"github.com/multica-ai/multica/server/internal/workpath"
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
 	"github.com/multica-ai/multica/server/pkg/protocol"
 )
@@ -449,6 +451,21 @@ func (h *Handler) UpdateWorkspace(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 			reconcilePRMergeSettings(stored, incoming)
+			// The work root holds every repository folder (ADR-0037); absent,
+			// null or blank means the default.
+			if value, sent := incoming[workpath.SettingsKey]; sent && value != nil {
+				root, isString := value.(string)
+				root = strings.TrimSpace(root)
+				switch {
+				case isString && root == "":
+					delete(incoming, workpath.SettingsKey)
+				case !isString || !workpath.ValidRoot(root):
+					writeErrorCode(w, http.StatusBadRequest, "work_root_invalid", "work_root is an absolute path or a path that starts with ~/")
+					return
+				default:
+					incoming[workpath.SettingsKey] = path.Clean(root)
+				}
+			}
 		}
 		s, _ := json.Marshal(req.Settings)
 		if _, err := service.ParseDeciderSettings(s); err != nil {
