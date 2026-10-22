@@ -52,7 +52,7 @@ An organisation the sync creates SHALL have its Organisation's Linear key in low
 
 ### Requirement: Each Product is one project in its organisation
 
-Each Product SHALL be one project, including a Product without repositories. The sync SHALL follow its mark when the marked project exists, otherwise take over an unclaimed project with exactly the Product's title, otherwise create one with that title and the Product's organisation. Checkout marks SHALL NOT participate in take-over. Other unmarked projects SHALL stay as they are. Each successful create or take-over SHALL record the identity before dependent writes.
+Each Product SHALL be one project, including a Product without repositories. The sync SHALL follow its mark when the marked project exists, otherwise take over an unclaimed project with exactly the Product's title, otherwise create one with that title, the Product's organisation and the kebab-case of the title as slug (ADR-0037). Checkout marks SHALL NOT participate in take-over. Other unmarked projects SHALL stay as they are. Each successful create or take-over SHALL record the identity before dependent writes.
 
 The sync SHALL set the organisation of an existing project only when that project has none. An organisation Brian set SHALL stay. It SHALL NOT create a project for a Repository.
 
@@ -99,7 +99,7 @@ The sync SHALL set the organisation of an existing project only when that projec
 
 The sync SHALL read `GET /api/repositories` and `GET /api/repositories/available`. For each brain Repository that links one placed Product, it SHALL add the repository to that Product's project if it is absent from Multica, using Add repository's runtime checkout check. The server creates worklane `main` on the checkout, Free, and removes the obsolete checkout resource. The sync SHALL never create a checkout resource or a repository project.
 
-Checkouts SHALL be found under `~/Repos` at any depth by their GitHub `origin`, matching the GitHub key ignoring case and excluding `~/Repos/Archive`. Lookup SHALL continue inside git folders without a GitHub origin. A missing checkout or several checkouts SHALL prevent addition.
+Checkouts SHALL be found at `~/hq/{organisation}/{project}/repos/{repo}` (ADR-0037) by the GitHub `origin` in their `.git/config`, matching the GitHub key ignoring case and excluding `~/hq/misc`. Worktrees and folders at other depths SHALL NOT count. A missing checkout or several checkouts SHALL prevent addition.
 
 The check SHALL use the local omp runtime, `clone: false`, and the repository name and default branch returned by the GitHub App's available-repositories endpoint. It SHALL check existence, git work tree, origin and current branch. The sync SHALL poll until completion or its bounded wait ends. A passed check SHALL supply the `checkout_check_id`; the version policy SHALL be its first found version file in the check's ordering, or `tags` when no version file was found.
 
@@ -114,10 +114,10 @@ The check SHALL use the local omp runtime, `clone: false`, and the repository na
 - **WHEN** the sync adds it
 - **THEN** its version policy is `pubspec.yaml`
 
-#### Scenario: Archive and mixed-case keys
-- **GIVEN** a Repository's mixed-case key matches a live checkout and a copy under `~/Repos/Archive`
+#### Scenario: Misc and mixed-case keys
+- **GIVEN** a Repository's mixed-case key matches a checkout at `~/hq/das/madspec/repos/madspec` and a copy under `~/hq/misc`
 - **WHEN** the sync runs
-- **THEN** it checks and adds the live checkout only
+- **THEN** it checks and adds the checkout under `das` only
 
 ### Requirement: A repository the sync cannot add is reported and left alone
 

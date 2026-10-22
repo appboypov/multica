@@ -1915,10 +1915,10 @@ type LockIssueForDeleteParams struct {
 	WorkspaceID pgtype.UUID `json:"workspace_id"`
 }
 
-// Issue deletion must collect every attachment URL after it has won the same
-// row-lock race used by channel media binding. FOR UPDATE conflicts with the
-// binder's FOR KEY SHARE: either bind commits first and its URL is collected,
-// or delete commits first and the binder leaves its durable intent for cleanup.
+// Issue deletion must collect every attachment URL after it has won the issue
+// row lock. FOR UPDATE conflicts with every attachment writer's lock on the
+// owner row: either the write commits first and its URL is collected, or delete
+// commits first.
 func (q *Queries) LockIssueForDelete(ctx context.Context, arg LockIssueForDeleteParams) (pgtype.UUID, error) {
 	row := q.db.QueryRow(ctx, lockIssueForDelete, arg.ID, arg.WorkspaceID)
 	var id pgtype.UUID
@@ -1938,9 +1938,8 @@ type LockIssueForDescriptionUpdateParams struct {
 }
 
 // Serialize field-baseline checks and combined attachment binding on the
-// owner row. The handler merges channel media that landed after the editor's
-// submitted base, updates the issue, and binds this request's attachments in
-// the same transaction while holding this lock.
+// owner row. The handler updates the issue and binds this request's
+// attachments in the same transaction while holding this lock.
 func (q *Queries) LockIssueForDescriptionUpdate(ctx context.Context, arg LockIssueForDescriptionUpdateParams) (Issue, error) {
 	row := q.db.QueryRow(ctx, lockIssueForDescriptionUpdate, arg.ID, arg.WorkspaceID)
 	var i Issue

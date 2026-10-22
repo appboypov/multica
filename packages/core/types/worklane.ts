@@ -31,7 +31,7 @@ export interface Worklane {
   workspace_id: string;
   repository_id: string;
   name: string;
-  /** The worktree folder under the repository's Worktrees folder; null for `main`. */
+  /** The worktree folder under `{work_root}/{org}/{project}/worktrees/{repo}`; null for `main`. */
   folder: string | null;
   /** The machine of the worktree; null for `main`. */
   daemon_id: string | null;

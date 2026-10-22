@@ -15,14 +15,16 @@ import (
 
 // claimProjectContext is the project-scoped context a daemon claim exposes to
 // the agent: the project identity the prompt names, the project's repositories
-// with their checkout and issue worktree (design.md decision 4), the
-// organisation key the worktree path uses, and the repo list `multica repo
-// checkout` reads.
+// with their checkout and issue worktree (design.md decision 4), the work
+// root, organisation key and project slug the worktree path uses (ADR-0037),
+// and the repo list `multica repo checkout` reads.
 type claimProjectContext struct {
 	ProjectID       string
 	Title           string
 	Description     string
+	WorkRoot        string
 	OrganisationKey string
+	ProjectSlug     string
 	Repositories    []protocol.ClaimRepository
 	Repos           []RepoData
 }
@@ -34,7 +36,9 @@ func (c claimProjectContext) applyTo(resp *AgentTaskResponse) {
 	resp.ProjectID = c.ProjectID
 	resp.ProjectTitle = c.Title
 	resp.ProjectDescription = c.Description
+	resp.WorkRoot = c.WorkRoot
 	resp.OrganisationKey = c.OrganisationKey
+	resp.ProjectSlug = c.ProjectSlug
 	resp.Repositories = c.Repositories
 	resp.Repos = c.Repos
 }
@@ -74,6 +78,12 @@ func (h *Handler) resolveClaimProjectContext(ctx context.Context, projectID, iss
 			out.ProjectID = uuidToString(project.ID)
 			out.Title = project.Title
 			out.Description = project.Description.String
+			out.ProjectSlug = project.Slug.String
+			workRoot, rootErr := h.workRootOf(ctx, workspaceID)
+			if rootErr != nil {
+				return claimProjectContext{}, fmt.Errorf("get work root: %w", rootErr)
+			}
+			out.WorkRoot = workRoot
 			if project.OrganisationID.Valid {
 				org, orgErr := h.Queries.GetOrganisationInWorkspace(ctx, db.GetOrganisationInWorkspaceParams{
 					ID:          project.OrganisationID,

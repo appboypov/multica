@@ -1375,6 +1375,7 @@ type Project struct {
 	StartDate      pgtype.Date        `json:"start_date"`
 	DueDate        pgtype.Date        `json:"due_date"`
 	OrganisationID pgtype.UUID        `json:"organisation_id"`
+	Slug           pgtype.Text        `json:"slug"`
 }
 
 type ProjectCheckTrust struct {

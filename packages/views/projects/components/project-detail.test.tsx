@@ -16,6 +16,8 @@ const mocks = vi.hoisted(() => ({
   recordVisit: vi.fn(),
   toastSuccess: vi.fn(),
   updateProject: vi.fn(),
+  updateProjectAsync: vi.fn(),
+  project: null as Project | null,
 }));
 
 vi.mock("@multica/ui/lib/clipboard", () => ({
@@ -31,7 +33,15 @@ vi.mock("@tanstack/react-query", () => ({
   useQuery: (options: { queryKey?: readonly unknown[] }) => {
     switch (options.queryKey?.[0]) {
       case "project-detail":
-        return { data: PROJECT, isLoading: false };
+        return { data: mocks.project ?? PROJECT, isLoading: false };
+      case "projects":
+        return {
+          data: [
+            mocks.project ?? PROJECT,
+            { ...PROJECT, id: "project-2", organisation_id: "org-das", slug: "site" },
+          ],
+          isLoading: false,
+        };
       case "members":
         return {
           data: [{ user_id: "user-1", name: "User One", role: mocks.role }],
@@ -52,7 +62,7 @@ vi.mock("@multica/core/projects/queries", () => ({
 }));
 
 vi.mock("@multica/core/projects/mutations", () => ({
-  useUpdateProject: () => ({ mutate: mocks.updateProject }),
+  useUpdateProject: () => ({ mutate: mocks.updateProject, mutateAsync: mocks.updateProjectAsync }),
   useDeleteProject: () => ({ mutate: mocks.deleteProject }),
 }));
 
@@ -271,6 +281,7 @@ const PROJECT: Project = {
   lead_type: null,
   lead_id: null,
   organisation_id: null,
+  slug: null,
   start_date: null,
   due_date: null,
   created_at: "2026-06-01T00:00:00Z",
@@ -306,6 +317,8 @@ beforeEach(() => {
   mocks.recordVisit.mockReset();
   mocks.toastSuccess.mockReset();
   mocks.updateProject.mockReset();
+  mocks.updateProjectAsync.mockReset().mockResolvedValue(undefined);
+  mocks.project = null;
 });
 
 describe("ProjectDetail sharing", () => {
@@ -388,5 +401,55 @@ describe("ProjectDetail organisation", () => {
     for (const text of ["Status", "In Progress", "Start date", "Due date"]) {
       expect(screen.queryByText(text)).not.toBeInTheDocument();
     }
+  });
+});
+
+describe("ProjectDetail slug", () => {
+  it("shows the saved slug and saves a new one on Enter", async () => {
+    mocks.project = { ...PROJECT, organisation_id: "org-das", slug: "launch-plan" };
+    const user = userEvent.setup();
+    renderProjectDetail();
+
+    const slug = screen.getByRole("textbox", { name: "Slug" });
+    expect(slug).toHaveValue("launch-plan");
+    await user.clear(slug);
+    await user.type(slug, "launch{Enter}");
+
+    expect(mocks.updateProjectAsync).toHaveBeenCalledWith({ id: PROJECT.id, slug: "launch" });
+  });
+
+  it("offers the title as a folder name and clears the slug when emptied", async () => {
+    mocks.project = { ...PROJECT, slug: "launch-plan" };
+    const user = userEvent.setup();
+    renderProjectDetail();
+
+    const slug = screen.getByRole("textbox", { name: "Slug" });
+    expect(slug).toHaveAttribute("placeholder", "launch-plan");
+    await user.clear(slug);
+    await user.keyboard("{Enter}");
+
+    expect(mocks.updateProjectAsync).toHaveBeenCalledWith({ id: PROJECT.id, slug: null });
+  });
+
+  it("explains a wrong or taken slug without saving and restores it on Escape", async () => {
+    mocks.project = { ...PROJECT, organisation_id: "org-das", slug: "launch-plan" };
+    const user = userEvent.setup();
+    renderProjectDetail();
+
+    const slug = screen.getByRole("textbox", { name: "Slug" });
+    await user.clear(slug);
+    await user.type(slug, "Launch{Enter}");
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "A slug is lowercase letters, digits and dashes, starting with a letter or digit",
+    );
+
+    await user.clear(slug);
+    await user.type(slug, "site{Enter}");
+    expect(screen.getByRole("alert")).toHaveTextContent("Another project of this organisation has this slug");
+    expect(mocks.updateProjectAsync).not.toHaveBeenCalled();
+
+    await user.keyboard("{Escape}");
+    expect(slug).toHaveValue("launch-plan");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 });

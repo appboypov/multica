@@ -15,10 +15,14 @@ import multica_projects as sync  # noqa: E402
 from multica_projects import Brain, Organisation, Product, Repository  # noqa: E402
 
 DAEMON = "019fce17-f818-71b1-bc29-4d9229e2139a"
-REPOS = Path("/Users/brian/Repos")
+REPOS = Path("/Users/brian/hq")
 DAS = Organisation("brain-das", "De App Specialist", "DAS")
 MADSPEC = Product("brain-madspec", "MadSpec", (DAS.id,))
 HQ = Product("brain-hq", "DAS HQ", (DAS.id,))
+
+
+def checkout(name):
+    return REPOS / "das" / name / "repos" / name
 
 
 def test_repository_checks_use_the_builtin_runtime_among_persona_profiles():
@@ -33,7 +37,7 @@ def test_repository_checks_use_the_builtin_runtime_among_persona_profiles():
 
 def repository(name, product=MADSPEC.id, checkouts=None):
     return Repository("brain-" + name, "appboypov/" + name, () if product is None else (product,),
-                      (REPOS / "Ventures" / name,) if checkouts is None else tuple(checkouts))
+                      (checkout(name),) if checkouts is None else tuple(checkouts))
 
 
 def brain(products=(MADSPEC,), repositories=(), organisations=(DAS,)):
@@ -75,7 +79,7 @@ class Workspace:
 
     def directory(self, project_id, key, path=None, daemon=DAEMON, mode="worktree"):
         resource = {"id": f"{project_id}-r{len(self.resources[project_id])}", "resource_type": "local_directory",
-                    "resource_ref": {"local_path": str(path or REPOS / "Ventures" / key.rsplit("/", 1)[-1]),
+                    "resource_ref": {"local_path": str(path or checkout(key.rsplit("/", 1)[-1])),
                                      "daemon_id": daemon, "execution_mode": mode, "label": "madspec:" + key},
                     "label": "madspec:" + key}
         self.resources[project_id].append(resource)
@@ -467,18 +471,18 @@ class Shell:
             "product": [{"id": MADSPEC.id, "name": MADSPEC.name, "properties": {"organisation": [DAS.id]}}],
             "repository": [{"id": "brain-repository", "name": "madspec", "properties": {"github_key": "appboypov/madspec", "product": [MADSPEC.id]}}],
         }
-        self.checkouts = {"appboypov/madspec": [REPOS / "Ventures/madspec"]}
+        self.checkouts = {"appboypov/madspec": [checkout("madspec")]}
         self.api.visible("appboypov/madspec")
         self.brain_error = None
         self.searches = []
         self.config = {"server_url": "http://test-server/", "workspace_id": "workspace"}
         self.mark_path = tmp_path / "state/brain-sync.json"
         team = SimpleNamespace(brain=SimpleNamespace(search=self.search),
-                               model=SimpleNamespace(api_key=lambda: "fake", ModelError=FakeApiError),
-                               REPOS_ROOT=REPOS, local_checkouts=lambda: self.checkouts)
+                               model=SimpleNamespace(api_key=lambda: "fake", ModelError=FakeApiError))
         external = SimpleNamespace(CONFIG=tmp_path / "config.json", load_config=lambda path: self.config,
                                    Multica=lambda config: self.api, ApiError=FakeApiError)
         monkeypatch.setattr(sync, "MARK_FILE", self.mark_path)
+        monkeypatch.setattr(sync, "local_checkouts", lambda root: self.checkouts if root == sync.REPOS_ROOT else {})
         monkeypatch.setattr(sync, "load_dependencies", lambda: (team, external))
 
     def search(self, key, kind, fields):
@@ -494,7 +498,7 @@ class Shell:
     def add_repository(self, name, product=MADSPEC.id):
         key = "appboypov/" + name
         self.objects["repository"].append({"id": "brain-" + name, "properties": {"github_key": key, "product": [product]}})
-        self.checkouts[key] = [REPOS / "Ventures" / name]
+        self.checkouts[key] = [checkout(name)]
         self.api.visible(key)
 
     def state(self):
@@ -572,7 +576,7 @@ def test_rebl_merge_moves_six_issues_and_deletes_only_the_emptied_repository_pro
     shell.objects["organisation"] = [{"id": "brain-rebl-org", "name": "Rebl Records", "properties": {"linear_key": "REBL"}}]
     shell.objects["product"] = [{"id": "brain-rebl", "name": "Rebl", "properties": {"organisation": ["brain-rebl-org"]}}]
     shell.objects["repository"] = [{"id": "brain-rebl-repo", "properties": {"github_key": "appboypov/rebl", "product": ["brain-rebl"]}}]
-    shell.checkouts = {"appboypov/rebl": [REPOS / "Ventures/rebl"]}
+    shell.checkouts = {"appboypov/rebl": [checkout("rebl")]}
     shell.api.visible("appboypov/rebl")
     shell.keep_source("repository-rebl", "appboypov/rebl", "brain-rebl-repo", 6)
     shell.api.project("manual", "Keep this", issue_count=4)
@@ -687,14 +691,42 @@ def test_product_without_repositories_needs_no_checkout_check_or_runtime(shell):
     assert not any(path.startswith("/api/runtimes") for _, path, _ in shell.api.calls)
 
 
-def test_archive_checkouts_are_excluded_and_mixed_case_keys_match_the_github_app(shell):
-    shell.checkouts["appboypov/madspec"].append(REPOS / "Archive/madspec")
+def test_mixed_case_keys_match_the_github_app(shell):
     shell.objects["repository"][0]["properties"]["github_key"] = "AppBoyPov/MadSpec"
     assert sync.main() == 0
     checks = [body for method, path, body in shell.api.calls if method == "POST" and path.endswith("/repository-checkouts")]
     assert checks == [{"full_name": "appboypov/madspec", "default_branch": "main",
-                       "path": str(REPOS / "Ventures/madspec"), "clone": False}]
+                       "path": str(checkout("madspec")), "clone": False}]
     assert len(shell.api.repositories) == 1
+    created = [body for method, path, body in shell.api.calls if method == "POST" and path == "/api/projects"]
+    assert [body["slug"] for body in created] == ["madspec"]
+
+
+def git_checkout(path, origin=None):
+    (path / ".git").mkdir(parents=True)
+    config = "[core]\n\tbare = false\n"
+    if origin is not None:
+        config += f'[remote "origin"]\n\turl = {origin}\n\tfetch = +refs/heads/*:refs/remotes/origin/*\n'
+    (path / ".git" / "config").write_text(config)
+
+
+def test_checkouts_are_found_at_the_repos_folder_of_each_project_outside_misc(tmp_path):
+    git_checkout(tmp_path / "das/madspec/repos/madspec", "git@github.com:AppBoyPov/MadSpec.git")
+    git_checkout(tmp_path / "sm/supermarty/repos/supermarty", "https://github.com/appboypov/supermarty")
+    git_checkout(tmp_path / "misc/archive/repos/madspec", "git@github.com:appboypov/madspec.git")
+    git_checkout(tmp_path / "das/madspec/worktrees/madspec/work-1", "git@github.com:appboypov/madspec.git")
+    git_checkout(tmp_path / "das/madspec/repos/local-only")
+    git_checkout(tmp_path / "das/madspec/repos/gitlab", "git@gitlab.com:appboypov/gitlab.git")
+
+    assert sync.local_checkouts(tmp_path) == {
+        "appboypov/madspec": [tmp_path / "das/madspec/repos/madspec"],
+        "appboypov/supermarty": [tmp_path / "sm/supermarty/repos/supermarty"],
+    }
+
+
+@pytest.mark.parametrize("title,slug", [("MadSpec", "madspec"), ("DAS HQ", "das-hq"), ("Mens & Maatwerk", "mens-maatwerk"), ("!!", "project")])
+def test_new_projects_get_the_kebab_case_of_their_title_as_slug(title, slug):
+    assert sync.project_slug(title) == slug
 
 
 def test_same_github_key_is_added_once_and_each_brain_identity_is_recorded(shell):
@@ -888,7 +920,7 @@ def test_checkout_check_polls_flat_result_and_uses_github_app_branch(shell, monk
     request = next(body for method, path, body in shell.api.calls
                    if method == "POST" and path.endswith("/repository-checkouts"))
     assert request == {"full_name": "AppBoyPov/MadSpec", "default_branch": "trunk",
-                       "path": str(REPOS / "Ventures/madspec"), "clone": False}
+                       "path": str(checkout("madspec")), "clone": False}
 
 
 def test_checkout_timeout_is_bounded_and_keeps_its_source(shell, monkeypatch, capsys):

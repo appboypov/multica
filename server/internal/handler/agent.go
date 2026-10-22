@@ -431,12 +431,17 @@ type AgentTaskResponse struct {
 	ProjectTitle         string             `json:"project_title,omitempty"`       // for surfacing in agent context
 	ProjectDescription   string             `json:"project_description,omitempty"` // durable project-level context injected into the brief
 	// Repositories are the issue's project's repositories with their checkout
-	// and the issue's recorded worktree (ADR-0006, ADR-0007).
+	// and the issue's recorded worktree (ADR-0037, ADR-0007).
 	Repositories []protocol.ClaimRepository `json:"repositories,omitempty"`
-	// OrganisationKey is the key of the project's organisation, empty without
-	// one; IssueKey is the issue identifier in lowercase. Both name the issue
-	// worktree path and branch.
+	// WorkRoot is the workspace's work root in its stored form ("~/hq" by
+	// default), OrganisationKey the key of the project's organisation and
+	// ProjectSlug the project's slug, each empty when unknown; IssueKey is the
+	// issue identifier in lowercase. Together they name the issue worktree
+	// path and branch: {work_root}/{organisation_key}/{project_slug}/worktrees/
+	// {repo}/{issue_key} (ADR-0037).
+	WorkRoot        string `json:"work_root,omitempty"`
 	OrganisationKey string `json:"organisation_key,omitempty"`
+	ProjectSlug     string `json:"project_slug,omitempty"`
 	IssueKey        string `json:"issue_key,omitempty"`
 	CreatedAt       string `json:"created_at"`
 	PriorSessionID  string `json:"prior_session_id,omitempty"` // session ID from a previous task on same issue

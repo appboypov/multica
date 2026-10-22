@@ -7,7 +7,9 @@
     "submitting": "Ajout…",
     "cancel": "Annuler",
     "toast_added": "{{name}} ajouté à {{project}}",
-    "failed": "Impossible d'ajouter le dépôt"
+    "failed": "Impossible d'ajouter le dépôt",
+    "needs_organisation": "Donnez une organisation à {{project}} dans Propriétés avant d'ajouter un dépôt",
+    "needs_slug": "Donnez un slug à {{project}} dans Propriétés avant d'ajouter un dépôt"
   },
   "edit": {
     "title": "Modifier le dépôt",

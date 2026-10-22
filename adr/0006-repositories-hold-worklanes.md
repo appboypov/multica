@@ -1,6 +1,6 @@
 # ADR-0006: A repository belongs to a project and holds its worklanes
 
-- Status: accepted, supersedes ADR-0004
+- Status: accepted, supersedes ADR-0004; superseded by ADR-0037
 - Date: 2026-10-13
 - Supersedes: ADR-0004
 

@@ -49,10 +49,10 @@ describe("organisation API boundary", () => {
 });
 
 describe("project CRUD boundary", () => {
-  it("parses old responses without organisation or dates and defaults unknown enums", async () => {
-    const old = { ...project, organisation_id: undefined, start_date: undefined, due_date: undefined,
+  it("parses old responses without organisation, slug or dates and defaults unknown enums", async () => {
+    const old = { ...project, organisation_id: undefined, slug: undefined, start_date: undefined, due_date: undefined,
       status: "future-status", priority: "future-priority", lead_type: "future-lead" };
-    const expected = { ...project, organisation_id: null, start_date: null, due_date: null };
+    const expected = { ...project, organisation_id: null, slug: null, start_date: null, due_date: null };
     const client = new ApiClient("https://api.example.test");
     respond({ projects: [old], total: 1 });
     await expect(client.listProjects()).resolves.toEqual({ projects: [expected], total: 1 });
@@ -60,6 +60,27 @@ describe("project CRUD boundary", () => {
     await expect(client.getProject("project-1")).resolves.toEqual(expected);
     await expect(client.createProject({ title: "Rebl", organisation_id: "org-1" })).resolves.toEqual(expected);
     await expect(client.updateProject("project-1", { organisation_id: null })).resolves.toEqual(expected);
+  });
+
+  it("reads the slug, sends it on create and update, and reads a malformed slug as none", async () => {
+    const client = new ApiClient("https://api.example.test");
+    const fetchMock = respond({ ...project, organisation_id: "org-1", slug: "rebl-app" });
+    await expect(client.getProject("project-1")).resolves.toMatchObject({ slug: "rebl-app" });
+    await client.createProject({ title: "Rebl app", organisation_id: "org-1", slug: "rebl-app" });
+    await client.updateProject("project-1", { slug: null });
+    expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({ title: "Rebl app", organisation_id: "org-1", slug: "rebl-app" }),
+    });
+    expect(fetchMock.mock.calls[2]?.[1]).toMatchObject({ method: "PUT", body: JSON.stringify({ slug: null }) });
+    respond({ projects: [{ ...project, slug: 42 }], total: 1 });
+    await expect(client.listProjects()).resolves.toEqual({ projects: [{ ...project, slug: null }], total: 1 });
+  });
+
+  it("preserves a taken slug as a server conflict", async () => {
+    respond({ error: "project slug is taken", code: "project_slug_taken" }, 409);
+    const client = new ApiClient("https://api.example.test");
+    await expect(client.updateProject("project-1", { slug: "rebl" })).rejects.toBeInstanceOf(ApiError);
   });
 
   it("degrades malformed responses at every CRUD read boundary", async () => {

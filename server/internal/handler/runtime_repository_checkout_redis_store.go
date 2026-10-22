@@ -48,7 +48,7 @@ func (s *RedisRepositoryCheckoutStore) Create(ctx context.Context, in RuntimeRep
 	req := &RuntimeRepositoryCheckoutRequest{
 		ID: randomID(), RuntimeID: in.RuntimeID, DaemonID: in.DaemonID,
 		WorkspaceID: in.WorkspaceID, FullName: in.FullName, DefaultBranch: in.DefaultBranch,
-		Path: in.Path, Clone: in.Clone, Status: RuntimeLocalSkillPending,
+		Path: in.Path, Clone: in.Clone, RepositoryID: in.RepositoryID, Relocation: in.Relocation, Status: RuntimeLocalSkillPending,
 		CreatedAt: now, UpdatedAt: now,
 	}
 	data, err := marshalStoredRepositoryCheckout(req)

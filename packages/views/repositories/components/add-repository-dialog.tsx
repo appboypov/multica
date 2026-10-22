@@ -11,13 +11,15 @@ import type {
 } from "@multica/core/types";
 import { clientErrorMessage } from "@multica/core/api";
 import { useWorkspaceId } from "@multica/core/hooks";
-import { useWorkspacePaths } from "@multica/core/paths";
+import { organisationDetailOptions } from "@multica/core/organisations";
+import { useCurrentWorkspace, useWorkspacePaths } from "@multica/core/paths";
 import { projectListOptions } from "@multica/core/projects/queries";
 import {
   availableRepositoriesOptions,
   repositoryListOptions,
   useCreateRepository,
 } from "@multica/core/repositories";
+import { checkoutPath, workspaceWorkRoot } from "@multica/core/worklanes";
 import { cn } from "@multica/ui/lib/utils";
 import { Button } from "@multica/ui/components/ui/button";
 import {
@@ -33,16 +35,18 @@ import { Skeleton } from "@multica/ui/components/ui/skeleton";
 import { useT } from "../../i18n";
 import { useNavigation } from "../../navigation";
 import { openExternal } from "../../platform";
-import { CheckoutField, defaultCheckoutPath, type CheckoutValue } from "./checkout-field";
+import { CheckoutField, type CheckoutValue } from "./checkout-field";
 import { ReleasesField } from "./releases-field";
 import { InstallField } from "./install-field";
 
 /**
  * Add repository on a project: the repositories the workspace's GitHub App
  * can see, a repository already in a project shown with that project and not
- * pickable, then its Checkout, Releases and Install. Add repository stays disabled
- * until a picked repository's checkout passes its check; it awaits the server
- * and shows the project's page, where the new card is open.
+ * pickable, then its Checkout, Releases and Install. A project without an
+ * organisation or a slug cannot hold a repository, so the dialog says which is
+ * missing. Add repository stays disabled until a picked repository's checkout
+ * passes its check; it awaits the server and shows the project's page, where
+ * the new card is open.
  */
 export function AddRepositoryDialog({
   onClose,
@@ -72,6 +76,14 @@ export function AddRepositoryDialog({
 
   const project = projects.find((p) => p.id === projectId);
   const projectTitle = project?.title ?? "";
+  const workspace = useCurrentWorkspace();
+  const organisationId = project?.organisation_id ?? null;
+  const { data: organisation } = useQuery({
+    ...organisationDetailOptions(wsId, organisationId ?? ""),
+    enabled: !!organisationId,
+  });
+  // The server refuses a repository in a project without both.
+  const missingPlace = !project ? null : !organisationId ? "organisation" : !project.slug ? "slug" : null;
 
   // Every repository a project holds, by lower-cased `owner/name`, with that project's title.
   const takenBy = useMemo(() => {
@@ -92,11 +104,24 @@ export function AddRepositoryDialog({
     setPolicy(null);
     setInstall(null);
     setServerError(null);
-    setCheckout((value) => ({ ...value, path: defaultCheckoutPath(repository.full_name) }));
+    const path = checkoutPath(
+      {
+        workRoot: workspaceWorkRoot(workspace),
+        organisationKey: organisation?.key,
+        projectSlug: project?.slug,
+      },
+      repository.full_name,
+    );
+    setCheckout((value) => ({ ...value, path: path ?? "" }));
   };
 
   const canSubmit =
-    !!picked && !!check?.passed && policy !== null && install !== null && !createRepository.isPending;
+    !missingPlace &&
+    !!picked &&
+    !!check?.passed &&
+    policy !== null &&
+    install !== null &&
+    !createRepository.isPending;
 
   const handleSubmit = async () => {
     if (!canSubmit || !picked || !check || !policy || install === null) return;
@@ -123,6 +148,14 @@ export function AddRepositoryDialog({
         <DialogHeader>
           <DialogTitle>{t(($) => $.add.title, { project: projectTitle })}</DialogTitle>
         </DialogHeader>
+
+        {missingPlace ? (
+          <p role="alert" className="text-caption text-destructive">
+            {missingPlace === "organisation"
+              ? t(($) => $.add.needs_organisation, { project: projectTitle })
+              : t(($) => $.add.needs_slug, { project: projectTitle })}
+          </p>
+        ) : null}
 
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">

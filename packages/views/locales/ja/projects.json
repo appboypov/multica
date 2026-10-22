@@ -93,6 +93,15 @@
     "search_placeholder": "組織を検索",
     "remove_aria": "{{name}} を外す"
   },
+  "slug": {
+    "label": "スラッグ",
+    "save_failed": "スラッグを保存できませんでした",
+    "error": {
+      "required": "リポジトリのあるプロジェクトにはスラッグが必要です",
+      "format": "スラッグは小文字の英字・数字・ダッシュで、英字か数字で始まります",
+      "taken": "この組織の別のプロジェクトがこのスラッグを使っています"
+    }
+  },
   "group": {
     "project_count_other": "{{count}} 件のプロジェクト",
     "toggle_aria": "{{name}} を折りたたむ/展開する"

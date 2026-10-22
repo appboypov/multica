@@ -2,7 +2,7 @@
  * Organisations — workspace-scoped holders of projects (ADR-0004).
  *
  * A name is unique in its workspace, ignoring case. A key is unique in its
- * workspace and names the organisation's folder under `~/Worktrees`, so it is
+ * workspace and names the organisation's folder under the workspace's work root, so it is
  * lowercase letters, digits and dashes, starting with a letter or digit.
  * Organisations are never renamed, so an update carries only the key.
  */

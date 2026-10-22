@@ -6,7 +6,9 @@
     "submitting": "正在添加…",
     "cancel": "取消",
     "toast_added": "已将 {{name}} 添加到 {{project}}",
-    "failed": "无法添加仓库"
+    "failed": "无法添加仓库",
+    "needs_organisation": "添加仓库前，请先在属性中为 {{project}} 设置组织",
+    "needs_slug": "添加仓库前，请先在属性中为 {{project}} 设置 slug"
   },
   "edit": {
     "title": "编辑仓库",

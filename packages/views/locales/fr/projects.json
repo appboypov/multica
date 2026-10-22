@@ -94,6 +94,15 @@
     "search_placeholder": "Rechercher des organisations",
     "remove_aria": "Retirer {{name}}"
   },
+  "slug": {
+    "label": "Slug",
+    "save_failed": "Impossible d'enregistrer le slug",
+    "error": {
+      "required": "Un projet avec des dépôts a besoin d'un slug",
+      "format": "Un slug se compose de lettres minuscules, de chiffres et de tirets, et commence par une lettre ou un chiffre",
+      "taken": "Un autre projet de cette organisation a ce slug"
+    }
+  },
   "group": {
     "project_count_one": "{{count}} projet",
     "project_count_other": "{{count}} projets",

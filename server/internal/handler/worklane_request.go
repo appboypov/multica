@@ -19,6 +19,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/redis/go-redis/v9"
 
+	"github.com/multica-ai/multica/server/internal/workpath"
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
 	"github.com/multica-ai/multica/server/pkg/protocol"
 )
@@ -487,36 +488,28 @@ func machineDisplayName(runtimes []db.AgentRuntime) string {
 	return runtimes[0].Name
 }
 
-// worklanePath is where a new worklane's worktree goes: under the
-// organisation key read now, or without an organisation directly under
-// Worktrees (ADR-0006).
-func worklanePath(organisationKey, fullName, folder string) string {
-	repo := fullName
-	if i := strings.LastIndex(fullName, "/"); i >= 0 {
-		repo = fullName[i+1:]
-	}
-	if organisationKey == "" {
-		return "~/Worktrees/" + repo + "/" + folder
-	}
-	return "~/Worktrees/" + organisationKey + "/" + repo + "/" + folder
-}
-
-func (h *Handler) organisationKeyOfProject(ctx context.Context, workspaceID, projectID pgtype.UUID) (string, error) {
-	project, err := h.Queries.GetProjectInWorkspace(ctx, db.GetProjectInWorkspaceParams{ID: projectID, WorkspaceID: workspaceID})
+// worklanePath is where a new worklane's worktree goes:
+// {root}/{organisation}/{project}/worktrees/{repo}/{folder}, with the work
+// root, organisation key and project slug read now (ADR-0037). It writes the
+// refusal itself when the project lacks its organisation or slug.
+func (h *Handler) worklanePath(ctx context.Context, w http.ResponseWriter, workspaceID pgtype.UUID, repo db.Repository, folder string) (string, bool) {
+	project, err := h.projectFolderOf(ctx, workspaceID, repo.ProjectID)
 	if err != nil {
-		return "", err
+		writeError(w, http.StatusInternalServerError, "failed to load the project's folder")
+		return "", false
 	}
-	if !project.OrganisationID.Valid {
-		return "", nil
+	path, err := project.Worktree(repo.FullName, folder)
+	switch {
+	case err == nil:
+		return path, true
+	case errors.Is(err, workpath.ErrNoOrganisation):
+		writeWorklaneRefusal(w, http.StatusBadRequest, "project_organisation_required", "the project of this repository needs an organisation", "")
+	case errors.Is(err, workpath.ErrNoProjectSlug):
+		writeWorklaneRefusal(w, http.StatusBadRequest, "project_slug_required", "the project of this repository needs a slug", "")
+	default:
+		writeWorklaneRefusal(w, http.StatusBadRequest, "folder_invalid", err.Error(), "")
 	}
-	org, err := h.Queries.GetOrganisationInWorkspace(ctx, db.GetOrganisationInWorkspaceParams{ID: project.OrganisationID, WorkspaceID: workspaceID})
-	if isNotFound(err) {
-		return "", nil
-	}
-	if err != nil {
-		return "", err
-	}
-	return org.Key, nil
+	return "", false
 }
 
 func (h *Handler) issueWorktreePathsOnDaemon(ctx context.Context, workspaceID, repositoryID pgtype.UUID, daemonID string) ([]protocol.WorklaneRequestIssueWorktree, error) {
@@ -655,9 +648,8 @@ func (h *Handler) CreateWorklaneRequest(w http.ResponseWriter, r *http.Request) 
 		writeWorklaneRefusal(w, http.StatusConflict, "request_running", "a worklane is already being made in this folder", running.Name)
 		return
 	}
-	orgKey, err := h.organisationKeyOfProject(ctx, wsUUID, repo.ProjectID)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to load the organisation")
+	lanePath, ok := h.worklanePath(ctx, w, wsUUID, repo, folder)
+	if !ok {
 		return
 	}
 	issuePaths, err := h.issueWorktreePathsOnDaemon(ctx, wsUUID, repo.ID, body.DaemonID)
@@ -675,7 +667,7 @@ func (h *Handler) CreateWorklaneRequest(w http.ResponseWriter, r *http.Request) 
 		RepositoryID:       uuidToString(repo.ID),
 		Name:               name,
 		Folder:             folder,
-		Path:               worklanePath(orgKey, repo.FullName, folder),
+		Path:               lanePath,
 		Base:               "origin/" + repo.DefaultBranch,
 		InstallCommand:     repo.InstallCommand.String,
 		DaemonID:           body.DaemonID,

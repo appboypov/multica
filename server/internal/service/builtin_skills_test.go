@@ -628,7 +628,7 @@ func TestPlatformSkillCoversPlatformContracts(t *testing.T) {
 				"`.multica/project/repositories.json` carries the same repository context",
 				"multica repo checkout owner/name",
 				"the old `multica project resource` commands no longer exist",
-				"`~/Worktrees/{organisation key}/{repo}/{issue key}`",
+				"`{work root}/{organisation key}/{project slug}/worktrees/{repo}/{issue key}`",
 				"a passed `checkout_check_id` for that repository's current default branch",
 				"Uncommitted changes or unpushed commits keep the worktree",
 				"Project and repository writes mutate durable workspace state and affect future tasks.",

@@ -94,6 +94,15 @@
     "search_placeholder": "Search organisations",
     "remove_aria": "Remove {{name}}"
   },
+  "slug": {
+    "label": "Slug",
+    "save_failed": "Could not save the slug",
+    "error": {
+      "required": "A project with repositories needs a slug",
+      "format": "A slug is lowercase letters, digits and dashes, starting with a letter or digit",
+      "taken": "Another project of this organisation has this slug"
+    }
+  },
   "group": {
     "project_count_one": "{{count}} project",
     "project_count_other": "{{count}} projects",

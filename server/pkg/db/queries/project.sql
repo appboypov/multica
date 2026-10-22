@@ -27,9 +27,9 @@ FOR UPDATE;
 INSERT INTO project (
     workspace_id, title, description, icon, status,
     lead_type, lead_id, priority, start_date, due_date,
-    organisation_id
+    organisation_id, slug
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
 ) RETURNING *;
 
 -- name: UpdateProject :one
@@ -44,6 +44,7 @@ UPDATE project SET
     start_date = sqlc.narg('start_date'),
     due_date = sqlc.narg('due_date'),
     organisation_id = sqlc.narg('organisation_id'),
+    slug = sqlc.narg('slug'),
     updated_at = now()
 WHERE id = $1
 RETURNING *;

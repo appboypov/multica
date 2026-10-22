@@ -144,6 +144,39 @@ func (q *Queries) BackfillRepositoryLastTag(ctx context.Context, arg BackfillRep
 	return items, nil
 }
 
+const countActiveTasksForRepository = `-- name: CountActiveTasksForRepository :one
+SELECT COUNT(*)::bigint FROM agent_task_queue t
+LEFT JOIN issue i ON i.id = t.issue_id
+LEFT JOIN chat_session cs ON cs.id = t.chat_session_id
+LEFT JOIN autopilot_run ar ON ar.id = t.autopilot_run_id
+LEFT JOIN autopilot a ON a.id = ar.autopilot_id
+LEFT JOIN release rel ON rel.id = t.release_id
+WHERE t.status IN ('dispatched', 'running', 'waiting_local_directory')
+  AND (
+    i.project_id = $1::uuid
+    OR cs.project_id = $1::uuid
+    OR a.project_id = $1::uuid
+    OR rel.repository_id = $2::uuid
+    OR (t.context->>'type' = 'quick_create' AND t.context->>'project_id' = ($1::uuid)::text)
+  )
+`
+
+type CountActiveTasksForRepositoryParams struct {
+	ProjectID    pgtype.UUID `json:"project_id"`
+	RepositoryID pgtype.UUID `json:"repository_id"`
+}
+
+// Tasks that may work in the repository's checkout or worktrees now: an
+// issue, chat, autopilot or quick-create task of its project, or a release
+// task of the repository, that is dispatched, running or waiting for its
+// folder. A relocate refuses while one exists (ADR-0037).
+func (q *Queries) CountActiveTasksForRepository(ctx context.Context, arg CountActiveTasksForRepositoryParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countActiveTasksForRepository, arg.ProjectID, arg.RepositoryID)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const createRepository = `-- name: CreateRepository :one
 INSERT INTO repository (
     workspace_id, project_id, github_repo_id, full_name, private,

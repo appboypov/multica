@@ -101,6 +101,19 @@ UPDATE worklane SET branch = sqlc.narg('branch'), updated_at = now()
 WHERE id = sqlc.arg('id') AND workspace_id = sqlc.arg('workspace_id')
 RETURNING *;
 
+-- name: ListWorklanesWithPathForRepository :many
+-- Every worklane of a repository that stores a worktree path, on any daemon:
+-- a relocate rewrites their paths (ADR-0037).
+SELECT * FROM worklane
+WHERE repository_id = $1 AND workspace_id = $2 AND path IS NOT NULL
+ORDER BY position ASC;
+
+-- name: SetWorklanePath :one
+-- A relocate moved the worklane's worktree; nothing else changes (ADR-0037).
+UPDATE worklane SET path = sqlc.arg('path'), updated_at = now()
+WHERE id = sqlc.arg('id') AND workspace_id = sqlc.arg('workspace_id')
+RETURNING *;
+
 -- name: ListOpenWorklaneIssues :many
 -- Fixed built-ins do not inherit mutable catalogue categories. Archived
 -- custom statuses still resolve their category for the terminal check.

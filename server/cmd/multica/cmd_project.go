@@ -97,6 +97,7 @@ func init() {
 	projectCreateCmd.Flags().String("lead", "", "Lead name (member or agent)")
 	projectCreateCmd.Flags().String("start-date", "", "Start date (calendar day, YYYY-MM-DD)")
 	projectCreateCmd.Flags().String("due-date", "", "Due date (calendar day, YYYY-MM-DD)")
+	projectCreateCmd.Flags().String("slug", "", "Project slug: the folder of its repositories under the organisation's folder (lowercase letters, digits and dashes)")
 	projectCreateCmd.Flags().String("output", "json", "Output format: table or json")
 
 	// project update
@@ -107,6 +108,7 @@ func init() {
 	projectUpdateCmd.Flags().String("lead", "", "New lead name (member or agent)")
 	projectUpdateCmd.Flags().String("start-date", "", "New start date (calendar day, YYYY-MM-DD; pass empty string to clear)")
 	projectUpdateCmd.Flags().String("due-date", "", "New due date (calendar day, YYYY-MM-DD; pass empty string to clear)")
+	projectUpdateCmd.Flags().String("slug", "", "New slug: the folder of its repositories under the organisation's folder (pass empty string to clear)")
 	projectUpdateCmd.Flags().String("output", "json", "Output format: table or json")
 
 	// project delete
@@ -267,6 +269,9 @@ func runProjectCreate(cmd *cobra.Command, _ []string) error {
 	if v, _ := cmd.Flags().GetString("due-date"); v != "" {
 		body["due_date"] = v
 	}
+	if v, _ := cmd.Flags().GetString("slug"); v != "" {
+		body["slug"] = v
+	}
 
 	var result map[string]any
 	if err := client.PostJSON(ctx, "/api/projects", body, &result); err != nil {
@@ -341,9 +346,13 @@ func runProjectUpdate(cmd *cobra.Command, args []string) error {
 		v, _ := cmd.Flags().GetString("due-date")
 		body["due_date"] = v
 	}
+	if cmd.Flags().Changed("slug") {
+		v, _ := cmd.Flags().GetString("slug")
+		body["slug"] = v
+	}
 
 	if len(body) == 0 {
-		return fmt.Errorf("no fields to update; use flags like --title, --status, --description, --icon, --lead, --start-date, --due-date")
+		return fmt.Errorf("no fields to update; use flags like --title, --status, --description, --icon, --lead, --start-date, --due-date, --slug")
 	}
 
 	var result map[string]any
