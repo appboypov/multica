@@ -866,7 +866,8 @@ func Reuse(params ReuseParams, logger *slog.Logger) *Environment {
 		} else {
 			env.CodexHome = codexHome
 			if err := hydrateCodexSkills(codexHome, params.Task.AgentSkills, params.Task.DisabledRuntimeSkills, logger); err != nil {
-				logger.Warn("execenv: refresh codex skills failed", "error", err)
+				logger.Warn("execenv: refresh codex skills failed; forcing fresh prepare", "error", err)
+				return nil
 			}
 		}
 	}
@@ -874,7 +875,8 @@ func Reuse(params ReuseParams, logger *slog.Logger) *Environment {
 	if params.Provider == "claude" && env.RootDir != "" {
 		settingsPath, err := prepareClaudeSkillSettings(env.RootDir, params.Task.DisabledRuntimeSkills, params.Task.AgentSkills)
 		if err != nil {
-			logger.Warn("execenv: refresh claude skill settings failed", "error", err)
+			logger.Warn("execenv: refresh claude skill settings failed; forcing fresh prepare", "error", err)
+			return nil
 		} else {
 			env.ClaudeSettingsPath = settingsPath
 		}
