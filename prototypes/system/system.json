@@ -458,7 +458,7 @@
    "name": "Inbox page",
    "icon": "inbox",
    "kind": "Component",
-   "path": "packages/views/inbox/components/inbox-page.tsx:74"
+   "path": "packages/views/inbox/components/inbox-page.tsx:83"
   },
   {
    "id": "views-todo-check",
