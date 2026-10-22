@@ -52,6 +52,8 @@ export interface QuestionSetCardProps {
   runNumber?: number;
   /** The question the card opens at: a deep link's or the Questions row's. */
   activeQuestionId?: string;
+  /** Changes with each fresh request to open at `activeQuestionId`, also at the same question after the reader moved to another tab. */
+  activeRequest?: number;
   /**
    * `tabs` (the issue page): one question at a time with the set's footer and Wake.
    * `stacked` (Answer all's One page): every question in order with its own
@@ -106,7 +108,7 @@ function StackedQuestionSet({
   );
 }
 
-function TabbedQuestionSet({ questions, scope, runNumber, activeQuestionId }: Omit<QuestionSetCardProps, "layout" | "focusedQuestionId">) {
+function TabbedQuestionSet({ questions, scope, runNumber, activeQuestionId, activeRequest }: Omit<QuestionSetCardProps, "layout" | "focusedQuestionId">) {
   const { t } = useT("questions");
   const { getActorName } = useActorName();
   const userId = useAuthStore((s) => s.user?.id);
@@ -119,7 +121,7 @@ function TabbedQuestionSet({ questions, scope, runNumber, activeQuestionId }: Om
   const [active, setActive] = useState(() => (requested >= 0 ? requested : Math.max(questions.findIndex((q) => isOpenFor(q, userId)), 0)));
   useEffect(() => {
     if (requested >= 0) setActive(requested);
-  }, [requested]);
+  }, [requested, activeRequest]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [composing, setComposing] = useState<Record<string, Composing>>({});
   const [askBackText, setAskBackText] = useState<string | null>(null);
