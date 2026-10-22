@@ -3,7 +3,6 @@ node_modules
 .pnpm-store
 
 # Build outputs
-.next
 dist
 server/bin
 server/tmp
@@ -39,6 +38,9 @@ coverage
 # app workspaces so they do not silently enter the build context.
 /apps/*
 !/apps/web/
+
+# Next.js build output and cache, also inside the re-included web workspace
+**/.next
 
 # Repository-only tooling
 /.github/
