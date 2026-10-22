@@ -10,7 +10,7 @@ from team_state_io import StateError, graphql, multica
 from team_state_multica import CLOSED, issue_pages, repository_names
 
 
-ISSUE_FIELDS = "identifier,title,status,project_id,release_id,worklane_id"
+ISSUE_FIELDS = "identifier,title,status,status_category,project_id,release_id,worklane_id"
 RELEASE_PR_QUERY = """
 query($owner: String!, $name: String!, $after: String) {
   repository(owner: $owner, name: $name) {
@@ -44,13 +44,13 @@ def merge_order(row: dict) -> tuple:
 
 
 def finished_releases(releases: list[dict], issues: list[dict]) -> list[dict]:
-    """The unshipped releases that hold issues and whose issues are all closed."""
-    statuses: dict[str, list[str]] = {}
+    """The unshipped releases that hold issues and whose issues are all closed, custom statuses by their category."""
+    categories: dict[str, list[str]] = {}
     for i in issues:
         if i.get("release_id"):
-            statuses.setdefault(i["release_id"], []).append(i["status"])
-    return [r for r in releases if not r.get("shipped_at") and r["id"] in statuses
-            and all(s in CLOSED for s in statuses[r["id"]])]
+            categories.setdefault(i["release_id"], []).append(i["status_category"])
+    return [r for r in releases if not r.get("shipped_at") and r["id"] in categories
+            and all(c in CLOSED for c in categories[r["id"]])]
 
 
 def into_default(name: str) -> list[dict]:
