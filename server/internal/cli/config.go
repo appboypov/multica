@@ -29,6 +29,12 @@ type CLIConfig struct {
 	WorkspaceID string `json:"workspace_id,omitempty"`
 	Token       string `json:"token,omitempty"`
 
+	// HTTPTimeout is the per-request timeout of the CLI's HTTP client: a Go
+	// duration ("90s", "2m"). Resolution precedence (highest wins):
+	// MULTICA_HTTP_TIMEOUT env, this field, the built-in default (see
+	// httpTimeout in client.go).
+	HTTPTimeout string `json:"http_timeout,omitempty"`
+
 	// DeviceName is the human-readable label shown in the server's Runtimes
 	// UI for the daemon started with this profile. When multiple daemons run
 	// on the same host under different profiles (typical for shared servers

@@ -81,7 +81,7 @@ func resolveToken(cmd *cobra.Command) string {
 	if inDaemonManagedExecutionContext() {
 		return ""
 	}
-	profile := resolveProfile(cmd)
+	profile := resolveLoginProfile(cmd)
 	cfg, _ := cli.LoadCLIConfigForProfile(profile)
 	return cfg.Token
 }

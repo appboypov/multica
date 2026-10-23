@@ -7,8 +7,6 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"strconv"
-	"strings"
 	"sync"
 	"time"
 )
@@ -51,17 +49,17 @@ const (
 
 // StallTimeout returns the no-progress budget for a single read.
 //
-// MULTICA_HTTP_STALL_TIMEOUT sets it directly. Failing that, an explicitly set
-// MULTICA_HTTP_TIMEOUT is honored: on this path it keeps its plain-language
-// meaning — the longest the user is willing to wait with nothing arriving —
-// rather than silently becoming a total-elapsed limit again. With neither set,
-// defaultStallTimeout applies.
+// MULTICA_HTTP_STALL_TIMEOUT sets it directly. Failing that, a chosen HTTP
+// timeout (MULTICA_HTTP_TIMEOUT or the profile's http_timeout) is honored: on
+// this path it keeps its plain-language meaning — the longest the user is
+// willing to wait with nothing arriving — rather than silently becoming a
+// total-elapsed limit again. With neither set, defaultStallTimeout applies.
 func StallTimeout() time.Duration {
 	if d, ok := durationFromEnv("MULTICA_HTTP_STALL_TIMEOUT"); ok {
 		return d
 	}
-	if _, ok := durationFromEnv("MULTICA_HTTP_TIMEOUT"); ok {
-		return httpTimeout()
+	if d, ok := chosenHTTPTimeout(); ok {
+		return d
 	}
 	return defaultStallTimeout
 }
@@ -77,22 +75,11 @@ func TransferCeiling() time.Duration {
 	return ceiling
 }
 
-// durationFromEnv parses a duration env var, accepting either a Go duration
-// string ("45s", "2m") or a plain integer number of seconds ("45"), matching
-// httpTimeout. It reports false for unset, empty, invalid, or non-positive
-// values so callers can distinguish "user chose this" from "fall back".
+// durationFromEnv parses a duration env var as parseTimeout does. It reports
+// false for unset, empty, invalid, or non-positive values so callers can
+// distinguish "user chose this" from "fall back".
 func durationFromEnv(name string) (time.Duration, bool) {
-	v := strings.TrimSpace(os.Getenv(name))
-	if v == "" {
-		return 0, false
-	}
-	if d, err := time.ParseDuration(v); err == nil && d > 0 {
-		return d, true
-	}
-	if secs, err := strconv.Atoi(v); err == nil && secs > 0 {
-		return time.Duration(secs) * time.Second, true
-	}
-	return 0, false
+	return parseTimeout(os.Getenv(name))
 }
 
 // StallError reports a transfer that stopped producing bytes. It is distinct
