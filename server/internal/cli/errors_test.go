@@ -9,6 +9,7 @@ import (
 	"strings"
 	"syscall"
 	"testing"
+	"time"
 )
 
 // timeoutErr is a net.Error whose Timeout() reports true, used to exercise the
@@ -372,6 +373,69 @@ func TestHTTPTimeout(t *testing.T) {
 			}
 		})
 	}
+}
+
+// withConfigHTTPTimeout hands value to UseConfigHTTPTimeout for the duration
+// of the test, as the profile's http_timeout.
+func withConfigHTTPTimeout(t *testing.T, value string) {
+	t.Helper()
+	UseConfigHTTPTimeout(value)
+	t.Cleanup(func() { UseConfigHTTPTimeout("") })
+}
+
+func TestHTTPTimeoutPrecedence(t *testing.T) {
+	t.Run("given no env and no config, the default applies", func(t *testing.T) {
+		t.Setenv("MULTICA_HTTP_TIMEOUT", "")
+		withConfigHTTPTimeout(t, "")
+		if got := httpTimeout(); got != defaultHTTPTimeout {
+			t.Errorf("httpTimeout() = %v, want %v", got, defaultHTTPTimeout)
+		}
+	})
+
+	t.Run("given only the profile's http_timeout, it applies", func(t *testing.T) {
+		t.Setenv("MULTICA_HTTP_TIMEOUT", "")
+		withConfigHTTPTimeout(t, "90s")
+		if got, want := httpTimeout(), 90*time.Second; got != want {
+			t.Errorf("httpTimeout() = %v, want %v", got, want)
+		}
+	})
+
+	t.Run("given both, MULTICA_HTTP_TIMEOUT wins", func(t *testing.T) {
+		t.Setenv("MULTICA_HTTP_TIMEOUT", "45s")
+		withConfigHTTPTimeout(t, "90s")
+		if got, want := httpTimeout(), 45*time.Second; got != want {
+			t.Errorf("httpTimeout() = %v, want %v", got, want)
+		}
+	})
+
+	t.Run("given an invalid env value, the profile's http_timeout applies", func(t *testing.T) {
+		t.Setenv("MULTICA_HTTP_TIMEOUT", "garbage")
+		withConfigHTTPTimeout(t, "90s")
+		if got, want := httpTimeout(), 90*time.Second; got != want {
+			t.Errorf("httpTimeout() = %v, want %v", got, want)
+		}
+	})
+
+	t.Run("given an invalid or non-positive http_timeout, the default applies", func(t *testing.T) {
+		t.Setenv("MULTICA_HTTP_TIMEOUT", "")
+		for _, bad := range []string{"garbage", "0s", "-5s"} {
+			withConfigHTTPTimeout(t, bad)
+			if got := httpTimeout(); got != defaultHTTPTimeout {
+				t.Errorf("httpTimeout() with http_timeout %q = %v, want %v", bad, got, defaultHTTPTimeout)
+			}
+		}
+	})
+
+	t.Run("given the profile's http_timeout, API contexts and clients use it", func(t *testing.T) {
+		t.Setenv("MULTICA_HTTP_TIMEOUT", "")
+		withConfigHTTPTimeout(t, "90s")
+		if got := NewAPIClient("http://127.0.0.1", "ws", "tok").HTTPClient.Timeout; got != 90*time.Second {
+			t.Errorf("client timeout = %v, want 90s", got)
+		}
+		if got := APITimeout(); got <= 90*time.Second {
+			t.Errorf("APITimeout() = %v, want above 90s", got)
+		}
+	})
 }
 
 // withLang clears the locale env vars and sets LANG to the given value for the

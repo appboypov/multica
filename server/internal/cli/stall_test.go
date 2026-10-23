@@ -210,6 +210,19 @@ func TestStallTimeoutEnvPrecedence(t *testing.T) {
 		}
 	})
 
+	t.Run("the profile's http_timeout has effect below the env vars", func(t *testing.T) {
+		t.Setenv("MULTICA_HTTP_STALL_TIMEOUT", "")
+		t.Setenv("MULTICA_HTTP_TIMEOUT", "")
+		withConfigHTTPTimeout(t, "75s")
+		if got, want := StallTimeout(), 75*time.Second; got != want {
+			t.Errorf("StallTimeout = %v, want %v", got, want)
+		}
+		t.Setenv("MULTICA_HTTP_TIMEOUT", "90s")
+		if got, want := StallTimeout(), 90*time.Second; got != want {
+			t.Errorf("StallTimeout = %v, want %v", got, want)
+		}
+	})
+
 	t.Run("dedicated var wins", func(t *testing.T) {
 		t.Setenv("MULTICA_HTTP_STALL_TIMEOUT", "5s")
 		t.Setenv("MULTICA_HTTP_TIMEOUT", "90s")

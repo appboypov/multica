@@ -8,7 +8,6 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
-	"os"
 	"path/filepath"
 	"runtime"
 	"strconv"
@@ -126,29 +125,58 @@ func requestUsedTaskToken(resp *http.Response) bool {
 }
 
 // defaultHTTPTimeout is the per-request timeout for the CLI's HTTP client.
-// It can be overridden with the MULTICA_HTTP_TIMEOUT environment variable
-// (see httpTimeout). 30s is chosen over the historical 15s because complex
-// networks (notably in mainland China) routinely need more than 15s to
-// complete the TLS handshake plus request round-trip, which surfaced as an
-// opaque "context deadline exceeded" to users.
+// The MULTICA_HTTP_TIMEOUT environment variable or the http_timeout key of the
+// profile's config.json overrides it (see httpTimeout). 30s is chosen over the
+// historical 15s because complex networks (notably in mainland China)
+// routinely need more than 15s to complete the TLS handshake plus request
+// round-trip, which surfaced as an opaque "context deadline exceeded" to users.
 const defaultHTTPTimeout = 30 * time.Second
 
-// httpTimeout returns the HTTP client timeout, honoring MULTICA_HTTP_TIMEOUT.
-// The value may be a Go duration string ("45s", "2m") or a plain integer
-// number of seconds ("45"). Invalid or non-positive values fall back to the
-// default.
+// configHTTPTimeout is the http_timeout of the command's profile config,
+// handed over by UseConfigHTTPTimeout before the command builds a client.
+// Zero means the profile sets none.
+var configHTTPTimeout time.Duration
+
+// UseConfigHTTPTimeout takes the http_timeout value of the command's profile
+// config.json: a Go duration ("90s", "2m") or a whole number of seconds
+// ("90"). An empty, invalid or non-positive value sets none.
+func UseConfigHTTPTimeout(value string) {
+	configHTTPTimeout, _ = parseTimeout(value)
+}
+
+// httpTimeout returns the HTTP client timeout: MULTICA_HTTP_TIMEOUT, else the
+// profile's http_timeout, else defaultHTTPTimeout.
 func httpTimeout() time.Duration {
-	v := strings.TrimSpace(os.Getenv("MULTICA_HTTP_TIMEOUT"))
-	if v == "" {
-		return defaultHTTPTimeout
-	}
-	if d, err := time.ParseDuration(v); err == nil && d > 0 {
+	if d, ok := chosenHTTPTimeout(); ok {
 		return d
 	}
-	if secs, err := strconv.Atoi(v); err == nil && secs > 0 {
-		return time.Duration(secs) * time.Second
-	}
 	return defaultHTTPTimeout
+}
+
+// chosenHTTPTimeout reports the timeout the user chose: MULTICA_HTTP_TIMEOUT,
+// else the profile's http_timeout. Invalid or non-positive values count as
+// not chosen.
+func chosenHTTPTimeout() (time.Duration, bool) {
+	if d, ok := durationFromEnv("MULTICA_HTTP_TIMEOUT"); ok {
+		return d, true
+	}
+	return configHTTPTimeout, configHTTPTimeout > 0
+}
+
+// parseTimeout parses a Go duration ("45s", "2m") or a plain whole number of
+// seconds ("45"). It reports false for empty, invalid or non-positive values.
+func parseTimeout(value string) (time.Duration, bool) {
+	v := strings.TrimSpace(value)
+	if v == "" {
+		return 0, false
+	}
+	if d, err := time.ParseDuration(v); err == nil && d > 0 {
+		return d, true
+	}
+	if secs, err := strconv.Atoi(v); err == nil && secs > 0 {
+		return time.Duration(secs) * time.Second, true
+	}
+	return 0, false
 }
 
 // apiContextGrace is added on top of the HTTP transport timeout when deriving
@@ -159,10 +187,11 @@ const apiContextGrace = 5 * time.Second
 
 // APITimeout returns the deadline budget for a single CLI API command. It is
 // always at least the configured HTTP transport timeout (see httpTimeout,
-// which honors MULTICA_HTTP_TIMEOUT) plus a small grace margin, so a
-// command-level context never truncates an in-flight request below the timeout
-// the user configured. This is the fix for command contexts that previously
-// hardcoded a 15s deadline shorter than the 30s/env transport timeout.
+// which honors MULTICA_HTTP_TIMEOUT and the profile's http_timeout) plus a
+// small grace margin, so a command-level context never truncates an in-flight
+// request below the timeout the user configured. This is the fix for command
+// contexts that previously hardcoded a 15s deadline shorter than the 30s/env
+// transport timeout.
 func APITimeout() time.Duration {
 	return AtLeastAPITimeout(0)
 }
@@ -181,7 +210,7 @@ func AtLeastAPITimeout(min time.Duration) time.Duration {
 // APIContext derives a command-scoped context whose deadline is APITimeout().
 // The returned cancel func must be called (typically via defer) to release
 // resources. Commands should use this instead of context.WithTimeout with a
-// hardcoded duration so the deadline always respects MULTICA_HTTP_TIMEOUT.
+// hardcoded duration so the deadline always respects the configured timeout.
 func APIContext(parent context.Context) (context.Context, context.CancelFunc) {
 	if parent == nil {
 		parent = context.Background()

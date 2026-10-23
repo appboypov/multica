@@ -251,10 +251,47 @@ func init() {
 	agentEnvSetCmd.Flags().String("output", "json", "Output format: json or table")
 }
 
-// resolveProfile returns the --profile flag value (empty string means default profile).
+// resolveProfile returns the --profile flag value (empty string means default
+// profile): the profile whose config, daemon and state a command manages.
 func resolveProfile(cmd *cobra.Command) string {
 	val, _ := cmd.Flags().GetString("profile")
 	return val
+}
+
+// resolveLoginProfile returns the profile whose login (server_url, token,
+// workspace_id, http_timeout) a command acts as when the flags and MULTICA_*
+// variables leave it open: the --profile flag when it is given; else, outside
+// a daemon-managed run, the profile the nearest .multica-profile at or above
+// the working folder names (cli.FolderProfile); else the default profile ("").
+// So a command acts as the folder's login in a shell, an eval kernel or any
+// subprocess alike. A daemon-managed run keeps the login its daemon gave it.
+// Commands that manage a profile (login, setup, config, daemon) keep
+// resolveProfile: a folder's login never redirects their writes.
+func resolveLoginProfile(cmd *cobra.Command) string {
+	if flag := cmd.Flags().Lookup("profile"); flag != nil && (flag.Changed || flag.Value.String() != "") {
+		return flag.Value.String()
+	}
+	if inDaemonManagedExecutionContext() {
+		return ""
+	}
+	cwd, err := os.Getwd()
+	if err != nil {
+		return ""
+	}
+	return cli.FolderProfile(cwd)
+}
+
+// useConfigHTTPTimeout hands the http_timeout of the command's login profile
+// to the CLI's HTTP clients, below MULTICA_HTTP_TIMEOUT (see
+// cli.UseConfigHTTPTimeout). Like tryResolveServerURL, a daemon-managed run
+// without a task-local config root reads no profile config.
+func useConfigHTTPTimeout(cmd *cobra.Command) {
+	if inDaemonManagedExecutionContext() && strings.TrimSpace(os.Getenv(cli.TaskConfigRootEnv)) == "" {
+		return
+	}
+	if cfg, err := cli.LoadCLIConfigForProfile(resolveLoginProfile(cmd)); err == nil {
+		cli.UseConfigHTTPTimeout(cfg.HTTPTimeout)
+	}
 }
 
 func newAPIClient(cmd *cobra.Command) (*cli.APIClient, error) {
@@ -302,7 +339,7 @@ func tryResolveServerURL(cmd *cobra.Command) string {
 	if inDaemonManagedExecutionContext() && strings.TrimSpace(os.Getenv(cli.TaskConfigRootEnv)) == "" {
 		return ""
 	}
-	return tryResolveProfileServerURL(cmd)
+	return profileServerURL(resolveLoginProfile(cmd))
 }
 
 // tryResolveHumanServerURL is reserved for a human/local command after it has
@@ -313,7 +350,7 @@ func tryResolveHumanServerURL(cmd *cobra.Command) string {
 	if val := tryResolveExplicitServerURL(cmd); val != "" {
 		return val
 	}
-	return tryResolveProfileServerURL(cmd)
+	return profileServerURL(resolveProfile(cmd))
 }
 
 func tryResolveExplicitServerURL(cmd *cobra.Command) string {
@@ -324,8 +361,7 @@ func tryResolveExplicitServerURL(cmd *cobra.Command) string {
 	return normalizeAPIBaseURL(val)
 }
 
-func tryResolveProfileServerURL(cmd *cobra.Command) string {
-	profile := resolveProfile(cmd)
+func profileServerURL(profile string) string {
 	cfg, err := cli.LoadCLIConfigForProfile(profile)
 	if err == nil && cfg.ServerURL != "" {
 		return normalizeAPIBaseURL(cfg.ServerURL)
@@ -494,7 +530,7 @@ func resolveWorkspaceID(cmd *cobra.Command) string {
 	if inDaemonManagedExecutionContext() {
 		return ""
 	}
-	profile := resolveProfile(cmd)
+	profile := resolveLoginProfile(cmd)
 	cfg, _ := cli.LoadCLIConfigForProfile(profile)
 	return cfg.WorkspaceID
 }

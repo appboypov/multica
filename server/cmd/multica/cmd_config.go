@@ -32,6 +32,7 @@ var configSetSupportedKeys = []string{
 	"server_url",
 	"app_url",
 	"workspace_id",
+	"http_timeout",
 	"device_name",
 	"runtime_name",
 	"workspaces_root",
@@ -51,11 +52,13 @@ var configSetCmd = &cobra.Command{
 	Use:   "set <key> <value>",
 	Short: "Set a CLI configuration value",
 	Long: "Supported keys: " +
-		"server_url, app_url, workspace_id, " +
+		"server_url, app_url, workspace_id, http_timeout, " +
 		"device_name, runtime_name, workspaces_root, max_concurrent_tasks, poll_interval, ws_claim_poll_interval, " +
 		"heartbeat_interval, agent_timeout, " +
 		"codex_semantic_inactivity_timeout, codex_handshake_timeout, " +
 		"disable_auto_update, auto_update_check_interval, disable_auto_reload.\n\n" +
+		"http_timeout is the per-request timeout of every CLI command's HTTP client; " +
+		"MULTICA_HTTP_TIMEOUT overrides it and 30s is the default.\n\n" +
 		"The daemon keys (device_name, runtime_name, workspaces_root, max_concurrent_tasks, " +
 		"poll_interval, ws_claim_poll_interval, heartbeat_interval, agent_timeout, " +
 		"codex_semantic_inactivity_timeout, codex_handshake_timeout, " +
@@ -75,9 +78,32 @@ var configSetCmd = &cobra.Command{
 	RunE: runConfigSet,
 }
 
+var configProfileCmd = &cobra.Command{
+	Use:   "profile [folder]",
+	Short: "Print the login profile a folder's .multica-profile names",
+	Long: "Prints the profile the nearest .multica-profile in the folder (default: the working folder) " +
+		"or a folder above it names, or an empty line for the default profile. Outside a daemon-managed " +
+		"run, API commands without --profile act as this profile's login (server_url, token, " +
+		"workspace_id, http_timeout) wherever MULTICA_SERVER_URL, MULTICA_TOKEN or " +
+		"MULTICA_WORKSPACE_ID leave it open. Commands that manage a profile (login, setup, config, " +
+		"daemon) keep the default profile without --profile.",
+	Args: cobra.MaximumNArgs(1),
+	RunE: runConfigProfile,
+}
+
 func init() {
 	configCmd.AddCommand(configShowCmd)
 	configCmd.AddCommand(configSetCmd)
+	configCmd.AddCommand(configProfileCmd)
+}
+
+func runConfigProfile(_ *cobra.Command, args []string) error {
+	folder := "."
+	if len(args) == 1 {
+		folder = args[0]
+	}
+	fmt.Fprintln(os.Stdout, cli.FolderProfile(folder))
+	return nil
 }
 
 func runConfigShow(cmd *cobra.Command, _ []string) error {
@@ -98,6 +124,7 @@ func runConfigShow(cmd *cobra.Command, _ []string) error {
 	fmt.Fprintf(os.Stdout, "%-34s %s\n", "server_url:", valueOrDefault(cfg.ServerURL, "(not set)"))
 	fmt.Fprintf(os.Stdout, "%-34s %s\n", "app_url:", valueOrDefault(cfg.AppURL, "(not set)"))
 	fmt.Fprintf(os.Stdout, "%-34s %s\n", "workspace_id:", valueOrDefault(cfg.WorkspaceID, "(not set)"))
+	fmt.Fprintf(os.Stdout, "%-34s %s\n", "http_timeout:", valueOrDefault(cfg.HTTPTimeout, "(not set)"))
 	fmt.Fprintf(os.Stdout, "%-34s %s\n", "device_name:", valueOrDefault(cfg.DeviceName, "(not set)"))
 	fmt.Fprintf(os.Stdout, "%-34s %s\n", "runtime_name:", valueOrDefault(cfg.RuntimeName, "(not set)"))
 	fmt.Fprintf(os.Stdout, "%-34s %s\n", "workspaces_root:", valueOrDefault(cfg.WorkspacesRoot, "(not set)"))
@@ -160,6 +187,10 @@ func applyConfigSet(cfg *cli.CLIConfig, key, value string) error {
 		cfg.AppURL = value
 	case "workspace_id":
 		cfg.WorkspaceID = value
+	case "http_timeout":
+		if err := assignPositiveDuration(&cfg.HTTPTimeout, key, value); err != nil {
+			return err
+		}
 	case "device_name":
 		cfg.DeviceName = value
 	case "runtime_name":

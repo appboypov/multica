@@ -461,6 +461,15 @@ multica daemon start
 
 Each profile gets its own config directory (`~/.multica/profiles/<name>/`), daemon state, health port, and workspace root. Daemon state means that profile's own `daemon.log`, `daemon.err.log`, and `daemon.pid` live in that directory too — see [Start](#start) for the layout, and pass `--profile <name>` to `daemon status` / `daemon logs` to act on it.
 
+#### A folder's login
+
+A file `.multica-profile` holding one profile name makes API commands run in its folder, or any folder below it, act as that profile's login (`server_url`, `token`, `workspace_id`, `http_timeout`) without `--profile`; the nearest file wins and a blank one counts as none. `--profile` and the `MULTICA_SERVER_URL`, `MULTICA_TOKEN` and `MULTICA_WORKSPACE_ID` variables still win, a daemon-managed run keeps the login its daemon gave it, and commands that manage a profile (`login`, `setup`, `config`, `daemon`) keep the default profile without `--profile`. `multica config profile [folder]` prints the profile a folder's file names.
+
+```bash
+echo skuddy > ~/.multica-profile   # every folder below home acts as skuddy
+multica config profile              # skuddy
+```
+
 ## Workspaces
 
 ### Working with multiple workspaces
@@ -1170,12 +1179,17 @@ MULTICA_DEBUG=1 multica issue update MUL-1234 --title "x"
 
 ### Request timeout
 
-API requests use a default timeout of 30 seconds. Override it with
-`MULTICA_HTTP_TIMEOUT` when you are on a slow network; it accepts a Go duration
-(`45s`, `2m`) or a plain number of seconds (`45`). Command-level deadlines are
-always at least this value, so raising it takes effect across all commands.
+API requests use a default timeout of 30 seconds. Override it per profile with
+`multica config set http_timeout 90s`, or per command with
+`MULTICA_HTTP_TIMEOUT`, which wins over the config; both accept a Go duration
+(`45s`, `2m`), and the env variable also a plain number of seconds (`45`). The
+key is read from the profile of the command's login, so a folder login's
+`http_timeout` applies there (`multica --profile skuddy config set http_timeout 90s`).
+Command-level deadlines are always at least this value, so raising it takes
+effect across all commands.
 
 ```bash
+multica config set http_timeout 60s
 MULTICA_HTTP_TIMEOUT=60s multica issue list
 ```
 
@@ -1192,9 +1206,10 @@ of *progress* instead:
   takes, behind a loose **10 minute** whole-request ceiling.
 
 Override the no-progress budget with `MULTICA_HTTP_STALL_TIMEOUT` (same format
-as `MULTICA_HTTP_TIMEOUT`). If only `MULTICA_HTTP_TIMEOUT` is set it applies on
-this path too, as the no-progress budget — it keeps meaning "the longest I will
-wait for this server", not "the longest this download may take".
+as `MULTICA_HTTP_TIMEOUT`). Without it, `MULTICA_HTTP_TIMEOUT` or the profile's
+`http_timeout` applies on this path too, as the no-progress budget — it keeps
+meaning "the longest I will wait for this server", not "the longest this
+download may take".
 
 ```bash
 MULTICA_HTTP_STALL_TIMEOUT=45s multica skill get <id>
