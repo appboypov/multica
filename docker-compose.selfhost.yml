@@ -41,6 +41,12 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     restart: unless-stopped
+    # An init process reaps the healthcheck's children. Without it, a
+    # pg_isready the healthcheck timeout cuts loose is reparented to the
+    # postmaster (PID 1), which takes its exit code 2 for a crashed backend
+    # and restarts every connection into crash recovery
+    # (docker-library/postgres#1349).
+    init: true
     healthcheck:
       test:
         [
