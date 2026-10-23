@@ -320,6 +320,11 @@ func TestRunWorkspaceSwitch(t *testing.T) {
 	})
 
 	t.Run("isolates by profile", func(t *testing.T) {
+		// An explicit --profile acts as that profile's login, not as the
+		// MULTICA_* variables, so staging holds its own server and token.
+		if err := cli.SaveCLIConfigForProfile(cli.CLIConfig{ServerURL: srv.URL, Token: "staging-token"}, "staging"); err != nil {
+			t.Fatalf("seed staging config: %v", err)
+		}
 		cmd := newWorkspaceSwitchTestCmd()
 		_ = cmd.Flags().Set("profile", "staging")
 		if err := runWorkspaceSwitch(cmd, []string{"alpha"}); err != nil {

@@ -86,7 +86,9 @@ var configProfileCmd = &cobra.Command{
 		"run, API commands without --profile act as this profile's login (server_url, token, " +
 		"workspace_id, http_timeout) wherever MULTICA_SERVER_URL, MULTICA_TOKEN or " +
 		"MULTICA_WORKSPACE_ID leave it open. Commands that manage a profile (login, setup, config, " +
-		"daemon) keep the default profile without --profile.",
+		"daemon) keep the default profile without --profile. With --login it prints the profile only " +
+		"when API commands run there would act as it, and fails inside a daemon-managed run, which " +
+		"never acts as a folder's login.",
 	Args: cobra.MaximumNArgs(1),
 	RunE: runConfigProfile,
 }
@@ -95,9 +97,17 @@ func init() {
 	configCmd.AddCommand(configShowCmd)
 	configCmd.AddCommand(configSetCmd)
 	configCmd.AddCommand(configProfileCmd)
+	configProfileCmd.Flags().Bool("login", false, "Fail inside a daemon-managed run, which acts only as the identity its daemon gave it")
 }
 
-func runConfigProfile(_ *cobra.Command, args []string) error {
+func runConfigProfile(cmd *cobra.Command, args []string) error {
+	// A daemon-managed run keeps the identity its daemon injected, so it has
+	// no folder login; failing tells a caller about to adopt the folder's
+	// login, such as the omp plugin, to adopt none, also when the run lost
+	// MULTICA_TOKEN.
+	if login, _ := cmd.Flags().GetBool("login"); login && inDaemonRun() {
+		return fmt.Errorf("a daemon-managed run has no folder login: it acts only as the identity its daemon gave it")
+	}
 	folder := "."
 	if len(args) == 1 {
 		folder = args[0]

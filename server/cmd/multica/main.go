@@ -45,6 +45,11 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&debugFlag, "debug", false, "Print full error details on failure (env: MULTICA_DEBUG)")
 	// Every command's HTTP clients honor the http_timeout of its profile.
 	rootCmd.PersistentPreRun = func(cmd *cobra.Command, _ []string) { useConfigHTTPTimeout(cmd) }
+	// These commands manage a profile, so a folder's login never redirects them
+	// (see resolveLoginProfile).
+	for _, cmd := range []*cobra.Command{loginCmd, setupCmd, configCmd, daemonCmd} {
+		cmd.Annotations = map[string]string{managesProfileAnnotation: "true"}
+	}
 
 	// Core commands
 	issueCmd.GroupID = groupCore

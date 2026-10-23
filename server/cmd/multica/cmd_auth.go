@@ -71,6 +71,10 @@ func init() {
 }
 
 func resolveToken(cmd *cobra.Command) string {
+	if profile, ok := explicitLoginProfile(cmd); ok {
+		cfg, _ := cli.LoadCLIConfigForProfile(profile)
+		return cfg.Token
+	}
 	if v := strings.TrimSpace(os.Getenv("MULTICA_TOKEN")); v != "" {
 		return v
 	}
