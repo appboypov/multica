@@ -438,6 +438,9 @@ func runWorkspaceSwitch(cmd *cobra.Command, args []string) error {
 	if err := requireHumanLocalCommand("workspace switch"); err != nil {
 		return err
 	}
+	// The switch is saved to the profile whose login the lookup below acts as
+	// (resolveLoginProfile), so the folder's commands see the new workspace.
+	profile := resolveLoginProfile(cmd)
 	ctx, cancel := cli.APIContext(context.Background())
 	defer cancel()
 
@@ -446,7 +449,6 @@ func runWorkspaceSwitch(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	profile := resolveProfile(cmd)
 	cfg, err := cli.LoadCLIConfigForProfile(profile)
 	if err != nil {
 		return err

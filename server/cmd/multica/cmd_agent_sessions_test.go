@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -33,6 +34,14 @@ func newAgentRegisterSessionTestCmd(t *testing.T, profile string, flags map[stri
 	cmd.Flags().String("output", "table", "")
 	cmd.Flags().String("profile", "", "")
 	flags["profile"] = profile
+	// An explicit --profile outranks the MULTICA_* variables, so the named
+	// profile holds the login the test's environment names.
+	if profile != "" {
+		login := cli.CLIConfig{ServerURL: os.Getenv("MULTICA_SERVER_URL"), Token: os.Getenv("MULTICA_TOKEN"), WorkspaceID: os.Getenv("MULTICA_WORKSPACE_ID")}
+		if err := cli.SaveCLIConfigForProfile(login, profile); err != nil {
+			t.Fatalf("save profile %q: %v", profile, err)
+		}
+	}
 	for name, value := range flags {
 		if err := cmd.Flags().Set(name, value); err != nil {
 			t.Fatalf("set --%s: %v", name, err)

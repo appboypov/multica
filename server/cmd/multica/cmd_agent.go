@@ -260,18 +260,18 @@ func resolveProfile(cmd *cobra.Command) string {
 
 // resolveLoginProfile returns the profile whose login (server_url, token,
 // workspace_id, http_timeout) a command acts as when the flags and MULTICA_*
-// variables leave it open: the --profile flag when it is given; else, outside
-// a daemon-managed run, the profile the nearest .multica-profile at or above
-// the working folder names (cli.FolderProfile); else the default profile ("").
-// So a command acts as the folder's login in a shell, an eval kernel or any
-// subprocess alike. A daemon-managed run keeps the login its daemon gave it.
-// Commands that manage a profile (login, setup, config, daemon) keep
-// resolveProfile: a folder's login never redirects their writes.
+// variables leave it open: the --profile flag when it is given; else, in a
+// daemon-managed run or a command that manages a profile (managesProfile),
+// the default profile (""); else the profile the nearest .multica-profile at
+// or above the working folder names (cli.FolderProfile), or the default. So
+// an API command acts as the folder's login in a shell, an eval kernel or any
+// subprocess alike, a daemon-managed run keeps the login its daemon gave it,
+// and a folder's login never redirects login, setup, config or daemon.
 func resolveLoginProfile(cmd *cobra.Command) string {
 	if flag := cmd.Flags().Lookup("profile"); flag != nil && (flag.Changed || flag.Value.String() != "") {
 		return flag.Value.String()
 	}
-	if inDaemonManagedExecutionContext() {
+	if inDaemonRun() || managesProfile(cmd) {
 		return ""
 	}
 	cwd, err := os.Getwd()
@@ -281,10 +281,46 @@ func resolveLoginProfile(cmd *cobra.Command) string {
 	return cli.FolderProfile(cwd)
 }
 
+// inDaemonRun reports whether the CLI runs for a daemon task by any signal the
+// daemon leaves (inDaemonManagedExecutionContext, or a task-local config root).
+// Such a run never acts as a folder's login, also when it lost MULTICA_TOKEN.
+func inDaemonRun() bool {
+	return inDaemonManagedExecutionContext() || strings.TrimSpace(os.Getenv(cli.TaskConfigRootEnv)) != ""
+}
+
+// explicitLoginProfile returns the --profile flag, empty for the default
+// profile, when it is given outside a daemon-managed run. Such a profile's
+// login outranks the MULTICA_* variables, so an explicitly chosen login never
+// runs as another account; only --server-url and --workspace-id outrank it.
+// A daemon-managed run keeps the identity its daemon injected.
+func explicitLoginProfile(cmd *cobra.Command) (string, bool) {
+	flag := cmd.Flags().Lookup("profile")
+	if flag == nil || !(flag.Changed || flag.Value.String() != "") || inDaemonManagedExecutionContext() {
+		return "", false
+	}
+	return flag.Value.String(), true
+}
+
+// managesProfileAnnotation marks a command whose subcommands manage a profile
+// (its config, login or daemon) rather than act as a login; main's init sets
+// it on login, setup, config and daemon.
+const managesProfileAnnotation = "multica/manages-profile"
+
+// managesProfile reports whether cmd or a command above it manages a profile.
+func managesProfile(cmd *cobra.Command) bool {
+	for c := cmd; c != nil; c = c.Parent() {
+		if c.Annotations[managesProfileAnnotation] != "" {
+			return true
+		}
+	}
+	return false
+}
+
 // useConfigHTTPTimeout hands the http_timeout of the command's login profile
-// to the CLI's HTTP clients, below MULTICA_HTTP_TIMEOUT (see
-// cli.UseConfigHTTPTimeout). Like tryResolveServerURL, a daemon-managed run
-// without a task-local config root reads no profile config.
+// (the managed profile for a command that manages one) to the CLI's HTTP
+// clients, below MULTICA_HTTP_TIMEOUT (see cli.UseConfigHTTPTimeout). Like
+// tryResolveServerURL, a daemon-managed run without a task-local config root
+// reads no profile config.
 func useConfigHTTPTimeout(cmd *cobra.Command) {
 	if inDaemonManagedExecutionContext() && strings.TrimSpace(os.Getenv(cli.TaskConfigRootEnv)) == "" {
 		return
@@ -353,7 +389,15 @@ func tryResolveHumanServerURL(cmd *cobra.Command) string {
 	return profileServerURL(resolveProfile(cmd))
 }
 
+// tryResolveExplicitServerURL returns the server URL the command names: the
+// --server-url flag, else the server_url of an explicit --profile (see
+// explicitLoginProfile), else MULTICA_SERVER_URL.
 func tryResolveExplicitServerURL(cmd *cobra.Command) string {
+	if !cmd.Flags().Changed("server-url") {
+		if profile, ok := explicitLoginProfile(cmd); ok {
+			return profileServerURL(profile)
+		}
+	}
 	val := cli.FlagOrEnv(cmd, "server-url", "MULTICA_SERVER_URL", "")
 	if val == "" {
 		return ""
@@ -521,6 +565,12 @@ func daemonTaskContextMarkerPath() string {
 }
 
 func resolveWorkspaceID(cmd *cobra.Command) string {
+	if !cmd.Flags().Changed("workspace-id") {
+		if profile, ok := explicitLoginProfile(cmd); ok {
+			cfg, _ := cli.LoadCLIConfigForProfile(profile)
+			return cfg.WorkspaceID
+		}
+	}
 	val := cli.FlagOrEnv(cmd, "workspace-id", "MULTICA_WORKSPACE_ID", "")
 	if val != "" {
 		return val

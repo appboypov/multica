@@ -190,14 +190,19 @@ func runAgentRegisterSession(cmd *cobra.Command, args []string) error {
 
 // useDaemonProfile points a command run by hand without --profile at the CLI
 // profile whose daemon runs on this machine for that profile's server and
-// workspace: the default profile's, else the one named profile's. The API
-// client, workspace and daemon port then all follow that profile, so a
-// persona alias reaches its own daemon whatever the default profile is. An
-// explicit --profile and a daemon task keep their own routing, and with no
-// such daemon the default profile stays.
+// workspace: the default profile's, else the one named profile's. It pins
+// that profile as --profile, the default one too, so the API client,
+// workspace and daemon port all follow it, whatever a folder's
+// .multica-profile or the MULTICA_* variables name. A persona alias reaches
+// its own daemon whatever the default profile is. An explicit --profile and a
+// daemon task keep their own routing, and with no such daemon nothing is
+// pinned.
 func useDaemonProfile(cmd *cobra.Command) error {
-	if resolveProfile(cmd) != "" || inDaemonManagedExecutionContext() || profileDaemonServes("") {
+	if resolveProfile(cmd) != "" || inDaemonManagedExecutionContext() {
 		return nil
+	}
+	if daemonServes("") {
+		return cmd.Flags().Set("profile", "")
 	}
 	profiles, err := knownProfiles()
 	if err != nil {
@@ -205,7 +210,7 @@ func useDaemonProfile(cmd *cobra.Command) error {
 	}
 	var serving []string
 	for _, profile := range profiles {
-		if profileDaemonServes(profile) {
+		if daemonServes(profile) {
 			serving = append(serving, profile)
 		}
 	}
@@ -218,6 +223,10 @@ func useDaemonProfile(cmd *cobra.Command) error {
 		return fmt.Errorf("daemons of several CLI profiles run on this machine (%s); choose one with --profile", strings.Join(serving, ", "))
 	}
 }
+
+// daemonServes is profileDaemonServes; tests replace it to stand in for a
+// running daemon.
+var daemonServes = profileDaemonServes
 
 // profileDaemonServes reports whether the daemon on a profile's health port is
 // that profile's, is running, and serves the server and workspace of the
