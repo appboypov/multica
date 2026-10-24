@@ -91,7 +91,7 @@ A pass is an approval question asked as "Questions" says, on the issue of the wo
 
 A client wait is an ordinary issue assigned to the client's own member. The client reads every open issue assigned to them in a project of their organisations.
 
-- **The client's member:** the member with role `client` whose `organisation_ids` holds the organisation of the issue's project, in `workspace member list --output json`. The organisation of the issue is its project's `organisation_id`, as "Client updates" says.
+- **The client's member:** the member with role `client` whose `organisation_ids` holds the organisation of the issue's project, in `workspace member list --output json`. The organisation of the issue is its project's `organisation_id` in `project get <project> --output json`.
 - **Assign:** `issue assign <issue> --to <client's name>`.
 - The due date is set with `--due-date`.
 
@@ -106,41 +106,6 @@ An external wait is work that cannot go on until something outside its own issue
 5. **Escalate.** In a Multica run, comment on the waiting issue with `[@Skuddy](mention://agent/<his id>)`, his id the `id` of Skuddy in `multica agent list --output json`, and the source comment's fields with the wait's age now. In an interactive session, send him the same in a private omp messenger message. Skuddy handles it as `~/Repos/Agents/skuddy/AGENTS.md` "External waits" says. The wait then goes on with its condition alone, without a second deadline.
 
 The deadline wake relies on Multica's wakeup dispatch, repaired under WORK-1183. A run that finds a wait past its deadline still unresolved escalates it, however that run started.
-
-## Client updates
-
-The update writer works inside its own Multica run, so every command is `multica <command>` without `--profile`. The run sets `MULTICA_SERVER_URL`, `MULTICA_TOKEN` and `MULTICA_AGENT_ID`; the API is `curl -s "$MULTICA_SERVER_URL/api/..." -H "Authorization: Bearer $MULTICA_TOKEN"`.
-
-- **The client of an issue:** its `project_id` in `issue get <issue> --output json`, that project's `organisation_id` in `project get <project> --output json`, and that organisation's key in `GET /api/organisations`.
-- **Open approval questions:** `GET /api/questions?tab=all_open&asker_id=$MULTICA_AGENT_ID&answer_type=approval`, the rows whose `settings.subject` is `Client update <client name>`. Each row holds the draft as `prompt`, the receptionist task as `link.identifier`, and the work issue keys in `context_line`.
-- **A visual:** an attachment of the issue or a comment is in the `attachments` of their `--output json`, fetched with `attachment download <id> -o attachments`. `--attachment` reads only files inside the run's working directory.
-- **The receptionist's task:**
-
-  ```bash
-  multica issue create --project <client's project id> \
-    --title "Post update <client name> <date and time> (<work issue key>)" --description-stdin [--attachment attachments/<file>] <<'EOF'
-  CLIENT=<contact id>
-  Channel: <channel title>
-
-  ~~~text
-  <the update, word for word>
-  ~~~
-  EOF
-  ```
-
-  `--attachment` uploads the visual and ends the description with its image line. A rewrite is `issue update <task> --description-stdin`, which replaces the description whole.
-- **The approval question:**
-
-  ```bash
-  multica question ask --type approval --on <task> --link <work issue> \
-    --subject "Client update <client name>" \
-    --context "<client name> · <channel title> · <issue keys of the work it covers>" \
-    --prompt "<the update, word for word>" --answerer Brian
-  ```
-
-  One `--link` per work issue the draft covers. `question withdraw <id>` withdraws it, `question answers <id> --output json` reads Brian's `approve`, `request_changes` or `decline`, and `question close <id>` closes it.
-- **Approve:** `issue assign <task> --to <receptionist>`. **Decline:** `issue status <task> cancelled`.
-- **The receptionist** is a member, not an agent, and works from her own session: `multica_inbox_listen` brings her new tasks, `multica_issue_list` with `assignee` her name lists the open ones, and `multica issue get <task> --output json` reads one. She downloads the attachment whose `id` the description's image link names with `multica attachment download <id> -o attachments`, comments with `multica_comment_add` and sets the task done with `multica_issue_status`.
 
 ## Improvement report
 
