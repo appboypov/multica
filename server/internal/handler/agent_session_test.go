@@ -36,11 +36,11 @@ func agentSessionDaemonRequest(method, path, workspaceID, daemonID string, body 
 }
 
 func agentSessionWriteRequest(agentID, daemonID string, pid int32) RegisterAgentSessionRequest {
-	pane, repository, branch := "w12:p0", "appboypov/madspec", "work-1057"
+	pane, repository, branch := "w12:p0", "appboypov/multica", "work-1057"
 	return RegisterAgentSessionRequest{
 		WorkspaceID: testWorkspaceID, DaemonID: daemonID, AgentID: agentID, PID: pid,
 		ProcessStartedAt: time.Now().UTC().Add(-time.Minute).Truncate(time.Microsecond),
-		HerdrPaneID:      &pane, WorkDir: "/work/madspec", Repository: &repository, Branch: &branch, Status: "idle",
+		HerdrPaneID:      &pane, WorkDir: "/work/multica", Repository: &repository, Branch: &branch, Status: "idle",
 	}
 }
 

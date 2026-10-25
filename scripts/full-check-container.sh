@@ -7,7 +7,7 @@
 # origin/main. Unit tests run when they import a changed file or read it as a
 # filesystem input declared in related_unit_tests. Go tests run only for the
 # changed packages and their importers. E2e runs only for specs whose first
-# name word starts a changed path segment. Madspec-sync runs when it changes.
+# name word starts a changed path segment.
 # Without arguments, as on main, everything runs. A package manifest or
 # lockfile change runs every unit test and every e2e spec, as do the changes
 # named in all_unit_tests, go_packages and e2e_specs.
@@ -207,15 +207,6 @@ e2e_specs() {
   done
 }
 
-madspec_sync_changed() {
-  [ ${#CHANGED[@]} -eq 0 ] && return 0
-  local f
-  for f in "${CHANGED[@]}"; do
-    case "$f" in madspec-sync/*) return 0 ;; esac
-  done
-  return 1
-}
-
 migrate_stage() {
   (cd server && with_services_env go run ./cmd/migrate up)
 }
@@ -324,12 +315,6 @@ if [ -z "$E2E_SPECS" ]; then
 else
   echo "full-check: e2e specs: $E2E_SPECS"
   stage e2e e2e_stage
-fi
-
-if madspec_sync_changed; then
-  stage madspec-sync uv run --with pytest --with pyyaml pytest -p no:cacheprovider -q madspec-sync/tests
-else
-  RESULTS+=("madspec-sync=skipped (not changed)")
 fi
 
 echo

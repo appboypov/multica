@@ -101,7 +101,7 @@ import { SquadSkillsTab } from "./squad-skills-tab";
 const squad: Squad = {
   id: "squad-1",
   workspace_id: "ws-1",
-  name: "MadSpec Backend",
+  name: "Multica Backend",
   description: "",
   instructions: "",
   avatar_url: null,

@@ -152,9 +152,9 @@ func TestAgentSessionFollower_StatusAndSweep(t *testing.T) {
 	if len(client.updates) != 1 || client.updates[0].Status != "working" {
 		t.Fatalf("status writes = %+v", client.updates)
 	}
-	git.set("appboypov/madspec", "work-1060")
+	git.set("appboypov/multica", "work-1060")
 	f.sweep(ctx)
-	if len(client.updates) != 2 || *client.updates[1].Branch != "work-1060" || *client.updates[1].Repository != "appboypov/madspec" {
+	if len(client.updates) != 2 || *client.updates[1].Branch != "work-1060" || *client.updates[1].Repository != "appboypov/multica" {
 		t.Fatalf("branch/repository not refreshed: %+v", client.updates)
 	}
 	git.set("", "")
@@ -434,8 +434,8 @@ func TestAgentSessionLocalReaders(t *testing.T) {
 	if repository, branch, err := git.Read(context.Background(), folder); err != nil || repository != "appboypov/multica" || branch != "work-1087" {
 		t.Fatalf("SSH repository: %q %q %v", repository, branch, err)
 	}
-	run("remote", "set-url", "origin", "https://github.com/appboypov/madspec.git")
-	if repository, _, err := git.Read(context.Background(), folder); err != nil || repository != "appboypov/madspec" {
+	run("remote", "set-url", "origin", "https://github.com/appboypov/multica.git")
+	if repository, _, err := git.Read(context.Background(), folder); err != nil || repository != "appboypov/multica" {
 		t.Fatalf("HTTPS repository: %q %v", repository, err)
 	}
 }

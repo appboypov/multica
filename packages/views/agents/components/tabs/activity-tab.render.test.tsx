@@ -113,8 +113,8 @@ const herdrSession: AgentSession = {
   runtime: null,
   task_id: null,
   issue: null,
-  work_dir: "/Users/brian/Worktrees/das/madspec/work-1057",
-  repository: "appboypov/madspec",
+  work_dir: "/Users/brian/Worktrees/das/multica/work-1057",
+  repository: "appboypov/multica",
   branch: "work-1057",
   status: "working",
   started_at: new Date(Date.now() - 12 * 60_000).toISOString(),
@@ -142,8 +142,8 @@ describe("ActivityTab Sessions", () => {
 
     const pane = await screen.findByTestId("session-session-pane");
     expect(pane).toHaveTextContent("w12:p0");
-    expect(pane).toHaveTextContent("~/Worktrees/das/madspec/work-1057");
-    expect(pane).toHaveTextContent("appboypov/madspec");
+    expect(pane).toHaveTextContent("~/Worktrees/das/multica/work-1057");
+    expect(pane).toHaveTextContent("appboypov/multica");
     expect(pane).toHaveTextContent("work-1057");
     expect(pane).toHaveTextContent("Working");
 

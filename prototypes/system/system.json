@@ -119,15 +119,6 @@
    "note": "S3-compatible"
   },
   {
-   "id": "anytype",
-   "parent": null,
-   "name": "Anytype brain",
-   "icon": "brain",
-   "kind": "Outside",
-   "outside": true,
-   "note": "Organisations · Products"
-  },
-  {
    "id": "herdr",
    "parent": null,
    "name": "Herdr",
@@ -193,21 +184,6 @@
     "description": "The apps people use and the packages they share",
     "question": "How do the apps reach the server?",
     "base": ""
-   }
-  },
-  {
-   "id": "madspec-sync",
-   "parent": "multica",
-   "name": "madspec-sync",
-   "icon": "refresh-cw",
-   "kind": "Tool",
-   "path": "madspec-sync/",
-   "zoom": {
-    "name": "madspec-sync",
-    "title": "madspec-sync",
-    "description": "Manual sync from the brain",
-    "question": "How do products reach Multica?",
-    "base": "madspec-sync/"
    }
   },
   {
@@ -1874,38 +1850,6 @@
    "icon": "send",
    "kind": "Class",
    "path": "server/internal/cli/client.go:49"
-  },
-  {
-   "id": "sync-api",
-   "parent": "madspec-sync",
-   "name": "Multica API",
-   "icon": "send",
-   "kind": "Class",
-   "path": "madspec-sync/multica_api.py:32"
-  },
-  {
-   "id": "sync-projects",
-   "parent": "madspec-sync",
-   "name": "Product sync",
-   "icon": "boxes",
-   "kind": "Function",
-   "path": "madspec-sync/multica_projects.py:551"
-  },
-  {
-   "id": "sync-read-brain",
-   "parent": "madspec-sync",
-   "name": "read_brain",
-   "icon": "brain",
-   "kind": "Function",
-   "path": "madspec-sync/multica_projects.py:323"
-  },
-  {
-   "id": "sync-write-plan",
-   "parent": "madspec-sync",
-   "name": "write_plan",
-   "icon": "list-checks",
-   "kind": "Function",
-   "path": "madspec-sync/multica_projects.py:452"
   }
  ],
  "edges": [
@@ -1924,14 +1868,6 @@
    "line": "call",
    "data": "window",
    "trigger": "opens the desktop app"
-  },
-  {
-   "id": "people--sync-projects",
-   "from": "people",
-   "to": "sync-projects",
-   "line": "call",
-   "data": "command",
-   "trigger": "runs product sync"
   },
   {
    "id": "ai-agents--cli-root",
@@ -3889,46 +3825,6 @@
    "line": "call",
    "data": "REST /api",
    "trigger": "CLI request"
-  },
-  {
-   "id": "sync-api--srv-router",
-   "from": "sync-api",
-   "to": "srv-router",
-   "line": "call",
-   "data": "REST /api",
-   "trigger": "PAT request"
-  },
-  {
-   "id": "sync-projects--sync-read-brain",
-   "from": "sync-projects",
-   "to": "sync-read-brain",
-   "line": "call",
-   "data": "brain",
-   "trigger": "sync starts"
-  },
-  {
-   "id": "anytype--sync-read-brain",
-   "from": "anytype",
-   "to": "sync-read-brain",
-   "line": "data",
-   "data": "Organisations · Products",
-   "trigger": "API read"
-  },
-  {
-   "id": "sync-projects--sync-write-plan",
-   "from": "sync-projects",
-   "to": "sync-write-plan",
-   "line": "call",
-   "data": "plan",
-   "trigger": "after diff"
-  },
-  {
-   "id": "sync-write-plan--sync-api",
-   "from": "sync-write-plan",
-   "to": "sync-api",
-   "line": "call",
-   "data": "projects",
-   "trigger": "plan applied"
   },
   {
    "id": "srv-todo--srv-bus--2",

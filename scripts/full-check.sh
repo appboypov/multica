@@ -3,7 +3,7 @@
 # No review or release runs it or waits for it.
 #
 # It runs scripts/full-check-container.sh in a single-use local Crabbox
-# container (MadSpec's crabbox-local), with the image that
+# container (crabbox-local of our-infra-conventions), with the image that
 # scripts/full-check.Dockerfile describes. Full checks on this Mac queue behind
 # each other and share one Turborepo cache server, the multica-turbo-cache
 # container on 127.0.0.1:41230. Unit tests run only for the files this
@@ -14,7 +14,7 @@ set -euo pipefail
 STATE="$HOME/.local/state/multica-full-check"
 CACHE_CONTAINER=multica-turbo-cache
 CACHE_PORT=41230
-CRABBOX_LOCAL=${CRABBOX_LOCAL:-$HOME/.agents/skills/madspec-remote-checks-and-tests/scripts/crabbox-local}
+CRABBOX_LOCAL=${CRABBOX_LOCAL:-$HOME/.agents/skills/our-infra-conventions/scripts/crabbox-local}
 
 ROOT=$(git rev-parse --show-toplevel)
 cd "$ROOT"
@@ -49,9 +49,9 @@ fi
 docker start "$CACHE_CONTAINER" >/dev/null
 
 IMAGE_INPUTS=(scripts/full-check.Dockerfile pnpm-lock.yaml pnpm-workspace.yaml .npmrc server/go.mod server/go.sum)
-IMAGE="madspec-crabbox-local:multica-full-check-$(cat "${IMAGE_INPUTS[@]}" | shasum -a 256 | cut -c1-12)"
+IMAGE="multica-full-check:$(cat "${IMAGE_INPUTS[@]}" | shasum -a 256 | cut -c1-12)"
 if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
-  docker image inspect madspec-crabbox-local:1 >/dev/null 2>&1 || "$CRABBOX_LOCAL" build-image
+  docker image inspect crabbox-local:1 >/dev/null 2>&1 || "$CRABBOX_LOCAL" build-image
   tar -c "${IMAGE_INPUTS[@]}" | docker build -t "$IMAGE" -f scripts/full-check.Dockerfile -
 fi
 

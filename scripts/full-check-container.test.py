@@ -64,9 +64,6 @@ case "$*" in
 esac
 exit 0
 ''',
-            "uv": '''#!/usr/bin/env bash
-touch "$FIXTURE_DIR/madspec-sync"
-''',
         }
         for name, content in commands.items():
             path = bin_dir / name
@@ -87,7 +84,7 @@ touch "$FIXTURE_DIR/madspec-sync"
         spec = next((ROOT / "e2e").glob("*.spec.ts")).relative_to(ROOT)
         start = time.monotonic()
         result = subprocess.run(
-            ["bash", "scripts/full-check-container.sh", str(spec), "madspec-sync/README.md"],
+            ["bash", "scripts/full-check-container.sh", str(spec)],
             cwd=ROOT,
             env=env,
             stdout=subprocess.PIPE,
@@ -101,9 +98,7 @@ touch "$FIXTURE_DIR/madspec-sync"
             assert result.returncode == expected, output
             assert elapsed < startup_limit, output
             assert f"  e2e={expected} (" in output, output
-            assert "  madspec-sync=0 (" in output, output
             assert "full-check summary (" in output, output
-            assert (fixture / "madspec-sync").exists(), output
             assert (fixture / "playwright").exists() == (expected == 0), output
             if expected:
                 assert "--- backend startup log" in output, output

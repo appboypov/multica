@@ -14,7 +14,7 @@ import (
 // TestBuildQuickCreatePromptRules locks in the rules that govern how the
 // quick-create agent is allowed to translate raw user input into the issue
 // description body:
-//   - the description is the madspec-request skill's Request, researched in
+//   - the description is the plx-write-request skill's Request, researched in
 //     one pass with no questions, since the run has no conversation
 //   - the Request holding only what the user asked and the facts the research
 //     found: nothing invented, nothing decided, no list of open points
@@ -24,8 +24,8 @@ func TestBuildQuickCreatePromptRules(t *testing.T) {
 	out := buildQuickCreatePrompt(Task{QuickCreatePrompt: "fix the login button color"})
 
 	mustContain := []string{
-		// the description follows the madspec-request skill's Request
-		"`madspec-request` skill's Request",
+		// the description follows the plx-write-request skill's Request
+		"`plx-write-request` skill's Request",
 		"steps 1, 2 and 4 in one pass",
 		"Ask no questions",
 		// the Request invents and decides nothing

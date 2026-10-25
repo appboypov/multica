@@ -5,7 +5,7 @@ it does not run work by itself.
 
 - [Debugging a squad that did or did not run](#debugging-a-squad-that-did-or-did-not-run)
 - [Core model](#core-model)
-- [MadSpec phases](#madspec-phases)
+- [Work phases](#work-phases)
 - [CLI](#cli)
 - [Squad fields](#squad-fields)
 - [Creation and leader membership](#creation-and-leader-membership)
@@ -41,12 +41,11 @@ Squad-routed work runs through the squad's `leader_id` agent. Consequences:
 - squad members are not automatically fanned out;
 - squad `instructions` are leader briefing content, not member prompts.
 
-## MadSpec phases
+## Work phases
 
-A squad fills one or more MadSpec phases, as `madspec/help/workers.md` "Phases"
-lists them. Its leader leads that work and its members are the agents that do
-it. Which agents those are lives only in the squad: MadSpec and the agents'
-offices name none.
+A squad fills one or more work phases. Its leader leads that work and its
+members are the agents that do it. Which agents those are lives only in the
+squad: the skills and the agents' offices name none.
 
 ## CLI
 
