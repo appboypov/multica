@@ -368,7 +368,7 @@ func buildPromptBody(task Task, provider string) string {
 // user typed a single natural-language sentence in the create-issue modal;
 // the agent's job is to research it and translate it into one
 // `multica issue create` CLI invocation whose description is the
-// `madspec-request` skill's Request. No issue exists yet, so the agent must NOT
+// `plx-write-request` skill's Request. No issue exists yet, so the agent must NOT
 // call `multica issue get` or attempt to comment — there's nothing to read
 // or reply to.
 func buildQuickCreatePrompt(task Task) string {
@@ -393,7 +393,7 @@ func buildQuickCreatePrompt(task Task) string {
 	b.WriteString("- **title**: required. A concise but semantically rich summary. If the input references external resources (PRs, issues, URLs), use your judgment on whether fetching the resource would produce a meaningfully better title — e.g. \"review PR #123\" → \"Review PR #123: Refactor auth module to OAuth2\". Strip filler words but preserve key semantic information.\n\n")
 
 	// description — the core optimization
-	b.WriteString("- **description**: write it as the `madspec-request` skill's Request, from that skill's steps 1, 2 and 4 in one pass: read the subject and the project, then write. The Request holds only what the user asked and the facts your reading found. Ask no questions. Keep the skill's `#` section headings exactly as it writes them; a section with nothing from the user or your reading stays out.\n\n")
+	b.WriteString("- **description**: write it as the `plx-write-request` skill's Request, from that skill's steps 1, 2 and 4 in one pass: read the subject and the project, then write. The Request holds only what the user asked and the facts your reading found. Ask no questions. Keep the skill's `#` section headings exactly as it writes them; a section with nothing from the user or your reading stays out.\n\n")
 	b.WriteString("  Hard rules: never invent requirements, implementation details, acceptance criteria or decisions the user did not express; leave out whatever is unclear, without deciding it or listing it as an open point.\n\n")
 	b.WriteString("  CC exception: `multica issue create` has no `--subscriber` flag, and the platform auto-subscribes members whose `[@Name](mention://member/<uuid>)` link appears in the description. When the user wrote \"cc @Y\", leave the verbal \"cc\" wrapper out of the Request and append a final `CC: <mention link(s)>` line to the description so the cc routing still fires.\n\n")
 

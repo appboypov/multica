@@ -66,44 +66,6 @@ const data = [
     ]
    },
    {
-    "name": "MadSpec",
-    "repos": [
-     {
-      "name": "appboypov/madspec",
-      "lanes": [
-       {
-        "name": "main",
-        "state": "Free",
-        "active": null,
-        "next": null
-       }
-      ]
-     },
-     {
-      "name": "appboypov/plannotator",
-      "lanes": [
-       {
-        "name": "main",
-        "state": "Free",
-        "active": null,
-        "next": null
-       }
-      ]
-     },
-     {
-      "name": "omp-anytype-inbox",
-      "lanes": [
-       {
-        "name": "main",
-        "state": "Free",
-        "active": null,
-        "next": null
-       }
-      ]
-     }
-    ]
-   },
-   {
     "name": "Multica",
     "repos": [
      {

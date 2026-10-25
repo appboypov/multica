@@ -305,10 +305,10 @@ func writeAvailableCommands(b *strings.Builder, ctx TaskContextForEnv) {
 }
 
 // worktreeRule is the fork's rule for code work: the agent creates its own
-// worktree in the folder the madspec-git skill sets, on the branch of the
+// worktree in the folder the our-git-conventions skill sets, on the branch of the
 // Linear issue the task links to. Multica ids never name the branch. Main
 // checkouts live under the work root (ADR-0037).
-const worktreeRule = "Code changes happen in a git worktree you create yourself, in the folder and on the branch the `madspec-git` skill (`~/.agents/skills/madspec-git/SKILL.md`) sets. The issue that skill means is the Linear issue this task links to, so the branch is that Linear issue's branch name; a task that links to no Linear issue follows that skill's rule for work without an issue. Never name a branch after a Multica issue, task or agent. The repository's main checkout is the clone at `~/hq/{organisation}/{project}/repos/{repo}` whose `origin` points at the repository, in SSH or HTTPS form; when no such clone exists, ask the user where to clone it and wait for the answer.\n\n"
+const worktreeRule = "Code changes happen in a git worktree you create yourself, in the folder and on the branch the `our-git-conventions` skill (`~/.agents/skills/our-git-conventions/SKILL.md`) sets. The issue that skill means is the Linear issue this task links to, so the branch is that Linear issue's branch name; a task that links to no Linear issue follows that skill's rule for work without an issue. Never name a branch after a Multica issue, task or agent. The repository's main checkout is the clone at `~/hq/{organisation}/{project}/repos/{repo}` whose `origin` points at the repository, in SSH or HTTPS form; when no such clone exists, ask the user where to clone it and wait for the answer.\n\n"
 
 // duplicateOfCommandLine teaches the duplicate mark (MUL-7821). Without it
 // agents cancel duplicates with a plain status change plus a comment, which

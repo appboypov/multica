@@ -91,7 +91,7 @@ func serveSessionAPI(t *testing.T, sessions string) (*httptest.Server, *[]string
 
 const twoMitchelSessions = `{"sessions":[
 {"id":"s-1","kind":"terminal","pid":4242,"herdr_pane_id":"w12:p0","runtime":null,"task_id":null,"issue":null,
- "work_dir":"/work/madspec","repository":"appboypov/madspec","branch":"work-1057","status":"idle","started_at":"2026-10-16T08:00:00Z"},
+ "work_dir":"/work/multica","repository":"appboypov/multica","branch":"work-1057","status":"idle","started_at":"2026-10-16T08:00:00Z"},
 {"id":"t-1","kind":"run","pid":null,"herdr_pane_id":null,"runtime":{"id":"rt-1","name":"Mitchel (omp)"},"task_id":"t-1",
  "issue":{"id":"i-1","identifier":"WORK-1057"},"work_dir":"/work/run","repository":null,"branch":null,"status":"working","started_at":"2026-10-16T09:00:00Z"}
 ]}`
@@ -114,7 +114,7 @@ func TestRunAgentSessionsTableShowsPaneAndRuntime(t *testing.T) {
 		}
 	}
 	herdr := strings.Fields(lines[1])
-	if want := []string{"w12:p0", "/work/madspec", "appboypov/madspec", "work-1057", "-", "idle", "2026-10-16T08:00:00Z"}; strings.Join(herdr, " ") != strings.Join(want, " ") {
+	if want := []string{"w12:p0", "/work/multica", "appboypov/multica", "work-1057", "-", "idle", "2026-10-16T08:00:00Z"}; strings.Join(herdr, " ") != strings.Join(want, " ") {
 		t.Fatalf("Herdr row = %q, want %q", herdr, want)
 	}
 	if !strings.HasPrefix(lines[2], "run on Mitchel (omp)") {
