@@ -1124,6 +1124,7 @@ type AgentSessionRegistration struct {
 	PID              int       `json:"pid"`
 	ProcessStartedAt time.Time `json:"process_started_at"`
 	HerdrPaneID      *string   `json:"herdr_pane_id"`
+	HcTerminal       *string   `json:"hc_terminal"`
 	WorkDir          string    `json:"work_dir"`
 	Repository       *string   `json:"repository"`
 	Branch           *string   `json:"branch"`

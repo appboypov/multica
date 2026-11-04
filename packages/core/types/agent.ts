@@ -277,6 +277,8 @@ export interface AgentSession {
   pid: number | null;
   /** The Herdr pane; null outside Herdr and for a run. */
   herdr_pane_id: string | null;
+  /** The Herdr app terminal address, such as `t10`; null outside the Herdr app and for a run. */
+  hc_terminal: string | null;
   /** The runtime of a run; null for a terminal session. */
   runtime: { id: string; name: string } | null;
   /** The task of a run; null for a terminal session. */

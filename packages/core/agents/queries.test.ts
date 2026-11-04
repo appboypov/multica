@@ -123,7 +123,7 @@ describe("agent history query lifecycle", () => {
 
 function session(id: string): AgentSession {
   return {
-    id, kind: "terminal", pid: 42, herdr_pane_id: "w12:p0", runtime: null,
+    id, kind: "terminal", pid: 42, herdr_pane_id: "w12:p0", hc_terminal: null, runtime: null,
     task_id: null, issue: null, work_dir: "/Users/brian/Repos/multica",
     repository: "appboypov/multica", branch: "work-1089", status: "working",
     started_at: "2026-10-15T18:30:00Z",

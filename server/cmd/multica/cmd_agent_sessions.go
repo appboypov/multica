@@ -22,7 +22,7 @@ import (
 
 var agentSessionsCmd = &cobra.Command{
 	Use:   "sessions <agent>",
-	Short: "List an agent's active sessions: Herdr panes, terminals and runs",
+	Short: "List an agent's active sessions: Herdr panes, Herdr app terminals, terminals and runs",
 	Args:  exactArgs(1),
 	RunE:  runAgentSessions,
 }
@@ -44,6 +44,7 @@ func init() {
 	agentRegisterSessionCmd.Flags().Int("pid", 0, "Process ID of the session (required)")
 	agentRegisterSessionCmd.Flags().String("cwd", "", "Folder the session works in (required)")
 	agentRegisterSessionCmd.Flags().String("pane", "", "Herdr pane ID of the session")
+	agentRegisterSessionCmd.Flags().String("hc-terminal", "", "Herdr app terminal address of the session, such as t10")
 	agentRegisterSessionCmd.Flags().String("output", "table", "Output format: table or json")
 }
 
@@ -53,6 +54,7 @@ type agentSessionListing struct {
 	Sessions []struct {
 		Kind        string  `json:"kind"`
 		HerdrPaneID *string `json:"herdr_pane_id"`
+		HcTerminal  *string `json:"hc_terminal"`
 		Runtime     *struct {
 			Name string `json:"name"`
 		} `json:"runtime"`
@@ -107,6 +109,8 @@ func runAgentSessions(cmd *cobra.Command, args []string) error {
 		switch {
 		case s.HerdrPaneID != nil && *s.HerdrPaneID != "":
 			where = *s.HerdrPaneID
+		case s.HcTerminal != nil && *s.HcTerminal != "":
+			where = *s.HcTerminal
 		case s.Runtime != nil && s.Runtime.Name != "":
 			where = "run on " + s.Runtime.Name
 		}
@@ -150,6 +154,7 @@ func runAgentRegisterSession(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("resolve --cwd: %w", err)
 	}
 	pane, _ := cmd.Flags().GetString("pane")
+	hcTerminal, _ := cmd.Flags().GetString("hc-terminal")
 	output, _ := cmd.Flags().GetString("output")
 
 	if err := useDaemonProfile(cmd); err != nil {
@@ -177,6 +182,7 @@ func runAgentRegisterSession(cmd *cobra.Command, args []string) error {
 		"pid":           pid,
 		"cwd":           cwd,
 		"herdr_pane_id": pane,
+		"hc_terminal":   hcTerminal,
 	})
 	if err != nil {
 		return err

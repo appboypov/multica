@@ -118,6 +118,7 @@ type AgentSession struct {
 	Status           string             `json:"status"`
 	StartedAt        pgtype.Timestamptz `json:"started_at"`
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+	HcTerminal       pgtype.Text        `json:"hc_terminal"`
 }
 
 type AgentSkill struct {

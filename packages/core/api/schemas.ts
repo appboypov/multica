@@ -2813,6 +2813,7 @@ export const AgentSessionSchema: z.ZodType<AgentSession> = z.object({
   kind: z.enum(AGENT_SESSION_KINDS).catch("unknown"),
   pid: z.number().nullable().catch(null),
   herdr_pane_id: z.string().nullable().catch(null),
+  hc_terminal: z.string().nullable().catch(null),
   runtime: z.object({
     id: z.string().catch(""),
     name: z.string().catch(""),

@@ -90,11 +90,12 @@ function SessionRow({ session }: { session: AgentSession }) {
 
 function SessionWhere({ session }: { session: AgentSession }) {
   const { t } = useT("agents");
-  if (session.kind === "terminal" && session.herdr_pane_id) {
+  const pane = session.herdr_pane_id ?? session.hc_terminal;
+  if (session.kind === "terminal" && pane) {
     return (
       <span className="flex shrink-0 items-center gap-1.5 font-mono">
         <Terminal className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
-        {session.herdr_pane_id}
+        {pane}
       </span>
     );
   }

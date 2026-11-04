@@ -45,6 +45,7 @@ type localSessionRegistration struct {
 	PID         int    `json:"pid"`
 	CWD         string `json:"cwd"`
 	HerdrPaneID string `json:"herdr_pane_id"`
+	HcTerminal  string `json:"hc_terminal"`
 }
 
 type followedAgentSession struct {
@@ -52,6 +53,7 @@ type followedAgentSession struct {
 	workspaceID   string
 	pane          string
 	persistedPane string
+	hcTerminal    string
 	pid           int
 	startedAt     time.Time
 	folder        string
@@ -73,7 +75,11 @@ type agentSessionFollower struct {
 	logger     *slog.Logger
 	socketPath string
 	changed    chan struct{}
-	interval   time.Duration
+	// The Herdr app's herdr-core socket and its own change signal, so the Herdr
+	// and herdr-core subscriptions each see every change.
+	hcSocketPath string
+	hcChanged    chan struct{}
+	interval     time.Duration
 }
 
 func newAgentSessionFollower(client sessionClient, daemonID string, workspaces func() []string, logger *slog.Logger) *agentSessionFollower {
@@ -83,18 +89,27 @@ func newAgentSessionFollower(client sessionClient, daemonID string, workspaces f
 			socketPath = filepath.Join(home, ".config", "herdr", "herdr.sock")
 		}
 	}
+	hcSocketPath := os.Getenv("HC_TERMINAL_SOCKET")
+	if hcSocketPath == "" {
+		if home, err := os.UserHomeDir(); err == nil {
+			hcSocketPath = filepath.Join(home, ".local", "state", "herdr-core", "default", "default.sock")
+		}
+	}
 	return &agentSessionFollower{
 		sessions: make(map[string]*followedAgentSession), loaded: make(map[string]bool),
 		client: client, daemonID: daemonID, workspaces: workspaces, logger: logger,
 		processes: localSessionProcesses{}, git: localSessionGit{}, socketPath: socketPath,
-		changed: make(chan struct{}, 1), interval: agentSessionInterval,
+		changed: make(chan struct{}, 1), hcSocketPath: hcSocketPath, hcChanged: make(chan struct{}, 1),
+		interval: agentSessionInterval,
 	}
 }
 
 func (f *agentSessionFollower) notifySubscription() {
-	select {
-	case f.changed <- struct{}{}:
-	default:
+	for _, changed := range []chan struct{}{f.changed, f.hcChanged} {
+		select {
+		case changed <- struct{}{}:
+		default:
+		}
 	}
 }
 
@@ -119,8 +134,9 @@ func (f *agentSessionFollower) register(ctx context.Context, request localSessio
 	id, err := f.client.RegisterAgentSession(ctx, AgentSessionRegistration{
 		WorkspaceID: request.WorkspaceID, DaemonID: f.daemonID, AgentID: request.AgentID,
 		PID: request.PID, ProcessStartedAt: startedAt, WorkDir: request.CWD,
-		HerdrPaneID: nullableSessionString(request.HerdrPaneID), Repository: nullableSessionString(repository),
-		Branch: nullableSessionString(branch), Status: "unknown",
+		HerdrPaneID: nullableSessionString(request.HerdrPaneID), HcTerminal: nullableSessionString(request.HcTerminal),
+		Repository: nullableSessionString(repository),
+		Branch:     nullableSessionString(branch), Status: "unknown",
 	})
 	if err != nil {
 		return "", err
@@ -133,7 +149,8 @@ func (f *agentSessionFollower) register(ctx context.Context, request localSessio
 	}
 	f.sessions[id] = &followedAgentSession{
 		id: id, workspaceID: request.WorkspaceID, pane: request.HerdrPaneID, persistedPane: request.HerdrPaneID,
-		pid: request.PID, startedAt: startedAt, folder: request.CWD,
+		hcTerminal: request.HcTerminal,
+		pid:        request.PID, startedAt: startedAt, folder: request.CWD,
 		repository: repository, branch: branch, status: "unknown",
 	}
 	f.notifySubscription()
@@ -162,7 +179,8 @@ func (f *agentSessionFollower) load(ctx context.Context) {
 			}
 			f.sessions[id] = &followedAgentSession{
 				id: id, workspaceID: workspaceID, pane: row.HerdrPaneID.String, persistedPane: row.HerdrPaneID.String,
-				pid: int(row.Pid), startedAt: row.ProcessStartedAt.Time, folder: row.WorkDir,
+				hcTerminal: row.HcTerminal.String,
+				pid:        int(row.Pid), startedAt: row.ProcessStartedAt.Time, folder: row.WorkDir,
 				repository: row.Repository.String, branch: row.Branch.String, status: row.Status,
 			}
 		}
@@ -286,12 +304,17 @@ func (f *agentSessionFollower) handleEvent(ctx context.Context, event herdrSessi
 func (f *agentSessionFollower) run(ctx context.Context) {
 	f.load(ctx)
 	f.sweep(ctx)
-	subscriberDone := make(chan struct{})
+	var subscribers sync.WaitGroup
+	subscribers.Add(2)
 	go func() {
-		defer close(subscriberDone)
+		defer subscribers.Done()
 		f.subscribe(ctx)
 	}()
-	defer func() { <-subscriberDone }()
+	go func() {
+		defer subscribers.Done()
+		f.subscribeHc(ctx)
+	}()
+	defer subscribers.Wait()
 	ticker := time.NewTicker(f.interval)
 	defer ticker.Stop()
 	for {

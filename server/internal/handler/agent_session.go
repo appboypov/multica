@@ -22,6 +22,7 @@ type RegisterAgentSessionRequest struct {
 	PID              int32     `json:"pid"`
 	ProcessStartedAt time.Time `json:"process_started_at"`
 	HerdrPaneID      *string   `json:"herdr_pane_id"`
+	HcTerminal       *string   `json:"hc_terminal"`
 	WorkDir          string    `json:"work_dir"`
 	Repository       *string   `json:"repository"`
 	Branch           *string   `json:"branch"`
@@ -104,7 +105,7 @@ func (h *Handler) RegisterAgentSession(w http.ResponseWriter, r *http.Request) {
 	session, err := h.Queries.UpsertAgentSession(r.Context(), db.UpsertAgentSessionParams{
 		WorkspaceID: wsID, AgentID: agentID, DaemonID: daemonID,
 		Pid: req.PID, ProcessStartedAt: pgtype.Timestamptz{Time: req.ProcessStartedAt, Valid: true},
-		HerdrPaneID: ptrToText(req.HerdrPaneID), WorkDir: req.WorkDir,
+		HerdrPaneID: ptrToText(req.HerdrPaneID), HcTerminal: ptrToText(req.HcTerminal), WorkDir: req.WorkDir,
 		Repository: ptrToText(req.Repository), Branch: ptrToText(req.Branch), Status: req.Status,
 	})
 	if err != nil {
@@ -226,6 +227,7 @@ type AgentSessionResponse struct {
 	Kind        string                       `json:"kind"`
 	PID         *int32                       `json:"pid"`
 	HerdrPaneID *string                      `json:"herdr_pane_id"`
+	HcTerminal  *string                      `json:"hc_terminal"`
 	Runtime     *AgentSessionRuntimeResponse `json:"runtime"`
 	TaskID      *string                      `json:"task_id"`
 	Issue       *AgentSessionIssueResponse   `json:"issue"`
@@ -260,7 +262,7 @@ func (h *Handler) ListAgentSessions(w http.ResponseWriter, r *http.Request) {
 	resp := AgentSessionsResponse{Sessions: make([]AgentSessionResponse, 0, len(rows))}
 	for _, row := range rows {
 		session := AgentSessionResponse{
-			ID: uuidToString(row.ID), Kind: row.Kind, HerdrPaneID: textToPtr(row.HerdrPaneID),
+			ID: uuidToString(row.ID), Kind: row.Kind, HerdrPaneID: textToPtr(row.HerdrPaneID), HcTerminal: textToPtr(row.HcTerminal),
 			TaskID: uuidToPtr(row.TaskID), WorkDir: row.WorkDir, Repository: textToPtr(row.Repository),
 			Branch: textToPtr(row.Branch), Status: row.Status, StartedAt: timestampToString(row.StartedAt),
 		}

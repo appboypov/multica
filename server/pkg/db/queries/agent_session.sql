@@ -9,17 +9,18 @@
 -- workspace is never taken over: the conflict then returns no row.
 INSERT INTO agent_session (
     workspace_id, agent_id, daemon_id, pid, process_started_at,
-    herdr_pane_id, work_dir, repository, branch, status
+    herdr_pane_id, hc_terminal, work_dir, repository, branch, status
 ) VALUES (
     sqlc.arg('workspace_id'), sqlc.arg('agent_id'), sqlc.arg('daemon_id'),
     sqlc.arg('pid'), sqlc.arg('process_started_at'), sqlc.narg('herdr_pane_id'),
-    sqlc.arg('work_dir'), sqlc.narg('repository'), sqlc.narg('branch'),
-    sqlc.arg('status')
+    sqlc.narg('hc_terminal'), sqlc.arg('work_dir'), sqlc.narg('repository'),
+    sqlc.narg('branch'), sqlc.arg('status')
 )
 ON CONFLICT (daemon_id, pid) DO UPDATE SET
     agent_id = EXCLUDED.agent_id,
     process_started_at = EXCLUDED.process_started_at,
     herdr_pane_id = EXCLUDED.herdr_pane_id,
+    hc_terminal = EXCLUDED.hc_terminal,
     work_dir = EXCLUDED.work_dir,
     repository = EXCLUDED.repository,
     branch = EXCLUDED.branch,
@@ -75,6 +76,7 @@ SELECT
     'run'::text AS kind,
     NULL::integer AS pid,
     NULL::text AS herdr_pane_id,
+    NULL::text AS hc_terminal,
     rt.id AS runtime_id,
     rt.name AS runtime_name,
     t.id AS task_id,
@@ -118,6 +120,7 @@ SELECT
     'run'::text,
     NULL::integer,
     NULL::text,
+    NULL::text,
     rt.id,
     rt.name,
     t.id,
@@ -144,6 +147,7 @@ SELECT
     'terminal'::text,
     s.pid,
     s.herdr_pane_id,
+    s.hc_terminal,
     NULL::uuid,
     NULL::text,
     NULL::uuid,

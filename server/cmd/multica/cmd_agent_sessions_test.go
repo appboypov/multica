@@ -31,6 +31,7 @@ func newAgentRegisterSessionTestCmd(t *testing.T, profile string, flags map[stri
 	cmd.Flags().Int("pid", 0, "")
 	cmd.Flags().String("cwd", "", "")
 	cmd.Flags().String("pane", "", "")
+	cmd.Flags().String("hc-terminal", "", "")
 	cmd.Flags().String("output", "table", "")
 	cmd.Flags().String("profile", "", "")
 	flags["profile"] = profile
@@ -231,7 +232,7 @@ func TestRunAgentRegisterSessionPostsToDaemonPort(t *testing.T) {
 	profile, posted := serveDaemonSessions(t, http.StatusCreated, `{"id":"session-1"}`)
 	folder := t.TempDir()
 
-	cmd := newAgentRegisterSessionTestCmd(t, profile, map[string]string{"pid": "4242", "cwd": folder, "pane": "w12:p0"})
+	cmd := newAgentRegisterSessionTestCmd(t, profile, map[string]string{"pid": "4242", "cwd": folder, "hc-terminal": "t10"})
 	out, err := captureStdout(t, func() error { return runAgentRegisterSession(cmd, []string{"mitchel"}) })
 	if err != nil {
 		t.Fatalf("runAgentRegisterSession: %v", err)
@@ -242,7 +243,7 @@ func TestRunAgentRegisterSessionPostsToDaemonPort(t *testing.T) {
 	if len(*posted) != 1 {
 		t.Fatalf("daemon got %d registrations, want 1", len(*posted))
 	}
-	want := map[string]any{"workspace_id": "ws-1", "agent_id": sessionTestAgentID, "pid": float64(4242), "cwd": folder, "herdr_pane_id": "w12:p0"}
+	want := map[string]any{"workspace_id": "ws-1", "agent_id": sessionTestAgentID, "pid": float64(4242), "cwd": folder, "herdr_pane_id": "", "hc_terminal": "t10"}
 	got := (*posted)[0]
 	if len(got) != len(want) {
 		t.Fatalf("registration = %v, want %v", got, want)

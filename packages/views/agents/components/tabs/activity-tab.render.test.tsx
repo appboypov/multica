@@ -110,6 +110,7 @@ const herdrSession: AgentSession = {
   kind: "terminal",
   pid: 42,
   herdr_pane_id: "w12:p0",
+  hc_terminal: null,
   runtime: null,
   task_id: null,
   issue: null,
@@ -125,6 +126,7 @@ const runSession: AgentSession = {
   kind: "run",
   pid: null,
   herdr_pane_id: null,
+  hc_terminal: null,
   runtime: { id: "runtime-1", name: "Oh-My-Pi" },
   task_id: "task-1",
   issue: { id: "issue-1057", identifier: "WORK-1057" },
@@ -157,6 +159,13 @@ describe("ActivityTab Sessions", () => {
       "/acme/issues/issue-1057",
     );
     expect(screen.getByText("2 active")).toBeInTheDocument();
+  });
+
+  it("shows a Herdr app session with its terminal address", async () => {
+    sessionsRef.current = [{ ...herdrSession, herdr_pane_id: null, hc_terminal: "t10" }];
+    renderTab();
+
+    expect(await screen.findByTestId("session-session-pane")).toHaveTextContent("t10");
   });
 
   it("shows that the agent has no active sessions", async () => {

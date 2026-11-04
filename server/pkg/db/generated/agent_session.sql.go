@@ -40,6 +40,7 @@ SELECT
     'run'::text AS kind,
     NULL::integer AS pid,
     NULL::text AS herdr_pane_id,
+    NULL::text AS hc_terminal,
     rt.id AS runtime_id,
     rt.name AS runtime_name,
     t.id AS task_id,
@@ -83,6 +84,7 @@ SELECT
     'run'::text,
     NULL::integer,
     NULL::text,
+    NULL::text,
     rt.id,
     rt.name,
     t.id,
@@ -109,6 +111,7 @@ SELECT
     'terminal'::text,
     s.pid,
     s.herdr_pane_id,
+    s.hc_terminal,
     NULL::uuid,
     NULL::text,
     NULL::uuid,
@@ -141,6 +144,7 @@ type ListAgentSessionsRow struct {
 	Kind            string             `json:"kind"`
 	Pid             pgtype.Int4        `json:"pid"`
 	HerdrPaneID     pgtype.Text        `json:"herdr_pane_id"`
+	HcTerminal      pgtype.Text        `json:"hc_terminal"`
 	RuntimeID       pgtype.UUID        `json:"runtime_id"`
 	RuntimeName     pgtype.Text        `json:"runtime_name"`
 	TaskID          pgtype.UUID        `json:"task_id"`
@@ -176,6 +180,7 @@ func (q *Queries) ListAgentSessions(ctx context.Context, arg ListAgentSessionsPa
 			&i.Kind,
 			&i.Pid,
 			&i.HerdrPaneID,
+			&i.HcTerminal,
 			&i.RuntimeID,
 			&i.RuntimeName,
 			&i.TaskID,
@@ -198,7 +203,7 @@ func (q *Queries) ListAgentSessions(ctx context.Context, arg ListAgentSessionsPa
 }
 
 const listAgentSessionsForDaemon = `-- name: ListAgentSessionsForDaemon :many
-SELECT id, workspace_id, agent_id, daemon_id, pid, process_started_at, herdr_pane_id, work_dir, repository, branch, status, started_at, updated_at FROM agent_session
+SELECT id, workspace_id, agent_id, daemon_id, pid, process_started_at, herdr_pane_id, work_dir, repository, branch, status, started_at, updated_at, hc_terminal FROM agent_session
 WHERE daemon_id = $1
   AND workspace_id = $2
 ORDER BY started_at ASC, id ASC
@@ -234,6 +239,7 @@ func (q *Queries) ListAgentSessionsForDaemon(ctx context.Context, arg ListAgentS
 			&i.Status,
 			&i.StartedAt,
 			&i.UpdatedAt,
+			&i.HcTerminal,
 		); err != nil {
 			return nil, err
 		}
@@ -255,7 +261,7 @@ UPDATE agent_session SET
 WHERE id = $5
   AND workspace_id = $6
   AND daemon_id = $7
-RETURNING id, workspace_id, agent_id, daemon_id, pid, process_started_at, herdr_pane_id, work_dir, repository, branch, status, started_at, updated_at
+RETURNING id, workspace_id, agent_id, daemon_id, pid, process_started_at, herdr_pane_id, work_dir, repository, branch, status, started_at, updated_at, hc_terminal
 `
 
 type UpdateAgentSessionParams struct {
@@ -295,6 +301,7 @@ func (q *Queries) UpdateAgentSession(ctx context.Context, arg UpdateAgentSession
 		&i.Status,
 		&i.StartedAt,
 		&i.UpdatedAt,
+		&i.HcTerminal,
 	)
 	return i, err
 }
@@ -303,17 +310,18 @@ const upsertAgentSession = `-- name: UpsertAgentSession :one
 
 INSERT INTO agent_session (
     workspace_id, agent_id, daemon_id, pid, process_started_at,
-    herdr_pane_id, work_dir, repository, branch, status
+    herdr_pane_id, hc_terminal, work_dir, repository, branch, status
 ) VALUES (
     $1, $2, $3,
     $4, $5, $6,
     $7, $8, $9,
-    $10
+    $10, $11
 )
 ON CONFLICT (daemon_id, pid) DO UPDATE SET
     agent_id = EXCLUDED.agent_id,
     process_started_at = EXCLUDED.process_started_at,
     herdr_pane_id = EXCLUDED.herdr_pane_id,
+    hc_terminal = EXCLUDED.hc_terminal,
     work_dir = EXCLUDED.work_dir,
     repository = EXCLUDED.repository,
     branch = EXCLUDED.branch,
@@ -321,7 +329,7 @@ ON CONFLICT (daemon_id, pid) DO UPDATE SET
     started_at = now(),
     updated_at = now()
 WHERE agent_session.workspace_id = EXCLUDED.workspace_id
-RETURNING id, workspace_id, agent_id, daemon_id, pid, process_started_at, herdr_pane_id, work_dir, repository, branch, status, started_at, updated_at
+RETURNING id, workspace_id, agent_id, daemon_id, pid, process_started_at, herdr_pane_id, work_dir, repository, branch, status, started_at, updated_at, hc_terminal
 `
 
 type UpsertAgentSessionParams struct {
@@ -331,6 +339,7 @@ type UpsertAgentSessionParams struct {
 	Pid              int32              `json:"pid"`
 	ProcessStartedAt pgtype.Timestamptz `json:"process_started_at"`
 	HerdrPaneID      pgtype.Text        `json:"herdr_pane_id"`
+	HcTerminal       pgtype.Text        `json:"hc_terminal"`
 	WorkDir          string             `json:"work_dir"`
 	Repository       pgtype.Text        `json:"repository"`
 	Branch           pgtype.Text        `json:"branch"`
@@ -352,6 +361,7 @@ func (q *Queries) UpsertAgentSession(ctx context.Context, arg UpsertAgentSession
 		arg.Pid,
 		arg.ProcessStartedAt,
 		arg.HerdrPaneID,
+		arg.HcTerminal,
 		arg.WorkDir,
 		arg.Repository,
 		arg.Branch,
@@ -372,6 +382,7 @@ func (q *Queries) UpsertAgentSession(ctx context.Context, arg UpsertAgentSession
 		&i.Status,
 		&i.StartedAt,
 		&i.UpdatedAt,
+		&i.HcTerminal,
 	)
 	return i, err
 }
