@@ -1730,8 +1730,10 @@ export function IssueDetail({ issueId, onDelete, onDone, defaultSidebarOpen = tr
   const highlightTargetId = highlightQuestionId
     ? questionAnchor(highlightCard?.questions[0]!.id ?? highlightQuestionId)
     : highlightCommentId;
-  // The question the Questions row last jumped to; its set card opens at it.
-  const [jumpedQuestionId, setJumpedQuestionId] = useState<string | null>(null);
+  // The question the Questions row last jumped to; its set card opens at it
+  // until the host's next landing request, which opens the landing's question.
+  const [jump, setJump] = useState<{ questionId: string | null; landingRequest?: number } | null>(null);
+  const jumpedQuestionId = jump && jump.landingRequest === highlightRequestToken ? jump.questionId : null;
   // The Questions row's jump: the first open question in the timeline, which a
   // click on the row's count opens.
   const openQuestions = useMemo(() => {
@@ -3036,7 +3038,7 @@ export function IssueDetail({ issueId, onDelete, onDone, defaultSidebarOpen = tr
             parent={{ type: "issue", id }}
             pageIssueIdentifier={issue.identifier}
             onCountClick={openQuestions.firstAnchor ? () => {
-              setJumpedQuestionId(openQuestions.firstId);
+              setJump({ questionId: openQuestions.firstId, landingRequest: highlightRequestToken });
               jumpToThread(openQuestions.firstAnchor!);
             } : undefined}
           >
@@ -3396,6 +3398,7 @@ export function IssueDetail({ issueId, onDelete, onDone, defaultSidebarOpen = tr
                 scope={{ issueId: id }}
                 runNumber={runNumbers.get(item.card.questions[0]!.asked_in_task_id)}
                 activeQuestionId={[jumpedQuestionId, highlightQuestionId].find((qid) => item.card.questions.some((q) => q.id === qid)) ?? undefined}
+                activeRequest={highlightRequestToken}
               />
             )}
           </div>
