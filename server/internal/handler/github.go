@@ -25,6 +25,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/multica-ai/multica/server/internal/integrations/ghsnapshot"
 	"github.com/multica-ai/multica/server/internal/issuestatus"
 	"github.com/multica-ai/multica/server/internal/middleware"
 	"github.com/multica-ai/multica/server/internal/service"
@@ -1148,14 +1149,18 @@ func (h *Handler) ListPullRequestsForIssue(w http.ResponseWriter, r *http.Reques
 	})
 }
 
-// broadcastPRSnapshotApplied is the ghsnapshot pipeline's onApplied callback:
-// once an API snapshot is written to a PR row, re-broadcast the PR so every
-// open issue detail page re-queries its PR list and picks up the fresh CI /
-// mergeability state. Runs on a background pipeline goroutine.
-func (h *Handler) broadcastPRSnapshotApplied(ctx context.Context, prID pgtype.UUID) {
+// broadcastPRSnapshotApplied applies committed lifecycle effects and publishes
+// the fresh PR snapshot. It runs on a refresh worker.
+func (h *Handler) broadcastPRSnapshotApplied(ctx context.Context, prID pgtype.UUID, previousState string, snap *ghsnapshot.PRSnapshot) {
 	pr, err := h.Queries.GetGitHubPullRequestByID(ctx, prID)
 	if err != nil {
 		return
+	}
+	ws, err := h.Queries.GetWorkspace(ctx, pr.WorkspaceID)
+	if err != nil {
+		slog.Warn("github: load workspace for refreshed PR failed", "err", err)
+	} else if githubFeaturesEnabled(ws) {
+		h.applyGitHubPRLifecycle(ctx, pr, previousState, snap.BaseRef, snap.HeadRef, nil)
 	}
 	issueIDs, err := h.Queries.ListIssueIDsForPullRequest(ctx, prID)
 	if err != nil {
@@ -1670,19 +1675,24 @@ func (h *Handler) triggerPRRefreshFromCIEvent(ctx context.Context, body []byte) 
 func (h *Handler) mirrorPullRequestForWorkspace(ctx context.Context, wsID pgtype.UUID, installationID int64, p *ghPullRequestPayload, linkPolicy prLinkPolicy) {
 	state := derivePRState(p.PullRequest.State, p.PullRequest.Draft, p.PullRequest.Merged)
 	mergeable, clearMergeable := derivePRMergeableState(p.Action, p.PullRequest.MergeableState, baseRefChanged(p.Changes))
-	// The stored state before this event, so a merge is acted on once — when it
-	// happens — and not again on a later edit/label event of a merged PR (that
-	// would re-complete an issue someone reopened on purpose).
-	prevState := ""
-	if prev, err := h.Queries.GetGitHubPullRequest(ctx, db.GetGitHubPullRequestParams{
+	tx, err := h.TxStarter.Begin(ctx)
+	if err != nil {
+		slog.Warn("github: begin PR mirror failed", "err", err)
+		return
+	}
+	defer tx.Rollback(ctx)
+	q := h.Queries.WithTx(tx)
+	prevState, err := q.GetGitHubPullRequestStateByKeyForUpdate(ctx, db.GetGitHubPullRequestStateByKeyForUpdateParams{
 		WorkspaceID: wsID,
 		RepoOwner:   p.Repository.Owner.Login,
 		RepoName:    p.Repository.Name,
 		PrNumber:    p.PullRequest.Number,
-	}); err == nil {
-		prevState = prev.State
+	})
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		slog.Warn("github: load PR state failed", "err", err)
+		return
 	}
-	pr, err := h.Queries.UpsertGitHubPullRequest(ctx, db.UpsertGitHubPullRequestParams{
+	pr, err := q.UpsertGitHubPullRequest(ctx, db.UpsertGitHubPullRequestParams{
 		WorkspaceID:         wsID,
 		InstallationID:      installationID,
 		RepoOwner:           p.Repository.Owner.Login,
@@ -1715,6 +1725,10 @@ func (h *Handler) mirrorPullRequestForWorkspace(ctx context.Context, wsID pgtype
 		slog.Warn("github: upsert pr failed", "err", err)
 		return
 	}
+	if err := tx.Commit(ctx); err != nil {
+		slog.Warn("github: commit PR mirror failed", "err", err)
+		return
+	}
 
 	workspaceID := uuidToString(wsID)
 	resp := githubPullRequestToResponse(pr, h.PRRefresh.Enabled())
@@ -1743,31 +1757,7 @@ func (h *Handler) mirrorPullRequestForWorkspace(ctx context.Context, wsID pgtype
 				},
 			})
 		}
-		// A merge is a PR event for every issue this PR is linked to, manual
-		// links included.
-		var mergedIssueIDs []pgtype.UUID
-		if state == "merged" && prevState != "merged" {
-			issueIDs, err := h.Queries.ListIssueIDsForPullRequest(ctx, pr.ID)
-			if err != nil {
-				slog.Warn("github: list linked issues failed", "err", err)
-			}
-			for _, id := range issueIDs {
-				touched[id] = struct{}{}
-			}
-			mergedIssueIDs = issueIDs
-		}
-		// One status-catalog read per workspace per delivery, however many
-		// issues the PR touches.
-		resolver := issuestatus.NewResolver(wsID)
-		for issueID := range touched {
-			h.maybeAutoCompleteIssue(ctx, wsID, issueID, resolver)
-		}
-		if len(mergedIssueIDs) > 0 {
-			fullName := p.Repository.Owner.Login + "/" + p.Repository.Name
-			if err := service.SwitchAfterMerge(ctx, h.Queries, wsID, mergedIssueIDs, fullName, p.PullRequest.Base.Ref, p.PullRequest.Head.Ref, h.enqueueWorklaneSwitch); err != nil {
-				slog.Warn("github: switch worklanes after merge failed", "err", err, "pr", p.PullRequest.Number)
-			}
-		}
+		h.applyGitHubPRLifecycle(ctx, pr, prevState, p.PullRequest.Base.Ref, p.PullRequest.Head.Ref, touched)
 	}
 
 	// Broadcast PR change to the workspace so any open issue detail page
@@ -1776,6 +1766,38 @@ func (h *Handler) mirrorPullRequestForWorkspace(ctx context.Context, wsID pgtype
 		"pull_request":     resp,
 		"linked_issue_ids": linkedIssueIDs,
 	})
+}
+
+// applyGitHubPRLifecycle handles merge transitions and link-set changes for
+// both webhooks and committed API refreshes.
+func (h *Handler) applyGitHubPRLifecycle(ctx context.Context, pr db.GithubPullRequest, previousState, baseRef, headRef string, touched map[pgtype.UUID]struct{}) {
+	if len(touched) == 0 && (pr.State != "merged" || previousState == "merged") {
+		return
+	}
+	if touched == nil {
+		touched = map[pgtype.UUID]struct{}{}
+	}
+	var mergedIssueIDs []pgtype.UUID
+	if pr.State == "merged" && previousState != "merged" {
+		issueIDs, err := h.Queries.ListIssueIDsForPullRequest(ctx, pr.ID)
+		if err != nil {
+			slog.Warn("github: list linked issues failed", "err", err)
+		}
+		for _, id := range issueIDs {
+			touched[id] = struct{}{}
+		}
+		mergedIssueIDs = issueIDs
+	}
+	resolver := issuestatus.NewResolver(pr.WorkspaceID)
+	for issueID := range touched {
+		h.maybeAutoCompleteIssue(ctx, pr.WorkspaceID, issueID, resolver)
+	}
+	if len(mergedIssueIDs) > 0 {
+		fullName := pr.RepoOwner + "/" + pr.RepoName
+		if err := service.SwitchAfterMerge(ctx, h.Queries, pr.WorkspaceID, mergedIssueIDs, fullName, baseRef, headRef, h.enqueueWorklaneSwitch); err != nil {
+			slog.Warn("github: switch worklanes after merge failed", "err", err, "pr", pr.PrNumber)
+		}
+	}
 }
 
 // prAutoLinkInput is what reconcileAutoLinks needs from one provider.

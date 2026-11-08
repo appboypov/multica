@@ -22,14 +22,20 @@ WHERE installation_id = $1 AND repo_owner = $2 AND repo_name = $3 AND pr_number 
 -- fetched for. If the head advanced (a newer push landed while this request was
 -- in flight, mirrored by the pull_request webhook), 0 rows are updated and the
 -- caller discards the whole response — the per-check replace is skipped too.
+-- A newer lifecycle event on the same head also discards the response.
 UPDATE github_pull_request
 SET api_mergeable          = sqlc.narg('api_mergeable'),
     api_merge_state_status = sqlc.narg('api_merge_state_status'),
     checks_rollup_state    = sqlc.narg('checks_rollup_state'),
     snapshot_head_sha      = sqlc.arg('head_sha'),
     snapshot_fetched_at    = sqlc.arg('fetched_at'),
+    state                  = sqlc.arg('state'),
+    merged_at              = sqlc.narg('merged_at'),
+    closed_at              = sqlc.narg('closed_at'),
+    pr_updated_at          = sqlc.arg('pr_updated_at'),
     updated_at             = now()
-WHERE id = sqlc.arg('pr_id') AND head_sha = sqlc.arg('head_sha');
+WHERE id = sqlc.arg('pr_id') AND head_sha = sqlc.arg('head_sha')
+  AND pr_updated_at <= sqlc.arg('pr_updated_at');
 
 -- name: DeleteGitHubPRCheckRuns :exec
 -- First half of the atomic per-check replace. Runs inside the same transaction
@@ -92,3 +98,11 @@ WHERE installation_id = $1 AND repo_owner = $2 AND repo_name = $3 AND head_sha =
 
 -- name: GetGitHubPullRequestByID :one
 SELECT * FROM github_pull_request WHERE id = $1;
+
+-- name: GetGitHubPullRequestStateForUpdate :one
+SELECT state FROM github_pull_request WHERE id = $1 FOR UPDATE;
+
+-- name: GetGitHubPullRequestStateByKeyForUpdate :one
+SELECT state FROM github_pull_request
+WHERE workspace_id = $1 AND repo_owner = $2 AND repo_name = $3 AND pr_number = $4
+FOR UPDATE;

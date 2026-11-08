@@ -62,6 +62,42 @@ func (q *Queries) GetGitHubPullRequestByID(ctx context.Context, id pgtype.UUID) 
 	return i, err
 }
 
+const getGitHubPullRequestStateByKeyForUpdate = `-- name: GetGitHubPullRequestStateByKeyForUpdate :one
+SELECT state FROM github_pull_request
+WHERE workspace_id = $1 AND repo_owner = $2 AND repo_name = $3 AND pr_number = $4
+FOR UPDATE
+`
+
+type GetGitHubPullRequestStateByKeyForUpdateParams struct {
+	WorkspaceID pgtype.UUID `json:"workspace_id"`
+	RepoOwner   string      `json:"repo_owner"`
+	RepoName    string      `json:"repo_name"`
+	PrNumber    int32       `json:"pr_number"`
+}
+
+func (q *Queries) GetGitHubPullRequestStateByKeyForUpdate(ctx context.Context, arg GetGitHubPullRequestStateByKeyForUpdateParams) (string, error) {
+	row := q.db.QueryRow(ctx, getGitHubPullRequestStateByKeyForUpdate,
+		arg.WorkspaceID,
+		arg.RepoOwner,
+		arg.RepoName,
+		arg.PrNumber,
+	)
+	var state string
+	err := row.Scan(&state)
+	return state, err
+}
+
+const getGitHubPullRequestStateForUpdate = `-- name: GetGitHubPullRequestStateForUpdate :one
+SELECT state FROM github_pull_request WHERE id = $1 FOR UPDATE
+`
+
+func (q *Queries) GetGitHubPullRequestStateForUpdate(ctx context.Context, id pgtype.UUID) (string, error) {
+	row := q.db.QueryRow(ctx, getGitHubPullRequestStateForUpdate, id)
+	var state string
+	err := row.Scan(&state)
+	return state, err
+}
+
 const insertGitHubPRCheckRun = `-- name: InsertGitHubPRCheckRun :exec
 INSERT INTO github_pull_request_check_run (
     pr_id, head_sha, ordinal, name, status, conclusion, details_url, is_status_context
@@ -294,8 +330,13 @@ SET api_mergeable          = $1,
     checks_rollup_state    = $3,
     snapshot_head_sha      = $4,
     snapshot_fetched_at    = $5,
+    state                  = $6,
+    merged_at              = $7,
+    closed_at              = $8,
+    pr_updated_at          = $9,
     updated_at             = now()
-WHERE id = $6 AND head_sha = $4
+WHERE id = $10 AND head_sha = $4
+  AND pr_updated_at <= $9
 `
 
 type UpdateGitHubPRSnapshotParams struct {
@@ -304,6 +345,10 @@ type UpdateGitHubPRSnapshotParams struct {
 	ChecksRollupState   pgtype.Text        `json:"checks_rollup_state"`
 	HeadSha             string             `json:"head_sha"`
 	FetchedAt           pgtype.Timestamptz `json:"fetched_at"`
+	State               string             `json:"state"`
+	MergedAt            pgtype.Timestamptz `json:"merged_at"`
+	ClosedAt            pgtype.Timestamptz `json:"closed_at"`
+	PrUpdatedAt         pgtype.Timestamptz `json:"pr_updated_at"`
 	PrID                pgtype.UUID        `json:"pr_id"`
 }
 
@@ -312,6 +357,7 @@ type UpdateGitHubPRSnapshotParams struct {
 // fetched for. If the head advanced (a newer push landed while this request was
 // in flight, mirrored by the pull_request webhook), 0 rows are updated and the
 // caller discards the whole response — the per-check replace is skipped too.
+// A newer lifecycle event on the same head also discards the response.
 func (q *Queries) UpdateGitHubPRSnapshot(ctx context.Context, arg UpdateGitHubPRSnapshotParams) (int64, error) {
 	result, err := q.db.Exec(ctx, updateGitHubPRSnapshot,
 		arg.ApiMergeable,
@@ -319,6 +365,10 @@ func (q *Queries) UpdateGitHubPRSnapshot(ctx context.Context, arg UpdateGitHubPR
 		arg.ChecksRollupState,
 		arg.HeadSha,
 		arg.FetchedAt,
+		arg.State,
+		arg.MergedAt,
+		arg.ClosedAt,
+		arg.PrUpdatedAt,
 		arg.PrID,
 	)
 	if err != nil {

@@ -2,6 +2,7 @@ package ghsnapshot
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"math/rand"
 	"sync"
@@ -54,7 +55,7 @@ type Manager struct {
 	queries      *db.Queries
 	readSelector *dbreader.Selector
 	pool         TxBeginner
-	onApplied    func(ctx context.Context, prID pgtype.UUID)
+	onApplied    func(ctx context.Context, prID pgtype.UUID, previousState string, snap *PRSnapshot)
 
 	concurrency   int
 	viewTTL       time.Duration
@@ -87,10 +88,9 @@ type Manager struct {
 	started bool
 }
 
-// NewManager wires the pipeline. onApplied is called once per PR row whose
-// snapshot was actually written (guard passed), so the handler can broadcast a
-// realtime PR update. Passing a nil client yields a disabled (no-op) manager.
-func NewManager(client *Client, queries *db.Queries, pool TxBeginner, onApplied func(ctx context.Context, prID pgtype.UUID)) *Manager {
+// NewManager wires the pipeline. onApplied runs after each committed snapshot
+// with the previous state read under the row lock. A nil client disables it.
+func NewManager(client *Client, queries *db.Queries, pool TxBeginner, onApplied func(ctx context.Context, prID pgtype.UUID, previousState string, snap *PRSnapshot)) *Manager {
 	return &Manager{
 		client:        client,
 		queries:       queries,
@@ -269,11 +269,8 @@ func (m *Manager) process(ctx context.Context, addr address) {
 			continue
 		}
 		anyApplied = true
-		if row.State == "open" || row.State == "draft" {
+		if snap.State == "open" || snap.State == "draft" {
 			anyOpenApplied = true
-		}
-		if m.onApplied != nil {
-			m.onApplied(ctx, row.ID)
 		}
 	}
 
@@ -389,11 +386,8 @@ func (m *Manager) finish(addr address) {
 	}
 }
 
-// applySnapshot performs the head-SHA-guarded atomic batch replace for one PR
-// row: guarded UPDATE of the snapshot columns, then a full DELETE + INSERT of
-// the per-check rows — all in one transaction. Returns applied=false (and
-// writes nothing) when the row's head has advanced past the snapshot's head
-// (acceptance criterion 1).
+// applySnapshot atomically replaces the PR lifecycle and snapshot plus its
+// check rows. A newer head or lifecycle event discards the batch.
 func (m *Manager) applySnapshot(ctx context.Context, prID pgtype.UUID, snap *PRSnapshot) (bool, error) {
 	tx, err := m.pool.Begin(ctx)
 	if err != nil {
@@ -401,6 +395,13 @@ func (m *Manager) applySnapshot(ctx context.Context, prID pgtype.UUID, snap *PRS
 	}
 	defer tx.Rollback(ctx)
 	q := m.queries.WithTx(tx)
+	previousState, err := q.GetGitHubPullRequestStateForUpdate(ctx, prID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
 
 	rollup := pgtype.Text{}
 	if snap.HasChecks {
@@ -413,13 +414,16 @@ func (m *Manager) applySnapshot(ctx context.Context, prID pgtype.UUID, snap *PRS
 		HeadSha:             snap.HeadSHA,
 		FetchedAt:           tsFromTime(m.now()),
 		PrID:                prID,
+		State:               snap.State,
+		MergedAt:            nullableTimestamp(snap.MergedAt),
+		ClosedAt:            nullableTimestamp(snap.ClosedAt),
+		PrUpdatedAt:         tsFromTime(snap.UpdatedAt),
 	})
 	if err != nil {
 		return false, err
 	}
 	if n == 0 {
-		// Head advanced — discard the entire response, including the per-check
-		// rows. Nothing is written.
+		// A newer head or lifecycle event discards the entire response.
 		return false, nil
 	}
 	if err := q.DeleteGitHubPRCheckRuns(ctx, prID); err != nil {
@@ -441,6 +445,9 @@ func (m *Manager) applySnapshot(ctx context.Context, prID pgtype.UUID, snap *PRS
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return false, err
+	}
+	if m.onApplied != nil {
+		m.onApplied(ctx, prID, previousState, snap)
 	}
 	return true, nil
 }
@@ -547,6 +554,13 @@ func textOrNull(s string) pgtype.Text {
 
 func tsFromTime(t time.Time) pgtype.Timestamptz {
 	return pgtype.Timestamptz{Time: t, Valid: true}
+}
+
+func nullableTimestamp(t *time.Time) pgtype.Timestamptz {
+	if t == nil {
+		return pgtype.Timestamptz{}
+	}
+	return tsFromTime(*t)
 }
 
 // sleepCtx sleeps for d or until ctx is cancelled; returns false if cancelled.

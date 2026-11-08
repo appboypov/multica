@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"strings"
+	"time"
 )
 
 // prSnapshotQuery is the single GraphQL query behind the whole feature. It
@@ -22,6 +23,13 @@ const prSnapshotQuery = `query($owner:String!,$repo:String!,$number:Int!,$cursor
   repository(owner:$owner,name:$repo){
     pullRequest(number:$number){
       headRefOid
+      state
+      isDraft
+      mergedAt
+      closedAt
+      updatedAt
+      baseRefName
+      headRefName
       mergeable
       mergeStateStatus
       commits(last:1){nodes{commit{
@@ -61,6 +69,12 @@ type CheckContext struct {
 // API returned — no incremental inference.
 type PRSnapshot struct {
 	HeadSHA          string
+	State            string // open / draft / closed / merged
+	MergedAt         *time.Time
+	ClosedAt         *time.Time
+	UpdatedAt        time.Time
+	BaseRef          string
+	HeadRef          string
 	Mergeable        string // MERGEABLE / CONFLICTING / UNKNOWN (raw enum)
 	MergeStateStatus string // CLEAN / DIRTY / BLOCKED / BEHIND / UNSTABLE / ... (raw enum)
 	// RollupState is statusCheckRollup.state (SUCCESS/FAILURE/PENDING/ERROR/
@@ -106,9 +120,16 @@ type graphqlRollup struct {
 }
 
 type graphqlPullRequest struct {
-	HeadRefOid       string `json:"headRefOid"`
-	Mergeable        string `json:"mergeable"`
-	MergeStateStatus string `json:"mergeStateStatus"`
+	HeadRefOid       string     `json:"headRefOid"`
+	State            string     `json:"state"`
+	IsDraft          bool       `json:"isDraft"`
+	MergedAt         *time.Time `json:"mergedAt"`
+	ClosedAt         *time.Time `json:"closedAt"`
+	UpdatedAt        time.Time  `json:"updatedAt"`
+	BaseRefName      string     `json:"baseRefName"`
+	HeadRefName      string     `json:"headRefName"`
+	Mergeable        string     `json:"mergeable"`
+	MergeStateStatus string     `json:"mergeStateStatus"`
 	Commits          struct {
 		Nodes []struct {
 			Commit struct {
@@ -165,6 +186,15 @@ func FetchPRSnapshot(ctx context.Context, c *Client, installationID int64, owner
 		}
 		if page == 0 {
 			snap.HeadSHA = pr.HeadRefOid
+			snap.State = strings.ToLower(pr.State)
+			if snap.State == "open" && pr.IsDraft {
+				snap.State = "draft"
+			}
+			snap.MergedAt = pr.MergedAt
+			snap.ClosedAt = pr.ClosedAt
+			snap.UpdatedAt = pr.UpdatedAt
+			snap.BaseRef = pr.BaseRefName
+			snap.HeadRef = pr.HeadRefName
 			snap.Mergeable = pr.Mergeable
 			snap.MergeStateStatus = pr.MergeStateStatus
 		} else if pr.HeadRefOid != snap.HeadSHA {
