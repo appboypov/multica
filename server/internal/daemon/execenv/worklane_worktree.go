@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -453,14 +454,14 @@ func WorklaneBranch(path string) (string, error) {
 }
 
 // CanLeave refuses a branch switch if it would abandon uncommitted work or
-// commits that are missing from every remote. Detached worktrees do not hold
-// an issue branch.
+// commits that are missing from every remote. Untracked runtime paths are not
+// work. Detached worktrees do not hold an issue branch.
 func CanLeave(path string) error {
-	status, err := runGitTrimmed(path, "status", "--porcelain")
+	status, err := runGitStdout(path, "status", "--porcelain", "-z")
 	if err != nil {
 		return err
 	}
-	if status != "" {
+	if holdsWork(status) {
 		return &WorklaneError{Code: WorklaneCodeUncommitted, Detail: "the worktree holds uncommitted changes"}
 	}
 	branch, err := WorklaneBranch(path)
@@ -479,6 +480,37 @@ func CanLeave(path string) error {
 		return &WorklaneError{Code: WorklaneCodeUnpushed, Count: count, Detail: "the worktree holds commits that are not pushed"}
 	}
 	return nil
+}
+
+// worklaneRuntimeFolders and worklaneRuntimeFiles are the paths at a
+// worktree's root that agent runtimes and remote checks make.
+var (
+	worklaneRuntimeFolders = []string{".multica/", ".omp/", ".agent_context/", ".crabbox/"}
+	worklaneRuntimeFiles   = []string{"AGENTS.md", "CLAUDE.md"}
+)
+
+// holdsWork is true when `git status --porcelain -z` lists any entry other
+// than an untracked runtime path.
+func holdsWork(status string) bool {
+	for _, entry := range strings.Split(status, "\x00") {
+		if entry == "" {
+			continue
+		}
+		path, untracked := strings.CutPrefix(entry, "?? ")
+		if !untracked || !isWorklaneRuntimePath(path) {
+			return true
+		}
+	}
+	return false
+}
+
+func isWorklaneRuntimePath(path string) bool {
+	if slices.Contains(worklaneRuntimeFiles, path) {
+		return true
+	}
+	return slices.ContainsFunc(worklaneRuntimeFolders, func(folder string) bool {
+		return strings.HasPrefix(path, folder)
+	})
 }
 
 // FetchWorklaneSwitch fetches the default branch under the shared git lock.
