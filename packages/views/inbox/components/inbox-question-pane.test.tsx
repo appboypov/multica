@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { useQuestionDraftStore } from "@multica/core/questions";
 import type * as Questions from "@multica/core/questions";
 import type { InboxItem, Issue, Question } from "@multica/core/types";
 import { renderWithI18n } from "../../test/i18n";
@@ -132,6 +133,7 @@ describe("InboxQuestionPane", () => {
     answerMutate.mockReset();
     push.mockReset();
     viewer.id = "user-brian";
+    useQuestionDraftStore.setState({ drafts: {} });
   });
 
   it("answers a Single choice question in place", async () => {
